@@ -38,7 +38,7 @@ The database constraint makes `synesthesiaEnabled=true` invalid for every tenant
 
 ## Runtime health
 
-Deployment pipelines or a future narrow deployment agent can report runtime status using:
+Deployment pipelines and the narrow tenant provisioner report runtime status using:
 
 `PUT /api/v1/tenants/:slug/runtime`
 
@@ -46,4 +46,8 @@ This endpoint uses a dedicated `CONTROL_PLANE_TELEMETRY_TOKEN`, not the operator
 
 ## Provisioning
 
-Version 1 creates an audited **plan**, not an imperative remote execution request. A later worker/agent should consume only approved provisioning jobs with a narrow capability set. Do not add arbitrary shell/SSH command execution to the HTTP API.
+The Control Plane supports both plan-only and executable tenant provisioning without giving the HTTP API Docker/SSH capability. `POST /api/v1/tenants` accepts optional `deployCrowdrelay=true` plus `desiredVersion`; when enabled, tenant creation and the approved deployment job are committed atomically. Existing tenants can use `/provisioning/deploy` for initial deployment, retry, or upgrade.
+
+A separately authenticated host agent (`deploy/provisioner.py`) claims approved jobs through `/api/v1/provisioner/*`. The plan is data, not shell: the agent accepts only the fixed `local_docker_compose` schema, immutable `sha-<40 hex>` CrowdRelay image tags, safe tenant identities and bare HTTPS origins. It allocates a host-local port under an inter-process file lock, persists write-once secrets separately from refreshable tenant config, runs migrations/bootstrap, starts API+worker, waits for readiness, probes the workspace/schema, and reports the exact result.
+
+Provisioning completion/failure callbacks are terminal-idempotent. Retryable Control Plane transport errors do not incorrectly mark a healthy deployment failed; the lease expires and the job can be reclaimed safely. The resulting CrowdRelay API is bound to localhost only. DNS and edge routing are intentionally outside this capability boundary and must route the tenant's configured CrowdRelay origin to the reported host/port.

@@ -1,13 +1,16 @@
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use serde_json::{Value, json};
-use sqlx::{PgPool, Postgres, Transaction};
+use sha2::{Digest, Sha256};
+use sqlx::{PgPool, Postgres, Row, Transaction};
+use subtle::ConstantTimeEq;
 use uuid::Uuid;
 
 use crate::{
     error::ApiError,
     model::{
         AuditRow, BrandingPalette, CreateTenantRequest, ProvisioningJobRow, RuntimeHealth,
-        RuntimeReportRequest, RuntimeStatusRow, TenantSummary, TenantSummaryJoinRow,
+        RuntimeReportRequest, RuntimeStatusRow, TenantDeploymentSpec, TenantRow, TenantSummary,
+        TenantSummaryJoinRow,
     },
 };
 
@@ -25,6 +28,13 @@ struct AuditRecord<'a> {
     target_id: String,
     request_id: Option<&'a str>,
     detail: Value,
+}
+
+pub(crate) struct ProvisioningCompletion<'a> {
+    pub api_port: u16,
+    pub workspace_id: Uuid,
+    pub schema_version: i32,
+    pub deployed_sha: &'a str,
 }
 
 impl Store {
@@ -69,7 +79,7 @@ impl Store {
     pub async fn list_tenants(&self) -> Result<Vec<TenantSummary>, ApiError> {
         let rows = sqlx::query_as::<_, TenantSummaryJoinRow>(
             r#"SELECT t.id, t.slug, t.display_name, t.status, t.workspace_id,
-                      t.crowdrelay_base_url, t.signal_base_url, t.branding_palette,
+                      t.crowdrelay_base_url, t.signal_base_url, t.default_country_code, t.branding_palette,
                       t.synesthesia_enabled, t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
@@ -96,7 +106,7 @@ impl Store {
     pub async fn tenant_by_slug(&self, slug: &str) -> Result<TenantSummary, ApiError> {
         let row = sqlx::query_as::<_, TenantSummaryJoinRow>(
             r#"SELECT t.id, t.slug, t.display_name, t.status, t.workspace_id,
-                      t.crowdrelay_base_url, t.signal_base_url, t.branding_palette,
+                      t.crowdrelay_base_url, t.signal_base_url, t.default_country_code, t.branding_palette,
                       t.synesthesia_enabled, t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
@@ -122,6 +132,7 @@ impl Store {
         &self,
         input: CreateTenantRequest,
         palette: Option<BrandingPalette>,
+        deployment: Option<&TenantDeploymentSpec>,
         actor: &str,
         request_id: Option<&str>,
     ) -> Result<TenantSummary, ApiError> {
@@ -132,10 +143,13 @@ impl Store {
         let palette_json =
             palette.map(|value| serde_json::to_value(value).expect("palette serialization"));
         let mut tx = self.pool.begin().await?;
-        sqlx::query(
+        let tenant = sqlx::query_as::<_, TenantRow>(
             r#"INSERT INTO control_plane_tenants
-               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, branding_palette, synesthesia_enabled)
-               VALUES ($1, $2, $3, 'provisioning', $4, $5, $6, $7, false)"#,
+               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, branding_palette, synesthesia_enabled)
+               VALUES ($1, $2, $3, 'provisioning', $4, $5, $6, $7, $8, false)
+               RETURNING id, slug, display_name, status, workspace_id, crowdrelay_base_url,
+                         signal_base_url, default_country_code, branding_palette, synesthesia_enabled,
+                         created_at, updated_at"#,
         )
         .bind(id)
         .bind(&input.slug)
@@ -143,8 +157,9 @@ impl Store {
         .bind(input.workspace_id)
         .bind(&input.crowdrelay_base_url)
         .bind(&input.signal_base_url)
+        .bind(input.default_country_code.as_deref().unwrap_or("PL"))
         .bind(palette_json)
-        .execute(&mut *tx)
+        .fetch_one(&mut *tx)
         .await
         .map_err(|error| match error {
             sqlx::Error::Database(db) if db.is_unique_violation() => {
@@ -165,8 +180,46 @@ impl Store {
             },
         )
         .await?;
+
+        if let Some(deployment) = deployment {
+            let plan = deployment_plan(&tenant, deployment)?;
+            let job_id = Uuid::new_v4();
+            let job = sqlx::query_as::<_, ProvisioningJobRow>(
+                r#"INSERT INTO control_plane_provisioning_jobs
+                   (id, tenant_id, status, desired_version, plan, created_by)
+                   VALUES ($1, $2, 'approved', $3, $4, $5)
+                   RETURNING id, tenant_id, status, desired_version, plan, created_by,
+                             attempt_count, claimed_by, lease_expires_at, started_at, finished_at,
+                             result, error_code, error_detail, created_at, updated_at"#,
+            )
+            .bind(job_id)
+            .bind(tenant.id)
+            .bind(&deployment.desired_version)
+            .bind(&plan)
+            .bind(actor)
+            .fetch_one(&mut *tx)
+            .await?;
+            self.audit_tx(
+                &mut tx,
+                AuditRecord {
+                    tenant_id: Some(tenant.id),
+                    actor,
+                    action: "tenant.provisioning.requested",
+                    target_kind: "provisioning_job",
+                    target_id: job.id.to_string(),
+                    request_id,
+                    detail: json!({"desiredVersion": &deployment.desired_version, "createdWithTenant": true}),
+                },
+            )
+            .await?;
+        }
+
         tx.commit().await?;
-        self.tenant_by_slug(&input.slug).await
+        Ok(TenantSummary {
+            tenant,
+            runtime: None,
+            runtime_health: RuntimeHealth::Unknown,
+        })
     }
 
     pub async fn update_branding(
@@ -252,21 +305,16 @@ impl Store {
         let job_id = Uuid::new_v4();
         let project = format!("crowdrelay-{}", tenant.tenant.slug);
         let plan = json!({
+            "schema": 2,
             "mode": "workspace_isolated_deployment",
             "composeProject": project,
             "tenantSlug": tenant.tenant.slug,
             "workspaceId": tenant.tenant.workspace_id,
             "crowdRelayBaseUrl": tenant.tenant.crowdrelay_base_url,
             "signalBaseUrl": tenant.tenant.signal_base_url,
+            "defaultCountryCode": tenant.tenant.default_country_code,
             "synesthesiaEnabled": tenant.tenant.synesthesia_enabled,
-            "steps": [
-                "validate workspace mapping",
-                "render tenant environment",
-                "run migrations",
-                "start api and worker",
-                "wait for readiness",
-                "publish Signal tenant configuration"
-            ]
+            "execution": "requires explicit deploy approval and the narrow provisioner agent"
         });
         let mut tx = self.pool.begin().await?;
         let inserted = sqlx::query_as::<_, ProvisioningJobRow>(
@@ -274,7 +322,9 @@ impl Store {
                (id, tenant_id, status, desired_version, plan, created_by)
                VALUES ($1, $2, 'planned', $3, $4, $5)
                ON CONFLICT (tenant_id) WHERE status IN ('planned', 'approved', 'running') DO NOTHING
-               RETURNING id, tenant_id, status, desired_version, plan, created_by, created_at, updated_at"#,
+               RETURNING id, tenant_id, status, desired_version, plan, created_by,
+                         attempt_count, claimed_by, lease_expires_at, started_at, finished_at,
+                         result, error_code, error_detail, created_at, updated_at"#,
         )
         .bind(job_id)
         .bind(tenant.tenant.id)
@@ -301,17 +351,13 @@ impl Store {
             return Ok((row, true));
         }
 
-        let existing = sqlx::query_as::<_, ProvisioningJobRow>(
-            r#"SELECT id, tenant_id, status, desired_version, plan, created_by, created_at, updated_at
-               FROM control_plane_provisioning_jobs
-               WHERE tenant_id = $1 AND status IN ('planned', 'approved', 'running')
-               ORDER BY created_at DESC
-               LIMIT 1"#,
-        )
-        .bind(tenant.tenant.id)
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or_else(|| ApiError::Conflict("active provisioning plan changed concurrently; retry".to_owned()))?;
+        let existing = active_provisioning_job(&mut tx, tenant.tenant.id)
+            .await?
+            .ok_or_else(|| {
+                ApiError::Conflict(
+                    "active provisioning plan changed concurrently; retry".to_owned(),
+                )
+            })?;
         if existing.desired_version != desired_version {
             return Err(ApiError::Conflict(format!(
                 "active provisioning plan already targets {}; finish or cancel it before requesting {}",
@@ -324,6 +370,491 @@ impl Store {
         }
         tx.commit().await?;
         Ok((existing, false))
+    }
+
+    pub async fn request_deployment(
+        &self,
+        slug: &str,
+        desired_version: String,
+        api_image: &str,
+        worker_image: &str,
+        actor: &str,
+        request_id: Option<&str>,
+    ) -> Result<(ProvisioningJobRow, bool), ApiError> {
+        let tenant = self.tenant_by_slug(slug).await?;
+        if tenant.tenant.slug == "virya" {
+            return Err(ApiError::Conflict(
+                "Virya uses the existing production deployment and is not provisioned by the tenant agent".to_owned(),
+            ));
+        }
+        if tenant.tenant.status == "suspended" {
+            return Err(ApiError::Conflict(
+                "resume the tenant before requesting a deployment".to_owned(),
+            ));
+        }
+        let deployment = TenantDeploymentSpec {
+            desired_version,
+            api_image: api_image.to_owned(),
+            worker_image: worker_image.to_owned(),
+        };
+        let job_id = Uuid::new_v4();
+        let plan = deployment_plan(&tenant.tenant, &deployment)?;
+
+        let mut tx = self.pool.begin().await?;
+        let inserted = sqlx::query_as::<_, ProvisioningJobRow>(
+            r#"INSERT INTO control_plane_provisioning_jobs
+               (id, tenant_id, status, desired_version, plan, created_by)
+               VALUES ($1, $2, 'approved', $3, $4, $5)
+               ON CONFLICT (tenant_id) WHERE status IN ('planned', 'approved', 'running') DO NOTHING
+               RETURNING id, tenant_id, status, desired_version, plan, created_by,
+                         attempt_count, claimed_by, lease_expires_at, started_at, finished_at,
+                         result, error_code, error_detail, created_at, updated_at"#,
+        )
+        .bind(job_id)
+        .bind(tenant.tenant.id)
+        .bind(&deployment.desired_version)
+        .bind(&plan)
+        .bind(actor)
+        .fetch_optional(&mut *tx)
+        .await?;
+
+        if let Some(row) = inserted {
+            self.audit_tx(
+                &mut tx,
+                AuditRecord {
+                    tenant_id: Some(tenant.tenant.id),
+                    actor,
+                    action: "tenant.provisioning.requested",
+                    target_kind: "provisioning_job",
+                    target_id: row.id.to_string(),
+                    request_id,
+                    detail: json!({"desiredVersion": &deployment.desired_version}),
+                },
+            )
+            .await?;
+            tx.commit().await?;
+            return Ok((row, true));
+        }
+
+        let existing = active_provisioning_job(&mut tx, tenant.tenant.id)
+            .await?
+            .ok_or_else(|| {
+                ApiError::Conflict("active provisioning job changed concurrently; retry".to_owned())
+            })?;
+        if existing.desired_version.as_deref() != Some(deployment.desired_version.as_str()) {
+            return Err(ApiError::Conflict(format!(
+                "active provisioning job already targets {}; finish or cancel it before requesting {}",
+                existing
+                    .desired_version
+                    .as_deref()
+                    .unwrap_or("the default version"),
+                deployment.desired_version,
+            )));
+        }
+        if existing.status == "planned" {
+            let approved = sqlx::query_as::<_, ProvisioningJobRow>(
+                r#"UPDATE control_plane_provisioning_jobs
+                   SET status='approved', plan=$2, desired_version=$3, updated_at=now()
+                   WHERE id=$1 AND status='planned'
+                   RETURNING id, tenant_id, status, desired_version, plan, created_by,
+                             attempt_count, claimed_by, lease_expires_at, started_at, finished_at,
+                             result, error_code, error_detail, created_at, updated_at"#,
+            )
+            .bind(existing.id)
+            .bind(&plan)
+            .bind(&deployment.desired_version)
+            .fetch_one(&mut *tx)
+            .await?;
+            self.audit_tx(
+                &mut tx,
+                AuditRecord {
+                    tenant_id: Some(tenant.tenant.id),
+                    actor,
+                    action: "tenant.provisioning.approved",
+                    target_kind: "provisioning_job",
+                    target_id: approved.id.to_string(),
+                    request_id,
+                    detail: json!({"desiredVersion": &deployment.desired_version}),
+                },
+            )
+            .await?;
+            tx.commit().await?;
+            return Ok((approved, false));
+        }
+        tx.commit().await?;
+        Ok((existing, false))
+    }
+
+    pub async fn provisioning_jobs(
+        &self,
+        slug: &str,
+        limit: i64,
+    ) -> Result<Vec<ProvisioningJobRow>, ApiError> {
+        let tenant = self.tenant_by_slug(slug).await?;
+        Ok(sqlx::query_as::<_, ProvisioningJobRow>(
+            r#"SELECT id, tenant_id, status, desired_version, plan, created_by,
+                      attempt_count, claimed_by, lease_expires_at, started_at, finished_at,
+                      result, error_code, error_detail, created_at, updated_at
+               FROM control_plane_provisioning_jobs
+               WHERE tenant_id=$1
+               ORDER BY created_at DESC
+               LIMIT $2"#,
+        )
+        .bind(tenant.tenant.id)
+        .bind(limit.clamp(1, 50))
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
+    pub async fn cancel_provisioning(
+        &self,
+        slug: &str,
+        actor: &str,
+        request_id: Option<&str>,
+    ) -> Result<ProvisioningJobRow, ApiError> {
+        let tenant = self.tenant_by_slug(slug).await?;
+        let mut tx = self.pool.begin().await?;
+        if let Some(running) = active_provisioning_job(&mut tx, tenant.tenant.id).await? {
+            if running.status == "running" {
+                return Err(ApiError::Conflict(
+                    "a running deployment cannot be cancelled from the UI; wait for its lease/result".to_owned(),
+                ));
+            }
+            let row = sqlx::query_as::<_, ProvisioningJobRow>(
+                r#"UPDATE control_plane_provisioning_jobs
+                   SET status='cancelled', finished_at=now(), claim_token_hash=NULL,
+                       lease_expires_at=NULL, updated_at=now()
+                   WHERE id=$1 AND status IN ('planned','approved')
+                   RETURNING id, tenant_id, status, desired_version, plan, created_by,
+                             attempt_count, claimed_by, lease_expires_at, started_at, finished_at,
+                             result, error_code, error_detail, created_at, updated_at"#,
+            )
+            .bind(running.id)
+            .fetch_one(&mut *tx)
+            .await?;
+            self.audit_tx(
+                &mut tx,
+                AuditRecord {
+                    tenant_id: Some(tenant.tenant.id),
+                    actor,
+                    action: "tenant.provisioning.cancelled",
+                    target_kind: "provisioning_job",
+                    target_id: row.id.to_string(),
+                    request_id,
+                    detail: json!({}),
+                },
+            )
+            .await?;
+            tx.commit().await?;
+            return Ok(row);
+        }
+        Err(ApiError::NotFound)
+    }
+
+    pub async fn claim_provisioning(
+        &self,
+        worker_id: &str,
+        lease_seconds: i64,
+        actor: &str,
+    ) -> Result<Option<crate::model::ProvisioningClaim>, ApiError> {
+        let now = Utc::now();
+        let lease_expires_at = now + Duration::seconds(lease_seconds.clamp(60, 3600));
+        let mut tx = self.pool.begin().await?;
+
+        let exhausted = sqlx::query_as::<_, ProvisioningJobRow>(
+            r#"UPDATE control_plane_provisioning_jobs
+               SET status='failed', finished_at=now(), claim_token_hash=NULL, lease_expires_at=NULL,
+                   error_code='lease_exhausted', error_detail='provisioner lease expired repeatedly', updated_at=now()
+               WHERE status='running' AND lease_expires_at <= now() AND attempt_count >= 3
+               RETURNING id, tenant_id, status, desired_version, plan, created_by,
+                         attempt_count, claimed_by, lease_expires_at, started_at, finished_at,
+                         result, error_code, error_detail, created_at, updated_at"#,
+        )
+        .fetch_all(&mut *tx)
+        .await?;
+        for row in exhausted {
+            self.audit_tx(
+                &mut tx,
+                AuditRecord {
+                    tenant_id: Some(row.tenant_id),
+                    actor,
+                    action: "tenant.provisioning.lease_exhausted",
+                    target_kind: "provisioning_job",
+                    target_id: row.id.to_string(),
+                    request_id: None,
+                    detail: json!({"attemptCount": row.attempt_count}),
+                },
+            )
+            .await?;
+        }
+        sqlx::query(
+            r#"UPDATE control_plane_provisioning_jobs
+               SET status='approved', claimed_by=NULL, claim_token_hash=NULL, lease_expires_at=NULL,
+                   error_code=NULL, error_detail=NULL, updated_at=now()
+               WHERE status='running' AND lease_expires_at <= now() AND attempt_count < 3"#,
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        let candidate = sqlx::query_as::<_, ProvisioningJobRow>(
+            r#"SELECT id, tenant_id, status, desired_version, plan, created_by,
+                      attempt_count, claimed_by, lease_expires_at, started_at, finished_at,
+                      result, error_code, error_detail, created_at, updated_at
+               FROM control_plane_provisioning_jobs
+               WHERE status='approved'
+               ORDER BY created_at ASC, id ASC
+               FOR UPDATE SKIP LOCKED
+               LIMIT 1"#,
+        )
+        .fetch_optional(&mut *tx)
+        .await?;
+        let Some(candidate) = candidate else {
+            tx.commit().await?;
+            return Ok(None);
+        };
+
+        let claim_token = Uuid::new_v4().simple().to_string();
+        let claim_hash: [u8; 32] = Sha256::digest(claim_token.as_bytes()).into();
+        let job = sqlx::query_as::<_, ProvisioningJobRow>(
+            r#"UPDATE control_plane_provisioning_jobs
+               SET status='running', claimed_by=$2, claim_token_hash=$3, lease_expires_at=$4,
+                   attempt_count=attempt_count+1, started_at=COALESCE(started_at, now()),
+                   finished_at=NULL, result=NULL, error_code=NULL, error_detail=NULL, updated_at=now()
+               WHERE id=$1 AND status='approved'
+               RETURNING id, tenant_id, status, desired_version, plan, created_by,
+                         attempt_count, claimed_by, lease_expires_at, started_at, finished_at,
+                         result, error_code, error_detail, created_at, updated_at"#,
+        )
+        .bind(candidate.id)
+        .bind(worker_id)
+        .bind(claim_hash.to_vec())
+        .bind(lease_expires_at)
+        .fetch_one(&mut *tx)
+        .await?;
+        self.audit_tx(
+            &mut tx,
+            AuditRecord {
+                tenant_id: Some(job.tenant_id),
+                actor,
+                action: "tenant.provisioning.claimed",
+                target_kind: "provisioning_job",
+                target_id: job.id.to_string(),
+                request_id: None,
+                detail: json!({"workerId": worker_id, "attemptCount": job.attempt_count}),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(Some(crate::model::ProvisioningClaim { job, claim_token }))
+    }
+
+    pub async fn renew_provisioning_lease(
+        &self,
+        job_id: Uuid,
+        worker_id: &str,
+        claim_token: &str,
+        lease_seconds: i64,
+    ) -> Result<ProvisioningJobRow, ApiError> {
+        let mut tx = self.pool.begin().await?;
+        verify_provisioning_claim(&mut tx, job_id, worker_id, claim_token).await?;
+        let lease_expires_at = Utc::now() + Duration::seconds(lease_seconds.clamp(60, 3600));
+        let job = sqlx::query_as::<_, ProvisioningJobRow>(
+            r#"UPDATE control_plane_provisioning_jobs
+               SET lease_expires_at=$2, updated_at=now()
+               WHERE id=$1 AND status='running'
+               RETURNING id, tenant_id, status, desired_version, plan, created_by,
+                         attempt_count, claimed_by, lease_expires_at, started_at, finished_at,
+                         result, error_code, error_detail, created_at, updated_at"#,
+        )
+        .bind(job_id)
+        .bind(lease_expires_at)
+        .fetch_one(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok(job)
+    }
+
+    pub async fn complete_provisioning(
+        &self,
+        job_id: Uuid,
+        worker_id: &str,
+        claim_token: &str,
+        completion: ProvisioningCompletion<'_>,
+        actor: &str,
+    ) -> Result<ProvisioningJobRow, ApiError> {
+        let ProvisioningCompletion {
+            api_port,
+            workspace_id,
+            schema_version,
+            deployed_sha,
+        } = completion;
+        let mut tx = self.pool.begin().await?;
+        let existing = provisioning_job_for_update(&mut tx, job_id)
+            .await?
+            .ok_or(ApiError::NotFound)?;
+        if existing.status == "succeeded" {
+            if provisioning_success_matches(
+                &existing,
+                worker_id,
+                api_port,
+                workspace_id,
+                schema_version,
+                deployed_sha,
+            ) {
+                tx.commit().await?;
+                return Ok(existing);
+            }
+            return Err(ApiError::Conflict(
+                "provisioning job already succeeded with a different result".to_owned(),
+            ));
+        }
+        if existing.status != "running" {
+            return Err(ApiError::Conflict(format!(
+                "provisioning job is already terminal or inactive ({})",
+                existing.status
+            )));
+        }
+        let claim = verify_provisioning_claim(&mut tx, job_id, worker_id, claim_token).await?;
+        let expected_sha = claim
+            .desired_version
+            .as_deref()
+            .and_then(|value| value.strip_prefix("sha-"))
+            .ok_or_else(|| {
+                ApiError::Conflict("running provisioning job has no immutable image SHA".to_owned())
+            })?;
+        if expected_sha != deployed_sha {
+            return Err(ApiError::Conflict(format!(
+                "deployed SHA {deployed_sha} does not match planned SHA {expected_sha}"
+            )));
+        }
+        let result = json!({
+            "apiPort": api_port,
+            "localApiUrl": format!("http://127.0.0.1:{api_port}"),
+            "workspaceId": workspace_id,
+            "schemaVersion": schema_version,
+            "deployedSha": deployed_sha,
+            "provisionerWorkerId": worker_id,
+            "completedAt": Utc::now(),
+        });
+        let job = sqlx::query_as::<_, ProvisioningJobRow>(
+            r#"UPDATE control_plane_provisioning_jobs
+               SET status='succeeded', result=$2, finished_at=now(), claim_token_hash=NULL,
+                   lease_expires_at=NULL, error_code=NULL, error_detail=NULL, updated_at=now()
+               WHERE id=$1 AND status='running'
+               RETURNING id, tenant_id, status, desired_version, plan, created_by,
+                         attempt_count, claimed_by, lease_expires_at, started_at, finished_at,
+                         result, error_code, error_detail, created_at, updated_at"#,
+        )
+        .bind(job_id)
+        .bind(&result)
+        .fetch_one(&mut *tx)
+        .await?;
+        sqlx::query(
+            r#"UPDATE control_plane_tenants
+               SET status='active', workspace_id=$2, updated_at=now()
+               WHERE id=$1"#,
+        )
+        .bind(job.tenant_id)
+        .bind(workspace_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|error| match error {
+            sqlx::Error::Database(db) if db.is_unique_violation() => ApiError::Conflict(
+                "reported workspace is already mapped to another tenant".to_owned(),
+            ),
+            other => ApiError::Database(other),
+        })?;
+        sqlx::query(
+            r#"INSERT INTO control_plane_runtime_status
+               (tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha, outbox_pending, queue_lag, last_heartbeat_at, checked_at)
+               VALUES ($1,true,true,$2,$3,0,0,now(),now())
+               ON CONFLICT (tenant_id) DO UPDATE SET
+                 api_healthy=true, worker_healthy=true, schema_version=EXCLUDED.schema_version,
+                 deployed_sha=EXCLUDED.deployed_sha, last_heartbeat_at=now(), checked_at=now()"#,
+        )
+        .bind(job.tenant_id)
+        .bind(schema_version)
+        .bind(deployed_sha)
+        .execute(&mut *tx)
+        .await?;
+        self.audit_tx(
+            &mut tx,
+            AuditRecord {
+                tenant_id: Some(job.tenant_id),
+                actor,
+                action: "tenant.provisioning.succeeded",
+                target_kind: "provisioning_job",
+                target_id: job.id.to_string(),
+                request_id: None,
+                detail: result,
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(job)
+    }
+
+    pub async fn fail_provisioning(
+        &self,
+        job_id: Uuid,
+        worker_id: &str,
+        claim_token: &str,
+        error_code: &str,
+        error_detail: Option<&str>,
+        actor: &str,
+    ) -> Result<ProvisioningJobRow, ApiError> {
+        let mut tx = self.pool.begin().await?;
+        let existing = provisioning_job_for_update(&mut tx, job_id)
+            .await?
+            .ok_or(ApiError::NotFound)?;
+        if existing.status == "failed" {
+            if existing.claimed_by.as_deref() == Some(worker_id)
+                && existing.error_code.as_deref() == Some(error_code)
+                && existing.error_detail.as_deref() == error_detail
+            {
+                tx.commit().await?;
+                return Ok(existing);
+            }
+            return Err(ApiError::Conflict(
+                "provisioning job already failed with a different terminal result".to_owned(),
+            ));
+        }
+        if existing.status != "running" {
+            return Err(ApiError::Conflict(format!(
+                "provisioning job is already terminal or inactive ({})",
+                existing.status
+            )));
+        }
+        let claim = verify_provisioning_claim(&mut tx, job_id, worker_id, claim_token).await?;
+        let job = sqlx::query_as::<_, ProvisioningJobRow>(
+            r#"UPDATE control_plane_provisioning_jobs
+               SET status='failed', finished_at=now(), claim_token_hash=NULL, lease_expires_at=NULL,
+                   error_code=$2, error_detail=$3, updated_at=now()
+               WHERE id=$1 AND status='running'
+               RETURNING id, tenant_id, status, desired_version, plan, created_by,
+                         attempt_count, claimed_by, lease_expires_at, started_at, finished_at,
+                         result, error_code, error_detail, created_at, updated_at"#,
+        )
+        .bind(job_id)
+        .bind(error_code)
+        .bind(error_detail)
+        .fetch_one(&mut *tx)
+        .await?;
+        self.audit_tx(
+            &mut tx,
+            AuditRecord {
+                tenant_id: Some(claim.tenant_id),
+                actor,
+                action: "tenant.provisioning.failed",
+                target_kind: "provisioning_job",
+                target_id: job.id.to_string(),
+                request_id: None,
+                detail: json!({"errorCode": error_code, "attemptCount": job.attempt_count}),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(job)
     }
 
     pub async fn ping(&self) -> Result<(), ApiError> {
@@ -354,9 +885,14 @@ impl Store {
                (tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha, outbox_pending, queue_lag, last_heartbeat_at, checked_at)
                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now())
                ON CONFLICT (tenant_id) DO UPDATE SET
-                 api_healthy=EXCLUDED.api_healthy, worker_healthy=EXCLUDED.worker_healthy, schema_version=EXCLUDED.schema_version,
-                 deployed_sha=EXCLUDED.deployed_sha, outbox_pending=EXCLUDED.outbox_pending, queue_lag=EXCLUDED.queue_lag,
-                 last_heartbeat_at=EXCLUDED.last_heartbeat_at, checked_at=now()
+                 api_healthy=COALESCE(EXCLUDED.api_healthy, control_plane_runtime_status.api_healthy),
+                 worker_healthy=COALESCE(EXCLUDED.worker_healthy, control_plane_runtime_status.worker_healthy),
+                 schema_version=COALESCE(EXCLUDED.schema_version, control_plane_runtime_status.schema_version),
+                 deployed_sha=COALESCE(EXCLUDED.deployed_sha, control_plane_runtime_status.deployed_sha),
+                 outbox_pending=COALESCE(EXCLUDED.outbox_pending, control_plane_runtime_status.outbox_pending),
+                 queue_lag=COALESCE(EXCLUDED.queue_lag, control_plane_runtime_status.queue_lag),
+                 last_heartbeat_at=COALESCE(EXCLUDED.last_heartbeat_at, control_plane_runtime_status.last_heartbeat_at),
+                 checked_at=now()
                RETURNING tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha,
                          outbox_pending, queue_lag, last_heartbeat_at, checked_at"#,
         )
@@ -447,4 +983,151 @@ impl Store {
         .await?;
         Ok(())
     }
+}
+
+fn deployment_plan(
+    tenant: &TenantRow,
+    deployment: &TenantDeploymentSpec,
+) -> Result<Value, ApiError> {
+    let crowdrelay_base_url = tenant.crowdrelay_base_url.as_deref().ok_or_else(|| {
+        ApiError::InvalidInput("crowdrelayBaseUrl is required before deployment".to_owned())
+    })?;
+    let signal_base_url = tenant.signal_base_url.as_deref().ok_or_else(|| {
+        ApiError::InvalidInput("signalBaseUrl is required before deployment".to_owned())
+    })?;
+    Ok(json!({
+        "schema": 3,
+        "mode": "local_docker_compose",
+        "composeProject": format!("crowdrelay-{}", tenant.slug),
+        "tenantSlug": tenant.slug.as_str(),
+        "displayName": tenant.display_name.as_str(),
+        "workspaceSlug": tenant.slug.as_str(),
+        "workspaceId": tenant.workspace_id,
+        "crowdRelayBaseUrl": crowdrelay_base_url,
+        "publicSiteBaseUrl": signal_base_url,
+        "allowedOrigins": [signal_base_url],
+        "defaultCountryCode": tenant.default_country_code.as_str(),
+        "brandingPalette": tenant.branding_palette.as_ref(),
+        "desiredVersion": deployment.desired_version.as_str(),
+        "apiImage": format!("{}:{}", deployment.api_image, deployment.desired_version),
+        "workerImage": format!("{}:{}", deployment.worker_image, deployment.desired_version),
+        "tenantStatusBefore": tenant.status.as_str(),
+        "security": {
+            "secrets": "generated-and-retained-on-provisioner-host",
+            "dockerCapability": "provisioner-only",
+            "browserReceivesSecrets": false
+        }
+    }))
+}
+
+struct ProvisioningClaimState {
+    tenant_id: Uuid,
+    desired_version: Option<String>,
+}
+
+async fn provisioning_job_for_update(
+    tx: &mut Transaction<'_, Postgres>,
+    job_id: Uuid,
+) -> Result<Option<ProvisioningJobRow>, ApiError> {
+    Ok(sqlx::query_as::<_, ProvisioningJobRow>(
+        r#"SELECT id, tenant_id, status, desired_version, plan, created_by,
+                  attempt_count, claimed_by, lease_expires_at, started_at, finished_at,
+                  result, error_code, error_detail, created_at, updated_at
+           FROM control_plane_provisioning_jobs
+           WHERE id=$1
+           FOR UPDATE"#,
+    )
+    .bind(job_id)
+    .fetch_optional(&mut **tx)
+    .await?)
+}
+
+fn provisioning_success_matches(
+    job: &ProvisioningJobRow,
+    worker_id: &str,
+    api_port: u16,
+    workspace_id: Uuid,
+    schema_version: i32,
+    deployed_sha: &str,
+) -> bool {
+    let Some(result) = job.result.as_ref() else {
+        return false;
+    };
+    result.get("apiPort").and_then(Value::as_u64) == Some(u64::from(api_port))
+        && result
+            .get("workspaceId")
+            .and_then(Value::as_str)
+            .and_then(|value| Uuid::parse_str(value).ok())
+            == Some(workspace_id)
+        && result.get("schemaVersion").and_then(Value::as_i64) == Some(i64::from(schema_version))
+        && result.get("deployedSha").and_then(Value::as_str) == Some(deployed_sha)
+        && result.get("provisionerWorkerId").and_then(Value::as_str) == Some(worker_id)
+}
+
+async fn active_provisioning_job(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant_id: Uuid,
+) -> Result<Option<ProvisioningJobRow>, ApiError> {
+    Ok(sqlx::query_as::<_, ProvisioningJobRow>(
+        r#"SELECT id, tenant_id, status, desired_version, plan, created_by,
+                  attempt_count, claimed_by, lease_expires_at, started_at, finished_at,
+                  result, error_code, error_detail, created_at, updated_at
+           FROM control_plane_provisioning_jobs
+           WHERE tenant_id=$1 AND status IN ('planned','approved','running')
+           ORDER BY created_at DESC, id DESC
+           LIMIT 1
+           FOR UPDATE"#,
+    )
+    .bind(tenant_id)
+    .fetch_optional(&mut **tx)
+    .await?)
+}
+
+async fn verify_provisioning_claim(
+    tx: &mut Transaction<'_, Postgres>,
+    job_id: Uuid,
+    worker_id: &str,
+    claim_token: &str,
+) -> Result<ProvisioningClaimState, ApiError> {
+    let row = sqlx::query(
+        r#"SELECT tenant_id, desired_version, status, claimed_by, claim_token_hash, lease_expires_at
+           FROM control_plane_provisioning_jobs
+           WHERE id=$1
+           FOR UPDATE"#,
+    )
+    .bind(job_id)
+    .fetch_optional(&mut **tx)
+    .await?
+    .ok_or(ApiError::NotFound)?;
+    let status: String = row.try_get("status")?;
+    let claimed_by: Option<String> = row.try_get("claimed_by")?;
+    let stored_hash: Option<Vec<u8>> = row.try_get("claim_token_hash")?;
+    let lease_expires_at: Option<chrono::DateTime<Utc>> = row.try_get("lease_expires_at")?;
+    if status != "running"
+        || claimed_by.as_deref() != Some(worker_id)
+        || lease_expires_at.is_none_or(|deadline| deadline <= Utc::now())
+    {
+        return Err(ApiError::Conflict(
+            "provisioning claim is not active for this worker".to_owned(),
+        ));
+    }
+    let supplied: [u8; 32] = Sha256::digest(claim_token.as_bytes()).into();
+    let Some(stored_hash) = stored_hash else {
+        return Err(ApiError::Conflict(
+            "provisioning claim token is unavailable".to_owned(),
+        ));
+    };
+    if stored_hash.len() != supplied.len()
+        || supplied
+            .as_slice()
+            .ct_eq(stored_hash.as_slice())
+            .unwrap_u8()
+            != 1
+    {
+        return Err(ApiError::Unauthorized);
+    }
+    Ok(ProvisioningClaimState {
+        tenant_id: row.try_get("tenant_id")?,
+        desired_version: row.try_get("desired_version")?,
+    })
 }

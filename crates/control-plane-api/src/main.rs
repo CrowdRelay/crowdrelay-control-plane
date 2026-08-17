@@ -24,8 +24,14 @@ pub struct AppState {
     store: store::Store,
     admin_token_hash: [u8; 32],
     telemetry_token_hash: [u8; 32],
+    provisioner_token_hash: Option<[u8; 32]>,
     admin_actor: Arc<str>,
     telemetry_actor: Arc<str>,
+    provisioner_actor: Arc<str>,
+    provisioner_default_image_tag: Option<Arc<str>>,
+    provisioner_api_image: Arc<str>,
+    provisioner_worker_image: Arc<str>,
+    provisioner_lease_seconds: i64,
     runtime_stale_after_seconds: i64,
 }
 
@@ -76,8 +82,14 @@ async fn main() -> anyhow::Result<()> {
         store,
         admin_token_hash: config.admin_token_hash,
         telemetry_token_hash: config.telemetry_token_hash,
+        provisioner_token_hash: config.provisioner_token_hash,
         admin_actor: Arc::from(config.admin_actor),
         telemetry_actor: Arc::from(config.telemetry_actor),
+        provisioner_actor: Arc::from(config.provisioner_actor),
+        provisioner_default_image_tag: config.provisioner_default_image_tag.map(Arc::from),
+        provisioner_api_image: Arc::from(config.provisioner_api_image),
+        provisioner_worker_image: Arc::from(config.provisioner_worker_image),
+        provisioner_lease_seconds: config.provisioner_lease_seconds,
         runtime_stale_after_seconds: config.runtime_stale_after_seconds,
     };
     let admin_api = routes::admin_router().route_layer(middleware::from_fn_with_state(
@@ -88,7 +100,14 @@ async fn main() -> anyhow::Result<()> {
         state.clone(),
         auth::require_telemetry,
     ));
-    let api = Router::new().merge(admin_api).merge(telemetry_api);
+    let provisioner_api = routes::provisioner_router().route_layer(middleware::from_fn_with_state(
+        state.clone(),
+        auth::require_provisioner,
+    ));
+    let api = Router::new()
+        .merge(admin_api)
+        .merge(telemetry_api)
+        .merge(provisioner_api);
 
     let index = config.frontend_dist.join("index.html");
     let static_files =

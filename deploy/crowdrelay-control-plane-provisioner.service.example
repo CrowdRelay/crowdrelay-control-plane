@@ -1,0 +1,27 @@
+[Unit]
+Description=CrowdRelay Control Plane tenant provisioner
+After=docker.service network-online.target crowdrelay-control-plane.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=crowdrelay-provisioner
+Group=docker
+EnvironmentFile=/etc/crowdrelay-control-plane/provisioner.env
+ExecStart=/usr/bin/python3 /srv/crowdrelay-control-plane/deploy/provisioner.py
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/crowdrelay-tenants
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

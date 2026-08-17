@@ -11,6 +11,8 @@ pub enum ApiError {
     Conflict(String),
     #[error("invalid input: {0}")]
     InvalidInput(String),
+    #[error("unavailable: {0}")]
+    Unavailable(String),
     #[error("database error")]
     Database(#[from] sqlx::Error),
     #[error("migration error")]
@@ -24,6 +26,11 @@ impl IntoResponse for ApiError {
             Self::NotFound => (StatusCode::NOT_FOUND, "not_found", self.to_string()),
             Self::Conflict(_) => (StatusCode::CONFLICT, "conflict", self.to_string()),
             Self::InvalidInput(_) => (StatusCode::BAD_REQUEST, "invalid_input", self.to_string()),
+            Self::Unavailable(_) => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "unavailable",
+                self.to_string(),
+            ),
             Self::Database(_) | Self::Migration(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "internal_error",

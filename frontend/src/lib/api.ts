@@ -1,6 +1,6 @@
 import type { AuditEntry, Palette, ProvisioningJob, TenantSummary } from './types'
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
 }
 
@@ -21,16 +21,42 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
+export type CreateTenantInput = {
+  slug: string
+  displayName: string
+  workspaceId?: string
+  crowdrelayBaseUrl?: string
+  signalBaseUrl?: string
+  defaultCountryCode?: string
+  brandingPalette?: Palette
+  deployCrowdrelay?: boolean
+  desiredVersion?: string
+}
+
 export const api = {
-  overview: () => request<{ tenants: number; healthy: number; degraded: number; stale: number; unknown: number; runtimeStaleAfterSeconds: number }>('/overview'),
+  overview: () => request<{
+    tenants: number
+    healthy: number
+    degraded: number
+    stale: number
+    unknown: number
+    runtimeStaleAfterSeconds: number
+    provisionerConfigured: boolean
+    provisionerDefaultImageTag: string | null
+  }>('/overview'),
   tenants: () => request<{ items: TenantSummary[] }>('/tenants'),
   tenant: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}`),
-  createTenant: (input: { slug: string; displayName: string; workspaceId?: string; crowdrelayBaseUrl?: string; signalBaseUrl?: string; brandingPalette?: Palette }) =>
+  createTenant: (input: CreateTenantInput) =>
     request<TenantSummary>('/tenants', { method: 'POST', body: JSON.stringify(input) }),
   branding: (slug: string, brandingPalette: Palette | null) =>
     request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/branding`, { method: 'PATCH', body: JSON.stringify({ brandingPalette }) }),
   suspend: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/suspend`, { method: 'POST', body: '{}' }),
   resume: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/resume`, { method: 'POST', body: '{}' }),
-  planProvisioning: (slug: string, desiredVersion?: string) => request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/plan`, { method: 'POST', body: JSON.stringify({ desiredVersion: desiredVersion || null }) }),
-  audit: (slug: string) => request<{ items: AuditEntry[] }>(`/tenants/${encodeURIComponent(slug)}/audit?limit=50`),
+  planProvisioning: (slug: string, desiredVersion?: string) =>
+    request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/plan`, { method: 'POST', body: JSON.stringify({ desiredVersion: desiredVersion || undefined }) }),
+  deployTenant: (slug: string, desiredVersion?: string) =>
+    request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/deploy`, { method: 'POST', body: JSON.stringify({ desiredVersion: desiredVersion || undefined }) }),
+  provisioning: (slug: string) => request<{ items: ProvisioningJob[] }>(`/tenants/${encodeURIComponent(slug)}/provisioning`),
+  cancelProvisioning: (slug: string) => request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/cancel`, { method: 'POST', body: '{}' }),
+  audit: (slug: string) => request<{ items: AuditEntry[] }>(`/tenants/${encodeURIComponent(slug)}/audit?limit=40`),
 }

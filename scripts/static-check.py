@@ -9,13 +9,27 @@ checks = {
     "caddy_admin_injection": (root / "deploy/Caddyfile.control.virya.music.example", 'header_up Authorization "Bearer {$CONTROL_PLANE_ADMIN_TOKEN}"'),
     "telemetry_auth": (root / "crates/control-plane-api/src/auth.rs", "require_telemetry"),
     "virya_seed_inherit_branding": (root / "crates/control-plane-api/src/store.rs", "branding_palette, synesthesia_enabled)"),
-    "provisioning_no_rce": (root / "crates/control-plane-api/src/store.rs", '"mode": "workspace_isolated_deployment"'),
+    "provisioning_no_rce": (root / "crates/control-plane-api/src/store.rs", '"mode": "local_docker_compose"'),
+    "provisioner_secret": (root / "crates/control-plane-api/src/config.rs", "CONTROL_PLANE_PROVISIONER_TOKEN"),
+    "provisioner_auth": (root / "crates/control-plane-api/src/auth.rs", "require_provisioner"),
+    "provisioner_routes": (root / "crates/control-plane-api/src/routes.rs", '"/provisioner/jobs/claim"'),
+    "provisioner_lease_schema": (root / "migrations/0003_tenant_instance_provisioning.sql", "claim_token_hash bytea"),
+    "provisioner_host_agent": (root / "deploy/provisioner.py", "def process_claim"),
+    "atomic_create_deploy": (root / "crates/control-plane-api/src/store.rs", '"createdWithTenant": true'),
+    "split_runtime_env": (root / "deploy/provisioner.py", 'env_file: [.env, tenant.env]'),
+    "host_port_allocation_lock": (root / "deploy/provisioner.py", 'fcntl.LOCK_EX'),
+    "retryable_agent_transport": (root / "deploy/provisioner.py", 'terminal=False'),
+    "docker_child_secret_scrub": (root / "deploy/provisioner.py", 'CONTROL_PLANE_SECRET_ENV'),
+    "idempotent_completion": (root / "crates/control-plane-api/src/store.rs", 'provisioning_success_matches'),
+    "provisioner_systemd": (root / "deploy/crowdrelay-control-plane-provisioner.service.example", "Group=docker"),
     "workspace_unique": (root / "migrations/0001_control_plane.sql", "control_plane_tenant_workspace_uidx"),
     "provisioning_dedupe_db": (root / "migrations/0002_operational_hardening.sql", "control_plane_provisioning_one_active_uidx"),
     "provisioning_dedupe_app": (root / "crates/control-plane-api/src/store.rs", "ON CONFLICT (tenant_id) WHERE status IN ('planned', 'approved', 'running') DO NOTHING"),
     "palette_contrast": (root / "crates/control-plane-api/src/validation.rs", "WCAG AA 4.5:1"),
     "runtime_report": (root / "crates/control-plane-api/src/routes.rs", '"/tenants/{slug}/runtime"'),
     "runtime_freshness": (root / "crates/control-plane-api/src/model.rs", "RuntimeHealth::classify"),
+    "runtime_server_clock_authority": (root / "crates/control-plane-api/src/model.rs", ".checked_at"),
+    "tenant_resource_caps": (root / "deploy/provisioner.py", "mem_limit: 384m"),
     "runtime_meaningful_audit": (root / "crates/control-plane-api/src/store.rs", 'action: "tenant.runtime.changed"'),
     "runtime_validation": (root / "crates/control-plane-api/src/validation.rs", "lastHeartbeatAt cannot be more than 5 minutes in the future"),
     "bounded_pool_acquire": (root / "crates/control-plane-api/src/main.rs", ".acquire_timeout(Duration::from_secs(5))"),
@@ -46,7 +60,27 @@ assert "CONTROL_PLANE_ADMIN_TOKEN" not in frontend, "admin secret must not be co
 assert "crowdrelay-control-plane-token" not in frontend.lower(), "browser admin-token storage key must not return"
 assert "{http.request.header.X-Control-Plane-Token}" not in caddy, "Caddy must not trust a browser-supplied app token"
 assert caddy.index("handle @runtime") < caddy.index("basic_auth"), "telemetry route must bypass browser Basic and rely on its own Bearer"
+assert "handle @provisioner" in caddy and caddy.index("handle @provisioner") < caddy.index("basic_auth"), "provisioner machine route must bypass browser Basic and preserve its own Bearer"
 assert caddy.index("basic_auth") < caddy.index('header_up Authorization "Bearer {$CONTROL_PLANE_ADMIN_TOKEN}"'), "Basic must gate server-side admin token injection"
+provisioner = (root / "deploy/provisioner.py").read_text()
+rust_api = "\n".join(path.read_text() for path in (root / "crates/control-plane-api/src").glob("*.rs"))
+for forbidden in ("shell=True", "os.system(", "eval(", "exec(", "/var/run/docker.sock"):
+    assert forbidden not in provisioner, f"provisioner command escape hatch forbidden: {forbidden}"
+for forbidden in ("std::process::Command", "/var/run/docker.sock", "docker compose"):
+    assert forbidden not in rust_api, f"HTTP API must not own Docker capability: {forbidden}"
+assert "--dry-run" not in provisioner, "dry-run must not claim live provisioning jobs"
+assert "def safe_image_ref" in provisioner and 'segment not in ("", ".", "..")' in provisioner, "agent must independently reject image path traversal"
+assert "COALESCE(EXCLUDED.api_healthy" in store, "runtime telemetry updates must preserve omitted fields"
+model = (root / "crates/control-plane-api/src/model.rs").read_text()
+routes = (root / "crates/control-plane-api/src/routes.rs").read_text()
+assert "pub deploy_crowdrelay: bool" in model and "pub desired_version: Option<String>" in model, "create request must carry optional atomic deployment intent"
+assert "deployment.as_ref()" in routes, "create route must persist tenant and deployment intent together"
+assert "now.clone()" not in model, "DateTime<Utc> is Copy here; keep model classification free of redundant clones"
+create_start = store.index("pub async fn create_tenant")
+create_end = store.index("pub async fn update_branding", create_start)
+create_body = store[create_start:create_end]
+assert "self.tenant_by_slug" not in create_body, "create+deploy must not add a fallible post-commit read that creates ambiguous success"
+
 workflow = (root / ".github/workflows/ci.yml").read_text()
 for line in workflow.splitlines():
     if "uses:" in line:

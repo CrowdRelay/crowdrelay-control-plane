@@ -27,6 +27,16 @@ pub async fn require_telemetry(
     Ok(next.run(request).await)
 }
 
+pub async fn require_provisioner(
+    State(state): State<AppState>,
+    request: Request<axum::body::Body>,
+    next: Next,
+) -> Result<Response, ApiError> {
+    let expected = state.provisioner_token_hash.ok_or(ApiError::Unauthorized)?;
+    require_bearer(request.headers(), expected)?;
+    Ok(next.run(request).await)
+}
+
 fn require_bearer(headers: &HeaderMap, expected_hash: [u8; 32]) -> Result<(), ApiError> {
     verify(bearer(headers), expected_hash)
 }

@@ -9,6 +9,13 @@ control.virya.music {
         reverse_proxy 127.0.0.1:8090
     }
 
+    @provisioner path /api/v1/provisioner/*
+    handle @provisioner {
+        # The host agent has a third, narrow Bearer token. Keep it out of the
+        # browser Basic -> admin Bearer rewrite below.
+        reverse_proxy 127.0.0.1:8090
+    }
+
     handle {
         basic_auth {
             # Replace with the existing operator user + Caddy password hash.

@@ -21,9 +21,9 @@ pub fn slug(value: &str) -> Result<String, ApiError> {
 
 pub fn display_name(value: &str) -> Result<String, ApiError> {
     let value = value.trim();
-    if !(2..=120).contains(&value.chars().count()) {
+    if !(2..=120).contains(&value.chars().count()) || value.chars().any(char::is_control) {
         return Err(ApiError::InvalidInput(
-            "displayName must be 2-120 characters".to_owned(),
+            "displayName must be 2-120 printable characters".to_owned(),
         ));
     }
     Ok(value.to_owned())
@@ -32,11 +32,139 @@ pub fn display_name(value: &str) -> Result<String, ApiError> {
 pub fn base_url(value: Option<String>) -> Result<Option<String>, ApiError> {
     value.map(|raw| {
         let parsed = url::Url::parse(raw.trim()).map_err(|_| ApiError::InvalidInput("invalid URL".to_owned()))?;
-        if parsed.scheme() != "https" || parsed.host_str().is_none() || parsed.username() != "" || parsed.password().is_some() || parsed.query().is_some() || parsed.fragment().is_some() {
-            return Err(ApiError::InvalidInput("tenant URLs must be absolute HTTPS base URLs without credentials, query or fragment".to_owned()));
+        if parsed.scheme() != "https"
+            || parsed.host_str().is_none()
+            || parsed.username() != ""
+            || parsed.password().is_some()
+            || parsed.path() != "/"
+            || parsed.query().is_some()
+            || parsed.fragment().is_some()
+        {
+            return Err(ApiError::InvalidInput(
+                "tenant URLs must be bare HTTPS origins without credentials, path, query or fragment".to_owned(),
+            ));
         }
         Ok(parsed.as_str().trim_end_matches('/').to_owned())
     }).transpose()
+}
+
+pub fn country_code(value: Option<String>) -> Result<String, ApiError> {
+    let value = value
+        .unwrap_or_else(|| "PL".to_owned())
+        .trim()
+        .to_ascii_uppercase();
+    if value.len() != 2 || !value.bytes().all(|byte| byte.is_ascii_uppercase()) {
+        return Err(ApiError::InvalidInput(
+            "defaultCountryCode must be a two-letter uppercase ISO-style country code".to_owned(),
+        ));
+    }
+    Ok(value)
+}
+
+pub fn deployment_version(
+    value: Option<String>,
+    fallback: Option<&str>,
+) -> Result<String, ApiError> {
+    let raw = value
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .or(fallback)
+        .ok_or_else(|| ApiError::InvalidInput(
+            "desiredVersion is required until CONTROL_PLANE_PROVISIONER_DEFAULT_IMAGE_TAG is configured".to_owned(),
+        ))?;
+    let sha = raw.strip_prefix("sha-").unwrap_or(raw);
+    if sha.len() != 40
+        || !sha
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    {
+        return Err(ApiError::InvalidInput(
+            "desiredVersion must be an immutable sha-<40 lowercase hex> CrowdRelay image tag"
+                .to_owned(),
+        ));
+    }
+    Ok(format!("sha-{sha}"))
+}
+
+pub fn worker_id(value: &str) -> Result<String, ApiError> {
+    let value = value.trim();
+    if !(3..=96).contains(&value.len())
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b':'))
+    {
+        return Err(ApiError::InvalidInput(
+            "workerId must be 3-96 safe identifier characters".to_owned(),
+        ));
+    }
+    Ok(value.to_owned())
+}
+
+pub fn claim_token(value: &str) -> Result<&str, ApiError> {
+    let value = value.trim();
+    if value.len() != 32 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(ApiError::InvalidInput(
+            "invalid provisioning claim token".to_owned(),
+        ));
+    }
+    Ok(value)
+}
+
+pub fn provision_success(
+    api_port: u16,
+    schema_version: i32,
+    deployed_sha: &str,
+) -> Result<(), ApiError> {
+    if api_port < 1024 {
+        return Err(ApiError::InvalidInput("apiPort must be >= 1024".to_owned()));
+    }
+    if schema_version < 0 {
+        return Err(ApiError::InvalidInput(
+            "schemaVersion cannot be negative".to_owned(),
+        ));
+    }
+    if deployed_sha.len() != 40
+        || !deployed_sha
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    {
+        return Err(ApiError::InvalidInput(
+            "deployedSha must be exactly 40 lowercase hexadecimal characters".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+pub fn provision_failure(
+    code: &str,
+    detail: Option<&str>,
+) -> Result<(String, Option<String>), ApiError> {
+    let code = code.trim();
+    if code.is_empty()
+        || code.len() > 96
+        || !code.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-')
+        })
+    {
+        return Err(ApiError::InvalidInput(
+            "errorCode must be 1-96 lowercase identifier characters".to_owned(),
+        ));
+    }
+    let detail = detail
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| {
+            if value.chars().count() > 1000 || value.chars().any(char::is_control) {
+                Err(ApiError::InvalidInput(
+                    "errorDetail must be at most 1000 printable characters".to_owned(),
+                ))
+            } else {
+                Ok(value.to_owned())
+            }
+        })
+        .transpose()?;
+    Ok((code.to_owned(), detail))
 }
 
 pub fn desired_version(value: Option<String>) -> Result<Option<String>, ApiError> {
@@ -182,6 +310,12 @@ mod tests {
     }
 
     #[test]
+    fn rejects_control_characters_in_display_names() {
+        assert!(display_name("Good Tenant").is_ok());
+        assert!(display_name("Bad\nCROWDRELAY_AUTOPILOT_ENABLED=true").is_err());
+    }
+
+    #[test]
     fn normalizes_or_rejects_provisioning_versions() {
         assert_eq!(
             desired_version(Some("  0123456  ".into())).unwrap(),
@@ -189,6 +323,31 @@ mod tests {
         );
         assert_eq!(desired_version(Some("   ".into())).unwrap(), None);
         assert!(desired_version(Some("bad version".into())).is_err());
+    }
+
+    #[test]
+    fn normalizes_deployment_sha_and_country() {
+        let sha = "0123456789abcdef0123456789abcdef01234567";
+        assert_eq!(
+            deployment_version(Some(sha.into()), None).unwrap(),
+            format!("sha-{sha}")
+        );
+        assert_eq!(country_code(Some("pl".into())).unwrap(), "PL");
+        assert!(deployment_version(Some("latest".into()), None).is_err());
+        assert!(country_code(Some("POL".into())).is_err());
+    }
+
+    #[test]
+    fn validates_provisioner_machine_inputs() {
+        assert_eq!(
+            worker_id("home-provisioner-1").unwrap(),
+            "home-provisioner-1"
+        );
+        assert!(worker_id("bad worker").is_err());
+        assert!(claim_token("0123456789abcdef0123456789abcdef").is_ok());
+        assert!(provision_success(18100, 63, "0123456789abcdef0123456789abcdef01234567").is_ok());
+        assert!(provision_success(80, 63, "0123456789abcdef0123456789abcdef01234567").is_err());
+        assert!(provision_failure("docker_compose_failed", Some("exit 1")).is_ok());
     }
 
     #[test]

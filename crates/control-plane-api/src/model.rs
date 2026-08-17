@@ -29,6 +29,7 @@ pub struct TenantRow {
     pub workspace_id: Option<Uuid>,
     pub crowdrelay_base_url: Option<String>,
     pub signal_base_url: Option<String>,
+    pub default_country_code: String,
     pub branding_palette: Option<Value>,
     pub synesthesia_enabled: bool,
     pub created_at: DateTime<Utc>,
@@ -67,10 +68,12 @@ impl RuntimeHealth {
         let Some(runtime) = runtime else {
             return Self::Unknown;
         };
+        // Prefer the server-controlled receipt timestamp. A reporter clock must not
+        // be able to keep a dead tenant fresh by sending a future heartbeat.
         let Some(observed_at) = runtime
-            .last_heartbeat_at
+            .checked_at
             .as_ref()
-            .or(runtime.checked_at.as_ref())
+            .or(runtime.last_heartbeat_at.as_ref())
         else {
             return Self::Unknown;
         };
@@ -103,6 +106,7 @@ pub struct TenantSummaryJoinRow {
     pub workspace_id: Option<Uuid>,
     pub crowdrelay_base_url: Option<String>,
     pub signal_base_url: Option<String>,
+    pub default_country_code: String,
     pub branding_palette: Option<Value>,
     pub synesthesia_enabled: bool,
     pub created_at: DateTime<Utc>,
@@ -141,6 +145,7 @@ impl TenantSummaryJoinRow {
                 workspace_id: self.workspace_id,
                 crowdrelay_base_url: self.crowdrelay_base_url,
                 signal_base_url: self.signal_base_url,
+                default_country_code: self.default_country_code,
                 branding_palette: self.branding_palette,
                 synesthesia_enabled: self.synesthesia_enabled,
                 created_at: self.created_at,
@@ -186,7 +191,18 @@ pub struct CreateTenantRequest {
     pub workspace_id: Option<Uuid>,
     pub crowdrelay_base_url: Option<String>,
     pub signal_base_url: Option<String>,
+    pub default_country_code: Option<String>,
     pub branding_palette: Option<BrandingPalette>,
+    #[serde(default)]
+    pub deploy_crowdrelay: bool,
+    pub desired_version: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TenantDeploymentSpec {
+    pub desired_version: String,
+    pub api_image: String,
+    pub worker_image: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -210,8 +226,62 @@ pub struct ProvisioningJobRow {
     pub desired_version: Option<String>,
     pub plan: Value,
     pub created_by: String,
+    pub attempt_count: i32,
+    pub claimed_by: Option<String>,
+    pub lease_expires_at: Option<DateTime<Utc>>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub finished_at: Option<DateTime<Utc>>,
+    pub result: Option<Value>,
+    pub error_code: Option<String>,
+    pub error_detail: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DeployTenantRequest {
+    pub desired_version: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProvisioningClaimRequest {
+    pub worker_id: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProvisioningClaim {
+    pub job: ProvisioningJobRow,
+    pub claim_token: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProvisioningLeaseRequest {
+    pub worker_id: String,
+    pub claim_token: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProvisioningSuccessRequest {
+    pub worker_id: String,
+    pub claim_token: String,
+    pub api_port: u16,
+    pub workspace_id: Uuid,
+    pub schema_version: i32,
+    pub deployed_sha: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProvisioningFailureRequest {
+    pub worker_id: String,
+    pub claim_token: String,
+    pub error_code: String,
+    pub error_detail: Option<String>,
 }
 
 #[cfg(test)]
@@ -244,19 +314,11 @@ mod tests {
             RuntimeHealth::Unknown
         );
         assert_eq!(
-            RuntimeHealth::classify(
-                Some(&status(Some(true), Some(true), now)),
-                now,
-                180,
-            ),
+            RuntimeHealth::classify(Some(&status(Some(true), Some(true), now)), now, 180,),
             RuntimeHealth::Healthy
         );
         assert_eq!(
-            RuntimeHealth::classify(
-                Some(&status(Some(false), Some(true), now)),
-                now,
-                180,
-            ),
+            RuntimeHealth::classify(Some(&status(Some(false), Some(true), now)), now, 180,),
             RuntimeHealth::Degraded
         );
         assert_eq!(
@@ -274,6 +336,14 @@ mod tests {
         assert_eq!(
             RuntimeHealth::classify(Some(&status(Some(true), None, now)), now, 180,),
             RuntimeHealth::Unknown
+        );
+
+        let mut skewed = status(Some(true), Some(true), now + Duration::hours(1));
+        skewed.checked_at = Some(now - Duration::seconds(181));
+        assert_eq!(
+            RuntimeHealth::classify(Some(&skewed), now, 180),
+            RuntimeHealth::Stale,
+            "server receipt time must be authoritative over reporter clock skew"
         );
     }
 }

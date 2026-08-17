@@ -1,6 +1,7 @@
 .PHONY: static web-install web-test web-build rust-fmt rust-check rust-clippy rust-test ci
 static:
 	python3 scripts/static-check.py
+	python3 -m unittest discover -s scripts -p 'test_*.py'
 	node scripts/check-web-source.mjs
 web-install:
 	cd frontend && npm ci --no-audit --no-fund

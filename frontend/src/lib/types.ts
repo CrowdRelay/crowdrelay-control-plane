@@ -31,6 +31,7 @@ export type Tenant = {
   workspaceId: string | null
   crowdrelayBaseUrl: string | null
   signalBaseUrl: string | null
+  defaultCountryCode: string
   brandingPalette: Palette | null
   synesthesiaEnabled: boolean
   createdAt: string
@@ -53,13 +54,31 @@ export type AuditEntry = {
   createdAt: string
 }
 
+export type ProvisioningResult = {
+  apiPort?: number
+  localApiUrl?: string
+  workspaceId?: string
+  schemaVersion?: number
+  deployedSha?: string
+  provisionerWorkerId?: string
+  completedAt?: string
+}
+
 export type ProvisioningJob = {
   id: string
   tenantId: string
-  status: string
+  status: 'planned' | 'approved' | 'running' | 'succeeded' | 'failed' | 'cancelled'
   desiredVersion: string | null
   plan: Record<string, unknown>
   createdBy: string
+  attemptCount: number
+  claimedBy: string | null
+  leaseExpiresAt: string | null
+  startedAt: string | null
+  finishedAt: string | null
+  result: ProvisioningResult | null
+  errorCode: string | null
+  errorDetail: string | null
   createdAt: string
   updatedAt: string
 }

@@ -43,11 +43,17 @@ Vite proxies `/api` and `/healthz` to `127.0.0.1:8090`. In local development the
 
 On API startup, the registry creates or reconciles a `virya` row. It uses `branding_palette = NULL`, meaning **inherit existing CrowdRelay/Signal defaults**. Set `CONTROL_PLANE_VIRYA_WORKSPACE_ID` when the actual CrowdRelay workspace UUID is available.
 
-## Tenant provisioning v1
+## Tenant provisioning v2
 
-`POST /api/v1/tenants/:slug/provisioning/plan` creates a durable, audited provisioning plan. At most one `planned`/`approved`/`running` plan may exist per tenant; concurrent duplicate clicks return the existing active plan. It intentionally does **not** run SSH/Docker commands from a web request. A future deployment agent/worker can consume approved jobs through a narrow capability boundary.
+The Tenants screen can create a registry entry alone or use **Create & deploy**. The deployment variant is atomic at the database boundary: the tenant row and its `approved` provisioning job are written in one transaction. If the deployment intent cannot be validated/queued, no half-created tenant is committed.
 
-This keeps the Control Plane from becoming an RCE surface or a single point of failure.
+The HTTP API still never receives Docker access. `deploy/provisioner.py` is a separately authenticated host agent that claims approved jobs with a lease, validates a fixed plan schema, renders a fixed tenant-isolated Docker Compose stack, and reports success/failure back through `/api/v1/provisioner/*`. It creates one Postgres volume plus setup/API/worker services per tenant, binds the API only to `127.0.0.1:<allocated-port>`, keeps generated secrets host-local, and refreshes non-secret tenant runtime config independently on upgrades.
+
+At most one `planned`/`approved`/`running` job may exist per tenant. Claims are leased and crash-recoverable; identical completion retries are idempotent, while contradictory terminal results fail closed. The agent also observes deployments it owns and reports API/worker health through the existing telemetry endpoint, so a dead agent naturally turns runtime state stale instead of leaving a tenant green forever.
+
+The provisioner only creates the local CrowdRelay instance. Public DNS/edge routing remains a separate infrastructure step: after success the UI shows the provisioner worker and allocated localhost port that `crowdrelayBaseUrl` must route to.
+
+To enable the agent, configure three distinct secrets (`ADMIN`, `TELEMETRY`, `PROVISIONER`), install `deploy/provisioner.env.example` as `/etc/crowdrelay-control-plane/provisioner.env`, install the example systemd unit, and enable it. `CONTROL_PLANE_PROVISIONER_DEFAULT_IMAGE_TAG` should point at an immutable `sha-<40-char CrowdRelay commit>` image tag.
 
 ## API
 
@@ -66,8 +72,15 @@ PATCH /api/v1/tenants/:slug/branding
 POST  /api/v1/tenants/:slug/suspend
 POST  /api/v1/tenants/:slug/resume
 POST  /api/v1/tenants/:slug/provisioning/plan
+POST  /api/v1/tenants/:slug/provisioning/deploy
+GET   /api/v1/tenants/:slug/provisioning
+POST  /api/v1/tenants/:slug/provisioning/cancel
 GET   /api/v1/tenants/:slug/audit
 PUT   /api/v1/tenants/:slug/runtime
+POST  /api/v1/provisioner/jobs/claim
+POST  /api/v1/provisioner/jobs/:id/lease
+POST  /api/v1/provisioner/jobs/:id/succeed
+POST  /api/v1/provisioner/jobs/:id/fail
 ```
 
 ## Quality gates
@@ -85,4 +98,4 @@ Runtime health is classified server-side as `healthy`, `degraded`, `stale`, or `
 
 ## Caddy / Basic Auth
 
-The browser must use **Basic Auth only** at `control.virya.music`. A fetch that sets `Authorization: Bearer ...` replaces the browser's cached `Basic` header and triggers another `401 WWW-Authenticate` challenge. The checked-in Caddy example evaluates Basic at the edge and then injects `Bearer {$CONTROL_PLANE_ADMIN_TOKEN}` server-side only inside `reverse_proxy`. Runtime telemetry is the sole `/api/v1/*` route that bypasses Basic; it has its own backend Bearer secret. The admin token is never stored in `sessionStorage`, local storage, HTML, or the SPA bundle.
+The browser must use **Basic Auth only** at `control.virya.music`. A fetch that sets `Authorization: Bearer ...` replaces the browser's cached `Basic` header and triggers another `401 WWW-Authenticate` challenge. The checked-in Caddy example evaluates Basic at the edge and then injects `Bearer {$CONTROL_PLANE_ADMIN_TOKEN}` server-side only inside `reverse_proxy`. Runtime telemetry and `/api/v1/provisioner/*` are machine routes that bypass browser Basic; each has its own backend Bearer secret. The admin token is never stored in `sessionStorage`, local storage, HTML, or the SPA bundle.
