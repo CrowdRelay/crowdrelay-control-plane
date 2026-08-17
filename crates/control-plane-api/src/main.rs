@@ -1,0 +1,109 @@
+mod auth;
+mod config;
+mod error;
+mod model;
+mod routes;
+mod store;
+mod validation;
+
+use std::sync::Arc;
+
+use axum::{Json, Router, middleware, routing::get};
+use config::Config;
+use serde_json::json;
+use sqlx::postgres::PgPoolOptions;
+use tower_http::{
+    compression::CompressionLayer,
+    services::{ServeDir, ServeFile},
+    trace::TraceLayer,
+};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+#[derive(Clone)]
+pub struct AppState {
+    store: store::Store,
+    admin_token_hash: [u8; 32],
+    admin_actor: Arc<str>,
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "info,tower_http=info".into()),
+        )
+        .with(tracing_subscriber::fmt::layer().compact())
+        .init();
+
+    let config = Config::from_env()?;
+    let pool = PgPoolOptions::new()
+        .max_connections(8)
+        .min_connections(1)
+        .connect(&config.database_url)
+        .await?;
+    let store = store::Store::new(pool);
+    store.migrate().await?;
+    store
+        .ensure_virya(
+            config.virya_workspace_id,
+            &config.virya_crowdrelay_url,
+            &config.virya_signal_url,
+        )
+        .await?;
+
+    let state = AppState {
+        store,
+        admin_token_hash: config.admin_token_hash,
+        admin_actor: Arc::from(config.admin_actor),
+    };
+    let api = routes::router().route_layer(middleware::from_fn_with_state(
+        state.clone(),
+        auth::require_admin,
+    ));
+
+    let index = config.frontend_dist.join("index.html");
+    let static_files =
+        ServeDir::new(&config.frontend_dist).not_found_service(ServeFile::new(index));
+    let app = Router::new()
+        .route(
+            "/healthz/live",
+            get(|| async { Json(json!({"status":"ok"})) }),
+        )
+        .route("/healthz/ready", get(ready))
+        .nest("/api/v1", api)
+        .fallback_service(static_files)
+        .layer(CompressionLayer::new())
+        .layer(TraceLayer::new_for_http())
+        .with_state(state);
+
+    let listener = tokio::net::TcpListener::bind(config.bind).await?;
+    tracing::info!(address = %config.bind, "CrowdRelay Control Plane listening");
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
+    Ok(())
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        let _ = tokio::signal::ctrl_c().await;
+    };
+    #[cfg(unix)]
+    let terminate = async {
+        use tokio::signal::unix::{SignalKind, signal};
+        if let Ok(mut signal) = signal(SignalKind::terminate()) {
+            signal.recv().await;
+        }
+    };
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+    tokio::select! { _ = ctrl_c => {}, _ = terminate => {} }
+}
+
+async fn ready(
+    axum::extract::State(state): axum::extract::State<AppState>,
+) -> Result<Json<serde_json::Value>, error::ApiError> {
+    state.store.ping().await?;
+    Ok(Json(json!({"status":"ready"})))
+}

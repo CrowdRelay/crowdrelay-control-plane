@@ -1,0 +1,19 @@
+.PHONY: static web-install web-test web-build rust-fmt rust-check rust-clippy rust-test ci
+static:
+	python3 scripts/static-check.py
+	node scripts/check-web-source.mjs
+web-install:
+	cd frontend && npm install
+web-test:
+	cd frontend && npm test
+web-build:
+	cd frontend && npm run build && npm run budget
+rust-fmt:
+	cargo fmt --all -- --check
+rust-check:
+	cargo check --workspace --all-targets
+rust-clippy:
+	cargo clippy --workspace --all-targets --all-features -- -D warnings
+rust-test:
+	cargo test --workspace
+ci: static rust-fmt rust-check rust-clippy rust-test web-install web-test web-build

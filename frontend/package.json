@@ -1,0 +1,24 @@
+{
+  "name": "crowdrelay-control-plane-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "budget": "node ../scripts/check-web-budget.mjs",
+    "test": "node ../scripts/check-web-source.mjs"
+  },
+  "dependencies": {
+    "@tanstack/solid-query": "5.101.4",
+    "@tanstack/solid-router": "1.170.18",
+    "solid-js": "1.9.14"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "5.9.3",
+    "vite": "8.2.0",
+    "vite-plugin-solid": "2.11.14"
+  }
+}

@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: control_plane
+      POSTGRES_USER: control_plane
+      POSTGRES_PASSWORD: control-plane-local
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - control-plane-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U control_plane -d control_plane"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+volumes:
+  control-plane-pg:
