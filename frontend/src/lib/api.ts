@@ -1,4 +1,3 @@
-import { adminToken } from './auth'
 import type { AuditEntry, Palette, ProvisioningJob, TenantSummary } from './types'
 
 class ApiError extends Error {
@@ -6,13 +5,11 @@ class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = adminToken()
-  if (!token) throw new ApiError(401, 'Admin token required')
   const response = await fetch(`/api/v1${path}`, {
     ...init,
+    credentials: 'same-origin',
     headers: {
       'content-type': 'application/json',
-      authorization: `Bearer ${token}`,
       'x-request-id': crypto.randomUUID(),
       ...init?.headers,
     },
@@ -25,7 +22,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  overview: () => request<{ tenants: number; healthy: number; degraded: number }>('/overview'),
+  overview: () => request<{ tenants: number; healthy: number; degraded: number; stale: number; unknown: number; runtimeStaleAfterSeconds: number }>('/overview'),
   tenants: () => request<{ items: TenantSummary[] }>('/tenants'),
   tenant: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}`),
   createTenant: (input: { slug: string; displayName: string; workspaceId?: string; crowdrelayBaseUrl?: string; signalBaseUrl?: string; brandingPalette?: Palette }) =>

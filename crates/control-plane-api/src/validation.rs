@@ -1,4 +1,9 @@
-use crate::{error::ApiError, model::BrandingPalette};
+use chrono::{Duration, Utc};
+
+use crate::{
+    error::ApiError,
+    model::{BrandingPalette, RuntimeReportRequest},
+};
 
 pub fn slug(value: &str) -> Result<String, ApiError> {
     let value = value.trim().to_ascii_lowercase();
@@ -32,6 +37,63 @@ pub fn base_url(value: Option<String>) -> Result<Option<String>, ApiError> {
         }
         Ok(parsed.as_str().trim_end_matches('/').to_owned())
     }).transpose()
+}
+
+pub fn desired_version(value: Option<String>) -> Result<Option<String>, ApiError> {
+    value
+        .map(|raw| {
+            let value = raw.trim();
+            if value.is_empty() {
+                return Ok(None);
+            }
+            if value.len() > 128
+                || value.chars().any(char::is_whitespace)
+                || value.chars().any(char::is_control)
+            {
+                return Err(ApiError::InvalidInput(
+                    "desiredVersion must be at most 128 non-whitespace characters".to_owned(),
+                ));
+            }
+            Ok(Some(value.to_owned()))
+        })
+        .transpose()
+        .map(Option::flatten)
+}
+
+pub fn runtime_report(input: &RuntimeReportRequest) -> Result<(), ApiError> {
+    if input.schema_version.is_some_and(|value| value < 0) {
+        return Err(ApiError::InvalidInput(
+            "schemaVersion cannot be negative".to_owned(),
+        ));
+    }
+    if input.outbox_pending.is_some_and(|value| value < 0)
+        || input.queue_lag.is_some_and(|value| value < 0)
+    {
+        return Err(ApiError::InvalidInput(
+            "runtime counters cannot be negative".to_owned(),
+        ));
+    }
+    if let Some(sha) = &input.deployed_sha {
+        if !(7..=128).contains(&sha.len()) || !sha.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(ApiError::InvalidInput(
+                "deployedSha must be a 7-128 character hexadecimal identifier".to_owned(),
+            ));
+        }
+    }
+    if let Some(observed_at) = input.last_heartbeat_at.as_ref() {
+        let now = Utc::now();
+        if observed_at > &(now + Duration::minutes(5)) {
+            return Err(ApiError::InvalidInput(
+                "lastHeartbeatAt cannot be more than 5 minutes in the future".to_owned(),
+            ));
+        }
+        if observed_at < &(now - Duration::days(30)) {
+            return Err(ApiError::InvalidInput(
+                "lastHeartbeatAt cannot be more than 30 days old".to_owned(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn rgb(value: &str) -> Option<[f64; 3]> {
@@ -117,5 +179,29 @@ mod tests {
             danger: "#ef4444".into(),
         };
         assert!(palette(Some(input)).is_err());
+    }
+
+    #[test]
+    fn normalizes_or_rejects_provisioning_versions() {
+        assert_eq!(
+            desired_version(Some("  0123456  ".into())).unwrap(),
+            Some("0123456".into())
+        );
+        assert_eq!(desired_version(Some("   ".into())).unwrap(), None);
+        assert!(desired_version(Some("bad version".into())).is_err());
+    }
+
+    #[test]
+    fn rejects_impossible_runtime_values() {
+        let bad = RuntimeReportRequest {
+            api_healthy: Some(true),
+            worker_healthy: Some(true),
+            schema_version: Some(-1),
+            deployed_sha: Some("abcdef0".into()),
+            outbox_pending: Some(0),
+            queue_lag: Some(0),
+            last_heartbeat_at: Some(Utc::now()),
+        };
+        assert!(runtime_report(&bad).is_err());
     }
 }

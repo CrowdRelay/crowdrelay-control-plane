@@ -1,6 +1,5 @@
 import { Link, Outlet } from '@tanstack/solid-router'
 import type { Component } from 'solid-js'
-import { adminToken, setAdminToken } from '../lib/auth'
 
 export const Shell: Component = () => (
   <div class="app-shell">
@@ -10,12 +9,12 @@ export const Shell: Component = () => (
         <Link to="/" activeProps={{ class: 'active' }}>Overview</Link>
         <Link to="/tenants" activeProps={{ class: 'active' }}>Tenants</Link>
       </nav>
-      <div class="sidebar-foot"><span class={`auth-dot ${adminToken() ? 'ok' : ''}`} />{adminToken() ? 'Admin session loaded' : 'Admin token required'}</div>
+      <div class="sidebar-foot"><span class="auth-dot ok" />Edge-authenticated</div>
     </aside>
     <main class="content">
       <header class="topbar">
         <div><span class="eyebrow">PLATFORM</span><strong>Operations</strong></div>
-        <button class="ghost" onClick={() => setAdminToken('')}>Lock</button>
+        <span class="edge-auth">Basic Auth · edge</span>
       </header>
       <Outlet />
     </main>

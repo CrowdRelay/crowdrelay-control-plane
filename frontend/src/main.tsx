@@ -1,7 +1,6 @@
 import { render } from 'solid-js/web'
 import { QueryClient, QueryClientProvider } from '@tanstack/solid-query'
 import { RouterProvider, createRootRoute, createRoute, createRouter, lazyRouteComponent } from '@tanstack/solid-router'
-import { AuthGate } from './pages/AuthGate'
 import { Shell } from './components/Shell'
 import './styles.css'
 
@@ -9,7 +8,7 @@ const OverviewPage = lazyRouteComponent(() => import('./pages/OverviewPage'), 'O
 const TenantsPage = lazyRouteComponent(() => import('./pages/TenantsPage'), 'TenantsPage')
 const TenantPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'TenantPage')
 
-const rootRoute = createRootRoute({ component: () => <AuthGate><Shell /></AuthGate> })
+const rootRoute = createRootRoute({ component: Shell })
 const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: OverviewPage })
 const tenantsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants', component: TenantsPage })
 const tenantRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug', component: TenantPage })

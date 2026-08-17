@@ -11,12 +11,13 @@ use crate::{
     AppState,
     error::ApiError,
     model::{
-        CreateTenantRequest, PlanProvisioningRequest, RuntimeReportRequest, UpdateBrandingRequest,
+        CreateTenantRequest, PlanProvisioningRequest, RuntimeHealth, RuntimeReportRequest,
+        UpdateBrandingRequest,
     },
     validation,
 };
 
-pub fn router() -> Router<AppState> {
+pub fn admin_router() -> Router<AppState> {
     Router::new()
         .route("/overview", get(overview))
         .route("/tenants", get(list_tenants).post(create_tenant))
@@ -29,10 +30,13 @@ pub fn router() -> Router<AppState> {
         .route("/tenants/{slug}/resume", post(resume_tenant))
         .route("/tenants/{slug}/provisioning/plan", post(plan_provisioning))
         .route("/tenants/{slug}/audit", get(audit))
-        .route(
-            "/tenants/{slug}/runtime",
-            axum::routing::put(report_runtime),
-        )
+}
+
+pub fn telemetry_router() -> Router<AppState> {
+    Router::new().route(
+        "/tenants/{slug}/runtime",
+        axum::routing::put(report_runtime),
+    )
 }
 
 async fn overview(State(state): State<AppState>) -> Result<Json<serde_json::Value>, ApiError> {
@@ -40,23 +44,28 @@ async fn overview(State(state): State<AppState>) -> Result<Json<serde_json::Valu
     let total = tenants.len();
     let healthy = tenants
         .iter()
-        .filter(|item| {
-            item.runtime
-                .as_ref()
-                .is_some_and(|r| r.api_healthy == Some(true) && r.worker_healthy == Some(true))
-        })
+        .filter(|item| item.runtime_health == RuntimeHealth::Healthy)
         .count();
     let degraded = tenants
         .iter()
-        .filter(|item| {
-            item.runtime
-                .as_ref()
-                .is_some_and(|r| r.api_healthy == Some(false) || r.worker_healthy == Some(false))
-        })
+        .filter(|item| item.runtime_health == RuntimeHealth::Degraded)
         .count();
-    Ok(Json(
-        json!({"tenants": total, "healthy": healthy, "degraded": degraded}),
-    ))
+    let stale = tenants
+        .iter()
+        .filter(|item| item.runtime_health == RuntimeHealth::Stale)
+        .count();
+    let unknown = tenants
+        .iter()
+        .filter(|item| item.runtime_health == RuntimeHealth::Unknown)
+        .count();
+    Ok(Json(json!({
+        "tenants": total,
+        "healthy": healthy,
+        "degraded": degraded,
+        "stale": stale,
+        "unknown": unknown,
+        "runtimeStaleAfterSeconds": state.runtime_stale_after_seconds,
+    })))
 }
 
 async fn list_tenants(State(state): State<AppState>) -> Result<Json<serde_json::Value>, ApiError> {
@@ -84,7 +93,7 @@ async fn create_tenant(
     let request_id = request_id(&headers);
     let tenant = state
         .store
-        .create_tenant(input, palette, &state.admin_actor, request_id)
+        .create_tenant(input, palette, state.admin_actor.as_ref(), request_id)
         .await?;
     Ok((StatusCode::CREATED, Json(json!(tenant))))
 }
@@ -100,7 +109,12 @@ async fn update_branding(
     Ok(Json(json!(
         state
             .store
-            .update_branding(&slug, palette, &state.admin_actor, request_id(&headers))
+            .update_branding(
+                &slug,
+                palette,
+                state.admin_actor.as_ref(),
+                request_id(&headers)
+            )
             .await?
     )))
 }
@@ -114,7 +128,12 @@ async fn suspend_tenant(
     Ok(Json(json!(
         state
             .store
-            .set_status(&slug, "suspended", &state.admin_actor, request_id(&headers))
+            .set_status(
+                &slug,
+                "suspended",
+                state.admin_actor.as_ref(),
+                request_id(&headers)
+            )
             .await?
     )))
 }
@@ -128,7 +147,12 @@ async fn resume_tenant(
     Ok(Json(json!(
         state
             .store
-            .set_status(&slug, "active", &state.admin_actor, request_id(&headers))
+            .set_status(
+                &slug,
+                "active",
+                state.admin_actor.as_ref(),
+                request_id(&headers)
+            )
             .await?
     )))
 }
@@ -140,16 +164,24 @@ async fn plan_provisioning(
     Json(input): Json<PlanProvisioningRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
     let slug = validation::slug(&raw_slug)?;
-    let job = state
+    let desired_version = validation::desired_version(input.desired_version)?;
+    let (job, created) = state
         .store
         .plan_provisioning(
             &slug,
-            input.desired_version,
-            &state.admin_actor,
+            desired_version,
+            state.admin_actor.as_ref(),
             request_id(&headers),
         )
         .await?;
-    Ok((StatusCode::CREATED, Json(json!(job))))
+    Ok((
+        if created {
+            StatusCode::CREATED
+        } else {
+            StatusCode::OK
+        },
+        Json(json!(job)),
+    ))
 }
 
 async fn report_runtime(
@@ -159,10 +191,16 @@ async fn report_runtime(
     Json(input): Json<RuntimeReportRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let slug = validation::slug(&raw_slug)?;
+    validation::runtime_report(&input)?;
     Ok(Json(json!(
         state
             .store
-            .report_runtime(&slug, input, &state.admin_actor, request_id(&headers))
+            .report_runtime(
+                &slug,
+                input,
+                state.telemetry_actor.as_ref(),
+                request_id(&headers)
+            )
             .await?
     )))
 }

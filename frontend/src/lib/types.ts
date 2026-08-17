@@ -37,7 +37,9 @@ export type Tenant = {
   updatedAt: string
 }
 
-export type TenantSummary = Tenant & { runtime: RuntimeStatus | null }
+export type RuntimeHealth = 'healthy' | 'degraded' | 'stale' | 'unknown'
+
+export type TenantSummary = Tenant & { runtime: RuntimeStatus | null; runtimeHealth: RuntimeHealth }
 
 export type AuditEntry = {
   id: string

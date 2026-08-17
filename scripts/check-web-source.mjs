@@ -3,8 +3,30 @@ import path from 'node:path'
 const root = path.resolve(import.meta.dirname, '..')
 const main = fs.readFileSync(path.join(root, 'frontend/src/main.tsx'), 'utf8')
 const tenant = fs.readFileSync(path.join(root, 'frontend/src/pages/TenantPage.tsx'), 'utf8')
+const overview = fs.readFileSync(path.join(root, 'frontend/src/pages/OverviewPage.tsx'), 'utf8')
 const api = fs.readFileSync(path.join(root, 'frontend/src/lib/api.ts'), 'utf8')
+const types = fs.readFileSync(path.join(root, 'frontend/src/lib/types.ts'), 'utf8')
+const vite = fs.readFileSync(path.join(root, 'frontend/vite.config.ts'), 'utf8')
+const caddy = fs.readFileSync(path.join(root, 'deploy/Caddyfile.control.virya.music.example'), 'utf8')
+const frontendFiles = []
+const collect = (dir) => {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const file = path.join(dir, entry.name)
+    if (entry.isDirectory()) collect(file)
+    else if (/\.(?:ts|tsx)$/.test(entry.name)) frontendFiles.push(fs.readFileSync(file, 'utf8'))
+  }
+}
+collect(path.join(root, 'frontend/src'))
+const frontend = frontendFiles.join('\n')
 if (!main.includes('@tanstack/solid-query') || !main.includes('@tanstack/solid-router')) throw new Error('Solid Query/Router contract missing')
+if (main.includes('AuthGate')) throw new Error('browser application-token gate must not return')
 if (!tenant.includes('Synesthesia') || !tenant.includes('Virya only')) throw new Error('Synesthesia product boundary UI missing')
-if (!api.includes("authorization: `Bearer ${token}`")) throw new Error('admin bearer boundary missing')
-console.log('CONTROL_PLANE_WEB_SOURCE=PASS')
+if (/authorization/i.test(api) || /x-control-plane-token/i.test(api)) throw new Error('SPA must leave browser Basic Authorization untouched')
+if (/adminToken|CONTROL_PLANE_ADMIN_TOKEN|crowdrelay-control-plane-token/i.test(frontend)) throw new Error('SPA must not store or receive the platform admin secret')
+if (!vite.includes('CONTROL_PLANE_ADMIN_TOKEN') || !vite.includes("setHeader('Authorization', `Bearer ${adminToken}`)")) throw new Error('local Vite proxy must inject admin Bearer server-side')
+if (!caddy.includes('basic_auth') || !caddy.includes('header_up Authorization "Bearer {$CONTROL_PLANE_ADMIN_TOKEN}"')) throw new Error('production edge must inject admin Bearer after Basic auth')
+if (caddy.indexOf('handle @runtime') > caddy.indexOf('basic_auth')) throw new Error('machine telemetry must bypass browser Basic and use its own backend Bearer')
+if (caddy.includes('{http.request.header.X-Control-Plane-Token}')) throw new Error('Caddy must not trust a browser-supplied app token')
+if (!types.includes("'healthy' | 'degraded' | 'stale' | 'unknown'")) throw new Error('runtime freshness states missing')
+if (!overview.includes('tenant.runtimeHealth') || !tenant.includes('t.runtimeHealth')) throw new Error('runtime health must be backend-authoritative in all views')
+console.log('CONTROL_PLANE_WEB_SOURCE=PASS auth=edge-basic+server-bearer runtime-health=server-authoritative')

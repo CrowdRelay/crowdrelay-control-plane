@@ -22,21 +22,22 @@ Axum 0.8's typed `State` model is used for global application state, while the a
 
 ```bash
 cp .env.example .env
-# set CONTROL_PLANE_ADMIN_TOKEN to a random 32+ character secret
+# set CONTROL_PLANE_ADMIN_TOKEN and CONTROL_PLANE_TELEMETRY_TOKEN to different random 32+ character secrets
 
 docker compose up -d postgres
 export DATABASE_URL=postgres://control_plane:control-plane-local@127.0.0.1:5433/control_plane
 export CONTROL_PLANE_ADMIN_TOKEN='replace-with-a-long-random-token'
+export CONTROL_PLANE_TELEMETRY_TOKEN='replace-with-a-different-long-random-token'
 
 cd frontend
-npm install
+npm ci
 npm run dev
 
 # separate shell
 cargo run -p crowdrelay-control-plane-api
 ```
 
-Vite proxies `/api` and `/healthz` to `127.0.0.1:8090`.
+Vite proxies `/api` and `/healthz` to `127.0.0.1:8090`. In local development the Vite **server-side proxy** injects `CONTROL_PLANE_ADMIN_TOKEN` as upstream Bearer auth; the token is never compiled into the browser bundle.
 
 ## First tenant: Virya
 
@@ -44,19 +45,15 @@ On API startup, the registry creates or reconciles a `virya` row. It uses `brand
 
 ## Tenant provisioning v1
 
-`POST /api/v1/tenants/:slug/provisioning/plan` creates a durable, audited provisioning plan. It intentionally does **not** run SSH/Docker commands from a web request. A future deployment agent/worker can consume approved jobs through a narrow capability boundary.
+`POST /api/v1/tenants/:slug/provisioning/plan` creates a durable, audited provisioning plan. At most one `planned`/`approved`/`running` plan may exist per tenant; concurrent duplicate clicks return the existing active plan. It intentionally does **not** run SSH/Docker commands from a web request. A future deployment agent/worker can consume approved jobs through a narrow capability boundary.
 
 This keeps the Control Plane from becoming an RCE surface or a single point of failure.
 
 ## API
 
-All `/api/v1/*` routes require:
+Operator routes require `Authorization: Bearer <CONTROL_PLANE_ADMIN_TOKEN>`. Direct API clients may send that header themselves. The production browser SPA sends **no application token at all**: the browser authenticates to Caddy with Basic Auth, then Caddy replaces the verified Basic header with the server-held admin Bearer token only on the localhost upstream hop. This avoids the single-`Authorization` header collision that causes Basic challenge loops and keeps the platform-admin secret out of browser storage and JavaScript. See `deploy/Caddyfile.control.virya.music.example`.
 
-```text
-Authorization: Bearer <CONTROL_PLANE_ADMIN_TOKEN>
-```
-
-The server hashes the configured and supplied token with SHA-256 and compares hashes in constant time.
+`PUT /api/v1/tenants/:slug/runtime` is a separate machine boundary and accepts only `Authorization: Bearer <CONTROL_PLANE_TELEMETRY_TOKEN>`. The admin token cannot report telemetry and the telemetry token cannot mutate tenants. Both configured/supplied secrets are SHA-256 hashed and compared in constant time.
 
 Key routes:
 
@@ -80,4 +77,12 @@ make static
 make ci
 ```
 
-Web production budget is intentionally small: 260 KiB raw JS and 80 KiB raw CSS. Once the first lockfile is generated in a networked environment, commit it and switch CI/Docker from `npm install` to `npm ci`.
+Web production budget is intentionally small: 260 KiB raw JS and 80 KiB raw CSS. The committed lockfile is used with `npm ci` in CI/Docker for deterministic installs.
+
+## Runtime freshness
+
+Runtime health is classified server-side as `healthy`, `degraded`, `stale`, or `unknown`. `CONTROL_PLANE_RUNTIME_STALE_AFTER_SECONDS` defaults to 180 seconds; a once-healthy tenant therefore cannot remain green forever after its reporter dies. Heartbeat-only refreshes update the current status row without appending an audit row; audit is reserved for first observation or meaningful health/schema/deployment changes.
+
+## Caddy / Basic Auth
+
+The browser must use **Basic Auth only** at `control.virya.music`. A fetch that sets `Authorization: Bearer ...` replaces the browser's cached `Basic` header and triggers another `401 WWW-Authenticate` challenge. The checked-in Caddy example evaluates Basic at the edge and then injects `Bearer {$CONTROL_PLANE_ADMIN_TOKEN}` server-side only inside `reverse_proxy`. Runtime telemetry is the sole `/api/v1/*` route that bypasses Basic; it has its own backend Bearer secret. The admin token is never stored in `sessionStorage`, local storage, HTML, or the SPA bundle.

@@ -1,0 +1,25 @@
+# control.virya.music: browser credentials and application credentials use
+# separate trust boundaries. The browser only authenticates with Caddy Basic Auth;
+# the admin Bearer token is injected server-side and never reaches the SPA.
+control.virya.music {
+    @runtime path /api/v1/tenants/*/runtime
+    handle @runtime {
+        # Machine telemetry bypasses browser Basic Auth and is authenticated by
+        # CONTROL_PLANE_TELEMETRY_TOKEN in the Rust API (Authorization: Bearer).
+        reverse_proxy 127.0.0.1:8090
+    }
+
+    handle {
+        basic_auth {
+            # Replace with the existing operator user + Caddy password hash.
+            operator {$CONTROL_PLANE_BASIC_AUTH_HASH}
+        }
+
+        reverse_proxy 127.0.0.1:8090 {
+            # basic_auth has already verified the browser here. Replace the
+            # incoming Basic Authorization only for localhost upstream so the
+            # Rust API sees its independent admin credential.
+            header_up Authorization "Bearer {$CONTROL_PLANE_ADMIN_TOKEN}"
+        }
+    }
+}

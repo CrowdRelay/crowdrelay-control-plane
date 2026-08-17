@@ -3,7 +3,7 @@ static:
 	python3 scripts/static-check.py
 	node scripts/check-web-source.mjs
 web-install:
-	cd frontend && npm install
+	cd frontend && npm ci --no-audit --no-fund
 web-test:
 	cd frontend && npm test
 web-build:
@@ -11,9 +11,9 @@ web-build:
 rust-fmt:
 	cargo fmt --all -- --check
 rust-check:
-	cargo check --workspace --all-targets
+	cargo check --locked --workspace --all-targets
 rust-clippy:
-	cargo clippy --workspace --all-targets --all-features -- -D warnings
+	cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 rust-test:
-	cargo test --workspace
+	cargo test --locked --workspace
 ci: static rust-fmt rust-check rust-clippy rust-test web-install web-test web-build

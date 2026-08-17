@@ -6,7 +6,7 @@ mod routes;
 mod store;
 mod validation;
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use axum::{Json, Router, middleware, routing::get};
 use config::Config;
@@ -23,7 +23,10 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 pub struct AppState {
     store: store::Store,
     admin_token_hash: [u8; 32],
+    telemetry_token_hash: [u8; 32],
     admin_actor: Arc<str>,
+    telemetry_actor: Arc<str>,
+    runtime_stale_after_seconds: i64,
 }
 
 #[tokio::main]
@@ -40,9 +43,26 @@ async fn main() -> anyhow::Result<()> {
     let pool = PgPoolOptions::new()
         .max_connections(8)
         .min_connections(1)
+        .acquire_timeout(Duration::from_secs(5))
+        .idle_timeout(Some(Duration::from_secs(10 * 60)))
+        .max_lifetime(Some(Duration::from_secs(30 * 60)))
+        .after_connect(|connection, _meta| {
+            Box::pin(async move {
+                sqlx::query("SET statement_timeout = '5s'")
+                    .execute(&mut *connection)
+                    .await?;
+                sqlx::query("SET lock_timeout = '2s'")
+                    .execute(&mut *connection)
+                    .await?;
+                sqlx::query("SET idle_in_transaction_session_timeout = '15s'")
+                    .execute(&mut *connection)
+                    .await?;
+                Ok(())
+            })
+        })
         .connect(&config.database_url)
         .await?;
-    let store = store::Store::new(pool);
+    let store = store::Store::new(pool, config.runtime_stale_after_seconds);
     store.migrate().await?;
     store
         .ensure_virya(
@@ -55,12 +75,20 @@ async fn main() -> anyhow::Result<()> {
     let state = AppState {
         store,
         admin_token_hash: config.admin_token_hash,
+        telemetry_token_hash: config.telemetry_token_hash,
         admin_actor: Arc::from(config.admin_actor),
+        telemetry_actor: Arc::from(config.telemetry_actor),
+        runtime_stale_after_seconds: config.runtime_stale_after_seconds,
     };
-    let api = routes::router().route_layer(middleware::from_fn_with_state(
+    let admin_api = routes::admin_router().route_layer(middleware::from_fn_with_state(
         state.clone(),
         auth::require_admin,
     ));
+    let telemetry_api = routes::telemetry_router().route_layer(middleware::from_fn_with_state(
+        state.clone(),
+        auth::require_telemetry,
+    ));
+    let api = Router::new().merge(admin_api).merge(telemetry_api);
 
     let index = config.frontend_dist.join("index.html");
     let static_files =

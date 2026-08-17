@@ -1,18 +1,18 @@
 FROM node:22-alpine AS web
 WORKDIR /src/frontend
-COPY frontend/package.json ./package.json
-RUN npm install --no-audit --no-fund
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 COPY scripts/ ../scripts/
 RUN npm run build && npm run budget
 
-FROM rust:1.97-alpine AS rust
+FROM rust:1.97.1-alpine AS rust
 RUN apk add --no-cache musl-dev pkgconfig openssl-dev
 WORKDIR /src
-COPY Cargo.toml ./
+COPY Cargo.toml Cargo.lock ./
 COPY crates/ ./crates/
 COPY migrations/ ./migrations/
-RUN cargo build --release
+RUN cargo build --release --locked
 
 FROM alpine:3.22
 RUN addgroup -S controlplane && adduser -S -G controlplane controlplane

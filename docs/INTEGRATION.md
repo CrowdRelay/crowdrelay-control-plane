@@ -42,7 +42,7 @@ Deployment pipelines or a future narrow deployment agent can report runtime stat
 
 `PUT /api/v1/tenants/:slug/runtime`
 
-The payload supports API/worker health, schema version, deployment SHA, outbox pending count, queue lag and heartbeat time. This moves infrastructure status out of Virya Staff without making the Control Plane a dependency of tenant traffic.
+This endpoint uses a dedicated `CONTROL_PLANE_TELEMETRY_TOKEN`, not the operator/admin credential. The payload supports API/worker health, schema version, deployment SHA, outbox pending count, queue lag and heartbeat time. The backend classifies each tenant as `healthy`, `degraded`, `stale`, or `unknown` using the server-side freshness threshold. A heartbeat refresh alone is state, not an operator audit event; only first observation and meaningful health/schema/SHA changes are appended to the audit log. This moves infrastructure status out of Virya Staff without making the Control Plane a dependency of tenant traffic.
 
 ## Provisioning
 
