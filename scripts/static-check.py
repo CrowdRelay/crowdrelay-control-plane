@@ -42,6 +42,7 @@ checks = {
     "rust_1971_ci": (root / ".github/workflows/ci.yml", "toolchain: 1.97.1"),
     "docker_cargo_locked": (root / "Dockerfile", "cargo build --release --locked"),
     "ci_cargo_locked": (root / ".github/workflows/ci.yml", "cargo check --locked"),
+    "spa_deep_link_200": (root / "crates/control-plane-api/src/main.rs", ".fallback(ServeFile::new(index))"),
 }
 for name, (file, needle) in checks.items():
     text = file.read_text()
@@ -49,6 +50,9 @@ for name, (file, needle) in checks.items():
 
 store = (root / "crates/control-plane-api/src/store.rs").read_text()
 assert 'action: "tenant.runtime.reported"' not in store, "heartbeat write amplification regression: every report is audited"
+main = (root / "crates/control-plane-api/src/main.rs").read_text()
+assert ".not_found_service(ServeFile::new(index))" not in main, \
+    "SPA deep-link fallback must preserve index.html's 200 status instead of forcing 404"
 spa = (root / "frontend/src/lib/api.ts").read_text()
 frontend = "\n".join(path.read_text() for path in (root / "frontend/src").rglob("*.ts*") if path.is_file())
 auth = (root / "crates/control-plane-api/src/auth.rs").read_text()

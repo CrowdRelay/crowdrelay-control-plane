@@ -110,8 +110,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(provisioner_api);
 
     let index = config.frontend_dist.join("index.html");
-    let static_files =
-        ServeDir::new(&config.frontend_dist).not_found_service(ServeFile::new(index));
+    let static_files = ServeDir::new(&config.frontend_dist).fallback(ServeFile::new(index));
     let app = Router::new()
         .route(
             "/healthz/live",
