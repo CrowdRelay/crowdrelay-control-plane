@@ -240,21 +240,21 @@ mod tests {
     fn runtime_health_respects_freshness_before_boolean_health() {
         let now = Utc::now();
         assert_eq!(
-            RuntimeHealth::classify(None, now.clone(), 180),
+            RuntimeHealth::classify(None, now, 180),
             RuntimeHealth::Unknown
         );
         assert_eq!(
             RuntimeHealth::classify(
-                Some(&status(Some(true), Some(true), now.clone())),
-                now.clone(),
+                Some(&status(Some(true), Some(true), now)),
+                now,
                 180,
             ),
             RuntimeHealth::Healthy
         );
         assert_eq!(
             RuntimeHealth::classify(
-                Some(&status(Some(false), Some(true), now.clone())),
-                now.clone(),
+                Some(&status(Some(false), Some(true), now)),
+                now,
                 180,
             ),
             RuntimeHealth::Degraded
@@ -264,15 +264,15 @@ mod tests {
                 Some(&status(
                     Some(true),
                     Some(true),
-                    now.clone() - Duration::seconds(181),
+                    now - Duration::seconds(181),
                 )),
-                now.clone(),
+                now,
                 180,
             ),
             RuntimeHealth::Stale
         );
         assert_eq!(
-            RuntimeHealth::classify(Some(&status(Some(true), None, now.clone())), now, 180,),
+            RuntimeHealth::classify(Some(&status(Some(true), None, now)), now, 180,),
             RuntimeHealth::Unknown
         );
     }
