@@ -8,6 +8,8 @@ and never executes shell text from a tenant or provisioning plan.
 from __future__ import annotations
 
 import argparse
+import collections
+import concurrent.futures
 import fcntl
 import json
 import os
@@ -16,6 +18,7 @@ import secrets
 import socket
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -29,8 +32,14 @@ SHA_TAG = re.compile(r"^sha-([0-9a-f]{40})$")
 COUNTRY = re.compile(r"^[A-Z]{2}$")
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 PALETTE_KEYS = {"primary", "primaryContrast", "accent", "surface", "surfaceElevated", "text", "textMuted", "success", "warning", "danger"}
+DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 MAX_HTTP_BYTES = 2 * 1024 * 1024
 CONTROL_PLANE_SECRET_ENV = {"CONTROL_PLANE_ADMIN_TOKEN", "CONTROL_PLANE_TELEMETRY_TOKEN", "CONTROL_PLANE_PROVISIONER_TOKEN"}
+# Docker pull/compose output is unbounded (per-layer progress, container logs).
+# Keep only a diagnostic tail in RAM: enough to troubleshoot a failure, never
+# enough for one noisy deployment to grow the agent's resident set without bound.
+MAX_OUTPUT_TAIL_LINES = 200
+MAX_OUTPUT_TAIL_LINE_BYTES = 2000
 
 
 class ProvisionError(RuntimeError):
@@ -74,6 +83,9 @@ class Config:
         )
         self.observer_seconds = max(
             10.0, min(float(os.environ.get("CONTROL_PLANE_PROVISIONER_OBSERVER_SECONDS", "30")), 300.0)
+        )
+        self.observer_concurrency = max(
+            1, min(int(os.environ.get("CONTROL_PLANE_PROVISIONER_OBSERVER_CONCURRENCY", "4")), 16)
         )
         self.postgres_image = os.environ.get(
             "CONTROL_PLANE_PROVISIONER_POSTGRES_IMAGE", "postgres:18-alpine"
@@ -214,9 +226,16 @@ def q(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
-def render_compose(plan: dict[str, Any], port: int, postgres_image: str) -> str:
-    api_image = q(plan["apiImage"])
-    worker_image = q(plan["workerImage"])
+def render_compose(
+    plan: dict[str, Any],
+    port: int,
+    postgres_image: str,
+    pinned: dict[str, str],
+) -> str:
+    # The stack always runs digest-pinned references, never the mutable
+    # sha-<commit> tag the plan requested.
+    api_image = q(pinned["api"])
+    worker_image = q(pinned["worker"])
     postgres = q(postgres_image)
     return f'''services:
   postgres:
@@ -435,8 +454,42 @@ def write_once(path: Path, content: str, mode: int) -> None:
     fd = os.open(path, flags, mode)
     try:
         os.write(fd, content.encode("utf-8"))
+        os.fsync(fd)
     finally:
         os.close(fd)
+    fsync_directory(path.parent)
+
+
+def fsync_directory(directory: Path) -> None:
+    fd = os.open(directory, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    except OSError:
+        # Directory fsync is unsupported on some filesystems; the rename itself
+        # is still atomic there, so this must not fail a deployment.
+        pass
+    finally:
+        os.close(fd)
+
+
+def atomic_write(path: Path, content: str, mode: int) -> None:
+    """Replace ``path`` atomically.
+
+    A host crash or a concurrently reading observer must never see a truncated
+    runtime config or a half-written deployment record: readers observe either
+    the previous file or the complete new one.
+    """
+    temporary = path.with_name(f".{path.name}.tmp")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    fd = os.open(temporary, flags, mode)
+    try:
+        os.write(fd, content.encode("utf-8"))
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    os.chmod(temporary, mode)
+    os.replace(temporary, path)
+    fsync_directory(path.parent)
 
 
 def prepare_files(config: Config, plan: dict[str, Any]) -> tuple[Path, int]:
@@ -451,17 +504,17 @@ def prepare_files(config: Config, plan: dict[str, Any]) -> tuple[Path, int]:
         tenant_dir.mkdir(mode=0o700, exist_ok=True)
         os.chmod(tenant_dir, 0o700)
         port = choose_port(config, tenant_dir)
+        # Secrets stay write-once: an upgrade regenerates runtime config, never
+        # the credentials an already-provisioned Postgres volume was seeded with.
         write_once(tenant_dir / ".env", create_secret_env(plan), 0o600)
-        (tenant_dir / "tenant.env").write_text(create_runtime_env(plan), encoding="utf-8")
-        os.chmod(tenant_dir / "tenant.env", 0o600)
-        (tenant_dir / "bootstrap.json").write_text(
-            json.dumps(bootstrap(plan), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        atomic_write(tenant_dir / "tenant.env", create_runtime_env(plan), 0o600)
+        atomic_write(
+            tenant_dir / "bootstrap.json",
+            json.dumps(bootstrap(plan), ensure_ascii=False, indent=2) + "\n",
+            0o644,
         )
-        os.chmod(tenant_dir / "bootstrap.json", 0o644)
-        (tenant_dir / "compose.yaml").write_text(
-            render_compose(plan, port, config.postgres_image), encoding="utf-8"
-        )
-        os.chmod(tenant_dir / "compose.yaml", 0o644)
+        # compose.yaml is written later, once the requested tag has been pulled
+        # and resolved to an immutable digest.
         deployment_path = tenant_dir / "deployment.json"
         try:
             deployment = json.loads(deployment_path.read_text(encoding="utf-8")) if deployment_path.exists() else {}
@@ -475,10 +528,9 @@ def prepare_files(config: Config, plan: dict[str, Any]) -> tuple[Path, int]:
             "desiredVersion": plan["desiredVersion"],
             "crowdRelayBaseUrl": plan["crowdRelayBaseUrl"],
         })
-        deployment_path.write_text(
-            json.dumps(deployment, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        atomic_write(
+            deployment_path, json.dumps(deployment, indent=2, sort_keys=True) + "\n", 0o644
         )
-        os.chmod(deployment_path, 0o644)
         return tenant_dir, port
     finally:
         try:
@@ -497,6 +549,58 @@ def docker_subprocess_env() -> dict[str, str]:
     return child
 
 
+def run_bounded(
+    command: list[str],
+    *,
+    cwd: Path | None,
+    timeout: int,
+    error_code: str,
+) -> tuple[int, str]:
+    """Run a subprocess while holding only a bounded output tail in memory.
+
+    ``docker pull``/``compose up``/``logs`` emit unbounded progress output. The
+    previous implementation buffered every byte through ``subprocess.PIPE`` and
+    only truncated afterwards, so a noisy or hostile image could grow the agent's
+    resident set without bound. Here the reader thread keeps a fixed-size deque
+    of recent lines, which is all the failure diagnostics actually need.
+    """
+    try:
+        process = subprocess.Popen(  # noqa: S603 - fixed argv, never shell text
+            command,
+            cwd=cwd,
+            text=True,
+            errors="replace",
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env=docker_subprocess_env(),
+        )
+    except OSError as exc:
+        raise ProvisionError(error_code, type(exc).__name__) from exc
+
+    tail: collections.deque[str] = collections.deque(maxlen=MAX_OUTPUT_TAIL_LINES)
+
+    def drain() -> None:
+        stream = process.stdout
+        if stream is None:
+            return
+        for line in stream:
+            tail.append(line[:MAX_OUTPUT_TAIL_LINE_BYTES].rstrip("\n"))
+        stream.close()
+
+    reader = threading.Thread(target=drain, name="docker-output", daemon=True)
+    reader.start()
+    try:
+        returncode = process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        process.kill()
+        process.wait(timeout=30)
+        reader.join(timeout=5)
+        raise ProvisionError(error_code, f"TimeoutExpired after {timeout}s") from exc
+    reader.join(timeout=15)
+    return returncode, "\n".join(tail)
+
+
 def compose_cmd(config: Config, tenant_dir: Path, project: str, *args: str, timeout: int) -> str:
     command = [
         config.docker,
@@ -509,30 +613,177 @@ def compose_cmd(config: Config, tenant_dir: Path, project: str, *args: str, time
         str(tenant_dir / "compose.yaml"),
         *args,
     ]
-    try:
-        completed = subprocess.run(
-            command,
-            cwd=tenant_dir,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            timeout=timeout,
-            check=False,
-            env=docker_subprocess_env(),
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise ProvisionError("docker_compose_unavailable", type(exc).__name__) from exc
-    output = completed.stdout[-12000:]
-    if completed.returncode != 0:
+    returncode, output = run_bounded(
+        command, cwd=tenant_dir, timeout=timeout, error_code="docker_compose_unavailable"
+    )
+    if returncode != 0:
         print(output, file=sys.stderr)
         raise ProvisionError(
-            "docker_compose_failed", f"docker compose {' '.join(args[:2])} failed with exit {completed.returncode}"
+            "docker_compose_failed", f"docker compose {' '.join(args[:2])} failed with exit {returncode}"
         )
     return output
 
 
+def docker_cmd(config: Config, *args: str, timeout: int, error_code: str) -> str:
+    returncode, output = run_bounded(
+        [config.docker, *args], cwd=None, timeout=timeout, error_code=error_code
+    )
+    if returncode != 0:
+        print(output, file=sys.stderr)
+        raise ProvisionError(error_code, f"docker {args[0]} failed with exit {returncode}")
+    return output
+
+
+def inspect_image(config: Config, image: str) -> dict[str, Any]:
+    raw = docker_cmd(
+        config,
+        "image",
+        "inspect",
+        image,
+        "--format",
+        "{{json .}}",
+        timeout=60,
+        error_code="image_inspect_failed",
+    )
+    for line in reversed(raw.strip().splitlines()):
+        line = line.strip()
+        if line.startswith("{"):
+            try:
+                value = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(value, dict):
+                return value
+    raise ProvisionError("image_inspect_failed", f"docker image inspect returned no object for {image}")
+
+
+def pinned_image_reference(config: Config, image: str, expected_sha: str) -> str:
+    """Pull ``image`` and resolve it to an immutable ``repo@sha256:...`` reference.
+
+    An OCI tag is mutable: ``sha-<commit>`` can be re-pushed to point at different
+    bytes, so pinning the deployment to the tag pins nothing. The published image
+    carries ``org.opencontainers.image.revision``; requiring it to equal the
+    planned commit proves the bytes we are about to run were built from the
+    revision the Control Plane approved, and the resolved digest is what the
+    Compose stack is then locked to.
+    """
+    docker_cmd(config, "pull", "--quiet", image, timeout=600, error_code="image_pull_failed")
+    metadata = inspect_image(config, image)
+    config_section = metadata.get("Config")
+    labels = config_section.get("Labels") if isinstance(config_section, dict) else None
+    revision = labels.get("org.opencontainers.image.revision") if isinstance(labels, dict) else None
+    if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise ProvisionError(
+            "image_revision_missing",
+            f"{image} does not publish a 40-character org.opencontainers.image.revision label",
+        )
+    if revision != expected_sha:
+        raise ProvisionError(
+            "image_revision_mismatch",
+            f"{image} was built from revision {revision}, not the planned {expected_sha}",
+        )
+    repository = image.rpartition(":")[0]
+    prefix = f"{repository}@"
+    candidates = [
+        value
+        for value in (metadata.get("RepoDigests") or [])
+        if isinstance(value, str) and value.startswith(prefix) and DIGEST.fullmatch(value[len(prefix):])
+    ]
+    unique = sorted(set(candidates))
+    if not unique:
+        raise ProvisionError(
+            "image_digest_unresolved", f"{image} has no registry digest for {repository}"
+        )
+    if len(unique) > 1:
+        raise ProvisionError(
+            "image_digest_ambiguous", f"{image} resolves to multiple digests for {repository}"
+        )
+    return unique[0]
+
+
+def verify_release_digest_stability(
+    deployment: dict[str, Any], desired: str, key: str, resolved: str
+) -> None:
+    """Fail closed when a release identifier starts resolving to different bytes.
+
+    A retry of the same ``sha-<commit>`` release must run the same image. If the
+    tag has been re-pushed since the first successful resolution, the recorded
+    digest and the freshly resolved one disagree, and continuing would silently
+    run unreviewed bytes under an already-audited release identifier.
+    """
+    if deployment.get("desiredVersion") != desired:
+        return
+    previous = deployment.get(key)
+    if isinstance(previous, str) and previous and previous != resolved:
+        raise ProvisionError(
+            "image_digest_changed",
+            f"release {desired} previously resolved {key} to {previous} but now resolves to {resolved}",
+        )
+
+
 def renew(config: Config, job_id: str, token: str) -> None:
     api(config, "POST", f"/provisioner/jobs/{job_id}/lease", {"workerId": config.worker_id, "claimToken": token})
+
+
+class LeaseKeeper:
+    """Hold the provisioning lease for as long as this agent is really working.
+
+    Renewing only between deployment steps couples correctness to a fragile
+    inequality: the lease has to outlive the longest single blocking step (a
+    ``docker pull`` may block for the full 600 s timeout), or a second agent
+    reclaims a job whose deployment is still actively running. Renewing on a
+    short fixed cadence from a background thread makes the invariant hold for
+    any configured lease length instead of one specific pair of numbers.
+
+    A lease that is refused terminally (the job was reclaimed or already ended)
+    is latched, so the deployment aborts instead of continuing to mutate Docker
+    state it no longer owns.
+    """
+
+    INTERVAL_SECONDS = 30.0
+
+    def __init__(self, config: Config, job_id: str, token: str) -> None:
+        self.config = config
+        self.job_id = job_id
+        self.token = token
+        self._stop = threading.Event()
+        self._lost: ProvisionError | None = None
+        self._thread: threading.Thread | None = None
+
+    def _run(self) -> None:
+        while not self._stop.wait(self.INTERVAL_SECONDS):
+            try:
+                renew(self.config, self.job_id, self.token)
+            except ProvisionError as error:
+                if error.terminal:
+                    # The Control Plane rejected the claim outright: another
+                    # worker owns this job now, or it already reached a terminal
+                    # state. Stop renewing and let the deployment abort.
+                    self._lost = error
+                    return
+                # Transient Control Plane unavailability: keep trying until the
+                # lease genuinely lapses.
+                print(
+                    f"PROVISIONER_LEASE=RETRY job={self.job_id} code={error.code}",
+                    file=sys.stderr,
+                )
+
+    def __enter__(self) -> LeaseKeeper:
+        self._thread = threading.Thread(target=self._run, name="lease-keeper", daemon=True)
+        self._thread.start()
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=10)
+
+    def check(self) -> None:
+        if self._lost is not None:
+            raise ProvisionError(
+                "lease_lost",
+                f"provisioning lease was lost during deployment: {self._lost.detail}",
+            )
 
 
 def wait_http(port: int, timeout_seconds: int) -> None:
@@ -586,27 +837,72 @@ def process_claim(config: Config, claim: dict[str, Any]) -> None:
     tenant_dir, port = prepare_files(config, plan)
     project = plan["composeProject"]
     print(f"PROVISION tenant={plan['tenantSlug']} job={job_id} version={desired} port={port}")
-    renew(config, job_id, token)
-    compose_cmd(config, tenant_dir, project, "pull", timeout=600)
-    renew(config, job_id, token)
-    compose_cmd(config, tenant_dir, project, "up", "-d", "postgres", timeout=120)
-    compose_cmd(
-        config,
-        tenant_dir,
-        project,
-        "exec",
-        "-T",
-        "postgres",
-        "sh",
-        "-lc",
-        "until pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"; do sleep 1; done",
-        timeout=90,
-    )
-    renew(config, job_id, token)
-    compose_cmd(config, tenant_dir, project, "run", "--rm", "setup", timeout=240)
-    compose_cmd(config, tenant_dir, project, "up", "-d", "api", "worker", timeout=180)
-    renew(config, job_id, token)
-    wait_http(port, config.health_timeout)
+
+    with LeaseKeeper(config, job_id, token) as lease:
+        # Resolve the mutable sha-<commit> tags to immutable digests before any
+        # container is created, so the stack can only ever start bytes whose OCI
+        # revision label matches the approved commit.
+        deployment_path = tenant_dir / "deployment.json"
+        try:
+            deployment = json.loads(deployment_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            deployment = {}
+        pinned: dict[str, str] = {}
+        for role, key in (("api", "apiImageDigest"), ("worker", "workerImageDigest")):
+            image = plan[f"{role}Image"]
+            resolved = pinned_image_reference(config, image, deployed_sha)
+            verify_release_digest_stability(deployment, desired, key, resolved)
+            deployment[key] = resolved
+            pinned[role] = resolved
+            lease.check()
+        atomic_write(
+            deployment_path, json.dumps(deployment, indent=2, sort_keys=True) + "\n", 0o644
+        )
+        atomic_write(
+            tenant_dir / "compose.yaml",
+            render_compose(plan, port, config.postgres_image, pinned),
+            0o644,
+        )
+        print(
+            f"PROVISION_IMAGE_PIN=PASS tenant={plan['tenantSlug']} "
+            f"api={pinned['api'].rpartition('@')[2]} worker={pinned['worker'].rpartition('@')[2]}"
+        )
+
+        compose_cmd(config, tenant_dir, project, "up", "-d", "postgres", timeout=120)
+        compose_cmd(
+            config,
+            tenant_dir,
+            project,
+            "exec",
+            "-T",
+            "postgres",
+            "sh",
+            "-lc",
+            "until pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"; do sleep 1; done",
+            timeout=90,
+        )
+        lease.check()
+        compose_cmd(config, tenant_dir, project, "run", "--rm", "setup", timeout=240)
+        compose_cmd(config, tenant_dir, project, "up", "-d", "api", "worker", timeout=180)
+        lease.check()
+        wait_http(port, config.health_timeout)
+        return finish_claim(
+            config, claim, plan, tenant_dir, project, port, job_id, token, deployed_sha, pinned
+        )
+
+
+def finish_claim(
+    config: Config,
+    claim: dict[str, Any],
+    plan: dict[str, Any],
+    tenant_dir: Path,
+    project: str,
+    port: int,
+    job_id: str,
+    token: str,
+    deployed_sha: str,
+    pinned: dict[str, str],
+) -> None:
 
     workspace_id = query_postgres(
         config,
@@ -635,9 +931,16 @@ def process_claim(config: Config, claim: dict[str, Any]) -> None:
             "provisionerWorkerId": config.worker_id,
         }
     )
-    (tenant_dir / "deployment.json").write_text(
-        json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    atomic_write(
+        tenant_dir / "deployment.json",
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+        0o644,
     )
+    # The stack is already running and its identity is durable on disk. If this
+    # callback times out or the Control Plane answers 503, the error is
+    # non-terminal: the job keeps its lease and the idempotent /succeed retry
+    # reports the identical result rather than marking a healthy deployment
+    # failed.
     api(
         config,
         "POST",
@@ -720,43 +1023,89 @@ def api_healthy(port: int) -> bool:
         return False
 
 
-def observe_deployments(config: Config) -> None:
+def observe_one(config: Config, path: Path, now: str) -> None:
+    try:
+        metadata = json.loads(path.read_text(encoding="utf-8"))
+        slug = metadata.get("tenantSlug")
+        project = metadata.get("composeProject")
+        port = metadata.get("apiPort")
+        schema = metadata.get("schemaVersion")
+        deployed_sha = metadata.get("deployedSha")
+        if not isinstance(slug, str) or not SLUG.fullmatch(slug):
+            return
+        if project != f"crowdrelay-{slug}" or not isinstance(port, int):
+            return
+        tenant_dir = path.parent
+        api_ok = api_healthy(port)
+        worker_ok = container_running(config, tenant_dir, project, "worker")
+        payload: dict[str, Any] = {
+            "apiHealthy": api_ok,
+            "workerHealthy": worker_ok,
+            "lastHeartbeatAt": now,
+        }
+        if isinstance(schema, int) and schema >= 0:
+            payload["schemaVersion"] = schema
+        if isinstance(deployed_sha, str) and re.fullmatch(r"[0-9a-f]{40}", deployed_sha):
+            payload["deployedSha"] = deployed_sha
+        api_with_token(
+            config,
+            config.telemetry_token,
+            "PUT",
+            f"/tenants/{slug}/runtime",
+            payload,
+        )
+    except (OSError, json.JSONDecodeError, ProvisionError) as exc:
+        print(f"PROVISIONER_OBSERVER=ERROR file={path.name} error={type(exc).__name__}", file=sys.stderr)
+
+
+def observe_deployments(config: Config, executor: concurrent.futures.Executor | None = None) -> None:
+    """Report runtime health for every tenant on this host.
+
+    Probes run with bounded concurrency: one slow or hung tenant must not delay
+    every other tenant's heartbeat, and the agent must never spawn one task per
+    row of an unbounded directory listing.
+    """
     if not config.root.exists():
         return
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    for path in sorted(config.root.glob("*/deployment.json")):
-        try:
-            metadata = json.loads(path.read_text(encoding="utf-8"))
-            slug = metadata.get("tenantSlug")
-            project = metadata.get("composeProject")
-            port = metadata.get("apiPort")
-            schema = metadata.get("schemaVersion")
-            deployed_sha = metadata.get("deployedSha")
-            if not isinstance(slug, str) or not SLUG.fullmatch(slug):
-                continue
-            if project != f"crowdrelay-{slug}" or not isinstance(port, int):
-                continue
-            tenant_dir = path.parent
-            api_ok = api_healthy(port)
-            worker_ok = container_running(config, tenant_dir, project, "worker")
-            payload: dict[str, Any] = {
-                "apiHealthy": api_ok,
-                "workerHealthy": worker_ok,
-                "lastHeartbeatAt": now,
-            }
-            if isinstance(schema, int) and schema >= 0:
-                payload["schemaVersion"] = schema
-            if isinstance(deployed_sha, str) and re.fullmatch(r"[0-9a-f]{40}", deployed_sha):
-                payload["deployedSha"] = deployed_sha
-            api_with_token(
-                config,
-                config.telemetry_token,
-                "PUT",
-                f"/tenants/{slug}/runtime",
-                payload,
+    paths = sorted(config.root.glob("*/deployment.json"))
+    if not paths:
+        return
+    if executor is None:
+        for path in paths:
+            observe_one(config, path, now)
+        return
+    futures = [executor.submit(observe_one, config, path, now) for path in paths]
+    for future in concurrent.futures.as_completed(futures):
+        # observe_one already contains its own failure reporting; this guards
+        # against an unexpected exception type killing the observer thread.
+        exception = future.exception()
+        if exception is not None:
+            print(
+                f"PROVISIONER_OBSERVER=ERROR error={type(exception).__name__}",
+                file=sys.stderr,
             )
-        except (OSError, json.JSONDecodeError, ProvisionError) as exc:
-            print(f"PROVISIONER_OBSERVER=ERROR file={path.name} error={type(exc).__name__}", file=sys.stderr)
+
+
+def observer_loop(config: Config, stop: threading.Event) -> None:
+    """Run runtime health observation independently of provisioning.
+
+    Provisioning and observation used to share one synchronous loop, so a single
+    long ``docker pull`` (up to 600 s) or readiness wait blocked the heartbeat of
+    every already-deployed tenant on the host, and the Control Plane could mark
+    healthy instances stale purely because this agent was busy elsewhere.
+    """
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=config.observer_concurrency, thread_name_prefix="observer"
+    ) as executor:
+        while not stop.is_set():
+            started = time.monotonic()
+            try:
+                observe_deployments(config, executor)
+            except Exception as exc:  # the observer thread must never die
+                print(f"PROVISIONER_OBSERVER=ERROR error={type(exc).__name__}", file=sys.stderr)
+            elapsed = time.monotonic() - started
+            stop.wait(max(1.0, config.observer_seconds - elapsed))
 
 def validate(config: Config) -> None:
     config.root.mkdir(parents=True, exist_ok=True)
@@ -777,30 +1126,69 @@ def validate(config: Config) -> None:
     )
 
 
+def dry_run(config: Config) -> None:
+    """Report what this agent would do without touching the Control Plane.
+
+    A dry run must never claim a job or mutate any Control Plane state: it is a
+    host-readiness check, so it only exercises local Docker capability and the
+    local tenant inventory.
+    """
+    validate(config)
+    tenants = sorted(path.parent.name for path in config.root.glob("*/deployment.json"))
+    print(
+        "CONTROL_PLANE_PROVISIONER_DRY_RUN=PASS "
+        f"worker={config.worker_id} observed_tenants={len(tenants)} "
+        f"observer_concurrency={config.observer_concurrency} claimed=0 mutations=0"
+    )
+    for slug in tenants:
+        print(f"CONTROL_PLANE_PROVISIONER_DRY_RUN_TENANT slug={slug}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--once", action="store_true", help="claim at most one job")
     parser.add_argument("--validate", action="store_true", help="validate local Docker capability and exit")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="report local readiness without claiming a job or mutating the Control Plane",
+    )
     args = parser.parse_args()
     config = Config()
     if args.validate:
         validate(config)
         return 0
-    next_observation = 0.0
-    while True:
+    if args.dry_run:
+        dry_run(config)
+        return 0
+    if args.once:
         try:
-            claimed = claim_once(config)
+            claim_once(config)
         except ProvisionError as error:
             print(f"PROVISIONER_LOOP=ERROR code={error.code} detail={error.detail}", file=sys.stderr)
-            claimed = False
-        if args.once:
-            return 0
-        now = time.monotonic()
-        if now >= next_observation:
-            observe_deployments(config)
-            next_observation = now + config.observer_seconds
-        if not claimed:
-            time.sleep(config.poll_seconds)
+        return 0
+
+    # Runtime health observation runs on its own thread so that a multi-minute
+    # deployment can never stall the heartbeat of already-running tenants.
+    stop = threading.Event()
+    observer = threading.Thread(
+        target=observer_loop, args=(config, stop), name="observer-loop", daemon=True
+    )
+    observer.start()
+    try:
+        while True:
+            try:
+                claimed = claim_once(config)
+            except ProvisionError as error:
+                print(f"PROVISIONER_LOOP=ERROR code={error.code} detail={error.detail}", file=sys.stderr)
+                claimed = False
+            if not claimed:
+                time.sleep(config.poll_seconds)
+    except KeyboardInterrupt:
+        return 0
+    finally:
+        stop.set()
+        observer.join(timeout=15)
 
 
 if __name__ == "__main__":

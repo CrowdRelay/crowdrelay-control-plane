@@ -68,8 +68,23 @@ for forbidden in ("shell=True", "os.system(", "eval(", "exec(", "/var/run/docker
     assert forbidden not in provisioner, f"provisioner command escape hatch forbidden: {forbidden}"
 for forbidden in ("std::process::Command", "/var/run/docker.sock", "docker compose"):
     assert forbidden not in rust_api, f"HTTP API must not own Docker capability: {forbidden}"
-assert "--dry-run" not in provisioner, "dry-run must not claim live provisioning jobs"
+assert "def dry_run(" in provisioner, "provisioner must expose a non-mutating readiness dry run"
+dry_run_body = provisioner.split("def dry_run(", 1)[1].split("\ndef ", 1)[0]
+for forbidden in ("claim_once", "process_claim", "api(", "api_with_token("):
+    assert forbidden not in dry_run_body, f"dry-run must not claim live provisioning jobs or mutate the Control Plane: {forbidden}"
 assert "def safe_image_ref" in provisioner and 'segment not in ("", ".", "..")' in provisioner, "agent must independently reject image path traversal"
+# An OCI tag is mutable, so a sha-<commit> tag alone pins nothing. The agent must
+# verify the image's OCI revision label against the planned commit, deploy the
+# resolved digest, and refuse a release whose digest changed under it.
+assert "org.opencontainers.image.revision" in provisioner, "agent must verify the published OCI revision label"
+assert "RepoDigests" in provisioner and "image_digest_changed" in provisioner, "agent must pin deployments to a resolved digest and fail closed on digest drift"
+assert '"image"' in provisioner and "pinned[\"api\"]" in provisioner, "compose must run digest-pinned images"
+# Runtime health observation must not be serialised behind a multi-minute deploy.
+assert "def observer_loop(" in provisioner, "runtime observation must run independently of provisioning"
+assert "max_workers=config.observer_concurrency" in provisioner, "observer probes must be bounded"
+assert "class LeaseKeeper" in provisioner, "an active deployment must hold its lease while long Docker steps run"
+main_body = provisioner.split("def main(", 1)[1]
+assert "observe_deployments(config)" not in main_body, "the claim loop must not be what drives observation"
 assert "COALESCE(EXCLUDED.api_healthy" in store, "runtime telemetry updates must preserve omitted fields"
 model = (root / "crates/control-plane-api/src/model.rs").read_text()
 routes = (root / "crates/control-plane-api/src/routes.rs").read_text()

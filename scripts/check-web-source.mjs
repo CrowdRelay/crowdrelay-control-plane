@@ -34,6 +34,7 @@ if (!tenants.includes('deployCrowdrelay: deployNow()') || !tenants.includes('des
 const createMutation = tenants.slice(tenants.indexOf('const createTenant ='), tenants.indexOf('const deployFieldsReady'))
 if (createMutation.includes('api.deployTenant')) throw new Error('create + deploy must remain one atomic API request, not two browser requests')
 if (!tenant.includes('deployTenant') || !tenant.includes('provisioning')) throw new Error('tenant provisioning lifecycle UI missing')
+if (!tenant.includes('formatTimestamp(job().leaseExpiresAt)') || tenant.includes('job().leaseExpiresAt ? new Date(job().leaseExpiresAt)')) throw new Error('nullable provisioning timestamps must be formatted without repeated accessor narrowing')
 if (!api.includes('deployTenant') || !api.includes('cancelProvisioning')) throw new Error('tenant provisioning API client missing')
 if (!types.includes("'healthy' | 'degraded' | 'stale' | 'unknown'")) throw new Error('runtime freshness states missing')
 if (!overview.includes('tenant.runtimeHealth') || !tenant.includes('t.runtimeHealth')) throw new Error('runtime health must be backend-authoritative in all views')
