@@ -1,9 +1,11 @@
+mod area_routes;
 mod auth;
 mod config;
 mod error;
 mod model;
 mod routes;
 mod store;
+mod tenant_area_client;
 mod validation;
 
 use std::{sync::Arc, time::Duration};
@@ -33,6 +35,8 @@ pub struct AppState {
     provisioner_worker_image: Arc<str>,
     provisioner_lease_seconds: i64,
     runtime_stale_after_seconds: i64,
+    area_client: tenant_area_client::TenantAreaClient,
+    virya_management_url: Option<Arc<str>>,
 }
 
 #[tokio::main]
@@ -91,11 +95,15 @@ async fn main() -> anyhow::Result<()> {
         provisioner_worker_image: Arc::from(config.provisioner_worker_image),
         provisioner_lease_seconds: config.provisioner_lease_seconds,
         runtime_stale_after_seconds: config.runtime_stale_after_seconds,
+        area_client: tenant_area_client::TenantAreaClient::new(config.area_management_master_key),
+        virya_management_url: config.virya_management_url.map(Arc::from),
     };
-    let admin_api = routes::admin_router().route_layer(middleware::from_fn_with_state(
-        state.clone(),
-        auth::require_admin,
-    ));
+    let admin_api = routes::admin_router()
+        .merge(area_routes::router())
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::require_admin,
+        ));
     let telemetry_api = routes::telemetry_router().route_layer(middleware::from_fn_with_state(
         state.clone(),
         auth::require_telemetry,

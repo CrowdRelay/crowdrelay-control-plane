@@ -34,6 +34,7 @@ export type Tenant = {
   defaultCountryCode: string
   brandingPalette: Palette | null
   synesthesiaEnabled: boolean
+  areaEnabled: boolean
   createdAt: string
   updatedAt: string
 }
@@ -82,3 +83,26 @@ export type ProvisioningJob = {
   createdAt: string
   updatedAt: string
 }
+
+export type AreaStatus = 'DRAFT' | 'PAUSED' | 'SCHEDULED' | 'LIVE' | 'ENDED' | 'ARCHIVED'
+export type AreaCity = { id:string; slug:string; name:string; countryCode:string; region:string|null; latitude:number|null; longitude:number|null; moderationStatus:string }
+export type AreaClue = { en:string; pl:string }
+export type AreaCollectible = { line:string; track:string; edition:string; riddle:string }
+export type AreaDropDraft = {
+  number:string; cityId:string; mapX:number; mapY:number
+  approximateLat:number; approximateLng:number; exactLat:number|null; exactLng:number|null
+  radiusMeters:number; maxClaims:number; startsAt:string; endsAt:string
+  clue:AreaClue; collectible:AreaCollectible; sortOrder:number
+}
+export type AreaDropSummary = {
+  id:string; number:string; cityId:string; city:string; region:string; status:AreaStatus; active:boolean
+  revision:number; hasDraft:boolean; hasExactLocation:boolean; claimCount:number; maxClaims:number
+  startsAt:string; endsAt:string
+}
+export type AreaDropDetail = { summary:AreaDropSummary; published:AreaDropDraft; draft:AreaDropDraft|null; draftBaseRevision:number|null }
+export type AreaOverview = {
+  enabled:boolean; entitled:boolean; total:number; live:number; scheduled:number; drafts:number
+  ended:number; paused:number; archived:number; totalClaims:number
+}
+export type AreaValidationIssue = { code:string; field:string; message:string; confirmationRequired:boolean }
+export type AreaValidationResult = { valid:boolean; issues:AreaValidationIssue[] }

@@ -11,6 +11,8 @@ import argparse
 import collections
 import concurrent.futures
 import fcntl
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -34,7 +36,7 @@ HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 PALETTE_KEYS = {"primary", "primaryContrast", "accent", "surface", "surfaceElevated", "text", "textMuted", "success", "warning", "danger"}
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 MAX_HTTP_BYTES = 2 * 1024 * 1024
-CONTROL_PLANE_SECRET_ENV = {"CONTROL_PLANE_ADMIN_TOKEN", "CONTROL_PLANE_TELEMETRY_TOKEN", "CONTROL_PLANE_PROVISIONER_TOKEN"}
+CONTROL_PLANE_SECRET_ENV = {"CONTROL_PLANE_ADMIN_TOKEN", "CONTROL_PLANE_TELEMETRY_TOKEN", "CONTROL_PLANE_PROVISIONER_TOKEN", "CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY"}
 # Docker pull/compose output is unbounded (per-layer progress, container logs).
 # Keep only a diagnostic tail in RAM: enough to troubleshoot a failure, never
 # enough for one noisy deployment to grow the agent's resident set without bound.
@@ -63,6 +65,12 @@ class Config:
             raise SystemExit("CONTROL_PLANE_TELEMETRY_TOKEN must be provided to the provisioner observer")
         if self.telemetry_token == self.token:
             raise SystemExit("provisioner and telemetry tokens must differ")
+        self.area_management_master_key = os.environ.get("CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY", "").strip()
+        if self.area_management_master_key:
+            if len(self.area_management_master_key) < 32 or any(ch.isspace() for ch in self.area_management_master_key):
+                raise SystemExit("CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY must be a 32+ character secret when configured")
+            if self.area_management_master_key in {self.token, self.telemetry_token}:
+                raise SystemExit("AREA management master key must differ from provisioner and telemetry tokens")
         self.worker_id = os.environ.get(
             "CONTROL_PLANE_PROVISIONER_WORKER_ID", socket.gethostname()
         ).strip()
@@ -177,6 +185,10 @@ def safe_plan(job: dict[str, Any]) -> dict[str, Any]:
     plan = job.get("plan")
     if not isinstance(plan, dict) or plan.get("schema") != 3 or plan.get("mode") != "local_docker_compose":
         raise ProvisionError("invalid_plan", "unsupported provisioning plan schema")
+    # `tenantId` was added to plan schema 3 for AREA management. Keep accepting
+    # already-approved schema-3 jobs created by the previous Control Plane: the
+    # serialized job has always carried tenantId at the top level.
+    tenant_id = plan.get("tenantId") or job.get("tenantId")
     slug = plan.get("tenantSlug")
     project = plan.get("composeProject")
     workspace_slug = plan.get("workspaceSlug")
@@ -189,6 +201,12 @@ def safe_plan(job: dict[str, Any]) -> dict[str, Any]:
     origins = plan.get("allowedOrigins")
     desired = plan.get("desiredVersion")
     palette = plan.get("brandingPalette")
+    if not isinstance(tenant_id, str) or not re.fullmatch(r"[0-9a-f-]{36}", tenant_id):
+        raise ProvisionError("invalid_plan", "invalid tenant id")
+    # Return a detached normalized plan so callers can rely on tenantId without
+    # mutating the immutable job payload used for audit/digest purposes.
+    plan = dict(plan)
+    plan["tenantId"] = tenant_id
     if not isinstance(slug, str) or not SLUG.fullmatch(slug):
         raise ProvisionError("invalid_plan", "invalid tenant slug")
     if project != f"crowdrelay-{slug}" or workspace_slug != slug:
@@ -317,7 +335,12 @@ volumes:
 '''
 
 
-def create_secret_env(plan: dict[str, Any]) -> str:
+def derive_area_management_token(master_key: str, tenant_id: str) -> str:
+    message = f"crowdrelay-area-admin-v1:{tenant_id}".encode("utf-8")
+    return hmac.new(master_key.encode("utf-8"), message, hashlib.sha256).hexdigest()
+
+
+def create_secret_env(config: Config, plan: dict[str, Any]) -> str:
     db_password = secrets.token_urlsafe(36)
     response_secret = secrets.token_urlsafe(48)
     admin_key = secrets.token_urlsafe(36)
@@ -333,6 +356,10 @@ def create_secret_env(plan: dict[str, Any]) -> str:
         "CROWDRELAY_STAFF_API_KEY": staff_key,
         "CROWDRELAY_QR_SIGNING_SECRET": qr_secret,
     }
+    if config.area_management_master_key:
+        values["CROWDRELAY_CONTROL_PLANE_AREA_API_KEY"] = derive_area_management_token(
+            config.area_management_master_key, plan["tenantId"]
+        )
     return "".join(f"{key}={value}\n" for key, value in values.items())
 
 
@@ -492,6 +519,25 @@ def atomic_write(path: Path, content: str, mode: int) -> None:
     fsync_directory(path.parent)
 
 
+def ensure_area_management_secret(config: Config, path: Path, plan: dict[str, Any]) -> None:
+    if not config.area_management_master_key:
+        # AREA management is opt-in. Existing provisioning must keep working
+        # before the fourth secret is rolled out on the host.
+        return
+    expected = derive_area_management_token(config.area_management_master_key, plan["tenantId"])
+    prefix = "CROWDRELAY_CONTROL_PLANE_AREA_API_KEY="
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ProvisionError("area_management_secret_unreadable", "tenant secret env could not be read") from exc
+    existing = [line[len(prefix):] for line in text.splitlines() if line.startswith(prefix)]
+    if existing:
+        if len(existing) != 1 or existing[0] != expected:
+            raise ProvisionError("area_management_secret_mismatch", "existing tenant AREA management token does not match this Control Plane master key")
+        return
+    atomic_write(path, text + ("" if text.endswith("\n") else "\n") + prefix + expected + "\n", 0o600)
+
+
 def prepare_files(config: Config, plan: dict[str, Any]) -> tuple[Path, int]:
     config.root.mkdir(parents=True, exist_ok=True, mode=0o750)
     lock_path = config.root / ".allocation.lock"
@@ -506,7 +552,8 @@ def prepare_files(config: Config, plan: dict[str, Any]) -> tuple[Path, int]:
         port = choose_port(config, tenant_dir)
         # Secrets stay write-once: an upgrade regenerates runtime config, never
         # the credentials an already-provisioned Postgres volume was seeded with.
-        write_once(tenant_dir / ".env", create_secret_env(plan), 0o600)
+        write_once(tenant_dir / ".env", create_secret_env(config, plan), 0o600)
+        ensure_area_management_secret(config, tenant_dir / ".env", plan)
         atomic_write(tenant_dir / "tenant.env", create_runtime_env(plan), 0o600)
         atomic_write(
             tenant_dir / "bootstrap.json",

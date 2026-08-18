@@ -58,8 +58,8 @@ impl Store {
     ) -> Result<(), ApiError> {
         sqlx::query(
             r#"INSERT INTO control_plane_tenants
-               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, branding_palette, synesthesia_enabled)
-               VALUES ($1, 'virya', 'Virya', 'active', $2, $3, $4, NULL, true)
+               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, branding_palette, synesthesia_enabled, area_enabled)
+               VALUES ($1, 'virya', 'Virya', 'active', $2, $3, $4, NULL, true, true)
                ON CONFLICT (slug) DO UPDATE SET
                    workspace_id = COALESCE(control_plane_tenants.workspace_id, EXCLUDED.workspace_id),
                    crowdrelay_base_url = COALESCE(control_plane_tenants.crowdrelay_base_url, EXCLUDED.crowdrelay_base_url),
@@ -80,7 +80,7 @@ impl Store {
         let rows = sqlx::query_as::<_, TenantSummaryJoinRow>(
             r#"SELECT t.id, t.slug, t.display_name, t.status, t.workspace_id,
                       t.crowdrelay_base_url, t.signal_base_url, t.default_country_code, t.branding_palette,
-                      t.synesthesia_enabled, t.created_at, t.updated_at,
+                      t.synesthesia_enabled, t.area_enabled, t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
                       r.worker_healthy AS runtime_worker_healthy,
@@ -107,7 +107,7 @@ impl Store {
         let row = sqlx::query_as::<_, TenantSummaryJoinRow>(
             r#"SELECT t.id, t.slug, t.display_name, t.status, t.workspace_id,
                       t.crowdrelay_base_url, t.signal_base_url, t.default_country_code, t.branding_palette,
-                      t.synesthesia_enabled, t.created_at, t.updated_at,
+                      t.synesthesia_enabled, t.area_enabled, t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
                       r.worker_healthy AS runtime_worker_healthy,
@@ -145,10 +145,10 @@ impl Store {
         let mut tx = self.pool.begin().await?;
         let tenant = sqlx::query_as::<_, TenantRow>(
             r#"INSERT INTO control_plane_tenants
-               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, branding_palette, synesthesia_enabled)
-               VALUES ($1, $2, $3, 'provisioning', $4, $5, $6, $7, $8, false)
+               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, branding_palette, synesthesia_enabled, area_enabled)
+               VALUES ($1, $2, $3, 'provisioning', $4, $5, $6, $7, $8, false, false)
                RETURNING id, slug, display_name, status, workspace_id, crowdrelay_base_url,
-                         signal_base_url, default_country_code, branding_palette, synesthesia_enabled,
+                         signal_base_url, default_country_code, branding_palette, synesthesia_enabled, area_enabled,
                          created_at, updated_at"#,
         )
         .bind(id)
@@ -942,6 +942,79 @@ impl Store {
         })
     }
 
+    pub async fn set_area_enabled(
+        &self,
+        slug: &str,
+        enabled: bool,
+        actor: &str,
+        request_id: Option<&str>,
+    ) -> Result<bool, ApiError> {
+        let tenant = self.tenant_by_slug(slug).await?;
+        let mut tx = self.pool.begin().await?;
+        sqlx::query(
+            "UPDATE control_plane_tenants SET area_enabled=$2,updated_at=now() WHERE id=$1",
+        )
+        .bind(tenant.tenant.id)
+        .bind(enabled)
+        .execute(&mut *tx)
+        .await?;
+        self.audit_tx(
+            &mut tx,
+            AuditRecord {
+                tenant_id: Some(tenant.tenant.id),
+                actor,
+                action: "tenant.area.entitlement.updated",
+                target_kind: "tenant",
+                target_id: tenant.tenant.id.to_string(),
+                request_id,
+                detail: json!({"enabled": enabled}),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(enabled)
+    }
+
+    pub async fn latest_management_url(&self, tenant_id: Uuid) -> Result<Option<String>, ApiError> {
+        Ok(sqlx::query_scalar::<_, String>(
+            r#"SELECT result->>'localApiUrl'
+               FROM control_plane_provisioning_jobs
+               WHERE tenant_id=$1 AND status='succeeded' AND result ? 'localApiUrl'
+               ORDER BY finished_at DESC NULLS LAST, created_at DESC
+               LIMIT 1"#,
+        )
+        .bind(tenant_id)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
+    pub async fn audit_area_command(
+        &self,
+        tenant_id: Uuid,
+        actor: &str,
+        action: &'static str,
+        drop_id: Option<&str>,
+        request_id: Option<&str>,
+        outcome: &str,
+    ) -> Result<(), ApiError> {
+        let mut tx = self.pool.begin().await?;
+        self.audit_tx(
+            &mut tx,
+            AuditRecord {
+                tenant_id: Some(tenant_id),
+                actor,
+                action,
+                target_kind: "area_drop",
+                target_id: drop_id.unwrap_or("area").to_owned(),
+                request_id,
+                detail: json!({"outcome": outcome}),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
     pub async fn audit_for_tenant(
         &self,
         slug: &str,
@@ -999,6 +1072,7 @@ fn deployment_plan(
         "schema": 3,
         "mode": "local_docker_compose",
         "composeProject": format!("crowdrelay-{}", tenant.slug),
+        "tenantId": tenant.id.to_string(),
         "tenantSlug": tenant.slug.as_str(),
         "displayName": tenant.display_name.as_str(),
         "workspaceSlug": tenant.slug.as_str(),

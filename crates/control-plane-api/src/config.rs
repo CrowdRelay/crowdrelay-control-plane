@@ -12,6 +12,7 @@ pub struct Config {
     pub admin_token_hash: [u8; 32],
     pub telemetry_token_hash: [u8; 32],
     pub provisioner_token_hash: Option<[u8; 32]>,
+    pub area_management_master_key: Option<String>,
     pub admin_actor: String,
     pub telemetry_actor: String,
     pub provisioner_actor: String,
@@ -24,6 +25,7 @@ pub struct Config {
     pub virya_workspace_id: Option<uuid::Uuid>,
     pub virya_crowdrelay_url: String,
     pub virya_signal_url: String,
+    pub virya_management_url: Option<String>,
 }
 
 impl Config {
@@ -36,10 +38,24 @@ impl Config {
         let admin_token = required_secret("CONTROL_PLANE_ADMIN_TOKEN")?;
         let telemetry_token = required_secret("CONTROL_PLANE_TELEMETRY_TOKEN")?;
         let provisioner_token = optional_secret("CONTROL_PLANE_PROVISIONER_TOKEN")?;
+        let area_management_master_key =
+            optional_secret("CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY")?;
         anyhow::ensure!(
             admin_token != telemetry_token,
             "CONTROL_PLANE_ADMIN_TOKEN and CONTROL_PLANE_TELEMETRY_TOKEN must be different"
         );
+        if let Some(token) = area_management_master_key.as_deref() {
+            anyhow::ensure!(
+                token != admin_token && token != telemetry_token,
+                "CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY must differ from admin and telemetry tokens"
+            );
+            if let Some(provisioner) = provisioner_token.as_deref() {
+                anyhow::ensure!(
+                    token != provisioner,
+                    "CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY must differ from the provisioner token"
+                );
+            }
+        }
         if let Some(token) = provisioner_token.as_deref() {
             anyhow::ensure!(
                 token != admin_token && token != telemetry_token,
@@ -91,6 +107,7 @@ impl Config {
             provisioner_token_hash: provisioner_token
                 .as_deref()
                 .map(|token| Sha256::digest(token.as_bytes()).into()),
+            area_management_master_key,
             admin_actor: env::var("CONTROL_PLANE_ADMIN_ACTOR")
                 .unwrap_or_else(|_| "platform-admin".to_owned()),
             telemetry_actor: env::var("CONTROL_PLANE_TELEMETRY_ACTOR")
@@ -115,6 +132,10 @@ impl Config {
                 .unwrap_or_else(|_| "https://signal-api.virya.music".to_owned()),
             virya_signal_url: env::var("CONTROL_PLANE_VIRYA_SIGNAL_URL")
                 .unwrap_or_else(|_| "https://signal.virya.music".to_owned()),
+            virya_management_url: env::var("CONTROL_PLANE_VIRYA_MANAGEMENT_URL")
+                .ok()
+                .map(|value| value.trim().to_owned())
+                .filter(|value| !value.is_empty()),
         })
     }
 }

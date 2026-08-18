@@ -7,12 +7,14 @@ import './styles.css'
 const OverviewPage = lazyRouteComponent(() => import('./pages/OverviewPage'), 'OverviewPage')
 const TenantsPage = lazyRouteComponent(() => import('./pages/TenantsPage'), 'TenantsPage')
 const TenantPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'TenantPage')
+const AreaPage = lazyRouteComponent(() => import('./pages/AreaPage'), 'AreaPage')
 
 const rootRoute = createRootRoute({ component: Shell })
 const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: OverviewPage })
 const tenantsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants', component: TenantsPage })
 const tenantRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug', component: TenantPage })
-const routeTree = rootRoute.addChildren([overviewRoute, tenantsRoute, tenantRoute])
+const areaRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/area', component: AreaPage })
+const routeTree = rootRoute.addChildren([overviewRoute, tenantsRoute, tenantRoute, areaRoute])
 const router = createRouter({ routeTree, defaultPreload: 'intent', defaultPreloadStaleTime: 10_000, scrollRestoration: true })
 
 declare module '@tanstack/solid-router' { interface Register { router: typeof router } }

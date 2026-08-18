@@ -32,6 +32,7 @@ pub struct TenantRow {
     pub default_country_code: String,
     pub branding_palette: Option<Value>,
     pub synesthesia_enabled: bool,
+    pub area_enabled: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -109,6 +110,7 @@ pub struct TenantSummaryJoinRow {
     pub default_country_code: String,
     pub branding_palette: Option<Value>,
     pub synesthesia_enabled: bool,
+    pub area_enabled: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub runtime_tenant_id: Option<Uuid>,
@@ -148,6 +150,7 @@ impl TenantSummaryJoinRow {
                 default_country_code: self.default_country_code,
                 branding_palette: self.branding_palette,
                 synesthesia_enabled: self.synesthesia_enabled,
+                area_enabled: self.area_enabled,
                 created_at: self.created_at,
                 updated_at: self.updated_at,
             },

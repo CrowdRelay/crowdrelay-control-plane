@@ -35,6 +35,7 @@ def valid_job(slug: str = "acme") -> dict:
         "plan": {
             "schema": 3,
             "mode": "local_docker_compose",
+            "tenantId": "00000000-0000-0000-0000-000000000123",
             "composeProject": f"crowdrelay-{slug}",
             "tenantSlug": slug,
             "displayName": "ACME Artist",
@@ -69,6 +70,7 @@ class DummyConfig:
         self.port_end = 28120
         self.postgres_image = "postgres:18-alpine"
         self.docker = "docker"
+        self.area_management_master_key = "area-management-master-key-0123456789abcdef"
 
 
 class ProvisionerContractTests(unittest.TestCase):
@@ -76,6 +78,22 @@ class ProvisionerContractTests(unittest.TestCase):
         plan = provisioner.safe_plan(valid_job())
         self.assertEqual(plan["tenantSlug"], "acme")
         self.assertEqual(plan["desiredVersion"], TAG)
+
+
+    def test_safe_plan_accepts_pre_area_schema3_job_using_top_level_tenant_id(self):
+        job = valid_job()
+        tenant_id = job["plan"].pop("tenantId")
+        job["tenantId"] = tenant_id
+        plan = provisioner.safe_plan(job)
+        self.assertEqual(plan["tenantId"], tenant_id)
+        self.assertNotIn("tenantId", job["plan"])
+
+    def test_area_secret_is_opt_in_for_existing_provisioner_rollout(self):
+        plan = provisioner.safe_plan(valid_job())
+        config = DummyConfig(Path("/tmp"))
+        config.area_management_master_key = ""
+        secret_text = provisioner.create_secret_env(config, plan)
+        self.assertNotIn("CROWDRELAY_CONTROL_PLANE_AREA_API_KEY", secret_text)
 
     def test_safe_plan_rejects_identity_escape_and_mutable_images(self):
         cases = []
@@ -141,7 +159,8 @@ class ProvisionerContractTests(unittest.TestCase):
 
     def test_env_splits_write_once_secrets_from_refreshable_runtime_config(self):
         plan = provisioner.safe_plan(valid_job())
-        secret_text = provisioner.create_secret_env(plan)
+        config = DummyConfig(Path("/tmp"))
+        secret_text = provisioner.create_secret_env(config, plan)
         runtime_text = provisioner.create_runtime_env(plan)
         secrets_map = dict(line.split("=", 1) for line in secret_text.strip().splitlines())
         runtime = dict(line.split("=", 1) for line in runtime_text.strip().splitlines())
@@ -149,6 +168,7 @@ class ProvisionerContractTests(unittest.TestCase):
         self.assertIn("CROWDRELAY_RESPONSE_ENCRYPTION_SECRET", secrets_map)
         self.assertNotEqual(secrets_map["CROWDRELAY_ADMIN_API_KEY"], secrets_map["CROWDRELAY_STAFF_API_KEY"])
         self.assertGreaterEqual(len(secrets_map["CROWDRELAY_QR_SIGNING_SECRET"]), 32)
+        self.assertEqual(len(secrets_map["CROWDRELAY_CONTROL_PLANE_AREA_API_KEY"]), 64)
         self.assertNotIn("CROWDRELAY_ALLOWED_ORIGINS", secrets_map)
         self.assertEqual(runtime["CROWDRELAY_ENV"], "production")
         self.assertEqual(runtime["CROWDRELAY_TENANT_DISPLAY_NAME"], "ACME Artist")

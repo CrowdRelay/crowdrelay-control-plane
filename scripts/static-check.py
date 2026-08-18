@@ -8,7 +8,7 @@ checks = {
     "admin_bearer_only": (root / "crates/control-plane-api/src/auth.rs", "require_bearer(request.headers(), state.admin_token_hash)"),
     "caddy_admin_injection": (root / "deploy/Caddyfile.control.virya.music.example", 'header_up Authorization "Bearer {$CONTROL_PLANE_ADMIN_TOKEN}"'),
     "telemetry_auth": (root / "crates/control-plane-api/src/auth.rs", "require_telemetry"),
-    "virya_seed_inherit_branding": (root / "crates/control-plane-api/src/store.rs", "branding_palette, synesthesia_enabled)"),
+    "virya_seed_inherit_branding": (root / "crates/control-plane-api/src/store.rs", "branding_palette, synesthesia_enabled, area_enabled)"),
     "provisioning_no_rce": (root / "crates/control-plane-api/src/store.rs", '"mode": "local_docker_compose"'),
     "provisioner_secret": (root / "crates/control-plane-api/src/config.rs", "CONTROL_PLANE_PROVISIONER_TOKEN"),
     "provisioner_auth": (root / "crates/control-plane-api/src/auth.rs", "require_provisioner"),
@@ -43,6 +43,10 @@ checks = {
     "docker_cargo_locked": (root / "Dockerfile", "cargo build --release --locked"),
     "ci_cargo_locked": (root / ".github/workflows/ci.yml", "cargo check --locked"),
     "spa_deep_link_200": (root / "crates/control-plane-api/src/main.rs", ".fallback(ServeFile::new(index))"),
+    "area_private_transport": (root / "crates/control-plane-api/src/tenant_area_client.rs", "AREA management target must be loopback or private"),
+    "area_redirect_refusal": (root / "crates/control-plane-api/src/tenant_area_client.rs", "AREA management redirect refused"),
+    "area_tenant_token": (root / "crates/control-plane-api/src/tenant_area_client.rs", "crowdrelay-area-admin-v1:"),
+    "area_entitlement": (root / "migrations/0004_area_management.sql", "area_enabled boolean"),
 }
 for name, (file, needle) in checks.items():
     text = file.read_text()
