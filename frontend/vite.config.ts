@@ -12,7 +12,11 @@ export default defineConfig(({ command, mode }) => {
     plugins: [solid()],
     build: {
       target: 'es2022',
-      sourcemap: true,
+      // Maps were 712 KiB against 171 KiB of JS, sat unbudgeted in the
+      // production image and were served verbatim by ServeDir, handing the
+      // original TypeScript to anyone who reaches the panel. The dev server
+      // keeps its own maps regardless; opt in only to debug a built bundle.
+      sourcemap: env.CONTROL_PLANE_WEB_SOURCEMAPS === '1',
       cssCodeSplit: true,
       reportCompressedSize: true,
     },

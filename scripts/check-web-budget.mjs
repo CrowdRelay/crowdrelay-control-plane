@@ -3,11 +3,16 @@ import path from 'node:path'
 const dist = path.resolve(import.meta.dirname, '../frontend/dist/assets')
 if (!fs.existsSync(dist)) throw new Error('frontend/dist/assets missing; run npm run build first')
 let js = 0, css = 0
+const maps = []
 for (const name of fs.readdirSync(dist)) {
   const size = fs.statSync(path.join(dist, name)).size
+  if (name.endsWith('.map')) { maps.push(name); continue }
   if (name.endsWith('.js')) js += size
   if (name.endsWith('.css')) css += size
 }
+// Maps are not counted by the JS/CSS budgets, so without this they can ship
+// unnoticed: they are served verbatim by ServeDir and were 4x the JS payload.
+if (maps.length) throw new Error(`source maps must not ship: ${maps.join(', ')}`)
 const JS_BUDGET = 260 * 1024
 const CSS_BUDGET = 80 * 1024
 if (js > JS_BUDGET) throw new Error(`JS budget exceeded: ${js} > ${JS_BUDGET}`)
