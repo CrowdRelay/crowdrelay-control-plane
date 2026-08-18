@@ -18,7 +18,9 @@ export default defineConfig(({ command, mode }) => {
       // keeps its own maps regardless; opt in only to debug a built bundle.
       sourcemap: env.CONTROL_PLANE_WEB_SOURCEMAPS === '1',
       cssCodeSplit: true,
-      reportCompressedSize: true,
+      // Gzipping every asset just to print a size the budget script already
+      // measures from disk. Off, so the build stops paying for it.
+      reportCompressedSize: false,
     },
     server: {
       port: 4173,
