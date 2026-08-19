@@ -1,4 +1,4 @@
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, Palette, ProvisioningJob, TenantSummary } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, Palette, ProvisioningJob, RegionalProfile, TenantSummary } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
@@ -29,6 +29,7 @@ export type CreateTenantInput = {
   crowdrelayBaseUrl?: string
   signalBaseUrl?: string
   defaultCountryCode?: string
+  regionalProfile: RegionalProfile
   brandingPalette?: Palette
   deployCrowdrelay?: boolean
   desiredVersion?: string
@@ -51,6 +52,8 @@ export const api = {
     request<TenantSummary>('/tenants', { method: 'POST', body: JSON.stringify(input) }),
   branding: (slug: string, brandingPalette: Palette | null) =>
     request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/branding`, { method: 'PATCH', body: JSON.stringify({ brandingPalette }) }),
+  regionalProfile: (slug: string, regionalProfile: RegionalProfile) =>
+    request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/regional-profile`, { method: 'PATCH', body: JSON.stringify({ regionalProfile }) }),
   suspend: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/suspend`, { method: 'POST', body: '{}' }),
   resume: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/resume`, { method: 'POST', body: '{}' }),
   planProvisioning: (slug: string, desiredVersion?: string) =>

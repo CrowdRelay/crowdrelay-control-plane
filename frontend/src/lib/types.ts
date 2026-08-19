@@ -11,6 +11,17 @@ export type Palette = {
   danger: string
 }
 
+export type RegionalProfile = {
+  countryCode: string
+  region: 'eu' | 'us'
+  locale: string
+  timezone: string
+  currency: string
+  dateFormat: 'dmy' | 'mdy' | 'ymd'
+  numberFormat: 'comma_decimal' | 'dot_decimal'
+  dataRegion: 'eu' | 'us'
+}
+
 export type RuntimeStatus = {
   tenantId: string
   apiHealthy: boolean | null
@@ -32,6 +43,7 @@ export type Tenant = {
   crowdrelayBaseUrl: string | null
   signalBaseUrl: string | null
   defaultCountryCode: string
+  regionalProfile: RegionalProfile | null
   brandingPalette: Palette | null
   synesthesiaEnabled: boolean
   areaEnabled: boolean
@@ -62,6 +74,7 @@ export type ProvisioningResult = {
   schemaVersion?: number
   deployedSha?: string
   provisionerWorkerId?: string
+  dataRegion?: 'eu' | 'us' | null
   completedAt?: string
 }
 

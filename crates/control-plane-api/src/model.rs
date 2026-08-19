@@ -19,6 +19,19 @@ pub struct BrandingPalette {
     pub danger: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RegionalProfile {
+    pub country_code: String,
+    pub region: String,
+    pub locale: String,
+    pub timezone: String,
+    pub currency: String,
+    pub date_format: String,
+    pub number_format: String,
+    pub data_region: String,
+}
+
 #[derive(Debug, Clone, Serialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct TenantRow {
@@ -30,6 +43,7 @@ pub struct TenantRow {
     pub crowdrelay_base_url: Option<String>,
     pub signal_base_url: Option<String>,
     pub default_country_code: String,
+    pub regional_profile: Option<Value>,
     pub branding_palette: Option<Value>,
     pub synesthesia_enabled: bool,
     pub area_enabled: bool,
@@ -108,6 +122,7 @@ pub struct TenantSummaryJoinRow {
     pub crowdrelay_base_url: Option<String>,
     pub signal_base_url: Option<String>,
     pub default_country_code: String,
+    pub regional_profile: Option<Value>,
     pub branding_palette: Option<Value>,
     pub synesthesia_enabled: bool,
     pub area_enabled: bool,
@@ -148,6 +163,7 @@ impl TenantSummaryJoinRow {
                 crowdrelay_base_url: self.crowdrelay_base_url,
                 signal_base_url: self.signal_base_url,
                 default_country_code: self.default_country_code,
+                regional_profile: self.regional_profile,
                 branding_palette: self.branding_palette,
                 synesthesia_enabled: self.synesthesia_enabled,
                 area_enabled: self.area_enabled,
@@ -195,6 +211,7 @@ pub struct CreateTenantRequest {
     pub crowdrelay_base_url: Option<String>,
     pub signal_base_url: Option<String>,
     pub default_country_code: Option<String>,
+    pub regional_profile: RegionalProfile,
     pub branding_palette: Option<BrandingPalette>,
     #[serde(default)]
     pub deploy_crowdrelay: bool,
@@ -212,6 +229,12 @@ pub struct TenantDeploymentSpec {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct UpdateBrandingRequest {
     pub branding_palette: Option<BrandingPalette>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct UpdateRegionalProfileRequest {
+    pub regional_profile: RegionalProfile,
 }
 
 #[derive(Debug, Deserialize)]
@@ -251,6 +274,7 @@ pub struct DeployTenantRequest {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProvisioningClaimRequest {
     pub worker_id: String,
+    pub data_region: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

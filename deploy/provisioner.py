@@ -32,6 +32,9 @@ SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 IMAGE = re.compile(r"^[a-zA-Z0-9./_-]+:[a-zA-Z0-9._-]+$")
 SHA_TAG = re.compile(r"^sha-([0-9a-f]{40})$")
 COUNTRY = re.compile(r"^[A-Z]{2}$")
+CURRENCY = re.compile(r"^[A-Z]{3}$")
+LOCALE = re.compile(r"^[A-Za-z0-9]{2,8}(?:-[A-Za-z0-9]{2,8})+$")
+TIMEZONE = re.compile(r"^[A-Za-z0-9_+-]+/[A-Za-z0-9_+/-]+$")
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 PALETTE_KEYS = {"primary", "primaryContrast", "accent", "surface", "surfaceElevated", "text", "textMuted", "success", "warning", "danger"}
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -71,6 +74,10 @@ class Config:
                 raise SystemExit("CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY must be a 32+ character secret when configured")
             if self.area_management_master_key in {self.token, self.telemetry_token}:
                 raise SystemExit("AREA management master key must differ from provisioner and telemetry tokens")
+        region = os.environ.get("CONTROL_PLANE_PROVISIONER_DATA_REGION", "").strip().lower()
+        if region and region not in {"eu", "us"}:
+            raise SystemExit("CONTROL_PLANE_PROVISIONER_DATA_REGION must be eu or us when configured")
+        self.data_region = region or None
         self.worker_id = os.environ.get(
             "CONTROL_PLANE_PROVISIONER_WORKER_ID", socket.gethostname()
         ).strip()
@@ -181,13 +188,24 @@ def safe_image_ref(value: Any, expected_tag: str) -> bool:
     return all(segment not in ("", ".", "..") for segment in segments)
 
 
+def config_data_region(config: Any) -> str | None:
+    value = getattr(config, "data_region", None)
+    if value is None:
+        return None
+    value = str(value).strip().lower()
+    if value not in {"eu", "us"}:
+        raise ProvisionError("invalid_config", "provisioner data region must be eu or us")
+    return value
+
+
 def safe_plan(job: dict[str, Any]) -> dict[str, Any]:
     plan = job.get("plan")
-    if not isinstance(plan, dict) or plan.get("schema") != 3 or plan.get("mode") != "local_docker_compose":
+    if not isinstance(plan, dict) or plan.get("mode") != "local_docker_compose":
+        raise ProvisionError("invalid_plan", "unsupported provisioning plan")
+    schema = plan.get("schema")
+    if schema not in (3, 4):
         raise ProvisionError("invalid_plan", "unsupported provisioning plan schema")
-    # `tenantId` was added to plan schema 3 for AREA management. Keep accepting
-    # already-approved schema-3 jobs created by the previous Control Plane: the
-    # serialized job has always carried tenantId at the top level.
+
     tenant_id = plan.get("tenantId") or job.get("tenantId")
     slug = plan.get("tenantSlug")
     project = plan.get("composeProject")
@@ -201,21 +219,16 @@ def safe_plan(job: dict[str, Any]) -> dict[str, Any]:
     origins = plan.get("allowedOrigins")
     desired = plan.get("desiredVersion")
     palette = plan.get("brandingPalette")
+
     if not isinstance(tenant_id, str) or not re.fullmatch(r"[0-9a-f-]{36}", tenant_id):
         raise ProvisionError("invalid_plan", "invalid tenant id")
-    # Return a detached normalized plan so callers can rely on tenantId without
-    # mutating the immutable job payload used for audit/digest purposes.
     plan = dict(plan)
     plan["tenantId"] = tenant_id
     if not isinstance(slug, str) or not SLUG.fullmatch(slug):
         raise ProvisionError("invalid_plan", "invalid tenant slug")
     if project != f"crowdrelay-{slug}" or workspace_slug != slug:
         raise ProvisionError("invalid_plan", "compose/workspace identity mismatch")
-    if (
-        not isinstance(display_name, str)
-        or not (2 <= len(display_name) <= 120)
-        or any(ch in "\r\n\x00" for ch in display_name)
-    ):
+    if not isinstance(display_name, str) or not (2 <= len(display_name) <= 120) or any(ch in "\r\n\x00" for ch in display_name):
         raise ProvisionError("invalid_plan", "invalid display name")
     if not isinstance(country, str) or not COUNTRY.fullmatch(country):
         raise ProvisionError("invalid_plan", "invalid country code")
@@ -228,15 +241,33 @@ def safe_plan(job: dict[str, Any]) -> dict[str, Any]:
         raise ProvisionError("invalid_plan", "CrowdRelay base URL must be a bare HTTPS origin")
     if not safe_https_origin(public_site):
         raise ProvisionError("invalid_plan", "public site URL must be a bare HTTPS origin")
-    if not isinstance(origins, list) or not origins or any(
-        not safe_https_origin(origin) for origin in origins
-    ):
+    if not isinstance(origins, list) or not origins or any(not safe_https_origin(origin) for origin in origins):
         raise ProvisionError("invalid_plan", "allowed origins are invalid")
     if palette is not None:
         if not isinstance(palette, dict) or set(palette) != PALETTE_KEYS:
             raise ProvisionError("invalid_plan", "branding palette shape is invalid")
         if any(not isinstance(value, str) or not HEX_COLOR.fullmatch(value) for value in palette.values()):
             raise ProvisionError("invalid_plan", "branding palette colors are invalid")
+
+    if schema == 4:
+        profile = plan.get("regionalProfile")
+        required = {"countryCode", "region", "locale", "timezone", "currency", "dateFormat", "numberFormat", "dataRegion"}
+        if not isinstance(profile, dict) or set(profile) != required:
+            raise ProvisionError("invalid_plan", "regional profile shape is invalid")
+        if profile["countryCode"] != country or not COUNTRY.fullmatch(profile["countryCode"]):
+            raise ProvisionError("invalid_plan", "regional country does not match tenant country")
+        if profile["region"] not in {"eu", "us"} or profile["dataRegion"] not in {"eu", "us"}:
+            raise ProvisionError("invalid_plan", "regional/data region must be eu or us")
+        if not isinstance(profile["locale"], str) or not LOCALE.fullmatch(profile["locale"]):
+            raise ProvisionError("invalid_plan", "invalid regional locale")
+        if not isinstance(profile["timezone"], str) or not TIMEZONE.fullmatch(profile["timezone"]):
+            raise ProvisionError("invalid_plan", "invalid IANA-style timezone")
+        if not isinstance(profile["currency"], str) or not CURRENCY.fullmatch(profile["currency"]):
+            raise ProvisionError("invalid_plan", "invalid regional currency")
+        if profile["dateFormat"] not in {"dmy", "mdy", "ymd"}:
+            raise ProvisionError("invalid_plan", "invalid regional date format")
+        if profile["numberFormat"] not in {"comma_decimal", "dot_decimal"}:
+            raise ProvisionError("invalid_plan", "invalid regional number format")
     return plan
 
 
@@ -394,6 +425,17 @@ def create_runtime_env(plan: dict[str, Any]) -> str:
         "CROWDRELAY_BOOTSTRAP_FILE": "/run/crowdrelay/bootstrap.json",
         "RUST_LOG": "info,crowdrelay=info",
     }
+    if plan.get("schema") == 4:
+        profile = plan["regionalProfile"]
+        values.update({
+            "CROWDRELAY_TENANT_REGION": profile["region"],
+            "CROWDRELAY_TENANT_LOCALE": profile["locale"],
+            "CROWDRELAY_TENANT_TIMEZONE": profile["timezone"],
+            "CROWDRELAY_TENANT_CURRENCY": profile["currency"],
+            "CROWDRELAY_TENANT_DATE_FORMAT": profile["dateFormat"],
+            "CROWDRELAY_TENANT_NUMBER_FORMAT": profile["numberFormat"],
+            "CROWDRELAY_TENANT_DATA_REGION": profile["dataRegion"],
+        })
     palette = plan.get("brandingPalette")
     if isinstance(palette, dict):
         values.update({
@@ -877,6 +919,15 @@ def process_claim(config: Config, claim: dict[str, Any]) -> None:
         raise ProvisionError("invalid_claim", "Control Plane returned an invalid claim")
     job_id = str(job.get("id") or "")
     plan = safe_plan(job)
+    if plan.get("schema") == 4:
+        planned_region = plan["regionalProfile"]["dataRegion"]
+        agent_region = config_data_region(config)
+        if agent_region != planned_region:
+            raise ProvisionError(
+                "data_region_mismatch",
+                f"agent region {agent_region or 'unclassified'} cannot deploy {planned_region} tenant",
+                terminal=False,
+            )
     desired = plan["desiredVersion"]
     match = SHA_TAG.fullmatch(desired)
     assert match is not None
@@ -976,6 +1027,7 @@ def finish_claim(
             "deployedSha": deployed_sha,
             "jobId": job_id,
             "provisionerWorkerId": config.worker_id,
+            "dataRegion": plan.get("regionalProfile", {}).get("dataRegion"),
         }
     )
     atomic_write(
@@ -1027,7 +1079,11 @@ def fail_claim(config: Config, claim: dict[str, Any], error: ProvisionError) -> 
 
 
 def claim_once(config: Config) -> bool:
-    response = api(config, "POST", "/provisioner/jobs/claim", {"workerId": config.worker_id})
+    payload: dict[str, Any] = {"workerId": config.worker_id}
+    agent_region = config_data_region(config)
+    if agent_region is not None:
+        payload["dataRegion"] = agent_region
+    response = api(config, "POST", "/provisioner/jobs/claim", payload)
     claim = response.get("claim")
     if claim is None:
         return False
