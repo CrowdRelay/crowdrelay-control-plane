@@ -10,6 +10,8 @@ CLIENT = (ROOT / "crates/control-plane-api/src/tenant_area_client.rs").read_text
 ROUTES = (ROOT / "crates/control-plane-api/src/area_routes.rs").read_text()
 STORE = (ROOT / "crates/control-plane-api/src/store.rs").read_text()
 PROVISIONER = (ROOT / "deploy/provisioner.py").read_text()
+ENV_EXAMPLE = (ROOT / ".env.example").read_text()
+AREA_PAGE = (ROOT / "frontend/src/pages/AreaPage.tsx").read_text()
 FRONTEND = "\n".join(
     path.read_text()
     for path in (ROOT / "frontend/src").rglob("*.ts*")
@@ -51,13 +53,29 @@ class AreaManagementContract(unittest.TestCase):
         self.assertIn("DefaultBodyLimit::max(MAX_AREA_BODY_BYTES)", ROUTES)
         self.assertIn("16 * 1024", ROUTES)
 
-
     def test_management_target_and_secret_are_explicit_before_network_io(self):
         self.assertIn("virya_management_url: Option<String>", CONFIG)
         self.assertIn("CONTROL_PLANE_VIRYA_MANAGEMENT_URL", CONFIG)
         self.assertNotIn('unwrap_or_else(|_| "http://127.0.0.1:8080"', CONFIG)
         request = CLIENT.split("pub async fn request(", 1)[1].split("fn validate_management_target", 1)[0]
         self.assertLess(request.index("self.derived_token(tenant_id)?"), request.index("TcpStream::connect"))
+
+    def test_virya_example_targets_the_private_area_proxy(self):
+        self.assertIn("CONTROL_PLANE_VIRYA_MANAGEMENT_URL=http://127.0.0.1:18080", ENV_EXAMPLE)
+        self.assertNotIn("CONTROL_PLANE_VIRYA_MANAGEMENT_URL=http://127.0.0.1:8080", ENV_EXAMPLE)
+
+    def test_area_ui_never_misreports_transport_failure_as_empty_inventory(self):
+        self.assertIn("AREA management is unavailable.", AREA_PAGE)
+        self.assertIn("AREA locations could not be loaded.", AREA_PAGE)
+        self.assertIn("Retry private AREA connection", AREA_PAGE)
+        self.assertIn("Retry locations", AREA_PAGE)
+        self.assertIn("when={!drops.error}", AREA_PAGE)
+        self.assertIn("when={!drops.isPending}", AREA_PAGE)
+        empty = AREA_PAGE.index("No AREA locations yet.")
+        error_guard = AREA_PAGE.rfind("when={!drops.error}", 0, empty)
+        pending_guard = AREA_PAGE.rfind("when={!drops.isPending}", 0, empty)
+        self.assertGreater(error_guard, -1)
+        self.assertGreater(pending_guard, error_guard)
 
     def test_proxy_validates_drop_ids_before_constructing_upstream_paths(self):
         self.assertIn("fn valid_area_drop_id", ROUTES)
