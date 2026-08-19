@@ -2,7 +2,7 @@ use chrono::{Duration, Utc};
 
 use crate::{
     error::ApiError,
-    model::{BrandingPalette, RuntimeReportRequest},
+    model::{BrandingPalette, RegionalProfile, RuntimeReportRequest},
 };
 
 pub fn slug(value: &str) -> Result<String, ApiError> {
@@ -50,7 +50,12 @@ pub fn base_url(value: Option<String>) -> Result<Option<String>, ApiError> {
 
 pub fn country_code(value: Option<String>) -> Result<String, ApiError> {
     let value = value
-        .unwrap_or_else(|| "PL".to_owned())
+        .ok_or_else(|| {
+            ApiError::InvalidInput(
+                "defaultCountryCode is required; new tenants must not inherit a hidden country"
+                    .to_owned(),
+            )
+        })?
         .trim()
         .to_ascii_uppercase();
     if value.len() != 2 || !value.bytes().all(|byte| byte.is_ascii_uppercase()) {
@@ -59,6 +64,79 @@ pub fn country_code(value: Option<String>) -> Result<String, ApiError> {
         ));
     }
     Ok(value)
+}
+
+pub fn data_region(value: Option<&str>) -> Result<Option<String>, ApiError> {
+    let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    let value = value.to_ascii_lowercase();
+    if !matches!(value.as_str(), "eu" | "us") {
+        return Err(ApiError::InvalidInput(
+            "dataRegion must be eu or us".to_owned(),
+        ));
+    }
+    Ok(Some(value))
+}
+
+pub fn regional_profile(mut profile: RegionalProfile) -> Result<RegionalProfile, ApiError> {
+    profile.country_code = country_code(Some(profile.country_code))?;
+    profile.region = profile.region.trim().to_ascii_lowercase();
+    if !matches!(profile.region.as_str(), "eu" | "us") {
+        return Err(ApiError::InvalidInput("region must be eu or us".to_owned()));
+    }
+
+    profile.locale = profile.locale.trim().to_owned();
+    if !(4..=35).contains(&profile.locale.len())
+        || !profile.locale.contains('-')
+        || !profile
+            .locale
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+    {
+        return Err(ApiError::InvalidInput(
+            "locale must be an explicit BCP-47 style tag such as de-DE or en-US".to_owned(),
+        ));
+    }
+
+    profile.timezone = profile.timezone.trim().to_owned();
+    if !(3..=64).contains(&profile.timezone.len())
+        || !profile.timezone.contains('/')
+        || !profile
+            .timezone
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'/' | b'_' | b'-' | b'+'))
+    {
+        return Err(ApiError::InvalidInput(
+            "timezone must be an explicit IANA-style zone such as Europe/Berlin or America/New_York".to_owned(),
+        ));
+    }
+
+    profile.currency = profile.currency.trim().to_ascii_uppercase();
+    if profile.currency.len() != 3 || !profile.currency.bytes().all(|b| b.is_ascii_uppercase()) {
+        return Err(ApiError::InvalidInput(
+            "currency must be a three-letter uppercase ISO-style code".to_owned(),
+        ));
+    }
+
+    profile.date_format = profile.date_format.trim().to_ascii_lowercase();
+    if !matches!(profile.date_format.as_str(), "dmy" | "mdy" | "ymd") {
+        return Err(ApiError::InvalidInput(
+            "dateFormat must be dmy, mdy or ymd".to_owned(),
+        ));
+    }
+    profile.number_format = profile.number_format.trim().to_ascii_lowercase();
+    if !matches!(
+        profile.number_format.as_str(),
+        "comma_decimal" | "dot_decimal"
+    ) {
+        return Err(ApiError::InvalidInput(
+            "numberFormat must be comma_decimal or dot_decimal".to_owned(),
+        ));
+    }
+    profile.data_region = data_region(Some(&profile.data_region))?
+        .expect("Some input must produce Some normalized data region");
+    Ok(profile)
 }
 
 pub fn deployment_version(
@@ -333,6 +411,7 @@ mod tests {
             format!("sha-{sha}")
         );
         assert_eq!(country_code(Some("pl".into())).unwrap(), "PL");
+        assert!(country_code(None).is_err());
         assert!(deployment_version(Some("latest".into()), None).is_err());
         assert!(country_code(Some("POL".into())).is_err());
     }

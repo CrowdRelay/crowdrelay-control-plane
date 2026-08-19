@@ -14,7 +14,7 @@ use crate::{
         CreateTenantRequest, DeployTenantRequest, PlanProvisioningRequest,
         ProvisioningClaimRequest, ProvisioningFailureRequest, ProvisioningLeaseRequest,
         ProvisioningSuccessRequest, RuntimeHealth, RuntimeReportRequest, TenantDeploymentSpec,
-        UpdateBrandingRequest,
+        UpdateBrandingRequest, UpdateRegionalProfileRequest,
     },
     store::ProvisioningCompletion,
     validation,
@@ -28,6 +28,10 @@ pub fn admin_router() -> Router<AppState> {
         .route(
             "/tenants/{slug}/branding",
             axum::routing::patch(update_branding),
+        )
+        .route(
+            "/tenants/{slug}/regional-profile",
+            axum::routing::patch(update_regional_profile),
         )
         .route("/tenants/{slug}/suspend", post(suspend_tenant))
         .route("/tenants/{slug}/resume", post(resume_tenant))
@@ -114,7 +118,16 @@ async fn create_tenant(
     input.display_name = validation::display_name(&input.display_name)?;
     input.crowdrelay_base_url = validation::base_url(input.crowdrelay_base_url)?;
     input.signal_base_url = validation::base_url(input.signal_base_url)?;
-    input.default_country_code = Some(validation::country_code(input.default_country_code.take())?);
+    input.regional_profile = validation::regional_profile(input.regional_profile)?;
+    if let Some(raw_country) = input.default_country_code.take() {
+        let compatibility_country = validation::country_code(Some(raw_country))?;
+        if compatibility_country != input.regional_profile.country_code {
+            return Err(ApiError::InvalidInput(
+                "defaultCountryCode must match regionalProfile.countryCode".to_owned(),
+            ));
+        }
+    }
+    input.default_country_code = Some(input.regional_profile.country_code.clone());
     let palette = validation::palette(input.branding_palette.take())?;
     if !input.deploy_crowdrelay && input.desired_version.is_some() {
         return Err(ApiError::InvalidInput(
@@ -180,6 +193,27 @@ async fn update_branding(
                 palette,
                 state.admin_actor.as_ref(),
                 request_id(&headers)
+            )
+            .await?
+    )))
+}
+
+async fn update_regional_profile(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    headers: HeaderMap,
+    Json(input): Json<UpdateRegionalProfileRequest>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let slug = validation::slug(&raw_slug)?;
+    let profile = validation::regional_profile(input.regional_profile)?;
+    Ok(Json(json!(
+        state
+            .store
+            .update_regional_profile(
+                &slug,
+                profile,
+                state.admin_actor.as_ref(),
+                request_id(&headers),
             )
             .await?
     )))
@@ -316,10 +350,12 @@ async fn claim_provisioning(
     Json(input): Json<ProvisioningClaimRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let worker_id = validation::worker_id(&input.worker_id)?;
+    let data_region = validation::data_region(input.data_region.as_deref())?;
     let claim = state
         .store
         .claim_provisioning(
             &worker_id,
+            data_region.as_deref(),
             state.provisioner_lease_seconds,
             state.provisioner_actor.as_ref(),
         )

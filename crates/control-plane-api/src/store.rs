@@ -8,9 +8,9 @@ use uuid::Uuid;
 use crate::{
     error::ApiError,
     model::{
-        AuditRow, BrandingPalette, CreateTenantRequest, ProvisioningJobRow, RuntimeHealth,
-        RuntimeReportRequest, RuntimeStatusRow, TenantDeploymentSpec, TenantRow, TenantSummary,
-        TenantSummaryJoinRow,
+        AuditRow, BrandingPalette, CreateTenantRequest, ProvisioningJobRow, RegionalProfile,
+        RuntimeHealth, RuntimeReportRequest, RuntimeStatusRow, TenantDeploymentSpec, TenantRow,
+        TenantSummary, TenantSummaryJoinRow,
     },
 };
 
@@ -58,8 +58,8 @@ impl Store {
     ) -> Result<(), ApiError> {
         sqlx::query(
             r#"INSERT INTO control_plane_tenants
-               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, branding_palette, synesthesia_enabled, area_enabled)
-               VALUES ($1, 'virya', 'Virya', 'active', $2, $3, $4, NULL, true, true)
+               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, branding_palette, synesthesia_enabled, area_enabled)
+               VALUES ($1, 'virya', 'Virya', 'active', $2, $3, $4, 'PL', NULL, true, true)
                ON CONFLICT (slug) DO UPDATE SET
                    workspace_id = COALESCE(control_plane_tenants.workspace_id, EXCLUDED.workspace_id),
                    crowdrelay_base_url = COALESCE(control_plane_tenants.crowdrelay_base_url, EXCLUDED.crowdrelay_base_url),
@@ -79,7 +79,7 @@ impl Store {
     pub async fn list_tenants(&self) -> Result<Vec<TenantSummary>, ApiError> {
         let rows = sqlx::query_as::<_, TenantSummaryJoinRow>(
             r#"SELECT t.id, t.slug, t.display_name, t.status, t.workspace_id,
-                      t.crowdrelay_base_url, t.signal_base_url, t.default_country_code, t.branding_palette,
+                      t.crowdrelay_base_url, t.signal_base_url, t.default_country_code, t.regional_profile, t.branding_palette,
                       t.synesthesia_enabled, t.area_enabled, t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
@@ -106,7 +106,7 @@ impl Store {
     pub async fn tenant_by_slug(&self, slug: &str) -> Result<TenantSummary, ApiError> {
         let row = sqlx::query_as::<_, TenantSummaryJoinRow>(
             r#"SELECT t.id, t.slug, t.display_name, t.status, t.workspace_id,
-                      t.crowdrelay_base_url, t.signal_base_url, t.default_country_code, t.branding_palette,
+                      t.crowdrelay_base_url, t.signal_base_url, t.default_country_code, t.regional_profile, t.branding_palette,
                       t.synesthesia_enabled, t.area_enabled, t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
@@ -142,13 +142,15 @@ impl Store {
         let id = Uuid::new_v4();
         let palette_json =
             palette.map(|value| serde_json::to_value(value).expect("palette serialization"));
+        let regional_profile_json =
+            serde_json::to_value(&input.regional_profile).expect("regional profile serialization");
         let mut tx = self.pool.begin().await?;
         let tenant = sqlx::query_as::<_, TenantRow>(
             r#"INSERT INTO control_plane_tenants
-               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, branding_palette, synesthesia_enabled, area_enabled)
-               VALUES ($1, $2, $3, 'provisioning', $4, $5, $6, $7, $8, false, false)
+               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled)
+               VALUES ($1, $2, $3, 'provisioning', $4, $5, $6, $7, $8, $9, false, false)
                RETURNING id, slug, display_name, status, workspace_id, crowdrelay_base_url,
-                         signal_base_url, default_country_code, branding_palette, synesthesia_enabled, area_enabled,
+                         signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled,
                          created_at, updated_at"#,
         )
         .bind(id)
@@ -157,7 +159,8 @@ impl Store {
         .bind(input.workspace_id)
         .bind(&input.crowdrelay_base_url)
         .bind(&input.signal_base_url)
-        .bind(input.default_country_code.as_deref().unwrap_or("PL"))
+        .bind(&input.regional_profile.country_code)
+        .bind(regional_profile_json)
         .bind(palette_json)
         .fetch_one(&mut *tx)
         .await
@@ -176,7 +179,7 @@ impl Store {
                 target_kind: "tenant",
                 target_id: id.to_string(),
                 request_id,
-                detail: json!({"slug": &input.slug}),
+                detail: json!({"slug": &input.slug, "regionalProfile": &input.regional_profile}),
             },
         )
         .await?;
@@ -249,6 +252,65 @@ impl Store {
                 target_id: tenant.tenant.id.to_string(),
                 request_id,
                 detail: json!({"inheritsDefault": inherits_default}),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        self.tenant_by_slug(slug).await
+    }
+
+    pub async fn update_regional_profile(
+        &self,
+        slug: &str,
+        profile: RegionalProfile,
+        actor: &str,
+        request_id: Option<&str>,
+    ) -> Result<TenantSummary, ApiError> {
+        let tenant = self.tenant_by_slug(slug).await?;
+        if let Some(current) = tenant.tenant.regional_profile.as_ref() {
+            let current: RegionalProfile =
+                serde_json::from_value(current.clone()).map_err(|_| {
+                    ApiError::Conflict(
+                        "stored regional profile is invalid; repair it before editing".to_owned(),
+                    )
+                })?;
+            if current.data_region != profile.data_region {
+                return Err(ApiError::Conflict(
+                    "dataRegion cannot be changed by ordinary tenant editing; use an explicit residency migration"
+                        .to_owned(),
+                ));
+            }
+        }
+
+        let value = serde_json::to_value(&profile).expect("regional profile serialization");
+        let mut tx = self.pool.begin().await?;
+        sqlx::query(
+            "UPDATE control_plane_tenants SET regional_profile=$2, default_country_code=$3, updated_at=now() WHERE id=$1",
+        )
+        .bind(tenant.tenant.id)
+        .bind(value)
+        .bind(&profile.country_code)
+        .execute(&mut *tx)
+        .await?;
+        self.audit_tx(
+            &mut tx,
+            AuditRecord {
+                tenant_id: Some(tenant.tenant.id),
+                actor,
+                action: "tenant.regional_profile.updated",
+                target_kind: "tenant",
+                target_id: tenant.tenant.id.to_string(),
+                request_id,
+                detail: json!({
+                    "countryCode": profile.country_code,
+                    "region": profile.region,
+                    "locale": profile.locale,
+                    "timezone": profile.timezone,
+                    "currency": profile.currency,
+                    "dateFormat": profile.date_format,
+                    "numberFormat": profile.number_format,
+                    "dataRegion": profile.data_region,
+                }),
             },
         )
         .await?;
@@ -554,6 +616,7 @@ impl Store {
     pub async fn claim_provisioning(
         &self,
         worker_id: &str,
+        data_region: Option<&str>,
         lease_seconds: i64,
         actor: &str,
     ) -> Result<Option<crate::model::ProvisioningClaim>, ApiError> {
@@ -602,10 +665,19 @@ impl Store {
                       result, error_code, error_detail, created_at, updated_at
                FROM control_plane_provisioning_jobs
                WHERE status='approved'
+                 AND (
+                   plan->>'schema' = '3'
+                   OR (
+                     plan->>'schema' = '4'
+                     AND $1::text IS NOT NULL
+                     AND plan #>> '{regionalProfile,dataRegion}' = $1
+                   )
+                 )
                ORDER BY created_at ASC, id ASC
                FOR UPDATE SKIP LOCKED
                LIMIT 1"#,
         )
+        .bind(data_region)
         .fetch_optional(&mut *tx)
         .await?;
         let Some(candidate) = candidate else {
@@ -1068,8 +1140,15 @@ fn deployment_plan(
     let signal_base_url = tenant.signal_base_url.as_deref().ok_or_else(|| {
         ApiError::InvalidInput("signalBaseUrl is required before deployment".to_owned())
     })?;
+    let regional_profile: RegionalProfile =
+        serde_json::from_value(tenant.regional_profile.clone().ok_or_else(|| {
+            ApiError::InvalidInput(
+                "regionalProfile must be explicitly classified before deployment".to_owned(),
+            )
+        })?)
+        .map_err(|_| ApiError::Conflict("stored regionalProfile is invalid".to_owned()))?;
     Ok(json!({
-        "schema": 3,
+        "schema": 4,
         "mode": "local_docker_compose",
         "composeProject": format!("crowdrelay-{}", tenant.slug),
         "tenantId": tenant.id.to_string(),
@@ -1081,6 +1160,7 @@ fn deployment_plan(
         "publicSiteBaseUrl": signal_base_url,
         "allowedOrigins": [signal_base_url],
         "defaultCountryCode": tenant.default_country_code.as_str(),
+        "regionalProfile": regional_profile,
         "brandingPalette": tenant.branding_palette.as_ref(),
         "desiredVersion": deployment.desired_version.as_str(),
         "apiImage": format!("{}:{}", deployment.api_image, deployment.desired_version),

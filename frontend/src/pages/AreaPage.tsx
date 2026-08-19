@@ -41,7 +41,7 @@ export function AreaPage() {
   const [newNumber, setNewNumber] = createSignal('001')
   const [newCityId, setNewCityId] = createSignal('')
   const [createCityOpen, setCreateCityOpen] = createSignal(false)
-  const cities = useQuery(() => ({ queryKey: ['area-cities', slug(), citySearch()], queryFn: () => api.areaCities(slug(), citySearch(), 40), staleTime: 30_000 }))
+  const cities = useQuery(() => ({ queryKey: ['area-cities', slug(), citySearch()], queryFn: () => api.areaCities(slug(), citySearch(), 40), staleTime: 30_000, enabled: creating() || Boolean(selectedId()) || createCityOpen() }))
   const detail = useQuery(() => ({
     queryKey: ['area-drop', slug(), selectedId()],
     queryFn: () => api.areaDrop(slug(), selectedId()!),
@@ -148,7 +148,11 @@ export function AreaPage() {
     <Show when={flash()}><div class="notice-card">{flash()}</div></Show>
     <Show when={mutationError()}><div class="error-card">{errorText(mutationError())}</div></Show>
 
-    <Show when={overview.data} fallback={<div class="skeleton-block"/>}>{o => <>
+    <Show when={overview.data} fallback={
+      <Show when={overview.isPending} fallback={<div class="error-card">AREA management is unavailable. This is not an empty game state. <button class="ghost" onClick={()=>overview.refetch()}>Retry</button></div>}>
+        <div class="skeleton-block"/>
+      </Show>
+    }>{o => <>
       <div class="metric-grid area-metrics">
         <div class="metric"><span>Locations</span><strong>{o().total}</strong></div>
         <div class="metric"><span>Live</span><strong>{o().live}</strong></div>

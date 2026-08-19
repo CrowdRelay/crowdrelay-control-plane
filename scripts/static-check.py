@@ -41,7 +41,7 @@ checks = {
     "rust_1971_docker": (root / "Dockerfile", "FROM rust:1.97.1-alpine AS rust"),
     "rust_1971_ci": (root / ".github/workflows/ci.yml", "toolchain: 1.97.1"),
     "docker_cargo_locked": (root / "Dockerfile", "cargo build --release --locked"),
-    "ci_cargo_locked": (root / ".github/workflows/ci.yml", "cargo check --locked"),
+    "ci_clippy_locked": (root / ".github/workflows/ci.yml", "cargo clippy --locked"),
     "spa_deep_link_200": (root / "crates/control-plane-api/src/main.rs", ".fallback(ServeFile::new(index))"),
     "area_private_transport": (root / "crates/control-plane-api/src/tenant_area_client.rs", "AREA management target must be loopback or private"),
     "area_redirect_refusal": (root / "crates/control-plane-api/src/tenant_area_client.rs", "AREA management redirect refused"),
@@ -105,6 +105,7 @@ create_body = store[create_start:create_end]
 assert "self.tenant_by_slug" not in create_body, "create+deploy must not add a fallible post-commit read that creates ambiguous success"
 
 workflow = (root / ".github/workflows/ci.yml").read_text()
+assert "cargo check --locked --workspace --all-targets" not in workflow, "CI hot path must not re-add redundant cargo check before locked clippy + tests"
 for line in workflow.splitlines():
     if "uses:" in line:
         ref = line.split("@", 1)[-1].split()[0] if "@" in line else ""
