@@ -74,6 +74,7 @@ export function AreaPage() {
       id ? queryClient.invalidateQueries({ queryKey: ['area-drop', slug(), id] }) : Promise.resolve(),
     ])
   }
+  const retryArea = () => { void Promise.all([overview.refetch(), drops.refetch(), cities.refetch()]) }
   const closeEditor = () => {
     const id = selectedId(); setSelectedId(null); setDraft(null); setValidation(null); setConfirmations([])
     if (id) queryClient.removeQueries({ queryKey: ['area-drop', slug(), id] })
@@ -134,7 +135,7 @@ export function AreaPage() {
 
   const selectedCity = createMemo(() => { const d=draft(); return d ? cities.data?.items.find(city=>city.id===d.cityId) : undefined })
   const allPending = () => save.isPending || validate.isPending || publish.isPending || lifecycle.isPending || discard.isPending || duplicate.isPending
-  const mutationError = () => [overview.error,drops.error,tenant.error,settings.error,createDrop.error,createCity.error,save.error,validate.error,publish.error,lifecycle.error,discard.error,duplicate.error].find(Boolean)
+  const mutationError = () => [tenant.error,settings.error,createDrop.error,createCity.error,save.error,validate.error,publish.error,lifecycle.error,discard.error,duplicate.error].find(Boolean)
   const confirmationIssues = () => validation()?.issues.filter(issue => issue.confirmationRequired) ?? []
   const hardIssues = () => validation()?.issues.filter(issue => !issue.confirmationRequired) ?? []
   const toggleConfirmation = (code:string) => setConfirmations(current => current.includes(code) ? current.filter(item=>item!==code) : [...current,code])
@@ -148,25 +149,29 @@ export function AreaPage() {
     <Show when={flash()}><div class="notice-card">{flash()}</div></Show>
     <Show when={mutationError()}><div class="error-card">{errorText(mutationError())}</div></Show>
 
-    <Show when={overview.data} fallback={<div class="skeleton-block"/>}>{o => <>
-      <div class="metric-grid area-metrics">
-        <div class="metric"><span>Locations</span><strong>{o().total}</strong></div>
-        <div class="metric"><span>Live</span><strong>{o().live}</strong></div>
-        <div class="metric"><span>Total claims</span><strong>{o().totalClaims}</strong></div>
-        <div class="metric"><span>Scheduled</span><strong>{o().scheduled}</strong></div>
-        <div class="metric"><span>Drafts</span><strong>{o().drafts}</strong></div>
-        <div class="metric"><span>Paused / ended</span><strong>{o().paused + o().ended}</strong></div>
-      </div>
-      <article class="panel area-entitlement-panel"><div><span class="eyebrow">ENTITLEMENT</span><h2>Tenant AREA</h2><p>Disabling AREA hides the public game but preserves drops, claims and audit history.</p></div><button class={o().entitled ? 'ghost danger-ghost' : ''} disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Disable AREA' : 'Enable AREA'}</button></article>
-    </>}</Show>
+    <Show when={!overview.error} fallback={<div class="error-card"><strong>AREA management is unavailable.</strong><p>{errorText(overview.error)}</p><button class="ghost" disabled={overview.isFetching} onClick={retryArea}>Retry private AREA connection</button></div>}>
+      <Show when={overview.data} fallback={<div class="skeleton-block"/>}>{o => <>
+        <div class="metric-grid area-metrics">
+          <div class="metric"><span>Locations</span><strong>{o().total}</strong></div>
+          <div class="metric"><span>Live</span><strong>{o().live}</strong></div>
+          <div class="metric"><span>Total claims</span><strong>{o().totalClaims}</strong></div>
+          <div class="metric"><span>Scheduled</span><strong>{o().scheduled}</strong></div>
+          <div class="metric"><span>Drafts</span><strong>{o().drafts}</strong></div>
+          <div class="metric"><span>Paused / ended</span><strong>{o().paused + o().ended}</strong></div>
+        </div>
+        <article class="panel area-entitlement-panel"><div><span class="eyebrow">ENTITLEMENT</span><h2>Tenant AREA</h2><p>Disabling AREA hides the public game but preserves drops, claims and audit history.</p></div><button class={o().entitled ? 'ghost danger-ghost' : ''} disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Disable AREA' : 'Enable AREA'}</button></article>
+      </>}</Show>
+    </Show>
 
     <article class="panel">
-      <div class="section-title"><div><span class="eyebrow">LOCATIONS</span><h2>Published state + drafts</h2></div><button disabled={!overview.data?.entitled} onClick={() => setCreating(v=>!v)}>+ New location</button></div>
+      <div class="section-title"><div><span class="eyebrow">LOCATIONS</span><h2>Published state + drafts</h2></div><button disabled={!overview.data?.entitled || Boolean(drops.error)} onClick={() => setCreating(v=>!v)}>+ New location</button></div>
       <Show when={creating()}><div class="area-create-card">
-        <label>Search city<input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></label>
-        <label>Canonical city<select value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></select></label>
+        <Show when={!cities.error} fallback={<div class="error-card"><strong>Canonical cities could not be loaded.</strong><p>{errorText(cities.error)}</p><button class="ghost" disabled={cities.isFetching} onClick={()=>void cities.refetch()}>Retry cities</button></div>}>
+          <label>Search city<input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></label>
+          <label>Canonical city<select value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></select></label>
+        </Show>
         <label>Drop number<input inputmode="numeric" maxlength="3" value={newNumber()} onInput={e=>setNewNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></label>
-        <div class="form-actions"><button class="ghost" onClick={()=>setCreateCityOpen(v=>!v)}>Create custom city</button><button disabled={createDrop.isPending || !newCityId()} onClick={()=>createDrop.mutate()}>Create draft</button></div>
+        <div class="form-actions"><button class="ghost" onClick={()=>setCreateCityOpen(v=>!v)}>Create custom city</button><button disabled={createDrop.isPending || !newCityId() || Boolean(cities.error)} onClick={()=>createDrop.mutate()}>Create draft</button></div>
         <Show when={createCityOpen()}><div class="area-custom-city">
           <label>Name<input required value={newCity().name} onInput={e=>setNewCity(v=>({...v,name:e.currentTarget.value}))}/></label>
           <label>Slug<input required value={newCity().slug} onInput={e=>setNewCity(v=>({...v,slug:e.currentTarget.value}))}/></label>
@@ -177,79 +182,85 @@ export function AreaPage() {
           <button disabled={createCity.isPending} onClick={()=>createCity.mutate()}>Save canonical city</button>
         </div></Show>
       </div></Show>
-      <div class="area-drop-table">
-        <div class="area-drop-head"><span>#</span><span>City</span><span>Status</span><span>Claims</span><span>Window</span><span/></div>
-        <For each={drops.data?.items ?? []}>{item => <div class="area-drop-row">
-          <code>{item.number}</code><div><strong>{item.city}</strong><small>{item.id} · rev {item.revision}{item.hasDraft ? ' · draft' : ''}</small></div><StatusBadge status={item.status} tone={statusTone(item.status)} /><span>{item.claimCount} / {item.maxClaims}</span><small>{formatDate(item.startsAt)}<br/>{formatDate(item.endsAt)}</small><button class="ghost" onClick={()=>{setSelectedId(item.id);setEditorStep('city')}}>Edit</button>
-        </div>}</For>
-        <Show when={!drops.isPending && (drops.data?.items.length ?? 0)===0}><div class="inherit-card"><p>No AREA locations yet. Create the first tenant draft above.</p></div></Show>
-      </div>
+      <Show when={!drops.error} fallback={<div class="error-card"><strong>AREA locations could not be loaded.</strong><p>{errorText(drops.error)}</p><button class="ghost" disabled={drops.isFetching} onClick={retryArea}>Retry locations</button></div>}>
+        <Show when={!drops.isPending} fallback={<div class="skeleton-block"/>}>
+          <div class="area-drop-table">
+            <div class="area-drop-head"><span>#</span><span>City</span><span>Status</span><span>Claims</span><span>Window</span><span/></div>
+            <For each={drops.data?.items ?? []}>{item => <div class="area-drop-row">
+              <code>{item.number}</code><div><strong>{item.city}</strong><small>{item.id} · rev {item.revision}{item.hasDraft ? ' · draft' : ''}</small></div><StatusBadge status={item.status} tone={statusTone(item.status)} /><span>{item.claimCount} / {item.maxClaims}</span><small>{formatDate(item.startsAt)}<br/>{formatDate(item.endsAt)}</small><button class="ghost" onClick={()=>{setSelectedId(item.id);setEditorStep('city')}}>Edit</button>
+            </div>}</For>
+            <Show when={(drops.data?.items.length ?? 0)===0}><div class="inherit-card"><p>No AREA locations yet. Create the first tenant draft above.</p></div></Show>
+          </div>
+        </Show>
+      </Show>
     </article>
 
     <Show when={selectedId()}><article class="panel area-editor">
       <div class="section-title"><div><span class="eyebrow">PRIVATE EDITOR</span><h2>{selectedId()}</h2><p>Single-drop response only · <code>Cache-Control: private, no-store</code></p></div><button class="ghost" onClick={closeEditor}>Close & purge coordinates</button></div>
-      <Show when={detail.data && draft()} fallback={<div class="skeleton-block"/>}>{_ready => <>
-        <div class="area-step-tabs"><For each={['city','location','content','schedule','review'] as const}>{step=><button class={editorStep()===step?'active ghost':'ghost'} onClick={()=>setEditorStep(step)}>{step}</button>}</For></div>
+      <Show when={!detail.error} fallback={<div class="error-card"><strong>This private AREA draft could not be loaded.</strong><p>{errorText(detail.error)}</p><button class="ghost" disabled={detail.isFetching} onClick={()=>void detail.refetch()}>Retry draft</button></div>}>
+        <Show when={detail.data && draft()} fallback={<div class="skeleton-block"/>}>{_ready => <>
+          <div class="area-step-tabs"><For each={['city','location','content','schedule','review'] as const}>{step=><button class={editorStep()===step?'active ghost':'ghost'} onClick={()=>setEditorStep(step)}>{step}</button>}</For></div>
 
-        <Show when={editorStep()==='city'}><div class="area-form-grid">
-          <label>Search canonical city<input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder={detail.data!.summary.city}/></label>
-          <label>Canonical city<select value={draft()!.cityId} onChange={e=>{const id=e.currentTarget.value;const city=cities.data?.items.find(c=>c.id===id);setDraft(d=>d?({...d,cityId:id,approximateLat:city?.latitude ?? d.approximateLat,approximateLng:city?.longitude ?? d.approximateLng}):d)}}><Show when={!(cities.data?.items ?? []).some(city=>city.id===draft()!.cityId)}><option value={draft()!.cityId}>{detail.data!.summary.city} · current</option></Show><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name} · {city.countryCode}</option>}</For></select></label>
-          <label>Drop number<input maxlength="3" value={draft()!.number} onInput={e=>mutateDraft({number:e.currentTarget.value.replace(/\D/g,'').slice(0,3)})}/></label>
-          <label>Sort order<input type="number" value={draft()!.sortOrder} onInput={e=>mutateDraft({sortOrder:finiteInput(e.currentTarget.value,draft()!.sortOrder)})}/></label>
-          <label>Illustration X (advanced)<input type="number" min="0" max="100" value={draft()!.mapX} onInput={e=>mutateDraft({mapX:finiteInput(e.currentTarget.value,draft()!.mapX)})}/></label>
-          <label>Illustration Y (advanced)<input type="number" min="0" max="100" value={draft()!.mapY} onInput={e=>mutateDraft({mapY:finiteInput(e.currentTarget.value,draft()!.mapY)})}/></label>
-        </div></Show>
+          <Show when={editorStep()==='city'}><div class="area-form-grid">
+            <label>Search canonical city<input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder={detail.data!.summary.city}/></label>
+            <label>Canonical city<select value={draft()!.cityId} onChange={e=>{const id=e.currentTarget.value;const city=cities.data?.items.find(c=>c.id===id);setDraft(d=>d?({...d,cityId:id,approximateLat:city?.latitude ?? d.approximateLat,approximateLng:city?.longitude ?? d.approximateLng}):d)}}><Show when={!(cities.data?.items ?? []).some(city=>city.id===draft()!.cityId)}><option value={draft()!.cityId}>{detail.data!.summary.city} · current</option></Show><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name} · {city.countryCode}</option>}</For></select></label>
+            <label>Drop number<input maxlength="3" value={draft()!.number} onInput={e=>mutateDraft({number:e.currentTarget.value.replace(/\D/g,'').slice(0,3)})}/></label>
+            <label>Sort order<input type="number" value={draft()!.sortOrder} onInput={e=>mutateDraft({sortOrder:finiteInput(e.currentTarget.value,draft()!.sortOrder)})}/></label>
+            <label>Illustration X (advanced)<input type="number" min="0" max="100" value={draft()!.mapX} onInput={e=>mutateDraft({mapX:finiteInput(e.currentTarget.value,draft()!.mapX)})}/></label>
+            <label>Illustration Y (advanced)<input type="number" min="0" max="100" value={draft()!.mapY} onInput={e=>mutateDraft({mapY:finiteInput(e.currentTarget.value,draft()!.mapY)})}/></label>
+          </div></Show>
 
-        <Show when={editorStep()==='location'}><div class="area-location-editor">
-          <div class="warning-card"><strong>Secret location.</strong> The canvas below is rendered locally. It does not load map tiles or transmit exact coordinates to an external mapping provider.</div>
-          <LocationCanvas publicLat={draft()!.approximateLat} publicLng={draft()!.approximateLng} exactLat={draft()!.exactLat} exactLng={draft()!.exactLng} radiusMeters={draft()!.radiusMeters} onPick={(lat,lng)=>mutateDraft({exactLat:lat,exactLng:lng})}/>
-          <div class="area-form-grid">
-            <label>Public latitude<input required type="number" step="0.000001" value={draft()!.approximateLat} onInput={e=>mutateDraft({approximateLat:finiteInput(e.currentTarget.value,draft()!.approximateLat)})}/></label>
-            <label>Public longitude<input required type="number" step="0.000001" value={draft()!.approximateLng} onInput={e=>mutateDraft({approximateLng:finiteInput(e.currentTarget.value,draft()!.approximateLng)})}/></label>
-            <label>Exact latitude<input type="number" step="0.000001" value={draft()!.exactLat ?? ''} onInput={e=>mutateDraft({exactLat:nullableInput(e.currentTarget.value,draft()!.exactLat)})}/></label>
-            <label>Exact longitude<input type="number" step="0.000001" value={draft()!.exactLng ?? ''} onInput={e=>mutateDraft({exactLng:nullableInput(e.currentTarget.value,draft()!.exactLng)})}/></label>
-            <label>Claim radius (m)<input type="number" min="25" max="500" value={draft()!.radiusMeters} onInput={e=>mutateDraft({radiusMeters:finiteInput(e.currentTarget.value,draft()!.radiusMeters)})}/></label>
+          <Show when={editorStep()==='location'}><div class="area-location-editor">
+            <div class="warning-card"><strong>Secret location.</strong> The canvas below is rendered locally. It does not load map tiles or transmit exact coordinates to an external mapping provider.</div>
+            <LocationCanvas publicLat={draft()!.approximateLat} publicLng={draft()!.approximateLng} exactLat={draft()!.exactLat} exactLng={draft()!.exactLng} radiusMeters={draft()!.radiusMeters} onPick={(lat,lng)=>mutateDraft({exactLat:lat,exactLng:lng})}/>
+            <div class="area-form-grid">
+              <label>Public latitude<input required type="number" step="0.000001" value={draft()!.approximateLat} onInput={e=>mutateDraft({approximateLat:finiteInput(e.currentTarget.value,draft()!.approximateLat)})}/></label>
+              <label>Public longitude<input required type="number" step="0.000001" value={draft()!.approximateLng} onInput={e=>mutateDraft({approximateLng:finiteInput(e.currentTarget.value,draft()!.approximateLng)})}/></label>
+              <label>Exact latitude<input type="number" step="0.000001" value={draft()!.exactLat ?? ''} onInput={e=>mutateDraft({exactLat:nullableInput(e.currentTarget.value,draft()!.exactLat)})}/></label>
+              <label>Exact longitude<input type="number" step="0.000001" value={draft()!.exactLng ?? ''} onInput={e=>mutateDraft({exactLng:nullableInput(e.currentTarget.value,draft()!.exactLng)})}/></label>
+              <label>Claim radius (m)<input type="number" min="25" max="500" value={draft()!.radiusMeters} onInput={e=>mutateDraft({radiusMeters:finiteInput(e.currentTarget.value,draft()!.radiusMeters)})}/></label>
+            </div>
+          </div></Show>
+
+          <Show when={editorStep()==='content'}><div class="area-form-grid area-content-grid">
+            <label>Clue — Polski<textarea maxlength="2000" value={draft()!.clue.pl} onInput={e=>mutateClue('pl',e.currentTarget.value)}/></label>
+            <label>Clue — English<textarea maxlength="2000" value={draft()!.clue.en} onInput={e=>mutateClue('en',e.currentTarget.value)}/></label>
+            <label>Track<input maxlength="256" value={draft()!.collectible.track} onInput={e=>mutateCollectible('track',e.currentTarget.value)}/></label>
+            <label>Edition<input maxlength="256" value={draft()!.collectible.edition} onInput={e=>mutateCollectible('edition',e.currentTarget.value)}/></label>
+            <label>Collectible line<textarea maxlength="1000" value={draft()!.collectible.line} onInput={e=>mutateCollectible('line',e.currentTarget.value)}/></label>
+            <label>Riddle<input maxlength="256" value={draft()!.collectible.riddle} onInput={e=>mutateCollectible('riddle',e.currentTarget.value)}/></label>
+          </div></Show>
+
+          <Show when={editorStep()==='schedule'}><div class="area-form-grid">
+            <label>Starts <small>{Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone'}</small><input required type="datetime-local" value={toLocalInput(draft()!.startsAt)} onInput={e=>mutateDraft({startsAt:fromLocalInput(e.currentTarget.value,draft()!.startsAt)})}/></label>
+            <label>Ends <small>{Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone'}</small><input required type="datetime-local" value={toLocalInput(draft()!.endsAt)} onInput={e=>mutateDraft({endsAt:fromLocalInput(e.currentTarget.value,draft()!.endsAt)})}/></label>
+            <label>Capacity<input type="number" min="1" max="500" value={draft()!.maxClaims} onInput={e=>mutateDraft({maxClaims:finiteInput(e.currentTarget.value,draft()!.maxClaims)})}/></label>
+          </div></Show>
+
+          <Show when={editorStep()==='review'}><div class="area-review">
+            <div class="deployment-target-grid"><div><span>City</span><strong>{selectedCity()?.name ?? detail.data!.summary.city}</strong></div><div><span>Revision</span><strong>{detail.data!.summary.revision}</strong></div><div><span>Exact location</span><strong>{draft()!.exactLat != null && draft()!.exactLng != null ? 'configured' : 'missing'}</strong></div><div><span>Radius / capacity</span><strong>{draft()!.radiusMeters} m · {draft()!.maxClaims}</strong></div><div><span>Starts</span><strong>{formatDate(draft()!.startsAt)}</strong></div><div><span>Ends</span><strong>{formatDate(draft()!.endsAt)}</strong></div></div>
+            <Show when={validation()}>{v=><>
+              <Show when={hardIssues().length===0}><div class="notice-card">No blocking validation errors.</div></Show>
+              <For each={hardIssues()}>{issue=><div class="error-card"><strong>{issue.code}</strong><p>{issue.message}</p></div>}</For>
+              <For each={confirmationIssues()}>{issue=><label class="area-confirm-row"><input type="checkbox" checked={confirmations().includes(issue.code)} onChange={()=>toggleConfirmation(issue.code)}/><span><strong>{issue.code}</strong><small>{issue.message}</small></span></label>}</For>
+            </>}</Show>
+            <div class="form-actions"><button class="ghost" disabled={validate.isPending||save.isPending} onClick={()=>validate.mutate()}>Save + validate</button><button disabled={!validation()?.valid || confirmationIssues().some(issue=>!confirmations().includes(issue.code)) || publish.isPending} onClick={()=>publish.mutate()}>Publish revision</button></div>
+          </div></Show>
+
+          <Show when={duplicateOpen()}><div class="area-create-card area-duplicate-card">
+            <strong>Duplicate as a new draft</strong><p>The collectible/content is copied, but the exact claim coordinates are deliberately cleared.</p>
+            <label>Search destination city<input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Search canonical cities"/></label>
+            <label>Destination city<select value={duplicateCityId()} onChange={e=>setDuplicateCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''}</option>}</For></select></label>
+            <label>New number<input inputmode="numeric" maxlength="3" value={duplicateNumber()} onInput={e=>setDuplicateNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></label>
+            <div class="form-actions"><button class="ghost" onClick={()=>setDuplicateOpen(false)}>Cancel</button><button disabled={duplicate.isPending || !duplicateCityId() || !duplicateNumber()} onClick={()=>duplicate.mutate()}>Create duplicate draft</button></div>
+          </div></Show>
+
+          <div class="area-editor-footer">
+            <div class="form-actions"><button class="ghost" disabled={allPending()} onClick={()=>save.mutate()}>Save draft</button><Show when={detail.data!.summary.hasDraft && detail.data!.summary.status!=='DRAFT'}><button class="ghost" disabled={discard.isPending} onClick={()=>discard.mutate()}>Discard draft</button></Show><Show when={detail.data!.summary.status!=='DRAFT' && detail.data!.summary.status!=='ARCHIVED'}><button class="ghost" disabled={allPending()} onClick={()=>setDuplicateOpen(v=>!v)}>Duplicate</button></Show></div>
+            <div class="form-actions"><Show when={detail.data!.summary.status==='LIVE'||detail.data!.summary.status==='SCHEDULED'}><button class="ghost danger-ghost" disabled={allPending()} onClick={()=>lifecycle.mutate('pause')}>Pause</button></Show><Show when={detail.data!.summary.status==='PAUSED'}><button class="ghost" disabled={allPending()} onClick={()=>lifecycle.mutate('resume')}>Resume</button></Show><Show when={detail.data!.summary.status!=='ARCHIVED' && detail.data!.summary.status!=='DRAFT'}><button class="ghost danger-ghost" disabled={allPending()} onClick={()=>{if(confirm('Archive this AREA location? Claims and history will be preserved.')) lifecycle.mutate('archive')}}>Archive</button></Show><Show when={detail.data!.summary.status==='DRAFT'}><button class="ghost danger-ghost" disabled={allPending()} onClick={()=>{if(confirm('Delete this never-published draft?')) lifecycle.mutate('delete')}}>Delete draft</button></Show></div>
           </div>
-        </div></Show>
-
-        <Show when={editorStep()==='content'}><div class="area-form-grid area-content-grid">
-          <label>Clue — Polski<textarea maxlength="2000" value={draft()!.clue.pl} onInput={e=>mutateClue('pl',e.currentTarget.value)}/></label>
-          <label>Clue — English<textarea maxlength="2000" value={draft()!.clue.en} onInput={e=>mutateClue('en',e.currentTarget.value)}/></label>
-          <label>Track<input maxlength="256" value={draft()!.collectible.track} onInput={e=>mutateCollectible('track',e.currentTarget.value)}/></label>
-          <label>Edition<input maxlength="256" value={draft()!.collectible.edition} onInput={e=>mutateCollectible('edition',e.currentTarget.value)}/></label>
-          <label>Collectible line<textarea maxlength="1000" value={draft()!.collectible.line} onInput={e=>mutateCollectible('line',e.currentTarget.value)}/></label>
-          <label>Riddle<input maxlength="256" value={draft()!.collectible.riddle} onInput={e=>mutateCollectible('riddle',e.currentTarget.value)}/></label>
-        </div></Show>
-
-        <Show when={editorStep()==='schedule'}><div class="area-form-grid">
-          <label>Starts <small>{Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone'}</small><input required type="datetime-local" value={toLocalInput(draft()!.startsAt)} onInput={e=>mutateDraft({startsAt:fromLocalInput(e.currentTarget.value,draft()!.startsAt)})}/></label>
-          <label>Ends <small>{Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone'}</small><input required type="datetime-local" value={toLocalInput(draft()!.endsAt)} onInput={e=>mutateDraft({endsAt:fromLocalInput(e.currentTarget.value,draft()!.endsAt)})}/></label>
-          <label>Capacity<input type="number" min="1" max="500" value={draft()!.maxClaims} onInput={e=>mutateDraft({maxClaims:finiteInput(e.currentTarget.value,draft()!.maxClaims)})}/></label>
-        </div></Show>
-
-        <Show when={editorStep()==='review'}><div class="area-review">
-          <div class="deployment-target-grid"><div><span>City</span><strong>{selectedCity()?.name ?? detail.data!.summary.city}</strong></div><div><span>Revision</span><strong>{detail.data!.summary.revision}</strong></div><div><span>Exact location</span><strong>{draft()!.exactLat != null && draft()!.exactLng != null ? 'configured' : 'missing'}</strong></div><div><span>Radius / capacity</span><strong>{draft()!.radiusMeters} m · {draft()!.maxClaims}</strong></div><div><span>Starts</span><strong>{formatDate(draft()!.startsAt)}</strong></div><div><span>Ends</span><strong>{formatDate(draft()!.endsAt)}</strong></div></div>
-          <Show when={validation()}>{v=><>
-            <Show when={hardIssues().length===0}><div class="notice-card">No blocking validation errors.</div></Show>
-            <For each={hardIssues()}>{issue=><div class="error-card"><strong>{issue.code}</strong><p>{issue.message}</p></div>}</For>
-            <For each={confirmationIssues()}>{issue=><label class="area-confirm-row"><input type="checkbox" checked={confirmations().includes(issue.code)} onChange={()=>toggleConfirmation(issue.code)}/><span><strong>{issue.code}</strong><small>{issue.message}</small></span></label>}</For>
-          </>}</Show>
-          <div class="form-actions"><button class="ghost" disabled={validate.isPending||save.isPending} onClick={()=>validate.mutate()}>Save + validate</button><button disabled={!validation()?.valid || confirmationIssues().some(issue=>!confirmations().includes(issue.code)) || publish.isPending} onClick={()=>publish.mutate()}>Publish revision</button></div>
-        </div></Show>
-
-        <Show when={duplicateOpen()}><div class="area-create-card area-duplicate-card">
-          <strong>Duplicate as a new draft</strong><p>The collectible/content is copied, but the exact claim coordinates are deliberately cleared.</p>
-          <label>Search destination city<input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Search canonical cities"/></label>
-          <label>Destination city<select value={duplicateCityId()} onChange={e=>setDuplicateCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''}</option>}</For></select></label>
-          <label>New number<input inputmode="numeric" maxlength="3" value={duplicateNumber()} onInput={e=>setDuplicateNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></label>
-          <div class="form-actions"><button class="ghost" onClick={()=>setDuplicateOpen(false)}>Cancel</button><button disabled={duplicate.isPending || !duplicateCityId() || !duplicateNumber()} onClick={()=>duplicate.mutate()}>Create duplicate draft</button></div>
-        </div></Show>
-
-        <div class="area-editor-footer">
-          <div class="form-actions"><button class="ghost" disabled={allPending()} onClick={()=>save.mutate()}>Save draft</button><Show when={detail.data!.summary.hasDraft && detail.data!.summary.status!=='DRAFT'}><button class="ghost" disabled={discard.isPending} onClick={()=>discard.mutate()}>Discard draft</button></Show><Show when={detail.data!.summary.status!=='DRAFT' && detail.data!.summary.status!=='ARCHIVED'}><button class="ghost" disabled={allPending()} onClick={()=>setDuplicateOpen(v=>!v)}>Duplicate</button></Show></div>
-          <div class="form-actions"><Show when={detail.data!.summary.status==='LIVE'||detail.data!.summary.status==='SCHEDULED'}><button class="ghost danger-ghost" disabled={allPending()} onClick={()=>lifecycle.mutate('pause')}>Pause</button></Show><Show when={detail.data!.summary.status==='PAUSED'}><button class="ghost" disabled={allPending()} onClick={()=>lifecycle.mutate('resume')}>Resume</button></Show><Show when={detail.data!.summary.status!=='ARCHIVED' && detail.data!.summary.status!=='DRAFT'}><button class="ghost danger-ghost" disabled={allPending()} onClick={()=>{if(confirm('Archive this AREA location? Claims and history will be preserved.')) lifecycle.mutate('archive')}}>Archive</button></Show><Show when={detail.data!.summary.status==='DRAFT'}><button class="ghost danger-ghost" disabled={allPending()} onClick={()=>{if(confirm('Delete this never-published draft?')) lifecycle.mutate('delete')}}>Delete draft</button></Show></div>
-        </div>
-      </>}</Show>
+        </>}</Show>
+      </Show>
     </article></Show>
   </section>
 }
