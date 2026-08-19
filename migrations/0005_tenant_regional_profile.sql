@@ -17,11 +17,17 @@ ALTER TABLE control_plane_tenants
     ADD CONSTRAINT control_plane_tenants_regional_profile_shape CHECK (
         regional_profile IS NULL OR (
             jsonb_typeof(regional_profile) = 'object'
-            AND jsonb_object_length(regional_profile) = 8
             AND regional_profile ?& ARRAY[
                 'countryCode','region','locale','timezone','currency',
                 'dateFormat','numberFormat','dataRegion'
             ]
+            -- All required keys must exist above, and removing exactly those
+            -- keys must leave an empty object. This rejects unknown/extra keys
+            -- without relying on a non-existent jsonb_object_length() helper.
+            AND regional_profile - ARRAY[
+                'countryCode','region','locale','timezone','currency',
+                'dateFormat','numberFormat','dataRegion'
+            ] = '{}'::jsonb
             AND regional_profile->>'countryCode' ~ '^[A-Z]{2}$'
             AND regional_profile->>'currency' ~ '^[A-Z]{3}$'
             AND regional_profile->>'region' IN ('eu','us')
