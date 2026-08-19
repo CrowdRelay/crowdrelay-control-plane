@@ -17,4 +17,4 @@ rust-clippy:
 	cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 rust-test:
 	cargo test --locked --workspace
-ci: static rust-fmt rust-check rust-clippy rust-test web-install web-test web-build
+ci: static rust-fmt rust-clippy rust-test web-install web-test web-build
