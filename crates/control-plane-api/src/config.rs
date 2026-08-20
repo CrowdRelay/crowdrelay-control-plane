@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use sha2::{Digest, Sha256};
 
 const DEFAULT_RUNTIME_STALE_AFTER_SECONDS: i64 = 180;
+const DEFAULT_VIRYA_MANAGEMENT_URL: &str = "http://127.0.0.1:8080";
 
 #[derive(Clone)]
 pub struct Config {
@@ -153,10 +154,13 @@ impl Config {
                 .unwrap_or_else(|_| "https://signal-api.virya.music".to_owned()),
             virya_signal_url: env::var("CONTROL_PLANE_VIRYA_SIGNAL_URL")
                 .unwrap_or_else(|_| "https://signal.virya.music".to_owned()),
-            virya_management_url: env::var("CONTROL_PLANE_VIRYA_MANAGEMENT_URL")
-                .ok()
-                .map(|value| value.trim().to_owned())
-                .filter(|value| !value.is_empty()),
+            virya_management_url: Some(
+                env::var("CONTROL_PLANE_VIRYA_MANAGEMENT_URL")
+                    .ok()
+                    .map(|value| value.trim().to_owned())
+                    .filter(|value| !value.is_empty())
+                    .unwrap_or_else(|| DEFAULT_VIRYA_MANAGEMENT_URL.to_owned()),
+            ),
         })
     }
 }
