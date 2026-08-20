@@ -63,16 +63,43 @@ class ProductionDeployContract(unittest.TestCase):
     def test_rollback_is_armed_before_first_runtime_file_mutation(self):
         text = SCRIPT.read_text()
         armed = text.index("mutated=true")
-        overlay_install = text.index('install -m 0644 "$area_source" compose.area.yml')
-        caddy_install = text.index('install -m 0644 "$caddy_source" deploy/virya-area-tunnel.Caddyfile')
-        self.assertLess(armed, overlay_install)
-        self.assertLess(armed, caddy_install)
+        canonical_install = text.index("install_canonical_infra\n", armed)
+        self.assertLess(armed, canonical_install)
+
+    def test_rollback_restores_old_app_but_keeps_canonical_infra(self):
+        text = SCRIPT.read_text()
+        restore = text.split("restore_release_state()", 1)[1].split("verify_tunnel_contract()", 1)[0]
+        self.assertIn('cp -p "$backup_dir/.env" .env', restore)
+        self.assertIn("install_canonical_infra", restore)
+        self.assertNotIn('backup_dir/compose.area.yml', restore)
+        self.assertNotIn('backup_dir/virya-area-tunnel.Caddyfile', restore)
+        self.assertIn('ROLLBACK=PASS restored_tag=%s health=%s canonical_infra=true', text)
+        self.assertIn('verify_tunnel_contract', text)
+
+    def test_caddy_preflight_is_pinned_and_does_not_require_existing_tunnel(self):
+        text = SCRIPT.read_text()
+        preflight = text.split("# Validate the exact pinned Caddy image", 1)[1].split("old_tag=", 1)[0]
+        self.assertIn('caddy@sha256:[0-9a-f]{64}', preflight)
+        self.assertIn('docker image inspect "$caddy_image"', preflight)
+        self.assertIn('timeout 90s docker pull "$caddy_image"', preflight)
+        self.assertIn('--cap-drop ALL', preflight)
+        self.assertIn('--cap-add NET_BIND_SERVICE', preflight)
+        self.assertIn('CADDY_PREFLIGHT=PASS source=canonical image=pinned', preflight)
+        self.assertNotIn('docker inspect crowdrelay-control-plane-virya-area-tunnel-1', preflight)
+
+    def test_tunnel_verification_avoids_pipefail_grep_race(self):
+        text = SCRIPT.read_text()
+        verify = text.split("verify_tunnel_contract()", 1)[1].split("rollback()", 1)[0]
+        self.assertIn('cmp -s <(docker exec crowdrelay-control-plane-virya-area-tunnel-1 cat /etc/caddy/Caddyfile)', verify)
+        self.assertIn('runtime_caddy="$(docker exec crowdrelay-control-plane-virya-area-tunnel-1 cat /etc/caddy/Caddyfile)"', verify)
+        self.assertIn('grep -Fq "$route" <<<"$runtime_caddy"', verify)
+        self.assertNotIn('| grep -Fq', verify)
 
     def test_app_and_tunnel_are_one_release_unit(self):
         text = SCRIPT.read_text()
         self.assertIn('--force-recreate app virya-area-tunnel', text)
-        self.assertIn('tunnel namespace mismatch', text)
-        self.assertIn('tunnel Caddyfile mount drift', text)
+        self.assertIn('network_mode', text)
+        self.assertIn('tunnel Caddyfile', text)
         self.assertIn('/srv/crowdrelay-control-plane', text)
         self.assertIn('CONTROL_PLANE_VIRYA_MANAGEMENT_URL', text)
         self.assertIn('http://127.0.0.1:18080', text)
@@ -81,7 +108,7 @@ class ProductionDeployContract(unittest.TestCase):
         text = SCRIPT.read_text()
         self.assertIn('ROLLBACK=START', text)
         self.assertIn('ROLLBACK=PASS', text)
-        self.assertIn('restore_runtime_files', text)
+        self.assertIn('restore_release_state', text)
         self.assertIn('/api/v1/tenants/virya/operations/summary', text)
         self.assertIn('operations summary is not an object', text)
         self.assertIn('http.p95_ms missing', text)

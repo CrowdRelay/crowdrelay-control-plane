@@ -97,6 +97,20 @@ backup_dir=""
 old_tag=""
 new_tag="sha-${target}"
 
+fail() {
+  printf 'ERROR: %s\n' "$*" >&2
+  if [[ "$mutated" == true ]]; then
+    rollback 1
+  fi
+  [[ -z "$backup_dir" ]] || rm -rf -- "$backup_dir"
+  rm -f -- "$image_tar" "$area_source" "$caddy_source"
+  exit 1
+}
+
+for command in docker python3 curl sha256sum grep cmp timeout; do
+  command -v "$command" >/dev/null 2>&1 || fail "missing Home deploy command: $command"
+done
+
 compose() {
   docker compose -f compose.production.yml -f compose.area.yml "$@"
 }
@@ -115,43 +129,64 @@ wait_for_app() {
   return 1
 }
 
-restore_runtime_files() {
-  [[ -n "$backup_dir" && -d "$backup_dir" ]] || return 0
+install_canonical_infra() {
+  install -m 0644 "$area_source" compose.area.yml
+  install -m 0644 "$caddy_source" deploy/virya-area-tunnel.Caddyfile
+}
+
+restore_release_state() {
+  [[ -n "$backup_dir" && -d "$backup_dir" ]] || return 1
   cp -p "$backup_dir/.env" .env
-  cp -p "$backup_dir/compose.area.yml" compose.area.yml
-  cp -p "$backup_dir/virya-area-tunnel.Caddyfile" deploy/virya-area-tunnel.Caddyfile
   chmod 600 .env
+  # Infrastructure repair is monotonic: rollback restores the previous app
+  # image but never resurrects a stale AREA-only tunnel/overlay.
+  install_canonical_infra
+}
+
+verify_tunnel_contract() {
+  local app_id network_mode mount_source runtime_caddy route
+  [[ "$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{.State.Status}}' 2>/dev/null || true)" == "running" ]] || return 1
+  app_id="$(docker inspect crowdrelay-control-plane-app-1 --format '{{.Id}}' 2>/dev/null || true)"
+  network_mode="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{.HostConfig.NetworkMode}}' 2>/dev/null || true)"
+  [[ -n "$app_id" && "$network_mode" == "container:${app_id}" ]] || return 1
+  mount_source="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{range .Mounts}}{{if eq .Destination "/etc/caddy/Caddyfile"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || true)"
+  [[ "$mount_source" == "$root/deploy/virya-area-tunnel.Caddyfile" ]] || return 1
+  docker exec crowdrelay-control-plane-virya-area-tunnel-1 caddy validate --config /etc/caddy/Caddyfile >/dev/null || return 1
+  cmp -s <(docker exec crowdrelay-control-plane-virya-area-tunnel-1 cat /etc/caddy/Caddyfile) "$caddy_source" || return 1
+  runtime_caddy="$(docker exec crowdrelay-control-plane-virya-area-tunnel-1 cat /etc/caddy/Caddyfile)" || return 1
+  for route in \
+    '/v1/control-plane/area' \
+    '/v1/control-plane/ops/summary' \
+    '/v1/control-plane/ecosystem/flags' \
+    '/v1/control-plane/autopilot/overview'; do
+    grep -Fq "$route" <<<"$runtime_caddy" || return 1
+  done
 }
 
 rollback() {
-  local status="${1:-1}"
+  local status="${1:-1}" rollback_health restored_image published
   trap - ERR
   if [[ "$mutated" == true ]]; then
     printf '\nROLLBACK=START old_tag=%s failed_tag=%s\n' "$old_tag" "$new_tag" >&2
-    restore_runtime_files || true
-    compose config --quiet || true
-    compose up -d --no-deps --force-recreate app virya-area-tunnel || true
+    if restore_release_state && compose config --quiet; then
+      compose up -d --no-deps --force-recreate app virya-area-tunnel || true
+    fi
     rollback_health="$(wait_for_app || true)"
     restored_image="$(docker inspect crowdrelay-control-plane-app-1 --format '{{.Config.Image}}' 2>/dev/null || true)"
-    if [[ "$restored_image" == "crowdrelay-control-plane:${old_tag}" && ( "$rollback_health" == "healthy" || "$rollback_health" == "running" ) ]]; then
-      printf 'ROLLBACK=PASS restored_tag=%s health=%s\n' "$old_tag" "$rollback_health" >&2
+    published="$(docker port crowdrelay-control-plane-app-1 8090/tcp 2>/dev/null | head -n1 || true)"
+    if [[ "$restored_image" == "crowdrelay-control-plane:${old_tag}" \
+      && ( "$rollback_health" == "healthy" || "$rollback_health" == "running" ) \
+      && -n "$published" ]] \
+      && verify_tunnel_contract \
+      && curl -fsS --connect-timeout 3 --max-time 10 "http://${published}/healthz/ready" >/dev/null; then
+      printf 'ROLLBACK=PASS restored_tag=%s health=%s canonical_infra=true\n' "$old_tag" "$rollback_health" >&2
     else
-      printf 'ROLLBACK=DEGRADED expected_tag=%s image=%s health=%s\n' "$old_tag" "$restored_image" "$rollback_health" >&2
+      printf 'ROLLBACK=DEGRADED expected_tag=%s image=%s health=%s canonical_infra=unknown\n' "$old_tag" "$restored_image" "$rollback_health" >&2
     fi
   fi
   [[ -z "$backup_dir" ]] || rm -rf -- "$backup_dir"
   rm -f -- "$image_tar" "$area_source" "$caddy_source"
   exit "$status"
-}
-
-fail() {
-  printf 'ERROR: %s\n' "$*" >&2
-  if [[ "$mutated" == true ]]; then
-    rollback 1
-  fi
-  [[ -z "$backup_dir" ]] || rm -rf -- "$backup_dir"
-  rm -f -- "$image_tar" "$area_source" "$caddy_source"
-  exit 1
 }
 
 trap 'rollback $?' ERR
@@ -164,7 +199,6 @@ done
 compose config --format json | python3 -c '
 import json
 import sys
-
 model = json.load(sys.stdin)
 app = model.get("services", {}).get("app", {})
 env = app.get("environment") or {}
@@ -182,12 +216,38 @@ if url != "http://127.0.0.1:18080":
 ' || fail 'effective compose management wiring is invalid'
 printf 'MANAGEMENT_WIRING=PASS semantic=true\n'
 
+# Validate the exact pinned Caddy image and canonical Caddy input before
+# touching runtime files. The source overlay is authoritative, so this remains
+# self-healing even if the current tunnel container is missing or stale.
+caddy_image="$(python3 - "$area_source" <<'PY'
+from pathlib import Path
+import re
+import sys
+text = Path(sys.argv[1]).read_text()
+matches = re.findall(r'^\s*image:\s*["\x27]?(caddy@sha256:[0-9a-f]{64})["\x27]?\s*$', text, flags=re.MULTILINE)
+if len(matches) != 1:
+    raise SystemExit(f"expected exactly one pinned Caddy image, found={len(matches)}")
+print(matches[0])
+PY
+)" || fail 'canonical overlay does not contain exactly one pinned Caddy digest'
+if ! docker image inspect "$caddy_image" >/dev/null 2>&1; then
+  timeout 90s docker pull "$caddy_image" >/dev/null \
+    || fail "unable to pull pinned Caddy image: $caddy_image"
+fi
+docker run --rm --read-only \
+  --security-opt no-new-privileges:true \
+  --cap-drop ALL \
+  --cap-add NET_BIND_SERVICE \
+  --tmpfs /data --tmpfs /config --tmpfs /tmp \
+  -v "$caddy_source:/etc/caddy/Caddyfile:ro" \
+  "$caddy_image" validate --config /etc/caddy/Caddyfile >/dev/null \
+  || fail 'canonical tunnel Caddyfile validation failed'
+printf 'CADDY_PREFLIGHT=PASS source=canonical image=pinned\n'
+
 old_tag="$(sed -n 's/^CONTROL_PLANE_IMAGE_TAG=//p' .env | tail -n1)"
 [[ "$old_tag" =~ ^sha-[0-9a-f]{40}$ ]] || fail "invalid current CONTROL_PLANE_IMAGE_TAG: $old_tag"
 backup_dir="$(mktemp -d -p "$root" .predeploy.XXXXXX)"
 cp -p .env "$backup_dir/.env"
-cp -p compose.area.yml "$backup_dir/compose.area.yml"
-cp -p deploy/virya-area-tunnel.Caddyfile "$backup_dir/virya-area-tunnel.Caddyfile"
 chmod 700 "$backup_dir"
 chmod 600 "$backup_dir/.env"
 
@@ -200,15 +260,14 @@ revision="$(docker image inspect --format '{{index .Config.Labels "org.openconta
 [[ "$architecture" == "amd64" ]] || fail "remote image architecture mismatch: $architecture"
 [[ "$revision" == "$target" ]] || fail "remote OCI revision mismatch: got=$revision expected=$target"
 
-# From this point on every failure must restore the server-owned release files.
+# From this point on every failure restores the previous app image while
+# retaining the source-controlled tunnel/management infrastructure.
 mutated=true
-install -m 0644 "$area_source" compose.area.yml
-install -m 0644 "$caddy_source" deploy/virya-area-tunnel.Caddyfile
+install_canonical_infra
 python3 - "$new_tag" <<'PY'
 from pathlib import Path
 import re
 import sys
-
 path = Path('.env')
 new_tag = sys.argv[1]
 text = path.read_text()
@@ -231,26 +290,19 @@ runtime_image="$(docker inspect crowdrelay-control-plane-app-1 --format '{{.Conf
 runtime_revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$(docker inspect crowdrelay-control-plane-app-1 --format '{{.Image}}')")"
 [[ "$runtime_revision" == "$target" ]] || fail "runtime OCI revision mismatch: $runtime_revision"
 
-tunnel_status="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{.State.Status}}')"
-[[ "$tunnel_status" == "running" ]] || fail "tunnel is not running: $tunnel_status"
-app_id="$(docker inspect crowdrelay-control-plane-app-1 --format '{{.Id}}')"
-network_mode="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{.HostConfig.NetworkMode}}')"
-[[ "$network_mode" == "container:${app_id}" ]] || fail "tunnel namespace mismatch: got=$network_mode expected=container:${app_id}"
-
-mount_source="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{range .Mounts}}{{if eq .Destination "/etc/caddy/Caddyfile"}}{{.Source}}{{end}}{{end}}')"
-[[ "$mount_source" == "$root/deploy/virya-area-tunnel.Caddyfile" ]] || fail "tunnel Caddyfile mount drift: $mount_source"
-docker exec crowdrelay-control-plane-virya-area-tunnel-1 caddy validate --config /etc/caddy/Caddyfile >/dev/null
-docker exec crowdrelay-control-plane-virya-area-tunnel-1 cat /etc/caddy/Caddyfile | grep -Fq '/v1/control-plane/ops/summary' || fail 'live tunnel config is missing operations route'
-
+verify_tunnel_contract || fail 'live tunnel contract verification failed'
 runtime_area_sha="$(sha256sum compose.area.yml | awk '{print $1}')"
 source_area_sha="$(sha256sum "$area_source" | awk '{print $1}')"
-runtime_caddy_sha="$(sha256sum deploy/virya-area-tunnel.Caddyfile | awk '{print $1}')"
-source_caddy_sha="$(sha256sum "$caddy_source" | awk '{print $1}')"
 [[ "$runtime_area_sha" == "$source_area_sha" ]] || fail 'runtime area compose differs from canonical source'
-[[ "$runtime_caddy_sha" == "$source_caddy_sha" ]] || fail 'runtime Caddyfile differs from canonical source'
 
-management_url="$(docker inspect crowdrelay-control-plane-app-1 --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^CONTROL_PLANE_VIRYA_MANAGEMENT_URL=//p')"
+runtime_env="$(docker inspect crowdrelay-control-plane-app-1 --format '{{range .Config.Env}}{{println .}}{{end}}')"
+area_master="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY=//p')"
+management_master="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_MANAGEMENT_MASTER_KEY=//p')"
+management_url="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_VIRYA_MANAGEMENT_URL=//p')"
+[[ -n "$area_master" ]] || fail 'runtime AREA management master is missing'
+[[ -n "$management_master" ]] || fail 'runtime operations management master is missing'
 [[ "$management_url" == "http://127.0.0.1:18080" ]] || fail "unexpected management URL: $management_url"
+unset runtime_env area_master management_master management_url
 
 published="$(docker port crowdrelay-control-plane-app-1 8090/tcp | head -n1)"
 [[ -n "$published" ]] || fail 'app has no published 8090/tcp endpoint'
@@ -286,4 +338,4 @@ REMOTE_TAR=""
 REMOTE_AREA=""
 REMOTE_CADDY=""
 printf '\n==> 4/4 — Final receipt\n'
-printf 'CONTROL_PLANE_DEPLOY=PASS sha=%s host=%s exact=true\n' "$TARGET" "$REMOTE"
+printf 'CONTROL_PLANE_DEPLOY=PASS sha=%s host=%s exact=true\n' "$TARGET"
