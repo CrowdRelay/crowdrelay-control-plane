@@ -1,0 +1,26 @@
+name: Production smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "13 */6 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: control-plane-production-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Edge + auth smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      CONTROL_PLANE_BASE_URL: ${{ vars.CONTROL_PLANE_PRODUCTION_BASE_URL || 'https://control.virya.music' }}
+      CONTROL_PLANE_SMOKE_BASIC_AUTH: ${{ secrets.CONTROL_PLANE_SMOKE_BASIC_AUTH }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Verify live SPA, edge auth and authenticated overview
+        run: bash scripts/production-smoke.sh
