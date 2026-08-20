@@ -10,6 +10,7 @@ const api = fs.readFileSync(path.join(root, 'frontend/src/lib/api.ts'), 'utf8')
 const types = fs.readFileSync(path.join(root, 'frontend/src/lib/types.ts'), 'utf8')
 const vite = fs.readFileSync(path.join(root, 'frontend/vite.config.ts'), 'utf8')
 const caddy = fs.readFileSync(path.join(root, 'deploy/Caddyfile.control.virya.music.example'), 'utf8')
+const index = fs.readFileSync(path.join(root, 'frontend/index.html'), 'utf8')
 const frontendFiles = []
 const collect = (dir) => {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -21,6 +22,14 @@ const collect = (dir) => {
 collect(path.join(root, 'frontend/src'))
 const frontend = frontendFiles.join('\n')
 if (!main.includes('@tanstack/solid-query') || !main.includes('@tanstack/solid-router')) throw new Error('Solid Query/Router contract missing')
+if (/\b(?:window\.)?location\.reload\s*\(/.test(frontend) || /http-equiv\s*=\s*["']refresh/i.test(index)) throw new Error('Control Plane must never hard-reload the document for live data refresh')
+const tenantQuery = tenant.slice(tenant.indexOf('const tenant = useQuery'), tenant.indexOf('const runtimeTenant = useQuery'))
+const runtimeQuery = tenant.slice(tenant.indexOf('const runtimeTenant = useQuery'), tenant.indexOf('const overview = useQuery'))
+if (tenantQuery.includes('refetchInterval')) throw new Error('tenant identity/configuration query must not poll the whole detail page')
+if (!tenantQuery.includes('refetchOnWindowFocus: false')) throw new Error('tenant identity/configuration query must stay stable on browser focus')
+if (!runtimeQuery.includes("queryKey: ['tenant-runtime', params().slug]") || !runtimeQuery.includes('refetchInterval: 15_000')) throw new Error('runtime health must refresh through an isolated 15s data query')
+if (!tenant.includes("queryClient.invalidateQueries({ queryKey: ['tenant-runtime', params().slug] })")) throw new Error('tenant mutations must refresh the isolated runtime query')
+if (!tenant.includes('runtimeHealth={(runtimeTenant.data ?? t).runtimeHealth}')) throw new Error('operations panel must consume live runtime state without polling the page shell')
 if (!frontend.includes('LoginGate')) throw new Error('styled operator login gate missing')
 if (!tenant.includes('Synesthesia') || !tenant.includes('Virya only')) throw new Error('Synesthesia product boundary UI missing')
 if (!tenant.includes('product-action-slot') || !tenant.includes('product-status-slot')) throw new Error('product actions/statuses must use aligned slots')
@@ -47,7 +56,7 @@ if (!tenant.includes('deployTenant') || !tenant.includes('provisioning')) throw 
 if (!tenant.includes('formatTimestamp(job().leaseExpiresAt)') || tenant.includes('job().leaseExpiresAt ? new Date(job().leaseExpiresAt)')) throw new Error('nullable provisioning timestamps must be formatted without repeated accessor narrowing')
 if (!api.includes('deployTenant') || !api.includes('cancelProvisioning')) throw new Error('tenant provisioning API client missing')
 if (!types.includes("'healthy' | 'degraded' | 'stale' | 'unknown'")) throw new Error('runtime freshness states missing')
-if (!overview.includes('tenant.runtimeHealth') || !tenant.includes('t.runtimeHealth')) throw new Error('runtime health must be backend-authoritative in all views')
+if (!overview.includes('tenant.runtimeHealth') || !tenant.includes('live().runtimeHealth')) throw new Error('runtime health must be backend-authoritative in all views')
 if (!frontend.includes('Health & controls') || !frontend.includes('HTTP p95') || !frontend.includes('Runtime switches') || !frontend.includes('Autopilot')) throw new Error('tenant operations observability/control surface missing')
 if (!frontend.includes('pending={pendingMutation() !== null}')) throw new Error('operator mutations must serialize conflicting writes')
 
@@ -58,4 +67,4 @@ if (!tenant.includes('worker_readiness_timeout')) throw new Error('worker readin
 if (!tenant.includes('tenant.error')) throw new Error('tenant detail must surface load failures instead of endless skeleton')
 if (!tenants.includes('tenants.error || overview.error')) throw new Error('tenant registry must surface query failures')
 
-console.log('CONTROL_PLANE_WEB_SOURCE=PASS auth=styled-edge-basic+tab-session runtime-health=server-authoritative provisioning=create+deploy+lifecycle')
+console.log('CONTROL_PLANE_WEB_SOURCE=PASS auth=styled-edge-basic+tab-session refresh=block-scoped runtime-health=server-authoritative provisioning=create+deploy+lifecycle')
