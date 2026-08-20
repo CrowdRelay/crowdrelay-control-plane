@@ -9,6 +9,7 @@ POLL_SECONDS="${CONTROL_PLANE_DEPLOY_POLL_SECONDS:-3}"
 REMOTE="${CONTROL_PLANE_DEPLOY_HOST:-virya-home}"
 REMOTE_DIR="${CONTROL_PLANE_DEPLOY_REMOTE_DIR:-/srv/crowdrelay-control-plane}"
 CANONICAL="$ROOT_DIR/scripts/deploy-production.sh"
+CREDENTIAL_GATE="$ROOT_DIR/scripts/ensure-virya-management-credentials.sh"
 
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
@@ -25,6 +26,7 @@ for command in git gh ssh bash; do require "$command"; done
 
 cd "$ROOT_DIR"
 [[ -f "$CANONICAL" && ! -L "$CANONICAL" ]] || fail "canonical deploy is missing or unsafe: $CANONICAL"
+[[ -f "$CREDENTIAL_GATE" && ! -L "$CREDENTIAL_GATE" ]] || fail "management credential gate is missing or unsafe: $CREDENTIAL_GATE"
 [[ -z "$(git status --porcelain --untracked-files=normal)" ]] || fail 'local worktree must be clean'
 branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
 [[ "$branch" == "main" ]] || fail "make deploy must run from main, got=${branch:-detached}"
@@ -68,17 +70,38 @@ set -Eeuo pipefail
 root="$1"
 cd "$root"
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+for command in docker python3; do command -v "$command" >/dev/null 2>&1 || fail "missing recovery command: $command"; done
 for file in .env compose.production.yml compose.area.yml deploy/virya-area-tunnel.Caddyfile; do
   [[ -f "$file" && ! -L "$file" ]] || fail "missing or unsafe recovery input: $file"
 done
+[[ "$(stat -c '%a' .env)" == "600" ]] || fail '.env must have mode 600 before recovery'
 compose() { docker compose -f compose.production.yml -f compose.area.yml "$@"; }
 compose config --quiet
+compose config --format json | python3 -c '
+import json,sys
+model=json.load(sys.stdin)
+env=model.get("services",{}).get("app",{}).get("environment") or {}
+if isinstance(env,list):
+    env=dict(item.split("=",1) for item in env if isinstance(item,str) and "=" in item)
+area=env.get("CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY")
+operations=env.get("CONTROL_PLANE_MANAGEMENT_MASTER_KEY")
+url=env.get("CONTROL_PLANE_VIRYA_MANAGEMENT_URL")
+if not isinstance(area,str) or not area:
+    raise SystemExit("recovery refused: effective AREA management master is missing; run make bootstrap-management")
+if not isinstance(operations,str) or not operations:
+    raise SystemExit("recovery refused: effective operations management master is missing; run make bootstrap-management")
+if area == operations:
+    raise SystemExit("recovery refused: management masters must be distinct")
+if url != "http://127.0.0.1:18080":
+    raise SystemExit("recovery refused: management URL is not canonical")
+print("CONTROL_PLANE_RECOVERY_PREFLIGHT=PASS management_wiring=complete")
+' || fail 'release unit recovery preflight failed before mutation'
 compose up -d --no-deps --force-recreate app virya-area-tunnel
 for _ in $(seq 1 60); do
   app_state="$(docker inspect crowdrelay-control-plane-app-1 --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
   tunnel_state="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{.State.Status}}' 2>/dev/null || true)"
   if [[ ( "$app_state" == "healthy" || "$app_state" == "running" ) && "$tunnel_state" == "running" ]]; then
-    printf 'CONTROL_PLANE_RELEASE_UNIT_REPAIR=PASS app=%s tunnel=%s\n' "$app_state" "$tunnel_state"
+    printf 'CONTROL_PLANE_RELEASE_UNIT_REPAIR=PASS app=%s tunnel=%s preflight=complete\n' "$app_state" "$tunnel_state"
     exit 0
   fi
   sleep 1
@@ -110,6 +133,7 @@ management_master="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_MAN
 management_url="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_VIRYA_MANAGEMENT_URL=//p')"
 [[ -n "$area_master" ]] || fail 'Control Plane AREA management master is missing from runtime'
 [[ -n "$management_master" ]] || fail 'Control Plane operations management master is missing from runtime'
+[[ "$area_master" != "$management_master" ]] || fail 'Control Plane management masters are not distinct'
 [[ "$management_url" == "http://127.0.0.1:18080" ]] || fail "Control Plane management URL drifted: $management_url"
 unset runtime_env area_master management_master management_url
 published="$(docker port "$app" 8090/tcp | head -n1)"
@@ -151,6 +175,9 @@ on_interrupt() {
   exit 130
 }
 
+printf '==> Preflight Virya management credential parity before release gates\n'
+bash "$CREDENTIAL_GATE" --check || fail 'management credential preflight failed; run make bootstrap-management before deploy'
+
 wait_for_ci
 [[ "$(git rev-parse HEAD)" == "$TARGET" ]] || fail 'local HEAD moved while waiting for CI'
 [[ -z "$(git status --porcelain --untracked-files=normal)" ]] || fail 'local worktree changed while waiting for CI'
@@ -170,4 +197,4 @@ else
   verify_live_tunnel || fail 'Control Plane deploy left the tunnel unhealthy'
 fi
 (( deploy_status == 0 )) || exit "$deploy_status"
-printf 'MAKE_DEPLOY=PASS repo=crowdrelay-control-plane sha=%s tunnel=healthy\n' "$TARGET"
+printf 'MAKE_DEPLOY=PASS repo=crowdrelay-control-plane sha=%s tunnel=healthy credentials=matched\n' "$TARGET"
