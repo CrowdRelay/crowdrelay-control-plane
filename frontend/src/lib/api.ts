@@ -77,6 +77,11 @@ export const api = {
   cancelProvisioning: (slug: string) => request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/cancel`, { method: 'POST', body: '{}' }),
   audit: (slug: string) => request<{ items: AuditEntry[] }>(`/tenants/${encodeURIComponent(slug)}/audit?limit=40`),
   operationsSummary: (slug: string) => request<OperationsSummary>(`/tenants/${encodeURIComponent(slug)}/operations/summary`),
+  clearDeadDeliveries: (slug: string) => request<{ operation_id: string; cleared: number; status: string; replayed: boolean }>(`/tenants/${encodeURIComponent(slug)}/operations/dead-deliveries/clear`, {
+    method: 'POST',
+    headers: { 'idempotency-key': crypto.randomUUID() },
+    body: '{}',
+  }),
   featureFlags: (slug: string) => request<FeatureFlag[]>(`/tenants/${encodeURIComponent(slug)}/operations/flags`),
   setFeatureFlag: (slug: string, flag: FeatureFlag, enabled: boolean) => request<{flag: FeatureFlag; replayed: boolean}>(`/tenants/${encodeURIComponent(slug)}/operations/flags/${encodeURIComponent(flag.key)}`, {
     method: 'POST',
