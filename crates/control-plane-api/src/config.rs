@@ -86,9 +86,11 @@ impl Config {
                     "CONTROL_PLANE_MANAGEMENT_MASTER_KEY must differ from the AREA management master key"
                 );
             }
+        }
+        if area_management_master_key.is_some() || management_master_key.is_some() {
             anyhow::ensure!(
                 virya_management_url.is_some(),
-                "CONTROL_PLANE_VIRYA_MANAGEMENT_URL is required when CONTROL_PLANE_MANAGEMENT_MASTER_KEY is configured"
+                "CONTROL_PLANE_VIRYA_MANAGEMENT_URL is required when tenant management is configured"
             );
         }
         let runtime_stale_after_seconds = env::var("CONTROL_PLANE_RUNTIME_STALE_AFTER_SECONDS")
