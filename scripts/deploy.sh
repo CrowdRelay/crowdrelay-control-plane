@@ -23,7 +23,7 @@ for command in git gh ssh bash; do require "$command"; done
 [[ "$POLL_SECONDS" =~ ^[1-9][0-9]*$ ]] || fail 'CONTROL_PLANE_DEPLOY_POLL_SECONDS must be a positive integer'
 
 cd "$ROOT_DIR"
-[[ -x "$CANONICAL" ]] || fail "canonical deploy is missing or not executable: $CANONICAL"
+[[ -f "$CANONICAL" && ! -L "$CANONICAL" ]] || fail "canonical deploy is missing or unsafe: $CANONICAL"
 [[ -z "$(git status --porcelain --untracked-files=normal)" ]] || fail 'local worktree must be clean'
 branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
 [[ "$branch" == "main" ]] || fail "make deploy must run from main, got=${branch:-detached}"
@@ -38,9 +38,10 @@ REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 [[ -n "$REPO" ]] || fail 'cannot resolve GitHub repository'
 
 wait_for_ci() {
-  local deadline run_id
+  local deadline run_id last_notice
   deadline=$((SECONDS + WAIT_SECONDS))
   run_id=""
+  last_notice=0
   printf '==> Waiting for CI for %s\n' "$TARGET"
   while (( SECONDS < deadline )); do
     run_id="$(gh run list --repo "$REPO" --workflow "CI" --branch main --commit "$TARGET" --limit 1 --json databaseId --jq '.[0].databaseId // empty' 2>/dev/null || true)"
@@ -49,6 +50,10 @@ wait_for_ci() {
       gh run watch "$run_id" --repo "$REPO" --exit-status
       printf 'CI=PASS sha=%s\n' "$TARGET"
       return 0
+    fi
+    if (( SECONDS - last_notice >= 15 )); then
+      printf '... still waiting for CI run for %s\n' "$TARGET"
+      last_notice=$SECONDS
     fi
     sleep "$POLL_SECONDS"
   done
@@ -72,17 +77,28 @@ runtime_caddy="$(docker exec "$tunnel" cat /etc/caddy/Caddyfile)" || fail 'canno
 for route in '/v1/control-plane/area' '/v1/control-plane/ops/summary' '/v1/control-plane/ecosystem/flags' '/v1/control-plane/autopilot/overview'; do
   grep -Fq "$route" <<<"$runtime_caddy" || fail "live tunnel is missing route: $route"
 done
+runtime_env="$(docker inspect "$app" --format '{{range .Config.Env}}{{println .}}{{end}}')"
+area_master="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY=//p')"
+management_master="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_MANAGEMENT_MASTER_KEY=//p')"
+management_url="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_VIRYA_MANAGEMENT_URL=//p')"
+[[ -n "$area_master" ]] || fail 'Control Plane AREA management master is missing from runtime'
+[[ -n "$management_master" ]] || fail 'Control Plane operations management master is missing from runtime'
+[[ "$management_url" == "http://127.0.0.1:18080" ]] || fail "Control Plane management URL drifted: $management_url"
+unset runtime_env area_master management_master management_url
 published="$(docker port "$app" 8090/tcp | head -n1)"
 [[ -n "$published" ]] || fail 'Control Plane app has no published endpoint'
 admin="$(docker inspect "$app" --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^CONTROL_PLANE_ADMIN_TOKEN=//p')"
 [[ -n "$admin" ]] || fail 'Control Plane admin token missing from runtime'
 summary="$(curl -fsS --connect-timeout 3 --max-time 10 -H "Authorization: Bearer $admin" "http://${published}/api/v1/tenants/virya/operations/summary")"
+unset admin
 printf '%s' "$summary" | python3 -c '
 import json
 import sys
 value = json.load(sys.stdin)
 if not isinstance(value, dict):
     raise SystemExit("operations summary is not an object")
+if not isinstance(value.get("schema_version"), int):
+    raise SystemExit("schema_version missing")
 http = value.get("http")
 if not isinstance(http, dict) or not isinstance(http.get("p95_ms"), int):
     raise SystemExit("http.p95_ms missing")
