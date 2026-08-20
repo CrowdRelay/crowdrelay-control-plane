@@ -26,6 +26,15 @@ class ProductionDeployContract(unittest.TestCase):
         self.assertIn('scp -q', text)
         self.assertIn('sudo bash -s', text)
 
+    def test_management_wiring_preflight_is_semantic(self):
+        text = SCRIPT.read_text()
+        self.assertIn('compose config --format json', text)
+        self.assertIn('MANAGEMENT_WIRING=PASS semantic=true', text)
+        self.assertIn('effective app config is missing CONTROL_PLANE_MANAGEMENT_MASTER_KEY', text)
+        self.assertIn('effective app config has invalid CONTROL_PLANE_VIRYA_MANAGEMENT_URL', text)
+        self.assertNotIn("grep -Fq 'CONTROL_PLANE_MANAGEMENT_MASTER_KEY' compose.production.yml", text)
+        self.assertNotIn("grep -Fq 'CONTROL_PLANE_VIRYA_MANAGEMENT_URL' compose.production.yml", text)
+
     def test_app_and_tunnel_are_one_release_unit(self):
         text = SCRIPT.read_text()
         self.assertIn('--force-recreate app virya-area-tunnel', text)
