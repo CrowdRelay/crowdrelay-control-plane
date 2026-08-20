@@ -66,8 +66,11 @@ app = model.get("services", {}).get("app", {})
 env = app.get("environment") or {}
 if isinstance(env, list):
     env = dict(item.split("=", 1) for item in env if isinstance(item, str) and "=" in item)
+area_master = env.get("CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY")
 master = env.get("CONTROL_PLANE_MANAGEMENT_MASTER_KEY")
 url = env.get("CONTROL_PLANE_VIRYA_MANAGEMENT_URL")
+if not isinstance(area_master, str) or not area_master:
+    raise SystemExit("candidate overlay does not wire CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY")
 if not isinstance(master, str) or not master:
     raise SystemExit("candidate overlay does not wire CONTROL_PLANE_MANAGEMENT_MASTER_KEY")
 if url != "http://127.0.0.1:18080":
