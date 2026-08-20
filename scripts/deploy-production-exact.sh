@@ -235,6 +235,7 @@ docker run --rm --read-only \
   --cap-add NET_BIND_SERVICE \
   --tmpfs /data --tmpfs /config --tmpfs /tmp \
   -v "$caddy_source:/etc/caddy/Caddyfile:ro" \
+  --entrypoint caddy \
   "$caddy_image" validate --config /etc/caddy/Caddyfile >/dev/null \
   || fail 'canonical tunnel Caddyfile validation failed'
 printf 'CADDY_PREFLIGHT=PASS source=canonical image=pinned\n'
