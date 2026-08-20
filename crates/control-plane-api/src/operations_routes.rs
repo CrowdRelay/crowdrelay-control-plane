@@ -87,6 +87,15 @@ fn object_no_store(value: Value, endpoint: &'static str) -> Result<Response, Api
     Ok(json_no_store(value))
 }
 
+fn array_no_store(value: Value, endpoint: &'static str) -> Result<Response, ApiError> {
+    if !value.is_array() {
+        return Err(ApiError::Unavailable(format!(
+            "tenant operations {endpoint} returned an invalid JSON shape"
+        )));
+    }
+    Ok(json_no_store(value))
+}
+
 async fn call(
     state: &AppState,
     slug: &str,
@@ -177,7 +186,7 @@ async fn flags(
         None,
     )
     .await?;
-    object_no_store(value, "flags")
+    array_no_store(value, "flags")
 }
 
 #[derive(Debug, Deserialize)]
