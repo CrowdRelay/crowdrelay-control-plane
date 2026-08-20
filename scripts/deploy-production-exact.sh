@@ -7,6 +7,8 @@ TARGET="${1:-}"
 REMOTE="${CONTROL_PLANE_DEPLOY_HOST:-virya-home}"
 REMOTE_DIR="${CONTROL_PLANE_DEPLOY_REMOTE_DIR:-/srv/crowdrelay-control-plane}"
 REMOTE_TAR=""
+REMOTE_AREA=""
+REMOTE_CADDY=""
 LOCAL_TAR=""
 
 fail() {
@@ -20,8 +22,12 @@ require() {
 
 cleanup() {
   [[ -z "$LOCAL_TAR" ]] || rm -f -- "$LOCAL_TAR"
-  if [[ -n "$REMOTE_TAR" ]]; then
-    ssh -T "$REMOTE" "rm -f '$REMOTE_TAR'" >/dev/null 2>&1 || true
+  remote_files=""
+  for file in "$REMOTE_TAR" "$REMOTE_AREA" "$REMOTE_CADDY"; do
+    [[ -z "$file" ]] || remote_files+=" '$file'"
+  done
+  if [[ -n "$remote_files" ]]; then
+    ssh -T "$REMOTE" "rm -f $remote_files" >/dev/null 2>&1 || true
   fi
 }
 trap cleanup EXIT
@@ -29,6 +35,10 @@ trap cleanup EXIT
 for command in git docker ssh scp; do require "$command"; done
 cd "$ROOT_DIR"
 docker info >/dev/null 2>&1 || fail 'Docker daemon is not available'
+
+for file in deploy/compose.area.production.yml deploy/virya-area-tunnel.Caddyfile; do
+  [[ -f "$file" && ! -L "$file" ]] || fail "missing canonical deploy file: $file"
+done
 
 [[ -z "$(git status --porcelain --untracked-files=normal)" ]] || fail 'local worktree must be clean'
 branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
@@ -59,25 +69,31 @@ revision="$(docker image inspect --format '{{index .Config.Labels "org.openconta
 [[ "$revision" == "$TARGET" ]] || fail "local OCI revision mismatch: got=$revision expected=$TARGET"
 printf 'LOCAL_IMAGE=PASS sha=%s architecture=%s\n' "$TARGET" "$architecture"
 
-printf '\n==> 2/4 — Transfer exact image to Home\n'
+printf '\n==> 2/4 — Transfer image + canonical tunnel config to Home\n'
 LOCAL_TAR="$(mktemp -t crowdrelay-control-plane.XXXXXX.tar)"
 REMOTE_TAR="/tmp/crowdrelay-control-plane-${TARGET}.tar"
+REMOTE_AREA="/tmp/crowdrelay-control-plane-area-${TARGET}.yml"
+REMOTE_CADDY="/tmp/crowdrelay-control-plane-caddy-${TARGET}.Caddyfile"
 docker save -o "$LOCAL_TAR" "$REF"
 scp -q "$LOCAL_TAR" "$REMOTE:$REMOTE_TAR"
-printf 'IMAGE_TRANSFER=PASS host=%s\n' "$REMOTE"
+scp -q deploy/compose.area.production.yml "$REMOTE:$REMOTE_AREA"
+scp -q deploy/virya-area-tunnel.Caddyfile "$REMOTE:$REMOTE_CADDY"
+printf 'DEPLOY_INPUTS_TRANSFER=PASS host=%s\n' "$REMOTE"
 
 printf '\n==> 3/4 — Atomic app+tunnel deploy with rollback\n'
-ssh -T "$REMOTE" sudo bash -s -- "$REMOTE_DIR" "$REMOTE_TAR" "$TARGET" <<'REMOTE_DEPLOY'
+ssh -T "$REMOTE" sudo bash -s -- "$REMOTE_DIR" "$REMOTE_TAR" "$TARGET" "$REMOTE_AREA" "$REMOTE_CADDY" <<'REMOTE_DEPLOY'
 set -Eeuo pipefail
 umask 077
 
 root="$1"
 image_tar="$2"
 target="$3"
+area_source="$4"
+caddy_source="$5"
 cd "$root"
 
 mutated=false
-backup=""
+backup_dir=""
 old_tag=""
 new_tag="sha-${target}"
 
@@ -99,13 +115,20 @@ wait_for_app() {
   return 1
 }
 
+restore_runtime_files() {
+  [[ -n "$backup_dir" && -d "$backup_dir" ]] || return 0
+  cp -p "$backup_dir/.env" .env
+  cp -p "$backup_dir/compose.area.yml" compose.area.yml
+  cp -p "$backup_dir/virya-area-tunnel.Caddyfile" deploy/virya-area-tunnel.Caddyfile
+  chmod 600 .env
+}
+
 rollback() {
   local status="${1:-1}"
   trap - ERR
-  if [[ "$mutated" == true && -n "$backup" && -f "$backup" ]]; then
+  if [[ "$mutated" == true ]]; then
     printf '\nROLLBACK=START old_tag=%s failed_tag=%s\n' "$old_tag" "$new_tag" >&2
-    cp -p "$backup" .env
-    chmod 600 .env
+    restore_runtime_files || true
     compose config --quiet || true
     compose up -d --no-deps --force-recreate app virya-area-tunnel || true
     rollback_health="$(wait_for_app || true)"
@@ -116,8 +139,8 @@ rollback() {
       printf 'ROLLBACK=DEGRADED expected_tag=%s image=%s health=%s\n' "$old_tag" "$restored_image" "$rollback_health" >&2
     fi
   fi
-  [[ -z "$backup" ]] || rm -f -- "$backup"
-  rm -f -- "$image_tar"
+  [[ -z "$backup_dir" ]] || rm -rf -- "$backup_dir"
+  rm -f -- "$image_tar" "$area_source" "$caddy_source"
   exit "$status"
 }
 
@@ -126,23 +149,28 @@ fail() {
   if [[ "$mutated" == true ]]; then
     rollback 1
   fi
-  [[ -z "$backup" ]] || rm -f -- "$backup"
-  rm -f -- "$image_tar"
+  [[ -z "$backup_dir" ]] || rm -rf -- "$backup_dir"
+  rm -f -- "$image_tar" "$area_source" "$caddy_source"
   exit 1
 }
 
 trap 'rollback $?' ERR
 
-for file in .env compose.production.yml compose.area.yml deploy/virya-area-tunnel.Caddyfile; do
-  [[ -f "$file" && ! -L "$file" ]] || fail "missing or unsafe runtime file: $file"
+for file in .env compose.production.yml compose.area.yml deploy/virya-area-tunnel.Caddyfile "$image_tar" "$area_source" "$caddy_source"; do
+  [[ -f "$file" && ! -L "$file" ]] || fail "missing or unsafe deploy file: $file"
 done
 [[ "$(stat -c '%a' .env)" == "600" ]] || fail '.env must have mode 600'
+grep -Fq 'CONTROL_PLANE_MANAGEMENT_MASTER_KEY' compose.production.yml || fail 'base compose is missing management master wiring'
+grep -Fq 'CONTROL_PLANE_VIRYA_MANAGEMENT_URL' compose.production.yml || fail 'base compose is missing Virya management URL wiring'
 
 old_tag="$(sed -n 's/^CONTROL_PLANE_IMAGE_TAG=//p' .env | tail -n1)"
 [[ "$old_tag" =~ ^sha-[0-9a-f]{40}$ ]] || fail "invalid current CONTROL_PLANE_IMAGE_TAG: $old_tag"
-backup="$(mktemp -p "$root" .env.predeploy.XXXXXX)"
-cp -p .env "$backup"
-chmod 600 "$backup"
+backup_dir="$(mktemp -d -p "$root" .predeploy.XXXXXX)"
+cp -p .env "$backup_dir/.env"
+cp -p compose.area.yml "$backup_dir/compose.area.yml"
+cp -p deploy/virya-area-tunnel.Caddyfile "$backup_dir/virya-area-tunnel.Caddyfile"
+chmod 700 "$backup_dir"
+chmod 600 "$backup_dir/.env"
 
 compose config --quiet
 
@@ -153,6 +181,8 @@ revision="$(docker image inspect --format '{{index .Config.Labels "org.openconta
 [[ "$architecture" == "amd64" ]] || fail "remote image architecture mismatch: $architecture"
 [[ "$revision" == "$target" ]] || fail "remote OCI revision mismatch: got=$revision expected=$target"
 
+install -m 0644 "$area_source" compose.area.yml
+install -m 0644 "$caddy_source" deploy/virya-area-tunnel.Caddyfile
 python3 - "$new_tag" <<'PY'
 from pathlib import Path
 import re
@@ -192,6 +222,13 @@ mount_source="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --fo
 docker exec crowdrelay-control-plane-virya-area-tunnel-1 caddy validate --config /etc/caddy/Caddyfile >/dev/null
 docker exec crowdrelay-control-plane-virya-area-tunnel-1 cat /etc/caddy/Caddyfile | grep -Fq '/v1/control-plane/ops/summary' || fail 'live tunnel config is missing operations route'
 
+runtime_area_sha="$(sha256sum compose.area.yml | awk '{print $1}')"
+source_area_sha="$(sha256sum "$area_source" | awk '{print $1}')"
+runtime_caddy_sha="$(sha256sum deploy/virya-area-tunnel.Caddyfile | awk '{print $1}')"
+source_caddy_sha="$(sha256sum "$caddy_source" | awk '{print $1}')"
+[[ "$runtime_area_sha" == "$source_area_sha" ]] || fail 'runtime area compose differs from canonical source'
+[[ "$runtime_caddy_sha" == "$source_caddy_sha" ]] || fail 'runtime Caddyfile differs from canonical source'
+
 management_url="$(docker inspect crowdrelay-control-plane-app-1 --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^CONTROL_PLANE_VIRYA_MANAGEMENT_URL=//p')"
 [[ "$management_url" == "http://127.0.0.1:18080" ]] || fail "unexpected management URL: $management_url"
 
@@ -217,13 +254,16 @@ if not isinstance(http, dict) or not isinstance(http.get("p95_ms"), int):
 print("OPERATIONS_E2E=PASS schema={} p95_ms={}".format(value["schema_version"], http["p95_ms"]))
 '
 
-rm -f -- "$backup" "$image_tar"
-backup=""
+rm -rf -- "$backup_dir"
+backup_dir=""
+rm -f -- "$image_tar" "$area_source" "$caddy_source"
 mutated=false
 trap - ERR
-printf 'REMOTE_DEPLOY=PASS sha=%s app_tunnel_unit=true rollback=armed e2e=pass\n' "$target"
+printf 'REMOTE_DEPLOY=PASS sha=%s app_tunnel_unit=true canonical_tunnel=true rollback=armed e2e=pass\n' "$target"
 REMOTE_DEPLOY
 
 REMOTE_TAR=""
+REMOTE_AREA=""
+REMOTE_CADDY=""
 printf '\n==> 4/4 — Final receipt\n'
 printf 'CONTROL_PLANE_DEPLOY=PASS sha=%s host=%s exact=true\n' "$TARGET" "$REMOTE"
