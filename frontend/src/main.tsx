@@ -8,13 +8,15 @@ const OverviewPage = lazyRouteComponent(() => import('./pages/OverviewPage'), 'O
 const TenantsPage = lazyRouteComponent(() => import('./pages/TenantsPage'), 'TenantsPage')
 const TenantPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'TenantPage')
 const AreaPage = lazyRouteComponent(() => import('./pages/AreaPage'), 'AreaPage')
+const OperatorAttentionPage = lazyRouteComponent(() => import('./pages/OperatorAttentionPage'), 'OperatorAttentionPage')
 
 const rootRoute = createRootRoute({ component: Shell })
 const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: OverviewPage })
 const tenantsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants', component: TenantsPage })
 const tenantRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug', component: TenantPage })
 const areaRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/area', component: AreaPage })
-const routeTree = rootRoute.addChildren([overviewRoute, tenantsRoute, tenantRoute, areaRoute])
+const operatorAttentionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/attention', component: OperatorAttentionPage })
+const routeTree = rootRoute.addChildren([overviewRoute, tenantsRoute, operatorAttentionRoute, tenantRoute, areaRoute])
 const router = createRouter({ routeTree, defaultPreload: 'intent', defaultPreloadStaleTime: 10_000, scrollRestoration: true })
 
 declare module '@tanstack/solid-router' { interface Register { router: typeof router } }
