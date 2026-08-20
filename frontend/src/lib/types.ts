@@ -119,3 +119,67 @@ export type AreaOverview = {
 }
 export type AreaValidationIssue = { code:string; field:string; message:string; confirmationRequired:boolean }
 export type AreaValidationResult = { valid:boolean; issues:AreaValidationIssue[] }
+
+export type OperationsQueueSummary = {
+  pending: number
+  processing: number
+  delivered_24h: number
+  dead: number
+  cancelled: number
+  oldest_pending_seconds: number
+}
+
+export type OperationsSummary = {
+  outbox: OperationsQueueSummary
+  deliveries: OperationsQueueSummary
+  push: OperationsQueueSummary
+  watchdog: { active_alerts: number; critical_alerts: number; last_observed_at: string | null }
+  http: { requests: number; errors_4xx: number; errors_5xx: number; average_ms: number; p50_ms: number; p95_ms: number }
+  database: Record<string, unknown>
+  area: Record<string, number>
+  schema_version: number
+  release: string
+}
+
+export type FeatureFlag = {
+  key: string
+  enabled: boolean
+  reason: string | null
+  version: number
+  updated_at: string
+}
+
+export type AutonomyLevel = 'observe' | 'recommend' | 'require_approval' | 'bounded_auto'
+
+export type AutopilotPolicy = {
+  context: string
+  enabled: boolean
+  autonomy_level: AutonomyLevel
+  minimum_confidence: number
+  max_actions_24h: number
+  version: number
+  guarded_until: string | null
+  guardrail_reason: string | null
+}
+
+export type RumMetric = {
+  surface: string
+  metric_key: string
+  samples_24h: number
+  p75: number
+  p95: number
+}
+
+export type AutopilotOverview = {
+  runtime_enabled: boolean
+  policies: AutopilotPolicy[]
+  needs_you: unknown[]
+  queued_actions: number
+  processing_actions: number
+  succeeded_24h: number
+  failed_24h: number
+  executor_confirmed_24h: number
+  executor_failed_24h: number
+  awaiting_executor: number
+  rum_metrics_24h: RumMetric[]
+}

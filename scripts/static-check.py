@@ -65,7 +65,10 @@ auth = (root / "crates/control-plane-api/src/auth.rs").read_text()
 caddy = (root / "deploy/Caddyfile.control.virya.music.example").read_text()
 assert "x-control-plane-token" not in auth.lower(), "backend must not grow a browser-only admin header"
 assert "x-control-plane-token" not in frontend.lower(), "SPA must not carry the platform admin secret"
-assert "authorization" not in spa.lower(), "SPA must leave browser Basic Authorization untouched"
+assert "Basic ${btoa" not in spa, "Basic credential encoding belongs in the dedicated in-memory auth module"
+auth_ui = (root / "frontend/src/lib/auth.ts").read_text()
+assert "createSignal" in auth_ui and "localStorage" not in auth_ui and "sessionStorage" not in auth_ui, "operator credential must remain memory-only"
+assert "Basic ${btoa(binary)}" in auth_ui, "operator login must use Basic only at the edge"
 assert "CONTROL_PLANE_ADMIN_TOKEN" not in frontend, "admin secret must not be compiled into frontend source"
 assert "crowdrelay-control-plane-token" not in frontend.lower(), "browser admin-token storage key must not return"
 assert "{http.request.header.X-Control-Plane-Token}" not in caddy, "Caddy must not trust a browser-supplied app token"
@@ -113,4 +116,4 @@ for line in workflow.splitlines():
     if "uses:" in line:
         ref = line.split("@", 1)[-1].split()[0] if "@" in line else ""
         assert len(ref) == 40 and all(ch in "0123456789abcdef" for ch in ref), f"GitHub Action must be SHA-pinned: {line.strip()}"
-print(f"CONTROL_PLANE_STATIC=PASS checks={len(checks)} auth=edge-basic+server-bearer freshness=bounded provisioning=idempotent")
+print(f"CONTROL_PLANE_STATIC=PASS checks={len(checks)} auth=styled-edge-basic+server-bearer freshness=bounded provisioning=idempotent")

@@ -30,6 +30,16 @@ struct AuditRecord<'a> {
     detail: Value,
 }
 
+pub(crate) struct ControlCommandAudit<'a> {
+    pub tenant_id: Uuid,
+    pub actor: &'a str,
+    pub action: &'static str,
+    pub target_kind: &'static str,
+    pub target_id: &'a str,
+    pub request_id: Option<&'a str>,
+    pub outcome: &'a str,
+}
+
 pub(crate) struct ProvisioningCompletion<'a> {
     pub api_port: u16,
     pub workspace_id: Uuid,
@@ -140,10 +150,8 @@ impl Store {
             return Err(ApiError::Conflict("Virya tenant already exists".to_owned()));
         }
         let id = Uuid::new_v4();
-        let palette_json =
-            palette.map(|value| serde_json::to_value(value).expect("palette serialization"));
-        let regional_profile_json =
-            serde_json::to_value(&input.regional_profile).expect("regional profile serialization");
+        let palette_json = palette.map(serde_json::to_value).transpose()?;
+        let regional_profile_json = serde_json::to_value(&input.regional_profile)?;
         let mut tx = self.pool.begin().await?;
         let tenant = sqlx::query_as::<_, TenantRow>(
             r#"INSERT INTO control_plane_tenants
@@ -234,8 +242,7 @@ impl Store {
     ) -> Result<TenantSummary, ApiError> {
         let tenant = self.tenant_by_slug(slug).await?;
         let inherits_default = palette.is_none();
-        let value =
-            palette.map(|value| serde_json::to_value(value).expect("palette serialization"));
+        let value = palette.map(serde_json::to_value).transpose()?;
         let mut tx = self.pool.begin().await?;
         sqlx::query("UPDATE control_plane_tenants SET branding_palette = $2, updated_at = now() WHERE id = $1")
             .bind(tenant.tenant.id)
@@ -282,7 +289,7 @@ impl Store {
             }
         }
 
-        let value = serde_json::to_value(&profile).expect("regional profile serialization");
+        let value = serde_json::to_value(&profile)?;
         let mut tx = self.pool.begin().await?;
         sqlx::query(
             "UPDATE control_plane_tenants SET regional_profile=$2, default_country_code=$3, updated_at=now() WHERE id=$1",
@@ -1109,6 +1116,28 @@ impl Store {
                 target_id: drop_id.unwrap_or("area").to_owned(),
                 request_id,
                 detail: json!({"outcome": outcome}),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub async fn audit_control_command(
+        &self,
+        command: ControlCommandAudit<'_>,
+    ) -> Result<(), ApiError> {
+        let mut tx = self.pool.begin().await?;
+        self.audit_tx(
+            &mut tx,
+            AuditRecord {
+                tenant_id: Some(command.tenant_id),
+                actor: command.actor,
+                action: command.action,
+                target_kind: command.target_kind,
+                target_id: command.target_id.to_owned(),
+                request_id: command.request_id,
+                detail: json!({"outcome": command.outcome}),
             },
         )
         .await?;

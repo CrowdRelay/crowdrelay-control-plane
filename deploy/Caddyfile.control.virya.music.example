@@ -1,39 +1,43 @@
-# control.virya.music: browser credentials and application credentials use
-# separate trust boundaries. The browser only authenticates with Caddy Basic Auth;
-# the admin Bearer token is injected server-side and never reaches the SPA.
 control.virya.music {
+    encode zstd gzip
+
+    # Machine-only channels keep their dedicated Bearer credentials and bypass
+    # browser Basic Auth entirely.
     @runtime path /api/v1/tenants/*/runtime
     handle @runtime {
-        # Machine telemetry bypasses browser Basic Auth and is authenticated by
-        # CONTROL_PLANE_TELEMETRY_TOKEN in the Rust API (Authorization: Bearer).
         reverse_proxy 127.0.0.1:8090
     }
 
     @provisioner path /api/v1/provisioner/*
     handle @provisioner {
-        # The host agent has a third, narrow Bearer token. Keep it out of the
-        # browser Basic -> admin Bearer rewrite below.
         reverse_proxy 127.0.0.1:8090
     }
 
-    handle {
+    # The SPA itself is served without an HTTP auth challenge so it can render
+    # the product-styled login screen. Every operator API request remains gated
+    # by Basic Auth at the edge; Caddy substitutes the server-held admin token
+    # only after the browser credential has passed verification.
+    @admin_api path /api/v1/*
+    handle @admin_api {
         basic_auth {
-            # Replace with the existing operator user + Caddy password hash.
             operator {$CONTROL_PLANE_BASIC_AUTH_HASH}
         }
-
-        header {
-            Content-Security-Policy "frame-ancestors 'none'; base-uri 'none'; object-src 'none'"
-            X-Frame-Options "DENY"
-            X-Content-Type-Options "nosniff"
-            Referrer-Policy "no-referrer"
-        }
-
         reverse_proxy 127.0.0.1:8090 {
-            # basic_auth has already verified the browser here. Replace the
-            # incoming Basic Authorization only for localhost upstream so the
-            # Rust API sees its independent admin credential.
             header_up Authorization "Bearer {$CONTROL_PLANE_ADMIN_TOKEN}"
         }
+    }
+
+    handle {
+        reverse_proxy 127.0.0.1:8090
+    }
+
+    header {
+        -WWW-Authenticate
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
     }
 }
