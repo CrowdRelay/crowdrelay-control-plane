@@ -1,7 +1,7 @@
 import { For, Show, createEffect, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import type { AutopilotPolicy, AutonomyLevel, FeatureFlag, OperationsSummary, RuntimeHealth } from '../lib/types'
+import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, FeatureFlag, OperationsSummary, RuntimeHealth } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 
 const errorMessage = (value: unknown, fallback: string) => value instanceof Error ? value.message : fallback
@@ -41,6 +41,23 @@ const operationalTone = (summary: OperationsSummary | undefined): 'good'|'warn'|
 const operationalLabel = (summary: OperationsSummary | undefined) => {
   const tone = operationalTone(summary)
   return tone === 'good' ? 'healthy' : tone === 'warn' ? 'attention' : tone === 'bad' ? 'degraded' : 'loading'
+}
+
+const staleReleaseComponents = (overview: AutopilotOverview | undefined) => overview?.release_ledger.components.filter((component) => component.stale) ?? []
+const releaseTone = (overview: AutopilotOverview | undefined): 'good'|'warn'|'bad'|'muted' => {
+  const ledger = overview?.release_ledger
+  if (!ledger) return 'muted'
+  if (ledger.backend_sha_drift || ledger.executor_manifest_drift) return 'bad'
+  if (ledger.missing_components.length > 0 || staleReleaseComponents(overview).length > 0) return 'warn'
+  return 'good'
+}
+const releaseLabel = (overview: AutopilotOverview | undefined) => {
+  const tone = releaseTone(overview)
+  return tone === 'good' ? 'converged' : tone === 'warn' ? 'incomplete' : tone === 'bad' ? 'drift detected' : 'loading'
+}
+const releaseObserved = (value: string) => {
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? 'unknown time' : parsed.toLocaleString()
 }
 
 function PolicyEditor(props: {
@@ -125,18 +142,24 @@ export function OperationsPanel(props: { slug: string; runtimeHealth: RuntimeHea
     queryFn: () => api.operationsSummary(props.slug),
     enabled: props.enabled,
     refetchInterval: 15_000,
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
   }))
   const flags = useQuery(() => ({
     queryKey: ['tenant-operations-flags', props.slug],
     queryFn: () => api.featureFlags(props.slug),
     enabled: props.enabled,
     refetchInterval: 30_000,
+    refetchOnWindowFocus: false,
+    staleTime: 20_000,
   }))
   const autopilot = useQuery(() => ({
     queryKey: ['tenant-operations-autopilot', props.slug],
     queryFn: () => api.autopilotOverview(props.slug),
     enabled: props.enabled,
-    refetchInterval: 15_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: false,
+    staleTime: 20_000,
   }))
   const [pendingMutation, setPendingMutation] = createSignal<string | null>(null)
   const [mutationError, setMutationError] = createSignal<string | null>(null)
@@ -202,6 +225,49 @@ export function OperationsPanel(props: { slug: string; runtimeHealth: RuntimeHea
       <Show when={summary.data && (deadJobs() > 0 || summary.data.watchdog.critical_alerts > 0)}>
         <div class="operations-attention"><strong>Operator attention required</strong><span>{deadJobs()} dead queue item(s) · {summary.data?.watchdog.critical_alerts ?? 0} critical watchdog alert(s)</span></div>
       </Show>
+
+      <section class="operations-section ecosystem-release-section">
+        <div class="operations-section-head">
+          <div><span class="eyebrow">ECOSYSTEM RELEASE</span><h3>Production convergence</h3></div>
+          <StatusBadge status={releaseLabel(autopilot.data)} tone={releaseTone(autopilot.data)} />
+        </div>
+        <Show when={autopilot.data?.release_ledger} fallback={<div class="mini-skeleton"/>}>{ledger => <>
+          <div class="autopilot-kpis">
+            <div><strong>{ledger().components.length}</strong><span>reported components</span></div>
+            <div><strong>{ledger().missing_components.length}</strong><span>missing</span></div>
+            <div><strong>{staleReleaseComponents(autopilot.data).length}</strong><span>stale</span></div>
+            <div><strong>{ledger().active_executor_count}</strong><span>active executors</span></div>
+          </div>
+          <Show when={ledger().backend_sha_drift || ledger().executor_manifest_drift || ledger().missing_components.length > 0 || staleReleaseComponents(autopilot.data).length > 0}>
+            <div class="operations-attention">
+              <strong>Release reconciliation needs attention</strong>
+              <span>{[
+                ledger().backend_sha_drift ? 'API/worker SHA drift' : '',
+                ledger().executor_manifest_drift ? 'executor manifest drift' : '',
+                ledger().missing_components.length ? `missing: ${ledger().missing_components.join(', ')}` : '',
+                staleReleaseComponents(autopilot.data).length ? `stale: ${staleReleaseComponents(autopilot.data).map((item) => item.component_key).join(', ')}` : '',
+              ].filter(Boolean).join(' · ')}</span>
+            </div>
+          </Show>
+          <div class="flag-list release-component-list">
+            <For each={ledger().components}>{component => <div class="flag-row release-component-row">
+              <div>
+                <strong>{component.component_key}</strong>
+                <small>{component.source_sha.slice(0, 12)} · {releaseObserved(component.observed_at)}</small>
+              </div>
+              <div class="row-health">
+                <Show when={component.artifact_digest}><code>{component.artifact_digest?.slice(0, 20)}</code></Show>
+                <StatusBadge status={component.stale ? 'stale' : 'current'} tone={component.stale ? 'warn' : 'good'} />
+              </div>
+            </div>}</For>
+          </div>
+          <div class="rum-grid">
+            <div><strong>{ledger().team_email_live ? 'live' : 'not live'}</strong><span>team.email</span><small>{ledger().active_team_email_executor_count} capable executor(s)</small></div>
+            <div><strong>{ledger().n8n_attestation_ready ? 'verified' : 'missing'}</strong><span>n8n attestation</span><small>{ledger().guarded_executor_count} guarded executor(s)</small></div>
+            <div><strong>{ledger().active_executor_manifest_shas.length}</strong><span>executor manifests</span><small>{ledger().executor_manifest_drift ? 'drift detected' : 'converged'}</small></div>
+          </div>
+        </>}</Show>
+      </section>
 
       <div class="operations-split">
         <section class="operations-section">

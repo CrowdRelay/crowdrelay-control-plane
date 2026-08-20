@@ -54,6 +54,7 @@ export type Tenant = {
 export type RuntimeHealth = 'healthy' | 'degraded' | 'stale' | 'unknown'
 
 export type TenantSummary = Tenant & { runtime: RuntimeStatus | null; runtimeHealth: RuntimeHealth }
+export type TenantRuntimeSnapshot = { runtime: RuntimeStatus | null; runtimeHealth: RuntimeHealth }
 
 export type AuditEntry = {
   id: string
@@ -170,6 +171,35 @@ export type RumMetric = {
   p95: number
 }
 
+export type ReleaseComponentSummary = {
+  component_key: string
+  environment: string
+  source_sha: string
+  artifact_digest: string | null
+  deploy_ref: string | null
+  version: string | null
+  manifest_sha: string | null
+  dependency_lock_sha256: string | null
+  artifact_manifest_sha256: string | null
+  workflow_attestation_sha: string | null
+  workflow_attested_at: string | null
+  observed_at: string
+  stale: boolean
+}
+
+export type ReleaseLedgerOverview = {
+  components: ReleaseComponentSummary[]
+  missing_components: string[]
+  backend_sha_drift: boolean
+  executor_manifest_drift: boolean
+  active_executor_count: number
+  guarded_executor_count: number
+  active_executor_manifest_shas: string[]
+  active_team_email_executor_count: number
+  n8n_attestation_ready: boolean
+  team_email_live: boolean
+}
+
 export type AutopilotOverview = {
   runtime_enabled: boolean
   policies: AutopilotPolicy[]
@@ -181,5 +211,6 @@ export type AutopilotOverview = {
   executor_confirmed_24h: number
   executor_failed_24h: number
   awaiting_executor: number
+  release_ledger: ReleaseLedgerOverview
   rum_metrics_24h: RumMetric[]
 }

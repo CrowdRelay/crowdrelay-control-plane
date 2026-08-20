@@ -2,14 +2,14 @@ import { For, Show, createEffect, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
-import type { Palette, ProvisioningJob, RuntimeHealth } from '../lib/types'
+import type { Palette, ProvisioningJob } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { RegionalProfilePanel } from '../components/RegionalProfilePanel'
 import { OperationsPanel } from '../components/OperationsPanel'
+import { TenantRuntimePanel } from '../components/TenantRuntimePanel'
 
 const paletteFields: Array<keyof Palette> = ['primary','primaryContrast','accent','surface','surfaceElevated','text','textMuted','success','warning','danger']
 const defaultPalette: Palette = { primary:'#8b5cf6', primaryContrast:'#ffffff', accent:'#22d3ee', surface:'#0b0c0f', surfaceElevated:'#15171c', text:'#f7f7f8', textMuted:'#9ca3af', success:'#22c55e', warning:'#f59e0b', danger:'#ef4444' }
-const runtimeTone = (health: RuntimeHealth) => health === 'healthy' ? 'good' : health === 'degraded' ? 'bad' : health === 'stale' ? 'warn' : 'muted'
 const provisionTone = (status: ProvisioningJob['status']) => status === 'succeeded' ? 'good' : status === 'failed' ? 'bad' : status === 'cancelled' ? 'muted' : 'warn'
 const errorMessage = (value: unknown, fallback: string) => value instanceof Error ? value.message : fallback
 const formatTimestamp = (value: string | null | undefined) => {
@@ -44,14 +44,15 @@ const provisionFailures: Record<string, { title: string; guidance: string; retry
 export function TenantPage() {
   const params = useParams({ from: '/tenants/$slug' })
   const queryClient = useQueryClient()
-  // Tenant identity/configuration is page state, not telemetry. Keep it stable so
-  // background health polling cannot rebuild the whole detail surface or disturb forms/scroll.
-  const tenant = useQuery(() => ({ queryKey: ['tenant', params().slug], queryFn: () => api.tenant(params().slug), refetchOnWindowFocus: false }))
-  const runtimeTenant = useQuery(() => ({
-    queryKey: ['tenant-runtime', params().slug],
+  // Tenant identity/configuration is page state, not telemetry. Once loaded it
+  // stays mounted; live runtime queries are owned by small child surfaces.
+  const tenant = useQuery(() => ({
+    queryKey: ['tenant', params().slug],
     queryFn: () => api.tenant(params().slug),
-    enabled: Boolean(tenant.data),
-    refetchInterval: 15_000,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   }))
   const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview }))
   const audit = useQuery(() => ({ queryKey: ['tenant-audit', params().slug], queryFn: () => api.audit(params().slug), refetchInterval: 15_000 }))
@@ -94,7 +95,7 @@ export function TenantPage() {
         <div class="error-card" role="alert">{errorMessage(status.error || branding.error || plan.error || deploy.error || cancel.error || overview.error || audit.error || provisioning.error, 'Control Plane operation failed')}</div>
       </Show>
       <div class="detail-grid">
-        <Show when={runtimeTenant.data ?? t}>{live => <article class="panel"><div class="section-title"><div><span class="eyebrow">RUNTIME</span><h2>Health</h2></div><StatusBadge status={live().runtimeHealth} tone={runtimeTone(live().runtimeHealth)} /></div><dl><dt>API</dt><dd>{String(live().runtime?.apiHealthy ?? 'unknown')}</dd><dt>Worker</dt><dd>{String(live().runtime?.workerHealthy ?? 'unknown')}</dd><dt>Schema</dt><dd>{live().runtime?.schemaVersion ?? '—'}</dd><dt>Deploy SHA</dt><dd class="mono">{live().runtime?.deployedSha?.slice(0,12) ?? '—'}</dd><dt>Outbox pending</dt><dd>{live().runtime?.outboxPending ?? '—'}</dd><dt>Heartbeat</dt><dd>{formatTimestamp(live().runtime?.lastHeartbeatAt)}</dd></dl></article>}</Show>
+        <TenantRuntimePanel slug={t.slug} initial={{ runtime: t.runtime, runtimeHealth: t.runtimeHealth }} />
         <article class="panel products-panel">
           <span class="eyebrow">PRODUCTS</span><h2>Entitlements</h2>
           <div class="product-row product-entitlement-row"><strong>CrowdRelay</strong><div class="product-action-slot" aria-hidden="true"/><div class="product-status-slot"><StatusBadge status="enabled" tone="good" /></div></div>
@@ -103,7 +104,7 @@ export function TenantPage() {
           <div class="product-row product-entitlement-row"><strong>Synesthesia</strong><div class="product-action-slot" aria-hidden="true"/><div class="product-status-slot"><StatusBadge status={t.synesthesiaEnabled ? 'Virya only' : 'not available'} tone={t.synesthesiaEnabled ? 'warn' : 'muted'} /></div></div>
         </article>
       </div>
-      <OperationsPanel slug={t.slug} runtimeHealth={(runtimeTenant.data ?? t).runtimeHealth} enabled={t.status === 'active'} />
+      <OperationsPanel slug={t.slug} runtimeHealth={t.runtimeHealth} enabled={t.status === 'active'} />
       <RegionalProfilePanel tenant={t} />
       <article class="panel"><div class="section-title"><div><span class="eyebrow">BRANDING</span><h2>CrowdRelay + Signal palette</h2></div>{t.brandingPalette ? <button class="ghost" onClick={() => branding.mutate(null)}>Reset to product defaults</button> : <StatusBadge status="Inherits current product defaults" />}</div><Show when={t.brandingPalette || editingPalette()} fallback={<div class="inherit-card"><p>No palette is stored for this tenant. CrowdRelay and Signal therefore keep their own current default colors with zero theming lookup required.</p><button class="ghost" onClick={() => setEditingPalette(true)}>Create custom palette</button></div>}><div class="palette-grid"><For each={paletteFields}>{field => <label>{field}<div class="color-input"><input type="color" value={palette()[field]} onInput={(e) => setPalette(current => ({ ...current, [field]: e.currentTarget.value }))}/><code>{palette()[field]}</code></div></label>}</For></div><button onClick={() => branding.mutate(palette())} disabled={branding.isPending}>Save custom palette</button></Show></article>
 

@@ -108,6 +108,8 @@ jobs:
           docker buildx build \
             --platform linux/amd64 \
             --build-arg "VCS_REF=${GITHUB_SHA}" \
+            --cache-from type=gha,scope=control-plane-image \
+            --cache-to type=gha,mode=max,scope=control-plane-image \
             --tag crowdrelay-control-plane:ci \
             --load \
             .
@@ -115,7 +117,7 @@ jobs:
           revision="$(docker image inspect crowdrelay-control-plane:ci --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
           [[ "$architecture" == "amd64" ]]
           [[ "$revision" == "$GITHUB_SHA" ]]
-          echo "CONTROL_PLANE_CONTAINER=PASS architecture=$architecture revision=$revision"
+          echo "CONTROL_PLANE_CONTAINER=PASS architecture=$architecture revision=$revision cache=gha"
 
   web:
     runs-on: ubuntu-24.04
