@@ -24,6 +24,10 @@ const MAX_OPERATIONS_BODY_BYTES: usize = 8 * 1024;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/tenants/{slug}/operations/summary", get(summary))
+        .route(
+            "/tenants/{slug}/operations/dead-deliveries/clear",
+            post(clear_dead_deliveries),
+        )
         .route("/tenants/{slug}/operations/flags", get(flags))
         .route("/tenants/{slug}/operations/flags/{key}", post(update_flag))
         .route(
@@ -169,6 +173,40 @@ async fn summary(
     )
     .await?;
     object_no_store(value, "summary")
+}
+
+async fn clear_dead_deliveries(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: "/v1/control-plane/ops/deliveries/dead/clear",
+                body: None,
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.dead_deliveries.cleared",
+        "delivery_queue",
+        "dead",
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(result?, "dead delivery clear")
 }
 
 async fn flags(
