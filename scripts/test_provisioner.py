@@ -274,6 +274,25 @@ class ProvisionerContractTests(unittest.TestCase):
         self.assertNotIn("CONTROL_PLANE_PROVISIONER_TOKEN", child)
         self.assertEqual(child["DOCKER_HOST"], "unix:///run/docker.sock")
 
+    def test_wait_container_healthy_requires_docker_health(self):
+        config = type("ConfigStub", (), {"docker": "docker"})()
+        with (
+            mock.patch.object(provisioner, "compose_cmd", return_value="container-1\n"),
+            mock.patch.object(provisioner, "docker_cmd", side_effect=["starting\n", "healthy\n"]),
+            mock.patch.object(provisioner.time, "sleep"),
+        ):
+            provisioner.wait_container_healthy(config, Path("/tmp"), "project", "worker", 10)
+
+    def test_wait_container_healthy_fails_closed_for_dead_worker(self):
+        config = type("ConfigStub", (), {"docker": "docker"})()
+        with (
+            mock.patch.object(provisioner, "compose_cmd", return_value="container-1\n"),
+            mock.patch.object(provisioner, "docker_cmd", return_value="dead\n"),
+        ):
+            with self.assertRaises(provisioner.ProvisionError) as caught:
+                provisioner.wait_container_healthy(config, Path("/tmp"), "project", "worker", 10)
+        self.assertEqual(caught.exception.code, "worker_readiness_timeout")
+
     def test_provisioner_has_no_shell_execution_escape_hatch(self):
         source = (ROOT / "deploy/provisioner.py").read_text()
         for forbidden in ("shell=True", "os.system(", "eval(", "exec(", "/var/run/docker.sock"):

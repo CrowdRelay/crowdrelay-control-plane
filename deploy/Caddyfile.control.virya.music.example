@@ -22,6 +22,13 @@ control.virya.music {
             operator {$CONTROL_PLANE_BASIC_AUTH_HASH}
         }
 
+        header {
+            Content-Security-Policy "frame-ancestors 'none'; base-uri 'none'; object-src 'none'"
+            X-Frame-Options "DENY"
+            X-Content-Type-Options "nosniff"
+            Referrer-Policy "no-referrer"
+        }
+
         reverse_proxy 127.0.0.1:8090 {
             # basic_auth has already verified the browser here. Replace the
             # incoming Basic Authorization only for localhost upstream so the

@@ -7,6 +7,8 @@ checks = {
     "constant_time_auth": (root / "crates/control-plane-api/src/auth.rs", ".ct_eq("),
     "admin_bearer_only": (root / "crates/control-plane-api/src/auth.rs", "require_bearer(request.headers(), state.admin_token_hash)"),
     "caddy_admin_injection": (root / "deploy/Caddyfile.control.virya.music.example", 'header_up Authorization "Bearer {$CONTROL_PLANE_ADMIN_TOKEN}"'),
+    "caddy_clickjacking_defense": (root / "deploy/Caddyfile.control.virya.music.example", "frame-ancestors 'none'"),
+    "worker_readiness_gate": (root / "deploy/provisioner.py", 'wait_container_healthy(config, tenant_dir, project, "worker"'),
     "telemetry_auth": (root / "crates/control-plane-api/src/auth.rs", "require_telemetry"),
     "virya_seed_inherit_branding": (root / "crates/control-plane-api/src/store.rs", "branding_palette, synesthesia_enabled, area_enabled)"),
     "provisioning_no_rce": (root / "crates/control-plane-api/src/store.rs", '"mode": "local_docker_compose"'),
@@ -94,6 +96,7 @@ assert "class LeaseKeeper" in provisioner, "an active deployment must hold its l
 main_body = provisioner.split("def main(", 1)[1]
 assert "observe_deployments(config)" not in main_body, "the claim loop must not be what drives observation"
 assert "COALESCE(EXCLUDED.api_healthy" in store, "runtime telemetry updates must preserve omitted fields"
+assert "EXCLUDED.last_heartbeat_at >= control_plane_runtime_status.last_heartbeat_at" in store, "out-of-order telemetry must not overwrite a newer runtime snapshot"
 model = (root / "crates/control-plane-api/src/model.rs").read_text()
 routes = (root / "crates/control-plane-api/src/routes.rs").read_text()
 assert "pub deploy_crowdrelay: bool" in model and "pub desired_version: Option<String>" in model, "create request must carry optional atomic deployment intent"

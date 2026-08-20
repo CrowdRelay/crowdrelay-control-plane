@@ -957,13 +957,42 @@ impl Store {
                (tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha, outbox_pending, queue_lag, last_heartbeat_at, checked_at)
                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now())
                ON CONFLICT (tenant_id) DO UPDATE SET
-                 api_healthy=COALESCE(EXCLUDED.api_healthy, control_plane_runtime_status.api_healthy),
-                 worker_healthy=COALESCE(EXCLUDED.worker_healthy, control_plane_runtime_status.worker_healthy),
-                 schema_version=COALESCE(EXCLUDED.schema_version, control_plane_runtime_status.schema_version),
-                 deployed_sha=COALESCE(EXCLUDED.deployed_sha, control_plane_runtime_status.deployed_sha),
-                 outbox_pending=COALESCE(EXCLUDED.outbox_pending, control_plane_runtime_status.outbox_pending),
-                 queue_lag=COALESCE(EXCLUDED.queue_lag, control_plane_runtime_status.queue_lag),
-                 last_heartbeat_at=COALESCE(EXCLUDED.last_heartbeat_at, control_plane_runtime_status.last_heartbeat_at),
+                 api_healthy=CASE WHEN EXCLUDED.last_heartbeat_at IS NULL
+                                      OR control_plane_runtime_status.last_heartbeat_at IS NULL
+                                      OR EXCLUDED.last_heartbeat_at >= control_plane_runtime_status.last_heartbeat_at
+                                  THEN COALESCE(EXCLUDED.api_healthy, control_plane_runtime_status.api_healthy)
+                                  ELSE control_plane_runtime_status.api_healthy END,
+                 worker_healthy=CASE WHEN EXCLUDED.last_heartbeat_at IS NULL
+                                         OR control_plane_runtime_status.last_heartbeat_at IS NULL
+                                         OR EXCLUDED.last_heartbeat_at >= control_plane_runtime_status.last_heartbeat_at
+                                     THEN COALESCE(EXCLUDED.worker_healthy, control_plane_runtime_status.worker_healthy)
+                                     ELSE control_plane_runtime_status.worker_healthy END,
+                 schema_version=CASE WHEN EXCLUDED.last_heartbeat_at IS NULL
+                                         OR control_plane_runtime_status.last_heartbeat_at IS NULL
+                                         OR EXCLUDED.last_heartbeat_at >= control_plane_runtime_status.last_heartbeat_at
+                                     THEN COALESCE(EXCLUDED.schema_version, control_plane_runtime_status.schema_version)
+                                     ELSE control_plane_runtime_status.schema_version END,
+                 deployed_sha=CASE WHEN EXCLUDED.last_heartbeat_at IS NULL
+                                       OR control_plane_runtime_status.last_heartbeat_at IS NULL
+                                       OR EXCLUDED.last_heartbeat_at >= control_plane_runtime_status.last_heartbeat_at
+                                   THEN COALESCE(EXCLUDED.deployed_sha, control_plane_runtime_status.deployed_sha)
+                                   ELSE control_plane_runtime_status.deployed_sha END,
+                 outbox_pending=CASE WHEN EXCLUDED.last_heartbeat_at IS NULL
+                                         OR control_plane_runtime_status.last_heartbeat_at IS NULL
+                                         OR EXCLUDED.last_heartbeat_at >= control_plane_runtime_status.last_heartbeat_at
+                                     THEN COALESCE(EXCLUDED.outbox_pending, control_plane_runtime_status.outbox_pending)
+                                     ELSE control_plane_runtime_status.outbox_pending END,
+                 queue_lag=CASE WHEN EXCLUDED.last_heartbeat_at IS NULL
+                                    OR control_plane_runtime_status.last_heartbeat_at IS NULL
+                                    OR EXCLUDED.last_heartbeat_at >= control_plane_runtime_status.last_heartbeat_at
+                                THEN COALESCE(EXCLUDED.queue_lag, control_plane_runtime_status.queue_lag)
+                                ELSE control_plane_runtime_status.queue_lag END,
+                 last_heartbeat_at=CASE WHEN EXCLUDED.last_heartbeat_at IS NULL
+                                        THEN control_plane_runtime_status.last_heartbeat_at
+                                        WHEN control_plane_runtime_status.last_heartbeat_at IS NULL
+                                             OR EXCLUDED.last_heartbeat_at >= control_plane_runtime_status.last_heartbeat_at
+                                        THEN EXCLUDED.last_heartbeat_at
+                                        ELSE control_plane_runtime_status.last_heartbeat_at END,
                  checked_at=now()
                RETURNING tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha,
                          outbox_pending, queue_lag, last_heartbeat_at, checked_at"#,
