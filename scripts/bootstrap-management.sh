@@ -84,4 +84,18 @@ REMOTE
 )" || fail 'failed to install canonical Home management overlay'
 printf '%s\n' "$report"
 
-bash "$ROOT_DIR/scripts/ensure-virya-management-credentials.sh" --apply
+if bash "$ROOT_DIR/scripts/ensure-virya-management-credentials.sh" --apply; then
+  exit 0
+fi
+
+printf 'MANAGEMENT_BOOTSTRAP_READINESS=RETRY reason=post-recreate-e2e-not-ready\n' >&2
+for attempt in $(seq 1 15); do
+  sleep 1
+  if bash "$ROOT_DIR/scripts/ensure-virya-management-credentials.sh" --check; then
+    printf 'MANAGEMENT_BOOTSTRAP_READINESS=PASS attempt=%s mutation_retried=false\n' "$attempt"
+    exit 0
+  fi
+  printf '... management tunnel not ready yet attempt=%s/15\n' "$attempt" >&2
+done
+
+fail 'management bootstrap did not reach E2E readiness after bounded retry'
