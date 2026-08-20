@@ -138,8 +138,6 @@ restore_release_state() {
   [[ -n "$backup_dir" && -d "$backup_dir" ]] || return 1
   cp -p "$backup_dir/.env" .env
   chmod 600 .env
-  # Infrastructure repair is monotonic: rollback restores the previous app
-  # image but never resurrects a stale AREA-only tunnel/overlay.
   install_canonical_infra
 }
 
@@ -216,9 +214,6 @@ if url != "http://127.0.0.1:18080":
 ' || fail 'effective compose management wiring is invalid'
 printf 'MANAGEMENT_WIRING=PASS semantic=true\n'
 
-# Validate the exact pinned Caddy image and canonical Caddy input before
-# touching runtime files. The source overlay is authoritative, so this remains
-# self-healing even if the current tunnel container is missing or stale.
 caddy_image="$(python3 - "$area_source" <<'PY'
 from pathlib import Path
 import re
@@ -260,8 +255,6 @@ revision="$(docker image inspect --format '{{index .Config.Labels "org.openconta
 [[ "$architecture" == "amd64" ]] || fail "remote image architecture mismatch: $architecture"
 [[ "$revision" == "$target" ]] || fail "remote OCI revision mismatch: got=$revision expected=$target"
 
-# From this point on every failure restores the previous app image while
-# retaining the source-controlled tunnel/management infrastructure.
 mutated=true
 install_canonical_infra
 python3 - "$new_tag" <<'PY'
@@ -311,7 +304,20 @@ curl -fsS --connect-timeout 3 --max-time 10 "$base_url/healthz/ready" >/dev/null
 
 admin="$(docker inspect crowdrelay-control-plane-app-1 --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^CONTROL_PLANE_ADMIN_TOKEN=//p')"
 [[ -n "$admin" ]] || fail 'CONTROL_PLANE_ADMIN_TOKEN missing from runtime'
-summary="$(curl -fsS --connect-timeout 3 --max-time 10 -H "Authorization: Bearer $admin" "$base_url/api/v1/tenants/virya/operations/summary")"
+summary=""
+for attempt in $(seq 1 30); do
+  if summary="$(curl -fsS --connect-timeout 3 --max-time 10 -H "Authorization: Bearer $admin" "$base_url/api/v1/tenants/virya/operations/summary" 2>/tmp/control-plane-operations-readiness-error)"; then
+    printf 'OPERATIONS_READINESS=PASS attempt=%s\n' "$attempt"
+    break
+  fi
+  if [[ "$attempt" == "30" ]]; then
+    detail="$(cat /tmp/control-plane-operations-readiness-error 2>/dev/null || true)"
+    rm -f /tmp/control-plane-operations-readiness-error
+    fail "operations management path did not become ready after bounded retry: $detail"
+  fi
+  sleep 1
+done
+rm -f /tmp/control-plane-operations-readiness-error
 printf '%s' "$summary" | python3 -c '
 import json
 import sys
@@ -325,6 +331,21 @@ if not isinstance(http, dict) or not isinstance(http.get("p95_ms"), int):
     raise SystemExit("http.p95_ms missing")
 print("OPERATIONS_E2E=PASS schema={} p95_ms={}".format(value["schema_version"], http["p95_ms"]))
 '
+
+for path in \
+  /api/v1/tenants/virya/area \
+  /api/v1/tenants/virya/operations/flags \
+  /api/v1/tenants/virya/operations/autopilot; do
+  code="$(curl -sS -o /tmp/control-plane-management-e2e-body -w '%{http_code}' --connect-timeout 3 --max-time 10 -H "Authorization: Bearer $admin" "$base_url$path")"
+  if [[ "$code" != "200" ]]; then
+    detail="$(cat /tmp/control-plane-management-e2e-body 2>/dev/null || true)"
+    rm -f /tmp/control-plane-management-e2e-body
+    fail "management E2E failed path=$path status=$code detail=$detail"
+  fi
+done
+rm -f /tmp/control-plane-management-e2e-body
+unset admin
+printf 'MANAGEMENT_E2E=PASS area=200 summary=200 flags=200 autopilot=200\n'
 
 rm -rf -- "$backup_dir"
 backup_dir=""
