@@ -78,6 +78,24 @@ fn json_no_store(value: Value) -> Response {
         .into_response()
 }
 
+fn object_no_store(value: Value, endpoint: &'static str) -> Result<Response, ApiError> {
+    if !value.is_object() {
+        return Err(ApiError::Unavailable(format!(
+            "tenant operations {endpoint} returned an invalid JSON shape"
+        )));
+    }
+    Ok(json_no_store(value))
+}
+
+fn array_no_store(value: Value, endpoint: &'static str) -> Result<Response, ApiError> {
+    if !value.is_array() {
+        return Err(ApiError::Unavailable(format!(
+            "tenant operations {endpoint} returned an invalid JSON shape"
+        )));
+    }
+    Ok(json_no_store(value))
+}
+
 async fn call(
     state: &AppState,
     slug: &str,
@@ -150,7 +168,7 @@ async fn summary(
         None,
     )
     .await?;
-    Ok(json_no_store(value))
+    object_no_store(value, "summary")
 }
 
 async fn flags(
@@ -168,7 +186,7 @@ async fn flags(
         None,
     )
     .await?;
-    Ok(json_no_store(value))
+    array_no_store(value, "flags")
 }
 
 #[derive(Debug, Deserialize)]
@@ -227,7 +245,7 @@ async fn update_flag(
         &result,
     )
     .await;
-    Ok(json_no_store(result?))
+    object_no_store(result?, "flag mutation")
 }
 
 async fn autopilot_overview(
@@ -245,7 +263,7 @@ async fn autopilot_overview(
         None,
     )
     .await?;
-    Ok(json_no_store(value))
+    object_no_store(value, "autopilot overview")
 }
 
 #[derive(Debug, Deserialize)]
@@ -310,5 +328,5 @@ async fn update_autopilot(
         &result,
     )
     .await;
-    Ok(json_no_store(result?))
+    object_no_store(result?, "autopilot mutation")
 }
