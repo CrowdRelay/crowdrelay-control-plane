@@ -24,13 +24,15 @@ class MakeDeployContract(unittest.TestCase):
         self.assertIn('[[ -f "$CANONICAL" && ! -L "$CANONICAL" ]]', TEXT)
         self.assertIn('bash "$CANONICAL" "$TARGET"', TEXT)
 
-    def test_tunnel_is_verified_and_self_healed_after_failure_or_interrupt(self) -> None:
+    def test_tunnel_is_verified_first_and_self_healed_only_if_needed(self) -> None:
         for token in (
             "verify_live_tunnel",
+            "ensure_live_tunnel",
             "repair_live_release_unit",
+            "CONTROL_PLANE_TUNNEL_RECOVERY=NOOP",
+            "CONTROL_PLANE_TUNNEL_RECOVERY=REPAIR",
             "CONTROL_PLANE_RELEASE_UNIT_REPAIR=PASS",
             "trap on_interrupt INT TERM HUP",
-            "Control Plane deploy/rollback left the tunnel unhealthy",
             "crowdrelay-control-plane-virya-area-tunnel-1",
             "{{.HostConfig.NetworkMode}}",
             "caddy validate --config /etc/caddy/Caddyfile",
@@ -38,6 +40,7 @@ class MakeDeployContract(unittest.TestCase):
             "CONTROL_PLANE_TUNNEL_GATE=PASS",
         ):
             self.assertIn(token, TEXT)
+        self.assertLess(TEXT.index("if verify_live_tunnel; then"), TEXT.index("repair_live_release_unit || return 1"))
 
 
 if __name__ == "__main__":
