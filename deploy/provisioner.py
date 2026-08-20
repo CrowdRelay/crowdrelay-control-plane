@@ -891,6 +891,40 @@ def wait_http(port: int, timeout_seconds: int) -> None:
     raise ProvisionError("api_readiness_timeout", f"CrowdRelay API readiness timed out ({last})")
 
 
+def wait_container_healthy(
+    config: Config, tenant_dir: Path, project: str, service: str, timeout_seconds: int
+) -> None:
+    deadline = time.monotonic() + timeout_seconds
+    last = "container unavailable"
+    while time.monotonic() < deadline:
+        try:
+            container_id = compose_cmd(
+                config, tenant_dir, project, "ps", "-q", service, timeout=15
+            ).strip()
+            if container_id:
+                health = docker_cmd(
+                    config,
+                    "inspect",
+                    "--format",
+                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}",
+                    container_id,
+                    timeout=15,
+                    error_code="container_health_probe_failed",
+                ).strip()
+                last = health or "unknown"
+                if health == "healthy":
+                    return
+                if health in {"exited", "dead"}:
+                    break
+        except ProvisionError as exc:
+            last = exc.code
+        time.sleep(2)
+    raise ProvisionError(
+        f"{service}_readiness_timeout",
+        f"CrowdRelay {service} did not become healthy ({last})",
+    )
+
+
 def query_postgres(config: Config, tenant_dir: Path, project: str, sql: str) -> str:
     output = compose_cmd(
         config,
@@ -984,6 +1018,11 @@ def process_claim(config: Config, claim: dict[str, Any]) -> None:
         compose_cmd(config, tenant_dir, project, "up", "-d", "api", "worker", timeout=180)
         lease.check()
         wait_http(port, config.health_timeout)
+        wait_container_healthy(config, tenant_dir, project, "worker", config.health_timeout)
+        # Reconfirm API readiness after the worker gate so successful completion
+        # represents one coherent healthy snapshot, not two probes minutes apart.
+        wait_http(port, min(config.health_timeout, 30))
+        lease.check()
         return finish_claim(
             config, claim, plan, tenant_dir, project, port, job_id, token, deployed_sha, pinned
         )

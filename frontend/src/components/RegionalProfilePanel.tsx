@@ -26,6 +26,10 @@ export function RegionalProfilePanel(props: Props) {
   }))
   const set = <K extends keyof RegionalProfile>(key: K, value: RegionalProfile[K]) =>
     setDraft(current => ({ ...current, [key]: value }))
+  const ready = () => draft().countryCode.trim().length === 2
+    && draft().locale.trim().length >= 4
+    && draft().timezone.trim().includes('/')
+    && draft().currency.trim().length === 3
 
   return <article class="panel">
     <div class="section-title">
@@ -50,8 +54,8 @@ export function RegionalProfilePanel(props: Props) {
       <label>Number format<select value={draft().numberFormat} onChange={e=>set('numberFormat', e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></select></label>
       <label>Data region<select disabled={Boolean(props.tenant.regionalProfile)} value={draft().dataRegion} onChange={e=>set('dataRegion', e.currentTarget.value as 'eu'|'us')}><option value="eu">EU residency</option><option value="us">US residency</option></select><small>{props.tenant.regionalProfile ? 'Residency changes require an explicit migration, not ordinary editing.' : 'Choose before deployment. Normal editing cannot silently move data later.'}</small></label>
     </div>
-    <Show when={update.error}><div class="error-card">{update.error instanceof Error ? update.error.message : 'Regional profile update failed'}</div></Show>
-    <button onClick={()=>update.mutate()} disabled={update.isPending || !draft().countryCode || !draft().locale || !draft().timezone || !draft().currency}>
+    <Show when={update.error}><div class="error-card" role="alert">{update.error instanceof Error ? update.error.message : 'Regional profile update failed'}</div></Show>
+    <button onClick={()=>update.mutate()} disabled={update.isPending || !ready()}>
       {update.isPending ? 'Saving…' : props.tenant.regionalProfile ? 'Save regional profile' : 'Classify tenant'}
     </button>
   </article>

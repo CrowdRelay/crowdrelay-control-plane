@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 const root = path.resolve(import.meta.dirname, '..')
+const styles = fs.readFileSync(path.join(root, 'frontend/src/styles.css'), 'utf8')
 const main = fs.readFileSync(path.join(root, 'frontend/src/main.tsx'), 'utf8')
 const tenant = fs.readFileSync(path.join(root, 'frontend/src/pages/TenantPage.tsx'), 'utf8')
 const tenants = fs.readFileSync(path.join(root, 'frontend/src/pages/TenantsPage.tsx'), 'utf8')
@@ -38,4 +39,12 @@ if (!tenant.includes('formatTimestamp(job().leaseExpiresAt)') || tenant.includes
 if (!api.includes('deployTenant') || !api.includes('cancelProvisioning')) throw new Error('tenant provisioning API client missing')
 if (!types.includes("'healthy' | 'degraded' | 'stale' | 'unknown'")) throw new Error('runtime freshness states missing')
 if (!overview.includes('tenant.runtimeHealth') || !tenant.includes('t.runtimeHealth')) throw new Error('runtime health must be backend-authoritative in all views')
+
+if (!styles.includes('.form-grid input,.form-grid select,.form-grid textarea')) throw new Error('generic Control Plane selects must share dark form styling')
+if (!styles.includes('.warning-card + .form-grid{margin-top:16px}')) throw new Error('regional warning must not collide with form labels')
+if (!styles.includes(':focus-visible')) throw new Error('keyboard focus visibility regression')
+if (!tenant.includes('worker_readiness_timeout')) throw new Error('worker readiness failure must be actionable in tenant UI')
+if (!tenant.includes('tenant.error')) throw new Error('tenant detail must surface load failures instead of endless skeleton')
+if (!tenants.includes('tenants.error || overview.error')) throw new Error('tenant registry must surface query failures')
+
 console.log('CONTROL_PLANE_WEB_SOURCE=PASS auth=edge-basic+server-bearer runtime-health=server-authoritative provisioning=create+deploy+lifecycle')

@@ -10,6 +10,7 @@ const paletteFields: Array<keyof Palette> = ['primary','primaryContrast','accent
 const defaultPalette: Palette = { primary:'#8b5cf6', primaryContrast:'#ffffff', accent:'#22d3ee', surface:'#0b0c0f', surfaceElevated:'#15171c', text:'#f7f7f8', textMuted:'#9ca3af', success:'#22c55e', warning:'#f59e0b', danger:'#ef4444' }
 const runtimeTone = (health: RuntimeHealth) => health === 'healthy' ? 'good' : health === 'degraded' ? 'bad' : health === 'stale' ? 'warn' : 'muted'
 const provisionTone = (status: ProvisioningJob['status']) => status === 'succeeded' ? 'good' : status === 'failed' ? 'bad' : status === 'cancelled' ? 'muted' : 'warn'
+const errorMessage = (value: unknown, fallback: string) => value instanceof Error ? value.message : fallback
 const formatTimestamp = (value: string | null | undefined) => {
   if (!value) return '—'
   const parsed = new Date(value)
@@ -31,6 +32,7 @@ const provisionFailures: Record<string, { title: string; guidance: string; retry
   port_pool_exhausted: { title: 'No free tenant port', guidance: 'Every port in the configured range is allocated. Widen the range or release a retired tenant, then retry.', retryable: false },
   port_allocation_conflict: { title: 'Tenant port is double-claimed', guidance: 'Two tenants recorded the same host port. Resolve the conflicting deployment record on the host before retrying.', retryable: false },
   api_readiness_timeout: { title: 'CrowdRelay API never became ready', guidance: 'The stack started but its readiness probe never passed. Inspect the tenant container logs on the host. Retrying is safe.', retryable: true },
+  worker_readiness_timeout: { title: 'CrowdRelay worker never became healthy', guidance: 'The API became ready but the background worker health check did not. Inspect the worker logs on the provisioner host before retrying.', retryable: true },
   workspace_probe_failed: { title: 'Workspace was not created', guidance: 'Bootstrap finished without producing the expected workspace. Inspect the setup container output before retrying.', retryable: true },
   schema_probe_failed: { title: 'Migration state is unreadable', guidance: 'The schema version probe did not return an integer. Inspect the tenant database before retrying.', retryable: true },
   docker_compose_failed: { title: 'Docker Compose step failed', guidance: 'A Compose step exited non-zero. The provisioner log holds the bounded output tail for this deployment.', retryable: true },
@@ -67,13 +69,18 @@ export function TenantPage() {
   const latestJob = () => provisioning.data?.items[0]
   const deploymentBusy = () => ['planned', 'approved', 'running'].includes(latestJob()?.status ?? '')
 
-  return <section class="page"><Show when={tenant.data} fallback={<div class="skeleton-block"/>}>{data => {
+  return <section class="page">
+    <Show when={tenant.error}><div class="error-card" role="alert">{errorMessage(tenant.error, 'Tenant could not be loaded')}</div></Show>
+    <Show when={!tenant.error && tenant.data} fallback={!tenant.error ? <div class="skeleton-block"/> : null}>{data => {
     const t = data()
     return <>
       <div class="page-head">
         <div><span class="eyebrow">TENANT / {t.slug.toUpperCase()}</span><h1>{t.displayName}</h1><p>{t.workspaceId ?? 'Workspace mapping pending'} · {t.defaultCountryCode}</p></div>
         <div class="row-health"><StatusBadge status={t.status} tone={t.status === 'active' ? 'good' : t.status === 'suspended' ? 'bad' : 'warn'} />{t.slug !== 'virya' && <button class="ghost" onClick={() => status.mutate(t.status === 'suspended' ? 'resume' : 'suspend')}>{t.status === 'suspended' ? 'Resume' : 'Suspend'}</button>}</div>
       </div>
+      <Show when={status.error || branding.error || plan.error || deploy.error || cancel.error || overview.error || audit.error || provisioning.error}>
+        <div class="error-card" role="alert">{errorMessage(status.error || branding.error || plan.error || deploy.error || cancel.error || overview.error || audit.error || provisioning.error, 'Control Plane operation failed')}</div>
+      </Show>
       <div class="detail-grid">
         <article class="panel"><div class="section-title"><div><span class="eyebrow">RUNTIME</span><h2>Health</h2></div><StatusBadge status={t.runtimeHealth} tone={runtimeTone(t.runtimeHealth)} /></div><dl><dt>API</dt><dd>{String(t.runtime?.apiHealthy ?? 'unknown')}</dd><dt>Worker</dt><dd>{String(t.runtime?.workerHealthy ?? 'unknown')}</dd><dt>Schema</dt><dd>{t.runtime?.schemaVersion ?? '—'}</dd><dt>Deploy SHA</dt><dd class="mono">{t.runtime?.deployedSha?.slice(0,12) ?? '—'}</dd><dt>Outbox pending</dt><dd>{t.runtime?.outboxPending ?? '—'}</dd><dt>Heartbeat</dt><dd>{t.runtime?.lastHeartbeatAt ? new Date(t.runtime.lastHeartbeatAt).toLocaleString() : '—'}</dd></dl></article>
         <article class="panel"><span class="eyebrow">PRODUCTS</span><h2>Entitlements</h2><div class="product-row"><strong>CrowdRelay</strong><StatusBadge status="enabled" tone="good" /></div><div class="product-row"><strong>Signal</strong><StatusBadge status="enabled" tone="good" /></div><div class="product-row"><strong>AREA</strong><div class="row-health"><StatusBadge status={t.areaEnabled ? 'enabled' : 'disabled'} tone={t.areaEnabled ? 'good' : 'muted'} /><Link class="ghost area-link-button" to="/tenants/$slug/area" params={{slug:t.slug}}>Manage</Link></div></div><div class="product-row"><strong>Synesthesia</strong><StatusBadge status={t.synesthesiaEnabled ? 'Virya only' : 'not available'} tone={t.synesthesiaEnabled ? 'warn' : 'muted'} /></div></article>

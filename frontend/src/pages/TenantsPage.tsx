@@ -82,6 +82,7 @@ export function TenantsPage() {
     </div>
 
     <Show when={notice()}>{message => <div class="notice-card">{message()}</div>}</Show>
+    <Show when={tenants.error || overview.error}><div class="error-card" role="alert">{tenants.error instanceof Error ? tenants.error.message : overview.error instanceof Error ? overview.error.message : 'Control Plane data could not be loaded'}</div></Show>
     <Show when={creating()}>
       <form class="tenant-create-form" onSubmit={(event) => { event.preventDefault(); createTenant.mutate() }}>
         <div class="form-section-head"><div><span class="eyebrow">NEW TENANT</span><h2>Identity + region</h2></div><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></div>
@@ -102,7 +103,7 @@ export function TenantsPage() {
           <label>Release SHA <small>optional if server default is configured</small><input value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={overview.data?.provisionerDefaultImageTag ?? 'sha-<40-char CrowdRelay commit>'} /></label>
         </div>
         <label class="check-row"><input type="checkbox" checked={deployNow()} onChange={(e) => setDeployNow(e.currentTarget.checked)} /><span><strong>Deploy isolated CrowdRelay instance now</strong><small>Only an agent for the selected data region may claim this schema-v4 job.</small></span></label>
-        <Show when={createTenant.error}><div class="error-card">{createTenant.error instanceof Error ? createTenant.error.message : 'Tenant creation failed'}</div></Show>
+        <Show when={createTenant.error}><div class="error-card" role="alert">{createTenant.error instanceof Error ? createTenant.error.message : 'Tenant creation failed'}</div></Show>
         <div class="form-actions right"><button type="button" class="ghost" onClick={() => { setCreating(false); resetForm() }}>Cancel</button><button type="submit" disabled={createTenant.isPending || slug().length < 2 || name().length < 2 || !regionalReady() || !deployFieldsReady()}>{createTenant.isPending ? 'Creating…' : deployNow() ? 'Create & deploy' : 'Create tenant'}</button></div>
       </form>
     </Show>
