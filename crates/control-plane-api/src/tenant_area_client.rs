@@ -436,6 +436,15 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
         ));
     }
 
+    if status == 204 {
+        if body.is_empty() {
+            return Ok(Value::Null);
+        }
+        return Err(ApiError::Unavailable(
+            "AREA management returned a body for HTTP 204".to_owned(),
+        ));
+    }
+
     if (200..300).contains(&status) && body.is_empty() {
         return Err(ApiError::Unavailable(
             "AREA management returned an empty success body".to_owned(),
@@ -583,6 +592,22 @@ mod tests {
             parse_response(raw),
             Err(ApiError::Unavailable(message))
                 if message == "AREA management returned an empty success body"
+        ));
+    }
+
+    #[test]
+    fn no_content_is_decoded_as_null() {
+        let raw = b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n";
+        assert_eq!(parse_response(raw).expect("decoded"), Value::Null);
+    }
+
+    #[test]
+    fn no_content_with_body_is_refused() {
+        let raw = b"HTTP/1.1 204 No Content\r\nContent-Length: 2\r\n\r\n{}";
+        assert!(matches!(
+            parse_response(raw),
+            Err(ApiError::Unavailable(message))
+                if message == "AREA management returned a body for HTTP 204"
         ));
     }
 
