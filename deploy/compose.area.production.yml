@@ -1,0 +1,26 @@
+services:
+  virya-area-tunnel:
+    image: caddy@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    network_mode: "service:app"
+    environment:
+      VIRYA_AREA_UPSTREAM: ${VIRYA_AREA_UPSTREAM:?VIRYA_AREA_UPSTREAM required}
+    volumes:
+      - ./deploy/virya-area-tunnel.Caddyfile:/etc/caddy/Caddyfile:ro
+    read_only: true
+    tmpfs:
+      - /data
+      - /config
+      - /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 64m
+    cpus: 0.10

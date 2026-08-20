@@ -1,0 +1,27 @@
+{
+    auto_https off
+    admin off
+}
+
+http://127.0.0.1:18080 {
+    @area path \
+        /v1/control-plane/area \
+        /v1/control-plane/area/*
+
+    @operations path \
+        /v1/control-plane/ops/summary \
+        /v1/control-plane/ecosystem/flags \
+        /v1/control-plane/ecosystem/flags/* \
+        /v1/control-plane/autopilot/overview \
+        /v1/control-plane/autopilot/policies/*
+
+    handle @area {
+        reverse_proxy {$VIRYA_AREA_UPSTREAM}
+    }
+
+    handle @operations {
+        reverse_proxy {$VIRYA_AREA_UPSTREAM}
+    }
+
+    respond 404
+}
