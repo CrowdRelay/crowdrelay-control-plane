@@ -15,20 +15,31 @@ fail() {
   exit 1
 }
 
+sha256_file() {
+  local file="$1"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file" | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$file" | awk '{print $1}'
+  else
+    fail 'missing SHA-256 utility (sha256sum or shasum)'
+  fi
+}
+
 cleanup() {
   ssh -T "$HOME_HOST" "rm -f '$REMOTE_AREA' '$REMOTE_CADDY'" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
-for command in ssh scp sha256sum bash; do
+for command in ssh scp bash; do
   command -v "$command" >/dev/null 2>&1 || fail "missing required command: $command"
 done
 for file in "$AREA_SOURCE" "$CADDY_SOURCE"; do
   [[ -f "$file" && ! -L "$file" ]] || fail "missing or unsafe canonical management file: $file"
 done
 
-area_sha="$(sha256sum "$AREA_SOURCE" | awk '{print $1}')"
-caddy_sha="$(sha256sum "$CADDY_SOURCE" | awk '{print $1}')"
+area_sha="$(sha256_file "$AREA_SOURCE")"
+caddy_sha="$(sha256_file "$CADDY_SOURCE")"
 
 printf '==> Installing canonical Home management overlay before credential reload\n'
 scp -q "$AREA_SOURCE" "$HOME_HOST:$REMOTE_AREA"
