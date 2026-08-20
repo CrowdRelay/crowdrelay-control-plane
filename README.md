@@ -61,27 +61,63 @@ Operator routes require `Authorization: Bearer <CONTROL_PLANE_ADMIN_TOKEN>`. Dir
 
 `PUT /api/v1/tenants/:slug/runtime` is a separate machine boundary and accepts only `Authorization: Bearer <CONTROL_PLANE_TELEMETRY_TOKEN>`. The admin token cannot report telemetry and the telemetry token cannot mutate tenants. Both configured/supplied secrets are SHA-256 hashed and compared in constant time.
 
+Tenant AREA and operations calls use separate server-only master keys. The browser never receives either credential. For Virya both channels share the private `CONTROL_PLANE_VIRYA_MANAGEMENT_URL`; if either management master key is configured, that URL is mandatory and there is no application fallback. The server derives a tenant-scoped token before forwarding only the explicitly allowlisted AREA/operations paths.
+
 Key routes:
 
 ```text
-GET   /api/v1/overview
-GET   /api/v1/tenants
-POST  /api/v1/tenants
-GET   /api/v1/tenants/:slug
-PATCH /api/v1/tenants/:slug/branding
-POST  /api/v1/tenants/:slug/suspend
-POST  /api/v1/tenants/:slug/resume
-POST  /api/v1/tenants/:slug/provisioning/plan
-POST  /api/v1/tenants/:slug/provisioning/deploy
-GET   /api/v1/tenants/:slug/provisioning
-POST  /api/v1/tenants/:slug/provisioning/cancel
-GET   /api/v1/tenants/:slug/audit
-PUT   /api/v1/tenants/:slug/runtime
-POST  /api/v1/provisioner/jobs/claim
-POST  /api/v1/provisioner/jobs/:id/lease
-POST  /api/v1/provisioner/jobs/:id/succeed
-POST  /api/v1/provisioner/jobs/:id/fail
+GET    /api/v1/overview
+GET    /api/v1/tenants
+POST   /api/v1/tenants
+GET    /api/v1/tenants/:slug
+PATCH  /api/v1/tenants/:slug/branding
+POST   /api/v1/tenants/:slug/suspend
+POST   /api/v1/tenants/:slug/resume
+POST   /api/v1/tenants/:slug/provisioning/plan
+POST   /api/v1/tenants/:slug/provisioning/deploy
+GET    /api/v1/tenants/:slug/provisioning
+POST   /api/v1/tenants/:slug/provisioning/cancel
+GET    /api/v1/tenants/:slug/audit
+PUT    /api/v1/tenants/:slug/runtime
+
+GET    /api/v1/tenants/:slug/area
+PATCH  /api/v1/tenants/:slug/area/settings
+GET    /api/v1/tenants/:slug/area/cities
+POST   /api/v1/tenants/:slug/area/cities
+GET    /api/v1/tenants/:slug/area/drops
+POST   /api/v1/tenants/:slug/area/drops
+GET    /api/v1/tenants/:slug/area/drops/:drop_id
+DELETE /api/v1/tenants/:slug/area/drops/:drop_id
+PATCH  /api/v1/tenants/:slug/area/drops/:drop_id/draft
+DELETE /api/v1/tenants/:slug/area/drops/:drop_id/draft
+POST   /api/v1/tenants/:slug/area/drops/:drop_id/validate
+POST   /api/v1/tenants/:slug/area/drops/:drop_id/publish
+POST   /api/v1/tenants/:slug/area/drops/:drop_id/pause
+POST   /api/v1/tenants/:slug/area/drops/:drop_id/resume
+POST   /api/v1/tenants/:slug/area/drops/:drop_id/archive
+POST   /api/v1/tenants/:slug/area/drops/:drop_id/duplicate
+
+GET    /api/v1/tenants/:slug/operations/summary
+GET    /api/v1/tenants/:slug/operations/flags
+POST   /api/v1/tenants/:slug/operations/flags/:key
+GET    /api/v1/tenants/:slug/operations/autopilot
+POST   /api/v1/tenants/:slug/operations/autopilot/:context
+
+POST   /api/v1/provisioner/jobs/claim
+POST   /api/v1/provisioner/jobs/:id/lease
+POST   /api/v1/provisioner/jobs/:id/succeed
+POST   /api/v1/provisioner/jobs/:id/fail
 ```
+
+## Production deployment
+
+The canonical Home deployment is one command from a clean local `main` that exactly matches `origin/main`:
+
+```bash
+make deploy-production
+```
+
+The deploy builds an immutable `linux/amd64` image carrying the exact Git revision, transfers it together with the source-controlled Virya tunnel overlay/Caddyfile, validates management wiring before mutation, recreates the app+tunnel as one release unit, verifies the current network namespace/mount/runtime revision, and finishes with a real Virya operations-summary E2E. Failures after mutation restore the previous application image while keeping repaired canonical management infrastructure instead of resurrecting stale tunnel files.
 
 ## Quality gates
 
@@ -89,6 +125,8 @@ POST  /api/v1/provisioner/jobs/:id/fail
 make static
 make ci
 ```
+
+GitHub Actions is the release-validation source of truth. It runs the committed static/Python contracts, PostgreSQL migration smoke, Rust formatting/lint/tests and frontend tests/build/budget. Do not maintain hand-written PASS snapshots or source-tree checksum manifests as substitutes for those executable gates.
 
 Web production budget is intentionally small: 260 KiB raw JS and 80 KiB raw CSS. The committed lockfile is used with `npm ci` in CI/Docker for deterministic installs.
 
