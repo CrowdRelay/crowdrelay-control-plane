@@ -10,6 +10,7 @@ http://127.0.0.1:18080 {
 
     @operations path \
         /v1/control-plane/ops/summary \
+        /v1/control-plane/ops/deliveries/dead/clear \
         /v1/control-plane/ecosystem/flags \
         /v1/control-plane/ecosystem/flags/* \
         /v1/control-plane/autopilot/overview \
