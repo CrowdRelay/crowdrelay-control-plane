@@ -5,6 +5,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/deploy-production-exact.sh"
 DOCKERFILE = ROOT / "Dockerfile"
+MAKEFILE = ROOT / "Makefile"
 
 
 class ProductionDeployContract(unittest.TestCase):
@@ -23,12 +24,15 @@ class ProductionDeployContract(unittest.TestCase):
         text = SCRIPT.read_text()
         self.assertIn('--force-recreate app virya-area-tunnel', text)
         self.assertIn('tunnel namespace mismatch', text)
+        self.assertIn('tunnel Caddyfile mount drift', text)
+        self.assertIn('/srv/crowdrelay-control-plane', text)
         self.assertIn('CONTROL_PLANE_VIRYA_MANAGEMENT_URL', text)
         self.assertIn('http://127.0.0.1:18080', text)
 
     def test_deploy_has_rollback_and_e2e_gate(self):
         text = SCRIPT.read_text()
         self.assertIn('ROLLBACK=START', text)
+        self.assertIn('ROLLBACK=PASS', text)
         self.assertIn('cp -p "$backup" .env', text)
         self.assertIn('/api/v1/tenants/virya/operations/summary', text)
         self.assertIn('operations summary is not an object', text)
@@ -39,6 +43,11 @@ class ProductionDeployContract(unittest.TestCase):
         dockerfile = DOCKERFILE.read_text()
         self.assertIn('ARG VCS_REF=unknown', dockerfile)
         self.assertIn('LABEL org.opencontainers.image.revision=$VCS_REF', dockerfile)
+
+    def test_makefile_exposes_single_canonical_command(self):
+        makefile = MAKEFILE.read_text()
+        self.assertIn('deploy-production:', makefile)
+        self.assertIn('bash scripts/deploy-production-exact.sh', makefile)
 
 
 if __name__ == "__main__":
