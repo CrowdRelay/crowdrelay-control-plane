@@ -263,10 +263,11 @@ async fn request_authorized(
             .write_all(request.as_bytes())
             .await
             .map_err(|_| ApiError::Unavailable("AREA management write failed".to_owned()))?;
-        stream.shutdown().await.map_err(|_| {
-            ApiError::Unavailable("AREA management write shutdown failed".to_owned())
-        })?;
 
+        // Keep the write side open while the peer produces its response.
+        // The HTTP request is already self-framed (Content-Length when a body is present)
+        // and carries `Connection: close`; half-closing the socket here can be interpreted
+        // by an intermediary as a disconnected client and yield a header-only 2xx.
         let mut response = Vec::new();
         let mut chunk = [0_u8; 8192];
         loop {
@@ -435,6 +436,12 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
         ));
     }
 
+    if (200..300).contains(&status) && body.is_empty() {
+        return Err(ApiError::Unavailable(
+            "AREA management returned an empty success body".to_owned(),
+        ));
+    }
+
     let value = if body.is_empty() {
         Value::Null
     } else {
@@ -567,6 +574,25 @@ mod tests {
     fn redirect_is_refused() {
         let raw = b"HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1\r\nContent-Length: 0\r\n\r\n";
         assert!(parse_response(raw).is_err());
+    }
+
+    #[test]
+    fn empty_success_body_is_refused() {
+        let raw = b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+        assert!(matches!(
+            parse_response(raw),
+            Err(ApiError::Unavailable(message))
+                if message == "AREA management returned an empty success body"
+        ));
+    }
+
+    #[test]
+    fn content_length_json_is_decoded() {
+        let raw = b"HTTP/1.1 200 OK\r\nContent-Length: 11\r\n\r\n{\"ok\":true}";
+        assert_eq!(
+            parse_response(raw).expect("decoded"),
+            serde_json::json!({"ok": true})
+        );
     }
 
     #[test]
