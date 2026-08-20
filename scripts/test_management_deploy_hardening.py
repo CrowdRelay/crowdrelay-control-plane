@@ -4,20 +4,24 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 DEPLOY_PATH = ROOT / "scripts/deploy.sh"
+BOOTSTRAP_WRAPPER_PATH = ROOT / "scripts/bootstrap-management.sh"
 BOOTSTRAP_PATH = ROOT / "scripts/ensure-virya-management-credentials.sh"
 MAKEFILE = (ROOT / "Makefile").read_text()
 DEPLOY = DEPLOY_PATH.read_text()
+BOOTSTRAP_WRAPPER = BOOTSTRAP_WRAPPER_PATH.read_text()
 BOOTSTRAP = BOOTSTRAP_PATH.read_text()
 
 
 class ManagementDeployHardeningContract(unittest.TestCase):
     def test_shell_syntax(self) -> None:
         subprocess.run(["bash", "-n", str(DEPLOY_PATH)], check=True)
+        subprocess.run(["bash", "-n", str(BOOTSTRAP_WRAPPER_PATH)], check=True)
         subprocess.run(["bash", "-n", str(BOOTSTRAP_PATH)], check=True)
 
     def test_make_exposes_explicit_bootstrap(self) -> None:
         self.assertIn("bootstrap-management:", MAKEFILE)
-        self.assertIn("ensure-virya-management-credentials.sh --apply", MAKEFILE)
+        self.assertIn("bash scripts/bootstrap-management.sh", MAKEFILE)
+        self.assertIn("ensure-virya-management-credentials.sh\" --apply", BOOTSTRAP_WRAPPER)
 
     def test_deploy_checks_credentials_before_waiting_for_ci(self) -> None:
         self.assertIn('bash "$CREDENTIAL_GATE" --check', DEPLOY)
