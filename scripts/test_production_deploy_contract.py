@@ -78,7 +78,9 @@ class ProductionDeployContract(unittest.TestCase):
 
     def test_caddy_preflight_is_pinned_and_does_not_require_existing_tunnel(self):
         text = SCRIPT.read_text()
-        preflight = text.split("# Validate the exact pinned Caddy image", 1)[1].split("old_tag=", 1)[0]
+        start = text.index('caddy_image="$(python3 - "$area_source"')
+        end = text.index('old_tag=', start)
+        preflight = text[start:end]
         self.assertIn('caddy@sha256:[0-9a-f]{64}', preflight)
         self.assertIn('docker image inspect "$caddy_image"', preflight)
         self.assertIn('timeout 90s docker pull "$caddy_image"', preflight)
