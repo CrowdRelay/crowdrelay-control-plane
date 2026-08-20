@@ -94,11 +94,12 @@ impl Config {
                 "CONTROL_PLANE_VIRYA_MANAGEMENT_URL is required when tenant management is configured"
             );
         }
-        let runtime_stale_after_seconds = optional_env("CONTROL_PLANE_RUNTIME_STALE_AFTER_SECONDS")?
-            .map(|value| value.parse::<i64>())
-            .transpose()
-            .context("invalid CONTROL_PLANE_RUNTIME_STALE_AFTER_SECONDS")?
-            .unwrap_or(DEFAULT_RUNTIME_STALE_AFTER_SECONDS);
+        let runtime_stale_after_seconds =
+            optional_env("CONTROL_PLANE_RUNTIME_STALE_AFTER_SECONDS")?
+                .map(|value| value.parse::<i64>())
+                .transpose()
+                .context("invalid CONTROL_PLANE_RUNTIME_STALE_AFTER_SECONDS")?
+                .unwrap_or(DEFAULT_RUNTIME_STALE_AFTER_SECONDS);
         anyhow::ensure!(
             (30..=86_400).contains(&runtime_stale_after_seconds),
             "CONTROL_PLANE_RUNTIME_STALE_AFTER_SECONDS must be between 30 and 86400"
