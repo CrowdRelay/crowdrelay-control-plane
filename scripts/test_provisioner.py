@@ -71,6 +71,7 @@ class DummyConfig:
         self.postgres_image = "postgres:18-alpine"
         self.docker = "docker"
         self.area_management_master_key = "area-management-master-key-0123456789abcdef"
+        self.management_master_key = "operations-management-master-key-0123456789"
 
 
 class ProvisionerContractTests(unittest.TestCase):
@@ -92,8 +93,10 @@ class ProvisionerContractTests(unittest.TestCase):
         plan = provisioner.safe_plan(valid_job())
         config = DummyConfig(Path("/tmp"))
         config.area_management_master_key = ""
+        config.management_master_key = ""
         secret_text = provisioner.create_secret_env(config, plan)
         self.assertNotIn("CROWDRELAY_CONTROL_PLANE_AREA_API_KEY", secret_text)
+        self.assertNotIn("CROWDRELAY_CONTROL_PLANE_API_KEY", secret_text)
 
     def test_safe_plan_rejects_identity_escape_and_mutable_images(self):
         cases = []
@@ -169,6 +172,8 @@ class ProvisionerContractTests(unittest.TestCase):
         self.assertNotEqual(secrets_map["CROWDRELAY_ADMIN_API_KEY"], secrets_map["CROWDRELAY_STAFF_API_KEY"])
         self.assertGreaterEqual(len(secrets_map["CROWDRELAY_QR_SIGNING_SECRET"]), 32)
         self.assertEqual(len(secrets_map["CROWDRELAY_CONTROL_PLANE_AREA_API_KEY"]), 64)
+        self.assertEqual(len(secrets_map["CROWDRELAY_CONTROL_PLANE_API_KEY"]), 64)
+        self.assertNotEqual(secrets_map["CROWDRELAY_CONTROL_PLANE_API_KEY"], secrets_map["CROWDRELAY_CONTROL_PLANE_AREA_API_KEY"])
         self.assertNotIn("CROWDRELAY_ALLOWED_ORIGINS", secrets_map)
         self.assertEqual(runtime["CROWDRELAY_ENV"], "production")
         self.assertEqual(runtime["CROWDRELAY_TENANT_DISPLAY_NAME"], "ACME Artist")

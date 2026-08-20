@@ -39,7 +39,7 @@ HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 PALETTE_KEYS = {"primary", "primaryContrast", "accent", "surface", "surfaceElevated", "text", "textMuted", "success", "warning", "danger"}
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 MAX_HTTP_BYTES = 2 * 1024 * 1024
-CONTROL_PLANE_SECRET_ENV = {"CONTROL_PLANE_ADMIN_TOKEN", "CONTROL_PLANE_TELEMETRY_TOKEN", "CONTROL_PLANE_PROVISIONER_TOKEN", "CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY"}
+CONTROL_PLANE_SECRET_ENV = {"CONTROL_PLANE_ADMIN_TOKEN", "CONTROL_PLANE_TELEMETRY_TOKEN", "CONTROL_PLANE_PROVISIONER_TOKEN", "CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY", "CONTROL_PLANE_MANAGEMENT_MASTER_KEY"}
 # Docker pull/compose output is unbounded (per-layer progress, container logs).
 # Keep only a diagnostic tail in RAM: enough to troubleshoot a failure, never
 # enough for one noisy deployment to grow the agent's resident set without bound.
@@ -74,6 +74,12 @@ class Config:
                 raise SystemExit("CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY must be a 32+ character secret when configured")
             if self.area_management_master_key in {self.token, self.telemetry_token}:
                 raise SystemExit("AREA management master key must differ from provisioner and telemetry tokens")
+        self.management_master_key = os.environ.get("CONTROL_PLANE_MANAGEMENT_MASTER_KEY", "").strip()
+        if self.management_master_key:
+            if len(self.management_master_key) < 32 or any(ch.isspace() for ch in self.management_master_key):
+                raise SystemExit("CONTROL_PLANE_MANAGEMENT_MASTER_KEY must be a 32+ character secret when configured")
+            if self.management_master_key in {self.token, self.telemetry_token, self.area_management_master_key}:
+                raise SystemExit("Control Plane management master key must differ from provisioner, telemetry and AREA secrets")
         region = os.environ.get("CONTROL_PLANE_PROVISIONER_DATA_REGION", "").strip().lower()
         if region and region not in {"eu", "us"}:
             raise SystemExit("CONTROL_PLANE_PROVISIONER_DATA_REGION must be eu or us when configured")
@@ -371,6 +377,11 @@ def derive_area_management_token(master_key: str, tenant_id: str) -> str:
     return hmac.new(master_key.encode("utf-8"), message, hashlib.sha256).hexdigest()
 
 
+def derive_management_token(master_key: str, tenant_id: str) -> str:
+    message = f"crowdrelay-control-plane-v1:{tenant_id}".encode("utf-8")
+    return hmac.new(master_key.encode("utf-8"), message, hashlib.sha256).hexdigest()
+
+
 def create_secret_env(config: Config, plan: dict[str, Any]) -> str:
     db_password = secrets.token_urlsafe(36)
     response_secret = secrets.token_urlsafe(48)
@@ -390,6 +401,10 @@ def create_secret_env(config: Config, plan: dict[str, Any]) -> str:
     if config.area_management_master_key:
         values["CROWDRELAY_CONTROL_PLANE_AREA_API_KEY"] = derive_area_management_token(
             config.area_management_master_key, plan["tenantId"]
+        )
+    if config.management_master_key:
+        values["CROWDRELAY_CONTROL_PLANE_API_KEY"] = derive_management_token(
+            config.management_master_key, plan["tenantId"]
         )
     return "".join(f"{key}={value}\n" for key, value in values.items())
 
@@ -580,6 +595,23 @@ def ensure_area_management_secret(config: Config, path: Path, plan: dict[str, An
     atomic_write(path, text + ("" if text.endswith("\n") else "\n") + prefix + expected + "\n", 0o600)
 
 
+def ensure_management_secret(config: Config, path: Path, plan: dict[str, Any]) -> None:
+    if not config.management_master_key:
+        return
+    expected = derive_management_token(config.management_master_key, plan["tenantId"])
+    prefix = "CROWDRELAY_CONTROL_PLANE_API_KEY="
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ProvisionError("management_secret_unreadable", "tenant secret env could not be read") from exc
+    existing = [line[len(prefix):] for line in text.splitlines() if line.startswith(prefix)]
+    if existing:
+        if len(existing) != 1 or existing[0] != expected:
+            raise ProvisionError("management_secret_mismatch", "existing tenant operations token does not match this Control Plane master key")
+        return
+    atomic_write(path, text + ("" if text.endswith("\n") else "\n") + prefix + expected + "\n", 0o600)
+
+
 def prepare_files(config: Config, plan: dict[str, Any]) -> tuple[Path, int]:
     config.root.mkdir(parents=True, exist_ok=True, mode=0o750)
     lock_path = config.root / ".allocation.lock"
@@ -596,6 +628,7 @@ def prepare_files(config: Config, plan: dict[str, Any]) -> tuple[Path, int]:
         # the credentials an already-provisioned Postgres volume was seeded with.
         write_once(tenant_dir / ".env", create_secret_env(config, plan), 0o600)
         ensure_area_management_secret(config, tenant_dir / ".env", plan)
+        ensure_management_secret(config, tenant_dir / ".env", plan)
         atomic_write(tenant_dir / "tenant.env", create_runtime_env(plan), 0o600)
         atomic_write(
             tenant_dir / "bootstrap.json",
