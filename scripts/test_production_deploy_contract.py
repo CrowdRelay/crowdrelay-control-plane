@@ -5,6 +5,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/deploy-production-exact.sh"
+WRAPPER = ROOT / "scripts/deploy-production.sh"
 DOCKERFILE = ROOT / "Dockerfile"
 MAKEFILE = ROOT / "Makefile"
 AREA_COMPOSE = ROOT / "deploy/compose.area.production.yml"
@@ -14,6 +15,7 @@ CADDYFILE = ROOT / "deploy/virya-area-tunnel.Caddyfile"
 class ProductionDeployContract(unittest.TestCase):
     def test_shell_syntax(self):
         subprocess.run(["bash", "-n", str(SCRIPT)], check=True)
+        subprocess.run(["bash", "-n", str(WRAPPER)], check=True)
 
     def test_mac_deploy_is_exact_and_fail_closed(self):
         text = SCRIPT.read_text()
@@ -25,6 +27,25 @@ class ProductionDeployContract(unittest.TestCase):
         self.assertIn('docker save -o', text)
         self.assertIn('scp -q', text)
         self.assertIn('sudo bash -s', text)
+
+    def test_wrapper_checks_release_identity_before_remote_mutation(self):
+        text = WRAPPER.read_text()
+        clean = text.index("local worktree must be clean")
+        branch = text.index("production deploy must run from main")
+        remote = text.index("origin/main mismatch")
+        scp = text.index('scp -q "$AREA_SOURCE"')
+        self.assertLess(clean, scp)
+        self.assertLess(branch, scp)
+        self.assertLess(remote, scp)
+
+    def test_wrapper_self_heals_runtime_overlay_without_restart(self):
+        text = WRAPPER.read_text()
+        self.assertIn('compose.area.production.yml', text)
+        self.assertIn('docker compose -f compose.production.yml -f "$candidate" config --format json', text)
+        self.assertIn('install -m 0644 "$candidate" compose.area.yml', text)
+        self.assertIn('BOOTSTRAP_OVERLAY=PASS management_wiring=canonical runtime_restarted=false', text)
+        self.assertIn('exec bash "$ROOT_DIR/scripts/deploy-production-exact.sh"', text)
+        self.assertNotIn('docker compose up', text)
 
     def test_management_wiring_preflight_is_semantic(self):
         text = SCRIPT.read_text()
@@ -62,6 +83,8 @@ class ProductionDeployContract(unittest.TestCase):
     def test_canonical_tunnel_config_is_source_controlled(self):
         area = AREA_COMPOSE.read_text()
         caddy = CADDYFILE.read_text()
+        self.assertIn('CONTROL_PLANE_MANAGEMENT_MASTER_KEY', area)
+        self.assertIn('CONTROL_PLANE_VIRYA_MANAGEMENT_URL', area)
         self.assertIn('network_mode: "service:app"', area)
         self.assertIn('VIRYA_AREA_UPSTREAM required', area)
         self.assertIn('NET_BIND_SERVICE', area)
@@ -74,7 +97,8 @@ class ProductionDeployContract(unittest.TestCase):
     def test_makefile_exposes_single_canonical_command(self):
         makefile = MAKEFILE.read_text()
         self.assertIn('deploy-production:', makefile)
-        self.assertIn('bash scripts/deploy-production-exact.sh', makefile)
+        self.assertIn('bash scripts/deploy-production.sh', makefile)
+        self.assertNotIn('bash scripts/deploy-production-exact.sh\n', makefile)
 
 
 if __name__ == "__main__":
