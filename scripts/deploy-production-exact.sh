@@ -170,8 +170,11 @@ app = model.get("services", {}).get("app", {})
 env = app.get("environment") or {}
 if isinstance(env, list):
     env = dict(item.split("=", 1) for item in env if isinstance(item, str) and "=" in item)
+area_master = env.get("CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY")
 master = env.get("CONTROL_PLANE_MANAGEMENT_MASTER_KEY")
 url = env.get("CONTROL_PLANE_VIRYA_MANAGEMENT_URL")
+if not isinstance(area_master, str) or not area_master:
+    raise SystemExit("effective app config is missing CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY")
 if not isinstance(master, str) or not master:
     raise SystemExit("effective app config is missing CONTROL_PLANE_MANAGEMENT_MASTER_KEY")
 if url != "http://127.0.0.1:18080":
@@ -197,6 +200,8 @@ revision="$(docker image inspect --format '{{index .Config.Labels "org.openconta
 [[ "$architecture" == "amd64" ]] || fail "remote image architecture mismatch: $architecture"
 [[ "$revision" == "$target" ]] || fail "remote OCI revision mismatch: got=$revision expected=$target"
 
+# From this point on every failure must restore the server-owned release files.
+mutated=true
 install -m 0644 "$area_source" compose.area.yml
 install -m 0644 "$caddy_source" deploy/virya-area-tunnel.Caddyfile
 python3 - "$new_tag" <<'PY'
@@ -214,7 +219,6 @@ text = re.sub(pattern, f'CONTROL_PLANE_IMAGE_TAG={new_tag}', text, count=1, flag
 path.write_text(text)
 PY
 chmod 600 .env
-mutated=true
 
 compose config --quiet
 compose up -d --no-deps --force-recreate app virya-area-tunnel
