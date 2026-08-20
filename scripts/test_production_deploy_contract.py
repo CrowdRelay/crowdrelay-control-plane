@@ -113,10 +113,14 @@ class ProductionDeployContract(unittest.TestCase):
         self.assertIn('area_management_master_key.is_some() || management_master_key.is_some()', config)
         self.assertIn('CONTROL_PLANE_VIRYA_MANAGEMENT_URL is required when tenant management is configured', config)
 
-    def test_operations_proxy_rejects_non_object_success_payloads(self):
+    def test_operations_proxy_rejects_wrong_success_shapes(self):
         operations = OPERATIONS.read_text()
         self.assertIn('fn object_no_store', operations)
         self.assertIn('if !value.is_object()', operations)
+        self.assertIn('fn array_no_store', operations)
+        self.assertIn('if !value.is_array()', operations)
+        self.assertIn('array_no_store(value, "flags")', operations)
+        self.assertIn('object_no_store(value, "summary")', operations)
         self.assertIn('returned an invalid JSON shape', operations)
 
     def test_makefile_exposes_single_canonical_command(self):
