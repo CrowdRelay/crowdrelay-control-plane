@@ -56,7 +56,7 @@ pub fn router() -> Router<AppState> {
         .layer(DefaultBodyLimit::max(MAX_AREA_BODY_BYTES))
 }
 
-async fn target(
+pub(crate) async fn target(
     state: &AppState,
     slug: &str,
 ) -> Result<(crate::model::TenantSummary, String), ApiError> {

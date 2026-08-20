@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import type { Palette, ProvisioningJob, RuntimeHealth } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { RegionalProfilePanel } from '../components/RegionalProfilePanel'
+import { OperationsPanel } from '../components/OperationsPanel'
 
 const paletteFields: Array<keyof Palette> = ['primary','primaryContrast','accent','surface','surfaceElevated','text','textMuted','success','warning','danger']
 const defaultPalette: Palette = { primary:'#8b5cf6', primaryContrast:'#ffffff', accent:'#22d3ee', surface:'#0b0c0f', surfaceElevated:'#15171c', text:'#f7f7f8', textMuted:'#9ca3af', success:'#22c55e', warning:'#f59e0b', danger:'#ef4444' }
@@ -68,6 +69,8 @@ export function TenantPage() {
   const cancel = useMutation(() => ({ mutationFn: () => api.cancelProvisioning(params().slug), onSuccess: refreshTenant }))
   const latestJob = () => provisioning.data?.items[0]
   const deploymentBusy = () => ['planned', 'approved', 'running'].includes(latestJob()?.status ?? '')
+  const requestedVersion = () => desiredVersion().trim() || overview.data?.provisionerDefaultImageTag || ''
+  const releaseReady = () => /^sha-[0-9a-f]{40}$/.test(requestedVersion())
 
   return <section class="page">
     <Show when={tenant.error}><div class="error-card" role="alert">{errorMessage(tenant.error, 'Tenant could not be loaded')}</div></Show>
@@ -83,8 +86,15 @@ export function TenantPage() {
       </Show>
       <div class="detail-grid">
         <article class="panel"><div class="section-title"><div><span class="eyebrow">RUNTIME</span><h2>Health</h2></div><StatusBadge status={t.runtimeHealth} tone={runtimeTone(t.runtimeHealth)} /></div><dl><dt>API</dt><dd>{String(t.runtime?.apiHealthy ?? 'unknown')}</dd><dt>Worker</dt><dd>{String(t.runtime?.workerHealthy ?? 'unknown')}</dd><dt>Schema</dt><dd>{t.runtime?.schemaVersion ?? '—'}</dd><dt>Deploy SHA</dt><dd class="mono">{t.runtime?.deployedSha?.slice(0,12) ?? '—'}</dd><dt>Outbox pending</dt><dd>{t.runtime?.outboxPending ?? '—'}</dd><dt>Heartbeat</dt><dd>{t.runtime?.lastHeartbeatAt ? new Date(t.runtime.lastHeartbeatAt).toLocaleString() : '—'}</dd></dl></article>
-        <article class="panel"><span class="eyebrow">PRODUCTS</span><h2>Entitlements</h2><div class="product-row"><strong>CrowdRelay</strong><StatusBadge status="enabled" tone="good" /></div><div class="product-row"><strong>Signal</strong><StatusBadge status="enabled" tone="good" /></div><div class="product-row"><strong>AREA</strong><div class="row-health"><StatusBadge status={t.areaEnabled ? 'enabled' : 'disabled'} tone={t.areaEnabled ? 'good' : 'muted'} /><Link class="ghost area-link-button" to="/tenants/$slug/area" params={{slug:t.slug}}>Manage</Link></div></div><div class="product-row"><strong>Synesthesia</strong><StatusBadge status={t.synesthesiaEnabled ? 'Virya only' : 'not available'} tone={t.synesthesiaEnabled ? 'warn' : 'muted'} /></div></article>
+        <article class="panel products-panel">
+          <span class="eyebrow">PRODUCTS</span><h2>Entitlements</h2>
+          <div class="product-row product-entitlement-row"><strong>CrowdRelay</strong><div class="product-action-slot" aria-hidden="true"/><div class="product-status-slot"><StatusBadge status="enabled" tone="good" /></div></div>
+          <div class="product-row product-entitlement-row"><strong>Signal</strong><div class="product-action-slot" aria-hidden="true"/><div class="product-status-slot"><StatusBadge status="enabled" tone="good" /></div></div>
+          <div class="product-row product-entitlement-row"><strong>AREA</strong><div class="product-action-slot"><Link class="ghost area-link-button" to="/tenants/$slug/area" params={{slug:t.slug}}>Manage</Link></div><div class="product-status-slot"><StatusBadge status={t.areaEnabled ? 'enabled' : 'disabled'} tone={t.areaEnabled ? 'good' : 'muted'} /></div></div>
+          <div class="product-row product-entitlement-row"><strong>Synesthesia</strong><div class="product-action-slot" aria-hidden="true"/><div class="product-status-slot"><StatusBadge status={t.synesthesiaEnabled ? 'Virya only' : 'not available'} tone={t.synesthesiaEnabled ? 'warn' : 'muted'} /></div></div>
+        </article>
       </div>
+      <OperationsPanel slug={t.slug} runtimeHealth={t.runtimeHealth} enabled={t.status === 'active'} />
       <RegionalProfilePanel tenant={t} />
       <article class="panel"><div class="section-title"><div><span class="eyebrow">BRANDING</span><h2>CrowdRelay + Signal palette</h2></div>{t.brandingPalette ? <button class="ghost" onClick={() => branding.mutate(null)}>Reset to product defaults</button> : <StatusBadge status="Inherits current product defaults" />}</div><Show when={t.brandingPalette || editingPalette()} fallback={<div class="inherit-card"><p>No palette is stored for this tenant. CrowdRelay and Signal therefore keep their own current default colors with zero theming lookup required.</p><button class="ghost" onClick={() => setEditingPalette(true)}>Create custom palette</button></div>}><div class="palette-grid"><For each={paletteFields}>{field => <label>{field}<div class="color-input"><input type="color" value={palette()[field]} onInput={(e) => setPalette(current => ({ ...current, [field]: e.currentTarget.value }))}/><code>{palette()[field]}</code></div></label>}</For></div><button onClick={() => branding.mutate(palette())} disabled={branding.isPending}>Save custom palette</button></Show></article>
 
@@ -102,9 +112,9 @@ export function TenantPage() {
             <div><span>Default release</span><strong class="mono">{overview.data?.provisionerDefaultImageTag?.slice(0, 16) ?? 'not configured'}</strong></div>
           </div>
           <div class="provision-row">
-            <input value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={overview.data?.provisionerDefaultImageTag ?? 'sha-<40-char CrowdRelay commit>'} />
-            <button class="ghost" onClick={() => plan.mutate()} disabled={plan.isPending || deploymentBusy()}>Preview</button>
-            <button onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl}>{latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</button>
+            <input class={!releaseReady() && desiredVersion().trim() ? 'input-invalid mono' : 'mono'} value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={overview.data?.provisionerDefaultImageTag ?? 'sha-<40-char CrowdRelay commit>'} aria-invalid={!releaseReady() && Boolean(desiredVersion().trim())} />
+            <button class="ghost" onClick={() => plan.mutate()} disabled={plan.isPending || deploymentBusy() || !releaseReady()}>Preview</button>
+            <button onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || !releaseReady() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl}>{latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</button>
           </div>
           <Show when={deploy.error}><div class="error-card">{deploy.error instanceof Error ? deploy.error.message : 'Deployment request failed'}</div></Show>
           <Show when={preview()}>{job => <div class="plan-preview"><span class="eyebrow">PLAN PREVIEW</span><pre>{JSON.stringify(job().plan, null, 2)}</pre></div>}</Show>

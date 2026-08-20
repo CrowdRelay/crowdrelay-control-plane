@@ -17,6 +17,8 @@ pub enum ApiError {
     Database(#[from] sqlx::Error),
     #[error("migration error")]
     Migration(#[from] sqlx::migrate::MigrateError),
+    #[error("serialization error")]
+    Serialization(#[from] serde_json::Error),
 }
 
 impl IntoResponse for ApiError {
@@ -31,7 +33,7 @@ impl IntoResponse for ApiError {
                 "unavailable",
                 self.to_string(),
             ),
-            Self::Database(_) | Self::Migration(_) => (
+            Self::Database(_) | Self::Migration(_) | Self::Serialization(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "internal_error",
                 "internal error".to_owned(),

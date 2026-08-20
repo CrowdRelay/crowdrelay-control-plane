@@ -135,7 +135,7 @@ pub fn regional_profile(mut profile: RegionalProfile) -> Result<RegionalProfile,
         ));
     }
     profile.data_region = data_region(Some(&profile.data_region))?
-        .expect("Some input must produce Some normalized data region");
+        .ok_or_else(|| ApiError::InvalidInput("dataRegion must be eu or us".to_owned()))?;
     Ok(profile)
 }
 

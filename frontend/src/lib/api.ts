@@ -1,4 +1,5 @@
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, Palette, ProvisioningJob, RegionalProfile, TenantSummary } from './types'
+import { authState } from './auth'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AutopilotOverview, AutopilotPolicy, FeatureFlag, OperationsSummary, Palette, ProvisioningJob, RegionalProfile, TenantSummary } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
@@ -11,10 +12,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: {
       'content-type': 'application/json',
       'x-request-id': crypto.randomUUID(),
+      ...(authState.authorization() ? { authorization: authState.authorization()! } : {}),
       ...init?.headers,
     },
   })
   if (!response.ok) {
+    if (response.status === 401) authState.clear()
     const body = await response.json().catch(() => ({ detail: response.statusText })) as { detail?: string }
     throw new ApiError(response.status, body.detail ?? `HTTP ${response.status}`)
   }
@@ -36,6 +39,15 @@ export type CreateTenantInput = {
 }
 
 export const api = {
+  authenticate: async (username: string, password: string) => {
+    authState.setBasic(username, password)
+    try {
+      await request('/overview')
+    } catch (error) {
+      authState.clear()
+      throw error
+    }
+  },
   overview: () => request<{
     tenants: number
     healthy: number
@@ -63,6 +75,25 @@ export const api = {
   provisioning: (slug: string) => request<{ items: ProvisioningJob[] }>(`/tenants/${encodeURIComponent(slug)}/provisioning`),
   cancelProvisioning: (slug: string) => request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/cancel`, { method: 'POST', body: '{}' }),
   audit: (slug: string) => request<{ items: AuditEntry[] }>(`/tenants/${encodeURIComponent(slug)}/audit?limit=40`),
+  operationsSummary: (slug: string) => request<OperationsSummary>(`/tenants/${encodeURIComponent(slug)}/operations/summary`),
+  featureFlags: (slug: string) => request<FeatureFlag[]>(`/tenants/${encodeURIComponent(slug)}/operations/flags`),
+  setFeatureFlag: (slug: string, flag: FeatureFlag, enabled: boolean) => request<{flag: FeatureFlag; replayed: boolean}>(`/tenants/${encodeURIComponent(slug)}/operations/flags/${encodeURIComponent(flag.key)}`, {
+    method: 'POST',
+    headers: { 'idempotency-key': crypto.randomUUID() },
+    body: JSON.stringify({ enabled, reason: 'Control Plane operator toggle', expected_version: flag.version }),
+  }),
+  autopilotOverview: (slug: string) => request<AutopilotOverview>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot`),
+  setAutopilotPolicy: (slug: string, policy: AutopilotPolicy, input: Pick<AutopilotPolicy, 'enabled'|'autonomy_level'|'minimum_confidence'|'max_actions_24h'>) => request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/${encodeURIComponent(policy.context)}`, {
+    method: 'POST',
+    headers: { 'idempotency-key': crypto.randomUUID() },
+    body: JSON.stringify({
+      enabled: input.enabled,
+      autonomy_level: input.autonomy_level,
+      minimum_confidence_basis_points: input.minimum_confidence,
+      max_actions_24h: input.max_actions_24h,
+      expected_version: policy.version,
+    }),
+  }),
   areaOverview: (slug: string) => request<AreaOverview>(`/tenants/${encodeURIComponent(slug)}/area`),
   areaSettings: (slug: string, enabled: boolean) => request<{enabled:boolean; entitled:boolean}>(`/tenants/${encodeURIComponent(slug)}/area/settings`, { method:'PATCH', body:JSON.stringify({enabled}) }),
   areaCities: (slug: string, q = '', limit = 30) => request<{items:AreaCity[]}>(`/tenants/${encodeURIComponent(slug)}/area/cities?q=${encodeURIComponent(q)}&limit=${limit}`),
