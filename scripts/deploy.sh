@@ -134,11 +134,20 @@ print("CONTROL_PLANE_TUNNEL_GATE=PASS e2e=true p95_ms={}".format(http["p95_ms"])
 REMOTE_GATE
 }
 
+ensure_live_tunnel() {
+  if verify_live_tunnel; then
+    printf 'CONTROL_PLANE_TUNNEL_RECOVERY=NOOP healthy=true\n'
+    return 0
+  fi
+  printf 'CONTROL_PLANE_TUNNEL_RECOVERY=REPAIR reason=gate-failed\n' >&2
+  repair_live_release_unit || return 1
+  verify_live_tunnel
+}
+
 on_interrupt() {
   trap - INT TERM HUP
   printf '\nINTERRUPT=RECEIVED ensuring app+tunnel release unit is healthy\n' >&2
-  repair_live_release_unit || true
-  verify_live_tunnel || true
+  ensure_live_tunnel || true
   exit 130
 }
 
@@ -156,8 +165,9 @@ set -e
 trap - INT TERM HUP
 
 if (( deploy_status != 0 )); then
-  repair_live_release_unit || fail 'Control Plane deploy failed and app+tunnel repair failed'
+  ensure_live_tunnel || fail 'Control Plane deploy failed and app+tunnel recovery failed'
+else
+  verify_live_tunnel || fail 'Control Plane deploy left the tunnel unhealthy'
 fi
-verify_live_tunnel || fail 'Control Plane deploy/rollback left the tunnel unhealthy'
 (( deploy_status == 0 )) || exit "$deploy_status"
 printf 'MAKE_DEPLOY=PASS repo=crowdrelay-control-plane sha=%s tunnel=healthy\n' "$TARGET"
