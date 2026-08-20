@@ -5,6 +5,7 @@ mod error;
 mod model;
 mod operations_routes;
 mod routes;
+mod runtime_routes;
 mod store;
 mod tenant_area_client;
 mod validation;
@@ -103,6 +104,7 @@ async fn main() -> anyhow::Result<()> {
         virya_management_url: config.virya_management_url.map(Arc::from),
     };
     let admin_api = routes::admin_router()
+        .merge(runtime_routes::router())
         .merge(area_routes::router())
         .merge(operations_routes::router())
         .route_layer(middleware::from_fn_with_state(

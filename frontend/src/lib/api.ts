@@ -1,5 +1,5 @@
 import { authState } from './auth'
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AutopilotOverview, AutopilotPolicy, FeatureFlag, OperationsSummary, Palette, ProvisioningJob, RegionalProfile, TenantSummary } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AutopilotOverview, AutopilotPolicy, FeatureFlag, OperationsSummary, Palette, ProvisioningJob, RegionalProfile, TenantRuntimeSnapshot, TenantSummary } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
@@ -60,6 +60,7 @@ export const api = {
   }>('/overview'),
   tenants: () => request<{ items: TenantSummary[] }>('/tenants'),
   tenant: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}`),
+  tenantRuntime: (slug: string) => request<TenantRuntimeSnapshot>(`/tenants/${encodeURIComponent(slug)}/runtime`),
   createTenant: (input: CreateTenantInput) =>
     request<TenantSummary>('/tenants', { method: 'POST', body: JSON.stringify(input) }),
   branding: (slug: string, brandingPalette: Palette | null) =>
