@@ -160,8 +160,24 @@ for file in .env compose.production.yml compose.area.yml deploy/virya-area-tunne
   [[ -f "$file" && ! -L "$file" ]] || fail "missing or unsafe deploy file: $file"
 done
 [[ "$(stat -c '%a' .env)" == "600" ]] || fail '.env must have mode 600'
-grep -Fq 'CONTROL_PLANE_MANAGEMENT_MASTER_KEY' compose.production.yml || fail 'base compose is missing management master wiring'
-grep -Fq 'CONTROL_PLANE_VIRYA_MANAGEMENT_URL' compose.production.yml || fail 'base compose is missing Virya management URL wiring'
+
+compose config --format json | python3 -c '
+import json
+import sys
+
+model = json.load(sys.stdin)
+app = model.get("services", {}).get("app", {})
+env = app.get("environment") or {}
+if isinstance(env, list):
+    env = dict(item.split("=", 1) for item in env if isinstance(item, str) and "=" in item)
+master = env.get("CONTROL_PLANE_MANAGEMENT_MASTER_KEY")
+url = env.get("CONTROL_PLANE_VIRYA_MANAGEMENT_URL")
+if not isinstance(master, str) or not master:
+    raise SystemExit("effective app config is missing CONTROL_PLANE_MANAGEMENT_MASTER_KEY")
+if url != "http://127.0.0.1:18080":
+    raise SystemExit("effective app config has invalid CONTROL_PLANE_VIRYA_MANAGEMENT_URL")
+' || fail 'effective compose management wiring is invalid'
+printf 'MANAGEMENT_WIRING=PASS semantic=true\n'
 
 old_tag="$(sed -n 's/^CONTROL_PLANE_IMAGE_TAG=//p' .env | tail -n1)"
 [[ "$old_tag" =~ ^sha-[0-9a-f]{40}$ ]] || fail "invalid current CONTROL_PLANE_IMAGE_TAG: $old_tag"
