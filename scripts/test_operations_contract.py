@@ -45,6 +45,11 @@ assert "valid_operations_request" in client
 assert "AREA management redirect refused" in client
 assert "AREA management returned an empty success body" in client
 assert "fn object_no_store" in routes and "if !value.is_object()" in routes
+assert "fn array_no_store" in routes and "if !value.is_array()" in routes
+flags_block = routes.split("async fn flags", 1)[1].split("struct FlagMutation", 1)[0]
+assert 'array_no_store(value, "flags")' in flags_block
+summary_block = routes.split("async fn summary", 1)[1].split("async fn flags", 1)[0]
+assert 'object_no_store(value, "summary")' in summary_block
 assert ".audit_control_command(" in routes
 assert '"succeeded"' in routes and '"failed"' in routes
 audit_block = routes.split("async fn audit_result", 1)[1].split("async fn summary", 1)[0]
@@ -65,4 +70,4 @@ assert area.index(">Manage</Link>") < area.index("<StatusBadge")
 assert ".product-entitlement-row{display:grid" in styles
 assert ".product-status-slot{display:flex;justify-content:flex-end" in styles
 
-print("CONTROL_PLANE_OPERATIONS=PASS telemetry=p50+p95+queues+rum controls=flags+autopilot transport=tenant-scoped+idempotent+fail-closed virya-target=explicit ux=aligned")
+print("CONTROL_PLANE_OPERATIONS=PASS telemetry=p50+p95+queues+rum controls=flags+autopilot transport=tenant-scoped+idempotent+fail-closed+shape-aware virya-target=explicit ux=aligned")
