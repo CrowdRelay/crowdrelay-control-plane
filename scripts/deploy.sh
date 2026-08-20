@@ -7,6 +7,7 @@ TARGET="${1:-}"
 WAIT_SECONDS="${CONTROL_PLANE_DEPLOY_WAIT_SECONDS:-3600}"
 POLL_SECONDS="${CONTROL_PLANE_DEPLOY_POLL_SECONDS:-3}"
 REMOTE="${CONTROL_PLANE_DEPLOY_HOST:-virya-home}"
+REMOTE_DIR="${CONTROL_PLANE_DEPLOY_REMOTE_DIR:-/srv/crowdrelay-control-plane}"
 CANONICAL="$ROOT_DIR/scripts/deploy-production.sh"
 
 fail() {
@@ -60,6 +61,32 @@ wait_for_ci() {
   fail "timed out waiting for CI for $TARGET"
 }
 
+repair_live_release_unit() {
+  printf '==> Repairing Control Plane app+tunnel release unit\n' >&2
+  ssh -T "$REMOTE" sudo bash -s -- "$REMOTE_DIR" <<'REMOTE_REPAIR'
+set -Eeuo pipefail
+root="$1"
+cd "$root"
+fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+for file in .env compose.production.yml compose.area.yml deploy/virya-area-tunnel.Caddyfile; do
+  [[ -f "$file" && ! -L "$file" ]] || fail "missing or unsafe recovery input: $file"
+done
+compose() { docker compose -f compose.production.yml -f compose.area.yml "$@"; }
+compose config --quiet
+compose up -d --no-deps --force-recreate app virya-area-tunnel
+for _ in $(seq 1 60); do
+  app_state="$(docker inspect crowdrelay-control-plane-app-1 --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
+  tunnel_state="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{.State.Status}}' 2>/dev/null || true)"
+  if [[ ( "$app_state" == "healthy" || "$app_state" == "running" ) && "$tunnel_state" == "running" ]]; then
+    printf 'CONTROL_PLANE_RELEASE_UNIT_REPAIR=PASS app=%s tunnel=%s\n' "$app_state" "$tunnel_state"
+    exit 0
+  fi
+  sleep 1
+done
+fail "release unit did not recover: app=$app_state tunnel=$tunnel_state"
+REMOTE_REPAIR
+}
+
 verify_live_tunnel() {
   ssh -T "$REMOTE" sudo bash -s <<'REMOTE_GATE'
 set -Eeuo pipefail
@@ -107,17 +134,30 @@ print("CONTROL_PLANE_TUNNEL_GATE=PASS e2e=true p95_ms={}".format(http["p95_ms"])
 REMOTE_GATE
 }
 
+on_interrupt() {
+  trap - INT TERM HUP
+  printf '\nINTERRUPT=RECEIVED ensuring app+tunnel release unit is healthy\n' >&2
+  repair_live_release_unit || true
+  verify_live_tunnel || true
+  exit 130
+}
+
 wait_for_ci
 [[ "$(git rev-parse HEAD)" == "$TARGET" ]] || fail 'local HEAD moved while waiting for CI'
 [[ -z "$(git status --porcelain --untracked-files=normal)" ]] || fail 'local worktree changed while waiting for CI'
 REMOTE_MAIN="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
 [[ "$REMOTE_MAIN" == "$TARGET" ]] || fail "origin/main moved while waiting: remote=$REMOTE_MAIN target=$TARGET"
 
+trap on_interrupt INT TERM HUP
 set +e
 bash "$CANONICAL" "$TARGET"
 deploy_status=$?
 set -e
+trap - INT TERM HUP
 
+if (( deploy_status != 0 )); then
+  repair_live_release_unit || fail 'Control Plane deploy failed and app+tunnel repair failed'
+fi
 verify_live_tunnel || fail 'Control Plane deploy/rollback left the tunnel unhealthy'
 (( deploy_status == 0 )) || exit "$deploy_status"
 printf 'MAKE_DEPLOY=PASS repo=crowdrelay-control-plane sha=%s tunnel=healthy\n' "$TARGET"
