@@ -1,4 +1,8 @@
-use std::{env, net::SocketAddr, path::PathBuf};
+use std::{
+    env::{self, VarError},
+    net::SocketAddr,
+    path::PathBuf,
+};
 
 use anyhow::{Context, Result};
 use sha2::{Digest, Sha256};
@@ -42,10 +46,7 @@ impl Config {
         let area_management_master_key =
             optional_secret("CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY")?;
         let management_master_key = optional_secret("CONTROL_PLANE_MANAGEMENT_MASTER_KEY")?;
-        let virya_management_url = env::var("CONTROL_PLANE_VIRYA_MANAGEMENT_URL")
-            .ok()
-            .map(|value| value.trim().to_owned())
-            .filter(|value| !value.is_empty());
+        let virya_management_url = optional_env("CONTROL_PLANE_VIRYA_MANAGEMENT_URL")?;
 
         anyhow::ensure!(
             admin_token != telemetry_token,
@@ -93,8 +94,7 @@ impl Config {
                 "CONTROL_PLANE_VIRYA_MANAGEMENT_URL is required when tenant management is configured"
             );
         }
-        let runtime_stale_after_seconds = env::var("CONTROL_PLANE_RUNTIME_STALE_AFTER_SECONDS")
-            .ok()
+        let runtime_stale_after_seconds = optional_env("CONTROL_PLANE_RUNTIME_STALE_AFTER_SECONDS")?
             .map(|value| value.parse::<i64>())
             .transpose()
             .context("invalid CONTROL_PLANE_RUNTIME_STALE_AFTER_SECONDS")?
@@ -104,11 +104,10 @@ impl Config {
             "CONTROL_PLANE_RUNTIME_STALE_AFTER_SECONDS must be between 30 and 86400"
         );
 
-        let provisioner_default_image_tag = env::var("CONTROL_PLANE_PROVISIONER_DEFAULT_IMAGE_TAG")
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-            .map(|value| validate_image_tag(&value))
-            .transpose()?;
+        let provisioner_default_image_tag =
+            optional_env("CONTROL_PLANE_PROVISIONER_DEFAULT_IMAGE_TAG")?
+                .map(|value| validate_image_tag(&value))
+                .transpose()?;
         let provisioner_api_image = validate_image_repository(
             "CONTROL_PLANE_PROVISIONER_API_IMAGE",
             &env::var("CONTROL_PLANE_PROVISIONER_API_IMAGE")
@@ -119,8 +118,7 @@ impl Config {
             &env::var("CONTROL_PLANE_PROVISIONER_WORKER_IMAGE")
                 .unwrap_or_else(|_| "ghcr.io/wojciechbator/crowdrelay-worker".to_owned()),
         )?;
-        let provisioner_lease_seconds = env::var("CONTROL_PLANE_PROVISIONER_LEASE_SECONDS")
-            .ok()
+        let provisioner_lease_seconds = optional_env("CONTROL_PLANE_PROVISIONER_LEASE_SECONDS")?
             .map(|value| value.parse::<i64>())
             .transpose()
             .context("invalid CONTROL_PLANE_PROVISIONER_LEASE_SECONDS")?
@@ -154,9 +152,7 @@ impl Config {
             frontend_dist: env::var("CONTROL_PLANE_FRONTEND_DIST")
                 .map(PathBuf::from)
                 .unwrap_or_else(|_| PathBuf::from("frontend/dist")),
-            virya_workspace_id: env::var("CONTROL_PLANE_VIRYA_WORKSPACE_ID")
-                .ok()
-                .filter(|value| !value.trim().is_empty())
+            virya_workspace_id: optional_env("CONTROL_PLANE_VIRYA_WORKSPACE_ID")?
                 .map(|value| value.parse())
                 .transpose()
                 .context("invalid CONTROL_PLANE_VIRYA_WORKSPACE_ID")?,
@@ -166,6 +162,29 @@ impl Config {
                 .unwrap_or_else(|_| "https://signal.virya.music".to_owned()),
             virya_management_url,
         })
+    }
+}
+
+fn normalize_optional(name: &str, value: String) -> Result<Option<String>> {
+    if value.is_empty() {
+        return Ok(None);
+    }
+    anyhow::ensure!(
+        value == value.trim(),
+        "{name} must not have surrounding whitespace"
+    );
+    anyhow::ensure!(
+        !value.chars().any(char::is_control),
+        "{name} must not contain control characters"
+    );
+    Ok(Some(value))
+}
+
+fn optional_env(name: &str) -> Result<Option<String>> {
+    match env::var(name) {
+        Ok(value) => normalize_optional(name, value),
+        Err(VarError::NotPresent) => Ok(None),
+        Err(VarError::NotUnicode(_)) => anyhow::bail!("{name} must be valid UTF-8"),
     }
 }
 
@@ -180,13 +199,11 @@ fn required_secret(name: &str) -> Result<String> {
 }
 
 fn optional_secret(name: &str) -> Result<Option<String>> {
-    env::var(name)
-        .ok()
-        .filter(|value| !value.trim().is_empty())
+    optional_env(name)?
         .map(|value| {
             anyhow::ensure!(value.len() >= 32, "{name} must be at least 32 characters");
             anyhow::ensure!(
-                value == value.trim() && !value.chars().any(char::is_whitespace),
+                !value.chars().any(char::is_whitespace),
                 "{name} must not contain whitespace"
             );
             Ok(value)
@@ -224,4 +241,40 @@ fn validate_image_repository(name: &str, value: &str) -> Result<String> {
         "{name} must be an untagged safe image repository such as ghcr.io/org/image"
     );
     Ok(value.to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn optional_values_only_treat_exact_empty_as_absent() {
+        assert_eq!(normalize_optional("TEST", String::new()).unwrap(), None);
+        assert_eq!(
+            normalize_optional("TEST", "value".to_owned()).unwrap(),
+            Some("value".to_owned())
+        );
+        assert!(normalize_optional("TEST", "   ".to_owned()).is_err());
+        assert!(normalize_optional("TEST", " value".to_owned()).is_err());
+        assert!(normalize_optional("TEST", "value ".to_owned()).is_err());
+        assert!(normalize_optional("TEST", "value\nnext".to_owned()).is_err());
+    }
+
+    #[test]
+    fn optional_secret_rejects_weak_or_whitespace_values() {
+        let valid = "a".repeat(32);
+        assert_eq!(
+            normalize_optional("TEST", valid.clone())
+                .unwrap()
+                .map(|value| {
+                    anyhow::ensure!(value.len() >= 32, "too short");
+                    anyhow::ensure!(!value.chars().any(char::is_whitespace), "whitespace");
+                    Ok::<_, anyhow::Error>(value)
+                })
+                .transpose()
+                .unwrap(),
+            Some(valid)
+        );
+        assert!(normalize_optional("TEST", " a".repeat(32)).is_err());
+    }
 }
