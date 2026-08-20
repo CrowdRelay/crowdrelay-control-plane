@@ -31,6 +31,8 @@ for upstream in (
     assert upstream in routes or upstream in client, upstream
 
 assert "CONTROL_PLANE_MANAGEMENT_MASTER_KEY" in config
+assert 'DEFAULT_VIRYA_MANAGEMENT_URL: &str = "http://127.0.0.1:8080"' in config
+assert 'unwrap_or_else(|| DEFAULT_VIRYA_MANAGEMENT_URL.to_owned())' in config
 assert "crowdrelay-control-plane-v1:" in client
 assert "crowdrelay-area-admin-v1:" in client
 assert "crowdrelay-control-plane-v1:" != "crowdrelay-area-admin-v1:"
@@ -57,4 +59,4 @@ assert area.index(">Manage</Link>") < area.index("<StatusBadge")
 assert ".product-entitlement-row{display:grid" in styles
 assert ".product-status-slot{display:flex;justify-content:flex-end" in styles
 
-print("CONTROL_PLANE_OPERATIONS=PASS telemetry=p50+p95+queues+rum controls=flags+autopilot transport=tenant-scoped+idempotent ux=aligned")
+print("CONTROL_PLANE_OPERATIONS=PASS telemetry=p50+p95+queues+rum controls=flags+autopilot transport=tenant-scoped+idempotent virya-target=local-default ux=aligned")

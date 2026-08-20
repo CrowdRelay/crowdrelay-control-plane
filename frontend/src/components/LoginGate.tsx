@@ -39,7 +39,7 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
           <Show when={error()}><div class="login-error" role="alert">{error()}</div></Show>
           <button type="submit" disabled={busy() || !username().trim() || !password()}>{busy() ? 'Logowanie…' : 'Zaloguj się'}</button>
         </form>
-        <div class="login-security"><span class="auth-dot ok"/><span>Poświadczenia są trzymane wyłącznie w pamięci tej karty.</span></div>
+        <div class="login-security"><span class="auth-dot ok"/><span>Sesja przeżywa odświeżenie tej karty i jest usuwana po wylogowaniu lub zamknięciu karty.</span></div>
       </section>
     </main>
   }>{props.children}</Show>
