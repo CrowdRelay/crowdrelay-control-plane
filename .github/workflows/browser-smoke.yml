@@ -1,0 +1,68 @@
+name: Browser smoke
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: control-plane-browser-smoke
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CONTROL_PLANE_BASE_URL: ${{ vars.CONTROL_PLANE_PRODUCTION_BASE_URL || 'https://control.virya.music' }}
+      CONTROL_PLANE_SMOKE_BASIC_AUTH: ${{ secrets.CONTROL_PLANE_SMOKE_BASIC_AUTH }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Decide whether authenticated browser smoke is configured
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${CONTROL_PLANE_SMOKE_BASIC_AUTH}" ]]; then
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+            echo 'CONTROL_PLANE_BROWSER_SMOKE=SKIP reason=secret-not-configured'
+            exit 0
+          fi
+          [[ "${CONTROL_PLANE_SMOKE_BASIC_AUTH}" == *:* ]]
+          echo 'enabled=true' >> "$GITHUB_OUTPUT"
+
+      - name: Install pinned ephemeral browser test dependency
+        if: steps.preflight.outputs.enabled == 'true'
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --prefer-offline --no-audit --no-fund
+          npm install --no-save --package-lock=false --ignore-scripts @playwright/test@1.62.1
+          npx playwright install --with-deps chromium
+
+      - name: Run production browser journey
+        if: steps.preflight.outputs.enabled == 'true'
+        working-directory: frontend
+        shell: bash
+        run: npx playwright test e2e/control-plane.spec.ts --browser=chromium --workers=1 --reporter=line
+
+      - name: Upload browser diagnostics
+        if: always() && steps.preflight.outputs.enabled == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: control-plane-browser-smoke-${{ github.run_id }}
+          path: |
+            frontend/test-results
+            frontend/playwright-report
+          if-no-files-found: ignore
+          retention-days: 14
