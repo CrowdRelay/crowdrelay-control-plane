@@ -1,4 +1,4 @@
-.PHONY: static web-install web-test web-build rust-fmt rust-check rust-clippy rust-test ci deploy-production
+.PHONY: static web-install web-test web-build rust-fmt rust-check rust-clippy rust-test ci deploy deploy-production
 static:
 	python3 scripts/static-check.py
 	python3 -m unittest discover -s scripts -p 'test_*.py'
@@ -18,5 +18,7 @@ rust-clippy:
 rust-test:
 	cargo test --locked --workspace
 ci: static rust-fmt rust-clippy rust-test web-install web-test web-build
+deploy:
+	bash scripts/deploy.sh
 deploy-production:
 	bash scripts/deploy-production.sh
