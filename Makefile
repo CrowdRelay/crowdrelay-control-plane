@@ -19,4 +19,4 @@ rust-test:
 	cargo test --locked --workspace
 ci: static rust-fmt rust-clippy rust-test web-install web-test web-build
 deploy-production:
-	bash scripts/deploy-production-exact.sh
+	bash scripts/deploy-production.sh
