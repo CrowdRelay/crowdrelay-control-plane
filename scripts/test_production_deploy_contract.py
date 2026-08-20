@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 import unittest
 
 
@@ -11,6 +12,9 @@ CADDYFILE = ROOT / "deploy/virya-area-tunnel.Caddyfile"
 
 
 class ProductionDeployContract(unittest.TestCase):
+    def test_shell_syntax(self):
+        subprocess.run(["bash", "-n", str(SCRIPT)], check=True)
+
     def test_mac_deploy_is_exact_and_fail_closed(self):
         text = SCRIPT.read_text()
         self.assertIn('CONTROL_PLANE_DEPLOY_HOST:-virya-home', text)
