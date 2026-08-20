@@ -23,4 +23,4 @@ deploy:
 deploy-production:
 	bash scripts/deploy-production.sh
 bootstrap-management:
-	bash scripts/ensure-virya-management-credentials.sh --apply
+	bash scripts/bootstrap-management.sh
