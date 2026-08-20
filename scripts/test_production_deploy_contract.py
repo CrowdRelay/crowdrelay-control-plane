@@ -10,6 +10,8 @@ DOCKERFILE = ROOT / "Dockerfile"
 MAKEFILE = ROOT / "Makefile"
 AREA_COMPOSE = ROOT / "deploy/compose.area.production.yml"
 CADDYFILE = ROOT / "deploy/virya-area-tunnel.Caddyfile"
+CONFIG = ROOT / "crates/control-plane-api/src/config.rs"
+OPERATIONS = ROOT / "crates/control-plane-api/src/operations_routes.rs"
 
 
 class ProductionDeployContract(unittest.TestCase):
@@ -42,6 +44,7 @@ class ProductionDeployContract(unittest.TestCase):
         text = WRAPPER.read_text()
         self.assertIn('compose.area.production.yml', text)
         self.assertIn('docker compose -f compose.production.yml -f "$candidate" config --format json', text)
+        self.assertIn('CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY', text)
         self.assertIn('install -m 0644 "$candidate" compose.area.yml', text)
         self.assertIn('BOOTSTRAP_OVERLAY=PASS management_wiring=canonical runtime_restarted=false', text)
         self.assertIn('exec bash "$ROOT_DIR/scripts/deploy-production-exact.sh"', text)
@@ -51,10 +54,19 @@ class ProductionDeployContract(unittest.TestCase):
         text = SCRIPT.read_text()
         self.assertIn('compose config --format json', text)
         self.assertIn('MANAGEMENT_WIRING=PASS semantic=true', text)
+        self.assertIn('effective app config is missing CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY', text)
         self.assertIn('effective app config is missing CONTROL_PLANE_MANAGEMENT_MASTER_KEY', text)
         self.assertIn('effective app config has invalid CONTROL_PLANE_VIRYA_MANAGEMENT_URL', text)
         self.assertNotIn("grep -Fq 'CONTROL_PLANE_MANAGEMENT_MASTER_KEY' compose.production.yml", text)
         self.assertNotIn("grep -Fq 'CONTROL_PLANE_VIRYA_MANAGEMENT_URL' compose.production.yml", text)
+
+    def test_rollback_is_armed_before_first_runtime_file_mutation(self):
+        text = SCRIPT.read_text()
+        armed = text.index("mutated=true")
+        overlay_install = text.index('install -m 0644 "$area_source" compose.area.yml')
+        caddy_install = text.index('install -m 0644 "$caddy_source" deploy/virya-area-tunnel.Caddyfile')
+        self.assertLess(armed, overlay_install)
+        self.assertLess(armed, caddy_install)
 
     def test_app_and_tunnel_are_one_release_unit(self):
         text = SCRIPT.read_text()
@@ -83,6 +95,7 @@ class ProductionDeployContract(unittest.TestCase):
     def test_canonical_tunnel_config_is_source_controlled(self):
         area = AREA_COMPOSE.read_text()
         caddy = CADDYFILE.read_text()
+        self.assertIn('CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY', area)
         self.assertIn('CONTROL_PLANE_MANAGEMENT_MASTER_KEY', area)
         self.assertIn('CONTROL_PLANE_VIRYA_MANAGEMENT_URL', area)
         self.assertIn('network_mode: "service:app"', area)
@@ -93,6 +106,18 @@ class ProductionDeployContract(unittest.TestCase):
         self.assertIn('/v1/control-plane/ecosystem/flags', caddy)
         self.assertIn('/v1/control-plane/autopilot/overview', caddy)
         self.assertIn('respond 404', caddy)
+
+    def test_management_config_has_no_silent_virya_fallback(self):
+        config = CONFIG.read_text()
+        self.assertNotIn('DEFAULT_VIRYA_MANAGEMENT_URL', config)
+        self.assertIn('area_management_master_key.is_some() || management_master_key.is_some()', config)
+        self.assertIn('CONTROL_PLANE_VIRYA_MANAGEMENT_URL is required when tenant management is configured', config)
+
+    def test_operations_proxy_rejects_non_object_success_payloads(self):
+        operations = OPERATIONS.read_text()
+        self.assertIn('fn object_no_store', operations)
+        self.assertIn('if !value.is_object()', operations)
+        self.assertIn('returned an invalid JSON shape', operations)
 
     def test_makefile_exposes_single_canonical_command(self):
         makefile = MAKEFILE.read_text()
