@@ -67,10 +67,11 @@ assert "x-control-plane-token" not in auth.lower(), "backend must not grow a bro
 assert "x-control-plane-token" not in frontend.lower(), "SPA must not carry the platform admin secret"
 assert "Basic ${btoa" not in spa, "Basic credential encoding belongs in the dedicated auth module"
 auth_ui = (root / "frontend/src/lib/auth.ts").read_text()
-assert "createSignal" in auth_ui, "operator auth state must remain reactive"
-assert "sessionStorage" in auth_ui and "readSessionAuthorization()" in auth_ui and "removeItem(SESSION_KEY)" in auth_ui, \
-    "operator credential must survive reload only for the current browser-tab session and clear explicitly"
-assert "localStorage" not in auth_ui, "operator credential must never persist beyond the tab session"
+assert "createSignal" in auth_ui and "createSignal<string | null>(null)" in auth_ui, \
+    "operator auth state must remain reactive and document-lifetime only"
+assert "sessionStorage" not in auth_ui and "localStorage" not in auth_ui, \
+    "password-equivalent operator credentials must never persist in Web Storage"
+assert "setAuthorization(null)" in auth_ui, "operator credentials must clear explicitly on logout"
 assert "Basic ${btoa(binary)}" in auth_ui, "operator login must use Basic only at the edge"
 assert "CONTROL_PLANE_ADMIN_TOKEN" not in frontend, "admin secret must not be compiled into frontend source"
 assert "crowdrelay-control-plane-token" not in frontend.lower(), "browser admin-token storage key must not return"
@@ -119,4 +120,4 @@ for line in workflow.splitlines():
     if "uses:" in line:
         ref = line.split("@", 1)[-1].split()[0] if "@" in line else ""
         assert len(ref) == 40 and all(ch in "0123456789abcdef" for ch in ref), f"GitHub Action must be SHA-pinned: {line.strip()}"
-print(f"CONTROL_PLANE_STATIC=PASS checks={len(checks)} auth=styled-edge-basic+tab-session+server-bearer freshness=bounded provisioning=idempotent")
+print(f"CONTROL_PLANE_STATIC=PASS checks={len(checks)} auth=styled-edge-basic+memory-only+server-bearer freshness=bounded provisioning=idempotent")
