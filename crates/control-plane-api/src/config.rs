@@ -13,6 +13,7 @@ pub struct Config {
     pub telemetry_token_hash: [u8; 32],
     pub provisioner_token_hash: Option<[u8; 32]>,
     pub area_management_master_key: Option<String>,
+    pub management_master_key: Option<String>,
     pub admin_actor: String,
     pub telemetry_actor: String,
     pub provisioner_actor: String,
@@ -40,6 +41,7 @@ impl Config {
         let provisioner_token = optional_secret("CONTROL_PLANE_PROVISIONER_TOKEN")?;
         let area_management_master_key =
             optional_secret("CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY")?;
+        let management_master_key = optional_secret("CONTROL_PLANE_MANAGEMENT_MASTER_KEY")?;
         anyhow::ensure!(
             admin_token != telemetry_token,
             "CONTROL_PLANE_ADMIN_TOKEN and CONTROL_PLANE_TELEMETRY_TOKEN must be different"
@@ -61,6 +63,24 @@ impl Config {
                 token != admin_token && token != telemetry_token,
                 "CONTROL_PLANE_PROVISIONER_TOKEN must differ from admin and telemetry tokens"
             );
+        }
+        if let Some(token) = management_master_key.as_deref() {
+            anyhow::ensure!(
+                token != admin_token && token != telemetry_token,
+                "CONTROL_PLANE_MANAGEMENT_MASTER_KEY must differ from admin and telemetry tokens"
+            );
+            if let Some(provisioner) = provisioner_token.as_deref() {
+                anyhow::ensure!(
+                    token != provisioner,
+                    "CONTROL_PLANE_MANAGEMENT_MASTER_KEY must differ from the provisioner token"
+                );
+            }
+            if let Some(area) = area_management_master_key.as_deref() {
+                anyhow::ensure!(
+                    token != area,
+                    "CONTROL_PLANE_MANAGEMENT_MASTER_KEY must differ from the AREA management master key"
+                );
+            }
         }
         let runtime_stale_after_seconds = env::var("CONTROL_PLANE_RUNTIME_STALE_AFTER_SECONDS")
             .ok()
@@ -108,6 +128,7 @@ impl Config {
                 .as_deref()
                 .map(|token| Sha256::digest(token.as_bytes()).into()),
             area_management_master_key,
+            management_master_key,
             admin_actor: env::var("CONTROL_PLANE_ADMIN_ACTOR")
                 .unwrap_or_else(|_| "platform-admin".to_owned()),
             telemetry_actor: env::var("CONTROL_PLANE_TELEMETRY_ACTOR")

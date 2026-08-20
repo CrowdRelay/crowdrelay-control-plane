@@ -22,7 +22,8 @@ use uuid::Uuid;
 
 use crate::error::ApiError;
 
-const NAMESPACE: &[u8] = b"crowdrelay-area-admin-v1:";
+const AREA_NAMESPACE: &[u8] = b"crowdrelay-area-admin-v1:";
+const CONTROL_PLANE_NAMESPACE: &[u8] = b"crowdrelay-control-plane-v1:";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_RESPONSE_BYTES: usize = 1024 * 1024;
@@ -30,25 +31,54 @@ const MAX_RESPONSE_BYTES: usize = 1024 * 1024;
 #[derive(Clone)]
 pub struct TenantAreaClient {
     master_key: Option<Arc<str>>,
+    management_master_key: Option<Arc<str>>,
+}
+
+pub(crate) struct ManagementRequest<'a> {
+    pub method: &'a str,
+    pub path: &'a str,
+    pub body: Option<&'a Value>,
+    pub correlation_id: Option<&'a str>,
+    pub idempotency_key: Option<&'a str>,
 }
 
 impl TenantAreaClient {
+    #[cfg(test)]
     #[must_use]
     pub fn new(master_key: Option<String>) -> Self {
         Self {
             master_key: master_key.map(Arc::from),
+            management_master_key: None,
+        }
+    }
+
+    #[must_use]
+    pub fn with_management(
+        master_key: Option<String>,
+        management_master_key: Option<String>,
+    ) -> Self {
+        Self {
+            master_key: master_key.map(Arc::from),
+            management_master_key: management_master_key.map(Arc::from),
         }
     }
 
     pub fn derived_token(&self, tenant_id: Uuid) -> Result<String, ApiError> {
-        let master_key = self
-            .master_key
-            .as_deref()
-            .ok_or_else(|| ApiError::Unavailable("AREA management is not configured".to_owned()))?;
-        let mut message = Vec::with_capacity(NAMESPACE.len() + 36);
-        message.extend_from_slice(NAMESPACE);
-        message.extend_from_slice(tenant_id.to_string().as_bytes());
-        Ok(hex(&hmac_sha256(master_key.as_bytes(), &message)))
+        derived_token(
+            self.master_key.as_deref(),
+            AREA_NAMESPACE,
+            tenant_id,
+            "AREA management is not configured",
+        )
+    }
+
+    pub fn derived_management_token(&self, tenant_id: Uuid) -> Result<String, ApiError> {
+        derived_token(
+            self.management_master_key.as_deref(),
+            CONTROL_PLANE_NAMESPACE,
+            tenant_id,
+            "tenant operations are not configured",
+        )
     }
 
     pub async fn request(
@@ -60,23 +90,13 @@ impl TenantAreaClient {
         body: Option<&Value>,
         correlation_id: Option<&str>,
     ) -> Result<Value, ApiError> {
-        let token = self.derived_token(tenant_id)?;
-        let target = validate_management_target(base_url)?;
-        let host = target
-            .host_str()
-            .ok_or_else(|| ApiError::InvalidInput("management target has no host".to_owned()))?;
-        let port = target
-            .port_or_known_default()
-            .ok_or_else(|| ApiError::InvalidInput("management target has no port".to_owned()))?;
         let area_path = path_and_query
             .split_once('?')
             .map_or(path_and_query, |(path, _)| path);
         if path_and_query.len() > 2_048
             || !(area_path == "/v1/control-plane/area"
                 || area_path.starts_with("/v1/control-plane/area/"))
-            || path_and_query
-                .chars()
-                .any(|character| matches!(character, '\r' | '\n' | ' ' | '\t'))
+            || contains_request_whitespace(path_and_query)
         {
             return Err(ApiError::InvalidInput(
                 "invalid AREA management path".to_owned(),
@@ -87,66 +107,189 @@ impl TenantAreaClient {
                 "invalid AREA management method".to_owned(),
             ));
         }
-
-        let address = format_host_port(host, port);
-        let mut stream = timeout(CONNECT_TIMEOUT, TcpStream::connect(&address))
-            .await
-            .map_err(|_| ApiError::Unavailable("AREA management connect timeout".to_owned()))?
-            .map_err(|_| ApiError::Unavailable("AREA management target unavailable".to_owned()))?;
-
-        let body_text = body.map(Value::to_string).unwrap_or_default();
-        let host_header = host_header(host, target.port(), port);
-        let mut request = format!(
-            "{method} {path_and_query} HTTP/1.1\r\nHost: {host_header}\r\nAuthorization: Bearer {token}\r\nAccept: application/json\r\nAccept-Encoding: identity\r\nConnection: close\r\n"
-        );
-        if let Some(id) = correlation_id.filter(|id| valid_correlation_id(id)) {
-            request.push_str("X-CrowdRelay-Correlation-Id: ");
-            request.push_str(id);
-            request.push_str("\r\n");
-        }
-        if body.is_some() {
-            request.push_str("Content-Type: application/json\r\n");
-        }
-        if body.is_some() || matches!(method, "POST" | "PATCH") {
-            request.push_str("Content-Length: ");
-            request.push_str(&body_text.len().to_string());
-            request.push_str("\r\n");
-        }
-        request.push_str("\r\n");
-        request.push_str(&body_text);
-
-        let exchange =
-            async {
-                stream.write_all(request.as_bytes()).await.map_err(|_| {
-                    ApiError::Unavailable("AREA management write failed".to_owned())
-                })?;
-                stream.shutdown().await.map_err(|_| {
-                    ApiError::Unavailable("AREA management write shutdown failed".to_owned())
-                })?;
-
-                let mut response = Vec::new();
-                let mut chunk = [0_u8; 8192];
-                loop {
-                    let read = stream.read(&mut chunk).await.map_err(|_| {
-                        ApiError::Unavailable("AREA management read failed".to_owned())
-                    })?;
-                    if read == 0 {
-                        break;
-                    }
-                    if response.len().saturating_add(read) > MAX_RESPONSE_BYTES {
-                        return Err(ApiError::Unavailable(
-                            "AREA management response exceeded limit".to_owned(),
-                        ));
-                    }
-                    response.extend_from_slice(&chunk[..read]);
-                }
-                parse_response(&response)
-            };
-
-        timeout(REQUEST_TIMEOUT, exchange)
-            .await
-            .map_err(|_| ApiError::Unavailable("AREA management request timeout".to_owned()))?
+        let token = self.derived_token(tenant_id)?;
+        request_authorized(
+            base_url,
+            method,
+            path_and_query,
+            body,
+            correlation_id,
+            None,
+            &token,
+        )
+        .await
     }
+
+    pub async fn request_management(
+        &self,
+        tenant_id: Uuid,
+        base_url: &str,
+        request: ManagementRequest<'_>,
+    ) -> Result<Value, ApiError> {
+        if !valid_operations_request(request.method, request.path)
+            || contains_request_whitespace(request.path)
+        {
+            return Err(ApiError::InvalidInput(
+                "invalid tenant operations request".to_owned(),
+            ));
+        }
+        if matches!(request.method, "POST")
+            && !request.idempotency_key.is_some_and(valid_idempotency_key)
+        {
+            return Err(ApiError::InvalidInput(
+                "valid Idempotency-Key is required for tenant operation mutations".to_owned(),
+            ));
+        }
+        if request
+            .idempotency_key
+            .is_some_and(|value| !valid_idempotency_key(value))
+        {
+            return Err(ApiError::InvalidInput("invalid Idempotency-Key".to_owned()));
+        }
+        let token = self.derived_management_token(tenant_id)?;
+        request_authorized(
+            base_url,
+            request.method,
+            request.path,
+            request.body,
+            request.correlation_id,
+            request.idempotency_key,
+            &token,
+        )
+        .await
+    }
+}
+
+fn derived_token(
+    master_key: Option<&str>,
+    namespace: &[u8],
+    tenant_id: Uuid,
+    missing_message: &'static str,
+) -> Result<String, ApiError> {
+    let master_key = master_key.ok_or_else(|| ApiError::Unavailable(missing_message.to_owned()))?;
+    let mut message = Vec::with_capacity(namespace.len() + 36);
+    message.extend_from_slice(namespace);
+    message.extend_from_slice(tenant_id.to_string().as_bytes());
+    Ok(hex(&hmac_sha256(master_key.as_bytes(), &message)))
+}
+
+fn contains_request_whitespace(value: &str) -> bool {
+    value
+        .chars()
+        .any(|character| matches!(character, '\r' | '\n' | ' ' | '\t'))
+}
+
+fn one_safe_segment(path: &str, prefix: &str) -> bool {
+    path.strip_prefix(prefix).is_some_and(|segment| {
+        !segment.is_empty()
+            && segment.len() <= 96
+            && segment
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+    })
+}
+
+fn valid_operations_request(method: &str, path: &str) -> bool {
+    match method {
+        "GET" => matches!(
+            path,
+            "/v1/control-plane/ops/summary"
+                | "/v1/control-plane/ecosystem/flags"
+                | "/v1/control-plane/autopilot/overview"
+        ),
+        "POST" => {
+            one_safe_segment(path, "/v1/control-plane/ecosystem/flags/")
+                || one_safe_segment(path, "/v1/control-plane/autopilot/policies/")
+        }
+        _ => false,
+    }
+}
+
+fn valid_idempotency_key(value: &str) -> bool {
+    (8..=128).contains(&value.len()) && value.bytes().all(|byte| (b'!'..=b'~').contains(&byte))
+}
+
+async fn request_authorized(
+    base_url: &str,
+    method: &str,
+    path_and_query: &str,
+    body: Option<&Value>,
+    correlation_id: Option<&str>,
+    idempotency_key: Option<&str>,
+    token: &str,
+) -> Result<Value, ApiError> {
+    let target = validate_management_target(base_url)?;
+    let host = target
+        .host_str()
+        .ok_or_else(|| ApiError::InvalidInput("management target has no host".to_owned()))?;
+    let port = target
+        .port_or_known_default()
+        .ok_or_else(|| ApiError::InvalidInput("management target has no port".to_owned()))?;
+
+    let address = format_host_port(host, port);
+    let mut stream = timeout(CONNECT_TIMEOUT, TcpStream::connect(&address))
+        .await
+        .map_err(|_| ApiError::Unavailable("AREA management connect timeout".to_owned()))?
+        .map_err(|_| ApiError::Unavailable("AREA management target unavailable".to_owned()))?;
+
+    let body_text = body.map(Value::to_string).unwrap_or_default();
+    let host_header = host_header(host, target.port(), port);
+    let mut request = format!(
+        "{method} {path_and_query} HTTP/1.1\r\nHost: {host_header}\r\nAuthorization: Bearer {token}\r\nAccept: application/json\r\nAccept-Encoding: identity\r\nConnection: close\r\n"
+    );
+    if let Some(id) = correlation_id.filter(|id| valid_correlation_id(id)) {
+        request.push_str("X-CrowdRelay-Correlation-Id: ");
+        request.push_str(id);
+        request.push_str("\r\n");
+    }
+    if let Some(key) = idempotency_key {
+        request.push_str("Idempotency-Key: ");
+        request.push_str(key);
+        request.push_str("\r\n");
+    }
+    if body.is_some() {
+        request.push_str("Content-Type: application/json\r\n");
+    }
+    if body.is_some() || matches!(method, "POST" | "PATCH") {
+        request.push_str("Content-Length: ");
+        request.push_str(&body_text.len().to_string());
+        request.push_str("\r\n");
+    }
+    request.push_str("\r\n");
+    request.push_str(&body_text);
+
+    let exchange = async {
+        stream
+            .write_all(request.as_bytes())
+            .await
+            .map_err(|_| ApiError::Unavailable("AREA management write failed".to_owned()))?;
+        stream.shutdown().await.map_err(|_| {
+            ApiError::Unavailable("AREA management write shutdown failed".to_owned())
+        })?;
+
+        let mut response = Vec::new();
+        let mut chunk = [0_u8; 8192];
+        loop {
+            let read = stream
+                .read(&mut chunk)
+                .await
+                .map_err(|_| ApiError::Unavailable("AREA management read failed".to_owned()))?;
+            if read == 0 {
+                break;
+            }
+            if response.len().saturating_add(read) > MAX_RESPONSE_BYTES {
+                return Err(ApiError::Unavailable(
+                    "AREA management response exceeded limit".to_owned(),
+                ));
+            }
+            response.extend_from_slice(&chunk[..read]);
+        }
+        parse_response(&response)
+    };
+
+    timeout(REQUEST_TIMEOUT, exchange)
+        .await
+        .map_err(|_| ApiError::Unavailable("AREA management request timeout".to_owned()))?
 }
 
 fn validate_management_target(value: &str) -> Result<Url, ApiError> {
