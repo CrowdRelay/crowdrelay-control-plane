@@ -6,26 +6,38 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 REMOTE="${CONTROL_PLANE_DEPLOY_HOST:-virya-home}"
 REMOTE_DIR="${CONTROL_PLANE_DEPLOY_REMOTE_DIR:-/srv/crowdrelay-control-plane}"
 AREA_SOURCE="$ROOT_DIR/deploy/compose.area.production.yml"
-TARGET="$(git -C "$ROOT_DIR" rev-parse HEAD)"
-REMOTE_AREA="/tmp/crowdrelay-control-plane-area-bootstrap-${TARGET}.yml"
+REMOTE_AREA=""
+
+fail() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
 
 cleanup() {
-  ssh -T "$REMOTE" "rm -f '$REMOTE_AREA'" >/dev/null 2>&1 || true
+  if [[ -n "$REMOTE_AREA" ]]; then
+    ssh -T "$REMOTE" "rm -f '$REMOTE_AREA'" >/dev/null 2>&1 || true
+  fi
 }
 trap cleanup EXIT
 
 for command in git ssh scp; do
-  command -v "$command" >/dev/null 2>&1 || {
-    printf 'ERROR: missing required command: %s\n' "$command" >&2
-    exit 1
-  }
+  command -v "$command" >/dev/null 2>&1 || fail "missing required command: $command"
 done
 
-[[ -f "$AREA_SOURCE" && ! -L "$AREA_SOURCE" ]] || {
-  echo "ERROR: missing canonical area overlay: $AREA_SOURCE" >&2
-  exit 1
-}
+cd "$ROOT_DIR"
+[[ -f "$AREA_SOURCE" && ! -L "$AREA_SOURCE" ]] || fail "missing canonical area overlay: $AREA_SOURCE"
+[[ -z "$(git status --porcelain --untracked-files=normal)" ]] || fail 'local worktree must be clean'
+branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+[[ "$branch" == "main" ]] || fail "production deploy must run from main, got=${branch:-detached}"
 
+HEAD_SHA="$(git rev-parse HEAD)"
+TARGET="${1:-$HEAD_SHA}"
+[[ "$TARGET" =~ ^[0-9a-f]{40}$ ]] || fail 'target must be a full lowercase 40-character SHA'
+[[ "$TARGET" == "$HEAD_SHA" ]] || fail "target must equal local HEAD: target=$TARGET head=$HEAD_SHA"
+REMOTE_MAIN="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+[[ "$REMOTE_MAIN" == "$TARGET" ]] || fail "origin/main mismatch: remote=$REMOTE_MAIN local=$TARGET"
+
+REMOTE_AREA="/tmp/crowdrelay-control-plane-area-bootstrap-${TARGET}.yml"
 scp -q "$AREA_SOURCE" "$REMOTE:$REMOTE_AREA"
 
 ssh -T "$REMOTE" sudo bash -s -- "$REMOTE_DIR" "$REMOTE_AREA" <<'REMOTE_BOOTSTRAP'
