@@ -140,7 +140,20 @@ published="$(docker port "$app" 8090/tcp | head -n1)"
 [[ -n "$published" ]] || fail 'Control Plane app has no published endpoint'
 admin="$(docker inspect "$app" --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^CONTROL_PLANE_ADMIN_TOKEN=//p')"
 [[ -n "$admin" ]] || fail 'Control Plane admin token missing from runtime'
-summary="$(curl -fsS --connect-timeout 3 --max-time 10 -H "Authorization: Bearer $admin" "http://${published}/api/v1/tenants/virya/operations/summary")"
+summary=""
+for attempt in $(seq 1 30); do
+  if summary="$(curl -fsS --connect-timeout 3 --max-time 10 -H "Authorization: Bearer $admin" "http://${published}/api/v1/tenants/virya/operations/summary" 2>/tmp/control-plane-tunnel-gate-error)"; then
+    printf 'CONTROL_PLANE_TUNNEL_READINESS=PASS attempt=%s\n' "$attempt"
+    break
+  fi
+  if [[ "$attempt" == "30" ]]; then
+    detail="$(cat /tmp/control-plane-tunnel-gate-error 2>/dev/null || true)"
+    rm -f /tmp/control-plane-tunnel-gate-error
+    fail "operations management path did not become ready after bounded retry: $detail"
+  fi
+  sleep 1
+done
+rm -f /tmp/control-plane-tunnel-gate-error
 unset admin
 printf '%s' "$summary" | python3 -c '
 import json
