@@ -1,4 +1,4 @@
-.PHONY: static web-install web-test web-build rust-fmt rust-check rust-clippy rust-test ci deploy deploy-production
+.PHONY: static web-install web-test web-build rust-fmt rust-check rust-clippy rust-test ci deploy deploy-production bootstrap-management
 static:
 	python3 scripts/static-check.py
 	python3 -m unittest discover -s scripts -p 'test_*.py'
@@ -22,3 +22,5 @@ deploy:
 	bash scripts/deploy.sh
 deploy-production:
 	bash scripts/deploy-production.sh
+bootstrap-management:
+	bash scripts/ensure-virya-management-credentials.sh --apply
