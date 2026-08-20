@@ -31,14 +31,20 @@ for upstream in (
     assert upstream in routes or upstream in client, upstream
 
 assert "CONTROL_PLANE_MANAGEMENT_MASTER_KEY" in config
-assert 'DEFAULT_VIRYA_MANAGEMENT_URL: &str = "http://127.0.0.1:8080"' in config
-assert 'unwrap_or_else(|| DEFAULT_VIRYA_MANAGEMENT_URL.to_owned())' in config
+assert "CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY" in config
+assert "CONTROL_PLANE_VIRYA_MANAGEMENT_URL" in config
+assert "DEFAULT_VIRYA_MANAGEMENT_URL" not in config
+assert 'http://127.0.0.1:8080' not in config
+assert 'area_management_master_key.is_some() || management_master_key.is_some()' in config
+assert 'CONTROL_PLANE_VIRYA_MANAGEMENT_URL is required when tenant management is configured' in config
 assert "crowdrelay-control-plane-v1:" in client
 assert "crowdrelay-area-admin-v1:" in client
 assert "crowdrelay-control-plane-v1:" != "crowdrelay-area-admin-v1:"
 assert "Idempotency-Key" in client
 assert "valid_operations_request" in client
 assert "AREA management redirect refused" in client
+assert "AREA management returned an empty success body" in client
+assert "fn object_no_store" in routes and "if !value.is_object()" in routes
 assert ".audit_control_command(" in routes
 assert '"succeeded"' in routes and '"failed"' in routes
 audit_block = routes.split("async fn audit_result", 1)[1].split("async fn summary", 1)[0]
@@ -59,4 +65,4 @@ assert area.index(">Manage</Link>") < area.index("<StatusBadge")
 assert ".product-entitlement-row{display:grid" in styles
 assert ".product-status-slot{display:flex;justify-content:flex-end" in styles
 
-print("CONTROL_PLANE_OPERATIONS=PASS telemetry=p50+p95+queues+rum controls=flags+autopilot transport=tenant-scoped+idempotent virya-target=local-default ux=aligned")
+print("CONTROL_PLANE_OPERATIONS=PASS telemetry=p50+p95+queues+rum controls=flags+autopilot transport=tenant-scoped+idempotent+fail-closed virya-target=explicit ux=aligned")
