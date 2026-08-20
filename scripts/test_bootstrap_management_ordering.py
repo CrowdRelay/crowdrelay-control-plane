@@ -4,6 +4,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 BOOTSTRAP = (ROOT / "scripts/bootstrap-management.sh").read_text()
+CREDENTIALS = (ROOT / "scripts/ensure-virya-management-credentials.sh").read_text()
 MAKEFILE = (ROOT / "Makefile").read_text()
 OVERLAY = (ROOT / "deploy/compose.area.production.yml").read_text()
 
@@ -20,7 +21,8 @@ class BootstrapManagementOrderingContract(unittest.TestCase):
         apply_pos = BOOTSTRAP.index('ensure-virya-management-credentials.sh" --apply')
         self.assertLess(install_pos, apply_pos)
         self.assertIn("CANONICAL_MANAGEMENT_OVERLAY=PASS", BOOTSTRAP)
-        self.assertIn("sha256sum", BOOTSTRAP)
+        self.assertIn("sha256_file", BOOTSTRAP)
+        self.assertIn("shasum -a 256", BOOTSTRAP)
 
     def test_canonical_overlay_injects_all_management_env(self) -> None:
         for key in (
@@ -29,7 +31,7 @@ class BootstrapManagementOrderingContract(unittest.TestCase):
             "CONTROL_PLANE_VIRYA_MANAGEMENT_URL",
         ):
             self.assertIn(key, OVERLAY)
-        self.assertIn("http://127.0.0.1:18080", OVERLAY)
+        self.assertIn("http://127.0.0.1:18080", CREDENTIALS)
 
 
 if __name__ == "__main__":
