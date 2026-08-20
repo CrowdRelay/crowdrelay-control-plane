@@ -107,7 +107,7 @@ fail() {
   exit 1
 }
 
-for command in docker python3 curl sha256sum grep; do
+for command in docker python3 curl sha256sum grep cmp timeout; do
   command -v "$command" >/dev/null 2>&1 || fail "missing Home deploy command: $command"
 done
 
@@ -144,7 +144,7 @@ restore_release_state() {
 }
 
 verify_tunnel_contract() {
-  local app_id network_mode mount_source runtime_caddy_sha source_caddy_sha route
+  local app_id network_mode mount_source runtime_caddy route
   [[ "$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{.State.Status}}' 2>/dev/null || true)" == "running" ]] || return 1
   app_id="$(docker inspect crowdrelay-control-plane-app-1 --format '{{.Id}}' 2>/dev/null || true)"
   network_mode="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{.HostConfig.NetworkMode}}' 2>/dev/null || true)"
@@ -152,15 +152,14 @@ verify_tunnel_contract() {
   mount_source="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{range .Mounts}}{{if eq .Destination "/etc/caddy/Caddyfile"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || true)"
   [[ "$mount_source" == "$root/deploy/virya-area-tunnel.Caddyfile" ]] || return 1
   docker exec crowdrelay-control-plane-virya-area-tunnel-1 caddy validate --config /etc/caddy/Caddyfile >/dev/null || return 1
-  runtime_caddy_sha="$(docker exec crowdrelay-control-plane-virya-area-tunnel-1 cat /etc/caddy/Caddyfile | sha256sum | awk '{print $1}')"
-  source_caddy_sha="$(sha256sum "$caddy_source" | awk '{print $1}')"
-  [[ "$runtime_caddy_sha" == "$source_caddy_sha" ]] || return 1
+  cmp -s <(docker exec crowdrelay-control-plane-virya-area-tunnel-1 cat /etc/caddy/Caddyfile) "$caddy_source" || return 1
+  runtime_caddy="$(docker exec crowdrelay-control-plane-virya-area-tunnel-1 cat /etc/caddy/Caddyfile)" || return 1
   for route in \
     '/v1/control-plane/area' \
     '/v1/control-plane/ops/summary' \
     '/v1/control-plane/ecosystem/flags' \
     '/v1/control-plane/autopilot/overview'; do
-    docker exec crowdrelay-control-plane-virya-area-tunnel-1 cat /etc/caddy/Caddyfile | grep -Fq "$route" || return 1
+    grep -Fq "$route" <<<"$runtime_caddy" || return 1
   done
 }
 
@@ -217,19 +216,33 @@ if url != "http://127.0.0.1:18080":
 ' || fail 'effective compose management wiring is invalid'
 printf 'MANAGEMENT_WIRING=PASS semantic=true\n'
 
-# Validate the canonical Caddy input before touching runtime files. Reuse the
-# already-running tunnel image reference so validation cannot silently drift to
-# another Caddy build.
-caddy_image="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{.Config.Image}}' 2>/dev/null || true)"
-[[ "$caddy_image" == caddy@sha256:* ]] || fail "unexpected current tunnel image: $caddy_image"
+# Validate the exact pinned Caddy image and canonical Caddy input before
+# touching runtime files. The source overlay is authoritative, so this remains
+# self-healing even if the current tunnel container is missing or stale.
+caddy_image="$(python3 - "$area_source" <<'PY'
+from pathlib import Path
+import re
+import sys
+text = Path(sys.argv[1]).read_text()
+matches = re.findall(r'^\s*image:\s*["\x27]?(caddy@sha256:[0-9a-f]{64})["\x27]?\s*$', text, flags=re.MULTILINE)
+if len(matches) != 1:
+    raise SystemExit(f"expected exactly one pinned Caddy image, found={len(matches)}")
+print(matches[0])
+PY
+)" || fail 'canonical overlay does not contain exactly one pinned Caddy digest'
+if ! docker image inspect "$caddy_image" >/dev/null 2>&1; then
+  timeout 90s docker pull "$caddy_image" >/dev/null \
+    || fail "unable to pull pinned Caddy image: $caddy_image"
+fi
 docker run --rm --read-only \
   --security-opt no-new-privileges:true \
   --cap-drop ALL \
+  --cap-add NET_BIND_SERVICE \
   --tmpfs /data --tmpfs /config --tmpfs /tmp \
   -v "$caddy_source:/etc/caddy/Caddyfile:ro" \
   "$caddy_image" validate --config /etc/caddy/Caddyfile >/dev/null \
   || fail 'canonical tunnel Caddyfile validation failed'
-printf 'CADDY_PREFLIGHT=PASS source=canonical\n'
+printf 'CADDY_PREFLIGHT=PASS source=canonical image=pinned\n'
 
 old_tag="$(sed -n 's/^CONTROL_PLANE_IMAGE_TAG=//p' .env | tail -n1)"
 [[ "$old_tag" =~ ^sha-[0-9a-f]{40}$ ]] || fail "invalid current CONTROL_PLANE_IMAGE_TAG: $old_tag"
@@ -325,4 +338,4 @@ REMOTE_TAR=""
 REMOTE_AREA=""
 REMOTE_CADDY=""
 printf '\n==> 4/4 — Final receipt\n'
-printf 'CONTROL_PLANE_DEPLOY=PASS sha=%s host=%s exact=true\n' "$TARGET" "$REMOTE"
+printf 'CONTROL_PLANE_DEPLOY=PASS sha=%s host=%s exact=true\n' "$TARGET"
