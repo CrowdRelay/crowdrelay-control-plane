@@ -47,9 +47,6 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          # Pull-request caches live under the PR merge ref and cannot seed a
-          # later main build. Restore the shared default-branch cache on PRs,
-          # but let only main refresh the expensive Rust build cache.
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Static and Python contract gates
         run: |
@@ -151,10 +148,8 @@ jobs:
             digest="${repo_digest##*@}"
             [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
             mkdir -p image-digest
-            cat > image-digest/image.env <<EOF
-          CONTROL_PLANE_RELEASE_SHA=${GITHUB_SHA}
-          CONTROL_PLANE_IMAGE_DIGEST=${digest}
-          EOF
+            printf 'CONTROL_PLANE_RELEASE_SHA=%s\nCONTROL_PLANE_IMAGE_DIGEST=%s\n' \
+              "$GITHUB_SHA" "$digest" > image-digest/image.env
             sha256sum image-digest/image.env > image-digest/image.env.sha256
           else
             docker buildx build \
