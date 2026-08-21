@@ -116,9 +116,9 @@ fn correlation_segment(value: &str) -> Result<&str, ApiError> {
     let value = value.trim();
     if value.is_empty()
         || value.len() > 128
-        || !value.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b':')
-        })
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b':'))
     {
         return Err(ApiError::InvalidInput(
             "valid request/correlation id is required".to_owned(),
