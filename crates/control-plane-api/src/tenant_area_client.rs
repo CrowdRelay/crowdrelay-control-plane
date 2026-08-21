@@ -189,16 +189,46 @@ fn one_safe_segment(path: &str, prefix: &str) -> bool {
     })
 }
 
+fn uuid_segment_between(path: &str, prefix: &str, suffix: &str) -> bool {
+    path.strip_prefix(prefix)
+        .and_then(|tail| tail.strip_suffix(suffix))
+        .is_some_and(|segment| !segment.is_empty() && Uuid::parse_str(segment).is_ok())
+}
+
+fn timeline_segment(path: &str) -> bool {
+    path.strip_prefix("/v1/control-plane/ops/operations/")
+        .is_some_and(|segment| {
+            !segment.is_empty()
+                && segment.len() <= 128
+                && segment.bytes().all(|byte| {
+                    byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b':')
+                })
+        })
+}
+
 fn valid_operations_request(method: &str, path: &str) -> bool {
     match method {
-        "GET" => matches!(
-            path,
-            "/v1/control-plane/ops/summary"
-                | "/v1/control-plane/ecosystem/flags"
-                | "/v1/control-plane/autopilot/overview"
-        ),
+        "GET" => {
+            matches!(
+                path,
+                "/v1/control-plane/ops/summary"
+                    | "/v1/control-plane/ops/outbox?status=dead&limit=50"
+                    | "/v1/control-plane/ops/deliveries?status=dead&limit=50"
+                    | "/v1/control-plane/ecosystem/overview"
+                    | "/v1/control-plane/ecosystem/findings?limit=50&open_only=true"
+                    | "/v1/control-plane/ecosystem/flags"
+                    | "/v1/control-plane/autopilot/overview"
+            ) || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "")
+                || timeline_segment(path)
+        }
         "POST" => {
-            one_safe_segment(path, "/v1/control-plane/ecosystem/flags/")
+            matches!(
+                path,
+                "/v1/control-plane/ops/deliveries/dead/clear"
+                    | "/v1/control-plane/ecosystem/reconcile"
+            ) || uuid_segment_between(path, "/v1/control-plane/ops/outbox/", "/retry")
+                || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "/retry")
+                || one_safe_segment(path, "/v1/control-plane/ecosystem/flags/")
                 || one_safe_segment(path, "/v1/control-plane/autopilot/policies/")
         }
         _ => false,
@@ -577,6 +607,53 @@ mod tests {
     fn missing_master_key_is_unavailable() {
         let client = TenantAreaClient::new(None);
         assert!(client.derived_token(Uuid::nil()).is_err());
+    }
+
+    #[test]
+    fn operations_allowlist_is_bounded_and_shape_aware() {
+        let id = "550e8400-e29b-41d4-a716-446655440000";
+        for path in [
+            "/v1/control-plane/ops/summary",
+            "/v1/control-plane/ops/outbox?status=dead&limit=50",
+            "/v1/control-plane/ops/deliveries?status=dead&limit=50",
+            "/v1/control-plane/ecosystem/overview",
+            "/v1/control-plane/ecosystem/findings?limit=50&open_only=true",
+            "/v1/control-plane/ecosystem/flags",
+            "/v1/control-plane/autopilot/overview",
+        ] {
+            assert!(valid_operations_request("GET", path), "{path}");
+        }
+        assert!(valid_operations_request(
+            "GET",
+            &format!("/v1/control-plane/ops/deliveries/{id}")
+        ));
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/ops/operations/request-1234"
+        ));
+        for path in [
+            "/v1/control-plane/ops/deliveries/dead/clear",
+            "/v1/control-plane/ecosystem/reconcile",
+        ] {
+            assert!(valid_operations_request("POST", path), "{path}");
+        }
+        assert!(valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/ops/outbox/{id}/retry")
+        ));
+        assert!(valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/ops/deliveries/{id}/retry")
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/ops/outbox?status=pending&limit=500"
+        ));
+        assert!(!valid_operations_request("GET", "/v1/admin/ops/summary"));
+        assert!(!valid_operations_request(
+            "POST",
+            "/v1/control-plane/ops/outbox/not-a-uuid/retry"
+        ));
     }
 
     #[test]
