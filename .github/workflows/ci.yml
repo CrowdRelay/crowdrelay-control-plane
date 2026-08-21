@@ -40,6 +40,11 @@ jobs:
           toolchain: 1.97.1
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Pull-request caches live under the PR merge ref and cannot seed a
+          # later main build. Restore the shared default-branch cache on PRs,
+          # but let only main refresh the expensive Rust build cache.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Static and Python contract gates
         run: |
           python3 scripts/static-check.py
@@ -103,13 +108,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - name: Build exact linux/amd64 production image
+        env:
+          CACHE_WRITE: ${{ github.event_name != 'pull_request' }}
+        shell: bash
         run: |
           set -euo pipefail
+          cache_args=(--cache-from type=gha,scope=control-plane-image)
+          if [[ "${CACHE_WRITE}" == "true" ]]; then
+            cache_args+=(--cache-to type=gha,mode=max,scope=control-plane-image)
+          fi
           docker buildx build \
             --platform linux/amd64 \
             --build-arg "VCS_REF=${GITHUB_SHA}" \
-            --cache-from type=gha,scope=control-plane-image \
-            --cache-to type=gha,mode=max,scope=control-plane-image \
+            "${cache_args[@]}" \
             --tag crowdrelay-control-plane:ci \
             --load \
             .
@@ -117,7 +128,7 @@ jobs:
           revision="$(docker image inspect crowdrelay-control-plane:ci --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
           [[ "$architecture" == "amd64" ]]
           [[ "$revision" == "$GITHUB_SHA" ]]
-          echo "CONTROL_PLANE_CONTAINER=PASS architecture=$architecture revision=$revision cache=gha"
+          echo "CONTROL_PLANE_CONTAINER=PASS architecture=$architecture revision=$revision cache=gha write=${CACHE_WRITE}"
 
   web:
     runs-on: ubuntu-24.04
