@@ -1,4 +1,4 @@
-//! Narrow tenant operations proxy for health, feature controls and Autopilot.
+//! Narrow tenant operations proxy for health, maintenance, feature controls and Autopilot.
 //!
 //! CrowdRelay stays canonical for every read model and mutation. The Control
 //! Plane only validates a deliberately small transport allowlist, derives the
@@ -13,6 +13,7 @@ use axum::{
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
+use uuid::Uuid;
 
 use crate::{
     AppState, error::ApiError, store::ControlCommandAudit, tenant_area_client::ManagementRequest,
@@ -24,9 +25,42 @@ const MAX_OPERATIONS_BODY_BYTES: usize = 8 * 1024;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/tenants/{slug}/operations/summary", get(summary))
+        .route("/tenants/{slug}/operations/outbox/dead", get(dead_outbox))
+        .route(
+            "/tenants/{slug}/operations/outbox/{event_id}/retry",
+            post(retry_outbox),
+        )
+        .route(
+            "/tenants/{slug}/operations/deliveries/dead",
+            get(dead_deliveries),
+        )
+        .route(
+            "/tenants/{slug}/operations/deliveries/{delivery_id}",
+            get(delivery_details),
+        )
+        .route(
+            "/tenants/{slug}/operations/deliveries/{delivery_id}/retry",
+            post(retry_delivery),
+        )
         .route(
             "/tenants/{slug}/operations/dead-deliveries/clear",
             post(clear_dead_deliveries),
+        )
+        .route(
+            "/tenants/{slug}/operations/timeline/{request_id}",
+            get(operation_timeline),
+        )
+        .route(
+            "/tenants/{slug}/operations/ecosystem",
+            get(ecosystem_overview),
+        )
+        .route(
+            "/tenants/{slug}/operations/findings",
+            get(reconciliation_findings),
+        )
+        .route(
+            "/tenants/{slug}/operations/reconcile",
+            post(run_reconciliation),
         )
         .route("/tenants/{slug}/operations/flags", get(flags))
         .route("/tenants/{slug}/operations/flags/{key}", post(update_flag))
@@ -53,7 +87,7 @@ fn correlation(headers: &HeaderMap) -> Option<&str> {
 }
 
 fn idempotency_key(headers: &HeaderMap) -> Result<&str, ApiError> {
-    let value = headers
+    headers
         .get("idempotency-key")
         .and_then(|value| value.to_str().ok())
         .map(str::trim)
@@ -61,8 +95,7 @@ fn idempotency_key(headers: &HeaderMap) -> Result<&str, ApiError> {
             (8..=128).contains(&value.len())
                 && value.bytes().all(|byte| (b'!'..=b'~').contains(&byte))
         })
-        .ok_or_else(|| ApiError::InvalidInput("valid Idempotency-Key is required".to_owned()))?;
-    Ok(value)
+        .ok_or_else(|| ApiError::InvalidInput("valid Idempotency-Key is required".to_owned()))
 }
 
 fn safe_segment(value: &str) -> bool {
@@ -71,6 +104,27 @@ fn safe_segment(value: &str) -> bool {
         && value
             .bytes()
             .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+}
+
+fn uuid_segment(value: &str) -> Result<&str, ApiError> {
+    Uuid::parse_str(value)
+        .map(|_| value)
+        .map_err(|_| ApiError::InvalidInput("valid UUID is required".to_owned()))
+}
+
+fn correlation_segment(value: &str) -> Result<&str, ApiError> {
+    let value = value.trim();
+    if value.is_empty()
+        || value.len() > 128
+        || !value.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b':')
+        })
+    {
+        return Err(ApiError::InvalidInput(
+            "valid request/correlation id is required".to_owned(),
+        ));
+    }
+    Ok(value)
 }
 
 fn json_no_store(value: Value) -> Response {
@@ -175,6 +229,170 @@ async fn summary(
     object_no_store(value, "summary")
 }
 
+async fn dead_outbox(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/ops/outbox?status=dead&limit=50",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    array_no_store(value, "dead outbox")
+}
+
+async fn dead_deliveries(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/ops/deliveries?status=dead&limit=50",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    array_no_store(value, "dead deliveries")
+}
+
+async fn delivery_details(
+    State(state): State<AppState>,
+    Path((slug, delivery_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let delivery_id = uuid_segment(&delivery_id)?;
+    let path = format!("/v1/control-plane/ops/deliveries/{delivery_id}");
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "delivery details")
+}
+
+async fn operation_timeline(
+    State(state): State<AppState>,
+    Path((slug, request_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let request_id = correlation_segment(&request_id)?;
+    let path = format!("/v1/control-plane/ops/operations/{request_id}");
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "operation timeline")
+}
+
+async fn ecosystem_overview(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/ecosystem/overview",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "ecosystem overview")
+}
+
+async fn reconciliation_findings(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/ecosystem/findings?limit=50&open_only=true",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    array_no_store(value, "reconciliation findings")
+}
+
+async fn retry_outbox(
+    State(state): State<AppState>,
+    Path((slug, event_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let event_id = uuid_segment(&event_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: &format!("/v1/control-plane/ops/outbox/{event_id}/retry"),
+                body: None,
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.dead_outbox.retried",
+        "outbox_event",
+        &event_id,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(result?, "outbox retry")
+}
+
+async fn retry_delivery(
+    State(state): State<AppState>,
+    Path((slug, delivery_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let delivery_id = uuid_segment(&delivery_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: &format!("/v1/control-plane/ops/deliveries/{delivery_id}/retry"),
+                body: None,
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.dead_delivery.retried",
+        "webhook_delivery",
+        &delivery_id,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(result?, "delivery retry")
+}
+
 async fn clear_dead_deliveries(
     State(state): State<AppState>,
     Path(slug): Path<String>,
@@ -207,6 +425,41 @@ async fn clear_dead_deliveries(
     )
     .await;
     object_no_store(result?, "dead delivery clear")
+}
+
+async fn run_reconciliation(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let body = json!({ "trigger": "manual" });
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: "/v1/control-plane/ecosystem/reconcile",
+                body: Some(&body),
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.ecosystem.reconciled",
+        "ecosystem",
+        "manual",
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(result?, "ecosystem reconciliation")
 }
 
 async fn flags(
