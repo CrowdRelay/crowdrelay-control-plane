@@ -26,11 +26,24 @@ class OperationsTransportAllowlistContract(unittest.TestCase):
                 allowlist,
                 f"upstream path is not represented in valid_operations_request: {path}",
             )
+
         for prefix in sorted(dynamic_prefixes):
+            if f'"{prefix}' in allowlist:
+                continue
+            helper = re.search(
+                rf"fn\s+([a-z_][a-z0-9_]*)\([^)]*\)[^{{]*\{{(?:(?!\nfn\s).)*{re.escape(prefix)}",
+                CLIENT,
+                flags=re.DOTALL,
+            )
+            self.assertIsNotNone(
+                helper,
+                f"dynamic upstream family has no allowlist helper: {prefix}",
+            )
+            helper_name = helper.group(1)
             self.assertIn(
-                f'"{prefix}',
+                f"{helper_name}(path)",
                 allowlist,
-                f"upstream dynamic route family is not represented in valid_operations_request: {prefix}",
+                f"allowlist helper for {prefix} is not invoked by valid_operations_request",
             )
 
     def test_allowlist_stays_fail_closed(self) -> None:
