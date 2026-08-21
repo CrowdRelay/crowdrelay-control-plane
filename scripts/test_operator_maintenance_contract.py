@@ -3,6 +3,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 ROUTES = (ROOT / "crates/control-plane-api/src/operations_routes.rs").read_text()
+CLIENT = (ROOT / "crates/control-plane-api/src/tenant_area_client.rs").read_text()
 CADDY = (ROOT / "deploy/virya-area-tunnel.Caddyfile").read_text()
 API = (ROOT / "frontend/src/lib/api.ts").read_text()
 TYPES = (ROOT / "frontend/src/lib/types.ts").read_text()
@@ -26,6 +27,24 @@ class OperatorMaintenanceContract(unittest.TestCase):
         self.assertIn("Uuid::parse_str", ROUTES)
         self.assertIn("correlation_segment", ROUTES)
 
+    def test_internal_transport_allowlist_matches_bounded_proxy(self) -> None:
+        for token in (
+            "/v1/control-plane/ops/outbox?status=dead&limit=50",
+            "/v1/control-plane/ops/deliveries?status=dead&limit=50",
+            "/v1/control-plane/ecosystem/overview",
+            "/v1/control-plane/ecosystem/findings?limit=50&open_only=true",
+            "/v1/control-plane/ops/deliveries/dead/clear",
+            "/v1/control-plane/ecosystem/reconcile",
+            "/v1/control-plane/ops/outbox/",
+            "/v1/control-plane/ops/deliveries/",
+            "/v1/control-plane/ops/operations/",
+        ):
+            self.assertIn(token, CLIENT)
+        self.assertIn("uuid_segment_between", CLIENT)
+        self.assertIn("timeline_segment", CLIENT)
+        self.assertIn("valid_operations_request", CLIENT)
+        self.assertNotIn('path.starts_with("/v1/control-plane/ops/")', CLIENT)
+
     def test_mutations_require_idempotency_and_are_audited(self) -> None:
         self.assertGreaterEqual(ROUTES.count("idempotency_key(&headers)?"), 6)
         for action in (
@@ -36,12 +55,14 @@ class OperatorMaintenanceContract(unittest.TestCase):
         ):
             self.assertIn(action, ROUTES)
         self.assertIn('json!({ "trigger": "manual" })', ROUTES)
+        self.assertIn("valid Idempotency-Key is required for tenant operation mutations", CLIENT)
 
     def test_tunnel_remains_narrow(self) -> None:
         for token in (
             "/v1/control-plane/ops/outbox",
             "/v1/control-plane/ops/outbox/*",
             "/v1/control-plane/ops/deliveries",
+            "/v1/control-plane/ops/deliveries/dead/clear",
             "/v1/control-plane/ops/deliveries/*",
             "/v1/control-plane/ops/operations/*",
             "/v1/control-plane/ecosystem/overview",
