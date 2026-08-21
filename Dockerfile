@@ -24,7 +24,9 @@ RUN --mount=type=cache,id=control-plane-cargo-registry,target=/usr/local/cargo/r
 
 FROM alpine:3.22
 ARG VCS_REF=unknown
-LABEL org.opencontainers.image.revision=$VCS_REF
+LABEL org.opencontainers.image.revision=$VCS_REF \
+      org.opencontainers.image.source=https://github.com/wojciechbator/crowdrelay-control-plane \
+      org.opencontainers.image.title=crowdrelay-control-plane
 RUN addgroup -S controlplane && adduser -S -G controlplane controlplane
 WORKDIR /app
 COPY --from=rust /out/control-plane /usr/local/bin/control-plane
