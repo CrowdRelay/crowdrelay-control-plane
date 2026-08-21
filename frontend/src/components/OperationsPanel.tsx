@@ -228,7 +228,7 @@ export function OperationsPanel(props: { slug: string; runtimeHealth: RuntimeHea
 
       <section class="operations-section ecosystem-release-section">
         <div class="operations-section-head">
-          <div><span class="eyebrow">ECOSYSTEM RELEASE</span><h3>Production convergence</h3></div>
+          <div><span class="eyebrow">ECOSYSTEM RELEASE</span><h3>Production convergence</h3><p>Every expected production component reports its own release receipt. Missing or stale receipts stay visible until the component converges.</p></div>
           <StatusBadge status={releaseLabel(autopilot.data)} tone={releaseTone(autopilot.data)} />
         </div>
         <Show when={autopilot.data?.release_ledger} fallback={<div class="mini-skeleton"/>}>{ledger => <>
@@ -244,8 +244,8 @@ export function OperationsPanel(props: { slug: string; runtimeHealth: RuntimeHea
               <span>{[
                 ledger().backend_sha_drift ? 'API/worker SHA drift' : '',
                 ledger().executor_manifest_drift ? 'executor manifest drift' : '',
-                ledger().missing_components.length ? `missing: ${ledger().missing_components.join(', ')}` : '',
-                staleReleaseComponents(autopilot.data).length ? `stale: ${staleReleaseComponents(autopilot.data).map((item) => item.component_key).join(', ')}` : '',
+                ledger().missing_components.length ? `${ledger().missing_components.length} component(s) have no release receipt` : '',
+                staleReleaseComponents(autopilot.data).length ? `${staleReleaseComponents(autopilot.data).length} component(s) are stale` : '',
               ].filter(Boolean).join(' · ')}</span>
             </div>
           </Show>
@@ -253,12 +253,20 @@ export function OperationsPanel(props: { slug: string; runtimeHealth: RuntimeHea
             <For each={ledger().components}>{component => <div class="flag-row release-component-row">
               <div>
                 <strong>{component.component_key}</strong>
-                <small>{component.source_sha.slice(0, 12)} · {releaseObserved(component.observed_at)}</small>
+                <small>{component.environment} · {component.source_sha.slice(0, 12)} · {releaseObserved(component.observed_at)}</small>
+                <Show when={component.deploy_ref || component.version}><small>{component.version ?? 'unversioned'}{component.deploy_ref ? ` · ${component.deploy_ref}` : ''}</small></Show>
               </div>
               <div class="row-health">
-                <Show when={component.artifact_digest}><code>{component.artifact_digest?.slice(0, 20)}</code></Show>
+                <Show when={component.artifact_digest}><code title={component.artifact_digest ?? undefined}>{component.artifact_digest?.slice(0, 20)}…</code></Show>
                 <StatusBadge status={component.stale ? 'stale' : 'current'} tone={component.stale ? 'warn' : 'good'} />
               </div>
+            </div>}</For>
+            <For each={ledger().missing_components}>{componentKey => <div class="flag-row release-component-row release-component-missing">
+              <div>
+                <strong>{componentKey}</strong>
+                <small>No production release receipt reported yet.</small>
+              </div>
+              <div class="row-health"><StatusBadge status="missing" tone="warn" /></div>
             </div>}</For>
           </div>
           <div class="rum-grid">
