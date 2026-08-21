@@ -24,6 +24,10 @@ http://127.0.0.1:18080 {
         /v1/control-plane/autopilot/overview \
         /v1/control-plane/autopilot/policies/*
 
+    handle /healthz/ready {
+        reverse_proxy {$VIRYA_AREA_UPSTREAM}
+    }
+
     handle @area {
         reverse_proxy {$VIRYA_AREA_UPSTREAM}
     }
