@@ -13,6 +13,7 @@ http://127.0.0.1:18080 {
         /v1/control-plane/ops/outbox \
         /v1/control-plane/ops/outbox/* \
         /v1/control-plane/ops/deliveries \
+        /v1/control-plane/ops/deliveries/dead/clear \
         /v1/control-plane/ops/deliveries/* \
         /v1/control-plane/ops/operations/* \
         /v1/control-plane/ecosystem/overview \
