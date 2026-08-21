@@ -3,11 +3,14 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 ROUTES = (ROOT / "crates/control-plane-api/src/operations_routes.rs").read_text()
+ATTENTION_ROUTES = (ROOT / "crates/control-plane-api/src/attention_routes.rs").read_text()
 CLIENT = (ROOT / "crates/control-plane-api/src/tenant_area_client.rs").read_text()
 CADDY = (ROOT / "deploy/virya-area-tunnel.Caddyfile").read_text()
 API = (ROOT / "frontend/src/lib/api.ts").read_text()
+ATTENTION_API = (ROOT / "frontend/src/lib/attention.ts").read_text()
 TYPES = (ROOT / "frontend/src/lib/types.ts").read_text()
 UI = (ROOT / "frontend/src/pages/OperatorAttentionPage.tsx").read_text()
+OPERATIONS_PANEL = (ROOT / "frontend/src/components/OperationsPanel.tsx").read_text()
 
 
 class OperatorMaintenanceContract(unittest.TestCase):
@@ -57,8 +60,9 @@ class OperatorMaintenanceContract(unittest.TestCase):
         self.assertIn('json!({ "trigger": "manual" })', ROUTES)
         self.assertIn("valid Idempotency-Key is required for tenant operation mutations", CLIENT)
 
-    def test_tunnel_remains_narrow(self) -> None:
+    def test_tunnel_remains_narrow_and_has_readiness(self) -> None:
         for token in (
+            "/healthz/ready",
             "/v1/control-plane/ops/outbox",
             "/v1/control-plane/ops/outbox/*",
             "/v1/control-plane/ops/deliveries",
@@ -93,10 +97,14 @@ class OperatorMaintenanceContract(unittest.TestCase):
             "runReconciliation:",
         ):
             self.assertIn(token, API)
+        self.assertIn("OperationsAttentionSnapshot", ATTENTION_API)
+        self.assertIn("fetchOperationsAttention", ATTENTION_API)
 
-    def test_operator_attention_balances_polling_and_on_demand_reads(self) -> None:
-        self.assertIn("refetchInterval: 15_000", UI)
-        self.assertGreaterEqual(UI.count("refetchInterval: 30_000"), 4)
+    def test_operator_attention_uses_one_periodic_snapshot(self) -> None:
+        self.assertIn("tokio::try_join!", ATTENTION_ROUTES)
+        self.assertEqual(UI.count("refetchInterval: 30_000"), 1)
+        self.assertNotIn("refetchInterval: 15_000", UI)
+        self.assertIn("fetchOperationsAttention", UI)
         for token in (
             "POSTGRES RUNTIME",
             "AREA RUNTIME",
@@ -109,6 +117,13 @@ class OperatorMaintenanceContract(unittest.TestCase):
             "Retry",
         ):
             self.assertIn(token, UI)
+
+    def test_release_convergence_lists_missing_components_explicitly(self) -> None:
+        self.assertIn("No production release receipt reported yet.", OPERATIONS_PANEL)
+        self.assertIn("release-component-missing", OPERATIONS_PANEL)
+        self.assertIn('status="missing"', OPERATIONS_PANEL)
+        self.assertIn("component.environment", OPERATIONS_PANEL)
+        self.assertIn("component.deploy_ref", OPERATIONS_PANEL)
 
 
 if __name__ == "__main__":

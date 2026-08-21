@@ -30,7 +30,7 @@ class DeployUpgradeCompatibility(unittest.TestCase):
         self.assertIn('raise SystemExit("operations summary is not an object")', EXACT_TEXT)
         self.assertIn('raise SystemExit("schema_version missing")', EXACT_TEXT)
         self.assertIn('raise SystemExit("http.p95_ms missing")', EXACT_TEXT)
-        self.assertIn("MANAGEMENT_E2E=PASS area=200 summary=200 flags=200 autopilot=200", EXACT_TEXT)
+        self.assertIn("MANAGEMENT_E2E=PASS area=200 summary=200 flags=200 autopilot=200 attention=200", EXACT_TEXT)
 
 
 if __name__ == "__main__":
