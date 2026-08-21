@@ -1,5 +1,5 @@
 import { authState } from './auth'
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AutopilotOverview, AutopilotPolicy, FeatureFlag, OperationsSummary, Palette, ProvisioningJob, RegionalProfile, TenantRuntimeSnapshot, TenantSummary } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AutopilotOverview, AutopilotPolicy, DeliveryDetails, DeliveryItem, EcosystemOverview, FeatureFlag, OperationTimeline, OperationsSummary, OutboxItem, Palette, ProvisioningJob, ReconciliationFinding, ReconciliationResult, RegionalProfile, RetryResult, TenantRuntimeSnapshot, TenantSummary } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
@@ -77,10 +77,23 @@ export const api = {
   cancelProvisioning: (slug: string) => request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/cancel`, { method: 'POST', body: '{}' }),
   audit: (slug: string) => request<{ items: AuditEntry[] }>(`/tenants/${encodeURIComponent(slug)}/audit?limit=40`),
   operationsSummary: (slug: string) => request<OperationsSummary>(`/tenants/${encodeURIComponent(slug)}/operations/summary`),
+  deadOutbox: (slug: string) => request<OutboxItem[]>(`/tenants/${encodeURIComponent(slug)}/operations/outbox/dead`),
+  retryOutbox: (slug: string, id: string) => request<RetryResult>(`/tenants/${encodeURIComponent(slug)}/operations/outbox/${encodeURIComponent(id)}/retry`, {
+    method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() }, body: '{}',
+  }),
+  deadDeliveries: (slug: string) => request<DeliveryItem[]>(`/tenants/${encodeURIComponent(slug)}/operations/deliveries/dead`),
+  deliveryDetails: (slug: string, id: string) => request<DeliveryDetails>(`/tenants/${encodeURIComponent(slug)}/operations/deliveries/${encodeURIComponent(id)}`),
+  retryDelivery: (slug: string, id: string) => request<RetryResult>(`/tenants/${encodeURIComponent(slug)}/operations/deliveries/${encodeURIComponent(id)}/retry`, {
+    method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() }, body: '{}',
+  }),
   clearDeadDeliveries: (slug: string) => request<{ operation_id: string; cleared: number; status: string; replayed: boolean }>(`/tenants/${encodeURIComponent(slug)}/operations/dead-deliveries/clear`, {
-    method: 'POST',
-    headers: { 'idempotency-key': crypto.randomUUID() },
-    body: '{}',
+    method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() }, body: '{}',
+  }),
+  operationTimeline: (slug: string, requestId: string) => request<OperationTimeline>(`/tenants/${encodeURIComponent(slug)}/operations/timeline/${encodeURIComponent(requestId)}`),
+  ecosystemOverview: (slug: string) => request<EcosystemOverview>(`/tenants/${encodeURIComponent(slug)}/operations/ecosystem`),
+  reconciliationFindings: (slug: string) => request<ReconciliationFinding[]>(`/tenants/${encodeURIComponent(slug)}/operations/findings`),
+  runReconciliation: (slug: string) => request<ReconciliationResult>(`/tenants/${encodeURIComponent(slug)}/operations/reconcile`, {
+    method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() }, body: '{}',
   }),
   featureFlags: (slug: string) => request<FeatureFlag[]>(`/tenants/${encodeURIComponent(slug)}/operations/flags`),
   setFeatureFlag: (slug: string, flag: FeatureFlag, enabled: boolean) => request<{flag: FeatureFlag; replayed: boolean}>(`/tenants/${encodeURIComponent(slug)}/operations/flags/${encodeURIComponent(flag.key)}`, {
