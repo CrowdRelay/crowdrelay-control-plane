@@ -14,6 +14,7 @@ CROWDRELAY = Path(sys.argv[1]).resolve()
 if not (CROWDRELAY / "crates/crowdrelay-api/src").is_dir():
     raise SystemExit(f"invalid CrowdRelay checkout: {CROWDRELAY}")
 
+AREA = (ROOT / "crates/control-plane-api/src/area_routes.rs").read_text(encoding="utf-8")
 CONTROL_FILES = [
     ROOT / "crates/control-plane-api/src/area_routes.rs",
     ROOT / "crates/control-plane-api/src/operations_routes.rs",
@@ -26,12 +27,22 @@ upstream_text = "\n".join(
 )
 
 def route_literals(text: str) -> set[str]:
-    return set(re.findall(r'"(/v1/control-plane/[^"?]+)(?:\?[^\"]*)?"', text))
+    return {
+        path
+        for path in re.findall(r'"(/v1/control-plane/[^"?]+)(?:\?[^\"]*)?"', text)
+        if "{suffix}" not in path
+    }
 
 def normalized(path: str) -> str:
     return re.sub(r"\{[^}/]+\}", "{}", path.rstrip("/"))
 
 control_routes = {normalized(path) for path in route_literals(control_text)}
+# AREA dynamic calls share one validated helper; derive the concrete route
+# families from every suffix used at its call sites instead of treating the
+# helper's `{suffix}` implementation string as an upstream endpoint.
+for suffix in re.findall(r'drop_path\([^,]+,\s*"([^"]*)"\)', AREA):
+    control_routes.add(normalized(f"/v1/control-plane/area/drops/{{drop_id}}{suffix}"))
+
 upstream_routes = {normalized(path) for path in route_literals(upstream_text)}
 missing_source = sorted(path for path in control_routes if path not in upstream_routes)
 if missing_source:
