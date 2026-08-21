@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { fetchOperationsAttention } from '../lib/attention'
 import type { DeliveryDetails, OperationsSummary, TenantSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 
@@ -25,46 +26,42 @@ const observed = (value: string | null) => {
 const shortId = (value: string) => value.length > 16 ? `${value.slice(0, 8)}…${value.slice(-6)}` : value
 
 function TenantAttention(props: { tenant: TenantSummary }) {
-  const summary = useQuery(() => ({
-    queryKey: ['tenant-operator-attention', props.tenant.slug],
-    queryFn: () => api.operationsSummary(props.tenant.slug),
-    enabled: props.tenant.status === 'active',
-    refetchInterval: 15_000,
-    refetchOnWindowFocus: false,
-    staleTime: 10_000,
-  }))
-  const deadOutbox = useQuery(() => ({
-    queryKey: ['tenant-dead-outbox', props.tenant.slug],
-    queryFn: () => api.deadOutbox(props.tenant.slug),
+  const attention = useQuery(() => ({
+    queryKey: ['tenant-operator-attention-snapshot', props.tenant.slug],
+    queryFn: () => fetchOperationsAttention(props.tenant.slug),
     enabled: props.tenant.status === 'active',
     refetchInterval: 30_000,
     refetchOnWindowFocus: false,
     staleTime: 20_000,
   }))
-  const deadDeliveries = useQuery(() => ({
-    queryKey: ['tenant-dead-deliveries', props.tenant.slug],
-    queryFn: () => api.deadDeliveries(props.tenant.slug),
-    enabled: props.tenant.status === 'active',
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: false,
-    staleTime: 20_000,
-  }))
-  const ecosystem = useQuery(() => ({
-    queryKey: ['tenant-ecosystem-overview', props.tenant.slug],
-    queryFn: () => api.ecosystemOverview(props.tenant.slug),
-    enabled: props.tenant.status === 'active',
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: false,
-    staleTime: 20_000,
-  }))
-  const findings = useQuery(() => ({
-    queryKey: ['tenant-reconciliation-findings', props.tenant.slug],
-    queryFn: () => api.reconciliationFindings(props.tenant.slug),
-    enabled: props.tenant.status === 'active',
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: false,
-    staleTime: 20_000,
-  }))
+
+  // Keep the rendering vocabulary local to this page while all five formerly
+  // independent polling reads now share one server-side snapshot request.
+  const summary = {
+    get data() { return attention.data?.summary },
+    get error() { return attention.error },
+    get isLoading() { return attention.isLoading },
+  }
+  const deadOutbox = {
+    get data() { return attention.data?.dead_outbox },
+    get error() { return attention.error },
+    get isLoading() { return attention.isLoading },
+  }
+  const deadDeliveries = {
+    get data() { return attention.data?.dead_deliveries },
+    get error() { return attention.error },
+    get isLoading() { return attention.isLoading },
+  }
+  const ecosystem = {
+    get data() { return attention.data?.ecosystem },
+    get error() { return attention.error },
+    get isLoading() { return attention.isLoading },
+  }
+  const findings = {
+    get data() { return attention.data?.findings },
+    get error() { return attention.error },
+    get isLoading() { return attention.isLoading },
+  }
 
   const [confirming, setConfirming] = createSignal(false)
   const [confirmingReconcile, setConfirmingReconcile] = createSignal(false)
@@ -75,13 +72,7 @@ function TenantAttention(props: { tenant: TenantSummary }) {
   const [timeline, setTimeline] = createSignal<Awaited<ReturnType<typeof api.operationTimeline>> | null>(null)
 
   const refreshMaintenance = async () => {
-    await Promise.all([
-      summary.refetch(),
-      deadOutbox.refetch(),
-      deadDeliveries.refetch(),
-      ecosystem.refetch(),
-      findings.refetch(),
-    ])
+    await attention.refetch()
   }
 
   const clearDead = async () => {
@@ -200,7 +191,7 @@ function TenantAttention(props: { tenant: TenantSummary }) {
     </div>
 
     <Show when={summary.error}>
-      <div class="error-card" role="alert">{summary.error instanceof Error ? summary.error.message : 'Operations summary unavailable'}</div>
+      <div class="error-card" role="alert">{summary.error instanceof Error ? summary.error.message : 'Operations attention snapshot unavailable'}</div>
     </Show>
 
     <Show when={summary.data}>{data => <>
@@ -263,7 +254,7 @@ function TenantAttention(props: { tenant: TenantSummary }) {
     </div>}</Show>
 
     <div class="section-title">
-      <div><span class="eyebrow">RECONCILIATION</span><h3>Ecosystem findings</h3><p>Canonical consistency pass across tenant operational state. Open findings refresh every 30 seconds.</p></div>
+      <div><span class="eyebrow">RECONCILIATION</span><h3>Ecosystem findings</h3><p>Canonical consistency pass across tenant operational state. The consolidated attention snapshot refreshes every 30 seconds.</p></div>
       <button class={confirmingReconcile() ? 'danger-ghost' : 'ghost'} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Potwierdź reconciliation' : 'Run reconciliation'}</button>
     </div>
     <Show when={ecosystem.data}><div class="operations-metrics">
@@ -300,7 +291,7 @@ export function OperatorAttentionPage() {
       <div>
         <span class="eyebrow">OPERATIONS</span>
         <h1>Operator Attention</h1>
-        <p>Tenant-scoped incidents, observability and bounded maintenance. Fast telemetry refreshes every 15 seconds; dead-item and reconciliation reads every 30 seconds; details and timelines are on-demand.</p>
+        <p>Tenant-scoped incidents, observability and bounded maintenance. One consolidated snapshot refreshes every 30 seconds; details and timelines remain on-demand.</p>
       </div>
     </div>
     <Show when={tenants.error}><div class="error-card" role="alert">{tenants.error instanceof Error ? tenants.error.message : 'Tenant registry unavailable'}</div></Show>

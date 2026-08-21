@@ -16,6 +16,15 @@ services:
       VIRYA_AREA_UPSTREAM: ${VIRYA_AREA_UPSTREAM:?VIRYA_AREA_UPSTREAM required}
     volumes:
       - ./deploy/virya-area-tunnel.Caddyfile:/etc/caddy/Caddyfile:ro
+    healthcheck:
+      # Probe through the local Caddy tunnel and the Oracle management proxy
+      # all the way to CrowdRelay API readiness. A merely-running sidecar is
+      # not sufficient for deploy convergence.
+      test: ["CMD-SHELL", "wget -q -T 3 -O /dev/null http://127.0.0.1:18080/healthz/ready"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 2s
     read_only: true
     tmpfs:
       - /data

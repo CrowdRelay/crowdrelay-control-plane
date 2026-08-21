@@ -41,7 +41,7 @@ REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 [[ -n "$REPO" ]] || fail 'cannot resolve GitHub repository'
 
 wait_for_ci() {
-  local deadline run_id last_notice
+  local deadline run_id last_notice artifact_dir release_sha digest
   deadline=$((SECONDS + WAIT_SECONDS))
   run_id=""
   last_notice=0
@@ -52,6 +52,28 @@ wait_for_ci() {
       printf 'CI_RUN=%s\n' "$run_id"
       gh run watch "$run_id" --repo "$REPO" --exit-status
       printf 'CI=PASS sha=%s\n' "$TARGET"
+
+      artifact_dir="$(mktemp -d)"
+      if ! gh run download "$run_id" --repo "$REPO" \
+        --name "control-plane-image-digest-${TARGET}" --dir "$artifact_dir"; then
+        rm -rf -- "$artifact_dir"
+        fail "validated CI run is missing immutable image digest artifact for $TARGET"
+      fi
+      [[ -f "$artifact_dir/image.env" && -f "$artifact_dir/image.env.sha256" ]] || {
+        rm -rf -- "$artifact_dir"
+        fail 'image digest artifact is incomplete'
+      }
+      (cd "$artifact_dir" && sha256sum -c image.env.sha256 >/dev/null) || {
+        rm -rf -- "$artifact_dir"
+        fail 'image digest artifact checksum failed'
+      }
+      release_sha="$(sed -n 's/^CONTROL_PLANE_RELEASE_SHA=//p' "$artifact_dir/image.env")"
+      digest="$(sed -n 's/^CONTROL_PLANE_IMAGE_DIGEST=//p' "$artifact_dir/image.env")"
+      rm -rf -- "$artifact_dir"
+      [[ "$release_sha" == "$TARGET" ]] || fail "digest artifact SHA mismatch: got=$release_sha expected=$TARGET"
+      [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "invalid immutable image digest: $digest"
+      export CONTROL_PLANE_IMAGE_DIGEST="$digest"
+      printf 'CI_IMAGE=PASS sha=%s digest=%s\n' "$TARGET" "$digest"
       return 0
     fi
     if (( SECONDS - last_notice >= 15 )); then
@@ -99,8 +121,8 @@ print("CONTROL_PLANE_RECOVERY_PREFLIGHT=PASS management_wiring=complete")
 compose up -d --no-deps --force-recreate app virya-area-tunnel
 for _ in $(seq 1 60); do
   app_state="$(docker inspect crowdrelay-control-plane-app-1 --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
-  tunnel_state="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{.State.Status}}' 2>/dev/null || true)"
-  if [[ ( "$app_state" == "healthy" || "$app_state" == "running" ) && "$tunnel_state" == "running" ]]; then
+  tunnel_state="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
+  if [[ ( "$app_state" == "healthy" || "$app_state" == "running" ) && ( "$tunnel_state" == "healthy" || "$tunnel_state" == "running" ) ]]; then
     printf 'CONTROL_PLANE_RELEASE_UNIT_REPAIR=PASS app=%s tunnel=%s preflight=complete\n' "$app_state" "$tunnel_state"
     exit 0
   fi
@@ -118,7 +140,8 @@ for command in docker curl python3 grep; do command -v "$command" >/dev/null 2>&
 app="crowdrelay-control-plane-app-1"
 tunnel="crowdrelay-control-plane-virya-area-tunnel-1"
 [[ "$(docker inspect "$app" --format '{{.State.Status}}' 2>/dev/null || true)" == "running" ]] || fail 'Control Plane app is not running'
-[[ "$(docker inspect "$tunnel" --format '{{.State.Status}}' 2>/dev/null || true)" == "running" ]] || fail 'Control Plane tunnel is not running'
+tunnel_state="$(docker inspect "$tunnel" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
+[[ "$tunnel_state" == "healthy" || "$tunnel_state" == "running" ]] || fail "Control Plane tunnel is not ready: $tunnel_state"
 app_id="$(docker inspect "$app" --format '{{.Id}}')"
 network_mode="$(docker inspect "$tunnel" --format '{{.HostConfig.NetworkMode}}')"
 [[ "$network_mode" == "container:${app_id}" ]] || fail "Control Plane tunnel namespace drift: $network_mode"
@@ -185,6 +208,7 @@ printf '==> Preflight Virya management credential parity before release gates\n'
 bash "$CREDENTIAL_GATE" --check || fail 'management credential preflight failed; run make bootstrap-management before deploy'
 
 wait_for_ci
+[[ -n "${CONTROL_PLANE_IMAGE_DIGEST:-}" ]] || fail 'CI did not provide CONTROL_PLANE_IMAGE_DIGEST'
 [[ "$(git rev-parse HEAD)" == "$TARGET" ]] || fail 'local HEAD moved while waiting for CI'
 [[ -z "$(git status --porcelain --untracked-files=normal)" ]] || fail 'local worktree changed while waiting for CI'
 REMOTE_MAIN="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
@@ -203,4 +227,4 @@ else
   verify_live_tunnel || fail 'Control Plane deploy left the tunnel unhealthy'
 fi
 (( deploy_status == 0 )) || exit "$deploy_status"
-printf 'MAKE_DEPLOY=PASS repo=crowdrelay-control-plane sha=%s tunnel=healthy credentials=matched\n' "$TARGET"
+printf 'MAKE_DEPLOY=PASS repo=crowdrelay-control-plane sha=%s digest=%s tunnel=healthy credentials=matched\n' "$TARGET" "$CONTROL_PLANE_IMAGE_DIGEST"
