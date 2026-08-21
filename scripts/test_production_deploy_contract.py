@@ -12,6 +12,7 @@ AREA_COMPOSE = ROOT / "deploy/compose.area.production.yml"
 CADDYFILE = ROOT / "deploy/virya-area-tunnel.Caddyfile"
 CONFIG = ROOT / "crates/control-plane-api/src/config.rs"
 OPERATIONS = ROOT / "crates/control-plane-api/src/operations_routes.rs"
+CI = ROOT / ".github/workflows/ci.yml"
 
 
 class ProductionDeployContract(unittest.TestCase):
@@ -19,16 +20,30 @@ class ProductionDeployContract(unittest.TestCase):
         subprocess.run(["bash", "-n", str(SCRIPT)], check=True)
         subprocess.run(["bash", "-n", str(WRAPPER)], check=True)
 
-    def test_mac_deploy_is_exact_and_fail_closed(self):
+    def test_mac_deploy_is_exact_registry_based_and_fail_closed(self):
         text = SCRIPT.read_text()
         self.assertIn('CONTROL_PLANE_DEPLOY_HOST:-virya-home', text)
         self.assertIn('production deploy must run from main', text)
         self.assertIn('origin/main mismatch', text)
+        self.assertIn('CONTROL_PLANE_IMAGE_DIGEST', text)
+        self.assertIn('ghcr.io/wojciechbator/crowdrelay-control-plane', text)
+        self.assertIn('docker pull "$registry_ref"', text)
+        self.assertIn('remote OCI revision mismatch', text)
+        self.assertIn('remote image architecture mismatch', text)
+        self.assertNotIn('docker buildx build', text)
+        self.assertNotIn('docker save -o', text)
+        self.assertNotIn('docker load -i', text)
+
+    def test_ci_publishes_exact_main_image_and_digest_artifact(self):
+        text = CI.read_text()
+        self.assertIn('packages: write', text)
+        self.assertIn('ghcr.io/${GITHUB_REPOSITORY_OWNER}/crowdrelay-control-plane:sha-${GITHUB_SHA}', text)
         self.assertIn('--platform linux/amd64', text)
-        self.assertIn('--build-arg "VCS_REF=$TARGET"', text)
-        self.assertIn('docker save -o', text)
-        self.assertIn('scp -q', text)
-        self.assertIn('sudo bash -s', text)
+        self.assertIn('--build-arg "VCS_REF=${GITHUB_SHA}"', text)
+        self.assertIn('--push', text)
+        self.assertIn('CONTROL_PLANE_IMAGE_DIGEST=', text)
+        self.assertIn('control-plane-image-digest-${{ github.sha }}', text)
+        self.assertIn('actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02', text)
 
     def test_wrapper_checks_release_identity_before_remote_mutation(self):
         text = WRAPPER.read_text()
@@ -57,8 +72,7 @@ class ProductionDeployContract(unittest.TestCase):
         self.assertIn('effective app config is missing CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY', text)
         self.assertIn('effective app config is missing CONTROL_PLANE_MANAGEMENT_MASTER_KEY', text)
         self.assertIn('effective app config has invalid CONTROL_PLANE_VIRYA_MANAGEMENT_URL', text)
-        self.assertNotIn("grep -Fq 'CONTROL_PLANE_MANAGEMENT_MASTER_KEY' compose.production.yml", text)
-        self.assertNotIn("grep -Fq 'CONTROL_PLANE_VIRYA_MANAGEMENT_URL' compose.production.yml", text)
+        self.assertIn('effective management masters must be distinct', text)
 
     def test_rollback_is_armed_before_first_runtime_file_mutation(self):
         text = SCRIPT.read_text()
@@ -73,7 +87,7 @@ class ProductionDeployContract(unittest.TestCase):
         self.assertIn("install_canonical_infra", restore)
         self.assertNotIn('backup_dir/compose.area.yml', restore)
         self.assertNotIn('backup_dir/virya-area-tunnel.Caddyfile', restore)
-        self.assertIn('ROLLBACK=PASS restored_tag=%s health=%s canonical_infra=true', text)
+        self.assertIn('ROLLBACK=PASS restored_tag=%s app=%s tunnel=%s canonical_infra=true', text)
         self.assertIn('verify_tunnel_contract', text)
 
     def test_caddy_preflight_is_pinned_and_does_not_require_existing_tunnel(self):
@@ -89,9 +103,11 @@ class ProductionDeployContract(unittest.TestCase):
         self.assertIn('CADDY_PREFLIGHT=PASS source=canonical image=pinned', preflight)
         self.assertNotIn('docker inspect crowdrelay-control-plane-virya-area-tunnel-1', preflight)
 
-    def test_tunnel_verification_avoids_pipefail_grep_race(self):
+    def test_tunnel_verification_uses_health_and_avoids_pipefail_grep_race(self):
         text = SCRIPT.read_text()
         verify = text.split("verify_tunnel_contract()", 1)[1].split("rollback()", 1)[0]
+        self.assertIn("tunnel_health", verify)
+        self.assertIn('[[ "$tunnel_health" == "healthy" ]]', verify)
         self.assertIn('cmp -s <(docker exec crowdrelay-control-plane-virya-area-tunnel-1 cat /etc/caddy/Caddyfile)', verify)
         self.assertIn('runtime_caddy="$(docker exec crowdrelay-control-plane-virya-area-tunnel-1 cat /etc/caddy/Caddyfile)"', verify)
         self.assertIn('grep -Fq "$route" <<<"$runtime_caddy"', verify)
@@ -106,12 +122,14 @@ class ProductionDeployContract(unittest.TestCase):
         self.assertIn('CONTROL_PLANE_VIRYA_MANAGEMENT_URL', text)
         self.assertIn('http://127.0.0.1:18080', text)
 
-    def test_deploy_has_rollback_and_e2e_gate(self):
+    def test_deploy_has_rollback_readiness_and_e2e_gate(self):
         text = SCRIPT.read_text()
         self.assertIn('ROLLBACK=START', text)
         self.assertIn('ROLLBACK=PASS', text)
         self.assertIn('restore_release_state', text)
+        self.assertIn('wait_for_tunnel', text)
         self.assertIn('/api/v1/tenants/virya/operations/summary', text)
+        self.assertIn('/api/v1/tenants/virya/operations/attention', text)
         self.assertIn('operations summary is not an object', text)
         self.assertIn('http.p95_ms missing', text)
         self.assertIn('CONTROL_PLANE_DEPLOY=PASS', text)
@@ -121,7 +139,7 @@ class ProductionDeployContract(unittest.TestCase):
         self.assertIn('ARG VCS_REF=unknown', dockerfile)
         self.assertIn('LABEL org.opencontainers.image.revision=$VCS_REF', dockerfile)
 
-    def test_canonical_tunnel_config_is_source_controlled(self):
+    def test_canonical_tunnel_config_is_source_controlled_and_healthy(self):
         area = AREA_COMPOSE.read_text()
         caddy = CADDYFILE.read_text()
         self.assertIn('CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY', area)
@@ -131,6 +149,9 @@ class ProductionDeployContract(unittest.TestCase):
         self.assertIn('VIRYA_AREA_UPSTREAM required', area)
         self.assertIn('NET_BIND_SERVICE', area)
         self.assertIn('virya-area-tunnel.Caddyfile:/etc/caddy/Caddyfile:ro', area)
+        self.assertIn('healthcheck:', area)
+        self.assertIn('http://127.0.0.1:18080/healthz/ready', area)
+        self.assertIn('/healthz/ready', caddy)
         self.assertIn('/v1/control-plane/ops/summary', caddy)
         self.assertIn('/v1/control-plane/ecosystem/flags', caddy)
         self.assertIn('/v1/control-plane/autopilot/overview', caddy)
