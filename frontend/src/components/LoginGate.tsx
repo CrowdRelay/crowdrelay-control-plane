@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 
 export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
-  const [username, setUsername] = createSignal('operator')
+  const [username, setUsername] = createSignal('')
   const [password, setPassword] = createSignal('')
   const [busy, setBusy] = createSignal(false)
   const [error, setError] = createSignal('')
