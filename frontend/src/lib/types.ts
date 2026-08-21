@@ -130,16 +130,150 @@ export type OperationsQueueSummary = {
   oldest_pending_seconds: number
 }
 
+export type DatabaseRuntimeSummary = {
+  pool_size: number
+  pool_idle: number
+  pool_max: number
+  server_version_num: number
+  io_method: string | null
+  io_workers: number | null
+  io_max_concurrency: number | null
+  effective_io_concurrency: number | null
+  maintenance_io_concurrency: number | null
+  io_combine_limit_bytes: number | null
+  io_max_combine_limit_bytes: number | null
+  async_io_active: boolean
+}
+
+export type AreaRuntimeSummary = {
+  credits_total: number
+  vouchers_issued: number
+  stale_voucher_reservations: number
+  ticket_rewards_issued: number
+  stale_ticket_reward_reservations: number
+  legacy_imported_players: number
+}
+
 export type OperationsSummary = {
   outbox: OperationsQueueSummary
   deliveries: OperationsQueueSummary
   push: OperationsQueueSummary
   watchdog: { active_alerts: number; critical_alerts: number; last_observed_at: string | null }
   http: { requests: number; errors_4xx: number; errors_5xx: number; average_ms: number; p50_ms: number; p95_ms: number }
-  database: Record<string, unknown>
-  area: Record<string, number>
+  database: DatabaseRuntimeSummary
+  area: AreaRuntimeSummary
   schema_version: number
   release: string
+}
+
+export type OutboxItem = {
+  id: string
+  event_type: string
+  event_version: number
+  status: string
+  attempts: number
+  max_attempts: number
+  available_at: string
+  last_error_kind: string | null
+  created_at: string
+  updated_at: string
+  delivered_at: string | null
+  dead_at: string | null
+}
+
+export type DeliveryItem = {
+  id: string
+  outbox_event_id: string
+  event_type: string
+  endpoint_name: string
+  endpoint_active: boolean
+  status: string
+  attempt_count: number
+  max_attempts: number
+  available_at: string
+  last_response_status: number | null
+  last_error_kind: string | null
+  created_at: string
+  updated_at: string
+  delivered_at: string | null
+  dead_at: string | null
+}
+
+export type DeliveryAttempt = {
+  attempt_number: number
+  started_at: string
+  finished_at: string
+  outcome: string
+  response_status: number | null
+  error_kind: string | null
+  duration_ms: number
+}
+
+export type DeliveryDetails = { delivery: DeliveryItem; attempts: DeliveryAttempt[] }
+
+export type RetryResult = {
+  operation_id: string
+  target_type: string
+  target_id: string
+  status: string
+  replayed: boolean
+}
+
+export type OperationTimelineEvent = {
+  occurred_at: string
+  source: string
+  kind: string
+  status: string | null
+  target_type: string | null
+  target_id: string | null
+}
+
+export type OperationTimeline = { request_id: string; events: OperationTimelineEvent[] }
+
+export type ReconciliationRun = {
+  id: string
+  status: string
+  trigger: string
+  finding_count: number
+  started_at: string
+  finished_at: string | null
+}
+
+export type ReconciliationFinding = {
+  id: string
+  run_id: string
+  kind: string
+  severity: 'info' | 'warning' | 'critical' | string
+  entity_type: string
+  entity_id: string | null
+  entity_label: string | null
+  summary: string
+  suggested_action: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+  resolved_at: string | null
+}
+
+export type EcosystemOverview = {
+  schema_version: number
+  flags: FeatureFlag[]
+  last_reconciliation: ReconciliationRun | null
+  open_findings: number
+  next_event: { id: string; slug: string; title: string; venue: string | null; starts_at: string } | null
+  bandsintown_sync: {
+    last_synced_at: string | null
+    last_success_at: string | null
+    next_sync_at: string
+    consecutive_failures: number
+    last_error: string | null
+    in_progress: boolean
+  } | null
+}
+
+export type ReconciliationResult = {
+  run: ReconciliationRun
+  findings: ReconciliationFinding[]
+  replayed: boolean
 }
 
 export type FeatureFlag = {
