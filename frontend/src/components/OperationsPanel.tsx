@@ -129,9 +129,23 @@ function PolicyEditor(props: {
         <option value="bounded_auto">Bounded auto</option>
       </select>
     </label>
-    <label class="compact-field policy-number">
-      <span>Min confidence</span>
-      <div class="number-suffix"><input disabled={props.pending} type="number" min="0" max="100" step="1" value={confidence()} onInput={(event) => setConfidence(event.currentTarget.valueAsNumber)} /><b>%</b></div>
+    <label class="compact-field confidence-field">
+      <div class="confidence-field-head">
+        <span>Min confidence</span>
+        <strong>{Math.round(confidence())}%</strong>
+      </div>
+
+      <input
+        class="confidence-slider"
+        disabled={props.pending}
+        type="range"
+        min="0"
+        max="100"
+        step="1"
+        value={confidence()}
+        onInput={(event) => setConfidence(event.currentTarget.valueAsNumber)}
+        aria-label={`${contextLabel(props.policy.context)} minimum confidence`}
+      />
     </label>
     <label class="compact-field policy-number">
       <span>Max / 24h</span>

@@ -255,7 +255,7 @@ function TenantAttention(props: { tenant: TenantSummary }) {
 
     <div class="section-title">
       <div><span class="eyebrow">RECONCILIATION</span><h3>Ecosystem findings</h3><p>Canonical consistency pass across tenant operational state. The consolidated attention snapshot refreshes every 30 seconds.</p></div>
-      <button class={confirmingReconcile() ? 'danger-ghost' : 'ghost'} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Potwierdź reconciliation' : 'Run reconciliation'}</button>
+      <button class={confirmingReconcile() ? 'reconciliation-confirm' : 'ghost'} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Potwierdź reconciliation' : 'Run reconciliation'}</button>
     </div>
     <Show when={ecosystem.data}><div class="operations-metrics">
       <div><span>Open findings</span><strong>{ecosystem.data!.open_findings}</strong><small>reported by canonical overview</small></div>
@@ -274,7 +274,13 @@ function TenantAttention(props: { tenant: TenantSummary }) {
     </div>
     <Show when={timeline()}>{result => <div class="panel"><div class="section-title"><div><strong>{result().events.length} timeline event(s)</strong><small class="mono">{result().request_id}</small></div><button class="ghost" onClick={() => setTimeline(null)}>Close</button></div><For each={result().events}>{event => <div class="warning-card"><strong>{event.source} · {event.kind}</strong><p>{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'} · <span class="mono">{event.target_id ?? '—'}</span></p></div>}</For></div>}</Show>
 
-    <Show when={message()}>{text => <div class="warning-card" role="status">{text()}</div>}</Show>
+    <Show when={message()}>
+      {text => (
+        <div class="warning-card operator-message" role="status">
+          {text()}
+        </div>
+      )}
+    </Show>
   </article>
 }
 
