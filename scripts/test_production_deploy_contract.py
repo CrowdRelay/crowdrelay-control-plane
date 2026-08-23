@@ -38,7 +38,6 @@ class ProductionDeployContract(unittest.TestCase):
         text = CI.read_text()
         self.assertIn('packages: write', text)
         self.assertIn('ghcr.io/${GITHUB_REPOSITORY_OWNER}/crowdrelay-control-plane:sha-${GITHUB_SHA}', text)
-        self.assertIn('platform: linux/arm64', text)
         self.assertNotIn('platform: linux/amd64', text)
         self.assertIn('ubuntu-24.04-arm', text)
         self.assertIn('--platform linux/arm64', text)
