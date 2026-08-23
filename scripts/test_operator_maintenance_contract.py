@@ -9,7 +9,7 @@ CADDY = (ROOT / "deploy/virya-area-tunnel.Caddyfile").read_text()
 API = (ROOT / "frontend/src/lib/api.ts").read_text()
 ATTENTION_API = (ROOT / "frontend/src/lib/attention.ts").read_text()
 TYPES = (ROOT / "frontend/src/lib/types.ts").read_text()
-UI = (ROOT / "frontend/src/pages/OperatorAttentionPage.tsx").read_text()
+UI = (ROOT / "frontend/src/pages/TenantAttentionPage.tsx").read_text()
 OPERATIONS_PANEL = (ROOT / "frontend/src/components/OperationsPanel.tsx").read_text()
 
 

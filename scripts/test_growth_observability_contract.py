@@ -20,7 +20,8 @@ client = read("crates/control-plane-api/src/tenant_area_client.rs")
 api = read("frontend/src/lib/api.ts")
 types = read("frontend/src/lib/types.ts")
 panel = read("frontend/src/components/GrowthPanel.tsx")
-tenant = read("frontend/src/pages/TenantPage.tsx")
+operations = read("frontend/src/pages/TenantOperationsPage.tsx")
+read_models = read("crates/control-plane-api/src/read_models.rs")
 
 # The proxy route stays off the /autopilot/{context} path: a static segment
 # there would shadow a policy context of the same name and answer 405.
@@ -36,8 +37,11 @@ growth_block = routes.split("async fn autopilot_growth", 1)[1].split("async fn "
 assert '"GET"' in growth_block
 assert "idempotency_key" not in growth_block
 
-assert "growthOverview" in api
-assert "operations/growth" in api
+# Growth is a section of the Operations subpage read model, not its own
+# browser request: the backend aggregates, the frontend orchestrates nothing.
+assert "tenantOperations" in api
+assert "operations/overview" in api
+assert '"/v1/control-plane/autopilot/growth"' in read_models
 for field in ("stalled", "pending_count", "claimed_count", "campaigns_enabled"):
     assert field in types, field
 
@@ -52,8 +56,8 @@ for template in (
 ):
     assert template in panel, template
 
-assert "<GrowthPanel" in tenant
-assert "GrowthPanel } from '../components/GrowthPanel'" in tenant
+assert "<GrowthPanel" in operations
+assert "GrowthPanel } from '../components/GrowthPanel'" in operations
 
 print(
     "CONTROL_PLANE_GROWTH=PASS surface=delivery-ledger states=stalled+disabled+idle"

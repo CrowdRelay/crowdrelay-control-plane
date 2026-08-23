@@ -13,14 +13,21 @@ class OperatorAttentionContract(unittest.TestCase):
     def test_operator_attention_surface_is_routed_and_live(self) -> None:
         main = read("frontend/src/main.tsx")
         shell = read("frontend/src/components/Shell.tsx")
-        page = read("frontend/src/pages/OperatorAttentionPage.tsx")
+        page = read("frontend/src/pages/TenantAttentionPage.tsx")
+        index = read("frontend/src/pages/OperatorAttentionPage.tsx")
         api = read("frontend/src/lib/api.ts")
         attention = read("frontend/src/lib/attention.ts")
         route = read("crates/control-plane-api/src/attention_routes.rs")
 
         self.assertIn("path: '/attention'", main)
         self.assertIn("OperatorAttentionPage", main)
+        self.assertIn("path: '/tenants/$slug/attention'", main)
+        self.assertIn("TenantAttentionPage", main)
         self.assertIn('to="/attention"', shell)
+        # The index lists tenants; the snapshot belongs to the subpage, so the
+        # index must never fetch one snapshot per row.
+        self.assertNotIn("fetchOperationsAttention", index)
+        self.assertIn('to="/tenants/$slug/attention"', index)
         self.assertIn("Operator attention required", page)
         self.assertIn("Dead outbox", page)
         self.assertIn("Dead deliveries", page)

@@ -5,6 +5,7 @@ mod config;
 mod error;
 mod model;
 mod operations_routes;
+mod read_models;
 mod routes;
 mod runtime_routes;
 mod store;
@@ -109,6 +110,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(area_routes::router())
         .merge(attention_routes::router())
         .merge(operations_routes::router())
+        .merge(read_models::router())
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth::require_admin,

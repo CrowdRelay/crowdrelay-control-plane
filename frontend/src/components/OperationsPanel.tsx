@@ -1,7 +1,6 @@
 import { For, Show, createEffect, createSignal } from 'solid-js'
-import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, FeatureFlag, OperationsSummary, RuntimeHealth } from '../lib/types'
+import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, FeatureFlag, OperationsSummary } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 
 const errorMessage = (value: unknown, fallback: string) => value instanceof Error ? value.message : fallback
@@ -164,38 +163,33 @@ function PolicyEditor(props: {
   </div>
 }
 
-export function OperationsPanel(props: { slug: string; runtimeHealth: RuntimeHealth; enabled: boolean }) {
-  const summary = useQuery(() => ({
-    queryKey: ['tenant-operations-summary', props.slug],
-    queryFn: () => api.operationsSummary(props.slug),
-    enabled: props.enabled,
-    refetchInterval: 15_000,
-    refetchOnWindowFocus: false,
-    staleTime: 10_000,
-    // Counters only. Reconciling updates the numbers in place instead of
-    // replacing the metric tiles on every tick.
-    reconcile: 'id',
-  }))
-  const flags = useQuery(() => ({
-    queryKey: ['tenant-operations-flags', props.slug],
-    queryFn: () => api.featureFlags(props.slug),
-    enabled: props.enabled,
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: false,
-    staleTime: 20_000,
-    reconcile: 'key',
-  }))
-  const autopilot = useQuery(() => ({
-    queryKey: ['tenant-operations-autopilot', props.slug],
-    queryFn: () => api.autopilotOverview(props.slug),
-    enabled: props.enabled,
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: false,
-    staleTime: 20_000,
-    // No reconcile key: policies and release components are keyed differently
-    // inside one payload, and a single key would let Solid mis-pair rows of
-    // the list it does not key. Correct policy state beats DOM reuse here.
-  }))
+export function OperationsPanel(props: {
+  slug: string
+  summary: OperationsSummary | null | undefined
+  flags: FeatureFlag[] | null | undefined
+  autopilot: AutopilotOverview | null | undefined
+  degraded: readonly string[]
+  refresh: () => Promise<unknown>
+}) {
+  // The Operations subpage owns the one read-model request. This panel renders
+  // its `summary`, `flags` and `autopilot` sections and keeps each section's
+  // degraded state local, so a failed Autopilot read cannot blank the queue
+  // metrics beside it. Mutations stay on their own routes and refresh the model.
+  const degradedSection = (name: string) => props.degraded.includes(name)
+  const summary = {
+    get data() { return props.summary ?? undefined },
+    get error() { return degradedSection('summary') },
+  }
+  const flags = {
+    get data() { return props.flags ?? undefined },
+    get error() { return degradedSection('flags') },
+    refetch: () => props.refresh(),
+  }
+  const autopilot = {
+    get data() { return props.autopilot ?? undefined },
+    get error() { return degradedSection('autopilot') },
+    refetch: () => props.refresh(),
+  }
   const [pendingMutation, setPendingMutation] = createSignal<string | null>(null)
   const [mutationError, setMutationError] = createSignal<string | null>(null)
 
@@ -231,16 +225,10 @@ export function OperationsPanel(props: { slug: string; runtimeHealth: RuntimeHea
     <div class="section-title operations-title">
       <div><span class="eyebrow">OPERATIONS</span><h2>Health & controls</h2><p>Live CrowdRelay telemetry and bounded runtime controls. Changes are tenant-scoped and audited.</p></div>
       <div class="row-health">
-        <StatusBadge status={props.runtimeHealth} tone={props.runtimeHealth === 'healthy' ? 'good' : props.runtimeHealth === 'degraded' ? 'bad' : props.runtimeHealth === 'stale' ? 'warn' : 'muted'} />
         <StatusBadge status={operationalLabel(summary.data)} tone={operationalTone(summary.data)} />
       </div>
     </div>
 
-    <Show when={!props.enabled}>
-      <div class="inherit-card"><p>Operational controls become available after the tenant is active and its private management channel is configured.</p></div>
-    </Show>
-
-    <Show when={props.enabled}>
       <Show when={unavailable()}>
         <div class="warning-card operations-warning" role="status">
           Operational channel is partially unavailable. Existing tenant runtime telemetry remains visible above; private p95, feature and Autopilot controls will recover automatically.
@@ -266,7 +254,7 @@ export function OperationsPanel(props: { slug: string; runtimeHealth: RuntimeHea
           <div><span class="eyebrow">ECOSYSTEM RELEASE</span><h3>Production convergence</h3><p>Every expected production component reports its own release receipt. Missing or stale receipts stay visible until the component converges.</p></div>
           <StatusBadge status={releaseLabel(autopilot.data)} tone={releaseTone(autopilot.data)} />
         </div>
-        <Show when={autopilot.data?.release_ledger} fallback={<div class="mini-skeleton"/>}>{ledger => <>
+        <Show when={autopilot.data?.release_ledger} fallback={autopilot.error ? null : <div class="mini-skeleton"/>}>{ledger => <>
           <div class="autopilot-kpis">
             <div><strong>{ledger().components.length}</strong><span>reported components</span></div>
             <div><strong>{ledger().missing_components.length}</strong><span>missing</span></div>
@@ -315,7 +303,7 @@ export function OperationsPanel(props: { slug: string; runtimeHealth: RuntimeHea
       <div class="operations-split">
         <section class="operations-section">
           <div class="operations-section-head"><div><span class="eyebrow">FEATURES</span><h3>Runtime switches</h3></div><small>{flags.data?.length ?? 0} declared</small></div>
-          <Show when={flags.data} fallback={<div class="mini-skeleton"/>}>{items => <div class="flag-list">
+          <Show when={flags.data} fallback={flags.error ? null : <div class="mini-skeleton"/>}>{items => <div class="flag-list">
             <For each={items()}>{flag => <div class="flag-row">
               <div><strong>{flagLabel(flag.key)}</strong><small>{flag.reason || `v${flag.version} · no override reason`}</small></div>
               <button
@@ -336,7 +324,7 @@ export function OperationsPanel(props: { slug: string; runtimeHealth: RuntimeHea
             <div><span class="eyebrow">AUTOPILOT</span><h3>Authority policies</h3></div>
             <StatusBadge status={autopilot.data?.runtime_enabled ? 'runtime on' : 'runtime off'} tone={autopilot.data?.runtime_enabled ? 'good' : 'muted'} />
           </div>
-          <Show when={autopilot.data} fallback={<div class="mini-skeleton"/>}>{data => <>
+          <Show when={autopilot.data} fallback={autopilot.error ? null : <div class="mini-skeleton"/>}>{data => <>
             <div class="autopilot-kpis">
               <div><strong>{data().needs_you.length}</strong><span>needs you</span></div>
               <div><strong>{data().queued_actions}</strong><span>queued</span></div>
@@ -358,6 +346,5 @@ export function OperationsPanel(props: { slug: string; runtimeHealth: RuntimeHea
           </>}</Show>
         </section>
       </div>
-    </Show>
   </article>
 }

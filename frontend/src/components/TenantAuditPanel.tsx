@@ -1,33 +1,22 @@
-import { For, Show } from 'solid-js'
-import { useQuery } from '@tanstack/solid-query'
-import { api } from '../lib/api'
+import { For } from 'solid-js'
+import type { AuditEntry } from '../lib/types'
 
 const formatTimestamp = (value: string) => {
   const parsed = new Date(value)
   return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString()
 }
 
-export function TenantAuditPanel(props: { slug: string }) {
-  // Audit is telemetry, so its 15s tick belongs to this panel and not to the
-  // tenant page. `reconcile` keeps the existing rows and patches only the
-  // fields that actually changed; without it every poll replaced the whole
-  // list and rebuilt its DOM.
-  const audit = useQuery(() => ({
-    queryKey: ['tenant-audit', props.slug],
-    queryFn: () => api.audit(props.slug),
-    refetchInterval: 15_000,
-    refetchOnWindowFocus: false,
-    reconcile: 'id',
-  }))
-
+// Audit is a section of the tenant Overview read model, not its own request.
+// The subpage refreshes the whole model on one tick, so these rows are patched
+// in place rather than refetched separately.
+export function TenantAuditPanel(props: { items: AuditEntry[] }) {
   return <article class="panel">
     <span class="eyebrow">AUDIT</span><h2>Recent platform changes</h2>
-    <Show when={audit.error}><div class="inline-stale-note" role="status">Live refresh failed. Showing the last known audit entries.</div></Show>
-    <Show when={audit.data} fallback={!audit.error ? <div class="mini-skeleton"/> : null}>{data => <div class="audit-list">
-      <For each={data().items}>{item => <div class="audit-row">
+    <div class="audit-list">
+      <For each={props.items}>{item => <div class="audit-row">
         <div><strong>{item.action}</strong><small>{item.actor} · {formatTimestamp(item.createdAt)}</small></div>
         <code>{item.targetKind}</code>
       </div>}</For>
-    </div>}</Show>
+    </div>
   </article>
 }

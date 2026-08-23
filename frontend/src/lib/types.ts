@@ -391,3 +391,32 @@ export type GrowthOverview = {
   outreach: GrowthOutreachSummary
   campaigns: GrowthCampaignProgress[]
 }
+
+// Per-subpage read models. Each Control Plane tenant subpage loads exactly one
+// of these with one request; there is deliberately no combined tenant model, so
+// a field added for one subpage cannot grow another subpage's payload.
+
+export type TenantOverviewReadModel = {
+  id: string
+  tenant: TenantSummary
+  provisioning: { items: ProvisioningJob[] }
+  audit: { items: AuditEntry[] }
+  platform: {
+    runtimeStaleAfterSeconds: number
+    provisionerConfigured: boolean
+    provisionerDefaultImageTag: string | null
+  }
+}
+
+export type TenantOperationsSection = 'summary' | 'flags' | 'autopilot' | 'growth'
+
+export type TenantOperationsReadModel = {
+  id: string
+  summary: OperationsSummary | null
+  flags: FeatureFlag[] | null
+  autopilot: AutopilotOverview | null
+  growth: GrowthOverview | null
+  // Sections the tenant channel could not serve. They render as locally
+  // degraded instead of failing the whole subpage.
+  degraded: TenantOperationsSection[]
+}

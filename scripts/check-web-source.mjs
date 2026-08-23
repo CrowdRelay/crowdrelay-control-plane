@@ -26,9 +26,24 @@ collect(path.join(root, 'frontend/src'))
 const frontend = frontendFiles.join('\n')
 if (!main.includes('@tanstack/solid-query') || !main.includes('@tanstack/solid-router')) throw new Error('Solid Query/Router contract missing')
 if (/\b(?:window\.)?location\.reload\s*\(/.test(frontend) || /http-equiv\s*=\s*["']refresh/i.test(index)) throw new Error('Control Plane must never hard-reload the document for live data refresh')
-const tenantQuery = tenant.slice(tenant.indexOf('const tenant = useQuery'), tenant.indexOf('const overview = useQuery'))
-if (tenantQuery.includes('refetchInterval')) throw new Error('tenant identity/configuration query must not poll the whole detail page')
-if (!tenantQuery.includes('staleTime: Infinity') || !tenantQuery.includes('refetchOnWindowFocus: false') || !tenantQuery.includes('refetchOnReconnect: false')) throw new Error('tenant identity/configuration query must stay mounted and stable')
+// One purpose-built read model per tenant subpage, one initial request each.
+const operationsPage = fs.readFileSync(path.join(root, 'frontend/src/pages/TenantOperationsPage.tsx'), 'utf8')
+const attentionPage = fs.readFileSync(path.join(root, 'frontend/src/pages/TenantAttentionPage.tsx'), 'utf8')
+const readModels = fs.readFileSync(path.join(root, 'crates/control-plane-api/src/read_models.rs'), 'utf8')
+const subpages = { 'Overview': tenant, 'Operations': operationsPage, 'Attention': attentionPage }
+for (const [name, source] of Object.entries(subpages)) {
+  if ((source.match(/useQuery\(/g) ?? []).length !== 1) throw new Error(`${name} subpage must load from exactly one read-model query`)
+  if (!source.includes("reconcile: 'id'")) throw new Error(`${name} subpage must patch its read model in place instead of replacing it on refresh`)
+}
+if (!tenant.includes("queryKey: ['tenant-overview'") || !tenant.includes('api.tenantOverview(params().slug)')) throw new Error('tenant Overview read model missing')
+if (!operationsPage.includes("queryKey: ['tenant-operations'") || !operationsPage.includes('api.tenantOperations(params().slug)')) throw new Error('tenant Operations read model missing')
+if (!attentionPage.includes('fetchOperationsAttention(params().slug)')) throw new Error('tenant Attention read model missing')
+if (!readModels.includes('/tenants/{slug}/overview') || !readModels.includes('/tenants/{slug}/operations/overview')) throw new Error('backend subpage read models missing')
+if (!readModels.includes('tokio::join!') || !readModels.includes('degraded')) throw new Error('operations read model must fan out server-side and degrade section by section')
+// The Operator Attention index must stay an index: a snapshot per row is the
+// N+1 this split exists to remove.
+const attentionIndex = fs.readFileSync(path.join(root, 'frontend/src/pages/OperatorAttentionPage.tsx'), 'utf8')
+if (attentionIndex.includes('fetchOperationsAttention')) throw new Error('Operator Attention index must not fetch a snapshot per tenant row')
 if (tenant.includes('const runtimeTenant = useQuery')) throw new Error('TenantPage must not subscribe to the live runtime polling query')
 if (!tenant.includes('<TenantRuntimePanel') || !tenant.includes('initial={{ runtime: t.runtime, runtimeHealth: t.runtimeHealth }}')) throw new Error('runtime telemetry must live in an isolated child surface')
 if (!tenantRuntime.includes("queryKey: ['tenant-runtime', props.slug]") || !tenantRuntime.includes('api.tenantRuntime(props.slug)') || !tenantRuntime.includes('refetchInterval: 15_000')) throw new Error('runtime health must refresh through an isolated focused 15s query')
@@ -70,13 +85,14 @@ if (!types.includes('ReleaseLedgerOverview') || !types.includes('release_ledger:
 for (const token of ['ECOSYSTEM RELEASE', 'Production convergence', 'backend_sha_drift', 'executor_manifest_drift', 'missing_components', 'n8n_attestation_ready', 'team_email_live']) {
   if (!operations.includes(token)) throw new Error(`release convergence UI missing ${token}`)
 }
-const autopilotQuery = operations.slice(operations.indexOf('const autopilot = useQuery'), operations.indexOf('const [pendingMutation'))
-if (!autopilotQuery.includes('refetchInterval: 30_000') || !autopilotQuery.includes('refetchOnWindowFocus: false') || !autopilotQuery.includes('staleTime: 20_000')) throw new Error('Autopilot/release ledger polling must stay bounded')
+if (operations.includes('useQuery')) throw new Error('OperationsPanel must render the subpage read model, not fetch its own sections')
+if (!operationsPage.includes('refetchInterval: 15_000') || !operationsPage.includes('refetchOnWindowFocus: false') || !operationsPage.includes('staleTime: 10_000')) throw new Error('Operations subpage polling must stay bounded and local')
 if (!styles.includes('.form-grid input,.form-grid select,.form-grid textarea')) throw new Error('generic Control Plane selects must share dark form styling')
 if (!styles.includes('.warning-card + .form-grid{margin-top:16px}')) throw new Error('regional warning must not collide with form labels')
 if (!styles.includes(':focus-visible')) throw new Error('keyboard focus visibility regression')
 if (!tenant.includes('worker_readiness_timeout')) throw new Error('worker readiness failure must be actionable in tenant UI')
 if (!tenant.includes('tenant.error')) throw new Error('tenant detail must surface load failures instead of endless skeleton')
+if (!operationsPage.includes('model.isPending')) throw new Error('subpages must show a skeleton only before first data')
 if (!tenants.includes('tenants.error || overview.error')) throw new Error('tenant registry must surface query failures')
 
-console.log('CONTROL_PLANE_WEB_SOURCE=PASS auth=styled-edge-basic+tab-session refresh=child-scoped runtime-health=focused+server-authoritative release=ledger+reconciliation-ui provisioning=create+deploy+lifecycle')
+console.log('CONTROL_PLANE_WEB_SOURCE=PASS auth=styled-edge-basic+tab-session refresh=child-scoped runtime-health=focused+server-authoritative release=ledger+reconciliation-ui provisioning=create+deploy+lifecycle subpages=one-read-model-per-page')

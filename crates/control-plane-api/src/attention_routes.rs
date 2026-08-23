@@ -88,7 +88,7 @@ async fn attention(
     Ok((
         StatusCode::OK,
         [(CACHE_CONTROL, PRIVATE_NO_STORE)],
-        Json(project(&snapshot)?),
+        Json(project(&slug, &snapshot)?),
     )
         .into_response())
 }
@@ -99,7 +99,7 @@ async fn attention(
 /// addition enter the Control Plane contract without review, so each section is
 /// named and type-checked here exactly as the five-call version checked its
 /// five responses.
-fn project(snapshot: &Value) -> Result<Value, ApiError> {
+fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     expect_object(snapshot, "snapshot")?;
     let summary = section(snapshot, "summary")?;
     let dead_outbox = section(snapshot, "dead_outbox")?;
@@ -114,6 +114,9 @@ fn project(snapshot: &Value) -> Result<Value, ApiError> {
     expect_array(findings, "findings")?;
 
     Ok(json!({
+        // Stable identity so the browser patches this model in place on a
+        // refresh instead of replacing the whole subpage.
+        "id": slug,
         "summary": summary,
         "dead_outbox": dead_outbox,
         "dead_deliveries": dead_deliveries,
@@ -125,6 +128,12 @@ fn project(snapshot: &Value) -> Result<Value, ApiError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn expected_projection() -> Value {
+        let mut expected = snapshot();
+        expected["id"] = json!("virya");
+        expected
+    }
 
     fn snapshot() -> Value {
         json!({
@@ -138,16 +147,16 @@ mod tests {
 
     #[test]
     fn projects_every_section_of_a_well_formed_snapshot() {
-        let projected = project(&snapshot()).expect("well-formed snapshot projects");
-        assert_eq!(projected, snapshot());
+        let projected = project("virya", &snapshot()).expect("well-formed snapshot projects");
+        assert_eq!(projected, expected_projection());
     }
 
     #[test]
     fn drops_fields_the_control_plane_contract_does_not_name() {
         let mut extra = snapshot();
         extra["surprise_upstream_addition"] = json!({"leaked": true});
-        let projected = project(&extra).expect("unknown fields are ignored, not fatal");
-        assert_eq!(projected, snapshot());
+        let projected = project("virya", &extra).expect("unknown fields are ignored, not fatal");
+        assert_eq!(projected, expected_projection());
         assert!(projected.get("surprise_upstream_addition").is_none());
     }
 
@@ -162,7 +171,7 @@ mod tests {
         ] {
             let mut partial = snapshot();
             partial.as_object_mut().expect("object").remove(name);
-            let error = project(&partial).expect_err("missing section must fail");
+            let error = project("virya", &partial).expect_err("missing section must fail");
             assert!(
                 matches!(&error, ApiError::Unavailable(message) if message.contains(name)),
                 "{name} should be named in the error"
@@ -174,16 +183,16 @@ mod tests {
     fn rejects_a_section_of_the_wrong_json_type() {
         let mut wrong = snapshot();
         wrong["dead_outbox"] = json!({"not": "an array"});
-        assert!(project(&wrong).is_err());
+        assert!(project("virya", &wrong).is_err());
 
         let mut also_wrong = snapshot();
         also_wrong["summary"] = json!([]);
-        assert!(project(&also_wrong).is_err());
+        assert!(project("virya", &also_wrong).is_err());
     }
 
     #[test]
     fn rejects_a_snapshot_that_is_not_an_object() {
-        assert!(project(&json!([])).is_err());
-        assert!(project(&json!("degraded")).is_err());
+        assert!(project("virya", &json!([])).is_err());
+        assert!(project("virya", &json!("degraded")).is_err());
     }
 }

@@ -1,6 +1,4 @@
 import { For, Show } from 'solid-js'
-import { useQuery } from '@tanstack/solid-query'
-import { api } from '../lib/api'
 import type { GrowthCampaignProgress, GrowthOverview } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 
@@ -58,16 +56,15 @@ const progressPercent = (campaign: GrowthCampaignProgress) => {
   return Math.min(100, Math.round((done / campaign.recipient_count) * 100))
 }
 
-export function GrowthPanel(props: { slug: string; enabled: boolean }) {
-  const growth = useQuery(() => ({
-    queryKey: ['tenant-operations-growth', props.slug],
-    queryFn: () => api.growthOverview(props.slug),
-    enabled: props.enabled,
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: false,
-    staleTime: 20_000,
-    reconcile: 'campaign_id',
-  }))
+export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; degraded: boolean }) {
+  // The Operations subpage owns the single read-model request; this panel only
+  // renders its `growth` section. Keeping the rendering vocabulary as a small
+  // shim keeps the degraded path local: a failed growth section leaves the rest
+  // of the subpage intact.
+  const growth = {
+    get data() { return props.growth ?? undefined },
+    get error() { return props.degraded ? new Error('Growth delivery telemetry is temporarily unavailable.') : undefined },
+  }
 
   const totals = () => growth.data?.totals
   const outreach = () => growth.data?.outreach
@@ -82,11 +79,6 @@ export function GrowthPanel(props: { slug: string; enabled: boolean }) {
       <StatusBadge status={deliveryLabel(growth.data)} tone={deliveryTone(growth.data)} />
     </div>
 
-    <Show when={!props.enabled}>
-      <div class="inherit-card"><p>Growth delivery telemetry becomes available after the tenant is active and its private management channel is configured.</p></div>
-    </Show>
-
-    <Show when={props.enabled}>
       <Show when={growth.error}>
         <div class="warning-card operations-warning" role="status">
           {errorMessage(growth.error, 'Growth delivery telemetry is temporarily unavailable.')}
@@ -159,6 +151,5 @@ export function GrowthPanel(props: { slug: string; enabled: boolean }) {
           </Show>
         </section>
       </>}</Show>
-    </Show>
   </article>
 }

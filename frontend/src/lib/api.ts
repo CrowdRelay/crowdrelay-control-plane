@@ -1,11 +1,11 @@
 import { authState } from './auth'
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AutopilotOverview, AutopilotPolicy, DeliveryDetails, DeliveryItem, EcosystemOverview, FeatureFlag, GrowthOverview, OperationTimeline, OperationsSummary, OutboxItem, Palette, ProvisioningJob, ReconciliationFinding, ReconciliationResult, RegionalProfile, RetryResult, TenantRuntimeSnapshot, TenantSummary } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AutopilotOverview, AutopilotPolicy, DeliveryDetails, DeliveryItem, EcosystemOverview, FeatureFlag, GrowthOverview, OperationTimeline, OperationsSummary, OutboxItem, Palette, ProvisioningJob, ReconciliationFinding, ReconciliationResult, RegionalProfile, RetryResult, TenantOperationsReadModel, TenantOverviewReadModel, TenantRuntimeSnapshot, TenantSummary } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/v1${path}`, {
     ...init,
     credentials: 'same-origin',
@@ -59,6 +59,10 @@ export const api = {
     provisionerDefaultImageTag: string | null
   }>('/overview'),
   tenants: () => request<{ items: TenantSummary[] }>('/tenants'),
+  // One purpose-built read model per tenant subpage. The browser never
+  // orchestrates a fan-out to assemble a screen.
+  tenantOverview: (slug: string) => request<TenantOverviewReadModel>(`/tenants/${encodeURIComponent(slug)}/overview`),
+  tenantOperations: (slug: string) => request<TenantOperationsReadModel>(`/tenants/${encodeURIComponent(slug)}/operations/overview`),
   tenant: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}`),
   tenantRuntime: (slug: string) => request<TenantRuntimeSnapshot>(`/tenants/${encodeURIComponent(slug)}/runtime`),
   createTenant: (input: CreateTenantInput) =>
@@ -73,10 +77,7 @@ export const api = {
     request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/plan`, { method: 'POST', body: JSON.stringify({ desiredVersion: desiredVersion || undefined }) }),
   deployTenant: (slug: string, desiredVersion?: string) =>
     request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/deploy`, { method: 'POST', body: JSON.stringify({ desiredVersion: desiredVersion || undefined }) }),
-  provisioning: (slug: string) => request<{ items: ProvisioningJob[] }>(`/tenants/${encodeURIComponent(slug)}/provisioning`),
   cancelProvisioning: (slug: string) => request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/cancel`, { method: 'POST', body: '{}' }),
-  audit: (slug: string) => request<{ items: AuditEntry[] }>(`/tenants/${encodeURIComponent(slug)}/audit?limit=40`),
-  operationsSummary: (slug: string) => request<OperationsSummary>(`/tenants/${encodeURIComponent(slug)}/operations/summary`),
   deadOutbox: (slug: string) => request<OutboxItem[]>(`/tenants/${encodeURIComponent(slug)}/operations/outbox/dead`),
   retryOutbox: (slug: string, id: string) => request<RetryResult>(`/tenants/${encodeURIComponent(slug)}/operations/outbox/${encodeURIComponent(id)}/retry`, {
     method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() }, body: '{}',
@@ -95,13 +96,11 @@ export const api = {
   runReconciliation: (slug: string) => request<ReconciliationResult>(`/tenants/${encodeURIComponent(slug)}/operations/reconcile`, {
     method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() }, body: '{}',
   }),
-  featureFlags: (slug: string) => request<FeatureFlag[]>(`/tenants/${encodeURIComponent(slug)}/operations/flags`),
   setFeatureFlag: (slug: string, flag: FeatureFlag, enabled: boolean) => request<{flag: FeatureFlag; replayed: boolean}>(`/tenants/${encodeURIComponent(slug)}/operations/flags/${encodeURIComponent(flag.key)}`, {
     method: 'POST',
     headers: { 'idempotency-key': crypto.randomUUID() },
     body: JSON.stringify({ enabled, reason: 'Control Plane operator toggle', expected_version: flag.version }),
   }),
-  autopilotOverview: (slug: string) => request<AutopilotOverview>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot`),
   setAutopilotPolicy: (slug: string, policy: AutopilotPolicy, input: Pick<AutopilotPolicy, 'enabled'|'autonomy_level'|'minimum_confidence'|'max_actions_24h'>) => request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/${encodeURIComponent(policy.context)}`, {
     method: 'POST',
     headers: { 'idempotency-key': crypto.randomUUID() },
@@ -113,7 +112,6 @@ export const api = {
       expected_version: policy.version,
     }),
   }),
-  growthOverview: (slug: string) => request<GrowthOverview>(`/tenants/${encodeURIComponent(slug)}/operations/growth`),
   areaOverview: (slug: string) => request<AreaOverview>(`/tenants/${encodeURIComponent(slug)}/area`),
   areaSettings: (slug: string, enabled: boolean) => request<{enabled:boolean; entitled:boolean}>(`/tenants/${encodeURIComponent(slug)}/area/settings`, { method:'PATCH', body:JSON.stringify({enabled}) }),
   areaCities: (slug: string, q = '', limit = 30) => request<{items:AreaCity[]}>(`/tenants/${encodeURIComponent(slug)}/area/cities?q=${encodeURIComponent(q)}&limit=${limit}`),

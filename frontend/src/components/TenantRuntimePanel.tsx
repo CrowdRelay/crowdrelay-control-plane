@@ -20,6 +20,10 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
     queryKey: ['tenant-runtime', props.slug],
     queryFn: () => api.tenantRuntime(props.slug),
     initialData: props.initial,
+    // The subpage read model already carried this snapshot, so the first tick
+    // is 15s from mount rather than an immediate second request on page load.
+    initialDataUpdatedAt: Date.now(),
+    staleTime: 15_000,
     refetchInterval: 15_000,
     refetchOnWindowFocus: false,
     // Patch the snapshot in place. Solid Query replaces the whole result by
