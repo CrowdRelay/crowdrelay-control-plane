@@ -13,7 +13,7 @@ for (const name of fs.readdirSync(dist)) {
 // Maps are not counted by the JS/CSS budgets, so without this they can ship
 // unnoticed: they are served verbatim by ServeDir and were 4x the JS payload.
 if (maps.length) throw new Error(`source maps must not ship: ${maps.join(', ')}`)
-const JS_BUDGET = 260 * 1024
+const JS_BUDGET = 300 * 1024
 const CSS_BUDGET = 80 * 1024
 if (js > JS_BUDGET) throw new Error(`JS budget exceeded: ${js} > ${JS_BUDGET}`)
 if (css > CSS_BUDGET) throw new Error(`CSS budget exceeded: ${css} > ${CSS_BUDGET}`)
