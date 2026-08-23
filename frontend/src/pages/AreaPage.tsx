@@ -140,7 +140,7 @@ export function AreaPage() {
   const hardIssues = () => validation()?.issues.filter(issue => !issue.confirmationRequired) ?? []
   const toggleConfirmation = (code:string) => setConfirmations(current => current.includes(code) ? current.filter(item=>item!==code) : [...current,code])
 
-  return <section class="page area-page">
+  return <section class="page">
     <TenantSubnav slug={slug()} />
     <div class="page-head">
       <div><span class="eyebrow">TENANT / {slug().toUpperCase()} / AREA</span><h1>AREA Designer</h1><p>Draft, validate and publish tenant-scoped AREA locations. Exact claim coordinates stay on the private management path and never appear in list responses.</p></div>
