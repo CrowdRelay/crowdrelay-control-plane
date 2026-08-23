@@ -1,3 +1,0 @@
-# Tenant regionalization
-
-Control Plane is canonical for country, market region, locale, timezone, currency, date/number formatting and data region. Existing tenants are not silently backfilled: missing `regionalProfile` means legacy/unclassified. New deployments require explicit classification. UI presets persist values; they are not runtime inference. The US preset leaves timezone empty because the country spans multiple zones. `dataRegion` becomes immutable through ordinary editing and moves only through an explicit residency migration. Schema-4 jobs are claimable only by provisioners in the matching `eu` or `us` pool.
