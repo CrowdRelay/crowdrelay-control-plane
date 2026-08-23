@@ -7,6 +7,10 @@
 __pycache__/
 *.py[cod]
 
-# Local Claude Code context (not part of the product)
+# Local Claude Code context
 CLAUDE.md
 .claude/
+
+# Public docs are intentionally minimal; keep the integration contract canonical.
+docs/*
+!docs/INTEGRATION.md
