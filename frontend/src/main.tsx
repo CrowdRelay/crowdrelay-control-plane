@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/solid-query'
 import { RouterProvider, createRootRoute, createRoute, createRouter, lazyRouteComponent } from '@tanstack/solid-router'
 import { Shell } from './components/Shell'
 import './styles.css'
+import './ui-overrides.css'
 
 const OverviewPage = lazyRouteComponent(() => import('./pages/OverviewPage'), 'OverviewPage')
 const TenantsPage = lazyRouteComponent(() => import('./pages/TenantsPage'), 'TenantsPage')
