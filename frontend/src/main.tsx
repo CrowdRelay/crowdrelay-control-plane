@@ -21,6 +21,6 @@ const router = createRouter({ routeTree, defaultPreload: 'intent', defaultPreloa
 
 declare module '@tanstack/solid-router' { interface Register { router: typeof router } }
 
-const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 10_000, gcTime: 5 * 60_000, retry: 1, refetchOnWindowFocus: true } } })
+const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 10_000, gcTime: 5 * 60_000, retry: 1, refetchOnWindowFocus: true, refetchIntervalInBackground: true } } })
 
 render(() => <QueryClientProvider client={queryClient}><RouterProvider router={router} /></QueryClientProvider>, document.getElementById('app')!)

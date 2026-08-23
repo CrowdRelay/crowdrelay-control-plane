@@ -66,6 +66,7 @@ export function GrowthPanel(props: { slug: string; enabled: boolean }) {
     refetchInterval: 30_000,
     refetchOnWindowFocus: false,
     staleTime: 20_000,
+    reconcile: 'campaign_id',
   }))
 
   const totals = () => growth.data?.totals

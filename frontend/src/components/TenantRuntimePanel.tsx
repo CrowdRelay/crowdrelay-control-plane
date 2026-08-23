@@ -22,6 +22,9 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
     initialData: props.initial,
     refetchInterval: 15_000,
     refetchOnWindowFocus: false,
+    // Patch the snapshot in place. Solid Query replaces the whole result by
+    // default, which rebuilt this panel's DOM on every 15s tick.
+    reconcile: 'tenantId',
   }))
   const snapshot = () => runtime.data ?? props.initial
 

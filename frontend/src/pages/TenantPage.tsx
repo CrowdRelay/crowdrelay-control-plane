@@ -8,6 +8,7 @@ import { RegionalProfilePanel } from '../components/RegionalProfilePanel'
 import { OperationsPanel } from '../components/OperationsPanel'
 import { GrowthPanel } from '../components/GrowthPanel'
 import { TenantRuntimePanel } from '../components/TenantRuntimePanel'
+import { TenantAuditPanel } from '../components/TenantAuditPanel'
 
 const paletteFields: Array<keyof Palette> = ['primary','primaryContrast','accent','surface','surfaceElevated','text','textMuted','success','warning','danger']
 const defaultPalette: Palette = { primary:'#8b5cf6', primaryContrast:'#ffffff', accent:'#22d3ee', surface:'#0b0c0f', surfaceElevated:'#15171c', text:'#f7f7f8', textMuted:'#9ca3af', success:'#22c55e', warning:'#f59e0b', danger:'#ef4444' }
@@ -56,8 +57,16 @@ export function TenantPage() {
     refetchOnReconnect: false,
   }))
   const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview }))
-  const audit = useQuery(() => ({ queryKey: ['tenant-audit', params().slug], queryFn: () => api.audit(params().slug), refetchInterval: 15_000 }))
-  const provisioning = useQuery(() => ({ queryKey: ['tenant-provisioning', params().slug], queryFn: () => api.provisioning(params().slug), refetchInterval: 3_000 }))
+  // Audit polling is owned by its own panel. The page keeps only the
+  // provisioning query, which drives the deploy controls rendered here, and
+  // reconciles it so a tick patches the job in place instead of replacing it.
+  const provisioning = useQuery(() => ({
+    queryKey: ['tenant-provisioning', params().slug],
+    queryFn: () => api.provisioning(params().slug),
+    refetchInterval: 3_000,
+    refetchOnWindowFocus: false,
+    reconcile: 'id',
+  }))
   const [palette, setPalette] = createSignal<Palette>(defaultPalette)
   const [editingPalette, setEditingPalette] = createSignal(false)
   const [desiredVersion, setDesiredVersion] = createSignal('')
@@ -92,8 +101,8 @@ export function TenantPage() {
         <div><span class="eyebrow">TENANT / {t.slug.toUpperCase()}</span><h1>{t.displayName}</h1><p>{t.workspaceId ?? 'Workspace mapping pending'} · {t.defaultCountryCode}</p></div>
         <div class="row-health"><StatusBadge status={t.status} tone={t.status === 'active' ? 'good' : t.status === 'suspended' ? 'bad' : 'warn'} />{t.slug !== 'virya' && <button class="ghost" onClick={() => status.mutate(t.status === 'suspended' ? 'resume' : 'suspend')}>{t.status === 'suspended' ? 'Resume' : 'Suspend'}</button>}</div>
       </div>
-      <Show when={status.error || branding.error || plan.error || deploy.error || cancel.error || overview.error || audit.error || provisioning.error}>
-        <div class="error-card" role="alert">{errorMessage(status.error || branding.error || plan.error || deploy.error || cancel.error || overview.error || audit.error || provisioning.error, 'Control Plane operation failed')}</div>
+      <Show when={status.error || branding.error || plan.error || deploy.error || cancel.error || overview.error || provisioning.error}>
+        <div class="error-card" role="alert">{errorMessage(status.error || branding.error || plan.error || deploy.error || cancel.error || overview.error || provisioning.error, 'Control Plane operation failed')}</div>
       </Show>
       <div class="detail-grid">
         <TenantRuntimePanel slug={t.slug} initial={{ runtime: t.runtime, runtimeHealth: t.runtimeHealth }} />
@@ -148,7 +157,7 @@ export function TenantPage() {
         </Show>
       </article>
 
-      <article class="panel"><span class="eyebrow">AUDIT</span><h2>Recent platform changes</h2><div class="audit-list"><For each={audit.data?.items ?? []}>{item => <div class="audit-row"><div><strong>{item.action}</strong><small>{item.actor} · {new Date(item.createdAt).toLocaleString()}</small></div><code>{item.targetKind}</code></div>}</For></div></article>
+      <TenantAuditPanel slug={t.slug} />
     </>
   }}</Show></section>
 }

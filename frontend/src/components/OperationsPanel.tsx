@@ -158,6 +158,9 @@ export function OperationsPanel(props: { slug: string; runtimeHealth: RuntimeHea
     refetchInterval: 15_000,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
+    // Counters only. Reconciling updates the numbers in place instead of
+    // replacing the metric tiles on every tick.
+    reconcile: 'id',
   }))
   const flags = useQuery(() => ({
     queryKey: ['tenant-operations-flags', props.slug],
@@ -166,6 +169,7 @@ export function OperationsPanel(props: { slug: string; runtimeHealth: RuntimeHea
     refetchInterval: 30_000,
     refetchOnWindowFocus: false,
     staleTime: 20_000,
+    reconcile: 'key',
   }))
   const autopilot = useQuery(() => ({
     queryKey: ['tenant-operations-autopilot', props.slug],
@@ -174,6 +178,9 @@ export function OperationsPanel(props: { slug: string; runtimeHealth: RuntimeHea
     refetchInterval: 30_000,
     refetchOnWindowFocus: false,
     staleTime: 20_000,
+    // No reconcile key: policies and release components are keyed differently
+    // inside one payload, and a single key would let Solid mis-pair rows of
+    // the list it does not key. Correct policy state beats DOM reuse here.
   }))
   const [pendingMutation, setPendingMutation] = createSignal<string | null>(null)
   const [mutationError, setMutationError] = createSignal<string | null>(null)
