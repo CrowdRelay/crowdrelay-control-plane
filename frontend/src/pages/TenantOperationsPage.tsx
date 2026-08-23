@@ -4,7 +4,6 @@ import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { OperationsPanel } from '../components/OperationsPanel'
 import { GrowthPanel } from '../components/GrowthPanel'
-import { TenantSubnav } from '../components/TenantSubnav'
 
 export function TenantOperationsPage() {
   const params = useParams({ from: '/tenants/$slug/operations' })
@@ -24,7 +23,6 @@ export function TenantOperationsPage() {
   const refresh = () => model.refetch()
 
   return <section class="page">
-    <TenantSubnav slug={params().slug} />
     <div class="page-head">
       <div>
         <span class="eyebrow">TENANT / {params().slug.toUpperCase()}</span>

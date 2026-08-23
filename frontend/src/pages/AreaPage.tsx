@@ -5,7 +5,6 @@ import { ApiError, api } from '../lib/api'
 import type { AreaCity, AreaDropDraft, AreaStatus, AreaValidationResult } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { LocationCanvas } from '../components/area/LocationCanvas'
-import { TenantSubnav } from '../components/TenantSubnav'
 
 const statusTone = (status: AreaStatus) => status === 'LIVE' ? 'good' : status === 'SCHEDULED' || status === 'DRAFT' ? 'warn' : status === 'ARCHIVED' ? 'muted' : status === 'PAUSED' ? 'bad' : 'muted'
 const formatDate = (value: string) => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString() }
@@ -141,7 +140,6 @@ export function AreaPage() {
   const toggleConfirmation = (code:string) => setConfirmations(current => current.includes(code) ? current.filter(item=>item!==code) : [...current,code])
 
   return <section class="page">
-    <TenantSubnav slug={slug()} />
     <div class="page-head">
       <div><span class="eyebrow">TENANT / {slug().toUpperCase()} / AREA</span><h1>AREA Designer</h1><p>Draft, validate and publish tenant-scoped AREA locations. Exact claim coordinates stay on the private management path and never appear in list responses.</p></div>
       <div class="row-health"><Show when={overview.data}><StatusBadge status={overview.data!.enabled ? 'enabled' : 'disabled'} tone={overview.data!.enabled ? 'good' : 'muted'} /></Show></div>

@@ -5,7 +5,6 @@ import { api } from '../lib/api'
 import { fetchOperationsAttention } from '../lib/attention'
 import type { DeliveryDetails, OperationsSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
-import { TenantSubnav } from '../components/TenantSubnav'
 
 const totalDead = (summary: OperationsSummary) => summary.outbox.dead + summary.deliveries.dead + summary.push.dead
 const oldestQueueAge = (summary: OperationsSummary) => Math.max(
@@ -180,11 +179,10 @@ export function TenantAttentionPage() {
   }
 
   return <section class="page">
-    <TenantSubnav slug={params().slug} />
-    <div class="section-title">
+    <div class="page-head">
       <div>
         <span class="eyebrow">TENANT / {params().slug.toUpperCase()}</span>
-        <h2>Operator Attention</h2>
+        <h1>Operator Attention</h1>
         <p>Incidents, observability and bounded maintenance for this tenant. One consolidated snapshot refreshes every 30 seconds; details and timelines stay on demand.</p>
       </div>
       <Show when={summary.data} fallback={<StatusBadge status={summary.error ? 'unavailable' : 'loading'} tone={summary.error ? 'bad' : 'muted'} />}>

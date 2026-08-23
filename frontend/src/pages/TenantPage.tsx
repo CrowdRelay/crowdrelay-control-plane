@@ -7,7 +7,6 @@ import { StatusBadge } from '../components/StatusBadge'
 import { RegionalProfilePanel } from '../components/RegionalProfilePanel'
 import { TenantRuntimePanel } from '../components/TenantRuntimePanel'
 import { TenantAuditPanel } from '../components/TenantAuditPanel'
-import { TenantSubnav } from '../components/TenantSubnav'
 
 const paletteFields: Array<keyof Palette> = ['primary','primaryContrast','accent','surface','surfaceElevated','text','textMuted','success','warning','danger']
 const defaultPalette: Palette = { primary:'#8b5cf6', primaryContrast:'#ffffff', accent:'#22d3ee', surface:'#0b0c0f', surfaceElevated:'#15171c', text:'#f7f7f8', textMuted:'#9ca3af', success:'#22c55e', warning:'#f59e0b', danger:'#ef4444' }
@@ -92,7 +91,6 @@ export function TenantPage() {
     <Show when={!tenant.error && tenant.data} fallback={!tenant.error ? <div class="skeleton-block"/> : null}>{data => {
     const t = data()
     return <>
-      <TenantSubnav slug={t.slug} />
       <div class="page-head">
         <div><span class="eyebrow">TENANT / {t.slug.toUpperCase()}</span><h1>{t.displayName}</h1><p>{t.workspaceId ?? 'Workspace mapping pending'} · {t.defaultCountryCode}</p></div>
         <div class="row-health"><StatusBadge status={t.status} tone={t.status === 'active' ? 'good' : t.status === 'suspended' ? 'bad' : 'warn'} />{t.slug !== 'virya' && <button class="ghost" onClick={() => status.mutate(t.status === 'suspended' ? 'resume' : 'suspend')}>{t.status === 'suspended' ? 'Resume' : 'Suspend'}</button>}</div>
