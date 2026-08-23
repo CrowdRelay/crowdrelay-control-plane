@@ -2,6 +2,8 @@
 
 **Rust / Axum / SQLx / PostgreSQL + SolidJS operations plane** for tenant provisioning, runtime health, branding, deployment identity and audit.
 
+It answers one operator question: what tenants exist, what is actually running for each of them, and at which exact revision. Creating a tenant and approving its provisioning job commit together in one transaction; a separately authenticated host agent then claims that job under a lease and reports the terminal result back.
+
 It is deliberately separate from Virya Staff: infrastructure and tenant lifecycle live here, while band operations stay in the band-facing product. The Control Plane is **not** required for CrowdRelay/Signal request handling and therefore cannot become a runtime dependency of tenant traffic.
 
 ## Engineering snapshot
@@ -16,7 +18,16 @@ It is deliberately separate from Virya Staff: infrastructure and tenant lifecycl
 
 This is intentionally a small operations plane rather than a second distributed control system. PostgreSQL owns durable intent and lease state; the host provisioner owns local runtime mutation.
 
-## Product boundary
+## Features
+
+- tenant registry, with **Create & deploy** as an atomic database-boundary operation;
+- leased, crash-recoverable provisioning jobs — at most one `planned`/`approved`/`running` job per tenant;
+- server-side runtime freshness classified as `healthy`, `degraded`, `stale` or `unknown`;
+- per-tenant branding, defaulting to inherited product defaults;
+- deployment identity and audit, with audit reserved for first observation or meaningful health/schema/deployment changes;
+- tenant AREA/operations forwarding through server-only management keys and an explicit path allowlist.
+
+### Product boundary
 
 - CrowdRelay and Virya Signal are tenant products.
 - Virya is seeded as the platform-owner tenant.
@@ -24,40 +35,13 @@ This is intentionally a small operations plane rather than a second distributed 
 - Synesthesia is not tenantized; the database enforces `synesthesia_enabled => slug = 'virya'`.
 - Tenant traffic does not depend on the Control Plane being healthy.
 
-## Stack
-
-- Rust + Axum 0.8 + SQLx/PostgreSQL
-- SolidJS + TanStack Solid Router + TanStack Solid Query + Vite
-- One production binary serves `/api/v1/*` and the built SPA
-
-Axum's typed `State` model is used for global application state, while admin authorization is enforced at the request boundary. TanStack Solid Query owns server-state caching/refetching and TanStack Solid Router owns typed client navigation.
-
-## Tenant provisioning
-
-The Tenants screen can create a registry entry alone or use **Create & deploy**. The deployment variant is atomic at the database boundary: tenant row and approved provisioning job are persisted together.
-
-`deploy/provisioner.py` is a separately authenticated host agent. It:
-
-1. claims approved jobs with a lease;
-2. validates a fixed plan schema;
-3. renders a fixed tenant-isolated Docker Compose stack;
-4. creates per-tenant Postgres volume, setup/API/worker services and loopback-only API binding;
-5. keeps generated secrets host-local;
-6. reports success/failure and runtime health through explicit machine APIs.
-
-At most one `planned`/`approved`/`running` job may exist per tenant. Claims are leased and crash-recoverable. Completion is idempotent for identical results and fail-closed for contradictory terminal outcomes.
-
-The provisioner creates only the local CrowdRelay instance. Public DNS/edge routing is deliberately a separate infrastructure step.
-
-## Authorization boundaries
+### Authorization boundaries
 
 Operator routes require the platform admin authority. The production browser does **not** receive that token: it authenticates to Caddy with Basic Auth, then Caddy replaces the verified Basic header with the server-held admin bearer only for the localhost upstream.
 
-Runtime telemetry uses a different bearer and cannot mutate tenants. Provisioning uses a third bearer. Tenant AREA/operations forwarding uses separate server-only tenant management keys and an explicit allowlist of forwarded paths.
+Runtime telemetry uses a different bearer and cannot mutate tenants. Provisioning uses a third bearer. Tenant AREA/operations forwarding uses separate server-only tenant management keys and an explicit allowlist of forwarded paths. Configured secrets are hashed and compared in constant time.
 
-Configured secrets are hashed and compared in constant time.
-
-## Key API groups
+### Key API groups
 
 ```text
 /api/v1/overview
@@ -70,6 +54,16 @@ Configured secrets are hashed and compared in constant time.
 ```
 
 The exact route list and request/response shapes are implemented in the API crate and exercised by repository/contract tests.
+
+## Tech stack
+
+- Rust + Axum 0.8 + SQLx/PostgreSQL
+- SolidJS + TanStack Solid Router + TanStack Solid Query + Vite
+- One production binary serves `/api/v1/*` and the built SPA
+
+Axum's typed `State` model is used for global application state, while admin authorization is enforced at the request boundary. TanStack Solid Query owns server-state caching/refetching and TanStack Solid Router owns typed client navigation.
+
+`deploy/provisioner.py` is a separately authenticated host agent. It claims approved jobs with a lease, validates a fixed plan schema, renders a fixed tenant-isolated Docker Compose stack, creates the per-tenant Postgres volume plus setup/API/worker services with a loopback-only API binding, keeps generated secrets host-local, and reports success/failure and runtime health through explicit machine APIs. It creates only the local CrowdRelay instance; public DNS/edge routing is deliberately a separate infrastructure step.
 
 ## Local run
 
@@ -115,4 +109,4 @@ The Web production budget is intentionally small: 260 KiB raw JS and 80 KiB raw 
 
 ## Runtime freshness
 
-Runtime health is classified server-side as `healthy`, `degraded`, `stale` or `unknown`. `CONTROL_PLANE_RUNTIME_STALE_AFTER_SECONDS` defaults to 180 seconds, so a once-healthy tenant cannot remain green forever after its reporter dies. Heartbeat-only refreshes update status without appending audit noise; audit is reserved for first observation or meaningful health/schema/deployment changes.
+`CONTROL_PLANE_RUNTIME_STALE_AFTER_SECONDS` defaults to 180 seconds, so a once-healthy tenant cannot remain green forever after its reporter dies. Heartbeat-only refreshes update status without appending audit noise.
