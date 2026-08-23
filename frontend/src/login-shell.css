@@ -16,7 +16,7 @@
   width: 100% !important;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+  grid-template-columns: minmax(0, 1fr) minmax(390px, 460px);
   background:
     radial-gradient(circle at 35% 8%, #2a214455, transparent 34%),
     var(--login-bg);
@@ -366,7 +366,7 @@
 
 @media (max-width: 1120px) {
   .login-shell {
-    grid-template-columns: minmax(0, 1fr) minmax(330px, 390px);
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
   }
 
   .login-hero {
