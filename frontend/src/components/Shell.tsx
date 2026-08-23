@@ -11,7 +11,6 @@ export const Shell: Component = () => (
         <nav>
           <Link to="/" activeProps={{ class: 'active' }}>Overview</Link>
           <Link to="/tenants" activeProps={{ class: 'active' }}>Tenants</Link>
-          <Link to="/attention" activeProps={{ class: 'active' }}>Operator Attention</Link>
         </nav>
         <div class="sidebar-foot"><span class="auth-dot ok" />Operator session</div>
       </aside>

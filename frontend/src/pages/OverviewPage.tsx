@@ -19,7 +19,9 @@ export function OverviewPage() {
       <Match when={tenants.data}><div class="metric-grid">
         <article class="metric"><span>Tenants</span><strong>{tenants.data!.items.length}</strong></article>
         <article class="metric"><span>Healthy</span><strong>{count('healthy')}</strong></article>
-        <article class="metric"><span>Needs attention</span><strong>{count('degraded') + count('stale')}</strong></article>
+        {/* The platform-wide attention index is reached from the metric it
+            summarises; tenant-scoped attention lives on the tenant subnav. */}
+        <Link class="metric" to="/attention"><span>Needs attention</span><strong>{count('degraded') + count('stale')}</strong></Link>
       </div></Match>
     </Switch>
     <div class="section-title"><h2>Tenant pulse</h2><Link to="/tenants">Manage tenants →</Link></div>
