@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { fetchOperationsAttention } from '../lib/attention'
 import type { DeliveryDetails, OperationsSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
+import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
 
 const totalDead = (summary: OperationsSummary) => summary.outbox.dead + summary.deliveries.dead + summary.push.dead
 const oldestQueueAge = (summary: OperationsSummary) => Math.max(
@@ -193,6 +194,8 @@ export function TenantAttentionPage() {
       </Show>
     </div>
 
+    <WatchdogAlertsPanel alerts={attention.data?.alerts ?? []} slug={params().slug} />
+
     <Show when={summary.error}>
       <div class="error-card" role="alert">{summary.error instanceof Error ? summary.error.message : 'Operations attention snapshot unavailable'}</div>
     </Show>
@@ -231,7 +234,7 @@ export function TenantAttentionPage() {
       </div>
     </>}</Show>
 
-    <div class="section-title">
+    <div class="section-title" id="dead-outbox">
       <div><span class="eyebrow">DEAD OUTBOX</span><h3>Failed events</h3><p>Bounded to the 50 newest dead events. Retry is idempotent and uses the canonical CrowdRelay operator action.</p></div>
     </div>
     <Show when={deadOutbox.error}><div class="error-card">Dead outbox unavailable</div></Show>
@@ -240,7 +243,7 @@ export function TenantAttentionPage() {
     </div>}</For>
     <Show when={!deadOutbox.isLoading && (deadOutbox.data?.length ?? 0) === 0}><div class="inherit-card"><p>No dead outbox events.</p></div></Show>
 
-    <div class="section-title">
+    <div class="section-title" id="dead-deliveries">
       <div><span class="eyebrow">DEAD WEBHOOK DELIVERIES</span><h3>Delivery failures</h3><p>Open details to inspect bounded attempt history before retrying.</p></div>
       <button type="button" class={confirming() ? 'danger-ghost' : 'ghost'} disabled={(summary.data?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' ? 'Czyszczę…' : confirming() ? 'Potwierdź cleanup' : 'Usuń stare dead queues'}</button>
     </div>
@@ -257,7 +260,7 @@ export function TenantAttentionPage() {
     </div>}</Show>
 
     <div class="section-title">
-      <div><span class="eyebrow">RECONCILIATION</span><h3>Ecosystem findings</h3><p>Canonical consistency pass across tenant operational state. The consolidated attention snapshot refreshes every 30 seconds.</p></div>
+      <div id="reconciliation-findings"><span class="eyebrow">RECONCILIATION</span><h3>Ecosystem findings</h3><p>Canonical consistency pass across tenant operational state. The consolidated attention snapshot refreshes every 30 seconds.</p></div>
       <button class={confirmingReconcile() ? 'reconciliation-confirm' : 'ghost'} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Potwierdź reconciliation' : 'Run reconciliation'}</button>
     </div>
     <Show when={ecosystem.data}><div class="operations-metrics">

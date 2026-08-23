@@ -102,12 +102,17 @@ async fn attention(
 fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     expect_object(snapshot, "snapshot")?;
     let summary = section(snapshot, "summary")?;
+    // Optional on purpose: a CrowdRelay that predates the watchdog alert list
+    // still serves a valid snapshot, and an operator plane must not fail closed
+    // on a section the tenant simply does not publish yet.
+    let alerts = snapshot.get("alerts").cloned().unwrap_or_else(|| json!([]));
     let dead_outbox = section(snapshot, "dead_outbox")?;
     let dead_deliveries = section(snapshot, "dead_deliveries")?;
     let ecosystem = section(snapshot, "ecosystem")?;
     let findings = section(snapshot, "findings")?;
 
     expect_object(summary, "summary")?;
+    expect_array(&alerts, "alerts")?;
     expect_array(dead_outbox, "dead outbox")?;
     expect_array(dead_deliveries, "dead deliveries")?;
     expect_object(ecosystem, "ecosystem")?;
@@ -118,6 +123,7 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
         // refresh instead of replacing the whole subpage.
         "id": slug,
         "summary": summary,
+        "alerts": alerts,
         "dead_outbox": dead_outbox,
         "dead_deliveries": dead_deliveries,
         "ecosystem": ecosystem,
@@ -138,6 +144,7 @@ mod tests {
     fn snapshot() -> Value {
         json!({
             "summary": {"outbox": {"pending": 1}},
+            "alerts": [{"alert_key": "webhook.dead", "severity": "critical", "active": true}],
             "dead_outbox": [{"id": "a"}],
             "dead_deliveries": [],
             "ecosystem": {"schema_version": 1, "flags": []},
@@ -177,6 +184,22 @@ mod tests {
                 "{name} should be named in the error"
             );
         }
+    }
+
+    #[test]
+    fn defaults_alerts_to_an_empty_list_when_the_tenant_does_not_publish_them() {
+        let mut older = snapshot();
+        older.as_object_mut().expect("object").remove("alerts");
+        let projected = project("virya", &older).expect("a snapshot without alerts still projects");
+        assert_eq!(projected["alerts"], json!([]));
+    }
+
+    #[test]
+    fn rejects_alerts_that_are_not_a_list() {
+        let mut wrong = snapshot();
+        wrong["alerts"] = json!({"not": "an array"});
+        let error = project("virya", &wrong).expect_err("a non-array alert section must fail");
+        assert!(matches!(&error, ApiError::Unavailable(message) if message.contains("alerts")));
     }
 
     #[test]

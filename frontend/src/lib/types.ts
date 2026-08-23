@@ -166,6 +166,20 @@ export type OperationsSummary = {
   release: string
 }
 
+// One row of the CrowdRelay watchdog's alert state. `watchdog.active_alerts`
+// counts these; the list says which alert fired and on what evidence.
+export type OpsAlert = {
+  alert_key: string
+  severity: 'critical' | 'warning' | string
+  summary: string
+  active: boolean
+  first_seen_at: string
+  last_seen_at: string
+  last_alerted_at: string | null
+  recovered_at: string | null
+  details: Record<string, unknown>
+}
+
 export type OutboxItem = {
   id: string
   event_type: string
