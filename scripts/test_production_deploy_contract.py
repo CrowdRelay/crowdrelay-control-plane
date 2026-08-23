@@ -38,17 +38,17 @@ class ProductionDeployContract(unittest.TestCase):
         text = CI.read_text()
         self.assertIn('packages: write', text)
         self.assertIn('ghcr.io/${GITHUB_REPOSITORY_OWNER}/crowdrelay-control-plane:sha-${GITHUB_SHA}', text)
-        # Both production architectures must be built and merged into one
-        # release index; virya-crowdrelay is arm64 and virya-oracle is amd64.
-        for platform in ('linux/amd64', 'linux/arm64'):
-            self.assertIn(f'platform: {platform}', text)
+        self.assertIn('platform: linux/arm64', text)
+        self.assertNotIn('platform: linux/amd64', text)
         self.assertIn('ubuntu-24.04-arm', text)
-        self.assertIn('docker buildx imagetools create --tag', text)
+        self.assertIn('--platform linux/arm64', text)
         self.assertIn('--build-arg "VCS_REF=${GITHUB_SHA}"', text)
         self.assertIn('--push', text)
         self.assertIn('CONTROL_PLANE_IMAGE_DIGEST=', text)
         self.assertIn('control-plane-image-digest-${{ github.sha }}', text)
         self.assertIn('actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02', text)
+        self.assertNotIn('container-manifest:', text)
+        self.assertNotIn('docker buildx imagetools create --tag', text)
 
     def test_wrapper_checks_release_identity_before_remote_mutation(self):
         text = WRAPPER.read_text()
