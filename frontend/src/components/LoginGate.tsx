@@ -3,6 +3,7 @@ import type { Component, JSX } from 'solid-js'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { LoginHero } from './LoginHero'
+import '../login-shell.css'
 
 export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
   const [username, setUsername] = createSignal('')
