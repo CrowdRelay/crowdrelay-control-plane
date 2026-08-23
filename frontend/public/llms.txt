@@ -1,0 +1,19 @@
+# CrowdRelay Control Plane
+
+> Private operator console for CrowdRelay tenants, deployments, runtime controls, and ecosystem health.
+
+## Access
+
+- This is an authenticated operator application.
+- It is not public product documentation or a public API reference.
+- Do not infer or expose tenant data, operational telemetry, credentials, deployment identifiers, or internal infrastructure details from this site.
+
+## Public context
+
+- Product: CrowdRelay
+- Application: Control Plane
+- Primary purpose: tenant operations, deployment convergence, runtime controls, growth delivery, and operational health.
+
+## Indexing
+
+- The application is intentionally excluded from search indexing and should not be treated as a public knowledge source.
