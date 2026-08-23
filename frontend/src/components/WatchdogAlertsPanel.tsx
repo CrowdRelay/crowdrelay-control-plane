@@ -94,7 +94,7 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
         <div class="section-title">
           <div>
             <strong>{guide()?.title ?? alert.summary}</strong>
-            <small class="mono">{alert.alert_key}</small>
+            <small class="mono alert-key">{alert.alert_key}</small>
             <p>{alert.summary}. {guide()?.cause}</p>
           </div>
           <StatusBadge status={alert.severity} tone={alert.severity === 'critical' ? 'bad' : 'warn'} />
@@ -122,7 +122,7 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
     {/* Recovered rows stay for 24 hours so a cleared incident is visible as
         cleared rather than as an alert that silently disappeared. */}
     <Show when={recovered().length > 0}>
-      <div class="inherit-card">
+      <div class="inherit-card watchdog-recovered">
         <p><strong>Recovered in the last 24 hours</strong></p>
         <For each={recovered()}>{alert => <p><span class="mono">{alert.alert_key}</span> · {alert.summary} · recovered {formatTime(alert.recovered_at)}</p>}</For>
       </div>
