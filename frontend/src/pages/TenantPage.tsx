@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import type { Palette, ProvisioningJob } from '../lib/types'
+import { ReleaseConvergencePanel } from '../components/ReleaseConvergencePanel'
 import { StatusBadge } from '../components/StatusBadge'
 import { RegionalProfilePanel } from '../components/RegionalProfilePanel'
 import { TenantRuntimePanel } from '../components/TenantRuntimePanel'
@@ -17,10 +18,6 @@ const formatTimestamp = (value: string | null | undefined) => {
   const parsed = new Date(value)
   return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString()
 }
-// The provisioner reports machine-readable failure codes. An operator deciding
-// whether to retry needs to know which failures are safe to retry and which mean
-// the release itself is untrustworthy, so each code carries explicit guidance
-// rather than being surfaced as a bare identifier.
 const provisionFailures: Record<string, { title: string; guidance: string; retryable: boolean }> = {
   image_revision_mismatch: { title: 'Image was built from a different commit', guidance: 'The published image does not carry the git SHA this release asked for. The tag was rebuilt or overwritten. Do not retry until the release is republished from the intended commit.', retryable: false },
   image_revision_missing: { title: 'Image is missing its provenance label', guidance: 'The image does not publish org.opencontainers.image.revision, so its origin cannot be verified. Republish it from CrowdRelay CI.', retryable: false },
@@ -44,19 +41,17 @@ const provisionFailures: Record<string, { title: string; guidance: string; retry
 export function TenantPage() {
   const params = useParams({ from: '/tenants/$slug' })
   const queryClient = useQueryClient()
-  // One purpose-built read model, one initial request for this subpage: tenant
-  // identity, provisioning lifecycle, platform defaults and audit arrive
-  // together. `reconcile` patches the model in place, so a refresh keeps the
-  // rendered page and its open forms instead of replacing them, and the
-  // skeleton below is shown only before the first response.
   const model = useQuery(() => ({
     queryKey: ['tenant-overview', params().slug],
     queryFn: () => api.tenantOverview(params().slug),
     reconcile: 'id',
-    // Live polling stays local to this subpage, and it stays on the one model
-    // rather than a second query: a deployment in flight is worth 3s, an idle
-    // tenant is not.
     refetchInterval: (query) => ['planned', 'approved', 'running'].includes(query.state.data?.provisioning.items[0]?.status ?? '') ? 3_000 : 30_000,
+    refetchOnWindowFocus: false,
+  }))
+  const releaseModel = useQuery(() => ({
+    queryKey: ['tenant-release', params().slug],
+    queryFn: async () => (await api.tenantOperations(params().slug)).autopilot?.release_ledger ?? null,
+    refetchInterval: 30_000,
     refetchOnWindowFocus: false,
   }))
   const tenant = { get data() { return model.data?.tenant }, get error() { return model.error } }
@@ -68,11 +63,11 @@ export function TenantPage() {
   const [preview, setPreview] = createSignal<ProvisioningJob | null>(null)
   createEffect(() => { if (tenant.data?.brandingPalette) setPalette(tenant.data.brandingPalette) })
 
-  // Mutations stay separate from the read model and refresh it explicitly.
   const refreshTenant = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['tenant-overview', params().slug] }),
       queryClient.invalidateQueries({ queryKey: ['tenant-runtime', params().slug] }),
+      queryClient.invalidateQueries({ queryKey: ['tenant-release', params().slug] }),
       queryClient.invalidateQueries({ queryKey: ['tenants'] }),
     ])
   }
@@ -149,6 +144,7 @@ export function TenantPage() {
         </Show>
       </article>
 
+      <ReleaseConvergencePanel releaseLedger={releaseModel.data ?? null} />
       <TenantAuditPanel items={model.data?.audit.items ?? []} />
     </>
   }}</Show></section>

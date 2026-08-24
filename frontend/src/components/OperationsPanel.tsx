@@ -42,37 +42,6 @@ const operationalLabel = (summary: OperationsSummary | undefined) => {
   return tone === 'good' ? 'healthy' : tone === 'warn' ? 'attention' : tone === 'bad' ? 'degraded' : 'loading'
 }
 
-const staleReleaseComponents = (overview: AutopilotOverview | undefined) => overview?.release_ledger.components.filter((component) => component.stale) ?? []
-const releaseTone = (overview: AutopilotOverview | undefined): 'good'|'warn'|'bad'|'muted' => {
-  const ledger = overview?.release_ledger
-  if (!ledger) return 'muted'
-  if (ledger.backend_sha_drift || ledger.executor_manifest_drift) return 'bad'
-  if (ledger.missing_components.length > 0 || staleReleaseComponents(overview).length > 0) return 'warn'
-  return 'good'
-}
-const releaseLabel = (overview: AutopilotOverview | undefined) => {
-  const tone = releaseTone(overview)
-  return tone === 'good' ? 'converged' : tone === 'warn' ? 'incomplete' : tone === 'bad' ? 'drift detected' : 'loading'
-}
-// "missing" is a real gap, not a placeholder: nothing has ever posted that
-// component's production receipt. Name the reporter so the operator knows
-// which pipeline to look at instead of guessing.
-const MISSING_RELEASE_CAUSE: Record<string, string> = {
-  'crowdrelay-api': 'crowdrelayctl deploy has not reported a receipt (needs CROWDRELAY_LEDGER_COMMERCE_API_KEY).',
-  'crowdrelay-worker': 'crowdrelayctl deploy has not reported a receipt (needs CROWDRELAY_LEDGER_COMMERCE_API_KEY).',
-  'virya-www': 'virya build.yml has not published a production receipt since the last deploy.',
-  synesthesia: 'synesthesia deploy-web.yml has not published a production receipt since the last deploy.',
-  'virya-signal': 'virya-signal mobile-release.yml has not published a production receipt since the last release.',
-  n8n: 'scripts/publish-n8n-heartbeat.sh has not run against production yet.',
-}
-const missingReleaseCause = (key: string) =>
-  MISSING_RELEASE_CAUSE[key] ?? 'No production release receipt reported yet.'
-
-const releaseObserved = (value: string) => {
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? 'unknown time' : parsed.toLocaleString()
-}
-
 function PolicyEditor(props: {
   policy: AutopilotPolicy
   pending: boolean
@@ -172,9 +141,9 @@ export function OperationsPanel(props: {
   refresh: () => Promise<unknown>
 }) {
   // The Operations subpage owns the one read-model request. This panel renders
-  // its `summary`, `flags` and `autopilot` sections and keeps each section's
-  // degraded state local, so a failed Autopilot read cannot blank the queue
-  // metrics beside it. Mutations stay on their own routes and refresh the model.
+  // its health metrics and control sections and keeps each section's degraded
+  // state local, so a failed Autopilot read cannot blank the queue metrics
+  // beside it. Mutations stay on their own routes and refresh the model.
   const degradedSection = (name: string) => props.degraded.includes(name)
   const summary = {
     get data() { return props.summary ?? undefined },
@@ -229,122 +198,71 @@ export function OperationsPanel(props: {
       </div>
     </div>
 
-      <Show when={unavailable()}>
-        <div class="warning-card operations-warning" role="status">
-          Operational channel is partially unavailable. Existing tenant runtime telemetry remains visible above; private p95, feature and Autopilot controls will recover automatically.
-        </div>
-      </Show>
-      <Show when={mutationError()}>{message => <div class="error-card operations-error" role="alert">{message()}</div>}</Show>
-
-      <div class="operations-metrics">
-        <div><span>HTTP p95</span><strong>{metric(summary.data?.http.p95_ms, ' ms')}</strong><small>p50 {metric(summary.data?.http.p50_ms, ' ms')}</small></div>
-        <div><span>Outbox pending</span><strong>{metric(summary.data?.outbox.pending)}</strong><small>{summary.data ? `${summary.data.outbox.processing} processing` : '—'}</small></div>
-        <div><span>Delivery pending</span><strong>{metric(summary.data?.deliveries.pending)}</strong><small>{summary.data ? `${summary.data.deliveries.dead} dead` : '—'}</small></div>
-        <div><span>Push pending</span><strong>{metric(summary.data?.push.pending)}</strong><small>{summary.data ? `${summary.data.push.dead} dead` : '—'}</small></div>
-        <div><span>Oldest queue</span><strong>{summary.data ? seconds(oldestQueueAge(summary.data)) : '—'}</strong><small>across async queues</small></div>
-        <div><span>Watchdog</span><strong>{metric(summary.data?.watchdog.active_alerts)}</strong><small>{summary.data ? `${summary.data.watchdog.critical_alerts} critical` : '—'}</small></div>
+    <Show when={unavailable()}>
+      <div class="warning-card operations-warning" role="status">
+        Operational channel is partially unavailable. Existing tenant runtime telemetry remains visible above; private p95, feature and Autopilot controls will recover automatically.
       </div>
+    </Show>
+    <Show when={mutationError()}>{message => <div class="error-card operations-error" role="alert">{message()}</div>}</Show>
 
-      <Show when={summary.data && (deadJobs() > 0 || summary.data.watchdog.critical_alerts > 0)}>
-        <div class="operations-attention"><strong>Operator attention required</strong><span>{deadJobs()} dead queue item(s) · {summary.data?.watchdog.critical_alerts ?? 0} critical watchdog alert(s)</span></div>
-      </Show>
+    <div class="operations-metrics">
+      <div><span>HTTP p95</span><strong>{metric(summary.data?.http.p95_ms, ' ms')}</strong><small>p50 {metric(summary.data?.http.p50_ms, ' ms')}</small></div>
+      <div><span>Outbox pending</span><strong>{metric(summary.data?.outbox.pending)}</strong><small>{summary.data ? `${summary.data.outbox.processing} processing` : '—'}</small></div>
+      <div><span>Delivery pending</span><strong>{metric(summary.data?.deliveries.pending)}</strong><small>{summary.data ? `${summary.data.deliveries.dead} dead` : '—'}</small></div>
+      <div><span>Push pending</span><strong>{metric(summary.data?.push.pending)}</strong><small>{summary.data ? `${summary.data.push.dead} dead` : '—'}</small></div>
+      <div><span>Oldest queue</span><strong>{summary.data ? seconds(oldestQueueAge(summary.data)) : '—'}</strong><small>across async queues</small></div>
+      <div><span>Watchdog</span><strong>{metric(summary.data?.watchdog.active_alerts)}</strong><small>{summary.data ? `${summary.data.watchdog.critical_alerts} critical` : '—'}</small></div>
+    </div>
 
-      <section class="operations-section ecosystem-release-section">
-        <div class="operations-section-head">
-          <div><span class="eyebrow">ECOSYSTEM RELEASE</span><h3>Production convergence</h3><p>Every expected production component reports its own release receipt. Missing or stale receipts stay visible until the component converges.</p></div>
-          <StatusBadge status={releaseLabel(autopilot.data)} tone={releaseTone(autopilot.data)} />
-        </div>
-        <Show when={autopilot.data?.release_ledger} fallback={autopilot.error ? null : <div class="mini-skeleton"/>}>{ledger => <>
-          <div class="autopilot-kpis">
-            <div><strong>{ledger().components.length}</strong><span>reported components</span></div>
-            <div><strong>{ledger().missing_components.length}</strong><span>missing</span></div>
-            <div><strong>{staleReleaseComponents(autopilot.data).length}</strong><span>stale</span></div>
-            <div><strong>{ledger().active_executor_count}</strong><span>active executors</span></div>
-          </div>
-          <Show when={ledger().backend_sha_drift || ledger().executor_manifest_drift || ledger().missing_components.length > 0 || staleReleaseComponents(autopilot.data).length > 0}>
-            <div class="operations-attention">
-              <strong>Release reconciliation needs attention</strong>
-              <span>{[
-                ledger().backend_sha_drift ? 'API/worker SHA drift' : '',
-                ledger().executor_manifest_drift ? 'executor manifest drift' : '',
-                ledger().missing_components.length ? `${ledger().missing_components.length} component(s) have no release receipt` : '',
-                staleReleaseComponents(autopilot.data).length ? `${staleReleaseComponents(autopilot.data).length} component(s) are stale` : '',
-              ].filter(Boolean).join(' · ')}</span>
-            </div>
-          </Show>
-          <div class="flag-list release-component-list">
-            <For each={ledger().components}>{component => <div class="flag-row release-component-row">
-              <div>
-                <strong>{component.component_key}</strong>
-                <small>{component.environment} · {component.source_sha.slice(0, 12)} · {releaseObserved(component.observed_at)}</small>
-                <Show when={component.deploy_ref || component.version}><small>{component.version ?? 'unversioned'}{component.deploy_ref ? ` · ${component.deploy_ref}` : ''}</small></Show>
-              </div>
-              <div class="row-health">
-                <Show when={component.artifact_digest}><code title={component.artifact_digest ?? undefined}>{component.artifact_digest?.slice(0, 20)}…</code></Show>
-                <StatusBadge status={component.stale ? 'stale' : 'current'} tone={component.stale ? 'warn' : 'good'} />
-              </div>
-            </div>}</For>
-            <For each={ledger().missing_components}>{componentKey => <div class="flag-row release-component-row release-component-missing">
-              <div>
-                <strong>{componentKey}</strong>
-                <small>{missingReleaseCause(componentKey)}</small>
-              </div>
-              <div class="row-health"><StatusBadge status="missing" tone="warn" /></div>
-            </div>}</For>
-          </div>
-          <div class="rum-grid">
-            <div><strong>{ledger().team_email_live ? 'live' : 'not live'}</strong><span>team.email</span><small>{ledger().active_team_email_executor_count} capable executor(s)</small></div>
-            <div><strong>{ledger().n8n_attestation_ready ? 'verified' : 'missing'}</strong><span>n8n attestation</span><small>{ledger().guarded_executor_count} guarded executor(s)</small></div>
-            <div><strong>{ledger().active_executor_manifest_shas.length}</strong><span>executor manifests</span><small>{ledger().executor_manifest_drift ? 'drift detected' : 'converged'}</small></div>
-          </div>
-        </>}</Show>
+    <Show when={summary.data && (deadJobs() > 0 || summary.data.watchdog.critical_alerts > 0)}>
+      <div class="operations-attention"><strong>Operator attention required</strong><span>{deadJobs()} dead queue item(s) · {summary.data?.watchdog.critical_alerts ?? 0} critical watchdog alert(s)</span></div>
+    </Show>
+
+    <div class="operations-split">
+      <section class="operations-section">
+        <div class="operations-section-head"><div><span class="eyebrow">FEATURES</span><h3>Runtime switches</h3></div><small>{flags.data?.length ?? 0} declared</small></div>
+        <Show when={flags.data} fallback={flags.error ? null : <div class="mini-skeleton"/>}>{items => <div class="flag-list">
+          <For each={items()}>{flag => <div class="flag-row">
+            <div><strong>{flagLabel(flag.key)}</strong><small>{flag.reason || `v${flag.version} · no override reason`}</small></div>
+            <button
+              type="button"
+              class={`switch-control ${flag.enabled ? 'on' : ''}`}
+              role="switch"
+              aria-checked={flag.enabled}
+              aria-label={`${flagLabel(flag.key)} ${flag.enabled ? 'enabled' : 'disabled'}`}
+              disabled={pendingMutation() !== null}
+              onClick={() => updateFlag(flag)}
+            ><span /></button>
+          </div>}</For>
+        </div>}</Show>
       </section>
 
-      <div class="operations-split">
-        <section class="operations-section">
-          <div class="operations-section-head"><div><span class="eyebrow">FEATURES</span><h3>Runtime switches</h3></div><small>{flags.data?.length ?? 0} declared</small></div>
-          <Show when={flags.data} fallback={flags.error ? null : <div class="mini-skeleton"/>}>{items => <div class="flag-list">
-            <For each={items()}>{flag => <div class="flag-row">
-              <div><strong>{flagLabel(flag.key)}</strong><small>{flag.reason || `v${flag.version} · no override reason`}</small></div>
-              <button
-                type="button"
-                class={`switch-control ${flag.enabled ? 'on' : ''}`}
-                role="switch"
-                aria-checked={flag.enabled}
-                aria-label={`${flagLabel(flag.key)} ${flag.enabled ? 'enabled' : 'disabled'}`}
-                disabled={pendingMutation() !== null}
-                onClick={() => updateFlag(flag)}
-              ><span /></button>
-            </div>}</For>
-          </div>}</Show>
-        </section>
-
-        <section class="operations-section autopilot-section">
-          <div class="operations-section-head">
-            <div><span class="eyebrow">AUTOPILOT</span><h3>Authority policies</h3></div>
-            <StatusBadge status={autopilot.data?.runtime_enabled ? 'runtime on' : 'runtime off'} tone={autopilot.data?.runtime_enabled ? 'good' : 'muted'} />
+      <section class="operations-section autopilot-section">
+        <div class="operations-section-head">
+          <div><span class="eyebrow">AUTOPILOT</span><h3>Authority policies</h3></div>
+          <StatusBadge status={autopilot.data?.runtime_enabled ? 'runtime on' : 'runtime off'} tone={autopilot.data?.runtime_enabled ? 'good' : 'muted'} />
+        </div>
+        <Show when={autopilot.data} fallback={autopilot.error ? null : <div class="mini-skeleton"/>}>{data => <>
+          <div class="autopilot-kpis">
+            <div><strong>{data().needs_you.length}</strong><span>needs you</span></div>
+            <div><strong>{data().queued_actions}</strong><span>queued</span></div>
+            <div><strong>{data().failed_24h}</strong><span>failed 24h</span></div>
+            <div><strong>{data().executor_failed_24h}</strong><span>executor fail</span></div>
           </div>
-          <Show when={autopilot.data} fallback={autopilot.error ? null : <div class="mini-skeleton"/>}>{data => <>
-            <div class="autopilot-kpis">
-              <div><strong>{data().needs_you.length}</strong><span>needs you</span></div>
-              <div><strong>{data().queued_actions}</strong><span>queued</span></div>
-              <div><strong>{data().failed_24h}</strong><span>failed 24h</span></div>
-              <div><strong>{data().executor_failed_24h}</strong><span>executor fail</span></div>
+          <div class="autopilot-policy-list">
+            <For each={data().policies}>{policy => <PolicyEditor
+              policy={policy}
+              pending={pendingMutation() !== null}
+              onSave={(input) => updatePolicy(policy, input) as Promise<void>}
+            />}</For>
+          </div>
+          <Show when={data().rum_metrics_24h.length > 0}>
+            <div class="rum-grid">
+              <For each={data().rum_metrics_24h.slice(0, 6)}>{rum => <div><strong>{contextLabel(rum.metric_key)}</strong><span>{rum.surface} · {rum.samples_24h} samples</span><small>p75 {rum.p75.toFixed(1)} · p95 {rum.p95.toFixed(1)}</small></div>}</For>
             </div>
-            <div class="autopilot-policy-list">
-              <For each={data().policies}>{policy => <PolicyEditor
-                policy={policy}
-                pending={pendingMutation() !== null}
-                onSave={(input) => updatePolicy(policy, input) as Promise<void>}
-              />}</For>
-            </div>
-            <Show when={data().rum_metrics_24h.length > 0}>
-              <div class="rum-grid">
-                <For each={data().rum_metrics_24h.slice(0, 6)}>{rum => <div><strong>{contextLabel(rum.metric_key)}</strong><span>{rum.surface} · {rum.samples_24h} samples</span><small>p75 {rum.p75.toFixed(1)} · p95 {rum.p95.toFixed(1)}</small></div>}</For>
-              </div>
-            </Show>
-          </>}</Show>
-        </section>
-      </div>
+          </Show>
+        </>}</Show>
+      </section>
+    </div>
   </article>
 }
