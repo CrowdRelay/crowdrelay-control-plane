@@ -14,7 +14,8 @@ mod validation;
 
 use std::{sync::Arc, time::Duration};
 
-use axum::{Json, Router, middleware, response::IntoResponse, routing::get};
+use axum::http::StatusCode;
+use axum::{Json, Router, middleware, routing::get};
 use config::Config;
 use serde_json::json;
 use sqlx::postgres::PgPoolOptions;
@@ -133,6 +134,11 @@ async fn main() -> anyhow::Result<()> {
     // Unknown API paths must not fall through to the SPA: a typo'd API URL is
     // a JSON 404, never HTML with a misleading 200. Deep links still get the
     // index with its 200 status.
+    // Unknown /api/v1 paths answer as API (JSON 404); matched routes and SPA
+    // deep links are untouched. Scoping the fallback to the nested router is
+    // what keeps it from swallowing every /api request.
+    let api =
+        api.fallback(|| async { (StatusCode::NOT_FOUND, Json(json!({"detail": "not found"}))) });
     let app = Router::new()
         .route(
             "/healthz/live",
@@ -141,7 +147,6 @@ async fn main() -> anyhow::Result<()> {
         .route("/healthz/ready", get(ready))
         .nest("/api/v1", api)
         .fallback_service(static_files)
-        .layer(middleware::from_fn(api_404))
         .layer(CompressionLayer::new())
         .layer(middleware::from_fn(security_headers))
         .layer(TraceLayer::new_for_http())
@@ -183,21 +188,6 @@ async fn security_headers(
         }
     }
     response
-}
-
-/// Unknown API paths answer as API (JSON 404), never as the SPA index.
-async fn api_404(
-    request: axum::extract::Request,
-    next: middleware::Next,
-) -> axum::response::Response {
-    if request.uri().path().starts_with("/api/") {
-        return (
-            axum::http::StatusCode::NOT_FOUND,
-            Json(json!({"detail": "not found"})),
-        )
-            .into_response();
-    }
-    next.run(request).await
 }
 
 async fn shutdown_signal() {
