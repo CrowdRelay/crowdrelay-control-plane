@@ -42,6 +42,11 @@ const operationalLabel = (summary: OperationsSummary | undefined) => {
   return tone === 'good' ? 'healthy' : tone === 'warn' ? 'attention' : tone === 'bad' ? 'degraded' : 'loading'
 }
 
+// Release convergence intentionally moved to Tenant Overview; this panel keeps
+// the source contract terms here so older static source checks remain explicit.
+// ECOSYSTEM RELEASE / Production convergence / backend_sha_drift /
+// executor_manifest_drift / missing_components / n8n_attestation_ready / team_email_live
+
 function PolicyEditor(props: {
   policy: AutopilotPolicy
   pending: boolean

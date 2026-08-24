@@ -43,15 +43,15 @@ export function TenantPage() {
   const queryClient = useQueryClient()
   const model = useQuery(() => ({
     queryKey: ['tenant-overview', params().slug],
-    queryFn: () => api.tenantOverview(params().slug),
+    queryFn: async () => {
+      const [overview, operations] = await Promise.all([
+        api.tenantOverview(params().slug),
+        api.tenantOperations(params().slug).catch(() => null),
+      ])
+      return { ...overview, releaseLedger: operations?.autopilot?.release_ledger ?? null }
+    },
     reconcile: 'id',
     refetchInterval: (query) => ['planned', 'approved', 'running'].includes(query.state.data?.provisioning.items[0]?.status ?? '') ? 3_000 : 30_000,
-    refetchOnWindowFocus: false,
-  }))
-  const releaseModel = useQuery(() => ({
-    queryKey: ['tenant-release', params().slug],
-    queryFn: async () => (await api.tenantOperations(params().slug)).autopilot?.release_ledger ?? null,
-    refetchInterval: 30_000,
     refetchOnWindowFocus: false,
   }))
   const tenant = { get data() { return model.data?.tenant }, get error() { return model.error } }
@@ -67,7 +67,6 @@ export function TenantPage() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['tenant-overview', params().slug] }),
       queryClient.invalidateQueries({ queryKey: ['tenant-runtime', params().slug] }),
-      queryClient.invalidateQueries({ queryKey: ['tenant-release', params().slug] }),
       queryClient.invalidateQueries({ queryKey: ['tenants'] }),
     ])
   }
@@ -144,7 +143,7 @@ export function TenantPage() {
         </Show>
       </article>
 
-      <ReleaseConvergencePanel releaseLedger={releaseModel.data ?? null} />
+      <ReleaseConvergencePanel releaseLedger={model.data?.releaseLedger ?? null} />
       <TenantAuditPanel items={model.data?.audit.items ?? []} />
     </>
   }}</Show></section>
