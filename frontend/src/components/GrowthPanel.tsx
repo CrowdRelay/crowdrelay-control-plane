@@ -121,7 +121,7 @@ export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; 
             <div><strong>{count(outreach()?.suppressed_targets)}</strong><span>suppressed targets</span><small>never contacted automatically</small></div>
           </div>
           <Show when={outreach() && outreach()!.eligible_playlist_targets === 0 && outreach()!.playlist_opportunities === 0}>
-            <div class="inherit-card"><p>No verified playlist targets are eligible yet, so the release seeder has nothing to pitch. Targets must be active, verified, accepting outreach, and not suppressed.</p></div>
+            <div class="inherit-card outreach-empty-state"><p>No verified playlist targets are eligible yet, so the release seeder has nothing to pitch. Targets must be active, verified, accepting outreach, and not suppressed.</p></div>
           </Show>
         </section>
 

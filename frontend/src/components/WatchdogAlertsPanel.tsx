@@ -107,7 +107,7 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
         <Show when={guide()?.action}>{action => <div class="alert-actions">
           <Show
             when={'operations' in action() ? null : (action() as { anchor: string }).anchor}
-            fallback={<Link class="ghost alert-action" to="/tenants/$slug/operations" params={{ slug: props.slug }}>{action().label}</Link>}
+            fallback={<Link class="ghost alert-action" to="/tenants/$slug" params={{ slug: props.slug }}>{action().label}</Link>}
           >
             {anchor => <button type="button" class="ghost alert-action" onClick={() => jumpTo(anchor())}>{action().label}</button>}
           </Show>
