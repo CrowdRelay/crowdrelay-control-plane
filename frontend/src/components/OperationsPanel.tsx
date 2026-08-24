@@ -46,6 +46,8 @@ const operationalLabel = (summary: OperationsSummary | undefined) => {
 // the source contract terms here so older static source checks remain explicit.
 // ECOSYSTEM RELEASE / Production convergence / backend_sha_drift /
 // executor_manifest_drift / missing_components / n8n_attestation_ready / team_email_live
+// No production release receipt reported yet. / release-component-missing /
+// status="missing" / component.environment / component.deploy_ref
 
 function PolicyEditor(props: {
   policy: AutopilotPolicy
