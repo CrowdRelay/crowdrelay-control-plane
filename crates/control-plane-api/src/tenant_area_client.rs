@@ -220,6 +220,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/ecosystem/flags"
                     | "/v1/control-plane/autopilot/overview"
                     | "/v1/control-plane/autopilot/growth"
+                    | "/v1/control-plane/autopilot/next-best-actions"
             ) || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "")
                 || timeline_segment(path)
         }
@@ -232,6 +233,12 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "/retry")
                 || one_safe_segment(path, "/v1/control-plane/ecosystem/flags/")
                 || one_safe_segment(path, "/v1/control-plane/autopilot/policies/")
+                || uuid_segment_between(path, "/v1/control-plane/autopilot/actions/", "/approve")
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/decisions/",
+                    "/handled-externally",
+                )
         }
         _ => false,
     }

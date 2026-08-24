@@ -4,6 +4,7 @@ import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { OperationsPanel } from '../components/OperationsPanel'
 import { GrowthPanel } from '../components/GrowthPanel'
+import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 
 export function TenantOperationsPage() {
   const params = useParams({ from: '/tenants/$slug/operations' })
@@ -27,7 +28,7 @@ export function TenantOperationsPage() {
       <div>
         <span class="eyebrow">TENANT / {params().slug.toUpperCase()}</span>
         <h1>Operations & Autopilot</h1>
-        <p>Live CrowdRelay telemetry, runtime switches, Autopilot authority and growth delivery. One consolidated snapshot refreshes every 15 seconds.</p>
+        <p>Live CrowdRelay telemetry, runtime switches, Autopilot authority, the opportunity board and growth delivery. One consolidated snapshot refreshes every 15 seconds.</p>
       </div>
     </div>
     <Show when={model.error}>
@@ -37,6 +38,12 @@ export function TenantOperationsPage() {
         page, and a section the channel could not serve degrades on its own. */}
     <Show when={!model.error && model.isPending}><div class="skeleton-block"/></Show>
     <Show when={model.data}>{data => <>
+      <OpportunityBoardPanel
+        slug={params().slug}
+        opportunities={data().opportunities}
+        degraded={data().degraded.includes('opportunities')}
+        refresh={refresh}
+      />
       <OperationsPanel
         slug={params().slug}
         summary={data().summary}

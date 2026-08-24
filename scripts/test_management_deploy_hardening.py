@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEPLOY_PATH = ROOT / "scripts/deploy.sh"
 BOOTSTRAP_WRAPPER_PATH = ROOT / "scripts/bootstrap-management.sh"
 BOOTSTRAP_PATH = ROOT / "scripts/ensure-virya-management-credentials.sh"
-MAKEFILE = (ROOT / "Makefile").read_text()
+JUSTFILE = (ROOT / "justfile").read_text()
 DEPLOY = DEPLOY_PATH.read_text()
 BOOTSTRAP_WRAPPER = BOOTSTRAP_WRAPPER_PATH.read_text()
 BOOTSTRAP = BOOTSTRAP_PATH.read_text()
@@ -19,8 +19,8 @@ class ManagementDeployHardeningContract(unittest.TestCase):
         subprocess.run(["bash", "-n", str(BOOTSTRAP_PATH)], check=True)
 
     def test_make_exposes_explicit_bootstrap(self) -> None:
-        self.assertIn("bootstrap-management:", MAKEFILE)
-        self.assertIn("bash scripts/bootstrap-management.sh", MAKEFILE)
+        self.assertIn("bootstrap-management:", JUSTFILE)
+        self.assertIn("bash scripts/bootstrap-management.sh", JUSTFILE)
         self.assertIn("ensure-virya-management-credentials.sh\" --apply", BOOTSTRAP_WRAPPER)
 
     def test_deploy_checks_credentials_before_waiting_for_ci(self) -> None:
@@ -29,7 +29,7 @@ class ManagementDeployHardeningContract(unittest.TestCase):
             DEPLOY.index('bash "$CREDENTIAL_GATE" --check'),
             DEPLOY.index("wait_for_ci\n"),
         )
-        self.assertIn("run make bootstrap-management before deploy", DEPLOY)
+        self.assertIn("run just bootstrap-management before deploy", DEPLOY)
 
     def test_recovery_preflights_semantic_management_wiring_before_mutation(self) -> None:
         preflight = DEPLOY.index("CONTROL_PLANE_RECOVERY_PREFLIGHT=PASS")

@@ -45,13 +45,17 @@ jobs:
         with:
           toolchain: 1.97.1
           components: rustfmt, clippy
+      # The task runner is the single source of truth for gate commands;
+      # CI calls the same recipes a developer runs locally.
+      - uses: taiki-e/install-action@b6b84cf49ebfe0176417bdce007c624f0db37f20 # v2
+        with:
+          tool: just
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Static and Python contract gates
         run: |
-          python3 scripts/static-check.py
-          python3 -m unittest discover -s scripts -p 'test_*.py'
+          just static
           python3 scripts/check_crowdrelay_compat.py .compat/crowdrelay
       - name: PostgreSQL migration smoke
         env:

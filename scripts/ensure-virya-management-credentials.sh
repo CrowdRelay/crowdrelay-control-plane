@@ -61,8 +61,8 @@ area_master="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_AREA_MANA
 management_master="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_MANAGEMENT_MASTER_KEY=//p')"
 management_url="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_VIRYA_MANAGEMENT_URL=//p')"
 [[ -n "$admin" ]] || fail 'Control Plane admin token missing from runtime'
-[[ -n "$area_master" ]] || fail 'Control Plane AREA management master missing from runtime; run make bootstrap-management'
-[[ -n "$management_master" ]] || fail 'Control Plane operations management master missing from runtime; run make bootstrap-management'
+[[ -n "$area_master" ]] || fail 'Control Plane AREA management master missing from runtime; run just bootstrap-management'
+[[ -n "$management_master" ]] || fail 'Control Plane operations management master missing from runtime; run just bootstrap-management'
 [[ "$area_master" != "$management_master" ]] || fail 'Control Plane management masters must be distinct'
 [[ "$management_url" == "http://127.0.0.1:18080" ]] || fail 'Control Plane management URL is not canonical'
 published="$(docker port "$app" 8090/tcp | head -n1)"
@@ -111,10 +111,10 @@ runtime_area="$(printf '%s\n' "$runtime_env" | sed -n 's/^CROWDRELAY_CONTROL_PLA
 runtime_management="$(printf '%s\n' "$runtime_env" | sed -n 's/^CROWDRELAY_CONTROL_PLANE_API_KEY=//p')"
 persisted_area="$(sed -n 's/^CROWDRELAY_CONTROL_PLANE_AREA_API_KEY=//p' "$env_file" | tail -n1)"
 persisted_management="$(sed -n 's/^CROWDRELAY_CONTROL_PLANE_API_KEY=//p' "$env_file" | tail -n1)"
-[[ -n "$runtime_area" ]] || fail 'Oracle runtime AREA API key missing; run make bootstrap-management in Control Plane'
-[[ -n "$runtime_management" ]] || fail 'Oracle runtime operations API key missing; run make bootstrap-management in Control Plane'
-[[ -n "$persisted_area" ]] || fail 'Oracle persisted AREA API key missing; run make bootstrap-management in Control Plane'
-[[ -n "$persisted_management" ]] || fail 'Oracle persisted operations API key missing; run make bootstrap-management in Control Plane'
+[[ -n "$runtime_area" ]] || fail 'Oracle runtime AREA API key missing; run just bootstrap-management in Control Plane'
+[[ -n "$runtime_management" ]] || fail 'Oracle runtime operations API key missing; run just bootstrap-management in Control Plane'
+[[ -n "$persisted_area" ]] || fail 'Oracle persisted AREA API key missing; run just bootstrap-management in Control Plane'
+[[ -n "$persisted_management" ]] || fail 'Oracle persisted operations API key missing; run just bootstrap-management in Control Plane'
 hash() { printf '%s' "$1" | sha256sum | awk '{print $1}'; }
 printf 'ORACLE_RUNTIME_AREA_SHA256=%s\nORACLE_RUNTIME_MANAGEMENT_SHA256=%s\nORACLE_PERSISTED_AREA_SHA256=%s\nORACLE_PERSISTED_MANAGEMENT_SHA256=%s\n' \
   "$(hash "$runtime_area")" "$(hash "$runtime_management")" "$(hash "$persisted_area")" "$(hash "$persisted_management")"
@@ -137,8 +137,8 @@ if [[ "$MODE" == "--check" ]]; then
   persisted_area="$(printf '%s\n' "$ORACLE_REPORT" | sed -n 's/^ORACLE_PERSISTED_AREA_SHA256=//p')"
   persisted_management="$(printf '%s\n' "$ORACLE_REPORT" | sed -n 's/^ORACLE_PERSISTED_MANAGEMENT_SHA256=//p')"
   [[ -n "$area_expected" && -n "$management_expected" ]] || fail 'Home did not return credential fingerprints'
-  [[ "$runtime_area" == "$area_expected" && "$persisted_area" == "$area_expected" ]] || fail 'AREA management credential drift between Home and Oracle; run make bootstrap-management'
-  [[ "$runtime_management" == "$management_expected" && "$persisted_management" == "$management_expected" ]] || fail 'operations management credential drift between Home and Oracle; run make bootstrap-management'
+  [[ "$runtime_area" == "$area_expected" && "$persisted_area" == "$area_expected" ]] || fail 'AREA management credential drift between Home and Oracle; run just bootstrap-management'
+  [[ "$runtime_management" == "$management_expected" && "$persisted_management" == "$management_expected" ]] || fail 'operations management credential drift between Home and Oracle; run just bootstrap-management'
   printf '%s\n' "$HOME_REPORT" | grep '^TUNNEL_FINGERPRINT='
   printf 'MANAGEMENT_CREDENTIALS=PASS home=runtime oracle=runtime,persisted area=matched operations=matched e2e=pass\n'
   exit 0

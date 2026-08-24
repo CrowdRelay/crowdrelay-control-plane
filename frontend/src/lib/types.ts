@@ -406,6 +406,29 @@ export type GrowthOverview = {
   campaigns: GrowthCampaignProgress[]
 }
 
+// One ranked opportunity-board finding from CrowdRelay's next-best-action
+// queue. The ids are what the two buttons act on: "do it" approves
+// `action_id` through the existing approval path, "done ourselves" records
+// the human outcome against `decision_id`.
+export type OpportunityBoardEntry = {
+  position: number
+  decision_id: string
+  action_id: string | null
+  context: string
+  decision_kind: string
+  subject_kind: string
+  subject_id: string
+  authority: 'awaiting_approval' | 'recommended' | 'observed' | 'auto_executing'
+  confidence: number
+  reason: string
+  recommended_action: string
+  ranked_by: string
+  consequence: string
+  due_at: string | null
+  value_tier: 'vanity' | 'intermediate' | 'downstream' | null
+  deviation_basis_points: number | null
+}
+
 // Per-subpage read models. Each Control Plane tenant subpage loads exactly one
 // of these with one request; there is deliberately no combined tenant model, so
 // a field added for one subpage cannot grow another subpage's payload.
@@ -422,7 +445,7 @@ export type TenantOverviewReadModel = {
   }
 }
 
-export type TenantOperationsSection = 'summary' | 'flags' | 'autopilot' | 'growth'
+export type TenantOperationsSection = 'summary' | 'flags' | 'autopilot' | 'growth' | 'opportunities'
 
 export type TenantOperationsReadModel = {
   id: string
@@ -430,6 +453,7 @@ export type TenantOperationsReadModel = {
   flags: FeatureFlag[] | null
   autopilot: AutopilotOverview | null
   growth: GrowthOverview | null
+  opportunities: OpportunityBoardEntry[] | null
   // Sections the tenant channel could not serve. They render as locally
   // degraded instead of failing the whole subpage.
   degraded: TenantOperationsSection[]

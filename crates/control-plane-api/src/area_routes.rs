@@ -334,7 +334,9 @@ async fn cities(
             serializer.append_pair("q", q);
         }
         if let Some(limit) = query.limit {
-            serializer.append_pair("limit", &limit.to_string());
+            // Clamp before forwarding: a negative or huge limit is this
+            // proxy's mistake to catch, not CrowdRelay's.
+            serializer.append_pair("limit", &limit.clamp(1, 100).to_string());
         }
         serializer.finish()
     };

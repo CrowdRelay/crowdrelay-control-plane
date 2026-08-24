@@ -29,7 +29,7 @@ cd "$ROOT_DIR"
 [[ -f "$CREDENTIAL_GATE" && ! -L "$CREDENTIAL_GATE" ]] || fail "management credential gate is missing or unsafe: $CREDENTIAL_GATE"
 [[ -z "$(git status --porcelain --untracked-files=normal)" ]] || fail 'local worktree must be clean'
 branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
-[[ "$branch" == "main" ]] || fail "make deploy must run from main, got=${branch:-detached}"
+[[ "$branch" == "main" ]] || fail "just deploy must run from main, got=${branch:-detached}"
 
 HEAD_SHA="$(git rev-parse HEAD)"
 [[ -n "$TARGET" ]] || TARGET="$HEAD_SHA"
@@ -120,9 +120,9 @@ area=env.get("CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY")
 operations=env.get("CONTROL_PLANE_MANAGEMENT_MASTER_KEY")
 url=env.get("CONTROL_PLANE_VIRYA_MANAGEMENT_URL")
 if not isinstance(area,str) or not area:
-    raise SystemExit("recovery refused: effective AREA management master is missing; run make bootstrap-management")
+    raise SystemExit("recovery refused: effective AREA management master is missing; run just bootstrap-management")
 if not isinstance(operations,str) or not operations:
-    raise SystemExit("recovery refused: effective operations management master is missing; run make bootstrap-management")
+    raise SystemExit("recovery refused: effective operations management master is missing; run just bootstrap-management")
 if area == operations:
     raise SystemExit("recovery refused: management masters must be distinct")
 if url != "http://127.0.0.1:18080":
@@ -219,7 +219,7 @@ on_interrupt() {
 }
 
 printf '==> Preflight Virya management credential parity before release gates\n'
-bash "$CREDENTIAL_GATE" --check || fail 'management credential preflight failed; run make bootstrap-management before deploy'
+bash "$CREDENTIAL_GATE" --check || fail 'management credential preflight failed; run just bootstrap-management before deploy'
 
 wait_for_ci
 [[ -n "${CONTROL_PLANE_IMAGE_DIGEST:-}" ]] || fail 'CI did not provide CONTROL_PLANE_IMAGE_DIGEST'

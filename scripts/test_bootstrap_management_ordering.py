@@ -5,7 +5,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 BOOTSTRAP = (ROOT / "scripts/bootstrap-management.sh").read_text()
 CREDENTIALS = (ROOT / "scripts/ensure-virya-management-credentials.sh").read_text()
-MAKEFILE = (ROOT / "Makefile").read_text()
+JUSTFILE = (ROOT / "justfile").read_text()
 OVERLAY = (ROOT / "deploy/compose.area.production.yml").read_text()
 
 
@@ -14,7 +14,7 @@ class BootstrapManagementOrderingContract(unittest.TestCase):
         subprocess.run(["bash", "-n", str(ROOT / "scripts/bootstrap-management.sh")], check=True)
 
     def test_make_uses_canonical_bootstrap_wrapper(self) -> None:
-        self.assertIn("bootstrap-management:\n\tbash scripts/bootstrap-management.sh", MAKEFILE)
+        self.assertIn("bootstrap-management:\n    bash scripts/bootstrap-management.sh", JUSTFILE)
 
     def test_wrapper_installs_canonical_overlay_before_credential_apply(self) -> None:
         install_pos = BOOTSTRAP.index('install -m 0644 "$area_source" "$root/compose.area.yml"')

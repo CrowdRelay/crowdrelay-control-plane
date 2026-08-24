@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/deploy-production-exact.sh"
 WRAPPER = ROOT / "scripts/deploy-production.sh"
 DOCKERFILE = ROOT / "Dockerfile"
-MAKEFILE = ROOT / "Makefile"
+JUSTFILE = ROOT / "justfile"
 AREA_COMPOSE = ROOT / "deploy/compose.area.production.yml"
 CADDYFILE = ROOT / "deploy/virya-area-tunnel.Caddyfile"
 CONFIG = ROOT / "crates/control-plane-api/src/config.rs"
@@ -177,11 +177,11 @@ class ProductionDeployContract(unittest.TestCase):
         self.assertIn('object_no_store(value, "summary")', operations)
         self.assertIn('returned an invalid JSON shape', operations)
 
-    def test_makefile_exposes_single_canonical_command(self):
-        makefile = MAKEFILE.read_text()
-        self.assertIn('deploy-production:', makefile)
-        self.assertIn('bash scripts/deploy-production.sh', makefile)
-        self.assertNotIn('bash scripts/deploy-production-exact.sh\n', makefile)
+    def test_justfile_exposes_single_canonical_command(self):
+        justfile = JUSTFILE.read_text()
+        self.assertIn('deploy-production:', justfile)
+        self.assertIn('    bash scripts/deploy-production.sh', justfile)
+        self.assertNotIn('bash scripts/deploy-production-exact.sh\n', justfile)
 
 
 if __name__ == "__main__":

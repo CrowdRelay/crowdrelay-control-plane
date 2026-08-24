@@ -39,7 +39,6 @@ assert 'area_management_master_key.is_some() || management_master_key.is_some()'
 assert 'CONTROL_PLANE_VIRYA_MANAGEMENT_URL is required when tenant management is configured' in config
 assert "crowdrelay-control-plane-v1:" in client
 assert "crowdrelay-area-admin-v1:" in client
-assert "crowdrelay-control-plane-v1:" != "crowdrelay-area-admin-v1:"
 assert "Idempotency-Key" in client
 assert "valid_operations_request" in client
 assert "AREA management redirect refused" in client

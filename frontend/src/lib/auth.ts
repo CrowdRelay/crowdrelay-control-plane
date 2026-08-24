@@ -6,10 +6,11 @@ import { createSignal } from 'solid-js'
 // the tab closes. That keeps a reload (Ctrl-R) signed in without leaving a
 // credential behind for the next person to open this origin.
 //
-// The residual exposure is a same-origin script reading sessionStorage. The
-// panel ships a strict CSP (script-src 'self', no inline script) which is what
-// makes that acceptable here; moving the edge to a server-issued HttpOnly
-// session would remove it entirely and is the intended end state.
+// The residual exposure is a same-origin script reading sessionStorage. A
+// strict CSP (script-src 'self', no inline script) — enforced by the edge
+// Caddyfile and mirrored by the binary itself — is what makes that acceptable
+// here; moving the edge to a server-issued HttpOnly session would remove it
+// entirely and is the intended end state.
 const STORAGE_KEY = 'crowdrelay-control-plane-session'
 
 const readStored = (): string | null => {

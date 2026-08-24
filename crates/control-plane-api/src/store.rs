@@ -560,6 +560,16 @@ impl Store {
         limit: i64,
     ) -> Result<Vec<ProvisioningJobRow>, ApiError> {
         let tenant = self.tenant_by_slug(slug).await?;
+        self.provisioning_jobs_for(tenant.tenant.id, limit).await
+    }
+
+    /// Tenant-id variant for callers that already resolved the tenant, so one
+    /// request does not pay for the same lookup twice.
+    pub async fn provisioning_jobs_for(
+        &self,
+        tenant_id: uuid::Uuid,
+        limit: i64,
+    ) -> Result<Vec<ProvisioningJobRow>, ApiError> {
         Ok(sqlx::query_as::<_, ProvisioningJobRow>(
             r#"SELECT id, tenant_id, status, desired_version, plan, created_by,
                       attempt_count, claimed_by, lease_expires_at, started_at, finished_at,
@@ -569,7 +579,7 @@ impl Store {
                ORDER BY created_at DESC
                LIMIT $2"#,
         )
-        .bind(tenant.tenant.id)
+        .bind(tenant_id)
         .bind(limit.clamp(1, 50))
         .fetch_all(&self.pool)
         .await?)
@@ -828,9 +838,14 @@ impl Store {
         .bind(&result)
         .fetch_one(&mut *tx)
         .await?;
+        // The workspace mapping is a fact about the completed deployment and
+        // is always recorded. The status, however, belongs to the operator:
+        // a tenant suspended while its deployment ran stays suspended —
+        // finishing a deploy must never silently undo that decision.
         sqlx::query(
             r#"UPDATE control_plane_tenants
-               SET status='active', workspace_id=$2, updated_at=now()
+               SET status = CASE WHEN status = 'suspended' THEN status ELSE 'active' END,
+                   workspace_id=$2, updated_at=now()
                WHERE id=$1"#,
         )
         .bind(job.tenant_id)
@@ -1151,6 +1166,15 @@ impl Store {
         limit: i64,
     ) -> Result<Vec<AuditRow>, ApiError> {
         let tenant = self.tenant_by_slug(slug).await?;
+        self.audit_for_tenant_id(tenant.tenant.id, limit).await
+    }
+
+    /// Tenant-id variant for callers that already resolved the tenant.
+    pub async fn audit_for_tenant_id(
+        &self,
+        tenant_id: uuid::Uuid,
+        limit: i64,
+    ) -> Result<Vec<AuditRow>, ApiError> {
         Ok(sqlx::query_as::<_, AuditRow>(
             r#"SELECT id, tenant_id, actor, action, target_kind, target_id, request_id, detail, created_at
                FROM control_plane_audit_log
@@ -1158,7 +1182,7 @@ impl Store {
                ORDER BY created_at DESC
                LIMIT $2"#,
         )
-        .bind(tenant.tenant.id)
+        .bind(tenant_id)
         .bind(limit)
         .fetch_all(&self.pool)
         .await?)

@@ -14,7 +14,7 @@ mod validation;
 
 use std::{sync::Arc, time::Duration};
 
-use axum::{Json, Router, middleware, routing::get};
+use axum::{Json, Router, middleware, response::IntoResponse, routing::get};
 use config::Config;
 use serde_json::json;
 use sqlx::postgres::PgPoolOptions;
@@ -130,6 +130,9 @@ async fn main() -> anyhow::Result<()> {
 
     let index = config.frontend_dist.join("index.html");
     let static_files = ServeDir::new(&config.frontend_dist).fallback(ServeFile::new(index));
+    // Unknown API paths must not fall through to the SPA: a typo'd API URL is
+    // a JSON 404, never HTML with a misleading 200. Deep links still get the
+    // index with its 200 status.
     let app = Router::new()
         .route(
             "/healthz/live",
@@ -138,7 +141,9 @@ async fn main() -> anyhow::Result<()> {
         .route("/healthz/ready", get(ready))
         .nest("/api/v1", api)
         .fallback_service(static_files)
+        .layer(middleware::from_fn(api_404))
         .layer(CompressionLayer::new())
+        .layer(middleware::from_fn(security_headers))
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
@@ -148,6 +153,51 @@ async fn main() -> anyhow::Result<()> {
         .with_graceful_shutdown(shutdown_signal())
         .await?;
     Ok(())
+}
+
+/// Defense in depth for paths that reach this binary without the edge
+/// Caddyfile: the same content-security posture the edge applies, so a local,
+/// tunnel or compose deployment does not serve the panel unprotected.
+async fn security_headers(
+    request: axum::extract::Request,
+    next: middleware::Next,
+) -> axum::response::Response {
+    use axum::http::HeaderValue;
+    let mut response = next.run(request).await;
+    let headers = response.headers_mut();
+    for (name, value) in [
+        (
+            "content-security-policy",
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+        ),
+        ("x-content-type-options", "nosniff"),
+        ("x-frame-options", "DENY"),
+        ("referrer-policy", "no-referrer"),
+        (
+            "permissions-policy",
+            "camera=(), microphone=(), geolocation=()",
+        ),
+    ] {
+        if let Ok(value) = HeaderValue::from_str(value) {
+            headers.insert(name, value);
+        }
+    }
+    response
+}
+
+/// Unknown API paths answer as API (JSON 404), never as the SPA index.
+async fn api_404(
+    request: axum::extract::Request,
+    next: middleware::Next,
+) -> axum::response::Response {
+    if request.uri().path().starts_with("/api/") {
+        return (
+            axum::http::StatusCode::NOT_FOUND,
+            Json(json!({"detail": "not found"})),
+        )
+            .into_response();
+    }
+    next.run(request).await
 }
 
 async fn shutdown_signal() {

@@ -24,7 +24,10 @@ http://127.0.0.1:18080 {
         /v1/control-plane/ecosystem/flags/* \
         /v1/control-plane/autopilot/overview \
         /v1/control-plane/autopilot/growth \
-        /v1/control-plane/autopilot/policies/*
+        /v1/control-plane/autopilot/policies/* \
+        /v1/control-plane/autopilot/next-best-actions \
+        /v1/control-plane/autopilot/actions/* \
+        /v1/control-plane/autopilot/decisions/*
 
     handle /healthz/ready {
         reverse_proxy {$VIRYA_AREA_UPSTREAM}

@@ -73,6 +73,14 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/autopilot/{context}",
             post(update_autopilot),
         )
+        .route(
+            "/tenants/{slug}/operations/opportunities/actions/{action_id}/approve",
+            post(approve_opportunity),
+        )
+        .route(
+            "/tenants/{slug}/operations/opportunities/decisions/{decision_id}/handled-externally",
+            post(handle_opportunity_externally),
+        )
         .layer(DefaultBodyLimit::max(MAX_OPERATIONS_BODY_BYTES))
 }
 
@@ -507,9 +515,15 @@ async fn update_flag(
         ));
     }
     let idempotency = idempotency_key(&headers)?.to_owned();
+    let reason = input
+        .reason
+        .as_deref()
+        .map(str::trim)
+        .filter(|reason| !reason.is_empty())
+        .map(str::to_owned);
     let body = json!({
         "enabled": input.enabled,
-        "reason": input.reason,
+        "reason": reason,
         "expected_version": input.expected_version,
     });
     let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
@@ -641,4 +655,82 @@ async fn update_autopilot(
     )
     .await;
     object_no_store(result?, "autopilot mutation")
+}
+
+/// "Do it": approve the parked action of one finding through CrowdRelay's
+/// canonical approval endpoint. The Control Plane adds only transport
+/// validation, the derived per-tenant credential and this audit row — never a
+/// second authority path. The upstream mutation takes no body.
+async fn approve_opportunity(
+    State(state): State<AppState>,
+    Path((slug, action_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let action_id = uuid_segment(&action_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: &format!("/v1/control-plane/autopilot/actions/{action_id}/approve"),
+                body: None,
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.autopilot_action.approved",
+        "autopilot_action",
+        &action_id,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(result?, "opportunity approval")
+}
+
+/// "Done ourselves": record that a human handled the finding outside the
+/// system — a first-class outcome, not a dismissal.
+async fn handle_opportunity_externally(
+    State(state): State<AppState>,
+    Path((slug, decision_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let decision_id = uuid_segment(&decision_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: &format!(
+                    "/v1/control-plane/autopilot/decisions/{decision_id}/handled-externally"
+                ),
+                body: None,
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.autopilot_decision.handled_externally",
+        "autopilot_decision",
+        &decision_id,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(result?, "opportunity handled externally")
 }

@@ -60,9 +60,11 @@ async fn overview(
 ) -> Result<Response, ApiError> {
     let slug = validation::slug(&raw_slug)?;
     let tenant = state.store.tenant_by_slug(&slug).await?;
+    // Both list reads take the already-resolved tenant id: one lookup per
+    // request, not three.
     let (provisioning, audit) = tokio::try_join!(
-        state.store.provisioning_jobs(&slug, 20),
-        state.store.audit_for_tenant(&slug, 40),
+        state.store.provisioning_jobs_for(tenant.tenant.id, 20),
+        state.store.audit_for_tenant_id(tenant.tenant.id, 40),
     )?;
 
     Ok(no_store(json!({
@@ -116,11 +118,12 @@ async fn operations(
         }
     };
 
-    let (summary, flags, autopilot, growth) = tokio::join!(
+    let (summary, flags, autopilot, growth, opportunities) = tokio::join!(
         section("/v1/control-plane/ops/summary"),
         section("/v1/control-plane/ecosystem/flags"),
         section("/v1/control-plane/autopilot/overview"),
         section("/v1/control-plane/autopilot/growth"),
+        section("/v1/control-plane/autopilot/next-best-actions"),
     );
 
     Ok(no_store(project_operations(
@@ -129,6 +132,7 @@ async fn operations(
         flags.as_ref().ok(),
         autopilot.as_ref().ok(),
         growth.as_ref().ok(),
+        opportunities.as_ref().ok(),
     )?))
 }
 
@@ -158,12 +162,14 @@ fn project_operations(
     flags: Option<&Value>,
     autopilot: Option<&Value>,
     growth: Option<&Value>,
+    opportunities: Option<&Value>,
 ) -> Result<Value, ApiError> {
     let sections = [
         ("summary", summary, Shape::Object),
         ("flags", flags, Shape::Array),
         ("autopilot", autopilot, Shape::Object),
         ("growth", growth, Shape::Object),
+        ("opportunities", opportunities, Shape::Array),
     ];
 
     let mut projected = serde_json::Map::new();
@@ -207,6 +213,9 @@ mod tests {
     fn growth() -> Value {
         json!({"totals": {}})
     }
+    fn opportunities() -> Value {
+        json!([{"position": 1}])
+    }
 
     #[test]
     fn projects_every_section_of_a_complete_snapshot() {
@@ -216,6 +225,7 @@ mod tests {
             Some(&flags()),
             Some(&autopilot()),
             Some(&growth()),
+            Some(&opportunities()),
         )
         .expect("complete snapshot projects");
 
@@ -224,6 +234,7 @@ mod tests {
         assert_eq!(projected["flags"], flags());
         assert_eq!(projected["autopilot"], autopilot());
         assert_eq!(projected["growth"], growth());
+        assert_eq!(projected["opportunities"], opportunities());
         assert_eq!(projected["degraded"], json!([]));
     }
 
@@ -235,6 +246,7 @@ mod tests {
             None,
             Some(&autopilot()),
             Some(&growth()),
+            Some(&opportunities()),
         )
         .expect("a partial snapshot is still usable");
 
@@ -251,17 +263,22 @@ mod tests {
             Some(&json!({"not": "an array"})),
             Some(&autopilot()),
             Some(&growth()),
+            Some(&json!({"not": "an array either"})),
         )
         .expect("wrong-typed sections degrade");
 
         assert_eq!(projected["summary"], Value::Null);
         assert_eq!(projected["flags"], Value::Null);
-        assert_eq!(projected["degraded"], json!(["summary", "flags"]));
+        assert_eq!(projected["opportunities"], Value::Null);
+        assert_eq!(
+            projected["degraded"],
+            json!(["summary", "flags", "opportunities"])
+        );
     }
 
     #[test]
     fn a_snapshot_with_no_usable_section_is_an_error() {
-        let error = project_operations("virya", None, None, None, None)
+        let error = project_operations("virya", None, None, None, None, None)
             .expect_err("a fully failed snapshot must not render as an empty page");
         assert!(matches!(error, ApiError::Unavailable(_)));
     }
@@ -274,13 +291,22 @@ mod tests {
             Some(&flags()),
             Some(&autopilot()),
             Some(&growth()),
+            Some(&opportunities()),
         )
         .expect("complete snapshot projects");
 
         let keys: Vec<&String> = projected.as_object().expect("object").keys().collect();
         assert_eq!(
             keys,
-            vec!["autopilot", "degraded", "flags", "growth", "id", "summary"]
+            vec![
+                "autopilot",
+                "degraded",
+                "flags",
+                "growth",
+                "id",
+                "opportunities",
+                "summary"
+            ]
         );
     }
 }

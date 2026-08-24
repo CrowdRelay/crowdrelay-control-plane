@@ -3,17 +3,17 @@ import subprocess
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-MAKEFILE = (ROOT / "Makefile").read_text()
+JUSTFILE = (ROOT / "justfile").read_text()
 WAITER = ROOT / "scripts/deploy.sh"
 TEXT = WAITER.read_text()
 
 
-class MakeDeployContract(unittest.TestCase):
+class JustDeployContract(unittest.TestCase):
     def test_shell_syntax(self) -> None:
         subprocess.run(["bash", "-n", str(WAITER)], check=True)
 
-    def test_make_deploy_waits_for_exact_main_ci_and_digest(self) -> None:
-        self.assertIn("deploy:\n\tbash scripts/deploy.sh", MAKEFILE)
+    def test_just_deploy_waits_for_exact_main_ci_and_digest(self) -> None:
+        self.assertIn("deploy:\n    bash scripts/deploy.sh", JUSTFILE)
         self.assertIn('--workflow "CI"', TEXT)
         self.assertIn('origin/main mismatch', TEXT)
         self.assertIn('scripts/deploy-production.sh', TEXT)

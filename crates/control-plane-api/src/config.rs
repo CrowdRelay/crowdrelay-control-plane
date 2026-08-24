@@ -200,7 +200,13 @@ fn required_secret(name: &str) -> Result<String> {
 }
 
 fn optional_secret(name: &str) -> Result<Option<String>> {
-    optional_env(name)?
+    validate_optional_secret(name, optional_env(name)?)
+}
+
+/// The secret rule itself, separated from the environment read so tests (and
+/// future callers) can exercise it without mutating process state.
+fn validate_optional_secret(name: &str, value: Option<String>) -> Result<Option<String>> {
+    value
         .map(|value| {
             anyhow::ensure!(value.len() >= 32, "{name} must be at least 32 characters");
             anyhow::ensure!(
@@ -263,19 +269,20 @@ mod tests {
 
     #[test]
     fn optional_secret_rejects_weak_or_whitespace_values() {
+        // Exercises the real validation path behind `optional_secret`, so
+        // weakening its checks fails here instead of only in production.
         let valid = "a".repeat(32);
         assert_eq!(
-            normalize_optional("TEST", valid.clone())
-                .unwrap()
-                .map(|value| {
-                    anyhow::ensure!(value.len() >= 32, "too short");
-                    anyhow::ensure!(!value.chars().any(char::is_whitespace), "whitespace");
-                    Ok::<_, anyhow::Error>(value)
-                })
-                .transpose()
-                .unwrap(),
+            validate_optional_secret("TEST_SECRET", Some(valid.clone())).unwrap(),
             Some(valid)
         );
-        assert!(normalize_optional("TEST", " a".repeat(32)).is_err());
+        for weak in [
+            "short".to_owned(),
+            "a".repeat(31),
+            format!(" {}", "a".repeat(32)),
+        ] {
+            assert!(validate_optional_secret("TEST_SECRET", Some(weak)).is_err());
+        }
+        assert_eq!(validate_optional_secret("TEST_SECRET", None).unwrap(), None);
     }
 }
