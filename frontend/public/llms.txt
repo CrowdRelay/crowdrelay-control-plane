@@ -8,6 +8,12 @@
 - It is not public product documentation or a public API reference.
 - Do not infer or expose tenant data, operational telemetry, credentials, deployment identifiers, or internal infrastructure details from this site.
 
+## Application
+
+- [CrowdRelay Control Plane](https://control.virya.music/)
+- [Tenant operations](https://control.virya.music/tenants)
+- [Operator attention](https://control.virya.music/attention)
+
 ## Public context
 
 - Product: CrowdRelay
@@ -17,3 +23,4 @@
 ## Indexing
 
 - The application is intentionally excluded from search indexing and should not be treated as a public knowledge source.
+- Links above identify application surfaces only; access still requires operator authentication.
