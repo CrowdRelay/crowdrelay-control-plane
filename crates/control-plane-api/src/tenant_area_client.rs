@@ -501,9 +501,14 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
     } else if status == 404 {
         Err(ApiError::NotFound)
     } else if status == 409 {
-        Err(ApiError::Conflict(
-            error_code(&value).unwrap_or("AREA_CONFLICT").to_owned(),
-        ))
+        // CrowdRelay problems carry the reason in `detail`/`title` and no
+        // machine code; surface the human reason instead of an invented one.
+        let reason = value
+            .get("detail")
+            .and_then(Value::as_str)
+            .or_else(|| value.get("title").and_then(Value::as_str))
+            .unwrap_or("upstream rejected the change");
+        Err(ApiError::Conflict(reason.to_owned()))
     } else if matches!(status, 400 | 422) {
         Err(ApiError::InvalidInput(
             error_code(&value).unwrap_or("AREA_INVALID").to_owned(),
