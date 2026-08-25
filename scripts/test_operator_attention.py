@@ -51,8 +51,8 @@ class OperatorAttentionContract(unittest.TestCase):
         # cannot leak into the Control Plane contract unreviewed.
         for part in ("summary", "dead_outbox", "dead_deliveries", "ecosystem", "findings"):
             self.assertIn(f'"{part}"', route)
-        self.assertIn("Usuń stare dead queues", page)
-        self.assertIn("Potwierdź cleanup", page)
+        self.assertIn("Clear old dead queues", page)
+        self.assertIn("Confirm cleanup", page)
         self.assertIn("api.clearDeadDeliveries", page)
         self.assertIn("'idempotency-key': crypto.randomUUID()", api)
 
