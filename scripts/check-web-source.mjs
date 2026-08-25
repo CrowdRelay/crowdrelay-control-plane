@@ -6,6 +6,7 @@ const main = fs.readFileSync(path.join(root, 'frontend/src/main.tsx'), 'utf8')
 const tenant = fs.readFileSync(path.join(root, 'frontend/src/pages/TenantPage.tsx'), 'utf8')
 const tenantRuntime = fs.readFileSync(path.join(root, 'frontend/src/components/TenantRuntimePanel.tsx'), 'utf8')
 const operations = fs.readFileSync(path.join(root, 'frontend/src/components/OperationsPanel.tsx'), 'utf8')
+const releaseConvergence = fs.readFileSync(path.join(root, 'frontend/src/components/ReleaseConvergencePanel.tsx'), 'utf8')
 const tenants = fs.readFileSync(path.join(root, 'frontend/src/pages/TenantsPage.tsx'), 'utf8')
 const overview = fs.readFileSync(path.join(root, 'frontend/src/pages/OverviewPage.tsx'), 'utf8')
 const api = fs.readFileSync(path.join(root, 'frontend/src/lib/api.ts'), 'utf8')
@@ -83,7 +84,7 @@ if (!frontend.includes('Health & controls') || !frontend.includes('HTTP p95') ||
 if (!frontend.includes('pending={pendingMutation() !== null}')) throw new Error('operator mutations must serialize conflicting writes')
 if (!types.includes('ReleaseLedgerOverview') || !types.includes('release_ledger: ReleaseLedgerOverview')) throw new Error('release ledger type contract missing')
 for (const token of ['ECOSYSTEM RELEASE', 'Production convergence', 'backend_sha_drift', 'executor_manifest_drift', 'missing_components', 'n8n_attestation_ready', 'team_email_live']) {
-  if (!operations.includes(token)) throw new Error(`release convergence UI missing ${token}`)
+  if (!releaseConvergence.includes(token)) throw new Error(`release convergence UI missing ${token}`)
 }
 if (operations.includes('useQuery')) throw new Error('OperationsPanel must render the subpage read model, not fetch its own sections')
 if (!operationsPage.includes('refetchInterval: 15_000') || !operationsPage.includes('refetchOnWindowFocus: false') || !operationsPage.includes('staleTime: 10_000')) throw new Error('Operations subpage polling must stay bounded and local')

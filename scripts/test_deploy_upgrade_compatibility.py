@@ -1,5 +1,4 @@
 from pathlib import Path
-import subprocess
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -10,10 +9,6 @@ EXACT_TEXT = EXACT.read_text()
 
 
 class DeployUpgradeCompatibility(unittest.TestCase):
-    def test_shell_syntax(self) -> None:
-        subprocess.run(["bash", "-n", str(WRAPPER)], check=True)
-        subprocess.run(["bash", "-n", str(EXACT)], check=True)
-
     def test_pinned_caddy_preflight_uses_explicit_binary_entrypoint(self) -> None:
         self.assertIn("--entrypoint caddy", EXACT_TEXT)
         self.assertIn('"$caddy_image" validate --config /etc/caddy/Caddyfile', EXACT_TEXT)

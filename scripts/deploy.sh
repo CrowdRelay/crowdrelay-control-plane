@@ -161,7 +161,7 @@ runtime_caddy="$(docker exec "$tunnel" cat /etc/caddy/Caddyfile)" || fail 'canno
 # /healthz/ready is the readiness probe the tunnel healthcheck uses. A tunnel
 # serving the older route set answers it with 404, so the bridge looks up
 # while every operations call through it fails. Gate on it explicitly.
-for route in '/healthz/ready' '/v1/control-plane/area' '/v1/control-plane/ops/summary' '/v1/control-plane/ops/attention' '/v1/control-plane/ops/outbox' '/v1/control-plane/ecosystem/overview' '/v1/control-plane/ecosystem/flags' '/v1/control-plane/autopilot/overview' '/v1/control-plane/autopilot/growth'; do
+for route in '/healthz/ready' '/v1/control-plane/area' '/v1/control-plane/ops/summary' '/v1/control-plane/ops/attention' '/v1/control-plane/ops/outbox/*' '/v1/control-plane/ecosystem/flags' '/v1/control-plane/autopilot/overview' '/v1/control-plane/autopilot/growth'; do
   grep -Fq "$route" <<<"$runtime_caddy" || fail "live tunnel is missing route: $route"
 done
 runtime_env="$(docker inspect "$app" --format '{{range .Config.Env}}{{println .}}{{end}}')"

@@ -213,10 +213,6 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 path,
                 "/v1/control-plane/ops/summary"
                     | "/v1/control-plane/ops/attention"
-                    | "/v1/control-plane/ops/outbox?status=dead&limit=50"
-                    | "/v1/control-plane/ops/deliveries?status=dead&limit=50"
-                    | "/v1/control-plane/ecosystem/overview"
-                    | "/v1/control-plane/ecosystem/findings?limit=50&open_only=true"
                     | "/v1/control-plane/ecosystem/flags"
                     | "/v1/control-plane/autopilot/overview"
                     | "/v1/control-plane/autopilot/growth"
@@ -628,10 +624,6 @@ mod tests {
         let id = "550e8400-e29b-41d4-a716-446655440000";
         for path in [
             "/v1/control-plane/ops/summary",
-            "/v1/control-plane/ops/outbox?status=dead&limit=50",
-            "/v1/control-plane/ops/deliveries?status=dead&limit=50",
-            "/v1/control-plane/ecosystem/overview",
-            "/v1/control-plane/ecosystem/findings?limit=50&open_only=true",
             "/v1/control-plane/ecosystem/flags",
             "/v1/control-plane/autopilot/overview",
         ] {

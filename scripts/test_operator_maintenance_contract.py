@@ -10,19 +10,15 @@ API = (ROOT / "frontend/src/lib/api.ts").read_text()
 ATTENTION_API = (ROOT / "frontend/src/lib/attention.ts").read_text()
 TYPES = (ROOT / "frontend/src/lib/types.ts").read_text()
 UI = (ROOT / "frontend/src/pages/TenantAttentionPage.tsx").read_text()
-OPERATIONS_PANEL = (ROOT / "frontend/src/components/OperationsPanel.tsx").read_text()
+RELEASE_PANEL = (ROOT / "frontend/src/components/ReleaseConvergencePanel.tsx").read_text()
 
 
 class OperatorMaintenanceContract(unittest.TestCase):
     def test_backend_exposes_only_bounded_control_plane_paths(self) -> None:
         for token in (
-            "/v1/control-plane/ops/outbox?status=dead&limit=50",
-            "/v1/control-plane/ops/deliveries?status=dead&limit=50",
             "/v1/control-plane/ops/outbox/{event_id}/retry",
             "/v1/control-plane/ops/deliveries/{delivery_id}/retry",
             "/v1/control-plane/ops/operations/{request_id}",
-            "/v1/control-plane/ecosystem/overview",
-            "/v1/control-plane/ecosystem/findings?limit=50&open_only=true",
             "/v1/control-plane/ecosystem/reconcile",
         ):
             self.assertIn(token, ROUTES)
@@ -32,10 +28,6 @@ class OperatorMaintenanceContract(unittest.TestCase):
 
     def test_internal_transport_allowlist_matches_bounded_proxy(self) -> None:
         for token in (
-            "/v1/control-plane/ops/outbox?status=dead&limit=50",
-            "/v1/control-plane/ops/deliveries?status=dead&limit=50",
-            "/v1/control-plane/ecosystem/overview",
-            "/v1/control-plane/ecosystem/findings?limit=50&open_only=true",
             "/v1/control-plane/ops/deliveries/dead/clear",
             "/v1/control-plane/ecosystem/reconcile",
             "/v1/control-plane/ops/outbox/",
@@ -63,14 +55,10 @@ class OperatorMaintenanceContract(unittest.TestCase):
     def test_tunnel_remains_narrow_and_has_readiness(self) -> None:
         for token in (
             "/healthz/ready",
-            "/v1/control-plane/ops/outbox",
             "/v1/control-plane/ops/outbox/*",
-            "/v1/control-plane/ops/deliveries",
             "/v1/control-plane/ops/deliveries/dead/clear",
             "/v1/control-plane/ops/deliveries/*",
             "/v1/control-plane/ops/operations/*",
-            "/v1/control-plane/ecosystem/overview",
-            "/v1/control-plane/ecosystem/findings",
             "/v1/control-plane/ecosystem/reconcile",
         ):
             self.assertIn(token, CADDY)
@@ -87,13 +75,10 @@ class OperatorMaintenanceContract(unittest.TestCase):
         ):
             self.assertIn(token, TYPES)
         for token in (
-            "deadOutbox:",
             "retryOutbox:",
-            "deadDeliveries:",
             "deliveryDetails:",
             "retryDelivery:",
             "operationTimeline:",
-            "reconciliationFindings:",
             "runReconciliation:",
         ):
             self.assertIn(token, API)
@@ -121,11 +106,11 @@ class OperatorMaintenanceContract(unittest.TestCase):
             self.assertIn(token, UI)
 
     def test_release_convergence_lists_missing_components_explicitly(self) -> None:
-        self.assertIn("No production release receipt reported yet.", OPERATIONS_PANEL)
-        self.assertIn("release-component-missing", OPERATIONS_PANEL)
-        self.assertIn('status="missing"', OPERATIONS_PANEL)
-        self.assertIn("component.environment", OPERATIONS_PANEL)
-        self.assertIn("component.deploy_ref", OPERATIONS_PANEL)
+        self.assertIn("No production release receipt reported yet.", RELEASE_PANEL)
+        self.assertIn("release-component-missing", RELEASE_PANEL)
+        self.assertIn('status="missing"', RELEASE_PANEL)
+        self.assertIn("component.environment", RELEASE_PANEL)
+        self.assertIn("component.deploy_ref", RELEASE_PANEL)
 
 
 if __name__ == "__main__":

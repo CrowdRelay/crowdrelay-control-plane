@@ -25,14 +25,9 @@ const MAX_OPERATIONS_BODY_BYTES: usize = 8 * 1024;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/tenants/{slug}/operations/summary", get(summary))
-        .route("/tenants/{slug}/operations/outbox/dead", get(dead_outbox))
         .route(
             "/tenants/{slug}/operations/outbox/{event_id}/retry",
             post(retry_outbox),
-        )
-        .route(
-            "/tenants/{slug}/operations/deliveries/dead",
-            get(dead_deliveries),
         )
         .route(
             "/tenants/{slug}/operations/deliveries/{delivery_id}",
@@ -49,14 +44,6 @@ pub fn router() -> Router<AppState> {
         .route(
             "/tenants/{slug}/operations/timeline/{request_id}",
             get(operation_timeline),
-        )
-        .route(
-            "/tenants/{slug}/operations/ecosystem",
-            get(ecosystem_overview),
-        )
-        .route(
-            "/tenants/{slug}/operations/findings",
-            get(reconciliation_findings),
         )
         .route(
             "/tenants/{slug}/operations/reconcile",
@@ -238,42 +225,6 @@ async fn summary(
     object_no_store(value, "summary")
 }
 
-async fn dead_outbox(
-    State(state): State<AppState>,
-    Path(slug): Path<String>,
-    headers: HeaderMap,
-) -> Result<Response, ApiError> {
-    let (_, value) = call(
-        &state,
-        &slug,
-        "GET",
-        "/v1/control-plane/ops/outbox?status=dead&limit=50",
-        None,
-        &headers,
-        None,
-    )
-    .await?;
-    array_no_store(value, "dead outbox")
-}
-
-async fn dead_deliveries(
-    State(state): State<AppState>,
-    Path(slug): Path<String>,
-    headers: HeaderMap,
-) -> Result<Response, ApiError> {
-    let (_, value) = call(
-        &state,
-        &slug,
-        "GET",
-        "/v1/control-plane/ops/deliveries?status=dead&limit=50",
-        None,
-        &headers,
-        None,
-    )
-    .await?;
-    array_no_store(value, "dead deliveries")
-}
-
 async fn delivery_details(
     State(state): State<AppState>,
     Path((slug, delivery_id)): Path<(String, String)>,
@@ -294,42 +245,6 @@ async fn operation_timeline(
     let path = format!("/v1/control-plane/ops/operations/{request_id}");
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     object_no_store(value, "operation timeline")
-}
-
-async fn ecosystem_overview(
-    State(state): State<AppState>,
-    Path(slug): Path<String>,
-    headers: HeaderMap,
-) -> Result<Response, ApiError> {
-    let (_, value) = call(
-        &state,
-        &slug,
-        "GET",
-        "/v1/control-plane/ecosystem/overview",
-        None,
-        &headers,
-        None,
-    )
-    .await?;
-    object_no_store(value, "ecosystem overview")
-}
-
-async fn reconciliation_findings(
-    State(state): State<AppState>,
-    Path(slug): Path<String>,
-    headers: HeaderMap,
-) -> Result<Response, ApiError> {
-    let (_, value) = call(
-        &state,
-        &slug,
-        "GET",
-        "/v1/control-plane/ecosystem/findings?limit=50&open_only=true",
-        None,
-        &headers,
-        None,
-    )
-    .await?;
-    array_no_store(value, "reconciliation findings")
 }
 
 async fn retry_outbox(

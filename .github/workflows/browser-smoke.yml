@@ -24,8 +24,6 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
 
       - name: Decide whether authenticated browser smoke is configured
         id: preflight
@@ -40,13 +38,19 @@ jobs:
           [[ "${CONTROL_PLANE_SMOKE_BASIC_AUTH}" == *:* ]]
           echo 'enabled=true' >> "$GITHUB_OUTPUT"
 
+      - name: Restore pinned Playwright chromium cache
+        if: steps.preflight.outputs.enabled == 'true'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-ms-playwright-1.62.1
+
       - name: Install pinned ephemeral browser test dependency
         if: steps.preflight.outputs.enabled == 'true'
         working-directory: frontend
         shell: bash
         run: |
           set -euo pipefail
-          npm ci --prefer-offline --no-audit --no-fund
           npm install --no-save --package-lock=false --ignore-scripts @playwright/test@1.62.1
           npx playwright install --with-deps chromium
 

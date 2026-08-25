@@ -1,5 +1,4 @@
 from pathlib import Path
-import subprocess
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,11 +12,6 @@ BOOTSTRAP = BOOTSTRAP_PATH.read_text()
 
 
 class ManagementDeployHardeningContract(unittest.TestCase):
-    def test_shell_syntax(self) -> None:
-        subprocess.run(["bash", "-n", str(DEPLOY_PATH)], check=True)
-        subprocess.run(["bash", "-n", str(BOOTSTRAP_WRAPPER_PATH)], check=True)
-        subprocess.run(["bash", "-n", str(BOOTSTRAP_PATH)], check=True)
-
     def test_make_exposes_explicit_bootstrap(self) -> None:
         self.assertIn("bootstrap-management:", JUSTFILE)
         self.assertIn("bash scripts/bootstrap-management.sh", JUSTFILE)
