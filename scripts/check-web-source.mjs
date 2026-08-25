@@ -66,7 +66,7 @@ if (authSource.includes('localStorage')) throw new Error('operator credentials m
 if (!authSource.includes('sessionStorage')) throw new Error('operator session must survive a reload via tab-scoped storage')
 if (/adminToken|CONTROL_PLANE_ADMIN_TOKEN|crowdrelay-control-plane-token/i.test(frontend)) throw new Error('SPA must not store or receive the platform admin secret')
 if (!vite.includes('CONTROL_PLANE_ADMIN_TOKEN') || !vite.includes("setHeader('Authorization', `Bearer ${adminToken}`)")) throw new Error('local Vite proxy must inject admin Bearer server-side')
-if (!caddy.includes('basic_auth') || !caddy.includes('header_up Authorization "Bearer {$CONTROL_PLANE_ADMIN_TOKEN}"')) throw new Error('production edge must inject admin Bearer after Basic auth')
+if (!caddy.includes('header_up Authorization "Bearer {$CONTROL_PLANE_ADMIN_TOKEN}"')) throw new Error('production edge must inject admin Bearer token')
 if (!caddy.includes('-WWW-Authenticate')) throw new Error('production edge must suppress browser Basic Auth prompts')
 if (caddy.indexOf('handle @runtime') > caddy.indexOf('basic_auth')) throw new Error('machine telemetry must bypass browser Basic and use its own backend Bearer')
 if (!caddy.includes('handle @provisioner') || caddy.indexOf('handle @provisioner') > caddy.indexOf('basic_auth')) throw new Error('provisioner machine API must bypass browser Basic and preserve its own Bearer')
