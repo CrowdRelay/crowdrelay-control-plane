@@ -129,7 +129,7 @@ export function OpportunityBoardPanel(props: {
                 <small>{entry.context.replaceAll('_', ' ')} · {entry.decision_kind.replaceAll('_', ' ')} · {entry.subject_kind}</small>
                 <small>{entry.reason}</small>
                 <Show when={formatDue(entry.due_at)}>
-                  {due => <small>deadline {due()}</small>}
+                  {due => <small class="opportunity-deadline">deadline {due()}</small>}
                 </Show>
                 <small class="opportunity-consequence">if ignored: {entry.consequence}</small>
                 <div class="row-health opportunity-facts">
@@ -148,7 +148,7 @@ export function OpportunityBoardPanel(props: {
                 <Show when={entry.action_id} fallback={<span class="opportunity-no-action">no executable step — handle it yourself</span>}>
                   <button
                     type="button"
-                    class={confirming() === `do:${entry.decision_id}` ? 'danger-ghost' : 'ghost'}
+                    classList={{ 'confirm-danger': confirming() === `do:${entry.decision_id}` }}
                     disabled={pendingMutation() !== null}
                     onClick={() => doIt(entry)}
                   >
@@ -161,7 +161,7 @@ export function OpportunityBoardPanel(props: {
                   disabled={pendingMutation() !== null}
                   onClick={() => doneOurselves(entry)}
                 >
-                  {pendingMutation() === `done:${entry.decision_id}` ? 'Recording…' : confirming() === `done:${entry.decision_id}` ? 'Confirm done ourselves' : 'Done ourselves'}
+                  {pendingMutation() === `done:${entry.decision_id}` ? 'Recording…' : confirming() === `done:${entry.decision_id}` ? 'Confirm done' : 'Done ourselves'}
                 </button>
               </div>
             </div>
