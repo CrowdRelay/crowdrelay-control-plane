@@ -82,7 +82,7 @@ export function TenantAttentionPage() {
     if (!summary.data || summary.data.deliveries.dead <= 0 || busy()) return
     if (!confirming()) {
       setConfirming(true)
-      setMessage('Kliknij ponownie, aby potwierdzić zmianę dead webhook deliveries na cancelled.')
+      setMessage('Click again to confirm marking these dead webhook deliveries as cancelled.')
       return
     }
     setBusy('clear')
@@ -90,7 +90,7 @@ export function TenantAttentionPage() {
     try {
       const result = await api.clearDeadDeliveries(params().slug)
       setConfirming(false)
-      setMessage(`Cleanup zakończony: ${result.cleared} dead webhook delivery item(s) oznaczono jako cancelled. Outbox i push pozostały bez zmian.`)
+      setMessage(`Cleanup complete: ${result.cleared} dead webhook delivery item(s) marked cancelled. Outbox and push queues are untouched.`)
       await refreshMaintenance()
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Dead queue cleanup failed')
@@ -105,7 +105,7 @@ export function TenantAttentionPage() {
     setMessage(null)
     try {
       await api.retryOutbox(params().slug, id)
-      setMessage(`Outbox ${shortId(id)} wrócił do kolejki pending.`)
+      setMessage(`Outbox ${shortId(id)} is back in the pending queue.`)
       await refreshMaintenance()
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Outbox retry failed')
@@ -120,7 +120,7 @@ export function TenantAttentionPage() {
     setMessage(null)
     try {
       await api.retryDelivery(params().slug, id)
-      setMessage(`Delivery ${shortId(id)} wrócił do kolejki pending.`)
+      setMessage(`Delivery ${shortId(id)} is back in the pending queue.`)
       setDeliveryDetails(null)
       await refreshMaintenance()
     } catch (error) {
@@ -147,7 +147,7 @@ export function TenantAttentionPage() {
     if (busy()) return
     if (!confirmingReconcile()) {
       setConfirmingReconcile(true)
-      setMessage('Kliknij ponownie, aby uruchomić audytowany reconciliation pass dla tego tenanta.')
+      setMessage('Click again to run an audited reconciliation pass for this tenant.')
       return
     }
     setBusy('reconcile')
@@ -155,7 +155,7 @@ export function TenantAttentionPage() {
     try {
       const result = await api.runReconciliation(params().slug)
       setConfirmingReconcile(false)
-      setMessage(`Reconciliation zakończony: ${result.findings.length} finding(s), status ${result.run.status}.`)
+      setMessage(`Reconciliation finished: ${result.findings.length} finding(s), status ${result.run.status}.`)
       await refreshMaintenance()
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Reconciliation failed')
@@ -245,7 +245,7 @@ export function TenantAttentionPage() {
 
     <div class="section-title" id="dead-deliveries">
       <div><span class="eyebrow">DEAD WEBHOOK DELIVERIES</span><h3>Delivery failures</h3><p>Open details to inspect bounded attempt history before retrying.</p></div>
-      <button type="button" class={confirming() ? 'danger-ghost' : 'ghost'} disabled={(summary.data?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' ? 'Czyszczę…' : confirming() ? 'Potwierdź cleanup' : 'Usuń stare dead queues'}</button>
+      <button type="button" class={confirming() ? 'danger-ghost' : 'ghost'} disabled={(summary.data?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</button>
     </div>
     <Show when={deadDeliveries.error}><div class="error-card">Dead deliveries unavailable</div></Show>
     <For each={deadDeliveries.data ?? []}>{item => <div class="warning-card">
@@ -261,7 +261,7 @@ export function TenantAttentionPage() {
 
     <div class="section-title">
       <div id="reconciliation-findings"><span class="eyebrow">RECONCILIATION</span><h3>Ecosystem findings</h3><p>Canonical consistency pass across tenant operational state. The consolidated attention snapshot refreshes every 30 seconds.</p></div>
-      <button class={confirmingReconcile() ? 'reconciliation-confirm' : 'ghost'} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Potwierdź reconciliation' : 'Run reconciliation'}</button>
+      <button class={confirmingReconcile() ? 'reconciliation-confirm' : 'ghost'} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Confirm reconciliation' : 'Run reconciliation'}</button>
     </div>
     <Show when={ecosystem.data}><div class="operations-metrics">
       <div><span>Open findings</span><strong>{ecosystem.data!.open_findings}</strong><small>reported by canonical overview</small></div>
