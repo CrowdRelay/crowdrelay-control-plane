@@ -17,23 +17,23 @@ type MapNode = {
 }
 
 const NODES: MapNode[] = [
-  // ── WEJŚCIA ──
-  { id: 'meta', x: 40, y: 110, w: 250, h: 64, zone: 'src', title: 'Meta Lead Ads', desc: 'lead → kandydat', to: '/tenants/{slug}/portfolio' },
-  { id: 'tiktok', x: 40, y: 190, w: 250, h: 64, zone: 'src', title: 'TikTok · Google Forms', desc: 'formularze reklamowe', to: '/tenants/{slug}/portfolio' },
-  { id: 'reddit', x: 40, y: 270, w: 250, h: 64, zone: 'src', title: 'Reddit · Bandsintown', desc: 'sygnały → Audience Graph', to: '/tenants/{slug}/portfolio' },
-  { id: 'lists', x: 40, y: 350, w: 250, h: 64, zone: 'src', title: 'Listy · CSV · n8n', desc: 'import z atestacją', to: '/tenants/{slug}/portfolio' },
+  // ── INPUTS ──
+  { id: 'meta', x: 40, y: 110, w: 250, h: 64, zone: 'src', title: 'Meta Lead Ads', desc: 'lead → candidate', to: '/tenants/{slug}/portfolio' },
+  { id: 'tiktok', x: 40, y: 190, w: 250, h: 64, zone: 'src', title: 'TikTok · Google Forms', desc: 'ad forms', to: '/tenants/{slug}/portfolio' },
+  { id: 'reddit', x: 40, y: 270, w: 250, h: 64, zone: 'src', title: 'Reddit · Bandsintown', desc: 'signals → Audience Graph', to: '/tenants/{slug}/portfolio' },
+  { id: 'lists', x: 40, y: 350, w: 250, h: 64, zone: 'src', title: 'Lists · CSV · n8n', desc: 'import with attestation', to: '/tenants/{slug}/portfolio' },
   // ── AGENT ──
-  { id: 'fanbases', x: 420, y: 95, w: 300, h: 78, zone: 'core', title: 'Fanbazy', desc: 'bloki publiczności + ledger', to: '/tenants/{slug}/portfolio' },
-  { id: 'autopilot', x: 770, y: 95, w: 300, h: 78, zone: 'core', title: 'Autopilot · konteksty', desc: 'decyzje i kampanie', to: '/tenants/{slug}/operations' },
-  { id: 'funnel', x: 420, y: 230, w: 300, h: 96, zone: 'core', title: 'Authority funnel', desc: 'pewność → uprawnienia → limity → dostarczalność', to: '/tenants/{slug}/operations' },
-  { id: 'experiment', x: 770, y: 230, w: 300, h: 96, zone: 'core', title: 'Experimentation · Metrics', desc: 'testuje lejki i fanouty, skaluje zwycięzców', to: '/tenants/{slug}/operations' },
-  { id: 'content', x: 420, y: 370, w: 300, h: 88, zone: 'core', title: 'Content review', desc: 'draft → przegląd człowieka → publikacja', to: '/tenants/{slug}/attention' },
-  { id: 'ingest', x: 770, y: 370, w: 300, h: 88, zone: 'core', title: 'Ingestion ledger', desc: 'pending + double opt-in + atrybucja', to: '/tenants/{slug}/portfolio' },
-  // ── REZULTAT ──
-  { id: 'fans', x: 1120, y: 110, w: 280, h: 70, zone: 'out', title: 'Fani double opt-in', desc: 'jedna baza, pełna atrybucja', to: '/tenants/{slug}' },
-  { id: 'campaigns', x: 1120, y: 200, w: 280, h: 70, zone: 'out', title: 'Kampanie email · push · treść', desc: 'wysłane z limitem i audytem', to: '/tenants/{slug}/operations' },
-  { id: 'tickets', x: 1120, y: 290, w: 280, h: 70, zone: 'out', title: 'Bilety · merch', desc: 'sprzedaż z atrybucją źródła', to: '/tenants/{slug}' },
-  { id: 'gigs', x: 1120, y: 380, w: 280, h: 70, zone: 'out', title: 'Crowd na gigach', desc: 'frekwencja vs target', to: '/tenants/{slug}' },
+  { id: 'fanbases', x: 420, y: 95, w: 300, h: 78, zone: 'core', title: 'Fanbases', desc: 'audience blocks + ledger', to: '/tenants/{slug}/portfolio' },
+  { id: 'autopilot', x: 770, y: 95, w: 300, h: 78, zone: 'core', title: 'Autopilot · contexts', desc: 'decisions and campaigns', to: '/tenants/{slug}/operations' },
+  { id: 'funnel', x: 420, y: 230, w: 300, h: 96, zone: 'core', title: 'Authority funnel', desc: 'confidence → entitlements → limits → deliverability', to: '/tenants/{slug}/operations' },
+  { id: 'experiment', x: 770, y: 230, w: 300, h: 96, zone: 'core', title: 'Experimentation · Metrics', desc: 'tests funnels and fanouts, scales winners', to: '/tenants/{slug}/operations' },
+  { id: 'content', x: 420, y: 370, w: 300, h: 88, zone: 'core', title: 'Content review', desc: 'draft → human review → publish', to: '/tenants/{slug}/attention' },
+  { id: 'ingest', x: 770, y: 370, w: 300, h: 88, zone: 'core', title: 'Ingestion ledger', desc: 'pending + double opt-in + attribution', to: '/tenants/{slug}/portfolio' },
+  // ── OUTCOME ──
+  { id: 'fans', x: 1120, y: 110, w: 280, h: 70, zone: 'out', title: 'Fans, double opt-in', desc: 'one base, full attribution', to: '/tenants/{slug}' },
+  { id: 'campaigns', x: 1120, y: 200, w: 280, h: 70, zone: 'out', title: 'Email · push · content campaigns', desc: 'sent with limits and audit', to: '/tenants/{slug}/operations' },
+  { id: 'tickets', x: 1120, y: 290, w: 280, h: 70, zone: 'out', title: 'Tickets · merch', desc: 'sales with source attribution', to: '/tenants/{slug}' },
+  { id: 'gigs', x: 1120, y: 380, w: 280, h: 70, zone: 'out', title: 'Crowd at shows', desc: 'turnout vs target', to: '/tenants/{slug}' },
 ]
 
 type Edge = { from: string; to: string; kind: Zone }
@@ -52,7 +52,7 @@ const EDGES: Edge[] = [
   { from: 'fans', to: 'campaigns', kind: 'out' },
   { from: 'campaigns', to: 'tickets', kind: 'out' },
   { from: 'tickets', to: 'gigs', kind: 'out' },
-  // pętla nauki: rezultat wraca do eksperymentów
+  // learning loop: outcome feeds back into experimentation
   { from: 'gigs', to: 'experiment', kind: 'learn' },
 ]
 
@@ -95,15 +95,15 @@ export function ProcessMap(props: { slug: () => string }) {
   return (
     <div class="process-map-wrap">
       <svg viewBox="0 0 1460 520" xmlns="http://www.w3.org/2000/svg" class="process-map">
-        {/* strefy */}
+        {/* zones */}
         <rect class="pm-zone" x="20" y="60" width="320" height="420" rx="14" />
-        <text class="pm-zt" x="34" y="88">WEJŚCIA</text>
+        <text class="pm-zt" x="34" y="88">INPUTS</text>
         <rect class="pm-zone" x="400" y="60" width="700" height="420" rx="14" />
         <text class="pm-zt" x="416" y="88">AGENT</text>
         <rect class="pm-zone" x="1100" y="60" width="330" height="420" rx="14" />
-        <text class="pm-zt" x="1116" y="88">REZULTAT</text>
+        <text class="pm-zt" x="1116" y="88">OUTCOME</text>
 
-        {/* krawędzie: statyczny tor + mrówkowa nakładka */}
+        {/* edges: static track + marching-ants overlay */}
         <For each={visibleEdges()}>
           {(item) => (
             <g>
@@ -117,7 +117,7 @@ export function ProcessMap(props: { slug: () => string }) {
           )}
         </For>
 
-        {/* bloki — foreignObject wraps title/desc text instead of clipping
+        {/* blocks — foreignObject wraps title/desc text instead of clipping
             it as a single unbroken SVG <text> line. */}
         <For each={NODES}>
           {(node) => (

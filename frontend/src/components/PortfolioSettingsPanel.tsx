@@ -52,21 +52,21 @@ export function PortfolioSettingsPanel(props: {
     <p class="muted">
       Overrides for this tenant. Empty fields mean the shipped default is live.
     </p>
-    <For each={keys()}>{key => (
-      <label class="field">
-        <span>
+    <div class="form-grid">
+      <For each={keys()}>{key => (
+        <label>
           {LABELS[key] ?? key}
           <Show when={props.model?.overridden.includes(key)}>
             {' '}<em class="override-badge">override</em>
           </Show>
-        </span>
-        <input
-          value={drafts()[key] ?? props.model?.settings[key] ?? ''}
-          onInput={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
-        />
-      </label>
-    )}</For>
-      <div class="actions">
+          <input
+            value={drafts()[key] ?? props.model?.settings[key] ?? ''}
+            onInput={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
+          />
+        </label>
+      )}</For>
+    </div>
+      <div class="form-actions">
         <For each={keys()}>{key => (
           <Show when={dirty(key)}>
             <button

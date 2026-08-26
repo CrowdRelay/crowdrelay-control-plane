@@ -23,8 +23,8 @@ export function FlowPage() {
           <span class="eyebrow">BIG PICTURE</span>
           <h1>Process map</h1>
           <p>
-            Wejścia → agent → rezultat. Kliknij dowolny blok, aby przejść do
-            zakładki, która nim zarządza.
+            Inputs → agent → outcome. Click any block to jump to the tab that
+            manages it.
           </p>
         </div>
         <Show when={tenants.data?.items.length}>
@@ -45,13 +45,13 @@ export function FlowPage() {
 
       <Show
         when={slug()}
-        fallback={<div class="error-card" role="alert">Brak aktywnego tenanta — utwórz go w zakładce Tenants.</div>}
+        fallback={<div class="error-card" role="alert">No active tenant — create one on the Tenants tab.</div>}
       >
         <div class="process-map-legend">
-          <span><i style={{ background: '#71dcff' }} />Wejścia</span>
+          <span><i style={{ background: '#71dcff' }} />Inputs</span>
           <span><i style={{ background: '#ffd56d' }} />Agent</span>
-          <span><i style={{ background: '#ff6680' }} />Rezultat</span>
-          <span><i style={{ background: '#7dffb2' }} />Pętla nauki</span>
+          <span><i style={{ background: '#ff6680' }} />Outcome</span>
+          <span><i style={{ background: '#7dffb2' }} />Learning loop</span>
         </div>
         <ProcessMap slug={slug} />
       </Show>

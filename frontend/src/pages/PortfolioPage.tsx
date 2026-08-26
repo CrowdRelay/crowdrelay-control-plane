@@ -14,26 +14,38 @@ const isNotFound = (error: unknown) => error instanceof ApiError && error.status
 export function PortfolioPage() {
   const params = useParams({ from: '/tenants/$slug/portfolio' })
   // Both read models come from one upstream tenant per tab; polling stays at
-  // human speed because the portfolio changes at campaign speed, not tick speed.
+  // human speed because the portfolio changes at campaign speed, not tick
+  // speed. `reconcile: 'id'` + no window-focus refetch matches every other
+  // polling subpage (Operations, Attention, Overview): a refresh patches the
+  // store in place instead of replacing it, so unrelated blocks and any
+  // in-progress edits don't flash or reset every cycle.
   const overview = useQuery(() => ({
     queryKey: ['portfolio-overview', params().slug],
     queryFn: () => api.portfolioOverview(params().slug),
     refetchInterval: 30_000,
+    refetchOnWindowFocus: false,
+    reconcile: 'id',
   }))
   const edges = useQuery(() => ({
     queryKey: ['portfolio', params().slug],
     queryFn: () => api.portfolioEdges(params().slug),
     refetchInterval: 30_000,
+    refetchOnWindowFocus: false,
+    reconcile: 'id',
   }))
   const fanbases = useQuery(() => ({
     queryKey: ['fanbases', params().slug],
     queryFn: () => api.fanbases(params().slug),
+    refetchOnWindowFocus: false,
+    reconcile: 'id',
   }))
   const settings = useQuery(() => ({
     queryKey: ['portfolio-settings', params().slug],
     queryFn: () => api.portfolioSettings(params().slug),
     staleTime: 60_000,
     retry: false,
+    refetchOnWindowFocus: false,
+    reconcile: 'id',
   }))
   const refresh = () => {
     void overview.refetch()

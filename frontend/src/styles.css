@@ -51,23 +51,21 @@
 .cmdk-busy{color:var(--accent)}
 @media(max-width:900px){.cmdk-trigger-label{display:none}}
 
-/* Shared form/field controls — .field is used both as a single label
-   (span + input) and as a wrapper around several plain <label> children,
-   so both shapes need to resolve to the same stacked, bordered inputs. */
-.field{display:flex;flex-direction:column;gap:10px;margin:14px 0}
-.field>span:first-child{font-weight:600;color:var(--muted);font-size:.8rem}
-.field label{display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:.8rem}
-.field input,.field select,.field textarea{width:100%;background:#0c0e12;border:1px solid #2c313b;color:var(--text);padding:10px 12px;border-radius:9px;outline:none;font-size:.92rem}
-.field textarea{min-height:90px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem}
-.field input:focus,.field select:focus,.field textarea:focus{border-color:#7663d8;box-shadow:0 0 0 3px #7663d826}
-.field .actions{margin-top:2px}
-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239097a5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+/* Header-level tenant/context picker sits inline next to a page title as a
+   compact pill — the rest of the app uses .form-grid for actual forms. */
+.field{display:flex;flex-direction:row;align-items:center;gap:10px;padding:8px 14px;border:1px solid var(--line);border-radius:12px;background:#111318dd}
+.field>span:first-child{font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.field select{width:auto;min-width:140px}
+select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239097a5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;background-color:#0c0e12;border:1px solid #2c313b;color:var(--text);padding-top:10px;padding-bottom:10px;padding-left:12px;border-radius:9px}
+select:focus{border-color:#7663d8;box-shadow:0 0 0 3px #7663d826;outline:none}
 
-/* Header-level tenant/context pickers sit inline next to a page title
-   instead of stacking like a form field. */
-.page-head .field{flex-direction:row;align-items:center;gap:10px;margin:0;padding:8px 14px;border:1px solid var(--line);border-radius:12px;background:#111318dd}
-.page-head .field>span:first-child{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em}
-.page-head .field select{width:auto;min-width:140px;background-color:#0c0e12;border-color:#2c313b}
+@media(max-width:900px){.page-head .field{width:100%;justify-content:space-between}}
+
+/* Inline JSON batch editor inside a fan-source table row — same input
+   language as .form-grid without the two-column layout. */
+.ingest-editor{display:flex;flex-direction:column;gap:10px;max-width:420px}
+.ingest-editor textarea{width:100%;min-height:90px;resize:vertical;background:#0c0e12;border:1px solid #2c313b;color:var(--text);padding:11px 12px;border-radius:9px;outline:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem}
+.ingest-editor textarea:focus{border-color:#7663d8;box-shadow:0 0 0 3px #7663d826}
 
 /* Data tables (fan sources, portfolio edges, …) had no rules at all before,
    so they rendered as bare unstyled browser tables. */

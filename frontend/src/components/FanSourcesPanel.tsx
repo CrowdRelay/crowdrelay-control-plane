@@ -98,24 +98,24 @@ export function FanSourcesPanel(props: {
       <button onClick={() => setCreating(true)}>+ New fanbase</button>
     </Show>
     <Show when={creating}>
-      <div class="field">
-        <label>Name <input value={name()} onInput={e => setName(e.currentTarget.value)} /></label>
+      <div class="form-grid">
+        <label>Name<input value={name()} onInput={e => setName(e.currentTarget.value)} /></label>
         <label>Source kind
           <select value={sourceKind()} onChange={e => setSourceKind(e.currentTarget.value)}>
             <For each={SOURCE_KINDS}>{k => <option value={k.value}>{k.label}</option>}</For>
           </select>
         </label>
         <Show when={sourceKind() === 'http_json_pull'}>
-          <label>Fetch URL <input value={fetchUrl()} onInput={e => setFetchUrl(e.currentTarget.value)} placeholder="https://…/candidates.json" /></label>
+          <label>Fetch URL<input value={fetchUrl()} onInput={e => setFetchUrl(e.currentTarget.value)} placeholder="https://…/candidates.json" /></label>
         </Show>
         <Show when={needsAttestation()}>
-          <label>Consent attested by <input value={attestedBy()} onInput={e => setAttestedBy(e.currentTarget.value)} placeholder="operator@label" /></label>
+          <label>Consent attested by<input value={attestedBy()} onInput={e => setAttestedBy(e.currentTarget.value)} placeholder="operator@label" /></label>
         </Show>
-        <div class="actions">
-          <button disabled={!name() || (needsAttestation() && !attestedBy())}
-            onClick={() => create.mutate()}>Create</button>
-          <button onClick={() => setCreating(false)}>Cancel</button>
-        </div>
+      </div>
+      <div class="form-actions">
+        <button disabled={!name() || (needsAttestation() && !attestedBy())}
+          onClick={() => create.mutate()}>Create</button>
+        <button class="ghost" onClick={() => setCreating(false)}>Cancel</button>
       </div>
     </Show>
 
@@ -135,16 +135,16 @@ export function FanSourcesPanel(props: {
                   Ingest batch…
                 </button>
               }>
-                <div class="field">
+                <div class="ingest-editor">
                   <textarea rows="4" placeholder='{"entries":[{"external_id":"x1","email":"a@b.c"}]}'
                     value={ingestJson()} onInput={e => setIngestJson(e.currentTarget.value)} />
-                  <div class="actions">
+                  <div class="form-actions">
                     <button disabled={!parseEntries()}
                       onClick={() => {
                         const parsed = parseEntries()
                         if (parsed) ingest.mutate({ id: fb.id, entries: parsed.entries as never })
                       }}>Run</button>
-                    <button onClick={() => setIngestingId(null)}>Cancel</button>
+                    <button class="ghost" onClick={() => setIngestingId(null)}>Cancel</button>
                   </div>
                 </div>
               </Show>

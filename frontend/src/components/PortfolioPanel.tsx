@@ -63,9 +63,9 @@ export function PortfolioPanel(props: {
     </Show>
 
     <h3>Amplification edges</h3>
-    <label class="field"><span>Approving operator</span>
-      <input value={actor()} onInput={e => setActor(e.currentTarget.value)} placeholder="operator@label" />
-    </label>
+    <div class="form-grid">
+      <label>Approving operator<input value={actor()} onInput={e => setActor(e.currentTarget.value)} placeholder="operator@label" /></label>
+    </div>
     <Show when={props.consents?.length}>
       <table class="data-table">
         <thead><tr>
