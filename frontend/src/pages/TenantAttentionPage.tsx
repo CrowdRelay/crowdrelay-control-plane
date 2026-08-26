@@ -3,28 +3,13 @@ import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { fetchOperationsAttention } from '../lib/attention'
+import { formatAge, formatTimestamp as observed, oldestQueueAge } from '../lib/format'
 import type { DeliveryDetails, OperationsSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
 
 const totalDead = (summary: OperationsSummary) => summary.outbox.dead + summary.deliveries.dead + summary.push.dead
-const oldestQueueAge = (summary: OperationsSummary) => Math.max(
-  summary.outbox.oldest_pending_seconds,
-  summary.deliveries.oldest_pending_seconds,
-  summary.push.oldest_pending_seconds,
-)
 const staleAreaReservations = (summary: OperationsSummary) => summary.area.stale_voucher_reservations + summary.area.stale_ticket_reward_reservations
-const formatAge = (seconds: number) => {
-  if (seconds <= 0) return '—'
-  if (seconds < 60) return `${seconds}s`
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m`
-  return `${(seconds / 3600).toFixed(seconds < 36_000 ? 1 : 0)}h`
-}
-const observed = (value: string | null) => {
-  if (!value) return '—'
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString()
-}
 const shortId = (value: string) => value.length > 16 ? `${value.slice(0, 8)}…${value.slice(-6)}` : value
 
 export function TenantAttentionPage() {

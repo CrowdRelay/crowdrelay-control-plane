@@ -48,6 +48,6 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   }
   await expect(page.locator('.runtime-panel')).toBeVisible()
 
-  await page.getByRole('button', { name: 'Wyloguj' }).click()
+  await page.getByRole('button', { name: 'Log out' }).click()
   await expect(page.getByRole('heading', { name: 'Welcome to Control Plane' })).toBeVisible()
 })

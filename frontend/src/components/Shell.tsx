@@ -25,7 +25,7 @@ export const Shell: Component = () => {
         <header class="topbar">
           <div><span class="eyebrow">PLATFORM</span><strong>Operations</strong></div>
           <Show when={slug()}>{tenant => <TenantSubnav slug={tenant()} />}</Show>
-          <button class="topbar-logout" type="button" onClick={() => authState.clear()}>Wyloguj</button>
+          <button class="topbar-logout" type="button" onClick={() => authState.clear()}>Log out</button>
         </header>
         <Outlet />
       </main>

@@ -1,9 +1,8 @@
 import { For, Show, createEffect, createSignal } from 'solid-js'
 import { api } from '../lib/api'
 import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, FeatureFlag, OperationsSummary } from '../lib/types'
+import { errorMessage, formatAge, oldestQueueAge } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
-
-const errorMessage = (value: unknown, fallback: string) => value instanceof Error ? value.message : fallback
 
 const flagLabel = (key: string) => key
   .replace(/_enabled$/, '')
@@ -16,18 +15,9 @@ const contextLabel = (context: string) => context
   .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
   .join(' ')
 
-const seconds = (value: number) => {
-  if (value <= 0) return '—'
-  if (value < 60) return `${value}s`
-  if (value < 3600) return `${Math.round(value / 60)}m`
-  return `${(value / 3600).toFixed(value < 36_000 ? 1 : 0)}h`
-}
+const seconds = (value: number) => value <= 0 ? '—' : formatAge(value)
 
 const metric = (value: number | undefined, suffix = '') => value == null ? '—' : `${value.toLocaleString()}${suffix}`
-
-const oldestQueueAge = (summary: OperationsSummary | undefined) => summary
-  ? Math.max(summary.outbox.oldest_pending_seconds, summary.deliveries.oldest_pending_seconds, summary.push.oldest_pending_seconds)
-  : 0
 
 const operationalTone = (summary: OperationsSummary | undefined): 'good'|'warn'|'bad'|'muted' => {
   if (!summary) return 'muted'
