@@ -527,3 +527,17 @@ export interface PortfolioSettingsReadModel {
   overridden: string[]
   editable_keys: string[]
 }
+
+export interface FanbaseBlock {
+  id: string
+  name: string
+  source_kind: string
+  fetch_url: string | null
+  consent_attested_by: string | null
+  enabled: boolean
+  created_at: string
+  members: number | null
+  last_status: string | null
+  last_finished_at: string | null
+  last_imported_pending: number | null
+}

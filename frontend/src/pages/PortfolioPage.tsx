@@ -4,6 +4,7 @@ import { useParams } from '@tanstack/solid-router'
 import { api, ApiError } from '../lib/api'
 import { PortfolioPanel } from '../components/PortfolioPanel'
 import { PortfolioSettingsPanel } from '../components/PortfolioSettingsPanel'
+import { FanSourcesPanel } from '../components/FanSourcesPanel'
 
 // A 404 from these read models means the connected CrowdRelay build predates
 // the portfolio management routes — a deployment-version gap, not a runtime
@@ -24,6 +25,10 @@ export function PortfolioPage() {
     queryFn: () => api.portfolioEdges(params().slug),
     refetchInterval: 30_000,
   }))
+  const fanbases = useQuery(() => ({
+    queryKey: ['fanbases', params().slug],
+    queryFn: () => api.fanbases(params().slug),
+  }))
   const settings = useQuery(() => ({
     queryKey: ['portfolio-settings', params().slug],
     queryFn: () => api.portfolioSettings(params().slug),
@@ -34,6 +39,7 @@ export function PortfolioPage() {
     void overview.refetch()
     void edges.refetch()
     void settings.refetch()
+    void fanbases.refetch()
   }
 
   const surfaceUnavailable = () =>
@@ -69,6 +75,11 @@ export function PortfolioPage() {
       consents={edges.data?.consents}
       onChanged={refresh}
     /></Show>
+    <FanSourcesPanel
+      slug={params().slug}
+      fanbases={fanbases.data?.fanbases}
+      onChanged={refresh}
+    />
     <Show when={overview.isPending}><div class="skeleton-block"/></Show>
     {/* A settings 404 simply means the upstream has no overrides yet — stay
         quiet instead of rendering an empty panel with a scary error. */}

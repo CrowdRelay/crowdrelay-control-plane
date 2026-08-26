@@ -81,6 +81,14 @@ pub fn router() -> Router<AppState> {
             post(update_portfolio_setting),
         )
         .route(
+            "/tenants/{slug}/portfolio/fanbases",
+            get(portfolio_fanbases).post(create_portfolio_fanbase),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/fanbases/{fanbase_id}/ingest",
+            post(ingest_portfolio_fanbase),
+        )
+        .route(
             "/tenants/{slug}/operations/autopilot/{context}",
             post(update_autopilot),
         )
@@ -933,4 +941,101 @@ async fn update_portfolio_setting(
     )
     .await;
     object_no_store(value, "portfolio setting update")
+}
+
+/// Audience blocks for this tenant: name, origin kind, member counts and the
+/// latest ingestion outcome.
+async fn portfolio_fanbases(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_tenant, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/fanbases",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "portfolio fanbases list")
+}
+
+/// Registers a new audience block with its acquisition origin.
+async fn create_portfolio_fanbase(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/fanbases",
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.fanbase.created",
+        "fanbase",
+        value
+            .get("fanbaseId")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown"),
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "portfolio fanbase create")
+}
+
+/// Pushes one provider batch through admission on the upstream tenant.
+async fn ingest_portfolio_fanbase(
+    State(state): State<AppState>,
+    Path((slug, fanbase_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let fanbase_id = uuid_segment(&fanbase_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    if !body.is_object()
+        || !body
+            .get("entries")
+            .and_then(Value::as_array)
+            .is_some_and(|e| !e.is_empty())
+    {
+        return Err(ApiError::InvalidInput("entries are required".to_owned()));
+    }
+    let path = format!("/v1/control-plane/fanbases/{fanbase_id}/ingest");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.fanbase.ingested",
+        "fanbase",
+        &fanbase_id,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "portfolio fanbase ingest")
 }

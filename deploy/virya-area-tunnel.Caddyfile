@@ -27,7 +27,8 @@ http://127.0.0.1:18080 {
         /v1/control-plane/portfolio/amplification/* \
         /v1/control-plane/tenant-settings \
         /v1/control-plane/tenant-settings/* \
-        /v1/control-plane/autopilot/actions/* \
+        /v1/control-plane/fanbases \
+        /v1/control-plane/fanbases/* \        /v1/control-plane/autopilot/actions/* \
         /v1/control-plane/autopilot/decisions/*
 
     handle /healthz/ready {
