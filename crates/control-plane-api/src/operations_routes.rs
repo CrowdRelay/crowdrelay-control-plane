@@ -60,21 +60,11 @@ pub fn router() -> Router<AppState> {
             post(bulk_autopilot),
         )
         .route("/tenants/{slug}/operations/growth", get(autopilot_growth))
-        .route(
-            "/tenants/{slug}/portfolio/overview",
-            get(portfolio_overview),
-        )
-        .route(
-            "/tenants/{slug}/portfolio/amplification",
-            get(portfolio_amplification),
-        )
+        // Portfolio reads live in read_models::portfolio as one consolidated
+        // model; only the mutations are routed here.
         .route(
             "/tenants/{slug}/portfolio/amplification/{consent_id}/decide",
             post(decide_portfolio_amplification),
-        )
-        .route(
-            "/tenants/{slug}/portfolio/settings",
-            get(portfolio_settings),
         )
         .route(
             "/tenants/{slug}/portfolio/settings/{setting_key}",
@@ -82,7 +72,7 @@ pub fn router() -> Router<AppState> {
         )
         .route(
             "/tenants/{slug}/portfolio/fanbases",
-            get(portfolio_fanbases).post(create_portfolio_fanbase),
+            post(create_portfolio_fanbase),
         )
         .route(
             "/tenants/{slug}/portfolio/fanbases/{fanbase_id}/ingest",
@@ -790,46 +780,6 @@ async fn handle_opportunity_externally(
     object_no_store(result?, "opportunity handled externally")
 }
 
-/// Roster-wide audience KPIs for one tenant's label organization.
-async fn portfolio_overview(
-    State(state): State<AppState>,
-    Path(slug): Path<String>,
-    headers: HeaderMap,
-) -> Result<Response, ApiError> {
-    let (tenant, value) = call(
-        &state,
-        &slug,
-        "GET",
-        "/v1/control-plane/portfolio/overview",
-        None,
-        &headers,
-        None,
-    )
-    .await?;
-    tracing::debug!(tenant = %tenant.tenant.slug, "portfolio overview forwarded");
-    object_no_store(value, "portfolio overview")
-}
-
-/// Consent edges touching this workspace (read-only list).
-async fn portfolio_amplification(
-    State(state): State<AppState>,
-    Path(slug): Path<String>,
-    headers: HeaderMap,
-) -> Result<Response, ApiError> {
-    let (tenant, value) = call(
-        &state,
-        &slug,
-        "GET",
-        "/v1/control-plane/portfolio/amplification",
-        None,
-        &headers,
-        None,
-    )
-    .await?;
-    tracing::debug!(tenant = %tenant.tenant.slug, "portfolio amplification forwarded");
-    object_no_store(value, "portfolio amplification list")
-}
-
 /// Approve / pause / resume / revoke one edge. The upstream handler owns the
 /// transition policy; this proxy only carries the operator's decision.
 async fn decide_portfolio_amplification(
@@ -868,25 +818,6 @@ async fn decide_portfolio_amplification(
     )
     .await;
     object_no_store(value, "portfolio edge decision")
-}
-
-/// Effective brand settings for the tenant, merged over shipped defaults.
-async fn portfolio_settings(
-    State(state): State<AppState>,
-    Path(slug): Path<String>,
-    headers: HeaderMap,
-) -> Result<Response, ApiError> {
-    let (_tenant, value) = call(
-        &state,
-        &slug,
-        "GET",
-        "/v1/control-plane/tenant-settings",
-        None,
-        &headers,
-        None,
-    )
-    .await?;
-    object_no_store(value, "portfolio settings")
 }
 
 /// Upserts one brand override; upstream validates the key allowlist and
@@ -941,26 +872,6 @@ async fn update_portfolio_setting(
     )
     .await;
     object_no_store(value, "portfolio setting update")
-}
-
-/// Audience blocks for this tenant: name, origin kind, member counts and the
-/// latest ingestion outcome.
-async fn portfolio_fanbases(
-    State(state): State<AppState>,
-    Path(slug): Path<String>,
-    headers: HeaderMap,
-) -> Result<Response, ApiError> {
-    let (_tenant, value) = call(
-        &state,
-        &slug,
-        "GET",
-        "/v1/control-plane/fanbases",
-        None,
-        &headers,
-        None,
-    )
-    .await?;
-    object_no_store(value, "portfolio fanbases list")
 }
 
 /// Registers a new audience block with its acquisition origin.

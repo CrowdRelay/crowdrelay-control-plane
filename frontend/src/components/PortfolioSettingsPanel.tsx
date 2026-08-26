@@ -47,11 +47,10 @@ export function PortfolioSettingsPanel(props: {
     },
   }))
 
-  return <div class="panel">
-    <h3>Brand settings</h3>
-    <p class="muted">
-      Overrides for this tenant. Empty fields mean the shipped default is live.
-    </p>
+  return <article class="panel">
+    <div class="section-title">
+      <div><span class="eyebrow">BRAND</span><h2>Brand settings</h2><p>Per-tenant overrides. Empty fields mean the shipped default is live; an override badge means a row is saved here.</p></div>
+    </div>
     <div class="form-grid">
       <For each={keys()}>{key => (
         <label>
@@ -84,5 +83,5 @@ export function PortfolioSettingsPanel(props: {
     <Show when={errorText()}>
       <div class="error-card" role="alert">{errorText()}</div>
     </Show>
-  </div>
+  </article>
 }

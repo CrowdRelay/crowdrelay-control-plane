@@ -2,6 +2,7 @@ import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { FanbaseBlock } from '../lib/types'
+import { StatusBadge } from './StatusBadge'
 
 const SOURCE_KINDS = [
   { value: 'http_json_pull', label: 'HTTP JSON (pull)' },
@@ -13,7 +14,22 @@ const SOURCE_KINDS = [
   { value: 'reddit_community', label: 'Reddit community' },
 ]
 
+const SOURCE_LABEL: Record<string, string> = Object.fromEntries(
+  SOURCE_KINDS.map(kind => [kind.value, kind.label]),
+)
+
 const EMPTY_INGEST = ''
+
+const metric = (value: number | null | undefined) => value == null ? '—' : value.toLocaleString()
+
+const ingestionTone = (status: string | null): 'good' | 'warn' | 'bad' | 'muted' => {
+  switch (status) {
+    case 'completed': return 'good'
+    case 'running': return 'warn'
+    case 'failed': return 'bad'
+    default: return 'muted'
+  }
+}
 
 export function FanSourcesPanel(props: {
   slug: string
@@ -30,6 +46,7 @@ export function FanSourcesPanel(props: {
   const [ingestJson, setIngestJson] = createSignal('')
   const [notice, setNotice] = createSignal<string | null>(null)
   const [errorText, setErrorText] = createSignal<string | null>(null)
+  const [pendingFor, setPendingFor] = createSignal<string | null>(null)
 
   const needsAttestation = createMemo(() => sourceKind() !== 'http_json_pull')
 
@@ -44,10 +61,11 @@ export function FanSourcesPanel(props: {
         consentAttestedBy: attestedBy() || undefined,
       }),
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: ['fanbases', props.slug] })
+      await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
+      refresh()
       setCreating(false)
       resetForm()
-      setNotice(`Fanbase created: ${result.fanbaseId}`)
+      setNotice(`Fanbase created: ${result.fanbaseId.slice(0, 8)}…`)
     },
     onError: (error) => setErrorText(error instanceof Error ? error.message : 'Create failed'),
   }))
@@ -59,7 +77,8 @@ export function FanSourcesPanel(props: {
       return api.ingestFanbase(props.slug, input.id, input.entries)
     },
     onSuccess: async (counters) => {
-      await queryClient.invalidateQueries({ queryKey: ['fanbases', props.slug] })
+      await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
+      refresh()
       setPendingFor(null)
       setIngestingId(null)
       setNotice(
@@ -71,8 +90,6 @@ export function FanSourcesPanel(props: {
       setErrorText(error instanceof Error ? error.message : 'Ingestion failed')
     },
   }))
-
-  const [pendingFor, setPendingFor] = createSignal<string | null>(null)
 
   const resetForm = () => {
     setName(''); setSourceKind('http_json_pull'); setFetchUrl(''); setAttestedBy('')
@@ -88,18 +105,27 @@ export function FanSourcesPanel(props: {
     }
   }
 
-  return <div class="panel">
-    <h3>Fan sources</h3>
-    <Show when={notice()}><p class="muted">{notice()}</p></Show>
+  const blocks = () => props.fanbases ?? []
+
+  return <article class="panel">
+    <div class="section-title">
+      <div><span class="eyebrow">FAN SOURCES</span><h2>Fanbases</h2><p>First-class audience blocks with a swappable acquisition origin. Every ingest lands candidates as pending double opt-in — active fans are never downgraded and opt-outs are never resurrected.</p></div>
+      <div class="row-health">
+        <Show when={!creating}>
+          <button onClick={() => { setCreating(true); setNotice(null) }}>+ New fanbase</button>
+        </Show>
+        <StatusBadge status={blocks().length > 0 ? `${blocks().length} blocks` : 'none yet'} tone={blocks().length > 0 ? 'good' : 'muted'} />
+      </div>
+    </div>
+
+    <Show when={notice()}><div class="notice-card" role="status">{notice()}</div></Show>
     <Show when={errorText()}>
       <div class="error-card" role="alert">{errorText()}</div>
     </Show>
-    <Show when={!creating}>
-      <button onClick={() => setCreating(true)}>+ New fanbase</button>
-    </Show>
+
     <Show when={creating}>
       <div class="form-grid">
-        <label>Name<input value={name()} onInput={e => setName(e.currentTarget.value)} /></label>
+        <label>Name<input value={name()} onInput={e => setName(e.currentTarget.value)} placeholder="e.g. Meta Lead Ads — Warsaw" /></label>
         <label>Source kind
           <select value={sourceKind()} onChange={e => setSourceKind(e.currentTarget.value)}>
             <For each={SOURCE_KINDS}>{k => <option value={k.value}>{k.label}</option>}</For>
@@ -119,39 +145,53 @@ export function FanSourcesPanel(props: {
       </div>
     </Show>
 
-    <table class="data-table">
-      <thead><tr><th>Name</th><th>Origin</th><th>Members</th><th>Last ingestion</th><th>Ingest</th></tr></thead>
-      <tbody>
-        <For each={props.fanbases ?? []}>{fb => (
-          <tr>
-            <td>{fb.name}{fb.enabled ? '' : ' (off)'}</td>
-            <td>{fb.source_kind}</td>
-            <td>{fb.members ?? 0}</td>
-            <td>{fb.last_status ?? '—'}</td>
-            <td>
-              <Show when={ingestingId() === fb.id} fallback={
-                <button disabled={pendingFor() !== null}
-                  onClick={() => { setIngestingId(fb.id); setIngestJson(EMPTY_INGEST) }}>
-                  Ingest batch…
-                </button>
-              }>
-                <div class="ingest-editor">
-                  <textarea rows="4" placeholder='{"entries":[{"external_id":"x1","email":"a@b.c"}]}'
-                    value={ingestJson()} onInput={e => setIngestJson(e.currentTarget.value)} />
-                  <div class="form-actions">
-                    <button disabled={!parseEntries()}
-                      onClick={() => {
-                        const parsed = parseEntries()
-                        if (parsed) ingest.mutate({ id: fb.id, entries: parsed.entries as never })
-                      }}>Run</button>
-                    <button class="ghost" onClick={() => setIngestingId(null)}>Cancel</button>
+    <Show when={blocks().length}>
+      <table class="data-table">
+        <thead><tr><th>Name</th><th>Origin</th><th>Members</th><th>Last ingestion</th><th>Ingest</th></tr></thead>
+        <tbody>
+          <For each={blocks()}>{fb => (
+            <tr>
+              <td>{fb.name}{fb.enabled ? '' : ' (off)'}</td>
+              <td>{SOURCE_LABEL[fb.source_kind] ?? fb.source_kind}</td>
+              <td>{metric(fb.members)}</td>
+              <td>
+                <Show when={fb.last_status} fallback={<span class="muted">never</span>}>
+                  <span class="row-health">
+                    <StatusBadge status={fb.last_status ?? ''} tone={ingestionTone(fb.last_status)} />
+                    <Show when={fb.last_imported_pending != null}>
+                      <small>+{fb.last_imported_pending} pending</small>
+                    </Show>
+                  </span>
+                </Show>
+              </td>
+              <td>
+                <Show when={ingestingId() === fb.id} fallback={
+                  <button disabled={pendingFor() !== null}
+                    onClick={() => { setIngestingId(fb.id); setIngestJson(EMPTY_INGEST) }}>
+                    Ingest batch…
+                  </button>
+                }>
+                  <div class="ingest-editor">
+                    <textarea rows="4" placeholder='{"entries":[{"external_id":"x1","email":"a@b.c"}]}'
+                      value={ingestJson()} onInput={e => setIngestJson(e.currentTarget.value)} />
+                    <div class="form-actions">
+                      <button disabled={!parseEntries()}
+                        onClick={() => {
+                          const parsed = parseEntries()
+                          if (parsed) ingest.mutate({ id: fb.id, entries: parsed.entries as never })
+                        }}>Run</button>
+                      <button class="ghost" onClick={() => setIngestingId(null)}>Cancel</button>
+                    </div>
                   </div>
-                </div>
-              </Show>
-            </td>
-          </tr>
-        )}</For>
-      </tbody>
-    </table>
-  </div>
+                </Show>
+              </td>
+            </tr>
+          )}</For>
+        </tbody>
+      </table>
+    </Show>
+    <Show when={!blocks().length}>
+      <p class="muted">No fanbases yet — register one with its acquisition origin to start collecting candidates.</p>
+    </Show>
+  </article>
 }

@@ -9,6 +9,7 @@
 //! * Overview  -> [`overview`]   (`GET /tenants/{slug}/overview`)
 //! * Attention -> [`crate::attention_routes`] (`GET /tenants/{slug}/operations/attention`)
 //! * Operations/Autopilot -> [`operations`] (`GET /tenants/{slug}/operations/overview`)
+//! * Label Portfolio -> [`portfolio`] (`GET /tenants/{slug}/portfolio/model`)
 //!
 //! Mutations stay on their own routes; nothing here writes.
 
@@ -29,6 +30,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/tenants/{slug}/overview", get(overview))
         .route("/tenants/{slug}/operations/overview", get(operations))
+        .route("/tenants/{slug}/portfolio/model", get(portfolio))
 }
 
 fn correlation(headers: &HeaderMap) -> Option<&str> {
@@ -149,6 +151,99 @@ impl Shape {
             Shape::Array => value.is_array(),
         }
     }
+}
+
+/// Label Portfolio subpage.
+///
+/// The four upstream sections (roster KPIs, consent edges, fan sources and
+/// brand settings) are fetched concurrently over the private tunnel and
+/// projected like [`project_operations`]. A section that fails is reported as
+/// `null` and named in `degraded`, so a settings gap on an older CrowdRelay
+/// build cannot blank the roster KPIs next to it. Only a snapshot where every
+/// section failed is an error.
+async fn portfolio(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let slug = validation::slug(&raw_slug)?;
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let section = |path: &'static str| {
+        let state = &state;
+        let target = &target;
+        let tenant_id = tenant.tenant.id;
+        let correlation_id = correlation(&headers);
+        async move {
+            state
+                .area_client
+                .request_management(
+                    tenant_id,
+                    target,
+                    ManagementRequest {
+                        method: "GET",
+                        path,
+                        body: None,
+                        correlation_id,
+                        idempotency_key: None,
+                    },
+                )
+                .await
+        }
+    };
+
+    let (overview, amplification, fanbases, settings) = tokio::join!(
+        section("/v1/control-plane/portfolio/overview"),
+        section("/v1/control-plane/portfolio/amplification"),
+        section("/v1/control-plane/fanbases"),
+        section("/v1/control-plane/tenant-settings"),
+    );
+
+    Ok(no_store(project_portfolio(
+        &slug,
+        overview.as_ref().ok(),
+        amplification.as_ref().ok(),
+        fanbases.as_ref().ok(),
+        settings.as_ref().ok(),
+    )?))
+}
+
+fn project_portfolio(
+    slug: &str,
+    overview: Option<&Value>,
+    amplification: Option<&Value>,
+    fanbases: Option<&Value>,
+    settings: Option<&Value>,
+) -> Result<Value, ApiError> {
+    let sections = [
+        ("overview", overview, Shape::Object),
+        ("amplification", amplification, Shape::Object),
+        ("fanbases", fanbases, Shape::Object),
+        ("settings", settings, Shape::Object),
+    ];
+
+    let mut projected = serde_json::Map::new();
+    let mut degraded = Vec::new();
+    for (name, value, shape) in sections {
+        match value {
+            Some(value) if shape.accepts(value) => {
+                projected.insert(name.to_owned(), value.clone());
+            }
+            _ => {
+                projected.insert(name.to_owned(), Value::Null);
+                degraded.push(Value::String(name.to_owned()));
+            }
+        }
+    }
+
+    if degraded.len() == sections.len() {
+        return Err(ApiError::Unavailable(
+            "tenant portfolio channel returned no usable section".to_owned(),
+        ));
+    }
+
+    projected.insert("id".to_owned(), Value::String(slug.to_owned()));
+    projected.insert("degraded".to_owned(), Value::Array(degraded));
+    Ok(Value::Object(projected))
 }
 
 /// Re-project each section under its own contract name.
@@ -308,5 +403,61 @@ mod tests {
                 "summary"
             ]
         );
+    }
+
+    fn roster_overview() -> Value {
+        json!({"workspaceCount": 3})
+    }
+    fn amplification() -> Value {
+        json!({"consents": []})
+    }
+    fn fanbases() -> Value {
+        json!({"fanbases": []})
+    }
+    fn settings() -> Value {
+        json!({"overrides": {}})
+    }
+
+    #[test]
+    fn portfolio_projects_a_complete_snapshot() {
+        let projected = project_portfolio(
+            "virya",
+            Some(&roster_overview()),
+            Some(&amplification()),
+            Some(&fanbases()),
+            Some(&settings()),
+        )
+        .expect("complete snapshot projects");
+
+        assert_eq!(projected["id"], json!("virya"));
+        assert_eq!(projected["overview"], roster_overview());
+        assert_eq!(projected["amplification"], amplification());
+        assert_eq!(projected["fanbases"], fanbases());
+        assert_eq!(projected["settings"], settings());
+        assert_eq!(projected["degraded"], json!([]));
+    }
+
+    #[test]
+    fn portfolio_degrades_one_section_without_blankning_the_rest() {
+        let projected = project_portfolio(
+            "virya",
+            Some(&roster_overview()),
+            Some(&amplification()),
+            None,
+            None,
+        )
+        .expect("a partial snapshot is still usable");
+
+        assert_eq!(projected["overview"], roster_overview());
+        assert_eq!(projected["fanbases"], Value::Null);
+        assert_eq!(projected["settings"], Value::Null);
+        assert_eq!(projected["degraded"], json!(["fanbases", "settings"]));
+    }
+
+    #[test]
+    fn portfolio_with_no_usable_section_is_an_error() {
+        let error = project_portfolio("virya", None, None, None, None)
+            .expect_err("a fully failed snapshot must not render as an empty page");
+        assert!(matches!(error, ApiError::Unavailable(_)));
     }
 }

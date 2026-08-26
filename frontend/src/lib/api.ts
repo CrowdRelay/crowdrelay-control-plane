@@ -1,4 +1,4 @@
-import type { AreaCity, FanbaseBlock, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, DeliveryDetails, FeatureFlag, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, Palette, PortfolioConsent, PortfolioOverview, PortfolioSettingsReadModel, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, RetryResult, TenantOperationsReadModel, TenantOverviewReadModel, TenantRuntimeSnapshot, TenantSummary } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, DeliveryDetails, FeatureFlag, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, Palette, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, RetryResult, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
@@ -140,22 +140,21 @@ export const api = {
     headers: { 'idempotency-key': crypto.randomUUID() },
     body: '{}',
   }),
-  portfolioOverview: (slug: string) => request<PortfolioOverview>(`/tenants/${encodeURIComponent(slug)}/portfolio/overview`),
-  portfolioEdges: (slug: string) => request<{ consents: PortfolioConsent[] }>(`/tenants/${encodeURIComponent(slug)}/portfolio/amplification`),
+  // One purpose-built read model per tenant subpage. The browser never
+  // orchestrates a fan-out to assemble a screen.
+  tenantPortfolio: (slug: string) => request<TenantPortfolioReadModel>(`/tenants/${encodeURIComponent(slug)}/portfolio/model`),
   decidePortfolioEdge: (slug: string, consentId: string, action: 'approve'|'pause'|'resume'|'revoke', input: { actor?: string; revokeReason?: string }) =>
     request<{ status: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/amplification/${encodeURIComponent(consentId)}/decide`, {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
       body: JSON.stringify({ action, actor: input.actor, revoke_reason: input.revokeReason }),
     }),
-  portfolioSettings: (slug: string) => request<PortfolioSettingsReadModel>(`/tenants/${encodeURIComponent(slug)}/portfolio/settings`),
   updatePortfolioSetting: (slug: string, key: string, value: string) =>
     request<{ key: string; value: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/settings/${encodeURIComponent(key)}`, {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
       body: JSON.stringify({ value }),
     }),
-  fanbases: (slug: string) => request<{ fanbases: FanbaseBlock[] }>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases`),
   createFanbase: (slug: string, input: { name: string; sourceKind: string; fetchUrl?: string; consentAttestedBy?: string }) =>
     request<{ fanbaseId: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases`, {
       method: 'POST',

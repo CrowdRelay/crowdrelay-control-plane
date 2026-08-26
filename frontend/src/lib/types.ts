@@ -541,3 +541,16 @@ export interface FanbaseBlock {
   last_finished_at: string | null
   last_imported_pending: number | null
 }
+
+export type TenantPortfolioSection = 'overview' | 'amplification' | 'fanbases' | 'settings'
+
+export type TenantPortfolioReadModel = {
+  id: string
+  overview: PortfolioOverview | null
+  amplification: { consents: PortfolioConsent[] } | null
+  fanbases: { fanbases: FanbaseBlock[] } | null
+  settings: PortfolioSettingsReadModel | null
+  // Sections the tenant channel could not serve. They render as locally
+  // degraded instead of failing the whole subpage.
+  degraded: TenantPortfolioSection[]
+}
