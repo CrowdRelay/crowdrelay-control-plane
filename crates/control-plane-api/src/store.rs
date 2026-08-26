@@ -190,6 +190,34 @@ impl Store {
         )
     }
 
+    /// Seed/refresh the platform_admin row the panel login needs. The env
+    /// password stays authoritative: rotating the env rotates the login on
+    /// next boot. Existing sessions survive; new logins require the new
+    /// password.
+    pub async fn ensure_bootstrap_admin(
+        &self,
+        username: &str,
+        password_hash: &str,
+    ) -> Result<(), ApiError> {
+        sqlx::query(
+            r#"INSERT INTO control_plane_operator_accounts
+               (id, username, password_hash, role, tenant_id)
+               VALUES ($1, $2, $3, 'platform_admin', NULL)
+               ON CONFLICT (username) DO UPDATE SET
+                   password_hash = EXCLUDED.password_hash,
+                   role = 'platform_admin',
+                   tenant_id = NULL,
+                   active = true,
+                   updated_at = now()"#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(username)
+        .bind(password_hash)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     pub async fn create_tenant(
         &self,
         input: CreateTenantRequest,

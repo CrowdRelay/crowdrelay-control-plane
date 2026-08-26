@@ -92,6 +92,16 @@ async fn main() -> anyhow::Result<()> {
             &config.virya_signal_url,
         )
         .await?;
+    if let (Some(username), Some(password)) = (
+        config.bootstrap_admin_username.as_deref(),
+        config.bootstrap_admin_password.as_deref(),
+    ) {
+        // Hash at boot, outside any request path. The env stays the password's
+        // source of truth: change the env, restart, and logins follow.
+        let hash = auth::hash_password(password)?;
+        store.ensure_bootstrap_admin(username, &hash).await?;
+        tracing::info!(username, "bootstrap platform admin ensured");
+    }
 
     let state = AppState {
         store,

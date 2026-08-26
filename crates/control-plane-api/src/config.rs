@@ -36,6 +36,11 @@ pub struct Config {
     /// Optional webhook relay used to hand email notifications to the
     /// platform's mailer; without it email_relay channels cannot deliver.
     pub notify_email_relay_url: Option<String>,
+    /// Panel login goes through database accounts. This optional pair seeds
+    /// (and keeps authoritative) one platform_admin row so operators can sign
+    /// in to the styled form without manual SQL. Both or neither.
+    pub bootstrap_admin_username: Option<String>,
+    pub bootstrap_admin_password: Option<String>,
 }
 
 impl Config {
@@ -134,7 +139,7 @@ impl Config {
             "CONTROL_PLANE_PROVISIONER_LEASE_SECONDS must be between 60 and 3600"
         );
 
-        Ok(Self {
+        let mut config = Self {
             bind,
             database_url,
             admin_token_hash: Sha256::digest(admin_token.as_bytes()).into(),
@@ -182,7 +187,39 @@ impl Config {
                 }
                 None => None,
             },
-        })
+            bootstrap_admin_password: optional_env("CONTROL_PLANE_BOOTSTRAP_ADMIN_PASSWORD")?,
+            bootstrap_admin_username: match optional_env("CONTROL_PLANE_BOOTSTRAP_ADMIN_USERNAME")?
+            {
+                Some(username) => {
+                    anyhow::ensure!(
+                        (3..=32).contains(&username.len())
+                            && username.bytes().all(|byte| byte.is_ascii_lowercase()
+                                || byte.is_ascii_digit()
+                                || matches!(byte, b'-' | b'_' | b'.')),
+                        "CONTROL_PLANE_BOOTSTRAP_ADMIN_USERNAME must be 3-32 lowercase URL-safe characters"
+                    );
+                    Some(username)
+                }
+                None => None,
+            },
+        };
+        // Both or neither: half-configured bootstrap is a deployment typo,
+        // not a feature.
+        anyhow::ensure!(
+            config.bootstrap_admin_password.is_some() == config.bootstrap_admin_username.is_some(),
+            "CONTROL_PLANE_BOOTSTRAP_ADMIN_PASSWORD and CONTROL_PLANE_BOOTSTRAP_ADMIN_USERNAME must be set together"
+        );
+        if let Some(password) = config.bootstrap_admin_password.as_deref() {
+            anyhow::ensure!(
+                (12..=128).contains(&password.chars().count())
+                    && !password.chars().any(char::is_control),
+                "CONTROL_PLANE_BOOTSTRAP_ADMIN_PASSWORD must be 12-128 characters"
+            );
+        }
+        if config.bootstrap_admin_username.is_none() && config.bootstrap_admin_password.is_some() {
+            config.bootstrap_admin_username = Some("admin".to_owned());
+        }
+        Ok(config)
     }
 }
 
