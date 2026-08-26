@@ -219,9 +219,17 @@ pub async fn require_tenant_access(
 }
 
 fn tenant_slug_from_path(path: &str) -> Option<&str> {
+    // Nested routers see the URI with `/api/v1` stripped, but be liberal and
+    // accept both forms — direct callers and future nesting changes included.
     let mut segments = path.split('/').filter(|segment| !segment.is_empty());
-    match (segments.next(), segments.next(), segments.next()) {
-        (Some("api"), Some("v1"), Some("tenants")) => segments.next(),
+    match segments.next()? {
+        "tenants" => segments.next(),
+        "api" => {
+            if segments.next() != Some("v1") || segments.next() != Some("tenants") {
+                return None;
+            }
+            segments.next()
+        }
         _ => None,
     }
 }
@@ -329,4 +337,26 @@ pub async fn require_provisioner(
     let expected = state.provisioner_token_hash.ok_or(ApiError::Unauthorized)?;
     require_bearer(request.headers(), expected)?;
     Ok(next.run(request).await)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tenant_slug_from_path;
+
+    #[test]
+    fn slug_is_found_with_and_without_the_nested_api_prefix() {
+        // Nested routers see the stripped path; the deploy incident proved the
+        // prefixed form must not be assumed.
+        assert_eq!(
+            tenant_slug_from_path("/tenants/virya/operations/summary"),
+            Some("virya")
+        );
+        assert_eq!(
+            tenant_slug_from_path("/api/v1/tenants/virya/operations/summary"),
+            Some("virya")
+        );
+        assert_eq!(tenant_slug_from_path("/tenants/virya"), Some("virya"));
+        assert_eq!(tenant_slug_from_path("/overview"), None);
+        assert_eq!(tenant_slug_from_path("/api/v1/tenants"), None);
+    }
 }
