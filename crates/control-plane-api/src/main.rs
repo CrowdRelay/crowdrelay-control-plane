@@ -323,10 +323,7 @@ async fn dispatch_pending_notifications(state: &AppState) -> anyhow::Result<()> 
 /// Probe every registered platform service and persist the result. Each
 /// probe is a single GET with a 5s timeout; failures are recorded as
 /// unhealthy with the status text, never propagated.
-async fn poll_platform_health(
-    state: &AppState,
-    client: &reqwest::Client,
-) -> anyhow::Result<()> {
+async fn poll_platform_health(state: &AppState, client: &reqwest::Client) -> anyhow::Result<()> {
     let services = state.store.list_platform_health().await?;
     for service in services {
         let start = std::time::Instant::now();
