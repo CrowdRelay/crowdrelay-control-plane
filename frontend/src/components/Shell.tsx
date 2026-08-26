@@ -1,9 +1,13 @@
 import { Link, Outlet, useParams } from '@tanstack/solid-router'
-import { Show, type Component } from 'solid-js'
+import { Show, lazy, onMount, onCleanup, type Component } from 'solid-js'
 import { authState } from '../lib/auth'
-import { CommandPalette, toggleCommandPalette } from './CommandPalette'
+import { commandPaletteOpen, toggleCommandPalette } from './command-palette-state'
 import { LoginGate } from './LoginGate'
 import { TenantSubnav } from './TenantSubnav'
+
+// The palette component loads on first invocation; the shortcut lives here so
+// Ctrl/⌘-K works before that chunk exists.
+const CommandPalette = lazy(() => import('./CommandPalette').then(m => ({ default: m.CommandPalette })))
 
 export const Shell: Component = () => {
   // Non-strict: only the tenant subpages carry a slug, and the subnav is the
@@ -12,6 +16,17 @@ export const Shell: Component = () => {
   const params = useParams({ strict: false })
   const slug = () => (params() as { slug?: string }).slug
   const profile = () => authState.profile()
+
+  onMount(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        toggleCommandPalette()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    onCleanup(() => document.removeEventListener('keydown', onKey))
+  })
 
   return <LoginGate>
     <div class="app-shell">
@@ -38,7 +53,7 @@ export const Shell: Component = () => {
           <button class="topbar-logout" type="button" onClick={() => { void authState.logout() }}>Log out</button>
         </header>
         <Outlet />
-        <CommandPalette />
+        <Show when={commandPaletteOpen()}><CommandPalette /></Show>
       </main>
     </div>
   </LoginGate>

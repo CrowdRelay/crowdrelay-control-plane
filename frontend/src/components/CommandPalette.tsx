@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/solid-router'
-import { createEffect, createMemo, createSignal, For, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, Show, onMount, onCleanup } from 'solid-js'
 import type { Component } from 'solid-js'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
@@ -28,13 +28,15 @@ const SUBPAGES: Array<{ suffix: string; label: string }> = [
   { suffix: '/area', label: 'AREA' },
 ]
 
-const [open, setOpen] = createSignal(false)
-export const commandPaletteOpen = open
-export const toggleCommandPalette = () => setOpen(value => !value)
+// Open state lives in command-palette-state.ts so Shell can toggle the
+// palette without this component being in the entry bundle.
+import { commandPaletteOpen, setCommandPaletteOpen, toggleCommandPalette } from './command-palette-state'
 
 let tenantsCache: { at: number; data: TenantSummary[] } | null = null
 
 export const CommandPalette: Component = () => {
+  const open = commandPaletteOpen
+  const setOpen = setCommandPaletteOpen
   const rawNavigate = useNavigate()
   // The route registry types `to` against known literals; the palette builds
   // tenant paths dynamically, so it narrows once at this single boundary.
@@ -149,11 +151,7 @@ export const CommandPalette: Component = () => {
   }
 
   function onKeyDown(event: KeyboardEvent) {
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-      event.preventDefault()
-      toggleCommandPalette()
-      return
-    }
+    // ⌘K / Ctrl-K is owned by Shell (it must work before this chunk loads).
     if (!open()) return
     if (event.key === 'Escape') { event.preventDefault(); close() }
     else if (event.key === 'ArrowDown') { event.preventDefault(); setIndex(i => Math.min(i + 1, filtered().length - 1)) }
@@ -164,7 +162,12 @@ export const CommandPalette: Component = () => {
     }
   }
 
-  document.addEventListener('keydown', onKeyDown)
+  // The palette is Show-gated: mounted only while open. Bind and unbind the
+  // key handler per mount so closed-palette sessions leave no listeners.
+  onMount(() => {
+    document.addEventListener('keydown', onKeyDown)
+    onCleanup(() => document.removeEventListener('keydown', onKeyDown))
+  })
 
   return <Show when={open()}>
     <div class="cmdk-backdrop" onClick={close}>
