@@ -6,7 +6,8 @@ checks = {
     "separate_telemetry_secret": (root / "crates/control-plane-api/src/config.rs", "CONTROL_PLANE_TELEMETRY_TOKEN"),
     "constant_time_auth": (root / "crates/control-plane-api/src/auth.rs", ".ct_eq("),
     "admin_bearer_only": (root / "crates/control-plane-api/src/auth.rs", "require_bearer(request.headers(), state.admin_token_hash)"),
-    "caddy_admin_injection": (root / "deploy/Caddyfile.control.virya.music.example", 'header_up Authorization "Bearer {$CONTROL_PLANE_ADMIN_TOKEN}"'),
+    "caddy_admin_injection": (root / "deploy/Caddyfile.control.virya.music.example", 'header_up Authorization "Bearer {file./config/control-plane-admin-token}"'),
+    "caddy_edge_basic_secret": (root / "deploy/Caddyfile.control.virya.music.example", "{file./config/control-plane-basic.bcrypt}"),
     "caddy_clickjacking_defense": (root / "deploy/Caddyfile.control.virya.music.example", "frame-ancestors 'none'"),
     "worker_readiness_gate": (root / "deploy/provisioner.py", 'wait_container_healthy(config, tenant_dir, project, "worker"'),
     "telemetry_auth": (root / "crates/control-plane-api/src/auth.rs", "require_telemetry"),
@@ -80,7 +81,7 @@ assert "Basic ${btoa(binary)}" in auth_ui, "operator login must use Basic only a
 assert "CONTROL_PLANE_ADMIN_TOKEN" not in frontend, "admin secret must not be compiled into frontend source"
 assert "crowdrelay-control-plane-token" not in frontend.lower(), "browser admin-token storage key must not return"
 assert "{http.request.header.X-Control-Plane-Token}" not in caddy, "Caddy must not trust a browser-supplied app token"
-assert caddy.index("handle @runtime") < caddy.index("reverse_proxy 127.0.0.1:8090"), "telemetry route must bypass browser auth and rely on its own Bearer"
+assert caddy.index("handle @runtime_put") < caddy.index("reverse_proxy control-plane:8090"), "telemetry route must bypass browser auth and rely on its own Bearer"
 assert "handle @provisioner" in caddy, "provisioner machine route must exist"
 provisioner = (root / "deploy/provisioner.py").read_text()
 rust_api = "\n".join(path.read_text() for path in (root / "crates/control-plane-api/src").glob("*.rs"))

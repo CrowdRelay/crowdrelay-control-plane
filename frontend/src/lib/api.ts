@@ -1,5 +1,5 @@
 import { authState } from './auth'
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AutopilotOverview, AutopilotPolicy, DeliveryDetails, FeatureFlag, GrowthOverview, OperationTimeline, OperationsSummary, Palette, ProvisioningJob, ReconciliationResult, RegionalProfile, RetryResult, TenantOperationsReadModel, TenantOverviewReadModel, TenantRuntimeSnapshot, TenantSummary } from './types'
+import type { AreaCity, PortfolioConsent, PortfolioOverview, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AutopilotOverview, AutopilotPolicy, DeliveryDetails, FeatureFlag, GrowthOverview, OperationTimeline, OperationsSummary, Palette, ProvisioningJob, ReconciliationResult, RegionalProfile, RetryResult, TenantOperationsReadModel, TenantOverviewReadModel, TenantRuntimeSnapshot, TenantSummary } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
@@ -120,6 +120,14 @@ export const api = {
     headers: { 'idempotency-key': crypto.randomUUID() },
     body: '{}',
   }),
+  portfolioOverview: (slug: string) => request<PortfolioOverview>(`/tenants/${encodeURIComponent(slug)}/portfolio/overview`),
+  portfolioEdges: (slug: string) => request<{ consents: PortfolioConsent[] }>(`/tenants/${encodeURIComponent(slug)}/portfolio/amplification`),
+  decidePortfolioEdge: (slug: string, consentId: string, action: 'approve'|'pause'|'resume'|'revoke', input: { actor?: string; revokeReason?: string }) =>
+    request<{ status: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/amplification/${encodeURIComponent(consentId)}/decide`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ action, actor: input.actor, revoke_reason: input.revokeReason }),
+    }),
   areaOverview: (slug: string) => request<AreaOverview>(`/tenants/${encodeURIComponent(slug)}/area`),
   areaSettings: (slug: string, enabled: boolean) => request<{enabled:boolean; entitled:boolean}>(`/tenants/${encodeURIComponent(slug)}/area/settings`, { method:'PATCH', body:JSON.stringify({enabled}) }),
   areaCities: (slug: string, q = '', limit = 30) => request<{items:AreaCity[]}>(`/tenants/${encodeURIComponent(slug)}/area/cities?q=${encodeURIComponent(q)}&limit=${limit}`),

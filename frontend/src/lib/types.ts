@@ -458,3 +458,29 @@ export type TenantOperationsReadModel = {
   // degraded instead of failing the whole subpage.
   degraded: TenantOperationsSection[]
 }
+
+export type PortfolioConsentStatus = 'proposed' | 'active' | 'paused' | 'revoked'
+export type PortfolioPurpose = 'cross_promote' | 'release_feature' | 'event_crossbill'
+
+export interface PortfolioConsent {
+  id: string
+  from_workspace_id: string
+  to_workspace_id: string
+  purpose: PortfolioPurpose
+  scope: 'all_active' | 'double_opt_in'
+  status: PortfolioConsentStatus
+  max_campaigns_per_month: number
+  cooldown_days: number
+  campaigns_this_month: number
+  approved_by: string | null
+  approved_at: string | null
+  revoked_at: string | null
+}
+
+export interface PortfolioOverview {
+  workspaceCount: number
+  activeFans: number
+  fansLast30d: number
+  activeEdges: number
+  deliveriesLast30d: number
+}

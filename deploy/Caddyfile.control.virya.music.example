@@ -1,9 +1,23 @@
+# Canonical shape of the managed control.virya.music site block served by the
+# public edge (container virya-edge-caddy, compose project `edge` under
+# /opt/crowdrelay/ops/edge on virya-crowdrelay). The edge is NOT deployed by
+# scripts/deploy*.sh — they only manage the app and area tunnel. Sync this
+# block to the live Caddyfile by hand and keep the two identical; the gates in
+# scripts/static-check.py and scripts/check-web-source.mjs pin its contract.
+#
+# Host-state prerequisites and the credential rotation runbook live in
+# docs/EDGE-OPERATIONS.md.
 control.virya.music {
     encode zstd gzip
 
     # Fingerprinted bundles and static brand assets can be cached immutably.
     @immutable path /assets/* /crowdrelay-brand-mark.png /favicon.ico
     header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+    log {
+        output stdout
+        format console
+    }
 
     # The explicit `route` keeps the written order of the handlers below.
     # Machine telemetry writes keep their dedicated Bearer credentials end
@@ -14,18 +28,28 @@ control.virya.music {
             path /api/v1/tenants/*/runtime
         }
         handle @runtime_put {
-            reverse_proxy 127.0.0.1:8090
+            reverse_proxy control-plane:8090 {
+                health_uri /healthz/ready
+                health_interval 15s
+                health_timeout 3s
+            }
         }
 
         @provisioner path /api/v1/provisioner/*
         handle @provisioner {
-            reverse_proxy 127.0.0.1:8090
+            reverse_proxy control-plane:8090 {
+                health_uri /healthz/ready
+                health_interval 15s
+                health_timeout 3s
+            }
         }
 
         # The SPA shell stays public so the styled login renders without a
         # browser-native credential dialog. Every other /api/v1/* call is gated
         # here; the runtime READ is admin-authoritative backend-side, so it is
-        # gated by method instead of being exempted outright.
+        # gated by method instead of being exempted outright. Both secrets are
+        # read per request from files inside Caddy's config volume: a failed
+        # read denies auth (fail closed), and rotation needs no reload.
         @api {
             path /api/v1/*
             not path /api/v1/tenants/*/runtime
@@ -43,9 +67,23 @@ control.virya.music {
         }
 
         # Single authority substitution: after the edge gate accepts
-        # credentials, the backend validates every request independently.
-        reverse_proxy 127.0.0.1:8090 {
-            header_up Authorization "Bearer {$CONTROL_PLANE_ADMIN_TOKEN}"
+        # credentials, the backend validates every request independently
+        # against the platform admin token, injected from host state rather
+        # than the environment, where `docker inspect` would expose it.
+        # "oracle-caddy" is an inherited observability marker kept identical
+        # to the live edge on purpose.
+        reverse_proxy control-plane:8090 {
+            health_uri /healthz/ready
+            health_interval 15s
+            health_timeout 3s
+            lb_try_duration 3s
+            header_up Authorization "Bearer {file./config/control-plane-admin-token}"
+            header_up X-Control-Plane-Edge "oracle-caddy"
+            transport http {
+                dial_timeout 2s
+                response_header_timeout 10s
+                keepalive 60s
+            }
         }
     }
 
@@ -63,6 +101,10 @@ control.virya.music {
         respond "{err.status_code} {err.status_text}" {err.status_code}
     }
 
+    # The live edge wraps these in a shared (security_headers) snippet whose
+    # CSP is limited to frame-ancestors; a standalone install gets the fuller
+    # policy below. Tightening the shared snippet to match is tracked in
+    # docs/EDGE-OPERATIONS.md.
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
         X-Content-Type-Options "nosniff"

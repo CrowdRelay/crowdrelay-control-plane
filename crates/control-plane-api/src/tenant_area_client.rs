@@ -217,6 +217,8 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/overview"
                     | "/v1/control-plane/autopilot/growth"
                     | "/v1/control-plane/autopilot/next-best-actions"
+                    | "/v1/control-plane/portfolio/overview"
+                    | "/v1/control-plane/portfolio/amplification"
             ) || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "")
                 || timeline_segment(path)
         }
@@ -234,6 +236,11 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     path,
                     "/v1/control-plane/autopilot/decisions/",
                     "/handled-externally",
+                )
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/portfolio/amplification/",
+                    "/decide",
                 )
         }
         _ => false,

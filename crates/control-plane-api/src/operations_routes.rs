@@ -57,6 +57,18 @@ pub fn router() -> Router<AppState> {
         )
         .route("/tenants/{slug}/operations/growth", get(autopilot_growth))
         .route(
+            "/tenants/{slug}/portfolio/overview",
+            get(portfolio_overview),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/amplification",
+            get(portfolio_amplification),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/amplification/{consent_id}/decide",
+            post(decide_portfolio_amplification),
+        )
+        .route(
             "/tenants/{slug}/operations/autopilot/{context}",
             post(update_autopilot),
         )
@@ -648,4 +660,84 @@ async fn handle_opportunity_externally(
     )
     .await;
     object_no_store(result?, "opportunity handled externally")
+}
+
+/// Roster-wide audience KPIs for one tenant's label organization.
+async fn portfolio_overview(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/portfolio/overview",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    tracing::debug!(tenant = %tenant.tenant.slug, "portfolio overview forwarded");
+    object_no_store(value, "portfolio overview")
+}
+
+/// Consent edges touching this workspace (read-only list).
+async fn portfolio_amplification(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/portfolio/amplification",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    tracing::debug!(tenant = %tenant.tenant.slug, "portfolio amplification forwarded");
+    object_no_store(value, "portfolio amplification list")
+}
+
+/// Approve / pause / resume / revoke one edge. The upstream handler owns the
+/// transition policy; this proxy only carries the operator's decision.
+async fn decide_portfolio_amplification(
+    State(state): State<AppState>,
+    Path((slug, consent_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let consent_id = uuid_segment(&consent_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    if !body.is_object() || body.get("action").and_then(Value::as_str).is_none() {
+        return Err(ApiError::InvalidInput("action is required".to_owned()));
+    }
+    let path = format!("/v1/control-plane/portfolio/amplification/{consent_id}/decide");
+    // Transport errors propagate unaudited, mirroring the other proxies;
+    // the decision outcome itself always lands in the platform audit.
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.portfolio_edge.decided",
+        "amplification_consent",
+        &consent_id,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "portfolio edge decision")
 }

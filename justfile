@@ -45,3 +45,8 @@ deploy-production:
 
 bootstrap-management:
     bash scripts/bootstrap-management.sh
+
+# Public-edge login + contract probe against https://control.virya.music.
+# Needs CONTROL_PLANE_SMOKE_BASIC_AUTH=user:pass — see docs/EDGE-OPERATIONS.md.
+smoke:
+    bash scripts/production-smoke.sh
