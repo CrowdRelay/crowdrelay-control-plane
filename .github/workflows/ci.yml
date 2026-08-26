@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 concurrency:
   group: control-plane-ci-${{ github.ref }}
@@ -174,6 +175,20 @@ jobs:
             ( cd image-digest && sha256sum image.env > image.env.sha256 )
           fi
           echo "CONTROL_PLANE_CONTAINER=PASS architecture=$architecture revision=$revision digest=$digest cache=gha write=${CACHE_WRITE} publish=${PUBLISH_IMAGE}"
+      - name: Purge stale artifacts before upload
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t ids < <(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
+            --jq ".artifacts[] | select(.workflow_run.id != ${GITHUB_RUN_ID}) | select(.created_at < (now - 7200 | strftime(\"%Y-%m-%dT%H:%M:%SZ\"))) | .id" 2>/dev/null || true)
+          for id in "${ids[@]}"; do
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}" 2>/dev/null || true
+          done
+          echo "Purged ${#ids[@]} stale artifact(s)"
       - name: Upload immutable image digest
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
