@@ -106,4 +106,4 @@ select:focus{border-color:#7663d8;box-shadow:0 0 0 3px #7663d826;outline:none}
 .pm-ants{fill:none;stroke-width:2.6;stroke-dasharray:9 9;animation:pm-ants 1s linear infinite}
 @keyframes pm-ants{to{stroke-dashoffset:-18}}
 .cmdk-list .cmdk-item.danger:not(:last-child){margin-bottom:4px}
-.form-grid+.form-actions:not(.right){margin-top:20px}
+.form-grid+.form-actions:not(.right){margin-top:14px}
