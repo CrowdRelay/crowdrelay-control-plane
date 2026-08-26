@@ -181,7 +181,7 @@ jobs:
           name: control-plane-image-digest-${{ github.sha }}
           path: image-digest/
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
 
   web:
     runs-on: ubuntu-24.04
