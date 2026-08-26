@@ -79,6 +79,10 @@ pub fn router() -> Router<AppState> {
             post(ingest_portfolio_fanbase),
         )
         .route(
+            "/tenants/{slug}/notifiers/discovered",
+            get(discovered_notifier_endpoints),
+        )
+        .route(
             "/tenants/{slug}/operations/autopilot/{context}",
             post(update_autopilot),
         )
@@ -949,4 +953,25 @@ async fn ingest_portfolio_fanbase(
     )
     .await;
     object_no_store(value, "portfolio fanbase ingest")
+}
+
+/// Read-only discovery of webhook endpoints already configured in the
+/// tenant's CrowdRelay instance. Surfaces them in the Notifiers tab so
+/// operators see existing delivery targets before adding a parallel channel.
+async fn discovered_notifier_endpoints(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_tenant, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/webhook-endpoints",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "discovered notifier endpoints")
 }

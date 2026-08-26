@@ -516,6 +516,13 @@ export const NOTIFIER_EVENTS = [
 ] as const
 export type NotifierEvent = (typeof NOTIFIER_EVENTS)[number]
 
+export type DiscoveredEndpoint = {
+  id: string
+  name: string
+  urlHost: string
+  active: boolean
+}
+
 export type BulkAutopilotResult = {
   enabled: boolean
   updated: number

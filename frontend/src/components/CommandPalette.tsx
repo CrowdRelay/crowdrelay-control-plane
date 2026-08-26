@@ -138,7 +138,7 @@ export const CommandPalette: Component = () => {
     try {
       await cmd.perform()
       setMessage(`✓ ${cmd.label}`)
-      if (cmd.id.startsWith('nav-')) close()
+      if (cmd.id.startsWith('nav-') || cmd.id.startsWith('page-')) close()
     } catch (error) {
       setMessage(error instanceof Error ? `✕ ${error.message}` : `✕ ${cmd.label} failed`)
     } finally {

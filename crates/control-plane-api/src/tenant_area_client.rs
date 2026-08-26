@@ -221,6 +221,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/portfolio/amplification"
                     | "/v1/control-plane/tenant-settings"
                     | "/v1/control-plane/fanbases"
+                    | "/v1/control-plane/webhook-endpoints"
             ) || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "")
                 || timeline_segment(path)
         }

@@ -2,7 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
-import type { NotifierChannel, NotifierEvent } from '../lib/types'
+import type { NotifierChannel, NotifierEvent, DiscoveredEndpoint } from '../lib/types'
 import { NOTIFIER_EVENTS } from '../lib/types'
 import { errorMessage } from '../lib/format'
 
@@ -15,6 +15,7 @@ export function TenantNotifiersPage() {
   const slug = () => params().slug
   const queryClient = useQueryClient()
   const channels = useQuery(() => ({ queryKey: ['notifiers', slug()], queryFn: () => api.notifiers(slug()) }))
+  const discovered = useQuery(() => ({ queryKey: ['notifiers-discovered', slug()], queryFn: () => api.discoveredEndpoints(slug()) }))
 
   const [kind, setKind] = createSignal<NotifierChannel['kind']>('discord')
   const [label, setLabel] = createSignal('')
@@ -85,6 +86,29 @@ export function TenantNotifiersPage() {
 
     <Show when={notice()}><div class="notice-card">{notice()}</div></Show>
     <Show when={channels.error}><div class="error-card" role="alert">{errorMessage(channels.error, 'Channels could not be loaded')}</div></Show>
+
+    <Show when={discovered.data && discovered.data.endpoints.length > 0}>
+      <div class="panel">
+        <div class="section-title">
+          <div><span class="eyebrow">CROWDRELAY</span><h2>Discovered webhook endpoints</h2><p>Outbound webhook delivery targets already configured in this tenant's CrowdRelay instance. These are not notifier channels — they are the existing delivery infrastructure the tenant's outbox events flow through.</p></div>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>Name</th><th>Target</th><th>Active</th></tr></thead>
+          <tbody>
+            <For each={discovered.data?.endpoints ?? []}>{(ep: DiscoveredEndpoint) => (
+              <tr>
+                <td>{ep.name}</td>
+                <td><code>{ep.urlHost}</code></td>
+                <td><span class={`status-badge ${ep.active ? 'good' : 'muted'}`}>{ep.active ? 'active' : 'inactive'}</span></td>
+              </tr>
+            )}</For>
+          </tbody>
+        </table>
+      </div>
+    </Show>
+    <Show when={discovered.error}>
+      <div class="muted">CrowdRelay webhook endpoints unavailable: {errorMessage(discovered.error, 'read failed')}</div>
+    </Show>
 
     <form class="tenant-create-form" onSubmit={(event) => { event.preventDefault(); create.mutate() }}>
       <div class="form-section-head"><div><span class="eyebrow">NEW CHANNEL</span><h2>Add a destination</h2></div></div>
