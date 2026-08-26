@@ -332,11 +332,25 @@ async fn poll_platform_health(state: &AppState, client: &reqwest::Client) -> any
         let (healthy, status) = match result {
             Ok(response) => {
                 let code = response.status().as_u16();
-                let ok = response.status().is_success();
-                if ok {
+                if response.status().is_success() {
                     let body = response.text().await.unwrap_or_default();
-                    let ok = body.contains("\"ok\"") || body.contains("ok");
-                    (ok, format!("200:{}", &body[..body.len().min(120)]))
+                    // n8n /healthz returns {"status":"ok"}. Match the JSON
+                    // field, not a bare substring — "not ok" or "broken"
+                    // must not register as healthy.
+                    let ok = body.contains("\"status\":\"ok\"")
+                        || body.contains("\"status\": \"ok\"");
+                    let status_text = if body.len() <= 120 {
+                        body.clone()
+                    } else {
+                        // Truncate at a char boundary to avoid splitting
+                        // multi-byte UTF-8.
+                        let mut end = 120;
+                        while end > 0 && !body.is_char_boundary(end) {
+                            end -= 1;
+                        }
+                        body[..end].to_owned()
+                    };
+                    (ok, format!("200:{status_text}"))
                 } else {
                     (false, format!("{code}"))
                 }
