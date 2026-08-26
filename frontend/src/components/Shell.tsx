@@ -1,6 +1,7 @@
 import { Link, Outlet, useParams } from '@tanstack/solid-router'
 import { Show, type Component } from 'solid-js'
 import { authState } from '../lib/auth'
+import { CommandPalette, toggleCommandPalette } from './CommandPalette'
 import { LoginGate } from './LoginGate'
 import { TenantSubnav } from './TenantSubnav'
 
@@ -10,6 +11,7 @@ export const Shell: Component = () => {
   // sticky topbar instead of at the top of each page body.
   const params = useParams({ strict: false })
   const slug = () => (params() as { slug?: string }).slug
+  const profile = () => authState.profile()
 
   return <LoginGate>
     <div class="app-shell">
@@ -17,17 +19,26 @@ export const Shell: Component = () => {
         <div class="brand"><span style={{ width: '36px', height: '36px', overflow: 'hidden', display: 'block', 'flex-shrink': '0', 'border-radius': '10px' }}><img class="brand-mark" src="/crowdrelay-brand-mark.png" alt="" width="36" height="36" style={{ width: '44px', height: '44px', 'max-width': 'none', margin: '-4px' }} /></span><div><strong>CrowdRelay</strong><small>Control Plane</small></div></div>
         <nav>
           <Link to="/" activeProps={{ class: 'active' }}>Overview</Link>
-          <Link to="/tenants" activeProps={{ class: 'active' }}>Tenants</Link>
+          {/* Tenant operators are scoped to their one tenant; the cross-tenant
+              registry and platform attention queue are admin surfaces. */}
+          <Show when={profile()?.role === 'platform_admin'}>
+            <Link to="/tenants" activeProps={{ class: 'active' }}>Tenants</Link>
+            <Link to="/attention" activeProps={{ class: 'active' }}>Attention</Link>
+          </Show>
         </nav>
-        <div class="sidebar-foot"><span class="auth-dot ok" />Operator session</div>
+        <div class="sidebar-foot"><span class="auth-dot ok" />{profile()?.username ?? 'operator'} · {profile()?.role === 'tenant_operator' ? `tenant ${profile()?.tenantSlug}` : 'platform admin'}</div>
       </aside>
       <main class="content">
         <header class="topbar">
           <div><span class="eyebrow">PLATFORM</span><strong>Operations</strong></div>
           <Show when={slug()}>{tenant => <TenantSubnav slug={tenant()} />}</Show>
-          <button class="topbar-logout" type="button" onClick={() => authState.clear()}>Log out</button>
+          <button class="topbar-cmdk ghost" type="button" onClick={() => toggleCommandPalette()} title="Command palette (Ctrl+K / ⌘K)">
+            <kbd>⌘K</kbd><span class="cmdk-trigger-label">Commands</span>
+          </button>
+          <button class="topbar-logout" type="button" onClick={() => { void authState.logout() }}>Log out</button>
         </header>
         <Outlet />
+        <CommandPalette />
       </main>
     </div>
   </LoginGate>

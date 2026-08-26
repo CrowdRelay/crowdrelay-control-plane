@@ -5,6 +5,8 @@ use serde_json::json;
 pub enum ApiError {
     #[error("unauthorized")]
     Unauthorized,
+    #[error("forbidden: {0}")]
+    Forbidden(String),
     #[error("not found")]
     NotFound,
     #[error("conflict: {0}")]
@@ -25,6 +27,7 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> axum::response::Response {
         let (status, code, detail) = match &self {
             Self::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized", self.to_string()),
+            Self::Forbidden(_) => (StatusCode::FORBIDDEN, "forbidden", self.to_string()),
             Self::NotFound => (StatusCode::NOT_FOUND, "not_found", self.to_string()),
             Self::Conflict(_) => (StatusCode::CONFLICT, "conflict", self.to_string()),
             Self::InvalidInput(_) => (StatusCode::BAD_REQUEST, "invalid_input", self.to_string()),

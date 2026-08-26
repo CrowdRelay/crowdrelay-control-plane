@@ -9,6 +9,7 @@ const AreaPage = lazyRouteComponent(() => import('./pages/AreaPage'), 'AreaPage'
 const TenantAttentionPage = lazyRouteComponent(() => import('./pages/TenantAttentionPage'), 'TenantAttentionPage')
 const TenantOperationsPage = lazyRouteComponent(() => import('./pages/TenantOperationsPage'), 'TenantOperationsPage')
 const PortfolioPage = lazyRouteComponent(() => import('./pages/PortfolioPage'), 'PortfolioPage')
+const TenantNotifiersPage = lazyRouteComponent(() => import('./pages/TenantNotifiersPage'), 'TenantNotifiersPage')
 const OperatorAttentionPage = lazyRouteComponent(() => import('./pages/OperatorAttentionPage'), 'OperatorAttentionPage')
 
 const rootRoute = createRootRoute({ component: Shell })
@@ -19,8 +20,9 @@ const portfolioRoute = createRoute({ getParentRoute: () => rootRoute, path: '/te
 const areaRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/area', component: AreaPage })
 const tenantAttentionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/attention', component: TenantAttentionPage })
 const tenantOperationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/operations', component: TenantOperationsPage })
+const tenantNotifiersRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/notifiers', component: TenantNotifiersPage })
 const operatorAttentionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/attention', component: OperatorAttentionPage })
-const routeTree = rootRoute.addChildren([overviewRoute, tenantsRoute, operatorAttentionRoute, tenantRoute, tenantAttentionRoute, tenantOperationsRoute, portfolioRoute, areaRoute])
+const routeTree = rootRoute.addChildren([overviewRoute, tenantsRoute, operatorAttentionRoute, tenantRoute, tenantAttentionRoute, tenantOperationsRoute, tenantNotifiersRoute, portfolioRoute, areaRoute])
 const router = createRouter({ routeTree, defaultPreload: 'intent', defaultPreloadStaleTime: 10_000, scrollRestoration: true })
 
 declare module '@tanstack/solid-router' { interface Register { router: typeof router } }

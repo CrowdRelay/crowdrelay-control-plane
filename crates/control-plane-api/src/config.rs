@@ -31,6 +31,11 @@ pub struct Config {
     pub virya_crowdrelay_url: String,
     pub virya_signal_url: String,
     pub virya_management_url: Option<String>,
+    /// Session cookie Secure flag. Off only for plain-HTTP local development.
+    pub cookie_secure: bool,
+    /// Optional webhook relay used to hand email notifications to the
+    /// platform's mailer; without it email_relay channels cannot deliver.
+    pub notify_email_relay_url: Option<String>,
 }
 
 impl Config {
@@ -162,6 +167,21 @@ impl Config {
             virya_signal_url: env::var("CONTROL_PLANE_VIRYA_SIGNAL_URL")
                 .unwrap_or_else(|_| "https://signal.virya.music".to_owned()),
             virya_management_url,
+            cookie_secure: env::var("CONTROL_PLANE_COOKIE_SECURE")
+                .map(|value| value != "false")
+                .unwrap_or(true),
+            notify_email_relay_url: match optional_env("CONTROL_PLANE_NOTIFY_EMAIL_RELAY_URL")? {
+                Some(url) => {
+                    let parsed = url::Url::parse(&url)
+                        .context("invalid CONTROL_PLANE_NOTIFY_EMAIL_RELAY_URL")?;
+                    anyhow::ensure!(
+                        parsed.scheme() == "https",
+                        "CONTROL_PLANE_NOTIFY_EMAIL_RELAY_URL must be HTTPS"
+                    );
+                    Some(url)
+                }
+                None => None,
+            },
         })
     }
 }

@@ -27,6 +27,8 @@ export function TenantsPage() {
   const [profile, setProfile] = createSignal<RegionalProfile>(freshProfile())
   const [desiredVersion, setDesiredVersion] = createSignal('')
   const [deployNow, setDeployNow] = createSignal(true)
+  const [opUsername, setOpUsername] = createSignal('')
+  const [opPassword, setOpPassword] = createSignal('')
   const [notice, setNotice] = createSignal<string | null>(null)
 
   const applyPreset = (preset: Preset) => setProfile({ ...presets[preset] })
@@ -35,6 +37,7 @@ export function TenantsPage() {
   const resetForm = () => {
     setSlug(''); setName(''); setCrowdrelayBaseUrl(''); setSignalBaseUrl('')
     setProfile(freshProfile()); setDesiredVersion(''); setDeployNow(true)
+    setOpUsername(''); setOpPassword('')
   }
 
   const createTenant = useMutation(() => ({
@@ -46,6 +49,7 @@ export function TenantsPage() {
       regionalProfile: profile(),
       deployCrowdrelay: deployNow(),
       desiredVersion: deployNow() ? desiredVersion() || undefined : undefined,
+      initialOperator: opUsername().trim() && opPassword() ? { username: opUsername().trim(), password: opPassword() } : undefined,
     }),
     onSuccess: async (tenant) => {
       await Promise.all([
@@ -53,12 +57,17 @@ export function TenantsPage() {
         queryClient.invalidateQueries({ queryKey: ['overview'] }),
       ])
       setCreating(false)
-      setNotice(deployNow()
-        ? `${tenant.displayName} created. Regional profile is persisted and CrowdRelay deployment is queued atomically.`
-        : `${tenant.displayName} created without deployment.`)
+      setNotice(opUsername().trim()
+        ? `${tenant.displayName} created${deployNow() ? ' with a queued CrowdRelay deployment' : ''}. Operator “${opUsername().trim()}” can sign in and sees only this tenant.`
+        : deployNow()
+          ? `${tenant.displayName} created. Regional profile is persisted and CrowdRelay deployment is queued atomically.`
+          : `${tenant.displayName} created without deployment.`)
       resetForm()
     },
   }))
+
+  const operatorFieldsReady = () => !opUsername().trim() && !opPassword()
+    || (/^[a-z0-9][a-z0-9-_.]{2,31}$/.test(opUsername().trim()) && opPassword().length >= 12)
 
   const regionalReady = () => profile().countryCode.length === 2
     && profile().locale.trim().length >= 4
@@ -102,9 +111,14 @@ export function TenantsPage() {
           <label>Signal / public site URL<input value={signalBaseUrl()} onInput={(e) => setSignalBaseUrl(e.currentTarget.value)} placeholder="https://future-metal.example" /></label>
           <label>Release SHA <small>optional if server default is configured</small><input value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={overview.data?.provisionerDefaultImageTag ?? 'sha-<40-char CrowdRelay commit>'} /></label>
         </div>
+        <div class="form-section-head"><div><span class="eyebrow">TENANT OPERATOR</span><h2>First account for the team</h2></div></div>
+        <div class="form-grid">
+          <label>Operator username<input value={opUsername()} onInput={(e) => setOpUsername(e.currentTarget.value.toLowerCase())} placeholder="future-metal-op" autocomplete="off" /><small>Optional. Sees only this tenant; leave blank to skip.</small></label>
+          <label>Operator password<input type="password" value={opPassword()} onInput={(e) => setOpPassword(e.currentTarget.value)} placeholder="min 12 characters" autocomplete="new-password" /><small>Handed to the team once — hashed with argon2id, never shown again.</small></label>
+        </div>
         <label class="check-row"><input type="checkbox" checked={deployNow()} onChange={(e) => setDeployNow(e.currentTarget.checked)} /><span><strong>Deploy isolated CrowdRelay instance now</strong><small>Only an agent for the selected data region may claim this schema-v4 job.</small></span></label>
         <Show when={createTenant.error}><div class="error-card" role="alert">{createTenant.error instanceof Error ? createTenant.error.message : 'Tenant creation failed'}</div></Show>
-        <div class="form-actions right"><button type="button" class="ghost" onClick={() => { setCreating(false); resetForm() }}>Cancel</button><button type="submit" disabled={createTenant.isPending || slug().length < 2 || name().length < 2 || !regionalReady() || !deployFieldsReady()}>{createTenant.isPending ? 'Creating…' : deployNow() ? 'Create & deploy' : 'Create tenant'}</button></div>
+        <div class="form-actions right"><button type="button" class="ghost" onClick={() => { setCreating(false); resetForm() }}>Cancel</button><button type="submit" disabled={createTenant.isPending || slug().length < 2 || name().length < 2 || !regionalReady() || !deployFieldsReady() || !operatorFieldsReady()}>{createTenant.isPending ? 'Creating…' : deployNow() ? 'Create & deploy' : 'Create tenant'}</button></div>
       </form>
     </Show>
 

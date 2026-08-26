@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { PortfolioPanel } from '../components/PortfolioPanel'
+import { PortfolioSettingsPanel } from '../components/PortfolioSettingsPanel'
 
 export function PortfolioPage() {
   const params = useParams({ from: '/tenants/$slug/portfolio' })
@@ -18,9 +19,15 @@ export function PortfolioPage() {
     queryFn: () => api.portfolioEdges(params().slug),
     refetchInterval: 30_000,
   }))
+  const settings = useQuery(() => ({
+    queryKey: ['portfolio-settings', params().slug],
+    queryFn: () => api.portfolioSettings(params().slug),
+    staleTime: 60_000,
+  }))
   const refresh = () => {
     void overview.refetch()
     void edges.refetch()
+    void settings.refetch()
   }
 
   return <section class="page">
@@ -46,5 +53,12 @@ export function PortfolioPage() {
       onChanged={refresh}
     /></Show>
     <Show when={overview.isPending}><div class="skeleton-block"/></Show>
+    <Show when={!settings.isPending}>
+      <PortfolioSettingsPanel
+        slug={params().slug}
+        model={settings.data}
+        onChanged={refresh}
+      />
+    </Show>
   </section>
 }

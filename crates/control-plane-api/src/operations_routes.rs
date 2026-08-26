@@ -55,6 +55,10 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/autopilot",
             get(autopilot_overview),
         )
+        .route(
+            "/tenants/{slug}/operations/autopilot/bulk",
+            post(bulk_autopilot),
+        )
         .route("/tenants/{slug}/operations/growth", get(autopilot_growth))
         .route(
             "/tenants/{slug}/portfolio/overview",
@@ -67,6 +71,14 @@ pub fn router() -> Router<AppState> {
         .route(
             "/tenants/{slug}/portfolio/amplification/{consent_id}/decide",
             post(decide_portfolio_amplification),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/settings",
+            get(portfolio_settings),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/settings/{setting_key}",
+            post(update_portfolio_setting),
         )
         .route(
             "/tenants/{slug}/operations/autopilot/{context}",
@@ -205,7 +217,7 @@ async fn audit_result(
             actor: &state.admin_actor,
             action,
             target_kind,
-            target_id,
+            target_id: target_id.to_owned(),
             request_id: correlation(headers),
             outcome: if result.is_ok() {
                 "succeeded"
@@ -520,6 +532,12 @@ async fn autopilot_growth(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct BulkAutopilotMutation {
+    enabled: bool,
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct AutopilotMutation {
     enabled: bool,
@@ -582,6 +600,108 @@ async fn update_autopilot(
     )
     .await;
     object_no_store(result?, "autopilot mutation")
+}
+
+/// Killswitch / full-enable for every Autopilot policy at once.
+///
+/// CrowdRelay stays canonical: the upstream overview provides each policy's
+/// current version and settings, and this proxy re-posts every policy with
+/// its own fresh `expected_version`. Partial failures are reported
+/// per-policy instead of failing silently or inventing a second authority.
+async fn bulk_autopilot(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(input): Json<BulkAutopilotMutation>,
+) -> Result<Response, ApiError> {
+    let base_idempotency = idempotency_key(&headers)?.to_owned();
+    let (_, overview) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/overview",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    let policies = overview
+        .get("policies")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let mut results = Vec::with_capacity(policies.len());
+    for policy in &policies {
+        let context = policy
+            .get("context")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                ApiError::Unavailable("autopilot policy is missing context".to_owned())
+            })?;
+        if !safe_segment(context) {
+            results.push(json!({"context": context, "ok": false, "error": "invalid context"}));
+            continue;
+        }
+        let expected_version = policy.get("version").and_then(Value::as_i64);
+        let Some(expected_version) = expected_version.filter(|version| *version > 0) else {
+            results.push(
+                json!({"context": context, "ok": false, "error": "policy is missing version"}),
+            );
+            continue;
+        };
+        let body = json!({
+            "enabled": input.enabled,
+            "autonomy_level": policy.get("autonomy_level"),
+            "minimum_confidence_basis_points": policy.get("minimum_confidence_basis_points"),
+            "max_actions_24h": policy.get("max_actions_24h"),
+            "expected_version": expected_version,
+        });
+        // Distinct per-policy key: one operator intent fans out into several
+        // upstream mutations, each of which must be individually retryable.
+        let derived_key = format!("{base_idempotency}:{context}");
+        let result = state
+            .area_client
+            .request_management(
+                tenant.tenant.id,
+                &target,
+                ManagementRequest {
+                    method: "POST",
+                    path: &format!("/v1/control-plane/autopilot/policies/{context}"),
+                    body: Some(&body),
+                    correlation_id: correlation(&headers),
+                    idempotency_key: Some(derived_key.as_str()),
+                },
+            )
+            .await;
+        match result {
+            Ok(_) => results.push(json!({"context": context, "ok": true})),
+            Err(error) => results.push(json!({
+                "context": context,
+                "ok": false,
+                "error": error.to_string(),
+            })),
+        }
+    }
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.autopilot_policy.bulk_updated",
+        "autopilot_policy",
+        "bulk",
+        &headers,
+        &Ok::<Value, ApiError>(json!({"enabled": input.enabled, "count": results.len()})),
+    )
+    .await;
+    object_no_store(
+        json!({
+            "enabled": input.enabled,
+            "updated": results.iter().filter(|r| r["ok"] == json!(true)).count(),
+            "results": results,
+        }),
+        "bulk autopilot mutation",
+    )
 }
 
 /// "Do it": approve the parked action of one finding through CrowdRelay's
@@ -740,4 +860,77 @@ async fn decide_portfolio_amplification(
     )
     .await;
     object_no_store(value, "portfolio edge decision")
+}
+
+/// Effective brand settings for the tenant, merged over shipped defaults.
+async fn portfolio_settings(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_tenant, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/tenant-settings",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "portfolio settings")
+}
+
+/// Upserts one brand override; upstream validates the key allowlist and
+/// invalidates its read cache.
+async fn update_portfolio_setting(
+    State(state): State<AppState>,
+    Path((slug, setting_key)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let trimmed = setting_key.trim();
+    let key_ok = !trimmed.is_empty()
+        && trimmed.len() <= 96
+        && trimmed
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte == b'_');
+    if !key_ok {
+        return Err(ApiError::InvalidInput(
+            "valid setting key is required".to_owned(),
+        ));
+    }
+    if !body.is_object()
+        || body
+            .get("value")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .is_none_or(str::is_empty)
+    {
+        return Err(ApiError::InvalidInput("value is required".to_owned()));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path = format!("/v1/control-plane/tenant-settings/{trimmed}");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.portfolio_setting.updated",
+        "tenant_setting",
+        trimmed,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "portfolio setting update")
 }

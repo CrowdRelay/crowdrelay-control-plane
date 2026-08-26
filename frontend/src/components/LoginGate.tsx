@@ -1,6 +1,5 @@
-import { Show, createSignal } from 'solid-js'
+import { Show, createSignal, onMount } from 'solid-js'
 import type { Component, JSX } from 'solid-js'
-import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { LoginHero } from './LoginHero'
 import '../login-shell.css'
@@ -11,6 +10,10 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
   const [busy, setBusy] = createSignal(false)
   const [error, setError] = createSignal('')
 
+  // The HttpOnly session cookie may still be alive after a refresh; hydrate
+  // the in-memory profile from it before deciding to show the form.
+  onMount(() => { void authState.hydrate() })
+
   const submit: JSX.EventHandlerUnion<HTMLFormElement, SubmitEvent> = async (event) => {
     event.preventDefault()
     if (busy()) return
@@ -19,7 +22,7 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
     setBusy(true)
     setError('')
     try {
-      await api.authenticate(user, password())
+      await authState.login(user, password())
       setPassword('')
     } catch {
       setError('Sign-in failed. Check your username and password.')
@@ -28,7 +31,9 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
     }
   }
 
-  return <Show when={authState.authenticated()} fallback={
+  return <Show when={authState.hydrated()} fallback={
+    <main class="login-shell"><section class="login-card" aria-busy="true"><p>Restoring session…</p></section></main>
+  }><Show when={authState.profile()} fallback={
     <main class="login-shell">
       <LoginHero />
       <section class="login-card" aria-labelledby="control-plane-login-title">
@@ -42,8 +47,8 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
           <Show when={error()}><div class="login-error" role="alert">{error()}</div></Show>
           <button type="submit" disabled={busy() || !username().trim() || !password()}>{busy() ? 'Signing in…' : 'Sign in'}</button>
         </form>
-        <div class="login-security"><span class="auth-dot ok"/><span>Credentials stay in this tab and never reach persistent browser storage. A refresh keeps you signed in; closing the tab signs you out.</span></div>
+        <div class="login-security"><span class="auth-dot ok"/><span>Credentials never touch browser storage. The session lives in an HttpOnly cookie; a refresh keeps you signed in until the server-side session expires.</span></div>
       </section>
     </main>
-  }>{props.children}</Show>
+  }>{props.children}</Show></Show>
 }

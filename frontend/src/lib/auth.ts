@@ -1,53 +1,40 @@
 import { createSignal } from 'solid-js'
+import { api, setUnauthorizedHandler } from './api'
+import type { Profile } from './types'
 
-// A Basic Authorization header is password-equivalent, so it is deliberately
-// kept out of any storage that outlives the tab. It is held in memory and
-// mirrored into tab-scoped session storage only, which the browser clears when
-// the tab closes. That keeps a reload (Ctrl-R) signed in without leaving a
-// credential behind for the next person to open this origin.
-//
-// The residual exposure is a same-origin script reading sessionStorage. A
-// strict CSP (script-src 'self', no inline script) — enforced by the edge
-// Caddyfile and mirrored by the binary itself — is what makes that acceptable
-// here; moving the edge to a server-issued HttpOnly session would remove it
-// entirely and is the intended end state.
-const STORAGE_KEY = 'crowdrelay-control-plane-session'
+// The operator identity lives only in memory and is hydrated from the
+// HttpOnly session cookie on boot. Nothing credential-shaped is ever stored
+// where page JavaScript could read it: the session token itself never leaves
+// the cookie jar, so there is nothing to persist and nothing to steal from
+// storage. A refresh re-hydrates silently; closing the tab loses only the
+// cached profile view, while the cookie keeps its server-side lifetime.
+const [profile, setProfile] = createSignal<Profile | null>(null)
+const [hydrated, setHydrated] = createSignal(false)
 
-const readStored = (): string | null => {
-  try {
-    const value = sessionStorage.getItem(STORAGE_KEY)
-    return value && value.startsWith('Basic ') ? value : null
-  } catch {
-    // Storage can be unavailable (private mode, blocked cookies). Falling back
-    // to memory-only keeps the panel usable instead of failing to boot.
-    return null
-  }
-}
-
-const [authorization, setAuthorization] = createSignal<string | null>(readStored())
-
-const persist = (value: string | null) => {
-  try {
-    if (value === null) sessionStorage.removeItem(STORAGE_KEY)
-    else sessionStorage.setItem(STORAGE_KEY, value)
-  } catch {
-    // Memory-only for this tab; the operator simply signs in again on reload.
-  }
-}
+setUnauthorizedHandler(() => setProfile(null))
 
 export const authState = {
-  authorization,
-  authenticated: () => authorization() !== null,
-  setBasic(username: string, password: string) {
-    const bytes = new TextEncoder().encode(`${username}:${password}`)
-    let binary = ''
-    for (const byte of bytes) binary += String.fromCharCode(byte)
-    const value = `Basic ${btoa(binary)}`
-    setAuthorization(value)
-    persist(value)
+  profile,
+  hydrated,
+  authenticated: () => profile() !== null,
+  setProfile,
+  async hydrate() {
+    try {
+      setProfile(await api.session())
+    } catch {
+      setProfile(null)
+    } finally {
+      setHydrated(true)
+    }
   },
-  clear() {
-    setAuthorization(null)
-    persist(null)
+  async login(username: string, password: string) {
+    setProfile(await api.login(username, password))
+  },
+  async logout() {
+    try {
+      await api.logout()
+    } finally {
+      setProfile(null)
+    }
   },
 }

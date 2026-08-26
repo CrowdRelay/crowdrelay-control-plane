@@ -1,9 +1,12 @@
 mod area_routes;
 mod attention_routes;
 mod auth;
+mod auth_routes;
 mod config;
 mod error;
 mod model;
+mod notifier_client;
+mod notify_routes;
 mod operations_routes;
 mod read_models;
 mod routes;
@@ -42,6 +45,9 @@ pub struct AppState {
     runtime_stale_after_seconds: i64,
     area_client: tenant_area_client::TenantAreaClient,
     virya_management_url: Option<Arc<str>>,
+    /// Session cookies are Secure in production; local plain-HTTP dev opts out.
+    cookie_secure: bool,
+    notifier: notifier_client::NotifierClient,
 }
 
 #[tokio::main]
@@ -105,16 +111,53 @@ async fn main() -> anyhow::Result<()> {
             config.management_master_key,
         ),
         virya_management_url: config.virya_management_url.map(Arc::from),
+        cookie_secure: config.cookie_secure,
+        notifier: notifier_client::NotifierClient::new(
+            config.notify_email_relay_url.map(Arc::from),
+        ),
     };
-    let admin_api = routes::admin_router()
-        .merge(runtime_routes::router())
-        .merge(area_routes::router())
-        .merge(attention_routes::router())
-        .merge(operations_routes::router())
-        .merge(read_models::router())
+    // Bounded best-effort notifier delivery. Nothing in the request path
+    // depends on this loop; a dead channel dies in its outbox row, not here.
+    {
+        let worker_state = state.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(5));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                interval.tick().await;
+                if let Err(error) = dispatch_pending_notifications(&worker_state).await {
+                    tracing::warn!(%error, "notifier dispatch pass failed");
+                }
+            }
+        });
+    }
+    // Session endpoints are public by design; everything below requires an
+    // identity (admin bearer or operator session).
+    let auth_api = auth_routes::router();
+    // Tenant-scoped proxies get their scope enforced once, path-wide.
+    let scoped = |router: Router<AppState>| {
+        router.route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::require_tenant_access,
+        ))
+    };
+    let superadmin_area = area_routes::router()
+        .route_layer(middleware::from_fn(auth::require_platform_admin))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
-            auth::require_admin,
+            auth::require_tenant_access,
+        ));
+    let admin_api = routes::admin_router()
+        .merge(routes::operator_admin_router())
+        .merge(runtime_routes::router())
+        .merge(superadmin_area)
+        .merge(scoped(attention_routes::router()))
+        .merge(scoped(operations_routes::router()))
+        .merge(scoped(read_models::router()))
+        .merge(scoped(notify_routes::router()))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::authenticate,
         ));
     let telemetry_api = routes::telemetry_router().route_layer(middleware::from_fn_with_state(
         state.clone(),
@@ -125,6 +168,7 @@ async fn main() -> anyhow::Result<()> {
         auth::require_provisioner,
     ));
     let api = Router::new()
+        .merge(auth_api)
         .merge(admin_api)
         .merge(telemetry_api)
         .merge(provisioner_api);
@@ -211,4 +255,37 @@ async fn ready(
 ) -> Result<Json<serde_json::Value>, error::ApiError> {
     state.store.ping().await?;
     Ok(Json(json!({"status":"ready"})))
+}
+
+/// One bounded delivery pass: claim, send, record. Errors never propagate —
+/// the outbox row's backoff is the retry policy.
+async fn dispatch_pending_notifications(state: &AppState) -> anyhow::Result<()> {
+    for notification in state.store.claim_due_notifications(8).await? {
+        let outcome = state
+            .notifier
+            .deliver(
+                &notification.kind,
+                &notification.label,
+                &notification.config,
+                &notification.event,
+                &notification.payload,
+            )
+            .await;
+        match outcome {
+            Ok(()) => {
+                state
+                    .store
+                    .complete_notification(notification.id, None)
+                    .await?
+            }
+            Err(error) => {
+                tracing::warn!(id = %notification.id, %error, "notifier delivery failed");
+                state
+                    .store
+                    .complete_notification(notification.id, Some(&error))
+                    .await?;
+            }
+        }
+    }
+    Ok(())
 }

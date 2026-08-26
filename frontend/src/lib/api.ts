@@ -1,8 +1,13 @@
-import { authState } from './auth'
-import type { AreaCity, PortfolioConsent, PortfolioOverview, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AutopilotOverview, AutopilotPolicy, DeliveryDetails, FeatureFlag, GrowthOverview, OperationTimeline, OperationsSummary, Palette, ProvisioningJob, ReconciliationResult, RegionalProfile, RetryResult, TenantOperationsReadModel, TenantOverviewReadModel, TenantRuntimeSnapshot, TenantSummary } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, DeliveryDetails, FeatureFlag, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, Palette, PortfolioConsent, PortfolioOverview, PortfolioSettingsReadModel, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, RetryResult, TenantOperationsReadModel, TenantOverviewReadModel, TenantRuntimeSnapshot, TenantSummary } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
+}
+
+// Registered by lib/auth.ts so a 401 anywhere drops the in-memory profile.
+let unauthorizedHandler: (() => void) | null = null
+export const setUnauthorizedHandler = (handler: () => void) => {
+  unauthorizedHandler = handler
 }
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -12,12 +17,13 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: {
       'content-type': 'application/json',
       'x-request-id': crypto.randomUUID(),
-      ...(authState.authorization() ? { authorization: authState.authorization()! } : {}),
       ...init?.headers,
     },
   })
   if (!response.ok) {
-    if (response.status === 401) authState.clear()
+    // The session cookie is HttpOnly, so a 401 is the only signal the SPA can
+    // get that its session died; drop the cached profile everywhere.
+    if (response.status === 401 && !path.startsWith('/auth/session') && unauthorizedHandler) unauthorizedHandler()
     const body = await response.json().catch(() => ({ detail: response.statusText })) as { detail?: string }
     throw new ApiError(response.status, body.detail ?? `HTTP ${response.status}`)
   }
@@ -36,18 +42,32 @@ export type CreateTenantInput = {
   brandingPalette?: Palette
   deployCrowdrelay?: boolean
   desiredVersion?: string
+  initialOperator?: { username: string; password: string }
 }
 
 export const api = {
-  authenticate: async (username: string, password: string) => {
-    authState.setBasic(username, password)
-    try {
-      await request('/overview')
-    } catch (error) {
-      authState.clear()
-      throw error
-    }
-  },
+  // Session lifecycle. The HttpOnly cookie carries the credential; these
+  // calls only move the profile view in and out of memory.
+  login: async (username: string, password: string) =>
+    request<Profile>('/auth/session', { method: 'POST', body: JSON.stringify({ username, password }) }),
+  session: () => request<Profile>('/auth/session'),
+  logout: () => request<void>('/auth/session', { method: 'DELETE' }),
+  operators: (slug: string) => request<{ items: OperatorAccount[] }>(`/tenants/${encodeURIComponent(slug)}/operators`),
+  createOperator: (slug: string, username: string, password: string) =>
+    request<OperatorAccount>(`/tenants/${encodeURIComponent(slug)}/operators`, { method: 'POST', body: JSON.stringify({ username, password }) }),
+  deleteOperator: (slug: string, id: string) =>
+    request<void>(`/tenants/${encodeURIComponent(slug)}/operators/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  notifiers: (slug: string) => request<{ items: NotifierChannel[] }>(`/tenants/${encodeURIComponent(slug)}/notifiers`),
+  createNotifier: (slug: string, input: { kind: NotifierChannel['kind']; label: string; url?: string; events: string[]; enabled: boolean }) =>
+    request<NotifierChannel>(`/tenants/${encodeURIComponent(slug)}/notifiers`, { method: 'POST', body: JSON.stringify(input) }),
+  updateNotifier: (slug: string, id: string, input: { label?: string; events?: string[]; enabled?: boolean }) =>
+    request<NotifierChannel>(`/tenants/${encodeURIComponent(slug)}/notifiers/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  deleteNotifier: (slug: string, id: string) =>
+    request<void>(`/tenants/${encodeURIComponent(slug)}/notifiers/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  testNotifier: (slug: string, id: string) =>
+    request<{ ok: boolean; error?: string }>(`/tenants/${encodeURIComponent(slug)}/notifiers/${encodeURIComponent(id)}/test`, { method: 'POST', body: '{}' }),
+  autopilotBulk: (slug: string, enabled: boolean) =>
+    request<BulkAutopilotResult>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/bulk`, { method: 'POST', body: JSON.stringify({ enabled }) }),
   overview: () => request<{
     tenants: number
     healthy: number
@@ -127,6 +147,13 @@ export const api = {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
       body: JSON.stringify({ action, actor: input.actor, revoke_reason: input.revokeReason }),
+    }),
+  portfolioSettings: (slug: string) => request<PortfolioSettingsReadModel>(`/tenants/${encodeURIComponent(slug)}/portfolio/settings`),
+  updatePortfolioSetting: (slug: string, key: string, value: string) =>
+    request<{ key: string; value: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/settings/${encodeURIComponent(key)}`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ value }),
     }),
   areaOverview: (slug: string) => request<AreaOverview>(`/tenants/${encodeURIComponent(slug)}/area`),
   areaSettings: (slug: string, enabled: boolean) => request<{enabled:boolean; entitled:boolean}>(`/tenants/${encodeURIComponent(slug)}/area/settings`, { method:'PATCH', body:JSON.stringify({enabled}) }),

@@ -29,6 +29,139 @@ pub fn display_name(value: &str) -> Result<String, ApiError> {
     Ok(value.to_owned())
 }
 
+/// Operator account username: lowercase, URL-safe, no leading/trailing
+/// punctuation — it appears in audit rows and must never collide with the
+/// platform's reserved actors.
+pub fn username(value: &str) -> Result<String, ApiError> {
+    let value = value.trim().to_ascii_lowercase();
+    let valid_len = (3..=32).contains(&value.len());
+    let valid_chars = value.bytes().enumerate().all(|(index, byte)| {
+        byte.is_ascii_lowercase()
+            || byte.is_ascii_digit()
+            || (index > 0 && matches!(byte, b'-' | b'_' | b'.'))
+    });
+    if !valid_len || !valid_chars || value.ends_with(['-', '_', '.']) {
+        return Err(ApiError::InvalidInput(
+            "username must be 3-32 lowercase letters, digits or internal -_. separators".to_owned(),
+        ));
+    }
+    Ok(value)
+}
+
+/// Operator password policy: long enough for a password manager secret,
+/// short enough for every browser. Content rules stay out on purpose —
+/// length is the property that matters against offline argon2id cracking.
+pub fn password(value: &str) -> Result<String, ApiError> {
+    if !(12..=128).contains(&value.chars().count()) || value.chars().any(char::is_control) {
+        return Err(ApiError::InvalidInput(
+            "password must be 12-128 characters without control characters".to_owned(),
+        ));
+    }
+    Ok(value.to_owned())
+}
+
+/// Notification event kinds a channel can subscribe to. An empty list means
+/// "all events".
+pub const NOTIFIER_EVENTS: &[&str] = &[
+    "provisioning.failed",
+    "runtime.degraded",
+    "runtime.stale",
+    "runtime.recovered",
+];
+
+pub fn notifier_events(values: Vec<String>) -> Result<Vec<String>, ApiError> {
+    if values.len() > NOTIFIER_EVENTS.len() {
+        return Err(ApiError::InvalidInput(
+            "too many notifier events".to_owned(),
+        ));
+    }
+    for value in &values {
+        if !NOTIFIER_EVENTS.contains(&value.as_str()) {
+            return Err(ApiError::InvalidInput(format!(
+                "unknown notifier event: {value}"
+            )));
+        }
+    }
+    Ok(values)
+}
+
+pub fn notifier_label(value: &str) -> Result<String, ApiError> {
+    let value = value.trim();
+    if !(2..=64).contains(&value.chars().count()) || value.chars().any(char::is_control) {
+        return Err(ApiError::InvalidInput(
+            "notifier label must be 2-64 printable characters".to_owned(),
+        ));
+    }
+    Ok(value.to_owned())
+}
+
+/// Channel target validation. Discord webhooks are pinned to the two official
+/// hosts so a misconfigured tenant cannot point its channel at arbitrary
+/// infrastructure; generic webhooks require HTTPS with a bounded URL.
+pub fn notifier_target(kind: &str, value: Option<&str>) -> Result<serde_json::Value, ApiError> {
+    match kind {
+        "discord" => {
+            let raw = value
+                .ok_or_else(|| ApiError::InvalidInput("discord channel requires url".to_owned()))?;
+            let parsed = url::Url::parse(raw.trim())
+                .map_err(|_| ApiError::InvalidInput("invalid discord webhook URL".to_owned()))?;
+            if parsed.scheme() != "https"
+                || !matches!(
+                    parsed.host_str(),
+                    Some("discord.com") | Some("discordapp.com")
+                )
+                || !parsed.path().starts_with("/api/webhooks/")
+            {
+                return Err(ApiError::InvalidInput(
+                    "discord channel requires an https://discord.com/api/webhooks/... URL"
+                        .to_owned(),
+                ));
+            }
+            Ok(serde_json::json!({"url": parsed.as_str()}))
+        }
+        "webhook" => {
+            let raw = value
+                .ok_or_else(|| ApiError::InvalidInput("webhook channel requires url".to_owned()))?;
+            let parsed = url::Url::parse(raw.trim())
+                .map_err(|_| ApiError::InvalidInput("invalid webhook URL".to_owned()))?;
+            if parsed.scheme() != "https"
+                || parsed.host_str().is_none()
+                || parsed.as_str().len() > 512
+                || parsed.username() != ""
+                || parsed.password().is_some()
+            {
+                return Err(ApiError::InvalidInput(
+                    "webhook channel requires a plain HTTPS URL without embedded credentials"
+                        .to_owned(),
+                ));
+            }
+            Ok(serde_json::json!({"url": parsed.as_str()}))
+        }
+        "email_relay" => {
+            let to = value.ok_or_else(|| {
+                ApiError::InvalidInput("email_relay channel requires recipient email".to_owned())
+            })?;
+            let to = to.trim();
+            let valid = (3..=254).contains(&to.len())
+                && to
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || "@.-_+".contains(c))
+                && to.matches('@').count() == 1
+                && !to.starts_with(['@', '.', '-'])
+                && !to.ends_with(['@', '.', '-']);
+            if !valid {
+                return Err(ApiError::InvalidInput(
+                    "email_relay channel requires a valid recipient address".to_owned(),
+                ));
+            }
+            Ok(serde_json::json!({"to": to}))
+        }
+        _ => Err(ApiError::InvalidInput(
+            "kind must be one of discord, webhook, email_relay".to_owned(),
+        )),
+    }
+}
+
 pub fn base_url(value: Option<String>) -> Result<Option<String>, ApiError> {
     value.map(|raw| {
         let parsed = url::Url::parse(raw.trim()).map_err(|_| ApiError::InvalidInput("invalid URL".to_owned()))?;

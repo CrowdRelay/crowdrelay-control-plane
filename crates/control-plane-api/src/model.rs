@@ -216,6 +216,25 @@ pub struct CreateTenantRequest {
     #[serde(default)]
     pub deploy_crowdrelay: bool,
     pub desired_version: Option<String>,
+    /// Convenience path for tenant onboarding: create the first scoped
+    /// operator account in the same transaction as the tenant itself.
+    #[serde(default)]
+    pub initial_operator: Option<InitialOperatorRequest>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct InitialOperatorRequest {
+    pub username: String,
+    pub password: String,
+}
+
+/// Hashed form of the initial operator, computed before the transaction so
+/// the expensive KDF never runs inside it.
+#[derive(Debug, Clone)]
+pub struct InitialOperator {
+    pub username: String,
+    pub password_hash: String,
 }
 
 #[derive(Debug, Clone)]

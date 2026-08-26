@@ -484,3 +484,46 @@ export interface PortfolioOverview {
   activeEdges: number
   deliveriesLast30d: number
 }
+
+export type Profile = {
+  username: string
+  role: 'platform_admin' | 'tenant_operator'
+  tenantSlug: string | null
+}
+
+export type OperatorAccount = {
+  id: string
+  username: string
+  role: 'tenant_operator'
+  tenantId: string
+  active: boolean
+}
+
+export type NotifierKind = 'discord' | 'webhook' | 'email_relay'
+export type NotifierChannel = {
+  id: string
+  kind: NotifierKind
+  label: string
+  config: { urlHost?: string; to?: string }
+  events: string[]
+  enabled: boolean
+}
+export const NOTIFIER_EVENTS = [
+  'provisioning.failed',
+  'runtime.degraded',
+  'runtime.stale',
+  'runtime.recovered',
+] as const
+export type NotifierEvent = (typeof NOTIFIER_EVENTS)[number]
+
+export type BulkAutopilotResult = {
+  enabled: boolean
+  updated: number
+  results: Array<{ context: string; ok: boolean; error?: string }>
+}
+
+export interface PortfolioSettingsReadModel {
+  settings: Record<string, string>
+  overridden: string[]
+  editable_keys: string[]
+}

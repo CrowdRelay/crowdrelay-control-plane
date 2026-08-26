@@ -23,6 +23,35 @@ control.virya.music {
     # Machine telemetry writes keep their dedicated Bearer credentials end
     # to end and bypass browser Basic Auth entirely.
     route {
+        # Operator session endpoints are public transport: the backend owns
+        # credential verification, cookie issuance and revocation.
+        @auth path /api/v1/auth/*
+        handle @auth {
+            reverse_proxy control-plane:8090 {
+                health_uri /healthz/ready
+                health_interval 15s
+                health_timeout 3s
+            }
+        }
+
+        # Cookie-bearing requests skip edge Basic auth and pass through
+        # untouched — the backend validates the HttpOnly operator session
+        # itself and fails closed. Anonymous requests with a forged cookie get
+        # a backend 401, never plane access.
+        @session_request header Cookie *crowdrelay_cp_session=*
+        handle @session_request {
+            reverse_proxy control-plane:8090 {
+                health_uri /healthz/ready
+                health_interval 15s
+                health_timeout 3s
+                transport http {
+                    dial_timeout 2s
+                    response_header_timeout 10s
+                    keepalive 60s
+                }
+            }
+        }
+
         @runtime_put {
             method PUT
             path /api/v1/tenants/*/runtime
@@ -48,8 +77,10 @@ control.virya.music {
         # browser-native credential dialog. Every other /api/v1/* call is gated
         # here; the runtime READ is admin-authoritative backend-side, so it is
         # gated by method instead of being exempted outright. Both secrets are
-        # read per request from files inside Caddy's config volume: a failed
-        # read denies auth (fail closed), and rotation needs no reload.
+        # resolved from files inside Caddy's config volume: content is read
+        # per request (rotation needs no reload), but the files must exist
+        # when Caddy provisions or it refuses to start — fail closed either
+        # way, and kept out of `docker inspect`.
         @api {
             path /api/v1/*
             not path /api/v1/tenants/*/runtime

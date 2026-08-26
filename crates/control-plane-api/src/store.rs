@@ -35,7 +35,7 @@ pub(crate) struct ControlCommandAudit<'a> {
     pub actor: &'a str,
     pub action: &'static str,
     pub target_kind: &'static str,
-    pub target_id: &'a str,
+    pub target_id: String,
     pub request_id: Option<&'a str>,
     pub outcome: &'a str,
 }
@@ -45,6 +45,47 @@ pub(crate) struct ProvisioningCompletion<'a> {
     pub workspace_id: Uuid,
     pub schema_version: i32,
     pub deployed_sha: &'a str,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OperatorAccountRow {
+    pub id: Uuid,
+    pub username: String,
+    pub role: String,
+    pub tenant_id: Option<Uuid>,
+    pub active: bool,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct OperatorAuthRow {
+    pub id: Uuid,
+    pub username: String,
+    pub password_hash: String,
+    pub role: String,
+    pub tenant_id: Option<Uuid>,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NotifierChannelRow {
+    pub id: Uuid,
+    pub tenant_id: Uuid,
+    pub kind: String,
+    pub label: String,
+    pub config: Value,
+    pub events: Vec<String>,
+    pub enabled: bool,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct PendingNotification {
+    pub id: Uuid,
+    pub event: String,
+    pub payload: Value,
+    pub kind: String,
+    pub label: String,
+    pub config: Value,
 }
 
 impl Store {
@@ -138,11 +179,23 @@ impl Store {
         Ok(row.into_summary(Utc::now(), self.runtime_stale_after_seconds))
     }
 
+    /// Slug lookup for session profiles — a cheap projection that never
+    /// builds the full read model.
+    pub async fn tenant_slug_by_id(&self, tenant_id: Uuid) -> Result<Option<String>, ApiError> {
+        Ok(
+            sqlx::query_scalar("SELECT slug FROM control_plane_tenants WHERE id = $1")
+                .bind(tenant_id)
+                .fetch_optional(&self.pool)
+                .await?,
+        )
+    }
+
     pub async fn create_tenant(
         &self,
         input: CreateTenantRequest,
         palette: Option<BrandingPalette>,
         deployment: Option<&TenantDeploymentSpec>,
+        initial_operator: Option<&crate::model::InitialOperator>,
         actor: &str,
         request_id: Option<&str>,
     ) -> Result<TenantSummary, ApiError> {
@@ -191,6 +244,24 @@ impl Store {
             },
         )
         .await?;
+
+        if let Some(operator) = initial_operator {
+            Self::create_operator_account(&mut tx, id, &operator.username, &operator.password_hash)
+                .await?;
+            self.audit_tx(
+                &mut tx,
+                AuditRecord {
+                    tenant_id: Some(id),
+                    actor,
+                    action: "tenant.operator.created",
+                    target_kind: "operator_account",
+                    target_id: operator.username.clone(),
+                    request_id,
+                    detail: json!({"role": "tenant_operator"}),
+                },
+            )
+            .await?;
+        }
 
         if let Some(deployment) = deployment {
             let plan = deployment_plan(&tenant, deployment)?;
@@ -947,6 +1018,19 @@ impl Store {
             },
         )
         .await?;
+        Self::enqueue_event_tx(
+            &mut tx,
+            claim.tenant_id,
+            "provisioning.failed",
+            &json!({
+                "event": "provisioning.failed",
+                "errorCode": error_code,
+                "errorDetail": error_detail,
+                "attemptCount": job.attempt_count,
+                "desiredVersion": job.desired_version,
+            }),
+        )
+        .await?;
         tx.commit().await?;
         Ok(job)
     }
@@ -1057,6 +1141,31 @@ impl Store {
             )
             .await?;
         }
+        // Health transitions notify subscribed channels in the same
+        // transaction. Schema/sha-only drift stays audit-only.
+        if previous_health != current_health {
+            let event = match current_health {
+                RuntimeHealth::Degraded => Some("runtime.degraded"),
+                RuntimeHealth::Stale => Some("runtime.stale"),
+                RuntimeHealth::Healthy if !first_report => Some("runtime.recovered"),
+                _ => None,
+            };
+            if let Some(event) = event {
+                Self::enqueue_event_tx(
+                    &mut tx,
+                    tenant.tenant.id,
+                    event,
+                    &json!({
+                        "event": event,
+                        "previousHealth": previous_health,
+                        "health": current_health,
+                        "deployedSha": runtime.deployed_sha,
+                        "outboxPending": runtime.outbox_pending,
+                    }),
+                )
+                .await?;
+            }
+        }
         tx.commit().await?;
         Ok(TenantSummary {
             tenant: tenant.tenant,
@@ -1150,7 +1259,7 @@ impl Store {
                 actor: command.actor,
                 action: command.action,
                 target_kind: command.target_kind,
-                target_id: command.target_id.to_owned(),
+                target_id: command.target_id.clone(),
                 request_id: command.request_id,
                 detail: json!({"outcome": command.outcome}),
             },
@@ -1158,15 +1267,6 @@ impl Store {
         .await?;
         tx.commit().await?;
         Ok(())
-    }
-
-    pub async fn audit_for_tenant(
-        &self,
-        slug: &str,
-        limit: i64,
-    ) -> Result<Vec<AuditRow>, ApiError> {
-        let tenant = self.tenant_by_slug(slug).await?;
-        self.audit_for_tenant_id(tenant.tenant.id, limit).await
     }
 
     /// Tenant-id variant for callers that already resolved the tenant.
@@ -1208,6 +1308,382 @@ impl Store {
         .bind(record.detail)
         .execute(&mut **tx)
         .await?;
+        Ok(())
+    }
+
+    // --- Operator accounts --------------------------------------------------
+
+    pub async fn create_operator_account(
+        tx: &mut Transaction<'_, Postgres>,
+        tenant_id: Uuid,
+        username: &str,
+        password_hash: &str,
+    ) -> Result<(), ApiError> {
+        sqlx::query(
+            r#"INSERT INTO control_plane_operator_accounts
+               (id, username, password_hash, role, tenant_id)
+               VALUES ($1, $2, $3, 'tenant_operator', $4)"#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(username)
+        .bind(password_hash)
+        .bind(tenant_id)
+        .execute(&mut **tx)
+        .await
+        .map_err(|error| match error {
+            sqlx::Error::Database(db) if db.is_unique_violation() => {
+                ApiError::Conflict("operator username is already taken".to_owned())
+            }
+            other => ApiError::Database(other),
+        })?;
+        Ok(())
+    }
+
+    pub async fn list_operator_accounts(
+        &self,
+        tenant_id: Uuid,
+    ) -> Result<Vec<OperatorAccountRow>, ApiError> {
+        Ok(sqlx::query_as::<_, OperatorAccountRow>(
+            r#"SELECT id, username, role, tenant_id, active
+               FROM control_plane_operator_accounts
+               WHERE tenant_id = $1 AND role = 'tenant_operator'
+               ORDER BY created_at"#,
+        )
+        .bind(tenant_id)
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
+    /// Standalone account creation with its audit row in one transaction.
+    pub async fn create_tenant_operator(
+        &self,
+        tenant_id: Uuid,
+        username: &str,
+        password_hash: &str,
+        actor: &str,
+        request_id: Option<&str>,
+    ) -> Result<(), ApiError> {
+        let mut tx = self.pool.begin().await?;
+        Self::create_operator_account(&mut tx, tenant_id, username, password_hash).await?;
+        self.audit_tx(
+            &mut tx,
+            AuditRecord {
+                tenant_id: Some(tenant_id),
+                actor,
+                action: "tenant.operator.created",
+                target_kind: "operator_account",
+                target_id: username.to_owned(),
+                request_id,
+                detail: json!({"role": "tenant_operator"}),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub async fn delete_operator_account(
+        &self,
+        tenant_id: Uuid,
+        account_id: Uuid,
+        actor: &str,
+        request_id: Option<&str>,
+    ) -> Result<bool, ApiError> {
+        let mut tx = self.pool.begin().await?;
+        let result = sqlx::query(
+            "DELETE FROM control_plane_operator_accounts WHERE id = $1 AND tenant_id = $2 AND role = 'tenant_operator'",
+        )
+        .bind(account_id)
+        .bind(tenant_id)
+        .execute(&mut *tx)
+        .await?;
+        if result.rows_affected() == 0 {
+            return Err(ApiError::NotFound);
+        }
+        self.audit_tx(
+            &mut tx,
+            AuditRecord {
+                tenant_id: Some(tenant_id),
+                actor,
+                action: "tenant.operator.removed",
+                target_kind: "operator_account",
+                target_id: account_id.to_string(),
+                request_id,
+                detail: json!({}),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(true)
+    }
+
+    /// Authentication lookup including the password hash — never serialized
+    /// to responses.
+    pub async fn find_active_account_with_secret(
+        &self,
+        username: &str,
+    ) -> Result<Option<OperatorAuthRow>, ApiError> {
+        Ok(sqlx::query_as::<_, OperatorAuthRow>(
+            r#"SELECT id, username, password_hash, role, tenant_id
+               FROM control_plane_operator_accounts
+               WHERE username = $1 AND active"#,
+        )
+        .bind(username)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
+    pub async fn create_session(
+        &self,
+        account_id: Uuid,
+        token_hash: &[u8],
+        expires_at: chrono::DateTime<Utc>,
+    ) -> Result<(), ApiError> {
+        sqlx::query("INSERT INTO control_plane_operator_sessions (token_hash, account_id, expires_at) VALUES ($1, $2, $3)")
+            .bind(token_hash)
+            .bind(account_id)
+            .bind(expires_at)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    /// Resolve a session token to its live account and slide `last_seen_at`
+    /// forward in the same statement — expired or deactivated accounts stop
+    /// resolving immediately.
+    pub async fn resolve_session(
+        &self,
+        token_hash: &[u8; 32],
+    ) -> Result<OperatorAccountRow, ApiError> {
+        sqlx::query_as::<_, OperatorAccountRow>(
+            r#"UPDATE control_plane_operator_sessions s
+               SET last_seen_at = now()
+               FROM control_plane_operator_accounts a
+               WHERE s.token_hash = $1
+                 AND a.id = s.account_id
+                 AND a.active
+                 AND s.expires_at > now()
+               RETURNING a.id, a.username, a.role, a.tenant_id, a.active"#,
+        )
+        .bind(token_hash)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or(ApiError::Unauthorized)
+    }
+
+    pub async fn revoke_session(&self, token_hash: &[u8]) -> Result<(), ApiError> {
+        sqlx::query("DELETE FROM control_plane_operator_sessions WHERE token_hash = $1")
+            .bind(token_hash)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    // --- Notifier channels --------------------------------------------------
+
+    pub async fn create_notifier_channel(
+        &self,
+        tenant_id: Uuid,
+        kind: &str,
+        label: &str,
+        config: Value,
+        events: Vec<String>,
+        enabled: bool,
+    ) -> Result<NotifierChannelRow, ApiError> {
+        sqlx::query_as::<_, NotifierChannelRow>(
+            r#"INSERT INTO control_plane_notifier_channels
+               (id, tenant_id, kind, label, config, events, enabled)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
+               RETURNING id, tenant_id, kind, label, config, events, enabled"#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(tenant_id)
+        .bind(kind)
+        .bind(label)
+        .bind(config)
+        .bind(events)
+        .bind(enabled)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|error| match error {
+            sqlx::Error::Database(db) if db.is_unique_violation() => {
+                ApiError::Conflict("a channel with this label already exists".to_owned())
+            }
+            other => ApiError::Database(other),
+        })
+    }
+
+    pub async fn list_notifier_channels(
+        &self,
+        tenant_id: Uuid,
+    ) -> Result<Vec<NotifierChannelRow>, ApiError> {
+        Ok(sqlx::query_as::<_, NotifierChannelRow>(
+            r#"SELECT id, tenant_id, kind, label, config, events, enabled
+               FROM control_plane_notifier_channels
+               WHERE tenant_id = $1
+               ORDER BY created_at"#,
+        )
+        .bind(tenant_id)
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
+    pub async fn get_notifier_channel(
+        &self,
+        tenant_id: Uuid,
+        channel_id: Uuid,
+    ) -> Result<NotifierChannelRow, ApiError> {
+        sqlx::query_as::<_, NotifierChannelRow>(
+            r#"SELECT id, tenant_id, kind, label, config, events, enabled
+               FROM control_plane_notifier_channels
+               WHERE id = $1 AND tenant_id = $2"#,
+        )
+        .bind(channel_id)
+        .bind(tenant_id)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or(ApiError::NotFound)
+    }
+
+    pub async fn update_notifier_channel(
+        &self,
+        tenant_id: Uuid,
+        channel_id: Uuid,
+        label: Option<String>,
+        events: Option<Vec<String>>,
+        enabled: Option<bool>,
+    ) -> Result<NotifierChannelRow, ApiError> {
+        sqlx::query_as::<_, NotifierChannelRow>(
+            r#"UPDATE control_plane_notifier_channels
+               SET label = COALESCE($3, label),
+                   events = COALESCE($4, events),
+                   enabled = COALESCE($5, enabled),
+                   updated_at = now()
+               WHERE id = $1 AND tenant_id = $2
+               RETURNING id, tenant_id, kind, label, config, events, enabled"#,
+        )
+        .bind(channel_id)
+        .bind(tenant_id)
+        .bind(label)
+        .bind(events)
+        .bind(enabled)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or(ApiError::NotFound)
+    }
+
+    pub async fn delete_notifier_channel(
+        &self,
+        tenant_id: Uuid,
+        channel_id: Uuid,
+    ) -> Result<(), ApiError> {
+        let result = sqlx::query(
+            "DELETE FROM control_plane_notifier_channels WHERE id = $1 AND tenant_id = $2",
+        )
+        .bind(channel_id)
+        .bind(tenant_id)
+        .execute(&self.pool)
+        .await?;
+        if result.rows_affected() == 0 {
+            return Err(ApiError::NotFound);
+        }
+        Ok(())
+    }
+
+    /// Fan one event out to every subscribed enabled channel of the tenant.
+    /// An empty subscription list means "all events". Runs inside the
+    /// caller's transaction so notifications commit atomically with the
+    /// state change that caused them.
+    pub async fn enqueue_event_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        tenant_id: Uuid,
+        event: &str,
+        payload: &Value,
+    ) -> Result<(), ApiError> {
+        sqlx::query(
+            r#"INSERT INTO control_plane_notification_outbox (id, channel_id, event, payload)
+               SELECT gen_random_uuid(), c.id, $2, $3
+               FROM control_plane_notifier_channels c
+               WHERE c.tenant_id = $1 AND c.enabled
+                 AND (cardinality(c.events) = 0 OR $2 = ANY(c.events))"#,
+        )
+        .bind(tenant_id)
+        .bind(event)
+        .bind(payload)
+        .execute(&mut **tx)
+        .await?;
+        Ok(())
+    }
+
+    /// Claim due notifications under SKIP LOCKED so repeated workers or a
+    /// restart cannot double-deliver concurrently. The claiming transaction
+    /// bumps `attempts`; the worker then reports success/failure via
+    /// [`Self::complete_notification`].
+    pub async fn claim_due_notifications(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<PendingNotification>, ApiError> {
+        let mut tx = self.pool.begin().await?;
+        let ids: Vec<Uuid> = sqlx::query_scalar(
+            r#"SELECT id FROM control_plane_notification_outbox
+               WHERE status = 'pending' AND next_attempt_at <= now()
+               ORDER BY next_attempt_at
+               LIMIT $1
+               FOR UPDATE SKIP LOCKED"#,
+        )
+        .bind(limit)
+        .fetch_all(&mut *tx)
+        .await?;
+        if ids.is_empty() {
+            tx.commit().await?;
+            return Ok(Vec::new());
+        }
+        let claimed = sqlx::query_as::<_, PendingNotification>(
+            r#"SELECT o.id, o.event, o.payload, c.kind, c.label, c.config
+               FROM control_plane_notification_outbox o
+               JOIN control_plane_notifier_channels c ON c.id = o.channel_id
+               WHERE o.id = ANY($1)"#,
+        )
+        .bind(&ids)
+        .fetch_all(&mut *tx)
+        .await?;
+        sqlx::query("UPDATE control_plane_notification_outbox SET attempts = attempts + 1, updated_at = now() WHERE id = ANY($1)")
+            .bind(&ids)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(claimed)
+    }
+
+    /// Record a delivery outcome: sent closes the row; failure backs off
+    /// exponentially until the attempt cap declares it dead.
+    pub async fn complete_notification(
+        &self,
+        id: Uuid,
+        error: Option<&str>,
+    ) -> Result<(), ApiError> {
+        match error {
+            None => {
+                sqlx::query("UPDATE control_plane_notification_outbox SET status = 'sent', last_error = NULL, updated_at = now() WHERE id = $1")
+                    .bind(id)
+                    .execute(&self.pool)
+                    .await?;
+            }
+            Some(error) => {
+                sqlx::query(
+                    r#"UPDATE control_plane_notification_outbox
+                       SET status = CASE WHEN attempts >= 6 THEN 'dead' ELSE status END,
+                           next_attempt_at = now() + make_interval(secs => LEAST(1800, 30 * POWER(2, attempts))),
+                           last_error = $2,
+                           updated_at = now()
+                       WHERE id = $1"#,
+                )
+                .bind(id)
+                .bind(error)
+                .execute(&self.pool)
+                .await?;
+            }
+        }
         Ok(())
     }
 }

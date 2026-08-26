@@ -5,7 +5,7 @@ checks = {
     "admin_hash": (root / "crates/control-plane-api/src/config.rs", "Sha256::digest"),
     "separate_telemetry_secret": (root / "crates/control-plane-api/src/config.rs", "CONTROL_PLANE_TELEMETRY_TOKEN"),
     "constant_time_auth": (root / "crates/control-plane-api/src/auth.rs", ".ct_eq("),
-    "admin_bearer_only": (root / "crates/control-plane-api/src/auth.rs", "require_bearer(request.headers(), state.admin_token_hash)"),
+    "admin_bearer_only": (root / "crates/control-plane-api/src/auth.rs", "supplied.ct_eq(&state.admin_token_hash)"),
     "caddy_admin_injection": (root / "deploy/Caddyfile.control.virya.music.example", 'header_up Authorization "Bearer {file./config/control-plane-admin-token}"'),
     "caddy_edge_basic_secret": (root / "deploy/Caddyfile.control.virya.music.example", "{file./config/control-plane-basic.bcrypt}"),
     "caddy_clickjacking_defense": (root / "deploy/Caddyfile.control.virya.music.example", "frame-ancestors 'none'"),
@@ -66,22 +66,28 @@ auth = (root / "crates/control-plane-api/src/auth.rs").read_text()
 caddy = (root / "deploy/Caddyfile.control.virya.music.example").read_text()
 assert "x-control-plane-token" not in auth.lower(), "backend must not grow a browser-only admin header"
 assert "x-control-plane-token" not in frontend.lower(), "SPA must not carry the platform admin secret"
-assert "Basic ${btoa" not in spa, "Basic credential encoding belongs in the dedicated auth module"
+assert "Basic ${btoa" not in spa, "browser-built Basic credentials are gone: sessions are server-issued"
+assert "btoa" not in spa and "btoa" not in auth, "no credential encoding belongs in the SPA anymore"
 auth_ui = (root / "frontend/src/lib/auth.ts").read_text()
 assert "createSignal" in auth_ui, "operator auth state must remain reactive"
-# The operator session survives a reload on purpose, so sessionStorage is
-# allowed. localStorage is not: it would outlive the tab and leave a
-# password-equivalent credential for the next person on this machine.
-assert "localStorage" not in auth_ui, \
-    "operator credentials must never persist beyond the tab"
-assert "sessionStorage" in auth_ui, \
-    "operator session must survive a reload via tab-scoped storage"
-assert "setAuthorization(null)" in auth_ui, "operator credentials must clear explicitly on logout"
-assert "Basic ${btoa(binary)}" in auth_ui, "operator login must use Basic only at the edge"
+# The session token lives ONLY in an HttpOnly cookie. No JS-readable storage
+# may hold anything credential-shaped again — that was the Basic-era model.
+assert "localStorage" not in auth_ui and "sessionStorage" not in auth_ui, \
+    "operator credentials must live solely in the HttpOnly cookie"
+assert "setProfile(null)" in auth_ui, "operator profile must clear explicitly on logout"
+assert "api.login" in auth_ui, "sign-in must go through the session endpoint"
 assert "CONTROL_PLANE_ADMIN_TOKEN" not in frontend, "admin secret must not be compiled into frontend source"
 assert "crowdrelay-control-plane-token" not in frontend.lower(), "browser admin-token storage key must not return"
 assert "{http.request.header.X-Control-Plane-Token}" not in caddy, "Caddy must not trust a browser-supplied app token"
-assert caddy.index("handle @runtime_put") < caddy.index("reverse_proxy control-plane:8090"), "telemetry route must bypass browser auth and rely on its own Bearer"
+# Session passthrough contract: login + cookie-bearing requests reach the
+# backend ungated at the edge (the backend is authoritative for sessions),
+# while everything else still passes the operator Basic gate first.
+assert "handle @auth {" in caddy, "auth/session endpoints must bypass edge Basic auth"
+assert "@session_request header Cookie *crowdrelay_cp_session=*" in caddy, \
+    "cookie-bearing requests must pass through to backend session validation"
+assert caddy.index("handle @auth {") < caddy.index("basic_auth @api"), "login route must precede the Basic gate"
+assert caddy.index("@session_request") < caddy.index("basic_auth @api"), "session passthrough must precede the Basic gate"
+assert caddy.index("handle @runtime_put") < caddy.index("basic_auth @api"), "telemetry route must bypass browser auth and rely on its own Bearer"
 assert "handle @provisioner" in caddy, "provisioner machine route must exist"
 provisioner = (root / "deploy/provisioner.py").read_text()
 rust_api = "\n".join(path.read_text() for path in (root / "crates/control-plane-api/src").glob("*.rs"))
@@ -127,4 +133,4 @@ for line in workflow.splitlines():
     if "uses:" in line:
         ref = line.split("@", 1)[-1].split()[0] if "@" in line else ""
         assert len(ref) == 40 and all(ch in "0123456789abcdef" for ch in ref), f"GitHub Action must be SHA-pinned: {line.strip()}"
-print(f"CONTROL_PLANE_STATIC=PASS checks={len(checks)} auth=styled-edge-basic+tab-session+server-bearer freshness=bounded provisioning=idempotent")
+print(f"CONTROL_PLANE_STATIC=PASS checks={len(checks)} auth=styled-edge-basic+httponly-session+server-bearer freshness=bounded provisioning=idempotent")

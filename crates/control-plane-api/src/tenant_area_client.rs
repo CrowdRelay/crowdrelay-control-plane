@@ -219,6 +219,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/next-best-actions"
                     | "/v1/control-plane/portfolio/overview"
                     | "/v1/control-plane/portfolio/amplification"
+                    | "/v1/control-plane/tenant-settings"
             ) || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "")
                 || timeline_segment(path)
         }
@@ -242,6 +243,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/v1/control-plane/portfolio/amplification/",
                     "/decide",
                 )
+                || one_safe_segment(path, "/v1/control-plane/tenant-settings/")
         }
         _ => false,
     }

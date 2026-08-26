@@ -9,6 +9,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { RegionalProfilePanel } from '../components/RegionalProfilePanel'
 import { TenantRuntimePanel } from '../components/TenantRuntimePanel'
 import { TenantAuditPanel } from '../components/TenantAuditPanel'
+import { TenantOperatorsPanel } from '../components/TenantOperatorsPanel'
 
 const paletteFields: Array<keyof Palette> = ['primary','primaryContrast','accent','surface','surfaceElevated','text','textMuted','success','warning','danger']
 const defaultPalette: Palette = { primary:'#8b5cf6', primaryContrast:'#ffffff', accent:'#22d3ee', surface:'#0b0c0f', surfaceElevated:'#15171c', text:'#f7f7f8', textMuted:'#9ca3af', success:'#22c55e', warning:'#f59e0b', danger:'#ef4444' }
@@ -140,6 +141,7 @@ export function TenantPage() {
 
       <ReleaseConvergencePanel releaseLedger={model.data?.releaseLedger ?? null} />
       <TenantAuditPanel items={model.data?.audit.items ?? []} />
+      <TenantOperatorsPanel slug={t.slug} />
     </>
   }}</Show></section>
 }

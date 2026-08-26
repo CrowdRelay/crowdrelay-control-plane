@@ -1,17 +1,20 @@
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     routing::{get, post},
 };
 use serde::Deserialize;
 use serde_json::json;
+use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::{
     AppState,
+    auth::{self, Identity},
     error::ApiError,
     model::{
-        CreateTenantRequest, DeployTenantRequest, PlanProvisioningRequest,
+        CreateTenantRequest, DeployTenantRequest, InitialOperator, PlanProvisioningRequest,
         ProvisioningClaimRequest, ProvisioningFailureRequest, ProvisioningLeaseRequest,
         ProvisioningSuccessRequest, RuntimeHealth, RuntimeReportRequest, TenantDeploymentSpec,
         UpdateBrandingRequest, UpdateRegionalProfileRequest,
@@ -45,6 +48,22 @@ pub fn admin_router() -> Router<AppState> {
         .route("/tenants/{slug}/audit", get(audit))
 }
 
+/// Named operator account management. Platform admins only — a tenant
+/// operator can never mint accounts.
+pub fn operator_admin_router() -> Router<AppState> {
+    use axum::middleware;
+    Router::new()
+        .route(
+            "/tenants/{slug}/operators",
+            get(list_operators).post(create_operator),
+        )
+        .route(
+            "/tenants/{slug}/operators/{account_id}",
+            axum::routing::delete(delete_operator),
+        )
+        .route_layer(middleware::from_fn(auth::require_platform_admin))
+}
+
 pub fn telemetry_router() -> Router<AppState> {
     Router::new().route(
         "/tenants/{slug}/runtime",
@@ -66,8 +85,14 @@ pub fn provisioner_router() -> Router<AppState> {
         .route("/provisioner/jobs/{job_id}/fail", post(fail_provisioning))
 }
 
-async fn overview(State(state): State<AppState>) -> Result<Json<serde_json::Value>, ApiError> {
-    let tenants = state.store.list_tenants().await?;
+async fn overview(
+    State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let mut tenants = state.store.list_tenants().await?;
+    if let Some(scope) = identity.tenant_scope() {
+        tenants.retain(|item| item.tenant.id == scope);
+    }
     let total = tenants.len();
     let healthy = tenants
         .iter()
@@ -97,23 +122,46 @@ async fn overview(State(state): State<AppState>) -> Result<Json<serde_json::Valu
     })))
 }
 
-async fn list_tenants(State(state): State<AppState>) -> Result<Json<serde_json::Value>, ApiError> {
-    Ok(Json(json!({"items": state.store.list_tenants().await?})))
+async fn list_tenants(
+    State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let mut tenants = state.store.list_tenants().await?;
+    if let Some(scope) = identity.tenant_scope() {
+        tenants.retain(|item| item.tenant.id == scope);
+    }
+    Ok(Json(json!({"items": tenants})))
 }
 
 async fn get_tenant(
     State(state): State<AppState>,
     Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    let slug = validation::slug(&raw_slug)?;
-    Ok(Json(json!(state.store.tenant_by_slug(&slug).await?)))
+    let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
+    Ok(Json(json!(tenant)))
+}
+
+/// Shared guard for tenant-scoped reads and operator-allowed mutations:
+/// resolves the slug, then enforces the caller's scope.
+async fn resolve_scoped_tenant(
+    state: &AppState,
+    identity: &Identity,
+    raw_slug: &str,
+) -> Result<crate::model::TenantSummary, ApiError> {
+    let slug = validation::slug(raw_slug)?;
+    let tenant = state.store.tenant_by_slug(&slug).await?;
+    identity.ensure_tenant(tenant.tenant.id)?;
+    Ok(tenant)
 }
 
 async fn create_tenant(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     headers: HeaderMap,
     Json(mut input): Json<CreateTenantRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
+    identity.require_platform_admin()?;
     input.slug = validation::slug(&input.slug)?;
     input.display_name = validation::display_name(&input.display_name)?;
     input.crowdrelay_base_url = validation::base_url(input.crowdrelay_base_url)?;
@@ -129,6 +177,15 @@ async fn create_tenant(
     }
     input.default_country_code = Some(input.regional_profile.country_code.clone());
     let palette = validation::palette(input.branding_palette.take())?;
+    // Hash before the transaction: the KDF must never run while row locks
+    // are held.
+    let initial_operator = match input.initial_operator.take() {
+        Some(request) => Some(InitialOperator {
+            username: validation::username(&request.username)?,
+            password_hash: auth::hash_password(&validation::password(&request.password)?)?,
+        }),
+        None => None,
+    };
     if !input.deploy_crowdrelay && input.desired_version.is_some() {
         return Err(ApiError::InvalidInput(
             "desiredVersion requires deployCrowdrelay=true".to_owned(),
@@ -170,6 +227,7 @@ async fn create_tenant(
             input,
             palette,
             deployment.as_ref(),
+            initial_operator.as_ref(),
             state.admin_actor.as_ref(),
             request_id,
         )
@@ -180,9 +238,11 @@ async fn create_tenant(
 async fn update_branding(
     State(state): State<AppState>,
     Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
     headers: HeaderMap,
     Json(input): Json<UpdateBrandingRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    identity.require_platform_admin()?;
     let slug = validation::slug(&raw_slug)?;
     let palette = validation::palette(input.branding_palette)?;
     Ok(Json(json!(
@@ -201,9 +261,11 @@ async fn update_branding(
 async fn update_regional_profile(
     State(state): State<AppState>,
     Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
     headers: HeaderMap,
     Json(input): Json<UpdateRegionalProfileRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    identity.require_platform_admin()?;
     let slug = validation::slug(&raw_slug)?;
     let profile = validation::regional_profile(input.regional_profile)?;
     Ok(Json(json!(
@@ -222,8 +284,10 @@ async fn update_regional_profile(
 async fn suspend_tenant(
     State(state): State<AppState>,
     Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    identity.require_platform_admin()?;
     let slug = validation::slug(&raw_slug)?;
     Ok(Json(json!(
         state
@@ -241,8 +305,10 @@ async fn suspend_tenant(
 async fn resume_tenant(
     State(state): State<AppState>,
     Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    identity.require_platform_admin()?;
     let slug = validation::slug(&raw_slug)?;
     Ok(Json(json!(
         state
@@ -260,17 +326,19 @@ async fn resume_tenant(
 async fn plan_provisioning(
     State(state): State<AppState>,
     Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
     headers: HeaderMap,
     Json(input): Json<PlanProvisioningRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
-    let slug = validation::slug(&raw_slug)?;
+    let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
     let desired_version = validation::desired_version(input.desired_version)?;
+    let actor = identity.audit_actor();
     let (job, created) = state
         .store
         .plan_provisioning(
-            &slug,
+            &tenant.tenant.slug,
             desired_version,
-            state.admin_actor.as_ref(),
+            &actor,
             request_id(&headers),
         )
         .await?;
@@ -287,10 +355,14 @@ async fn plan_provisioning(
 async fn deploy_tenant(
     State(state): State<AppState>,
     Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
     headers: HeaderMap,
     Json(input): Json<DeployTenantRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
-    let slug = validation::slug(&raw_slug)?;
+    // This is the operator-facing "redeploy" primitive: a scoped tenant
+    // operator may re-deploy their own app; the provisioner still owns every
+    // Docker step behind its leased job.
+    let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
     if state.provisioner_token_hash.is_none() {
         return Err(ApiError::Unavailable(
             "tenant provisioner is not configured".to_owned(),
@@ -300,14 +372,15 @@ async fn deploy_tenant(
         input.desired_version,
         state.provisioner_default_image_tag.as_deref(),
     )?;
+    let actor = identity.audit_actor();
     let (job, created) = state
         .store
         .request_deployment(
-            &slug,
+            &tenant.tenant.slug,
             desired_version,
             state.provisioner_api_image.as_ref(),
             state.provisioner_worker_image.as_ref(),
-            state.admin_actor.as_ref(),
+            &actor,
             request_id(&headers),
         )
         .await?;
@@ -324,23 +397,26 @@ async fn deploy_tenant(
 async fn provisioning_jobs(
     State(state): State<AppState>,
     Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    let slug = validation::slug(&raw_slug)?;
+    let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
     Ok(Json(
-        json!({"items": state.store.provisioning_jobs(&slug, 20).await?}),
+        json!({"items": state.store.provisioning_jobs(&tenant.tenant.slug, 20).await?}),
     ))
 }
 
 async fn cancel_provisioning(
     State(state): State<AppState>,
     Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    let slug = validation::slug(&raw_slug)?;
+    let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
+    let actor = identity.audit_actor();
     Ok(Json(json!(
         state
             .store
-            .cancel_provisioning(&slug, state.admin_actor.as_ref(), request_id(&headers))
+            .cancel_provisioning(&tenant.tenant.slug, &actor, request_id(&headers))
             .await?
     )))
 }
@@ -462,13 +538,79 @@ struct AuditQuery {
 async fn audit(
     State(state): State<AppState>,
     Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
     Query(query): Query<AuditQuery>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    let slug = validation::slug(&raw_slug)?;
+    let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
     let limit = query.limit.unwrap_or(50).clamp(1, 200);
     Ok(Json(
-        json!({"items": state.store.audit_for_tenant(&slug, limit).await?}),
+        json!({"items": state.store.audit_for_tenant_id(tenant.tenant.id, limit).await?}),
     ))
+}
+
+// --- Operator account management (platform admins only) ---------------------
+
+async fn list_operators(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let slug = validation::slug(&raw_slug)?;
+    let tenant = state.store.tenant_by_slug(&slug).await?;
+    let items = state.store.list_operator_accounts(tenant.tenant.id).await?;
+    Ok(Json(json!({"items": items})))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CreateOperatorRequest {
+    username: String,
+    password: String,
+}
+
+async fn create_operator(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    headers: HeaderMap,
+    Json(input): Json<CreateOperatorRequest>,
+) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
+    let slug = validation::slug(&raw_slug)?;
+    let tenant = state.store.tenant_by_slug(&slug).await?;
+    let username = validation::username(&input.username)?;
+    // Hash before the transaction so the KDF never runs under row locks.
+    let password_hash = auth::hash_password(&validation::password(&input.password)?)?;
+    state
+        .store
+        .create_tenant_operator(
+            tenant.tenant.id,
+            &username,
+            &password_hash,
+            state.admin_actor.as_ref(),
+            request_id(&headers),
+        )
+        .await?;
+    Ok((
+        StatusCode::CREATED,
+        Json(json!({"username": username, "role": "tenant_operator", "active": true})),
+    ))
+}
+
+async fn delete_operator(
+    State(state): State<AppState>,
+    Path((raw_slug, account_id)): Path<(String, Uuid)>,
+    headers: HeaderMap,
+) -> Result<StatusCode, ApiError> {
+    let slug = validation::slug(&raw_slug)?;
+    let tenant = state.store.tenant_by_slug(&slug).await?;
+    state
+        .store
+        .delete_operator_account(
+            tenant.tenant.id,
+            account_id,
+            state.admin_actor.as_ref(),
+            request_id(&headers),
+        )
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 fn request_id(headers: &HeaderMap) -> Option<&str> {

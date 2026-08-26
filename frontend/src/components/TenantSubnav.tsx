@@ -8,6 +8,7 @@ export function TenantSubnav(props: { slug: string }) {
     <Link to="/tenants/$slug" params={{ slug: props.slug }} activeOptions={{ exact: true }} activeProps={{ class: 'active' }}>Overview</Link>
     <Link to="/tenants/$slug/attention" params={{ slug: props.slug }} activeProps={{ class: 'active' }}>Attention</Link>
     <Link to="/tenants/$slug/operations" params={{ slug: props.slug }} activeProps={{ class: 'active' }}>Operations</Link>
+    <Link to="/tenants/$slug/notifiers" params={{ slug: props.slug }} activeProps={{ class: 'active' }}>Notifiers</Link>
     <Link to="/tenants/$slug/portfolio" params={{ slug: props.slug }} activeProps={{ class: 'active' }}>Portfolio</Link>
     <Link to="/tenants/$slug/area" params={{ slug: props.slug }} activeProps={{ class: 'active' }}>AREA</Link>
   </nav>
