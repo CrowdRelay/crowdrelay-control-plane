@@ -5,14 +5,10 @@ control.virya.music {
     @immutable path /assets/* /crowdrelay-brand-mark.png /favicon.ico
     header @immutable Cache-Control "public, max-age=31536000, immutable"
 
-    # The explicit `route` keeps the written order so the deferred
-    # -WWW-Authenticate deletion wraps the Basic challenge: browsers never get
-    # the native credential dialog beside the styled login form.
+    # The explicit `route` keeps the written order of the handlers below.
+    # Machine telemetry writes keep their dedicated Bearer credentials end
+    # to end and bypass browser Basic Auth entirely.
     route {
-        header -WWW-Authenticate
-
-        # Machine telemetry writes keep their dedicated Bearer credentials end
-        # to end and bypass browser Basic Auth entirely.
         @runtime_put {
             method PUT
             path /api/v1/tenants/*/runtime
@@ -51,6 +47,20 @@ control.virya.music {
         reverse_proxy 127.0.0.1:8090 {
             header_up Authorization "Bearer {$CONTROL_PLANE_ADMIN_TOKEN}"
         }
+    }
+
+    # basic_auth emits its WWW-Authenticate challenge onto the shared response
+    # writer before returning the 401 error; browsers answer that header with
+    # the native credential dialog beside the styled login form. Deferred
+    # deletions never see the challenge, so handle_errors rewrites the 401
+    # without it: same status and empty body, no native credential dialog.
+    handle_errors {
+        @unauthorized expression {err.status_code} == 401
+        route {
+            header @unauthorized -WWW-Authenticate
+            respond @unauthorized "" 401
+        }
+        respond "{err.status_code} {err.status_text}" {err.status_code}
     }
 
     header {

@@ -71,6 +71,7 @@ if (!caddy.includes('header_up Authorization "Bearer {$CONTROL_PLANE_ADMIN_TOKEN
 if (!caddy.includes('@runtime_put') || !caddy.includes('method PUT')) throw new Error('machine telemetry writes must keep their dedicated Bearer route ahead of the catch-all proxy')
 if (!caddy.includes('basic_auth @runtime_read')) throw new Error('the admin-authoritative runtime read must be Basic-gated too, not exempted')
 if (!caddy.includes('handle @provisioner') || !/@provisioner[\s\S]*?reverse_proxy 127\.0\.0\.1:8090/.test(caddy)) throw new Error('provisioner machine API must keep its own route and Bearer')
+if (!caddy.includes('handle_errors') || !caddy.includes('-WWW-Authenticate')) throw new Error('edge must rewrite the basic_auth 401 without WWW-Authenticate: the native credential dialog is the login-loop regression')
 if (caddy.includes('{http.request.header.X-Control-Plane-Token}')) throw new Error('Caddy must not trust a browser-supplied app token')
 if (!tenants.includes('Create & deploy') || !tenants.includes('Deploy isolated CrowdRelay instance now')) throw new Error('tenant create + deploy UI missing')
 if (!tenants.includes('deployCrowdrelay: deployNow()') || !tenants.includes('desiredVersion: deployNow()')) throw new Error('create form must send deployment intent in the tenant creation request')
