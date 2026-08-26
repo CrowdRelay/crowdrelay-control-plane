@@ -95,20 +95,6 @@ export function ProcessMap(props: { slug: () => string }) {
   return (
     <div class="process-map-wrap">
       <svg viewBox="0 0 1460 520" xmlns="http://www.w3.org/2000/svg" class="process-map">
-        <style>{`
-          .pm-node-group { cursor:pointer }
-          .pm-node { fill:#111726; stroke:#243049; stroke-width:1.5; transition:stroke-width .12s ease, fill .12s ease }
-          .pm-node-group:hover .pm-node { stroke-width:2.6; fill:#141b2c }
-          .pm-body { box-sizing:border-box; height:100%; display:flex; flex-direction:column; justify-content:center; gap:4px; font-family:inherit; pointer-events:none }
-          .pm-title { color:#e8edf6; font-size:14.5px; font-weight:700; line-height:1.25 }
-          .pm-desc { color:#8fa0b8; font-size:11.5px; line-height:1.4 }
-          .pm-zone { fill:#0d101a66; stroke:#232c40; stroke-dasharray:6 6 }
-          .pm-zt { fill:#a7b3c8; font-size:12.5px; font-weight:800; letter-spacing:.16em }
-          .pm-edge { fill:none; stroke:#33415c; stroke-width:1.6 }
-          .pm-ants { fill:none; stroke-width:2.6; stroke-dasharray:9 9; animation: pm-ants 1s linear infinite }
-          @keyframes pm-ants { to { stroke-dashoffset:-18 } }
-        `}</style>
-
         {/* strefy */}
         <rect class="pm-zone" x="20" y="60" width="320" height="420" rx="14" />
         <text class="pm-zt" x="34" y="88">WEJŚCIA</text>
