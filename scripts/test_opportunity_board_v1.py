@@ -70,6 +70,26 @@ class OpportunityBoardContract(unittest.TestCase):
         self.assertIn("/v1/control-plane/autopilot/actions/*", paths)
         self.assertIn("/v1/control-plane/autopilot/decisions/*", paths)
 
+    def test_tunnel_matcher_keeps_one_path_per_continuation_line(self) -> None:
+        # A lost line break glues two allowlist entries into one token; the
+        # regex-based coverage checks still "find" both fragments while Caddy
+        # answers every real request with `respond 404`. Each continuation
+        # line must therefore carry exactly one path and one trailing slash.
+        matcher = read(TUNNEL).split("@operations path", 1)[1].split("\n\n", 1)[0]
+        # The first fragment keeps the header line's own trailing "\".
+        lines = [line.strip() for line in matcher.splitlines() if line.strip() != "\\"]
+        self.assertGreaterEqual(len(lines), 2)
+        for index, line in enumerate(lines[:-1]):
+            self.assertTrue(
+                re.fullmatch(r"/v1/control-plane/\S+ \\", line),
+                f"tunnel matcher line {index + 1} is not a single continued path: {line!r}",
+            )
+            self.assertEqual(line.count("/v1/control-plane/"), 1)
+        self.assertTrue(
+            re.fullmatch(r"/v1/control-plane/\S+", lines[-1]),
+            f"tunnel matcher last line is not a bare path: {lines[-1]!r}",
+        )
+
     def test_browser_gets_one_read_model_with_a_degradable_board(self) -> None:
         types = read(TYPES)
         self.assertIn("'summary' | 'flags' | 'autopilot' | 'growth' | 'opportunities'", types)
