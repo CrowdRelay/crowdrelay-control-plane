@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/solid-query'
 import { RouterProvider, createRootRoute, createRoute, createRouter, lazyRouteComponent } from '@tanstack/solid-router'
 import { Shell } from './components/Shell'
 
+const FlowPage = lazyRouteComponent(() => import('./pages/FlowPage'), 'FlowPage')
 const OverviewPage = lazyRouteComponent(() => import('./pages/OverviewPage'), 'OverviewPage')
 const TenantsPage = lazyRouteComponent(() => import('./pages/TenantsPage'), 'TenantsPage')
 const TenantPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'TenantPage')
@@ -14,6 +15,7 @@ const OperatorAttentionPage = lazyRouteComponent(() => import('./pages/OperatorA
 
 const rootRoute = createRootRoute({ component: Shell })
 const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: OverviewPage })
+const flowRoute = createRoute({ getParentRoute: () => rootRoute, path: '/flow', component: FlowPage })
 const tenantsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants', component: TenantsPage })
 const tenantRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug', component: TenantPage })
 const portfolioRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/portfolio', component: PortfolioPage })
@@ -22,7 +24,7 @@ const tenantAttentionRoute = createRoute({ getParentRoute: () => rootRoute, path
 const tenantOperationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/operations', component: TenantOperationsPage })
 const tenantNotifiersRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/notifiers', component: TenantNotifiersPage })
 const operatorAttentionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/attention', component: OperatorAttentionPage })
-const routeTree = rootRoute.addChildren([overviewRoute, tenantsRoute, operatorAttentionRoute, tenantRoute, tenantAttentionRoute, tenantOperationsRoute, tenantNotifiersRoute, portfolioRoute, areaRoute])
+const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute, operatorAttentionRoute, tenantRoute, tenantAttentionRoute, tenantOperationsRoute, tenantNotifiersRoute, portfolioRoute, areaRoute])
 const router = createRouter({ routeTree, defaultPreload: 'intent', defaultPreloadStaleTime: 10_000, scrollRestoration: true })
 
 declare module '@tanstack/solid-router' { interface Register { router: typeof router } }

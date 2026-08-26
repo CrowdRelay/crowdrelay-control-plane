@@ -38,6 +38,7 @@ export const Shell: Component = () => {
               registry and platform attention queue are admin surfaces. */}
           <Show when={profile()?.role === 'platform_admin'}>
             <Link to="/tenants" activeProps={{ class: 'active' }}>Tenants</Link>
+          <Link to="/flow" activeProps={{ class: 'active' }}>Mapa procesu</Link>
             <Link to="/attention" activeProps={{ class: 'active' }}>Attention</Link>
           </Show>
         </nav>
