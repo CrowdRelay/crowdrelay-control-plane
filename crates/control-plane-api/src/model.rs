@@ -202,6 +202,19 @@ pub struct RuntimeReportRequest {
     pub last_heartbeat_at: Option<DateTime<Utc>>,
 }
 
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct PlatformHealthRow {
+    pub service: String,
+    pub label: String,
+    pub url: String,
+    pub healthy: bool,
+    pub last_status: Option<String>,
+    pub last_checked_at: DateTime<Utc>,
+    pub last_healthy_at: Option<DateTime<Utc>>,
+    pub latency_ms: Option<i32>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CreateTenantRequest {

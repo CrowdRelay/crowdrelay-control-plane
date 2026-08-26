@@ -110,6 +110,7 @@ async fn overview(
         .iter()
         .filter(|item| item.runtime_health == RuntimeHealth::Unknown)
         .count();
+    let platform_health = state.store.list_platform_health().await?;
     Ok(Json(json!({
         "tenants": total,
         "healthy": healthy,
@@ -119,6 +120,7 @@ async fn overview(
         "runtimeStaleAfterSeconds": state.runtime_stale_after_seconds,
         "provisionerConfigured": state.provisioner_token_hash.is_some(),
         "provisionerDefaultImageTag": state.provisioner_default_image_tag.as_deref(),
+        "platformHealth": platform_health,
     })))
 }
 

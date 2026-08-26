@@ -523,6 +523,17 @@ export type DiscoveredEndpoint = {
   active: boolean
 }
 
+export type PlatformHealthEntry = {
+  service: string
+  label: string
+  url: string
+  healthy: boolean
+  lastStatus: string | null
+  lastCheckedAt: string
+  lastHealthyAt: string | null
+  latencyMs: number | null
+}
+
 export type BulkAutopilotResult = {
   enabled: boolean
   updated: number

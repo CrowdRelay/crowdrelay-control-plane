@@ -8,9 +8,9 @@ use uuid::Uuid;
 use crate::{
     error::ApiError,
     model::{
-        AuditRow, BrandingPalette, CreateTenantRequest, ProvisioningJobRow, RegionalProfile,
-        RuntimeHealth, RuntimeReportRequest, RuntimeStatusRow, TenantDeploymentSpec, TenantRow,
-        TenantSummary, TenantSummaryJoinRow,
+        AuditRow, BrandingPalette, CreateTenantRequest, PlatformHealthRow, ProvisioningJobRow,
+        RegionalProfile, RuntimeHealth, RuntimeReportRequest, RuntimeStatusRow,
+        TenantDeploymentSpec, TenantRow, TenantSummary, TenantSummaryJoinRow,
     },
 };
 
@@ -1712,6 +1712,47 @@ impl Store {
                 .await?;
             }
         }
+        Ok(())
+    }
+
+    // --- Platform infrastructure health -------------------------------
+
+    pub async fn list_platform_health(&self) -> Result<Vec<PlatformHealthRow>, ApiError> {
+        sqlx::query_as::<_, PlatformHealthRow>(
+            r#"SELECT service, label, url, healthy, last_status,
+                      last_checked_at, last_healthy_at, latency_ms
+               FROM control_plane_platform_health
+               ORDER BY service"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(ApiError::Database)
+    }
+
+    pub async fn upsert_platform_health(
+        &self,
+        service: &str,
+        healthy: bool,
+        last_status: &str,
+        latency_ms: Option<i32>,
+    ) -> Result<(), ApiError> {
+        sqlx::query(
+            r#"UPDATE control_plane_platform_health
+               SET healthy = $2,
+                   last_status = $3,
+                   latency_ms = $4,
+                   last_checked_at = now(),
+                   last_healthy_at = CASE WHEN $2 THEN now()
+                                          ELSE last_healthy_at END
+               WHERE service = $1"#,
+        )
+        .bind(service)
+        .bind(healthy)
+        .bind(last_status)
+        .bind(latency_ms)
+        .execute(&self.pool)
+        .await
+        .map_err(ApiError::Database)?;
         Ok(())
     }
 }

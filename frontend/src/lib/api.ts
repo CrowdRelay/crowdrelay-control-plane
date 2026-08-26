@@ -1,4 +1,4 @@
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, DeliveryDetails, DiscoveredEndpoint, FeatureFlag, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, Palette, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, RetryResult, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, DeliveryDetails, DiscoveredEndpoint, FeatureFlag, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, Palette, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, RetryResult, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
@@ -79,6 +79,7 @@ export const api = {
     runtimeStaleAfterSeconds: number
     provisionerConfigured: boolean
     provisionerDefaultImageTag: string | null
+    platformHealth: PlatformHealthEntry[]
   }>('/overview'),
   tenants: () => request<{ items: TenantSummary[] }>('/tenants'),
   // One purpose-built read model per tenant subpage. The browser never

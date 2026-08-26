@@ -141,6 +141,26 @@ async fn main() -> anyhow::Result<()> {
             }
         });
     }
+    // Platform health poller: probes n8n /healthz every 30s and stores
+    // the result. No auth needed — /healthz is unauthenticated. The
+    // operator UI reads the stored row, never blocks on a live fetch.
+    {
+        let worker_state = state.clone();
+        tokio::spawn(async move {
+            let client = reqwest::Client::builder()
+                .timeout(Duration::from_secs(5))
+                .build()
+                .unwrap_or_else(|_| reqwest::Client::new());
+            let mut interval = tokio::time::interval(Duration::from_secs(30));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                interval.tick().await;
+                if let Err(error) = poll_platform_health(&worker_state, &client).await {
+                    tracing::warn!(%error, "platform health poll failed");
+                }
+            }
+        });
+    }
     // Session endpoints are public by design; everything below requires an
     // identity (admin bearer or operator session).
     let auth_api = auth_routes::router();
@@ -296,6 +316,40 @@ async fn dispatch_pending_notifications(state: &AppState) -> anyhow::Result<()> 
                     .await?;
             }
         }
+    }
+    Ok(())
+}
+
+/// Probe every registered platform service and persist the result. Each
+/// probe is a single GET with a 5s timeout; failures are recorded as
+/// unhealthy with the status text, never propagated.
+async fn poll_platform_health(
+    state: &AppState,
+    client: &reqwest::Client,
+) -> anyhow::Result<()> {
+    let services = state.store.list_platform_health().await?;
+    for service in services {
+        let start = std::time::Instant::now();
+        let result = client.get(&service.url).send().await;
+        let latency_ms = i32::try_from(start.elapsed().as_millis()).unwrap_or(i32::MAX);
+        let (healthy, status) = match result {
+            Ok(response) => {
+                let code = response.status().as_u16();
+                let ok = response.status().is_success();
+                if ok {
+                    let body = response.text().await.unwrap_or_default();
+                    let ok = body.contains("\"ok\"") || body.contains("ok");
+                    (ok, format!("200:{}", &body[..body.len().min(120)]))
+                } else {
+                    (false, format!("{code}"))
+                }
+            }
+            Err(error) => (false, format!("error:{}", error)),
+        };
+        state
+            .store
+            .upsert_platform_health(&service.service, healthy, &status, Some(latency_ms))
+            .await?;
     }
     Ok(())
 }
