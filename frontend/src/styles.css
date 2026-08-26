@@ -50,3 +50,49 @@
 .cmdk-foot kbd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.68rem;background:#1b1e25;border:1px solid var(--line);border-radius:5px;padding:1px 5px}
 .cmdk-busy{color:var(--accent)}
 @media(max-width:900px){.cmdk-trigger-label{display:none}}
+
+/* Shared form/field controls — .field is used both as a single label
+   (span + input) and as a wrapper around several plain <label> children,
+   so both shapes need to resolve to the same stacked, bordered inputs. */
+.field{display:flex;flex-direction:column;gap:10px;margin:14px 0}
+.field>span:first-child{font-weight:600;color:var(--muted);font-size:.8rem}
+.field label{display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:.8rem}
+.field input,.field select,.field textarea{width:100%;background:#0c0e12;border:1px solid #2c313b;color:var(--text);padding:10px 12px;border-radius:9px;outline:none;font-size:.92rem}
+.field textarea{min-height:90px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#7663d8;box-shadow:0 0 0 3px #7663d826}
+.field .actions{margin-top:2px}
+select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239097a5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+
+/* Header-level tenant/context pickers sit inline next to a page title
+   instead of stacking like a form field. */
+.page-head .field{flex-direction:row;align-items:center;gap:10px;margin:0;padding:8px 14px;border:1px solid var(--line);border-radius:12px;background:#111318dd}
+.page-head .field>span:first-child{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em}
+.page-head .field select{width:auto;min-width:140px;background-color:#0c0e12;border-color:#2c313b}
+
+/* Data tables (fan sources, portfolio edges, …) had no rules at all before,
+   so they rendered as bare unstyled browser tables. */
+.data-table{width:100%;border-collapse:collapse;margin-top:16px;font-size:.88rem}
+.data-table th{text-align:left;padding:10px 12px;color:var(--muted);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid var(--line)}
+.data-table td{padding:12px;border-bottom:1px solid var(--line);vertical-align:top}
+.data-table tbody tr:last-child td{border-bottom:0}
+.data-table tbody tr:hover{background:#14171d}
+.data-table td.actions{display:flex;gap:8px;flex-wrap:wrap}
+
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.muted{color:var(--muted)}
+.danger{background:#38201f;color:#ffb0ae;border:1px solid #643333}
+.danger:hover{border-color:#8a4444}
+.override-badge{font-style:normal;color:var(--accent);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:28px}
+.kpi{border:1px solid var(--line);background:linear-gradient(180deg,#14171d,#101216);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:6px}
+.kpi-value{font-size:1.9rem;font-weight:800;line-height:1}
+.kpi-label{color:var(--muted);font-size:.75rem}
+@media(max-width:900px){.page-head .field{width:100%;justify-content:space-between}.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Process map */
+.process-map-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:16px;background:#0d0f13;padding:16px}
+.process-map{display:block;width:100%;height:auto;min-width:960px}
+.process-map-legend{display:flex;flex-wrap:wrap;gap:14px 22px;margin:14px 0 22px;color:var(--muted);font-size:.78rem}
+.process-map-legend span{display:inline-flex;align-items:center;gap:7px}
+.process-map-legend i{width:10px;height:10px;border-radius:3px;display:inline-block}

@@ -93,61 +93,70 @@ export function ProcessMap(props: { slug: () => string }) {
   )
 
   return (
-    <svg viewBox="0 0 1460 520" xmlns="http://www.w3.org/2000/svg" class="process-map">
-      <style>{`
-        .pm-node { fill:#111726; stroke:#243049; stroke-width:1.5; rx:12; cursor:pointer }
-        .pm-node:hover { stroke-width:2.4 }
-        .pm-title { fill:#e8edf6; font-size:14px; font-weight:650 }
-        .pm-desc { fill:#8fa0b8; font-size:11px }
-        .pm-zone { fill:none; stroke:#1c2536; stroke-dasharray:6 6 }
-        .pm-zt { fill:#8fa0b8; font-size:12px; font-weight:700; letter-spacing:.14em }
-        .pm-edge { fill:none; stroke:#33415c; stroke-width:1.6 }
-        .pm-ants { fill:none; stroke-width:2.4; stroke-dasharray:9 9; animation: pm-ants 1s linear infinite }
-        @keyframes pm-ants { to { stroke-dashoffset:-18 } }
-      `}</style>
+    <div class="process-map-wrap">
+      <svg viewBox="0 0 1460 520" xmlns="http://www.w3.org/2000/svg" class="process-map">
+        <style>{`
+          .pm-node-group { cursor:pointer }
+          .pm-node { fill:#111726; stroke:#243049; stroke-width:1.5; transition:stroke-width .12s ease, fill .12s ease }
+          .pm-node-group:hover .pm-node { stroke-width:2.6; fill:#141b2c }
+          .pm-body { box-sizing:border-box; height:100%; display:flex; flex-direction:column; justify-content:center; gap:4px; font-family:inherit; pointer-events:none }
+          .pm-title { color:#e8edf6; font-size:14.5px; font-weight:700; line-height:1.25 }
+          .pm-desc { color:#8fa0b8; font-size:11.5px; line-height:1.4 }
+          .pm-zone { fill:#0d101a66; stroke:#232c40; stroke-dasharray:6 6 }
+          .pm-zt { fill:#a7b3c8; font-size:12.5px; font-weight:800; letter-spacing:.16em }
+          .pm-edge { fill:none; stroke:#33415c; stroke-width:1.6 }
+          .pm-ants { fill:none; stroke-width:2.6; stroke-dasharray:9 9; animation: pm-ants 1s linear infinite }
+          @keyframes pm-ants { to { stroke-dashoffset:-18 } }
+        `}</style>
 
-      {/* strefy */}
-      <rect class="pm-zone" x="20" y="60" width="320" height="420" />
-      <text class="pm-zt" x="34" y="88">WEJŚCIA</text>
-      <rect class="pm-zone" x="400" y="60" width="700" height="420" />
-      <text class="pm-zt" x="416" y="88">AGENT</text>
-      <rect class="pm-zone" x="1100" y="60" width="330" height="420" />
-      <text class="pm-zt" x="1116" y="88">REZULTAT</text>
+        {/* strefy */}
+        <rect class="pm-zone" x="20" y="60" width="320" height="420" rx="14" />
+        <text class="pm-zt" x="34" y="88">WEJŚCIA</text>
+        <rect class="pm-zone" x="400" y="60" width="700" height="420" rx="14" />
+        <text class="pm-zt" x="416" y="88">AGENT</text>
+        <rect class="pm-zone" x="1100" y="60" width="330" height="420" rx="14" />
+        <text class="pm-zt" x="1116" y="88">REZULTAT</text>
 
-      {/* krawędzie: statyczny tor + mrówkowa nakładka */}
-      <For each={visibleEdges()}>
-        {(item) => (
-          <g>
-            <path class="pm-edge" d={item.d} />
-            <path
-              class="pm-ants"
-              d={item.d}
-              stroke={ZONE_STROKE[item.edge.kind]}
-            />
-          </g>
-        )}
-      </For>
+        {/* krawędzie: statyczny tor + mrówkowa nakładka */}
+        <For each={visibleEdges()}>
+          {(item) => (
+            <g>
+              <path class="pm-edge" d={item.d} />
+              <path
+                class="pm-ants"
+                d={item.d}
+                stroke={ZONE_STROKE[item.edge.kind]}
+              />
+            </g>
+          )}
+        </For>
 
-      {/* bloki */}
-      <For each={NODES}>
-        {(node) => (
-          <g
-            class="pm-node"
-            style={{ stroke: ZONE_STROKE[node.zone] }}
-            onClick={() => open(node)}
-          >
-            <rect x={node.x} y={node.y} width={node.w} height={node.h} rx="12" fill="#111726" />
-            <text class="pm-title" x={node.x + 16} y={node.y + (node.desc ? 26 : node.h / 2 + 5)}>
-              {node.title}
-            </text>
-            <Show when={node.desc}>
-              <text class="pm-desc" x={node.x + 16} y={node.y + (node.desc ? 46 : 0)}>
-                {node.desc}
-              </text>
-            </Show>
-          </g>
-        )}
-      </For>
-    </svg>
+        {/* bloki — foreignObject wraps title/desc text instead of clipping
+            it as a single unbroken SVG <text> line. */}
+        <For each={NODES}>
+          {(node) => (
+            <g class="pm-node-group" onClick={() => open(node)}>
+              <rect
+                class="pm-node"
+                x={node.x}
+                y={node.y}
+                width={node.w}
+                height={node.h}
+                rx="12"
+                style={{ stroke: ZONE_STROKE[node.zone] }}
+              />
+              <foreignObject x={node.x + 16} y={node.y + 8} width={node.w - 32} height={node.h - 16}>
+                <div class="pm-body">
+                  <div class="pm-title">{node.title}</div>
+                  <Show when={node.desc}>
+                    <div class="pm-desc">{node.desc}</div>
+                  </Show>
+                </div>
+              </foreignObject>
+            </g>
+          )}
+        </For>
+      </svg>
+    </div>
   )
 }

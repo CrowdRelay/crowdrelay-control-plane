@@ -21,7 +21,7 @@ export function FlowPage() {
       <div class="page-head">
         <div>
           <span class="eyebrow">BIG PICTURE</span>
-          <h1>Mapa procesu</h1>
+          <h1>Process map</h1>
           <p>
             Wejścia → agent → rezultat. Kliknij dowolny blok, aby przejść do
             zakładki, która nim zarządza.
@@ -47,6 +47,12 @@ export function FlowPage() {
         when={slug()}
         fallback={<div class="error-card" role="alert">Brak aktywnego tenanta — utwórz go w zakładce Tenants.</div>}
       >
+        <div class="process-map-legend">
+          <span><i style={{ background: '#71dcff' }} />Wejścia</span>
+          <span><i style={{ background: '#ffd56d' }} />Agent</span>
+          <span><i style={{ background: '#ff6680' }} />Rezultat</span>
+          <span><i style={{ background: '#7dffb2' }} />Pętla nauki</span>
+        </div>
         <ProcessMap slug={slug} />
       </Show>
     </section>
