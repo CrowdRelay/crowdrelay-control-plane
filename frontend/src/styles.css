@@ -19,7 +19,7 @@
 /* Operator account + notifier surfaces */
 .check-row-group{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 16px;margin:12px 0}
 .notifier-list{display:grid;gap:10px;margin-top:16px}
-.notifier-row{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 16px;border:1px solid var(--line,#252936);border-radius:12px;background:var(--surface-elevated,#14161e)}
+.notifier-row{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 16px;border:1px solid var(--line,#252936);border-radius:12px;background:linear-gradient(180deg,#14171d,#101216)}
 .notifier-meta{display:grid;gap:4px}
 .notifier-meta small{color:var(--muted,#9ca3af)}
 .notifier-test-ok{color:#22c55e}

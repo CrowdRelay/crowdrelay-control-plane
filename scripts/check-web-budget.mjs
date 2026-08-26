@@ -16,9 +16,11 @@ if (maps.length) throw new Error(`source maps must not ship: ${maps.join(', ')}`
 // Raised 2026-08-26 from 300 KiB for the Label Portfolio surfaces (roster KPIs,
 // consent-edge decisions and per-tenant brand settings), and again same day
 // from 320 KiB for the consolidated portfolio read model + fan sources panel
-// (section degrades, StatusBadge states, revoke-reason gating). Reviewed
-// alongside the feature; not a reflex for accidental growth.
-const JS_BUDGET = 324 * 1024
+// (section degrades, StatusBadge states, revoke-reason gating), and again
+// from 324 KiB for the notifiers page rewrite (per-section skeletons, panel
+// wrappers for background consistency, empty states). Reviewed alongside the
+// feature; not a reflex for accidental growth.
+const JS_BUDGET = 325 * 1024
 const CSS_BUDGET = 80 * 1024
 if (js > JS_BUDGET) throw new Error(`JS budget exceeded: ${js} > ${JS_BUDGET}`)
 if (css > CSS_BUDGET) throw new Error(`CSS budget exceeded: ${css} > ${CSS_BUDGET}`)
