@@ -189,7 +189,7 @@ export function TenantAttentionPage() {
       <Show when={totalDead(data()) > 0 || data().watchdog.critical_alerts > 0 || staleAreaReservations(data()) > 0}>
         <div class="operations-attention" role="alert">
           <strong>Operator attention required</strong>
-          <span>{totalDead(data())} dead queue item(s) · {data().watchdog.critical_alerts} critical watchdog alert(s) · {staleAreaReservations(data())} stale AREA reservation(s)</span>
+          <span>{totalDead(data())} dead queue item(s) · {data().watchdog.critical_alerts} Critical watchdog alert(s) · {staleAreaReservations(data())} stale AREA reservation(s)</span>
         </div>
       </Show>
 
@@ -235,6 +235,12 @@ export function TenantAttentionPage() {
       <For each={details().attempts}>{attempt => <div class="warning-card"><strong>Attempt {attempt.attempt_number} · {attempt.outcome}</strong><p>HTTP {attempt.response_status ?? '—'} · {attempt.error_kind ?? 'no error kind'} · {attempt.duration_ms} ms · {observed(attempt.finished_at)}</p></div>}</For>
       <Show when={details().attempts.length === 0}><p>No delivery attempts recorded.</p></Show>
     </div>}</Show>
+
+    <div class="section-title" id="dead-push">
+      <div><span class="eyebrow">Dead push</span><h3>Failed push deliveries</h3></div>
+      <StatusBadge status={(summary.data?.push.dead ?? 0) > 0 ? 'dead' : 'clean'} tone={(summary.data?.push.dead ?? 0) > 0 ? 'bad' : 'good'} />
+    </div>
+    <Show when={(summary.data?.push.dead ?? 0) === 0}><div class="inherit-card"><p>No dead push deliveries.</p></div></Show>
 
     <div class="section-title">
       <div id="reconciliation-findings"><span class="eyebrow">RECONCILIATION</span><h3>Ecosystem findings</h3><p>Canonical consistency pass across tenant operational state. The consolidated attention snapshot refreshes every 30 seconds.</p></div>
