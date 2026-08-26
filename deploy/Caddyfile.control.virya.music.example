@@ -5,31 +5,55 @@ control.virya.music {
     @immutable path /assets/* /crowdrelay-brand-mark.png /favicon.ico
     header @immutable Cache-Control "public, max-age=31536000, immutable"
 
-    # Machine-only channels keep their dedicated Bearer credentials and bypass
-    # browser Basic Auth entirely.
-    @runtime path /api/v1/tenants/*/runtime
-    handle @runtime {
-        reverse_proxy 127.0.0.1:8090
-    }
+    # The explicit `route` keeps the written order so the deferred
+    # -WWW-Authenticate deletion wraps the Basic challenge: browsers never get
+    # the native credential dialog beside the styled login form.
+    route {
+        header -WWW-Authenticate
 
-    @provisioner path /api/v1/provisioner/*
-    handle @provisioner {
-        reverse_proxy 127.0.0.1:8090
-    }
+        # Machine telemetry writes keep their dedicated Bearer credentials end
+        # to end and bypass browser Basic Auth entirely.
+        @runtime_put {
+            method PUT
+            path /api/v1/tenants/*/runtime
+        }
+        handle @runtime_put {
+            reverse_proxy 127.0.0.1:8090
+        }
 
-    # Single auth gate: the app's own styled login form issues a tab-scoped
-    # session token; the backend validates every API request independently.
-    # No edge Basic Auth — the browser-native credential dialog was worse
-    # than the security it added (defense-in-depth against an already
-    # authenticated backend).
-    handle {
+        @provisioner path /api/v1/provisioner/*
+        handle @provisioner {
+            reverse_proxy 127.0.0.1:8090
+        }
+
+        # The SPA shell stays public so the styled login renders without a
+        # browser-native credential dialog. Every other /api/v1/* call is gated
+        # here; the runtime READ is admin-authoritative backend-side, so it is
+        # gated by method instead of being exempted outright.
+        @api {
+            path /api/v1/*
+            not path /api/v1/tenants/*/runtime
+        }
+        basic_auth @api {
+            operator {file./config/control-plane-basic.bcrypt}
+        }
+
+        @runtime_read {
+            method GET
+            path /api/v1/tenants/*/runtime
+        }
+        basic_auth @runtime_read {
+            operator {file./config/control-plane-basic.bcrypt}
+        }
+
+        # Single authority substitution: after the edge gate accepts
+        # credentials, the backend validates every request independently.
         reverse_proxy 127.0.0.1:8090 {
             header_up Authorization "Bearer {$CONTROL_PLANE_ADMIN_TOKEN}"
         }
     }
 
     header {
-        -WWW-Authenticate
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
