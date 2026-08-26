@@ -119,7 +119,7 @@ export function TenantNotifiersPage() {
           <option value="email_relay">Email via platform relay</option>
         </select></label>
         <label>Label<input value={label()} onInput={(e) => setLabel(e.currentTarget.value)} placeholder="Ops Discord" /></label>
-        <label>{targetLabel()}<input value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPlaceholder()} /></label>
+        <label style={{ 'grid-column': '1 / -1' }}>{targetLabel()}<input value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPlaceholder()} /></label>
       </div>
       <div class="check-row-group" role="group" aria-label="Subscribed events">
         <For each={[...NOTIFIER_EVENTS]}>{event =>

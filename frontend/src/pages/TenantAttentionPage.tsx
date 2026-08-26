@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { fetchOperationsAttention } from '../lib/attention'
-import { formatAge, formatTimestamp as observed, oldestQueueAge } from '../lib/format'
+import { formatTimestamp as observed } from '../lib/format'
 import type { DeliveryDetails, OperationsSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
@@ -193,14 +193,6 @@ export function TenantAttentionPage() {
         </div>
       </Show>
 
-      <div class="operations-metrics">
-        <div><span>Dead outbox</span><strong>{data().outbox.dead}</strong><small>{data().outbox.pending} pending</small></div>
-        <div><span>Dead deliveries</span><strong>{data().deliveries.dead}</strong><small>{data().deliveries.cancelled} cancelled</small></div>
-        <div><span>Dead push</span><strong>{data().push.dead}</strong><small>{data().push.pending} pending</small></div>
-        <div><span>Critical watchdog</span><strong>{data().watchdog.critical_alerts}</strong><small>{data().watchdog.active_alerts} active total</small></div>
-        <div><span>Oldest queue</span><strong>{formatAge(oldestQueueAge(data()))}</strong><small>across async queues</small></div>
-        <div><span>HTTP p95</span><strong>{data().http.p95_ms} ms</strong><small>{data().http.errors_5xx} server errors</small></div>
-      </div>
 
       <div class="section-title"><div><span class="eyebrow">POSTGRES RUNTIME</span><h3>Database health</h3></div><StatusBadge status={data().database.async_io_active ? 'async I/O active' : 'check I/O'} tone={data().database.async_io_active ? 'good' : 'warn'} /></div>
       <div class="operations-metrics">
