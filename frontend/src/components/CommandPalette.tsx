@@ -202,7 +202,15 @@ export const CommandPalette: Component = () => {
           </For>
         </div>
         <div class="cmdk-foot">
-          <Show when={message()} fallback={<><kbd>↑↓</kbd> navigate · <kbd>↵</kbd> run{active()?.confirm ? ' (twice to confirm)' : ''} · <kbd>esc</kbd> close</>}>
+          <Show when={message()} fallback={
+            <span class="cmdk-foot-hints">
+              <span class="cmdk-foot-hint"><kbd>↑↓</kbd>navigate</span>
+              <span class="cmdk-foot-sep">·</span>
+              <span class="cmdk-foot-hint"><kbd>↵</kbd>run{active()?.confirm ? ' (twice to confirm)' : ''}</span>
+              <span class="cmdk-foot-sep">·</span>
+              <span class="cmdk-foot-hint"><kbd>esc</kbd>close</span>
+            </span>
+          }>
             <span>{message()}</span>
           </Show>
           {busy() !== null && <span class="cmdk-busy">running…</span>}
