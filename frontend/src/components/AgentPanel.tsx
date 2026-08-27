@@ -34,23 +34,35 @@ interface AgentTaskResult {
   duration_ms: number | null
 }
 
-interface ProviderHealth {
-  models: Array<{
-    id: string
-    provider: string
-    name: string
-    free_limit: { requestsPerDay?: number; rateLimitRpm?: number }
-    context_window: number
-    best_for: string
-    requires_key: boolean
-  }>
-  health: Array<{
-    provider: string
-    model_id: string
-    status: string
-    requests_remaining: number | null
-    last_error: string | null
-  }>
+interface ProviderSummary {
+  id: string
+  name: string
+  description: string
+  authMethod: 'api_key' | 'oauth' | 'none'
+  freeTier: boolean
+  modelCount: number
+  oauthScopes: string[]
+}
+
+interface Credential {
+  id: string
+  provider: string
+  label: string
+  credential_type: 'api_key' | 'oauth_refresh_token'
+  status: 'active' | 'revoked' | 'invalid'
+  last_validated_at: string | null
+  last_validation_error: string | null
+  created_at: string
+}
+
+interface AvailableModel {
+  id: string
+  name: string
+  contextWindow: number
+  bestFor: string
+  paid: boolean
+  providerId: string
+  providerName: string
 }
 
 const categoryTone = (cat: string): 'good' | 'warn' | 'muted' =>
@@ -60,6 +72,9 @@ const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
   status === 'completed' ? 'good' :
   status === 'running' || status === 'queued' ? 'warn' :
   status === 'failed' ? 'bad' : 'muted'
+
+const credTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
+  status === 'active' ? 'good' : status === 'invalid' ? 'bad' : 'muted'
 
 const formatAge = (iso: string) => {
   const diff = Date.now() - new Date(iso).getTime()
@@ -79,23 +94,34 @@ export function AgentPanel(props: { slug: string }) {
   const [error, setError] = createSignal<string | null>(null)
   const [viewingResult, setViewingResult] = createSignal<AgentTaskResult | null>(null)
   const [refreshKey, setRefreshKey] = createSignal(0)
+  const [showConnect, setShowConnect] = createSignal(false)
+  const [pastingProvider, setPastingProvider] = createSignal<string | null>(null)
+  const [apiKeyInput, setApiKeyInput] = createSignal('')
+  const [connecting, setConnecting] = createSignal(false)
 
   const [templates] = createResource(async () => {
     const data = await request<{ templates: AgentTemplate[] }>(`/tenants/${props.slug}/agents/templates`)
     return data.templates
   })
 
-  const [tasks, { refetch: refetchTasks }] = createResource(refreshKey, async () => {
+  const [tasks] = createResource(refreshKey, async () => {
     const data = await request<{ tasks: AgentTask[] }>(`/tenants/${props.slug}/agents/tasks`)
     return data.tasks
   })
 
-  const [health] = createResource(async () => {
-    try {
-      return await request<ProviderHealth>(`/tenants/${props.slug}/agents/health`)
-    } catch {
-      return null
-    }
+  const [providers] = createResource(async () => {
+    const data = await request<{ providers: ProviderSummary[] }>(`/tenants/${props.slug}/agents/providers`)
+    return data.providers
+  })
+
+  const [credentials, { refetch: refetchCreds }] = createResource(async () => {
+    const data = await request<{ credentials: Credential[] }>(`/tenants/${props.slug}/agents/credentials`)
+    return data.credentials
+  })
+
+  const [models, { refetch: refetchModels }] = createResource(async () => {
+    const data = await request<{ models: AvailableModel[]; connectedProviders: string[] }>(`/tenants/${props.slug}/agents/models`)
+    return data
   })
 
   // Auto-refresh tasks every 5s when there are running/queued tasks
@@ -141,10 +167,110 @@ export function AgentPanel(props: { slug: string }) {
     }
   }
 
+  const pasteKey = async () => {
+    const provider = pastingProvider()
+    if (!provider || !apiKeyInput().trim()) return
+    setConnecting(true)
+    setError(null)
+    try {
+      await request(`/tenants/${props.slug}/agents/credentials`, {
+        method: 'POST',
+        body: JSON.stringify({
+          provider,
+          api_key: apiKeyInput().trim(),
+          label: '',
+        }),
+      })
+      setApiKeyInput('')
+      setPastingProvider(null)
+      refetchCreds()
+      refetchModels()
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to connect provider'))
+    } finally {
+      setConnecting(false)
+    }
+  }
+
+  const startGoogleOAuth = async () => {
+    setError(null)
+    try {
+      const data = await request<{ url: string }>(`/tenants/${props.slug}/agents/oauth/google/start`)
+      window.location.href = data.url
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to start Google OAuth'))
+    }
+  }
+
+  const disconnect = async (provider: string) => {
+    try {
+      await request(`/tenants/${props.slug}/agents/credentials/${provider}`, { method: 'DELETE' })
+      refetchCreds()
+      refetchModels()
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to disconnect'))
+    }
+  }
+
   return (
     <div class="agent-panel">
       <div class="agent-section">
-        <h3>Available Agents</h3>
+        <div class="agent-section-head">
+          <h3>Available Agents</h3>
+          <button class="agent-connect-toggle" onClick={() => setShowConnect(!showConnect())}>
+            {showConnect() ? 'Hide' : 'Connect Providers'}
+          </button>
+        </div>
+        <Show when={showConnect()}>
+          <div class="agent-providers">
+            <For each={providers()}>
+              {(provider) => {
+                const cred = () => credentials()?.find(c => c.provider === provider.id)
+                return (
+                  <div class="agent-provider-card">
+                    <div class="agent-provider-info">
+                      <div class="agent-provider-name">{provider.name}</div>
+                      <div class="agent-provider-desc">{provider.description}</div>
+                      <Show when={cred()}>
+                        <div class="agent-provider-status">
+                          <StatusBadge status={cred()!.status} tone={credTone(cred()!.status)} />
+                          <Show when={cred()!.last_validated_at}>
+                            <span class="muted">validated {formatAge(cred()!.last_validated_at!)}</span>
+                          </Show>
+                        </div>
+                      </Show>
+                    </div>
+                    <div class="agent-provider-actions">
+                      <Show when={provider.authMethod === 'none'}>
+                        <StatusBadge status="free" tone="good" />
+                      </Show>
+                      <Show when={provider.authMethod === 'api_key' && !cred()}>
+                        <button class="agent-btn" onClick={() => setPastingProvider(provider.id)}>
+                          Paste API Key
+                        </button>
+                      </Show>
+                      <Show when={provider.authMethod === 'api_key' && cred()}>
+                        <button class="agent-btn-danger" onClick={() => disconnect(provider.id)}>
+                          Disconnect
+                        </button>
+                      </Show>
+                      <Show when={provider.id === 'google' && !cred()}>
+                        <button class="agent-btn" onClick={startGoogleOAuth}>
+                          Connect with Google
+                        </button>
+                      </Show>
+                      <Show when={provider.id === 'google' && cred()}>
+                        <button class="agent-btn-danger" onClick={() => disconnect(provider.id)}>
+                          Disconnect
+                        </button>
+                      </Show>
+                    </div>
+                  </div>
+                )
+              }}
+            </For>
+          </div>
+        </Show>
         <Show when={templates()} fallback={<p class="muted">Loading templates…</p>}>
           <div class="agent-template-grid">
             <For each={templates()}>
@@ -170,17 +296,52 @@ export function AgentPanel(props: { slug: string }) {
         </Show>
       </div>
 
+      <Show when={pastingProvider()}>
+        <div class="agent-result-overlay" onClick={() => setPastingProvider(null)}>
+          <div class="agent-result-modal" onClick={(e) => e.stopPropagation()}>
+            <div class="agent-result-header">
+              <h3>Connect {providers()?.find(p => p.id === pastingProvider())?.name}</h3>
+              <button class="link" onClick={() => setPastingProvider(null)}>Close</button>
+            </div>
+            <div class="agent-paste-body">
+              <p class="muted">Paste your API key below. We'll validate it before storing it encrypted.</p>
+              <input
+                type="password"
+                class="agent-key-input"
+                placeholder="sk-..."
+                value={apiKeyInput()}
+                onInput={(e) => setApiKeyInput(e.currentTarget.value)}
+              />
+              <Show when={error()}>
+                <span class="agent-error">{error()}</span>
+              </Show>
+            </div>
+            <div class="agent-result-actions">
+              <button
+                onClick={pasteKey}
+                disabled={connecting() || !apiKeyInput().trim()}
+              >
+                {connecting() ? 'Validating…' : 'Connect'}
+              </button>
+              <button class="link" onClick={() => setPastingProvider(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      </Show>
+
       <Show when={selectedTemplate()}>
         <div class="agent-section">
           <h3>Task</h3>
           <label class="agent-field">
             <span>Model</span>
             <select value={selectedModel()} onChange={(e) => setSelectedModel(e.currentTarget.value)}>
-              <option value="zen-default">Zen Default (128K, 100 req/day free)</option>
-              <option value="zen-fast">Zen Fast (32K, very fast)</option>
-              <option value="deepseek-v4-flash-free">DeepSeek V4 Flash Free (200K)</option>
-              <option value="gemini-2.5-flash">Gemini 2.5 Flash (250 req/day free)</option>
-              <option value="groq/llama-3.3-70b">Groq Llama 3.3 70B (fast)</option>
+              <For each={models()?.models ?? []}>
+                {(model) => (
+                  <option value={model.id}>
+                    {model.name} {model.paid ? '(paid)' : '(free)'} — {model.providerName}
+                  </option>
+                )}
+              </For>
             </select>
           </label>
           <label class="agent-field">
@@ -242,35 +403,6 @@ export function AgentPanel(props: { slug: string }) {
           </table>
         </Show>
       </div>
-
-      <Show when={health()}>
-        <div class="agent-section">
-          <h3>Provider Health</h3>
-          <div class="agent-health-grid">
-            <For each={health()?.models}>
-              {(model) => {
-                const modelHealth = health()?.health.find((h) => h.model_id === model.id)
-                const remaining = modelHealth?.requests_remaining
-                const limit = model.free_limit.requestsPerDay
-                return (
-                  <div class="agent-health-card">
-                    <div class="agent-health-name">{model.name}</div>
-                    <div class="agent-health-status">
-                      <StatusBadge
-                        status={modelHealth?.status ?? 'unknown'}
-                        tone={modelHealth?.status === 'healthy' ? 'good' : modelHealth?.status === 'degraded' ? 'warn' : 'muted'}
-                      />
-                    </div>
-                    <div class="agent-health-quota">
-                      {remaining != null && limit != null ? `${remaining}/${limit} requests left` : model.best_for}
-                    </div>
-                  </div>
-                )
-              }}
-            </For>
-          </div>
-        </div>
-      </Show>
 
       <Show when={viewingResult()}>
         <div class="agent-result-overlay" onClick={() => setViewingResult(null)}>

@@ -28,7 +28,9 @@ if (maps.length) throw new Error(`source maps must not ship: ${maps.join(', ')}`
 // queue, recent auto-classifications, summary counts, per-entry disposition
 // badges and matched-rule display). Raised 2026-08-28 from 358 KiB for the
 // agent panel (template grid, task submission, result modal, provider health).
-const JS_BUDGET = 364 * 1024
+// Raised 2026-08-28 from 364 KiB for the credential vault (provider connection
+// UI, paste API key modal, Google OAuth button, per-tenant model list).
+const JS_BUDGET = 366 * 1024
 const CSS_BUDGET = 80 * 1024
 if (js > JS_BUDGET) throw new Error(`JS budget exceeded: ${js} > ${JS_BUDGET}`)
 if (css > CSS_BUDGET) throw new Error(`CSS budget exceeded: ${css} > ${CSS_BUDGET}`)

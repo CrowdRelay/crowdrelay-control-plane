@@ -4,12 +4,13 @@
 
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode, header::CACHE_CONTROL},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
 };
 use serde_json::Value;
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{AppState, error::ApiError};
@@ -34,6 +35,28 @@ pub fn router() -> Router<AppState> {
             get(get_task_result),
         )
         .route("/tenants/{slug}/agents/health", get(agent_health))
+        .route("/tenants/{slug}/agents/providers", get(list_providers))
+        .route(
+            "/tenants/{slug}/agents/credentials",
+            get(list_credentials).post(paste_credential),
+        )
+        .route(
+            "/tenants/{slug}/agents/credentials/{provider}",
+            axum::routing::delete(delete_credential),
+        )
+        .route(
+            "/tenants/{slug}/agents/credentials/{provider}/validate",
+            post(validate_credential),
+        )
+        .route("/tenants/{slug}/agents/models", get(list_models))
+        .route(
+            "/tenants/{slug}/agents/oauth/google/start",
+            get(oauth_google_start),
+        )
+        .route(
+            "/tenants/{slug}/agents/oauth/google/callback",
+            get(oauth_google_callback),
+        )
         .layer(axum::extract::DefaultBodyLimit::max(MAX_AGENT_BODY_BYTES))
 }
 
@@ -108,6 +131,40 @@ async fn proxy_post(
         .into_response())
 }
 
+async fn proxy_delete(state: &AppState, slug: &str, path: &str) -> Result<Response, ApiError> {
+    let (tenant, _) = crate::area_routes::target(state, slug).await?;
+    let base = state
+        .agent_service_url
+        .as_deref()
+        .ok_or_else(|| ApiError::Unavailable("agent service is not configured".to_owned()))?;
+    let workspace_id = tenant.tenant.id;
+    let token = state.area_client.derived_management_token(workspace_id)?;
+    let url = format!("{base}{path}");
+    let response = reqwest::Client::new()
+        .delete(&url)
+        .header("Authorization", format!("Bearer {token}"))
+        .header("X-Workspace-Id", workspace_id.to_string())
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| ApiError::Unavailable(format!("agent service unreachable: {e}")))?;
+    let status =
+        StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+    if status == StatusCode::NO_CONTENT {
+        return Ok((status, [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)]).into_response());
+    }
+    let body: Value = response
+        .json()
+        .await
+        .map_err(|e| ApiError::Unavailable(format!("agent service returned invalid JSON: {e}")))?;
+    Ok((
+        status,
+        [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
+        Json(body),
+    )
+        .into_response())
+}
+
 async fn list_templates(
     State(state): State<AppState>,
     Path(slug): Path<String>,
@@ -171,4 +228,78 @@ async fn agent_health(
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     proxy_get(&state, &slug, "/health/providers").await
+}
+
+async fn list_providers(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    proxy_get(&state, &slug, "/providers").await
+}
+
+async fn list_credentials(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    proxy_get(&state, &slug, "/credentials").await
+}
+
+async fn paste_credential(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    proxy_post(&state, &slug, "/credentials", body).await
+}
+
+async fn delete_credential(
+    State(state): State<AppState>,
+    Path((slug, provider)): Path<(String, String)>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let path = format!("/credentials/{provider}");
+    proxy_delete(&state, &slug, &path).await
+}
+
+async fn validate_credential(
+    State(state): State<AppState>,
+    Path((slug, provider)): Path<(String, String)>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let path = format!("/credentials/{provider}/validate");
+    proxy_post(&state, &slug, &path, serde_json::json!({})).await
+}
+
+async fn list_models(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    proxy_get(&state, &slug, "/models").await
+}
+
+async fn oauth_google_start(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    proxy_get(&state, &slug, "/oauth/google/start").await
+}
+
+async fn oauth_google_callback(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    Query(query): Query<HashMap<String, String>>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let qs: String = query
+        .iter()
+        .map(|(k, v)| format!("{}={}", k, v))
+        .collect::<Vec<_>>()
+        .join("&");
+    let path = format!("/oauth/google/callback?{qs}");
+    proxy_get(&state, &slug, &path).await
 }

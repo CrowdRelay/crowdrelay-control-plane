@@ -403,3 +403,21 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .agent-result-actions{padding:.75rem 1.25rem;border-top:1px solid #252830}
 .agent-result-actions button{background:#252830;color:#d9dde6;border:1px solid #2a2d36;border-radius:4px;padding:.4rem .8rem;cursor:pointer;font:inherit;font-size:.8rem}
 .agent-result-actions button:hover{background:#2a2d36}
+.agent-section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
+.agent-section-head h3{margin:0}
+.agent-connect-toggle{background:none;border:1px solid #2a2d36;color:#7663d8;border-radius:4px;padding:.3rem .7rem;font-size:.78rem;cursor:pointer}
+.agent-connect-toggle:hover{background:#1a1d24}
+.agent-providers{display:flex;flex-direction:column;gap:.6rem;margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid #1e2128}
+.agent-provider-card{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;background:#1a1d24;border:1px solid #2a2d36;border-radius:6px;padding:.7rem .85rem}
+.agent-provider-info{flex:1;min-width:0}
+.agent-provider-name{font-weight:600;font-size:.85rem;color:#e4e7ee;margin-bottom:.2rem}
+.agent-provider-desc{font-size:.73rem;color:#8b92a0;line-height:1.4;margin-bottom:.3rem}
+.agent-provider-status{display:flex;align-items:center;gap:.5rem;font-size:.7rem}
+.agent-provider-actions{display:flex;flex-direction:column;gap:.3rem;align-items:flex-end}
+.agent-btn{background:#252830;color:#d9dde6;border:1px solid #2a2d36;border-radius:4px;padding:.35rem .7rem;cursor:pointer;font:inherit;font-size:.75rem;white-space:nowrap}
+.agent-btn:hover{background:#2a2d36}
+.agent-btn-danger{background:transparent;color:#e57373;border:1px solid #3a2d2d;border-radius:4px;padding:.35rem .7rem;cursor:pointer;font:inherit;font-size:.75rem;white-space:nowrap}
+.agent-btn-danger:hover{background:#2d1a1a}
+.agent-paste-body{padding:1rem 1.25rem;display:flex;flex-direction:column;gap:.6rem}
+.agent-key-input{background:#1a1d24;border:1px solid #2a2d36;border-radius:4px;padding:.5rem;color:#d9dde6;font:inherit;font-size:.85rem;width:100%}
+.agent-key-input:focus{border-color:#7663d8;outline:none}
