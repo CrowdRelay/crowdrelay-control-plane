@@ -1,0 +1,105 @@
+name: crowdrelay-control-plane
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: control_plane
+      POSTGRES_USER: control_plane
+      POSTGRES_PASSWORD: ${CONTROL_PLANE_DB_PASSWORD}
+    volumes:
+      - control-plane-pg:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U control_plane -d control_plane"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    mem_limit: 384m
+    cpus: 0.50
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - internal
+
+  app:
+    image: crowdrelay-control-plane:${CONTROL_PLANE_IMAGE_TAG}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://control_plane:${CONTROL_PLANE_DB_PASSWORD}@postgres:5432/control_plane
+      CONTROL_PLANE_BIND: 0.0.0.0:8090
+      CONTROL_PLANE_ADMIN_TOKEN: ${CONTROL_PLANE_ADMIN_TOKEN}
+      CONTROL_PLANE_TELEMETRY_TOKEN: ${CONTROL_PLANE_TELEMETRY_TOKEN}
+      CONTROL_PLANE_AUTOMATION_TOKEN: ${CONTROL_PLANE_AUTOMATION_TOKEN:-}
+      CONTROL_PLANE_N8N_BASE_URL: ${CONTROL_PLANE_N8N_BASE_URL:-}
+      CONTROL_PLANE_N8N_API_KEY: ${CONTROL_PLANE_N8N_API_KEY:-}
+      CONTROL_PLANE_DISCORD_AUTOMATION_WEBHOOK_URL: ${CONTROL_PLANE_DISCORD_AUTOMATION_WEBHOOK_URL:-}
+      CONTROL_PLANE_ADMIN_ACTOR: ${CONTROL_PLANE_ADMIN_ACTOR:-wojciechbator}
+      CONTROL_PLANE_FRONTEND_DIST: /app/frontend/dist
+      CONTROL_PLANE_VIRYA_CROWDRELAY_URL: ${CONTROL_PLANE_VIRYA_CROWDRELAY_URL:-https://signal-api.virya.music}
+      CONTROL_PLANE_VIRYA_SIGNAL_URL: ${CONTROL_PLANE_VIRYA_SIGNAL_URL:-https://signal.virya.music}
+      CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY: ${CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY:-}
+      CONTROL_PLANE_MANAGEMENT_MASTER_KEY: ${CONTROL_PLANE_MANAGEMENT_MASTER_KEY:-}
+      CONTROL_PLANE_VIRYA_MANAGEMENT_URL: ${CONTROL_PLANE_VIRYA_MANAGEMENT_URL:-}
+      RUST_LOG: ${RUST_LOG:-info,tower_http=info}
+    ports:
+      - "127.0.0.1:8090:8090"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8090/healthz/ready >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    mem_limit: 256m
+    cpus: 0.50
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      internal: {}
+      virya-edge:
+        aliases: [control-plane]
+
+  virya-area-tunnel:
+    image: caddy@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    network_mode: "service:app"
+    environment:
+      VIRYA_AREA_UPSTREAM: ${VIRYA_AREA_UPSTREAM:-http://area-management-proxy:18080}
+    volumes:
+      - ./deploy/virya-area-tunnel.Caddyfile:/etc/caddy/Caddyfile:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -T 3 -O /dev/null http://127.0.0.1:18080/healthz/ready"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 2s
+    read_only: true
+    tmpfs:
+      - /data
+      - /config
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  control-plane-pg:
+
+networks:
+  internal:
+    driver: bridge
+  virya-edge:
+    external: true
