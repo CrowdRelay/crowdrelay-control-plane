@@ -106,6 +106,10 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     // still serves a valid snapshot, and an operator plane must not fail closed
     // on a section the tenant simply does not publish yet.
     let alerts = snapshot.get("alerts").cloned().unwrap_or_else(|| json!([]));
+    let dead_push = snapshot
+        .get("dead_push")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
     let dead_outbox = section(snapshot, "dead_outbox")?;
     let dead_deliveries = section(snapshot, "dead_deliveries")?;
     let ecosystem = section(snapshot, "ecosystem")?;
@@ -113,6 +117,7 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
 
     expect_object(summary, "summary")?;
     expect_array(&alerts, "alerts")?;
+    expect_array(&dead_push, "dead push")?;
     expect_array(dead_outbox, "dead outbox")?;
     expect_array(dead_deliveries, "dead deliveries")?;
     expect_object(ecosystem, "ecosystem")?;
@@ -124,6 +129,7 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
         "id": slug,
         "summary": summary,
         "alerts": alerts,
+        "dead_push": dead_push,
         "dead_outbox": dead_outbox,
         "dead_deliveries": dead_deliveries,
         "ecosystem": ecosystem,
@@ -145,6 +151,7 @@ mod tests {
         json!({
             "summary": {"outbox": {"pending": 1}},
             "alerts": [{"alert_key": "webhook.dead", "severity": "critical", "active": true}],
+            "dead_push": [{"id": "p", "title": "test", "status": "failed"}],
             "dead_outbox": [{"id": "a"}],
             "dead_deliveries": [],
             "ecosystem": {"schema_version": 1, "flags": []},
@@ -192,6 +199,15 @@ mod tests {
         older.as_object_mut().expect("object").remove("alerts");
         let projected = project("virya", &older).expect("a snapshot without alerts still projects");
         assert_eq!(projected["alerts"], json!([]));
+    }
+
+    #[test]
+    fn defaults_dead_push_to_an_empty_list_when_the_tenant_does_not_publish_them() {
+        let mut older = snapshot();
+        older.as_object_mut().expect("object").remove("dead_push");
+        let projected =
+            project("virya", &older).expect("a snapshot without dead_push still projects");
+        assert_eq!(projected["dead_push"], json!([]));
     }
 
     #[test]

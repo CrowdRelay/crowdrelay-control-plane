@@ -225,6 +225,45 @@ export type DeliveryAttempt = {
 
 export type DeliveryDetails = { delivery: DeliveryItem; attempts: DeliveryAttempt[] }
 
+export type PushDeliveryItem = {
+  id: string
+  fan_id: string | null
+  source_kind: string
+  title: string
+  status: string
+  attempt_count: number
+  error_code: string | null
+  available_at: string
+  created_at: string
+  delivered_at: string | null
+  completed_at: string | null
+}
+
+export type SignalOverview = {
+  generated_at: string
+  summary: {
+    total_fans: number
+    active_fans: number
+    pending_fans: number
+    unsubscribed_fans: number
+    suppressed_fans: number
+    marketing_opted_in: number
+    nearby_enabled: number
+  }
+  activity: {
+    new_fans_7d: number
+    new_fans_30d: number
+    referral_attributions_total: number
+    referral_attributions_30d: number
+    event_interests_total: number
+    event_interests_30d: number
+    nearby_notifications_30d: number
+    pending_city_requests: number
+  }
+  top_cities: { slug: string; name: string; country_code: string; active_fans: number }[]
+  unavailable_sources: string[]
+}
+
 export type RetryResult = {
   operation_id: string
   target_type: string

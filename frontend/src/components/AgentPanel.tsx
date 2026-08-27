@@ -1,6 +1,7 @@
 import { For, Show, createEffect, createResource, createSignal } from 'solid-js'
 import { request } from '../lib/api'
 import { errorMessage } from '../lib/format'
+import { refreshTick } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { LlmProviderIcon } from './ProviderIcon'
 
@@ -14,6 +15,14 @@ const AntIcon = (props: { size?: number }) => (
     <path d="M9 13L4 11M15 13l5-2" />
     <path d="M12 5.5v-2" />
     <circle cx="12" cy="3" r="1" fill="currentColor" stroke="none" />
+  </svg>
+)
+
+// --- Brain icon (autopilot brain → agent suggestions) ---
+const BrainIcon = (props: { size?: number }) => (
+  <svg width={props.size ?? 18} height={props.size ?? 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M9 3a3 3 0 0 0-3 3 3 3 0 0 0-1 5.8A3 3 0 0 0 7 17a3 3 0 0 0 2 4 3 3 0 0 0 3-3V3a3 3 0 0 0-3 0z" />
+    <path d="M15 3a3 3 0 0 1 3 3 3 3 0 0 1 1 5.8A3 3 0 0 1 17 17a3 3 0 0 1-2 4 3 3 0 0 1-3-3" opacity="0.5" />
   </svg>
 )
 
@@ -122,8 +131,7 @@ export function AgentPanel(props: { slug: string }) {
   const [submitting, setSubmitting] = createSignal(false)
   const [error, setError] = createSignal<string | null>(null)
   const [viewingResult, setViewingResult] = createSignal<AgentTaskResult | null>(null)
-  const [refreshKey, setRefreshKey] = createSignal(0)
-  const [showConnect, setShowConnect] = createSignal(false)
+  const [localRefresh, setLocalRefresh] = createSignal(0)
   const [pastingProvider, setPastingProvider] = createSignal<string | null>(null)
   const [apiKeyInput, setApiKeyInput] = createSignal('')
   const [connecting, setConnecting] = createSignal(false)
@@ -133,7 +141,11 @@ export function AgentPanel(props: { slug: string }) {
     return data.templates
   })
 
-  const [tasks] = createResource(refreshKey, async () => {
+  // Combine global refresh tick with local refresh (after submit/disconnect).
+  // Global tick drives periodic refresh; local forces immediate after mutations.
+  const taskRefreshSource = () => refreshTick() + localRefresh()
+
+  const [tasks] = createResource(taskRefreshSource, async () => {
     const data = await request<{ tasks: AgentTask[] }>(`/tenants/${props.slug}/agents/tasks`)
     return data.tasks
   })
@@ -174,16 +186,9 @@ export function AgentPanel(props: { slug: string }) {
     }
   })
 
-  // Auto-refresh tasks every 5s when there are running/queued tasks
-  createEffect(() => {
-    const current = tasks()
-    if (!current) return
-    const hasActive = current.some(t => t.status === 'running' || t.status === 'queued')
-    if (hasActive) {
-      const timer = setInterval(() => setRefreshKey(k => k + 1), 5000)
-      return () => clearInterval(timer)
-    }
-  })
+  // Auto-refresh for running/queued tasks now driven by global refresh tick.
+  // When tasks are active, bump local refresh so the resource refetches on the
+  // next global tick. No independent timer — one clock for the whole page.
 
   const submit = async () => {
     const templateId = selectedTemplate()
@@ -200,7 +205,7 @@ export function AgentPanel(props: { slug: string }) {
         }),
       })
       setPrompt('')
-      setRefreshKey(k => k + 1)
+      setLocalRefresh(k => k + 1)
     } catch (err) {
       setError(errorMessage(err, 'Failed to start task'))
     } finally {
@@ -271,20 +276,87 @@ export function AgentPanel(props: { slug: string }) {
     }
   }
 
+  const connectedCount = () => credentials()?.length ?? 0
+  const availableModelCount = () => models()?.models.length ?? 0
+
   return (
     <div class="agent-panel">
+      {/* Provider connections — always visible, not behind a toggle */}
       <div class="agent-section">
         <div class="agent-section-head">
-          <h3><AntIcon size={20} /> AI Agents</h3>
-          <button class="agent-connect-toggle" onClick={() => setShowConnect(!showConnect())}>
-            {showConnect() ? 'Hide' : 'Connect Providers'}
-          </button>
+          <h3><AntIcon size={20} /> LLM Provider Connections</h3>
+          <Show when={connectedCount() > 0}>
+            <span class="agent-connection-summary">
+              <span class="agent-connection-dot ok" />
+              {connectedCount()} connected · {availableModelCount()} models available
+            </span>
+          </Show>
         </div>
+        <p class="agent-section-intro">
+          Connect AI providers to power agent tasks. The autopilot brain uses connected models to research audiences, draft content, and analyse campaigns. Free-tier models work without any key.
+        </p>
 
-        {/* Suggestions — data-driven task prompts */}
-        <Show when={suggestions() && suggestions()!.length > 0}>
+        <div class="agent-providers">
+          <For each={providers()}>
+            {(provider) => {
+              const cred = () => credentials()?.find(c => c.provider === provider.id)
+              return (
+                <div class="agent-provider-card" classList={{ connected: !!cred() }}>
+                  <div class="agent-provider-logo">
+                    <LlmProviderIcon providerId={provider.id} size={28} />
+                  </div>
+                  <div class="agent-provider-info">
+                    <div class="agent-provider-name">{provider.name}</div>
+                    <div class="agent-provider-desc">{provider.description}</div>
+                    <Show when={cred()}>
+                      <div class="agent-provider-status">
+                        <StatusBadge status={cred()!.status} tone={credTone(cred()!.status)} />
+                        <Show when={cred()!.last_validated_at}>
+                          <span class="muted">validated {formatAge(cred()!.last_validated_at!)}</span>
+                        </Show>
+                      </div>
+                    </Show>
+                  </div>
+                  <div class="agent-provider-actions">
+                    <Show when={provider.authMethod === 'none'}>
+                      <StatusBadge status="free" tone="good" />
+                    </Show>
+                    <Show when={provider.authMethod === 'api_key' && !cred()}>
+                      <button class="agent-btn" onClick={() => setPastingProvider(provider.id)}>
+                        Paste API Key
+                      </button>
+                    </Show>
+                    <Show when={provider.authMethod === 'api_key' && cred()}>
+                      <button class="agent-btn-danger" onClick={() => disconnect(provider.id)}>
+                        Disconnect
+                      </button>
+                    </Show>
+                    <Show when={provider.id === 'google' && provider.oauthAvailable && !cred()}>
+                      <button class="agent-btn" onClick={startGoogleOAuth}>
+                        Connect with Google
+                      </button>
+                    </Show>
+                    <Show when={provider.id === 'google' && cred()}>
+                      <button class="agent-btn-danger" onClick={() => disconnect(provider.id)}>
+                        Disconnect
+                      </button>
+                    </Show>
+                  </div>
+                </div>
+              )
+            }}
+          </For>
+        </div>
+      </div>
+
+      {/* Autopilot brain → agent suggestions — the bridge between operations data and LLM execution */}
+      <Show when={suggestions() && suggestions()!.length > 0}>
+        <div class="agent-section">
+          <div class="agent-section-head">
+            <h3><BrainIcon size={18} /> From the Autopilot Brain</h3>
+          </div>
+          <p class="agent-section-intro">Data-driven task suggestions based on your events, fan growth, and campaign performance. Click to pre-fill and run.</p>
           <div class="agent-suggestions">
-            <div class="agent-suggestions-label">Suggested tasks based on your data:</div>
             <For each={suggestions()!.slice(0, 4)}>
               {(s) => (
                 <button class="agent-suggestion-card" onClick={() => runSuggestion(s)}>
@@ -298,62 +370,14 @@ export function AgentPanel(props: { slug: string }) {
               )}
             </For>
           </div>
-        </Show>
+        </div>
+      </Show>
 
-        <Show when={showConnect()}>
-          <div class="agent-providers">
-            <For each={providers()}>
-              {(provider) => {
-                const cred = () => credentials()?.find(c => c.provider === provider.id)
-                return (
-                  <div class="agent-provider-card">
-                    <div class="agent-provider-logo">
-                      <LlmProviderIcon providerId={provider.id} size={28} />
-                    </div>
-                    <div class="agent-provider-info">
-                      <div class="agent-provider-name">{provider.name}</div>
-                      <div class="agent-provider-desc">{provider.description}</div>
-                      <Show when={cred()}>
-                        <div class="agent-provider-status">
-                          <StatusBadge status={cred()!.status} tone={credTone(cred()!.status)} />
-                          <Show when={cred()!.last_validated_at}>
-                            <span class="muted">validated {formatAge(cred()!.last_validated_at!)}</span>
-                          </Show>
-                        </div>
-                      </Show>
-                    </div>
-                    <div class="agent-provider-actions">
-                      <Show when={provider.authMethod === 'none'}>
-                        <StatusBadge status="free" tone="good" />
-                      </Show>
-                      <Show when={provider.authMethod === 'api_key' && !cred()}>
-                        <button class="agent-btn" onClick={() => setPastingProvider(provider.id)}>
-                          Paste API Key
-                        </button>
-                      </Show>
-                      <Show when={provider.authMethod === 'api_key' && cred()}>
-                        <button class="agent-btn-danger" onClick={() => disconnect(provider.id)}>
-                          Disconnect
-                        </button>
-                      </Show>
-                      <Show when={provider.id === 'google' && provider.oauthAvailable && !cred()}>
-                        <button class="agent-btn" onClick={startGoogleOAuth}>
-                          Connect with Google
-                        </button>
-                      </Show>
-                      <Show when={provider.id === 'google' && cred()}>
-                        <button class="agent-btn-danger" onClick={() => disconnect(provider.id)}>
-                          Disconnect
-                        </button>
-                      </Show>
-                    </div>
-                  </div>
-                )
-              }}
-            </For>
-          </div>
-        </Show>
-
+      {/* Task templates and execution */}
+      <div class="agent-section">
+        <div class="agent-section-head">
+          <h3>Agent Tasks</h3>
+        </div>
         <Show when={templates()} fallback={<p class="muted">Loading templates…</p>}>
           <div class="agent-template-grid">
             <For each={templates()}>

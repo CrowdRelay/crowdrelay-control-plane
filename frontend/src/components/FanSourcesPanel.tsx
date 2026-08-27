@@ -48,6 +48,7 @@ export function FanSourcesPanel(props: {
   const [notice, setNotice] = createSignal<string | null>(null)
   const [errorText, setErrorText] = createSignal<string | null>(null)
   const [pendingFor, setPendingFor] = createSignal<string | null>(null)
+  const [confirmingDelete, setConfirmingDelete] = createSignal<string | null>(null)
 
   const needsAttestation = createMemo(() => sourceKind() !== 'http_json_pull')
 
@@ -89,6 +90,20 @@ export function FanSourcesPanel(props: {
     onError: (error) => {
       setPendingFor(null)
       setErrorText(error instanceof Error ? error.message : 'Ingestion failed')
+    },
+  }))
+
+  const remove = useMutation(() => ({
+    mutationFn: (id: string) => api.deleteFanbase(props.slug, id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
+      refresh()
+      setConfirmingDelete(null)
+      setNotice('Fanbase deleted.')
+    },
+    onError: (error) => {
+      setConfirmingDelete(null)
+      setErrorText(error instanceof Error ? error.message : 'Delete failed')
     },
   }))
 
@@ -148,7 +163,7 @@ export function FanSourcesPanel(props: {
 
     <Show when={blocks().length}>
       <table class="data-table">
-        <thead><tr><th>Name</th><th>Origin</th><th>Members</th><th>Last ingestion</th><th>Ingest</th></tr></thead>
+        <thead><tr><th>Name</th><th>Origin</th><th>Members</th><th>Last ingestion</th><th>Ingest</th><th></th></tr></thead>
         <tbody>
           <For each={blocks()}>{fb => (
             <tr>
@@ -183,6 +198,22 @@ export function FanSourcesPanel(props: {
                         }}>Run</button>
                       <button class="ghost" onClick={() => setIngestingId(null)}>Cancel</button>
                     </div>
+                  </div>
+                </Show>
+              </td>
+              <td>
+                <Show when={confirmingDelete() === fb.id} fallback={
+                  <button class="danger-ghost" disabled={pendingFor() !== null || remove.isPending}
+                    onClick={() => setConfirmingDelete(fb.id)}>
+                    Delete
+                  </button>
+                }>
+                  <div class="row-health">
+                    <button class="danger-ghost" disabled={remove.isPending}
+                      onClick={() => remove.mutate(fb.id)}>
+                      {remove.isPending ? 'Deleting…' : 'Confirm'}
+                    </button>
+                    <button class="ghost" onClick={() => setConfirmingDelete(null)}>Cancel</button>
                   </div>
                 </Show>
               </td>

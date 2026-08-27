@@ -2,7 +2,7 @@ import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
-import { refreshInterval } from '../lib/refresh'
+import { refreshTick } from '../lib/refresh'
 import type { ReplyTriageEntry } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 
@@ -48,10 +48,9 @@ const confidencePercent = (bps: number) =>
 export function ReplyTriagePanel() {
   const params = useParams({ from: '/tenants/$slug/operations' })
   const model = useQuery(() => ({
-    queryKey: ['reply-triage', params().slug],
+    queryKey: ['reply-triage', params().slug, refreshTick()],
     queryFn: () => api.replyTriage(params().slug),
     reconcile: 'id',
-    refetchInterval: refreshInterval() || false,
     refetchOnWindowFocus: false,
     staleTime: 20_000,
   }))

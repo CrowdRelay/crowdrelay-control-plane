@@ -7,8 +7,7 @@ import { GrowthPanel } from '../components/GrowthPanel'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { ScorecardPanel } from '../components/ScorecardPanel'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
-import { AgentPanel } from '../components/AgentPanel'
-import { refreshInterval } from '../lib/refresh'
+import { refreshTick } from '../lib/refresh'
 
 export function TenantOperationsPage() {
   const params = useParams({ from: '/tenants/$slug/operations' })
@@ -16,11 +15,11 @@ export function TenantOperationsPage() {
   // the four upstream sections out concurrently and reports the ones it could
   // not serve in `degraded`; the browser orchestrates nothing.
   const model = useQuery(() => ({
-    queryKey: ['tenant-operations', params().slug],
+    queryKey: ['tenant-operations', params().slug, refreshTick()],
     queryFn: () => api.tenantOperations(params().slug),
     reconcile: 'id',
-    refetchInterval: refreshInterval() || false,
     refetchOnWindowFocus: false,
+    refetchInterval: 15_000,
     staleTime: 10_000,
   }))
   // Mutations stay on their own routes and refresh this model afterwards.
@@ -58,7 +57,6 @@ export function TenantOperationsPage() {
         refresh={refresh}
       />
       <GrowthPanel growth={data().growth} degraded={data().degraded.includes('growth')} />
-      <AgentPanel slug={params().slug} />
     </>}</Show>
   </section>
 }

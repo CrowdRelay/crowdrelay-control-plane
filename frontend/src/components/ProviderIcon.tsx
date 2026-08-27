@@ -65,6 +65,16 @@ function AnthropicIcon(props: IconProps) {
   )
 }
 
+// xAI (Grok) — the official x.ai "X" mark in xAI black.
+function XaiIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
+      <path d="M5.3 4.5h3.4l4.6 6.6 4.8-6.6h2.6l-6.2 8.4L21 19.5h-3.4l-4.9-7L7.7 19.5H5l6.7-9z"/>
+    </svg>
+  )
+}
+
 // OpenRouter — a router/network node icon in OpenRouter blue.
 function OpenRouterIcon(props: IconProps) {
   const s = props.size ?? 20
@@ -205,6 +215,7 @@ const LLM_PROVIDER_ICONS: Record<string, (props: IconProps) => JSX.Element> = {
   'openai': OpenAIIcon,
   'anthropic': AnthropicIcon,
   'openrouter': OpenRouterIcon,
+  'xai': XaiIcon,
 }
 
 const NOTIFIER_ICONS: Record<string, (props: IconProps) => JSX.Element> = {

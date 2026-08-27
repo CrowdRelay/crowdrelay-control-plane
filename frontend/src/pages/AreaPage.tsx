@@ -2,7 +2,7 @@ import { For, Show, createEffect, createMemo, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { ApiError, api } from '../lib/api'
-import { refreshInterval } from '../lib/refresh'
+import { refreshTick } from '../lib/refresh'
 import type { AreaCity, AreaDropDraft, AreaStatus, AreaValidationResult } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { LocationCanvas } from '../components/area/LocationCanvas'
@@ -33,8 +33,8 @@ export function AreaPage() {
   const params = useParams({ from: '/tenants/$slug/area' })
   const slug = () => params().slug
   const queryClient = useQueryClient()
-  const overview = useQuery(() => ({ queryKey: ['area-overview', slug()], queryFn: () => api.areaOverview(slug()), refetchInterval: refreshInterval() || false, refetchOnWindowFocus: false, reconcile: 'id' }))
-  const drops = useQuery(() => ({ queryKey: ['area-drops', slug()], queryFn: () => api.areaDrops(slug()), refetchInterval: refreshInterval() || false, refetchOnWindowFocus: false, reconcile: 'id' }))
+  const overview = useQuery(() => ({ queryKey: ['area-overview', slug(), refreshTick()], queryFn: () => api.areaOverview(slug()), refetchOnWindowFocus: false, reconcile: 'id' }))
+  const drops = useQuery(() => ({ queryKey: ['area-drops', slug(), refreshTick()], queryFn: () => api.areaDrops(slug()), refetchOnWindowFocus: false, reconcile: 'id' }))
   const tenant = useQuery(() => ({ queryKey: ['tenant', slug()], queryFn: () => api.tenant(slug()) }))
   const [selectedId, setSelectedId] = createSignal<string | null>(null)
   const [creating, setCreating] = createSignal(false)

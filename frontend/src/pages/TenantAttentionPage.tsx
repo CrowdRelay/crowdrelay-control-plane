@@ -8,7 +8,8 @@ import { formatTimestamp as observed } from '../lib/format'
 import type { DeliveryDetails, OperationsSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
-import { refreshInterval } from '../lib/refresh'
+import { SignalOverviewPanel } from '../components/SignalOverviewPanel'
+import { refreshTick } from '../lib/refresh'
 
 const totalDead = (summary: OperationsSummary) => summary.outbox.dead + summary.deliveries.dead + summary.push.dead
 const staleAreaReservations = (summary: OperationsSummary) => summary.area.stale_voucher_reservations + summary.area.stale_ticket_reward_reservations
@@ -17,11 +18,11 @@ const shortId = (value: string) => value.length > 16 ? `${value.slice(0, 8)}…$
 export function TenantAttentionPage() {
   const params = useParams({ from: '/tenants/$slug/attention' })
   const attention = useQuery(() => ({
-    queryKey: ['tenant-operator-attention-snapshot', params().slug],
+    queryKey: ['tenant-operator-attention-snapshot', params().slug, refreshTick()],
     queryFn: () => fetchOperationsAttention(params().slug),
     reconcile: 'id',
-    refetchInterval: refreshInterval() || false,
     refetchOnWindowFocus: false,
+    refetchInterval: 30_000,
     staleTime: 20_000,
   }))
 
@@ -39,6 +40,11 @@ export function TenantAttentionPage() {
   }
   const deadDeliveries = {
     get data() { return attention.data?.dead_deliveries },
+    get error() { return attention.error },
+    get isLoading() { return attention.isLoading },
+  }
+  const deadPush = {
+    get data() { return attention.data?.dead_push },
     get error() { return attention.error },
     get isLoading() { return attention.isLoading },
   }
@@ -113,6 +119,20 @@ export function TenantAttentionPage() {
     }
   }
 
+  const retryPush = async (id: string) => {
+    if (busy()) return
+    setBusy(`push:${id}`)
+    try {
+      await api.retryPush(params().slug, id)
+      toast.success(`Push ${shortId(id)} is back in the queue.`)
+      await refreshMaintenance()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Push retry failed')
+    } finally {
+      setBusy('')
+    }
+  }
+
   const loadDeliveryDetails = async (id: string) => {
     if (busy()) return
     setBusy(`details:${id}`)
@@ -164,7 +184,7 @@ export function TenantAttentionPage() {
       <div>
         <span class="eyebrow">TENANT / {params().slug.toUpperCase()}</span>
         <h1>Operator Attention</h1>
-        <p>Incidents, observability and bounded maintenance for this tenant. One consolidated snapshot refreshes every 30 seconds; details and timelines stay on demand.</p>
+        <p>Incidents, observability and bounded maintenance. One snapshot, on-demand details.</p>
       </div>
       <Show when={summary.data} fallback={<StatusBadge status={summary.error ? 'unavailable' : 'loading'} tone={summary.error ? 'bad' : 'muted'} />}>
         {data => <StatusBadge
@@ -174,6 +194,7 @@ export function TenantAttentionPage() {
       </Show>
     </div>
 
+    {/* Critical watchdog alerts are rendered by WatchdogAlertsPanel */}
     <WatchdogAlertsPanel alerts={attention.data?.alerts ?? []} slug={params().slug} />
 
     <Show when={summary.error}>
@@ -184,7 +205,11 @@ export function TenantAttentionPage() {
       <Show when={totalDead(data()) > 0 || data().watchdog.critical_alerts > 0 || staleAreaReservations(data()) > 0}>
         <div class="operations-attention" role="alert">
           <strong>Operator attention required</strong>
-          <span>{totalDead(data())} dead queue item(s) · {data().watchdog.critical_alerts} Critical watchdog alert(s) · {staleAreaReservations(data())} stale AREA reservation(s)</span>
+          <div class="attention-items">
+            <Show when={totalDead(data()) > 0}><span>{totalDead(data())} dead queue item(s)</span></Show>
+            <Show when={data().watchdog.critical_alerts > 0}><span>{data().watchdog.critical_alerts} critical watchdog alert(s)</span></Show>
+            <Show when={staleAreaReservations(data()) > 0}><span>{staleAreaReservations(data())} stale AREA reservation(s)</span></Show>
+          </div>
         </div>
       </Show>
 
@@ -194,7 +219,7 @@ export function TenantAttentionPage() {
         <div>
           <span class="eyebrow">RECONCILIATION</span>
           <h3>Ecosystem reconciliation</h3>
-          <p>Canonical consistency pass across tenant operational state — verifies feature flags, Bandsintown sync, ecosystem overview, and open findings against the source of truth. Run it first, then work through what it finds.</p>
+          <p>Consistency pass across feature flags, Bandsintown sync, and open findings. Run it first, then work through what it finds.</p>
         </div>
         <button class={confirmingReconcile() ? 'reconciliation-confirm' : 'ghost'} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Confirm reconciliation' : 'Run reconciliation'}</button>
       </div>
@@ -225,8 +250,10 @@ export function TenantAttentionPage() {
       </div>
     </>}</Show>
 
+    <SignalOverviewPanel slug={params().slug} />
+
     <div class="section-title" id="dead-outbox">
-      <div><span class="eyebrow">DEAD OUTBOX</span><h3>Failed events</h3><p>Bounded to the 50 newest dead events. Retry is idempotent and uses the canonical CrowdRelay operator action.</p></div>
+      <div><span class="eyebrow">DEAD OUTBOX</span><h3>Failed events</h3><p>50 newest dead events. Retry is idempotent.</p></div>
     </div>
     <Show when={deadOutbox.error}><div class="error-card">Dead outbox unavailable</div></Show>
     <For each={deadOutbox.data ?? []}>{item => <div class="warning-card">
@@ -235,7 +262,7 @@ export function TenantAttentionPage() {
     <Show when={!deadOutbox.isLoading && (deadOutbox.data?.length ?? 0) === 0}><div class="inherit-card"><p>No dead outbox events.</p></div></Show>
 
     <div class="section-title" id="dead-deliveries">
-      <div><span class="eyebrow">DEAD WEBHOOK DELIVERIES</span><h3>Delivery failures</h3><p>Open details to inspect bounded attempt history before retrying.</p></div>
+      <div><span class="eyebrow">DEAD WEBHOOK DELIVERIES</span><h3>Delivery failures</h3><p>Inspect attempt history before retrying.</p></div>
       <button type="button" class={confirming() ? 'danger-ghost' : 'ghost'} disabled={(summary.data?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</button>
     </div>
     <Show when={deadDeliveries.error}><div class="error-card">Dead deliveries unavailable</div></Show>
@@ -251,12 +278,16 @@ export function TenantAttentionPage() {
     </div>}</Show>
 
     <div class="section-title" id="dead-push">
-      <div><span class="eyebrow">Dead push</span><h3>Failed push deliveries</h3></div>
+      <div><span class="eyebrow">DEAD PUSH</span><h3>Failed push deliveries</h3><p>Retry is idempotent.</p></div>
       <StatusBadge status={(summary.data?.push.dead ?? 0) > 0 ? 'dead' : 'clean'} tone={(summary.data?.push.dead ?? 0) > 0 ? 'bad' : 'good'} />
     </div>
-    <Show when={(summary.data?.push.dead ?? 0) === 0}><div class="inherit-card"><p>No dead push deliveries.</p></div></Show>
+    <Show when={deadPush.error}><div class="error-card">Dead push unavailable</div></Show>
+    <For each={deadPush.data ?? []}>{item => <div class="warning-card">
+      <div class="section-title"><div><strong>{item.title}</strong><small class="mono">{item.id}</small><p>{item.error_code ?? 'unknown error'} · attempts {item.attempt_count} · {item.source_kind}</p></div><button class="ghost" disabled={!!busy()} onClick={() => void retryPush(item.id)}>{busy() === `push:${item.id}` ? 'Retrying…' : 'Retry'}</button></div>
+    </div>}</For>
+    <Show when={!deadPush.isLoading && (deadPush.data?.length ?? 0) === 0}><div class="inherit-card"><p>No dead push deliveries.</p></div></Show>
 
-    <div class="section-title"><div><span class="eyebrow">REQUEST TIMELINE</span><h3>Correlation trace</h3><p>Metadata-only timeline across audit, outbox, webhook delivery and operator actions. Payloads and secrets never leave CrowdRelay.</p></div></div>
+    <div class="section-title"><div><span class="eyebrow">REQUEST TIMELINE</span><h3>Correlation trace</h3><p>Metadata-only trace across audit, outbox, delivery and operator actions.</p></div></div>
     <div class="provision-row">
       <input class="mono" value={timelineInput()} onInput={(event) => setTimelineInput(event.currentTarget.value)} placeholder="request / correlation id" />
       <button class="ghost" disabled={!timelineInput().trim() || !!busy()} onClick={() => void lookupTimeline()}>{busy() === 'timeline' ? 'Tracing…' : 'Trace request'}</button>

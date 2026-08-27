@@ -212,7 +212,10 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
             matches!(
                 path,
                 "/v1/control-plane/ops/summary"
+                    | "/v1/control-plane/ops/signal-overview"
                     | "/v1/control-plane/ops/attention"
+                    | "/v1/control-plane/ops/outbox"
+                    | "/v1/control-plane/ops/deliveries"
                     | "/v1/control-plane/ecosystem/flags"
                     | "/v1/control-plane/autopilot/overview"
                     | "/v1/control-plane/autopilot/growth"
@@ -224,7 +227,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/tenant-settings"
                     | "/v1/control-plane/fanbases"
                     | "/v1/control-plane/webhook-endpoints"
-            ) || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "")
+            ) || path.starts_with("/v1/control-plane/ops/outbox?")
+                || path.starts_with("/v1/control-plane/ops/deliveries?")
+                || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "")
                 || timeline_segment(path)
         }
         "POST" => {
@@ -234,6 +239,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/ecosystem/reconcile"
             ) || uuid_segment_between(path, "/v1/control-plane/ops/outbox/", "/retry")
                 || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "/retry")
+                || uuid_segment_between(path, "/v1/control-plane/ops/push/", "/retry")
                 || one_safe_segment(path, "/v1/control-plane/ecosystem/flags/")
                 || one_safe_segment(path, "/v1/control-plane/autopilot/policies/")
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/actions/", "/approve")
@@ -251,6 +257,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || path == "/v1/control-plane/fanbases"
                 || uuid_segment_between(path, "/v1/control-plane/fanbases/", "/ingest")
         }
+        "DELETE" => uuid_segment_between(path, "/v1/control-plane/fanbases/", ""),
         _ => false,
     }
 }
@@ -358,7 +365,7 @@ fn validate_management_target(value: &str) -> Result<Url, ApiError> {
         ));
     }
     let private = match parsed.host() {
-        Some(Host::Domain(name)) => name.eq_ignore_ascii_case("localhost"),
+        Some(Host::Domain(name)) => is_private_dns_name(name),
         Some(Host::Ipv4(ip)) => private_v4(ip),
         Some(Host::Ipv6(ip)) => private_v6(ip),
         None => false,
@@ -377,6 +384,20 @@ fn private_v4(ip: Ipv4Addr) -> bool {
 
 fn private_v6(ip: Ipv6Addr) -> bool {
     ip.is_loopback() || (ip.segments()[0] & 0xfe00) == 0xfc00
+}
+
+/// Accept `localhost` plus Docker-internal hostnames that resolve to private
+/// addresses. Docker service names like `area-management-proxy` are inherently
+/// private — they only resolve inside a Docker network and never route to a
+/// public IP.
+fn is_private_dns_name(name: &str) -> bool {
+    name.eq_ignore_ascii_case("localhost")
+        || name.eq_ignore_ascii_case("host.docker.internal")
+        || name.contains('-')
+            && !name.contains('.')
+            && name
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }
 
 fn format_host_port(host: &str, port: u16) -> String {
@@ -667,9 +688,19 @@ mod tests {
             "POST",
             &format!("/v1/control-plane/ops/deliveries/{id}/retry")
         ));
+        // Query-string list endpoints are now valid for paginated browsing.
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/ops/outbox?status=pending&limit=50"
+        ));
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/ops/deliveries?limit=25"
+        ));
+        // But arbitrary query paths on other endpoints are still rejected.
         assert!(!valid_operations_request(
             "GET",
-            "/v1/control-plane/ops/outbox?status=pending&limit=500"
+            "/v1/control-plane/ops/summary?foo=bar"
         ));
         assert!(!valid_operations_request("GET", "/v1/admin/ops/summary"));
         assert!(!valid_operations_request(

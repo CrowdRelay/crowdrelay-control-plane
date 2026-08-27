@@ -1,13 +1,11 @@
-import { createSignal } from 'solid-js'
+import { createSignal, onCleanup } from 'solid-js'
 
 // Global refresh control — Grafana-style. One interval selector in the topbar
 // drives every query on the page. 0 = manual only (no auto-refresh).
 //
-// `tick` increments on every interval fire and on manual refresh, so queries
-// can use it as a dependency to trigger refetch without per-query polling.
-//
-// `refetchInterval` returns the ms value for TanStack Query's refetchInterval,
-// or `false` when auto-refresh is off.
+// A single timer here fires `triggerRefresh()` on the chosen interval. Every
+// query depends on `refreshTick` as part of its query key, so one tick refetches
+// all queries in lockstep — no per-query timer drift, no independent polling.
 
 export const REFRESH_INTERVALS: readonly { label: string; ms: number }[] = [
   { label: 'Off', ms: 0 },
@@ -22,15 +20,45 @@ export const REFRESH_INTERVALS: readonly { label: string; ms: number }[] = [
 const DEFAULT_MS = 0
 
 const [intervalMs, setIntervalMs] = createSignal(DEFAULT_MS)
-const [manualTick, setManualTick] = createSignal(0)
+const [tick, setTick] = createSignal(0)
 
 export { setIntervalMs as setRefreshInterval }
 
 export const refreshInterval = intervalMs
 
-export const refreshTick = manualTick
+/** Monotonic tick — increment on every interval fire and on manual refresh.
+ * Include in query keys so a tick change triggers refetch. */
+export const refreshTick = tick
 
 /** Trigger a global refetch — increments the tick signal. */
 export function triggerRefresh() {
-  setManualTick(t => t + 1)
+  setTick(t => t + 1)
+}
+
+// Single global timer. Started once, lives for app lifetime. When interval is
+// 0 (Off) the timer is cleared and no ticking happens.
+let timerId: ReturnType<typeof setInterval> | null = null
+
+function clearTimer() {
+  if (timerId !== null) {
+    clearInterval(timerId)
+    timerId = null
+  }
+}
+
+function applyInterval(ms: number) {
+  clearTimer()
+  if (ms > 0) {
+    timerId = setInterval(() => triggerRefresh(), ms)
+  }
+}
+
+// Reactively apply interval changes. This runs once at module load and again
+// whenever setRefreshInterval is called.
+import { createEffect } from 'solid-js'
+createEffect(() => applyInterval(intervalMs()))
+
+// Clean up on HMR / page unload
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', clearTimer)
 }

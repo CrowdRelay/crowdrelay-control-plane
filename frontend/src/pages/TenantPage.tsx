@@ -2,7 +2,7 @@ import { For, Show, createEffect, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
-import { refreshInterval } from '../lib/refresh'
+import { refreshTick } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import type { Palette, ProvisioningJob } from '../lib/types'
 import { ReleaseConvergencePanel } from '../components/ReleaseConvergencePanel'
@@ -39,7 +39,7 @@ export function TenantPage() {
   const params = useParams({ from: '/tenants/$slug' })
   const queryClient = useQueryClient()
   const model = useQuery(() => ({
-    queryKey: ['tenant-overview', params().slug],
+    queryKey: ['tenant-overview', params().slug, refreshTick()],
     queryFn: async () => {
       const [overview, operations] = await Promise.all([
         api.tenantOverview(params().slug),
@@ -48,7 +48,6 @@ export function TenantPage() {
       return { ...overview, releaseLedger: operations?.autopilot?.release_ledger ?? null }
     },
     reconcile: 'id',
-    refetchInterval: refreshInterval() || false,
     refetchOnWindowFocus: false,
   }))
   const tenant = { get data() { return model.data?.tenant }, get error() { return model.error } }

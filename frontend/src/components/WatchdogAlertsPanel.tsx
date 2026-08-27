@@ -80,7 +80,7 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
         {/* The counts on this page and on Operations come from these rows, so
             state the cadence: an operator who fixed the cause should not read a
             still-open alert as a second incident. */}
-        <p>Every alert is one condition the CrowdRelay watchdog evaluates every 5 minutes. An alert closes itself on the next cycle once its condition is false.</p>
+        <p>Evaluated every 5 minutes. An alert closes itself once its condition is false.</p>
       </div>
       <StatusBadge
         status={open().length === 0 ? 'clear' : `${open().length} open`}

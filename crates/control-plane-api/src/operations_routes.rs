@@ -6,7 +6,7 @@
 
 use axum::{
     Json, Router,
-    extract::{DefaultBodyLimit, Path, State},
+    extract::{DefaultBodyLimit, Path, Query, State},
     http::{HeaderMap, StatusCode, header::CACHE_CONTROL},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -26,8 +26,17 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/tenants/{slug}/operations/summary", get(summary))
         .route(
+            "/tenants/{slug}/operations/signal-overview",
+            get(signal_overview),
+        )
+        .route("/tenants/{slug}/operations/outbox", get(list_outbox))
+        .route(
             "/tenants/{slug}/operations/outbox/{event_id}/retry",
             post(retry_outbox),
+        )
+        .route(
+            "/tenants/{slug}/operations/deliveries",
+            get(list_deliveries),
         )
         .route(
             "/tenants/{slug}/operations/deliveries/{delivery_id}",
@@ -36,6 +45,10 @@ pub fn router() -> Router<AppState> {
         .route(
             "/tenants/{slug}/operations/deliveries/{delivery_id}/retry",
             post(retry_delivery),
+        )
+        .route(
+            "/tenants/{slug}/operations/push/{delivery_id}/retry",
+            post(retry_push),
         )
         .route(
             "/tenants/{slug}/operations/dead-deliveries/clear",
@@ -81,6 +94,10 @@ pub fn router() -> Router<AppState> {
         .route(
             "/tenants/{slug}/portfolio/fanbases",
             post(create_portfolio_fanbase),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/fanbases/{fanbase_id}",
+            axum::routing::delete(delete_portfolio_fanbase),
         )
         .route(
             "/tenants/{slug}/portfolio/fanbases/{fanbase_id}/ingest",
@@ -1023,4 +1040,146 @@ async fn discovered_notifier_endpoints(
     )
     .await?;
     object_no_store(value, "discovered notifier endpoints")
+}
+
+/// Signal app install metrics and top cities. Read-only proxy to CrowdRelay's
+/// signal overview read model.
+async fn signal_overview(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/ops/signal-overview",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "signal overview")
+}
+
+/// Paginated outbox list (all statuses). Read-only proxy.
+async fn list_outbox(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    Query(params): Query<ListQuery>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let path = build_list_path("/v1/control-plane/ops/outbox", &params);
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    array_no_store(value, "outbox list")
+}
+
+/// Paginated webhook delivery list (all statuses). Read-only proxy.
+async fn list_deliveries(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    Query(params): Query<ListQuery>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let path = build_list_path("/v1/control-plane/ops/deliveries", &params);
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    array_no_store(value, "deliveries list")
+}
+
+/// Retry a dead push delivery. The upstream handler owns the feature flag
+/// gate and the row-level transition.
+async fn retry_push(
+    State(state): State<AppState>,
+    Path((slug, delivery_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let delivery_id = uuid_segment(&delivery_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: &format!("/v1/control-plane/ops/push/{delivery_id}/retry"),
+                body: None,
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.dead_push.retried",
+        "push_delivery",
+        &delivery_id,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(result?, "push retry")
+}
+
+/// Delete a fanbase and its dependent rows. The upstream CASCADE handles
+/// ingestions and members; fans themselves stay (they belong to the workspace).
+async fn delete_portfolio_fanbase(
+    State(state): State<AppState>,
+    Path((slug, fanbase_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let fanbase_id = uuid_segment(&fanbase_id)?.to_owned();
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "DELETE",
+                path: &format!("/v1/control-plane/fanbases/{fanbase_id}"),
+                body: None,
+                correlation_id: correlation(&headers),
+                idempotency_key: None,
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.fanbase.deleted",
+        "fanbase",
+        &fanbase_id,
+        &headers,
+        &result,
+    )
+    .await;
+    // upstream returns 204 No Content on success
+    result?;
+    Ok(StatusCode::NO_CONTENT.into_response())
+}
+
+#[derive(Debug, Deserialize)]
+struct ListQuery {
+    limit: Option<u64>,
+    status: Option<String>,
+}
+
+fn build_list_path(base: &str, params: &ListQuery) -> String {
+    let mut query = Vec::new();
+    if let Some(limit) = params.limit {
+        query.push(format!("limit={limit}"));
+    }
+    if let Some(status) = &params.status {
+        if !status.is_empty() && safe_segment(status) {
+            query.push(format!("status={status}"));
+        }
+    }
+    if query.is_empty() {
+        base.to_owned()
+    } else {
+        format!("{base}?{}", query.join("&"))
+    }
 }

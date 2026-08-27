@@ -32,6 +32,7 @@ const healthLabel = (tenant: TenantSummary) => {
 // Tenant-scoped nav, grouped by system role. The groups reflect where each
 // section sits in the operator's mental model:
 //   Monitor — what's happening right now (dashboard, agent, incidents)
+//   AI Integrations — LLM providers and agent task delegation
 //   Audience — who you're reaching and how (roster, amplification, fanbases, AREA)
 //   Settings — how the tenant is wired (alert channels)
 type NavItem = { path: string; label: string; exact: boolean; icon: string }
@@ -44,6 +45,12 @@ const TENANT_NAV_GROUPS: NavGroup[] = [
       { path: '/tenants/$slug', label: 'Overview', exact: true, icon: 'overview' },
       { path: '/tenants/$slug/operations', label: 'Operations', exact: false, icon: 'operations' },
       { path: '/tenants/$slug/attention', label: 'Attention', exact: false, icon: 'attention' },
+    ],
+  },
+  {
+    label: 'AI Integrations',
+    items: [
+      { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
     ],
   },
   {
@@ -70,6 +77,7 @@ function NavIcon(props: { name: string }) {
     portfolio: <><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 9h18M9 9v12" fill="none" stroke="currentColor" stroke-width="2"/></>,
     notifiers: <><path d="M18 8a6 6 0 0 1-12 0M18 8a6 6 0 0 0-12 0M18 8v5a6 6 0 0 1-12 0V8M12 14v3M10 19h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></>,
     area: <><circle cx="12" cy="10" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></>,
+    integrations: <><path d="M12 3a4 4 0 0 0-4 4v.5A3.5 3.5 0 0 0 5 11a3.5 3.5 0 0 0 2 3.2V15a4 4 0 0 0 5 3.9A4 4 0 0 0 17 15v-.8A3.5 3.5 0 0 0 19 11a3.5 3.5 0 0 0-3-3.5V7a4 4 0 0 0-4-4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 7v10M9.5 9.5l2.5 2 2.5-2M9.5 14.5l2.5-2 2.5 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></>,
   }
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="nav-icon" aria-hidden="true">{icons[props.name] ?? icons.overview}</svg>
 }

@@ -17,11 +17,7 @@ use crate::{AppState, error::ApiError};
 
 /// Percent-encode a key=value pair for use in a query string.
 fn encode_query_pair(k: &str, v: &str) -> String {
-    format!(
-        "{}={}",
-        percent_encode(k),
-        percent_encode(v)
-    )
+    format!("{}={}", percent_encode(k), percent_encode(v))
 }
 
 fn percent_encode(s: &str) -> String {
@@ -393,11 +389,21 @@ async fn oauth_google_callback(
     let body: Value = response.json().await.unwrap_or(Value::Null);
 
     let (title, message, color) = if success
-        && body.get("success").and_then(Value::as_bool).unwrap_or(false)
+        && body
+            .get("success")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
     {
-        ("Google connected", "Your Google account is now linked.", "#16a34a")
+        (
+            "Google connected",
+            "Your Google account is now linked.",
+            "#16a34a",
+        )
     } else {
-        let error = body.get("error").and_then(Value::as_str).unwrap_or("OAuth failed");
+        let error = body
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or("OAuth failed");
         ("Connection failed", error, "#dc2626")
     };
 
