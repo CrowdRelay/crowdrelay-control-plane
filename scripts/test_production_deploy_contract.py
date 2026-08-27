@@ -26,7 +26,7 @@ class ProductionDeployContract(unittest.TestCase):
         self.assertIn('production deploy must run from main', text)
         self.assertIn('origin/main mismatch', text)
         self.assertIn('CONTROL_PLANE_IMAGE_DIGEST', text)
-        self.assertIn('ghcr.io/wojciechbator/crowdrelay-control-plane', text)
+        self.assertIn('ghcr.io/crowdrelay/crowdrelay-control-plane', text)
         self.assertIn('docker pull "$registry_ref"', text)
         self.assertIn('remote OCI revision mismatch', text)
         self.assertIn('remote image architecture mismatch', text)

@@ -24,8 +24,8 @@ TAG = f"sha-{SHA}"
 API_DIGEST = "sha256:" + "a" * 64
 WORKER_DIGEST = "sha256:" + "b" * 64
 PINNED = {
-    "api": f"ghcr.io/wojciechbator/crowdrelay-api@{API_DIGEST}",
-    "worker": f"ghcr.io/wojciechbator/crowdrelay-worker@{WORKER_DIGEST}",
+    "api": f"ghcr.io/crowdrelay/crowdrelay-api@{API_DIGEST}",
+    "worker": f"ghcr.io/crowdrelay/crowdrelay-worker@{WORKER_DIGEST}",
 }
 
 
@@ -57,8 +57,8 @@ def valid_job(slug: str = "acme") -> dict:
                 "danger": "#ef4444",
             },
             "desiredVersion": TAG,
-            "apiImage": f"ghcr.io/wojciechbator/crowdrelay-api:{TAG}",
-            "workerImage": f"ghcr.io/wojciechbator/crowdrelay-worker:{TAG}",
+            "apiImage": f"ghcr.io/crowdrelay/crowdrelay-api:{TAG}",
+            "workerImage": f"ghcr.io/crowdrelay/crowdrelay-worker:{TAG}",
         },
     }
 
@@ -107,14 +107,14 @@ class ProvisionerContractTests(unittest.TestCase):
         cases.append(job)
         job = valid_job()
         job["plan"]["desiredVersion"] = "latest"
-        job["plan"]["apiImage"] = "ghcr.io/wojciechbator/crowdrelay-api:latest"
-        job["plan"]["workerImage"] = "ghcr.io/wojciechbator/crowdrelay-worker:latest"
+        job["plan"]["apiImage"] = "ghcr.io/crowdrelay/crowdrelay-api:latest"
+        job["plan"]["workerImage"] = "ghcr.io/crowdrelay/crowdrelay-worker:latest"
         cases.append(job)
         job = valid_job()
-        job["plan"]["apiImage"] = f"ghcr.io/wojciechbator/crowdrelay-api:sha-{'f' * 40}"
+        job["plan"]["apiImage"] = f"ghcr.io/crowdrelay/crowdrelay-api:sha-{'f' * 40}"
         cases.append(job)
         job = valid_job()
-        job["plan"]["apiImage"] = f"ghcr.io/wojciechbator/../crowdrelay-api:{TAG}"
+        job["plan"]["apiImage"] = f"ghcr.io/crowdrelay/../crowdrelay-api:{TAG}"
         cases.append(job)
         job = valid_job()
         job["plan"]["publicSiteBaseUrl"] = "http://acme.example"
@@ -201,8 +201,8 @@ class ProvisionerContractTests(unittest.TestCase):
             upgraded = valid_job()["plan"].copy()
             new_sha = "fedcba9876543210fedcba9876543210fedcba98"
             upgraded["desiredVersion"] = f"sha-{new_sha}"
-            upgraded["apiImage"] = f"ghcr.io/wojciechbator/crowdrelay-api:sha-{new_sha}"
-            upgraded["workerImage"] = f"ghcr.io/wojciechbator/crowdrelay-worker:sha-{new_sha}"
+            upgraded["apiImage"] = f"ghcr.io/crowdrelay/crowdrelay-api:sha-{new_sha}"
+            upgraded["workerImage"] = f"ghcr.io/crowdrelay/crowdrelay-worker:sha-{new_sha}"
             upgraded["displayName"] = "ACME Artist Updated"
             upgraded["publicSiteBaseUrl"] = "https://new.acme.example"
             upgraded["allowedOrigins"] = ["https://new.acme.example"]
@@ -323,17 +323,17 @@ class ProvisionerContractTests(unittest.TestCase):
 
     def test_image_reference_is_pinned_to_a_verified_digest(self):
         config = DummyConfig(Path(tempfile.mkdtemp()))
-        image = f"ghcr.io/wojciechbator/crowdrelay-api:{TAG}"
+        image = f"ghcr.io/crowdrelay/crowdrelay-api:{TAG}"
         inspected = {
             "Config": {"Labels": {"org.opencontainers.image.revision": SHA}},
-            "RepoDigests": [f"ghcr.io/wojciechbator/crowdrelay-api@{API_DIGEST}"],
+            "RepoDigests": [f"ghcr.io/crowdrelay/crowdrelay-api@{API_DIGEST}"],
         }
         with (
             mock.patch.object(provisioner, "docker_cmd") as docker,
             mock.patch.object(provisioner, "inspect_image", return_value=inspected),
         ):
             resolved = provisioner.pinned_image_reference(config, image, SHA)
-        self.assertEqual(resolved, f"ghcr.io/wojciechbator/crowdrelay-api@{API_DIGEST}")
+        self.assertEqual(resolved, f"ghcr.io/crowdrelay/crowdrelay-api@{API_DIGEST}")
         self.assertEqual(docker.call_args.args[1], "pull")
 
     def test_image_built_from_another_revision_is_rejected(self):
@@ -347,7 +347,7 @@ class ProvisionerContractTests(unittest.TestCase):
         ):
             inspected = {
                 "Config": {"Labels": labels},
-                "RepoDigests": [f"ghcr.io/wojciechbator/crowdrelay-api@{API_DIGEST}"],
+                "RepoDigests": [f"ghcr.io/crowdrelay/crowdrelay-api@{API_DIGEST}"],
             }
             with (
                 mock.patch.object(provisioner, "docker_cmd"),
@@ -355,7 +355,7 @@ class ProvisionerContractTests(unittest.TestCase):
                 self.assertRaises(provisioner.ProvisionError) as caught,
             ):
                 provisioner.pinned_image_reference(
-                    config, f"ghcr.io/wojciechbator/crowdrelay-api:{TAG}", SHA
+                    config, f"ghcr.io/crowdrelay/crowdrelay-api:{TAG}", SHA
                 )
             self.assertIn("image_revision", caught.exception.code)
 
@@ -371,7 +371,7 @@ class ProvisionerContractTests(unittest.TestCase):
                 deployment,
                 TAG,
                 "apiImageDigest",
-                "ghcr.io/wojciechbator/crowdrelay-api@sha256:" + "c" * 64,
+                "ghcr.io/crowdrelay/crowdrelay-api@sha256:" + "c" * 64,
             )
         self.assertEqual(caught.exception.code, "image_digest_changed")
 

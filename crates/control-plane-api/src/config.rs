@@ -148,12 +148,12 @@ impl Config {
         let provisioner_api_image = validate_image_repository(
             "CONTROL_PLANE_PROVISIONER_API_IMAGE",
             &env::var("CONTROL_PLANE_PROVISIONER_API_IMAGE")
-                .unwrap_or_else(|_| "ghcr.io/wojciechbator/crowdrelay-api".to_owned()),
+                .unwrap_or_else(|_| "ghcr.io/crowdrelay/crowdrelay-api".to_owned()),
         )?;
         let provisioner_worker_image = validate_image_repository(
             "CONTROL_PLANE_PROVISIONER_WORKER_IMAGE",
             &env::var("CONTROL_PLANE_PROVISIONER_WORKER_IMAGE")
-                .unwrap_or_else(|_| "ghcr.io/wojciechbator/crowdrelay-worker".to_owned()),
+                .unwrap_or_else(|_| "ghcr.io/crowdrelay/crowdrelay-worker".to_owned()),
         )?;
         let provisioner_lease_seconds = optional_env("CONTROL_PLANE_PROVISIONER_LEASE_SECONDS")?
             .map(|value| value.parse::<i64>())
