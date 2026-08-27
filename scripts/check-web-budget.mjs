@@ -18,9 +18,13 @@ if (maps.length) throw new Error(`source maps must not ship: ${maps.join(', ')}`
 // from 320 KiB for the consolidated portfolio read model + fan sources panel
 // (section degrades, StatusBadge states, revoke-reason gating), and again
 // from 324 KiB for the notifiers page rewrite (per-section skeletons, panel
-// wrappers for background consistency, empty states). Reviewed alongside the
-// feature; not a reflex for accidental growth.
-const JS_BUDGET = 325 * 1024
+// wrappers for background consistency, empty states). Raised 2026-08-27 from
+// 325 KiB for the agent scorecard panel (status, week summary, track record,
+// by-context breakdown, recent results with outcomes), and again from 335 KiB
+// for provider SVG icons (Discord, Gmail, Meta, Bandsintown, Google, Reddit,
+// webhook, CSV, HTTP, manual), audit panel expander, growth panel action
+// guidance, opportunity board decision guide, and portfolio empty states.
+const JS_BUDGET = 353 * 1024
 const CSS_BUDGET = 80 * 1024
 if (js > JS_BUDGET) throw new Error(`JS budget exceeded: ${js} > ${JS_BUDGET}`)
 if (css > CSS_BUDGET) throw new Error(`CSS budget exceeded: ${css} > ${CSS_BUDGET}`)

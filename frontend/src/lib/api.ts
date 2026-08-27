@@ -1,4 +1,4 @@
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, DeliveryDetails, DiscoveredEndpoint, FeatureFlag, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, Palette, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, RetryResult, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AgentScorecard, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, DeliveryDetails, DiscoveredEndpoint, FeatureFlag, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, Palette, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, RetryResult, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
@@ -86,6 +86,7 @@ export const api = {
   // orchestrates a fan-out to assemble a screen.
   tenantOverview: (slug: string) => request<TenantOverviewReadModel>(`/tenants/${encodeURIComponent(slug)}/overview`),
   tenantOperations: (slug: string) => request<TenantOperationsReadModel>(`/tenants/${encodeURIComponent(slug)}/operations/overview`),
+  agentScorecard: (slug: string) => request<AgentScorecard>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/scorecard`),
   tenant: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}`),
   tenantRuntime: (slug: string) => request<TenantRuntimeSnapshot>(`/tenants/${encodeURIComponent(slug)}/runtime`),
   createTenant: (input: CreateTenantInput) =>

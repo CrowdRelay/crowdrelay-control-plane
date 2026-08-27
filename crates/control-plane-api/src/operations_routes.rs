@@ -60,6 +60,10 @@ pub fn router() -> Router<AppState> {
             post(bulk_autopilot),
         )
         .route("/tenants/{slug}/operations/growth", get(autopilot_growth))
+        .route(
+            "/tenants/{slug}/operations/autopilot/scorecard",
+            get(autopilot_scorecard),
+        )
         // Portfolio reads live in read_models::portfolio as one consolidated
         // model; only the mutations are routed here.
         .route(
@@ -531,6 +535,26 @@ async fn autopilot_growth(
     )
     .await?;
     object_no_store(value, "autopilot growth")
+}
+
+/// Agent scorecard: is it running, what did it do, did it work.
+/// Read-only proxy to CrowdRelay's scorecard read model.
+async fn autopilot_scorecard(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/scorecard",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "autopilot scorecard")
 }
 
 #[derive(Debug, Deserialize)]

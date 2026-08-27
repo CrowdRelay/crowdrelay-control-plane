@@ -140,7 +140,11 @@ export function PortfolioPanel(props: {
         </tbody>
       </table>
     </Show>
-    <Show when={!edges().length}><p class="muted">No consent edges yet — propose one between two roster workspaces to start routing audiences.</p></Show>
+    <Show when={!edges().length}><div class="inherit-card portfolio-empty">
+      <p><strong>No amplification edges yet.</strong></p>
+      <p>An amplification edge routes one artist's release or show in front of another artist's consenting fans. To create one, both artists need to be roster workspaces in this tenant. Once created, the edge appears here as "proposed" — approve it to start routing.</p>
+      <p class="muted">Edges are created from the artist workspace pages, not from here. This panel is where you approve, pause, or revoke them.</p>
+    </div></Show>
     <Show when={errorText()}><div class="error-card" role="alert">{errorText()}</div></Show>
   </article>
 }

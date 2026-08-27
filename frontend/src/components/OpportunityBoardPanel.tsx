@@ -118,6 +118,12 @@ export function OpportunityBoardPanel(props: {
         <div class="inherit-card"><p>The agent has nothing parked right now. Findings appear here the moment a detector raises them.</p></div>
       </Show>
       <Show when={data().length > 0}>
+        <div class="opportunity-guide">
+          <strong>How to decide</strong>
+          <p><strong>Do it</strong> — the agent found something with an executable step. Clicking approves it through CrowdRelay's normal action path. <strong>Done ourselves</strong> — you handled it outside the system (sent the message manually, made the call, etc.). This records a success and stops the agent from re-raising it. If you're unsure, leave it — the approval will expire on its own and the agent will re-evaluate next cycle.</p>
+        </div>
+      </Show>
+      <Show when={data().length > 0}>
         <div class="flag-list opportunity-list">
           <For each={data()}>{entry => (
             <div class="flag-row release-component-row opportunity-row">

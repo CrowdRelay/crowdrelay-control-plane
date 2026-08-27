@@ -2,11 +2,13 @@ import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
+import { toast } from '../lib/toast'
 import { fetchOperationsAttention } from '../lib/attention'
 import { formatTimestamp as observed } from '../lib/format'
 import type { DeliveryDetails, OperationsSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
+import { RefreshButton } from '../components/RefreshButton'
 
 const totalDead = (summary: OperationsSummary) => summary.outbox.dead + summary.deliveries.dead + summary.push.dead
 const staleAreaReservations = (summary: OperationsSummary) => summary.area.stale_voucher_reservations + summary.area.stale_ticket_reward_reservations
@@ -54,7 +56,6 @@ export function TenantAttentionPage() {
   const [confirming, setConfirming] = createSignal(false)
   const [confirmingReconcile, setConfirmingReconcile] = createSignal(false)
   const [busy, setBusy] = createSignal('')
-  const [message, setMessage] = createSignal<string | null>(null)
   const [deliveryDetails, setDeliveryDetails] = createSignal<DeliveryDetails | null>(null)
   const [timelineInput, setTimelineInput] = createSignal('')
   const [timeline, setTimeline] = createSignal<Awaited<ReturnType<typeof api.operationTimeline>> | null>(null)
@@ -67,18 +68,17 @@ export function TenantAttentionPage() {
     if (!summary.data || summary.data.deliveries.dead <= 0 || busy()) return
     if (!confirming()) {
       setConfirming(true)
-      setMessage('Click again to confirm marking these dead webhook deliveries as cancelled.')
+      toast.info('Click again to confirm marking dead webhook deliveries as cancelled.')
       return
     }
     setBusy('clear')
-    setMessage(null)
     try {
       const result = await api.clearDeadDeliveries(params().slug)
       setConfirming(false)
-      setMessage(`Cleanup complete: ${result.cleared} dead webhook delivery item(s) marked cancelled. Outbox and push queues are untouched.`)
+      toast.success(`Cleanup complete: ${result.cleared} dead delivery item(s) cancelled. Outbox and push queues untouched.`)
       await refreshMaintenance()
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Dead queue cleanup failed')
+      toast.error(error instanceof Error ? error.message : 'Dead queue cleanup failed')
     } finally {
       setBusy('')
     }
@@ -87,13 +87,12 @@ export function TenantAttentionPage() {
   const retryOutbox = async (id: string) => {
     if (busy()) return
     setBusy(`outbox:${id}`)
-    setMessage(null)
     try {
       await api.retryOutbox(params().slug, id)
-      setMessage(`Outbox ${shortId(id)} is back in the pending queue.`)
+      toast.success(`Outbox ${shortId(id)} is back in the pending queue.`)
       await refreshMaintenance()
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Outbox retry failed')
+      toast.error(error instanceof Error ? error.message : 'Outbox retry failed')
     } finally {
       setBusy('')
     }
@@ -102,14 +101,13 @@ export function TenantAttentionPage() {
   const retryDelivery = async (id: string) => {
     if (busy()) return
     setBusy(`delivery:${id}`)
-    setMessage(null)
     try {
       await api.retryDelivery(params().slug, id)
-      setMessage(`Delivery ${shortId(id)} is back in the pending queue.`)
+      toast.success(`Delivery ${shortId(id)} is back in the pending queue.`)
       setDeliveryDetails(null)
       await refreshMaintenance()
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Delivery retry failed')
+      toast.error(error instanceof Error ? error.message : 'Delivery retry failed')
     } finally {
       setBusy('')
     }
@@ -118,11 +116,10 @@ export function TenantAttentionPage() {
   const loadDeliveryDetails = async (id: string) => {
     if (busy()) return
     setBusy(`details:${id}`)
-    setMessage(null)
     try {
       setDeliveryDetails(await api.deliveryDetails(params().slug, id))
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Delivery details unavailable')
+      toast.error(error instanceof Error ? error.message : 'Delivery details unavailable')
     } finally {
       setBusy('')
     }
@@ -132,18 +129,17 @@ export function TenantAttentionPage() {
     if (busy()) return
     if (!confirmingReconcile()) {
       setConfirmingReconcile(true)
-      setMessage('Click again to run an audited reconciliation pass for this tenant.')
+      toast.info('Click again to run an audited reconciliation pass.')
       return
     }
     setBusy('reconcile')
-    setMessage(null)
     try {
       const result = await api.runReconciliation(params().slug)
       setConfirmingReconcile(false)
-      setMessage(`Reconciliation finished: ${result.findings.length} finding(s), status ${result.run.status}.`)
+      toast.success(`Reconciliation finished: ${result.findings.length} finding(s), status ${result.run.status}.`)
       await refreshMaintenance()
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Reconciliation failed')
+      toast.error(error instanceof Error ? error.message : 'Reconciliation failed')
     } finally {
       setBusy('')
     }
@@ -153,12 +149,11 @@ export function TenantAttentionPage() {
     const requestId = timelineInput().trim()
     if (!requestId || busy()) return
     setBusy('timeline')
-    setMessage(null)
     try {
       setTimeline(await api.operationTimeline(params().slug, requestId))
     } catch (error) {
       setTimeline(null)
-      setMessage(error instanceof Error ? error.message : 'Timeline unavailable')
+      toast.error(error instanceof Error ? error.message : 'Timeline unavailable')
     } finally {
       setBusy('')
     }
@@ -177,6 +172,7 @@ export function TenantAttentionPage() {
           tone={totalDead(data()) > 0 || data().watchdog.critical_alerts > 0 || staleAreaReservations(data()) > 0 ? 'bad' : data().watchdog.active_alerts > 0 ? 'warn' : 'good'}
         />}
       </Show>
+      <RefreshButton onClick={() => void attention.refetch()} loading={attention.isFetching} updatedAt={attention.dataUpdatedAt} />
     </div>
 
     <WatchdogAlertsPanel alerts={attention.data?.alerts ?? []} slug={params().slug} />
@@ -193,6 +189,25 @@ export function TenantAttentionPage() {
         </div>
       </Show>
 
+      {/* Reconciliation — the first action an operator should take. Run it to
+          get a fresh consistency pass, then work through the findings below. */}
+      <div class="section-title" id="reconciliation-findings">
+        <div>
+          <span class="eyebrow">RECONCILIATION</span>
+          <h3>Ecosystem reconciliation</h3>
+          <p>Canonical consistency pass across tenant operational state — verifies feature flags, Bandsintown sync, ecosystem overview, and open findings against the source of truth. Run it first, then work through what it finds.</p>
+        </div>
+        <button class={confirmingReconcile() ? 'reconciliation-confirm' : 'ghost'} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Confirm reconciliation' : 'Run reconciliation'}</button>
+      </div>
+      <Show when={ecosystem.data}><div class="operations-metrics">
+        <div><span>Open findings</span><strong>{ecosystem.data!.open_findings}</strong><small>reported by canonical overview</small></div>
+        <div><span>Last reconciliation</span><strong>{ecosystem.data!.last_reconciliation?.status ?? '—'}</strong><small>{observed(ecosystem.data!.last_reconciliation?.finished_at ?? null)}</small></div>
+        <div><span>Bandsintown failures</span><strong>{ecosystem.data!.bandsintown_sync?.consecutive_failures ?? 0}</strong><small>{ecosystem.data!.bandsintown_sync?.in_progress ? 'sync in progress' : 'idle'}</small></div>
+      </div></Show>
+      <For each={findings.data ?? []}>{finding => <div class={finding.severity === 'critical' ? 'error-card' : 'warning-card'}>
+        <div class="section-title"><div><strong>{finding.summary}</strong><small>{finding.severity} · {finding.kind} · {finding.entity_label ?? finding.entity_type}</small><Show when={finding.suggested_action}><p>{finding.suggested_action}</p></Show></div><StatusBadge status={finding.severity} tone={finding.severity === 'critical' ? 'bad' : finding.severity === 'warning' ? 'warn' : 'muted'} /></div>
+      </div>}</For>
+      <Show when={!findings.isLoading && (findings.data?.length ?? 0) === 0}><div class="inherit-card"><p>No open reconciliation findings.</p></div></Show>
 
       <div class="section-title"><div><span class="eyebrow">POSTGRES RUNTIME</span><h3>Database health</h3></div><StatusBadge status={data().database.async_io_active ? 'async I/O active' : 'check I/O'} tone={data().database.async_io_active ? 'good' : 'warn'} /></div>
       <div class="operations-metrics">
@@ -242,33 +257,11 @@ export function TenantAttentionPage() {
     </div>
     <Show when={(summary.data?.push.dead ?? 0) === 0}><div class="inherit-card"><p>No dead push deliveries.</p></div></Show>
 
-    <div class="section-title">
-      <div id="reconciliation-findings"><span class="eyebrow">RECONCILIATION</span><h3>Ecosystem findings</h3><p>Canonical consistency pass across tenant operational state. The consolidated attention snapshot refreshes every 30 seconds.</p></div>
-      <button class={confirmingReconcile() ? 'reconciliation-confirm' : 'ghost'} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Confirm reconciliation' : 'Run reconciliation'}</button>
-    </div>
-    <Show when={ecosystem.data}><div class="operations-metrics">
-      <div><span>Open findings</span><strong>{ecosystem.data!.open_findings}</strong><small>reported by canonical overview</small></div>
-      <div><span>Last reconciliation</span><strong>{ecosystem.data!.last_reconciliation?.status ?? '—'}</strong><small>{observed(ecosystem.data!.last_reconciliation?.finished_at ?? null)}</small></div>
-      <div><span>Bandsintown failures</span><strong>{ecosystem.data!.bandsintown_sync?.consecutive_failures ?? 0}</strong><small>{ecosystem.data!.bandsintown_sync?.in_progress ? 'sync in progress' : 'idle'}</small></div>
-    </div></Show>
-    <For each={findings.data ?? []}>{finding => <div class={finding.severity === 'critical' ? 'error-card' : 'warning-card'}>
-      <div class="section-title"><div><strong>{finding.summary}</strong><small>{finding.severity} · {finding.kind} · {finding.entity_label ?? finding.entity_type}</small><Show when={finding.suggested_action}><p>{finding.suggested_action}</p></Show></div><StatusBadge status={finding.severity} tone={finding.severity === 'critical' ? 'bad' : finding.severity === 'warning' ? 'warn' : 'muted'} /></div>
-    </div>}</For>
-    <Show when={!findings.isLoading && (findings.data?.length ?? 0) === 0}><div class="inherit-card"><p>No open reconciliation findings.</p></div></Show>
-
     <div class="section-title"><div><span class="eyebrow">REQUEST TIMELINE</span><h3>Correlation trace</h3><p>Metadata-only timeline across audit, outbox, webhook delivery and operator actions. Payloads and secrets never leave CrowdRelay.</p></div></div>
     <div class="provision-row">
       <input class="mono" value={timelineInput()} onInput={(event) => setTimelineInput(event.currentTarget.value)} placeholder="request / correlation id" />
       <button class="ghost" disabled={!timelineInput().trim() || !!busy()} onClick={() => void lookupTimeline()}>{busy() === 'timeline' ? 'Tracing…' : 'Trace request'}</button>
     </div>
     <Show when={timeline()}>{result => <div class="panel"><div class="section-title"><div><strong>{result().events.length} timeline event(s)</strong><small class="mono">{result().request_id}</small></div><button class="ghost" onClick={() => setTimeline(null)}>Close</button></div><For each={result().events}>{event => <div class="warning-card"><strong>{event.source} · {event.kind}</strong><p>{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'} · <span class="mono">{event.target_id ?? '—'}</span></p></div>}</For></div>}</Show>
-
-    <Show when={message()}>
-      {text => (
-        <div class="warning-card operator-message" role="status">
-          {text()}
-        </div>
-      )}
-    </Show>
   </section>
 }

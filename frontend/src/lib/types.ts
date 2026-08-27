@@ -572,3 +572,51 @@ export type TenantPortfolioReadModel = {
   // degraded instead of failing the whole subpage.
   degraded: TenantPortfolioSection[]
 }
+
+
+// Agent scorecard — is it running, what did it do, did it work.
+export type AgentScorecard = {
+  status: {
+    agent_enabled: boolean
+    dry_run: boolean
+    posture: string | null
+    live_capabilities: string[]
+    parked_capabilities: string[]
+    last_decision_at: string | null
+    last_action_at: string | null
+  }
+  week: {
+    executed: number
+    succeeded: number
+    failed: number
+    parked: number
+    awaiting_approval: number
+    success_rate_basis_points: number | null
+  }
+  track_record: {
+    improved: number
+    neutral: number
+    worsened: number
+    unmeasured: number
+    measurement_coverage_basis_points: number | null
+  }
+  by_context: Array<{
+    context: string
+    executed: number
+    succeeded: number
+    failed: number
+    parked: number
+  }>
+  recent_results: Array<{
+    context: string
+    action_kind: string
+    subject_kind: string
+    subject_id: string
+    status: string
+    outcome: string | null
+    metric_key: string | null
+    delta_basis_points: number | null
+    completed_at: string
+    executor_id: string | null
+  }>
+}

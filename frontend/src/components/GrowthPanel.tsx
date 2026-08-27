@@ -69,6 +69,26 @@ export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; 
   const totals = () => growth.data?.totals
   const outreach = () => growth.data?.outreach
 
+  // Actionable guidance: when something is wrong, tell the operator what to do
+  // instead of just showing a badge that says "stalled" or "disabled".
+  const needsAction = () => {
+    const t = totals()
+    if (!t) return null
+    if (t.stalled_campaigns > 0) return 'stalled'
+    if (!growth.data?.campaigns_enabled && t.scheduled_campaigns > 0) return 'disabled'
+    if (t.failed > 0) return 'failed'
+    return null
+  }
+
+  const actionGuidance = () => {
+    switch (needsAction()) {
+      case 'stalled': return 'Campaigns are queued with recipients snapshotted but no delivery worker is claiming them. Check that the n8n growth delivery workflows are imported, active, and pointed at this tenant. The campaigns will start draining automatically once a worker picks them up.'
+      case 'disabled': return 'Campaign delivery is switched off. Toggle the communication_campaigns_enabled switch in the Runtime switches section above to let n8n workers pick up the queue.'
+      case 'failed': return 'Some deliveries failed permanently. Open the Operator Attention page to inspect dead deliveries and retry them individually.'
+      default: return null
+    }
+  }
+
   return <article class="panel operations-panel">
     <div class="section-title operations-title">
       <div>
@@ -96,6 +116,14 @@ export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; 
           <div class="operations-attention">
             <strong>Campaign delivery is disabled</strong>
             <span>{data().totals.scheduled_campaigns} scheduled growth campaign(s) cannot be delivered while <code>communication_campaigns_enabled</code> is off.</span>
+          </div>
+        </Show>
+
+        {/* Actionable guidance — what to do when the badge is not "good". */}
+        <Show when={needsAction()}>
+          <div class="growth-action-guidance">
+            <strong>What to do</strong>
+            <p>{actionGuidance()}</p>
           </div>
         </Show>
 

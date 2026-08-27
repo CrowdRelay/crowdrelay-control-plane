@@ -5,6 +5,8 @@ import { api } from '../lib/api'
 import { OperationsPanel } from '../components/OperationsPanel'
 import { GrowthPanel } from '../components/GrowthPanel'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
+import { ScorecardPanel } from '../components/ScorecardPanel'
+import { RefreshButton } from '../components/RefreshButton'
 
 export function TenantOperationsPage() {
   const params = useParams({ from: '/tenants/$slug/operations' })
@@ -30,6 +32,7 @@ export function TenantOperationsPage() {
         <h1>Operations & Autopilot</h1>
         <p>Live CrowdRelay telemetry, runtime switches, Autopilot authority, the opportunity board and growth delivery. One consolidated snapshot refreshes every 15 seconds.</p>
       </div>
+      <RefreshButton onClick={() => refresh()} loading={model.isFetching} updatedAt={model.dataUpdatedAt} />
     </div>
     <Show when={model.error}>
       <div class="error-card" role="alert">{model.error instanceof Error ? model.error.message : 'Tenant operations channel unavailable'}</div>
@@ -38,6 +41,7 @@ export function TenantOperationsPage() {
         page, and a section the channel could not serve degrades on its own. */}
     <Show when={!model.error && model.isPending}><div class="skeleton-block"/></Show>
     <Show when={model.data}>{data => <>
+      <ScorecardPanel />
       <OpportunityBoardPanel
         slug={params().slug}
         opportunities={data().opportunities}

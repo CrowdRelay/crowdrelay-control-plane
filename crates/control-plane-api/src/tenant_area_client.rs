@@ -217,6 +217,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/overview"
                     | "/v1/control-plane/autopilot/growth"
                     | "/v1/control-plane/autopilot/next-best-actions"
+                    | "/v1/control-plane/autopilot/scorecard"
                     | "/v1/control-plane/portfolio/overview"
                     | "/v1/control-plane/portfolio/amplification"
                     | "/v1/control-plane/tenant-settings"

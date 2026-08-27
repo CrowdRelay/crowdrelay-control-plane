@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { PortfolioPanel } from '../components/PortfolioPanel'
 import { PortfolioSettingsPanel } from '../components/PortfolioSettingsPanel'
 import { FanSourcesPanel } from '../components/FanSourcesPanel'
+import { RefreshButton } from '../components/RefreshButton'
 import type { TenantPortfolioSection } from '../lib/types'
 
 const SECTION_LABEL: Record<TenantPortfolioSection, string> = {
@@ -53,6 +54,7 @@ export function PortfolioPage() {
         <h1>Label Portfolio</h1>
         <p>Roster-wide audience totals, the amplification edges routing one artist's release in front of another artist's consenting fans, and the fan sources feeding both. One consolidated snapshot refreshes every 15 seconds. Fans never leave their home workspace.</p>
       </div>
+      <RefreshButton onClick={() => refresh()} loading={model.isFetching} updatedAt={model.dataUpdatedAt} />
     </div>
     <Show when={model.error}>
       <div class="error-card" role="alert">{model.error instanceof Error ? model.error.message : 'Portfolio channel unavailable'}</div>

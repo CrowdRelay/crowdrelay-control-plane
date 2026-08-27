@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { FanbaseBlock } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
+import { FanbaseIcon } from './ProviderIcon'
 
 const SOURCE_KINDS = [
   { value: 'http_json_pull', label: 'HTTP JSON (pull)' },
@@ -152,7 +153,7 @@ export function FanSourcesPanel(props: {
           <For each={blocks()}>{fb => (
             <tr>
               <td>{fb.name}{fb.enabled ? '' : ' (off)'}</td>
-              <td>{SOURCE_LABEL[fb.source_kind] ?? fb.source_kind}</td>
+              <td><span class="fanbase-origin"><FanbaseIcon sourceKind={fb.source_kind} size={16} class="provider-icon" /> {SOURCE_LABEL[fb.source_kind] ?? fb.source_kind}</span></td>
               <td>{metric(fb.members)}</td>
               <td>
                 <Show when={fb.last_status} fallback={<span class="muted">never</span>}>
@@ -191,7 +192,11 @@ export function FanSourcesPanel(props: {
       </table>
     </Show>
     <Show when={!blocks().length}>
-      <p class="muted">No fanbases yet — register one with its acquisition origin to start collecting candidates.</p>
+      <div class="inherit-card portfolio-empty">
+        <p><strong>No fanbases yet.</strong></p>
+        <p>A fanbase is a first-class audience block with a swappable acquisition origin (Meta Lead Ads, Bandsintown followers, HTTP JSON pull, CSV import, etc.). Every ingest lands candidates as pending double opt-in — active fans are never downgraded and opt-outs are never resurrected.</p>
+        <p>Click "New fanbase" above to create one and start collecting candidates.</p>
+      </div>
     </Show>
   </article>
 }
