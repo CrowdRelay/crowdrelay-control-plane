@@ -214,6 +214,25 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      # GHCR packages inherit the org's default visibility (private) on first
+      # publish. The production host pulls anonymously, so the package must
+      # be public. Idempotent — PATCH with the same visibility is a no-op.
+      - name: Ensure package visibility is public
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          owner_lower="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          echo "Setting crowdrelay-control-plane to public…"
+          gh api -X PATCH "/orgs/${owner_lower}/packages/container/crowdrelay-control-plane" \
+            -f visibility=public 2>/dev/null \
+            || gh api -X PATCH "/user/packages/container/crowdrelay-control-plane" \
+            -f visibility=public 2>/dev/null \
+            || echo "WARN: could not set crowdrelay-control-plane visibility"
+
   web:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
