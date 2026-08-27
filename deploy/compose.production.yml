@@ -44,7 +44,7 @@ services:
       CONTROL_PLANE_VIRYA_SIGNAL_URL: ${CONTROL_PLANE_VIRYA_SIGNAL_URL:-https://signal.virya.music}
       CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY: ${CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY:-}
       CONTROL_PLANE_MANAGEMENT_MASTER_KEY: ${CONTROL_PLANE_MANAGEMENT_MASTER_KEY:-}
-      CONTROL_PLANE_VIRYA_MANAGEMENT_URL: ${CONTROL_PLANE_VIRYA_MANAGEMENT_URL:-}
+      CONTROL_PLANE_VIRYA_MANAGEMENT_URL: ${CONTROL_PLANE_VIRYA_MANAGEMENT_URL:-http://virya-area-tunnel:18080}
       CONTROL_PLANE_AGENT_SERVICE_URL: ${CONTROL_PLANE_AGENT_SERVICE_URL:-}
       RUST_LOG: ${RUST_LOG:-info,tower_http=info}
     ports:
@@ -75,17 +75,16 @@ services:
     depends_on:
       app:
         condition: service_healthy
-    network_mode: "service:app"
     environment:
       VIRYA_AREA_UPSTREAM: ${VIRYA_AREA_UPSTREAM:-http://area-management-proxy:18080}
     volumes:
       - ./deploy/virya-area-tunnel.Caddyfile:/etc/caddy/Caddyfile:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -q -T 3 -O /dev/null http://127.0.0.1:18080/healthz/ready"]
-      interval: 2s
+      interval: 5s
       timeout: 5s
-      retries: 15
-      start_period: 2s
+      retries: 3
+      start_period: 10s
     read_only: true
     tmpfs:
       - /data
@@ -97,6 +96,13 @@ services:
       - NET_BIND_SERVICE
     security_opt:
       - no-new-privileges:true
+    # Standalone networks — not network_mode: service:app. The tunnel listens
+    # on 0.0.0.0:18080 and the app reaches it at http://virya-area-tunnel:18080.
+    # This decouples the tunnel from the app container's lifecycle: recreating
+    # the app no longer breaks the tunnel's network namespace.
+    networks:
+      internal: {}
+      virya-edge: {}
 
 volumes:
   control-plane-pg:

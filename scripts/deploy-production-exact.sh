@@ -138,12 +138,13 @@ restore_release_state() {
 }
 
 verify_tunnel_contract() {
-  local app_id network_mode mount_source runtime_caddy route tunnel_health
+  local app_id tunnel_networks mount_source runtime_caddy route tunnel_health
   tunnel_health="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
   [[ "$tunnel_health" == "healthy" ]] || return 1
-  app_id="$(docker inspect crowdrelay-control-plane-app-1 --format '{{.Id}}' 2>/dev/null || true)"
-  network_mode="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{.HostConfig.NetworkMode}}' 2>/dev/null || true)"
-  [[ -n "$app_id" && "$network_mode" == "container:${app_id}" ]] || return 1
+  # The tunnel no longer uses network_mode: service:app — it has its own
+  # networks. Verify it's on the internal network.
+  tunnel_networks="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' 2>/dev/null || true)"
+  [[ "$tunnel_networks" == *"internal"* ]] || return 1
   mount_source="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{range .Mounts}}{{if eq .Destination "/etc/caddy/Caddyfile"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || true)"
   [[ "$mount_source" == "$root/deploy/virya-area-tunnel.Caddyfile" ]] || return 1
   docker exec crowdrelay-control-plane-virya-area-tunnel-1 caddy validate --config /etc/caddy/Caddyfile >/dev/null || return 1
@@ -211,7 +212,7 @@ if not isinstance(master, str) or not master:
     raise SystemExit("effective app config is missing CONTROL_PLANE_MANAGEMENT_MASTER_KEY")
 if area_master == master:
     raise SystemExit("effective management masters must be distinct")
-if url != "http://127.0.0.1:18080":
+if url != "http://virya-area-tunnel:18080":
     raise SystemExit("effective app config has invalid CONTROL_PLANE_VIRYA_MANAGEMENT_URL")
 ' || fail 'effective compose management wiring is invalid'
 printf 'MANAGEMENT_WIRING=PASS semantic=true\n'
@@ -311,7 +312,7 @@ management_url="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_VIRYA_
 [[ -n "$area_master" ]] || fail 'runtime AREA management master is missing'
 [[ -n "$management_master" ]] || fail 'runtime operations management master is missing'
 [[ "$area_master" != "$management_master" ]] || fail 'runtime management masters are not distinct'
-[[ "$management_url" == "http://127.0.0.1:18080" ]] || fail "unexpected management URL: $management_url"
+[[ "$management_url" == "http://virya-area-tunnel:18080" ]] || fail "unexpected management URL: $management_url"
 unset runtime_env area_master management_master management_url
 
 published="$(docker port crowdrelay-control-plane-app-1 8090/tcp | head -n1)"

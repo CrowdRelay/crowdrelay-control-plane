@@ -125,7 +125,7 @@ if not isinstance(operations,str) or not operations:
     raise SystemExit("recovery refused: effective operations management master is missing; run just bootstrap-management")
 if area == operations:
     raise SystemExit("recovery refused: management masters must be distinct")
-if url != "http://127.0.0.1:18080":
+if url != "http://virya-area-tunnel:18080":
     raise SystemExit("recovery refused: management URL is not canonical")
 print("CONTROL_PLANE_RECOVERY_PREFLIGHT=PASS management_wiring=complete")
 ' || fail 'release unit recovery preflight failed before mutation'
@@ -154,8 +154,11 @@ tunnel="crowdrelay-control-plane-virya-area-tunnel-1"
 tunnel_state="$(docker inspect "$tunnel" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
 [[ "$tunnel_state" == "healthy" || "$tunnel_state" == "running" ]] || fail "Control Plane tunnel is not ready: $tunnel_state"
 app_id="$(docker inspect "$app" --format '{{.Id}}')"
-network_mode="$(docker inspect "$tunnel" --format '{{.HostConfig.NetworkMode}}')"
-[[ "$network_mode" == "container:${app_id}" ]] || fail "Control Plane tunnel namespace drift: $network_mode"
+# The tunnel no longer uses network_mode: service:app — it has its own
+# networks (internal + virya-edge/area-management). Verify it's on the
+# internal network instead of checking the namespace binding.
+tunnel_networks="$(docker inspect "$tunnel" --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}')"
+[[ "$tunnel_networks" == *"internal"* ]] || fail "Control Plane tunnel is not on the internal network: $tunnel_networks"
 docker exec "$tunnel" caddy validate --config /etc/caddy/Caddyfile >/dev/null || fail 'live tunnel Caddyfile is invalid'
 runtime_caddy="$(docker exec "$tunnel" cat /etc/caddy/Caddyfile)" || fail 'cannot read live tunnel Caddyfile'
 # /healthz/ready is the readiness probe the tunnel healthcheck uses. A tunnel
@@ -171,7 +174,7 @@ management_url="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_VIRYA_
 [[ -n "$area_master" ]] || fail 'Control Plane AREA management master is missing from runtime'
 [[ -n "$management_master" ]] || fail 'Control Plane operations management master is missing from runtime'
 [[ "$area_master" != "$management_master" ]] || fail 'Control Plane management masters are not distinct'
-[[ "$management_url" == "http://127.0.0.1:18080" ]] || fail "Control Plane management URL drifted: $management_url"
+[[ "$management_url" == "http://virya-area-tunnel:18080" ]] || fail "Control Plane management URL drifted: $management_url"
 unset runtime_env area_master management_master management_url
 published="$(docker port "$app" 8090/tcp | head -n1)"
 [[ -n "$published" ]] || fail 'Control Plane app has no published endpoint'

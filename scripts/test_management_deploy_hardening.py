@@ -33,7 +33,7 @@ class ManagementDeployHardeningContract(unittest.TestCase):
             "effective AREA management master is missing",
             "effective operations management master is missing",
             "management masters must be distinct",
-            "http://127.0.0.1:18080",
+            "http://virya-area-tunnel:18080",
         ):
             self.assertIn(token, DEPLOY)
 

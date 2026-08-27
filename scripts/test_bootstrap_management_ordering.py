@@ -31,7 +31,7 @@ class BootstrapManagementOrderingContract(unittest.TestCase):
             "CONTROL_PLANE_VIRYA_MANAGEMENT_URL",
         ):
             self.assertIn(key, OVERLAY)
-        self.assertIn("http://127.0.0.1:18080", CREDENTIALS)
+        self.assertIn("http://virya-area-tunnel:18080", CREDENTIALS)
 
 
 if __name__ == "__main__":

@@ -41,7 +41,7 @@ class JustDeployContract(unittest.TestCase):
             "CONTROL_PLANE_RELEASE_UNIT_REPAIR=PASS",
             "trap on_interrupt INT TERM HUP",
             "crowdrelay-control-plane-virya-area-tunnel-1",
-            "{{.HostConfig.NetworkMode}}",
+            "{{.State.Health.Status}}",
             "caddy validate --config /etc/caddy/Caddyfile",
             "/api/v1/tenants/virya/operations/summary",
             "CONTROL_PLANE_TUNNEL_GATE=PASS",

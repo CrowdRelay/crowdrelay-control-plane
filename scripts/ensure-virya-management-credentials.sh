@@ -64,7 +64,7 @@ management_url="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_VIRYA_
 [[ -n "$area_master" ]] || fail 'Control Plane AREA management master missing from runtime; run just bootstrap-management'
 [[ -n "$management_master" ]] || fail 'Control Plane operations management master missing from runtime; run just bootstrap-management'
 [[ "$area_master" != "$management_master" ]] || fail 'Control Plane management masters must be distinct'
-[[ "$management_url" == "http://127.0.0.1:18080" ]] || fail 'Control Plane management URL is not canonical'
+[[ "$management_url" == "http://virya-area-tunnel:18080" ]] || fail 'Control Plane management URL is not canonical'
 published="$(docker port "$app" 8090/tcp | head -n1)"
 [[ -n "$published" ]] || fail 'Control Plane app has no published endpoint'
 base="http://${published}"
@@ -184,7 +184,7 @@ if not management or management in reserved or management == area:
     management=fresh(reserved | {area})
 text=upsert(text,'CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY',area)
 text=upsert(text,'CONTROL_PLANE_MANAGEMENT_MASTER_KEY',management)
-text=upsert(text,'CONTROL_PLANE_VIRYA_MANAGEMENT_URL','http://127.0.0.1:18080')
+text=upsert(text,'CONTROL_PLANE_VIRYA_MANAGEMENT_URL','http://virya-area-tunnel:18080')
 tmp=path.with_name('.env.management-bootstrap.tmp')
 tmp.write_text(text)
 os.chmod(tmp,0o600); os.chown(tmp,st.st_uid,st.st_gid); os.replace(tmp,path)

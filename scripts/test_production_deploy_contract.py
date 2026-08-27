@@ -121,11 +121,10 @@ class ProductionDeployContract(unittest.TestCase):
     def test_app_and_tunnel_are_one_release_unit(self):
         text = SCRIPT.read_text()
         self.assertIn('--force-recreate app virya-area-tunnel', text)
-        self.assertIn('network_mode', text)
         self.assertIn('tunnel Caddyfile', text)
         self.assertIn('/srv/crowdrelay-control-plane', text)
         self.assertIn('CONTROL_PLANE_VIRYA_MANAGEMENT_URL', text)
-        self.assertIn('http://127.0.0.1:18080', text)
+        self.assertIn('http://virya-area-tunnel:18080', text)
 
     def test_deploy_has_rollback_readiness_and_e2e_gate(self):
         text = SCRIPT.read_text()
@@ -150,7 +149,9 @@ class ProductionDeployContract(unittest.TestCase):
         self.assertIn('CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY', area)
         self.assertIn('CONTROL_PLANE_MANAGEMENT_MASTER_KEY', area)
         self.assertIn('CONTROL_PLANE_VIRYA_MANAGEMENT_URL', area)
-        self.assertIn('network_mode: "service:app"', area)
+        # The tunnel uses standalone networks, not network_mode: service:app
+        self.assertNotIn('network_mode: "service:app"', area)
+        self.assertIn('internal: {}', area)
         self.assertIn('VIRYA_AREA_UPSTREAM required', area)
         self.assertIn('NET_BIND_SERVICE', area)
         self.assertIn('virya-area-tunnel.Caddyfile:/etc/caddy/Caddyfile:ro', area)

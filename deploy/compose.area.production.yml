@@ -18,20 +18,16 @@ services:
     depends_on:
       app:
         condition: service_healthy
-    network_mode: "service:app"
     environment:
       VIRYA_AREA_UPSTREAM: ${VIRYA_AREA_UPSTREAM:?VIRYA_AREA_UPSTREAM required}
     volumes:
       - ./deploy/virya-area-tunnel.Caddyfile:/etc/caddy/Caddyfile:ro
     healthcheck:
-      # Probe through the local Caddy tunnel and the Oracle management proxy
-      # all the way to CrowdRelay API readiness. A merely-running sidecar is
-      # not sufficient for deploy convergence.
       test: ["CMD-SHELL", "wget -q -T 3 -O /dev/null http://127.0.0.1:18080/healthz/ready"]
-      interval: 2s
+      interval: 5s
       timeout: 5s
-      retries: 15
-      start_period: 2s
+      retries: 3
+      start_period: 10s
     read_only: true
     tmpfs:
       - /data
@@ -46,6 +42,13 @@ services:
     pids_limit: 64
     mem_limit: 64m
     cpus: 0.10
+    # Standalone networks — not network_mode: service:app. The tunnel listens
+    # on 0.0.0.0:18080 and the app reaches it at http://virya-area-tunnel:18080.
+    # This decouples the tunnel from the app container's lifecycle: recreating
+    # the app no longer breaks the tunnel's network namespace.
+    networks:
+      internal: {}
+      area-management: {}
 
 networks:
   area-management:
