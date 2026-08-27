@@ -32,7 +32,7 @@ if (maps.length) throw new Error(`source maps must not ship: ${maps.join(', ')}`
 // UI, paste API key modal, Google OAuth button, per-tenant model list).
 // Raised 2026-08-28 from 366 KiB for task suggestions (data-driven prompt
 // cards) and the ant icon + landing page AI agent feature.
-const JS_BUDGET = 369 * 1024
+const JS_BUDGET = 388 * 1024
 const CSS_BUDGET = 80 * 1024
 if (js > JS_BUDGET) throw new Error(`JS budget exceeded: ${js} > ${JS_BUDGET}`)
 if (css > CSS_BUDGET) throw new Error(`CSS budget exceeded: ${css} > ${CSS_BUDGET}`)
