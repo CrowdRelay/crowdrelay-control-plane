@@ -17,8 +17,8 @@ const freshProfile = () => ({ ...presets.PL })
 
 export function TenantsPage() {
   const queryClient = useQueryClient()
-  const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants }))
-  const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview }))
+  const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, reconcile: 'id' }))
+  const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview, reconcile: 'id' }))
   const [creating, setCreating] = createSignal(false)
   const [slug, setSlug] = createSignal('')
   const [name, setName] = createSignal('')

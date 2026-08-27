@@ -8,7 +8,7 @@ import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { ScorecardPanel } from '../components/ScorecardPanel'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
 import { AgentPanel } from '../components/AgentPanel'
-import { RefreshButton } from '../components/RefreshButton'
+import { refreshInterval } from '../lib/refresh'
 
 export function TenantOperationsPage() {
   const params = useParams({ from: '/tenants/$slug/operations' })
@@ -19,8 +19,7 @@ export function TenantOperationsPage() {
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
     reconcile: 'id',
-    // Live polling stays local to this subpage.
-    refetchInterval: 15_000,
+    refetchInterval: refreshInterval() || false,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -32,9 +31,8 @@ export function TenantOperationsPage() {
       <div>
         <span class="eyebrow">TENANT / {params().slug.toUpperCase()}</span>
         <h1>Operations & Autopilot</h1>
-        <p>Live CrowdRelay telemetry, runtime switches, Autopilot authority, the opportunity board and growth delivery. One consolidated snapshot refreshes every 15 seconds.</p>
+        <p>Live CrowdRelay telemetry, runtime switches, Autopilot authority, the opportunity board and growth delivery.</p>
       </div>
-      <RefreshButton onClick={() => refresh()} loading={model.isFetching} updatedAt={model.dataUpdatedAt} />
     </div>
     <Show when={model.error}>
       <div class="error-card" role="alert">{model.error instanceof Error ? model.error.message : 'Tenant operations channel unavailable'}</div>

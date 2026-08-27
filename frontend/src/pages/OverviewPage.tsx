@@ -2,6 +2,7 @@ import { For, Match, Show, Switch } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
+import { refreshInterval } from '../lib/refresh'
 import type { PlatformHealthEntry, RuntimeHealth, TenantSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 
@@ -15,8 +16,8 @@ const formatLatency = (ms: number | null | undefined) => {
 }
 
 export function OverviewPage() {
-  const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, refetchInterval: 30_000 }))
-  const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview, refetchInterval: 30_000 }))
+  const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, refetchInterval: refreshInterval() || false, refetchOnWindowFocus: false, reconcile: 'id' }))
+  const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview, refetchInterval: refreshInterval() || false, refetchOnWindowFocus: false, reconcile: 'id' }))
 
   const items = () => tenants.data?.items ?? []
   const count = (health: RuntimeHealth) => items().filter(t => t.runtimeHealth === health).length

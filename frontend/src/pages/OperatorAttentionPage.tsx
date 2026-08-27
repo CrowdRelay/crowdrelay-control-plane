@@ -13,6 +13,7 @@ export function OperatorAttentionPage() {
     queryFn: api.tenants,
     staleTime: 30_000,
     refetchOnWindowFocus: false,
+    reconcile: 'id',
   }))
 
   return <section class="page">

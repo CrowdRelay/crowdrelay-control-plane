@@ -7,6 +7,7 @@ export function FlowPage() {
   const tenants = useQuery(() => ({
     queryKey: ['tenants'],
     queryFn: () => api.tenants(),
+    reconcile: 'id',
   }))
   const [selected, setSelected] = createSignal('')
 

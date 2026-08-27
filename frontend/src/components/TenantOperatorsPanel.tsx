@@ -13,6 +13,7 @@ export function TenantOperatorsPanel(props: { slug: string }) {
     queryKey: ['operators', props.slug],
     queryFn: () => api.operators(props.slug),
     enabled: isAdmin(),
+    reconcile: 'id',
   }))
   const queryClient = useQueryClient()
   const [username, setUsername] = createSignal('')

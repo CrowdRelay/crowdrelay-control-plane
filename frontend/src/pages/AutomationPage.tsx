@@ -1,6 +1,7 @@
 import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { refreshInterval } from '../lib/refresh'
 import type { AutomationEvent, AutomationWorkflowConfig } from '../lib/types'
 
 const severityTone = (s: string) => s === 'error' ? 'bad' : s === 'warn' ? 'warn' : 'muted'
@@ -24,7 +25,8 @@ export function AutomationPage() {
   const events = useQuery(() => ({
     queryKey: ['automation-events', statusFilter()],
     queryFn: () => api.automationEvents({ limit: 100, status: statusFilter() || undefined }),
-    refetchInterval: 15_000,
+    refetchInterval: refreshInterval() || false,
+    reconcile: 'id',
   }))
   const configs = useQuery(() => ({
     queryKey: ['automation-workflow-configs'],

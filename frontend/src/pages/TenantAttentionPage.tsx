@@ -8,7 +8,7 @@ import { formatTimestamp as observed } from '../lib/format'
 import type { DeliveryDetails, OperationsSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
-import { RefreshButton } from '../components/RefreshButton'
+import { refreshInterval } from '../lib/refresh'
 
 const totalDead = (summary: OperationsSummary) => summary.outbox.dead + summary.deliveries.dead + summary.push.dead
 const staleAreaReservations = (summary: OperationsSummary) => summary.area.stale_voucher_reservations + summary.area.stale_ticket_reward_reservations
@@ -20,7 +20,7 @@ export function TenantAttentionPage() {
     queryKey: ['tenant-operator-attention-snapshot', params().slug],
     queryFn: () => fetchOperationsAttention(params().slug),
     reconcile: 'id',
-    refetchInterval: 30_000,
+    refetchInterval: refreshInterval() || false,
     refetchOnWindowFocus: false,
     staleTime: 20_000,
   }))
@@ -172,7 +172,6 @@ export function TenantAttentionPage() {
           tone={totalDead(data()) > 0 || data().watchdog.critical_alerts > 0 || staleAreaReservations(data()) > 0 ? 'bad' : data().watchdog.active_alerts > 0 ? 'warn' : 'good'}
         />}
       </Show>
-      <RefreshButton onClick={() => void attention.refetch()} loading={attention.isFetching} updatedAt={attention.dataUpdatedAt} />
     </div>
 
     <WatchdogAlertsPanel alerts={attention.data?.alerts ?? []} slug={params().slug} />

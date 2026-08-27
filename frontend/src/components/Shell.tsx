@@ -6,6 +6,7 @@ import { commandPaletteOpen, toggleCommandPalette } from './command-palette-stat
 import { LoginGate } from './LoginGate'
 import { api } from '../lib/api'
 import { ToastContainer } from '../lib/toast'
+import { RefreshControl } from './RefreshControl'
 import type { TenantSummary } from '../lib/types'
 
 // The palette component loads on first invocation; the shortcut lives here so
@@ -158,6 +159,7 @@ export const Shell: Component = () => {
     enabled: isAdmin(),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
+    reconcile: 'id',
   }))
 
   const selectTenant = (newSlug: string) => {
@@ -299,6 +301,7 @@ export const Shell: Component = () => {
             </Show>
           </div>
           <div class="topbar-actions">
+            <RefreshControl />
             <button class="topbar-cmdk ghost" type="button" onClick={() => toggleCommandPalette()} title="Command palette (Ctrl+K / ⌘K)">
               <kbd>⌘K</kbd><span class="cmdk-trigger-label">Commands</span>
             </button>

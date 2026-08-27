@@ -47,7 +47,7 @@ export function TenantPage() {
       return { ...overview, releaseLedger: operations?.autopilot?.release_ledger ?? null }
     },
     reconcile: 'id',
-    refetchInterval: (query) => ['planned', 'approved', 'running'].includes(query.state.data?.provisioning.items[0]?.status ?? '') ? 3_000 : 30_000,
+    refetchInterval: refreshInterval() || false,
     refetchOnWindowFocus: false,
   }))
   const tenant = { get data() { return model.data?.tenant }, get error() { return model.error } }
