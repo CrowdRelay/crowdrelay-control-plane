@@ -35,7 +35,10 @@ if (maps.length) throw new Error(`source maps must not ship: ${maps.join(', ')}`
 // Raised 2026-08-28 from 388 KiB for the AI Integrations page (separate route
 // for agent panel, brain icon, xAI provider icon, always-visible provider
 // cards with connection summary, autopilot brain suggestions section).
-const JS_BUDGET = 392 * 1024
+// Raised 2026-08-28 from 392 KiB for generic OAuth (device flow modal, poll),
+// schedules section (create/toggle/delete), structured outcome rendering,
+// fanbase platform connection grid, and LLM badge on opportunity board.
+const JS_BUDGET = 402 * 1024
 const CSS_BUDGET = 80 * 1024
 if (js > JS_BUDGET) throw new Error(`JS budget exceeded: ${js} > ${JS_BUDGET}`)
 if (css > CSS_BUDGET) throw new Error(`CSS budget exceeded: ${css} > ${CSS_BUDGET}`)

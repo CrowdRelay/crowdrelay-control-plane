@@ -277,11 +277,21 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || path == "/v1/control-plane/fanbases"
                 || path == "/v1/control-plane/fanbases/connections"
                 || uuid_segment_between(path, "/v1/control-plane/fanbases/", "/ingest")
-                || two_segment_after(path, "/v1/control-plane/fanbases/connections/oauth/", "/start")
-                || two_segment_after(path, "/v1/control-plane/fanbases/connections/oauth/", "/callback")
+                || two_segment_after(
+                    path,
+                    "/v1/control-plane/fanbases/connections/oauth/",
+                    "/start",
+                )
+                || two_segment_after(
+                    path,
+                    "/v1/control-plane/fanbases/connections/oauth/",
+                    "/callback",
+                )
         }
-        "DELETE" => uuid_segment_between(path, "/v1/control-plane/fanbases/", "")
-            || uuid_segment_between(path, "/v1/control-plane/fanbases/connections/", ""),
+        "DELETE" => {
+            uuid_segment_between(path, "/v1/control-plane/fanbases/", "")
+                || uuid_segment_between(path, "/v1/control-plane/fanbases/connections/", "")
+        }
         _ => false,
     }
 }

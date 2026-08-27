@@ -443,7 +443,10 @@ async fn oauth_callback(
             .unwrap_or(false)
     {
         let provider_label = provider.replace('-', " ");
-        let label = provider_label.split_whitespace().next().unwrap_or(&provider);
+        let label = provider_label
+            .split_whitespace()
+            .next()
+            .unwrap_or(&provider);
         (
             format!("{label} connected"),
             format!("Your {label} account is now linked."),
