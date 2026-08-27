@@ -1,5 +1,5 @@
-mod area_routes;
 mod agent_routes;
+mod area_routes;
 mod attention_routes;
 mod auth;
 mod auth_routes;

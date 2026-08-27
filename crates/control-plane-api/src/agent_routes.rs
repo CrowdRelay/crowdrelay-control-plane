@@ -24,7 +24,10 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/agents/templates/{template_id}",
             get(get_template),
         )
-        .route("/tenants/{slug}/agents/tasks", get(list_tasks).post(create_task))
+        .route(
+            "/tenants/{slug}/agents/tasks",
+            get(list_tasks).post(create_task),
+        )
         .route("/tenants/{slug}/agents/tasks/{task_id}", get(get_task))
         .route(
             "/tenants/{slug}/agents/tasks/{task_id}/result",
@@ -43,11 +46,7 @@ fn no_store(value: Value) -> Response {
         .into_response()
 }
 
-async fn proxy_get(
-    state: &AppState,
-    slug: &str,
-    path: &str,
-) -> Result<Response, ApiError> {
+async fn proxy_get(state: &AppState, slug: &str, path: &str) -> Result<Response, ApiError> {
     let (tenant, _) = crate::area_routes::target(state, slug).await?;
     let base = state
         .agent_service_url
@@ -95,8 +94,8 @@ async fn proxy_post(
         .send()
         .await
         .map_err(|e| ApiError::Unavailable(format!("agent service unreachable: {e}")))?;
-    let status = StatusCode::from_u16(response.status().as_u16())
-        .unwrap_or(StatusCode::BAD_GATEWAY);
+    let status =
+        StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
     let response_body: Value = response
         .json()
         .await

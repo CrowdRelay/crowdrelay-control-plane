@@ -7,6 +7,7 @@ import { GrowthPanel } from '../components/GrowthPanel'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { ScorecardPanel } from '../components/ScorecardPanel'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
+import { AgentPanel } from '../components/AgentPanel'
 import { RefreshButton } from '../components/RefreshButton'
 
 export function TenantOperationsPage() {
@@ -59,6 +60,7 @@ export function TenantOperationsPage() {
         refresh={refresh}
       />
       <GrowthPanel growth={data().growth} degraded={data().degraded.includes('growth')} />
+      <AgentPanel slug={params().slug} />
     </>}</Show>
   </section>
 }
