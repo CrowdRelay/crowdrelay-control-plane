@@ -408,7 +408,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .agent-connect-toggle{background:none;border:1px solid #2a2d36;color:#7663d8;border-radius:4px;padding:.3rem .7rem;font-size:.78rem;cursor:pointer}
 .agent-connect-toggle:hover{background:#1a1d24}
 .agent-providers{display:flex;flex-direction:column;gap:.6rem;margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid #1e2128}
-.agent-provider-card{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;background:#1a1d24;border:1px solid #2a2d36;border-radius:6px;padding:.7rem .85rem}
+.agent-provider-card{display:flex;align-items:flex-start;gap:.75rem;background:#1a1d24;border:1px solid #2a2d36;border-radius:6px;padding:.7rem .85rem}
+.agent-provider-logo{flex-shrink:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:#12141a;border-radius:6px;border:1px solid #2a2d36}
 .agent-provider-info{flex:1;min-width:0}
 .agent-provider-name{font-weight:600;font-size:.85rem;color:#e4e7ee;margin-bottom:.2rem}
 .agent-provider-desc{font-size:.73rem;color:#8b92a0;line-height:1.4;margin-bottom:.3rem}

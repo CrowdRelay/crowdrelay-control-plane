@@ -2,6 +2,7 @@ import { For, Show, createEffect, createResource, createSignal } from 'solid-js'
 import { request } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
+import { LlmProviderIcon } from './ProviderIcon'
 
 // --- Ant icon (agent service mascot) ---
 const AntIcon = (props: { size?: number }) => (
@@ -115,7 +116,7 @@ const formatAge = (iso: string) => {
 
 export function AgentPanel(props: { slug: string }) {
   const [selectedTemplate, setSelectedTemplate] = createSignal<string | null>(null)
-  const [selectedModel, setSelectedModel] = createSignal<string>('zen-default')
+  const [selectedModel, setSelectedModel] = createSignal<string>('laguna-s-2.1-free')
   const [prompt, setPrompt] = createSignal('')
   const [submitting, setSubmitting] = createSignal(false)
   const [error, setError] = createSignal<string | null>(null)
@@ -290,6 +291,9 @@ export function AgentPanel(props: { slug: string }) {
                 const cred = () => credentials()?.find(c => c.provider === provider.id)
                 return (
                   <div class="agent-provider-card">
+                    <div class="agent-provider-logo">
+                      <LlmProviderIcon providerId={provider.id} size={28} />
+                    </div>
                     <div class="agent-provider-info">
                       <div class="agent-provider-name">{provider.name}</div>
                       <div class="agent-provider-desc">{provider.description}</div>
