@@ -18,6 +18,12 @@ use crate::{AppState, error::ApiError};
 const PRIVATE_NO_STORE: &str = "private, no-store";
 const MAX_AGENT_BODY_BYTES: usize = 16 * 1024;
 
+/// Resolve the crowdrelay workspace_id for a tenant. Falls back to the
+/// control plane tenant ID when the crowdrelay link is not set.
+fn resolve_workspace_id(tenant: &crate::model::TenantSummary) -> Uuid {
+    tenant.tenant.workspace_id.unwrap_or(tenant.tenant.id)
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/tenants/{slug}/agents/templates", get(list_templates))
@@ -76,7 +82,7 @@ async fn proxy_get(state: &AppState, slug: &str, path: &str) -> Result<Response,
         .agent_service_url
         .as_deref()
         .ok_or_else(|| ApiError::Unavailable("agent service is not configured".to_owned()))?;
-    let workspace_id = tenant.tenant.id;
+    let workspace_id = resolve_workspace_id(&tenant);
     let token = state.area_client.derived_management_token(workspace_id)?;
     let url = format!("{base}{path}");
     let response = reqwest::Client::new()
@@ -105,7 +111,7 @@ async fn proxy_post(
         .agent_service_url
         .as_deref()
         .ok_or_else(|| ApiError::Unavailable("agent service is not configured".to_owned()))?;
-    let workspace_id = tenant.tenant.id;
+    let workspace_id = resolve_workspace_id(&tenant);
     let token = state.area_client.derived_management_token(workspace_id)?;
     let url = format!("{base}{path}");
     let response = reqwest::Client::new()
@@ -138,7 +144,7 @@ async fn proxy_delete(state: &AppState, slug: &str, path: &str) -> Result<Respon
         .agent_service_url
         .as_deref()
         .ok_or_else(|| ApiError::Unavailable("agent service is not configured".to_owned()))?;
-    let workspace_id = tenant.tenant.id;
+    let workspace_id = resolve_workspace_id(&tenant);
     let token = state.area_client.derived_management_token(workspace_id)?;
     let url = format!("{base}{path}");
     let response = reqwest::Client::new()
