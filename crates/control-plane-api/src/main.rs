@@ -1,4 +1,5 @@
 mod area_routes;
+mod agent_routes;
 mod attention_routes;
 mod auth;
 mod auth_routes;
@@ -48,6 +49,7 @@ pub struct AppState {
     /// Session cookies are Secure in production; local plain-HTTP dev opts out.
     cookie_secure: bool,
     notifier: notifier_client::NotifierClient,
+    agent_service_url: Option<Arc<str>>,
 }
 
 #[tokio::main]
@@ -125,6 +127,7 @@ async fn main() -> anyhow::Result<()> {
         notifier: notifier_client::NotifierClient::new(
             config.notify_email_relay_url.map(Arc::from),
         ),
+        agent_service_url: config.agent_service_url.map(Arc::from),
     };
     // Bounded best-effort notifier delivery. Nothing in the request path
     // depends on this loop; a dead channel dies in its outbox row, not here.
@@ -183,6 +186,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(superadmin_area)
         .merge(scoped(attention_routes::router()))
         .merge(scoped(operations_routes::router()))
+        .merge(scoped(agent_routes::router()))
         .merge(scoped(read_models::router()))
         .merge(scoped(notify_routes::router()))
         .route_layer(middleware::from_fn_with_state(

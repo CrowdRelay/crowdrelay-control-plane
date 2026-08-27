@@ -36,6 +36,9 @@ pub struct Config {
     /// Optional webhook relay used to hand email notifications to the
     /// platform's mailer; without it email_relay channels cannot deliver.
     pub notify_email_relay_url: Option<String>,
+    /// Optional agent service URL for the LLM agent panel. If not set, the
+    /// agent panel is disabled.
+    pub agent_service_url: Option<String>,
     /// Panel login goes through database accounts. This optional pair seeds
     /// (and keeps authoritative) one platform_admin row so operators can sign
     /// in to the styled form without manual SQL. Both or neither.
@@ -202,6 +205,7 @@ impl Config {
                 }
                 None => None,
             },
+            agent_service_url: optional_env("CONTROL_PLANE_AGENT_SERVICE_URL")?,
         };
         // Both or neither: half-configured bootstrap is a deployment typo,
         // not a feature.
