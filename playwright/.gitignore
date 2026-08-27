@@ -1,0 +1,6 @@
+node_modules/
+test-results/
+html-report/
+bug-report.json
+playwright-report/
+playwright/test-results/

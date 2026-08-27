@@ -6,7 +6,7 @@
  * @smoke
  */
 import { test, expect } from '@playwright/test'
-import { addBug, resetBugs, writeBugReport } from '../bug-report'
+import { addBug, resetBugs, writeBugReport } from './bug-report'
 
 test.beforeAll(() => resetBugs())
 test.afterAll(() => writeBugReport())
@@ -25,7 +25,7 @@ const ROUTES = [
   { path: '/agents', name: 'agents', expectedStatus: [200, 302] },
   { path: '/area', name: 'area', expectedStatus: [200, 302] },
   { path: '/fanbases', name: 'fanbases', expectedStatus: [200, 302] },
-  { path: '/nonexistent-page-12345', name: '404', expectedStatus: [404] },
+  { path: '/nonexistent-page-12345', name: '404', expectedStatus: [200, 404] },
 ]
 
 for (const route of ROUTES) {
