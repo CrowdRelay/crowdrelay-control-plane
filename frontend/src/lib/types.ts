@@ -712,3 +712,127 @@ export type ReplyTriageEntry = {
   matched_rules: string[]
   classified_at: string
 }
+
+// --- Agent service types (proxied through control-plane) ---
+
+export interface AgentProvider {
+  id: string
+  name: string
+  description: string
+  authMethod: 'api_key' | 'oauth' | 'none'
+  freeTier: boolean
+  modelCount: number
+  oauthScopes: string[]
+  oauthAvailable: boolean
+  oauth?: {
+    kind: 'redirect' | 'device'
+    experimental: boolean
+    tokenFlavor: 'access' | 'refresh' | 'id'
+  }
+}
+
+export interface AgentCredential {
+  id: string
+  provider: string
+  label: string
+  credential_type: 'api_key' | 'oauth_refresh_token'
+  status: 'active' | 'revoked' | 'invalid'
+  credential_flavor: 'api_key' | 'access' | 'refresh' | 'id' | null
+  provider_account: string | null
+  expires_at: string | null
+  last_validated_at: string | null
+  last_validation_error: string | null
+  created_at: string
+}
+
+export interface AgentModel {
+  id: string
+  name: string
+  contextWindow: number
+  bestFor: string
+  paid: boolean
+  providerId: string
+  providerName: string
+}
+
+export interface AgentTask {
+  id: string
+  template_id: string
+  model_id: string
+  prompt: string
+  status: 'queued' | 'running' | 'completed' | 'failed'
+  error: string | null
+  created_at: string
+  completed_at: string | null
+  metadata?: {
+    structured?: boolean
+    outcome_count?: number
+  }
+}
+
+export interface AgentTaskResult {
+  id: string
+  task_id: string
+  content: string
+  format: string
+  model_used: string
+  tokens_in: number | null
+  tokens_out: number | null
+  duration_ms: number | null
+  outcomes?: AgentOutcome[]
+}
+
+export interface AgentOutcome {
+  kind: string
+  confidence_basis_points: number
+  rationale: string
+  item: unknown | null
+}
+
+export interface AgentSchedule {
+  id: string
+  template_id: string
+  model_id: string
+  prompt: string
+  interval_minutes: number
+  enabled: boolean
+  last_run_at: string | null
+  next_run_at: string | null
+  created_at: string
+}
+
+export interface AgentTemplate {
+  id: string
+  name: string
+  description: string
+  category: 'content' | 'research' | 'analysis'
+  recommendedModels: string[]
+  dataScope: string[]
+  outputKind?: string
+  suggestedIntervalMinutes?: number
+}
+
+export interface TaskSuggestion {
+  id: string
+  template_id: string
+  model_id: string
+  title: string
+  description: string
+  prefill_prompt: string
+  priority: 'high' | 'medium' | 'low'
+  reason: string
+}
+
+// --- Fanbase connection types ---
+
+export interface FanbaseConnection {
+  id: string
+  platform: string
+  external_account_ref: string
+  label: string
+  status: 'connected' | 'expired' | 'disconnected'
+  last_sync_at: string | null
+  created_at: string
+}
+
+export type FanbasePlatform = 'meta' | 'tiktok' | 'google_ads' | 'reddit' | 'bandsintown' | 'spotify'

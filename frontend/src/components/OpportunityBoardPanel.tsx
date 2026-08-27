@@ -140,6 +140,9 @@ export function OpportunityBoardPanel(props: {
                 <small class="opportunity-consequence">if ignored: {entry.consequence}</small>
                 <div class="row-health opportunity-facts">
                   <StatusBadge status={authorityLabel(entry)} tone={authorityTone(entry)} />
+                  <Show when={entry.decision_kind?.startsWith('agent.')}>
+                    <span class="badge llm-badge">LLM</span>
+                  </Show>
                   <span class="badge">{RANK_FACTOR_LABELS[entry.ranked_by] ?? entry.ranked_by}</span>
                   <span class="badge">confidence {confidencePercent(entry.confidence)}</span>
                   <Show when={entry.value_tier}>

@@ -104,6 +104,22 @@ pub fn router() -> Router<AppState> {
             post(ingest_portfolio_fanbase),
         )
         .route(
+            "/tenants/{slug}/portfolio/fanbases/connections",
+            get(list_fanbase_connections),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/fanbases/connections/oauth/{platform}/start",
+            post(start_fanbase_connection_oauth),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/fanbases/connections/oauth/{platform}/callback",
+            post(fanbase_connection_oauth_callback),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/fanbases/connections/{connection_id}",
+            axum::routing::delete(delete_fanbase_connection),
+        )
+        .route(
             "/tenants/{slug}/notifiers/discovered",
             get(discovered_notifier_endpoints),
         )
@@ -1182,4 +1198,71 @@ fn build_list_path(base: &str, params: &ListQuery) -> String {
     } else {
         format!("{base}?{}", query.join("&"))
     }
+}
+
+// ---------------------------------------------------------------------------
+// Fanbase OAuth connections — proxy to crowdrelay's control-plane endpoints.
+// ---------------------------------------------------------------------------
+
+async fn list_fanbase_connections(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/fanbases/connections",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "fanbase connections")
+}
+
+async fn start_fanbase_connection_oauth(
+    State(state): State<AppState>,
+    Path((slug, platform)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    if !platform
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+    {
+        return Err(ApiError::InvalidInput("invalid platform".to_owned()));
+    }
+    let path = format!("/v1/control-plane/fanbases/connections/oauth/{platform}/start");
+    let (_, value) = call(&state, &slug, "POST", &path, Some(&body), &headers, None).await?;
+    object_no_store(value, "fanbase oauth start")
+}
+
+async fn fanbase_connection_oauth_callback(
+    State(state): State<AppState>,
+    Path((slug, platform)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    if !platform
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+    {
+        return Err(ApiError::InvalidInput("invalid platform".to_owned()));
+    }
+    let path = format!("/v1/control-plane/fanbases/connections/oauth/{platform}/callback");
+    let (_, value) = call(&state, &slug, "POST", &path, Some(&body), &headers, None).await?;
+    object_no_store(value, "fanbase oauth callback")
+}
+
+async fn delete_fanbase_connection(
+    State(state): State<AppState>,
+    Path((slug, connection_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    uuid_segment(&connection_id)?;
+    let path = format!("/v1/control-plane/fanbases/connections/{connection_id}");
+    let _ = call(&state, &slug, "DELETE", &path, None, &headers, None).await?;
+    Ok(StatusCode::NO_CONTENT.into_response())
 }

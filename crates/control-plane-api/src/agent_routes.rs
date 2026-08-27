@@ -84,12 +84,28 @@ pub fn router() -> Router<AppState> {
         )
         .route("/tenants/{slug}/agents/models", get(list_models))
         .route(
-            "/tenants/{slug}/agents/oauth/google/start",
-            get(oauth_google_start),
+            "/tenants/{slug}/agents/oauth/{provider}/start",
+            get(oauth_start),
         )
         .route(
-            "/tenants/{slug}/agents/oauth/google/callback",
-            get(oauth_google_callback),
+            "/tenants/{slug}/agents/oauth/{provider}/callback",
+            get(oauth_callback),
+        )
+        .route(
+            "/tenants/{slug}/agents/oauth/{provider}/poll",
+            get(oauth_poll),
+        )
+        .route(
+            "/tenants/{slug}/agents/schedules",
+            get(list_schedules).post(create_schedule),
+        )
+        .route(
+            "/tenants/{slug}/agents/schedules/{schedule_id}",
+            axum::routing::delete(delete_schedule),
+        )
+        .route(
+            "/tenants/{slug}/agents/schedules/{schedule_id}/enabled",
+            post(toggle_schedule),
         )
         .layer(axum::extract::DefaultBodyLimit::max(MAX_AGENT_BODY_BYTES))
 }
@@ -343,30 +359,43 @@ async fn list_models(
     proxy_get(&state, &slug, "/models").await
 }
 
-async fn oauth_google_start(
+async fn oauth_start(
     State(state): State<AppState>,
-    Path(slug): Path<String>,
-    _headers: HeaderMap,
-) -> Result<Response, ApiError> {
-    proxy_get(&state, &slug, "/oauth/google/start").await
-}
-
-async fn oauth_google_callback(
-    State(state): State<AppState>,
-    Path(slug): Path<String>,
+    Path((slug, provider)): Path<(String, String)>,
     Query(query): Query<HashMap<String, String>>,
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
+    if !safe_path_segment(&provider) {
+        return Err(ApiError::InvalidInput("invalid provider id".to_owned()));
+    }
+    // redirect_uri is passed per-request from the control plane frontend so
+    // the agent service stays multi-instance safe (no env-based callback URL).
+    let mut path = format!("/oauth/{provider}/start");
+    if let Some(redirect_uri) = query.get("redirect_uri") {
+        path.push_str(&format!("?redirect_uri={}", percent_encode(redirect_uri)));
+    }
+    proxy_get(&state, &slug, &path).await
+}
+
+async fn oauth_callback(
+    State(state): State<AppState>,
+    Path((slug, provider)): Path<(String, String)>,
+    Query(query): Query<HashMap<String, String>>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    if !safe_path_segment(&provider) {
+        return Err(ApiError::InvalidInput("invalid provider id".to_owned()));
+    }
     let qs: String = query
         .iter()
         .map(|(k, v)| encode_query_pair(k, v))
         .collect::<Vec<_>>()
         .join("&");
-    let path = format!("/oauth/google/callback?{qs}");
-    // The browser arrives here after Google's redirect. Proxy to the agent
-    // service (which exchanges the code and stores the token), then return
-    // HTML — not JSON — so the browser shows a success page instead of raw
-    // JSON text. We can't use proxy_get because it expects JSON.
+    let path = format!("/oauth/{provider}/callback?{qs}");
+    // The browser arrives here after the provider's redirect. Proxy to the
+    // agent service (which exchanges the code and stores the token), then
+    // return HTML — not JSON — so the browser shows a success page instead
+    // of raw JSON text. We can't use proxy_get because it expects JSON.
     let (tenant, _) = crate::area_routes::target(&state, &slug).await?;
     let base = state
         .agent_service_url
@@ -394,17 +423,23 @@ async fn oauth_google_callback(
             .and_then(Value::as_bool)
             .unwrap_or(false)
     {
+        let provider_label = provider.replace('-', " ");
+        let label = provider_label.split_whitespace().next().unwrap_or(&provider);
         (
-            "Google connected",
-            "Your Google account is now linked.",
-            "#16a34a",
+            format!("{label} connected"),
+            format!("Your {label} account is now linked."),
+            "#16a34a".to_owned(),
         )
     } else {
         let error = body
             .get("error")
             .and_then(Value::as_str)
             .unwrap_or("OAuth failed");
-        ("Connection failed", error, "#dc2626")
+        (
+            "Connection failed".to_owned(),
+            error.to_owned(),
+            "#dc2626".to_owned(),
+        )
     };
 
     Ok((
@@ -426,4 +461,56 @@ a{{color:#2563eb;text-decoration:none;font-size:.875rem}}
 </div></body></html>"#),
     )
         .into_response())
+}
+
+async fn oauth_poll(
+    State(state): State<AppState>,
+    Path((slug, provider)): Path<(String, String)>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    if !safe_path_segment(&provider) {
+        return Err(ApiError::InvalidInput("invalid provider id".to_owned()));
+    }
+    let path = format!("/oauth/{provider}/poll");
+    proxy_get(&state, &slug, &path).await
+}
+
+async fn list_schedules(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    proxy_get(&state, &slug, "/schedules").await
+}
+
+async fn create_schedule(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    proxy_post(&state, &slug, "/schedules", body).await
+}
+
+async fn delete_schedule(
+    State(state): State<AppState>,
+    Path((slug, schedule_id)): Path<(String, String)>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    Uuid::parse_str(&schedule_id)
+        .map_err(|_| ApiError::InvalidInput("valid schedule UUID is required".to_owned()))?;
+    let path = format!("/schedules/{schedule_id}");
+    proxy_delete(&state, &slug, &path).await
+}
+
+async fn toggle_schedule(
+    State(state): State<AppState>,
+    Path((slug, schedule_id)): Path<(String, String)>,
+    _headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    Uuid::parse_str(&schedule_id)
+        .map_err(|_| ApiError::InvalidInput("valid schedule UUID is required".to_owned()))?;
+    let path = format!("/schedules/{schedule_id}/enabled");
+    proxy_post(&state, &slug, &path, body).await
 }

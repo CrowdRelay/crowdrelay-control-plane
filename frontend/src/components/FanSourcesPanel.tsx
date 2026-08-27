@@ -1,7 +1,7 @@
-import { For, Show, createSignal, createMemo } from 'solid-js'
+import { For, Show, createSignal, createMemo, createResource } from 'solid-js'
 import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import type { FanbaseBlock } from '../lib/types'
+import type { FanbaseBlock, FanbaseConnection } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { FanbaseIcon } from './ProviderIcon'
 
@@ -19,7 +19,25 @@ const SOURCE_LABEL: Record<string, string> = Object.fromEntries(
   SOURCE_KINDS.map(kind => [kind.value, kind.label]),
 )
 
+const OAUTH_PLATFORMS = [
+  { value: 'meta', label: 'Meta (Facebook/Instagram)', icon: 'meta' },
+  { value: 'google_ads', label: 'Google Ads', icon: 'google_ads' },
+  { value: 'spotify', label: 'Spotify', icon: 'spotify' },
+  { value: 'reddit', label: 'Reddit', icon: 'reddit' },
+  { value: 'tiktok', label: 'TikTok', icon: 'tiktok' },
+]
+
 const EMPTY_INGEST = ''
+
+const formatAge = (iso: string) => {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.floor(hours / 24)}d ago`
+}
 
 const metric = (value: number | null | undefined) => value == null ? '—' : value.toLocaleString()
 
@@ -123,6 +141,39 @@ export function FanSourcesPanel(props: {
 
   const blocks = () => props.fanbases ?? []
 
+  // --- Fanbase OAuth connections ---
+  const [connections, { refetch: refetchConnections }] = createResource(async () => {
+    try {
+      const data = await api.fanbaseConnections(props.slug)
+      return data.connections
+    } catch {
+      return null
+    }
+  })
+
+  const connectPlatform = async (platform: string) => {
+    setErrorText(null)
+    const redirectUri = `${window.location.origin}/tenants/${encodeURIComponent(props.slug)}/portfolio/fanbases/connections/oauth/${encodeURIComponent(platform)}/callback`
+    try {
+      const data = await api.startFanbaseOauth(props.slug, platform, redirectUri)
+      if (data.url) window.location.href = data.url
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'OAuth start failed')
+    }
+  }
+
+  const disconnectConnection = async (id: string) => {
+    try {
+      await api.deleteFanbaseConnection(props.slug, id)
+      refetchConnections()
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'Disconnect failed')
+    }
+  }
+
+  const connTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
+    status === 'connected' ? 'good' : status === 'expired' ? 'warn' : status === 'disconnected' ? 'bad' : 'muted'
+
   return <article class="panel">
     <div class="section-title">
       <div><span class="eyebrow">FAN SOURCES</span><h2>Fanbases</h2><p>First-class audience blocks with a swappable acquisition origin. Every ingest lands candidates as pending double opt-in — active fans are never downgraded and opt-outs are never resurrected.</p></div>
@@ -138,6 +189,51 @@ export function FanSourcesPanel(props: {
     <Show when={errorText()}>
       <div class="error-card" role="alert">{errorText()}</div>
     </Show>
+
+    {/* Platform connections — OAuth-based fanbase sources */}
+    <div class="agent-section">
+      <div class="agent-section-head">
+        <h3>Platform Connections</h3>
+        <Show when={connections() && connections()!.length > 0}>
+          <span class="agent-connection-summary">
+            <span class="agent-connection-dot ok" />
+            {connections()!.length} connected
+          </span>
+        </Show>
+      </div>
+      <p class="agent-section-intro">Connect ad and music platforms to pull leads, followers, and audience data directly into fanbases. OAuth connections are encrypted and token refresh is automatic.</p>
+      <div class="agent-providers">
+        <For each={OAUTH_PLATFORMS}>{(plat) => {
+          const conn = () => connections()?.find(c => c.platform === plat.value)
+          return (
+            <div class="fanbase-connection-card" classList={{ connected: !!conn() }}>
+              <div class="agent-provider-logo">
+                <FanbaseIcon sourceKind={plat.icon as never} size={28} />
+              </div>
+              <div class="fanbase-connection-info">
+                <div class="fanbase-connection-name">{plat.label}</div>
+                <Show when={conn()}>
+                  <div class="fanbase-connection-meta">
+                    <StatusBadge status={conn()!.status} tone={connTone(conn()!.status)} />
+                    <Show when={conn()!.last_sync_at}>
+                      <span class="muted">last sync {formatAge(conn()!.last_sync_at!)}</span>
+                    </Show>
+                  </div>
+                </Show>
+              </div>
+              <div class="fanbase-connection-actions">
+                <Show when={!conn()}>
+                  <button class="agent-btn" onClick={() => connectPlatform(plat.value)}>Connect</button>
+                </Show>
+                <Show when={conn()}>
+                  <button class="agent-btn-danger" onClick={() => disconnectConnection(conn()!.id)}>Disconnect</button>
+                </Show>
+              </div>
+            </div>
+          )
+        }}</For>
+      </div>
+    </div>
 
     <Show when={creating}>
       <div class="form-grid">

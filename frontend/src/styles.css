@@ -467,3 +467,17 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .toggle-row input{accent-color:var(--accent)}
 .filter-row select{background:#0c0e12;border:1px solid #2c313b;color:white;padding:8px 10px;border-radius:8px;font-size:.78rem}
 .page-head-actions{display:flex;gap:8px}
+.beta-chip{background:#3b1d2e;color:#e899b8;font-size:.6rem;padding:1px 5px;border-radius:3px;text-transform:uppercase;letter-spacing:.04em}
+.llm-badge{background:#2a1d4a;color:#a99ce8;font-size:.65rem}
+.agent-outcomes{padding:.75rem 1.25rem;border-bottom:1px solid #2a2d36}
+.agent-outcomes h4{font-size:.78rem;margin:0 0 .5rem;color:var(--muted)}
+.agent-outcome-card{background:#1a1d24;border:1px solid #2a2d36;border-radius:4px;padding:.6rem;margin-bottom:.5rem}
+.agent-outcome-head{display:flex;gap:6px;margin-bottom:.3rem}
+.agent-outcome-item{font-size:.72rem;color:#9aa;white-space:pre-wrap;max-height:200px;overflow:auto;margin:.3rem 0 0}
+.agent-schedule-form{padding:.5rem 0;margin-bottom:.75rem}
+.agent-schedule-form .agent-actions{display:flex;gap:8px;align-items:center;margin-top:.5rem}
+.fanbase-connection-card{display:flex;align-items:flex-start;gap:.75rem;background:#1a1d24;border:1px solid #2a2d36;border-radius:6px;padding:.7rem .85rem;margin-bottom:.5rem}
+.fanbase-connection-info{flex:1}
+.fanbase-connection-name{font-size:.88rem;font-weight:600}
+.fanbase-connection-meta{font-size:.72rem;color:var(--muted);margin-top:.2rem}
+.fanbase-connection-actions{display:flex;gap:6px;align-items:center}

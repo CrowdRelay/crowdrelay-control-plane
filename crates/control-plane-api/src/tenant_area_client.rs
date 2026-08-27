@@ -198,6 +198,22 @@ fn uuid_segment_between(path: &str, prefix: &str, suffix: &str) -> bool {
         .is_some_and(|segment| !segment.is_empty() && Uuid::parse_str(segment).is_ok())
 }
 
+/// Matches a path like `{prefix}{segment1}/{segment2}{suffix}` where segment1
+/// is a safe identifier (platform name) and segment2 is empty (the suffix is
+/// the last segment). Used for OAuth start/callback routes like
+/// `/v1/control-plane/fanbases/connections/oauth/{platform}/start`.
+fn two_segment_after(path: &str, prefix: &str, suffix: &str) -> bool {
+    path.strip_prefix(prefix)
+        .and_then(|tail| tail.strip_suffix(suffix))
+        .is_some_and(|segment| {
+            !segment.is_empty()
+                && segment.len() <= 32
+                && segment
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte == b'_')
+        })
+}
+
 fn timeline_segment(path: &str) -> bool {
     path.strip_prefix("/v1/control-plane/ops/operations/")
         .is_some_and(|segment| {
@@ -229,6 +245,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/portfolio/amplification"
                     | "/v1/control-plane/tenant-settings"
                     | "/v1/control-plane/fanbases"
+                    | "/v1/control-plane/fanbases/connections"
                     | "/v1/control-plane/webhook-endpoints"
             ) || path.starts_with("/v1/control-plane/ops/outbox?")
                 || path.starts_with("/v1/control-plane/ops/deliveries?")
@@ -258,9 +275,13 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 )
                 || one_safe_segment(path, "/v1/control-plane/tenant-settings/")
                 || path == "/v1/control-plane/fanbases"
+                || path == "/v1/control-plane/fanbases/connections"
                 || uuid_segment_between(path, "/v1/control-plane/fanbases/", "/ingest")
+                || two_segment_after(path, "/v1/control-plane/fanbases/connections/oauth/", "/start")
+                || two_segment_after(path, "/v1/control-plane/fanbases/connections/oauth/", "/callback")
         }
-        "DELETE" => uuid_segment_between(path, "/v1/control-plane/fanbases/", ""),
+        "DELETE" => uuid_segment_between(path, "/v1/control-plane/fanbases/", "")
+            || uuid_segment_between(path, "/v1/control-plane/fanbases/connections/", ""),
         _ => false,
     }
 }

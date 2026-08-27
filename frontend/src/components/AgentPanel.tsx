@@ -1,9 +1,10 @@
 import { For, Show, createEffect, createResource, createSignal } from 'solid-js'
-import { request } from '../lib/api'
+import { api, request } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { refreshTick } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { LlmProviderIcon } from './ProviderIcon'
+import type { AgentTemplate, AgentTask, AgentTaskResult, AgentProvider, AgentCredential, AgentModel, TaskSuggestion, AgentSchedule, AgentOutcome } from '../lib/types'
 
 // --- Ant icon (agent service mascot) ---
 const AntIcon = (props: { size?: number }) => (
@@ -25,80 +26,6 @@ const BrainIcon = (props: { size?: number }) => (
     <path d="M15 3a3 3 0 0 1 3 3 3 3 0 0 1 1 5.8A3 3 0 0 1 17 17a3 3 0 0 1-2 4 3 3 0 0 1-3-3" opacity="0.5" />
   </svg>
 )
-
-interface AgentTemplate {
-  id: string
-  name: string
-  description: string
-  category: 'content' | 'research' | 'analysis'
-  recommendedModels: string[]
-  dataScope: string[]
-}
-
-interface AgentTask {
-  id: string
-  template_id: string
-  model_id: string
-  prompt: string
-  status: 'queued' | 'running' | 'completed' | 'failed'
-  error: string | null
-  created_at: string
-  completed_at: string | null
-}
-
-interface AgentTaskResult {
-  id: string
-  task_id: string
-  content: string
-  format: string
-  model_used: string
-  tokens_in: number | null
-  tokens_out: number | null
-  duration_ms: number | null
-}
-
-interface ProviderSummary {
-  id: string
-  name: string
-  description: string
-  authMethod: 'api_key' | 'oauth' | 'none'
-  freeTier: boolean
-  modelCount: number
-  oauthScopes: string[]
-  oauthAvailable: boolean
-}
-
-interface Credential {
-  id: string
-  provider: string
-  label: string
-  credential_type: 'api_key' | 'oauth_refresh_token'
-  status: 'active' | 'revoked' | 'invalid'
-  last_validated_at: string | null
-  last_validation_error: string | null
-  created_at: string
-}
-
-interface AvailableModel {
-  id: string
-  name: string
-  contextWindow: number
-  bestFor: string
-  paid: boolean
-  providerId: string
-  providerName: string
-}
-
-interface TaskSuggestion {
-  id: string
-  template_id: string
-  model_id: string
-  title: string
-  description: string
-  prefill_prompt: string
-  priority: 'high' | 'medium' | 'low'
-  reason: string
-}
 
 const categoryTone = (cat: string): 'good' | 'warn' | 'muted' =>
   cat === 'content' ? 'good' : cat === 'research' ? 'warn' : 'muted'
@@ -135,6 +62,8 @@ export function AgentPanel(props: { slug: string }) {
   const [pastingProvider, setPastingProvider] = createSignal<string | null>(null)
   const [apiKeyInput, setApiKeyInput] = createSignal('')
   const [connecting, setConnecting] = createSignal(false)
+  const [deviceFlowProvider, setDeviceFlowProvider] = createSignal<string | null>(null)
+  const [deviceFlowData, setDeviceFlowData] = createSignal<{ user_code?: string; verification_uri?: string; expires_in?: number } | null>(null)
 
   const [templates] = createResource(async () => {
     const data = await request<{ templates: AgentTemplate[] }>(`/tenants/${props.slug}/agents/templates`)
@@ -151,17 +80,17 @@ export function AgentPanel(props: { slug: string }) {
   })
 
   const [providers] = createResource(async () => {
-    const data = await request<{ providers: ProviderSummary[] }>(`/tenants/${props.slug}/agents/providers`)
+    const data = await request<{ providers: AgentProvider[] }>(`/tenants/${props.slug}/agents/providers`)
     return data.providers
   })
 
   const [credentials, { refetch: refetchCreds }] = createResource(async () => {
-    const data = await request<{ credentials: Credential[] }>(`/tenants/${props.slug}/agents/credentials`)
+    const data = await request<{ credentials: AgentCredential[] }>(`/tenants/${props.slug}/agents/credentials`)
     return data.credentials
   })
 
   const [models, { refetch: refetchModels }] = createResource(async () => {
-    const data = await request<{ models: AvailableModel[]; connectedProviders: string[] }>(`/tenants/${props.slug}/agents/models`)
+    const data = await request<{ models: AgentModel[]; connectedProviders: string[] }>(`/tenants/${props.slug}/agents/models`)
     return data
   })
 
@@ -253,16 +182,43 @@ export function AgentPanel(props: { slug: string }) {
     }
   }
 
-  const startGoogleOAuth = async () => {
+  const startOauth = async (providerId: string) => {
     setError(null)
+    const provider = providers()?.find(p => p.id === providerId)
+    if (provider?.oauth?.kind === 'device') {
+      // Device flow: open modal, poll until connected
+      setDeviceFlowProvider(providerId)
+      setDeviceFlowData(null)
+      return
+    }
+    // Redirect flow: build callback URL, redirect browser
+    const redirectUri = `${window.location.origin}/tenants/${encodeURIComponent(props.slug)}/agents/oauth/${encodeURIComponent(providerId)}/callback`
     try {
-      const data = await request<{ url: string }>(`/tenants/${props.slug}/agents/oauth/google/start`)
+      const data = await api.startAgentOauth(props.slug, providerId, redirectUri)
       if (!data.url || typeof data.url !== 'string') {
         throw new Error('OAuth start did not return a redirect URL')
       }
       window.location.href = data.url
     } catch (err) {
-      setError(errorMessage(err, 'Failed to start Google OAuth'))
+      setError(errorMessage(err, `Failed to start ${providerId} OAuth`))
+    }
+  }
+
+  const pollDeviceFlow = async (providerId: string) => {
+    try {
+      const result = await api.pollAgentOauth(props.slug, providerId)
+      if (result.status === 'connected') {
+        setDeviceFlowProvider(null)
+        refetchCreds()
+        refetchModels()
+      } else if (result.status === 'failed') {
+        setError(result.error ?? 'Device flow failed')
+        setDeviceFlowProvider(null)
+      }
+      // pending: keep polling (caller drives interval)
+    } catch (err) {
+      setError(errorMessage(err, 'Device flow poll failed'))
+      setDeviceFlowProvider(null)
     }
   }
 
@@ -273,6 +229,59 @@ export function AgentPanel(props: { slug: string }) {
       refetchModels()
     } catch (err) {
       setError(errorMessage(err, 'Failed to disconnect'))
+    }
+  }
+
+  // --- Schedules ---
+  const [schedules, { refetch: refetchSchedules }] = createResource(async () => {
+    try {
+      const data = await request<{ schedules: AgentSchedule[] }>(`/tenants/${props.slug}/agents/schedules`)
+      return data.schedules
+    } catch {
+      return null
+    }
+  })
+
+  const [creatingSchedule, setCreatingSchedule] = createSignal(false)
+  const [scheduleInterval, setScheduleInterval] = createSignal(1440)
+
+  const createSchedule = async () => {
+    const templateId = selectedTemplate()
+    if (!templateId || !prompt().trim()) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      await api.agentCreateSchedule(props.slug, {
+        template_id: templateId,
+        model_id: selectedModel(),
+        prompt: prompt().trim(),
+        interval_minutes: scheduleInterval(),
+      })
+      setPrompt('')
+      setCreatingSchedule(false)
+      refetchSchedules()
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to create schedule'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const toggleSchedule = async (id: string, enabled: boolean) => {
+    try {
+      await api.agentToggleSchedule(props.slug, id, enabled)
+      refetchSchedules()
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to toggle schedule'))
+    }
+  }
+
+  const deleteSchedule = async (id: string) => {
+    try {
+      await api.agentDeleteSchedule(props.slug, id)
+      refetchSchedules()
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to delete schedule'))
     }
   }
 
@@ -331,12 +340,15 @@ export function AgentPanel(props: { slug: string }) {
                         Disconnect
                       </button>
                     </Show>
-                    <Show when={provider.id === 'google' && provider.oauthAvailable && !cred()}>
-                      <button class="agent-btn" onClick={startGoogleOAuth}>
-                        Connect with Google
+                    <Show when={provider.oauthAvailable && !cred()}>
+                      <button class="agent-btn" onClick={() => startOauth(provider.id)}>
+                        {provider.oauth?.kind === 'device' ? 'Device Flow' : `Connect with ${provider.name}`}
                       </button>
+                      <Show when={provider.oauth?.experimental}>
+                        <span class="badge beta-chip">beta</span>
+                      </Show>
                     </Show>
-                    <Show when={provider.id === 'google' && cred()}>
+                    <Show when={provider.oauthAvailable && cred()}>
                       <button class="agent-btn-danger" onClick={() => disconnect(provider.id)}>
                         Disconnect
                       </button>
@@ -436,6 +448,35 @@ export function AgentPanel(props: { slug: string }) {
         </div>
       </Show>
 
+      {/* Device flow modal — for providers that use device code grant */}
+      <Show when={deviceFlowProvider()}>
+        <div class="agent-result-overlay" onClick={() => setDeviceFlowProvider(null)}>
+          <div class="agent-result-modal" onClick={(e) => e.stopPropagation()}>
+            <div class="agent-result-header">
+              <h3>Connect {providers()?.find(p => p.id === deviceFlowProvider())?.name}</h3>
+              <button class="link" onClick={() => setDeviceFlowProvider(null)}>Close</button>
+            </div>
+            <div class="agent-paste-body">
+              <p class="muted">Open the verification URL below in another tab, enter the code, then come back here. We'll poll until the connection completes.</p>
+              <Show when={deviceFlowData()?.verification_uri}>
+                <p><strong>URL:</strong> <a href={deviceFlowData()!.verification_uri!} target="_blank" rel="noopener">{deviceFlowData()!.verification_uri!}</a></p>
+                <p><strong>Code:</strong> <code>{deviceFlowData()!.user_code ?? '—'}</code></p>
+              </Show>
+              <Show when={!deviceFlowData()?.verification_uri}>
+                <p class="muted">Starting device flow…</p>
+              </Show>
+              <Show when={error()}>
+                <span class="agent-error">{error()}</span>
+              </Show>
+            </div>
+            <div class="agent-result-actions">
+              <button onClick={() => pollDeviceFlow(deviceFlowProvider()!)}>Check now</button>
+              <button class="link" onClick={() => setDeviceFlowProvider(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      </Show>
+
       <Show when={selectedTemplate()}>
         <div class="agent-section">
           <h3>Task</h3>
@@ -475,6 +516,59 @@ export function AgentPanel(props: { slug: string }) {
           </div>
         </div>
       </Show>
+
+      {/* Schedules — recurring agent tasks */}
+      <div class="agent-section">
+        <div class="agent-section-head">
+          <h3>Schedules</h3>
+          <Show when={!creatingSchedule()}>
+            <button class="agent-btn" onClick={() => { setCreatingSchedule(true); setError(null) }}>
+              + New schedule
+            </button>
+          </Show>
+        </div>
+        <p class="agent-section-intro">Recurring agent tasks run automatically on the configured interval. Each run is a normal task — results land in Recent Tasks and structured outcomes flow to the opportunity board.</p>
+        <Show when={creatingSchedule()}>
+          <div class="agent-schedule-form">
+            <label class="agent-field">
+              <span>Interval (minutes)</span>
+              <input type="number" min="60" max="10080" value={scheduleInterval()} onInput={(e) => setScheduleInterval(parseInt(e.currentTarget.value, 10) || 1440)} />
+            </label>
+            <div class="agent-actions">
+              <button class="primary" disabled={submitting() || !selectedTemplate() || !prompt().trim()} onClick={createSchedule}>
+                {submitting() ? 'Creating…' : 'Create schedule'}
+              </button>
+              <button class="link" onClick={() => setCreatingSchedule(false)}>Cancel</button>
+            </div>
+          </div>
+        </Show>
+        <Show when={schedules() && schedules()!.length > 0}>
+          <table class="agent-task-table">
+            <thead><tr><th>Template</th><th>Interval</th><th>Enabled</th><th>Last run</th><th>Next run</th><th></th></tr></thead>
+            <tbody>
+              <For each={schedules()}>
+                {(sched) => (
+                  <tr>
+                    <td>{sched.template_id}</td>
+                    <td>{sched.interval_minutes}m</td>
+                    <td>
+                      <button class="link" onClick={() => toggleSchedule(sched.id, !sched.enabled)}>
+                        {sched.enabled ? '✓ enabled' : 'disabled'}
+                      </button>
+                    </td>
+                    <td class="muted">{sched.last_run_at ? formatAge(sched.last_run_at) : 'never'}</td>
+                    <td class="muted">{sched.next_run_at ? formatAge(sched.next_run_at) : '—'}</td>
+                    <td><button class="agent-btn-danger" onClick={() => deleteSchedule(sched.id)}>Delete</button></td>
+                  </tr>
+                )}
+              </For>
+            </tbody>
+          </table>
+        </Show>
+        <Show when={!schedules() || schedules()!.length === 0}>
+          <p class="muted">No schedules yet.</p>
+        </Show>
+      </div>
 
       <div class="agent-section">
         <h3>Recent Tasks</h3>
@@ -527,6 +621,23 @@ export function AgentPanel(props: { slug: string }) {
                 <span>Tokens: {viewingResult()?.tokens_out} out</span>
               </Show>
             </div>
+            <Show when={viewingResult()?.outcomes && viewingResult()!.outcomes!.length > 0}>
+              <div class="agent-outcomes">
+                <h4>Structured outcomes</h4>
+                <For each={viewingResult()!.outcomes}>{(outcome: AgentOutcome) => (
+                  <div class="agent-outcome-card">
+                    <div class="agent-outcome-head">
+                      <span class="badge">{outcome.kind.replaceAll('_', ' ')}</span>
+                      <span class="badge">confidence {Math.round(outcome.confidence_basis_points / 100)}%</span>
+                    </div>
+                    <p class="muted">{outcome.rationale}</p>
+                    <Show when={outcome.item}>
+                      <pre class="agent-outcome-item">{JSON.stringify(outcome.item, null, 2)}</pre>
+                    </Show>
+                  </div>
+                )}</For>
+              </div>
+            </Show>
             <pre class="agent-result-content">{viewingResult()?.content}</pre>
             <div class="agent-result-actions">
               <button onClick={() => navigator.clipboard.writeText(viewingResult()?.content ?? '')}>

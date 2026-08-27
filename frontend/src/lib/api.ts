@@ -1,4 +1,4 @@
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AgentScorecard, AutomationEvent, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, DeliveryDetails, DeliveryItem, DiscoveredEndpoint, FeatureFlag, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, OutboxItem, Palette, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AgentScorecard, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentOutcome, TaskSuggestion, AutomationEvent, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, DeliveryDetails, DeliveryItem, DiscoveredEndpoint, FanbaseConnection, FeatureFlag, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, OutboxItem, Palette, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
@@ -216,4 +216,46 @@ export const api = {
     request<{ items: AutomationWorkflowConfig[] }>(`/automation/workflows`),
   updateAutomationWorkflowConfig: (workflowId: string, input: { category?: string; discordEnabled?: boolean; muted?: boolean; label?: string }) =>
     request<AutomationWorkflowConfig>(`/automation/workflows/${encodeURIComponent(workflowId)}`, { method: 'PATCH', body: JSON.stringify(input) }),
+
+  // --- Agent service (proxied through control-plane) ---
+  agentTemplates: (slug: string) =>
+    request<{ templates: AgentTemplate[] }>(`/tenants/${encodeURIComponent(slug)}/agents/templates`),
+  agentTasks: (slug: string) =>
+    request<{ tasks: AgentTask[] }>(`/tenants/${encodeURIComponent(slug)}/agents/tasks`),
+  agentTaskResult: (slug: string, taskId: string) =>
+    request<AgentTaskResult>(`/tenants/${encodeURIComponent(slug)}/agents/tasks/${encodeURIComponent(taskId)}/result`),
+  agentProviders: (slug: string) =>
+    request<{ providers: AgentProvider[] }>(`/tenants/${encodeURIComponent(slug)}/agents/providers`),
+  agentCredentials: (slug: string) =>
+    request<{ credentials: AgentCredential[] }>(`/tenants/${encodeURIComponent(slug)}/agents/credentials`),
+  agentPasteCredential: (slug: string, input: { provider: string; api_key: string; label?: string }) =>
+    request<void>(`/tenants/${encodeURIComponent(slug)}/agents/credentials`, { method: 'POST', body: JSON.stringify(input) }),
+  agentDeleteCredential: (slug: string, provider: string) =>
+    request<void>(`/tenants/${encodeURIComponent(slug)}/agents/credentials/${encodeURIComponent(provider)}`, { method: 'DELETE' }),
+  agentValidateCredential: (slug: string, provider: string) =>
+    request<void>(`/tenants/${encodeURIComponent(slug)}/agents/credentials/${encodeURIComponent(provider)}/validate`, { method: 'POST', body: '{}' }),
+  agentModels: (slug: string) =>
+    request<{ models: AgentModel[]; connectedProviders: string[] }>(`/tenants/${encodeURIComponent(slug)}/agents/models`),
+  agentSuggestions: (slug: string) =>
+    request<{ suggestions: TaskSuggestion[] }>(`/tenants/${encodeURIComponent(slug)}/agents/suggestions`),
+  agentSchedules: (slug: string) =>
+    request<{ schedules: AgentSchedule[] }>(`/tenants/${encodeURIComponent(slug)}/agents/schedules`),
+  agentCreateSchedule: (slug: string, input: { template_id: string; model_id: string; prompt: string; interval_minutes: number }) =>
+    request<{ schedule: AgentSchedule }>(`/tenants/${encodeURIComponent(slug)}/agents/schedules`, { method: 'POST', body: JSON.stringify(input) }),
+  agentDeleteSchedule: (slug: string, id: string) =>
+    request<void>(`/tenants/${encodeURIComponent(slug)}/agents/schedules/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  agentToggleSchedule: (slug: string, id: string, enabled: boolean) =>
+    request<void>(`/tenants/${encodeURIComponent(slug)}/agents/schedules/${encodeURIComponent(id)}/enabled`, { method: 'POST', body: JSON.stringify({ enabled }) }),
+  startAgentOauth: (slug: string, provider: string, redirectUri: string) =>
+    request<{ url: string }>(`/tenants/${encodeURIComponent(slug)}/agents/oauth/${encodeURIComponent(provider)}/start?redirect_uri=${encodeURIComponent(redirectUri)}`),
+  pollAgentOauth: (slug: string, provider: string) =>
+    request<{ status: 'pending' | 'connected' | 'failed'; error?: string }>(`/tenants/${encodeURIComponent(slug)}/agents/oauth/${encodeURIComponent(provider)}/poll`),
+
+  // --- Fanbase connections ---
+  fanbaseConnections: (slug: string) =>
+    request<{ connections: FanbaseConnection[] }>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/connections`),
+  startFanbaseOauth: (slug: string, platform: string, redirectUri: string) =>
+    request<{ url: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/connections/oauth/${encodeURIComponent(platform)}/start?redirect_uri=${encodeURIComponent(redirectUri)}`),
+  deleteFanbaseConnection: (slug: string, id: string) =>
+    request<void>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/connections/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 }
