@@ -15,6 +15,27 @@ use uuid::Uuid;
 
 use crate::{AppState, error::ApiError};
 
+/// Percent-encode a key=value pair for use in a query string.
+fn encode_query_pair(k: &str, v: &str) -> String {
+    format!(
+        "{}={}",
+        percent_encode(k),
+        percent_encode(v)
+    )
+}
+
+fn percent_encode(s: &str) -> String {
+    s.bytes()
+        .map(|b| {
+            if b.is_ascii_alphanumeric() || b == b'-' || b == b'_' || b == b'.' || b == b'~' {
+                char::from(b).to_string()
+            } else {
+                format!("%{:02X}", b)
+            }
+        })
+        .collect()
+}
+
 const PRIVATE_NO_STORE: &str = "private, no-store";
 const MAX_AGENT_BODY_BYTES: usize = 16 * 1024;
 
@@ -85,7 +106,8 @@ async fn proxy_get(state: &AppState, slug: &str, path: &str) -> Result<Response,
     let workspace_id = resolve_workspace_id(&tenant);
     let token = state.area_client.derived_management_token(workspace_id)?;
     let url = format!("{base}{path}");
-    let response = reqwest::Client::new()
+    let response = state
+        .http_client
         .get(&url)
         .header("Authorization", format!("Bearer {token}"))
         .header("X-Workspace-Id", workspace_id.to_string())
@@ -114,7 +136,8 @@ async fn proxy_post(
     let workspace_id = resolve_workspace_id(&tenant);
     let token = state.area_client.derived_management_token(workspace_id)?;
     let url = format!("{base}{path}");
-    let response = reqwest::Client::new()
+    let response = state
+        .http_client
         .post(&url)
         .header("Authorization", format!("Bearer {token}"))
         .header("X-Workspace-Id", workspace_id.to_string())
@@ -147,7 +170,8 @@ async fn proxy_delete(state: &AppState, slug: &str, path: &str) -> Result<Respon
     let workspace_id = resolve_workspace_id(&tenant);
     let token = state.area_client.derived_management_token(workspace_id)?;
     let url = format!("{base}{path}");
-    let response = reqwest::Client::new()
+    let response = state
+        .http_client
         .delete(&url)
         .header("Authorization", format!("Bearer {token}"))
         .header("X-Workspace-Id", workspace_id.to_string())
@@ -192,9 +216,19 @@ async fn get_template(
 async fn list_tasks(
     State(state): State<AppState>,
     Path(slug): Path<String>,
+    Query(query): Query<HashMap<String, String>>,
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    proxy_get(&state, &slug, "/tasks").await
+    if query.is_empty() {
+        return proxy_get(&state, &slug, "/tasks").await;
+    }
+    let qs: String = query
+        .iter()
+        .map(|(k, v)| encode_query_pair(k, v))
+        .collect::<Vec<_>>()
+        .join("&");
+    let path = format!("/tasks?{qs}");
+    proxy_get(&state, &slug, &path).await
 }
 
 async fn create_task(
@@ -312,7 +346,7 @@ async fn oauth_google_callback(
 ) -> Result<Response, ApiError> {
     let qs: String = query
         .iter()
-        .map(|(k, v)| format!("{}={}", k, v))
+        .map(|(k, v)| encode_query_pair(k, v))
         .collect::<Vec<_>>()
         .join("&");
     let path = format!("/oauth/google/callback?{qs}");

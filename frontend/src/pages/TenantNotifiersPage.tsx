@@ -15,8 +15,8 @@ export function TenantNotifiersPage() {
   const params = useParams({ from: '/tenants/$slug/notifiers' })
   const slug = () => params().slug
   const qc = useQueryClient()
-  const channels = useQuery(() => ({ queryKey: ['notifiers', slug()], queryFn: () => api.notifiers(slug()), refetchInterval: 30_000, refetchOnWindowFocus: false }))
-  const discovered = useQuery(() => ({ queryKey: ['notifiers-discovered', slug()], queryFn: () => api.discoveredEndpoints(slug()), refetchInterval: 30_000, refetchOnWindowFocus: false }))
+  const channels = useQuery(() => ({ queryKey: ['notifiers', slug()], queryFn: () => api.notifiers(slug()), refetchInterval: 30_000, refetchOnWindowFocus: false, reconcile: 'id', staleTime: 20_000 }))
+  const discovered = useQuery(() => ({ queryKey: ['notifiers-discovered', slug()], queryFn: () => api.discoveredEndpoints(slug()), refetchInterval: 30_000, refetchOnWindowFocus: false, reconcile: 'id', staleTime: 20_000 }))
 
   const [kind, setKind] = createSignal<NotifierChannel['kind']>('discord')
   const [label, setLabel] = createSignal('')

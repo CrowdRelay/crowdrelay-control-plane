@@ -39,7 +39,7 @@ export function TenantOperatorsPanel(props: { slug: string }) {
       <label>New operator username<input value={username()} onInput={(e) => setUsername(e.currentTarget.value.toLowerCase())} placeholder="stage-op" autocomplete="off" /></label>
       <label>Password<input type="password" value={password()} onInput={(e) => setPassword(e.currentTarget.value)} placeholder="min 12 characters" autocomplete="new-password" /></label>
     </div>
-    <button disabled={create.isPending || !/^[a-z0-9][a-z0-9-_.]{2,31}$/.test(username().trim()) || password().length < 12} onClick={() => create.mutate()}>{create.isPending ? 'Creating…' : 'Create operator'}</button>
+    <div class="form-actions"><button disabled={create.isPending || !/^[a-z0-9][a-z0-9-_.]{2,31}$/.test(username().trim()) || password().length < 12} onClick={() => create.mutate()}>{create.isPending ? 'Creating…' : 'Create operator'}</button></div>
     <Show when={create.error}><div class="error-card" role="alert">{errorMessage(create.error, 'Operator creation failed')}</div></Show>
     <Show when={remove.error}><div class="error-card" role="alert">{errorMessage(remove.error, 'Operator removal failed')}</div></Show>
     <div class="notifier-list"><For each={accounts.data?.items ?? []}>{account =>

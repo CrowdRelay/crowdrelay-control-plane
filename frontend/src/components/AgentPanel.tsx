@@ -152,6 +152,18 @@ export function AgentPanel(props: { slug: string }) {
     return data
   })
 
+  // When models load, ensure selectedModel is valid — if the current selection
+  // isn't in the list (e.g. it was set by a suggestion using a model that no
+  // longer exists), fall back to the first available model.
+  createEffect(() => {
+    const m = models()?.models
+    if (!m || m.length === 0) return
+    const current = selectedModel()
+    if (!m.some(model => model.id === current)) {
+      setSelectedModel(m[0]!.id)
+    }
+  })
+
   const [suggestions] = createResource(async () => {
     try {
       const data = await request<{ suggestions: TaskSuggestion[] }>(`/tenants/${props.slug}/agents/suggestions`)
