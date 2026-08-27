@@ -64,6 +64,10 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/autopilot/scorecard",
             get(autopilot_scorecard),
         )
+        .route(
+            "/tenants/{slug}/operations/autopilot/reply-triage",
+            get(autopilot_reply_triage),
+        )
         // Portfolio reads live in read_models::portfolio as one consolidated
         // model; only the mutations are routed here.
         .route(
@@ -555,6 +559,27 @@ async fn autopilot_scorecard(
     )
     .await?;
     object_no_store(value, "autopilot scorecard")
+}
+
+/// Reply triage: which inbound replies need human review, and how recent
+/// replies were classified. Read-only proxy to CrowdRelay's reply triage
+/// read model.
+async fn autopilot_reply_triage(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/reply-triage",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "autopilot reply triage")
 }
 
 #[derive(Debug, Deserialize)]

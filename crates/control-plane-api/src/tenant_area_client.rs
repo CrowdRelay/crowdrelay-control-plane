@@ -218,6 +218,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/growth"
                     | "/v1/control-plane/autopilot/next-best-actions"
                     | "/v1/control-plane/autopilot/scorecard"
+                    | "/v1/control-plane/autopilot/reply-triage"
                     | "/v1/control-plane/portfolio/overview"
                     | "/v1/control-plane/portfolio/amplification"
                     | "/v1/control-plane/tenant-settings"
@@ -640,6 +641,7 @@ mod tests {
             "/v1/control-plane/ops/summary",
             "/v1/control-plane/ecosystem/flags",
             "/v1/control-plane/autopilot/overview",
+            "/v1/control-plane/autopilot/reply-triage",
         ] {
             assert!(valid_operations_request("GET", path), "{path}");
         }

@@ -24,7 +24,10 @@ if (maps.length) throw new Error(`source maps must not ship: ${maps.join(', ')}`
 // for provider SVG icons (Discord, Gmail, Meta, Bandsintown, Google, Reddit,
 // webhook, CSV, HTTP, manual), audit panel expander, growth panel action
 // guidance, opportunity board decision guide, and portfolio empty states.
-const JS_BUDGET = 353 * 1024
+// Raised 2026-08-28 from 353 KiB for the reply triage panel (needs-human
+// queue, recent auto-classifications, summary counts, per-entry disposition
+// badges and matched-rule display).
+const JS_BUDGET = 358 * 1024
 const CSS_BUDGET = 80 * 1024
 if (js > JS_BUDGET) throw new Error(`JS budget exceeded: ${js} > ${JS_BUDGET}`)
 if (css > CSS_BUDGET) throw new Error(`CSS budget exceeded: ${css} > ${CSS_BUDGET}`)

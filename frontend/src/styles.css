@@ -360,3 +360,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .tenant-switcher-search{width:100%;padding:8px 10px;border-radius:8px;background:#0a0c10;border:1px solid #2a2d36;color:#d9dde6;font-size:.8rem;outline:none;margin-bottom:4px;transition:border-color .15s ease}
 .tenant-switcher-search:focus{border-color:#7663d8;box-shadow:0 0 0 3px #7663d822}
 .tenant-switcher-empty{padding:12px 10px;color:#7d8491;font-size:.78rem;text-align:center}
+
+/* Reply triage */
+.reply-text{display:block;max-width:42rem;color:#d9dde6;font-style:italic;line-height:1.5;margin:2px 0}

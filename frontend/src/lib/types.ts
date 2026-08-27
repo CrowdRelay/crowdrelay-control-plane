@@ -620,3 +620,29 @@ export type AgentScorecard = {
     executor_id: string | null
   }>
 }
+
+export type ReplyTriageView = {
+  needs_human: ReplyTriageEntry[]
+  recent_auto: ReplyTriageEntry[]
+  summary: {
+    needs_human_count: number
+    auto_positive_count: number
+    auto_declined_count: number
+    auto_do_not_contact_count: number
+    pending_count: number
+  }
+}
+
+export type ReplyTriageEntry = {
+  id: string
+  target_id: string
+  target_kind: string
+  reply_text: string
+  previous_disposition: string | null
+  classification_result: string
+  classified_disposition: string | null
+  human_review_reason: string | null
+  confidence_basis_points: number
+  matched_rules: string[]
+  classified_at: string
+}

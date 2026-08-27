@@ -23,6 +23,7 @@ http://127.0.0.1:18080 {
         /v1/control-plane/autopilot/policies/* \
         /v1/control-plane/autopilot/next-best-actions \
         /v1/control-plane/autopilot/scorecard \
+        /v1/control-plane/autopilot/reply-triage \
         /v1/control-plane/portfolio/overview \
         /v1/control-plane/portfolio/amplification \
         /v1/control-plane/portfolio/amplification/* \

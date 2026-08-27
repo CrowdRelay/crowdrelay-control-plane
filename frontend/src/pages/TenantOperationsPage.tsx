@@ -6,6 +6,7 @@ import { OperationsPanel } from '../components/OperationsPanel'
 import { GrowthPanel } from '../components/GrowthPanel'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { ScorecardPanel } from '../components/ScorecardPanel'
+import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
 import { RefreshButton } from '../components/RefreshButton'
 
 export function TenantOperationsPage() {
@@ -42,6 +43,7 @@ export function TenantOperationsPage() {
     <Show when={!model.error && model.isPending}><div class="skeleton-block"/></Show>
     <Show when={model.data}>{data => <>
       <ScorecardPanel />
+      <ReplyTriagePanel />
       <OpportunityBoardPanel
         slug={params().slug}
         opportunities={data().opportunities}
