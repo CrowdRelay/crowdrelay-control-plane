@@ -45,6 +45,16 @@ fn safe_path_segment(value: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
 }
 
+/// Escape a string for safe interpolation into HTML text content.
+/// Prevents reflected XSS when provider error messages contain HTML.
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#x27;")
+}
+
 /// Resolve the crowdrelay workspace_id for a tenant. Falls back to the
 /// control plane tenant ID when the crowdrelay link is not set.
 fn resolve_workspace_id(tenant: &crate::model::TenantSummary) -> Uuid {
@@ -370,8 +380,17 @@ async fn oauth_start(
     }
     // redirect_uri is passed per-request from the control plane frontend so
     // the agent service stays multi-instance safe (no env-based callback URL).
+    // Validate it starts with https:// to prevent open-redirect attacks.
     let mut path = format!("/oauth/{provider}/start");
     if let Some(redirect_uri) = query.get("redirect_uri") {
+        if !redirect_uri.starts_with("https://") && !redirect_uri.starts_with("http://localhost") {
+            return Err(ApiError::InvalidInput(
+                "redirect_uri must be an https:// URL".to_owned(),
+            ));
+        }
+        if redirect_uri.len() > 512 {
+            return Err(ApiError::InvalidInput("redirect_uri too long".to_owned()));
+        }
         path.push_str(&format!("?redirect_uri={}", percent_encode(redirect_uri)));
     }
     proxy_get(&state, &slug, &path).await
@@ -441,6 +460,12 @@ async fn oauth_callback(
             "#dc2626".to_owned(),
         )
     };
+
+    // Escape all interpolated values to prevent reflected XSS — the error
+    // message comes from the agent service and may contain provider-supplied
+    // text that could include HTML.
+    let title = html_escape(&title);
+    let message = html_escape(&message);
 
     Ok((
         StatusCode::OK,

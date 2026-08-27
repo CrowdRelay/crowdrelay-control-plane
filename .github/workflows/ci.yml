@@ -153,7 +153,7 @@ jobs:
           if [[ "${CACHE_WRITE}" == "true" ]]; then
             cache_args+=(--cache-to "type=gha,mode=max,scope=control-plane-image-arm64")
           fi
-          image="ghcr.io/${GITHUB_REPOSITORY_OWNER}/crowdrelay-control-plane:sha-${GITHUB_SHA}"
+          image="ghcr.io/$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')/crowdrelay-control-plane:sha-${GITHUB_SHA}"
           if [[ "${PUBLISH_IMAGE}" == "true" ]]; then
             docker buildx build \
               --platform linux/arm64 \
