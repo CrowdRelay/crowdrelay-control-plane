@@ -182,6 +182,25 @@ async fn main() -> anyhow::Result<()> {
             }
         });
     }
+    // Automation event retention sweep: delete resolved/retried/muted events
+    // older than 30 days. Runs hourly; the partial index keeps it cheap.
+    {
+        let worker_state = state.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(3600));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                interval.tick().await;
+                match worker_state.store.sweep_automation_events().await {
+                    Ok(deleted) if deleted > 0 => {
+                        tracing::info!(deleted, "automation event retention sweep");
+                    }
+                    Ok(_) => {}
+                    Err(error) => tracing::warn!(%error, "automation event retention sweep failed"),
+                }
+            }
+        });
+    }
     // Session endpoints are public by design; everything below requires an
     // identity (admin bearer or operator session).
     let auth_api = auth_routes::router();

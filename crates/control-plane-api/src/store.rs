@@ -2004,6 +2004,20 @@ impl Store {
         .await
         .map_err(ApiError::Database)
     }
+
+    /// Best-effort retention sweep: delete resolved/retried/muted events
+    /// older than 30 days. The partial index `automation_events_retention_idx`
+    /// keeps this cheap. Called from a background loop, never the request path.
+    pub async fn sweep_automation_events(&self) -> Result<u64, ApiError> {
+        let result = sqlx::query(
+            r#"DELETE FROM control_plane_automation_events
+               WHERE status IN ('resolved','retried','muted')
+                 AND occurred_at < now() - interval '30 days'"#,
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
 }
 
 fn deployment_plan(

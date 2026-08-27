@@ -65,14 +65,22 @@ async fn ingest_event(
 
     // Forward to Discord only for real_work workflows with discord_enabled
     // and not muted. Status/system noise stays in the control plane UI.
+    // Fire-and-forget: n8n's webhook timeout (10s) is shorter than our
+    // reqwest timeout (15s), so blocking on Discord would cause n8n to
+    // retry and duplicate events. The event is already durably stored.
     if config.category == "real_work" && config.discord_enabled && !config.muted {
-        if let Err(error) = forward_to_discord(&state, &event.message).await {
-            tracing::warn!(
-                %error,
-                workflow_id = %event.workflow_id,
-                "discord forward failed; event still stored"
-            );
-        }
+        let discord_state = state.clone();
+        let message = event.message.clone();
+        let workflow_id = event.workflow_id.clone();
+        tokio::spawn(async move {
+            if let Err(error) = forward_to_discord(&discord_state, &message).await {
+                tracing::warn!(
+                    %error,
+                    %workflow_id,
+                    "discord forward failed; event still stored"
+                );
+            }
+        });
     }
     Ok((
         StatusCode::CREATED,
