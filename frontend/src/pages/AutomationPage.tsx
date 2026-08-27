@@ -155,7 +155,7 @@ export function AutomationPage() {
         </div>
       </div>
 
-      <Show when={events.error}><div class="error-card">{events.error.message}</div></Show>
+      <Show when={events.error}><div class="error-card">{events.error?.message}</div></Show>
       <Show when={events.data} fallback={!events.error ? <div class="skeleton-block"/> : null}>
         <div class="automation-event-list">
           <For each={events.data!.items}>{(ev: AutomationEvent) => {
