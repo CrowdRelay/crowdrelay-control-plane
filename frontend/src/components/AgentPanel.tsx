@@ -252,6 +252,9 @@ export function AgentPanel(props: { slug: string }) {
     setError(null)
     try {
       const data = await request<{ url: string }>(`/tenants/${props.slug}/agents/oauth/google/start`)
+      if (!data.url || typeof data.url !== 'string') {
+        throw new Error('OAuth start did not return a redirect URL')
+      }
       window.location.href = data.url
     } catch (err) {
       setError(errorMessage(err, 'Failed to start Google OAuth'))
