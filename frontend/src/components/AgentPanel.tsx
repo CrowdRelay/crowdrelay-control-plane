@@ -56,6 +56,7 @@ interface ProviderSummary {
   freeTier: boolean
   modelCount: number
   oauthScopes: string[]
+  oauthAvailable: boolean
 }
 
 interface Credential {
@@ -332,7 +333,7 @@ export function AgentPanel(props: { slug: string }) {
                           Disconnect
                         </button>
                       </Show>
-                      <Show when={provider.id === 'google' && !cred()}>
+                      <Show when={provider.id === 'google' && provider.oauthAvailable && !cred()}>
                         <button class="agent-btn" onClick={startGoogleOAuth}>
                           Connect with Google
                         </button>

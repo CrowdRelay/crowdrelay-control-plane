@@ -88,15 +88,6 @@ pub fn router() -> Router<AppState> {
         .layer(axum::extract::DefaultBodyLimit::max(MAX_AGENT_BODY_BYTES))
 }
 
-fn no_store(value: Value) -> Response {
-    (
-        StatusCode::OK,
-        [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
-        Json(value),
-    )
-        .into_response()
-}
-
 async fn proxy_get(state: &AppState, slug: &str, path: &str) -> Result<Response, ApiError> {
     let (tenant, _) = crate::area_routes::target(state, slug).await?;
     let base = state
@@ -115,11 +106,18 @@ async fn proxy_get(state: &AppState, slug: &str, path: &str) -> Result<Response,
         .send()
         .await
         .map_err(|e| ApiError::Unavailable(format!("agent service unreachable: {e}")))?;
+    let status =
+        StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
     let body: Value = response
         .json()
         .await
         .map_err(|e| ApiError::Unavailable(format!("agent service returned invalid JSON: {e}")))?;
-    Ok(no_store(body))
+    Ok((
+        status,
+        [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
+        Json(body),
+    )
+        .into_response())
 }
 
 async fn proxy_post(
