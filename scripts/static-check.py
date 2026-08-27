@@ -46,8 +46,8 @@ checks = {
     "docker_cargo_locked": (root / "Dockerfile", "cargo build --release --locked"),
     "ci_clippy_locked": (root / "justfile", "cargo clippy --locked"),
     "spa_deep_link_200": (root / "crates/control-plane-api/src/main.rs", ".fallback(ServeFile::new(index))"),
-    "area_private_transport": (root / "crates/control-plane-api/src/tenant_area_client.rs", "AREA management target must be loopback or private"),
-    "area_redirect_refusal": (root / "crates/control-plane-api/src/tenant_area_client.rs", "AREA management redirect refused"),
+    "area_private_transport": (root / "crates/control-plane-api/src/tenant_area_client.rs", "upstream target must be loopback or private"),
+    "area_redirect_refusal": (root / "crates/control-plane-api/src/tenant_area_client.rs", "upstream redirect refused"),
     "area_tenant_token": (root / "crates/control-plane-api/src/tenant_area_client.rs", "crowdrelay-area-admin-v1:"),
     "area_entitlement": (root / "migrations/0004_area_management.sql", "area_enabled boolean"),
 }

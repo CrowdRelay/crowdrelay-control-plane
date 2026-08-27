@@ -41,8 +41,8 @@ assert "crowdrelay-control-plane-v1:" in client
 assert "crowdrelay-area-admin-v1:" in client
 assert "Idempotency-Key" in client
 assert "valid_operations_request" in client
-assert "AREA management redirect refused" in client
-assert "AREA management returned an empty success body" in client
+assert "upstream redirect refused" in client
+assert "upstream returned an empty success body" in client
 assert "fn object_no_store" in routes and "if !value.is_object()" in routes
 assert "fn array_no_store" in routes and "if !value.is_array()" in routes
 flags_block = routes.split("async fn flags", 1)[1].split("struct FlagMutation", 1)[0]

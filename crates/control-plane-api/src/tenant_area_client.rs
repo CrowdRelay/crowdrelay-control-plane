@@ -1,4 +1,4 @@
-//! Hardened server-to-server transport for tenant AREA management.
+//! Hardened server-to-server transport for tenant upstream.
 //!
 //! The browser never receives this credential. Only bare private/loopback
 //! HTTP origins are accepted, redirects are refused, and response bodies are
@@ -71,7 +71,7 @@ impl TenantAreaClient {
             self.master_key.as_deref(),
             AREA_NAMESPACE,
             tenant_id,
-            "AREA management is not configured",
+            "upstream is not configured",
         )
     }
 
@@ -101,14 +101,10 @@ impl TenantAreaClient {
                 || area_path.starts_with("/v1/control-plane/area/"))
             || contains_request_whitespace(path_and_query)
         {
-            return Err(ApiError::InvalidInput(
-                "invalid AREA management path".to_owned(),
-            ));
+            return Err(ApiError::InvalidInput("invalid upstream path".to_owned()));
         }
         if !matches!(method, "GET" | "POST" | "PATCH" | "DELETE") {
-            return Err(ApiError::InvalidInput(
-                "invalid AREA management method".to_owned(),
-            ));
+            return Err(ApiError::InvalidInput("invalid upstream method".to_owned()));
         }
         let token = self.derived_token(tenant_id)?;
         request_authorized(
@@ -320,8 +316,8 @@ async fn request_authorized(
     let address = format_host_port(host, port);
     let mut stream = timeout(CONNECT_TIMEOUT, TcpStream::connect(&address))
         .await
-        .map_err(|_| ApiError::Unavailable("AREA management connect timeout".to_owned()))?
-        .map_err(|_| ApiError::Unavailable("AREA management target unavailable".to_owned()))?;
+        .map_err(|_| ApiError::Unavailable("upstream connect timeout".to_owned()))?
+        .map_err(|_| ApiError::Unavailable("upstream target unavailable".to_owned()))?;
 
     let body_text = body.map(Value::to_string).unwrap_or_default();
     let host_header = host_header(host, target.port(), port);
@@ -353,7 +349,7 @@ async fn request_authorized(
         stream
             .write_all(request.as_bytes())
             .await
-            .map_err(|_| ApiError::Unavailable("AREA management write failed".to_owned()))?;
+            .map_err(|_| ApiError::Unavailable("upstream write failed".to_owned()))?;
 
         // Keep the write side open while the peer produces its response.
         // The HTTP request is already self-framed (Content-Length when a body is present)
@@ -365,13 +361,13 @@ async fn request_authorized(
             let read = stream
                 .read(&mut chunk)
                 .await
-                .map_err(|_| ApiError::Unavailable("AREA management read failed".to_owned()))?;
+                .map_err(|_| ApiError::Unavailable("upstream read failed".to_owned()))?;
             if read == 0 {
                 break;
             }
             if response.len().saturating_add(read) > MAX_RESPONSE_BYTES {
                 return Err(ApiError::Unavailable(
-                    "AREA management response exceeded limit".to_owned(),
+                    "upstream response exceeded limit".to_owned(),
                 ));
             }
             response.extend_from_slice(&chunk[..read]);
@@ -381,12 +377,12 @@ async fn request_authorized(
 
     timeout(REQUEST_TIMEOUT, exchange)
         .await
-        .map_err(|_| ApiError::Unavailable("AREA management request timeout".to_owned()))?
+        .map_err(|_| ApiError::Unavailable("upstream request timeout".to_owned()))?
 }
 
 fn validate_management_target(value: &str) -> Result<Url, ApiError> {
     let parsed = Url::parse(value)
-        .map_err(|_| ApiError::InvalidInput("invalid AREA management target".to_owned()))?;
+        .map_err(|_| ApiError::InvalidInput("invalid upstream target".to_owned()))?;
     if parsed.scheme() != "http"
         || !parsed.username().is_empty()
         || parsed.password().is_some()
@@ -395,7 +391,7 @@ fn validate_management_target(value: &str) -> Result<Url, ApiError> {
         || !matches!(parsed.path(), "" | "/")
     {
         return Err(ApiError::InvalidInput(
-            "AREA management target must be a bare private HTTP origin".to_owned(),
+            "upstream target must be a bare private HTTP origin".to_owned(),
         ));
     }
     let private = match parsed.host() {
@@ -406,7 +402,7 @@ fn validate_management_target(value: &str) -> Result<Url, ApiError> {
     };
     if !private {
         return Err(ApiError::InvalidInput(
-            "AREA management target must be loopback or private".to_owned(),
+            "upstream target must be loopback or private".to_owned(),
         ));
     }
     Ok(parsed)
@@ -464,20 +460,20 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
         .position(|window| window == marker)
     else {
         return Err(ApiError::Unavailable(
-            "malformed AREA management response".to_owned(),
+            "malformed upstream response".to_owned(),
         ));
     };
     let head = std::str::from_utf8(&raw[..split])
-        .map_err(|_| ApiError::Unavailable("malformed AREA management headers".to_owned()))?;
+        .map_err(|_| ApiError::Unavailable("malformed upstream headers".to_owned()))?;
     let mut lines = head.split("\r\n");
     let status = lines
         .next()
         .and_then(|line| line.split_whitespace().nth(1))
         .and_then(|status| status.parse::<u16>().ok())
-        .ok_or_else(|| ApiError::Unavailable("missing AREA management status".to_owned()))?;
+        .ok_or_else(|| ApiError::Unavailable("missing upstream status".to_owned()))?;
     if (300..400).contains(&status) {
         return Err(ApiError::Unavailable(
-            "AREA management redirect refused".to_owned(),
+            "upstream redirect refused".to_owned(),
         ));
     }
 
@@ -486,7 +482,7 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
     for line in lines {
         let Some((name, value)) = line.split_once(':') else {
             return Err(ApiError::Unavailable(
-                "malformed AREA management header".to_owned(),
+                "malformed upstream header".to_owned(),
             ));
         };
         let name = name.trim();
@@ -499,24 +495,24 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
                 .collect::<Vec<_>>();
             if encodings.len() != 1 || !encodings[0].eq_ignore_ascii_case("chunked") {
                 return Err(ApiError::Unavailable(
-                    "unsupported AREA management transfer encoding".to_owned(),
+                    "unsupported upstream transfer encoding".to_owned(),
                 ));
             }
             transfer_chunked = true;
         } else if name.eq_ignore_ascii_case("content-length") {
-            let parsed = value.parse::<usize>().map_err(|_| {
-                ApiError::Unavailable("invalid AREA management content length".to_owned())
-            })?;
+            let parsed = value
+                .parse::<usize>()
+                .map_err(|_| ApiError::Unavailable("invalid upstream content length".to_owned()))?;
             if content_length.replace(parsed).is_some() {
                 return Err(ApiError::Unavailable(
-                    "duplicate AREA management content length".to_owned(),
+                    "duplicate upstream content length".to_owned(),
                 ));
             }
         }
     }
     if transfer_chunked && content_length.is_some() {
         return Err(ApiError::Unavailable(
-            "ambiguous AREA management response framing".to_owned(),
+            "ambiguous upstream response framing".to_owned(),
         ));
     }
 
@@ -529,7 +525,7 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
         if let Some(expected) = content_length {
             if expected != wire_body.len() {
                 return Err(ApiError::Unavailable(
-                    "truncated AREA management response".to_owned(),
+                    "truncated upstream response".to_owned(),
                 ));
             }
         }
@@ -537,7 +533,7 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
     };
     if body.len() > MAX_RESPONSE_BYTES {
         return Err(ApiError::Unavailable(
-            "AREA management response exceeded limit".to_owned(),
+            "upstream response exceeded limit".to_owned(),
         ));
     }
 
@@ -546,13 +542,13 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
             return Ok(Value::Null);
         }
         return Err(ApiError::Unavailable(
-            "AREA management returned a body for HTTP 204".to_owned(),
+            "upstream returned a body for HTTP 204".to_owned(),
         ));
     }
 
     if (200..300).contains(&status) && body.is_empty() {
         return Err(ApiError::Unavailable(
-            "AREA management returned an empty success body".to_owned(),
+            "upstream returned an empty success body".to_owned(),
         ));
     }
 
@@ -560,7 +556,7 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
         Value::Null
     } else {
         serde_json::from_slice(body)
-            .map_err(|_| ApiError::Unavailable("invalid AREA management JSON".to_owned()))?
+            .map_err(|_| ApiError::Unavailable("invalid upstream JSON".to_owned()))?
     };
     if (200..300).contains(&status) {
         Ok(value)
@@ -581,7 +577,7 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
         ))
     } else {
         Err(ApiError::Unavailable(format!(
-            "AREA management returned HTTP {status}"
+            "upstream returned HTTP {status}"
         )))
     }
 }
@@ -591,15 +587,14 @@ fn decode_chunked(mut input: &[u8]) -> Result<Vec<u8>, ApiError> {
     loop {
         let Some(line_end) = input.windows(2).position(|window| window == b"\r\n") else {
             return Err(ApiError::Unavailable(
-                "malformed chunked AREA management response".to_owned(),
+                "malformed chunked upstream response".to_owned(),
             ));
         };
-        let size_line = std::str::from_utf8(&input[..line_end]).map_err(|_| {
-            ApiError::Unavailable("malformed AREA management chunk size".to_owned())
-        })?;
+        let size_line = std::str::from_utf8(&input[..line_end])
+            .map_err(|_| ApiError::Unavailable("malformed upstream chunk size".to_owned()))?;
         let size_hex = size_line.split(';').next().unwrap_or_default().trim();
         let size = usize::from_str_radix(size_hex, 16)
-            .map_err(|_| ApiError::Unavailable("invalid AREA management chunk size".to_owned()))?;
+            .map_err(|_| ApiError::Unavailable("invalid upstream chunk size".to_owned()))?;
         input = &input[line_end + 2..];
         if size == 0 {
             return Ok(output);
@@ -609,7 +604,7 @@ fn decode_chunked(mut input: &[u8]) -> Result<Vec<u8>, ApiError> {
             || &input[size..size + 2] != b"\r\n"
         {
             return Err(ApiError::Unavailable(
-                "invalid AREA management chunk framing".to_owned(),
+                "invalid upstream chunk framing".to_owned(),
             ));
         }
         output.extend_from_slice(&input[..size]);
@@ -755,7 +750,7 @@ mod tests {
         assert!(matches!(
             parse_response(raw),
             Err(ApiError::Unavailable(message))
-                if message == "AREA management returned an empty success body"
+                if message == "upstream returned an empty success body"
         ));
     }
 
@@ -771,7 +766,7 @@ mod tests {
         assert!(matches!(
             parse_response(raw),
             Err(ApiError::Unavailable(message))
-                if message == "AREA management returned a body for HTTP 204"
+                if message == "upstream returned a body for HTTP 204"
         ));
     }
 

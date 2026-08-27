@@ -37,7 +37,8 @@ class ProductionDeployContract(unittest.TestCase):
     def test_ci_publishes_exact_main_image_and_digest_artifact(self):
         text = CI.read_text()
         self.assertIn('packages: write', text)
-        self.assertIn('ghcr.io/${GITHUB_REPOSITORY_OWNER}/crowdrelay-control-plane:sha-${GITHUB_SHA}', text)
+        self.assertIn('ghcr.io/$(echo "${GITHUB_REPOSITORY_OWNER}" | tr', text)
+        self.assertIn('crowdrelay-control-plane:sha-${GITHUB_SHA}', text)
         self.assertNotIn('platform: linux/amd64', text)
         self.assertIn('ubuntu-24.04-arm', text)
         self.assertIn('--platform linux/arm64', text)

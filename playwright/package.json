@@ -1,0 +1,21 @@
+{
+  "name": "control-virya-music-playwright",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:report": "npx playwright test && npx playwright show-report",
+    "smoke": "npx playwright test --grep @smoke",
+    "auth": "npx playwright test --grep @auth",
+    "pages": "npx playwright test --grep @pages",
+    "api": "npx playwright test --grep @api",
+    "agents": "npx playwright test --grep @agents",
+    "fanbase": "npx playwright test --grep @fanbase",
+    "safety": "npx playwright test --grep @safety"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

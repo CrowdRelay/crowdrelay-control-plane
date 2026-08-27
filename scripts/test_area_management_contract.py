@@ -44,7 +44,7 @@ class AreaManagementContract(unittest.TestCase):
             "CONNECT_TIMEOUT",
             "REQUEST_TIMEOUT",
             "MAX_RESPONSE_BYTES",
-            "AREA management redirect refused",
+            "upstream redirect refused",
         ]:
             self.assertIn(needle, CLIENT)
         self.assertNotIn("reqwest", CLIENT.lower())  # transport cannot silently follow redirects
