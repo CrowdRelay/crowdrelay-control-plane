@@ -2,6 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api, ApiError } from '../lib/api'
+import { refreshInterval } from '../lib/refresh'
 import { toast } from '../lib/toast'
 import type { NotifierChannel, NotifierEvent, DiscoveredEndpoint } from '../lib/types'
 import { NOTIFIER_EVENTS } from '../lib/types'
@@ -15,8 +16,8 @@ export function TenantNotifiersPage() {
   const params = useParams({ from: '/tenants/$slug/notifiers' })
   const slug = () => params().slug
   const qc = useQueryClient()
-  const channels = useQuery(() => ({ queryKey: ['notifiers', slug()], queryFn: () => api.notifiers(slug()), refetchInterval: 30_000, refetchOnWindowFocus: false, reconcile: 'id', staleTime: 20_000 }))
-  const discovered = useQuery(() => ({ queryKey: ['notifiers-discovered', slug()], queryFn: () => api.discoveredEndpoints(slug()), refetchInterval: 30_000, refetchOnWindowFocus: false, reconcile: 'id', staleTime: 20_000 }))
+  const channels = useQuery(() => ({ queryKey: ['notifiers', slug()], queryFn: () => api.notifiers(slug()), refetchInterval: refreshInterval() || false, refetchOnWindowFocus: false, reconcile: 'id', staleTime: 20_000 }))
+  const discovered = useQuery(() => ({ queryKey: ['notifiers-discovered', slug()], queryFn: () => api.discoveredEndpoints(slug()), refetchInterval: refreshInterval() || false, refetchOnWindowFocus: false, reconcile: 'id', staleTime: 20_000 }))
 
   const [kind, setKind] = createSignal<NotifierChannel['kind']>('discord')
   const [label, setLabel] = createSignal('')

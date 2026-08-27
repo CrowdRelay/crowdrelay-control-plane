@@ -353,6 +353,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .refresh-btn{display:grid;place-items:center;width:34px;height:34px;padding:0;border-radius:9px}
 .refresh-btn svg{transition:transform .3s ease}
 .refresh-btn:hover:not(:disabled) svg{transform:rotate(30deg)}
+.grafana-refresh .refresh-interval-select select{background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:.78rem;padding:6px 10px;cursor:pointer;outline:none}
+.grafana-refresh .refresh-interval-select select:hover{border-color:var(--accent)}
+.grafana-refresh .refresh-interval-select select:focus{border-color:var(--accent)}
 .spin{animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 

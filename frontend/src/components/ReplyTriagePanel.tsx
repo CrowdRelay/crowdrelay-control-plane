@@ -2,6 +2,7 @@ import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
+import { refreshInterval } from '../lib/refresh'
 import type { ReplyTriageEntry } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 
@@ -50,7 +51,7 @@ export function ReplyTriagePanel() {
     queryKey: ['reply-triage', params().slug],
     queryFn: () => api.replyTriage(params().slug),
     reconcile: 'id',
-    refetchInterval: 30_000,
+    refetchInterval: refreshInterval() || false,
     refetchOnWindowFocus: false,
     staleTime: 20_000,
   }))

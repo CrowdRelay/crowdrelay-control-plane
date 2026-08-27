@@ -1,6 +1,7 @@
 import { Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { refreshInterval } from '../lib/refresh'
 import type { RuntimeHealth, TenantRuntimeSnapshot } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 
@@ -24,7 +25,7 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
     // is 15s from mount rather than an immediate second request on page load.
     initialDataUpdatedAt: Date.now(),
     staleTime: 15_000,
-    refetchInterval: 15_000,
+    refetchInterval: refreshInterval() || false,
     refetchOnWindowFocus: false,
     // Patch the snapshot in place. Solid Query replaces the whole result by
     // default, which rebuilt this panel's DOM on every 15s tick.

@@ -2,6 +2,7 @@ import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
+import { refreshInterval } from '../lib/refresh'
 import type { AgentScorecard } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 
@@ -79,7 +80,7 @@ export function ScorecardPanel() {
     queryKey: ['agent-scorecard', params().slug],
     queryFn: () => api.agentScorecard(params().slug),
     reconcile: 'id',
-    refetchInterval: 15_000,
+    refetchInterval: refreshInterval() || false,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
