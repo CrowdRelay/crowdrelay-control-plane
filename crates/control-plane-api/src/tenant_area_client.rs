@@ -25,7 +25,10 @@ use crate::error::ApiError;
 const AREA_NAMESPACE: &[u8] = b"crowdrelay-area-admin-v1:";
 const CONTROL_PLANE_NAMESPACE: &[u8] = b"crowdrelay-control-plane-v1:";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+/// Must exceed CrowdRelay's per-query operation_timeout (5s) so the proxy
+/// does not race the upstream and return 503 while CrowdRelay is still
+/// working within its own budget.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(8);
 const MAX_RESPONSE_BYTES: usize = 1024 * 1024;
 
 #[derive(Clone)]
