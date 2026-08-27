@@ -3,6 +3,7 @@ mod area_routes;
 mod attention_routes;
 mod auth;
 mod auth_routes;
+mod automation_routes;
 mod config;
 mod error;
 mod model;
@@ -36,6 +37,7 @@ pub struct AppState {
     admin_token_hash: [u8; 32],
     telemetry_token_hash: [u8; 32],
     provisioner_token_hash: Option<[u8; 32]>,
+    automation_token_hash: Option<[u8; 32]>,
     admin_actor: Arc<str>,
     telemetry_actor: Arc<str>,
     provisioner_actor: Arc<str>,
@@ -50,6 +52,14 @@ pub struct AppState {
     cookie_secure: bool,
     notifier: notifier_client::NotifierClient,
     agent_service_url: Option<Arc<str>>,
+    /// n8n base URL for retry calls (e.g. https://n8n.virya.music).
+    n8n_base_url: Option<Arc<str>>,
+    /// n8n REST API key for retry calls.
+    n8n_api_key: Option<Arc<str>>,
+    /// Discord webhook URL for forwarding real-work automation events.
+    discord_automation_webhook_url: Option<Arc<str>>,
+    /// Shared HTTP client for outbound calls (Discord, n8n API).
+    http_client: reqwest::Client,
 }
 
 #[tokio::main]
@@ -105,11 +115,15 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!(username, "bootstrap platform admin ensured");
     }
 
+    let http_client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(15))
+        .build()?;
     let state = AppState {
         store,
         admin_token_hash: config.admin_token_hash,
         telemetry_token_hash: config.telemetry_token_hash,
         provisioner_token_hash: config.provisioner_token_hash,
+        automation_token_hash: config.automation_token_hash,
         admin_actor: Arc::from(config.admin_actor),
         telemetry_actor: Arc::from(config.telemetry_actor),
         provisioner_actor: Arc::from(config.provisioner_actor),
@@ -128,6 +142,10 @@ async fn main() -> anyhow::Result<()> {
             config.notify_email_relay_url.map(Arc::from),
         ),
         agent_service_url: config.agent_service_url.map(Arc::from),
+        n8n_base_url: config.n8n_base_url.map(Arc::from),
+        n8n_api_key: config.n8n_api_key.map(Arc::from),
+        discord_automation_webhook_url: config.discord_automation_webhook_url.map(Arc::from),
+        http_client,
     };
     // Bounded best-effort notifier delivery. Nothing in the request path
     // depends on this loop; a dead channel dies in its outbox row, not here.
@@ -189,6 +207,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(scoped(agent_routes::router()))
         .merge(scoped(read_models::router()))
         .merge(scoped(notify_routes::router()))
+        .merge(automation_routes::operator_router())
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth::authenticate,
@@ -201,11 +220,15 @@ async fn main() -> anyhow::Result<()> {
         state.clone(),
         auth::require_provisioner,
     ));
+    let automation_api = automation_routes::ingestion_router().route_layer(
+        middleware::from_fn_with_state(state.clone(), auth::require_automation),
+    );
     let api = Router::new()
         .merge(auth_api)
         .merge(admin_api)
         .merge(telemetry_api)
-        .merge(provisioner_api);
+        .merge(provisioner_api)
+        .merge(automation_api);
 
     let index = config.frontend_dist.join("index.html");
     let static_files = ServeDir::new(&config.frontend_dist).fallback(ServeFile::new(index));

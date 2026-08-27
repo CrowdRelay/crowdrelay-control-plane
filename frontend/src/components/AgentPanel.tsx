@@ -3,6 +3,19 @@ import { request } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 
+// --- Ant icon (agent service mascot) ---
+const AntIcon = (props: { size?: number }) => (
+  <svg width={props.size ?? 18} height={props.size ?? 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <ellipse cx="12" cy="8" rx="3" ry="2.5" />
+    <ellipse cx="12" cy="13" rx="2.5" ry="2" />
+    <ellipse cx="12" cy="17.5" rx="3.5" ry="2.5" />
+    <path d="M9 7L5 4M15 7l4-3" />
+    <path d="M9 13L4 11M15 13l5-2" />
+    <path d="M12 5.5v-2" />
+    <circle cx="12" cy="3" r="1" fill="currentColor" stroke="none" />
+  </svg>
+)
+
 interface AgentTemplate {
   id: string
   name: string
@@ -65,6 +78,17 @@ interface AvailableModel {
   providerName: string
 }
 
+interface TaskSuggestion {
+  id: string
+  template_id: string
+  model_id: string
+  title: string
+  description: string
+  prefill_prompt: string
+  priority: 'high' | 'medium' | 'low'
+  reason: string
+}
+
 const categoryTone = (cat: string): 'good' | 'warn' | 'muted' =>
   cat === 'content' ? 'good' : cat === 'research' ? 'warn' : 'muted'
 
@@ -75,6 +99,9 @@ const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
 
 const credTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
   status === 'active' ? 'good' : status === 'invalid' ? 'bad' : 'muted'
+
+const priorityTone = (p: string): 'good' | 'warn' | 'muted' =>
+  p === 'high' ? 'good' : p === 'medium' ? 'warn' : 'muted'
 
 const formatAge = (iso: string) => {
   const diff = Date.now() - new Date(iso).getTime()
@@ -124,6 +151,15 @@ export function AgentPanel(props: { slug: string }) {
     return data
   })
 
+  const [suggestions] = createResource(async () => {
+    try {
+      const data = await request<{ suggestions: TaskSuggestion[] }>(`/tenants/${props.slug}/agents/suggestions`)
+      return data.suggestions
+    } catch {
+      return null
+    }
+  })
+
   // Auto-refresh tasks every 5s when there are running/queued tasks
   createEffect(() => {
     const current = tasks()
@@ -156,6 +192,12 @@ export function AgentPanel(props: { slug: string }) {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const runSuggestion = (s: TaskSuggestion) => {
+    setSelectedTemplate(s.template_id)
+    setSelectedModel(s.model_id)
+    setPrompt(s.prefill_prompt)
   }
 
   const viewResult = async (taskId: string) => {
@@ -216,11 +258,31 @@ export function AgentPanel(props: { slug: string }) {
     <div class="agent-panel">
       <div class="agent-section">
         <div class="agent-section-head">
-          <h3>Available Agents</h3>
+          <h3><AntIcon size={20} /> AI Agents</h3>
           <button class="agent-connect-toggle" onClick={() => setShowConnect(!showConnect())}>
             {showConnect() ? 'Hide' : 'Connect Providers'}
           </button>
         </div>
+
+        {/* Suggestions — data-driven task prompts */}
+        <Show when={suggestions() && suggestions()!.length > 0}>
+          <div class="agent-suggestions">
+            <div class="agent-suggestions-label">Suggested tasks based on your data:</div>
+            <For each={suggestions()!.slice(0, 4)}>
+              {(s) => (
+                <button class="agent-suggestion-card" onClick={() => runSuggestion(s)}>
+                  <div class="agent-suggestion-head">
+                    <span class="agent-suggestion-title">{s.title}</span>
+                    <StatusBadge status={s.priority} tone={priorityTone(s.priority)} />
+                  </div>
+                  <p class="agent-suggestion-desc">{s.description}</p>
+                  <span class="agent-suggestion-reason">{s.reason}</span>
+                </button>
+              )}
+            </For>
+          </div>
+        </Show>
+
         <Show when={showConnect()}>
           <div class="agent-providers">
             <For each={providers()}>
@@ -271,6 +333,7 @@ export function AgentPanel(props: { slug: string }) {
             </For>
           </div>
         </Show>
+
         <Show when={templates()} fallback={<p class="muted">Loading templates…</p>}>
           <div class="agent-template-grid">
             <For each={templates()}>

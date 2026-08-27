@@ -339,6 +339,19 @@ pub async fn require_provisioner(
     Ok(next.run(request).await)
 }
 
+/// Machine-to-machine auth for n8n event ingestion. Separate token from
+/// admin/telemetry/provisioner so a leaked n8n env cannot touch tenant or
+/// provisioning state.
+pub async fn require_automation(
+    State(state): State<AppState>,
+    request: Request,
+    next: Next,
+) -> Result<Response, ApiError> {
+    let expected = state.automation_token_hash.ok_or(ApiError::Unauthorized)?;
+    require_bearer(request.headers(), expected)?;
+    Ok(next.run(request).await)
+}
+
 #[cfg(test)]
 mod tests {
     use super::tenant_slug_from_path;

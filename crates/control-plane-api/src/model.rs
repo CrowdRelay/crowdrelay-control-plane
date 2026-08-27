@@ -343,6 +343,62 @@ pub struct ProvisioningFailureRequest {
     pub error_detail: Option<String>,
 }
 
+// --- Automation events (n8n → control plane) -------------------------------
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationEventRow {
+    pub id: Uuid,
+    pub workflow_id: String,
+    pub workflow_name: String,
+    pub execution_id: Option<String>,
+    pub event_kind: String,
+    pub severity: String,
+    pub node_name: Option<String>,
+    pub message: String,
+    pub payload: Value,
+    pub occurred_at: DateTime<Utc>,
+    pub status: String,
+    pub retry_count: i32,
+    pub last_retried_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationWorkflowConfigRow {
+    pub workflow_id: String,
+    pub label: String,
+    pub category: String,
+    pub discord_enabled: bool,
+    pub muted: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CreateAutomationEventRequest {
+    pub workflow_id: String,
+    pub workflow_name: String,
+    pub execution_id: Option<String>,
+    pub event_kind: String,
+    pub severity: String,
+    pub node_name: Option<String>,
+    pub message: String,
+    #[serde(default)]
+    pub payload: Value,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct UpdateAutomationWorkflowConfigRequest {
+    pub category: Option<String>,
+    pub discord_enabled: Option<bool>,
+    pub muted: Option<bool>,
+    pub label: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

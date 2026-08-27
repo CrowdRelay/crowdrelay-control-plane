@@ -227,6 +227,10 @@ export const Shell: Component = () => {
               <NavIcon name="attention" />
               <Show when={!collapsed()}><span>Attention</span></Show>
             </Link>
+            <Link to="/automation" activeProps={{ class: 'active' }} title="Automation">
+              <NavIcon name="operations" />
+              <Show when={!collapsed()}><span>Automation</span></Show>
+            </Link>
           </Show>
         </nav>
 

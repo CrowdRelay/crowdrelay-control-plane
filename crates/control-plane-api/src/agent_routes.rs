@@ -35,6 +35,7 @@ pub fn router() -> Router<AppState> {
             get(get_task_result),
         )
         .route("/tenants/{slug}/agents/health", get(agent_health))
+        .route("/tenants/{slug}/agents/suggestions", get(agent_suggestions))
         .route("/tenants/{slug}/agents/providers", get(list_providers))
         .route(
             "/tenants/{slug}/agents/credentials",
@@ -228,6 +229,14 @@ async fn agent_health(
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     proxy_get(&state, &slug, "/health/providers").await
+}
+
+async fn agent_suggestions(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    proxy_get(&state, &slug, "/suggestions").await
 }
 
 async fn list_providers(

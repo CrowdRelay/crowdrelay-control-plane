@@ -534,6 +534,33 @@ export type PlatformHealthEntry = {
   latencyMs: number | null
 }
 
+export type AutomationEvent = {
+  id: string
+  workflowId: string
+  workflowName: string
+  executionId: string | null
+  eventKind: 'error' | 'status' | 'heartbeat' | 'approval'
+  severity: 'info' | 'warn' | 'error'
+  nodeName: string | null
+  message: string
+  payload: Record<string, unknown>
+  occurredAt: string
+  status: 'new' | 'acknowledged' | 'retried' | 'resolved' | 'muted'
+  retryCount: number
+  lastRetriedAt: string | null
+  createdAt: string
+}
+
+export type AutomationWorkflowConfig = {
+  workflowId: string
+  label: string
+  category: 'real_work' | 'status' | 'system'
+  discordEnabled: boolean
+  muted: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export type BulkAutopilotResult = {
   enabled: boolean
   updated: number

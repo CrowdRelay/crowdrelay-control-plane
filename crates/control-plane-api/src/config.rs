@@ -16,6 +16,7 @@ pub struct Config {
     pub admin_token_hash: [u8; 32],
     pub telemetry_token_hash: [u8; 32],
     pub provisioner_token_hash: Option<[u8; 32]>,
+    pub automation_token_hash: Option<[u8; 32]>,
     pub area_management_master_key: Option<String>,
     pub management_master_key: Option<String>,
     pub admin_actor: String,
@@ -44,6 +45,15 @@ pub struct Config {
     /// in to the styled form without manual SQL. Both or neither.
     pub bootstrap_admin_username: Option<String>,
     pub bootstrap_admin_password: Option<String>,
+    /// n8n base URL for retry calls (e.g. https://n8n.virya.music). Without
+    /// it the retry button is disabled in the UI.
+    pub n8n_base_url: Option<String>,
+    /// n8n REST API key for retry calls. Paired with n8n_base_url.
+    pub n8n_api_key: Option<String>,
+    /// Discord webhook URL for forwarding real-work automation events.
+    /// Without it, no automation event reaches Discord — the UI is the only
+    /// surface.
+    pub discord_automation_webhook_url: Option<String>,
 }
 
 impl Config {
@@ -56,6 +66,7 @@ impl Config {
         let admin_token = required_secret("CONTROL_PLANE_ADMIN_TOKEN")?;
         let telemetry_token = required_secret("CONTROL_PLANE_TELEMETRY_TOKEN")?;
         let provisioner_token = optional_secret("CONTROL_PLANE_PROVISIONER_TOKEN")?;
+        let automation_token = optional_secret("CONTROL_PLANE_AUTOMATION_TOKEN")?;
         let area_management_master_key =
             optional_secret("CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY")?;
         let management_master_key = optional_secret("CONTROL_PLANE_MANAGEMENT_MASTER_KEY")?;
@@ -82,6 +93,18 @@ impl Config {
                 token != admin_token && token != telemetry_token,
                 "CONTROL_PLANE_PROVISIONER_TOKEN must differ from admin and telemetry tokens"
             );
+        }
+        if let Some(token) = automation_token.as_deref() {
+            anyhow::ensure!(
+                token != admin_token && token != telemetry_token,
+                "CONTROL_PLANE_AUTOMATION_TOKEN must differ from admin and telemetry tokens"
+            );
+            if let Some(provisioner) = provisioner_token.as_deref() {
+                anyhow::ensure!(
+                    token != provisioner,
+                    "CONTROL_PLANE_AUTOMATION_TOKEN must differ from the provisioner token"
+                );
+            }
         }
         if let Some(token) = management_master_key.as_deref() {
             anyhow::ensure!(
@@ -150,6 +173,9 @@ impl Config {
             provisioner_token_hash: provisioner_token
                 .as_deref()
                 .map(|token| Sha256::digest(token.as_bytes()).into()),
+            automation_token_hash: automation_token
+                .as_deref()
+                .map(|token| Sha256::digest(token.as_bytes()).into()),
             area_management_master_key,
             management_master_key,
             admin_actor: env::var("CONTROL_PLANE_ADMIN_ACTOR")
@@ -206,6 +232,11 @@ impl Config {
                 None => None,
             },
             agent_service_url: optional_env("CONTROL_PLANE_AGENT_SERVICE_URL")?,
+            n8n_base_url: optional_env("CONTROL_PLANE_N8N_BASE_URL")?,
+            n8n_api_key: optional_secret("CONTROL_PLANE_N8N_API_KEY")?,
+            discord_automation_webhook_url: optional_env(
+                "CONTROL_PLANE_DISCORD_AUTOMATION_WEBHOOK_URL",
+            )?,
         };
         // Both or neither: half-configured bootstrap is a deployment typo,
         // not a feature.

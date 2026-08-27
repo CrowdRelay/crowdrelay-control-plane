@@ -100,6 +100,21 @@ const features = [
     icon: <path d="M13 2L4 14h6l-1 8 9-12h-6z" stroke-linejoin="round" />,
   },
   {
+    title: 'AI agents with your data',
+    body: 'Delegate creative work to free or paid LLMs — press pitches, social posts, analysis — seeded with real tenant data from your database.',
+    icon: (
+      <>
+        <ellipse cx="12" cy="8" rx="3" ry="2.5" />
+        <ellipse cx="12" cy="13" rx="2.5" ry="2" />
+        <ellipse cx="12" cy="17.5" rx="3.5" ry="2.5" />
+        <path d="M9 7L5 4M15 7l4-3" />
+        <path d="M9 13L4 11M15 13l5-2" />
+        <path d="M12 5.5v-2" />
+        <circle cx="12" cy="3" r="1" fill="currentColor" stroke="none" />
+      </>
+    ),
+  },
+  {
     title: 'Observe everything',
     body: 'Full visibility into decisions, actions and outcomes in real time.',
     icon: (
@@ -132,7 +147,8 @@ export const LoginHero: Component = () => (
     <h2>Turn signals into real-world actions.</h2>
     <p class="hero-lead">
       CrowdRelay evaluates incoming signals and context, makes decisions based on your policies, and executes
-      actions across your tools. Built for reliability, transparency and scale.
+      actions across your tools. Now with AI agents that leverage your tenant data to write press pitches,
+      social posts, and campaign analysis — using free or your own paid LLM accounts.
     </p>
 
     <ul class="hero-features">

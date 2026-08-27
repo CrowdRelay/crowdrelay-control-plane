@@ -8,7 +8,8 @@ use uuid::Uuid;
 use crate::{
     error::ApiError,
     model::{
-        AuditRow, BrandingPalette, CreateTenantRequest, PlatformHealthRow, ProvisioningJobRow,
+        AuditRow, AutomationEventRow, AutomationWorkflowConfigRow, BrandingPalette,
+        CreateAutomationEventRequest, CreateTenantRequest, PlatformHealthRow, ProvisioningJobRow,
         RegionalProfile, RuntimeHealth, RuntimeReportRequest, RuntimeStatusRow,
         TenantDeploymentSpec, TenantRow, TenantSummary, TenantSummaryJoinRow,
     },
@@ -1754,6 +1755,254 @@ impl Store {
         .await
         .map_err(ApiError::Database)?;
         Ok(())
+    }
+
+    // --- Automation events -------------------------------------------
+
+    pub async fn insert_automation_event(
+        &self,
+        input: &CreateAutomationEventRequest,
+    ) -> Result<(AutomationEventRow, AutomationWorkflowConfigRow), ApiError> {
+        // Validate enum-like fields before hitting the DB so a bad payload
+        // gets a 400, not a 23514 check violation.
+        if !(1..=160).contains(&input.workflow_id.len())
+            || !input
+                .workflow_id
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
+        {
+            return Err(ApiError::InvalidInput(
+                "workflowId must be 1-160 alphanumeric/-/_ characters".to_owned(),
+            ));
+        }
+        if input.workflow_name.trim().is_empty() || input.workflow_name.chars().count() > 200 {
+            return Err(ApiError::InvalidInput(
+                "workflowName must be 1-200 characters".to_owned(),
+            ));
+        }
+        if !matches!(
+            input.event_kind.as_str(),
+            "error" | "status" | "heartbeat" | "approval"
+        ) {
+            return Err(ApiError::InvalidInput(
+                "eventKind must be one of error/status/heartbeat/approval".to_owned(),
+            ));
+        }
+        if !matches!(input.severity.as_str(), "info" | "warn" | "error") {
+            return Err(ApiError::InvalidInput(
+                "severity must be one of info/warn/error".to_owned(),
+            ));
+        }
+        if input.message.trim().is_empty() || input.message.chars().count() > 4000 {
+            return Err(ApiError::InvalidInput(
+                "message must be 1-4000 characters".to_owned(),
+            ));
+        }
+        if let Some(ref exec) = input.execution_id {
+            if exec.len() > 80 || !exec.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-') {
+                return Err(ApiError::InvalidInput(
+                    "executionId must be ≤80 alphanumeric/- characters".to_owned(),
+                ));
+            }
+        }
+        if let Some(ref node) = input.node_name {
+            if node.chars().count() > 200 {
+                return Err(ApiError::InvalidInput(
+                    "nodeName must be ≤200 characters".to_owned(),
+                ));
+            }
+        }
+
+        let mut tx = self.pool.begin().await?;
+        // Lazily seed a default config row for unseen workflows so the UI
+        // always has a config to display. Default category='status' means
+        // Discord stays quiet until an operator explicitly promotes a
+        // workflow to 'real_work'.
+        let config = sqlx::query_as::<_, AutomationWorkflowConfigRow>(
+            r#"INSERT INTO control_plane_automation_workflow_config (workflow_id, label)
+               VALUES ($1, $2)
+               ON CONFLICT (workflow_id) DO UPDATE SET updated_at = now()
+               RETURNING workflow_id, label, category, discord_enabled, muted, created_at, updated_at"#,
+        )
+        .bind(&input.workflow_id)
+        .bind(input.workflow_name.trim())
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let event = sqlx::query_as::<_, AutomationEventRow>(
+            r#"INSERT INTO control_plane_automation_events
+                   (workflow_id, workflow_name, execution_id, event_kind, severity, node_name, message, payload)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+               RETURNING id, workflow_id, workflow_name, execution_id, event_kind, severity,
+                         node_name, message, payload, occurred_at, status, retry_count,
+                         last_retried_at, created_at"#,
+        )
+        .bind(&input.workflow_id)
+        .bind(input.workflow_name.trim())
+        .bind(input.execution_id.as_deref().map(str::trim).filter(|s| !s.is_empty()))
+        .bind(&input.event_kind)
+        .bind(&input.severity)
+        .bind(input.node_name.as_deref().map(str::trim).filter(|s| !s.is_empty()))
+        .bind(input.message.trim())
+        .bind(&input.payload)
+        .fetch_one(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok((event, config))
+    }
+
+    pub async fn list_automation_events(
+        &self,
+        limit: i64,
+        status_filter: Option<&str>,
+        workflow_filter: Option<&str>,
+    ) -> Result<Vec<AutomationEventRow>, ApiError> {
+        let limit = limit.clamp(1, 200);
+        if let Some(s) = status_filter {
+            if !matches!(s, "new" | "acknowledged" | "retried" | "resolved" | "muted") {
+                return Err(ApiError::InvalidInput("invalid status filter".to_owned()));
+            }
+        }
+        sqlx::query_as::<_, AutomationEventRow>(
+            r#"SELECT id, workflow_id, workflow_name, execution_id, event_kind, severity,
+                      node_name, message, payload, occurred_at, status, retry_count,
+                      last_retried_at, created_at
+               FROM control_plane_automation_events
+               WHERE ($1::text IS NULL OR status = $1)
+                 AND ($2::text IS NULL OR workflow_id = $2)
+               ORDER BY occurred_at DESC
+               LIMIT $3"#,
+        )
+        .bind(status_filter)
+        .bind(workflow_filter)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(ApiError::Database)
+    }
+
+    pub async fn ack_automation_event(&self, id: Uuid) -> Result<(), ApiError> {
+        let result = sqlx::query(
+            r#"UPDATE control_plane_automation_events
+               SET status = 'acknowledged', created_at = created_at
+               WHERE id = $1 AND status = 'new'"#,
+        )
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+        if result.rows_affected() == 0 {
+            return Err(ApiError::NotFound);
+        }
+        Ok(())
+    }
+
+    pub async fn resolve_automation_event(&self, id: Uuid) -> Result<(), ApiError> {
+        let result = sqlx::query(
+            r#"UPDATE control_plane_automation_events
+               SET status = 'resolved'
+               WHERE id = $1"#,
+        )
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+        if result.rows_affected() == 0 {
+            return Err(ApiError::NotFound);
+        }
+        Ok(())
+    }
+
+    pub async fn mark_automation_event_retried(&self, id: Uuid) -> Result<(), ApiError> {
+        sqlx::query(
+            r#"UPDATE control_plane_automation_events
+               SET retry_count = retry_count + 1,
+                   last_retried_at = now(),
+                   status = 'retried'
+               WHERE id = $1"#,
+        )
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn get_automation_event(&self, id: Uuid) -> Result<AutomationEventRow, ApiError> {
+        sqlx::query_as::<_, AutomationEventRow>(
+            r#"SELECT id, workflow_id, workflow_name, execution_id, event_kind, severity,
+                      node_name, message, payload, occurred_at, status, retry_count,
+                      last_retried_at, created_at
+               FROM control_plane_automation_events
+               WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or(ApiError::NotFound)
+    }
+
+    pub async fn list_automation_workflow_configs(
+        &self,
+    ) -> Result<Vec<AutomationWorkflowConfigRow>, ApiError> {
+        sqlx::query_as::<_, AutomationWorkflowConfigRow>(
+            r#"SELECT workflow_id, label, category, discord_enabled, muted, created_at, updated_at
+               FROM control_plane_automation_workflow_config
+               ORDER BY label"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(ApiError::Database)
+    }
+
+    pub async fn upsert_automation_workflow_config(
+        &self,
+        workflow_id: &str,
+        label: Option<&str>,
+        category: Option<&str>,
+        discord_enabled: Option<bool>,
+        muted: Option<bool>,
+    ) -> Result<AutomationWorkflowConfigRow, ApiError> {
+        if !(1..=160).contains(&workflow_id.len())
+            || !workflow_id
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
+        {
+            return Err(ApiError::InvalidInput(
+                "workflowId must be 1-160 alphanumeric/-/_ characters".to_owned(),
+            ));
+        }
+        if let Some(cat) = category {
+            if !matches!(cat, "real_work" | "status" | "system") {
+                return Err(ApiError::InvalidInput(
+                    "category must be one of real_work/status/system".to_owned(),
+                ));
+            }
+        }
+        if let Some(lbl) = label {
+            if lbl.trim().is_empty() || lbl.chars().count() > 200 {
+                return Err(ApiError::InvalidInput(
+                    "label must be 1-200 characters".to_owned(),
+                ));
+            }
+        }
+        sqlx::query_as::<_, AutomationWorkflowConfigRow>(
+            r#"INSERT INTO control_plane_automation_workflow_config
+                   (workflow_id, label, category, discord_enabled, muted)
+               VALUES ($1, COALESCE($2, $1), COALESCE($3, 'status'), COALESCE($4, false), COALESCE($5, false))
+               ON CONFLICT (workflow_id) DO UPDATE SET
+                   label = COALESCE($2, control_plane_automation_workflow_config.label),
+                   category = COALESCE($3, control_plane_automation_workflow_config.category),
+                   discord_enabled = COALESCE($4, control_plane_automation_workflow_config.discord_enabled),
+                   muted = COALESCE($5, control_plane_automation_workflow_config.muted),
+                   updated_at = now()
+               RETURNING workflow_id, label, category, discord_enabled, muted, created_at, updated_at"#,
+        )
+        .bind(workflow_id)
+        .bind(label.map(str::trim))
+        .bind(category)
+        .bind(discord_enabled)
+        .bind(muted)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(ApiError::Database)
     }
 }
 
