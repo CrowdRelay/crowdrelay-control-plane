@@ -39,6 +39,16 @@ fn percent_encode(s: &str) -> String {
 const PRIVATE_NO_STORE: &str = "private, no-store";
 const MAX_AGENT_BODY_BYTES: usize = 16 * 1024;
 
+/// Validates that a path segment is safe to interpolate into a proxy URL.
+/// Rejects path traversal (`..`, `/`, `%2E`, etc.) and non-ASCII characters.
+fn safe_path_segment(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 64
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
+}
+
 /// Resolve the crowdrelay workspace_id for a tenant. Falls back to the
 /// control plane tenant ID when the crowdrelay link is not set.
 fn resolve_workspace_id(tenant: &crate::model::TenantSummary) -> Uuid {
@@ -207,6 +217,9 @@ async fn get_template(
     Path((slug, template_id)): Path<(String, String)>,
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
+    if !safe_path_segment(&template_id) {
+        return Err(ApiError::InvalidInput("invalid template id".to_owned()));
+    }
     let path = format!("/templates/{template_id}");
     proxy_get(&state, &slug, &path).await
 }
@@ -307,6 +320,9 @@ async fn delete_credential(
     Path((slug, provider)): Path<(String, String)>,
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
+    if !safe_path_segment(&provider) {
+        return Err(ApiError::InvalidInput("invalid provider id".to_owned()));
+    }
     let path = format!("/credentials/{provider}");
     proxy_delete(&state, &slug, &path).await
 }
@@ -316,6 +332,9 @@ async fn validate_credential(
     Path((slug, provider)): Path<(String, String)>,
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
+    if !safe_path_segment(&provider) {
+        return Err(ApiError::InvalidInput("invalid provider id".to_owned()));
+    }
     let path = format!("/credentials/{provider}/validate");
     proxy_post(&state, &slug, &path, serde_json::json!({})).await
 }
@@ -348,5 +367,57 @@ async fn oauth_google_callback(
         .collect::<Vec<_>>()
         .join("&");
     let path = format!("/oauth/google/callback?{qs}");
-    proxy_get(&state, &slug, &path).await
+    // The browser arrives here after Google's redirect. Proxy to the agent
+    // service (which exchanges the code and stores the token), then return
+    // HTML — not JSON — so the browser shows a success page instead of raw
+    // JSON text. We can't use proxy_get because it expects JSON.
+    let (tenant, _) = crate::area_routes::target(&state, &slug).await?;
+    let base = state
+        .agent_service_url
+        .as_deref()
+        .ok_or_else(|| ApiError::Unavailable("agent service is not configured".to_owned()))?;
+    let workspace_id = resolve_workspace_id(&tenant);
+    let token = state.area_client.derived_management_token(workspace_id)?;
+    let url = format!("{base}{path}");
+    let response = state
+        .http_client
+        .get(&url)
+        .header("Authorization", format!("Bearer {token}"))
+        .header("X-Workspace-Id", workspace_id.to_string())
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| ApiError::Unavailable(format!("agent service unreachable: {e}")))?;
+
+    let success = response.status().is_success();
+    let body: Value = response.json().await.unwrap_or(Value::Null);
+
+    let (title, message, color) = if success
+        && body.get("success").and_then(Value::as_bool).unwrap_or(false)
+    {
+        ("Google connected", "Your Google account is now linked.", "#16a34a")
+    } else {
+        let error = body.get("error").and_then(Value::as_str).unwrap_or("OAuth failed");
+        ("Connection failed", error, "#dc2626")
+    };
+
+    Ok((
+        StatusCode::OK,
+        [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
+        format!(r#"<!DOCTYPE html>
+<html><head><title>{title}</title><style>
+body{{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb}}
+.card{{background:#fff;padding:2rem 3rem;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);text-align:center}}
+h1{{color:{color};font-size:1.25rem;margin:0 0 .5rem}}
+p{{color:#6b7280;margin:0 0 1rem;font-size:.875rem}}
+a{{color:#2563eb;text-decoration:none;font-size:.875rem}}
+</style></head>
+<body><div class="card">
+<h1>{title}</h1>
+<p>{message}</p>
+<script>try{{window.close()}}catch(e){{}}</script>
+<a href="/">Return to control panel</a>
+</div></body></html>"#),
+    )
+        .into_response())
 }
