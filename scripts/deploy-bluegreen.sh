@@ -118,7 +118,7 @@ done
 [[ "$green_health" == "healthy" ]] || fail "green app did not become healthy: $green_health"
 
 # Direct health check via the virya-edge network
-docker run --rm --network crowdrelay-control-plane_virya-edge curlimages/curl:8.12.0 \
+docker run --rm --network virya-edge curlimages/curl:8.12.0 \
   --fail --silent --show-error --connect-timeout 3 --max-time 10 \
   "http://${GREEN_ALIAS}:8090/healthz/ready" >/dev/null
 
@@ -152,7 +152,7 @@ published="$(docker port "$BLUE_APP" 8090/tcp 2>/dev/null | head -n1 || true)"
 admin_token="$(docker inspect "$BLUE_APP" --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^CONTROL_PLANE_ADMIN_TOKEN=//p')"
 if [[ -n "$admin_token" ]]; then
   # Test through the green app directly via Docker network
-  e2e_result="$(docker run --rm --network crowdrelay-control-plane_virya-edge curlimages/curl:8.12.0 \
+  e2e_result="$(docker run --rm --network virya-edge curlimages/curl:8.12.0 \
     --fail --silent --show-error --connect-timeout 3 --max-time 10 \
     -H "Authorization: Bearer $admin_token" \
     "http://${GREEN_ALIAS}:8090/api/v1/tenants/virya/operations/summary" 2>/dev/null || true)"
