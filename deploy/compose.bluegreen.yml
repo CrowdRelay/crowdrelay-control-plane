@@ -1,0 +1,55 @@
+# Blue-green overlay for Control Plane production deploy.
+#
+# Defines app-green alongside the current app, with a control-plane-green
+# network alias on virya-edge. The blue-green deploy script starts this,
+# health-checks it, switches the edge Caddy upstream, then stops the old app.
+#
+# Usage:
+#   CONTROL_PLANE_GREEN_TAG=sha-<new-sha> \
+#   docker compose -f compose.production.yml -f compose.area.yml \
+#     -f deploy/compose.bluegreen.yml up -d --no-deps app-green
+
+services:
+  app-green:
+    image: crowdrelay-control-plane:${CONTROL_PLANE_GREEN_TAG:?Set CONTROL_PLANE_GREEN_TAG}
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://control_plane:${CONTROL_PLANE_DB_PASSWORD}@postgres:5432/control_plane
+      CONTROL_PLANE_BIND: 0.0.0.0:8090
+      CONTROL_PLANE_ADMIN_TOKEN: ${CONTROL_PLANE_ADMIN_TOKEN}
+      CONTROL_PLANE_TELEMETRY_TOKEN: ${CONTROL_PLANE_TELEMETRY_TOKEN}
+      CONTROL_PLANE_AUTOMATION_TOKEN: ${CONTROL_PLANE_AUTOMATION_TOKEN:-}
+      CONTROL_PLANE_N8N_BASE_URL: ${CONTROL_PLANE_N8N_BASE_URL:-}
+      CONTROL_PLANE_N8N_API_KEY: ${CONTROL_PLANE_N8N_API_KEY:-}
+      CONTROL_PLANE_DISCORD_AUTOMATION_WEBHOOK_URL: ${CONTROL_PLANE_DISCORD_AUTOMATION_WEBHOOK_URL:-}
+      CONTROL_PLANE_ADMIN_ACTOR: ${CONTROL_PLANE_ADMIN_ACTOR:-wojciechbator}
+      CONTROL_PLANE_FRONTEND_DIST: /app/frontend/dist
+      CONTROL_PLANE_VIRYA_CROWDRELAY_URL: ${CONTROL_PLANE_VIRYA_CROWDRELAY_URL:-https://signal-api.virya.music}
+      CONTROL_PLANE_VIRYA_SIGNAL_URL: ${CONTROL_PLANE_VIRYA_SIGNAL_URL:-https://signal.virya.music}
+      CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY: ${CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY:-}
+      CONTROL_PLANE_MANAGEMENT_MASTER_KEY: ${CONTROL_PLANE_MANAGEMENT_MASTER_KEY:-}
+      CONTROL_PLANE_VIRYA_MANAGEMENT_URL: ${CONTROL_PLANE_VIRYA_MANAGEMENT_URL:-http://virya-area-tunnel:18080}
+      CONTROL_PLANE_AGENT_SERVICE_URL: ${CONTROL_PLANE_AGENT_SERVICE_URL:-}
+      RUST_LOG: ${RUST_LOG:-info,tower_http=info}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8090/healthz/ready >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 10s
+    mem_limit: 256m
+    cpus: 0.50
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      internal: {}
+      virya-edge:
+        aliases: [control-plane-green]
