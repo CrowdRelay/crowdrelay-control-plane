@@ -85,6 +85,7 @@ export function FanSourcesPanel(props: {
       refresh()
       setCreating(false)
       resetForm()
+      setErrorText(null)
       setNotice(`Fanbase created: ${result.fanbaseId.slice(0, 8)}…`)
     },
     onError: (error) => setErrorText(error instanceof Error ? error.message : 'Create failed'),
@@ -101,6 +102,7 @@ export function FanSourcesPanel(props: {
       refresh()
       setPendingFor(null)
       setIngestingId(null)
+      setErrorText(null)
       setNotice(
         `Ingestion done — pending: ${counters.importedPending ?? 0}, active skipped: ${counters.alreadyActive ?? 0}, opt-outs: ${counters.skippedSuppressed ?? 0}, invalid: ${counters.invalid ?? 0}`,
       )
@@ -117,6 +119,7 @@ export function FanSourcesPanel(props: {
       await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
       refresh()
       setConfirmingDelete(null)
+      setErrorText(null)
       setNotice('Fanbase deleted.')
     },
     onError: (error) => {
@@ -163,6 +166,7 @@ export function FanSourcesPanel(props: {
   }
 
   const disconnectConnection = async (id: string) => {
+    setErrorText(null)
     try {
       await api.deleteFanbaseConnection(props.slug, id)
       refetchConnections()

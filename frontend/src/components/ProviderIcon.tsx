@@ -255,6 +255,12 @@ const FANBASE_ICONS: Record<string, (props: IconProps) => JSX.Element> = {
   bandsintown_followers: BandsintownIcon,
   google_customer_match: GoogleIcon,
   reddit_community: RedditIcon,
+  // OAuth platform connection keys (used by FanSourcesPanel OAUTH_PLATFORMS)
+  meta: MetaIcon,
+  google_ads: GoogleIcon,
+  spotify: SpotifyIcon,
+  reddit: RedditIcon,
+  tiktok: TikTokIcon,
 }
 
 export function LlmProviderIcon(props: { providerId: string; size?: number; class?: string }) {

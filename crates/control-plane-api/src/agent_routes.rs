@@ -119,7 +119,10 @@ pub fn router() -> Router<AppState> {
         )
         .route("/tenants/{slug}/agents/chat", post(chat))
         .route("/tenants/{slug}/agents/workflows", get(list_workflows))
-        .route("/tenants/{slug}/agents/workflows/{workflow_id}", get(get_workflow))
+        .route(
+            "/tenants/{slug}/agents/workflows/{workflow_id}",
+            get(get_workflow),
+        )
         .layer(axum::extract::DefaultBodyLimit::max(MAX_AGENT_BODY_BYTES))
 }
 
