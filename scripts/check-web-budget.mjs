@@ -42,7 +42,11 @@ if (maps.length) throw new Error(`source maps must not ship: ${maps.join(', ')}`
 // table, fan detail drawer, journey timeline, segment list) and Growth
 // Metrics panels (coverage bar, trend cards, objectives with progress bars,
 // inline SVG chart utility).
-const JS_BUDGET = 460 * 1024
+// Raised 2026-08-29 from 460 KiB for the Outreach Pipeline panels (outreach
+// candidates, booking candidates, beacon signal dashboard, press room with
+// requests/assets/engagements/coverage tabs, release campaigns with
+// recipient detail, play ledger with standings and claims).
+const JS_BUDGET = 510 * 1024
 const CSS_BUDGET = 80 * 1024
 if (js > JS_BUDGET) throw new Error(`JS budget exceeded: ${js} > ${JS_BUDGET}`)
 if (css > CSS_BUDGET) throw new Error(`CSS budget exceeded: ${css} > ${CSS_BUDGET}`)

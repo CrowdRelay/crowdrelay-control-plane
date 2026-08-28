@@ -680,3 +680,51 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .objective-progress-fill{height:100%;background:linear-gradient(90deg,#22c55e,#4ade80);border-radius:3px}
 .objective-progress-fill.over{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
 .objective-meta{display:flex;gap:1rem;font-size:.72rem;color:#9ca3af;margin-top:.3rem}
+
+/* ── Phase 2: Outreach pipeline, beacon, press, release, play ledger ── */
+
+.tab-group{display:flex;gap:.25rem;margin-left:auto}
+.tab{padding:.25rem .6rem;font-size:.72rem;border:1px solid #2a2d36;background:#15171c;border-radius:6px;color:#9ca3af;cursor:pointer}
+.tab.active{background:#6366f1;color:#fff;border-color:#6366f1}
+.tab:hover:not(.active){border-color:#3a3d46}
+
+.subsection{font-size:.82rem;font-weight:600;color:#c5c8cf;margin:1.2rem 0 .5rem;text-transform:uppercase;letter-spacing:.04em}
+
+.table-wrap{overflow-x:auto;border:1px solid #2a2d36;border-radius:8px;margin-top:.5rem}
+.data-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.data-table th{padding:.5rem .6rem;text-align:left;font-weight:600;color:#9ca3af;border-bottom:1px solid #2a2d36;white-space:nowrap}
+.data-table td{padding:.45rem .6rem;border-bottom:1px solid #1e2128;vertical-align:top}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover{background:#181a20}
+
+.link{color:#818cf8;text-decoration:none}
+.link:hover{text-decoration:underline}
+
+/* Campaign cards */
+.campaign-list{display:flex;flex-direction:column;gap:.75rem;margin-top:.5rem}
+.campaign-card{background:#15171c;border:1px solid #2a2d36;border-radius:10px;padding:.85rem 1rem}
+.campaign-card.selected{border-color:#6366f1}
+.campaign-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem}
+.campaign-meta{display:flex;gap:1rem;font-size:.72rem;color:#9ca3af;margin-bottom:.4rem;flex-wrap:wrap}
+.campaign-progress{display:flex;gap:.75rem;font-size:.72rem;color:#c5c8cf;margin-bottom:.5rem;flex-wrap:wrap}
+.campaign-progress span{white-space:nowrap}
+.campaign-actions{display:flex;gap:.5rem;flex-wrap:wrap}
+
+/* Play ledger */
+.standings-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.6rem;margin-bottom:1rem}
+.standing-card{background:#15171c;border:1px solid #2a2d36;border-radius:8px;padding:.65rem .8rem}
+.standing-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem}
+.standing-meta{font-size:.72rem;color:#9ca3af;margin-bottom:.2rem}
+.standing-record{display:flex;gap:.6rem;font-size:.72rem;font-weight:600}
+.standing-record .tone-good{color:#4ade80}
+.standing-record .tone-bad{color:#e899b8}
+.standing-record .tone-muted{color:#9ca3af}
+
+.play-list{display:flex;flex-direction:column;gap:.75rem;margin-top:.5rem}
+.play-card{background:#15171c;border:1px solid #2a2d36;border-radius:10px;padding:.85rem 1rem}
+.play-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem}
+.play-meta{display:flex;gap:1rem;font-size:.72rem;color:#9ca3af;margin-bottom:.4rem;flex-wrap:wrap}
+.play-hypothesis{font-size:.78rem;color:#c5c8cf;font-style:italic;margin:.3rem 0;padding:.4rem .6rem;background:#1a1c22;border-radius:6px}
+.claims-list{display:flex;flex-direction:column;gap:.3rem;margin-top:.4rem}
+.claim-row{display:flex;gap:.6rem;align-items:center;font-size:.72rem;padding:.25rem .4rem;background:#1a1c22;border-radius:4px}
+.claim-row .muted{color:#9ca3af}

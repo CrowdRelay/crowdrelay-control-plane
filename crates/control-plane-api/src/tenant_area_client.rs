@@ -290,6 +290,17 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/tour-economics"
                     | "/v1/control-plane/autopilot/show-economics"
                     | "/v1/control-plane/autopilot/chief-of-staff"
+                    | "/v1/control-plane/autopilot/outreach/candidates"
+                    | "/v1/control-plane/autopilot/booking-discovery/candidates"
+                    | "/v1/control-plane/autopilot/beacon-signal"
+                    | "/v1/control-plane/autopilot/beacon-signal/candidates"
+                    | "/v1/control-plane/autopilot/beacon-press-requests"
+                    | "/v1/control-plane/autopilot/beacon-press-assets"
+                    | "/v1/control-plane/autopilot/beacon-signal-engagements"
+                    | "/v1/control-plane/autopilot/beacon-coverage"
+                    | "/v1/control-plane/autopilot/beacon-network"
+                    | "/v1/control-plane/autopilot/beacon-release-campaigns"
+                    | "/v1/control-plane/autopilot/plays"
                     | "/v1/control-plane/portfolio/overview"
                     | "/v1/control-plane/portfolio/amplification"
                     | "/v1/control-plane/tenant-settings"
@@ -302,10 +313,17 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
             ) || path.starts_with("/v1/control-plane/ops/outbox?")
                 || path.starts_with("/v1/control-plane/ops/deliveries?")
                 || path.starts_with("/v1/control-plane/audience/fans?")
+                || path.starts_with("/v1/control-plane/autopilot/outreach/candidates?")
+                || path.starts_with("/v1/control-plane/autopilot/booking-discovery/candidates?")
                 || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "")
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "")
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/journey")
                 || safe_segment_between(path, "/v1/control-plane/audience/segments/", "/preview")
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/beacon-release-campaigns/",
+                    "/recipients",
+                )
                 || timeline_segment(path)
         }
         "POST" => {
@@ -328,6 +346,31 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/handled-externally",
                 )
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/objectives/", "/retire")
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/outreach/candidates/",
+                    "/confirm",
+                )
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/booking-discovery/candidates/",
+                    "/confirm",
+                )
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/beacon-press-requests/",
+                    "/resolve",
+                )
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/beacon-release-campaigns/",
+                    "/launch",
+                )
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/beacon-release-campaigns/",
+                    "/close",
+                )
                 || uuid_segment_between(
                     path,
                     "/v1/control-plane/portfolio/amplification/",
@@ -792,6 +835,61 @@ mod tests {
             "GET",
             "/v1/control-plane/ops/deliveries?limit=25"
         ));
+        // Phase 2: outreach, booking, beacon, release, plays.
+        for path in [
+            "/v1/control-plane/autopilot/outreach/candidates",
+            "/v1/control-plane/autopilot/booking-discovery/candidates",
+            "/v1/control-plane/autopilot/beacon-signal",
+            "/v1/control-plane/autopilot/beacon-signal/candidates",
+            "/v1/control-plane/autopilot/beacon-press-requests",
+            "/v1/control-plane/autopilot/beacon-press-assets",
+            "/v1/control-plane/autopilot/beacon-signal-engagements",
+            "/v1/control-plane/autopilot/beacon-coverage",
+            "/v1/control-plane/autopilot/beacon-network",
+            "/v1/control-plane/autopilot/beacon-release-campaigns",
+            "/v1/control-plane/autopilot/plays",
+        ] {
+            assert!(valid_operations_request("GET", path), "{path}");
+        }
+        assert!(valid_operations_request(
+            "GET",
+            &format!("/v1/control-plane/autopilot/beacon-release-campaigns/{id}/recipients")
+        ));
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/autopilot/outreach/candidates?status=admitted&limit=50"
+        ));
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/autopilot/booking-discovery/candidates?limit=25"
+        ));
+        for (prefix, suffix) in [
+            (
+                "/v1/control-plane/autopilot/outreach/candidates/",
+                "/confirm",
+            ),
+            (
+                "/v1/control-plane/autopilot/booking-discovery/candidates/",
+                "/confirm",
+            ),
+            (
+                "/v1/control-plane/autopilot/beacon-press-requests/",
+                "/resolve",
+            ),
+            (
+                "/v1/control-plane/autopilot/beacon-release-campaigns/",
+                "/launch",
+            ),
+            (
+                "/v1/control-plane/autopilot/beacon-release-campaigns/",
+                "/close",
+            ),
+        ] {
+            assert!(
+                valid_operations_request("POST", &format!("{prefix}{id}{suffix}")),
+                "{prefix}{id}{suffix}"
+            );
+        }
         // But arbitrary query paths on other endpoints are still rejected.
         assert!(!valid_operations_request(
             "GET",

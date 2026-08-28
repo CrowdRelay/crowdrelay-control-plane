@@ -9,6 +9,11 @@ import { GrowthObjectivesPanel } from '../components/GrowthObjectivesPanel'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { ScorecardPanel } from '../components/ScorecardPanel'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
+import { OutreachPipelinePanel } from '../components/OutreachPipelinePanel'
+import { BeaconSignalPanel } from '../components/BeaconSignalPanel'
+import { PressRoomPanel } from '../components/PressRoomPanel'
+import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
+import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { refreshTick } from '../lib/refresh'
 
 export function TenantOperationsPage() {
@@ -61,6 +66,11 @@ export function TenantOperationsPage() {
       <GrowthPanel growth={data().growth} degraded={data().degraded.includes('growth')} />
       <GrowthMetricsPanel slug={params().slug} />
       <GrowthObjectivesPanel slug={params().slug} />
+      <OutreachPipelinePanel slug={params().slug} />
+      <BeaconSignalPanel slug={params().slug} />
+      <PressRoomPanel slug={params().slug} />
+      <ReleaseCampaignsPanel slug={params().slug} />
+      <PlayLedgerPanel slug={params().slug} />
     </>}</Show>
   </section>
 }

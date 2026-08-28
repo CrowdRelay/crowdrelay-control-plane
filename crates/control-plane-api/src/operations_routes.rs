@@ -188,6 +188,75 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/chief-of-staff",
             get(chief_of_staff),
         )
+        // ── Outreach & booking discovery (candidate queues) ────────────
+        .route(
+            "/tenants/{slug}/operations/outreach/candidates",
+            get(outreach_candidates),
+        )
+        .route(
+            "/tenants/{slug}/operations/outreach/candidates/{candidate_id}/confirm",
+            post(confirm_outreach_candidate),
+        )
+        .route(
+            "/tenants/{slug}/operations/booking-discovery/candidates",
+            get(booking_candidates),
+        )
+        .route(
+            "/tenants/{slug}/operations/booking-discovery/candidates/{candidate_id}/confirm",
+            post(confirm_booking_candidate),
+        )
+        // ── Beacon signal network (press & industry pipeline) ──────────
+        .route(
+            "/tenants/{slug}/operations/beacon-signal",
+            get(beacon_signal_dashboard),
+        )
+        .route(
+            "/tenants/{slug}/operations/beacon-signal/candidates",
+            get(beacon_signal_candidates),
+        )
+        .route(
+            "/tenants/{slug}/operations/beacon-press-requests",
+            get(beacon_press_requests),
+        )
+        .route(
+            "/tenants/{slug}/operations/beacon-press-requests/{press_request_id}/resolve",
+            post(resolve_beacon_press_request),
+        )
+        .route(
+            "/tenants/{slug}/operations/beacon-press-assets",
+            get(beacon_press_assets),
+        )
+        .route(
+            "/tenants/{slug}/operations/beacon-signal-engagements",
+            get(beacon_signal_engagements),
+        )
+        .route(
+            "/tenants/{slug}/operations/beacon-coverage",
+            get(beacon_coverage),
+        )
+        .route(
+            "/tenants/{slug}/operations/beacon-network",
+            get(beacon_network),
+        )
+        // ── Release campaigns ─────────────────────────────────────────
+        .route(
+            "/tenants/{slug}/operations/beacon-release-campaigns",
+            get(beacon_release_campaigns),
+        )
+        .route(
+            "/tenants/{slug}/operations/beacon-release-campaigns/{campaign_id}/launch",
+            post(launch_beacon_release_campaign),
+        )
+        .route(
+            "/tenants/{slug}/operations/beacon-release-campaigns/{campaign_id}/close",
+            post(close_beacon_release_campaign),
+        )
+        .route(
+            "/tenants/{slug}/operations/beacon-release-campaigns/{campaign_id}/recipients",
+            get(beacon_release_recipients),
+        )
+        // ── Play ledger ───────────────────────────────────────────────
+        .route("/tenants/{slug}/operations/plays", get(play_ledger))
         .layer(DefaultBodyLimit::max(MAX_OPERATIONS_BODY_BYTES))
 }
 
@@ -1681,4 +1750,386 @@ async fn chief_of_staff(
     )
     .await?;
     object_no_store(value, "chief of staff")
+}
+
+// ---------------------------------------------------------------------------
+// Outreach & booking discovery — candidate queues for the growth pipeline.
+// Outreach candidates are a bare array; booking candidates are a bare array.
+// Confirm mutations return objects.
+// ---------------------------------------------------------------------------
+
+async fn outreach_candidates(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Query(params): Query<ListQuery>,
+) -> Result<Response, ApiError> {
+    let path = build_list_path("/v1/control-plane/autopilot/outreach/candidates", &params);
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    array_no_store(value, "outreach candidates")
+}
+
+async fn confirm_outreach_candidate(
+    State(state): State<AppState>,
+    Path((slug, candidate_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let candidate_id = uuid_segment(&candidate_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path = format!("/v1/control-plane/autopilot/outreach/candidates/{candidate_id}/confirm");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        None,
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.outreach_candidate.confirmed",
+        "outreach_candidate",
+        &candidate_id,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "outreach candidate confirm")
+}
+
+async fn booking_candidates(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Query(params): Query<ListQuery>,
+) -> Result<Response, ApiError> {
+    let path = build_list_path(
+        "/v1/control-plane/autopilot/booking-discovery/candidates",
+        &params,
+    );
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    array_no_store(value, "booking candidates")
+}
+
+async fn confirm_booking_candidate(
+    State(state): State<AppState>,
+    Path((slug, candidate_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let candidate_id = uuid_segment(&candidate_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path =
+        format!("/v1/control-plane/autopilot/booking-discovery/candidates/{candidate_id}/confirm");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        None,
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.booking_candidate.confirmed",
+        "booking_candidate",
+        &candidate_id,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "booking candidate confirm")
+}
+
+// ---------------------------------------------------------------------------
+// Beacon signal network — press & industry relationship pipeline.
+// All list endpoints return objects with named arrays.
+// ---------------------------------------------------------------------------
+
+async fn beacon_signal_dashboard(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/beacon-signal",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "beacon signal dashboard")
+}
+
+async fn beacon_signal_candidates(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/beacon-signal/candidates",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "beacon signal candidates")
+}
+
+async fn beacon_press_requests(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/beacon-press-requests",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "beacon press requests")
+}
+
+async fn resolve_beacon_press_request(
+    State(state): State<AppState>,
+    Path((slug, press_request_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let press_request_id = uuid_segment(&press_request_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path =
+        format!("/v1/control-plane/autopilot/beacon-press-requests/{press_request_id}/resolve");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.beacon_press_request.resolved",
+        "beacon_press_request",
+        &press_request_id,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "beacon press request resolve")
+}
+
+async fn beacon_press_assets(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/beacon-press-assets",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "beacon press assets")
+}
+
+async fn beacon_signal_engagements(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/beacon-signal-engagements",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "beacon signal engagements")
+}
+
+async fn beacon_coverage(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/beacon-coverage",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "beacon coverage")
+}
+
+async fn beacon_network(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/beacon-network",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "beacon network")
+}
+
+// ---------------------------------------------------------------------------
+// Release campaigns — launch/close mutations, campaign list, recipients.
+// ---------------------------------------------------------------------------
+
+async fn beacon_release_campaigns(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/beacon-release-campaigns",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "beacon release campaigns")
+}
+
+async fn launch_beacon_release_campaign(
+    State(state): State<AppState>,
+    Path((slug, campaign_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let campaign_id = uuid_segment(&campaign_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path = format!("/v1/control-plane/autopilot/beacon-release-campaigns/{campaign_id}/launch");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        None,
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.beacon_release_campaign.launched",
+        "beacon_release_campaign",
+        &campaign_id,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "beacon release campaign launch")
+}
+
+async fn close_beacon_release_campaign(
+    State(state): State<AppState>,
+    Path((slug, campaign_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let campaign_id = uuid_segment(&campaign_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path = format!("/v1/control-plane/autopilot/beacon-release-campaigns/{campaign_id}/close");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        None,
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.beacon_release_campaign.closed",
+        "beacon_release_campaign",
+        &campaign_id,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "beacon release campaign close")
+}
+
+async fn beacon_release_recipients(
+    State(state): State<AppState>,
+    Path((slug, campaign_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let campaign_id = uuid_segment(&campaign_id)?.to_owned();
+    let path =
+        format!("/v1/control-plane/autopilot/beacon-release-campaigns/{campaign_id}/recipients");
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "beacon release recipients")
+}
+
+// ---------------------------------------------------------------------------
+// Play ledger — what the agent committed to, what it did, and what each
+// number is allowed to prove.
+// ---------------------------------------------------------------------------
+
+async fn play_ledger(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/plays",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "play ledger")
 }

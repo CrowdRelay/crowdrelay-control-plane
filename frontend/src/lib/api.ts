@@ -1,4 +1,4 @@
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AgentScorecard, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentOutcome, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, ChatAction, DeliveryDetails, DeliveryItem, DiscoveredEndpoint, FanbaseConnection, FeatureFlag, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, OutboxItem, Palette, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, AudienceOverview, FanCard, FanDetail, FanJourneyEntry, AudienceSegment, SegmentPreview, AudienceReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectiveView, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TourEconomicsSummary, AutopilotChiefOfStaff } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AgentScorecard, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentOutcome, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, ChatAction, DeliveryDetails, DeliveryItem, DiscoveredEndpoint, FanbaseConnection, FeatureFlag, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, OutboxItem, Palette, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, AudienceOverview, FanCard, FanDetail, FanJourneyEntry, AudienceSegment, SegmentPreview, AudienceReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectiveView, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TourEconomicsSummary, AutopilotChiefOfStaff, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
@@ -326,4 +326,66 @@ export const api = {
     request<ShowEconomicsResponse>(`/tenants/${encodeURIComponent(slug)}/operations/show-economics`),
   chiefOfStaff: (slug: string) =>
     request<AutopilotChiefOfStaff>(`/tenants/${encodeURIComponent(slug)}/operations/chief-of-staff`),
+
+  // --- Outreach & Booking Discovery ---
+  outreachCandidates: (slug: string, status?: string) =>
+    request<OutreachCandidateView[]>(`/tenants/${encodeURIComponent(slug)}/operations/outreach/candidates` + (status ? `?status=${encodeURIComponent(status)}` : '')),
+  confirmOutreachCandidate: (slug: string, candidateId: string) =>
+    request<OutreachCandidatePromotion>(`/tenants/${encodeURIComponent(slug)}/operations/outreach/candidates/${encodeURIComponent(candidateId)}/confirm`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: '{}',
+    }),
+  bookingCandidates: (slug: string, status?: string) =>
+    request<BookingCandidateView[]>(`/tenants/${encodeURIComponent(slug)}/operations/booking-discovery/candidates` + (status ? `?status=${encodeURIComponent(status)}` : '')),
+  confirmBookingCandidate: (slug: string, candidateId: string) =>
+    request<AutopilotControlMutation>(`/tenants/${encodeURIComponent(slug)}/operations/booking-discovery/candidates/${encodeURIComponent(candidateId)}/confirm`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: '{}',
+    }),
+
+  // --- Beacon Signal Network ---
+  beaconSignalDashboard: (slug: string) =>
+    request<BeaconDashboardResponse>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-signal`),
+  beaconSignalCandidates: (slug: string) =>
+    request<BeaconCandidatesResponse>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-signal/candidates`),
+  beaconPressRequests: (slug: string) =>
+    request<BeaconPressRequestsResponse>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-press-requests`),
+  resolveBeaconPressRequest: (slug: string, pressRequestId: string, body: { status: string; resolutionNote?: string }) =>
+    request<{ requestId: string; status: string }>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-press-requests/${encodeURIComponent(pressRequestId)}/resolve`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify(body),
+    }),
+  beaconPressAssets: (slug: string) =>
+    request<BeaconPressAssetsResponse>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-press-assets`),
+  beaconSignalEngagements: (slug: string) =>
+    request<BeaconEngagementsResponse>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-signal-engagements`),
+  beaconCoverage: (slug: string) =>
+    request<BeaconCoverageResponse>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-coverage`),
+  beaconNetwork: (slug: string) =>
+    request<BeaconNetworkResponse>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-network`),
+
+  // --- Release Campaigns ---
+  beaconReleaseCampaigns: (slug: string) =>
+    request<AdminReleaseCampaignsResponse>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-release-campaigns`),
+  launchBeaconReleaseCampaign: (slug: string, campaignId: string) =>
+    request<{ campaignId: string; status: string; eligibleCount: number; reservedQuantity: number; availableBeforeReservation: number }>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-release-campaigns/${encodeURIComponent(campaignId)}/launch`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: '{}',
+    }),
+  closeBeaconReleaseCampaign: (slug: string, campaignId: string) =>
+    request<{ campaignId: string; status: string }>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-release-campaigns/${encodeURIComponent(campaignId)}/close`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: '{}',
+    }),
+  beaconReleaseRecipients: (slug: string, campaignId: string) =>
+    request<AdminReleaseRecipientsResponse>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-release-campaigns/${encodeURIComponent(campaignId)}/recipients`),
+
+  // --- Play Ledger ---
+  playLedger: (slug: string) =>
+    request<PlayLedger>(`/tenants/${encodeURIComponent(slug)}/operations/plays`),
 }

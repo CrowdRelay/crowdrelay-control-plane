@@ -1301,3 +1301,362 @@ export type AutopilotChiefOfStaff = {
   objectives_at_risk: ChiefOfStaffObjective[]
   [key: string]: unknown
 }
+
+// ---------------------------------------------------------------------------
+// Phase 2: Outreach pipeline — outreach candidates, booking candidates,
+// beacon signal network, press, release campaigns, play ledger.
+// ---------------------------------------------------------------------------
+
+// Outreach candidates — bare array, snake_case (no serde rename_all).
+export type OutreachCandidateView = {
+  id: string
+  target_kind: string
+  display_name: string
+  source: string
+  source_reference: string
+  route_kind: string
+  evidence: string | null
+  status: string
+  refusal_reason: string | null
+  pitch_class: string | null
+  fit_basis_points: number
+  follower_count: number | null
+}
+
+export type OutreachCandidatePromotion = {
+  operation_id: string
+  candidate_id: string
+  target_id: string | null
+  replayed: boolean
+}
+
+// Booking candidates — bare array, snake_case (no serde rename_all).
+export type BookingCandidateView = {
+  candidate_id: string
+  target_kind: string
+  display_name: string
+  city_slug: string | null
+  route_kind: string
+  route_value: string
+  source: string
+  fit_basis_points: number
+  status: string
+  refusal_reason: string | null
+  booking_target_id: string | null
+}
+
+// Beacon signal dashboard — object, camelCase (serde rename_all).
+export type BeaconDashboardResponse = {
+  total: number
+  active: number
+  invited: number
+  paused: number
+  revoked: number
+  profiles: BeaconProfileView[]
+}
+
+export type BeaconProfileView = {
+  beaconId: string
+  displayName: string
+  beaconKind: string
+  contactEmail: string | null
+  city: string | null
+  status: string
+  radiusKm: number
+  locale: string
+  nearbyGigsEnabled: boolean
+  inviteCount: number
+  lastInvitedAt: string | null
+  joinedAt: string | null
+  lastSeenAt: string | null
+  activeSessions: number
+  activePushEndpoints: number
+  openPressRequests: number
+  activeEngagements: number
+  coverageCount: number
+}
+
+// Beacon candidates — object { candidates: [...] }, camelCase.
+export type BeaconCandidatesResponse = {
+  candidates: BeaconCandidateView[]
+}
+
+export type BeaconCandidateView = {
+  beaconId: string
+  displayName: string
+  beaconKind: string
+  contactEmail: string
+  city: string | null
+  relevanceBasisPoints: number
+  relationshipScore: number
+  signalStatus: string | null
+  inviteCount: number
+  lastInvitedAt: string | null
+}
+
+// Press requests — object { requests: [...] }, camelCase.
+export type BeaconPressRequestsResponse = {
+  requests: BeaconPressRequestView[]
+}
+
+export type BeaconPressRequestView = {
+  id: string
+  beaconId: string
+  displayName: string
+  beaconKind: string
+  eventId: string | null
+  eventTitle: string | null
+  requestKind: string
+  details: string | null
+  status: string
+  resolutionNote: string | null
+  createdAt: string
+  resolvedAt: string | null
+}
+
+// Press assets — object { assets: [...] }, camelCase.
+export type BeaconPressAssetsResponse = {
+  assets: BeaconPressAssetView[]
+}
+
+export type BeaconPressAssetView = {
+  id: string
+  eventId: string | null
+  eventTitle: string | null
+  assetKey: string
+  assetKind: string
+  labelPl: string
+  labelEn: string
+  url: string
+  sortOrder: number
+  active: boolean
+  updatedAt: string
+}
+
+// Beacon engagements — object { engagements: [...] }, camelCase.
+export type BeaconEngagementsResponse = {
+  engagements: BeaconEngagementView[]
+}
+
+export type BeaconEngagementView = {
+  beaconId: string
+  displayName: string
+  beaconKind: string
+  eventId: string
+  eventTitle: string
+  eventSlug: string
+  status: string
+  helpKind: string | null
+  helpDetails: string | null
+  notificationCount: number
+  coverageCount: number
+  lastNotifiedAt: string | null
+  updatedAt: string
+}
+
+// Beacon coverage — object { coverage: [...] }, camelCase.
+export type BeaconCoverageResponse = {
+  coverage: BeaconCoverageView[]
+}
+
+export type BeaconCoverageView = {
+  id: string
+  beaconId: string
+  displayName: string
+  eventId: string
+  eventTitle: string
+  coverageKind: string
+  url: string
+  title: string | null
+  createdAt: string
+}
+
+// Beacon network — object, camelCase.
+export type BeaconNetworkResponse = {
+  discoveryRuns: DiscoveryRunView[]
+  pendingCandidates: DiscoveredBeaconView[]
+  approvedCandidates: DiscoveredBeaconView[]
+  inviteJobs: InviteJobView[]
+}
+
+export type DiscoveryRunView = {
+  id: string
+  countryCode: string
+  targetCount: number
+  status: string
+  discoveredCount: number
+  reportFilename: string | null
+  reportSha256: string | null
+  requestedAt: string
+  completedAt: string | null
+  failureKind: string | null
+}
+
+export type DiscoveredBeaconView = {
+  id: string
+  displayName: string
+  beaconKind: string
+  contactEmail: string | null
+  destinationUrl: string | null
+  sourceUrl: string | null
+  verified: boolean
+  acceptsOutreach: boolean
+  doNotContact: boolean
+  metadata: unknown
+}
+
+export type InviteJobView = {
+  id: string
+  status: string
+  beaconCount: number
+  ttlDays: number
+  radiusKm: number
+  locale: string
+  claimedBy: string | null
+  claimedAt: string | null
+  claimExpiresAt: string | null
+  reportedAt: string | null
+  providerSummary: unknown
+  exchangedCount: number
+  webCount: number
+  androidCount: number
+  iosCount: number
+  activeCount: number
+  pushEnabledCount: number
+  helpingCount: number
+  coverageCount: number
+  createdAt: string
+}
+
+// Release campaigns — object. The wrapper has camelCase, but PoolSummary
+// and ReleaseCampaignView have NO serde rename (snake_case in JSON).
+// AdminReleaseRecipientView IS camelCase.
+export type AdminReleaseCampaignsResponse = {
+  pool: PoolSummary
+  campaigns: ReleaseCampaignView[]
+  recipients: AdminReleaseRecipientView[]
+  recipientsTruncated: boolean
+}
+
+export type PoolSummary = {
+  active_release_latarnicy: number
+  contactable_latarnicy: number
+  missing_email: number
+}
+
+export type ReleaseCampaignView = {
+  id: string
+  slug: string
+  title: string
+  sku: string
+  product_name: string
+  variant_label: string
+  status: string
+  phase: string
+  claim_deadline: string
+  eligible_count: number
+  reserved_quantity: number
+  reservation_id: string | null
+  launched_at: string | null
+  closed_at: string | null
+  cancelled_at: string | null
+  created_at: string
+  notified_count: number
+  confirmed_count: number
+  prepared_count: number
+  sent_count: number
+  delivered_count: number
+  declined_count: number
+  expired_count: number
+}
+
+export type AdminReleaseRecipientView = {
+  campaignId: string
+  beaconId: string
+  displayName: string
+  beaconKind: string
+  city: string | null
+  status: string
+  recipientName: string | null
+  recipientPhone: string | null
+  parcelLockerCode: string | null
+  confirmedAt: string | null
+  preparedAt: string | null
+  sentAt: string | null
+  deliveredAt: string | null
+  activationDueAt: string | null
+  activationQueuedAt: string | null
+  activationSuppressedAt: string | null
+}
+
+export type AdminReleaseRecipientsResponse = {
+  campaignId: string
+  recipients: AdminReleaseRecipientView[]
+}
+
+// Play ledger — object, snake_case (no serde rename_all).
+export type PlayLedger = {
+  plays: PlayLedgerEntry[]
+  standings: PlayKindStanding[]
+}
+
+export type PlayLedgerEntry = {
+  play_id: string
+  kind: string
+  anchor: PlayAnchorRef
+  anchor_at: string
+  hypothesis: string
+  state: string
+  started_at: string
+  completed_at: string | null
+  steps_total: number
+  steps_settled: number
+  steps_skipped: number
+  recipients_reached: number
+  claims: PlayClaimView[]
+}
+
+export type PlayAnchorRef = {
+  kind: string
+  event_id?: string
+  fan_id?: string
+  release_plan_id?: string
+}
+
+export type PlayClaimView = {
+  claim: string
+  claim_means: string
+  success_metric_platform: string
+  success_metric_key: string
+  window_start: string
+  window_end: string
+  status: string
+  evidence: string | null
+  evidence_reason: string | null
+  effect: string | null
+  delta_basis_points: number | null
+  baseline_milli_per_day: number | null
+  observed_milli_per_day: number | null
+  recipients_reached: number | null
+}
+
+export type PlayKindStanding = {
+  kind: string
+  record: PlayRecord
+  standing: PlayStanding
+  effective_max_recipients_per_step: number
+}
+
+export type PlayRecord = {
+  improved: number
+  neutral: number
+  worsened: number
+  insufficient: number
+  consecutive_worsened: number
+  operator_retired: boolean
+}
+
+export type PlayStanding =
+  | { standing: 'untested'; measured: number }
+  | { standing: 'weighted'; basis_points: number; measured: number }
+  | { standing: 'retired'; reason: string }
