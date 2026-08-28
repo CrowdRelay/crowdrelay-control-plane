@@ -46,7 +46,7 @@ class ProductionDeployContract(unittest.TestCase):
         self.assertIn('--push', text)
         self.assertIn('CONTROL_PLANE_IMAGE_DIGEST=', text)
         self.assertIn('control-plane-image-digest-${{ github.sha }}', text)
-        self.assertIn('actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02', text)
+        self.assertIn('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a', text)
         self.assertNotIn('container-manifest:', text)
         self.assertNotIn('docker buildx imagetools create --tag', text)
 
