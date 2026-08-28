@@ -39,15 +39,15 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
       <section class="login-card" aria-labelledby="control-plane-login-title">
         <div class="login-brand"><span class="brand-mark">CR</span><div><strong>CrowdRelay</strong><small>Control Plane</small></div></div>
         <span class="eyebrow">OPERATOR ACCESS</span>
-        <h1 id="control-plane-login-title">Welcome to Control Plane</h1>
-        <p>Operator panel for tenants, deployments and ecosystem health.</p>
+        <h1 id="control-plane-login-title">Welcome back</h1>
+        <p>Sign in to manage tenants, deployments and ecosystem health.</p>
         <form class="login-form" onSubmit={submit}>
           <label>Username<input name="username" autocomplete="username" value={username()} onInput={e => setUsername(e.currentTarget.value)} required autofocus /></label>
           <label>Password<input name="password" type="password" autocomplete="current-password" value={password()} onInput={e => setPassword(e.currentTarget.value)} required /></label>
           <Show when={error()}><div class="login-error" role="alert">{error()}</div></Show>
           <button type="submit" disabled={busy() || !username().trim() || !password()}>{busy() ? 'Signing in…' : 'Sign in'}</button>
         </form>
-        <div class="login-security"><span class="auth-dot ok"/><span>Credentials never touch browser storage. The session lives in an HttpOnly cookie; a refresh keeps you signed in until the server-side session expires.</span></div>
+        <div class="login-security"><span class="auth-dot ok"/><span>Session lives in an HttpOnly cookie — credentials never touch browser storage.</span></div>
       </section>
     </main>
   }>{props.children}</Show></Show>

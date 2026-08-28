@@ -71,7 +71,7 @@ for (const route of API_ROUTES) {
 
 // Test that the healthz endpoint returns valid JSON when accessible
 test('healthz/ready returns valid JSON @api @smoke', async ({ request }) => {
-  const response = await request.get('/api/v1/healthz/ready')
+  const response = await request.get('/healthz/ready')
   const status = response.status()
   // healthz may be 200 (public) or 401 (auth-required)
   if (status === 200) {

@@ -2,6 +2,7 @@ import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { refreshTick } from '../lib/refresh'
+import { toast } from '../lib/toast'
 import type { AutomationEvent, AutomationWorkflowConfig } from '../lib/types'
 
 const severityTone = (s: string) => s === 'error' ? 'bad' : s === 'warn' ? 'warn' : 'muted'
@@ -49,19 +50,19 @@ export function AutomationPage() {
 
   const handleAck = async (id: string) => {
     try { await api.ackAutomationEvent(id); invalidate() }
-    catch (e) { alert(e instanceof Error ? e.message : 'Failed to acknowledge') }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to acknowledge') }
   }
   const handleResolve = async (id: string) => {
     try { await api.resolveAutomationEvent(id); invalidate() }
-    catch (e) { alert(e instanceof Error ? e.message : 'Failed to resolve') }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to resolve') }
   }
   const handleRetry = async (id: string) => {
     try { await api.retryAutomationEvent(id); invalidate() }
-    catch (e) { alert(e instanceof Error ? e.message : 'Retry failed') }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Retry failed') }
   }
   const handleConfigUpdate = async (workflowId: string, input: { category?: string; discordEnabled?: boolean; muted?: boolean }) => {
     try { await api.updateAutomationWorkflowConfig(workflowId, input); invalidate() }
-    catch (e) { alert(e instanceof Error ? e.message : 'Update failed') }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Update failed') }
   }
 
   return <section class="page">

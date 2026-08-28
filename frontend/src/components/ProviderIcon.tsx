@@ -96,6 +96,40 @@ function OpenRouterIcon(props: IconProps) {
   )
 }
 
+// GitHub Copilot — the Copilot octocat-silhouette spark in GitHub purple.
+function GitHubCopilotIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
+      <path d="M9.75 14a.75.75 0 0 1 .75.75v.5a.75.75 0 0 1-1.5 0v-.5a.75.75 0 0 1 .75-.75Zm4.5 0a.75.75 0 0 1 .75.75v.5a.75.75 0 0 1-1.5 0v-.5a.75.75 0 0 1 .75-.75ZM12 1.5c-2.5 0-4.5 1-6 2.5C4 5.5 3 7.5 3 10c0 1 .2 2 .6 2.8.3.7.7 1.3 1.2 1.8-.1.5-.3 1.1-.3 1.7 0 .8.2 1.6.6 2.3.3.7.8 1.3 1.4 1.8.2.5.5 1 .9 1.4.5.5 1.1.9 1.8 1.2.7.3 1.5.5 2.3.5h.4c.8 0 1.6-.2 2.3-.5.7-.3 1.3-.7 1.8-1.2.4-.4.7-.9.9-1.4.6-.5 1.1-1.1 1.4-1.8.4-.7.6-1.5.6-2.3 0-.6-.1-1.2-.3-1.7.5-.5.9-1.1 1.2-1.8.4-.8.6-1.8.6-2.8 0-2.5-1-4.5-2.5-6C16.5 2.5 14.5 1.5 12 1.5Zm-3.5 9c-.8 0-1.5.7-1.5 1.5S7.7 13.5 8.5 13.5s1.5-.7 1.5-1.5S9.3 10.5 8.5 10.5Zm7 0c-.8 0-1.5.7-1.5 1.5s.7 1.5 1.5 1.5 1.5-.7 1.5-1.5-.7-1.5-1.5-1.5Z"/>
+    </svg>
+  )
+}
+
+// Zhipu AI — a stylized "Z" spark in Zhipu blue-teal.
+function ZhipuIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
+      <path d="M7 5h10L8 14h9" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="17" cy="5" r="2" fill="#3b82f6"/>
+      <circle cx="8" cy="14" r="2" fill="#06b6d4"/>
+    </svg>
+  )
+}
+
+// Cognition AI — a brain-spark mark in Cognition's deep indigo.
+function CognitionIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class={props.class} aria-hidden="true">
+      <path d="M9 3a3 3 0 0 0-3 3 3 3 0 0 0-1 5.8A3 3 0 0 0 7 17a3 3 0 0 0 2 4 3 3 0 0 0 3-3V3a3 3 0 0 0-3 0z" fill="#4f46e5" opacity="0.15"/>
+      <path d="M15 3a3 3 0 0 1 3 3 3 3 0 0 1 1 5.8A3 3 0 0 1 17 17a3 3 0 0 1-2 4 3 3 0 0 1-3-3"/>
+      <circle cx="12" cy="11" r="1.5" fill="#4f46e5" stroke="none"/>
+    </svg>
+  )
+}
+
 // ─── Notifier Brand Logos ───────────────────────────────────────────────
 
 // Discord — official Discord logo (simple-icons path) in Discord blurple.
@@ -252,6 +286,9 @@ const LLM_PROVIDER_ICONS: Record<string, (props: IconProps) => JSX.Element> = {
   'anthropic': AnthropicIcon,
   'openrouter': OpenRouterIcon,
   'xai': XaiIcon,
+  'github-copilot': GitHubCopilotIcon,
+  'zhipu': ZhipuIcon,
+  'cognition': CognitionIcon,
 }
 
 const NOTIFIER_ICONS: Record<string, (props: IconProps) => JSX.Element> = {

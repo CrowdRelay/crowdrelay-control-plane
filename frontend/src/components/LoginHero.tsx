@@ -6,6 +6,8 @@ const BrandMark: Component<{ size: number }> = (props) => (
   </span>
 )
 
+// Animated flow diagram — signals → context → decision → action → delivery
+// with a recovery loop. Nodes pulse on a staggered timer.
 const FlowDiagram: Component = () => (
   <svg
     class="flow-diagram"
@@ -17,21 +19,29 @@ const FlowDiagram: Component = () => (
       <marker id="cr-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
         <path d="M0 0 L10 5 L0 10 z" fill="#8b5cf6" />
       </marker>
+      <linearGradient id="cr-flow-line" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#9b87f5" stop-opacity="0.3" />
+        <stop offset="50%" stop-color="#9b87f5" stop-opacity="0.6" />
+        <stop offset="100%" stop-color="#6fd8ef" stop-opacity="0.3" />
+      </linearGradient>
     </defs>
 
+    {/* Ambient pulse rings around the decision node */}
     <g fill="none" stroke="#9b87f5" opacity=".22">
-      <circle cx="310" cy="80" r="66" />
-      <circle cx="310" cy="80" r="92" opacity=".6" />
-      <circle cx="310" cy="80" r="118" opacity=".3" />
+      <circle cx="310" cy="80" r="66" class="flow-ring flow-ring-1" />
+      <circle cx="310" cy="80" r="92" class="flow-ring flow-ring-2" opacity=".6" />
+      <circle cx="310" cy="80" r="118" class="flow-ring flow-ring-3" opacity=".3" />
     </g>
 
-    <g stroke="#4b3f6e" stroke-width="1.5">
+    {/* Connection lines with gradient */}
+    <g stroke="url(#cr-flow-line)" stroke-width="1.5" fill="none">
       <line x1="88" y1="80" x2="147" y2="80" />
       <line x1="203" y1="80" x2="272" y2="80" />
       <line x1="348" y1="80" x2="417" y2="80" />
       <line x1="473" y1="80" x2="532" y2="80" />
     </g>
 
+    {/* Flow nodes */}
     <g class="flow-node">
       <rect x="32" y="52" width="56" height="56" rx="15" />
       <g transform="translate(60 80)" class="flow-icon" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -64,7 +74,8 @@ const FlowDiagram: Component = () => (
       </g>
     </g>
 
-    <g fill="none" stroke="#6d5bb8" stroke-width="1.5" stroke-dasharray="6 6">
+    {/* Recovery loop */}
+    <g fill="none" stroke="#6d5bb8" stroke-width="1.5" stroke-dasharray="6 6" class="flow-recovery">
       <path d="M560 152v66H372" />
       <path d="M248 218H175v-62" marker-end="url(#cr-arrow)" />
     </g>
@@ -132,6 +143,13 @@ const FeatureIcon: Component<{ children: unknown }> = (props) => (
   </svg>
 )
 
+const stats = [
+  { value: '10+', label: 'AI providers' },
+  { value: '22', label: 'Autopilot contexts' },
+  { value: 'Real-time', label: 'Telemetry' },
+  { value: 'Multi-region', label: 'EU / US' },
+]
+
 export const LoginHero: Component = () => (
   <section class="login-hero">
     <header class="hero-brand">
@@ -142,24 +160,36 @@ export const LoginHero: Component = () => (
       </div>
     </header>
 
-    <FlowDiagram />
+    <div class="hero-visual">
+      <FlowDiagram />
+      <div class="hero-stats">
+        {stats.map(s => (
+          <div class="hero-stat">
+            <strong>{s.value}</strong>
+            <span>{s.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
 
-    <h2>Turn signals into real-world actions.</h2>
-    <p class="hero-lead">
-      CrowdRelay evaluates incoming signals and context, makes decisions based on your policies, and executes
-      actions across your tools. Now with AI agents that leverage your tenant data to write press pitches,
-      social posts, and campaign analysis — using free or your own paid LLM accounts.
-    </p>
+    <div class="hero-content">
+      <h2>Turn signals into real-world actions.</h2>
+      <p class="hero-lead">
+        CrowdRelay evaluates incoming signals and context, makes decisions based on your policies, and executes
+        actions across your tools. Now with AI agents that leverage your tenant data to write press pitches,
+        social posts, and campaign analysis — using free or your own paid LLM accounts.
+      </p>
 
-    <ul class="hero-features">
-      {features.map(feature => (
-        <li>
-          <FeatureIcon>{feature.icon}</FeatureIcon>
-          <strong>{feature.title}</strong>
-          <span>{feature.body}</span>
-        </li>
-      ))}
-    </ul>
+      <ul class="hero-features">
+        {features.map(feature => (
+          <li>
+            <FeatureIcon>{feature.icon}</FeatureIcon>
+            <strong>{feature.title}</strong>
+            <span>{feature.body}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
 
     <div class="hero-contact">
       <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">

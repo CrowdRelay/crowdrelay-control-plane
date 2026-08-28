@@ -142,6 +142,14 @@ else
   echo "CROWDRELAY_CONTROL_PLANE_AREA_API_KEY=$AREA_TOKEN" >> "$CR_ENV"
 fi
 
+# Sync agent service auth key so the worker can call the agents service
+# (Reddit browser, LLM workers). Uses the same master key as the agents service.
+if grep -q "^CROWDRELAY_AGENT_SERVICE_AUTH_KEY=" "$CR_ENV"; then
+  sed -i '' "s|^CROWDRELAY_AGENT_SERVICE_AUTH_KEY=.*|CROWDRELAY_AGENT_SERVICE_AUTH_KEY=$MGMT_KEY|" "$CR_ENV"
+else
+  echo "CROWDRELAY_AGENT_SERVICE_AUTH_KEY=$MGMT_KEY" >> "$CR_ENV"
+fi
+
 log "CrowdRelay .env updated with derived tokens"
 
 # ── 5. Restart CrowdRelay with new keys ─────────────────────────────────

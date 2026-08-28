@@ -46,8 +46,10 @@ if (maps.length) throw new Error(`source maps must not ship: ${maps.join(', ')}`
 // candidates, booking candidates, beacon signal dashboard, press room with
 // requests/assets/engagements/coverage tabs, release campaigns with
 // recipient detail, play ledger with standings and claims).
+// Raised 2026-08-29 from 80 KiB CSS for the Premium AI panel (hero budget
+// gauge, provider connector grid with OAuth/API key, model cards, task list).
 const JS_BUDGET = 510 * 1024
-const CSS_BUDGET = 80 * 1024
+const CSS_BUDGET = 90 * 1024
 if (js > JS_BUDGET) throw new Error(`JS budget exceeded: ${js} > ${JS_BUDGET}`)
 if (css > CSS_BUDGET) throw new Error(`CSS budget exceeded: ${css} > ${CSS_BUDGET}`)
 console.log(`CONTROL_PLANE_WEB_BUDGET=PASS js=${js} css=${css}`)
