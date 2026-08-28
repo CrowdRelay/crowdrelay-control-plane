@@ -904,3 +904,400 @@ export interface ChatMessage {
   content: string
   actions?: ChatAction[]
 }
+
+// --- Audience Intelligence types ---
+// These mirror the CrowdRelay response structs exactly. See:
+//   crates/crowdrelay-api/src/audience/models.rs
+//   crates/crowdrelay-application/src/autopilot/control.rs
+
+export type AudienceOverview = {
+  active_fans: number
+  marketing_consented_fans: number
+  ticket_buyers: number
+  attendees: number
+  synesthesia_participants: number
+  qualified_referrals: number
+  paid_ticket_orders: number
+  [key: string]: unknown
+}
+
+export type FanCard = {
+  id: string
+  email: string
+  display_name: string | null
+  locale: string | null
+  status: string
+  created_at: string
+  updated_at: string
+  qualified_referrals: number
+  event_interests: number
+  attended_events: number
+  paid_ticket_orders: number
+  synesthesia_entries: number
+  consented: boolean
+  last_activity_at: string | null
+  activation_state: string
+  [key: string]: unknown
+}
+
+export type FanJourneyEntry = {
+  kind: string
+  occurred_at: string
+  title: string
+  detail: unknown
+  [key: string]: unknown
+}
+
+export type AcquisitionTouch = {
+  source: string
+  campaign_name: string | null
+  occurred_at: string
+  [key: string]: unknown
+}
+
+export type EventInterestTouch = {
+  event_slug: string
+  event_title: string
+  created_at: string
+  [key: string]: unknown
+}
+
+export type AttendanceTouch = {
+  event_slug: string
+  event_title: string
+  status: string
+  redeemed_at: string | null
+  [key: string]: unknown
+}
+
+export type TicketPurchase = {
+  order_reference: string
+  event_slug: string
+  event_title: string
+  status: string
+  currency: string
+  amount_gross_minor: number
+  amount_refunded_minor: number
+  paid_at: string | null
+  [key: string]: unknown
+}
+
+export type RewardTouch = {
+  reward_name: string
+  reward_type: string
+  status: string
+  created_at: string
+  [key: string]: unknown
+}
+
+export type SynesthesiaTouch = {
+  campaign_slug: string
+  entered_at: string
+  completed_at: string | null
+  client_total_elapsed_ms: number | null
+  [key: string]: unknown
+}
+
+export type FanDetail = {
+  fan: FanCard
+  acquisitions: AcquisitionTouch[]
+  event_interests: EventInterestTouch[]
+  attendance: AttendanceTouch[]
+  ticket_purchases: TicketPurchase[]
+  rewards: RewardTouch[]
+  synesthesia: SynesthesiaTouch[]
+  tags: string[]
+  [key: string]: unknown
+}
+
+export type AudienceSegment = {
+  id: string
+  slug: string
+  name: string
+  description: string | null
+  filter: unknown
+  active: boolean
+  created_at: string
+  updated_at: string
+  [key: string]: unknown
+}
+
+export type SegmentPreview = {
+  segment: AudienceSegment
+  total: number
+  sample: FanCard[]
+  [key: string]: unknown
+}
+
+export type AudienceReadModel = {
+  id: string
+  overview: AudienceOverview | null
+  fans: FanCard[] | null
+  segments: AudienceSegment[] | null
+  degraded: string[]
+}
+
+// --- Growth Metrics types ---
+
+export type FeedState = 'missing' | 'stale' | 'live'
+
+export type FeedCoverage = {
+  platform: string
+  series: number
+  live_series: number
+  state: FeedState
+  [key: string]: unknown
+}
+
+export type GrowthMetricCoverageResponse = {
+  platforms: FeedCoverage[]
+  [key: string]: unknown
+}
+
+export type GrowthMetricTrendView = {
+  series_id: string
+  platform: string
+  metric_key: string
+  display_name: string
+  subject_kind: string | null
+  subject_id: string | null
+  direction: 'higher_is_better' | 'lower_is_better'
+  value_tier: 'vanity' | 'intermediate' | 'downstream'
+  expected_interval_hours: number
+  latest_value: number
+  latest_at: string
+  delta_24h: number | null
+  delta_7d: number | null
+  delta_28d: number | null
+  velocity_milli_per_day: number | null
+  baseline_milli_per_day: number | null
+  velocity_ratio_basis_points: number | null
+  points_in_window: number
+  age_seconds: number
+  stale: boolean
+  [key: string]: unknown
+}
+
+export type GrowthMetricTrendsResponse = {
+  series: GrowthMetricTrendView[]
+  [key: string]: unknown
+}
+
+export type ObjectiveState =
+  | { state: 'met'; progress_basis_points: number }
+  | { state: 'on_track'; progress_basis_points: number; projected_value: number }
+  | { state: 'behind'; progress_basis_points: number; projected_value: number; shortfall: number }
+  | { state: 'missed'; progress_basis_points: number; shortfall: number }
+  | { state: 'unmeasurable'; reason: string }
+
+export type GrowthObjectiveView = {
+  objective_id: string
+  platform: string
+  metric_key: string
+  scope_kind: string
+  scope_id: string | null
+  baseline_value: number
+  target_value: number
+  declared_at: string
+  deadline: string
+  declared_by: string
+  observed_value: number | null
+  state: ObjectiveState
+  [key: string]: unknown
+}
+
+export type GrowthObjectivesResponse = {
+  objectives: GrowthObjectiveView[]
+  [key: string]: unknown
+}
+
+export type AutopilotControlMutation = {
+  operation_id: string
+  target_id: string
+  status: string
+  replayed: boolean
+  [key: string]: unknown
+}
+
+export type GrowthPostureView = {
+  posture: 'grounded' | 'working' | 'full_send' | null
+  expected_version: number
+  set_at: string | null
+  [key: string]: unknown
+}
+
+export type ChannelAttribution =
+  | { evidence: 'attributed'; source: string; community: string | null; creative: string | null }
+  | { evidence: 'unattributed'; reason: string }
+
+export type ChannelPerformance = {
+  attribution: ChannelAttribution
+  signups: number
+  activated_30d: number
+  activation_basis_points: number | null
+  best_action: string | null
+  [key: string]: unknown
+}
+
+export type AcquisitionChannels = {
+  channels: ChannelPerformance[]
+  total_signups: number
+  total_activated_30d: number
+  active_30d: number
+  reachable_consented: number
+  retained_30d: number
+  unattributed: Array<{
+    reason: string
+    remedy: string
+    signups: number
+    activated_30d: number
+  }>
+  [key: string]: unknown
+}
+
+export type ShowCostLedgerEntry = {
+  event_id: string
+  event_title: string
+  starts_at: string
+  predicted_at: string
+  offered_fee_minor: number
+  predicted_total_cost_minor: number | null
+  predicted_net_margin_minor: number | null
+  prediction_missing_input: string | null
+  settled_at: string | null
+  settled_by: string | null
+  settled_total_cost_minor: number | null
+  settled_net_margin_minor: number | null
+  fee_received_minor: number | null
+  accuracy: string | null
+  accuracy_reason: string | null
+  total_variance_basis_points: number | null
+  worst_line: string | null
+  worst_line_delta_minor: number | null
+  worst_line_remedy: string | null
+  [key: string]: unknown
+}
+
+export type ShowEconomicsResponse = {
+  shows: ShowCostLedgerEntry[]
+  [key: string]: unknown
+}
+
+export type VehicleProfile = {
+  seats: number
+  cargo_litres: number
+  fuel_centilitres_per_100km: number
+  [key: string]: unknown
+}
+
+export type TourEconomicsPolicy = {
+  transport_minor_per_100km_round_trip: number
+  transport_rate_covers_vehicles: number
+  vehicle: VehicleProfile
+  max_vehicles: number
+  crew_size: number
+  backline_litres: number
+  fuel_price_minor_per_litre: number
+  toll_minor_per_km: number
+  accommodation_minor_per_room_night: number
+  crew_per_room: number
+  per_diem_minor_per_person_day: number
+  fixed_overhead_minor: number
+  overnight_threshold_km: number
+  minimum_margin_minor: number
+  [key: string]: unknown
+}
+
+export type TourEconomicsSummary = {
+  policy: TourEconomicsPolicy
+  version: number
+  [key: string]: unknown
+}
+
+export type ChiefOfStaffAttentionItem = {
+  kind: string
+  subject_kind: string
+  subject_id: string
+  title: string
+  detail: string
+  due_at: string
+  urgency: string
+  [key: string]: unknown
+}
+
+export type ChiefOfStaffOpportunity = {
+  context: string
+  decision_kind: string
+  subject_kind: string
+  subject_id: string
+  confidence: number
+  reason: string
+  needs_approval: boolean
+  [key: string]: unknown
+}
+
+export type ChiefOfStaffShowTask = {
+  event_id: string
+  event_title: string
+  task_key: string
+  status: string
+  starts_at: string
+  [key: string]: unknown
+}
+
+export type ChiefOfStaffActivity = {
+  action_kind: string
+  action_class: string
+  count: number
+  [key: string]: unknown
+}
+
+export type ChiefOfStaffStopped = {
+  kind: string
+  reason: string
+  count: number
+  detail: string
+  [key: string]: unknown
+}
+
+export type ChiefOfStaffMovement = {
+  subject: string
+  claim: string
+  assessment: string
+  delta_basis_points: number | null
+  [key: string]: unknown
+}
+
+export type ChiefOfStaffObjective = {
+  platform: string
+  metric_key: string
+  scope_kind: string
+  state: string
+  progress_basis_points: number
+  shortfall: number
+  deadline: string
+  [key: string]: unknown
+}
+
+export type AutopilotChiefOfStaff = {
+  executed_24h: number
+  failed_24h: number
+  needs_you: number
+  estimated_minutes_saved_24h: number
+  measured_improved_7d: number
+  measured_neutral_7d: number
+  measured_worsened_7d: number
+  emitted_24h: number
+  executor_confirmed_24h: number
+  executor_failed_24h: number
+  attention_items: ChiefOfStaffAttentionItem[]
+  top_opportunities: ChiefOfStaffOpportunity[]
+  show_tasks: ChiefOfStaffShowTask[]
+  acted_alone_24h: ChiefOfStaffActivity[]
+  about_to_act: ChiefOfStaffActivity[]
+  parked_for_approval: ChiefOfStaffActivity[]
+  stopped: ChiefOfStaffStopped[]
+  moved: ChiefOfStaffMovement[]
+  objectives_at_risk: ChiefOfStaffObjective[]
+  [key: string]: unknown
+}

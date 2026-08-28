@@ -31,6 +31,7 @@ pub fn router() -> Router<AppState> {
         .route("/tenants/{slug}/overview", get(overview))
         .route("/tenants/{slug}/operations/overview", get(operations))
         .route("/tenants/{slug}/portfolio/model", get(portfolio))
+        .route("/tenants/{slug}/audience/model", get(audience))
 }
 
 fn correlation(headers: &HeaderMap) -> Option<&str> {
@@ -238,6 +239,94 @@ fn project_portfolio(
     if degraded.len() == sections.len() {
         return Err(ApiError::Unavailable(
             "tenant portfolio channel returned no usable section".to_owned(),
+        ));
+    }
+
+    projected.insert("id".to_owned(), Value::String(slug.to_owned()));
+    projected.insert("degraded".to_owned(), Value::Array(degraded));
+    Ok(Value::Object(projected))
+}
+
+/// Audience Intelligence subpage.
+///
+/// The three upstream sections (overview KPIs, paginated fan list, segments)
+/// are fetched concurrently over the private tunnel and projected like the
+/// operations read model. A section that fails is reported as `null` and named
+/// in `degraded`, so a broken fan list cannot blank the KPI strip next to it.
+/// Only a snapshot where every section failed is an error.
+async fn audience(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let slug = validation::slug(&raw_slug)?;
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let section = |path: &'static str| {
+        let state = &state;
+        let target = &target;
+        let tenant_id = tenant.tenant.id;
+        let correlation_id = correlation(&headers);
+        async move {
+            state
+                .area_client
+                .request_management(
+                    tenant_id,
+                    target,
+                    ManagementRequest {
+                        method: "GET",
+                        path,
+                        body: None,
+                        correlation_id,
+                        idempotency_key: None,
+                    },
+                )
+                .await
+        }
+    };
+
+    let (overview, fans, segments) = tokio::join!(
+        section("/v1/control-plane/audience/overview"),
+        section("/v1/control-plane/audience/fans?limit=50"),
+        section("/v1/control-plane/audience/segments"),
+    );
+
+    Ok(no_store(project_audience(
+        &slug,
+        overview.as_ref().ok(),
+        fans.as_ref().ok(),
+        segments.as_ref().ok(),
+    )?))
+}
+
+fn project_audience(
+    slug: &str,
+    overview: Option<&Value>,
+    fans: Option<&Value>,
+    segments: Option<&Value>,
+) -> Result<Value, ApiError> {
+    let sections = [
+        ("overview", overview, Shape::Object),
+        ("fans", fans, Shape::Array),
+        ("segments", segments, Shape::Array),
+    ];
+
+    let mut projected = serde_json::Map::new();
+    let mut degraded = Vec::new();
+    for (name, value, shape) in sections {
+        match value {
+            Some(value) if shape.accepts(value) => {
+                projected.insert(name.to_owned(), value.clone());
+            }
+            _ => {
+                projected.insert(name.to_owned(), Value::Null);
+                degraded.push(Value::String(name.to_owned()));
+            }
+        }
+    }
+
+    if degraded.len() == sections.len() {
+        return Err(ApiError::Unavailable(
+            "tenant audience channel returned no usable section".to_owned(),
         ));
     }
 
@@ -457,6 +546,51 @@ mod tests {
     #[test]
     fn portfolio_with_no_usable_section_is_an_error() {
         let error = project_portfolio("virya", None, None, None, None)
+            .expect_err("a fully failed snapshot must not render as an empty page");
+        assert!(matches!(error, ApiError::Unavailable(_)));
+    }
+
+    fn audience_overview() -> Value {
+        json!({"total_fans": 100})
+    }
+    fn audience_fans() -> Value {
+        json!([{"id": "fan-1"}])
+    }
+    fn audience_segments() -> Value {
+        json!([{"slug": "engaged"}])
+    }
+
+    #[test]
+    fn audience_projects_a_complete_snapshot() {
+        let projected = project_audience(
+            "virya",
+            Some(&audience_overview()),
+            Some(&audience_fans()),
+            Some(&audience_segments()),
+        )
+        .expect("complete snapshot projects");
+
+        assert_eq!(projected["id"], json!("virya"));
+        assert_eq!(projected["overview"], audience_overview());
+        assert_eq!(projected["fans"], audience_fans());
+        assert_eq!(projected["segments"], audience_segments());
+        assert_eq!(projected["degraded"], json!([]));
+    }
+
+    #[test]
+    fn audience_degrades_one_section_without_blankning_the_rest() {
+        let projected = project_audience("virya", Some(&audience_overview()), None, None)
+            .expect("a partial snapshot is still usable");
+
+        assert_eq!(projected["overview"], audience_overview());
+        assert_eq!(projected["fans"], Value::Null);
+        assert_eq!(projected["segments"], Value::Null);
+        assert_eq!(projected["degraded"], json!(["fans", "segments"]));
+    }
+
+    #[test]
+    fn audience_with_no_usable_section_is_an_error() {
+        let error = project_audience("virya", None, None, None)
             .expect_err("a fully failed snapshot must not render as an empty page");
         assert!(matches!(error, ApiError::Unavailable(_)));
     }

@@ -38,7 +38,11 @@ if (maps.length) throw new Error(`source maps must not ship: ${maps.join(', ')}`
 // Raised 2026-08-28 from 392 KiB for generic OAuth (device flow modal, poll),
 // schedules section (create/toggle/delete), structured outcome rendering,
 // fanbase platform connection grid, and LLM badge on opportunity board.
-const JS_BUDGET = 440 * 1024
+// Raised 2026-08-29 from 440 KiB for the Audience Intelligence page (fan
+// table, fan detail drawer, journey timeline, segment list) and Growth
+// Metrics panels (coverage bar, trend cards, objectives with progress bars,
+// inline SVG chart utility).
+const JS_BUDGET = 460 * 1024
 const CSS_BUDGET = 80 * 1024
 if (js > JS_BUDGET) throw new Error(`JS budget exceeded: ${js} > ${JS_BUDGET}`)
 if (css > CSS_BUDGET) throw new Error(`CSS budget exceeded: ${css} > ${CSS_BUDGET}`)

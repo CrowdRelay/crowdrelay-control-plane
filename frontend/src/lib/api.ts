@@ -1,4 +1,4 @@
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AgentScorecard, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentOutcome, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, ChatAction, DeliveryDetails, DeliveryItem, DiscoveredEndpoint, FanbaseConnection, FeatureFlag, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, OutboxItem, Palette, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AgentScorecard, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentOutcome, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, ChatAction, DeliveryDetails, DeliveryItem, DiscoveredEndpoint, FanbaseConnection, FeatureFlag, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, OutboxItem, Palette, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, AudienceOverview, FanCard, FanDetail, FanJourneyEntry, AudienceSegment, SegmentPreview, AudienceReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectiveView, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TourEconomicsSummary, AutopilotChiefOfStaff } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
@@ -272,4 +272,58 @@ export const api = {
     request<{ url: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/connections/oauth/${encodeURIComponent(platform)}/start`, { method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify({ redirect_uri: redirectUri }) }),
   deleteFanbaseConnection: (slug: string, id: string) =>
     request<void>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/connections/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  // --- Audience Intelligence ---
+  audienceModel: (slug: string) =>
+    request<AudienceReadModel>(`/tenants/${encodeURIComponent(slug)}/audience/model`),
+  audienceOverview: (slug: string) =>
+    request<AudienceOverview>(`/tenants/${encodeURIComponent(slug)}/audience/overview`),
+  audienceFans: (slug: string, params?: { limit?: number; search?: string; city_slug?: string; activation?: string }) => {
+    const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)] as [string, string])).toString() : ''
+    return request<FanCard[]>(`/tenants/${encodeURIComponent(slug)}/audience/fans${qs}`)
+  },
+  fanDetail: (slug: string, fanId: string) =>
+    request<FanDetail>(`/tenants/${encodeURIComponent(slug)}/audience/fans/${encodeURIComponent(fanId)}`),
+  fanJourney: (slug: string, fanId: string) =>
+    request<FanJourneyEntry[]>(`/tenants/${encodeURIComponent(slug)}/audience/fans/${encodeURIComponent(fanId)}/journey`),
+  audienceSegments: (slug: string) =>
+    request<AudienceSegment[]>(`/tenants/${encodeURIComponent(slug)}/audience/segments`),
+  audienceSegmentPreview: (slug: string, segmentSlug: string) =>
+    request<SegmentPreview>(`/tenants/${encodeURIComponent(slug)}/audience/segments/${encodeURIComponent(segmentSlug)}/preview`),
+
+  // --- Growth Metrics, Objectives, Posture ---
+  growthMetricCoverage: (slug: string) =>
+    request<GrowthMetricCoverageResponse>(`/tenants/${encodeURIComponent(slug)}/operations/growth-metrics/coverage`),
+  growthMetricTrends: (slug: string) =>
+    request<GrowthMetricTrendsResponse>(`/tenants/${encodeURIComponent(slug)}/operations/growth-metrics/trends`),
+  growthObjectives: (slug: string) =>
+    request<GrowthObjectivesResponse>(`/tenants/${encodeURIComponent(slug)}/operations/objectives`),
+  declareGrowthObjective: (slug: string, input: { platform: string; metric_key: string; scope_kind: string; scope_id?: string; target_value: number; deadline: string; declared_by: string }) =>
+    request<AutopilotControlMutation>(`/tenants/${encodeURIComponent(slug)}/operations/objectives`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify(input),
+    }),
+  retireGrowthObjective: (slug: string, objectiveId: string) =>
+    request<AutopilotControlMutation>(`/tenants/${encodeURIComponent(slug)}/operations/objectives/${encodeURIComponent(objectiveId)}/retire`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: '{}',
+    }),
+  growthPosture: (slug: string) =>
+    request<GrowthPostureView>(`/tenants/${encodeURIComponent(slug)}/operations/posture`),
+  setGrowthPosture: (slug: string, input: { posture: string; expected_version: number }) =>
+    request<AutopilotControlMutation>(`/tenants/${encodeURIComponent(slug)}/operations/posture`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify(input),
+    }),
+  acquisitionChannels: (slug: string) =>
+    request<AcquisitionChannels>(`/tenants/${encodeURIComponent(slug)}/operations/acquisition-channels`),
+  tourEconomics: (slug: string) =>
+    request<TourEconomicsSummary>(`/tenants/${encodeURIComponent(slug)}/operations/tour-economics`),
+  showEconomics: (slug: string) =>
+    request<ShowEconomicsResponse>(`/tenants/${encodeURIComponent(slug)}/operations/show-economics`),
+  chiefOfStaff: (slug: string) =>
+    request<AutopilotChiefOfStaff>(`/tenants/${encodeURIComponent(slug)}/operations/chief-of-staff`),
 }

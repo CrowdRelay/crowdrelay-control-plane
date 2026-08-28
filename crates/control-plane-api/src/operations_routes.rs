@@ -135,6 +135,59 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/opportunities/decisions/{decision_id}/handled-externally",
             post(handle_opportunity_externally),
         )
+        // ── Audience intelligence (read-only proxies) ───────────────────
+        .route("/tenants/{slug}/audience/overview", get(audience_overview))
+        .route("/tenants/{slug}/audience/fans", get(audience_fans))
+        .route(
+            "/tenants/{slug}/audience/fans/{fan_id}",
+            get(audience_fan_detail),
+        )
+        .route(
+            "/tenants/{slug}/audience/fans/{fan_id}/journey",
+            get(audience_fan_journey),
+        )
+        .route("/tenants/{slug}/audience/segments", get(audience_segments))
+        .route(
+            "/tenants/{slug}/audience/segments/{slug_segment}/preview",
+            get(audience_segment_preview),
+        )
+        // ── Growth metrics, objectives, posture (read + mutate) ────────
+        .route(
+            "/tenants/{slug}/operations/growth-metrics/coverage",
+            get(growth_metric_coverage),
+        )
+        .route(
+            "/tenants/{slug}/operations/growth-metrics/trends",
+            get(growth_metric_trends),
+        )
+        .route(
+            "/tenants/{slug}/operations/objectives",
+            get(growth_objectives).post(declare_growth_objective),
+        )
+        .route(
+            "/tenants/{slug}/operations/objectives/{objective_id}/retire",
+            post(retire_growth_objective),
+        )
+        .route(
+            "/tenants/{slug}/operations/posture",
+            get(growth_posture).post(set_growth_posture),
+        )
+        .route(
+            "/tenants/{slug}/operations/acquisition-channels",
+            get(acquisition_channels),
+        )
+        .route(
+            "/tenants/{slug}/operations/tour-economics",
+            get(tour_economics),
+        )
+        .route(
+            "/tenants/{slug}/operations/show-economics",
+            get(show_economics),
+        )
+        .route(
+            "/tenants/{slug}/operations/chief-of-staff",
+            get(chief_of_staff),
+        )
         .layer(DefaultBodyLimit::max(MAX_OPERATIONS_BODY_BYTES))
 }
 
@@ -1285,4 +1338,347 @@ async fn delete_fanbase_connection(
     let path = format!("/v1/control-plane/fanbases/connections/{connection_id}");
     let _ = call(&state, &slug, "DELETE", &path, None, &headers, None).await?;
     Ok(StatusCode::NO_CONTENT.into_response())
+}
+
+// ---------------------------------------------------------------------------
+// Audience intelligence — read-only proxies to CrowdRelay's control-plane
+// audience endpoints. Fan list, fan detail, fan journey, audience segments.
+// ---------------------------------------------------------------------------
+
+async fn audience_overview(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/audience/overview",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "audience overview")
+}
+
+async fn audience_fans(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    Query(params): Query<ListQuery>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let path = build_list_path("/v1/control-plane/audience/fans", &params);
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    array_no_store(value, "audience fans")
+}
+
+async fn audience_fan_detail(
+    State(state): State<AppState>,
+    Path((slug, fan_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let fan_id = uuid_segment(&fan_id)?;
+    let path = format!("/v1/control-plane/audience/fans/{fan_id}");
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "fan detail")
+}
+
+async fn audience_fan_journey(
+    State(state): State<AppState>,
+    Path((slug, fan_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let fan_id = uuid_segment(&fan_id)?;
+    let path = format!("/v1/control-plane/audience/fans/{fan_id}/journey");
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "fan journey")
+}
+
+async fn audience_segments(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/audience/segments",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    array_no_store(value, "audience segments")
+}
+
+async fn audience_segment_preview(
+    State(state): State<AppState>,
+    Path((slug, slug_segment)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    if !safe_segment(&slug_segment) {
+        return Err(ApiError::InvalidInput(
+            "valid segment slug is required".to_owned(),
+        ));
+    }
+    let path = format!("/v1/control-plane/audience/segments/{slug_segment}/preview");
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "segment preview")
+}
+
+// ---------------------------------------------------------------------------
+// Growth metrics, objectives, posture — proxies to CrowdRelay's control-plane
+// autopilot endpoints. Coverage and trends are read-only; objectives and
+// posture support both reads and mutations.
+// ---------------------------------------------------------------------------
+
+async fn growth_metric_coverage(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/growth-metrics/coverage",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "growth metric coverage")
+}
+
+async fn growth_metric_trends(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/growth-metrics/trends",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "growth metric trends")
+}
+
+async fn growth_objectives(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/objectives",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "growth objectives")
+}
+
+async fn declare_growth_objective(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    if !body.is_object() {
+        return Err(ApiError::InvalidInput(
+            "objective body is required".to_owned(),
+        ));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/autopilot/objectives",
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.growth_objective.declared",
+        "growth_objective",
+        value.get("id").and_then(Value::as_str).unwrap_or("unknown"),
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "growth objective declare")
+}
+
+async fn retire_growth_objective(
+    State(state): State<AppState>,
+    Path((slug, objective_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let objective_id = uuid_segment(&objective_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path = format!("/v1/control-plane/autopilot/objectives/{objective_id}/retire");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        None,
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.growth_objective.retired",
+        "growth_objective",
+        &objective_id,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "growth objective retire")
+}
+
+async fn growth_posture(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/posture",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "growth posture")
+}
+
+async fn set_growth_posture(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    if !body.is_object() {
+        return Err(ApiError::InvalidInput(
+            "posture body is required".to_owned(),
+        ));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/autopilot/posture",
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.growth_posture.updated",
+        "growth_posture",
+        "posture",
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "growth posture update")
+}
+
+async fn acquisition_channels(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/acquisition-channels",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "acquisition channels")
+}
+
+async fn tour_economics(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/tour-economics",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "tour economics")
+}
+
+async fn show_economics(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/show-economics",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "show economics")
+}
+
+async fn chief_of_staff(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/chief-of-staff",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "chief of staff")
 }

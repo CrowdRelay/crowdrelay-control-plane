@@ -15,7 +15,21 @@ The Control Plane answers what tenants exist, what is actually running, and at w
 - separate admin, telemetry, provisioner and tenant-management authorities;
 - fail-closed recovery and rollback-aware deployment;
 - **AI agents** — proxy to the `crowdrelay-agents` service for LLM-powered creative
-  tasks (press pitches, social posts, campaign analysis) seeded with real tenant data.
+  tasks (press pitches, social posts, community engagement, growth strategy, Reddit
+  scanning, signal invites, campaign analysis, audience research) seeded with real
+  tenant data;
+- **Reddit authenticated scraping** — the agents service runs a Playwright-based
+  scraper that logs into Reddit via Google OAuth and extracts session cookies for
+  the CrowdRelay worker, bypassing Reddit's JS bot-detection challenge;
+- **Audience intelligence** — fan list, fan detail, fan journey, fan tags, audience
+  segments, referral codes;
+- **Growth metrics** — coverage and trends across metric series;
+- **Growth objectives** — declare and retire growth objectives;
+- **Growth posture** — read and set the growth posture (grounded/working/full_send);
+- **Growth envelope** — set the monthly spend envelope;
+- **Acquisition channels** — track fan acquisition sources;
+- **Tour/show economics** — per-show and per-tour financial breakdowns;
+- **Chief of Staff** — exception cockpit for growth operations.
 
 ## AI Agent Integration
 
@@ -41,6 +55,9 @@ unaffected.
 | `/models` | GET | List models available to this tenant |
 | `/oauth/google/start` | GET | Start Google OAuth flow |
 | `/oauth/google/callback` | GET | Handle OAuth callback |
+| `/reddit/status` | GET | Reddit cookie status (active/expired/missing) |
+| `/reddit/cookies` | GET | Get Reddit session cookies for authenticated API access |
+| `/reddit/login` | POST | Trigger manual Reddit login via Google OAuth (Playwright) |
 | `/health` | GET | Agent service health |
 
 The proxy resolves the tenant slug to a workspace ID, derives an HMAC token using
@@ -50,12 +67,12 @@ all data access to that workspace.
 
 ### Supported LLM providers
 
-- **OpenCode Zen** (free, no key needed)
+- **OpenCode Zen** (free, no key needed — Laguna S 2.1, Nemotron 3.5 Lightning, MiMo v2.5)
 - **OpenAI** (GPT-4o, o1 — paste API key)
 - **Anthropic** (Claude 3.5 Sonnet, Opus, Haiku — paste API key)
-- **Google Gemini** (OAuth or paste API key)
-- **Groq** (Llama 3.3 70B — free tier, paste API key)
-- **OpenRouter** (200+ models via one key — paste API key)
+- **Google Gemini** (Gemini 3.6 Flash — OAuth or paste API key)
+- **Groq** (GPT-OSS 120B — free tier, paste API key)
+- **OpenRouter** (200+ models via one key — GLM-5.2, Llama, Mistral, etc.)
 
 Credentials are encrypted with AES-256-GCM in the agent service's credential vault.
 Keys are never sent back to the frontend.

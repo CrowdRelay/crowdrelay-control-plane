@@ -188,6 +188,20 @@ fn one_safe_segment(path: &str, prefix: &str) -> bool {
     })
 }
 
+/// Like `one_safe_segment` but with a suffix after the safe segment.
+/// Matches paths like `{prefix}{safe_segment}{suffix}`.
+fn safe_segment_between(path: &str, prefix: &str, suffix: &str) -> bool {
+    path.strip_prefix(prefix)
+        .and_then(|tail| tail.strip_suffix(suffix))
+        .is_some_and(|segment| {
+            !segment.is_empty()
+                && segment.len() <= 96
+                && segment
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+        })
+}
+
 fn uuid_segment_between(path: &str, prefix: &str, suffix: &str) -> bool {
     path.strip_prefix(prefix)
         .and_then(|tail| tail.strip_suffix(suffix))
@@ -221,6 +235,37 @@ fn timeline_segment(path: &str) -> bool {
         })
 }
 
+/// Matches fan tag mutation paths:
+/// `/v1/control-plane/audience/fans/{uuid}/tags/{tag}` (add)
+/// `/v1/control-plane/audience/fans/{uuid}/tags/{tag}/remove` (remove)
+fn fan_tag_path(path: &str) -> bool {
+    let prefix = "/v1/control-plane/audience/fans/";
+    let Some(tail) = path.strip_prefix(prefix) else {
+        return false;
+    };
+    // Find the `/tags/` separator after the fan UUID.
+    let Some(tags_pos) = tail.find("/tags/") else {
+        return false;
+    };
+    let fan_id = &tail[..tags_pos];
+    if !Uuid::parse_str(fan_id).is_ok() {
+        return false;
+    }
+    let tag_part = &tail[tags_pos + 6..]; // skip "/tags/"
+    // tag_part is `{tag}` or `{tag}/remove`
+    let tag = tag_part.strip_suffix("/remove").unwrap_or(tag_part);
+    // Mirrors CrowdRelay's `valid_tag()`: lowercase or digit start, then
+    // lowercase / digit / `:` / `_` / `-`, max 64 chars, no spaces.
+    let mut chars = tag.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    tag.len() <= 64
+        && (first.is_ascii_lowercase() || first.is_ascii_digit())
+        && chars
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, ':' | '_' | '-'))
+}
+
 fn valid_operations_request(method: &str, path: &str) -> bool {
     match method {
         "GET" => {
@@ -237,15 +282,30 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/next-best-actions"
                     | "/v1/control-plane/autopilot/scorecard"
                     | "/v1/control-plane/autopilot/reply-triage"
+                    | "/v1/control-plane/autopilot/growth-metrics/coverage"
+                    | "/v1/control-plane/autopilot/growth-metrics/trends"
+                    | "/v1/control-plane/autopilot/objectives"
+                    | "/v1/control-plane/autopilot/posture"
+                    | "/v1/control-plane/autopilot/acquisition-channels"
+                    | "/v1/control-plane/autopilot/tour-economics"
+                    | "/v1/control-plane/autopilot/show-economics"
+                    | "/v1/control-plane/autopilot/chief-of-staff"
                     | "/v1/control-plane/portfolio/overview"
                     | "/v1/control-plane/portfolio/amplification"
                     | "/v1/control-plane/tenant-settings"
                     | "/v1/control-plane/fanbases"
                     | "/v1/control-plane/fanbases/connections"
                     | "/v1/control-plane/webhook-endpoints"
+                    | "/v1/control-plane/audience/overview"
+                    | "/v1/control-plane/audience/fans"
+                    | "/v1/control-plane/audience/segments"
             ) || path.starts_with("/v1/control-plane/ops/outbox?")
                 || path.starts_with("/v1/control-plane/ops/deliveries?")
+                || path.starts_with("/v1/control-plane/audience/fans?")
                 || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "")
+                || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "")
+                || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/journey")
+                || safe_segment_between(path, "/v1/control-plane/audience/segments/", "/preview")
                 || timeline_segment(path)
         }
         "POST" => {
@@ -253,6 +313,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 path,
                 "/v1/control-plane/ops/deliveries/dead/clear"
                     | "/v1/control-plane/ecosystem/reconcile"
+                    | "/v1/control-plane/autopilot/objectives"
+                    | "/v1/control-plane/autopilot/posture"
+                    | "/v1/control-plane/autopilot/growth-envelope"
             ) || uuid_segment_between(path, "/v1/control-plane/ops/outbox/", "/retry")
                 || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "/retry")
                 || uuid_segment_between(path, "/v1/control-plane/ops/push/", "/retry")
@@ -264,6 +327,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/v1/control-plane/autopilot/decisions/",
                     "/handled-externally",
                 )
+                || uuid_segment_between(path, "/v1/control-plane/autopilot/objectives/", "/retire")
                 || uuid_segment_between(
                     path,
                     "/v1/control-plane/portfolio/amplification/",
@@ -273,6 +337,8 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || path == "/v1/control-plane/fanbases"
                 || path == "/v1/control-plane/fanbases/connections"
                 || uuid_segment_between(path, "/v1/control-plane/fanbases/", "/ingest")
+                || fan_tag_path(path)
+                || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/referral-code")
                 || two_segment_after(
                     path,
                     "/v1/control-plane/fanbases/connections/oauth/",

@@ -57,6 +57,7 @@ const TENANT_NAV_GROUPS: NavGroup[] = [
   {
     label: 'Audience',
     items: [
+      { path: '/tenants/$slug/audience', label: 'Fan Intelligence', exact: false, icon: 'audience' },
       { path: '/tenants/$slug/portfolio', label: 'Portfolio', exact: false, icon: 'portfolio' },
       { path: '/tenants/$slug/area', label: 'AREA', exact: false, icon: 'area' },
     ],
@@ -78,6 +79,7 @@ function NavIcon(props: { name: string }) {
     portfolio: <><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 9h18M9 9v12" fill="none" stroke="currentColor" stroke-width="2"/></>,
     notifiers: <><path d="M18 8a6 6 0 0 1-12 0M18 8a6 6 0 0 0-12 0M18 8v5a6 6 0 0 1-12 0V8M12 14v3M10 19h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></>,
     area: <><circle cx="12" cy="10" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></>,
+    audience: <><circle cx="9" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="17" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15 14c0-2.2 1.8-4 4-4s4 1.8 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></>,
     integrations: <><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1l2.1-2.1M17 7l2.1-2.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></>,
   }
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="nav-icon" aria-hidden="true">{icons[props.name] ?? icons.overview}</svg>

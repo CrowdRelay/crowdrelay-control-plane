@@ -4,6 +4,8 @@ import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { OperationsPanel } from '../components/OperationsPanel'
 import { GrowthPanel } from '../components/GrowthPanel'
+import { GrowthMetricsPanel } from '../components/GrowthMetricsPanel'
+import { GrowthObjectivesPanel } from '../components/GrowthObjectivesPanel'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { ScorecardPanel } from '../components/ScorecardPanel'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
@@ -57,6 +59,8 @@ export function TenantOperationsPage() {
         refresh={refresh}
       />
       <GrowthPanel growth={data().growth} degraded={data().degraded.includes('growth')} />
+      <GrowthMetricsPanel slug={params().slug} />
+      <GrowthObjectivesPanel slug={params().slug} />
     </>}</Show>
   </section>
 }
