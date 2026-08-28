@@ -94,7 +94,11 @@ for command in docker python3 curl sha256sum grep cmp timeout; do
 done
 
 compose() {
-  docker compose -f compose.production.yml -f compose.area.yml "$@"
+  local compose_files=(-f compose.production.yml -f compose.area.yml)
+  if [[ -f compose.agents.yml ]]; then
+    compose_files+=(-f compose.agents.yml)
+  fi
+  docker compose "${compose_files[@]}" "$@"
 }
 
 wait_for_app() {
