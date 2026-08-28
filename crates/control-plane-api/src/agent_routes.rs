@@ -118,6 +118,8 @@ pub fn router() -> Router<AppState> {
             post(toggle_schedule),
         )
         .route("/tenants/{slug}/agents/chat", post(chat))
+        .route("/tenants/{slug}/agents/workflows", get(list_workflows))
+        .route("/tenants/{slug}/agents/workflows/{workflow_id}", get(get_workflow))
         .layer(axum::extract::DefaultBodyLimit::max(MAX_AGENT_BODY_BYTES))
 }
 
@@ -311,6 +313,38 @@ async fn agent_suggestions(
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     proxy_get(&state, &slug, "/suggestions").await
+}
+
+/// List brain-dispatched worker workflows (read-only observation).
+async fn list_workflows(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    Query(query): Query<HashMap<String, String>>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    if query.is_empty() {
+        return proxy_get(&state, &slug, "/workflows").await;
+    }
+    let qs: String = query
+        .iter()
+        .filter(|(k, _)| k.as_str() == "limit")
+        .map(|(k, v)| encode_query_pair(k, v))
+        .collect::<Vec<_>>()
+        .join("&");
+    let path = format!("/workflows?{qs}");
+    proxy_get(&state, &slug, &path).await
+}
+
+/// Get a single workflow with its sub-tasks.
+async fn get_workflow(
+    State(state): State<AppState>,
+    Path((slug, workflow_id)): Path<(String, String)>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    Uuid::parse_str(&workflow_id)
+        .map_err(|_| ApiError::InvalidInput("valid workflow UUID is required".to_owned()))?;
+    let path = format!("/workflows/{workflow_id}");
+    proxy_get(&state, &slug, &path).await
 }
 
 async fn list_providers(

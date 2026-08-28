@@ -438,6 +438,31 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .agent-suggestion-reason{font-size:.68rem;color:#6d7480;font-style:italic}
 .agent-section-head h3{display:flex;align-items:center;gap:.4rem;margin:0}
 
+/* Agent panel tabs */
+.agent-tabs{margin-bottom:0}
+
+/* Growth Intelligence panel */
+.growth-intelligence-panel{display:flex;flex-direction:column;gap:1.5rem}
+.growth-approval-list{display:grid;gap:.75rem}
+.growth-approval-card{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;padding:1rem 1.1rem;border:1px solid #2a2d36;border-radius:10px;background:#15171d;transition:border-color .15s,background .15s}
+.growth-approval-card:hover{border-color:#3a4152;background:#181b22}
+.growth-approval-body{min-width:0;flex:1;display:flex;flex-direction:column;gap:.5rem}
+.growth-approval-head{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+.growth-approval-head strong{font-size:.88rem}
+.growth-approval-detail{margin:0;font-size:.8rem;color:#c7ccd6;line-height:1.45}
+.growth-approval-meta{display:flex;flex-direction:column;gap:.4rem;margin-top:.25rem}
+.growth-approval-body-text{font-size:.72rem;color:#8b92a0;line-height:1.5;margin:0;padding:.6rem .7rem;background:#0d0f13;border:1px solid #252830;border-radius:6px;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto;font-family:inherit}
+.growth-approval-actions{display:flex;flex-direction:column;gap:.4rem;flex-shrink:0;align-items:flex-end}
+.growth-approval-actions .primary{padding:.5rem .9rem;font-size:.78rem;border-radius:8px}
+.growth-approval-actions .confirm-danger{background:#38201f;color:#ffb0ae;border:1px solid #643333;padding:.5rem .9rem;font-size:.78rem;border-radius:8px;cursor:pointer;font:inherit;font-weight:700}
+.growth-approval-actions .ghost{padding:.5rem .9rem;font-size:.78rem;border-radius:8px}
+.growth-workflow-list{display:grid;gap:.6rem}
+.growth-workflow-card{display:flex;flex-direction:column;gap:.4rem;padding:.85rem 1rem;border:1px solid #2a2d36;border-radius:8px;background:#15171d;cursor:pointer;text-align:left;transition:border-color .15s,background .15s;color:inherit;font:inherit}
+.growth-workflow-card:hover{border-color:#3a4152;background:#181b22}
+.growth-workflow-head{display:flex;justify-content:space-between;align-items:center;gap:.6rem}
+.growth-workflow-head strong{font-size:.85rem}
+.growth-workflow-meta{display:flex;gap:.8rem;font-size:.72rem}
+
 /* Automation page */
 .automation-event-list{display:grid;gap:10px}
 .automation-event-row{padding:14px 16px}

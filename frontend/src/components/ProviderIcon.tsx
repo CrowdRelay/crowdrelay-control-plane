@@ -165,6 +165,29 @@ function RedditIcon(props: IconProps) {
   )
 }
 
+// Spotify — official Spotify circle with sound waves in Spotify green.
+function SpotifyIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
+      <circle cx="12" cy="12" r="10" fill="#1DB954"/>
+      <path d="M7.5 10.5c3-.8 6-.6 8.5.8.4.2.5.7.3 1.1-.2.4-.7.5-1.1.3-2.1-1.2-4.7-1.4-7.3-.7-.4.1-.9-.1-1-.5-.1-.4.1-.9.6-1zm-.8 3c2.5-.7 5-.5 7.1.7.4.2.5.7.3 1-.2.4-.6.5-1 .3-1.8-1-3.9-1.2-6-.6-.4.1-.8-.1-.9-.5-.1-.4.1-.8.5-.9zm.6 2.7c2-.6 4-.4 5.7.5.3.2.4.6.2.9-.2.3-.6.4-.9.2-1.4-.8-2.9-.9-4.5-.5-.3.1-.7-.1-.8-.4-.1-.3.1-.7.3-.7z" fill="#fff"/>
+    </svg>
+  )
+}
+
+// TikTok — official TikTok music note in TikTok black with cyan/red accents.
+function TikTokIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
+      <path d="M14 3h2.5c.3 1.8 1.4 3.4 3 4.2v2.5c-1.2-.4-2.3-1-3.2-1.9v5.8c0 3.2-2.6 5.8-5.8 5.8S4.7 16.8 4.7 13.6s2.6-5.8 5.8-5.8c.4 0 .8 0 1.2.1v2.6c-.4-.1-.8-.2-1.2-.2-1.8 0-3.3 1.5-3.3 3.3s1.5 3.3 3.3 3.3S14 15.4 14 13.6V3z" fill="#25F4EE"/>
+      <path d="M14.5 3.5h2c.3 1.8 1.4 3.4 3 4.2v2.5c-1.2-.4-2.3-1-3.2-1.9v5.8c0 3.2-2.6 5.8-5.8 5.8S4.7 16.8 4.7 13.6s2.6-5.8 5.8-5.8c.4 0 .8 0 1.2.1v2.6c-.4-.1-.8-.2-1.2-.2-1.8 0-3.3 1.5-3.3 3.3s1.5 3.3 3.3 3.3S14 15.4 14 13.6V3.5z" fill="#FE2C55"/>
+      <path d="M14.25 3.25h2.25c.3 1.8 1.4 3.4 3 4.2v2.5c-1.2-.4-2.3-1-3.2-1.9v5.8c0 3.2-2.6 5.8-5.8 5.8s-5.8-2.6-5.8-5.8 2.6-5.8 5.8-5.8c.4 0 .8 0 1.2.1v2.6c-.4-.1-.8-.2-1.2-.2-1.8 0-3.3 1.5-3.3 3.3s1.5 3.3 3.3 3.3S14.25 15.4 14.25 13.6V3.25z" fill="#010101"/>
+    </svg>
+  )
+}
+
 // CSV — document with lines (generic, currentColor).
 function CsvIcon(props: IconProps) {
   const s = props.size ?? 20

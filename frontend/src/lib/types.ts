@@ -390,7 +390,7 @@ export type ReleaseLedgerOverview = {
 export type AutopilotOverview = {
   runtime_enabled: boolean
   policies: AutopilotPolicy[]
-  needs_you: unknown[]
+  needs_you: PendingAutopilotAction[]
   queued_actions: number
   processing_actions: number
   succeeded_24h: number
@@ -400,6 +400,30 @@ export type AutopilotOverview = {
   awaiting_executor: number
   release_ledger: ReleaseLedgerOverview
   rum_metrics_24h: RumMetric[]
+}
+
+/// A queued autopilot action awaiting human approval (from `needs_you`).
+export type PendingAutopilotAction = {
+  id: string
+  context: string
+  action_kind: string
+  subject_kind: string
+  subject_id: string
+  payload: AutopilotActionPayload
+  created_at: string
+  approval_expires_at: string | null
+  assignee: { member_id: string; member_key: string; display_name: string } | null
+  assignment_due_at: string | null
+  required_capability: string | null
+  executor_ready: boolean
+}
+
+/// Tagged union of autopilot action payloads. The `kind` field discriminates.
+/// Only the variants the control panel renders are typed; the rest pass through
+/// as the generic catch-all.
+export type AutopilotActionPayload = {
+  kind: string
+  [key: string]: unknown
 }
 
 export type GrowthCampaignProgress = {
@@ -810,6 +834,36 @@ export interface AgentTemplate {
   dataScope: string[]
   outputKind?: string
   suggestedIntervalMinutes?: number
+}
+
+/// A brain-dispatched worker workflow (from the agent service).
+export interface AgentWorkflow {
+  id: string
+  workspace_id: string
+  brain_template: string
+  brain_model: string | null
+  status: 'planning' | 'dispatching' | 'running' | 'completed' | 'failed'
+  plan: AgentWorkflowPlanItem[] | null
+  parent_task_id: string | null
+  created_at: string
+  completed_at: string | null
+}
+
+export interface AgentWorkflowPlanItem {
+  template: string
+  prompt: string
+  priority: number
+  rationale: string
+}
+
+export interface AgentWorkflowTask {
+  workflow_id: string
+  task_id: string
+  slot: number
+  role: 'brain' | 'muscle'
+  task_status: string
+  task_template_id: string
+  task_error: string | null
 }
 
 export interface TaskSuggestion {

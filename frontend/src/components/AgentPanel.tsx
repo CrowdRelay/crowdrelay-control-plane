@@ -4,6 +4,7 @@ import { errorMessage } from '../lib/format'
 import { refreshTick } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { LlmProviderIcon } from './ProviderIcon'
+import { GrowthIntelligencePanel } from './GrowthIntelligencePanel'
 import type { AgentTemplate, AgentTask, AgentTaskResult, AgentProvider, AgentCredential, AgentModel, TaskSuggestion, AgentSchedule, AgentOutcome } from '../lib/types'
 
 // --- Ant icon (agent service mascot) ---
@@ -52,6 +53,7 @@ const formatAge = (iso: string) => {
 }
 
 export function AgentPanel(props: { slug: string }) {
+  const [activeTab, setActiveTab] = createSignal<'providers' | 'tasks' | 'growth'>('providers')
   const [selectedTemplate, setSelectedTemplate] = createSignal<string | null>(null)
   const [selectedModel, setSelectedModel] = createSignal<string>('laguna-s-2.1-free')
   const [prompt, setPrompt] = createSignal('')
@@ -290,6 +292,23 @@ export function AgentPanel(props: { slug: string }) {
 
   return (
     <div class="agent-panel">
+      {/* Tab navigation */}
+      <div class="area-step-tabs agent-tabs">
+        <For each={[{id: 'providers', label: 'Providers'}, {id: 'tasks', label: 'Tasks'}, {id: 'growth', label: 'Growth Intelligence'}] as const}>
+          {(tab) => (
+            <button
+              class={activeTab() === tab.id ? 'active ghost' : 'ghost'}
+              onClick={() => setActiveTab(tab.id)}
+            >{tab.label}</button>
+          )}
+        </For>
+      </div>
+
+      <Show when={activeTab() === 'growth'}>
+        <GrowthIntelligencePanel slug={props.slug} />
+      </Show>
+
+      <Show when={activeTab() === 'providers'}>
       {/* Provider connections — always visible, not behind a toggle */}
       <div class="agent-section">
         <div class="agent-section-head">
@@ -399,7 +418,9 @@ export function AgentPanel(props: { slug: string }) {
           </div>
         </div>
       </div>
+      </Show>
 
+      <Show when={activeTab() === 'tasks'}>
       {/* Autopilot brain → agent suggestions — the bridge between operations data and LLM execution */}
       <Show when={suggestions() && suggestions()!.length > 0}>
         <div class="agent-section">
@@ -651,6 +672,7 @@ export function AgentPanel(props: { slug: string }) {
           </table>
         </Show>
       </div>
+      </Show>
 
       <Show when={viewingResult()}>
         <div class="agent-result-overlay" onClick={() => setViewingResult(null)}>
