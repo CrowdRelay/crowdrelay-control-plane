@@ -78,7 +78,7 @@ function NavIcon(props: { name: string }) {
     portfolio: <><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 9h18M9 9v12" fill="none" stroke="currentColor" stroke-width="2"/></>,
     notifiers: <><path d="M18 8a6 6 0 0 1-12 0M18 8a6 6 0 0 0-12 0M18 8v5a6 6 0 0 1-12 0V8M12 14v3M10 19h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></>,
     area: <><circle cx="12" cy="10" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></>,
-    integrations: <><path d="M12 3a4 4 0 0 0-4 4v.5A3.5 3.5 0 0 0 5 11a3.5 3.5 0 0 0 2 3.2V15a4 4 0 0 0 5 3.9A4 4 0 0 0 17 15v-.8A3.5 3.5 0 0 0 19 11a3.5 3.5 0 0 0-3-3.5V7a4 4 0 0 0-4-4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 7v10M9.5 9.5l2.5 2 2.5-2M9.5 14.5l2.5-2 2.5 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></>,
+    integrations: <><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1l2.1-2.1M17 7l2.1-2.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></>,
   }
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="nav-icon" aria-hidden="true">{icons[props.name] ?? icons.overview}</svg>
 }

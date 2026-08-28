@@ -5,6 +5,7 @@ import { refreshTick } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { LlmProviderIcon } from './ProviderIcon'
 import { GrowthIntelligencePanel } from './GrowthIntelligencePanel'
+import { PremiumAIPanel } from './PremiumAIPanel'
 import type { AgentTemplate, AgentTask, AgentTaskResult, AgentProvider, AgentCredential, AgentModel, TaskSuggestion, AgentSchedule, AgentOutcome } from '../lib/types'
 
 // --- Ant icon (agent service mascot) ---
@@ -53,7 +54,7 @@ const formatAge = (iso: string) => {
 }
 
 export function AgentPanel(props: { slug: string }) {
-  const [activeTab, setActiveTab] = createSignal<'providers' | 'tasks' | 'growth'>('providers')
+  const [activeTab, setActiveTab] = createSignal<'providers' | 'tasks' | 'growth' | 'premium'>('providers')
   const [selectedTemplate, setSelectedTemplate] = createSignal<string | null>(null)
   const [selectedModel, setSelectedModel] = createSignal<string>('laguna-s-2.1-free')
   const [prompt, setPrompt] = createSignal('')
@@ -321,7 +322,7 @@ export function AgentPanel(props: { slug: string }) {
     <div class="agent-panel">
       {/* Tab navigation */}
       <div class="area-step-tabs agent-tabs">
-        <For each={[{id: 'providers', label: 'Providers'}, {id: 'tasks', label: 'Tasks'}, {id: 'growth', label: 'Growth Intelligence'}] as const}>
+        <For each={[{id: 'providers', label: 'Providers'}, {id: 'tasks', label: 'Tasks'}, {id: 'growth', label: 'Growth Intelligence'}, {id: 'premium', label: 'Premium AI'}] as const}>
           {(tab) => (
             <button
               class={activeTab() === tab.id ? 'active ghost' : 'ghost'}
@@ -333,6 +334,10 @@ export function AgentPanel(props: { slug: string }) {
 
       <Show when={activeTab() === 'growth'}>
         <GrowthIntelligencePanel slug={props.slug} />
+      </Show>
+
+      <Show when={activeTab() === 'premium'}>
+        <PremiumAIPanel slug={props.slug} />
       </Show>
 
       <Show when={activeTab() === 'providers'}>

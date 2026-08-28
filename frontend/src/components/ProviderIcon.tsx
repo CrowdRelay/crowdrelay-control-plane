@@ -23,13 +23,21 @@ function ZenIcon(props: IconProps) {
   )
 }
 
-// Google Gemini — the official 4-colour Gemini star/sparkle mark.
+// Google Gemini — the official Gemini sparkle mark with the brand's
+// blue-to-purple-to-pink gradient.
 function GeminiIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
-      <path d="M12 2c.3 4.5 3.2 7.7 7.5 8-4.3.3-7.2 3.5-7.5 8-.3-4.5-3.2-7.7-7.5-8 4.3-.3 7.2-3.5 7.5-8z" fill="#4285F4"/>
-      <path d="M12 6c.2 2.8 2 4.8 4.7 5-2.7.2-4.5 2.2-4.7 5-.2-2.8-2-4.8-4.7-5 2.7-.2 4.5-2.2 4.7-5z" fill="#4285F4" opacity="0.6"/>
+      <defs>
+        <linearGradient id="gemini-sparkle" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#4285F4" />
+          <stop offset="33%" stop-color="#9b72cb" />
+          <stop offset="66%" stop-color="#d96570" />
+          <stop offset="100%" stop-color="#e8713a" />
+        </linearGradient>
+      </defs>
+      <path d="M12 2c.3 4.5 3.2 7.7 7.5 8-4.3.3-7.2 3.5-7.5 8-.3-4.5-3.2-7.7-7.5-8 4.3-.3 7.2-3.5 7.5-8z" fill="url(#gemini-sparkle)"/>
     </svg>
   )
 }
@@ -40,7 +48,6 @@ function GroqIcon(props: IconProps) {
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
       <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" fill="#f55036"/>
-      <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" fill="#f55036" opacity="0.3" transform="scale(0.7) translate(5 5)"/>
     </svg>
   )
 }
@@ -55,22 +62,24 @@ function OpenAIIcon(props: IconProps) {
   )
 }
 
-// Anthropic — the Claude/Antropic burst mark.
+// Anthropic — the Claude/Antropic sunburst mark: radiating rays from a
+// central point, matching the official brand burst/asterisk pattern.
 function AnthropicIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
-      <path d="M7.2 2L4.5 22h3.1L9.5 2H7.2zm7.3 0L9.8 22h3.1L16.2 2h-1.7zm5.5 0L17.3 22h3.1L21.5 2h-1.5z"/>
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class={props.class} aria-hidden="true">
+      <path d="M12 3v6M12 15v6M3 12h6M15 12h6M5.6 5.6l4.2 4.2M14.2 14.2l4.2 4.2M5.6 18.4l4.2-4.2M14.2 9.8l4.2-4.2" />
     </svg>
   )
 }
 
-// xAI (Grok) — the official x.ai "X" mark in xAI black.
+// xAI (Grok) — the official x.ai "X" mark: two bold crossing strokes
+// with angled ends, in xAI black.
 function XaiIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
-      <path d="M5.3 4.5h3.4l4.6 6.6 4.8-6.6h2.6l-6.2 8.4L21 19.5h-3.4l-4.9-7L7.7 19.5H5l6.7-9z"/>
+      <path d="M5 4h3l4 5.5L16 4h3l-5.5 8L19 20h-3l-4-5.5L8 20H5l5.5-8z"/>
     </svg>
   )
 }
@@ -100,13 +109,13 @@ function DiscordIcon(props: IconProps) {
   )
 }
 
-// Webhook — a link/chain icon in neutral blue-grey.
+// Webhook — a chain link icon in neutral blue-grey.
 function WebhookIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class={props.class} aria-hidden="true">
-      <path d="M10.5 13.5a.75.75 0 0 1 .75.75v1.5a2.25 2.25 0 0 1-4.5 0V13a4 4 0 0 1 8 0v.75a.75.75 0 0 1-1.5 0V13a2.5 2.5 0 0 0-5 0v2.75a.75.75 0 0 0 1.5 0v-1.5a.75.75 0 0 1 .75-.75z"/>
-      <path d="M3 13a6 6 0 0 1 12 0v.75a.75.75 0 0 1-1.5 0V13a4.5 4.5 0 0 0-9 0v2.75a1.25 1.25 0 0 0 2.5 0V14.5a.75.75 0 0 1 1.5 0v1.25a2.75 2.75 0 0 1-5.5 0V13z"/>
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class={props.class} aria-hidden="true">
+      <path d="M9.5 10.5l3-3a3.5 3.5 0 0 1 5 5l-3 3" />
+      <path d="M14.5 13.5l-3 3a3.5 3.5 0 0 1-5-5l3-3" />
     </svg>
   )
 }
@@ -116,20 +125,20 @@ function EmailIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
-      <path d="M3 5.5A1.5 1.5 0 0 1 4.5 4h15A1.5 1.5 0 0 1 21 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5v-13zm1.5.5v.2l7.5 5 7.5-5V6L12 11 4.5 6z" fill-rule="evenodd"/>
+      <path d="M3 5.5A1.5 1.5 0 0 1 4.5 4h15A1.5 1.5 0 0 1 21 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5v-13zm1.5.5v.8l7.5 5 7.5-5V6L12 11 4.5 6z" fill-rule="evenodd"/>
     </svg>
   )
 }
 
 // ─── Fanbase Source Brand Logos ─────────────────────────────────────────
 
-// Meta (Facebook/Instagram) — official Meta infinity mark in Meta blue.
+// Meta (Facebook/Instagram) — official Meta infinity loop in Meta blue.
+// Two interlocking rounded loops forming a continuous infinity-like stroke.
 function MetaIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
-      <path d="M6 9c2.5 0 4 3 6 3s3.5-3 6-3c2.2 0 4 2 4 5s-1.8 5-4 5c-2.5 0-4-3-6-3s-3.5 3-6 3c-2.2 0-4-2-4-5s1.8-5 4-5z" fill="#0866FF"/>
-      <path d="M6 9c2.5 0 4 3 6 3s3.5-3 6-3c2.2 0 4 2 4 5s-1.8 5-4 5c-2.5 0-4-3-6-3s-3.5 3-6 3c-2.2 0-4-2-4-5s1.8-5 4-5z" fill="#0866FF" opacity="0.4" transform="scale(0.6) translate(8 8)"/>
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="#0866FF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class={props.class} aria-hidden="true">
+      <path d="M5 12C5 8 7.5 6 10 6c2 0 3.2 1.8 4 3.5C14.8 8 16 6 18 6c2.5 0 5 2 5 6s-2.5 6-5 6c-2 0-3.2-1.8-4-3.5C13.2 16 12 18 10 18c-2.5 0-5-2-5-6z"/>
     </svg>
   )
 }
@@ -140,50 +149,64 @@ function BandsintownIcon(props: IconProps) {
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
       <circle cx="12" cy="12" r="10" fill="#E61931"/>
-      <path d="M15.5 8.5v6.2a1.8 1.8 0 1 1-1.5-1.78V10l-4 1v4.2a1.8 1.8 0 1 1-1.5-1.78V9.3l7-2.3z" fill="#fff"/>
+      <path d="M15.5 8v6.3a2 2 0 1 1-1.6-1.96V10.2l-3.9 1.1v4a2 2 0 1 1-1.6-1.96V9.5L15.5 8z" fill="#fff"/>
     </svg>
   )
 }
 
-// Google (Customer Match) — Google "G" in official 4-colour.
+// Google (Customer Match / Ads) — official 4-colour Google "G".
 function GoogleIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
-      <path d="M12 11v2.8h4.3c-.2 1.2-1.5 3.5-4.3 3.5-2.6 0-4.7-2.1-4.7-4.8S9.4 7.7 12 7.7c1.5 0 2.4.6 3 1.2l2-1.9C16.1 5.4 14.2 4.5 12 4.5 7.9 4.5 4.5 7.9 4.5 12s3.4 7.5 7.5 7.5c4.3 0 7.2-3 7.2-7.3 0-.5 0-.8-.1-1.2H12z" fill="#4285F4"/>
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.83z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z" fill="#EA4335"/>
     </svg>
   )
 }
 
-// Reddit — simplified Snoo head in Reddit orange.
+// Reddit — simplified Snoo head in Reddit orange-red: round head,
+// antenna, two white eyes, and a smile.
 function RedditIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="#FF4500" class={props.class} aria-hidden="true">
-      <path d="M12 2a2 2 0 0 1 2 2c0 .3-.1.6-.2.9l3.2 1.9a2 2 0 1 1-.5 1.4l-3.2-1.9c-.4.3-.9.5-1.5.5s-1.1-.2-1.5-.5L7.1 8.2a2 2 0 1 1-.5-1.4l3.2-1.9c-.1-.3-.2-.6-.2-.9a2 2 0 0 1 2-2zM7.5 10c1.4 0 2.5 1.1 2.5 2.5S8.9 15 7.5 15 5 13.9 5 12.5 6.1 10 7.5 10zm9 0c1.4 0 2.5 1.1 2.5 2.5S17.9 15 16.5 15 14 13.9 14 12.5 15.1 10 16.5 10zM8.5 17c.3-.3.8-.3 1.1 0 .6.6 1.4 1 2.4 1s1.8-.4 2.4-1c.3-.3.8-.3 1.1 0 .3.3.3.8 0 1.1-.9.9-2.1 1.4-3.5 1.4s-2.6-.5-3.5-1.4c-.3-.3-.3-.8 0-1.1z"/>
+      <circle cx="12" cy="2.5" r="1.5" />
+      <path d="M12 4v2.5" stroke="#FF4500" stroke-width="1.5" stroke-linecap="round" fill="none" />
+      <ellipse cx="12" cy="13" rx="7.5" ry="6" />
+      <circle cx="9" cy="11.5" r="1.8" fill="#fff" />
+      <circle cx="15" cy="11.5" r="1.8" fill="#fff" />
+      <path d="M8.5 14.5c1 1.5 2.2 2 3.5 2s2.5-.5 3.5-2" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" />
     </svg>
   )
 }
 
-// Spotify — official Spotify circle with sound waves in Spotify green.
+// Spotify — official Spotify circle with three sound-wave arcs in Spotify green.
 function SpotifyIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
       <circle cx="12" cy="12" r="10" fill="#1DB954"/>
-      <path d="M7.5 10.5c3-.8 6-.6 8.5.8.4.2.5.7.3 1.1-.2.4-.7.5-1.1.3-2.1-1.2-4.7-1.4-7.3-.7-.4.1-.9-.1-1-.5-.1-.4.1-.9.6-1zm-.8 3c2.5-.7 5-.5 7.1.7.4.2.5.7.3 1-.2.4-.6.5-1 .3-1.8-1-3.9-1.2-6-.6-.4.1-.8-.1-.9-.5-.1-.4.1-.8.5-.9zm.6 2.7c2-.6 4-.4 5.7.5.3.2.4.6.2.9-.2.3-.6.4-.9.2-1.4-.8-2.9-.9-4.5-.5-.3.1-.7-.1-.8-.4-.1-.3.1-.7.3-.7z" fill="#fff"/>
+      <path d="M7.2 10.6c3.1-.9 6.3-.7 9 .9.4.2.6.7.4 1.1-.2.4-.7.6-1.1.4-2.4-1.4-5.2-1.6-7.9-.8-.4.1-.9-.1-1-.6-.2-.4.1-.9.6-1z" fill="#fff"/>
+      <path d="M6.8 13.3c2.7-.8 5.5-.5 7.8.8.4.2.6.7.3 1.1-.2.4-.7.5-1.1.3-2-1.1-4.4-1.3-6.7-.6-.4.1-.9-.1-1-.5-.2-.4.1-.9.7-1.1z" fill="#fff"/>
+      <path d="M7.4 15.9c2.1-.6 4.2-.4 6 .5.4.2.5.6.3 1-.2.3-.6.5-1 .3-1.5-.8-3.2-.9-4.8-.5-.4.1-.8-.1-.9-.5-.2-.4.1-.8.4-.8z" fill="#fff"/>
     </svg>
   )
 }
 
-// TikTok — official TikTok music note in TikTok black with cyan/red accents.
+// TikTok — official TikTok music note with cyan/red offset glow.
+// Single path drawn three times with translate transforms for the
+// chromatic-aberration effect the brand is known for.
 function TikTokIcon(props: IconProps) {
   const s = props.size ?? 20
+  const notePath = "M14.5 3h2.3c.3 1.9 1.4 3.6 3.2 4.4v2.4c-1.3-.4-2.5-1.1-3.5-2.1v6c0 3.3-2.7 6-6 6s-6-2.7-6-6 2.7-6 6-6c.5 0 1 .1 1.5.2v2.7c-.5-.2-1-.3-1.5-.3-1.9 0-3.5 1.6-3.5 3.5s1.6 3.5 3.5 3.5 3.5-1.6 3.5-3.5V3z"
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
-      <path d="M14 3h2.5c.3 1.8 1.4 3.4 3 4.2v2.5c-1.2-.4-2.3-1-3.2-1.9v5.8c0 3.2-2.6 5.8-5.8 5.8S4.7 16.8 4.7 13.6s2.6-5.8 5.8-5.8c.4 0 .8 0 1.2.1v2.6c-.4-.1-.8-.2-1.2-.2-1.8 0-3.3 1.5-3.3 3.3s1.5 3.3 3.3 3.3S14 15.4 14 13.6V3z" fill="#25F4EE"/>
-      <path d="M14.5 3.5h2c.3 1.8 1.4 3.4 3 4.2v2.5c-1.2-.4-2.3-1-3.2-1.9v5.8c0 3.2-2.6 5.8-5.8 5.8S4.7 16.8 4.7 13.6s2.6-5.8 5.8-5.8c.4 0 .8 0 1.2.1v2.6c-.4-.1-.8-.2-1.2-.2-1.8 0-3.3 1.5-3.3 3.3s1.5 3.3 3.3 3.3S14 15.4 14 13.6V3.5z" fill="#FE2C55"/>
-      <path d="M14.25 3.25h2.25c.3 1.8 1.4 3.4 3 4.2v2.5c-1.2-.4-2.3-1-3.2-1.9v5.8c0 3.2-2.6 5.8-5.8 5.8s-5.8-2.6-5.8-5.8 2.6-5.8 5.8-5.8c.4 0 .8 0 1.2.1v2.6c-.4-.1-.8-.2-1.2-.2-1.8 0-3.3 1.5-3.3 3.3s1.5 3.3 3.3 3.3S14.25 15.4 14.25 13.6V3.25z" fill="#010101"/>
+      <path d={notePath} fill="#25F4EE" transform="translate(-0.8 0)" />
+      <path d={notePath} fill="#FE2C55" transform="translate(0.8 0)" />
+      <path d={notePath} fill="#010101" />
     </svg>
   )
 }

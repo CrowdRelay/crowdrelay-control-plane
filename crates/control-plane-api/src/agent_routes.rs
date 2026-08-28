@@ -124,6 +124,8 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/agents/workflows/{workflow_id}",
             get(get_workflow),
         )
+        // Sprint 6: Premium AI — usage tracking + connected models panel
+        .route("/tenants/{slug}/agents/premium/usage", get(premium_usage))
         .layer(axum::extract::DefaultBodyLimit::max(MAX_AGENT_BODY_BYTES))
 }
 
@@ -349,6 +351,15 @@ async fn get_workflow(
         .map_err(|_| ApiError::InvalidInput("valid workflow UUID is required".to_owned()))?;
     let path = format!("/workflows/{workflow_id}");
     proxy_get(&state, &slug, &path).await
+}
+
+/// Sprint 6: Premium AI usage — monthly spend, budget, connected models, task history.
+async fn premium_usage(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    proxy_get(&state, &slug, "/premium/usage").await
 }
 
 async fn list_providers(
