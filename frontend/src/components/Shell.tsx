@@ -7,6 +7,7 @@ import { LoginGate } from './LoginGate'
 import { api } from '../lib/api'
 import { ToastContainer } from '../lib/toast'
 import { RefreshControl } from './RefreshControl'
+import { ChatWidget } from './ChatWidget'
 import type { TenantSummary } from '../lib/types'
 
 // The palette component loads on first invocation; the shortcut lives here so
@@ -320,6 +321,7 @@ export const Shell: Component = () => {
         <Show when={commandPaletteOpen()}><CommandPalette /></Show>
         <ToastContainer />
       </main>
+      <Show when={slug()}>{(s) => <ChatWidget slug={s()} />}</Show>
     </div>
   </LoginGate>
 }

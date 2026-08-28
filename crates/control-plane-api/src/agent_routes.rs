@@ -117,6 +117,7 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/agents/schedules/{schedule_id}/enabled",
             post(toggle_schedule),
         )
+        .route("/tenants/{slug}/agents/chat", post(chat))
         .layer(axum::extract::DefaultBodyLimit::max(MAX_AGENT_BODY_BYTES))
 }
 
@@ -541,4 +542,46 @@ async fn toggle_schedule(
         .map_err(|_| ApiError::InvalidInput("valid schedule UUID is required".to_owned()))?;
     let path = format!("/schedules/{schedule_id}/enabled");
     proxy_post(&state, &slug, &path, body).await
+}
+
+/// Chatbot endpoint — proxies to the agent service which calls the free Zen
+/// model. The timeout is longer than other proxy calls (60s) because LLM
+/// generation can take 10–30s on the free tier.
+async fn chat(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let (tenant, _) = crate::area_routes::target(&state, &slug).await?;
+    let base = state
+        .agent_service_url
+        .as_deref()
+        .ok_or_else(|| ApiError::Unavailable("agent service is not configured".to_owned()))?;
+    let workspace_id = resolve_workspace_id(&tenant);
+    let token = state.area_client.derived_management_token(workspace_id)?;
+    let url = format!("{base}/chat");
+    let response = state
+        .http_client
+        .post(&url)
+        .header("Authorization", format!("Bearer {token}"))
+        .header("X-Workspace-Id", workspace_id.to_string())
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(90))
+        .send()
+        .await
+        .map_err(|e| ApiError::Unavailable(format!("agent service unreachable: {e}")))?;
+    let status =
+        StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+    let response_body: Value = response
+        .json()
+        .await
+        .map_err(|e| ApiError::Unavailable(format!("agent service returned invalid JSON: {e}")))?;
+    Ok((
+        status,
+        [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
+        Json(response_body),
+    )
+        .into_response())
 }

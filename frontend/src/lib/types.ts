@@ -836,3 +836,17 @@ export interface FanbaseConnection {
 }
 
 export type FanbasePlatform = 'meta' | 'tiktok' | 'google_ads' | 'reddit' | 'bandsintown' | 'spotify'
+
+// --- AI Chatbot types ---
+
+export interface ChatAction {
+  type: 'navigate' | 'create_schedule' | 'run_task' | 'toggle_autopilot' | 'paste_api_key' | 'create_notifier' | 'create_fanbase' | 'enable_area' | 'deploy_tenant' | 'retry_dead_deliveries' | 'run_reconciliation'
+  label: string
+  params: Record<string, unknown>
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+  actions?: ChatAction[]
+}

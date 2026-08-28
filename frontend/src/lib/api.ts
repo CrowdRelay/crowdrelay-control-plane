@@ -1,4 +1,4 @@
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AgentScorecard, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentOutcome, TaskSuggestion, AutomationEvent, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, DeliveryDetails, DeliveryItem, DiscoveredEndpoint, FanbaseConnection, FeatureFlag, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, OutboxItem, Palette, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AgentScorecard, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentOutcome, TaskSuggestion, AutomationEvent, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, ChatAction, DeliveryDetails, DeliveryItem, DiscoveredEndpoint, FanbaseConnection, FeatureFlag, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, OutboxItem, Palette, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
@@ -250,6 +250,13 @@ export const api = {
     request<{ url: string }>(`/tenants/${encodeURIComponent(slug)}/agents/oauth/${encodeURIComponent(provider)}/start?redirect_uri=${encodeURIComponent(redirectUri)}`),
   pollAgentOauth: (slug: string, provider: string) =>
     request<{ status: 'pending' | 'connected' | 'failed'; error?: string }>(`/tenants/${encodeURIComponent(slug)}/agents/oauth/${encodeURIComponent(provider)}/poll`),
+
+  // --- AI Chatbot (proxied through control-plane to agent service) ---
+  agentChat: (slug: string, message: string, history: Array<{ role: 'user' | 'assistant'; content: string }>, pageContext?: string) =>
+    request<{ reply: string; actions: ChatAction[]; usage?: { tokens_in: number; tokens_out: number } }>(`/tenants/${encodeURIComponent(slug)}/agents/chat`, {
+      method: 'POST',
+      body: JSON.stringify({ message, history, page_context: pageContext }),
+    }),
 
   // --- Fanbase connections ---
   fanbaseConnections: (slug: string) =>
