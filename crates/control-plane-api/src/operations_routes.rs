@@ -1235,7 +1235,8 @@ async fn start_fanbase_connection_oauth(
         return Err(ApiError::InvalidInput("invalid platform".to_owned()));
     }
     let path = format!("/v1/control-plane/fanbases/connections/oauth/{platform}/start");
-    let (_, value) = call(&state, &slug, "POST", &path, Some(&body), &headers, None).await?;
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (_, value) = call(&state, &slug, "POST", &path, Some(&body), &headers, Some(&idempotency)).await?;
     object_no_store(value, "fanbase oauth start")
 }
 
@@ -1252,7 +1253,8 @@ async fn fanbase_connection_oauth_callback(
         return Err(ApiError::InvalidInput("invalid platform".to_owned()));
     }
     let path = format!("/v1/control-plane/fanbases/connections/oauth/{platform}/callback");
-    let (_, value) = call(&state, &slug, "POST", &path, Some(&body), &headers, None).await?;
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (_, value) = call(&state, &slug, "POST", &path, Some(&body), &headers, Some(&idempotency)).await?;
     object_no_store(value, "fanbase oauth callback")
 }
 

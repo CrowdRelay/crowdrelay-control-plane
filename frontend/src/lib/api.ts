@@ -262,7 +262,7 @@ export const api = {
   fanbaseConnections: (slug: string) =>
     request<{ connections: FanbaseConnection[] }>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/connections`),
   startFanbaseOauth: (slug: string, platform: string, redirectUri: string) =>
-    request<{ url: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/connections/oauth/${encodeURIComponent(platform)}/start`, { method: 'POST', body: JSON.stringify({ redirect_uri: redirectUri }) }),
+    request<{ url: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/connections/oauth/${encodeURIComponent(platform)}/start`, { method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify({ redirect_uri: redirectUri }) }),
   deleteFanbaseConnection: (slug: string, id: string) =>
     request<void>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/connections/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 }

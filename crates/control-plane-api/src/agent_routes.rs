@@ -381,13 +381,19 @@ async fn oauth_start(
     }
     // redirect_uri is passed per-request from the control plane frontend so
     // the agent service stays multi-instance safe (no env-based callback URL).
-    // Validate it starts with https:// to prevent open-redirect attacks.
+    // Validate the scheme and host to prevent open-redirect attacks.
     let mut path = format!("/oauth/{provider}/start");
     if let Some(redirect_uri) = query.get("redirect_uri") {
-        if !redirect_uri.starts_with("https://") && !redirect_uri.starts_with("http://localhost") {
-            return Err(ApiError::InvalidInput(
-                "redirect_uri must be an https:// URL".to_owned(),
-            ));
+        let parsed = url::Url::parse(redirect_uri)
+            .map_err(|_| ApiError::InvalidInput("invalid redirect_uri".to_owned()))?;
+        match (parsed.scheme(), parsed.host_str()) {
+            ("https", _) => {}
+            ("http", Some(host)) if host == "localhost" || host == "127.0.0.1" => {}
+            _ => {
+                return Err(ApiError::InvalidInput(
+                    "redirect_uri must be an https:// URL or localhost http".to_owned(),
+                ));
+            }
         }
         if redirect_uri.len() > 512 {
             return Err(ApiError::InvalidInput("redirect_uri too long".to_owned()));

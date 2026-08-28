@@ -498,7 +498,15 @@ export function AgentPanel(props: { slug: string }) {
             <div class="agent-paste-body">
               <p class="muted">Open the verification URL below in another tab, enter the code, then come back here. We'll poll until the connection completes.</p>
               <Show when={deviceFlowData()?.verification_uri}>
-                <p><strong>URL:</strong> <a href={deviceFlowData()!.verification_uri!} target="_blank" rel="noopener">{deviceFlowData()!.verification_uri!}</a></p>
+                <p><strong>URL:</strong> {
+                  (() => {
+                    const uri = deviceFlowData()!.verification_uri!
+                    const isSafe = uri.startsWith('https://') || /^http:\/\/(localhost|127\.0\.0\.1)([:\/]|$)/.test(uri)
+                    return isSafe
+                      ? <a href={uri} target="_blank" rel="noopener">{uri}</a>
+                      : <span>{uri}</span>
+                  })()
+                }</p>
                 <p><strong>Code:</strong> <code>{deviceFlowData()!.user_code ?? '—'}</code></p>
               </Show>
               <Show when={!deviceFlowData()?.verification_uri}>
