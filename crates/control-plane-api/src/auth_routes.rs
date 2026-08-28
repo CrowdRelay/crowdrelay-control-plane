@@ -152,22 +152,25 @@ async fn create_session(
 }
 
 /// Probe used by the SPA on boot to hydrate its profile from the cookie.
+/// Returns 200 with a null profile when no session exists — this avoids
+/// surfacing a 401 as a console error in the browser, which would show up
+/// as a Lighthouse best-practices failure on the login page.
 async fn current_session(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<axum::Json<serde_json::Value>, ApiError> {
-    match resolve_identity(&state, &headers).await? {
-        Identity::PlatformAdmin => Ok(axum::Json(json!({
+    match resolve_identity(&state, &headers).await {
+        Ok(Identity::PlatformAdmin) => Ok(axum::Json(json!({
             "username": "platform-admin",
             "role": "platform_admin",
             "tenantSlug": null,
         }))),
-        Identity::Account {
+        Ok(Identity::Account {
             username,
             role,
             tenant_id,
             ..
-        } => {
+        }) => {
             let tenant_slug = match tenant_id {
                 Some(tenant_id) => state.store.tenant_slug_by_id(tenant_id).await?,
                 None => None,
@@ -178,6 +181,7 @@ async fn current_session(
                 "tenantSlug": tenant_slug,
             })))
         }
+        Err(_) => Ok(axum::Json(json!(null))),
     }
 }
 

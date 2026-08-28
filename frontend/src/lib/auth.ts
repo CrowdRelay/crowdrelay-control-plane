@@ -20,7 +20,8 @@ export const authState = {
   setProfile,
   async hydrate() {
     try {
-      setProfile(await api.session())
+      const profile = await api.session()
+      setProfile(profile ?? null)
     } catch {
       setProfile(null)
     } finally {
