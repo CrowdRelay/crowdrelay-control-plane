@@ -16,7 +16,7 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   await page.getByLabel('Username').fill(username)
   await page.getByLabel('Password').fill(password)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByText('Operator session')).toBeVisible()
+  await expect(page.getByText('Operator panel')).toBeVisible()
 
   await page.getByRole('link', { name: 'Tenants' }).first().click()
   await expect(page.getByRole('heading', { name: 'Teams on the platform' })).toBeVisible()
