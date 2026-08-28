@@ -13,3 +13,4 @@ CLAUDE.md
 # Public docs are intentionally minimal; keep the integration contract canonical.
 docs/*
 !docs/INTEGRATION.md
+playwright/test-results.json

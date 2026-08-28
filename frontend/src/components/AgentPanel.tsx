@@ -305,13 +305,50 @@ export function AgentPanel(props: { slug: string }) {
           Connect AI providers to power agent tasks. The autopilot brain uses connected models to research audiences, draft content, and analyse campaigns. Free-tier models work without any key.
         </p>
 
-        <div class="agent-providers">
-          <For each={providers()}>
-            {(provider) => {
-              const cred = () => credentials()?.find(c => c.provider === provider.id)
-              return (
-                <div class="agent-provider-card" classList={{ connected: !!cred() }}>
-                  <div class="agent-provider-logo">
+        {/* Free models — no connection required */}
+        <div class="agent-provider-group">
+          <h4 class="agent-group-label">Free Models <span class="badge free-chip">no key needed</span></h4>
+          <div class="agent-providers">
+            <For each={providers()?.filter(p => p.freeTier || p.authMethod === 'none')}>
+              {(provider) => {
+                const cred = () => credentials()?.find(c => c.provider === provider.id)
+                return (
+                  <div class="agent-provider-card" classList={{ connected: !!cred() }}>
+                    <div class="agent-provider-logo">
+                      <LlmProviderIcon providerId={provider.id} size={28} />
+                    </div>
+                    <div class="agent-provider-info">
+                      <div class="agent-provider-name">{provider.name}</div>
+                      <div class="agent-provider-desc">{provider.description}</div>
+                      <Show when={cred()}>
+                        <div class="agent-provider-status">
+                          <StatusBadge status={cred()!.status} tone={credTone(cred()!.status)} />
+                        </div>
+                      </Show>
+                    </div>
+                    <div class="agent-provider-actions">
+                      <Show when={provider.authMethod === 'none'}>
+                        <StatusBadge status="free" tone="good" />
+                      </Show>
+                    </div>
+                  </div>
+                )
+              }}
+            </For>
+          </div>
+        </div>
+
+        {/* Powerhouse paid models — bring your own key or OAuth */}
+        <div class="agent-provider-group">
+          <h4 class="agent-group-label">Powerhouse Models <span class="badge paid-chip">bring your own key</span></h4>
+          <p class="agent-group-intro">Connect your own paid AI accounts — OpenAI, Anthropic, Google, xAI, and more. Your keys are encrypted at rest and never leave the platform. OAuth2 sign-in is available for select providers (beta).</p>
+          <div class="agent-providers">
+            <For each={providers()?.filter(p => !p.freeTier && p.authMethod !== 'none')}>
+              {(provider) => {
+                const cred = () => credentials()?.find(c => c.provider === provider.id)
+                return (
+                  <div class="agent-provider-card" classList={{ connected: !!cred() }}>
+                    <div class="agent-provider-logo">
                     <LlmProviderIcon providerId={provider.id} size={28} />
                   </div>
                   <div class="agent-provider-info">
@@ -341,8 +378,9 @@ export function AgentPanel(props: { slug: string }) {
                       </button>
                     </Show>
                     <Show when={provider.oauthAvailable && !cred()}>
-                      <button class="agent-btn" onClick={() => startOauth(provider.id)}>
-                        {provider.oauth?.kind === 'device' ? 'Device Flow' : `Connect with ${provider.name}`}
+                      <button class={`oauth-btn oauth-btn-${provider.id}`} onClick={() => startOauth(provider.id)}>
+                        <LlmProviderIcon providerId={provider.id} size={16} />
+                        <span>{provider.oauth?.kind === 'device' ? 'Sign in with device code' : `Sign in with ${provider.name}`}</span>
                       </button>
                       <Show when={provider.oauth?.experimental}>
                         <span class="badge beta-chip">beta</span>
@@ -358,6 +396,7 @@ export function AgentPanel(props: { slug: string }) {
               )
             }}
           </For>
+          </div>
         </div>
       </div>
 

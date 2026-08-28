@@ -6,13 +6,57 @@ services:
       POSTGRES_USER: control_plane
       POSTGRES_PASSWORD: control-plane-local
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:5435:5432"
     volumes:
-      - control-plane-pg:/var/lib/postgresql/data
+      - control-plane-pg:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U control_plane -d control_plane"]
       interval: 3s
       timeout: 3s
       retries: 20
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://control_plane:control-plane-local@postgres:5432/control_plane
+      CONTROL_PLANE_BIND: 0.0.0.0:8090
+      CONTROL_PLANE_FRONTEND_DIST: /app/frontend/dist
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8090:8090"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:8090/healthz/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    restart: unless-stopped
+
+  agent-service:
+    build:
+      context: ../crowdrelay-agents
+      dockerfile: Dockerfile
+    env_file:
+      - ../crowdrelay-agents/.env
+    environment:
+      AGENT_SERVICE_BIND: "0.0.0.0:8095"
+      DATABASE_URL: "postgres://crowdrelay:crowdrelay-local-only@host.docker.internal:5432/crowdrelay"
+    ports:
+      - "127.0.0.1:8095:8095"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8095/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
 volumes:
   control-plane-pg:

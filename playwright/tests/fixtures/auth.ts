@@ -1,12 +1,11 @@
 /**
- * Authentication helper for control.virya.music tests.
+ * Authentication helper for control plane tests.
  *
- * Reads credentials from env vars (set in .env or CI secrets):
- * - CONTROL_PLANE_TEST_USER: username/email
- * - CONTROL_PLANE_TEST_PASS: password
+ * Reads credentials from env vars:
+ * - CONTROL_PLANE_TEST_USER: username (default: admin)
+ * - CONTROL_PLANE_TEST_PASS: password (required)
  *
- * Falls back to checking if the page has a login form and filling it.
- * If already authenticated (session cookie), skips login.
+ * Logs in via the SPA login form and waits for the session cookie.
  */
 import { Page, expect } from '@playwright/test'
 
@@ -15,55 +14,76 @@ export interface AuthConfig {
   pass: string
 }
 
-export function getAuthConfig(): AuthConfig | null {
-  const user = process.env.CONTROL_PLANE_TEST_USER
+export function getAuthConfig(): AuthConfig {
+  const user = process.env.CONTROL_PLANE_TEST_USER || 'admin'
   const pass = process.env.CONTROL_PLANE_TEST_PASS
-  if (!user || !pass) return null
+  if (!pass) {
+    throw new Error(
+      'CONTROL_PLANE_TEST_PASS env var is required for authenticated tests'
+    )
+  }
   return { user, pass }
 }
 
-export async function isAuthenticated(page: Page): Promise<boolean> {
-  // Check if we're on a page that requires auth by looking for the app shell
-  // vs. a login redirect
-  const url = page.url()
-  if (url.includes('/login') || url.includes('/auth')) return false
-  // Look for app-specific elements that only appear when authenticated
-  const appShell = await page.locator('[data-testid="app-shell"], .authenticated-app, nav, .sidebar').count()
-  return appShell > 0
-}
+export async function login(page: Page): Promise<void> {
+  const config = getAuthConfig()
 
-export async function login(page: Page, config: AuthConfig) {
+  // Navigate to the root — the SPA will show the login form if not authenticated
   await page.goto('/')
-  // Wait for potential redirect to login
   await page.waitForLoadState('networkidle')
 
-  // Check if already logged in
-  if (await isAuthenticated(page)) return
+  // Check if already logged in (app shell visible)
+  const loginForm = await page.locator('input[type="password"]').count()
+  if (loginForm === 0) {
+    // Already authenticated — app shell is showing
+    return
+  }
 
-  // Look for login form
-  const emailField = page.locator('input[type="email"], input[name="email"], input[placeholder*="mail" i]').first()
+  // Fill the login form
+  const userField = page.locator('input[name="username"], input[type="text"], input:not([type="password"]):not([type="hidden"]):not([type="submit"]):not([type="button"])').first()
   const passField = page.locator('input[type="password"]').first()
   const submitBtn = page.locator('button[type="submit"], button:has-text("Sign in"), button:has-text("Log in"), button:has-text("Login")').first()
 
-  await expect(emailField).toBeVisible({ timeout: 10000 })
-  await emailField.fill(config.user)
+  await expect(userField).toBeVisible({ timeout: 10000 })
+  await userField.fill(config.user)
   await passField.fill(config.pass)
   await submitBtn.click()
 
-  // Wait for navigation away from login
-  await page.waitForURL((url) => !url.toString().includes('/login'), { timeout: 15000 })
+  // Wait for the app to load (login form disappears)
+  await page.waitForSelector('input[type="password"]', { state: 'detached', timeout: 15000 })
   await page.waitForLoadState('networkidle')
 }
 
-export async function ensureAuthenticated(page: Page) {
-  const config = getAuthConfig()
-  if (!config) {
-    throw new Error(
-      'CONTROL_PLANE_TEST_USER and CONTROL_PLANE_TEST_PASS env vars are required for authenticated tests'
-    )
-  }
-  const authed = await isAuthenticated(page)
-  if (!authed) {
-    await login(page, config)
-  }
+/**
+ * Sets up console error and network failure collection on a page.
+ * Returns arrays that accumulate errors during navigation.
+ */
+export function setupErrorCollectors(page: Page) {
+  const consoleErrors: string[] = []
+  const networkFailures: { url: string; status: number; method: string }[] = []
+  const apiErrors: { url: string; status: number; method: string }[] = []
+
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      consoleErrors.push(msg.text())
+    }
+  })
+
+  page.on('response', (response) => {
+    const status = response.status()
+    const url = response.url()
+    const method = response.request().method()
+
+    // Track 5xx responses (503, 500, etc.)
+    if (status >= 500) {
+      networkFailures.push({ url, status, method })
+    }
+
+    // Track API 4xx/5xx that aren't 401 (auth) or 404 (expected for some routes)
+    if (url.includes('/api/v1/') && status >= 400 && status !== 401 && status !== 404) {
+      apiErrors.push({ url, status, method })
+    }
+  })
+
+  return { consoleErrors, networkFailures, apiErrors }
 }

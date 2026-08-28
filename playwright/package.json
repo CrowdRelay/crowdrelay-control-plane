@@ -1,5 +1,5 @@
 {
-  "name": "control-virya-music-playwright",
+  "name": "control-plane-playwright",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -7,8 +7,10 @@
     "test": "npx playwright test",
     "test:headed": "npx playwright test --headed",
     "test:report": "npx playwright test && npx playwright show-report",
+    "test:local": "CONTROL_PLANE_BASE_URL=http://127.0.0.1:8090 CONTROL_PLANE_TEST_PASS=846b036fa7dcb362da312226aca9d86f npx playwright test",
+    "test:local:headed": "CONTROL_PLANE_BASE_URL=http://127.0.0.1:8090 CONTROL_PLANE_TEST_PASS=846b036fa7dcb362da312226aca9d86f npx playwright test --headed",
     "smoke": "npx playwright test --grep @smoke",
-    "auth": "npx playwright test --grep @auth",
+    "e2e": "npx playwright test --grep @e2e",
     "pages": "npx playwright test --grep @pages",
     "api": "npx playwright test --grep @api",
     "agents": "npx playwright test --grep @agents",

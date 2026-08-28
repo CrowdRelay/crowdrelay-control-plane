@@ -50,3 +50,38 @@ bootstrap-management:
 # Needs CONTROL_PLANE_SMOKE_BASIC_AUTH=user:pass — see docs/EDGE-OPERATIONS.md.
 smoke:
     bash scripts/production-smoke.sh
+
+# ── Local development stack ──────────────────────────────────────────────
+# Starts the full local stack: control plane postgres + API (Docker, auto-restart),
+# CrowdRelay API+worker (Docker), derives management tokens, syncs them into
+# the CrowdRelay .env, restarts CrowdRelay with the correct keys.
+# One command, idempotent — safe to re-run after deploys, reboots, or Docker restarts.
+up:
+    bash scripts/up.sh
+
+# Stops the local stack (control plane API + postgres + agent-service containers).
+# CrowdRelay Docker containers are left running — use `cd ../crowdrelay && docker compose down` to stop those.
+down:
+    docker compose down
+
+# Tail control plane API container logs.
+logs:
+    docker logs -f crowdrelay-control-plane-api-1
+
+# Start Vite dev server for frontend hot-reload (run after `just up`).
+dev:
+    cd frontend && CONTROL_PLANE_ADMIN_TOKEN="$(grep '^CONTROL_PLANE_ADMIN_TOKEN=' ../.env | cut -d= -f2)" npm run dev
+
+# Run Playwright E2E tests against the local stack (run after `just up`).
+# Tests login, navigates all subpages, checks for 503s, red blocks, console errors.
+# Bug report written to playwright/bug-report.json.
+test:
+    cd playwright && CONTROL_PLANE_BASE_URL=http://127.0.0.1:8090 CONTROL_PLANE_TEST_PASS="$(grep '^CONTROL_PLANE_BOOTSTRAP_ADMIN_PASSWORD=' ../.env | cut -d= -f2)" npx playwright test --grep @e2e
+
+# Run Playwright tests with visible browser window.
+test-headed:
+    cd playwright && CONTROL_PLANE_BASE_URL=http://127.0.0.1:8090 CONTROL_PLANE_TEST_PASS="$(grep '^CONTROL_PLANE_BOOTSTRAP_ADMIN_PASSWORD=' ../.env | cut -d= -f2)" npx playwright test --grep @e2e --headed
+
+# Run Playwright tests against production (needs CONTROL_PLANE_TEST_PASS env var).
+test-prod:
+    cd playwright && npx playwright test --grep @e2e

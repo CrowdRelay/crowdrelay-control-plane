@@ -468,6 +468,39 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .filter-row select{background:#0c0e12;border:1px solid #2c313b;color:white;padding:8px 10px;border-radius:8px;font-size:.78rem}
 .page-head-actions{display:flex;gap:8px}
 .beta-chip{background:#3b1d2e;color:#e899b8;font-size:.6rem;padding:1px 5px;border-radius:3px;text-transform:uppercase;letter-spacing:.04em}
+.free-chip{background:#1d3b2e;color:#6ee7b7;font-size:.6rem;padding:1px 5px;border-radius:3px;text-transform:uppercase;letter-spacing:.04em}
+.paid-chip{background:#1d2d4a;color:#7dd3fc;font-size:.6rem;padding:1px 5px;border-radius:3px;text-transform:uppercase;letter-spacing:.04em}
+.agent-provider-group{margin-bottom:1.2rem}
+.agent-group-label{font-size:.8rem;font-weight:600;color:#c4c9d4;margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem}
+.agent-group-intro{font-size:.73rem;color:#8b92a0;line-height:1.4;margin-bottom:.6rem}
+
+/* OAuth2 sign-in buttons — Google-style with provider brand colors */
+.oauth-btn{display:inline-flex;align-items:center;gap:.5rem;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:6px;padding:.5rem .9rem;cursor:pointer;font:inherit;font-size:.8rem;font-weight:500;white-space:nowrap;transition:box-shadow .15s,background .15s;min-height:36px}
+.oauth-btn:hover{background:#f8f9fa;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.oauth-btn:active{background:#f1f3f4}
+.oauth-btn svg{flex-shrink:0}
+
+/* Provider-specific button variants */
+.oauth-btn-google{background:#fff;color:#3c4043;border-color:#dadce0}
+.oauth-btn-google:hover{background:#f8f9fa}
+
+.oauth-btn-openai{background:#fff;color:#1f1f1f;border-color:#d9d9e3}
+.oauth-btn-openai:hover{background:#f9f9f9}
+
+.oauth-btn-anthropic{background:#fff;color:#1a1a1a;border-color:#d9d9d9}
+.oauth-btn-anthropic:hover{background:#f9f9f9}
+
+.oauth-btn-openrouter{background:#fff;color:#1a1a2e;border-color:#d9d9e3}
+.oauth-btn-openrouter:hover{background:#f8f9fa}
+
+.oauth-btn-github-copilot{background:#fff;color:#1f2328;border-color:#d0d7de}
+.oauth-btn-github-copilot:hover{background:#f6f8fa}
+
+.oauth-btn-xai{background:#fff;color:#1a1a1a;border-color:#d9d9d9}
+.oauth-btn-xai:hover{background:#f9f9f9}
+
+.oauth-btn-groq{background:#fff;color:#1a1a1a;border-color:#f55036}
+.oauth-btn-groq:hover{background:#fff5f3}
 .llm-badge{background:#2a1d4a;color:#a99ce8;font-size:.65rem}
 .agent-outcomes{padding:.75rem 1.25rem;border-bottom:1px solid #2a2d36}
 .agent-outcomes h4{font-size:.78rem;margin:0 0 .5rem;color:var(--muted)}
