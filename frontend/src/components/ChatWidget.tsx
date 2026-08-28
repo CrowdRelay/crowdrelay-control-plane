@@ -51,6 +51,7 @@ export function ChatWidget(props: { slug: string }) {
   const [input, setInput] = createSignal('')
   const [loading, setLoading] = createSignal(false)
   const [streaming, setStreaming] = createSignal(false)
+  const [streamingContent, setStreamingContent] = createSignal('')
   const [error, setError] = createSignal<string | null>(null)
   const [executingAction, setExecutingAction] = createSignal<string | null>(null)
   const navigate = useNavigate()
@@ -154,13 +155,11 @@ export function ChatWidget(props: { slug: string }) {
             const data = JSON.parse(payload) as { type: string; text?: string; actions?: ChatAction[]; error?: string }
             if (data.type === 'token' && data.text) {
               accumulated += data.text
-              // Update the assistant message live as tokens arrive.
-              setMessages(prev => {
-                const next = [...prev]
-                const cur = next[assistantIndex]
-                if (cur) next[assistantIndex] = { role: 'assistant', content: accumulated, actions: cur.actions }
-                return next
-              })
+              // Update a dedicated signal — NOT the messages array.
+              // This lets the streaming text grow as a smooth text node
+              // instead of re-setting innerHTML on every token (which
+              // causes the browser to rebuild the DOM and blink).
+              setStreamingContent(accumulated)
             } else if (data.type === 'actions' && data.actions) {
               actions = data.actions
             } else if (data.type === 'error') {
@@ -217,6 +216,7 @@ export function ChatWidget(props: { slug: string }) {
     } finally {
       setLoading(false)
       setStreaming(false)
+      setStreamingContent('')
       abortController = null
     }
   }
@@ -404,9 +404,20 @@ export function ChatWidget(props: { slug: string }) {
             </Show>
 
             <For each={messages()}>
-              {(msg) => (
+              {(msg, index) => {
+                const isStreamingMsg = () =>
+                  streaming() && msg.role === 'assistant' && index() === messages().length - 1
+                return (
                 <div class={`chat-msg chat-msg-${msg.role}`}>
-                  <div class="chat-msg-content" innerHTML={renderMarkdown(msg.content)} />
+                  <Show
+                    when={isStreamingMsg()}
+                    fallback={<div class="chat-msg-content" innerHTML={renderMarkdown(msg.content)} />}
+                  >
+                    {/* During streaming, render as a text node so the text
+                        grows smoothly without DOM rebuilds / blinking.
+                        Markdown is applied once streaming completes. */}
+                    <div class="chat-msg-content">{streamingContent()}</div>
+                  </Show>
                   <Show when={msg.actions && msg.actions.length > 0}>
                     <div class="chat-actions">
                       <For each={msg.actions}>
@@ -423,11 +434,12 @@ export function ChatWidget(props: { slug: string }) {
                     </div>
                   </Show>
                   {/* Blinking cursor while streaming the current assistant message */}
-                  <Show when={streaming() && msg.role === 'assistant' && msg.content === messages()[messages().length - 1]?.content}>
+                  <Show when={isStreamingMsg()}>
                     <span class="chat-cursor" />
                   </Show>
                 </div>
-              )}
+                )
+              }}
             </For>
           </div>
 

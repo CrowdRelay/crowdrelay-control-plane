@@ -308,6 +308,9 @@ button{border-radius:10px;padding:.7rem 1rem;background:linear-gradient(180deg,#
 .flag-row{padding:14px 0;border-bottom:1px solid #1e2128;transition:background .1s ease}
 .flag-row:hover{background:#0f1115}
 
+/* Opportunity rows override flag-row padding — keep content off the border */
+.opportunity-row{padding:14px 16px}
+
 /* Skeleton — smoother shimmer */
 .skeleton-grid div,.skeleton-block{border-radius:14px;background:linear-gradient(100deg,#11141a 20%,#1a1e26 50%,#11141a 80%);background-size:200% 100%;animation:shimmer 1.8s infinite ease-in-out}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}

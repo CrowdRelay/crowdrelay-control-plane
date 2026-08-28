@@ -23,8 +23,8 @@ function ZenIcon(props: IconProps) {
   )
 }
 
-// Google Gemini — the official Gemini sparkle mark with the brand's
-// blue-to-purple-to-pink gradient.
+// Google Gemini — the official Gemini sparkle mark (simple-icons path)
+// with the brand's blue-to-purple-to-red gradient.
 function GeminiIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
@@ -37,7 +37,7 @@ function GeminiIcon(props: IconProps) {
           <stop offset="100%" stop-color="#e8713a" />
         </linearGradient>
       </defs>
-      <path d="M12 2c.3 4.5 3.2 7.7 7.5 8-4.3.3-7.2 3.5-7.5 8-.3-4.5-3.2-7.7-7.5-8 4.3-.3 7.2-3.5 7.5-8z" fill="url(#gemini-sparkle)"/>
+      <path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81" fill="url(#gemini-sparkle)"/>
     </svg>
   )
 }
@@ -62,13 +62,12 @@ function OpenAIIcon(props: IconProps) {
   )
 }
 
-// Anthropic — the Claude/Antropic sunburst mark: radiating rays from a
-// central point, matching the official brand burst/asterisk pattern.
+// Anthropic — the official Anthropic "A" mark (simple-icons path).
 function AnthropicIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class={props.class} aria-hidden="true">
-      <path d="M12 3v6M12 15v6M3 12h6M15 12h6M5.6 5.6l4.2 4.2M14.2 14.2l4.2 4.2M5.6 18.4l4.2-4.2M14.2 9.8l4.2-4.2" />
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
+      <path d="M17.3041 3.541h-3.6718l6.696 16.918H24Zm-10.6082 0L0 20.459h3.7442l1.3693-3.5527h7.0052l1.3693 3.5528h3.7442L10.5363 3.5409Zm-.3712 10.2232 2.2914-5.9456 2.2914 5.9456Z"/>
     </svg>
   )
 }
@@ -99,12 +98,12 @@ function OpenRouterIcon(props: IconProps) {
 
 // ─── Notifier Brand Logos ───────────────────────────────────────────────
 
-// Discord — official Discord logo in Discord blurple.
+// Discord — official Discord logo (simple-icons path) in Discord blurple.
 function DiscordIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="#5865F2" class={props.class} aria-hidden="true">
-      <path d="M19.27 5.33C17.94 4.71 16.5 4.26 15 4a.09.09 0 0 0-.07.03c-.18.33-.39.76-.53 1.09a16.09 16.09 0 0 0-4.8 0c-.14-.34-.35-.76-.54-1.09-.01-.02-.04-.03-.07-.03-1.5.26-2.93.71-4.27 1.33-.01 0-.02.01-.03.02-2.72 4.07-3.47 8.03-3.1 11.95 0 .02.01.04.03.05 1.8 1.32 3.53 2.12 5.24 2.65.03.01.06 0 .07-.02.4-.55.76-1.13 1.07-1.74.02-.04 0-.08-.04-.09-.57-.22-1.11-.48-1.64-.78-.04-.02-.04-.08-.01-.11.11-.08.22-.17.33-.25.02-.02.05-.02.07-.01 3.44 1.57 7.15 1.57 10.55 0 .02-.01.05-.01.07.01.11.09.22.17.33.26.04.03.04.09-.01.11-.52.31-1.07.56-1.64.78-.04.01-.05.06-.04.09.32.61.68 1.19 1.07 1.74.03.02.06.03.09.02 1.72-.53 3.45-1.33 5.25-2.65.02-.01.03-.03.03-.05.44-4.53-.73-8.46-3.1-11.95-.01-.01-.02-.02-.04-.02zM8.52 14.91c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12 0 1.17-.84 2.12-1.89 2.12zm6.97 0c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12 0 1.17-.83 2.12-1.89 2.12z"/>
+      <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/>
     </svg>
   )
 }
@@ -132,24 +131,23 @@ function EmailIcon(props: IconProps) {
 
 // ─── Fanbase Source Brand Logos ─────────────────────────────────────────
 
-// Meta (Facebook/Instagram) — official Meta infinity loop in Meta blue.
-// Two interlocking rounded loops forming a continuous infinity-like stroke.
+// Meta (Facebook/Instagram) — official Meta infinity loop (simple-icons
+// path) in Meta blue. Filled path, not stroked.
 function MetaIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="#0866FF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class={props.class} aria-hidden="true">
-      <path d="M5 12C5 8 7.5 6 10 6c2 0 3.2 1.8 4 3.5C14.8 8 16 6 18 6c2.5 0 5 2 5 6s-2.5 6-5 6c-2 0-3.2-1.8-4-3.5C13.2 16 12 18 10 18c-2.5 0-5-2-5-6z"/>
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="#0866FF" class={props.class} aria-hidden="true">
+      <path d="M6.915 4.03c-1.968 0-3.683 1.28-4.871 3.113C.704 9.208 0 11.883 0 14.449c0 .706.07 1.369.21 1.973a6.624 6.624 0 0 0 .265.86 5.297 5.297 0 0 0 .371.761c.696 1.159 1.818 1.927 3.593 1.927 1.497 0 2.633-.671 3.965-2.444.76-1.012 1.144-1.626 2.663-4.32l.756-1.339.186-.325c.061.1.121.196.183.3l2.152 3.595c.724 1.21 1.665 2.556 2.47 3.314 1.046.987 1.992 1.22 3.06 1.22 1.075 0 1.876-.355 2.455-.843a3.743 3.743 0 0 0 .81-.973c.542-.939.861-2.127.861-3.745 0-2.72-.681-5.357-2.084-7.45-1.282-1.912-2.957-2.93-4.716-2.93-1.047 0-2.088.467-3.053 1.308-.652.57-1.257 1.29-1.82 2.05-.69-.875-1.335-1.547-1.958-2.056-1.182-.966-2.315-1.303-3.454-1.303zm10.16 2.053c1.147 0 2.188.758 2.992 1.999 1.132 1.748 1.647 4.195 1.647 6.4 0 1.548-.368 2.9-1.839 2.9-.58 0-1.027-.23-1.664-1.004-.496-.601-1.343-1.878-2.832-4.358l-.617-1.028a44.908 44.908 0 0 0-1.255-1.98c.07-.109.141-.224.211-.327 1.12-1.667 2.118-2.602 3.358-2.602zm-10.201.553c1.265 0 2.058.791 2.675 1.446.307.327.737.871 1.234 1.579l-1.02 1.566c-.757 1.163-1.882 3.017-2.837 4.338-1.191 1.649-1.81 1.817-2.486 1.817-.524 0-1.038-.237-1.383-.794-.263-.426-.464-1.13-.464-2.046 0-2.221.63-4.535 1.66-6.088.454-.687.964-1.226 1.533-1.533a2.264 2.264 0 0 1 1.088-.285z"/>
     </svg>
   )
 }
 
-// Bandsintown — music note in Bandsintown red circle.
+// Bandsintown — official Bandsintown mark (simple-icons path) in red.
 function BandsintownIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
-      <circle cx="12" cy="12" r="10" fill="#E61931"/>
-      <path d="M15.5 8v6.3a2 2 0 1 1-1.6-1.96V10.2l-3.9 1.1v4a2 2 0 1 1-1.6-1.96V9.5L15.5 8z" fill="#fff"/>
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="#E61931" class={props.class} aria-hidden="true">
+      <path d="M6.399 12.8v4.8H19.2v1.6H4.799V0H0v24h24V12.8H6.399Zm4.801-8H6.399v6.4H11.2V4.8Zm6.4 0h-4.8v6.4h4.8V4.8ZM24 0h-4.8v11.2H24V0Z"/>
     </svg>
   )
 }
@@ -167,41 +165,33 @@ function GoogleIcon(props: IconProps) {
   )
 }
 
-// Reddit — simplified Snoo head in Reddit orange-red: round head,
-// antenna, two white eyes, and a smile.
+// Reddit — official Reddit Snoo logo (simple-icons path) in Reddit orange-red.
 function RedditIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="#FF4500" class={props.class} aria-hidden="true">
-      <circle cx="12" cy="2.5" r="1.5" />
-      <path d="M12 4v2.5" stroke="#FF4500" stroke-width="1.5" stroke-linecap="round" fill="none" />
-      <ellipse cx="12" cy="13" rx="7.5" ry="6" />
-      <circle cx="9" cy="11.5" r="1.8" fill="#fff" />
-      <circle cx="15" cy="11.5" r="1.8" fill="#fff" />
-      <path d="M8.5 14.5c1 1.5 2.2 2 3.5 2s2.5-.5 3.5-2" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" />
+      <path d="M12 0C5.373 0 0 5.373 0 12c0 3.314 1.343 6.314 3.515 8.485l-2.286 2.286C.775 23.225 1.097 24 1.738 24H12c6.627 0 12-5.373 12-12S18.627 0 12 0Zm4.388 3.199c1.104 0 1.999.895 1.999 1.999 0 1.105-.895 2-1.999 2-.946 0-1.739-.657-1.947-1.539v.002c-1.147.162-2.032 1.15-2.032 2.341v.007c1.776.067 3.4.567 4.686 1.363.473-.363 1.064-.58 1.707-.58 1.547 0 2.802 1.254 2.802 2.802 0 1.117-.655 2.081-1.601 2.531-.088 3.256-3.637 5.876-7.997 5.876-4.361 0-7.905-2.617-7.998-5.87-.954-.447-1.614-1.415-1.614-2.538 0-1.548 1.255-2.802 2.803-2.802.645 0 1.239.218 1.712.585 1.275-.79 2.881-1.291 4.64-1.365v-.01c0-1.663 1.263-3.034 2.88-3.207.188-.911.993-1.595 1.959-1.595Zm-8.085 8.376c-.784 0-1.459.78-1.506 1.797-.047 1.016.64 1.429 1.426 1.429.786 0 1.371-.369 1.418-1.385.047-1.017-.553-1.841-1.338-1.841Zm7.406 0c-.786 0-1.385.824-1.338 1.841.047 1.017.634 1.385 1.418 1.385.785 0 1.473-.413 1.426-1.429-.046-1.017-.721-1.797-1.506-1.797Zm-3.703 4.013c-.974 0-1.907.048-2.77.135-.147.015-.241.168-.183.305.483 1.154 1.622 1.964 2.953 1.964 1.33 0 2.47-.81 2.953-1.964.057-.137-.037-.29-.184-.305-.863-.087-1.795-.135-2.769-.135Z"/>
     </svg>
   )
 }
 
-// Spotify — official Spotify circle with three sound-wave arcs in Spotify green.
+// Spotify — official Spotify circle with three sound-wave arcs
+// (simple-icons path) in Spotify green. Single filled path.
 function SpotifyIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
-      <circle cx="12" cy="12" r="10" fill="#1DB954"/>
-      <path d="M7.2 10.6c3.1-.9 6.3-.7 9 .9.4.2.6.7.4 1.1-.2.4-.7.6-1.1.4-2.4-1.4-5.2-1.6-7.9-.8-.4.1-.9-.1-1-.6-.2-.4.1-.9.6-1z" fill="#fff"/>
-      <path d="M6.8 13.3c2.7-.8 5.5-.5 7.8.8.4.2.6.7.3 1.1-.2.4-.7.5-1.1.3-2-1.1-4.4-1.3-6.7-.6-.4.1-.9-.1-1-.5-.2-.4.1-.9.7-1.1z" fill="#fff"/>
-      <path d="M7.4 15.9c2.1-.6 4.2-.4 6 .5.4.2.5.6.3 1-.2.3-.6.5-1 .3-1.5-.8-3.2-.9-4.8-.5-.4.1-.8-.1-.9-.5-.2-.4.1-.8.4-.8z" fill="#fff"/>
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="#1DB954" class={props.class} aria-hidden="true">
+      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
     </svg>
   )
 }
 
-// TikTok — official TikTok music note with cyan/red offset glow.
-// Single path drawn three times with translate transforms for the
-// chromatic-aberration effect the brand is known for.
+// TikTok — official TikTok music note (simple-icons path) with
+// cyan/red offset glow. Single path drawn three times with translate
+// transforms for the chromatic-aberration effect the brand is known for.
 function TikTokIcon(props: IconProps) {
   const s = props.size ?? 20
-  const notePath = "M14.5 3h2.3c.3 1.9 1.4 3.6 3.2 4.4v2.4c-1.3-.4-2.5-1.1-3.5-2.1v6c0 3.3-2.7 6-6 6s-6-2.7-6-6 2.7-6 6-6c.5 0 1 .1 1.5.2v2.7c-.5-.2-1-.3-1.5-.3-1.9 0-3.5 1.6-3.5 3.5s1.6 3.5 3.5 3.5 3.5-1.6 3.5-3.5V3z"
+  const notePath = "M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
       <path d={notePath} fill="#25F4EE" transform="translate(-0.8 0)" />
