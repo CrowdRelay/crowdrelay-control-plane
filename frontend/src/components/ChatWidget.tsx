@@ -1,6 +1,6 @@
 import { Show, For, createSignal, createEffect, onCleanup } from 'solid-js'
 import { useNavigate, useLocation } from '@tanstack/solid-router'
-import { api, request, ApiError } from '../lib/api'
+import { request, ApiError } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import type { ChatMessage, ChatAction } from '../lib/types'
 
@@ -37,11 +37,20 @@ const SUGGESTIONS = [
   "What free AI models are available?",
 ]
 
+const ACTIONS_DELIMITER = ':::actions'
+
+/** Strip the :::actions block from displayed text. */
+function stripActions(raw: string): string {
+  const idx = raw.indexOf(ACTIONS_DELIMITER)
+  return idx === -1 ? raw : raw.slice(0, idx).trimEnd()
+}
+
 export function ChatWidget(props: { slug: string }) {
   const [open, setOpen] = createSignal(false)
   const [messages, setMessages] = createSignal<ChatMessage[]>([])
   const [input, setInput] = createSignal('')
   const [loading, setLoading] = createSignal(false)
+  const [streaming, setStreaming] = createSignal(false)
   const [error, setError] = createSignal<string | null>(null)
   const [executingAction, setExecutingAction] = createSignal<string | null>(null)
   const navigate = useNavigate()
@@ -49,8 +58,9 @@ export function ChatWidget(props: { slug: string }) {
 
   let scrollRef: HTMLDivElement | undefined
   let inputRef: HTMLTextAreaElement | undefined
+  let abortController: AbortController | null = null
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages or streaming text
   createEffect(() => {
     const msgs = messages()
     if (msgs.length > 0 && scrollRef) {
@@ -90,20 +100,129 @@ export function ChatWidget(props: { slug: string }) {
     const newMessages: ChatMessage[] = [...messages(), { role: 'user', content: msg }]
     setMessages(newMessages)
     setLoading(true)
+    setStreaming(true)
+
+    // Add an empty assistant message that we'll fill as tokens stream in.
+    const assistantIndex = newMessages.length
+    setMessages([...newMessages, { role: 'assistant', content: '' }])
+    let accumulated = ''
+
+    abortController = new AbortController()
 
     try {
-      const history = newMessages.slice(-10).map(m => ({ role: m.role, content: m.content }))
-      const data = await api.agentChat(props.slug, msg, history, pageContext())
-      setMessages([...newMessages, { role: 'assistant', content: data.reply, actions: data.actions }])
+      const response = await fetch(`/api/v1/tenants/${encodeURIComponent(props.slug)}/agents/chat/stream`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'content-type': 'application/json',
+          'x-request-id': crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          message: msg,
+          history: newMessages.slice(-10).map(m => ({ role: m.role, content: m.content })),
+          page_context: pageContext(),
+        }),
+        signal: abortController.signal,
+      })
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ detail: response.statusText })) as { detail?: string }
+        throw new ApiError(response.status, body.detail ?? `HTTP ${response.status}`)
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No response stream')
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let actions: ChatAction[] = []
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        // Process complete SSE events (separated by \n\n)
+        const events = buffer.split('\n\n')
+        buffer = events.pop() ?? ''
+
+        for (const event of events) {
+          const line = event.trim()
+          if (!line.startsWith('data: ')) continue
+          const payload = line.slice(6)
+          try {
+            const data = JSON.parse(payload) as { type: string; text?: string; actions?: ChatAction[]; error?: string }
+            if (data.type === 'token' && data.text) {
+              accumulated += data.text
+              // Update the assistant message live as tokens arrive.
+              setMessages(prev => {
+                const next = [...prev]
+                const cur = next[assistantIndex]
+                if (cur) next[assistantIndex] = { role: 'assistant', content: accumulated, actions: cur.actions }
+                return next
+              })
+            } else if (data.type === 'actions' && data.actions) {
+              actions = data.actions
+            } else if (data.type === 'error') {
+              throw new Error(data.error ?? 'stream error')
+            }
+            // 'done' type — stream is complete, nothing extra to do.
+          } catch (e) {
+            // If it's our own thrown error, propagate it
+            if (e instanceof Error && e.message !== 'Unexpected token' && !e.message.includes('JSON')) {
+              throw e
+            }
+            // Ignore JSON parse errors for keepalive/heartbeat lines
+          }
+        }
+      }
+
+      // Finalize: strip the :::actions block from displayed text, attach actions.
+      const cleanReply = stripActions(accumulated)
+      setMessages(prev => {
+        const next = [...prev]
+        next[assistantIndex] = {
+          role: 'assistant',
+          content: cleanReply || '(no response)',
+          actions: actions.length > 0 ? actions : undefined,
+        }
+        return next
+      })
     } catch (err) {
-      const msg = err instanceof ApiError
-        ? err.status === 503 ? 'The AI assistant is not available right now. Make sure the agent service is running.' : errorMessage(err, 'Chat failed')
-        : errorMessage(err, 'Chat failed')
-      setError(msg)
-      setMessages([...newMessages, { role: 'assistant', content: `Sorry, I couldn't process that. ${msg}` }])
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        // User cancelled — keep whatever was streamed so far, just clean up.
+        const cleanReply = stripActions(accumulated)
+        setMessages(prev => {
+          const next = [...prev]
+          next[assistantIndex] = {
+            role: 'assistant',
+            content: cleanReply || '(cancelled)',
+          }
+          return next
+        })
+      } else {
+        const msg = err instanceof ApiError
+          ? err.status === 503 ? 'The AI assistant is not available right now. Make sure the agent service is running.' : errorMessage(err, 'Chat failed')
+          : errorMessage(err, 'Chat failed')
+        setError(msg)
+        setMessages(prev => {
+          const next = [...prev]
+          next[assistantIndex] = {
+            role: 'assistant',
+            content: accumulated ? stripActions(accumulated) : `Sorry, I couldn't process that. ${msg}`,
+          }
+          return next
+        })
+      }
     } finally {
       setLoading(false)
+      setStreaming(false)
+      abortController = null
     }
+  }
+
+  const stopStreaming = () => {
+    abortController?.abort()
   }
 
   const executeAction = async (action: ChatAction) => {
@@ -146,6 +265,7 @@ export function ChatWidget(props: { slug: string }) {
         case 'toggle_autopilot': {
           await request(`/tenants/${encodeURIComponent(props.slug)}/operations/autopilot/bulk`, {
             method: 'POST',
+            headers: { 'idempotency-key': crypto.randomUUID() },
             body: JSON.stringify({ enabled: action.params.enabled }),
           })
           setMessages(m => [...m, { role: 'assistant', content: `Autopilot ${action.params.enabled ? 'enabled' : 'disabled'} for all contexts.` }])
@@ -231,7 +351,10 @@ export function ChatWidget(props: { slug: string }) {
     if (e.key === 'Escape' && open()) setOpen(false)
   }
   document.addEventListener('keydown', onKey)
-  onCleanup(() => document.removeEventListener('keydown', onKey))
+  onCleanup(() => {
+    document.removeEventListener('keydown', onKey)
+    abortController?.abort()
+  })
 
   return (
     <>
@@ -299,17 +422,13 @@ export function ChatWidget(props: { slug: string }) {
                       </For>
                     </div>
                   </Show>
+                  {/* Blinking cursor while streaming the current assistant message */}
+                  <Show when={streaming() && msg.role === 'assistant' && msg.content === messages()[messages().length - 1]?.content}>
+                    <span class="chat-cursor" />
+                  </Show>
                 </div>
               )}
             </For>
-
-            <Show when={loading()}>
-              <div class="chat-msg chat-msg-assistant">
-                <div class="chat-typing">
-                  <span></span><span></span><span></span>
-                </div>
-              </div>
-            </Show>
           </div>
 
           <Show when={error()}>
@@ -332,14 +451,28 @@ export function ChatWidget(props: { slug: string }) {
               rows={1}
               maxlength={4000}
             />
-            <button
-              class="chat-send"
-              disabled={loading() || !input().trim()}
-              onClick={() => send()}
-              aria-label="Send message"
-            >
-              <SendIcon />
-            </button>
+            <Show when={streaming()}>
+              <button
+                class="chat-stop"
+                onClick={stopStreaming}
+                aria-label="Stop streaming"
+                title="Stop"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <rect x="6" y="6" width="12" height="12" rx="2" />
+                </svg>
+              </button>
+            </Show>
+            <Show when={!streaming()}>
+              <button
+                class="chat-send"
+                disabled={loading() || !input().trim()}
+                onClick={() => send()}
+                aria-label="Send message"
+              >
+                <SendIcon />
+              </button>
+            </Show>
           </div>
         </div>
       </Show>

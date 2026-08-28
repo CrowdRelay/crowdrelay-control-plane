@@ -66,6 +66,7 @@ export function AgentPanel(props: { slug: string }) {
   const [connecting, setConnecting] = createSignal(false)
   const [deviceFlowProvider, setDeviceFlowProvider] = createSignal<string | null>(null)
   const [deviceFlowData, setDeviceFlowData] = createSignal<{ user_code?: string; verification_uri?: string; expires_in?: number } | null>(null)
+  const [deviceFlowState, setDeviceFlowState] = createSignal<string | null>(null)
 
   const [templates] = createResource(async () => {
     const data = await request<{ templates: AgentTemplate[] }>(`/tenants/${props.slug}/agents/templates`)
@@ -188,9 +189,26 @@ export function AgentPanel(props: { slug: string }) {
     setError(null)
     const provider = providers()?.find(p => p.id === providerId)
     if (provider?.oauth?.kind === 'device') {
-      // Device flow: open modal, poll until connected
+      // Device flow: call start endpoint, open modal with user_code/verification_uri
       setDeviceFlowProvider(providerId)
       setDeviceFlowData(null)
+      setDeviceFlowState(null)
+      try {
+        const data = await api.startAgentOauth(props.slug, providerId)
+        if (data.mode === 'device' && data.state) {
+          setDeviceFlowState(data.state)
+          setDeviceFlowData({
+            user_code: data.user_code,
+            verification_uri: data.verification_uri,
+            expires_in: data.expires_in,
+          })
+        } else {
+          throw new Error('Device flow did not return a state token')
+        }
+      } catch (err) {
+        setError(errorMessage(err, `Failed to start ${providerId} device flow`))
+        setDeviceFlowProvider(null)
+      }
       return
     }
     // Redirect flow: build callback URL, redirect browser
@@ -207,20 +225,29 @@ export function AgentPanel(props: { slug: string }) {
   }
 
   const pollDeviceFlow = async (providerId: string) => {
+    const state = deviceFlowState()
+    if (!state) {
+      setError('Device flow has not been started')
+      setDeviceFlowProvider(null)
+      return
+    }
     try {
-      const result = await api.pollAgentOauth(props.slug, providerId)
-      if (result.status === 'connected') {
+      const result = await api.pollAgentOauth(props.slug, providerId, state)
+      if (result.status === 'complete') {
         setDeviceFlowProvider(null)
+        setDeviceFlowState(null)
         refetchCreds()
         refetchModels()
       } else if (result.status === 'failed') {
         setError(result.error ?? 'Device flow failed')
         setDeviceFlowProvider(null)
+        setDeviceFlowState(null)
       }
       // pending: keep polling (caller drives interval)
     } catch (err) {
       setError(errorMessage(err, 'Device flow poll failed'))
       setDeviceFlowProvider(null)
+      setDeviceFlowState(null)
     }
   }
 
@@ -510,11 +537,11 @@ export function AgentPanel(props: { slug: string }) {
 
       {/* Device flow modal — for providers that use device code grant */}
       <Show when={deviceFlowProvider()}>
-        <div class="agent-result-overlay" onClick={() => setDeviceFlowProvider(null)}>
+        <div class="agent-result-overlay" onClick={() => { setDeviceFlowProvider(null); setDeviceFlowState(null) }}>
           <div class="agent-result-modal" onClick={(e) => e.stopPropagation()}>
             <div class="agent-result-header">
               <h3>Connect {providers()?.find(p => p.id === deviceFlowProvider())?.name}</h3>
-              <button class="link" onClick={() => setDeviceFlowProvider(null)}>Close</button>
+              <button class="link" onClick={() => { setDeviceFlowProvider(null); setDeviceFlowState(null) }}>Close</button>
             </div>
             <div class="agent-paste-body">
               <p class="muted">Open the verification URL below in another tab, enter the code, then come back here. We'll poll until the connection completes.</p>
@@ -539,7 +566,7 @@ export function AgentPanel(props: { slug: string }) {
             </div>
             <div class="agent-result-actions">
               <button onClick={() => pollDeviceFlow(deviceFlowProvider()!)}>Check now</button>
-              <button class="link" onClick={() => setDeviceFlowProvider(null)}>Cancel</button>
+              <button class="link" onClick={() => { setDeviceFlowProvider(null); setDeviceFlowState(null) }}>Cancel</button>
             </div>
           </div>
         </div>

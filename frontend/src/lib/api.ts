@@ -69,7 +69,7 @@ export const api = {
   discoveredEndpoints: (slug: string) =>
     request<{ endpoints: DiscoveredEndpoint[] }>(`/tenants/${encodeURIComponent(slug)}/notifiers/discovered`),
   autopilotBulk: (slug: string, enabled: boolean) =>
-    request<BulkAutopilotResult>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/bulk`, { method: 'POST', body: JSON.stringify({ enabled }) }),
+    request<BulkAutopilotResult>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/bulk`, { method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify({ enabled }) }),
   overview: () => request<{
     tenants: number
     healthy: number
@@ -253,10 +253,10 @@ export const api = {
     request<void>(`/tenants/${encodeURIComponent(slug)}/agents/schedules/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   agentToggleSchedule: (slug: string, id: string, enabled: boolean) =>
     request<void>(`/tenants/${encodeURIComponent(slug)}/agents/schedules/${encodeURIComponent(id)}/enabled`, { method: 'POST', body: JSON.stringify({ enabled }) }),
-  startAgentOauth: (slug: string, provider: string, redirectUri: string) =>
-    request<{ url: string }>(`/tenants/${encodeURIComponent(slug)}/agents/oauth/${encodeURIComponent(provider)}/start?redirect_uri=${encodeURIComponent(redirectUri)}`),
-  pollAgentOauth: (slug: string, provider: string) =>
-    request<{ status: 'pending' | 'connected' | 'failed'; error?: string }>(`/tenants/${encodeURIComponent(slug)}/agents/oauth/${encodeURIComponent(provider)}/poll`),
+  startAgentOauth: (slug: string, provider: string, redirectUri?: string) =>
+    request<{ url?: string; mode?: 'redirect' | 'device'; state?: string; user_code?: string; verification_uri?: string; interval_seconds?: number; expires_in?: number }>(`/tenants/${encodeURIComponent(slug)}/agents/oauth/${encodeURIComponent(provider)}/start${redirectUri ? `?redirect_uri=${encodeURIComponent(redirectUri)}` : ''}`),
+  pollAgentOauth: (slug: string, provider: string, state: string) =>
+    request<{ status: 'pending' | 'complete' | 'failed'; error?: string }>(`/tenants/${encodeURIComponent(slug)}/agents/oauth/${encodeURIComponent(provider)}/poll?state=${encodeURIComponent(state)}`),
 
   // --- AI Chatbot (proxied through control-plane to agent service) ---
   agentChat: (slug: string, message: string, history: Array<{ role: 'user' | 'assistant'; content: string }>, pageContext?: string) =>

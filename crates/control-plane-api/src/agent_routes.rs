@@ -6,7 +6,7 @@ use axum::{
     Json, Router,
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode, header::CACHE_CONTROL},
-    response::{IntoResponse, Response},
+    response::{Html, IntoResponse, Response},
     routing::{get, post},
 };
 use serde_json::Value;
@@ -118,6 +118,7 @@ pub fn router() -> Router<AppState> {
             post(toggle_schedule),
         )
         .route("/tenants/{slug}/agents/chat", post(chat))
+        .route("/tenants/{slug}/agents/chat/stream", post(chat_stream))
         .route("/tenants/{slug}/agents/workflows", get(list_workflows))
         .route(
             "/tenants/{slug}/agents/workflows/{workflow_id}",
@@ -517,7 +518,7 @@ async fn oauth_callback(
     Ok((
         StatusCode::OK,
         [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
-        format!(r#"<!DOCTYPE html>
+        Html(format!(r#"<!DOCTYPE html>
 <html><head><title>{title}</title><style>
 body{{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb}}
 .card{{background:#fff;padding:2rem 3rem;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);text-align:center}}
@@ -530,7 +531,7 @@ a{{color:#2563eb;text-decoration:none;font-size:.875rem}}
 <p>{message}</p>
 <script>try{{window.close()}}catch(e){{}}</script>
 <a href="/">Return to control panel</a>
-</div></body></html>"#),
+</div></body></html>"#)),
     )
         .into_response())
 }
@@ -538,12 +539,24 @@ a{{color:#2563eb;text-decoration:none;font-size:.875rem}}
 async fn oauth_poll(
     State(state): State<AppState>,
     Path((slug, provider)): Path<(String, String)>,
+    Query(query): Query<HashMap<String, String>>,
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     if !safe_path_segment(&provider) {
         return Err(ApiError::InvalidInput("invalid provider id".to_owned()));
     }
-    let path = format!("/oauth/{provider}/poll");
+    // The poll endpoint requires a `state` query parameter (the OAuth state
+    // token returned by the start endpoint). Forward all query params.
+    let qs: String = query
+        .iter()
+        .map(|(k, v)| encode_query_pair(k, v))
+        .collect::<Vec<_>>()
+        .join("&");
+    let path = if qs.is_empty() {
+        format!("/oauth/{provider}/poll")
+    } else {
+        format!("/oauth/{provider}/poll?{qs}")
+    };
     proxy_get(&state, &slug, &path).await
 }
 
@@ -627,4 +640,62 @@ async fn chat(
         Json(response_body),
     )
         .into_response())
+}
+
+/// Streaming chatbot endpoint — proxies SSE from the agent service to the
+/// browser. The agent service streams LLM tokens as they arrive; we pass
+/// them through without buffering so the user sees text immediately.
+async fn chat_stream(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let (tenant, _) = crate::area_routes::target(&state, &slug).await?;
+    let base = state
+        .agent_service_url
+        .as_deref()
+        .ok_or_else(|| ApiError::Unavailable("agent service is not configured".to_owned()))?;
+    let workspace_id = resolve_workspace_id(&tenant);
+    let token = state.area_client.derived_management_token(workspace_id)?;
+    let url = format!("{base}/chat/stream");
+    let upstream = state
+        .http_client
+        .post(&url)
+        .header("Authorization", format!("Bearer {token}"))
+        .header("X-Workspace-Id", workspace_id.to_string())
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(120))
+        .send()
+        .await
+        .map_err(|e| ApiError::Unavailable(format!("agent service unreachable: {e}")))?;
+
+    if !upstream.status().is_success() {
+        let status =
+            StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+        let body = upstream.text().await.unwrap_or_default();
+        return Ok((status, Json(body)).into_response());
+    }
+
+    // Stream the SSE body through to the browser. We convert the reqwest
+    // stream into an axum body so tokens flow without buffering.
+    let stream = async_stream::stream! {
+        let mut reader = upstream.bytes_stream();
+        use futures_util::StreamExt;
+        while let Some(chunk_result) = reader.next().await {
+            match chunk_result {
+                Ok(chunk) => yield Ok::<_, std::convert::Infallible>(chunk),
+                Err(_) => break,
+            }
+        }
+    };
+
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header("content-type", "text/event-stream")
+        .header("cache-control", "no-cache, no-transform")
+        .header("x-accel-buffering", "no")
+        .body(axum::body::Body::from_stream(stream))
+        .unwrap())
 }

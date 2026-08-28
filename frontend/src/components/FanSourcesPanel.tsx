@@ -136,7 +136,12 @@ export function FanSourcesPanel(props: {
     try {
       const parsed = JSON.parse(ingestJson()) as { entries?: unknown }
       if (!parsed.entries || !Array.isArray(parsed.entries) || parsed.entries.length === 0) return null
-      return { entries: parsed.entries as Record<string, string>[] }
+      // Validate every entry is an object with a string external_id
+      const entries = parsed.entries as unknown[]
+      if (!entries.every(e => typeof e === 'object' && e !== null && typeof (e as Record<string, unknown>).external_id === 'string')) {
+        return null
+      }
+      return { entries: entries as Record<string, string>[] }
     } catch {
       return null
     }

@@ -51,13 +51,13 @@ const actionKindLabel = (kind: string) =>
 const payloadSummary = (action: PendingAutopilotAction): { title: string; detail: string } => {
   const p = action.payload
   if (p.kind === 'community.engage.request') {
-    const subreddit = (p.subreddit as string) ?? '—'
-    const title = (p.title as string) ?? 'Untitled post'
+    const subreddit = typeof p.subreddit === 'string' ? p.subreddit : '—'
+    const title = typeof p.title === 'string' ? p.title : 'Untitled post'
     return { title: `r/${subreddit}`, detail: title }
   }
   if (p.kind === 'agent.run.request') {
-    const template = (p.template_id as string) ?? 'agent'
-    const prompt = (p.prompt as string) ?? ''
+    const template = typeof p.template_id === 'string' ? p.template_id : 'agent'
+    const prompt = typeof p.prompt === 'string' ? p.prompt : ''
     return { title: `Worker: ${template}`, detail: prompt.slice(0, 120) + (prompt.length > 120 ? '…' : '') }
   }
   return { title: actionKindLabel(action.action_kind), detail: '' }

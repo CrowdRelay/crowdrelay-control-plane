@@ -588,6 +588,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .chat-send{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;padding:.5rem .6rem;cursor:pointer;display:flex;align-items:center;justify-content:center;min-width:36px;min-height:38px;transition:opacity .15s}
 .chat-send:hover{opacity:.85}
 .chat-send:disabled{opacity:.4;cursor:not-allowed}
+.chat-stop{background:#1e2130;color:#ef4444;border:1px solid #ef4444;border-radius:8px;padding:.5rem .6rem;cursor:pointer;display:flex;align-items:center;justify-content:center;min-width:36px;min-height:38px;transition:opacity .15s}
+.chat-stop:hover{opacity:.85}
+.chat-cursor{display:inline-block;width:8px;height:1.1em;background:#8b5cf6;margin-left:2px;vertical-align:text-bottom;animation:chatCursorBlink 1s step-end infinite}
+@keyframes chatCursorBlink{0%,50%{opacity:1}51%,100%{opacity:0}}
 
 @media (max-width:480px){
   .chat-panel{width:100vw;height:100vh;max-height:100vh;border-radius:0;bottom:0;right:0}
