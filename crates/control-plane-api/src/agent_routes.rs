@@ -40,6 +40,8 @@ const MAX_AGENT_BODY_BYTES: usize = 16 * 1024;
 fn safe_path_segment(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 64
+        && value != ".."
+        && value != "."
         && value
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
@@ -423,14 +425,16 @@ async fn oauth_start(
     State(state): State<AppState>,
     Path((slug, provider)): Path<(String, String)>,
     Query(query): Query<HashMap<String, String>>,
-    _headers: HeaderMap,
+    headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     if !safe_path_segment(&provider) {
         return Err(ApiError::InvalidInput("invalid provider id".to_owned()));
     }
     // redirect_uri is passed per-request from the control plane frontend so
     // the agent service stays multi-instance safe (no env-based callback URL).
-    // Validate the scheme and host to prevent open-redirect attacks.
+    // Validate the scheme and host to prevent open-redirect / SSRF attacks:
+    // the origin must either be in the configured allow-list or match the
+    // request's own Host header.
     let mut path = format!("/oauth/{provider}/start");
     if let Some(redirect_uri) = query.get("redirect_uri") {
         let parsed = url::Url::parse(redirect_uri)
@@ -446,6 +450,40 @@ async fn oauth_start(
         }
         if redirect_uri.len() > 512 {
             return Err(ApiError::InvalidInput("redirect_uri too long".to_owned()));
+        }
+        // Origin = scheme://host[:port] — port only when explicitly set.
+        let origin = match parsed.port() {
+            Some(port) => {
+                format!(
+                    "{}://{}:{}",
+                    parsed.scheme(),
+                    parsed.host_str().unwrap_or(""),
+                    port
+                )
+            }
+            None => format!("{}://{}", parsed.scheme(), parsed.host_str().unwrap_or("")),
+        };
+        let allowed = if !state.allowed_redirect_origins.is_empty() {
+            state.allowed_redirect_origins.iter().any(|o| o == &origin)
+        } else {
+            // Fall back to the request's Host header when no allow-list is
+            // configured. Derive the expected origin from the Host header
+            // and the request scheme (https in production).
+            let host = headers
+                .get(axum::http::header::HOST)
+                .and_then(|h| h.to_str().ok())
+                .unwrap_or("");
+            let scheme = if host.starts_with("localhost") || host.starts_with("127.0.0.1") {
+                "http"
+            } else {
+                "https"
+            };
+            origin == format!("{scheme}://{host}")
+        };
+        if !allowed {
+            return Err(ApiError::InvalidInput(
+                "redirect_uri origin is not in the allowed list".to_owned(),
+            ));
         }
         path.push_str(&format!("?redirect_uri={}", percent_encode(redirect_uri)));
     }

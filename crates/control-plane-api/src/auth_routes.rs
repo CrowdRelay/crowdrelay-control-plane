@@ -54,7 +54,14 @@ fn record_failure(username: &str) {
         entries.push(Instant::now());
     }
     if guard.len() > 1_000 {
-        guard.clear(); // bounded memory; resetting windows is acceptable
+        // Bounded memory: evict excess entries instead of clearing all.
+        // Clearing resets every user's throttle window, which an attacker
+        // can trigger by flooding distinct usernames.
+        let excess = guard.len() - 500;
+        let to_remove: Vec<String> = guard.keys().take(excess).cloned().collect();
+        for key in to_remove {
+            guard.remove(&key);
+        }
     }
 }
 

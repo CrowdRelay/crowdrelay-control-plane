@@ -378,27 +378,6 @@ pub fn provision_failure(
     Ok((code.to_owned(), detail))
 }
 
-pub fn desired_version(value: Option<String>) -> Result<Option<String>, ApiError> {
-    value
-        .map(|raw| {
-            let value = raw.trim();
-            if value.is_empty() {
-                return Ok(None);
-            }
-            if value.len() > 128
-                || value.chars().any(char::is_whitespace)
-                || value.chars().any(char::is_control)
-            {
-                return Err(ApiError::InvalidInput(
-                    "desiredVersion must be at most 128 non-whitespace characters".to_owned(),
-                ));
-            }
-            Ok(Some(value.to_owned()))
-        })
-        .transpose()
-        .map(Option::flatten)
-}
-
 pub fn runtime_report(input: &RuntimeReportRequest) -> Result<(), ApiError> {
     if input.schema_version.is_some_and(|value| value < 0) {
         return Err(ApiError::InvalidInput(
@@ -524,16 +503,6 @@ mod tests {
     fn rejects_control_characters_in_display_names() {
         assert!(display_name("Good Tenant").is_ok());
         assert!(display_name("Bad\nCROWDRELAY_AUTOPILOT_ENABLED=true").is_err());
-    }
-
-    #[test]
-    fn normalizes_or_rejects_provisioning_versions() {
-        assert_eq!(
-            desired_version(Some("  0123456  ".into())).unwrap(),
-            Some("0123456".into())
-        );
-        assert_eq!(desired_version(Some("   ".into())).unwrap(), None);
-        assert!(desired_version(Some("bad version".into())).is_err());
     }
 
     #[test]

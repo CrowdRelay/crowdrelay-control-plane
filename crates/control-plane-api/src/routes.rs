@@ -333,13 +333,16 @@ async fn plan_provisioning(
     Json(input): Json<PlanProvisioningRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
     let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
-    let desired_version = validation::desired_version(input.desired_version)?;
+    let desired_version = validation::deployment_version(
+        input.desired_version,
+        state.provisioner_default_image_tag.as_deref(),
+    )?;
     let actor = identity.audit_actor();
     let (job, created) = state
         .store
         .plan_provisioning(
             &tenant.tenant.slug,
-            desired_version,
+            Some(desired_version),
             &actor,
             request_id(&headers),
         )

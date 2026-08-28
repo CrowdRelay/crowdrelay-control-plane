@@ -25,6 +25,7 @@ impl NotifierClient {
             .timeout(DELIVERY_TIMEOUT)
             .connect_timeout(Duration::from_secs(5))
             .user_agent("crowdrelay-control-plane-notifier/1")
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .unwrap_or_default();
         Self {

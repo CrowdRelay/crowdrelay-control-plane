@@ -54,6 +54,10 @@ pub struct Config {
     /// Without it, no automation event reaches Discord — the UI is the only
     /// surface.
     pub discord_automation_webhook_url: Option<String>,
+    /// Comma-separated allow-list of origins permitted as OAuth redirect_uri
+    /// targets (e.g. "https://control.virya.music"). If unset, the redirect_uri
+    /// origin must match the request's Host header.
+    pub allowed_redirect_origins: Vec<String>,
 }
 
 impl Config {
@@ -165,7 +169,7 @@ impl Config {
             "CONTROL_PLANE_PROVISIONER_LEASE_SECONDS must be between 60 and 3600"
         );
 
-        let mut config = Self {
+        let config = Self {
             bind,
             database_url,
             admin_token_hash: Sha256::digest(admin_token.as_bytes()).into(),
@@ -232,11 +236,51 @@ impl Config {
                 None => None,
             },
             agent_service_url: optional_env("CONTROL_PLANE_AGENT_SERVICE_URL")?,
-            n8n_base_url: optional_env("CONTROL_PLANE_N8N_BASE_URL")?,
+            n8n_base_url: match optional_env("CONTROL_PLANE_N8N_BASE_URL")? {
+                Some(url) => {
+                    let parsed =
+                        url::Url::parse(&url).context("invalid CONTROL_PLANE_N8N_BASE_URL")?;
+                    anyhow::ensure!(
+                        parsed.scheme() == "https",
+                        "CONTROL_PLANE_N8N_BASE_URL must be HTTPS"
+                    );
+                    anyhow::ensure!(
+                        parsed.host_str().is_some(),
+                        "CONTROL_PLANE_N8N_BASE_URL must have a host"
+                    );
+                    Some(url)
+                }
+                None => None,
+            },
             n8n_api_key: optional_secret("CONTROL_PLANE_N8N_API_KEY")?,
-            discord_automation_webhook_url: optional_env(
+            discord_automation_webhook_url: match optional_env(
                 "CONTROL_PLANE_DISCORD_AUTOMATION_WEBHOOK_URL",
-            )?,
+            )? {
+                Some(url) => {
+                    let parsed = url::Url::parse(&url)
+                        .context("invalid CONTROL_PLANE_DISCORD_AUTOMATION_WEBHOOK_URL")?;
+                    anyhow::ensure!(
+                        parsed.scheme() == "https",
+                        "CONTROL_PLANE_DISCORD_AUTOMATION_WEBHOOK_URL must be HTTPS"
+                    );
+                    anyhow::ensure!(
+                        parsed.host_str().is_some(),
+                        "CONTROL_PLANE_DISCORD_AUTOMATION_WEBHOOK_URL must have a host"
+                    );
+                    Some(url)
+                }
+                None => None,
+            },
+            allowed_redirect_origins: optional_env("CONTROL_PLANE_ALLOWED_REDIRECT_ORIGINS")?
+                .map(|value| {
+                    value
+                        .split(',')
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())
+                        .map(|s| s.trim_end_matches('/').to_owned())
+                        .collect()
+                })
+                .unwrap_or_default(),
         };
         // Both or neither: half-configured bootstrap is a deployment typo,
         // not a feature.
@@ -250,9 +294,6 @@ impl Config {
                     && !password.chars().any(char::is_control),
                 "CONTROL_PLANE_BOOTSTRAP_ADMIN_PASSWORD must be 12-128 characters"
             );
-        }
-        if config.bootstrap_admin_username.is_none() && config.bootstrap_admin_password.is_some() {
-            config.bootstrap_admin_username = Some("admin".to_owned());
         }
         Ok(config)
     }

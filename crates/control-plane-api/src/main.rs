@@ -60,6 +60,9 @@ pub struct AppState {
     discord_automation_webhook_url: Option<Arc<str>>,
     /// Shared HTTP client for outbound calls (Discord, n8n API).
     http_client: reqwest::Client,
+    /// Comma-separated allow-list of origins permitted as OAuth redirect_uri
+    /// targets. If empty, the redirect_uri origin must match the request Host.
+    allowed_redirect_origins: Arc<[String]>,
 }
 
 #[tokio::main]
@@ -117,6 +120,7 @@ async fn main() -> anyhow::Result<()> {
 
     let http_client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
+        .redirect(reqwest::redirect::Policy::none())
         .build()?;
     let state = AppState {
         store,
@@ -146,6 +150,7 @@ async fn main() -> anyhow::Result<()> {
         n8n_api_key: config.n8n_api_key.map(Arc::from),
         discord_automation_webhook_url: config.discord_automation_webhook_url.map(Arc::from),
         http_client,
+        allowed_redirect_origins: Arc::from(config.allowed_redirect_origins.as_slice()),
     };
     // Bounded best-effort notifier delivery. Nothing in the request path
     // depends on this loop; a dead channel dies in its outbox row, not here.
@@ -170,6 +175,7 @@ async fn main() -> anyhow::Result<()> {
         tokio::spawn(async move {
             let client = reqwest::Client::builder()
                 .timeout(Duration::from_secs(5))
+                .redirect(reqwest::redirect::Policy::none())
                 .build()
                 .unwrap_or_else(|_| reqwest::Client::new());
             let mut interval = tokio::time::interval(Duration::from_secs(30));
@@ -219,14 +225,17 @@ async fn main() -> anyhow::Result<()> {
         ));
     let admin_api = routes::admin_router()
         .merge(routes::operator_admin_router())
-        .merge(runtime_routes::router())
+        .merge(scoped(runtime_routes::router()))
         .merge(superadmin_area)
         .merge(scoped(attention_routes::router()))
         .merge(scoped(operations_routes::router()))
         .merge(scoped(agent_routes::router()))
         .merge(scoped(read_models::router()))
         .merge(scoped(notify_routes::router()))
-        .merge(automation_routes::operator_router())
+        .merge(
+            automation_routes::operator_router()
+                .route_layer(middleware::from_fn(auth::require_platform_admin)),
+        )
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth::authenticate,
