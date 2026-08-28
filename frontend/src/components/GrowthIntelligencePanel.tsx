@@ -208,6 +208,20 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
     }
   }
 
+  const cancelAction = async (action: PendingAutopilotAction) => {
+    setPendingMutation(true)
+    setError(null)
+    try {
+      await api.cancelOpportunityAction(props.slug, action.id)
+      setConfirming(null)
+      triggerRefresh()
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to reject action'))
+    } finally {
+      setPendingMutation(false)
+    }
+  }
+
   const viewWorkflowDetail = async (wf: AgentWorkflow) => {
     try {
       const data = await api.agentWorkflow(props.slug, wf.id)
@@ -240,7 +254,8 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
           <div class="growth-approval-list">
             <For each={pendingGrowthActions()}>{(action) => {
               const summary = payloadSummary(action)
-              const confirmKey = `approve:${action.id}`
+              const approveKey = `approve:${action.id}`
+              const rejectKey = `reject:${action.id}`
               return (
                 <div class="growth-approval-card">
                   <div class="growth-approval-body">
@@ -272,10 +287,22 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
                     </Show>
                   </div>
                   <div class="growth-approval-actions">
-                    <Show when={confirming() === confirmKey} fallback={
-                      <button class="primary" disabled={pendingMutation()} onClick={() => setConfirming(confirmKey)}>
-                        Approve
-                      </button>
+                    <Show when={confirming() === approveKey} fallback={
+                      <Show when={confirming() === rejectKey} fallback={
+                        <>
+                          <button class="primary" disabled={pendingMutation()} onClick={() => setConfirming(approveKey)}>
+                            Approve
+                          </button>
+                          <button class="danger" disabled={pendingMutation()} onClick={() => setConfirming(rejectKey)}>
+                            Reject
+                          </button>
+                        </>
+                      }>
+                        <button class="confirm-danger" disabled={pendingMutation()} onClick={() => cancelAction(action)}>
+                          {pendingMutation() ? 'Rejecting…' : 'Confirm rejection'}
+                        </button>
+                        <button class="ghost" disabled={pendingMutation()} onClick={() => setConfirming(null)}>Back</button>
+                      </Show>
                     }>
                       <button class="confirm-danger" disabled={pendingMutation()} onClick={() => approveAction(action)}>
                         {pendingMutation() ? 'Approving…' : 'Confirm approval'}

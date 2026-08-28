@@ -132,6 +132,10 @@ pub fn router() -> Router<AppState> {
             post(approve_opportunity),
         )
         .route(
+            "/tenants/{slug}/operations/opportunities/actions/{action_id}/cancel",
+            post(cancel_opportunity),
+        )
+        .route(
             "/tenants/{slug}/operations/opportunities/decisions/{decision_id}/handled-externally",
             post(handle_opportunity_externally),
         )
@@ -947,6 +951,43 @@ async fn approve_opportunity(
     )
     .await;
     object_no_store(result?, "opportunity approval")
+}
+
+/// Reject / cancel a pending autopilot action so it stops appearing in the
+/// approval queue. The brain treats this as a first-class "no" outcome.
+async fn cancel_opportunity(
+    State(state): State<AppState>,
+    Path((slug, action_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let action_id = uuid_segment(&action_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: &format!("/v1/control-plane/autopilot/actions/{action_id}/cancel"),
+                body: None,
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.autopilot_action.cancelled",
+        "autopilot_action",
+        &action_id,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(result?, "opportunity cancellation")
 }
 
 /// "Done ourselves": record that a human handled the finding outside the

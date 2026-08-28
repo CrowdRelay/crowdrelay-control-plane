@@ -153,6 +153,11 @@ export const api = {
     headers: { 'idempotency-key': crypto.randomUUID() },
     body: '{}',
   }),
+  cancelOpportunityAction: (slug: string, actionId: string) => request<{ operation_id: string; target_id: string; status: string; replayed: boolean }>(`/tenants/${encodeURIComponent(slug)}/operations/opportunities/actions/${encodeURIComponent(actionId)}/cancel`, {
+    method: 'POST',
+    headers: { 'idempotency-key': crypto.randomUUID() },
+    body: '{}',
+  }),
   markOpportunityHandledExternally: (slug: string, decisionId: string) => request<{ operation_id: string; target_id: string; status: string; replayed: boolean }>(`/tenants/${encodeURIComponent(slug)}/operations/opportunities/decisions/${encodeURIComponent(decisionId)}/handled-externally`, {
     method: 'POST',
     headers: { 'idempotency-key': crypto.randomUUID() },
