@@ -1236,7 +1236,16 @@ async fn start_fanbase_connection_oauth(
     }
     let path = format!("/v1/control-plane/fanbases/connections/oauth/{platform}/start");
     let idempotency = idempotency_key(&headers)?.to_owned();
-    let (_, value) = call(&state, &slug, "POST", &path, Some(&body), &headers, Some(&idempotency)).await?;
+    let (_, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
     object_no_store(value, "fanbase oauth start")
 }
 
@@ -1254,7 +1263,16 @@ async fn fanbase_connection_oauth_callback(
     }
     let path = format!("/v1/control-plane/fanbases/connections/oauth/{platform}/callback");
     let idempotency = idempotency_key(&headers)?.to_owned();
-    let (_, value) = call(&state, &slug, "POST", &path, Some(&body), &headers, Some(&idempotency)).await?;
+    let (_, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
     object_no_store(value, "fanbase oauth callback")
 }
 
