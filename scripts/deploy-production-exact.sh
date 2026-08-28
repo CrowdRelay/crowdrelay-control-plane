@@ -125,6 +125,20 @@ wait_for_tunnel() {
   return 1
 }
 
+wait_for_agent_service() {
+  local health=""
+  for _ in $(seq 1 60); do
+    health="$(docker inspect crowdrelay-control-plane-agent-service-1 --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
+    if [[ "$health" == "healthy" || "$health" == "running" ]]; then
+      printf '%s\n' "$health"
+      return 0
+    fi
+    sleep 1
+  done
+  printf '%s\n' "$health"
+  return 1
+}
+
 install_canonical_infra() {
   install -m 0644 "$area_source" compose.area.yml
   install -m 0644 "$caddy_source" deploy/virya-area-tunnel.Caddyfile
@@ -166,10 +180,11 @@ rollback() {
   if [[ "$mutated" == true ]]; then
     printf '\nROLLBACK=START old_tag=%s failed_tag=%s\n' "$old_tag" "$new_tag" >&2
     if restore_release_state && compose config --quiet; then
-      compose up -d --no-deps --force-recreate app virya-area-tunnel || true
+      compose up -d --no-deps --force-recreate app virya-area-tunnel agent-service || true
     fi
     rollback_health="$(wait_for_app || true)"
     tunnel_health="$(wait_for_tunnel || true)"
+    agent_health="$(wait_for_agent_service || true)"
     restored_image="$(docker inspect crowdrelay-control-plane-app-1 --format '{{.Config.Image}}' 2>/dev/null || true)"
     published="$(docker port crowdrelay-control-plane-app-1 8090/tcp 2>/dev/null | head -n1 || true)"
     if [[ "$restored_image" == "crowdrelay-control-plane:${old_tag}" \
@@ -270,6 +285,26 @@ ref="crowdrelay-control-plane:${new_tag}"
 docker tag "$image_id" "$ref"
 printf 'REGISTRY_IMAGE=PASS digest=%s revision=%s architecture=%s\n' "$image_digest" "$revision" "$architecture"
 
+# Pull the agent service image if a tag is configured. The agent service is
+# optional — if AGENT_SERVICE_IMAGE_TAG is unset, the service is skipped and
+# the control plane runs without LLM worker dispatch.
+agent_tag="$(sed -n 's/^AGENT_SERVICE_IMAGE_TAG=//p' .env | tail -n1)"
+if [[ "$agent_tag" =~ ^sha-[0-9a-f]{40}$ ]]; then
+  agent_registry_ref="ghcr.io/crowdrelay/crowdrelay-agents@${agent_tag}"
+  if ! docker image inspect "ghcr.io/crowdrelay/crowdrelay-agents:${agent_tag}" >/dev/null 2>&1; then
+    timeout 180s docker pull "$agent_registry_ref" >/dev/null \
+      || fail "unable to pull agent service image: $agent_registry_ref"
+  fi
+  agent_image_id="$(docker image inspect "$agent_registry_ref" --format '{{.Id}}')"
+  agent_revision="$(docker image inspect "$agent_image_id" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
+  [[ "$agent_revision" == "$agent_tag" ]] \
+    || fail "agent service OCI revision mismatch: got=$agent_revision expected=$agent_tag"
+  docker tag "$agent_image_id" "crowdrelay-agents:${agent_tag}"
+  printf 'AGENT_IMAGE=PASS tag=%s revision=%s\n' "$agent_tag" "$agent_revision"
+else
+  printf 'AGENT_IMAGE=SKIP reason=no-tag-configured\n'
+fi
+
 mutated=true
 install_canonical_infra
 python3 - "$new_tag" <<'PY'
@@ -288,12 +323,14 @@ PY
 chmod 600 .env
 
 compose config --quiet
-compose up -d --no-deps --force-recreate app virya-area-tunnel
+compose up -d --no-deps --force-recreate app virya-area-tunnel agent-service
 
 health="$(wait_for_app)"
 [[ "$health" == "healthy" || "$health" == "running" ]] || fail "app failed to become healthy: $health"
 tunnel_health="$(wait_for_tunnel)"
 [[ "$tunnel_health" == "healthy" ]] || fail "management tunnel failed to become healthy: $tunnel_health"
+agent_health="$(wait_for_agent_service)"
+[[ "$agent_health" == "healthy" || "$agent_health" == "running" ]] || fail "agent service failed to become healthy: $agent_health"
 
 runtime_image="$(docker inspect crowdrelay-control-plane-app-1 --format '{{.Config.Image}}')"
 [[ "$runtime_image" == "$ref" ]] || fail "runtime image mismatch: got=$runtime_image expected=$ref"
@@ -359,7 +396,7 @@ backup_dir=""
 rm -f -- "$area_source" "$caddy_source"
 mutated=false
 trap - ERR
-printf 'REMOTE_DEPLOY=PASS sha=%s digest=%s app_tunnel_unit=true readiness=healthy rollback=armed e2e=pass\n' "$target" "$image_digest"
+printf 'REMOTE_DEPLOY=PASS sha=%s digest=%s app_tunnel_agent_unit=true readiness=healthy rollback=armed e2e=pass\n' "$target" "$image_digest"
 REMOTE_DEPLOY
 
 REMOTE_AREA=""
