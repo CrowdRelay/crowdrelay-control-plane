@@ -1,4 +1,4 @@
-import { Link, Outlet, useParams, useNavigate } from '@tanstack/solid-router'
+import { Link, Outlet, useParams, useNavigate, useRouter } from '@tanstack/solid-router'
 import { Show, For, createSignal, lazy, onMount, onCleanup, type Component } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { authState } from '../lib/auth'
@@ -156,6 +156,8 @@ export const Shell: Component = () => {
   const slug = () => (params() as { slug?: string }).slug
   const profile = () => authState.profile()
   const navigate = useNavigate()
+  const router = useRouter()
+  const pathname = () => router.state.location.pathname
   const isAdmin = () => profile()?.role === 'platform_admin'
   const [switcherOpen, setSwitcherOpen] = createSignal(false)
   // Sidebar collapse state — persisted in localStorage so it survives refresh.
@@ -323,7 +325,9 @@ export const Shell: Component = () => {
             <button class="topbar-logout" type="button" onClick={() => { void authState.logout() }}>Log out</button>
           </div>
         </header>
-        <Outlet />
+        <div class="page-transition" data-key={pathname()}>
+          <Outlet />
+        </div>
         <Show when={commandPaletteOpen()}><CommandPalette /></Show>
         <ToastContainer />
       </main>

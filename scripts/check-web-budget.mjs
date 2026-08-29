@@ -58,8 +58,13 @@ if (maps.length) throw new Error(`source maps must not ship: ${maps.join(', ')}`
 // identifiers (ModelIcon with tier badge overlay), one-click connection UX
 // (OAuth primary, API key collapsible fallback), toast notifications on
 // connect/disconnect, guided onboarding wizard, live validation states.
-const JS_BUDGET = 560 * 1024
-const CSS_BUDGET = 110 * 1024
+// Raised 2026-09-01 from 560 KiB / 110 KiB for the glassmorphism redesign
+// (design tokens, animated gradient mesh, frosted glass panels, skeleton
+// shimmer, page transitions, CountUp/Sparkline/ProgressRing components,
+// responsive breakpoints, mobile sidebar drawer, command palette v2,
+// tooltips, guided tour, keyboard shortcuts, empty states with CTAs).
+const JS_BUDGET = 640 * 1024
+const CSS_BUDGET = 170 * 1024
 if (js > JS_BUDGET) throw new Error(`JS budget exceeded: ${js} > ${JS_BUDGET}`)
 if (css > CSS_BUDGET) throw new Error(`CSS budget exceeded: ${css} > ${CSS_BUDGET}`)
 console.log(`CONTROL_PLANE_WEB_BUDGET=PASS js=${js} css=${css}`)
