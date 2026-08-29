@@ -183,6 +183,7 @@ const SUBPAGES = [
   { path: '/tenants/virya/portfolio', name: 'portfolio' },
   { path: '/tenants/virya/area', name: 'area' },
   { path: '/tenants/virya/integrations', name: 'integrations' },
+  { path: '/tenants/virya/funnel', name: 'growth-funnel' },
   { path: '/tenants/virya/notifiers', name: 'notifiers' },
   { path: '/attention', name: 'operator-attention' },
   { path: '/automation', name: 'automation' },
