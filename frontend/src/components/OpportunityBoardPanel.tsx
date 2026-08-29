@@ -63,6 +63,8 @@ export function OpportunityBoardPanel(props: {
   const [pendingMutation, setPendingMutation] = createSignal<string | null>(null)
   const [confirming, setConfirming] = createSignal<string | null>(null)
   const [mutationError, setMutationError] = createSignal<string | null>(null)
+  const [showAll, setShowAll] = createSignal(false)
+  const MAX_VISIBLE = 3
 
   // One mutation at a time; destructive intent needs a second click on the
   // same control before anything is sent.
@@ -118,14 +120,16 @@ export function OpportunityBoardPanel(props: {
         <div class="inherit-card"><p>The agent has nothing parked right now. Findings appear here the moment a detector raises them.</p></div>
       </Show>
       <Show when={data().length > 0}>
-        <div class="opportunity-guide">
-          <strong>How to decide</strong>
-          <p><strong>Do it</strong> — the agent found something with an executable step. Clicking approves it through CrowdRelay's normal action path. <strong>Done ourselves</strong> — you handled it outside the system (sent the message manually, made the call, etc.). This records a success and stops the agent from re-raising it. If you're unsure, leave it — the approval will expire on its own and the agent will re-evaluate next cycle.</p>
-        </div>
+        <details class="opportunity-guide-collapse">
+          <summary>How to decide</summary>
+          <div class="opportunity-guide">
+            <p><strong>Do it</strong> — the agent found something with an executable step. Clicking approves it through CrowdRelay's normal action path. <strong>Done ourselves</strong> — you handled it outside the system (sent the message manually, made the call, etc.). This records a success and stops the agent from re-raising it. If you're unsure, leave it — the approval will expire on its own and the agent will re-evaluate next cycle.</p>
+          </div>
+        </details>
       </Show>
       <Show when={data().length > 0}>
         <div class="flag-list opportunity-list">
-          <For each={data()}>{entry => (
+          <For each={showAll() ? data() : data().slice(0, MAX_VISIBLE)}>{entry => (
             <div class="flag-row release-component-row opportunity-row">
               <div class="opportunity-body">
                 <strong>
@@ -133,7 +137,7 @@ export function OpportunityBoardPanel(props: {
                   {' '}{entry.recommended_action}
                 </strong>
                 <small>{entry.context.replaceAll('_', ' ')} · {entry.decision_kind.replaceAll('_', ' ')} · {entry.subject_kind}</small>
-                <small>{entry.reason}</small>
+                <small class="opportunity-reason">{entry.reason}</small>
                 <Show when={formatDue(entry.due_at)}>
                   {due => <small class="opportunity-deadline">deadline {due()}</small>}
                 </Show>
@@ -176,6 +180,11 @@ export function OpportunityBoardPanel(props: {
             </div>
           )}</For>
         </div>
+        <Show when={data().length > MAX_VISIBLE}>
+          <button class="ghost opportunity-show-all" onClick={() => setShowAll(s => !s)}>
+            {showAll() ? 'Show fewer' : `Show all ${data().length}`}
+          </button>
+        </Show>
       </Show>
     </>}</Show>
   </article>

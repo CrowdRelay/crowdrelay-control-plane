@@ -281,22 +281,40 @@ export function PremiumAIPanel(props: {
     }
   }
 
+  // Detect service-unavailable errors (agent service down/restarting)
+  const isServiceDown = () => {
+    const err = error()
+    if (!err) return false
+    return err.includes('unavailable') || err.includes('unreachable') || err.includes('503')
+  }
+
   return (
     <Show
       when={usage()}
       fallback={
         <div class="premium-panel">
-          {/* Error card shown outside the usage() guard so it renders
-              even when usage() is undefined (fetch failed). */}
-          <Show when={error()}>
+          <Show when={isServiceDown()}>
+            <div class="premium-service-down">
+              <div class="premium-service-down-icon">
+                <SparkIcon size={28} />
+              </div>
+              <div class="premium-service-down-text">
+                <strong>AI service is temporarily unavailable</strong>
+                <span>Free models continue to work. Premium features will return shortly — no action needed.</span>
+              </div>
+            </div>
+          </Show>
+          <Show when={error() && !isServiceDown()}>
             <div class="premium-error">{error()}</div>
           </Show>
-          <div class="premium-skeleton-hero" />
-          <div class="premium-skeleton-grid">
-            <div class="premium-skeleton-card" />
-            <div class="premium-skeleton-card" />
-            <div class="premium-skeleton-card" />
-          </div>
+          <Show when={!isServiceDown()}>
+            <div class="premium-skeleton-hero" />
+            <div class="premium-skeleton-grid">
+              <div class="premium-skeleton-card" />
+              <div class="premium-skeleton-card" />
+              <div class="premium-skeleton-card" />
+            </div>
+          </Show>
         </div>
       }
     >

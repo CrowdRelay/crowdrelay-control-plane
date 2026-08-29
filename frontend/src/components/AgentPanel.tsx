@@ -1,5 +1,5 @@
 import { For, Show, createEffect, createResource, createSignal } from 'solid-js'
-import { api, request } from '../lib/api'
+import { api, request, ApiError } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshTick } from '../lib/refresh'
 import { toast } from '../lib/toast'
@@ -320,8 +320,30 @@ export function AgentPanel(props: { slug: string }) {
   const connectedCount = () => credentials()?.length ?? 0
   const availableModelCount = () => models()?.models.length ?? 0
 
+  // Detect agent-service unavailability across shared resources
+  const isServiceDown = () => {
+    const errs = [templates.error, providers.error, models.error, credentials.error]
+    return errs.some(e => {
+      if (!e) return false
+      if (e instanceof ApiError && e.status === 503) return true
+      return e.message.includes('unavailable') || e.message.includes('unreachable')
+    })
+  }
+
   return (
     <div class="agent-panel">
+      {/* Service-unavailable banner — shown once at the top when the agent
+          service is down, instead of repeating errors in each sub-panel. */}
+      <Show when={isServiceDown()}>
+        <div class="agent-service-down">
+          <AntIcon size={20} />
+          <div>
+            <strong>Agent service is temporarily unavailable</strong>
+            <span>Free models continue to work. Premium features and provider management will return shortly.</span>
+          </div>
+        </div>
+      </Show>
+
       {/* Tab navigation */}
       <div class="area-step-tabs agent-tabs">
         <For each={[{id: 'providers', label: 'Providers'}, {id: 'tasks', label: 'Tasks'}, {id: 'growth', label: 'Growth Intelligence'}, {id: 'premium', label: 'Premium AI'}, {id: 'usage', label: 'AI Usage'}, {id: 'brain', label: 'Brain'}] as const}>

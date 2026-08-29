@@ -175,9 +175,8 @@ export const LoginHero: Component = () => (
     <div class="hero-content">
       <h2>Turn signals into real-world actions.</h2>
       <p class="hero-lead">
-        CrowdRelay evaluates incoming signals and context, makes decisions based on your policies, and executes
-        actions across your tools. Now with AI agents that leverage your tenant data to write press pitches,
-        social posts, and campaign analysis — using free or your own paid LLM accounts.
+        CrowdRelay evaluates signals, makes policy-driven decisions, and executes actions across your tools —
+        with AI agents that write press pitches, social posts, and campaign analysis using free or paid LLMs.
       </p>
 
       <ul class="hero-features">

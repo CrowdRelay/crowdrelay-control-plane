@@ -36,6 +36,14 @@
   overflow: hidden;
 }
 
+/* Clamp lead paragraph to 2 lines for a compact, professional look */
+.hero-lead {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* Subtle animated grid background */
 .login-hero::before {
   content: '';
@@ -602,4 +610,55 @@
     border-bottom: 1px solid var(--login-line);
   }
   .hero-stat:last-child { border-bottom: 0; }
+}
+
+/* === Ultrawide / large desktop (3440x1440 and similar) === */
+/* Fit the hero into the viewport without scrolling on large screens.
+   Dense, professional layout: single-row features, compact diagram, no footer. */
+@media (min-width: 1400px) and (min-height: 900px) {
+  .login-hero {
+    height: 100vh;
+    max-height: 100vh;
+    padding: 28px 48px 24px;
+    gap: 20px;
+  }
+
+  .hero-features {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .hero-foot {
+    display: none;
+  }
+
+  .login-hero h2 {
+    font-size: clamp(1.6rem, 2.5vw, 2.8rem);
+  }
+
+  .flow-diagram {
+    max-width: 720px;
+    max-height: 220px;
+  }
+
+  .hero-stat {
+    padding: 12px 10px;
+  }
+
+  .hero-contact {
+    padding: 16px;
+  }
+}
+
+@media (min-width: 2000px) {
+  .login-hero {
+    padding: 40px 64px 32px;
+  }
+
+  .flow-diagram {
+    max-width: 880px;
+  }
+
+  .hero-features li {
+    padding: 20px 24px;
+  }
 }

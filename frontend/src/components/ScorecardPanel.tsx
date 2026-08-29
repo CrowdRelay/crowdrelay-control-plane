@@ -122,7 +122,7 @@ export function ScorecardPanel() {
         <div>
           <span>Live capabilities</span>
           <strong>{count(d().status.live_capabilities.length)}</strong>
-          <small>{d().status.live_capabilities.join(', ') || 'none'}</small>
+          <small>{d().status.live_capabilities.length > 0 ? d().status.live_capabilities.join(', ') : 'no active capabilities'}</small>
         </div>
         <Show when={d().status.parked_capabilities.length > 0}>
           <div class="operations-attention">
@@ -162,10 +162,13 @@ export function ScorecardPanel() {
           <div><span>Unmeasured</span><strong>{count(d().track_record.unmeasured)}</strong><small>{bpsToPercent(d().track_record.measurement_coverage_basis_points)} coverage</small></div>
         </div>
         <Show when={d().track_record.measurement_coverage_basis_points != null && (d().track_record.measurement_coverage_basis_points as number) < 5000}>
-          <div class="operations-attention">
-            <strong>Low measurement coverage</strong>
-            <span>Less than half of executed actions have a measured outcome. The agent is busy but nobody can tell if the work is paying off.</span>
-          </div>
+          <details class="ops-details-warning">
+            <summary>Low measurement coverage — click for details</summary>
+            <div class="operations-attention">
+              <strong>Low measurement coverage</strong>
+              <span>Less than half of executed actions have a measured outcome. The agent is busy but nobody can tell if the work is paying off.</span>
+            </div>
+          </details>
         </Show>
       </section>
 

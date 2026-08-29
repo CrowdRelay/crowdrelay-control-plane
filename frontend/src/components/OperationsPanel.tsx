@@ -248,8 +248,9 @@ export function OperationsPanel(props: {
     }</Show>
 
     <Show when={unavailable()}>
-      <div class="warning-card operations-warning" role="status">
-        Operational channel is partially unavailable. Existing tenant runtime telemetry remains visible above; private p95, feature and Autopilot controls will recover automatically.
+      <div class="ops-degraded-badge" role="status">
+        <span class="ops-degraded-dot" />
+        Operational channel partially unavailable — controls will recover automatically
       </div>
     </Show>
     <Show when={mutationError()}>{message => <div class="error-card operations-error" role="alert">{message()}</div>}</Show>
@@ -277,7 +278,8 @@ export function OperationsPanel(props: {
 
     <div class="operations-split">
       <section class="operations-section">
-        <div class="operations-section-head"><div><span class="eyebrow">FEATURES</span><h3>Runtime switches</h3></div><small>{flags.data?.length ?? 0} declared</small></div>
+        <details>
+          <summary class="operations-section-head"><div><span class="eyebrow">FEATURES</span><h3>Runtime switches</h3></div><small>{flags.data?.length ?? 0} declared</small></summary>
         <Show when={flags.data} fallback={flags.error ? null : <div class="mini-skeleton"/>}>{items => <div class="flag-list">
           <For each={items()}>{flag => <div class="flag-row">
             <div><strong>{flagLabel(flag.key)}</strong><small>{flag.reason || `v${flag.version} · no override reason`}</small></div>
@@ -292,26 +294,28 @@ export function OperationsPanel(props: {
             ><span /></button>
           </div>}</For>
         </div>}</Show>
+        </details>
       </section>
 
       <section class="operations-section autopilot-section">
-        <div class="operations-section-head">
-          <div><span class="eyebrow">AUTOPILOT</span><h3>Authority policies</h3></div>
-          <div class="row-health">
-            <StatusBadge status={autopilot.data?.runtime_enabled ? 'runtime on' : 'runtime off'} tone={autopilot.data?.runtime_enabled ? 'good' : 'muted'} />
-            {/* Killswitch / full-enable: one switch, one confirmation. */}
-            <Show when={autopilot.data && autopilot.data.policies.length > 0}>
-              <button
-                class={`ghost ${confirming()?.startsWith('autopilot') ? '' : 'danger-ghost'}`}
-                disabled={pendingMutation() !== null}
-                aria-label={confirming() === 'autopilot-disable' ? 'Cancel bulk action' : 'Toggle all Autopilot policies'}
-                onClick={() => setConfirming(confirming()?.startsWith('autopilot') ? null : (autopilot.data!.policies.some(policy => policy.enabled) ? 'autopilot-disable' : 'autopilot-enable'))}
-              >{confirming()?.startsWith('autopilot')
-                ? 'Cancel'
-                : autopilot.data!.policies.some(policy => policy.enabled) ? 'Kill switch: disable all' : 'Enable all'}</button>
-            </Show>
-          </div>
-        </div>
+        <details>
+          <summary class="operations-section-head">
+            <div><span class="eyebrow">AUTOPILOT</span><h3>Authority policies</h3></div>
+            <div class="row-health">
+              <StatusBadge status={autopilot.data?.runtime_enabled ? 'runtime on' : 'runtime off'} tone={autopilot.data?.runtime_enabled ? 'good' : 'muted'} />
+              {/* Killswitch / full-enable: one switch, one confirmation. */}
+              <Show when={autopilot.data && autopilot.data.policies.length > 0}>
+                <button
+                  class={`ghost ${confirming()?.startsWith('autopilot') ? '' : 'danger-ghost'}`}
+                  disabled={pendingMutation() !== null}
+                  aria-label={confirming() === 'autopilot-disable' ? 'Cancel bulk action' : 'Toggle all Autopilot policies'}
+                  onClick={(e) => { e.preventDefault(); setConfirming(confirming()?.startsWith('autopilot') ? null : (autopilot.data!.policies.some(policy => policy.enabled) ? 'autopilot-disable' : 'autopilot-enable')) }}
+                >{confirming()?.startsWith('autopilot')
+                  ? 'Cancel'
+                  : autopilot.data!.policies.some(policy => policy.enabled) ? 'Kill switch: disable all' : 'Enable all'}</button>
+              </Show>
+            </div>
+          </summary>
         <Show when={confirming()?.startsWith('autopilot')}><div class="warning-card confirm-card" role="alertdialog" aria-label="Bulk Autopilot change">
           <strong>{confirmCopy()!.title}</strong>
           <span>{confirmCopy()!.body}</span>
@@ -340,6 +344,7 @@ export function OperationsPanel(props: {
             </div>
           </Show>
         </>}</Show>
+        </details>
       </section>
     </div>
   </article>

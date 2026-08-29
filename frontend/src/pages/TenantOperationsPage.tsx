@@ -14,13 +14,15 @@ import { BeaconSignalPanel } from '../components/BeaconSignalPanel'
 import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
+import { CollapsibleSection } from '../components/CollapsibleSection'
 import { refreshTick } from '../lib/refresh'
+import type { TenantOperationsReadModel } from '../lib/types'
+
+const metric = (value: number | undefined | null, suffix = '') =>
+  value == null ? '—' : `${value.toLocaleString()}${suffix}`
 
 export function TenantOperationsPage() {
   const params = useParams({ from: '/tenants/$slug/operations' })
-  // One purpose-built read model, one initial request. The Control Plane fans
-  // the four upstream sections out concurrently and reports the ones it could
-  // not serve in `degraded`; the browser orchestrates nothing.
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug, refreshTick()],
     queryFn: () => api.tenantOperations(params().slug),
@@ -29,8 +31,30 @@ export function TenantOperationsPage() {
     refetchInterval: 15_000,
     staleTime: 10_000,
   }))
-  // Mutations stay on their own routes and refresh this model afterwards.
   const refresh = () => model.refetch()
+
+  // KPI strip values — pulled from the existing read model, no extra fetch
+  const d = (): TenantOperationsReadModel | undefined => model.data
+  const opCount = () => d()?.opportunities?.length ?? 0
+  const growth = () => d()?.growth
+  const autopilot = () => d()?.autopilot
+  const summary = () => d()?.summary
+  const deadJobs = () => {
+    const s = summary()
+    if (!s) return 0
+    return s.outbox.dead + s.deliveries.dead + s.push.dead
+  }
+  const healthTone = (): 'good' | 'warn' | 'bad' | 'muted' => {
+    const s = summary()
+    if (!s) return 'muted'
+    if (s.watchdog.critical_alerts > 0 || deadJobs() > 0) return 'bad'
+    if (s.watchdog.active_alerts > 0 || s.http.p95_ms > 1000) return 'warn'
+    return 'good'
+  }
+  const healthLabel = () => {
+    const t = healthTone()
+    return t === 'good' ? 'healthy' : t === 'warn' ? 'attention' : t === 'bad' ? 'degraded' : 'loading'
+  }
 
   return <section class="page">
     <div class="page-head">
@@ -40,37 +64,95 @@ export function TenantOperationsPage() {
         <p>Live CrowdRelay telemetry, runtime switches, Autopilot authority, the opportunity board and growth delivery.</p>
       </div>
     </div>
+
     <Show when={model.error}>
       <div class="error-card" role="alert">{model.error instanceof Error ? model.error.message : 'Tenant operations channel unavailable'}</div>
     </Show>
-    {/* Skeleton only before the first response. A refresh keeps the rendered
-        page, and a section the channel could not serve degrades on its own. */}
+
     <Show when={!model.error && model.isPending}><div class="skeleton-block"/></Show>
-    <Show when={model.data}>{data => <>
-      <ScorecardPanel />
-      <ReplyTriagePanel />
+
+    <Show when={model.data}>{<>
+      {/* ─── Zone 1: KPI summary strip ─────────────────────────── */}
+      <div class="ops-kpi-strip">
+        <div class="ops-kpi-card" classList={{ 'tone-good': autopilot()?.runtime_enabled, 'tone-muted': !autopilot()?.runtime_enabled }}>
+          <span class="ops-kpi-label">Autopilot</span>
+          <strong>{autopilot()?.runtime_enabled ? 'on' : 'off'}</strong>
+          <small>{autopilot()?.queued_actions ?? 0} queued</small>
+        </div>
+        <div class="ops-kpi-card">
+          <span class="ops-kpi-label">Opportunities</span>
+          <strong>{metric(opCount())}</strong>
+          <small>awaiting decision</small>
+        </div>
+        <div class="ops-kpi-card" classList={{ 'tone-warn': deadJobs() > 0 }}>
+          <span class="ops-kpi-label">Health</span>
+          <strong>{healthLabel()}</strong>
+          <small>{deadJobs() > 0 ? `${deadJobs()} dead` : `${summary()?.http.p95_ms ?? 0}ms p95`}</small>
+        </div>
+        <div class="ops-kpi-card">
+          <span class="ops-kpi-label">Growth delivered</span>
+          <strong>{metric(growth()?.totals.delivered)}</strong>
+          <small>{metric(growth()?.totals.pending)} pending</small>
+        </div>
+        <div class="ops-kpi-card">
+          <span class="ops-kpi-label">Outreach</span>
+          <strong>{metric(growth()?.outreach.active_opportunities)}</strong>
+          <small>{metric(growth()?.outreach.awaiting_reply)} awaiting reply</small>
+        </div>
+        <div class="ops-kpi-card">
+          <span class="ops-kpi-label">Autopilot 24h</span>
+          <strong>{metric(autopilot()?.succeeded_24h)}</strong>
+          <small class={autopilot() && autopilot()!.failed_24h > 0 ? 'tone-bad' : ''}>{autopilot() ? `${autopilot()!.failed_24h} failed` : '—'}</small>
+        </div>
+      </div>
+
+      {/* ─── Zone 2: Primary panels (always visible) ────────────── */}
       <OpportunityBoardPanel
         slug={params().slug}
-        opportunities={data().opportunities}
-        degraded={data().degraded.includes('opportunities')}
+        opportunities={d()?.opportunities ?? null}
+        degraded={d()?.degraded.includes('opportunities') ?? false}
         refresh={refresh}
       />
+      <ReplyTriagePanel />
       <OperationsPanel
         slug={params().slug}
-        summary={data().summary}
-        flags={data().flags}
-        autopilot={data().autopilot}
-        degraded={data().degraded}
+        summary={d()?.summary ?? null}
+        flags={d()?.flags ?? null}
+        autopilot={d()?.autopilot ?? null}
+        degraded={d()?.degraded ?? []}
         refresh={refresh}
       />
-      <GrowthPanel growth={data().growth} degraded={data().degraded.includes('growth')} />
-      <GrowthMetricsPanel slug={params().slug} />
-      <GrowthObjectivesPanel slug={params().slug} />
-      <OutreachPipelinePanel slug={params().slug} />
-      <BeaconSignalPanel slug={params().slug} />
-      <PressRoomPanel slug={params().slug} />
-      <ReleaseCampaignsPanel slug={params().slug} />
-      <PlayLedgerPanel slug={params().slug} />
+
+      {/* ─── Zone 3: Detail panels (collapsible, 2-column grid) ── */}
+      <div class="ops-detail-grid">
+        <CollapsibleSection eyebrow="SCORECARD" title="Agent scorecard" badge="detail">
+          <ScorecardPanel />
+        </CollapsibleSection>
+        <CollapsibleSection eyebrow="GROWTH" title="Growth delivery" badge={growth()?.totals.pending ? `${growth()!.totals.pending} pending` : 'idle'}>
+          <GrowthPanel growth={d()?.growth ?? null} degraded={d()?.degraded.includes('growth') ?? false} />
+        </CollapsibleSection>
+        <CollapsibleSection eyebrow="METRICS" title="Growth metrics">
+          <GrowthMetricsPanel slug={params().slug} />
+        </CollapsibleSection>
+        <CollapsibleSection eyebrow="OBJECTIVES" title="Growth objectives">
+          <GrowthObjectivesPanel slug={params().slug} />
+        </CollapsibleSection>
+        <CollapsibleSection eyebrow="OUTREACH" title="Outreach pipeline">
+          <OutreachPipelinePanel slug={params().slug} />
+        </CollapsibleSection>
+        <CollapsibleSection eyebrow="BEACON" title="Beacon signals">
+          <BeaconSignalPanel slug={params().slug} />
+        </CollapsibleSection>
+        <CollapsibleSection eyebrow="PRESS" title="Press room">
+          <PressRoomPanel slug={params().slug} />
+        </CollapsibleSection>
+        <CollapsibleSection eyebrow="RELEASES" title="Release campaigns">
+          <ReleaseCampaignsPanel slug={params().slug} />
+        </CollapsibleSection>
+        <CollapsibleSection eyebrow="LEDGER" title="Play ledger">
+          <PlayLedgerPanel slug={params().slug} />
+        </CollapsibleSection>
+      </div>
     </>}</Show>
   </section>
 }

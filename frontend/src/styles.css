@@ -512,6 +512,15 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 /* Error banner */
 .premium-error{background:#2d1a1a;border:1px solid #5c2d2d;border-radius:8px;padding:.6rem .9rem;font-size:.78rem;color:#fca5a5}
+.premium-service-down{display:flex;align-items:flex-start;gap:14px;padding:1.1rem 1.25rem;border:1px solid #3a3520;border-radius:12px;background:linear-gradient(135deg,#1a1810,#15130c);color:#d4c878}
+.premium-service-down-icon{flex:0 0 auto;color:#c9b95e;margin-top:2px}
+.premium-service-down-text{display:flex;flex-direction:column;gap:4px}
+.premium-service-down-text strong{font-size:.9rem;color:#e8dc8a}
+.premium-service-down-text span{font-size:.8rem;color:#a89f5e;line-height:1.45}
+.agent-service-down{display:flex;align-items:center;gap:12px;padding:.75rem 1rem;margin-bottom:1rem;border:1px solid #3a3520;border-radius:10px;background:linear-gradient(135deg,#1a1810,#15130c);color:#d4c878}
+.agent-service-down svg{flex:0 0 auto;color:#c9b95e}
+.agent-service-down strong{display:block;font-size:.85rem;color:#e8dc8a}
+.agent-service-down span{display:block;font-size:.78rem;color:#a89f5e;margin-top:2px}
 
 /* Section */
 .premium-section{background:#14161c;border:1px solid #252830;border-radius:10px;padding:1.25rem}
@@ -1095,3 +1104,57 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .ops-heatmap-cell:hover{transform:scale(1.4);z-index:1}
 .ops-heatmap-legend{display:flex;align-items:center;gap:6px;font-size:.65rem;color:var(--muted)}
 .ops-heatmap-legend-bar{width:80px;height:8px;border-radius:4px;background:linear-gradient(90deg,rgba(155,135,245,.08),rgba(155,135,245,.5),var(--accent))}
+
+/* === Operations dashboard redesign === */
+
+/* KPI summary strip — Zone 1 */
+.ops-kpi-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:24px}
+.ops-kpi-card{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:linear-gradient(180deg,#11141a,#0d0f13);transition:border-color .15s ease}
+.ops-kpi-card:hover{border-color:#2e333d}
+.ops-kpi-card.tone-good{border-color:#1e3a2e}
+.ops-kpi-card.tone-warn{border-color:#3a3520}
+.ops-kpi-card.tone-muted{opacity:.7}
+.ops-kpi-label{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.ops-kpi-card strong{font-size:1.5rem;font-weight:800;letter-spacing:-.02em}
+.ops-kpi-card small{font-size:.72rem;color:var(--muted)}
+.ops-kpi-card small.tone-bad{color:#fca5a5}
+
+/* Detail grid — Zone 3 (2-column on wide screens) */
+.ops-detail-grid{display:grid;grid-template-columns:1fr;gap:20px;margin-top:24px}
+@media(min-width:1100px){.ops-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Collapsible section */
+.collapsible-section{padding:0;overflow:hidden}
+.collapsible-section.open{border-color:#2e333d}
+.collapsible-header{display:flex;justify-content:space-between;align-items:center;gap:14px;width:100%;padding:16px 18px;background:none;border:none;cursor:pointer;text-align:left;transition:background .15s ease}
+.collapsible-header:hover{background:rgba(155,135,245,0.04)}
+.collapsible-header-text{display:flex;flex-direction:column;gap:4px;min-width:0}
+.collapsible-header-text h3{margin:0;font-size:1rem;font-weight:700}
+.collapsible-header-meta{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.collapsible-chevron{color:var(--muted);transition:transform .2s ease}
+.collapsible-section.open .collapsible-chevron{transform:rotate(180deg)}
+.collapsible-body{padding:0 18px 18px}
+
+/* Collapsible details/summary within operations panels */
+.ops-details-warning{margin-top:14px}
+.ops-details-warning>summary{cursor:pointer;font-size:.78rem;color:var(--muted);padding:8px 0}
+.ops-details-warning>summary:hover{color:#aeb4c0}
+
+/* Operations panel collapsible sections */
+.operations-split .operations-section details summary{list-style:none;cursor:pointer}
+.operations-split .operations-section details summary::-webkit-details-marker{display:none}
+.operations-split .operations-section details summary .operations-section-head{margin:0}
+.operations-split .operations-section details[open] summary .operations-section-head h3::after{content:' ↓';font-size:.7rem;color:var(--muted)}
+
+/* Compact degraded badge for OperationsPanel */
+.ops-degraded-badge{display:flex;align-items:center;gap:8px;margin-top:12px;padding:8px 14px;border:1px solid #3a3520;border-radius:8px;background:#1a1810;color:#d4c878;font-size:.78rem}
+.ops-degraded-dot{width:8px;height:8px;border-radius:50%;background:#c9b95e;flex-shrink:0;animation:pulse 2s infinite}
+
+/* Opportunity board — collapsible guide + show-all + truncation */
+.opportunity-guide-collapse{margin-bottom:14px}
+.opportunity-guide-collapse>summary{cursor:pointer;font-size:.78rem;color:var(--muted);padding:8px 0;border-bottom:1px solid var(--line)}
+.opportunity-guide-collapse>summary:hover{color:#aeb4c0}
+.opportunity-guide-collapse[open]>summary{margin-bottom:10px}
+.opportunity-reason{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.opportunity-show-all{margin-top:12px;width:100%;text-align:center}
+
