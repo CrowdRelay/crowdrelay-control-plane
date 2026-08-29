@@ -1,17 +1,11 @@
 import { Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { refreshTick } from '../lib/refresh'
+import { formatTimestamp } from '../lib/format'
 import type { RuntimeHealth, TenantRuntimeSnapshot } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 
 const runtimeTone = (health: RuntimeHealth) => health === 'healthy' ? 'good' : health === 'degraded' ? 'bad' : health === 'stale' ? 'warn' : 'muted'
-
-const formatTimestamp = (value: string | null | undefined) => {
-  if (!value) return '—'
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString()
-}
 
 export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntimeSnapshot }) {
   // This query is deliberately owned by the smallest live surface. The tenant

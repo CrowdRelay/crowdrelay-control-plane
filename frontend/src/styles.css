@@ -396,11 +396,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .agent-task-table th{text-align:left;padding:.4rem .5rem;color:#8b92a0;font-weight:500;border-bottom:1px solid #252830}
 .agent-task-table td{padding:.4rem .5rem;border-bottom:1px solid #1e2128}
 .agent-task-table .link{background:none;border:none;color:#7663d8;cursor:pointer;font:inherit;padding:0}
-.agent-health-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.6rem}
-.agent-health-card{background:#1a1d24;border:1px solid #2a2d36;border-radius:5px;padding:.6rem}
-.agent-health-name{font-size:.78rem;font-weight:600;color:#d9dde6;margin-bottom:.3rem}
-.agent-health-status{margin-bottom:.2rem}
-.agent-health-quota{font-size:.7rem;color:#8b92a0}
 .agent-result-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;padding:2rem}
 .agent-result-modal{background:#14161c;border:1px solid #2a2d36;border-radius:8px;max-width:700px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
 .agent-result-header{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid #252830}
@@ -432,7 +427,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .agent-key-input{background:#1a1d24;border:1px solid #2a2d36;border-radius:4px;padding:.5rem;color:#d9dde6;font:inherit;font-size:.85rem;width:100%}
 .agent-key-input:focus{border-color:#7663d8;outline:none}
 .agent-suggestions{margin-bottom:1rem;padding:.85rem;background:#161920;border:1px solid #2a2d36;border-radius:6px}
-.agent-suggestions-label{font-size:.73rem;color:#8b92a0;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.05em}
 .agent-suggestion-card{display:block;width:100%;text-align:left;background:#1a1d24;border:1px solid #2a2d36;border-radius:5px;padding:.6rem .75rem;margin-bottom:.4rem;cursor:pointer;color:inherit;font:inherit;transition:border-color .15s}
 .agent-suggestion-card:hover{border-color:#7663d8}
 .agent-suggestion-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.2rem}
@@ -468,7 +462,24 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 /* ─── Premium AI Panel ──────────────────────────────────────────────── */
 .premium-panel{display:flex;flex-direction:column;gap:1.25rem}
-.premium-loading{padding:2rem;text-align:center;color:#8b92a0;font-size:.85rem}
+
+/* Tab panel visibility — keep-mounted pattern prevents blink on tab switch */
+.tab-hidden{display:none!important}
+
+/* Skeleton shimmer for initial load (no blink, no flash) */
+.premium-skeleton-hero{background:linear-gradient(90deg,#14161c 25%,#1c1f28 50%,#14161c 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border:1px solid #1e2128;border-radius:12px;min-height:80px;margin-bottom:1.25rem}
+.premium-skeleton-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}
+.premium-skeleton-card{background:linear-gradient(90deg,#14161c 25%,#1c1f28 50%,#14161c 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border:1px solid #1e2128;border-radius:12px;min-height:160px}
+
+/* Connection method badge — shows OAuth vs API key after connection */
+.premium-method-badge{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:3px 10px;border-radius:999px;font-size:.68rem;font-weight:600;letter-spacing:.02em}
+.premium-method-badge.oauth{background:#1a2a4e;color:#7db4ff;border:1px solid #2a4a7e}
+.premium-method-badge.apikey{background:#2a2a1a;color:#d4b860;border:1px solid #4a4a2a}
+.premium-method-icon{font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:.62rem}
+.premium-method-account{opacity:.8;font-weight:400}
+
+/* OAuth unavailable hint */
+.premium-oauth-unavailable{font-size:.68rem;color:#6f7785;font-style:italic}
 
 /* Hero — budget + stats */
 .premium-hero{display:flex;justify-content:space-between;align-items:stretch;gap:1.5rem;background:linear-gradient(135deg,#1a1530 0%,#14161c 50%,#12141a 100%);border:1px solid #2d2640;border-radius:12px;padding:1.5rem}
@@ -671,11 +682,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .chat-action-btn{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:6px;padding:.4rem .8rem;cursor:pointer;font:inherit;font-size:.75rem;font-weight:500;transition:opacity .15s}
 .chat-action-btn:hover{opacity:.85}
 .chat-action-btn:disabled{opacity:.5;cursor:not-allowed}
-.chat-typing{display:flex;gap:4px;padding:.6rem .85rem;background:#1e2130;border:1px solid #2a2d36;border-radius:12px;border-bottom-left-radius:4px;width:fit-content}
-.chat-typing span{width:7px;height:7px;border-radius:50%;background:#6b7280;animation:chatBounce 1.4s infinite}
-.chat-typing span:nth-child(2){animation-delay:.2s}
-.chat-typing span:nth-child(3){animation-delay:.4s}
-@keyframes chatBounce{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-6px);opacity:1}}
 .chat-error{padding:.5rem .85rem;background:#3b1d2e;color:#e899b8;font-size:.72rem;border-top:1px solid #2a2d36}
 .chat-input-area{display:flex;align-items:flex-end;gap:.5rem;padding:.7rem .85rem;background:#1a1d24;border-top:1px solid #2a2d36}
 .chat-input{flex:1;background:#12141a;border:1px solid #2a2d36;color:#e4e7ee;border-radius:8px;padding:.5rem .7rem;font:inherit;font-size:.8rem;resize:none;max-height:100px;min-height:38px;line-height:1.4}
@@ -703,8 +709,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .kpi-label{font-size:.72rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.04em}
 .kpi-value{font-size:1.5rem;font-weight:700;color:#f7f7f8}
 
-.audience-top-cities{margin-top:1rem}
-.audience-top-cities h4{font-size:.8rem;color:#9ca3af;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.04em}
 .city-chips{display:flex;flex-wrap:wrap;gap:.4rem}
 
 .fan-search-bar{margin-bottom:.75rem}
@@ -763,8 +767,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .trend-delta{font-size:.72rem;color:#9ca3af}
 
 .coverage-bar-wrap{margin-bottom:1rem}
-.coverage-bar-track{height:8px;background:#1e2128;border-radius:4px;overflow:hidden}
-.coverage-bar-fill{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);border-radius:4px;transition:width .3s}
 
 .objective-list{display:flex;flex-direction:column;gap:.75rem}
 .objective-card{background:#15171c;border:1px solid #2a2d36;border-radius:10px;padding:.85rem 1rem}

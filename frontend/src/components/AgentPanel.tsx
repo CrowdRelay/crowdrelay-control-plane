@@ -1,6 +1,6 @@
 import { For, Show, createEffect, createResource, createSignal } from 'solid-js'
 import { api, request } from '../lib/api'
-import { errorMessage } from '../lib/format'
+import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshTick } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { LlmProviderIcon } from './ProviderIcon'
@@ -42,16 +42,6 @@ const credTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
 
 const priorityTone = (p: string): 'good' | 'warn' | 'muted' =>
   p === 'high' ? 'good' : p === 'medium' ? 'warn' : 'muted'
-
-const formatAge = (iso: string) => {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
-}
 
 export function AgentPanel(props: { slug: string }) {
   const [activeTab, setActiveTab] = createSignal<'providers' | 'tasks' | 'growth' | 'premium'>('providers')
@@ -332,15 +322,18 @@ export function AgentPanel(props: { slug: string }) {
         </For>
       </div>
 
-      <Show when={activeTab() === 'growth'}>
+      {/* All tab panels are kept mounted — CSS toggles visibility.
+          This eliminates the blink/flash on tab switch because resources
+          are created once and never re-fetch when re-entering a tab. */}
+      <div class={activeTab() === 'growth' ? '' : 'tab-hidden'}>
         <GrowthIntelligencePanel slug={props.slug} />
-      </Show>
+      </div>
 
-      <Show when={activeTab() === 'premium'}>
-        <PremiumAIPanel slug={props.slug} />
-      </Show>
+      <div class={activeTab() === 'premium' ? '' : 'tab-hidden'}>
+        <PremiumAIPanel slug={props.slug} providers={providers()} credentials={credentials()} refetchCreds={refetchCreds} active={activeTab() === 'premium'} models={models()} />
+      </div>
 
-      <Show when={activeTab() === 'providers'}>
+      <div class={activeTab() === 'providers' ? '' : 'tab-hidden'}>
       {/* Provider connections — always visible, not behind a toggle */}
       <div class="agent-section">
         <div class="agent-section-head">
@@ -389,12 +382,12 @@ export function AgentPanel(props: { slug: string }) {
           </div>
         </div>
 
-        {/* Powerhouse paid models — bring your own key or OAuth */}
+        {/* Developer models — API key only, no OAuth */}
         <div class="agent-provider-group">
-          <h4 class="agent-group-label">Powerhouse Models <span class="badge paid-chip">bring your own key</span></h4>
-          <p class="agent-group-intro">Connect your own paid AI accounts — OpenAI, Anthropic, Google, xAI, and more. Your keys are encrypted at rest and never leave the platform. OAuth2 sign-in is available for select providers (beta).</p>
+          <h4 class="agent-group-label">Developer Models <span class="badge paid-chip">API key</span></h4>
+          <p class="agent-group-intro">Developer-accessible models with API keys — Groq, xAI, Zhipu, Cognition/Devin. Your keys are encrypted at rest and never leave the platform.</p>
           <div class="agent-providers">
-            <For each={providers()?.filter(p => !p.freeTier && p.authMethod !== 'none')}>
+            <For each={providers()?.filter(p => (p.tier === 'free' || (!p.tier && !p.freeTier)) && p.authMethod !== 'none' && !p.oauth)}>
               {(provider) => {
                 const cred = () => credentials()?.find(c => c.provider === provider.id)
                 return (
@@ -409,35 +402,18 @@ export function AgentPanel(props: { slug: string }) {
                       <div class="agent-provider-status">
                         <StatusBadge status={cred()!.status} tone={credTone(cred()!.status)} />
                         <Show when={cred()!.last_validated_at}>
-                          <span class="muted">validated {formatAge(cred()!.last_validated_at!)}</span>
+                          <span class="muted">validated {formatIsoAge(cred()!.last_validated_at!)}</span>
                         </Show>
                       </div>
                     </Show>
                   </div>
                   <div class="agent-provider-actions">
-                    <Show when={provider.authMethod === 'none'}>
-                      <StatusBadge status="free" tone="good" />
-                    </Show>
                     <Show when={provider.authMethod === 'api_key' && !cred()}>
                       <button class="agent-btn" onClick={() => setPastingProvider(provider.id)}>
                         Paste API Key
                       </button>
                     </Show>
                     <Show when={provider.authMethod === 'api_key' && cred()}>
-                      <button class="agent-btn-danger" onClick={() => disconnect(provider.id)}>
-                        Disconnect
-                      </button>
-                    </Show>
-                    <Show when={provider.oauthAvailable && !cred()}>
-                      <button class={`oauth-btn oauth-btn-${provider.id}`} onClick={() => startOauth(provider.id)}>
-                        <LlmProviderIcon providerId={provider.id} size={16} />
-                        <span>{provider.oauth?.kind === 'device' ? 'Sign in with device code' : `Sign in with ${provider.name}`}</span>
-                      </button>
-                      <Show when={provider.oauth?.experimental}>
-                        <span class="badge beta-chip">beta</span>
-                      </Show>
-                    </Show>
-                    <Show when={provider.oauthAvailable && cred()}>
                       <button class="agent-btn-danger" onClick={() => disconnect(provider.id)}>
                         Disconnect
                       </button>
@@ -450,9 +426,9 @@ export function AgentPanel(props: { slug: string }) {
           </div>
         </div>
       </div>
-      </Show>
+      </div>
 
-      <Show when={activeTab() === 'tasks'}>
+      <div class={activeTab() === 'tasks' ? '' : 'tab-hidden'}>
       {/* Autopilot brain → agent suggestions — the bridge between operations data and LLM execution */}
       <Show when={suggestions() && suggestions()!.length > 0}>
         <div class="agent-section">
@@ -656,8 +632,8 @@ export function AgentPanel(props: { slug: string }) {
                         {sched.enabled ? '✓ enabled' : 'disabled'}
                       </button>
                     </td>
-                    <td class="muted">{sched.last_run_at ? formatAge(sched.last_run_at) : 'never'}</td>
-                    <td class="muted">{sched.next_run_at ? formatAge(sched.next_run_at) : '—'}</td>
+                    <td class="muted">{sched.last_run_at ? formatIsoAge(sched.last_run_at) : 'never'}</td>
+                    <td class="muted">{sched.next_run_at ? formatIsoAge(sched.next_run_at) : '—'}</td>
                     <td><button class="agent-btn-danger" onClick={() => deleteSchedule(sched.id)}>Delete</button></td>
                   </tr>
                 )}
@@ -688,7 +664,7 @@ export function AgentPanel(props: { slug: string }) {
                   <tr>
                     <td>{task.template_id}</td>
                     <td><StatusBadge status={task.status} tone={statusTone(task.status)} /></td>
-                    <td class="muted">{formatAge(task.created_at)}</td>
+                    <td class="muted">{formatIsoAge(task.created_at)}</td>
                     <td>
                       <Show when={task.status === 'completed'}>
                         <button class="link" onClick={() => viewResult(task.id)}>View →</button>
@@ -704,7 +680,7 @@ export function AgentPanel(props: { slug: string }) {
           </table>
         </Show>
       </div>
-      </Show>
+      </div>
 
       <Show when={viewingResult()}>
         <div class="agent-result-overlay" onClick={() => setViewingResult(null)}>

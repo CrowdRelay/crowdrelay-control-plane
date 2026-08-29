@@ -745,9 +745,11 @@ export interface AgentProvider {
   description: string
   authMethod: 'api_key' | 'oauth' | 'none'
   freeTier: boolean
+  tier: 'premium' | 'free'
   modelCount: number
   oauthScopes: string[]
   oauthAvailable: boolean
+  supportsApiKeyPaste: boolean
   oauth?: {
     kind: 'redirect' | 'device'
     experimental: boolean

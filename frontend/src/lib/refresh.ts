@@ -1,4 +1,4 @@
-import { createSignal, onCleanup } from 'solid-js'
+import { createSignal, createEffect, createRoot } from 'solid-js'
 
 // Global refresh control — Grafana-style. One interval selector in the topbar
 // drives every query on the page. 0 = manual only (no auto-refresh).
@@ -53,10 +53,11 @@ function applyInterval(ms: number) {
   }
 }
 
-// Reactively apply interval changes. This runs once at module load and again
-// whenever setRefreshInterval is called.
-import { createEffect } from 'solid-js'
-createEffect(() => applyInterval(intervalMs()))
+// Reactively apply interval changes. Wrapped in createRoot so the effect
+// has a proper owner and can be disposed on HMR / page unload.
+createRoot(() => {
+  createEffect(() => applyInterval(intervalMs()))
+})
 
 // Clean up on HMR / page unload
 if (typeof window !== 'undefined') {

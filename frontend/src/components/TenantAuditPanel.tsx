@@ -1,10 +1,6 @@
 import { For, Show, createSignal } from 'solid-js'
+import { formatTimestamp } from '../lib/format'
 import type { AuditEntry } from '../lib/types'
-
-const formatTimestamp = (value: string) => {
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString()
-}
 
 // Audit is a section of the tenant Overview read model, not its own request.
 // The subpage refreshes the whole model on one tick, so these rows are patched

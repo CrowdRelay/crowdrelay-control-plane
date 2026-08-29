@@ -17,6 +17,17 @@ export const formatAge = (seconds: number) => {
   return `${(seconds / 3600).toFixed(seconds < 36_000 ? 1 : 0)}h`
 }
 
+/// Formats an ISO timestamp as a relative age string ("just now", "5m ago", etc.)
+export const formatIsoAge = (iso: string) => {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.floor(hours / 24)}d ago`
+}
+
 export const oldestQueueAge = (summary: {
   outbox: { oldest_pending_seconds: number }
   deliveries: { oldest_pending_seconds: number }

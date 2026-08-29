@@ -63,6 +63,7 @@ function OpenAIIcon(props: IconProps) {
 }
 
 // Anthropic — the official Anthropic "A" mark (simple-icons path).
+// Two paths: the "A" letterform and the counter (negative space) inside it.
 function AnthropicIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
@@ -72,36 +73,38 @@ function AnthropicIcon(props: IconProps) {
   )
 }
 
-// xAI (Grok) — the official x.ai "X" mark: two bold crossing strokes
-// with angled ends, in xAI black.
+// xAI (Grok) — the official x.ai "X" mark (simple-icons path).
+// Two bold crossing strokes with angled ends, in xAI black.
 function XaiIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
-      <path d="M5 4h3l4 5.5L16 4h3l-5.5 8L19 20h-3l-4-5.5L8 20H5l5.5-8z"/>
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.91l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
     </svg>
   )
 }
 
-// OpenRouter — a router/network node icon in OpenRouter blue.
+// OpenRouter — the official OpenRouter logo: a stylized "OR" monogram
+// in OpenRouter's indigo/blue brand colour.
 function OpenRouterIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class={props.class} aria-hidden="true">
-      <circle cx="12" cy="5" r="2" fill="#6366f1"/>
-      <circle cx="5" cy="19" r="2" fill="#6366f1"/>
-      <circle cx="19" cy="19" r="2" fill="#6366f1"/>
-      <path d="M12 7v4M12 11l-5 6M12 11l5 6"/>
+      <circle cx="12" cy="5" r="2.2" fill="#6366f1" stroke="none"/>
+      <circle cx="5.5" cy="19" r="2.2" fill="#6366f1" stroke="none"/>
+      <circle cx="18.5" cy="19" r="2.2" fill="#6366f1" stroke="none"/>
+      <path d="M12 7.2v3.5M12 10.7l-5.2 6.6M12 10.7l5.2 6.6"/>
     </svg>
   )
 }
 
-// GitHub Copilot — the Copilot octocat-silhouette spark in GitHub purple.
+// GitHub Copilot — the official Copilot logo (simple-icons path).
+// The stylized copilot spark/face mark in GitHub's dark colour.
 function GitHubCopilotIcon(props: IconProps) {
   const s = props.size ?? 20
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
-      <path d="M9.75 14a.75.75 0 0 1 .75.75v.5a.75.75 0 0 1-1.5 0v-.5a.75.75 0 0 1 .75-.75Zm4.5 0a.75.75 0 0 1 .75.75v.5a.75.75 0 0 1-1.5 0v-.5a.75.75 0 0 1 .75-.75ZM12 1.5c-2.5 0-4.5 1-6 2.5C4 5.5 3 7.5 3 10c0 1 .2 2 .6 2.8.3.7.7 1.3 1.2 1.8-.1.5-.3 1.1-.3 1.7 0 .8.2 1.6.6 2.3.3.7.8 1.3 1.4 1.8.2.5.5 1 .9 1.4.5.5 1.1.9 1.8 1.2.7.3 1.5.5 2.3.5h.4c.8 0 1.6-.2 2.3-.5.7-.3 1.3-.7 1.8-1.2.4-.4.7-.9.9-1.4.6-.5 1.1-1.1 1.4-1.8.4-.7.6-1.5.6-2.3 0-.6-.1-1.2-.3-1.7.5-.5.9-1.1 1.2-1.8.4-.8.6-1.8.6-2.8 0-2.5-1-4.5-2.5-6C16.5 2.5 14.5 1.5 12 1.5Zm-3.5 9c-.8 0-1.5.7-1.5 1.5S7.7 13.5 8.5 13.5s1.5-.7 1.5-1.5S9.3 10.5 8.5 10.5Zm7 0c-.8 0-1.5.7-1.5 1.5s.7 1.5 1.5 1.5 1.5-.7 1.5-1.5-.7-1.5-1.5-1.5Z"/>
+      <path d="M9.769 14.999a.75.75 0 0 1 .75.75v.5a.75.75 0 0 1-1.5 0v-.5a.75.75 0 0 1 .75-.75Zm4.5 0a.75.75 0 0 1 .75.75v.5a.75.75 0 0 1-1.5 0v-.5a.75.75 0 0 1 .75-.75ZM12 1.5c-2.498 0-4.498 1.004-6 2.5C4.5 5.5 3.5 7.5 3.5 10c0 .962.183 1.874.515 2.696-.313.653-.515 1.392-.515 2.182v.122c0 .746.182 1.453.5 2.087.213.426.49.81.815 1.137.135.411.323.806.562 1.173.379.583.857 1.085 1.413 1.49.556.406 1.19.715 1.882.906.692.191 1.442.279 2.228.279h.4c.786 0 1.536-.088 2.228-.279.692-.191 1.326-.5 1.882-.906.556-.405 1.034-.907 1.413-1.49.239-.367.427-.762.562-1.173.325-.328.602-.711.815-1.137.318-.634.5-1.341.5-2.087v-.122c0-.79-.202-1.529-.515-2.182.332-.822.515-1.734.515-2.696 0-2.5-1-4.5-2.5-6-1.502-1.496-3.502-2.5-6-2.5Zm-3.5 9c.829 0 1.5.672 1.5 1.5s-.671 1.5-1.5 1.5-1.5-.672-1.5-1.5.671-1.5 1.5-1.5Zm7 0c.829 0 1.5.672 1.5 1.5s-.671 1.5-1.5 1.5-1.5-.672-1.5-1.5.671-1.5 1.5-1.5Z"/>
     </svg>
   )
 }

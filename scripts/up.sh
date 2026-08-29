@@ -18,6 +18,16 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 CROWDRELAY_DIR="${CROWDRELAY_DIR:-$(cd "$ROOT_DIR/../crowdrelay" 2>/dev/null && pwd -P || true)}"
 
+# Portable sed in-place edit (macOS sed -i '' vs Linux sed -i)
+sed_inplace() {
+  local pattern="$1" file="$2"
+  if [[ "$(uname)" == "Darwin" ]]; then
+    sed -i '' "$pattern" "$file"
+  else
+    sed -i "$pattern" "$file"
+  fi
+}
+
 log() { printf '\033[1;34m==> %s\033[0m\n' "$*"; }
 err() { printf '\033[1;31mERROR: %s\033[0m\n' "$*" >&2; }
 
@@ -131,13 +141,13 @@ log "AREA token: ${AREA_TOKEN:0:16}..."
 # Sync derived tokens into CrowdRelay .env
 CR_ENV="$CROWDRELAY_DIR/.env"
 if grep -q "^CROWDRELAY_CONTROL_PLANE_API_KEY=" "$CR_ENV"; then
-  sed -i '' "s|^CROWDRELAY_CONTROL_PLANE_API_KEY=.*|CROWDRELAY_CONTROL_PLANE_API_KEY=$MGMT_TOKEN|" "$CR_ENV"
+  sed_inplace "s|^CROWDRELAY_CONTROL_PLANE_API_KEY=.*|CROWDRELAY_CONTROL_PLANE_API_KEY=$MGMT_TOKEN|" "$CR_ENV"
 else
   echo "CROWDRELAY_CONTROL_PLANE_API_KEY=$MGMT_TOKEN" >> "$CR_ENV"
 fi
 
 if grep -q "^CROWDRELAY_CONTROL_PLANE_AREA_API_KEY=" "$CR_ENV"; then
-  sed -i '' "s|^CROWDRELAY_CONTROL_PLANE_AREA_API_KEY=.*|CROWDRELAY_CONTROL_PLANE_AREA_API_KEY=$AREA_TOKEN|" "$CR_ENV"
+  sed_inplace "s|^CROWDRELAY_CONTROL_PLANE_AREA_API_KEY=.*|CROWDRELAY_CONTROL_PLANE_AREA_API_KEY=$AREA_TOKEN|" "$CR_ENV"
 else
   echo "CROWDRELAY_CONTROL_PLANE_AREA_API_KEY=$AREA_TOKEN" >> "$CR_ENV"
 fi
@@ -145,7 +155,7 @@ fi
 # Sync agent service auth key so the worker can call the agents service
 # (Reddit browser, LLM workers). Uses the same master key as the agents service.
 if grep -q "^CROWDRELAY_AGENT_SERVICE_AUTH_KEY=" "$CR_ENV"; then
-  sed -i '' "s|^CROWDRELAY_AGENT_SERVICE_AUTH_KEY=.*|CROWDRELAY_AGENT_SERVICE_AUTH_KEY=$MGMT_KEY|" "$CR_ENV"
+  sed_inplace "s|^CROWDRELAY_AGENT_SERVICE_AUTH_KEY=.*|CROWDRELAY_AGENT_SERVICE_AUTH_KEY=$MGMT_KEY|" "$CR_ENV"
 else
   echo "CROWDRELAY_AGENT_SERVICE_AUTH_KEY=$MGMT_KEY" >> "$CR_ENV"
 fi
@@ -185,6 +195,16 @@ AGENTSEOF
   # Ensure control plane .env points to the agents service
   if ! grep -q "^CONTROL_PLANE_AGENT_SERVICE_URL=" .env; then
     echo "CONTROL_PLANE_AGENT_SERVICE_URL=http://agent-service:8095" >> .env
+  fi
+
+  # Stop any standalone agent-service container from the crowdrelay-agents
+  # repo that might be holding port 8095. The control plane owns its own
+  # agent-service container so DNS names resolve within the compose network.
+  standalone="$(docker ps -q --filter 'name=crowdrelay-agents-agent-service' 2>/dev/null || true)"
+  if [[ -n "$standalone" ]]; then
+    log "Stopping standalone agents container (port conflict)"
+    docker stop $standalone >/dev/null 2>&1 || true
+    docker rm $standalone >/dev/null 2>&1 || true
   fi
 
   # Build + start the agents service as a Docker container (auto-restart)

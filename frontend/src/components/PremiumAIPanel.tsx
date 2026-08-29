@@ -1,6 +1,6 @@
 import { For, Show, createResource, createSignal, createMemo } from 'solid-js'
 import { api, request } from '../lib/api'
-import { errorMessage } from '../lib/format'
+import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshTick } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { LlmProviderIcon } from './ProviderIcon'
@@ -56,19 +56,6 @@ const taskStatusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
   status === 'running' ? 'warn' :
   status === 'failed' ? 'bad' : 'muted'
 
-const formatAge = (iso: string) => {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
-}
-
-const credTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
-  status === 'active' ? 'good' : status === 'invalid' ? 'bad' : 'muted'
-
 // ─── Icons ──────────────────────────────────────────────────────────────
 
 const CrownIcon = (props: { size?: number }) => (
@@ -106,50 +93,93 @@ const CheckIcon = (props: { size?: number }) => (
 
 // ─── Component ──────────────────────────────────────────────────────────
 
-export function PremiumAIPanel(props: { slug: string }) {
+export function PremiumAIPanel(props: {
+  slug: string
+  providers?: AgentProvider[]
+  credentials?: AgentCredential[]
+  refetchCreds?: () => void
+  /** When false (tab hidden), resources don't refetch on global refreshTick. */
+  active?: boolean
+  /** Shared models resource from parent (avoids duplicate /agents/models fetch). */
+  models?: { models: AgentModel[]; connectedProviders: string[] } | null
+}) {
   const [localRefresh, setLocalRefresh] = createSignal(0)
-  const refreshSource = () => refreshTick() + localRefresh()
+  // When the tab is hidden, freeze the refresh source so createResource
+  // doesn't refetch on every global refreshTick. Local mutations still
+  // trigger a refetch via triggerLocalRefresh() — the source changes from
+  // -1 to localRefresh() which is > 0, causing a refetch.
+  const refreshSource = () =>
+    props.active === false ? -1 : refreshTick() + localRefresh()
+  const triggerLocalRefresh = () => setLocalRefresh((v) => v + 1)
   const [error, setError] = createSignal<string | null>(null)
   const [connectingProvider, setConnectingProvider] = createSignal<string | null>(null)
   const [apiKeyInput, setApiKeyInput] = createSignal('')
   const [showKeyInputFor, setShowKeyInputFor] = createSignal<string | null>(null)
   const [oauthDevice, setOauthDevice] = createSignal<{ provider: string; state: string; user_code?: string; verification_uri?: string } | null>(null)
 
-  // Fetch premium usage, providers, credentials, and models in parallel
+  // Premium usage is unique to this panel — always fetch here
   const [usage] = createResource(refreshSource, async () => {
     const data = await request<PremiumUsage>(`/tenants/${props.slug}/agents/premium/usage`)
     return data
   })
 
-  const [providers] = createResource(refreshSource, async () => {
+  // Models can be passed from the parent AgentPanel (shared resource,
+  // avoids duplicate /agents/models fetch) or fetched here as fallback.
+  const hasParentModels = () => props.models !== undefined
+  const [fallbackModels] = createResource(refreshSource, async () => {
+    if (hasParentModels()) return null
+    const data = await api.agentModels(props.slug)
+    return data
+  })
+  const models = () => props.models ?? fallbackModels() ?? null
+
+  // Providers and credentials can be passed from the parent AgentPanel
+  // (shared resources, no re-fetch on tab switch) or fetched here as fallback
+  // for standalone usage. When the parent provides them, the fallback
+  // resources return null immediately (no network fetch).
+  const [fallbackProviders] = createResource(refreshSource, async () => {
+    if (props.providers !== undefined) return null
     const data = await api.agentProviders(props.slug)
     return data.providers
   })
-
-  const [credentials, { refetch: refetchCreds }] = createResource(refreshSource, async () => {
+  const [fallbackCreds, { refetch: refetchFallbackCreds }] = createResource(refreshSource, async () => {
+    if (props.credentials !== undefined) return null
     const data = await api.agentCredentials(props.slug)
     return data.credentials
   })
 
-  const [models] = createResource(refreshSource, async () => {
-    const data = await api.agentModels(props.slug)
-    return data
-  })
+  const providers = () => props.providers ?? fallbackProviders() ?? []
+  const credentials = () => props.credentials ?? fallbackCreds() ?? []
+  const refetchCreds = () => {
+    if (props.refetchCreds) props.refetchCreds()
+    else refetchFallbackCreds()
+  }
 
-  // Only show paid providers (the premium ones)
+  // Only show premium-tier providers (those with OAuth support).
+  // Falls back to the old `!freeTier` filter if the backend hasn't
+  // started sending `tier` yet (backward compat during rollout).
   const premiumProviders = createMemo(() =>
-    (providers() ?? []).filter((p: AgentProvider) => !p.freeTier && p.authMethod !== 'none')
+    providers().filter((p: AgentProvider) =>
+      p.tier === 'premium' || (!p.tier && !p.freeTier && p.authMethod !== 'none' && p.oauth)
+    )
   )
 
   const connectedCount = createMemo(() =>
     premiumProviders().filter((p: AgentProvider) =>
-      (credentials() ?? []).some((c: AgentCredential) => c.provider === p.id && c.status === 'active')
+      credentials().some((c: AgentCredential) => c.provider === p.id && c.status === 'active')
     ).length
   )
 
   const availableModelCount = createMemo(() =>
     (models()?.models ?? []).filter((m: AgentModel) => m.paid).length
   )
+
+  // Memoize budget percentage so it's computed once per render, not 5x.
+  const budgetPctValue = createMemo(() => {
+    const u = usage()
+    if (!u) return 0
+    return budgetPct(u.monthly_spend_micro_usd, u.budget_micro_usd)
+  })
 
   // ─── Connect / disconnect handlers ──────────────────────────────────
 
@@ -163,6 +193,7 @@ export function PremiumAIPanel(props: { slug: string }) {
       setApiKeyInput('')
       setShowKeyInputFor(null)
       refetchCreds()
+      triggerLocalRefresh()
     } catch (e) {
       setError(errorMessage(e, 'Failed to connect provider'))
     } finally {
@@ -198,6 +229,7 @@ export function PremiumAIPanel(props: { slug: string }) {
       if (result.status === 'complete') {
         setOauthDevice(null)
         refetchCreds()
+        triggerLocalRefresh()
       } else if (result.status === 'failed') {
         setError(result.error ?? 'OAuth device flow failed')
         setOauthDevice(null)
@@ -213,6 +245,7 @@ export function PremiumAIPanel(props: { slug: string }) {
     try {
       await api.agentDeleteCredential(props.slug, providerId)
       refetchCreds()
+      triggerLocalRefresh()
     } catch (e) {
       setError(errorMessage(e, 'Failed to disconnect'))
     }
@@ -220,8 +253,17 @@ export function PremiumAIPanel(props: { slug: string }) {
 
   return (
     <Show
-      when={usage() && providers()}
-      fallback={<div class="premium-loading">Loading premium AI dashboard…</div>}
+      when={usage()}
+      fallback={
+        <div class="premium-panel">
+          <div class="premium-skeleton-hero" />
+          <div class="premium-skeleton-grid">
+            <div class="premium-skeleton-card" />
+            <div class="premium-skeleton-card" />
+            <div class="premium-skeleton-card" />
+          </div>
+        </div>
+      }
     >
       <div class="premium-panel">
         {/* ─── Hero: Budget + Status ─────────────────────────────── */}
@@ -239,11 +281,11 @@ export function PremiumAIPanel(props: { slug: string }) {
               <div
                 class="premium-budget-fill"
                 classList={{
-                  'tier-ok': budgetPct(usage()!.monthly_spend_micro_usd, usage()!.budget_micro_usd) < 50,
-                  'tier-warn': budgetPct(usage()!.monthly_spend_micro_usd, usage()!.budget_micro_usd) >= 50 && budgetPct(usage()!.monthly_spend_micro_usd, usage()!.budget_micro_usd) < 90,
-                  'tier-crit': budgetPct(usage()!.monthly_spend_micro_usd, usage()!.budget_micro_usd) >= 90,
+                  'tier-ok': budgetPctValue() < 50,
+                  'tier-warn': budgetPctValue() >= 50 && budgetPctValue() < 90,
+                  'tier-crit': budgetPctValue() >= 90,
                 }}
-                style={{ width: `${Math.max(2, budgetPct(usage()!.monthly_spend_micro_usd, usage()!.budget_micro_usd))}%` }}
+                style={{ width: `${Math.max(2, budgetPctValue())}%` }}
               />
             </div>
           </div>
@@ -279,15 +321,17 @@ export function PremiumAIPanel(props: { slug: string }) {
             </Show>
           </div>
           <p class="premium-section-intro">
-            Connect your own paid AI accounts to unlock frontier models for the autopilot brain.
-            API keys are encrypted at rest. OAuth2 sign-in is available for select providers.
+            Connect your paid AI accounts to unlock frontier models for the autopilot brain.
+            Each provider supports two connection methods: OAuth sign-in (Google account, ChatGPT plan, etc.)
+            or API key paste as a fallback. Keys are encrypted at rest.
           </p>
 
           <div class="premium-connector-grid">
             <For each={premiumProviders()}>
               {(provider) => {
-                const cred = () => (credentials() ?? []).find((c: AgentCredential) => c.provider === provider.id)
+                const cred = () => credentials().find((c: AgentCredential) => c.provider === provider.id)
                 const isConnected = () => cred()?.status === 'active'
+                const connectedViaOauth = () => cred()?.credential_type === 'oauth_refresh_token'
                 return (
                   <div class="premium-connector-card" classList={{ connected: isConnected() }}>
                     <div class="premium-connector-top">
@@ -307,11 +351,51 @@ export function PremiumAIPanel(props: { slug: string }) {
 
                     <div class="premium-connector-desc">{provider.description}</div>
 
+                    {/* Connection method badge — shows how the provider is connected */}
+                    <Show when={isConnected()}>
+                      <div class="premium-method-badge" classList={{ oauth: connectedViaOauth(), apikey: !connectedViaOauth() }}>
+                        <Show when={connectedViaOauth()}>
+                          <span class="premium-method-icon" title="Connected via OAuth sign-in">OAuth</span>
+                        </Show>
+                        <Show when={!connectedViaOauth()}>
+                          <span class="premium-method-icon" title="Connected via API key">API Key</span>
+                        </Show>
+                        <Show when={cred()?.provider_account}>
+                          <span class="premium-method-account">{cred()!.provider_account}</span>
+                        </Show>
+                      </div>
+                    </Show>
+
                     {/* Connection actions */}
                     <div class="premium-connector-actions">
                       <Show when={!isConnected()}>
-                        {/* API key input */}
-                        <Show when={provider.authMethod === 'api_key'}>
+                        {/* OAuth sign-in button — always shown for premium providers that have OAuth defs.
+                            Disabled if OAuth is not configured on this deployment. */}
+                        <Show when={provider.oauth}>
+                          <button
+                            class={`oauth-btn oauth-btn-${provider.id}`}
+                            disabled={connectingProvider() === provider.id || !provider.oauthAvailable}
+                            title={provider.oauthAvailable ? `Sign in with ${provider.name}` : 'OAuth not configured on this deployment — use API key instead'}
+                            onClick={() => handleStartOauth(provider.id)}
+                          >
+                            <LlmProviderIcon providerId={provider.id} size={16} />
+                            <Show when={provider.oauth?.kind === 'device'}>
+                              Device code
+                            </Show>
+                            <Show when={provider.oauth?.kind !== 'device'}>
+                              Sign in
+                            </Show>
+                          </button>
+                          <Show when={provider.oauth?.experimental}>
+                            <span class="premium-beta-chip">beta</span>
+                          </Show>
+                          <Show when={!provider.oauthAvailable}>
+                            <span class="premium-oauth-unavailable">OAuth not configured</span>
+                          </Show>
+                        </Show>
+
+                        {/* API key input — the fallback for all premium providers */}
+                        <Show when={provider.supportsApiKeyPaste}>
                           <Show when={showKeyInputFor() === provider.id}>
                             <div class="premium-key-row">
                               <input
@@ -339,21 +423,6 @@ export function PremiumAIPanel(props: { slug: string }) {
                             </button>
                           </Show>
                         </Show>
-
-                        {/* OAuth button */}
-                        <Show when={provider.authMethod === 'oauth'}>
-                          <button
-                            class={`oauth-btn oauth-btn-${provider.id}`}
-                            disabled={connectingProvider() === provider.id}
-                            onClick={() => handleStartOauth(provider.id)}
-                          >
-                            <LlmProviderIcon providerId={provider.id} size={16} />
-                            Sign in with {provider.name}
-                          </button>
-                          <Show when={provider.oauth?.experimental}>
-                            <span class="premium-beta-chip">beta</span>
-                          </Show>
-                        </Show>
                       </Show>
 
                       {/* Disconnect when connected */}
@@ -377,7 +446,7 @@ export function PremiumAIPanel(props: { slug: string }) {
                   <h4>Sign in to {device().provider}</h4>
                   <Show when={device().verification_uri}>
                     <p class="premium-device-instructions">
-                      Visit <a href={device().verification_uri} target="_blank" rel="noopener">{device().verification_uri}</a>
+                      Visit <a href={device().verification_uri} target="_blank" rel="noopener noreferrer">{device().verification_uri}</a>
                       {' '}and enter the code:
                     </p>
                     <div class="premium-device-code">{device().user_code ?? '—'}</div>
@@ -459,7 +528,7 @@ export function PremiumAIPanel(props: { slug: string }) {
                     <Show when={task.cost_micro_usd > 0}>
                       <span class="premium-task-cost">{formatUsd(task.cost_micro_usd)}</span>
                     </Show>
-                    <span class="premium-task-age">{formatAge(task.created_at)}</span>
+                    <span class="premium-task-age">{formatIsoAge(task.created_at)}</span>
                   </div>
                 )}
               </For>
