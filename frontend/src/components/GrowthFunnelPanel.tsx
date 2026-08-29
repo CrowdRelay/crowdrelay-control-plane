@@ -3,6 +3,8 @@ import { api } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshTick, triggerRefresh } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
+import { CountUp } from './CountUp'
+import { FunnelChart } from './FunnelChart'
 import type { GrowthFunnelData, FunnelRecentWorkerRun } from '../lib/types'
 
 // --- Funnel icon ---
@@ -30,12 +32,6 @@ const runStatusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
   status === 'completed' ? 'good' :
   status === 'running' || status === 'queued' ? 'warn' :
   status === 'failed' ? 'bad' : 'muted'
-
-/// Compute conversion rate between two funnel stages.
-const conversionRate = (from: number, to: number): number | null => {
-  if (from <= 0) return null
-  return Math.round((to / from) * 100)
-}
 
 export function GrowthFunnelPanel(props: { slug: string }) {
   const [error, setError] = createSignal<string | null>(null)
@@ -73,8 +69,6 @@ export function GrowthFunnelPanel(props: { slug: string }) {
       { label: 'Brain Workflows', value: data.brain_workflows.total, hint: 'Total brain-dispatched growth plans' },
     ]
   }
-
-  const maxStageValue = () => Math.max(1, ...stages().map(s => s.value))
 
   const bottleneck = () => {
     const s = stages()
@@ -138,17 +132,17 @@ export function GrowthFunnelPanel(props: { slug: string }) {
       <div class="kpi-strip">
         <article class="kpi-card">
           <span class="kpi-label">Communities</span>
-          <strong class="kpi-value">{funnel()!.communities_discovered}</strong>
+          <CountUp value={funnel()!.communities_discovered} />
           <span class="kpi-sub">discovered</span>
         </article>
         <article class="kpi-card">
           <span class="kpi-label">Worker runs</span>
-          <strong class="kpi-value">{totalWorkerRuns()}</strong>
+          <CountUp value={totalWorkerRuns()} />
           <span class="kpi-sub">{completedWorkerRuns()} completed · {failedWorkerRuns()} failed</span>
         </article>
         <article class="kpi-card">
           <span class="kpi-label">Brain workflows</span>
-          <strong class="kpi-value">{funnel()!.brain_workflows.total}</strong>
+          <CountUp value={funnel()!.brain_workflows.total} />
           <span class="kpi-sub">{funnel()!.brain_workflows.by_status.completed ?? 0} completed</span>
         </article>
       </div>
@@ -171,27 +165,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
         )}</Show>
 
         <div class="funnel-stages">
-          <For each={stages()}>{(stage, i) => {
-            const widthPct = () => Math.max(8, Math.round((stage.value / maxStageValue()) * 100))
-            const prevValue = () => i() > 0 ? stages()[i() - 1]?.value ?? null : null
-            const convRate = () => prevValue() != null && prevValue()! > 0 ? conversionRate(prevValue()!, stage.value) : null
-            return (
-              <div class="funnel-stage">
-                <div class="funnel-stage-label">
-                  <strong>{stage.label}</strong>
-                  <span class="muted">{stage.hint}</span>
-                </div>
-                <div class="funnel-bar-wrap">
-                  <div class="funnel-bar" style={{ width: `${widthPct()}%` }}>
-                    <span class="funnel-bar-value">{stage.value}</span>
-                  </div>
-                </div>
-                <Show when={convRate() != null}>
-                  <span class="funnel-conversion">{convRate()}% from previous</span>
-                </Show>
-              </div>
-            )
-          }}</For>
+          <FunnelChart stages={stages()} />
         </div>
       </div>
     </Show>

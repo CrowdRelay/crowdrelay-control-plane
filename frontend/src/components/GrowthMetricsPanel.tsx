@@ -2,6 +2,7 @@ import { For, Show, createResource } from 'solid-js'
 import { api } from '../lib/api'
 import { refreshTick } from '../lib/refresh'
 import { compactNumber, trendArrow, trendDirection } from '../lib/charts'
+import { Sparkline } from './Sparkline'
 import type { FeedCoverage, GrowthMetricTrendView } from '../lib/types'
 
 const feedStateLabel = (state: string): string =>
@@ -70,6 +71,16 @@ export function GrowthMetricsPanel(props: { slug: string }) {
           const ratioPct = trend.velocity_ratio_basis_points != null
             ? Math.round(trend.velocity_ratio_basis_points / 100)
             : null
+          // Build a synthetic sparkline from available deltas:
+          // 28d ago → 7d ago → 24h ago → now
+          const sparkData = () => {
+            const v = trend.latest_value
+            const d28 = trend.delta_28d != null ? v - trend.delta_28d : v
+            const d7 = trend.delta_7d != null ? v - trend.delta_7d : d28
+            const d24 = trend.delta_24h != null ? v - trend.delta_24h : d7
+            return [d28, d7, d24, v].map(n => Math.max(0, n))
+          }
+          const sparkColor = dir === 'up' ? 'var(--good)' : dir === 'down' ? 'var(--bad)' : 'var(--muted)'
           return (
             <div class="trend-card">
               <div class="trend-card-head">
@@ -77,6 +88,11 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                 <span class={`trend-arrow ${dir}`}>{trendArrow(dir)}</span>
               </div>
               <span class="trend-card-value">{compactNumber(trend.latest_value)}</span>
+              <Show when={sparkData().some((n, i) => i > 0 && n !== sparkData()[0])}>
+                <div class="trend-card-spark">
+                  <Sparkline data={sparkData()} width={120} height={28} color={sparkColor} />
+                </div>
+              </Show>
               <span class="trend-delta">
                 {delta != null ? `${delta > 0 ? '+' : ''}${compactNumber(delta)} (7d)` : 'no prior'}
                 {ratioPct != null ? ` · ${ratioPct > 0 ? '+' : ''}${ratioPct}% vs baseline` : ''}

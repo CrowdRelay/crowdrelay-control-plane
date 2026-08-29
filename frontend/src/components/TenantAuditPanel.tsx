@@ -1,5 +1,6 @@
 import { For, Show, createSignal } from 'solid-js'
 import { formatTimestamp } from '../lib/format'
+import { ActivityHeatmap } from './ActivityHeatmap'
 import type { AuditEntry } from '../lib/types'
 
 // Audit is a section of the tenant Overview read model, not its own request.
@@ -20,6 +21,9 @@ export function TenantAuditPanel(props: { items: AuditEntry[] }) {
         </button>
       </Show>
     </div>
+    <Show when={props.items.length > 0}>
+      <ActivityHeatmap entries={props.items} timestampKey="createdAt" weeks={8} />
+    </Show>
     <div class="audit-list">
       <For each={visible()}>{item => <div class="audit-row">
         <div><strong>{item.action}</strong><small>{item.actor} · {formatTimestamp(item.createdAt)}</small></div>

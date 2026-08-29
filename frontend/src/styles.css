@@ -89,18 +89,18 @@ select:focus{border-color:#7663d8;box-shadow:0 0 0 3px #7663d826;outline:none}
 @media(max-width:900px){.page-head .field{width:100%;justify-content:space-between}.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 /* Process map */
-.process-map-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:16px;background:#0d0f13;padding:16px}
+.process-map-wrap{overflow-x:auto;border:1px solid var(--glass-border);border-radius:16px;background:var(--glass-bg);backdrop-filter:var(--glass-blur);padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.3)}
 .process-map{display:block;width:100%;height:auto;min-width:960px}
 .process-map-legend{display:flex;flex-wrap:wrap;gap:14px 22px;margin:14px 0 22px;color:var(--muted);font-size:.78rem}
 .process-map-legend span{display:inline-flex;align-items:center;gap:7px}
 .process-map-legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
 .pm-node-group{cursor:pointer}
-.pm-node{fill:#111726;stroke:#243049;stroke-width:1.5;transition:stroke-width .12s ease,fill .12s ease}
-.pm-node-group:hover .pm-node{stroke-width:2.6;fill:#141b2c}
+.pm-node{fill:var(--glass-bg-strong);stroke:#243049;stroke-width:1.5;transition:stroke-width .18s var(--t-smooth),fill .18s var(--t-smooth),filter .18s var(--t-smooth)}
+.pm-node-group:hover .pm-node{stroke-width:2.6;fill:rgba(155,135,245,.12);filter:drop-shadow(0 0 8px rgba(155,135,245,.3))}
 .pm-body{box-sizing:border-box;height:100%;display:flex;flex-direction:column;justify-content:center;gap:4px;font-family:inherit;pointer-events:none}
 .pm-title{color:#e8edf6;font-size:14.5px;font-weight:700;line-height:1.25}
 .pm-desc{color:#8fa0b8;font-size:11.5px;line-height:1.4}
-.pm-zone{fill:#0d101a66;stroke:#232c40;stroke-dasharray:6 6}
+.pm-zone{fill:rgba(13,16,26,.4);stroke:rgba(35,44,64,.6);stroke-dasharray:6 6}
 .pm-zt{fill:#a7b3c8;font-size:12.5px;font-weight:800;letter-spacing:.16em}
 .pm-edge{fill:none;stroke:#33415c;stroke-width:1.6}
 .pm-ants{fill:none;stroke-width:2.6;stroke-dasharray:9 9;animation:pm-ants 1s linear infinite}
@@ -730,11 +730,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 /* ── Audience Intelligence ──────────────────────────────────────── */
 
-.kpi-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.75rem;margin-bottom:1rem}
-.kpi-card{background:#15171c;border:1px solid #2a2d36;border-radius:10px;padding:.85rem 1rem;display:flex;flex-direction:column;gap:.25rem}
-.kpi-card.accent{border-color:#6366f1;background:linear-gradient(135deg,#15171c,#1a1d2e)}
-.kpi-label{font-size:.72rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.04em}
-.kpi-value{font-size:1.5rem;font-weight:700;color:#f7f7f8}
+.audience .kpi-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.75rem;margin-bottom:1rem}
+.audience .kpi-card{background:#15171c;border:1px solid #2a2d36;border-radius:10px;padding:.85rem 1rem;display:flex;flex-direction:column;gap:.25rem}
+.audience .kpi-card.accent{border-color:#6366f1;background:linear-gradient(135deg,#15171c,#1a1d2e)}
+.audience .kpi-label{font-size:.72rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.04em}
+.audience .kpi-value{font-size:1.5rem;font-weight:700;color:#f7f7f8}
 
 .city-chips{display:flex;flex-wrap:wrap;gap:.4rem}
 
@@ -855,14 +855,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .funnel-controls{display:flex;gap:12px;align-items:flex-end;margin-bottom:18px}
 .funnel-controls .compact-field{flex:0 0 auto}
 .funnel-stages{display:flex;flex-direction:column;gap:10px;margin-top:14px}
-.funnel-stage{display:grid;grid-template-columns:200px 1fr auto;gap:14px;align-items:center;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:#0d0f13}
-.funnel-stage-label{display:flex;flex-direction:column;gap:2px}
-.funnel-stage-label strong{font-size:.85rem}
-.funnel-stage-label .muted{font-size:.7rem}
-.funnel-bar-wrap{position:relative;height:28px;border-radius:6px;background:#1a1c22;overflow:hidden}
-.funnel-bar{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),var(--cyan));display:flex;align-items:center;padding:0 10px;transition:width .3s ease;min-width:40px}
-.funnel-bar-value{font-weight:800;font-size:.82rem;color:#0b0c0f;white-space:nowrap}
-.funnel-conversion{font-size:.72rem;color:var(--muted);white-space:nowrap}
 .funnel-worker-table{margin-top:12px;overflow-x:auto}
 .funnel-worker-table table{width:100%;border-collapse:collapse;font-size:.8rem}
 .funnel-worker-table th{text-align:left;padding:8px 10px;color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--line)}
@@ -873,7 +865,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .funnel-recent-head{display:flex;align-items:center;gap:10px}
 .funnel-recent-head strong{font-size:.85rem}
 .funnel-recent-meta{display:flex;gap:10px;margin-top:6px;font-size:.72rem}
-@media(max-width:700px){.funnel-stage{grid-template-columns:1fr;gap:6px}.funnel-conversion{text-align:left}}
 
 /* Brain Transparency panel */
 .brain-decision-list{display:flex;flex-direction:column;gap:10px;margin-top:14px}
@@ -1074,3 +1065,43 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .stagger > *:nth-child(10){animation-delay:300ms}
 .stagger > *:nth-child(11){animation-delay:330ms}
 .stagger > *:nth-child(12){animation-delay:360ms}
+
+/* ── Sprint 2: Data visualization ── */
+
+/* Unscoped tone utilities for inline text (e.g. <small class="tone-good">) */
+.tone-good{color:var(--good)}
+.tone-bad{color:var(--bad)}
+.tone-warn{color:var(--warn)}
+.tone-muted{color:var(--muted)}
+
+/* Fleet health ring row (Overview page) */
+.fleet-health-row{display:flex;align-items:center;gap:18px;padding:14px 18px;margin-bottom:14px;border:1px solid var(--glass-border);border-radius:14px;background:var(--glass-bg);backdrop-filter:var(--glass-blur)}
+.fleet-health-ring{flex:0 0 auto}
+.fleet-health-stats{display:flex;flex-direction:column;gap:2px}
+.fleet-health-stats .muted{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
+.fleet-health-stats strong{font-size:.92rem;font-weight:700}
+
+/* Progress ring */
+.progress-ring{display:inline-flex;position:relative}
+.progress-ring-value{font-variant-numeric:tabular-nums}
+.progress-ring-label{font-variant-numeric:tabular-nums}
+
+/* Trend card sparkline */
+.trend-card-spark{margin:6px 0 4px;height:28px;opacity:.85}
+
+/* Usage budget sparkline */
+.usage-budget-spark{margin-top:10px;padding-top:10px;border-top:1px solid var(--glass-border);display:flex;align-items:center;justify-content:flex-end}
+
+/* SVG funnel chart */
+.funnel-stages svg{display:block;margin:0 auto;max-width:100%}
+@keyframes funnelScaleYIn{from{transform:scaleY(0);opacity:0}to{transform:scaleY(1);opacity:1}}
+
+/* Operations heatmap */
+.ops-heatmap{display:flex;flex-direction:column;gap:6px;padding:14px 18px;border:1px solid var(--glass-border);border-radius:14px;background:var(--glass-bg);backdrop-filter:var(--glass-blur);margin-top:14px}
+.ops-heatmap-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ops-heatmap-head .eyebrow{font-size:.68rem}
+.ops-heatmap-grid{display:grid;grid-template-rows:repeat(7,1fr);gap:3px;overflow-x:auto;padding-bottom:4px}
+.ops-heatmap-cell{aspect-ratio:1;border-radius:3px;min-width:10px;transition:transform .12s var(--t-fast)}
+.ops-heatmap-cell:hover{transform:scale(1.4);z-index:1}
+.ops-heatmap-legend{display:flex;align-items:center;gap:6px;font-size:.65rem;color:var(--muted)}
+.ops-heatmap-legend-bar{width:80px;height:8px;border-radius:4px;background:linear-gradient(90deg,rgba(155,135,245,.08),rgba(155,135,245,.5),var(--accent))}

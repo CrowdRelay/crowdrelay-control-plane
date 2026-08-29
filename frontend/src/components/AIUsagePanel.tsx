@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { refreshTick, triggerRefresh } from '../lib/refresh'
 import { ModelIcon } from './ProviderIcon'
+import { Sparkline } from './Sparkline'
 import type { UsageAnalyticsData, TemplateRoi, ModelAnalytics } from '../lib/types'
 
 // --- Icons ---
@@ -99,6 +100,16 @@ export function AIUsagePanel(props: { slug: string }) {
             <span class="muted">{formatUsd(budget()!.remaining_micro_usd)} remaining</span>
             <span class="muted">projected: {formatUsd(projectedSpend())}</span>
           </div>
+          <Show when={dailySpend().length >= 2}>
+            <div class="usage-budget-spark">
+              <Sparkline
+                data={dailySpend().map(d => d.paid_cost_micro_usd + d.free_cost_micro_usd)}
+                width={200}
+                height={32}
+                color={budgetPct() > 80 ? 'var(--warn)' : 'var(--accent)'}
+              />
+            </div>
+          </Show>
         </div>
       </div>
     </Show>

@@ -5,6 +5,8 @@ import { api } from '../lib/api'
 import { refreshTick } from '../lib/refresh'
 import type { AgentScorecard } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
+import { CountUp } from './CountUp'
+import { ProgressRing } from './ProgressRing'
 
 const count = (value: number | undefined | null) =>
   value == null ? '—' : value.toLocaleString()
@@ -136,10 +138,15 @@ export function ScorecardPanel() {
           <div><span class="eyebrow">THIS WEEK</span><h3>Actions</h3></div>
         </div>
         <div class="operations-metrics">
-          <div><span>Executed</span><strong>{count(d().week.executed)}</strong><small>{count(d().week.succeeded)} succeeded · {count(d().week.failed)} failed</small></div>
-          <div><span>Success rate</span><strong>{bpsToPercent(d().week.success_rate_basis_points)}</strong><small>of executed actions</small></div>
-          <div><span>Parked</span><strong>{count(d().week.parked)}</strong><small>no executor available</small></div>
-          <div><span>Awaiting approval</span><strong>{count(d().week.awaiting_approval)}</strong><small>needs a human</small></div>
+          <div><span>Executed</span><CountUp value={d().week.executed} /><small>{count(d().week.succeeded)} succeeded · {count(d().week.failed)} failed</small></div>
+          <div><span>Success rate</span>
+            <Show when={d().week.success_rate_basis_points != null} fallback={<strong>—</strong>}>
+              <ProgressRing value={Math.round((d().week.success_rate_basis_points as number) / 100)} size={44} strokeWidth={4} showValue />
+            </Show>
+            <small>of executed actions</small>
+          </div>
+          <div><span>Parked</span><CountUp value={d().week.parked} /><small>no executor available</small></div>
+          <div><span>Awaiting approval</span><CountUp value={d().week.awaiting_approval} /><small>needs a human</small></div>
         </div>
       </section>
 

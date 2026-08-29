@@ -5,9 +5,10 @@ import { api } from '../lib/api'
 import { refreshTick } from '../lib/refresh'
 import type { PlatformHealthEntry, RuntimeHealth, TenantSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
+import { CountUp } from '../components/CountUp'
+import { ProgressRing } from '../components/ProgressRing'
 
 const healthTone = (health: RuntimeHealth) => health === 'healthy' ? 'good' : health === 'degraded' ? 'bad' : health === 'stale' ? 'warn' : 'muted'
-const healthLabel = (health: RuntimeHealth) => health === 'healthy' ? 'healthy' : health === 'degraded' ? 'degraded' : health === 'stale' ? 'stale' : 'unknown'
 
 const formatLatency = (ms: number | null | undefined) => {
   if (ms == null) return null
@@ -47,22 +48,22 @@ export function OverviewPage() {
         <div class="kpi-strip">
           <article class="kpi-card">
             <span class="kpi-label">Tenants</span>
-            <strong class="kpi-value">{items().length}</strong>
+            <CountUp value={items().length} />
             <span class="kpi-sub">{activeCount()} active<Show when={suspendedCount() > 0}> · {suspendedCount()} suspended</Show></span>
           </article>
           <article class="kpi-card kpi-good">
             <span class="kpi-label">Healthy</span>
-            <strong class="kpi-value">{count('healthy')}</strong>
+            <CountUp value={count('healthy')} />
             <span class="kpi-sub">{healthyPct()}% of fleet</span>
           </article>
           <Link class="kpi-card" to="/attention" classList={{ 'kpi-warn': needsAttention() > 0, 'kpi-good': needsAttention() === 0 }}>
             <span class="kpi-label">Needs attention</span>
-            <strong class="kpi-value">{needsAttention()}</strong>
+            <CountUp value={needsAttention()} />
             <span class="kpi-sub">{count('degraded')} degraded · {count('stale')} stale</span>
           </Link>
           <article class="kpi-card">
             <span class="kpi-label">Platform services</span>
-            <strong class="kpi-value">{overview.data?.platformHealth?.filter(s => s.healthy).length ?? '—'}</strong>
+            <CountUp value={overview.data?.platformHealth?.filter(s => s.healthy).length ?? 0} format={(n) => Math.round(n) === 0 && !overview.data?.platformHealth?.length ? '—' : String(Math.round(n))} />
             <span class="kpi-sub">of {overview.data?.platformHealth?.length ?? '—'} monitored</span>
           </article>
         </div>
@@ -89,11 +90,22 @@ export function OverviewPage() {
       </div>
     </Show>
 
-    {/* Tenant pulse — the fleet at a glance */}
+    {/* Fleet health ring + Tenant pulse — the fleet at a glance */}
     <div class="section-title">
       <h2>Tenant pulse</h2>
       <Link to="/tenants" class="section-link">Manage tenants →</Link>
     </div>
+    <Show when={items().length > 0}>
+      <div class="fleet-health-row">
+        <div class="fleet-health-ring">
+          <ProgressRing value={healthyPct()} size={72} strokeWidth={6} label="fleet health" />
+        </div>
+        <div class="fleet-health-stats">
+          <span class="muted">Fleet health</span>
+          <strong>{count('healthy')} healthy · {needsAttention()} need attention · {items().length} total</strong>
+        </div>
+      </div>
+    </Show>
     <div class="tenant-pulse-grid">
       <For each={items()}>{tenant => (
         <Link to="/tenants/$slug" params={{ slug: tenant.slug }} class="tenant-pulse-card">
