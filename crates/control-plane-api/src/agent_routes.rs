@@ -128,6 +128,12 @@ pub fn router() -> Router<AppState> {
         )
         // Sprint 6: Premium AI — usage tracking + connected models panel
         .route("/tenants/{slug}/agents/premium/usage", get(premium_usage))
+        // Growth funnel — community discovery + worker run funnel data
+        .route("/tenants/{slug}/agents/growth/funnel", get(growth_funnel))
+        // Brain transparency — decision log for the brain transparency panel
+        .route("/tenants/{slug}/agents/brain/decisions", get(brain_decisions))
+        // Usage analytics — cost-ROI + model routing + daily spend
+        .route("/tenants/{slug}/agents/usage/analytics", get(usage_analytics))
         .layer(axum::extract::DefaultBodyLimit::max(MAX_AGENT_BODY_BYTES))
 }
 
@@ -362,6 +368,61 @@ async fn premium_usage(
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     proxy_get(&state, &slug, "/premium/usage").await
+}
+
+/// Growth funnel — community discovery + worker run funnel data.
+async fn growth_funnel(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    Query(query): Query<HashMap<String, String>>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    if query.is_empty() {
+        return proxy_get(&state, &slug, "/growth/funnel").await;
+    }
+    let qs: String = query
+        .iter()
+        .filter(|(k, _)| k.as_str() == "days")
+        .map(|(k, v)| encode_query_pair(k, v))
+        .collect::<Vec<_>>()
+        .join("&");
+    if qs.is_empty() {
+        return proxy_get(&state, &slug, "/growth/funnel").await;
+    }
+    let path = format!("/growth/funnel?{qs}");
+    proxy_get(&state, &slug, &path).await
+}
+
+/// Brain transparency — decision log showing why the brain dispatched each worker.
+async fn brain_decisions(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    Query(query): Query<HashMap<String, String>>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    if query.is_empty() {
+        return proxy_get(&state, &slug, "/brain/decisions").await;
+    }
+    let qs: String = query
+        .iter()
+        .filter(|(k, _)| k.as_str() == "limit" || k.as_str() == "days")
+        .map(|(k, v)| encode_query_pair(k, v))
+        .collect::<Vec<_>>()
+        .join("&");
+    if qs.is_empty() {
+        return proxy_get(&state, &slug, "/brain/decisions").await;
+    }
+    let path = format!("/brain/decisions?{qs}");
+    proxy_get(&state, &slug, &path).await
+}
+
+/// Usage analytics — cost-ROI per template + model routing + daily spend.
+async fn usage_analytics(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    proxy_get(&state, &slug, "/usage/analytics").await
 }
 
 async fn list_providers(

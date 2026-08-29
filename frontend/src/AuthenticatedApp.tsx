@@ -12,6 +12,7 @@ const TenantOperationsPage = lazyRouteComponent(() => import('./pages/TenantOper
 const TenantIntegrationsPage = lazyRouteComponent(() => import('./pages/TenantIntegrationsPage'), 'TenantIntegrationsPage')
 const PortfolioPage = lazyRouteComponent(() => import('./pages/PortfolioPage'), 'PortfolioPage')
 const AudiencePage = lazyRouteComponent(() => import('./pages/AudiencePage'), 'AudiencePage')
+const GrowthFunnelPage = lazyRouteComponent(() => import('./pages/GrowthFunnelPage'), 'GrowthFunnelPage')
 const TenantNotifiersPage = lazyRouteComponent(() => import('./pages/TenantNotifiersPage'), 'TenantNotifiersPage')
 const OperatorAttentionPage = lazyRouteComponent(() => import('./pages/OperatorAttentionPage'), 'OperatorAttentionPage')
 const AutomationPage = lazyRouteComponent(() => import('./pages/AutomationPage'), 'AutomationPage')
@@ -23,6 +24,7 @@ const tenantsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tena
 const tenantRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug', component: TenantPage })
 const portfolioRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/portfolio', component: PortfolioPage })
 const audienceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/audience', component: AudiencePage })
+const funnelRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/funnel', component: GrowthFunnelPage })
 const areaRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/area', component: AreaPage })
 const tenantAttentionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/attention', component: TenantAttentionPage })
 const tenantOperationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/operations', component: TenantOperationsPage })
@@ -30,7 +32,7 @@ const tenantIntegrationsRoute = createRoute({ getParentRoute: () => rootRoute, p
 const tenantNotifiersRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/notifiers', component: TenantNotifiersPage })
 const operatorAttentionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/attention', component: OperatorAttentionPage })
 const automationRoute = createRoute({ getParentRoute: () => rootRoute, path: '/automation', component: AutomationPage })
-const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute, operatorAttentionRoute, automationRoute, tenantRoute, tenantAttentionRoute, tenantOperationsRoute, tenantIntegrationsRoute, tenantNotifiersRoute, portfolioRoute, audienceRoute, areaRoute])
+const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute, operatorAttentionRoute, automationRoute, tenantRoute, tenantAttentionRoute, tenantOperationsRoute, tenantIntegrationsRoute, tenantNotifiersRoute, portfolioRoute, audienceRoute, funnelRoute, areaRoute])
 const router = createRouter({ routeTree, defaultPreload: 'intent', defaultPreloadStaleTime: 10_000, scrollRestoration: true })
 
 declare module '@tanstack/solid-router' { interface Register { router: typeof router } }

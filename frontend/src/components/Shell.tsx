@@ -58,6 +58,7 @@ const TENANT_NAV_GROUPS: NavGroup[] = [
     label: 'Audience',
     items: [
       { path: '/tenants/$slug/audience', label: 'Fan Intelligence', exact: false, icon: 'audience' },
+      { path: '/tenants/$slug/funnel', label: 'Growth Funnel', exact: false, icon: 'funnel' },
       { path: '/tenants/$slug/portfolio', label: 'Portfolio', exact: false, icon: 'portfolio' },
       { path: '/tenants/$slug/area', label: 'AREA', exact: false, icon: 'area' },
     ],
@@ -83,6 +84,7 @@ function NavIcon(props: { name: string }) {
     integrations: <><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1l2.1-2.1M17 7l2.1-2.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></>,
     automation: <><circle cx="6" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 6h7M9 8l2 7M15 8l-2 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></>,
     flow: <><circle cx="5" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="19" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 6h4l3 8M17 6h-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></>,
+    funnel: <><path d="M3 4h18l-7 8v6l-4 2v-8L3 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></>,
   }
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="nav-icon" aria-hidden="true">{icons[props.name] ?? icons.overview}</svg>
 }

@@ -6,6 +6,8 @@ import { StatusBadge } from './StatusBadge'
 import { LlmProviderIcon } from './ProviderIcon'
 import { GrowthIntelligencePanel } from './GrowthIntelligencePanel'
 import { PremiumAIPanel } from './PremiumAIPanel'
+import { AIUsagePanel } from './AIUsagePanel'
+import { BrainTransparencyPanel } from './BrainTransparencyPanel'
 import type { AgentTemplate, AgentTask, AgentTaskResult, AgentProvider, AgentCredential, AgentModel, TaskSuggestion, AgentSchedule, AgentOutcome } from '../lib/types'
 
 // --- Ant icon (agent service mascot) ---
@@ -44,7 +46,7 @@ const priorityTone = (p: string): 'good' | 'warn' | 'muted' =>
   p === 'high' ? 'good' : p === 'medium' ? 'warn' : 'muted'
 
 export function AgentPanel(props: { slug: string }) {
-  const [activeTab, setActiveTab] = createSignal<'providers' | 'tasks' | 'growth' | 'premium'>('providers')
+  const [activeTab, setActiveTab] = createSignal<'providers' | 'tasks' | 'growth' | 'premium' | 'usage' | 'brain'>('providers')
   const [selectedTemplate, setSelectedTemplate] = createSignal<string | null>(null)
   const [selectedModel, setSelectedModel] = createSignal<string>('laguna-s-2.1-free')
   const [prompt, setPrompt] = createSignal('')
@@ -312,7 +314,7 @@ export function AgentPanel(props: { slug: string }) {
     <div class="agent-panel">
       {/* Tab navigation */}
       <div class="area-step-tabs agent-tabs">
-        <For each={[{id: 'providers', label: 'Providers'}, {id: 'tasks', label: 'Tasks'}, {id: 'growth', label: 'Growth Intelligence'}, {id: 'premium', label: 'Premium AI'}] as const}>
+        <For each={[{id: 'providers', label: 'Providers'}, {id: 'tasks', label: 'Tasks'}, {id: 'growth', label: 'Growth Intelligence'}, {id: 'premium', label: 'Premium AI'}, {id: 'usage', label: 'AI Usage'}, {id: 'brain', label: 'Brain'}] as const}>
           {(tab) => (
             <button
               class={activeTab() === tab.id ? 'active ghost' : 'ghost'}
@@ -331,6 +333,14 @@ export function AgentPanel(props: { slug: string }) {
 
       <div class={activeTab() === 'premium' ? '' : 'tab-hidden'}>
         <PremiumAIPanel slug={props.slug} providers={providers()} credentials={credentials()} refetchCreds={refetchCreds} active={activeTab() === 'premium'} models={models()} />
+      </div>
+
+      <div class={activeTab() === 'usage' ? '' : 'tab-hidden'}>
+        <AIUsagePanel slug={props.slug} />
+      </div>
+
+      <div class={activeTab() === 'brain' ? '' : 'tab-hidden'}>
+        <BrainTransparencyPanel slug={props.slug} />
       </div>
 
       <div class={activeTab() === 'providers' ? '' : 'tab-hidden'}>

@@ -266,6 +266,17 @@ export function PremiumAIPanel(props: {
       }
     >
       <div class="premium-panel">
+        {/* ─── Free models banner ──────────────────────────────────── */}
+        <Show when={connectedCount() === 0}>
+          <div class="premium-free-banner">
+            <div class="premium-free-banner-text">
+              <strong>Free models are active</strong>
+              <span>The brain routes to free models (Laguna, Gemini Flash, Groq) by default. No provider connection needed to start growing fans. Connect a premium provider above to unlock frontier models for deeper reasoning.</span>
+            </div>
+            <SparkIcon size={20} />
+          </div>
+        </Show>
+
         {/* ─── Hero: Budget + Status ─────────────────────────────── */}
         <section class="premium-hero">
           <div class="premium-hero-left">
@@ -350,6 +361,48 @@ export function PremiumAIPanel(props: {
                     </div>
 
                     <div class="premium-connector-desc">{provider.description}</div>
+
+                    {/* Model recommendation — shows which templates benefit from this provider */}
+                    <Show when={!isConnected()}>
+                      <div class="premium-recommendation">
+                        <Show when={provider.id === 'openai'}>
+                          <span class="premium-rec-text">Unlocks GPT-4o for press-pitch (deep reasoning) and o3 for campaign-analysis</span>
+                        </Show>
+                        <Show when={provider.id === 'anthropic'}>
+                          <span class="premium-rec-text">Unlocks Claude Sonnet for social-post (nuanced writing) and audience-research</span>
+                        </Show>
+                        <Show when={provider.id === 'google'}>
+                          <span class="premium-rec-text">Unlocks Gemini 2.5 Pro for growth-strategist (long context) and Gemini Flash for fast scanning</span>
+                        </Show>
+                        <Show when={provider.id === 'xai'}>
+                          <span class="premium-rec-text">Unlocks Grok for community-engager (real-time social context)</span>
+                        </Show>
+                        <Show when={provider.id === 'openrouter'}>
+                          <span class="premium-rec-text">Unlocks 100+ models via one API key — flexible routing for all templates</span>
+                        </Show>
+                        <Show when={provider.id !== 'openai' && provider.id !== 'anthropic' && provider.id !== 'google' && provider.id !== 'xai' && provider.id !== 'openrouter'}>
+                          <span class="premium-rec-text">Adds {provider.modelCount} models to the brain's routing pool</span>
+                        </Show>
+                      </div>
+                    </Show>
+
+                    {/* Health badge — shows recent task success rate when connected */}
+                    <Show when={isConnected() && usage()}>
+                      <div class="premium-health-badge">
+                        <Show when={usage()!.tasks.filter((t: PremiumTask) => t.model_provider === provider.id).length > 0}
+                          fallback={<span class="badge tone-muted">no tasks yet</span>}>
+                          {(() => {
+                            const providerTasks = usage()!.tasks.filter((t: PremiumTask) => t.model_provider === provider.id)
+                            const completed = providerTasks.filter((t: PremiumTask) => t.status === 'completed').length
+                            const failed = providerTasks.filter((t: PremiumTask) => t.status === 'failed').length
+                            const total = providerTasks.length
+                            const successRate = total > 0 ? Math.round((completed / total) * 100) : null
+                            const tone = successRate == null ? 'muted' : successRate >= 90 ? 'good' : successRate >= 75 ? 'warn' : 'bad'
+                            return <span class={`badge tone-${tone}`}>{successRate ?? '—'}% success · {total} tasks</span>
+                          })()}
+                        </Show>
+                      </div>
+                    </Show>
 
                     {/* Connection method badge — shows how the provider is connected */}
                     <Show when={isConnected()}>

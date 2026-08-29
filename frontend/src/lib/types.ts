@@ -1662,3 +1662,149 @@ export type PlayStanding =
   | { standing: 'untested'; measured: number }
   | { standing: 'weighted'; basis_points: number; measured: number }
   | { standing: 'retired'; reason: string }
+
+// --- Growth Funnel types ---
+
+export type FunnelWorkerRunStats = {
+  total: number
+  completed: number
+  failed: number
+  running: number
+  queued: number
+}
+
+export type FunnelRecentWorkerRun = {
+  id: string
+  template_id: string
+  status: string
+  created_at: string
+  completed_at: string | null
+  has_outcome: boolean
+  outcome_kind: string | null
+  tokens_in: number
+  tokens_out: number
+}
+
+export type GrowthFunnelData = {
+  days: number
+  since: string
+  communities_discovered: number
+  worker_runs: Record<string, FunnelWorkerRunStats>
+  brain_workflows: {
+    total: number
+    by_status: Record<string, number>
+  }
+  recent_worker_runs: FunnelRecentWorkerRun[]
+}
+
+// --- Brain Transparency types ---
+
+export type BrainPlanItem = {
+  template: string
+  prompt: string
+  priority: number
+  rationale: string
+}
+
+export type BrainDecisionTask = {
+  task_id: string
+  slot: number
+  role: 'brain' | 'muscle'
+  status: string
+  template_id: string
+  error: string | null
+  created_at: string | null
+  completed_at: string | null
+  has_outcome: boolean
+  outcome_kind: string | null
+  tokens_in: number
+  tokens_out: number
+}
+
+export type BrainDecision = {
+  id: string
+  brain_template: string
+  brain_model: string | null
+  status: 'planning' | 'dispatching' | 'running' | 'completed' | 'failed'
+  created_at: string
+  completed_at: string | null
+  plan: BrainPlanItem[]
+  tasks: BrainDecisionTask[]
+}
+
+export type BrainDecisionSummary = {
+  total_decisions: number
+  completed_decisions: number
+  failed_decisions: number
+  running_decisions: number
+  total_tasks: number
+  completed_tasks: number
+}
+
+export type BrainDecisionsData = {
+  days: number
+  since: string
+  decisions: BrainDecision[]
+  summary: BrainDecisionSummary
+}
+
+// --- AI Usage Analytics types ---
+
+export type UsageBudget = {
+  monthly_spend_micro_usd: number
+  budget_micro_usd: number
+  remaining_micro_usd: number
+  days_in_month: number
+  day_of_month: number
+}
+
+export type TemplateRoi = {
+  template_id: string
+  total_tasks: number
+  completed_tasks: number
+  failed_tasks: number
+  total_cost_micro_usd: number
+  outcome_count: number
+  cost_per_outcome_micro_usd: number | null
+  tokens_in: number
+  tokens_out: number
+  success_rate: number | null
+}
+
+export type ModelAnalytics = {
+  model_id: string
+  model_provider: string | null
+  total_tasks: number
+  completed_tasks: number
+  failed_tasks: number
+  total_cost_micro_usd: number
+  avg_cost_per_task_micro_usd: number
+  avg_latency_ms: number
+  avg_tokens_in: number
+  avg_tokens_out: number
+  success_rate: number | null
+}
+
+export type DailySpend = {
+  day: string
+  paid_cost_micro_usd: number
+  free_cost_micro_usd: number
+  requests: number
+}
+
+export type AvailableModel = {
+  id: string
+  provider: string
+  name: string
+  paid: boolean
+  connected: boolean
+}
+
+export type UsageAnalyticsData = {
+  budget: UsageBudget
+  template_roi: TemplateRoi[]
+  model_analytics: ModelAnalytics[]
+  daily_spend: DailySpend[]
+  connected_providers: string[]
+  available_models: AvailableModel[]
+}
