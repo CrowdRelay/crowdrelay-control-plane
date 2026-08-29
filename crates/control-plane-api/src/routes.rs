@@ -94,22 +94,15 @@ async fn overview(
         tenants.retain(|item| item.tenant.id == scope);
     }
     let total = tenants.len();
-    let healthy = tenants
-        .iter()
-        .filter(|item| item.runtime_health == RuntimeHealth::Healthy)
-        .count();
-    let degraded = tenants
-        .iter()
-        .filter(|item| item.runtime_health == RuntimeHealth::Degraded)
-        .count();
-    let stale = tenants
-        .iter()
-        .filter(|item| item.runtime_health == RuntimeHealth::Stale)
-        .count();
-    let unknown = tenants
-        .iter()
-        .filter(|item| item.runtime_health == RuntimeHealth::Unknown)
-        .count();
+    let (mut healthy, mut degraded, mut stale, mut unknown) = (0usize, 0, 0, 0);
+    for item in &tenants {
+        match item.runtime_health {
+            RuntimeHealth::Healthy => healthy += 1,
+            RuntimeHealth::Degraded => degraded += 1,
+            RuntimeHealth::Stale => stale += 1,
+            RuntimeHealth::Unknown => unknown += 1,
+        }
+    }
     let platform_health = state.store.list_platform_health().await?;
     Ok(Json(json!({
         "tenants": total,

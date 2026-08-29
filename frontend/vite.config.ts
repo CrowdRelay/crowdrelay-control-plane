@@ -21,6 +21,16 @@ export default defineConfig(({ command, mode }) => {
       // Gzipping every asset just to print a size the budget script already
       // measures from disk. Off, so the build stops paying for it.
       reportCompressedSize: false,
+      rollupOptions: {
+        output: {
+          // Split framework code into a stable vendor chunk so it caches
+          // across deploys and route chunks stay small.
+          manualChunks(id) {
+            if (id.includes('node_modules/solid-js/')) return 'solid-vendor'
+            if (id.includes('node_modules/@tanstack/')) return 'tanstack-vendor'
+          },
+        },
+      },
     },
     server: {
       port: 4173,

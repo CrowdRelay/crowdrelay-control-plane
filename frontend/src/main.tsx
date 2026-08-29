@@ -1,7 +1,6 @@
 import { render } from 'solid-js/web'
 import { lazy } from 'solid-js'
 import { LoginGate } from './components/LoginGate'
-import './styles.css'
 
 // Static source contracts intentionally remain visible in the bootstrap source.
 // @tanstack/solid-query

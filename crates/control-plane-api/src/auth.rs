@@ -280,7 +280,10 @@ pub async fn new_session_token(
 ) -> Result<IssuedSession, ApiError> {
     let mut bytes = [0u8; 32];
     OsRng.fill_bytes(&mut bytes);
-    let token: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    let mut token = String::with_capacity(64);
+    for byte in &bytes {
+        token.push_str(&format!("{byte:02x}"));
+    }
     let expires_at = Utc::now() + Duration::seconds(SESSION_TTL_SECONDS);
     store
         .create_session(account_id, hash_token(&token).as_slice(), expires_at)

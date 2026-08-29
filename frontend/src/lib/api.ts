@@ -31,7 +31,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
-export type CreateTenantInput = {
+type CreateTenantInput = {
   slug: string
   displayName: string
   workspaceId?: string

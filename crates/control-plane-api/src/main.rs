@@ -377,44 +377,56 @@ async fn dispatch_pending_notifications(state: &AppState) -> anyhow::Result<()> 
 
 /// Probe every registered platform service and persist the result. Each
 /// probe is a single GET with a 5s timeout; failures are recorded as
-/// unhealthy with the status text, never propagated.
+/// unhealthy with the status text, never propagated. Probes run concurrently
+/// to avoid serial latency when one service is slow.
 async fn poll_platform_health(state: &AppState, client: &reqwest::Client) -> anyhow::Result<()> {
+    use futures_util::future::join_all;
     let services = state.store.list_platform_health().await?;
-    for service in services {
-        let start = std::time::Instant::now();
-        let result = client.get(&service.url).send().await;
-        let latency_ms = i32::try_from(start.elapsed().as_millis()).unwrap_or(i32::MAX);
-        let (healthy, status) = match result {
-            Ok(response) => {
-                let code = response.status().as_u16();
-                if response.status().is_success() {
-                    let body = response.text().await.unwrap_or_default();
-                    // n8n /healthz returns {"status":"ok"}. Match the JSON
-                    // field, not a bare substring — "not ok" or "broken"
-                    // must not register as healthy.
-                    let ok =
-                        body.contains("\"status\":\"ok\"") || body.contains("\"status\": \"ok\"");
-                    let status_text = if body.len() <= 120 {
-                        body.clone()
-                    } else {
-                        // Truncate at a char boundary to avoid splitting
-                        // multi-byte UTF-8.
-                        let mut end = 120;
-                        while end > 0 && !body.is_char_boundary(end) {
-                            end -= 1;
+    let futures: Vec<_> = services
+        .into_iter()
+        .map(|service| {
+            let client = client.clone();
+            async move {
+                let start = std::time::Instant::now();
+                let result = client.get(&service.url).send().await;
+                let latency_ms = i32::try_from(start.elapsed().as_millis()).unwrap_or(i32::MAX);
+                let (healthy, status) = match result {
+                    Ok(response) => {
+                        let code = response.status().as_u16();
+                        if response.status().is_success() {
+                            let body = response.text().await.unwrap_or_default();
+                            // n8n /healthz returns {"status":"ok"}. Match the JSON
+                            // field, not a bare substring — "not ok" or "broken"
+                            // must not register as healthy.
+                            let ok = body.contains("\"status\":\"ok\"")
+                                || body.contains("\"status\": \"ok\"");
+                            let status_text = if body.len() <= 120 {
+                                body.clone()
+                            } else {
+                                // Truncate at a char boundary to avoid splitting
+                                // multi-byte UTF-8.
+                                let mut end = 120;
+                                while end > 0 && !body.is_char_boundary(end) {
+                                    end -= 1;
+                                }
+                                body[..end].to_owned()
+                            };
+                            (ok, format!("200:{status_text}"))
+                        } else {
+                            (false, format!("{code}"))
                         }
-                        body[..end].to_owned()
-                    };
-                    (ok, format!("200:{status_text}"))
-                } else {
-                    (false, format!("{code}"))
-                }
+                    }
+                    Err(error) => (false, format!("error:{}", error)),
+                };
+                (service.service, healthy, status, latency_ms)
             }
-            Err(error) => (false, format!("error:{}", error)),
-        };
+        })
+        .collect();
+    let results = join_all(futures).await;
+    for (service, healthy, status, latency_ms) in results {
         state
             .store
-            .upsert_platform_health(&service.service, healthy, &status, Some(latency_ms))
+            .upsert_platform_health(&service, healthy, &status, Some(latency_ms))
             .await?;
     }
     Ok(())

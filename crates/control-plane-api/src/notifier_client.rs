@@ -133,10 +133,19 @@ fn summarize(payload: &Value) -> String {
 }
 
 fn truncate(value: String, max: usize) -> String {
-    if value.chars().count() <= max {
+    let mut chars = value.chars();
+    let mut cut = String::with_capacity(value.len().min(max * 4));
+    let mut count = 0;
+    for ch in chars.by_ref() {
+        if count >= max {
+            break;
+        }
+        cut.push(ch);
+        count += 1;
+    }
+    if count < max {
         value
     } else {
-        let cut: String = value.chars().take(max).collect();
         format!("{cut}…")
     }
 }

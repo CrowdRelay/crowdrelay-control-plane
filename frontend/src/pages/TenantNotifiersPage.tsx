@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
-import { api, ApiError } from '../lib/api'
+import { api } from '../lib/api'
 import { refreshTick } from '../lib/refresh'
 import { toast } from '../lib/toast'
 import type { NotifierChannel, NotifierEvent, DiscoveredEndpoint } from '../lib/types'
