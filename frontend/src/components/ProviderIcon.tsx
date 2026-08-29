@@ -4,6 +4,7 @@
 // Brand logos use their official colours (multi-path SVG) so they're
 // instantly recognisable. Generic/abstract icons inherit currentColor.
 
+import { Show } from 'solid-js'
 import type { JSX } from 'solid-js'
 
 type IconProps = { size?: number; class?: string }
@@ -25,19 +26,23 @@ function ZenIcon(props: IconProps) {
 
 // Google Gemini — the official Gemini sparkle mark (simple-icons path)
 // with the brand's blue-to-purple-to-red gradient.
+// Uses a unique gradient ID per instance to avoid DOM ID collisions
+// when multiple Gemini icons render (e.g., in model routing tables).
+let geminiIdCounter = 0
 function GeminiIcon(props: IconProps) {
   const s = props.size ?? 20
+  const gradId = `gemini-sparkle-${++geminiIdCounter}`
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
       <defs>
-        <linearGradient id="gemini-sparkle" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stop-color="#4285F4" />
           <stop offset="33%" stop-color="#9b72cb" />
           <stop offset="66%" stop-color="#d96570" />
           <stop offset="100%" stop-color="#e8713a" />
         </linearGradient>
       </defs>
-      <path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81" fill="url(#gemini-sparkle)"/>
+      <path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81" fill={`url(#${gradId})`}/>
     </svg>
   )
 }
@@ -319,6 +324,94 @@ const FANBASE_ICONS: Record<string, (props: IconProps) => JSX.Element> = {
 export function LlmProviderIcon(props: { providerId: string; size?: number; class?: string }) {
   const Icon = LLM_PROVIDER_ICONS[props.providerId] ?? DefaultIcon
   return <Icon size={props.size} class={props.class} />
+}
+
+// ─── Tier Badge Overlay ─────────────────────────────────────────────────
+// Small visual overlay on provider/model icons:
+// - free: green dot in bottom-right corner
+// - premium: purple dot in bottom-right corner
+// - connected: green check overlay
+// - beta: amber "beta" micro-chip
+
+export function TierBadge(props: { tier: 'free' | 'premium' | 'connected' | 'beta'; size?: number }) {
+  const s = props.size ?? 10
+  if (props.tier === 'connected') {
+    return (
+      <span class="tier-badge-overlay tier-badge-connected" style={{ width: `${s}px`, height: `${s}px` }} aria-label="connected">
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+      </span>
+    )
+  }
+  if (props.tier === 'beta') {
+    return <span class="tier-badge-overlay tier-badge-beta" aria-label="beta">beta</span>
+  }
+  const color = props.tier === 'free' ? '#22c55e' : '#a78bfa'
+  return (
+    <span
+      class="tier-badge-overlay"
+      style={{ width: `${s}px`, height: `${s}px`, background: color }}
+      aria-label={props.tier}
+    />
+  )
+}
+
+// ─── Model Icon ─────────────────────────────────────────────────────────
+// Renders a compact visual identifier for a model, using the provider's
+// brand icon with a tier dot overlay. For free models, uses a distinct
+// "free spark" mark instead of the provider logo.
+
+function FreeSparkIcon(props: IconProps) {
+  const s = props.size ?? 16
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class={props.class} aria-hidden="true">
+      <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.4 2.4M15.3 15.3l2.4 2.4M6.3 17.7l2.4-2.4M15.3 8.7l2.4-2.4" opacity="0.7" />
+      <circle cx="12" cy="12" r="2.5" fill="#22c55e" stroke="none" opacity="0.8" />
+    </svg>
+  )
+}
+
+export function ModelIcon(props: { modelId: string; providerId: string; paid?: boolean; size?: number; class?: string }) {
+  const s = props.size ?? 16
+  // Free models get the free spark mark
+  if (!props.paid) {
+    return (
+      <span class="model-icon-wrap" style={{ width: `${s}px`, height: `${s}px` }}>
+        <FreeSparkIcon size={s} class={props.class} />
+      </span>
+    )
+  }
+  // Paid models use the provider brand icon with a premium tier dot
+  const Icon = LLM_PROVIDER_ICONS[props.providerId] ?? DefaultIcon
+  return (
+    <span class="model-icon-wrap" style={{ width: `${s}px`, height: `${s}px` }}>
+      <Icon size={s} class={props.class} />
+      <TierBadge tier="premium" size={Math.max(6, Math.floor(s / 3))} />
+    </span>
+  )
+}
+
+// ─── Provider Icon with Tier Badge ──────────────────────────────────────
+// Wraps LlmProviderIcon with an optional tier badge overlay for use in
+// provider cards where the tier is visually important.
+
+export function LlmProviderIconWithTier(props: { providerId: string; tier?: 'free' | 'premium'; connected?: boolean; beta?: boolean; size?: number; class?: string }) {
+  const s = props.size ?? 28
+  return (
+    <span class="model-icon-wrap" style={{ width: `${s}px`, height: `${s}px` }}>
+      <LlmProviderIcon providerId={props.providerId} size={s} class={props.class} />
+      <Show when={props.connected}>
+        <TierBadge tier="connected" size={Math.max(8, Math.floor(s / 3))} />
+      </Show>
+      <Show when={props.beta && !props.connected}>
+        <TierBadge tier="beta" />
+      </Show>
+      <Show when={!props.connected && !props.beta && props.tier}>
+        <TierBadge tier={props.tier!} size={Math.max(6, Math.floor(s / 4))} />
+      </Show>
+    </span>
+  )
 }
 
 export function NotifierIcon(props: { kind: string; size?: number; class?: string }) {

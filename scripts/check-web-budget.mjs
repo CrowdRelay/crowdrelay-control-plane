@@ -54,8 +54,12 @@ if (maps.length) throw new Error(`source maps must not ship: ${maps.join(', ')}`
 // table, decision chain), AI Usage panel (budget bar, cost-ROI table, model
 // performance table, daily spend chart, model routing preview), and AI
 // connector polish (model recommendations, health badges, free banner).
-const JS_BUDGET = 540 * 1024
-const CSS_BUDGET = 100 * 1024
+// Raised 2026-08-29 from 540 KiB for polished AI connectors: per-model visual
+// identifiers (ModelIcon with tier badge overlay), one-click connection UX
+// (OAuth primary, API key collapsible fallback), toast notifications on
+// connect/disconnect, guided onboarding wizard, live validation states.
+const JS_BUDGET = 560 * 1024
+const CSS_BUDGET = 110 * 1024
 if (js > JS_BUDGET) throw new Error(`JS budget exceeded: ${js} > ${JS_BUDGET}`)
 if (css > CSS_BUDGET) throw new Error(`CSS budget exceeded: ${css} > ${CSS_BUDGET}`)
 console.log(`CONTROL_PLANE_WEB_BUDGET=PASS js=${js} css=${css}`)

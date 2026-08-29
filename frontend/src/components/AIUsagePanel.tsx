@@ -2,6 +2,7 @@ import { For, Show, createResource, createSignal } from 'solid-js'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { refreshTick, triggerRefresh } from '../lib/refresh'
+import { ModelIcon } from './ProviderIcon'
 import type { UsageAnalyticsData, TemplateRoi, ModelAnalytics } from '../lib/types'
 
 // --- Icons ---
@@ -154,7 +155,7 @@ export function AIUsagePanel(props: { slug: string }) {
             <tbody>
               <For each={modelAnalytics()}>{(m: ModelAnalytics) => (
                 <tr>
-                  <td><strong>{m.model_id}</strong></td>
+                  <td><ModelIcon modelId={m.model_id} providerId={m.model_provider ?? ''} paid={m.total_cost_micro_usd > 0} size={16} /> <strong>{m.model_id}</strong></td>
                   <td class="muted">{m.model_provider ?? '—'}</td>
                   <td>{m.total_tasks}</td>
                   <td>
@@ -240,6 +241,7 @@ export function AIUsagePanel(props: { slug: string }) {
             return (
               <div class="routing-model-card" classList={{ connected: m.connected, free: !m.paid }}>
                 <div class="routing-model-head">
+                  <ModelIcon modelId={m.id} providerId={m.provider} paid={m.paid} size={18} />
                   <strong>{m.name}</strong>
                   <Show when={!m.paid}>
                     <span class="badge free-chip">free</span>

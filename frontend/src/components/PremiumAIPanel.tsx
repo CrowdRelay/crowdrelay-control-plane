@@ -2,8 +2,10 @@ import { For, Show, createResource, createSignal, createMemo } from 'solid-js'
 import { api, request } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshTick } from '../lib/refresh'
+import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
-import { LlmProviderIcon } from './ProviderIcon'
+import { LlmProviderIcon, LlmProviderIconWithTier, ModelIcon } from './ProviderIcon'
+import { ConnectWizard } from './ConnectWizard'
 import type { AgentProvider, AgentCredential, AgentModel } from '../lib/types'
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -116,11 +118,20 @@ export function PremiumAIPanel(props: {
   const [apiKeyInput, setApiKeyInput] = createSignal('')
   const [showKeyInputFor, setShowKeyInputFor] = createSignal<string | null>(null)
   const [oauthDevice, setOauthDevice] = createSignal<{ provider: string; state: string; user_code?: string; verification_uri?: string } | null>(null)
+  const [showWizard, setShowWizard] = createSignal(false)
+  const [pollingOauth, setPollingOauth] = createSignal(false)
 
-  // Premium usage is unique to this panel — always fetch here
+  // Premium usage is unique to this panel — always fetch here.
+  // The try/catch ensures the error signal is set even when the tab is
+  // hidden, so the error card can render outside the usage() guard.
   const [usage] = createResource(refreshSource, async () => {
-    const data = await request<PremiumUsage>(`/tenants/${props.slug}/agents/premium/usage`)
-    return data
+    try {
+      const data = await request<PremiumUsage>(`/tenants/${props.slug}/agents/premium/usage`)
+      return data
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to load premium usage'))
+      throw err
+    }
   })
 
   // Models can be passed from the parent AgentPanel (shared resource,
@@ -190,12 +201,16 @@ export function PremiumAIPanel(props: {
     setError(null)
     try {
       await api.agentPasteCredential(props.slug, { provider: providerId, api_key: key, label: '' })
+      const provider = premiumProviders().find(p => p.id === providerId)
+      toast.success(`Connected to ${provider?.name ?? providerId} — ${provider?.modelCount ?? 0} models unlocked`)
       setApiKeyInput('')
       setShowKeyInputFor(null)
       refetchCreds()
       triggerLocalRefresh()
     } catch (e) {
-      setError(errorMessage(e, 'Failed to connect provider'))
+      const msg = errorMessage(e, 'Failed to connect provider')
+      setError(msg)
+      toast.error(msg)
     } finally {
       setConnectingProvider(null)
     }
@@ -215,7 +230,9 @@ export function PremiumAIPanel(props: {
         throw new Error('OAuth did not return a redirect URL or device code')
       }
     } catch (e) {
-      setError(errorMessage(e, `Failed to start ${providerId} OAuth`))
+      const msg = errorMessage(e, `Failed to start ${providerId} OAuth`)
+      setError(msg)
+      toast.error(msg)
     } finally {
       setConnectingProvider(null)
     }
@@ -223,20 +240,29 @@ export function PremiumAIPanel(props: {
 
   const handlePollOauth = async () => {
     const device = oauthDevice()
-    if (!device) return
+    if (!device || pollingOauth()) return
+    setPollingOauth(true)
     try {
       const result = await api.pollAgentOauth(props.slug, device.provider, device.state)
       if (result.status === 'complete') {
+        const provider = premiumProviders().find(p => p.id === device.provider)
+        toast.success(`Connected to ${provider?.name ?? device.provider}`)
         setOauthDevice(null)
         refetchCreds()
         triggerLocalRefresh()
       } else if (result.status === 'failed') {
-        setError(result.error ?? 'OAuth device flow failed')
+        const msg = result.error ?? 'OAuth device flow failed'
+        setError(msg)
+        toast.error(msg)
         setOauthDevice(null)
       }
     } catch (e) {
-      setError(errorMessage(e, 'OAuth poll failed'))
+      const msg = errorMessage(e, 'OAuth poll failed')
+      setError(msg)
+      toast.error(msg)
       setOauthDevice(null)
+    } finally {
+      setPollingOauth(false)
     }
   }
 
@@ -244,10 +270,14 @@ export function PremiumAIPanel(props: {
     setError(null)
     try {
       await api.agentDeleteCredential(props.slug, providerId)
+      const provider = premiumProviders().find(p => p.id === providerId)
+      toast.info(`Disconnected from ${provider?.name ?? providerId}`)
       refetchCreds()
       triggerLocalRefresh()
     } catch (e) {
-      setError(errorMessage(e, 'Failed to disconnect'))
+      const msg = errorMessage(e, 'Failed to disconnect')
+      setError(msg)
+      toast.error(msg)
     }
   }
 
@@ -256,6 +286,11 @@ export function PremiumAIPanel(props: {
       when={usage()}
       fallback={
         <div class="premium-panel">
+          {/* Error card shown outside the usage() guard so it renders
+              even when usage() is undefined (fetch failed). */}
+          <Show when={error()}>
+            <div class="premium-error">{error()}</div>
+          </Show>
           <div class="premium-skeleton-hero" />
           <div class="premium-skeleton-grid">
             <div class="premium-skeleton-card" />
@@ -266,14 +301,26 @@ export function PremiumAIPanel(props: {
       }
     >
       <div class="premium-panel">
+        {/* ─── Onboarding wizard (first-time) ─────────────────────── */}
+        <Show when={connectedCount() === 0 && showWizard()}>
+          <ConnectWizard
+            providers={premiumProviders()}
+            onStartOauth={handleStartOauth}
+            onPasteKey={(providerId) => setShowKeyInputFor(providerId)}
+            onDismiss={() => setShowWizard(false)}
+          />
+        </Show>
+
         {/* ─── Free models banner ──────────────────────────────────── */}
-        <Show when={connectedCount() === 0}>
+        <Show when={connectedCount() === 0 && !showWizard()}>
           <div class="premium-free-banner">
             <div class="premium-free-banner-text">
               <strong>Free models are active</strong>
-              <span>The brain routes to free models (Laguna, Gemini Flash, Groq) by default. No provider connection needed to start growing fans. Connect a premium provider above to unlock frontier models for deeper reasoning.</span>
+              <span>The brain routes to free models (Laguna, Gemini Flash, Groq) by default. No provider connection needed to start growing fans. Connect a premium provider to unlock frontier models for deeper reasoning.</span>
             </div>
-            <SparkIcon size={20} />
+            <button class="premium-btn-connect" onClick={() => setShowWizard(true)}>
+              <SparkIcon size={14} /> Get started
+            </button>
           </div>
         </Show>
 
@@ -347,7 +394,7 @@ export function PremiumAIPanel(props: {
                   <div class="premium-connector-card" classList={{ connected: isConnected() }}>
                     <div class="premium-connector-top">
                       <div class="premium-connector-logo">
-                        <LlmProviderIcon providerId={provider.id} size={28} />
+                        <LlmProviderIconWithTier providerId={provider.id} tier={provider.tier} connected={isConnected()} beta={provider.oauth?.experimental} size={28} />
                       </div>
                       <div class="premium-connector-info">
                         <div class="premium-connector-name">{provider.name}</div>
@@ -419,16 +466,17 @@ export function PremiumAIPanel(props: {
                       </div>
                     </Show>
 
-                    {/* Connection actions */}
+                    {/* Connection actions — one-click primary action */}
                     <div class="premium-connector-actions">
                       <Show when={!isConnected()}>
-                        {/* OAuth sign-in button — always shown for premium providers that have OAuth defs.
-                            Disabled if OAuth is not configured on this deployment. */}
-                        <Show when={provider.oauth}>
+                        {/* Primary action: OAuth sign-in (if available) or API key connect.
+                            OAuth is the primary path for OAuth-capable providers.
+                            API key paste is a collapsible fallback. */}
+                        <Show when={provider.oauth && provider.oauthAvailable}>
                           <button
                             class={`oauth-btn oauth-btn-${provider.id}`}
-                            disabled={connectingProvider() === provider.id || !provider.oauthAvailable}
-                            title={provider.oauthAvailable ? `Sign in with ${provider.name}` : 'OAuth not configured on this deployment — use API key instead'}
+                            disabled={connectingProvider() === provider.id}
+                            title={`Sign in with ${provider.name}`}
                             onClick={() => handleStartOauth(provider.id)}
                           >
                             <LlmProviderIcon providerId={provider.id} size={16} />
@@ -442,39 +490,56 @@ export function PremiumAIPanel(props: {
                           <Show when={provider.oauth?.experimental}>
                             <span class="premium-beta-chip">beta</span>
                           </Show>
-                          <Show when={!provider.oauthAvailable}>
-                            <span class="premium-oauth-unavailable">OAuth not configured</span>
-                          </Show>
                         </Show>
 
-                        {/* API key input — the fallback for all premium providers */}
+                        {/* API key — primary action for non-OAuth providers,
+                            collapsible fallback for OAuth providers */}
                         <Show when={provider.supportsApiKeyPaste}>
                           <Show when={showKeyInputFor() === provider.id}>
                             <div class="premium-key-row">
                               <input
                                 class="premium-key-input"
+                                classList={{ 'premium-key-error': !!error() && connectingProvider() !== provider.id }}
                                 type="password"
                                 placeholder="Paste API key…"
                                 value={apiKeyInput()}
                                 onInput={(e) => setApiKeyInput(e.currentTarget.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleConnectApiKey(provider.id) }}
                               />
                               <button
                                 class="premium-btn-connect"
                                 disabled={connectingProvider() === provider.id || !apiKeyInput().trim()}
                                 onClick={() => handleConnectApiKey(provider.id)}
                               >
-                                {connectingProvider() === provider.id ? '…' : 'Connect'}
+                                <Show when={connectingProvider() === provider.id}>
+                                  <span class="premium-spinner" />
+                                </Show>
+                                {connectingProvider() === provider.id ? 'Validating…' : 'Connect'}
                               </button>
-                              <button class="premium-btn-cancel" onClick={() => { setShowKeyInputFor(null); setApiKeyInput('') }}>
+                              <button class="premium-btn-cancel" onClick={() => { setShowKeyInputFor(null); setApiKeyInput(''); setError(null) }}>
                                 Cancel
                               </button>
                             </div>
                           </Show>
                           <Show when={showKeyInputFor() !== provider.id}>
-                            <button class="premium-btn-key" onClick={() => setShowKeyInputFor(provider.id)}>
-                              <KeyIcon size={13} /> Add API Key
-                            </button>
+                            <Show when={!provider.oauth || !provider.oauthAvailable}>
+                              {/* Primary action when OAuth is not available */}
+                              <button class="premium-btn-connect" onClick={() => setShowKeyInputFor(provider.id)}>
+                                <KeyIcon size={13} /> Connect with API Key
+                              </button>
+                            </Show>
+                            <Show when={provider.oauth && provider.oauthAvailable}>
+                              {/* Collapsible fallback when OAuth is available */}
+                              <button class="premium-btn-key" onClick={() => setShowKeyInputFor(provider.id)}>
+                                Use API key instead
+                              </button>
+                            </Show>
                           </Show>
+                        </Show>
+
+                        {/* OAuth not configured hint */}
+                        <Show when={provider.oauth && !provider.oauthAvailable && !provider.supportsApiKeyPaste}>
+                          <span class="premium-oauth-unavailable">OAuth not configured</span>
                         </Show>
                       </Show>
 
@@ -494,9 +559,9 @@ export function PremiumAIPanel(props: {
           {/* OAuth device flow modal */}
           <Show when={oauthDevice()}>
             {(device) => (
-              <div class="premium-device-overlay" onClick={() => setOauthDevice(null)}>
+              <div class="premium-device-overlay" onClick={() => setOauthDevice(null)} onKeyDown={(e) => { if (e.key === 'Escape') setOauthDevice(null) }} role="dialog" aria-modal="true" aria-label={`Sign in to ${device().provider}`}>
                 <div class="premium-device-modal" onClick={(e) => e.stopPropagation()}>
-                  <h4>Sign in to {device().provider}</h4>
+                  <h4 id="device-modal-title">Sign in to {device().provider}</h4>
                   <Show when={device().verification_uri}>
                     <p class="premium-device-instructions">
                       Visit <a href={device().verification_uri} target="_blank" rel="noopener noreferrer">{device().verification_uri}</a>
@@ -508,7 +573,10 @@ export function PremiumAIPanel(props: {
                     <p class="premium-device-instructions">Waiting for authorization…</p>
                   </Show>
                   <div class="premium-device-actions">
-                    <button class="premium-btn-connect" onClick={handlePollOauth}>Check Status</button>
+                    <button class="premium-btn-connect" disabled={pollingOauth()} onClick={handlePollOauth}>
+                      <Show when={pollingOauth()}><span class="premium-spinner" /></Show>
+                      {pollingOauth() ? 'Checking…' : 'Check Status'}
+                    </button>
                     <button class="premium-btn-cancel" onClick={() => setOauthDevice(null)}>Cancel</button>
                   </div>
                 </div>
@@ -538,6 +606,7 @@ export function PremiumAIPanel(props: {
                 {(model) => (
                   <div class="premium-model-card">
                     <div class="premium-model-header">
+                      <ModelIcon modelId={model.id} providerId={model.provider} paid size={18} />
                       <span class="premium-model-name">{model.name}</span>
                       <Show when={model.agentic}>
                         <span class="premium-agentic-chip">

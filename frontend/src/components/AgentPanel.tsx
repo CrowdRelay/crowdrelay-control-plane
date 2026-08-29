@@ -2,6 +2,7 @@ import { For, Show, createEffect, createResource, createSignal } from 'solid-js'
 import { api, request } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshTick } from '../lib/refresh'
+import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
 import { LlmProviderIcon } from './ProviderIcon'
 import { GrowthIntelligencePanel } from './GrowthIntelligencePanel'
@@ -167,12 +168,16 @@ export function AgentPanel(props: { slug: string }) {
           label: '',
         }),
       })
+      const p = providers()?.find(pr => pr.id === provider)
+      toast.success(`Connected to ${p?.name ?? provider} — ${p?.modelCount ?? 0} models unlocked`)
       setApiKeyInput('')
       setPastingProvider(null)
       refetchCreds()
       refetchModels()
     } catch (err) {
-      setError(errorMessage(err, 'Failed to connect provider'))
+      const msg = errorMessage(err, 'Failed to connect provider')
+      setError(msg)
+      toast.error(msg)
     } finally {
       setConnecting(false)
     }
@@ -181,6 +186,7 @@ export function AgentPanel(props: { slug: string }) {
   const startOauth = async (providerId: string) => {
     setError(null)
     const provider = providers()?.find(p => p.id === providerId)
+    if (!provider) return
     if (provider?.oauth?.kind === 'device') {
       // Device flow: call start endpoint, open modal with user_code/verification_uri
       setDeviceFlowProvider(providerId)
@@ -247,10 +253,14 @@ export function AgentPanel(props: { slug: string }) {
   const disconnect = async (provider: string) => {
     try {
       await request(`/tenants/${props.slug}/agents/credentials/${provider}`, { method: 'DELETE' })
+      const p = providers()?.find(pr => pr.id === provider)
+      toast.info(`Disconnected from ${p?.name ?? provider}`)
       refetchCreds()
       refetchModels()
     } catch (err) {
-      setError(errorMessage(err, 'Failed to disconnect'))
+      const msg = errorMessage(err, 'Failed to disconnect')
+      setError(msg)
+      toast.error(msg)
     }
   }
 
