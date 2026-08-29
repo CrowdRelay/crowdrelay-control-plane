@@ -131,9 +131,15 @@ pub fn router() -> Router<AppState> {
         // Growth funnel — community discovery + worker run funnel data
         .route("/tenants/{slug}/agents/growth/funnel", get(growth_funnel))
         // Brain transparency — decision log for the brain transparency panel
-        .route("/tenants/{slug}/agents/brain/decisions", get(brain_decisions))
+        .route(
+            "/tenants/{slug}/agents/brain/decisions",
+            get(brain_decisions),
+        )
         // Usage analytics — cost-ROI + model routing + daily spend
-        .route("/tenants/{slug}/agents/usage/analytics", get(usage_analytics))
+        .route(
+            "/tenants/{slug}/agents/usage/analytics",
+            get(usage_analytics),
+        )
         .layer(axum::extract::DefaultBodyLimit::max(MAX_AGENT_BODY_BYTES))
 }
 
