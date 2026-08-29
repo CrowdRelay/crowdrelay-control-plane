@@ -9,6 +9,7 @@ POLL_SECONDS="${CONTROL_PLANE_DEPLOY_POLL_SECONDS:-3}"
 REMOTE="${CONTROL_PLANE_DEPLOY_HOST:-virya-crowdrelay}"
 REMOTE_DIR="${CONTROL_PLANE_DEPLOY_REMOTE_DIR:-/srv/crowdrelay-control-plane}"
 CANONICAL="$ROOT_DIR/scripts/deploy-production.sh"
+BLUEGREEN="$ROOT_DIR/scripts/deploy-bluegreen.sh"
 CREDENTIAL_GATE="$ROOT_DIR/scripts/ensure-virya-management-credentials.sh"
 
 fail() {
@@ -26,6 +27,7 @@ for command in git gh ssh bash; do require "$command"; done
 
 cd "$ROOT_DIR"
 [[ -f "$CANONICAL" && ! -L "$CANONICAL" ]] || fail "canonical deploy is missing or unsafe: $CANONICAL"
+[[ -f "$BLUEGREEN" && ! -L "$BLUEGREEN" ]] || fail "blue-green deploy is missing or unsafe: $BLUEGREEN"
 [[ -f "$CREDENTIAL_GATE" && ! -L "$CREDENTIAL_GATE" ]] || fail "management credential gate is missing or unsafe: $CREDENTIAL_GATE"
 [[ -z "$(git status --porcelain --untracked-files=normal)" ]] || fail 'local worktree must be clean'
 branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
@@ -232,16 +234,47 @@ REMOTE_MAIN="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
 [[ "$REMOTE_MAIN" == "$TARGET" ]] || fail "origin/main moved while waiting: remote=$REMOTE_MAIN target=$TARGET"
 
 trap on_interrupt INT TERM HUP
-set +e
-bash "$CANONICAL" "$TARGET"
-deploy_status=$?
-set -e
-trap - INT TERM HUP
 
-if (( deploy_status != 0 )); then
-  ensure_live_tunnel || fail 'Control Plane deploy failed and app+tunnel recovery failed'
+# --- Try blue-green (zero-downtime) first; fall back to force-recreate ---
+# Blue-green is the canonical path. If no blue/green container is running
+# (first install or recovery), fall back to the force-recreate path.
+blue_green_eligible="$(ssh -T "$REMOTE" sudo bash -s -- "$REMOTE_DIR" <<'REMOTE_CHECK'
+{
+set -euo pipefail
+root="$1"
+cd "$root" 2>/dev/null || exit 0
+blue="$(docker inspect crowdrelay-control-plane-app-1 --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
+green="$(docker inspect crowdrelay-control-plane-app-green-1 --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
+if [[ "$blue" == "healthy" || "$blue" == "running" || "$green" == "healthy" || "$green" == "running" ]]; then
+  echo "eligible"
+fi
+} </dev/null
+REMOTE_CHECK
+)"
+
+if [[ "$blue_green_eligible" == "eligible" ]]; then
+  printf '\n==> Blue-green deploy (zero-downtime Caddy cutover)\n'
+  # Ship the blue-green script to the remote and execute it with the SHA and digest
+  scp -q "$BLUEGREEN" "$REMOTE:/tmp/cp-deploy-bluegreen.sh"
+  set +e
+  ssh -T "$REMOTE" sudo bash /tmp/cp-deploy-bluegreen.sh "$TARGET" "${CONTROL_PLANE_IMAGE_DIGEST:-}" "$REMOTE_DIR"
+  deploy_status=$?
+  set -e
+  ssh -T "$REMOTE" "rm -f /tmp/cp-deploy-bluegreen.sh" 2>/dev/null || true
+  trap - INT TERM HUP
 else
-  verify_live_tunnel || fail 'Control Plane deploy left the tunnel unhealthy'
+  printf '\n==> Bootstrap/recovery deploy (force-recreate — no blue/green container running)\n'
+  set +e
+  bash "$CANONICAL" "$TARGET"
+  deploy_status=$?
+  set -e
+  trap - INT TERM HUP
+
+  if (( deploy_status != 0 )); then
+    ensure_live_tunnel || fail 'Control Plane deploy failed and app+tunnel recovery failed'
+  else
+    verify_live_tunnel || fail 'Control Plane deploy left the tunnel unhealthy'
+  fi
 fi
 (( deploy_status == 0 )) || exit "$deploy_status"
-printf 'MAKE_DEPLOY=PASS repo=crowdrelay-control-plane sha=%s digest=%s tunnel=healthy credentials=matched\n' "$TARGET" "$CONTROL_PLANE_IMAGE_DIGEST"
+printf 'MAKE_DEPLOY=PASS repo=crowdrelay-control-plane sha=%s digest=%s tunnel=healthy credentials=matched\n' "$TARGET" "${CONTROL_PLANE_IMAGE_DIGEST:-}"

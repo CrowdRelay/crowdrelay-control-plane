@@ -84,6 +84,8 @@ cd "$REPO_DIR"
 [[ -f compose.area.yml ]] || fail "missing compose.area.yml"
 [[ -f deploy/compose.bluegreen.yml ]] || fail "missing deploy/compose.bluegreen.yml"
 [[ -f "$EDGE_CADDYFILE" ]] || fail "missing edge Caddyfile"
+# compose.agents.yml is optional — the agent-service is only recreated if it exists
+[[ -f compose.agents.yml ]] && printf 'AGENT_OVERLAY=PASS\n' || printf 'AGENT_OVERLAY=SKIP reason=no-agents-overlay\n'
 
 # Verify the new image is available
 new_image="crowdrelay-control-plane:sha-${TARGET}"
@@ -212,6 +214,39 @@ fi
 # Stop the old app
 docker stop "$CURRENT_APP" >/dev/null 2>&1 || true
 docker rm "$CURRENT_APP" >/dev/null 2>&1 || true
+
+# --- 4b. Recreate agent-service with the latest image ---------------------
+# The agent-service is stateless and doesn't need blue-green itself, but it
+# must be kept running during the cutover and updated to match the new
+# control-plane release. We recreate it after the cutover succeeds so a
+# failure here doesn't take down the already-verified new app.
+agent_container="crowdrelay-control-plane-agent-service-1"
+agent_tag="$(sed -n 's/^AGENT_SERVICE_IMAGE_TAG=//p' .env | tail -n1)"
+if [[ "$agent_tag" =~ ^sha-[0-9a-f]{40}$ ]]; then
+  agent_image="crowdrelay-agents:${agent_tag}"
+  if ! docker image inspect "$agent_image" >/dev/null 2>&1; then
+    printf 'AGENT_IMAGE=SKIP reason=image-not-found tag=%s\n' "$agent_tag"
+  else
+    printf '\n==> Recreating agent-service with tag %s\n' "$agent_tag"
+    docker compose -f compose.production.yml -f compose.area.yml -f compose.agents.yml \
+      up -d --no-deps --force-recreate agent-service 2>/dev/null || true
+    agent_health=""
+    for attempt in $(seq 1 30); do
+      agent_health="$(docker inspect "$agent_container" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
+      if [[ "$agent_health" == "healthy" || "$agent_health" == "running" ]]; then
+        break
+      fi
+      sleep 2
+    done
+    if [[ "$agent_health" == "healthy" || "$agent_health" == "running" ]]; then
+      printf 'AGENT_SERVICE=PASS health=%s tag=%s\n' "$agent_health" "$agent_tag"
+    else
+      printf 'AGENT_SERVICE=WARNING health=%s tag=%s (new app is active)\n' "$agent_health" "$agent_tag" >&2
+    fi
+  fi
+else
+  printf 'AGENT_SERVICE=SKIP reason=no-tag-configured\n'
+fi
 
 # Update the image tag in .env
 sed -i "s|^CONTROL_PLANE_IMAGE_TAG=.*|CONTROL_PLANE_IMAGE_TAG=sha-${TARGET}|" .env
