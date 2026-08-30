@@ -88,7 +88,7 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
     </Show>
 
     <Show when={objectives() && objectives()!.length > 0} fallback={
-      <EmptyState label="No growth objectives declared" hint="Declare a target metric and deadline to start tracking progress. The Brain measures every action against active objectives." />
+      <EmptyState label="No growth objectives declared" hint="Declare a target metric and deadline to start tracking progress. The intelligence measures every action against active objectives." />
     }>
       <div class="objective-list">
         <For each={objectives()}>{(obj: GrowthObjectiveView) => {

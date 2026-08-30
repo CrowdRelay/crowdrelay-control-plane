@@ -1,7 +1,7 @@
 import { For, Show } from 'solid-js'
 import { useNavigate } from '@tanstack/solid-router'
 
-type Zone = 'src' | 'brain' | 'worker' | 'out' | 'learn'
+type Zone = 'src' | 'intel' | 'worker' | 'out' | 'learn'
 
 type MapNode = {
   id: string
@@ -17,12 +17,12 @@ type MapNode = {
 
 // ── Actualized architecture ────────────────────────────────────────────
 //
-// The Brain (Rust autopilot) is deterministic. It owns strategy, decides
+// Intelligence (Rust autopilot) is deterministic. It owns strategy, decides
 // what intelligence to gather, and dispatches LLM workers. Workers gather
-// intelligence and draft content. They feed outcomes back to the Brain's
+// intelligence and draft content. They feed outcomes back to the intelligence's
 // causal model, which updates beliefs and drives the next cycle.
 //
-// Sources → Brain → Workers → Outcomes → Learning loop → Brain
+// Sources → Intelligence → Workers → Outcomes → Learning loop → Intelligence
 
 const NODES: MapNode[] = [
   // ── SOURCES ──
@@ -32,10 +32,10 @@ const NODES: MapNode[] = [
   { id: 'meta', x: 30, y: 310, w: 230, h: 56, zone: 'src', title: 'Meta · TikTok', desc: 'ad leads + social', to: '/tenants/{slug}/portfolio' },
   { id: 'press', x: 30, y: 380, w: 230, h: 56, zone: 'src', title: 'Press · Lists', desc: 'media + CSV import', to: '/tenants/{slug}/portfolio' },
 
-  // ── BRAIN (deterministic Rust) ──
-  { id: 'brain', x: 340, y: 120, w: 280, h: 90, zone: 'brain', title: 'Brain · Autopilot', desc: 'deterministic strategy\ncausal model + decisions', to: '/tenants/{slug}/operations' },
-  { id: 'scorecard', x: 340, y: 240, w: 280, h: 64, zone: 'brain', title: 'Scorecard + Objectives', desc: 'progress tracking', to: '/tenants/{slug}/operations' },
-  { id: 'funnel', x: 340, y: 330, w: 280, h: 64, zone: 'brain', title: 'Growth Funnel', desc: 'discovery → engagement → conversion', to: '/tenants/{slug}/funnel' },
+  // ── INTELLIGENCE (deterministic Rust) ──
+  { id: 'intel', x: 340, y: 120, w: 280, h: 90, zone: 'intel', title: 'Intelligence · Autopilot', desc: 'deterministic strategy\ncausal model + decisions', to: '/tenants/{slug}/operations' },
+  { id: 'scorecard', x: 340, y: 240, w: 280, h: 64, zone: 'intel', title: 'Scorecard + Objectives', desc: 'progress tracking', to: '/tenants/{slug}/operations' },
+  { id: 'funnel', x: 340, y: 330, w: 280, h: 64, zone: 'intel', title: 'Growth Funnel', desc: 'discovery → engagement → conversion', to: '/tenants/{slug}/funnel' },
 
   // ── WORKERS (LLM agents) ──
   { id: 'scanner', x: 720, y: 100, w: 260, h: 56, zone: 'worker', title: 'Reddit Scanner', desc: 'community discovery', to: '/tenants/{slug}/operations' },
@@ -54,18 +54,18 @@ const NODES: MapNode[] = [
 type Edge = { from: string; to: string; kind: Zone }
 
 const EDGES: Edge[] = [
-  // Sources → Brain
-  { from: 'reddit', to: 'brain', kind: 'src' },
-  { from: 'spotify', to: 'brain', kind: 'src' },
-  { from: 'bandsintown', to: 'brain', kind: 'src' },
-  { from: 'meta', to: 'brain', kind: 'src' },
-  { from: 'press', to: 'brain', kind: 'src' },
-  // Brain → Workers (dispatch)
-  { from: 'brain', to: 'scanner', kind: 'brain' },
-  { from: 'brain', to: 'engager', kind: 'brain' },
-  { from: 'brain', to: 'inviter', kind: 'brain' },
-  { from: 'brain', to: 'press_worker', kind: 'brain' },
-  { from: 'brain', to: 'strategist', kind: 'brain' },
+  // Sources → Intelligence
+  { from: 'reddit', to: 'intel', kind: 'src' },
+  { from: 'spotify', to: 'intel', kind: 'src' },
+  { from: 'bandsintown', to: 'intel', kind: 'src' },
+  { from: 'meta', to: 'intel', kind: 'src' },
+  { from: 'press', to: 'intel', kind: 'src' },
+  // Intelligence → Workers (dispatch)
+  { from: 'intel', to: 'scanner', kind: 'intel' },
+  { from: 'intel', to: 'engager', kind: 'intel' },
+  { from: 'intel', to: 'inviter', kind: 'intel' },
+  { from: 'intel', to: 'press_worker', kind: 'intel' },
+  { from: 'intel', to: 'strategist', kind: 'intel' },
   // Workers → Outcomes
   { from: 'scanner', to: 'fans', kind: 'worker' },
   { from: 'engager', to: 'engagement', kind: 'worker' },
@@ -75,9 +75,9 @@ const EDGES: Edge[] = [
   // Outcome chain
   { from: 'fans', to: 'engagement', kind: 'out' },
   { from: 'engagement', to: 'conversion', kind: 'out' },
-  // Learning loop: outcomes → Brain (causal model updates)
-  { from: 'conversion', to: 'brain', kind: 'learn' },
-  { from: 'metrics', to: 'brain', kind: 'learn' },
+  // Learning loop: outcomes → Intelligence (causal model updates)
+  { from: 'conversion', to: 'intel', kind: 'learn' },
+  { from: 'metrics', to: 'intel', kind: 'learn' },
 ]
 
 const NODE_MAP = new Map(NODES.map(n => [n.id, n]))
@@ -95,7 +95,7 @@ function edgePath(edge: Edge): string {
 
 const ZONE_STROKE: Record<Zone, string> = {
   src: '#71dcff',
-  brain: '#9b87f5',
+  intel: '#9b87f5',
   worker: '#ffd56d',
   out: '#ff6680',
   learn: '#7dffb2',
@@ -118,8 +118,8 @@ export function ProcessMap(props: { slug: () => string }) {
         {/* zone backgrounds */}
         <rect class="pm-zone" x="15" y="70" width="260" height="390" rx="14" />
         <text class="pm-zt" x="28" y="95">SOURCES</text>
-        <rect class="pm-zone pm-zone-brain" x="320" y="70" width="330" height="390" rx="14" />
-        <text class="pm-zt" x="334" y="95">BRAIN</text>
+        <rect class="pm-zone pm-zone-intel" x="320" y="70" width="330" height="390" rx="14" />
+        <text class="pm-zt" x="334" y="95">INTELLIGENCE</text>
         <rect class="pm-zone" x="700" y="70" width="300" height="390" rx="14" />
         <text class="pm-zt" x="714" y="95">WORKERS</text>
         <rect class="pm-zone" x="1070" y="70" width="310" height="390" rx="14" />

@@ -99,7 +99,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
         </div>
       </Show>
 
-      <Show when={ledger()!.plays.length > 0} fallback={<EmptyState label="No plays recorded" hint="The play ledger tracks every action the Brain has executed. Plays appear here once the autopilot starts dispatching." />}>
+      <Show when={ledger()!.plays.length > 0} fallback={<EmptyState label="No plays recorded" hint="The play ledger tracks every action the intelligence has executed. Plays appear here once the autopilot starts dispatching." />}>
         <h4 class="subsection">Plays</h4>
         <div class="play-list">
           <For each={ledger()!.plays}>{(p) => (

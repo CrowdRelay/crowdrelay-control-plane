@@ -1,9 +1,12 @@
-import { Show, createSignal } from 'solid-js'
+import { createSignal } from 'solid-js'
 import type { JSX } from 'solid-js'
 
 /**
  * Reusable collapsible section for the operations dashboard.
  * Header shows eyebrow + title + optional badge, clicking toggles the body.
+ *
+ * Uses CSS max-height transition instead of <Show> to avoid scroll-to-top
+ * jumps when content is inserted/removed from the DOM.
  */
 export function CollapsibleSection(props: {
   eyebrow?: string
@@ -24,15 +27,13 @@ export function CollapsibleSection(props: {
         aria-expanded={open()}
       >
         <div class="collapsible-header-text">
-          <Show when={props.eyebrow}>
-            <span class="eyebrow">{props.eyebrow}</span>
-          </Show>
+          {props.eyebrow && <span class="eyebrow">{props.eyebrow}</span>}
           <h3>{props.title}</h3>
         </div>
         <div class="collapsible-header-meta">
-          <Show when={props.badge}>
+          {props.badge && (
             <span class={`badge tone-${props.badgeTone ?? 'muted'}`}>{props.badge}</span>
-          </Show>
+          )}
           <svg
             class="collapsible-chevron"
             width="16"
@@ -49,11 +50,9 @@ export function CollapsibleSection(props: {
           </svg>
         </div>
       </button>
-      <Show when={open()}>
-        <div class="collapsible-body">
-          {props.children}
-        </div>
-      </Show>
+      <div class="collapsible-body" classList={{ 'collapsible-body-open': open() }}>
+        {props.children}
+      </div>
     </article>
   )
 }

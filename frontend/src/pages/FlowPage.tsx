@@ -24,7 +24,7 @@ export function FlowPage() {
           <span class="eyebrow">BIG PICTURE</span>
           <h1>Process map</h1>
           <p>
-            Sources feed the Brain (deterministic Rust autopilot). The Brain dispatches LLM workers
+            Sources feed the intelligence (deterministic Rust autopilot). Intelligence dispatches LLM workers
             that gather intelligence and draft content. Outcomes feed back into the causal model.
             Click any block to jump to its page.
           </p>
@@ -51,7 +51,7 @@ export function FlowPage() {
       >
         <div class="process-map-legend">
           <span><i class="legend-swatch legend-inputs" />Sources</span>
-          <span><i class="legend-swatch legend-brain" />Brain</span>
+          <span><i class="legend-swatch legend-intel" />Intelligence</span>
           <span><i class="legend-swatch legend-worker" />Workers</span>
           <span><i class="legend-swatch legend-outcome" />Outcomes</span>
           <span><i class="legend-swatch legend-learning" />Learning loop</span>

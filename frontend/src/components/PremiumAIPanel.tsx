@@ -272,7 +272,7 @@ export function PremiumAIPanel(props: {
           <div class="premium-free-banner">
             <div class="premium-free-banner-text">
               <strong>Free models are active</strong>
-              <span>The brain routes to free models (Laguna, Gemini Flash, Groq) by default. No provider connection needed to start growing fans. Connect a premium provider below to unlock frontier models for deeper reasoning.</span>
+              <span>The intelligence routes to free models (Laguna, Gemini Flash, Groq) by default. No provider connection needed to start growing fans. Connect a premium provider below to unlock frontier models for deeper reasoning.</span>
             </div>
           </div>
         </Show>
@@ -366,7 +366,7 @@ export function PremiumAIPanel(props: {
             </Show>
           </div>
           <p class="premium-section-intro">
-            Connect your AI accounts to unlock models for the autopilot brain.
+            Connect your AI accounts to unlock models for the autopilot intelligence.
             Paste an API key from each provider's developer console. Keys are encrypted at rest.
           </p>
 
@@ -413,7 +413,7 @@ export function PremiumAIPanel(props: {
                           <span class="premium-rec-text">Unlocks 100+ models via one API key — flexible routing for all templates</span>
                         </Show>
                         <Show when={provider.id !== 'openai' && provider.id !== 'anthropic' && provider.id !== 'google' && provider.id !== 'xai' && provider.id !== 'openrouter'}>
-                          <span class="premium-rec-text">Adds {provider.modelCount} models to the brain's routing pool</span>
+                          <span class="premium-rec-text">Adds {provider.modelCount} models to the intelligence's routing pool</span>
                         </Show>
                       </div>
                     </Show>
@@ -549,7 +549,7 @@ export function PremiumAIPanel(props: {
             when={usage()!.tasks.length > 0}
             fallback={
               <div class="premium-empty-sm">
-                No premium tasks yet. The brain routes complex tasks here automatically.
+                No premium tasks yet. The intelligence routes complex tasks here automatically.
               </div>
             }
           >

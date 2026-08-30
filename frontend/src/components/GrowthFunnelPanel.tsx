@@ -64,9 +64,9 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     const inviterRuns = wr['signal-inviter']?.completed ?? 0
     return [
       { label: 'Communities Discovered', value: data.communities_discovered, hint: 'Reddit subreddits found by scraper' },
-      { label: 'Scanner Runs', value: scannerRuns, hint: 'Brain-dispatched reddit-scanner workers' },
-      { label: 'Engager Runs', value: engagerRuns, hint: 'Brain-dispatched community-engager workers' },
-      { label: 'Inviter Runs', value: inviterRuns, hint: 'Brain-dispatched signal-inviter workers' },
+      { label: 'Scanner Runs', value: scannerRuns, hint: 'Intelligence-dispatched reddit-scanner workers' },
+      { label: 'Engager Runs', value: engagerRuns, hint: 'Intelligence-dispatched community-engager workers' },
+      { label: 'Inviter Runs', value: inviterRuns, hint: 'Intelligence-dispatched signal-inviter workers' },
       { label: 'Brain Workflows', value: data.brain_workflows.total, hint: 'Total brain-dispatched growth plans' },
     ]
   }
@@ -142,7 +142,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
           <span class="kpi-sub">{completedWorkerRuns()} completed · {failedWorkerRuns()} failed</span>
         </article>
         <article class="kpi-card">
-          <span class="kpi-label">Brain workflows</span>
+          <span class="kpi-label">Intelligence workflows</span>
           <CountUp value={funnel()!.brain_workflows.total} />
           <span class="kpi-sub">{funnel()!.brain_workflows.by_status.completed ?? 0} completed</span>
         </article>
@@ -161,7 +161,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
         <Show when={bottleneck()}>{(b) => (
           <div class="warning-card">
             <strong>Funnel bottleneck: {b().stage.label}</strong>
-            <span>Only {b().rate}% progressed to {b().nextStage.label}. {b().stage.value} → {b().nextStage.value}. Consider dispatching more {b().stage.label.toLowerCase()} runs or reviewing the brain's growth intelligence policy.</span>
+            <span>Only {b().rate}% progressed to {b().nextStage.label}. {b().stage.value} → {b().nextStage.value}. Consider dispatching more {b().stage.label.toLowerCase()} runs or reviewing the intelligence's growth intelligence policy.</span>
           </div>
         )}</Show>
 
@@ -177,7 +177,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
         <div class="agent-section-head">
           <h3>Worker Run Breakdown</h3>
         </div>
-        <p class="agent-section-intro">Per-template worker run statistics. The brain dispatches these workers to gather intelligence and draft content.</p>
+        <p class="agent-section-intro">Per-template worker run statistics. The intelligence dispatches these workers to gather intelligence and draft content.</p>
         <div class="funnel-worker-table">
           <table class="agent-task-table">
             <thead><tr><th>Template</th><th>Total</th><th>Completed</th><th>Failed</th><th>Running</th><th>Queued</th><th>Success rate</th></tr></thead>
@@ -212,7 +212,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
           <h3>Recent Worker Runs</h3>
           <span class="muted">last {funnel()!.recent_worker_runs.length}</span>
         </div>
-        <p class="agent-section-intro">The most recent worker runs dispatched by the brain, with their outcomes.</p>
+        <p class="agent-section-intro">The most recent worker runs dispatched by the intelligence, with their outcomes.</p>
         <div class="funnel-recent-list">
           <For each={funnel()!.recent_worker_runs}>{(run: FunnelRecentWorkerRun) => (
             <div class="funnel-recent-row">

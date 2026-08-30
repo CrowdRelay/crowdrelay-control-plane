@@ -84,7 +84,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
 
     <Show when={tab() === 'outreach'} fallback={
       <Show when={booking()} fallback={<p class="muted">Loading booking candidates…</p>}>
-        <Show when={booking()!.length > 0} fallback={<EmptyState label="No booking candidates" hint="The Brain scans for gig opportunities with computed economics. Candidates appear here when the detector finds viable shows." />}>
+        <Show when={booking()!.length > 0} fallback={<EmptyState label="No booking candidates" hint="The intelligence scans for gig opportunities with computed economics. Candidates appear here when the detector finds viable shows." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -123,7 +123,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
       </Show>
     }>
       <Show when={outreach()} fallback={<p class="muted">Loading outreach candidates…</p>}>
-        <Show when={outreach()!.length > 0} fallback={<EmptyState label="No outreach candidates" hint="Outreach candidates are fans or contacts the Brain identified for engagement. They appear here when detectors raise them." />}>
+        <Show when={outreach()!.length > 0} fallback={<EmptyState label="No outreach candidates" hint="Outreach candidates are fans or contacts the intelligence identified for engagement. They appear here when detectors raise them." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>

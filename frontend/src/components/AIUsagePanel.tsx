@@ -160,7 +160,7 @@ export function AIUsagePanel(props: { slug: string }) {
           <h3>Model Performance</h3>
           <span class="muted">last 30 days</span>
         </div>
-        <p class="agent-section-intro">Per-model success rate, latency, and cost. Helps you see if the brain is routing tasks to the right models. Color-coded success rate: green ≥90%, yellow ≥75%, red below 75%.</p>
+        <p class="agent-section-intro">Per-model success rate, latency, and cost. Helps you see if the intelligence is routing tasks to the right models. Color-coded success rate: green ≥90%, yellow ≥75%, red below 75%.</p>
         <div class="usage-table-wrap">
           <table class="agent-task-table">
             <thead><tr><th>Model</th><th>Provider</th><th>Tasks</th><th>Success</th><th>Avg latency</th><th>Avg cost/task</th><th>Avg tokens</th></tr></thead>
@@ -193,7 +193,7 @@ export function AIUsagePanel(props: { slug: string }) {
           <h3>Daily Spend Trend</h3>
           <span class="muted">last 30 days</span>
         </div>
-        <p class="agent-section-intro">Daily AI spend, free vs paid stacked. The bar height shows total requests; color shows paid cost. A flat line at $0 means the brain is routing to free models — that's the goal.</p>
+        <p class="agent-section-intro">Daily AI spend, free vs paid stacked. The bar height shows total requests; color shows paid cost. A flat line at $0 means the intelligence is routing to free models — that's the goal.</p>
         <div class="usage-chart">
           <For each={dailySpend()}>{(d) => {
             const totalCost = d.paid_cost_micro_usd + d.free_cost_micro_usd
@@ -229,18 +229,18 @@ export function AIUsagePanel(props: { slug: string }) {
     {/* Empty state */}
     <Show when={data() && templateRoi().length === 0 && modelAnalytics().length === 0}>
       <div class="inherit-card">
-        <EmptyState label="No AI usage data" hint="AI usage tracks token consumption and costs for worker agents. Data appears here once the Brain dispatches workers." />
+        <EmptyState label="No AI usage data" hint="AI usage tracks token consumption and costs for worker agents. Data appears here once the intelligence dispatches workers." />
       </div>
     </Show>
 
-    {/* Model routing preview — shows the brain's fallback chain */}
+    {/* Model routing preview — shows the intelligence's fallback chain */}
     <Show when={data() && (data()!.available_models.length > 0 || modelAnalytics().length > 0)}>
       <div class="agent-section">
         <div class="agent-section-head">
           <h3>Model Routing Preview</h3>
-          <span class="muted">brain fallback chain</span>
+          <span class="muted">intelligence fallback chain</span>
         </div>
-        <p class="agent-section-intro">The brain routes tasks to models using a fallback chain: free models first, then paid models if connected. This shows which models are available and whether they're being used.</p>
+        <p class="agent-section-intro">The intelligence routes tasks to models using a fallback chain: free models first, then paid models if connected. This shows which models are available and whether they're being used.</p>
         <div class="routing-preview-grid">
           <For each={data()?.available_models ?? []}>{(m) => {
             const analytics = () => modelAnalytics().find(a => a.model_id === m.id)

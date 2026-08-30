@@ -179,6 +179,7 @@ const SUBPAGES = [
   { path: '/tenants', name: 'tenants' },
   { path: '/tenants/virya', name: 'tenant-detail' },
   { path: '/tenants/virya/operations', name: 'operations' },
+  { path: '/tenants/virya/intelligence', name: 'intelligence' },
   { path: '/tenants/virya/attention', name: 'attention' },
   { path: '/tenants/virya/portfolio', name: 'portfolio' },
   { path: '/tenants/virya/area', name: 'area' },

@@ -7,7 +7,7 @@ import { StatusBadge } from './StatusBadge'
 import { GrowthIntelligencePanel } from './GrowthIntelligencePanel'
 import { PremiumAIPanel } from './PremiumAIPanel'
 import { AIUsagePanel } from './AIUsagePanel'
-import { BrainTransparencyPanel } from './BrainTransparencyPanel'
+import { IntelligenceTransparencyPanel } from './IntelligenceTransparencyPanel'
 import { EmptyState } from './EmptyState'
 import type { AgentTemplate, AgentTask, AgentTaskResult, AgentProvider, AgentCredential, AgentModel, TaskSuggestion, AgentSchedule, AgentOutcome } from '../lib/types'
 
@@ -24,8 +24,8 @@ const AntIcon = (props: { size?: number }) => (
   </svg>
 )
 
-// --- Brain icon (autopilot brain → agent suggestions) ---
-const BrainIcon = (props: { size?: number }) => (
+// --- Intelligence icon (autopilot intelligence → agent suggestions) ---
+const IntelligenceIcon = (props: { size?: number }) => (
   <svg width={props.size ?? 18} height={props.size ?? 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <path d="M9 3a3 3 0 0 0-3 3 3 3 0 0 0-1 5.8A3 3 0 0 0 7 17a3 3 0 0 0 2 4 3 3 0 0 0 3-3V3a3 3 0 0 0-3 0z" />
     <path d="M15 3a3 3 0 0 1 3 3 3 3 0 0 1 1 5.8A3 3 0 0 1 17 17a3 3 0 0 1-2 4 3 3 0 0 1-3-3" opacity="0.5" />
@@ -44,7 +44,7 @@ const priorityTone = (p: string): 'good' | 'warn' | 'muted' =>
   p === 'high' ? 'good' : p === 'medium' ? 'warn' : 'muted'
 
 export function AgentPanel(props: { slug: string }) {
-  const [activeTab, setActiveTab] = createSignal<'providers' | 'tasks' | 'growth' | 'usage' | 'brain'>('providers')
+  const [activeTab, setActiveTab] = createSignal<'providers' | 'tasks' | 'growth' | 'usage' | 'intel'>('providers')
   const [selectedTemplate, setSelectedTemplate] = createSignal<string | null>(null)
   const [selectedModel, setSelectedModel] = createSignal<string>('laguna-s-2.1-free')
   const [prompt, setPrompt] = createSignal('')
@@ -224,7 +224,7 @@ export function AgentPanel(props: { slug: string }) {
 
       {/* Tab navigation */}
       <div class="area-step-tabs agent-tabs">
-        <For each={[{id: 'providers', label: 'AI Providers'}, {id: 'tasks', label: 'Tasks'}, {id: 'growth', label: 'Growth Intelligence'}, {id: 'usage', label: 'AI Usage'}, {id: 'brain', label: 'Brain'}] as const}>
+        <For each={[{id: 'providers', label: 'AI Providers'}, {id: 'tasks', label: 'Tasks'}, {id: 'growth', label: 'Growth Intelligence'}, {id: 'usage', label: 'AI Usage'}, {id: 'intel', label: 'Intelligence'}] as const}>
           {(tab) => (
             <button
               class={activeTab() === tab.id ? 'active ghost' : 'ghost'}
@@ -249,16 +249,16 @@ export function AgentPanel(props: { slug: string }) {
         <AIUsagePanel slug={props.slug} />
       </div>
 
-      <div class={activeTab() === 'brain' ? '' : 'tab-hidden'}>
-        <BrainTransparencyPanel slug={props.slug} />
+      <div class={activeTab() === 'intel' ? '' : 'tab-hidden'}>
+        <IntelligenceTransparencyPanel slug={props.slug} />
       </div>
 
       <div class={activeTab() === 'tasks' ? '' : 'tab-hidden'}>
-      {/* Autopilot brain → agent suggestions — the bridge between operations data and LLM execution */}
+      {/* Autopilot intelligence → agent suggestions — the bridge between operations data and LLM execution */}
       <Show when={suggestions() && suggestions()!.length > 0}>
         <div class="agent-section">
           <div class="agent-section-head">
-            <h3><BrainIcon size={18} /> From the Autopilot Brain</h3>
+            <h3><IntelligenceIcon size={18} /> From the Autopilot Intelligence</h3>
           </div>
           <p class="agent-section-intro">Data-driven task suggestions based on your events, fan growth, and campaign performance. Click to pre-fill and run.</p>
           <div class="agent-suggestions">
@@ -398,13 +398,13 @@ export function AgentPanel(props: { slug: string }) {
           </table>
         </Show>
         <Show when={!schedules() || schedules()!.length === 0}>
-          <EmptyState label="No schedules configured" hint="Schedules define when the Brain dispatches worker agents. Create a schedule to automate intelligence gathering." />
+          <EmptyState label="No schedules configured" hint="Schedules define when the intelligence dispatches worker agents. Create a schedule to automate intelligence gathering." />
         </Show>
       </div>
 
       <div class="agent-section">
         <h3>Recent Tasks</h3>
-        <Show when={tasks()} fallback={<EmptyState label="No tasks yet" hint="Tasks are individual worker runs. They appear here once the Brain or a schedule dispatches them." />}>
+        <Show when={tasks()} fallback={<EmptyState label="No tasks yet" hint="Tasks are individual worker runs. They appear here once the intelligence or a schedule dispatches them." />}>
           <table class="agent-task-table">
             <thead>
               <tr>

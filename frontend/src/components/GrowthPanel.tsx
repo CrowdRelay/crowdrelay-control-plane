@@ -150,7 +150,7 @@ export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; 
             <div><strong>{count(outreach()?.suppressed_targets)}</strong><span>suppressed targets</span><small>never contacted automatically</small></div>
           </div>
           <Show when={outreach() && outreach()!.eligible_playlist_targets === 0 && outreach()!.playlist_opportunities === 0}>
-            <div class="inherit-card outreach-empty-state"><EmptyState label="No playlist targets" hint="The Brain identifies eligible playlists for pitching. Targets appear here once the detector scans for them." /></div>
+            <div class="inherit-card outreach-empty-state"><EmptyState label="No playlist targets" hint="The intelligence identifies eligible playlists for pitching. Targets appear here once the detector scans for them." /></div>
           </Show>
         </section>
 
@@ -158,7 +158,7 @@ export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; 
           <div class="operations-section-head">
             <div><span class="eyebrow">CAMPAIGNS</span><h3>Recent growth campaigns</h3></div>
           </div>
-          <Show when={data().campaigns.length > 0} fallback={<div class="inherit-card"><EmptyState label="No growth campaigns" hint="Growth campaigns coordinate multi-step outreach. They appear here once the Brain creates them." /></div>}>
+          <Show when={data().campaigns.length > 0} fallback={<div class="inherit-card"><EmptyState label="No growth campaigns" hint="Growth campaigns coordinate multi-step outreach. They appear here once the intelligence creates them." /></div>}>
             <div class="flag-list">
               <For each={data().campaigns}>{campaign => <div class="flag-row release-component-row">
                 <div>

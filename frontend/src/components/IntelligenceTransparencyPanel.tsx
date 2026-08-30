@@ -4,10 +4,10 @@ import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshTick, triggerRefresh } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './EmptyState'
-import type { BrainDecision, BrainDecisionTask, BrainDecisionsData } from '../lib/types'
+import type { IntelligenceDecision, IntelligenceDecisionTask, IntelligenceDecisionsData } from '../lib/types'
 
-// --- Brain icon (deterministic Rust autopilot) ---
-const BrainIcon = (props: { size?: number }) => (
+// --- Intelligence icon (deterministic Rust autopilot) ---
+const IntelligenceIcon = (props: { size?: number }) => (
   <svg width={props.size ?? 18} height={props.size ?? 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <path d="M9 3a3 3 0 0 0-3 3 3 3 0 0 0-1 5.8A3 3 0 0 0 7 17a3 3 0 0 0 2 4 3 3 0 0 0 3-3V3a3 3 0 0 0-3 0z" />
     <path d="M15 3a3 3 0 0 1 3 3 3 3 0 0 1 1 5.8A3 3 0 0 1 17 17a3 3 0 0 1-2 4 3 3 0 0 1-3-3" opacity="0.5" />
@@ -38,7 +38,7 @@ const taskStatusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
   status === 'running' || status === 'queued' ? 'warn' :
   status === 'failed' ? 'bad' : 'muted'
 
-export function BrainTransparencyPanel(props: { slug: string }) {
+export function IntelligenceTransparencyPanel(props: { slug: string }) {
   const [error, setError] = createSignal<string | null>(null)
   const [expanded, setExpanded] = createSignal<string | null>(null)
   const [days, setDays] = createSignal(30)
@@ -48,9 +48,9 @@ export function BrainTransparencyPanel(props: { slug: string }) {
   const [data] = createResource(refreshSource, async () => {
     try {
       setError(null)
-      return await api.brainDecisions(props.slug, 30, days())
+      return await api.intelligenceDecisions(props.slug, 30, days())
     } catch (err) {
-      setError(errorMessage(err, 'Failed to load brain decisions'))
+      setError(errorMessage(err, 'Failed to load intelligence decisions'))
       return null
     }
   })
@@ -62,7 +62,7 @@ export function BrainTransparencyPanel(props: { slug: string }) {
     setExpanded((curr) => (curr === id ? null : id))
   }
 
-  return <div class="brain-transparency-panel">
+  return <div class="intel-transparency-panel">
     <Show when={error()}>
       <div class="error-card">{error()}</div>
     </Show>
@@ -85,7 +85,7 @@ export function BrainTransparencyPanel(props: { slug: string }) {
     <Show when={summary()} fallback={<Show when={!error()}><div class="skeleton-block" /></Show>}>
       <div class="kpi-strip">
         <article class="kpi-card">
-          <span class="kpi-label">Brain decisions</span>
+          <span class="kpi-label">Intelligence decisions</span>
           <strong class="kpi-value">{summary()!.total_decisions}</strong>
           <span class="kpi-sub">{summary()!.completed_decisions} completed · {summary()!.failed_decisions} failed</span>
         </article>
@@ -105,23 +105,23 @@ export function BrainTransparencyPanel(props: { slug: string }) {
     {/* Decision timeline */}
     <div class="agent-section">
       <div class="agent-section-head">
-        <h3><BrainIcon size={18} /> Decision Timeline</h3>
+        <h3><IntelligenceIcon size={18} /> Decision Timeline</h3>
         <Show when={decisions().length > 0}>
           <span class="muted">{decisions().length} decisions</span>
         </Show>
       </div>
-      <p class="agent-section-intro">The brain's decision log. Each entry shows what the brain decided to research, why (rationale), which workers it dispatched, and what they found. The brain is deterministic Rust — it never follows an LLM blindly.</p>
+      <p class="agent-section-intro">The intelligence's decision log. Each entry shows what the intelligence decided to research, why (rationale), which workers it dispatched, and what they found. The intelligence is deterministic Rust — it never follows an LLM blindly.</p>
 
       <Show when={data() && decisions().length === 0} fallback={
-        <div class="brain-decision-list">
-          <For each={decisions()}>{(decision: BrainDecision) => (
-            <div class="brain-decision-card">
-              <button class="brain-decision-header" onClick={() => toggleExpand(decision.id)}>
-                <div class="brain-decision-meta">
+        <div class="intel-decision-list">
+          <For each={decisions()}>{(decision: IntelligenceDecision) => (
+            <div class="intel-decision-card">
+              <button class="intel-decision-header" onClick={() => toggleExpand(decision.id)}>
+                <div class="intel-decision-meta">
                   <strong>{templateLabel(decision.brain_template)}</strong>
                   <span class="muted">{formatIsoAge(decision.created_at)}</span>
                 </div>
-                <div class="brain-decision-badges">
+                <div class="intel-decision-badges">
                   <StatusBadge status={decision.status} tone={decisionStatusTone(decision.status)} />
                   <Show when={decision.plan.length > 0}>
                     <span class="badge">{decision.plan.length} plan items</span>
@@ -136,9 +136,9 @@ export function BrainTransparencyPanel(props: { slug: string }) {
               </button>
 
               {/* Quick summary (always visible) */}
-              <div class="brain-decision-summary">
+              <div class="intel-decision-summary">
                 <Show when={decision.plan.length > 0}>
-                  <p class="brain-rationale-preview">
+                  <p class="intel-rationale-preview">
                     <Show when={decision.plan[0]?.rationale != null} fallback={<span class="muted">No rationale recorded</span>}>
                       {decision.plan[0]!.rationale}
                     </Show>
@@ -148,20 +148,20 @@ export function BrainTransparencyPanel(props: { slug: string }) {
 
               {/* Expanded detail */}
               <Show when={expanded() === decision.id}>
-                <div class="brain-decision-detail">
-                  {/* Plan items (the brain's reasoning) */}
+                <div class="intel-decision-detail">
+                  {/* Plan items (the intelligence's reasoning) */}
                   <Show when={decision.plan.length > 0}>
-                    <div class="brain-plan-section">
+                    <div class="intel-plan-section">
                       <h4>Growth Plan</h4>
-                      <p class="muted brain-plan-intro">The brain's deterministic plan. Each item shows the template to dispatch, the priority, and the rationale (why the brain decided to do this).</p>
+                      <p class="muted intel-plan-intro">The intelligence's deterministic plan. Each item shows the template to dispatch, the priority, and the rationale (why the intelligence decided to do this).</p>
                       <For each={decision.plan}>{(item, i) => (
-                        <div class="brain-plan-item">
-                          <div class="brain-plan-head">
+                        <div class="intel-plan-item">
+                          <div class="intel-plan-head">
                             <span class="badge">#{i() + 1} · {templateLabel(item.template)}</span>
                             <span class="badge free-chip">priority {item.priority}</span>
                           </div>
-                          <p class="brain-plan-rationale"><strong>Why:</strong> {item.rationale}</p>
-                          <pre class="brain-plan-prompt">{item.prompt}</pre>
+                          <p class="intel-plan-rationale"><strong>Why:</strong> {item.rationale}</p>
+                          <pre class="intel-plan-prompt">{item.prompt}</pre>
                         </div>
                       )}</For>
                     </div>
@@ -169,13 +169,13 @@ export function BrainTransparencyPanel(props: { slug: string }) {
 
                   {/* Dispatched worker tasks */}
                   <Show when={decision.tasks.length > 0}>
-                    <div class="brain-tasks-section">
+                    <div class="intel-tasks-section">
                       <h4>Dispatched Workers</h4>
-                      <p class="muted brain-plan-intro">Workers the brain dispatched for this plan. Each worker runs an LLM template and emits structured outcomes. The brain consumes these outcomes deterministically.</p>
+                      <p class="muted intel-plan-intro">Workers the intelligence dispatched for this plan. Each worker runs an LLM template and emits structured outcomes. The intelligence consumes these outcomes deterministically.</p>
                       <table class="agent-task-table">
                         <thead><tr><th>Slot</th><th>Role</th><th>Template</th><th>Status</th><th>Outcome</th><th>Tokens</th><th></th></tr></thead>
                         <tbody>
-                          <For each={decision.tasks}>{(task: BrainDecisionTask) => (
+                          <For each={decision.tasks}>{(task: IntelligenceDecisionTask) => (
                             <tr>
                               <td>{task.slot}</td>
                               <td><span class={`badge ${task.role === 'brain' ? 'free-chip' : 'paid-chip'}`}>{task.role}</span></td>
@@ -196,36 +196,36 @@ export function BrainTransparencyPanel(props: { slug: string }) {
                   </Show>
 
                   {/* Decision chain visualization */}
-                  <div class="brain-chain-section">
+                  <div class="intel-chain-section">
                     <h4>Decision Chain</h4>
-                    <div class="brain-chain">
-                      <div class="brain-chain-step">
-                        <span class="badge free-chip">Brain decides</span>
+                    <div class="intel-chain">
+                      <div class="intel-chain-step">
+                        <span class="badge free-chip">Intelligence decides</span>
                         <span class="muted">{templateLabel(decision.brain_template)}</span>
                       </div>
                       <Show when={decision.plan.length > 0}>
-                        <div class="brain-chain-arrow">↓</div>
-                        <div class="brain-chain-step">
+                        <div class="intel-chain-arrow">↓</div>
+                        <div class="intel-chain-step">
                           <span class="badge">Plan</span>
                           <span class="muted">{decision.plan.length} items with rationale</span>
                         </div>
                       </Show>
                       <Show when={decision.tasks.length > 0}>
-                        <div class="brain-chain-arrow">↓</div>
-                        <div class="brain-chain-step">
+                        <div class="intel-chain-arrow">↓</div>
+                        <div class="intel-chain-step">
                           <span class="badge">Workers dispatched</span>
                           <span class="muted">{decision.tasks.length} LLM tasks</span>
                         </div>
                       </Show>
                       <Show when={decision.tasks.some(t => t.has_outcome)}>
-                        <div class="brain-chain-arrow">↓</div>
-                        <div class="brain-chain-step">
+                        <div class="intel-chain-arrow">↓</div>
+                        <div class="intel-chain-step">
                           <span class="badge">Outcomes emitted</span>
                           <span class="muted">{decision.tasks.filter(t => t.has_outcome).length} structured results</span>
                         </div>
                       </Show>
-                      <div class="brain-chain-arrow">↓</div>
-                      <div class="brain-chain-step">
+                      <div class="intel-chain-arrow">↓</div>
+                      <div class="intel-chain-step">
                         <span class={`badge tone-${decisionStatusTone(decision.status)}`}>{decision.status}</span>
                         <span class="muted">
                           <Show when={decision.completed_at} fallback="in progress">
@@ -242,7 +242,7 @@ export function BrainTransparencyPanel(props: { slug: string }) {
         </div>
       }>
         <div class="inherit-card">
-          <EmptyState label="No brain decisions" hint="The Brain dispatches growth plans on a deterministic schedule. Decisions appear here once the autopilot starts running." />
+          <EmptyState label="No intelligence decisions" hint="The intelligence dispatches growth plans on a deterministic schedule. Decisions appear here once the autopilot starts running." />
         </div>
       </Show>
     </div>

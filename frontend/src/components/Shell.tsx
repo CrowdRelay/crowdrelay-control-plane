@@ -45,6 +45,7 @@ const TENANT_NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/tenants/$slug', label: 'Overview', exact: true, icon: 'overview' },
       { path: '/tenants/$slug/operations', label: 'Operations', exact: false, icon: 'operations' },
+      { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
       { path: '/tenants/$slug/attention', label: 'Attention', exact: false, icon: 'attention' },
     ],
   },
@@ -76,6 +77,7 @@ function NavIcon(props: { name: string }) {
   const icons: Record<string, any> = {
     overview: <><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>,
     operations: <><path d="M3 12h4l2-7 4 14 2-7h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></>,
+    intelligence: <><path d="M9 3a3 3 0 0 0-3 3 3 3 0 0 0-1 5.8A3 3 0 0 0 7 17a3 3 0 0 0 2 4 3 3 0 0 0 3-3V3a3 3 0 0 0-3 0z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3a3 3 0 0 1 3 3 3 3 0 0 1 1 5.8A3 3 0 0 1 17 17a3 3 0 0 1-2 4 3 3 0 0 1-3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/></>,
     attention: <><path d="M12 2L1 21h22L12 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1"/></>,
     portfolio: <><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 9h18M9 9v12" fill="none" stroke="currentColor" stroke-width="2"/></>,
     notifiers: <><path d="M18 8a6 6 0 0 1-12 0M18 8a6 6 0 0 0-12 0M18 8v5a6 6 0 0 1-12 0V8M12 14v3M10 19h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></>,

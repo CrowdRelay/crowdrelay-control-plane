@@ -63,7 +63,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
           <EmptyState
             icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 14l4-4 4 4 6-6" /></svg>}
             label="No metric feeds connected"
-            hint="Connect Spotify, YouTube, Bandsintown, or social feeds to start tracking growth trends. The Brain needs metric data to measure whether actions are moving the needle."
+            hint="Connect Spotify, YouTube, Bandsintown, or social feeds to start tracking growth trends. The intelligence needs metric data to measure whether actions are moving the needle."
           />
         </Show>
       }

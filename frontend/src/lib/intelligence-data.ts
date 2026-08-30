@@ -4,7 +4,7 @@ import { refreshTick } from './refresh'
 import type {
   AgentScorecard,
   AutopilotOverview,
-  BrainDecisionsData,
+  IntelligenceDecisionsData,
   GrowthObjectiveView,
   GrowthOverview,
   OperationsSummary,
@@ -12,13 +12,13 @@ import type {
   TenantOperationsReadModel,
 } from './types'
 
-// ─── Brain data composition layer ───────────────────────────────────────
+// ─── Intelligence data composition layer ───────────────────────────────────────
 // Composes existing endpoints in parallel with shared loading/error states.
 // No backend changes — this is a frontend presentation layer.
 // Each section degrades independently: a failed scorecard read doesn't
 // blank the opportunity board beside it.
 
-export interface BrainData {
+export interface IntelligenceData {
   // The main operations read model (one request, server-fan-out)
   operations: TenantOperationsReadModel | undefined
   operationsLoading: boolean
@@ -29,8 +29,8 @@ export interface BrainData {
   scorecardLoading: boolean
   scorecardError: unknown
 
-  // Brain decisions (separate endpoint, parallel)
-  decisions: BrainDecisionsData | undefined
+  // Intelligence decisions (separate endpoint, parallel)
+  decisions: IntelligenceDecisionsData | undefined
   decisionsLoading: boolean
   decisionsError: unknown
 
@@ -46,16 +46,16 @@ export interface BrainData {
   opportunities: OpportunityBoardEntry[]
   degraded: string[]
 
-  // Derived brain state
+  // Derived intelligence state
   topOpportunity: OpportunityBoardEntry | null
   needsOperator: boolean
   healthTone: 'good' | 'warn' | 'bad' | 'muted'
   healthLabel: string
-  brainStatus: string
-  brainTone: 'good' | 'warn' | 'bad' | 'muted'
+  intelligenceStatus: string
+  intelligenceTone: 'good' | 'warn' | 'bad' | 'muted'
 }
 
-export function useBrainData(slug: string): BrainData {
+export function useIntelligenceData(slug: string): IntelligenceData {
   const operations = useQuery(() => ({
     queryKey: ['tenant-operations', slug, refreshTick()],
     queryFn: () => api.tenantOperations(slug),
@@ -74,8 +74,8 @@ export function useBrainData(slug: string): BrainData {
   }))
 
   const decisions = useQuery(() => ({
-    queryKey: ['brain-decisions', slug, refreshTick()],
-    queryFn: () => api.brainDecisions(slug, 10, 7),
+    queryKey: ['intelligence-decisions', slug, refreshTick()],
+    queryFn: () => api.intelligenceDecisions(slug, 10, 7),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
@@ -126,7 +126,7 @@ export function useBrainData(slug: string): BrainData {
     return false
   }
 
-  const brainStatus = () => {
+  const intelligenceStatus = () => {
     const sc = scorecard.data
     if (!sc) return 'loading'
     if (!sc.status.agent_enabled) return 'off'
@@ -135,7 +135,7 @@ export function useBrainData(slug: string): BrainData {
     return sc.status.posture ?? 'active'
   }
 
-  const brainTone = (): 'good' | 'warn' | 'bad' | 'muted' => {
+  const intelligenceTone = (): 'good' | 'warn' | 'bad' | 'muted' => {
     const sc = scorecard.data
     if (!sc) return 'muted'
     if (!sc.status.agent_enabled) return 'muted'
@@ -171,7 +171,7 @@ export function useBrainData(slug: string): BrainData {
     needsOperator: needsOperator(),
     healthTone: healthTone(),
     healthLabel: healthLabel(),
-    brainStatus: brainStatus(),
-    brainTone: brainTone(),
+    intelligenceStatus: intelligenceStatus(),
+    intelligenceTone: intelligenceTone(),
   }
 }

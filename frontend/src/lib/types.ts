@@ -829,7 +829,7 @@ export interface AgentTemplate {
   suggestedIntervalMinutes?: number
 }
 
-/// A brain-dispatched worker workflow (from the agent service).
+/// A intelligence-dispatched worker workflow (from the agent service).
 export interface AgentWorkflow {
   id: string
   workspace_id: string
@@ -1688,16 +1688,16 @@ export type GrowthFunnelData = {
   recent_worker_runs: FunnelRecentWorkerRun[]
 }
 
-// --- Brain Transparency types ---
+// --- Intelligence Transparency types ---
 
-export type BrainPlanItem = {
+export type IntelligencePlanItem = {
   template: string
   prompt: string
   priority: number
   rationale: string
 }
 
-export type BrainDecisionTask = {
+export type IntelligenceDecisionTask = {
   task_id: string
   slot: number
   role: 'brain' | 'muscle'
@@ -1712,18 +1712,18 @@ export type BrainDecisionTask = {
   tokens_out: number
 }
 
-export type BrainDecision = {
+export type IntelligenceDecision = {
   id: string
   brain_template: string
   brain_model: string | null
   status: 'planning' | 'dispatching' | 'running' | 'completed' | 'failed'
   created_at: string
   completed_at: string | null
-  plan: BrainPlanItem[]
-  tasks: BrainDecisionTask[]
+  plan: IntelligencePlanItem[]
+  tasks: IntelligenceDecisionTask[]
 }
 
-export type BrainDecisionSummary = {
+export type IntelligenceDecisionSummary = {
   total_decisions: number
   completed_decisions: number
   failed_decisions: number
@@ -1732,11 +1732,11 @@ export type BrainDecisionSummary = {
   completed_tasks: number
 }
 
-export type BrainDecisionsData = {
+export type IntelligenceDecisionsData = {
   days: number
   since: string
-  decisions: BrainDecision[]
-  summary: BrainDecisionSummary
+  decisions: IntelligenceDecision[]
+  summary: IntelligenceDecisionSummary
 }
 
 // --- AI Usage Analytics types ---

@@ -209,42 +209,42 @@ export function TenantOperationsPage() {
       />
 
       {/* ─── Diagnostics — collapsible (this is where accordions belong) ── */}
-      <div class="brain-section">
-        <div class="brain-header">
+      <div class="intel-section">
+        <div class="intel-header">
           <span class="eyebrow">DIAGNOSTICS</span>
           <h2>Detailed subsystem views</h2>
         </div>
 
-        <div class="brain-group">
-          <span class="brain-group-label">Outreach</span>
+        <div class="intel-group">
+          <span class="intel-group-label">Outreach</span>
           <CollapsibleSection eyebrow="OUTREACH" title="Outreach pipeline">
             <OutreachPipelinePanel slug={params().slug} />
           </CollapsibleSection>
         </div>
 
-        <div class="brain-group">
-          <span class="brain-group-label">Signals</span>
+        <div class="intel-group">
+          <span class="intel-group-label">Signals</span>
           <CollapsibleSection eyebrow="BEACON" title="Beacon signals">
             <BeaconSignalPanel slug={params().slug} />
           </CollapsibleSection>
         </div>
 
-        <div class="brain-group">
-          <span class="brain-group-label">Communications</span>
+        <div class="intel-group">
+          <span class="intel-group-label">Communications</span>
           <CollapsibleSection eyebrow="PRESS" title="Press room">
             <PressRoomPanel slug={params().slug} />
           </CollapsibleSection>
         </div>
 
-        <div class="brain-group">
-          <span class="brain-group-label">Releases</span>
+        <div class="intel-group">
+          <span class="intel-group-label">Releases</span>
           <CollapsibleSection eyebrow="RELEASES" title="Release campaigns">
             <ReleaseCampaignsPanel slug={params().slug} />
           </CollapsibleSection>
         </div>
 
-        <div class="brain-group">
-          <span class="brain-group-label">Ledger</span>
+        <div class="intel-group">
+          <span class="intel-group-label">Ledger</span>
           <CollapsibleSection eyebrow="LEDGER" title="Play ledger">
             <PlayLedgerPanel slug={params().slug} />
           </CollapsibleSection>

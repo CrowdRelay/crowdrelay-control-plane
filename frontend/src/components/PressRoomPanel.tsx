@@ -91,7 +91,7 @@ export function PressRoomPanel(props: { slug: string }) {
 
     <Show when={tab() === 'requests'}>
       <Show when={requests()} fallback={<p class="muted">Loading press requests…</p>}>
-        <Show when={requests()!.requests.length > 0} fallback={<EmptyState label="No press requests" hint="Press requests are outreach actions to media contacts. They appear here when the Brain dispatches press pitches." />}>
+        <Show when={requests()!.requests.length > 0} fallback={<EmptyState label="No press requests" hint="Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -200,7 +200,7 @@ export function PressRoomPanel(props: { slug: string }) {
 
     <Show when={tab() === 'coverage'}>
       <Show when={coverage()} fallback={<p class="muted">Loading coverage…</p>}>
-        <Show when={coverage()!.coverage.length > 0} fallback={<EmptyState label="No earned media coverage" hint="Earned media coverage tracks press mentions and reviews. They appear here once the Brain detects coverage." />}>
+        <Show when={coverage()!.coverage.length > 0} fallback={<EmptyState label="No earned media coverage" hint="Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>

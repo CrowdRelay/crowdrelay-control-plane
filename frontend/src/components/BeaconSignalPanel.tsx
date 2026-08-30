@@ -130,7 +130,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
 
     <Show when={network()} fallback={<p class="muted">Loading network…</p>}>
       <h4 class="subsection">Network Discovery</h4>
-      <Show when={network()!.discoveryRuns.length > 0} fallback={<EmptyState label="No discovery runs" hint="Discovery runs scan for nearby fans using beacon campaigns. Runs appear here once the Brain dispatches them." />}>
+      <Show when={network()!.discoveryRuns.length > 0} fallback={<EmptyState label="No discovery runs" hint="Discovery runs scan for nearby fans using beacon campaigns. Runs appear here once the intelligence dispatches them." />}>
         <div class="table-wrap">
           <table class="data-table">
             <thead>
