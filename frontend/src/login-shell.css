@@ -218,7 +218,7 @@
 /* Stats strip */
 .hero-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
   margin: 0 auto;
   width: min(100%, 640px);
@@ -642,7 +642,7 @@
   }
 
   .hero-stats {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .hero-stat:nth-child(2) { border-right: 0; }
   .hero-stat:nth-child(1), .hero-stat:nth-child(2) {
@@ -660,6 +660,10 @@
 
   .login-hero {
     overflow: hidden;
+  }
+
+  .login-hero h2 {
+    line-height: 1.05;
   }
 
   .hero-links {

@@ -83,9 +83,9 @@ export const ActivityHeatmap: Component<{
       <div class="ops-heatmap-head">
         <div>
           <span class="eyebrow">ACTIVITY HEATMAP</span>
-          <div style={{ 'margin-top': '2px' }}>
+          <div class="ops-heatmap-summary">
             <strong>{totalActivity()}</strong>
-            <span class="muted" style={{ 'margin-left': '6px' }}>events in {weeks()} weeks · {activeDays()} active days</span>
+            <span class="muted">events in {weeks()} weeks · {activeDays()} active days</span>
           </div>
         </div>
         <div class="ops-heatmap-legend">
@@ -94,18 +94,13 @@ export const ActivityHeatmap: Component<{
           <span>more</span>
         </div>
       </div>
-      <div class="ops-heatmap-grid" style={{ 'grid-template-columns': `repeat(${grid().length}, 1fr)`, 'grid-template-rows': 'repeat(7, 1fr)' }}>
+      <div class="ops-heatmap-grid" style={{ 'grid-template-columns': `repeat(${grid().length}, 13px)` }}>
         <For each={grid()}>{(week) => (
-          <div class="ops-heatmap-col" style={{ display: 'flex', 'flex-direction': 'column', gap: '3px' }}>
+          <div class="ops-heatmap-col">
             <For each={week}>{(cell) => (
               <div
                 class="ops-heatmap-cell"
-                style={{
-                  background: cellColor(cell),
-                  width: '10px',
-                  height: '10px',
-                  'border-radius': '2px',
-                }}
+                style={{ background: cellColor(cell) }}
                 title={cell ? `${cell.date}: ${cell.count} event${cell.count !== 1 ? 's' : ''}` : ''}
               />
             )}</For>

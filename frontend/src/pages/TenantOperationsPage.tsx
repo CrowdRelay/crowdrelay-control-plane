@@ -123,35 +123,67 @@ export function TenantOperationsPage() {
         refresh={refresh}
       />
 
-      {/* ─── Zone 3: Detail panels (collapsible, 2-column grid) ── */}
-      <div class="ops-detail-grid">
-        <CollapsibleSection eyebrow="SCORECARD" title="Agent scorecard" badge="detail">
-          <ScorecardPanel />
-        </CollapsibleSection>
-        <CollapsibleSection eyebrow="GROWTH" title="Growth delivery" badge={growth()?.totals.pending ? `${growth()!.totals.pending} pending` : 'idle'}>
-          <GrowthPanel growth={d()?.growth ?? null} degraded={d()?.degraded.includes('growth') ?? false} />
-        </CollapsibleSection>
-        <CollapsibleSection eyebrow="METRICS" title="Growth metrics">
-          <GrowthMetricsPanel slug={params().slug} />
-        </CollapsibleSection>
-        <CollapsibleSection eyebrow="OBJECTIVES" title="Growth objectives">
-          <GrowthObjectivesPanel slug={params().slug} />
-        </CollapsibleSection>
-        <CollapsibleSection eyebrow="OUTREACH" title="Outreach pipeline">
-          <OutreachPipelinePanel slug={params().slug} />
-        </CollapsibleSection>
-        <CollapsibleSection eyebrow="BEACON" title="Beacon signals">
-          <BeaconSignalPanel slug={params().slug} />
-        </CollapsibleSection>
-        <CollapsibleSection eyebrow="PRESS" title="Press room">
-          <PressRoomPanel slug={params().slug} />
-        </CollapsibleSection>
-        <CollapsibleSection eyebrow="RELEASES" title="Release campaigns">
-          <ReleaseCampaignsPanel slug={params().slug} />
-        </CollapsibleSection>
-        <CollapsibleSection eyebrow="LEDGER" title="Play ledger">
-          <PlayLedgerPanel slug={params().slug} />
-        </CollapsibleSection>
+      {/* ─── Zone 3: BRAIN — decision intelligence subsystems ── */}
+      <div class="brain-section">
+        <div class="brain-header">
+          <span class="eyebrow">BRAIN</span>
+          <h2>Decision intelligence and operational subsystems</h2>
+        </div>
+
+        <div class="brain-group">
+          <span class="brain-group-label">Scorecard</span>
+          <CollapsibleSection eyebrow="SCORECARD" title="Agent scorecard" badge="detail">
+            <ScorecardPanel />
+          </CollapsibleSection>
+        </div>
+
+        <div class="brain-group">
+          <span class="brain-group-label">Growth</span>
+          <CollapsibleSection eyebrow="GROWTH" title="Growth delivery" badge={growth()?.totals.pending ? `${growth()!.totals.pending} pending` : 'idle'}>
+            <GrowthPanel growth={d()?.growth ?? null} degraded={d()?.degraded.includes('growth') ?? false} />
+          </CollapsibleSection>
+          <CollapsibleSection eyebrow="METRICS" title="Growth metrics">
+            <GrowthMetricsPanel slug={params().slug} />
+          </CollapsibleSection>
+          <CollapsibleSection eyebrow="OBJECTIVES" title="Growth objectives">
+            <GrowthObjectivesPanel slug={params().slug} />
+          </CollapsibleSection>
+        </div>
+
+        <div class="brain-group">
+          <span class="brain-group-label">Outreach</span>
+          <CollapsibleSection eyebrow="OUTREACH" title="Outreach pipeline">
+            <OutreachPipelinePanel slug={params().slug} />
+          </CollapsibleSection>
+        </div>
+
+        <div class="brain-group">
+          <span class="brain-group-label">Signals</span>
+          <CollapsibleSection eyebrow="BEACON" title="Beacon signals">
+            <BeaconSignalPanel slug={params().slug} />
+          </CollapsibleSection>
+        </div>
+
+        <div class="brain-group">
+          <span class="brain-group-label">Communications</span>
+          <CollapsibleSection eyebrow="PRESS" title="Press room">
+            <PressRoomPanel slug={params().slug} />
+          </CollapsibleSection>
+        </div>
+
+        <div class="brain-group">
+          <span class="brain-group-label">Releases</span>
+          <CollapsibleSection eyebrow="RELEASES" title="Release campaigns">
+            <ReleaseCampaignsPanel slug={params().slug} />
+          </CollapsibleSection>
+        </div>
+
+        <div class="brain-group">
+          <span class="brain-group-label">Ledger</span>
+          <CollapsibleSection eyebrow="LEDGER" title="Play ledger">
+            <PlayLedgerPanel slug={params().slug} />
+          </CollapsibleSection>
+        </div>
       </div>
     </>}</Show>
   </section>
