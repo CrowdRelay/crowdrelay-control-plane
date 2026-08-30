@@ -58,9 +58,6 @@ export function AgentPanel(props: { slug: string }) {
   const [pastingProvider, setPastingProvider] = createSignal<string | null>(null)
   const [apiKeyInput, setApiKeyInput] = createSignal('')
   const [connecting, setConnecting] = createSignal(false)
-  const [deviceFlowProvider, setDeviceFlowProvider] = createSignal<string | null>(null)
-  const [deviceFlowData, setDeviceFlowData] = createSignal<{ user_code?: string; verification_uri?: string; expires_in?: number } | null>(null)
-  const [deviceFlowState, setDeviceFlowState] = createSignal<string | null>(null)
 
   const [templates] = createResource(async () => {
     const data = await request<{ templates: AgentTemplate[] }>(`/tenants/${props.slug}/agents/templates`)
@@ -180,73 +177,6 @@ export function AgentPanel(props: { slug: string }) {
       toast.error(msg)
     } finally {
       setConnecting(false)
-    }
-  }
-
-  const startOauth = async (providerId: string) => {
-    setError(null)
-    const provider = providers()?.find(p => p.id === providerId)
-    if (!provider) return
-    if (provider?.oauth?.kind === 'device') {
-      // Device flow: call start endpoint, open modal with user_code/verification_uri
-      setDeviceFlowProvider(providerId)
-      setDeviceFlowData(null)
-      setDeviceFlowState(null)
-      try {
-        const data = await api.startAgentOauth(props.slug, providerId)
-        if (data.mode === 'device' && data.state) {
-          setDeviceFlowState(data.state)
-          setDeviceFlowData({
-            user_code: data.user_code,
-            verification_uri: data.verification_uri,
-            expires_in: data.expires_in,
-          })
-        } else {
-          throw new Error('Device flow did not return a state token')
-        }
-      } catch (err) {
-        setError(errorMessage(err, `Failed to start ${providerId} device flow`))
-        setDeviceFlowProvider(null)
-      }
-      return
-    }
-    // Redirect flow: build callback URL, redirect browser
-    const redirectUri = `${window.location.origin}/tenants/${encodeURIComponent(props.slug)}/agents/oauth/${encodeURIComponent(providerId)}/callback`
-    try {
-      const data = await api.startAgentOauth(props.slug, providerId, redirectUri)
-      if (!data.url || typeof data.url !== 'string') {
-        throw new Error('OAuth start did not return a redirect URL')
-      }
-      window.location.href = data.url
-    } catch (err) {
-      setError(errorMessage(err, `Failed to start ${providerId} OAuth`))
-    }
-  }
-
-  const pollDeviceFlow = async (providerId: string) => {
-    const state = deviceFlowState()
-    if (!state) {
-      setError('Device flow has not been started')
-      setDeviceFlowProvider(null)
-      return
-    }
-    try {
-      const result = await api.pollAgentOauth(props.slug, providerId, state)
-      if (result.status === 'complete') {
-        setDeviceFlowProvider(null)
-        setDeviceFlowState(null)
-        refetchCreds()
-        refetchModels()
-      } else if (result.status === 'failed') {
-        setError(result.error ?? 'Device flow failed')
-        setDeviceFlowProvider(null)
-        setDeviceFlowState(null)
-      }
-      // pending: keep polling (caller drives interval)
-    } catch (err) {
-      setError(errorMessage(err, 'Device flow poll failed'))
-      setDeviceFlowProvider(null)
-      setDeviceFlowState(null)
     }
   }
 
@@ -424,12 +354,12 @@ export function AgentPanel(props: { slug: string }) {
           </div>
         </div>
 
-        {/* Developer models — API key only, no OAuth */}
+        {/* Developer models — API key only */}
         <div class="agent-provider-group">
           <h4 class="agent-group-label">Developer Models <span class="badge paid-chip">API key</span></h4>
           <p class="agent-group-intro">Developer-accessible models with API keys — Groq, xAI, Zhipu, Cognition/Devin. Your keys are encrypted at rest and never leave the platform.</p>
           <div class="agent-providers">
-            <For each={providers()?.filter(p => (p.tier === 'free' || (!p.tier && !p.freeTier)) && p.authMethod !== 'none' && !p.oauth)}>
+            <For each={providers()?.filter(p => (p.tier === 'free' || (!p.tier && !p.freeTier)) && p.authMethod !== 'none')}>
               {(provider) => {
                 const cred = () => credentials()?.find(c => c.provider === provider.id)
                 return (
@@ -553,43 +483,6 @@ export function AgentPanel(props: { slug: string }) {
                 {connecting() ? 'Validating…' : 'Connect'}
               </button>
               <button class="link" onClick={() => setPastingProvider(null)}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      </Show>
-
-      {/* Device flow modal — for providers that use device code grant */}
-      <Show when={deviceFlowProvider()}>
-        <div class="agent-result-overlay" onClick={() => { setDeviceFlowProvider(null); setDeviceFlowState(null) }}>
-          <div class="agent-result-modal" onClick={(e) => e.stopPropagation()}>
-            <div class="agent-result-header">
-              <h3>Connect {providers()?.find(p => p.id === deviceFlowProvider())?.name}</h3>
-              <button class="link" onClick={() => { setDeviceFlowProvider(null); setDeviceFlowState(null) }}>Close</button>
-            </div>
-            <div class="agent-paste-body">
-              <p class="muted">Open the verification URL below in another tab, enter the code, then come back here. We'll poll until the connection completes.</p>
-              <Show when={deviceFlowData()?.verification_uri}>
-                <p><strong>URL:</strong> {
-                  (() => {
-                    const uri = deviceFlowData()!.verification_uri!
-                    const isSafe = uri.startsWith('https://') || /^http:\/\/(localhost|127\.0\.0\.1)([:\/]|$)/.test(uri)
-                    return isSafe
-                      ? <a href={uri} target="_blank" rel="noopener">{uri}</a>
-                      : <span>{uri}</span>
-                  })()
-                }</p>
-                <p><strong>Code:</strong> <code>{deviceFlowData()!.user_code ?? '—'}</code></p>
-              </Show>
-              <Show when={!deviceFlowData()?.verification_uri}>
-                <p class="muted">Starting device flow…</p>
-              </Show>
-              <Show when={error()}>
-                <span class="agent-error">{error()}</span>
-              </Show>
-            </div>
-            <div class="agent-result-actions">
-              <button onClick={() => pollDeviceFlow(deviceFlowProvider()!)}>Check now</button>
-              <button class="link" onClick={() => { setDeviceFlowProvider(null); setDeviceFlowState(null) }}>Cancel</button>
             </div>
           </div>
         </div>

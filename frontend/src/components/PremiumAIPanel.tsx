@@ -4,8 +4,7 @@ import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshTick } from '../lib/refresh'
 import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
-import { LlmProviderIcon, LlmProviderIconWithTier, ModelIcon } from './ProviderIcon'
-import { ConnectWizard } from './ConnectWizard'
+import { LlmProviderIconWithTier, ModelIcon } from './ProviderIcon'
 import type { AgentProvider, AgentCredential, AgentModel } from '../lib/types'
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -117,9 +116,6 @@ export function PremiumAIPanel(props: {
   const [connectingProvider, setConnectingProvider] = createSignal<string | null>(null)
   const [apiKeyInput, setApiKeyInput] = createSignal('')
   const [showKeyInputFor, setShowKeyInputFor] = createSignal<string | null>(null)
-  const [oauthDevice, setOauthDevice] = createSignal<{ provider: string; state: string; user_code?: string; verification_uri?: string } | null>(null)
-  const [showWizard, setShowWizard] = createSignal(false)
-  const [pollingOauth, setPollingOauth] = createSignal(false)
 
   // Premium usage is unique to this panel — always fetch here.
   // The try/catch ensures the error signal is set even when the tab is
@@ -166,12 +162,12 @@ export function PremiumAIPanel(props: {
     else refetchFallbackCreds()
   }
 
-  // Only show premium-tier providers (those with OAuth support).
+  // Only show premium-tier providers (API key connection).
   // Falls back to the old `!freeTier` filter if the backend hasn't
   // started sending `tier` yet (backward compat during rollout).
   const premiumProviders = createMemo(() =>
     providers().filter((p: AgentProvider) =>
-      p.tier === 'premium' || (!p.tier && !p.freeTier && p.authMethod !== 'none' && p.oauth)
+      p.tier === 'premium' || (!p.tier && !p.freeTier && p.authMethod !== 'none')
     )
   )
 
@@ -213,56 +209,6 @@ export function PremiumAIPanel(props: {
       toast.error(msg)
     } finally {
       setConnectingProvider(null)
-    }
-  }
-
-  const handleStartOauth = async (providerId: string) => {
-    setConnectingProvider(providerId)
-    setError(null)
-    try {
-      const redirectUri = `${window.location.origin}/tenants/${encodeURIComponent(props.slug)}/agents/oauth/${encodeURIComponent(providerId)}/callback`
-      const result = await api.startAgentOauth(props.slug, providerId, redirectUri)
-      if (result.mode === 'device' && result.state) {
-        setOauthDevice({ provider: providerId, state: result.state, user_code: result.user_code, verification_uri: result.verification_uri })
-      } else if (result.url) {
-        window.location.href = result.url
-      } else {
-        throw new Error('OAuth did not return a redirect URL or device code')
-      }
-    } catch (e) {
-      const msg = errorMessage(e, `Failed to start ${providerId} OAuth`)
-      setError(msg)
-      toast.error(msg)
-    } finally {
-      setConnectingProvider(null)
-    }
-  }
-
-  const handlePollOauth = async () => {
-    const device = oauthDevice()
-    if (!device || pollingOauth()) return
-    setPollingOauth(true)
-    try {
-      const result = await api.pollAgentOauth(props.slug, device.provider, device.state)
-      if (result.status === 'complete') {
-        const provider = premiumProviders().find(p => p.id === device.provider)
-        toast.success(`Connected to ${provider?.name ?? device.provider}`)
-        setOauthDevice(null)
-        refetchCreds()
-        triggerLocalRefresh()
-      } else if (result.status === 'failed') {
-        const msg = result.error ?? 'OAuth device flow failed'
-        setError(msg)
-        toast.error(msg)
-        setOauthDevice(null)
-      }
-    } catch (e) {
-      const msg = errorMessage(e, 'OAuth poll failed')
-      setError(msg)
-      toast.error(msg)
-      setOauthDevice(null)
-    } finally {
-      setPollingOauth(false)
     }
   }
 
@@ -319,26 +265,13 @@ export function PremiumAIPanel(props: {
       }
     >
       <div class="premium-panel">
-        {/* ─── Onboarding wizard (first-time) ─────────────────────── */}
-        <Show when={connectedCount() === 0 && showWizard()}>
-          <ConnectWizard
-            providers={premiumProviders()}
-            onStartOauth={handleStartOauth}
-            onPasteKey={(providerId) => setShowKeyInputFor(providerId)}
-            onDismiss={() => setShowWizard(false)}
-          />
-        </Show>
-
         {/* ─── Free models banner ──────────────────────────────────── */}
-        <Show when={connectedCount() === 0 && !showWizard()}>
+        <Show when={connectedCount() === 0}>
           <div class="premium-free-banner">
             <div class="premium-free-banner-text">
               <strong>Free models are active</strong>
-              <span>The brain routes to free models (Laguna, Gemini Flash, Groq) by default. No provider connection needed to start growing fans. Connect a premium provider to unlock frontier models for deeper reasoning.</span>
+              <span>The brain routes to free models (Laguna, Gemini Flash, Groq) by default. No provider connection needed to start growing fans. Connect a premium provider below to unlock frontier models for deeper reasoning.</span>
             </div>
-            <button class="premium-btn-connect" onClick={() => setShowWizard(true)}>
-              <SparkIcon size={14} /> Get started
-            </button>
           </div>
         </Show>
 
@@ -385,7 +318,7 @@ export function PremiumAIPanel(props: {
           <div class="premium-error">{error()}</div>
         </Show>
 
-        {/* ─── OAuth2 / API Key Connectors ───────────────────────── */}
+        {/* ─── API Key Connectors ──────────────────────────────────── */}
         <section class="premium-section">
           <div class="premium-section-head">
             <h3><KeyIcon size={16} /> Premium Provider Connectors</h3>
@@ -398,8 +331,7 @@ export function PremiumAIPanel(props: {
           </div>
           <p class="premium-section-intro">
             Connect your paid AI accounts to unlock frontier models for the autopilot brain.
-            Each provider supports two connection methods: OAuth sign-in (Google account, ChatGPT plan, etc.)
-            or API key paste as a fallback. Keys are encrypted at rest.
+            Paste an API key from each provider's developer console. Keys are encrypted at rest.
           </p>
 
           <div class="premium-connector-grid">
@@ -407,12 +339,11 @@ export function PremiumAIPanel(props: {
               {(provider) => {
                 const cred = () => credentials().find((c: AgentCredential) => c.provider === provider.id)
                 const isConnected = () => cred()?.status === 'active'
-                const connectedViaOauth = () => cred()?.credential_type === 'oauth_refresh_token'
                 return (
                   <div class="premium-connector-card" classList={{ connected: isConnected() }}>
                     <div class="premium-connector-top">
                       <div class="premium-connector-logo">
-                        <LlmProviderIconWithTier providerId={provider.id} tier={provider.tier} connected={isConnected()} beta={provider.oauth?.experimental} size={28} />
+                        <LlmProviderIconWithTier providerId={provider.id} tier={provider.tier} connected={isConnected()} size={28} />
                       </div>
                       <div class="premium-connector-info">
                         <div class="premium-connector-name">{provider.name}</div>
@@ -471,47 +402,17 @@ export function PremiumAIPanel(props: {
 
                     {/* Connection method badge — shows how the provider is connected */}
                     <Show when={isConnected()}>
-                      <div class="premium-method-badge" classList={{ oauth: connectedViaOauth(), apikey: !connectedViaOauth() }}>
-                        <Show when={connectedViaOauth()}>
-                          <span class="premium-method-icon" title="Connected via OAuth sign-in">OAuth</span>
-                        </Show>
-                        <Show when={!connectedViaOauth()}>
-                          <span class="premium-method-icon" title="Connected via API key">API Key</span>
-                        </Show>
+                      <div class="premium-method-badge apikey">
+                        <span class="premium-method-icon" title="Connected via API key">API Key</span>
                         <Show when={cred()?.provider_account}>
                           <span class="premium-method-account">{cred()!.provider_account}</span>
                         </Show>
                       </div>
                     </Show>
 
-                    {/* Connection actions — one-click primary action */}
+                    {/* Connection actions — API key is the only connection method */}
                     <div class="premium-connector-actions">
                       <Show when={!isConnected()}>
-                        {/* Primary action: OAuth sign-in (if available) or API key connect.
-                            OAuth is the primary path for OAuth-capable providers.
-                            API key paste is a collapsible fallback. */}
-                        <Show when={provider.oauth && provider.oauthAvailable}>
-                          <button
-                            class={`oauth-btn oauth-btn-${provider.id}`}
-                            disabled={connectingProvider() === provider.id}
-                            title={`Sign in with ${provider.name}`}
-                            onClick={() => handleStartOauth(provider.id)}
-                          >
-                            <LlmProviderIcon providerId={provider.id} size={16} />
-                            <Show when={provider.oauth?.kind === 'device'}>
-                              Device code
-                            </Show>
-                            <Show when={provider.oauth?.kind !== 'device'}>
-                              Sign in
-                            </Show>
-                          </button>
-                          <Show when={provider.oauth?.experimental}>
-                            <span class="premium-beta-chip">beta</span>
-                          </Show>
-                        </Show>
-
-                        {/* API key — primary action for non-OAuth providers,
-                            collapsible fallback for OAuth providers */}
                         <Show when={provider.supportsApiKeyPaste}>
                           <Show when={showKeyInputFor() === provider.id}>
                             <div class="premium-key-row">
@@ -540,24 +441,10 @@ export function PremiumAIPanel(props: {
                             </div>
                           </Show>
                           <Show when={showKeyInputFor() !== provider.id}>
-                            <Show when={!provider.oauth || !provider.oauthAvailable}>
-                              {/* Primary action when OAuth is not available */}
-                              <button class="premium-btn-connect" onClick={() => setShowKeyInputFor(provider.id)}>
-                                <KeyIcon size={13} /> Connect with API Key
-                              </button>
-                            </Show>
-                            <Show when={provider.oauth && provider.oauthAvailable}>
-                              {/* Collapsible fallback when OAuth is available */}
-                              <button class="premium-btn-key" onClick={() => setShowKeyInputFor(provider.id)}>
-                                Use API key instead
-                              </button>
-                            </Show>
+                            <button class="premium-btn-connect" onClick={() => setShowKeyInputFor(provider.id)}>
+                              <KeyIcon size={13} /> Connect with API Key
+                            </button>
                           </Show>
-                        </Show>
-
-                        {/* OAuth not configured hint */}
-                        <Show when={provider.oauth && !provider.oauthAvailable && !provider.supportsApiKeyPaste}>
-                          <span class="premium-oauth-unavailable">OAuth not configured</span>
                         </Show>
                       </Show>
 
@@ -574,33 +461,6 @@ export function PremiumAIPanel(props: {
             </For>
           </div>
 
-          {/* OAuth device flow modal */}
-          <Show when={oauthDevice()}>
-            {(device) => (
-              <div class="premium-device-overlay" onClick={() => setOauthDevice(null)} onKeyDown={(e) => { if (e.key === 'Escape') setOauthDevice(null) }} role="dialog" aria-modal="true" aria-label={`Sign in to ${device().provider}`}>
-                <div class="premium-device-modal" onClick={(e) => e.stopPropagation()}>
-                  <h4 id="device-modal-title">Sign in to {device().provider}</h4>
-                  <Show when={device().verification_uri}>
-                    <p class="premium-device-instructions">
-                      Visit <a href={device().verification_uri} target="_blank" rel="noopener noreferrer">{device().verification_uri}</a>
-                      {' '}and enter the code:
-                    </p>
-                    <div class="premium-device-code">{device().user_code ?? '—'}</div>
-                  </Show>
-                  <Show when={!device().verification_uri}>
-                    <p class="premium-device-instructions">Waiting for authorization…</p>
-                  </Show>
-                  <div class="premium-device-actions">
-                    <button class="premium-btn-connect" disabled={pollingOauth()} onClick={handlePollOauth}>
-                      <Show when={pollingOauth()}><span class="premium-spinner" /></Show>
-                      {pollingOauth() ? 'Checking…' : 'Check Status'}
-                    </button>
-                    <button class="premium-btn-cancel" onClick={() => setOauthDevice(null)}>Cancel</button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </Show>
         </section>
 
         {/* ─── Connected Premium Models ──────────────────────────── */}

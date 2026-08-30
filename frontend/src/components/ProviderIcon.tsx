@@ -313,7 +313,7 @@ const FANBASE_ICONS: Record<string, (props: IconProps) => JSX.Element> = {
   bandsintown_followers: BandsintownIcon,
   google_customer_match: GoogleIcon,
   reddit_community: RedditIcon,
-  // OAuth platform connection keys (used by FanSourcesPanel OAUTH_PLATFORMS)
+  // Platform connection keys (used by FanSourcesPanel platform connections)
   meta: MetaIcon,
   google_ads: GoogleIcon,
   spotify: SpotifyIcon,

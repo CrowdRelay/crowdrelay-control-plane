@@ -747,14 +747,7 @@ export interface AgentProvider {
   freeTier: boolean
   tier: 'premium' | 'free'
   modelCount: number
-  oauthScopes: string[]
-  oauthAvailable: boolean
   supportsApiKeyPaste: boolean
-  oauth?: {
-    kind: 'redirect' | 'device'
-    experimental: boolean
-    tokenFlavor: 'access' | 'refresh' | 'id'
-  }
 }
 
 export interface AgentCredential {

@@ -271,10 +271,6 @@ export const api = {
     request<void>(`/tenants/${encodeURIComponent(slug)}/agents/schedules/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   agentToggleSchedule: (slug: string, id: string, enabled: boolean) =>
     request<void>(`/tenants/${encodeURIComponent(slug)}/agents/schedules/${encodeURIComponent(id)}/enabled`, { method: 'POST', body: JSON.stringify({ enabled }) }),
-  startAgentOauth: (slug: string, provider: string, redirectUri?: string) =>
-    request<{ url?: string; mode?: 'redirect' | 'device'; state?: string; user_code?: string; verification_uri?: string; interval_seconds?: number; expires_in?: number }>(`/tenants/${encodeURIComponent(slug)}/agents/oauth/${encodeURIComponent(provider)}/start${redirectUri ? `?redirect_uri=${encodeURIComponent(redirectUri)}` : ''}`),
-  pollAgentOauth: (slug: string, provider: string, state: string) =>
-    request<{ status: 'pending' | 'complete' | 'failed'; error?: string }>(`/tenants/${encodeURIComponent(slug)}/agents/oauth/${encodeURIComponent(provider)}/poll?state=${encodeURIComponent(state)}`),
 
   // --- AI Chatbot (proxied through control-plane to agent service) ---
   agentChat: (slug: string, message: string, history: Array<{ role: 'user' | 'assistant'; content: string }>, pageContext?: string) =>
