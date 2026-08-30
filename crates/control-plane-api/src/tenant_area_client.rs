@@ -208,22 +208,6 @@ fn uuid_segment_between(path: &str, prefix: &str, suffix: &str) -> bool {
         .is_some_and(|segment| !segment.is_empty() && Uuid::parse_str(segment).is_ok())
 }
 
-/// Matches a path like `{prefix}{segment1}/{segment2}{suffix}` where segment1
-/// is a safe identifier (platform name) and segment2 is empty (the suffix is
-/// the last segment). Used for OAuth start/callback routes like
-/// `/v1/control-plane/fanbases/connections/oauth/{platform}/start`.
-fn two_segment_after(path: &str, prefix: &str, suffix: &str) -> bool {
-    path.strip_prefix(prefix)
-        .and_then(|tail| tail.strip_suffix(suffix))
-        .is_some_and(|segment| {
-            !segment.is_empty()
-                && segment.len() <= 32
-                && segment
-                    .bytes()
-                    .all(|byte| byte.is_ascii_lowercase() || byte == b'_')
-        })
-}
-
 fn timeline_segment(path: &str) -> bool {
     path.strip_prefix("/v1/control-plane/ops/operations/")
         .is_some_and(|segment| {
@@ -382,16 +366,6 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || uuid_segment_between(path, "/v1/control-plane/fanbases/", "/ingest")
                 || fan_tag_path(path)
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/referral-code")
-                || two_segment_after(
-                    path,
-                    "/v1/control-plane/fanbases/connections/oauth/",
-                    "/start",
-                )
-                || two_segment_after(
-                    path,
-                    "/v1/control-plane/fanbases/connections/oauth/",
-                    "/callback",
-                )
         }
         "DELETE" => {
             uuid_segment_between(path, "/v1/control-plane/fanbases/", "")

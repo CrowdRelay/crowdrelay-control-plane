@@ -108,14 +108,6 @@ pub fn router() -> Router<AppState> {
             get(list_fanbase_connections),
         )
         .route(
-            "/tenants/{slug}/portfolio/fanbases/connections/oauth/{platform}/start",
-            post(start_fanbase_connection_oauth),
-        )
-        .route(
-            "/tenants/{slug}/portfolio/fanbases/connections/oauth/{platform}/callback",
-            post(fanbase_connection_oauth_callback),
-        )
-        .route(
             "/tenants/{slug}/portfolio/fanbases/connections/{connection_id}",
             axum::routing::delete(delete_fanbase_connection),
         )
@@ -1383,60 +1375,6 @@ async fn list_fanbase_connections(
     )
     .await?;
     object_no_store(value, "fanbase connections")
-}
-
-async fn start_fanbase_connection_oauth(
-    State(state): State<AppState>,
-    Path((slug, platform)): Path<(String, String)>,
-    headers: HeaderMap,
-    Json(body): Json<Value>,
-) -> Result<Response, ApiError> {
-    if !platform
-        .bytes()
-        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
-    {
-        return Err(ApiError::InvalidInput("invalid platform".to_owned()));
-    }
-    let path = format!("/v1/control-plane/fanbases/connections/oauth/{platform}/start");
-    let idempotency = idempotency_key(&headers)?.to_owned();
-    let (_, value) = call(
-        &state,
-        &slug,
-        "POST",
-        &path,
-        Some(&body),
-        &headers,
-        Some(&idempotency),
-    )
-    .await?;
-    object_no_store(value, "fanbase oauth start")
-}
-
-async fn fanbase_connection_oauth_callback(
-    State(state): State<AppState>,
-    Path((slug, platform)): Path<(String, String)>,
-    headers: HeaderMap,
-    Json(body): Json<Value>,
-) -> Result<Response, ApiError> {
-    if !platform
-        .bytes()
-        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
-    {
-        return Err(ApiError::InvalidInput("invalid platform".to_owned()));
-    }
-    let path = format!("/v1/control-plane/fanbases/connections/oauth/{platform}/callback");
-    let idempotency = idempotency_key(&headers)?.to_owned();
-    let (_, value) = call(
-        &state,
-        &slug,
-        "POST",
-        &path,
-        Some(&body),
-        &headers,
-        Some(&idempotency),
-    )
-    .await?;
-    object_no_store(value, "fanbase oauth callback")
 }
 
 async fn delete_fanbase_connection(

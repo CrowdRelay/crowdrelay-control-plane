@@ -159,17 +159,6 @@ export function FanSourcesPanel(props: {
     }
   })
 
-  const connectPlatform = async (platform: string) => {
-    setErrorText(null)
-    const redirectUri = `${window.location.origin}/tenants/${encodeURIComponent(props.slug)}/portfolio/fanbases/connections/oauth/${encodeURIComponent(platform)}/callback`
-    try {
-      const data = await api.startFanbaseOauth(props.slug, platform, redirectUri)
-      if (data.url) window.location.href = data.url
-    } catch (err) {
-      setErrorText(err instanceof Error ? err.message : 'OAuth start failed')
-    }
-  }
-
   const disconnectConnection = async (id: string) => {
     setErrorText(null)
     try {
@@ -210,7 +199,7 @@ export function FanSourcesPanel(props: {
           </span>
         </Show>
       </div>
-      <p class="agent-section-intro">Connect ad and music platforms to pull leads, followers, and audience data directly into fanbases. OAuth connections are encrypted and token refresh is automatic.</p>
+      <p class="agent-section-intro">Connected ad and music platforms. Disconnect to revoke access.</p>
       <div class="agent-providers">
         <For each={OAUTH_PLATFORMS}>{(plat) => {
           const conn = () => connections()?.find(c => c.platform === plat.value)
@@ -231,9 +220,6 @@ export function FanSourcesPanel(props: {
                 </Show>
               </div>
               <div class="fanbase-connection-actions">
-                <Show when={!conn()}>
-                  <button class="agent-btn" onClick={() => connectPlatform(plat.value)}>Connect</button>
-                </Show>
                 <Show when={conn()}>
                   <button class="agent-btn-danger" onClick={() => disconnectConnection(conn()!.id)}>Disconnect</button>
                 </Show>
