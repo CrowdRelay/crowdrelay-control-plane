@@ -48,19 +48,6 @@ services:
     environment:
       AGENT_SERVICE_BIND: "0.0.0.0:8095"
       DATABASE_URL: "postgres://crowdrelay:crowdrelay-local-only@host.docker.internal:5432/crowdrelay"
-      # OAuth2 client credentials for premium AI providers.
-      # See: crowdrelay-agents/docs/oauth-client-setup.md
-      # When unset, the OAuth button is disabled in the UI and users fall back to API keys.
-      GITHUB_OAUTH_CLIENT_ID: "${GITHUB_OAUTH_CLIENT_ID:-}"
-      GITHUB_OAUTH_CLIENT_SECRET: "${GITHUB_OAUTH_CLIENT_SECRET:-}"
-      GOOGLE_OAUTH_CLIENT_ID: "${GOOGLE_OAUTH_CLIENT_ID:-}"
-      GOOGLE_OAUTH_CLIENT_SECRET: "${GOOGLE_OAUTH_CLIENT_SECRET:-}"
-      OPENAI_OAUTH_CLIENT_ID: "${OPENAI_OAUTH_CLIENT_ID:-}"
-      OPENAI_OAUTH_CLIENT_SECRET: "${OPENAI_OAUTH_CLIENT_SECRET:-}"
-      ANTHROPIC_OAUTH_CLIENT_ID: "${ANTHROPIC_OAUTH_CLIENT_ID:-}"
-      ANTHROPIC_OAUTH_CLIENT_SECRET: "${ANTHROPIC_OAUTH_CLIENT_SECRET:-}"
-      OPENROUTER_OAUTH_CLIENT_ID: "${OPENROUTER_OAUTH_CLIENT_ID:-}"
-      OPENROUTER_OAUTH_CLIENT_SECRET: "${OPENROUTER_OAUTH_CLIENT_SECRET:-}"
     ports:
       - "127.0.0.1:8095:8095"
     healthcheck:
