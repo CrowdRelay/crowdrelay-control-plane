@@ -172,8 +172,15 @@ printf 'NEW_HEALTH=PASS\n'
 # --- 3. Switch edge Caddy to new app ----------------------------------------
 
 printf '\n==> 3/4 — Switch edge Caddy upstream to %s\n' "$DEPLOY_COLOR"
-# Replace the current upstream alias with the new one
-sed -i "s|reverse_proxy ${CURRENT_ALIAS}:8090|reverse_proxy ${NEW_ALIAS}:8090|g" "$EDGE_CADDYFILE"
+# Replace the current upstream alias with the new one.
+# Write to a temp file then cat over the original — sed -i and mv both swap
+# the inode, which breaks Docker read-only bind mounts (the container keeps
+# the old inode and never sees the new content, so caddy reload is a no-op).
+# cat > file preserves the inode by opening for writing in-place.
+tmp_caddy="$(mktemp)"
+sed "s|reverse_proxy ${CURRENT_ALIAS}:8090|reverse_proxy ${NEW_ALIAS}:8090|g" "$EDGE_CADDYFILE" > "$tmp_caddy"
+cat "$tmp_caddy" > "$EDGE_CADDYFILE"
+rm -f "$tmp_caddy"
 
 # Verify the sed changed something
 grep -Fq "reverse_proxy ${NEW_ALIAS}:8090" "$EDGE_CADDYFILE" || fail "Caddyfile was not updated to ${DEPLOY_COLOR} upstream"
