@@ -743,7 +743,7 @@ export interface AgentProvider {
   id: string
   name: string
   description: string
-  authMethod: 'api_key' | 'oauth' | 'none'
+  authMethod: 'api_key' | 'none'
   freeTier: boolean
   tier: 'premium' | 'free'
   modelCount: number
@@ -754,11 +754,9 @@ export interface AgentCredential {
   id: string
   provider: string
   label: string
-  credential_type: 'api_key' | 'oauth_refresh_token'
+  credential_type: 'api_key'
   status: 'active' | 'revoked' | 'invalid'
-  credential_flavor: 'api_key' | 'access' | 'refresh' | 'id' | null
   provider_account: string | null
-  expires_at: string | null
   last_validated_at: string | null
   last_validation_error: string | null
   created_at: string
