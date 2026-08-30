@@ -155,7 +155,7 @@ export function TenantOperationsPage() {
 
         {/* Right column: scorecard summary + operator attention detail */}
         <div class="cockpit-aside">
-          <ScorecardPanel />
+          <ScorecardPanel slug={params().slug} />
           <Show when={autopilot()?.needs_you.length}>
             <div class="cockpit-needs-you">
               <div class="cockpit-needs-you-head">

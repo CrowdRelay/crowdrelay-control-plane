@@ -1,6 +1,5 @@
 import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
-import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { refreshTick } from '../lib/refresh'
 import type { AgentScorecard } from '../lib/types'
@@ -76,11 +75,10 @@ const contextLabel = (context: string) => {
 const actionLabel = (kind: string) =>
   kind.replace(/_/g, ' ')
 
-export function ScorecardPanel() {
-  const params = useParams({ from: '/tenants/$slug/operations' })
+export function ScorecardPanel(props: { slug: string }) {
   const model = useQuery(() => ({
-    queryKey: ['agent-scorecard', params().slug, refreshTick()],
-    queryFn: () => api.agentScorecard(params().slug),
+    queryKey: ['agent-scorecard', props.slug, refreshTick()],
+    queryFn: () => api.agentScorecard(props.slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 10_000,

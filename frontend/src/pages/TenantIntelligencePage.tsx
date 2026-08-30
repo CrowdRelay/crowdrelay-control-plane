@@ -96,7 +96,7 @@ export function TenantIntelligencePage() {
       </div>
 
       {/* ─── Scorecard ──────────────────────────────────────────────── */}
-      <ScorecardPanel />
+      <ScorecardPanel slug={params().slug} />
 
       {/* ─── Growth objectives ──────────────────────────────────────── */}
       <GrowthObjectivesPanel slug={params().slug} />
