@@ -162,17 +162,18 @@ export function PremiumAIPanel(props: {
     else refetchFallbackCreds()
   }
 
-  // Only show premium-tier providers (API key connection).
-  // Falls back to the old `!freeTier` filter if the backend hasn't
-  // started sending `tier` yet (backward compat during rollout).
-  const premiumProviders = createMemo(() =>
-    providers().filter((p: AgentProvider) =>
-      p.tier === 'premium' || (!p.tier && !p.freeTier && p.authMethod !== 'none')
-    )
+  // All providers — show every provider in one unified view.
+  // Free models show a "no key needed" badge; paid models get API key connect.
+  const allProviders = createMemo(() => providers())
+  const freeProviders = createMemo(() =>
+    allProviders().filter((p: AgentProvider) => p.freeTier || p.authMethod === 'none')
+  )
+  const apiKeyProviders = createMemo(() =>
+    allProviders().filter((p: AgentProvider) => p.authMethod === 'api_key' && !p.freeTier)
   )
 
   const connectedCount = createMemo(() =>
-    premiumProviders().filter((p: AgentProvider) =>
+    apiKeyProviders().filter((p: AgentProvider) =>
       credentials().some((c: AgentCredential) => c.provider === p.id && c.status === 'active')
     ).length
   )
@@ -197,7 +198,7 @@ export function PremiumAIPanel(props: {
     setError(null)
     try {
       await api.agentPasteCredential(props.slug, { provider: providerId, api_key: key, label: '' })
-      const provider = premiumProviders().find(p => p.id === providerId)
+      const provider = apiKeyProviders().find(p => p.id === providerId)
       toast.success(`Connected to ${provider?.name ?? providerId} — ${provider?.modelCount ?? 0} models unlocked`)
       setApiKeyInput('')
       setShowKeyInputFor(null)
@@ -216,7 +217,7 @@ export function PremiumAIPanel(props: {
     setError(null)
     try {
       await api.agentDeleteCredential(props.slug, providerId)
-      const provider = premiumProviders().find(p => p.id === providerId)
+      const provider = apiKeyProviders().find(p => p.id === providerId)
       toast.info(`Disconnected from ${provider?.name ?? providerId}`)
       refetchCreds()
       triggerLocalRefresh()
@@ -318,24 +319,58 @@ export function PremiumAIPanel(props: {
           <div class="premium-error">{error()}</div>
         </Show>
 
-        {/* ─── API Key Connectors ──────────────────────────────────── */}
+        {/* ─── Free Models (no key needed) ───────────────────────── */}
+        <Show when={freeProviders().length > 0}>
+          <section class="premium-section">
+            <div class="premium-section-head">
+              <h3><SparkIcon size={16} /> Free Models <span class="badge free-chip">no key needed</span></h3>
+            </div>
+            <div class="premium-connector-grid">
+              <For each={freeProviders()}>
+                {(provider) => {
+                  const cred = () => credentials().find((c: AgentCredential) => c.provider === provider.id)
+                  const isConnected = () => cred()?.status === 'active'
+                  return (
+                    <div class="premium-connector-card" classList={{ connected: isConnected() }}>
+                      <div class="premium-connector-top">
+                        <div class="premium-connector-logo">
+                          <LlmProviderIconWithTier providerId={provider.id} tier={provider.tier} connected={isConnected()} size={28} />
+                        </div>
+                        <div class="premium-connector-info">
+                          <div class="premium-connector-name">{provider.name}</div>
+                          <div class="premium-connector-models">{provider.modelCount} models</div>
+                        </div>
+                        <Show when={provider.authMethod === 'none'}>
+                          <span class="badge free-chip">free</span>
+                        </Show>
+                      </div>
+                      <div class="premium-connector-desc">{provider.description}</div>
+                    </div>
+                  )
+                }}
+              </For>
+            </div>
+          </section>
+        </Show>
+
+        {/* ─── API Key Providers ──────────────────────────────────── */}
         <section class="premium-section">
           <div class="premium-section-head">
-            <h3><KeyIcon size={16} /> Premium Provider Connectors</h3>
+            <h3><KeyIcon size={16} /> AI Provider API Keys</h3>
             <Show when={connectedCount() > 0}>
               <span class="premium-connection-summary">
                 <span class="agent-connection-dot ok" />
-                {connectedCount()} of {premiumProviders().length} connected
+                {connectedCount()} of {apiKeyProviders().length} connected
               </span>
             </Show>
           </div>
           <p class="premium-section-intro">
-            Connect your paid AI accounts to unlock frontier models for the autopilot brain.
+            Connect your AI accounts to unlock models for the autopilot brain.
             Paste an API key from each provider's developer console. Keys are encrypted at rest.
           </p>
 
           <div class="premium-connector-grid">
-            <For each={premiumProviders()}>
+            <For each={apiKeyProviders()}>
               {(provider) => {
                 const cred = () => credentials().find((c: AgentCredential) => c.provider === provider.id)
                 const isConnected = () => cred()?.status === 'active'

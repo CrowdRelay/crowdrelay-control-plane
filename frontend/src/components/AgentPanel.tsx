@@ -4,7 +4,6 @@ import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshTick } from '../lib/refresh'
 import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
-import { LlmProviderIcon } from './ProviderIcon'
 import { GrowthIntelligencePanel } from './GrowthIntelligencePanel'
 import { PremiumAIPanel } from './PremiumAIPanel'
 import { AIUsagePanel } from './AIUsagePanel'
@@ -40,14 +39,11 @@ const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
   status === 'running' || status === 'queued' ? 'warn' :
   status === 'failed' ? 'bad' : 'muted'
 
-const credTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
-  status === 'active' ? 'good' : status === 'invalid' ? 'bad' : 'muted'
-
 const priorityTone = (p: string): 'good' | 'warn' | 'muted' =>
   p === 'high' ? 'good' : p === 'medium' ? 'warn' : 'muted'
 
 export function AgentPanel(props: { slug: string }) {
-  const [activeTab, setActiveTab] = createSignal<'providers' | 'tasks' | 'growth' | 'premium' | 'usage' | 'brain'>('providers')
+  const [activeTab, setActiveTab] = createSignal<'providers' | 'tasks' | 'growth' | 'usage' | 'brain'>('providers')
   const [selectedTemplate, setSelectedTemplate] = createSignal<string | null>(null)
   const [selectedModel, setSelectedModel] = createSignal<string>('laguna-s-2.1-free')
   const [prompt, setPrompt] = createSignal('')
@@ -55,9 +51,6 @@ export function AgentPanel(props: { slug: string }) {
   const [error, setError] = createSignal<string | null>(null)
   const [viewingResult, setViewingResult] = createSignal<AgentTaskResult | null>(null)
   const [localRefresh, setLocalRefresh] = createSignal(0)
-  const [pastingProvider, setPastingProvider] = createSignal<string | null>(null)
-  const [apiKeyInput, setApiKeyInput] = createSignal('')
-  const [connecting, setConnecting] = createSignal(false)
 
   const [templates] = createResource(async () => {
     const data = await request<{ templates: AgentTemplate[] }>(`/tenants/${props.slug}/agents/templates`)
@@ -151,49 +144,6 @@ export function AgentPanel(props: { slug: string }) {
     }
   }
 
-  const pasteKey = async () => {
-    const provider = pastingProvider()
-    if (!provider || !apiKeyInput().trim()) return
-    setConnecting(true)
-    setError(null)
-    try {
-      await request(`/tenants/${props.slug}/agents/credentials`, {
-        method: 'POST',
-        body: JSON.stringify({
-          provider,
-          api_key: apiKeyInput().trim(),
-          label: '',
-        }),
-      })
-      const p = providers()?.find(pr => pr.id === provider)
-      toast.success(`Connected to ${p?.name ?? provider} — ${p?.modelCount ?? 0} models unlocked`)
-      setApiKeyInput('')
-      setPastingProvider(null)
-      refetchCreds()
-      refetchModels()
-    } catch (err) {
-      const msg = errorMessage(err, 'Failed to connect provider')
-      setError(msg)
-      toast.error(msg)
-    } finally {
-      setConnecting(false)
-    }
-  }
-
-  const disconnect = async (provider: string) => {
-    try {
-      await request(`/tenants/${props.slug}/agents/credentials/${provider}`, { method: 'DELETE' })
-      const p = providers()?.find(pr => pr.id === provider)
-      toast.info(`Disconnected from ${p?.name ?? provider}`)
-      refetchCreds()
-      refetchModels()
-    } catch (err) {
-      const msg = errorMessage(err, 'Failed to disconnect')
-      setError(msg)
-      toast.error(msg)
-    }
-  }
-
   // --- Schedules ---
   const [schedules, { refetch: refetchSchedules }] = createResource(async () => {
     try {
@@ -247,9 +197,6 @@ export function AgentPanel(props: { slug: string }) {
     }
   }
 
-  const connectedCount = () => credentials()?.length ?? 0
-  const availableModelCount = () => models()?.models.length ?? 0
-
   // Detect agent-service unavailability across shared resources
   const isServiceDown = () => {
     const errs = [templates.error, providers.error, models.error, credentials.error]
@@ -276,7 +223,7 @@ export function AgentPanel(props: { slug: string }) {
 
       {/* Tab navigation */}
       <div class="area-step-tabs agent-tabs">
-        <For each={[{id: 'providers', label: 'Providers'}, {id: 'tasks', label: 'Tasks'}, {id: 'growth', label: 'Growth Intelligence'}, {id: 'premium', label: 'Premium AI'}, {id: 'usage', label: 'AI Usage'}, {id: 'brain', label: 'Brain'}] as const}>
+        <For each={[{id: 'providers', label: 'AI Providers'}, {id: 'tasks', label: 'Tasks'}, {id: 'growth', label: 'Growth Intelligence'}, {id: 'usage', label: 'AI Usage'}, {id: 'brain', label: 'Brain'}] as const}>
           {(tab) => (
             <button
               class={activeTab() === tab.id ? 'active ghost' : 'ghost'}
@@ -293,8 +240,8 @@ export function AgentPanel(props: { slug: string }) {
         <GrowthIntelligencePanel slug={props.slug} />
       </div>
 
-      <div class={activeTab() === 'premium' ? '' : 'tab-hidden'}>
-        <PremiumAIPanel slug={props.slug} providers={providers()} credentials={credentials()} refetchCreds={refetchCreds} active={activeTab() === 'premium'} models={models()} />
+      <div class={activeTab() === 'providers' ? '' : 'tab-hidden'}>
+        <PremiumAIPanel slug={props.slug} providers={providers()} credentials={credentials()} refetchCreds={refetchCreds} active={activeTab() === 'providers'} models={models()} />
       </div>
 
       <div class={activeTab() === 'usage' ? '' : 'tab-hidden'}>
@@ -303,101 +250,6 @@ export function AgentPanel(props: { slug: string }) {
 
       <div class={activeTab() === 'brain' ? '' : 'tab-hidden'}>
         <BrainTransparencyPanel slug={props.slug} />
-      </div>
-
-      <div class={activeTab() === 'providers' ? '' : 'tab-hidden'}>
-      {/* Provider connections — always visible, not behind a toggle */}
-      <div class="agent-section">
-        <div class="agent-section-head">
-          <h3><AntIcon size={20} /> LLM Provider Connections</h3>
-          <Show when={connectedCount() > 0}>
-            <span class="agent-connection-summary">
-              <span class="agent-connection-dot ok" />
-              {connectedCount()} connected · {availableModelCount()} models available
-            </span>
-          </Show>
-        </div>
-        <p class="agent-section-intro">
-          Connect AI providers to power agent tasks. The autopilot brain uses connected models to research audiences, draft content, and analyse campaigns. Free-tier models work without any key.
-        </p>
-
-        {/* Free models — no connection required */}
-        <div class="agent-provider-group">
-          <h4 class="agent-group-label">Free Models <span class="badge free-chip">no key needed</span></h4>
-          <div class="agent-providers">
-            <For each={providers()?.filter(p => p.freeTier || p.authMethod === 'none')}>
-              {(provider) => {
-                const cred = () => credentials()?.find(c => c.provider === provider.id)
-                return (
-                  <div class="agent-provider-card" classList={{ connected: !!cred() }}>
-                    <div class="agent-provider-logo">
-                      <LlmProviderIcon providerId={provider.id} size={28} />
-                    </div>
-                    <div class="agent-provider-info">
-                      <div class="agent-provider-name">{provider.name}</div>
-                      <div class="agent-provider-desc">{provider.description}</div>
-                      <Show when={cred()}>
-                        <div class="agent-provider-status">
-                          <StatusBadge status={cred()!.status} tone={credTone(cred()!.status)} />
-                        </div>
-                      </Show>
-                    </div>
-                    <div class="agent-provider-actions">
-                      <Show when={provider.authMethod === 'none'}>
-                        <StatusBadge status="free" tone="good" />
-                      </Show>
-                    </div>
-                  </div>
-                )
-              }}
-            </For>
-          </div>
-        </div>
-
-        {/* Developer models — API key only */}
-        <div class="agent-provider-group">
-          <h4 class="agent-group-label">Developer Models <span class="badge paid-chip">API key</span></h4>
-          <p class="agent-group-intro">Developer-accessible models with API keys — Groq, xAI, Zhipu, Cognition/Devin. Your keys are encrypted at rest and never leave the platform.</p>
-          <div class="agent-providers">
-            <For each={providers()?.filter(p => (p.tier === 'free' || (!p.tier && !p.freeTier)) && p.authMethod !== 'none')}>
-              {(provider) => {
-                const cred = () => credentials()?.find(c => c.provider === provider.id)
-                return (
-                  <div class="agent-provider-card" classList={{ connected: !!cred() }}>
-                    <div class="agent-provider-logo">
-                    <LlmProviderIcon providerId={provider.id} size={28} />
-                  </div>
-                  <div class="agent-provider-info">
-                    <div class="agent-provider-name">{provider.name}</div>
-                    <div class="agent-provider-desc">{provider.description}</div>
-                    <Show when={cred()}>
-                      <div class="agent-provider-status">
-                        <StatusBadge status={cred()!.status} tone={credTone(cred()!.status)} />
-                        <Show when={cred()!.last_validated_at}>
-                          <span class="muted">validated {formatIsoAge(cred()!.last_validated_at!)}</span>
-                        </Show>
-                      </div>
-                    </Show>
-                  </div>
-                  <div class="agent-provider-actions">
-                    <Show when={provider.authMethod === 'api_key' && !cred()}>
-                      <button class="agent-btn" onClick={() => setPastingProvider(provider.id)}>
-                        Paste API Key
-                      </button>
-                    </Show>
-                    <Show when={provider.authMethod === 'api_key' && cred()}>
-                      <button class="agent-btn-danger" onClick={() => disconnect(provider.id)}>
-                        Disconnect
-                      </button>
-                    </Show>
-                  </div>
-                </div>
-              )
-            }}
-          </For>
-          </div>
-        </div>
-      </div>
       </div>
 
       <div class={activeTab() === 'tasks' ? '' : 'tab-hidden'}>
@@ -455,38 +307,6 @@ export function AgentPanel(props: { slug: string }) {
         </Show>
       </div>
 
-      <Show when={pastingProvider()}>
-        <div class="agent-result-overlay" onClick={() => setPastingProvider(null)}>
-          <div class="agent-result-modal" onClick={(e) => e.stopPropagation()}>
-            <div class="agent-result-header">
-              <h3>Connect {providers()?.find(p => p.id === pastingProvider())?.name}</h3>
-              <button class="link" onClick={() => setPastingProvider(null)}>Close</button>
-            </div>
-            <div class="agent-paste-body">
-              <p class="muted">Paste your API key below. We'll validate it before storing it encrypted.</p>
-              <input
-                type="password"
-                class="agent-key-input"
-                placeholder="sk-..."
-                value={apiKeyInput()}
-                onInput={(e) => setApiKeyInput(e.currentTarget.value)}
-              />
-              <Show when={error()}>
-                <span class="agent-error">{error()}</span>
-              </Show>
-            </div>
-            <div class="agent-result-actions">
-              <button
-                onClick={pasteKey}
-                disabled={connecting() || !apiKeyInput().trim()}
-              >
-                {connecting() ? 'Validating…' : 'Connect'}
-              </button>
-              <button class="link" onClick={() => setPastingProvider(null)}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      </Show>
 
       <Show when={selectedTemplate()}>
         <div class="agent-section">
