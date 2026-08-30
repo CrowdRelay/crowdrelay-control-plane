@@ -107,12 +107,6 @@ if ! grep -Fq "reverse_proxy ${ACTIVE_ALIAS}:8090" "$EDGE_CADDYFILE"; then
   printf 'RECONCILE=PASS Caddyfile now uses %s\n' "$ACTIVE_ALIAS"
 fi
 
-# Verify the currently running container has the active alias
-active_ip="$(docker inspect "$CURRENT_APP" --format '{{range $net, $conf := .NetworkSettings.Networks}}{{if eq $net "'"$EDGE_NETWORK"'"}}{{range $conf.Aliases}}{{.}} {{end}}{{end}}{{end}}' 2>/dev/null | tr ' ' '\n' | grep -q "$ACTIVE_ALIAS" && echo yes || echo no)"
-if [[ "$active_ip" == "no" ]]; then
-  printf 'RECONCILE=FIX %s does not have %s alias, adding it\n' "$CURRENT_APP" "$ACTIVE_ALIAS"
-  docker network connect --alias "$ACTIVE_ALIAS" "$EDGE_NETWORK" "$CURRENT_APP" 2>/dev/null || true
-fi
 # compose.agents.yml is optional — the agent-service is only recreated if it exists
 [[ -f compose.agents.yml ]] && printf 'AGENT_OVERLAY=PASS\n' || printf 'AGENT_OVERLAY=SKIP reason=no-agents-overlay\n'
 
@@ -152,6 +146,13 @@ elif [[ "$green_health" == "healthy" || "$green_health" == "running" ]]; then
   printf 'BASELINE=GREEN health=%s → deploying blue\n' "$green_health"
 else
   fail "no running app found: blue=$blue_health green=$green_health — run deploy-home.sh first to bootstrap"
+fi
+
+# Verify the currently running container has the active alias
+active_ip="$(docker inspect "$CURRENT_APP" --format '{{range $net, $conf := .NetworkSettings.Networks}}{{if eq $net "'"$EDGE_NETWORK"'"}}{{range $conf.Aliases}}{{.}} {{end}}{{end}}{{end}}' 2>/dev/null | tr ' ' '\n' | grep -q "$ACTIVE_ALIAS" && echo yes || echo no)"
+if [[ "$active_ip" == "no" ]]; then
+  printf 'RECONCILE=FIX %s does not have %s alias, adding it\n' "$CURRENT_APP" "$ACTIVE_ALIAS"
+  docker network connect --alias "$ACTIVE_ALIAS" "$EDGE_NETWORK" "$CURRENT_APP" 2>/dev/null || true
 fi
 
 # Snapshot the Caddyfile
