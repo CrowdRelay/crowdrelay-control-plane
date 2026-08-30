@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { formatTimestamp } from '../lib/format'
 import { ActivityHeatmap } from './ActivityHeatmap'
+import { EmptyState } from './EmptyState'
 import type { AuditEntry } from '../lib/types'
 
 // Audit is a section of the tenant Overview read model, not its own request.
@@ -31,7 +32,7 @@ export function TenantAuditPanel(props: { items: AuditEntry[] }) {
       </div>}</For>
     </div>
     <Show when={props.items.length === 0}>
-      <p class="muted">No recent platform changes.</p>
+      <EmptyState label="No recent changes" hint="Platform-level configuration changes are audited here. This includes deploys, flag toggles, and policy updates." />
     </Show>
   </article>
 }

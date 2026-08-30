@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { refreshTick, triggerRefresh } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import type { AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse } from '../lib/types'
+import { EmptyState } from './EmptyState'
 
 const phaseTone = (phase: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (phase) {
@@ -104,7 +105,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
         </div>
       </Show>
 
-      <Show when={campaigns()!.campaigns.length > 0} fallback={<p class="muted">No release campaigns yet.</p>}>
+      <Show when={campaigns()!.campaigns.length > 0} fallback={<EmptyState label="No release campaigns" hint="Release campaigns coordinate outreach around a single or album launch. Create one from the release plan." />}>
         <div class="campaign-list">
           <For each={campaigns()!.campaigns}>{(c) => (
             <div class="campaign-card" classList={{ selected: selectedCampaign() === c.id }}>

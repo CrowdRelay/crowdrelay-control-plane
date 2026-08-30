@@ -2,6 +2,7 @@ import { For, Show } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
 import type { OpsAlert } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
+import { EmptyState } from './EmptyState'
 
 // What each watchdog condition actually observes, and where an operator can act
 // on it. The upstream row carries a one-line summary and raw evidence; the
@@ -116,7 +117,7 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
     }}</For>
 
     <Show when={open().length === 0}>
-      <div class="inherit-card"><p>No open watchdog alerts.</p></div>
+      <div class="inherit-card"><EmptyState label="No open alerts" hint="The watchdog monitors runtime health. Open alerts appear here when the system detects issues." /></div>
     </Show>
 
     {/* Recovered rows stay for 24 hours so a cleared incident is visible as

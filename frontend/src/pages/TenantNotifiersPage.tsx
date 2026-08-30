@@ -8,6 +8,7 @@ import type { NotifierChannel, NotifierEvent, DiscoveredEndpoint } from '../lib/
 import { NOTIFIER_EVENTS } from '../lib/types'
 import { errorMessage } from '../lib/format'
 import { NotifierIcon } from '../components/ProviderIcon'
+import { EmptyState } from '../components/EmptyState'
 
 const kindLabel = (k: NotifierChannel['kind']) => k === 'discord' ? 'Discord app' : k === 'webhook' ? 'Webhook' : 'Email (relay)'
 const evLabel = (e: string) => e.replaceAll('.', ' ')
@@ -50,7 +51,7 @@ export function TenantNotifiersPage() {
         <Show when={items().length === 0} fallback={<div class="notifier-list"><For each={items()}>{ch => <div class="notifier-row">
           <div class="notifier-meta notifier-meta-with-icon"><NotifierIcon kind={ch.kind} size={20} class="provider-icon" /><div><strong>{ch.label}</strong><small>{kindLabel(ch.kind)} · {ch.config.to ?? ch.config.urlHost ?? 'endpoint'} · {ch.events.length ? ch.events.map(evLabel).join(', ') : 'all events'}</small><Show when={testResult()[ch.id]}><small class={testResult()[ch.id]?.includes('failed') ? 'notifier-test-bad' : 'notifier-test-ok'}>{testResult()[ch.id]}</small></Show></div></div>
           <div class="row-health"><button type="button" class="ghost" disabled={test.isPending} onClick={() => test.mutateAsync(ch.id)}>Send test</button><button type="button" class={`switch-control ${ch.enabled ? 'on' : ''}`} role="switch" aria-checked={ch.enabled} aria-label={`${ch.label} enabled`} onClick={() => update.mutate({ id: ch.id, enabled: !ch.enabled })}><span /></button><button type="button" class="danger-ghost" onClick={() => { if (confirm(`Delete channel "${ch.label}"?`)) remove.mutate(ch.id) }}>Delete</button></div>
-        </div>}</For></div>}><div class="inherit-card"><p>No channels yet. Add a destination below to start receiving alerts.</p></div></Show>
+        </div>}</For></div>}><div class="inherit-card"><EmptyState label="No notification channels" hint="Add a destination below to start receiving operational alerts." /></div></Show>
       </article>
     </Show>
 

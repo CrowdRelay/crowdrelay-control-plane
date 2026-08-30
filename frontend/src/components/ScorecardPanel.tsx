@@ -93,7 +93,7 @@ export function ScorecardPanel() {
       <div>
         <span class="eyebrow">AGENT SCORECARD</span>
         <h2>Is it working?</h2>
-        <p>One view: is the agent on, what did it do this week, did any of it work, and what were the last things it completed. Results, not logs.</p>
+        <p>Autopilot status, weekly activity, and recent completions — results, not logs.</p>
       </div>
       <StatusBadge status={statusLabel(data())} tone={statusTone(data())} />
     </div>
@@ -146,7 +146,7 @@ export function ScorecardPanel() {
             <small>of executed actions</small>
           </div>
           <div><span>Parked</span><CountUp value={d().week.parked} /><small>no executor available</small></div>
-          <div><span>Awaiting approval</span><CountUp value={d().week.awaiting_approval} /><small>needs a human</small></div>
+          <div><span>Awaiting approval</span><CountUp value={d().week.awaiting_approval} /><small>requires operator review</small></div>
         </div>
       </section>
 

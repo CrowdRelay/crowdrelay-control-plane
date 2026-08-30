@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { api } from '../lib/api'
 import type { AudienceSegment } from '../lib/types'
+import { EmptyState } from './EmptyState'
 
 export function SegmentPanel(props: {
   slug: string
@@ -37,7 +38,7 @@ export function SegmentPanel(props: {
       <span class="muted">{props.segments.length} segments</span>
     </div>
     <p class="agent-section-intro">Audience segments group fans by behaviour, source, or lifecycle stage. Click a segment to preview its size.</p>
-    <Show when={props.segments.length > 0} fallback={<p class="muted">No segments defined.</p>}>
+    <Show when={props.segments.length > 0} fallback={<EmptyState label="No segments defined" hint="Segments group fans by behavior, source, or engagement level. Define segments to target outreach effectively." />}>
       <div class="segment-list">
         <For each={props.segments}>{(segment) => (
           <button

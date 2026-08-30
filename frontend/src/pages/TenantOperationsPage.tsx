@@ -1,4 +1,4 @@
-import { Show } from 'solid-js'
+import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -15,6 +15,7 @@ import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { CollapsibleSection } from '../components/CollapsibleSection'
+import { StatusBadge } from '../components/StatusBadge'
 import { refreshTick } from '../lib/refresh'
 import type { TenantOperationsReadModel } from '../lib/types'
 
@@ -56,6 +57,11 @@ export function TenantOperationsPage() {
     return t === 'good' ? 'healthy' : t === 'warn' ? 'attention' : t === 'bad' ? 'degraded' : 'loading'
   }
 
+  // Operator attention: needs approval, execution gaps, dead deliveries
+  const needsYouCount = () => autopilot()?.needs_you.length ?? 0
+  const awaitingApproval = () => d()?.opportunities?.filter(o => o.authority === 'awaiting_approval').length ?? 0
+  const hasAttention = () => needsYouCount() > 0 || awaitingApproval() > 0 || deadJobs() > 0
+
   return <section class="page">
     <div class="page-head">
       <div>
@@ -63,6 +69,14 @@ export function TenantOperationsPage() {
         <h1>Operations & Autopilot</h1>
         <p>Live CrowdRelay telemetry, runtime switches, Autopilot authority, the opportunity board and growth delivery.</p>
       </div>
+      <Show when={model.data}>
+        <div class="page-head-status">
+          <StatusBadge status={healthLabel()} tone={healthTone()} />
+          <Show when={autopilot()?.runtime_enabled}>
+            <StatusBadge status="autopilot on" tone="good" />
+          </Show>
+        </div>
+      </Show>
     </div>
 
     <Show when={model.error}>
@@ -72,7 +86,7 @@ export function TenantOperationsPage() {
     <Show when={!model.error && model.isPending}><div class="skeleton-block"/></Show>
 
     <Show when={model.data}>{<>
-      {/* ─── Zone 1: KPI summary strip ─────────────────────────── */}
+      {/* ─── KPI strip — always visible ──────────────────────────── */}
       <div class="ops-kpi-strip">
         <div class="ops-kpi-card" classList={{ 'tone-good': autopilot()?.runtime_enabled, 'tone-muted': !autopilot()?.runtime_enabled }}>
           <span class="ops-kpi-label">Autopilot</span>
@@ -106,14 +120,85 @@ export function TenantOperationsPage() {
         </div>
       </div>
 
-      {/* ─── Zone 2: Primary panels (always visible) ────────────── */}
-      <OpportunityBoardPanel
-        slug={params().slug}
-        opportunities={d()?.opportunities ?? null}
-        degraded={d()?.degraded.includes('opportunities') ?? false}
-        refresh={refresh}
-      />
+      {/* ─── Operator attention banner — visible when action needed ── */}
+      <Show when={hasAttention()}>
+        <div class="ops-attention-banner" classList={{ 'tone-bad': deadJobs() > 0, 'tone-warn': deadJobs() === 0 }}>
+          <div class="ops-attention-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          </div>
+          <div class="ops-attention-content">
+            <strong>Operator attention required</strong>
+            <span>
+              <Show when={needsYouCount() > 0}>{needsYouCount()} pending approval(s) · </Show>
+              <Show when={awaitingApproval() > 0}>{awaitingApproval()} opportunity(ies) awaiting · </Show>
+              <Show when={deadJobs() > 0}>{deadJobs()} dead delivery item(s)</Show>
+            </span>
+          </div>
+        </div>
+      </Show>
+
+      {/* ─── Primary cockpit: decision + attention + scorecard ──── */}
+      <div class="cockpit-primary">
+        {/* Central decision panel — the flagship visual element */}
+        <div class="cockpit-decision">
+          <OpportunityBoardPanel
+            slug={params().slug}
+            opportunities={d()?.opportunities ?? null}
+            degraded={d()?.degraded.includes('opportunities') ?? false}
+            refresh={refresh}
+          />
+        </div>
+
+        {/* Right column: scorecard summary + operator attention detail */}
+        <div class="cockpit-aside">
+          <ScorecardPanel />
+          <Show when={autopilot()?.needs_you.length}>
+            <div class="cockpit-needs-you">
+              <div class="cockpit-needs-you-head">
+                <span class="eyebrow">NEEDS YOU</span>
+                <h3>Pending approvals</h3>
+              </div>
+              <div class="cockpit-needs-you-list">
+                <For each={autopilot()!.needs_you.slice(0, 5)}>{action => (
+                  <div class="cockpit-needs-you-row">
+                    <div>
+                      <strong>{action.action_kind.replaceAll('_', ' ')}</strong>
+                      <small>{action.context.replaceAll('_', ' ')} · {action.subject_kind}</small>
+                    </div>
+                    <Show when={action.approval_expires_at}>
+                      <small class="muted">expires {new Date(action.approval_expires_at!).toLocaleDateString()}</small>
+                    </Show>
+                  </div>
+                )}</For>
+              </div>
+            </div>
+          </Show>
+        </div>
+      </div>
+
+      {/* ─── Objectives — visible by default ─────────────────────── */}
+      <GrowthObjectivesPanel slug={params().slug} />
+
+      {/* ─── Growth state — visible by default ───────────────────── */}
+      <div class="cockpit-section">
+        <div class="cockpit-section-head">
+          <span class="eyebrow">GROWTH STATE</span>
+          <h3>Live growth operations</h3>
+        </div>
+        <div class="cockpit-growth-grid">
+          <GrowthPanel growth={d()?.growth ?? null} degraded={d()?.degraded.includes('growth') ?? false} />
+          <GrowthMetricsPanel slug={params().slug} />
+        </div>
+      </div>
+
+      {/* ─── Reply triage — visible by default ───────────────────── */}
       <ReplyTriagePanel />
+
+      {/* ─── Operational telemetry + controls ────────────────────── */}
       <OperationsPanel
         slug={params().slug}
         summary={d()?.summary ?? null}
@@ -123,31 +208,11 @@ export function TenantOperationsPage() {
         refresh={refresh}
       />
 
-      {/* ─── Zone 3: BRAIN — decision intelligence subsystems ── */}
+      {/* ─── Diagnostics — collapsible (this is where accordions belong) ── */}
       <div class="brain-section">
         <div class="brain-header">
-          <span class="eyebrow">BRAIN</span>
-          <h2>Decision intelligence and operational subsystems</h2>
-        </div>
-
-        <div class="brain-group">
-          <span class="brain-group-label">Scorecard</span>
-          <CollapsibleSection eyebrow="SCORECARD" title="Agent scorecard" badge="detail">
-            <ScorecardPanel />
-          </CollapsibleSection>
-        </div>
-
-        <div class="brain-group">
-          <span class="brain-group-label">Growth</span>
-          <CollapsibleSection eyebrow="GROWTH" title="Growth delivery" badge={growth()?.totals.pending ? `${growth()!.totals.pending} pending` : 'idle'}>
-            <GrowthPanel growth={d()?.growth ?? null} degraded={d()?.degraded.includes('growth') ?? false} />
-          </CollapsibleSection>
-          <CollapsibleSection eyebrow="METRICS" title="Growth metrics">
-            <GrowthMetricsPanel slug={params().slug} />
-          </CollapsibleSection>
-          <CollapsibleSection eyebrow="OBJECTIVES" title="Growth objectives">
-            <GrowthObjectivesPanel slug={params().slug} />
-          </CollapsibleSection>
+          <span class="eyebrow">DIAGNOSTICS</span>
+          <h2>Detailed subsystem views</h2>
         </div>
 
         <div class="brain-group">

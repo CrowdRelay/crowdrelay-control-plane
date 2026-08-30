@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { refreshTick } from '../lib/refresh'
 import { formatTimestamp } from '../lib/format'
 import type { PlayLedger, PlayKindStanding } from '../lib/types'
+import { EmptyState } from './EmptyState'
 
 const kindLabel = (kind: string): string => {
   switch (kind) {
@@ -98,7 +99,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
         </div>
       </Show>
 
-      <Show when={ledger()!.plays.length > 0} fallback={<p class="muted">No plays recorded yet.</p>}>
+      <Show when={ledger()!.plays.length > 0} fallback={<EmptyState label="No plays recorded" hint="The play ledger tracks every action the Brain has executed. Plays appear here once the autopilot starts dispatching." />}>
         <h4 class="subsection">Plays</h4>
         <div class="play-list">
           <For each={ledger()!.plays}>{(p) => (

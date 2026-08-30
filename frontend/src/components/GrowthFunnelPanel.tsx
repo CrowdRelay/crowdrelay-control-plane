@@ -5,6 +5,7 @@ import { refreshTick, triggerRefresh } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { CountUp } from './CountUp'
 import { FunnelChart } from './FunnelChart'
+import { EmptyState } from './EmptyState'
 import type { GrowthFunnelData, FunnelRecentWorkerRun } from '../lib/types'
 
 // --- Funnel icon ---
@@ -236,10 +237,11 @@ export function GrowthFunnelPanel(props: { slug: string }) {
 
     {/* Empty state */}
     <Show when={funnel() && funnel()!.communities_discovered === 0 && totalWorkerRuns() === 0}>
-      <div class="inherit-card">
-        <p>No growth activity in the selected time range. The brain hasn't dispatched any workers and no communities have been discovered yet.</p>
-        <p class="muted">Make sure the autopilot is enabled and the growth intelligence policy is set to "bounded auto" or "require approval". The brain dispatches workers on a deterministic schedule.</p>
-      </div>
+      <EmptyState
+        icon={<FunnelIcon size={28} />}
+        label="No growth activity in this period"
+        hint="The autopilot hasn't dispatched any workers and no communities have been discovered. Make sure the autopilot is enabled and the growth intelligence policy is set to bounded auto or require approval."
+      />
     </Show>
   </div>
 }

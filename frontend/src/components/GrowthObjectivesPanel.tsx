@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { refreshTick, triggerRefresh } from '../lib/refresh'
 import { errorMessage } from '../lib/format'
 import { compactNumber } from '../lib/charts'
+import { EmptyState } from './EmptyState'
 import type { GrowthObjectiveView, ObjectiveState } from '../lib/types'
 
 const formatDeadline = (iso: string) => {
@@ -86,7 +87,9 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
       <div class="error-card">{error()}</div>
     </Show>
 
-    <Show when={objectives() && objectives()!.length > 0} fallback={<p class="muted">No growth objectives declared.</p>}>
+    <Show when={objectives() && objectives()!.length > 0} fallback={
+      <EmptyState label="No growth objectives declared" hint="Declare a target metric and deadline to start tracking progress. The Brain measures every action against active objectives." />
+    }>
       <div class="objective-list">
         <For each={objectives()}>{(obj: GrowthObjectiveView) => {
           const observed = obj.observed_value ?? obj.baseline_value

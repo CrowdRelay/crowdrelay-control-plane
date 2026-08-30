@@ -115,7 +115,7 @@ export function TenantPage() {
             <div><span>Default release</span><strong class="mono">{platform()?.provisionerDefaultImageTag?.slice(0, 16) ?? 'not configured'}</strong></div>
           </div>
           <div class="provision-row">
-            <input class={!releaseReady() && desiredVersion().trim() ? 'input-invalid mono' : 'mono'} value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={platform()?.provisionerDefaultImageTag ?? 'sha-<40-char CrowdRelay commit>'} aria-invalid={!releaseReady() && Boolean(desiredVersion().trim())} />
+            <input class={!releaseReady() && desiredVersion().trim() ? 'input-invalid mono' : 'mono'} value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={platform()?.provisionerDefaultImageTag ?? 'sha-<40-char commit>'} aria-label="Desired release version" aria-invalid={!releaseReady() && Boolean(desiredVersion().trim())} />
             <button class="ghost" onClick={() => plan.mutate()} disabled={plan.isPending || deploymentBusy() || !releaseReady()}>Preview</button>
             <button onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || !releaseReady() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl}>{latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</button>
           </div>

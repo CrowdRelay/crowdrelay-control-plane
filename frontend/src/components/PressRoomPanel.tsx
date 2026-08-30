@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { refreshTick, triggerRefresh } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import type { BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse } from '../lib/types'
+import { EmptyState } from './EmptyState'
 
 const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (status) {
@@ -90,7 +91,7 @@ export function PressRoomPanel(props: { slug: string }) {
 
     <Show when={tab() === 'requests'}>
       <Show when={requests()} fallback={<p class="muted">Loading press requests…</p>}>
-        <Show when={requests()!.requests.length > 0} fallback={<p class="muted">No press requests.</p>}>
+        <Show when={requests()!.requests.length > 0} fallback={<EmptyState label="No press requests" hint="Press requests are outreach actions to media contacts. They appear here when the Brain dispatches press pitches." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -131,7 +132,7 @@ export function PressRoomPanel(props: { slug: string }) {
 
     <Show when={tab() === 'assets'}>
       <Show when={assets()} fallback={<p class="muted">Loading press assets…</p>}>
-        <Show when={assets()!.assets.length > 0} fallback={<p class="muted">No press assets.</p>}>
+        <Show when={assets()!.assets.length > 0} fallback={<EmptyState label="No press assets" hint="Press assets are media materials (photos, bios, EPKs) available for outreach. Upload them through the tenant content pipeline." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -164,7 +165,7 @@ export function PressRoomPanel(props: { slug: string }) {
 
     <Show when={tab() === 'engagements'}>
       <Show when={engagements()} fallback={<p class="muted">Loading engagements…</p>}>
-        <Show when={engagements()!.engagements.length > 0} fallback={<p class="muted">No event engagements.</p>}>
+        <Show when={engagements()!.engagements.length > 0} fallback={<EmptyState label="No event engagements" hint="Event engagements track press interactions for specific shows and releases." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -199,7 +200,7 @@ export function PressRoomPanel(props: { slug: string }) {
 
     <Show when={tab() === 'coverage'}>
       <Show when={coverage()} fallback={<p class="muted">Loading coverage…</p>}>
-        <Show when={coverage()!.coverage.length > 0} fallback={<p class="muted">No earned media coverage yet.</p>}>
+        <Show when={coverage()!.coverage.length > 0} fallback={<EmptyState label="No earned media coverage" hint="Earned media coverage tracks press mentions and reviews. They appear here once the Brain detects coverage." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>

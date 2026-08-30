@@ -282,7 +282,7 @@ export function OperationsPanel(props: {
           <summary class="operations-section-head"><div><span class="eyebrow">FEATURES</span><h3>Runtime switches</h3></div><small>{flags.data?.length ?? 0} declared</small></summary>
         <Show when={flags.data} fallback={flags.error ? null : <div class="mini-skeleton"/>}>{items => <div class="flag-list">
           <For each={items()}>{flag => <div class="flag-row">
-            <div><strong>{flagLabel(flag.key)}</strong><small>{flag.reason || `v${flag.version} · no override reason`}</small></div>
+            <div><strong>{flagLabel(flag.key)}</strong><small>{flag.reason || `v${flag.version} · no reason provided`}</small></div>
             <button
               type="button"
               class={`switch-control ${flag.enabled ? 'on' : ''}`}

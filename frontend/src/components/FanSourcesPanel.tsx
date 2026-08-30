@@ -280,6 +280,7 @@ export function FanSourcesPanel(props: {
                 }>
                   <div class="ingest-editor">
                     <textarea rows="4" placeholder='{"entries":[{"external_id":"x1","email":"a@b.c"}]}'
+                      aria-label="Fan batch JSON"
                       value={ingestJson()} onInput={e => setIngestJson(e.currentTarget.value)} />
                     <div class="form-actions">
                       <button disabled={!parseEntries()}

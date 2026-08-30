@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshTick, triggerRefresh } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
+import { EmptyState } from './EmptyState'
 import type { BrainDecision, BrainDecisionTask, BrainDecisionsData } from '../lib/types'
 
 // --- Brain icon (deterministic Rust autopilot) ---
@@ -241,8 +242,7 @@ export function BrainTransparencyPanel(props: { slug: string }) {
         </div>
       }>
         <div class="inherit-card">
-          <p>No brain decisions in the selected time range. The brain hasn't dispatched any growth plans yet.</p>
-          <p class="muted">The brain dispatches workers on a deterministic schedule. Make sure the autopilot is enabled and the growth intelligence policy is set to "bounded auto" or "require approval".</p>
+          <EmptyState label="No brain decisions" hint="The Brain dispatches growth plans on a deterministic schedule. Decisions appear here once the autopilot starts running." />
         </div>
       </Show>
     </div>

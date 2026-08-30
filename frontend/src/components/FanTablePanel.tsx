@@ -2,6 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { api } from '../lib/api'
 import type { FanCard, FanDetail, FanJourneyEntry } from '../lib/types'
 import { FanDetailDrawer } from './FanDetailDrawer'
+import { EmptyState } from './EmptyState'
 
 const fanStatusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
   status === 'active' ? 'good' :
@@ -69,7 +70,7 @@ export function FanTablePanel(props: {
         aria-label="Search fans"
       />
     </div>
-    <Show when={filtered().length > 0} fallback={<p class="muted">No fans match this search.</p>}>
+    <Show when={filtered().length > 0} fallback={<EmptyState label="No fans match this search" hint="Try adjusting your search query or filters." />}>
       <div class="fan-table-wrap">
         <table class="data-table fan-table">
           <thead>

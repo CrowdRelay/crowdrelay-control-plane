@@ -8,6 +8,7 @@ import { GrowthIntelligencePanel } from './GrowthIntelligencePanel'
 import { PremiumAIPanel } from './PremiumAIPanel'
 import { AIUsagePanel } from './AIUsagePanel'
 import { BrainTransparencyPanel } from './BrainTransparencyPanel'
+import { EmptyState } from './EmptyState'
 import type { AgentTemplate, AgentTask, AgentTaskResult, AgentProvider, AgentCredential, AgentModel, TaskSuggestion, AgentSchedule, AgentOutcome } from '../lib/types'
 
 // --- Ant icon (agent service mascot) ---
@@ -397,13 +398,13 @@ export function AgentPanel(props: { slug: string }) {
           </table>
         </Show>
         <Show when={!schedules() || schedules()!.length === 0}>
-          <p class="muted">No schedules yet.</p>
+          <EmptyState label="No schedules configured" hint="Schedules define when the Brain dispatches worker agents. Create a schedule to automate intelligence gathering." />
         </Show>
       </div>
 
       <div class="agent-section">
         <h3>Recent Tasks</h3>
-        <Show when={tasks()} fallback={<p class="muted">No tasks yet.</p>}>
+        <Show when={tasks()} fallback={<EmptyState label="No tasks yet" hint="Tasks are individual worker runs. They appear here once the Brain or a schedule dispatches them." />}>
           <table class="agent-task-table">
             <thead>
               <tr>

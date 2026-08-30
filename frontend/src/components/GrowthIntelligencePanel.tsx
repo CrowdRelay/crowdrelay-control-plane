@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshTick, triggerRefresh } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
+import { EmptyState } from './EmptyState'
 import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, PendingAutopilotAction, AgentWorkflow, AgentWorkflowTask } from '../lib/types'
 
 // --- Brain icon (deterministic Rust autopilot) ---
@@ -240,7 +241,7 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
           </Show>
         </div>
         <p class="agent-section-intro">Actions the brain has queued for your approval. Community posts, press pitches, and other growth actions appear here with rich detail before they're executed.</p>
-        <Show when={pendingGrowthActions().length > 0} fallback={<p class="muted">No actions awaiting approval.</p>}>
+        <Show when={pendingGrowthActions().length > 0} fallback={<EmptyState label="No actions awaiting approval" hint="When the Brain proposes actions that require human approval, they appear here." />}>
           <div class="growth-approval-list">
             <For each={pendingGrowthActions()}>{(action) => {
               const summary = payloadSummary(action)
@@ -313,7 +314,7 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
           <h3>Autonomy Controls</h3>
         </div>
         <p class="agent-section-intro">Set how much freedom the brain has to act on growth intelligence findings. "Require approval" queues every action for your sign-off; "Bounded auto" lets it execute within daily limits.</p>
-        <Show when={growthPolicy()} fallback={<p class="muted">Growth intelligence policy not available.</p>}>
+        <Show when={growthPolicy()} fallback={<EmptyState label="Policy unavailable" hint="The growth intelligence policy could not be loaded. This may be a temporary issue." />}>
           <div class="autopilot-policy-list">
             <PolicyEditor
               policy={growthPolicy()!}
@@ -336,7 +337,7 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
           </Show>
         </div>
         <p class="agent-section-intro">Worker runs dispatched by the brain. Each workflow is a growth plan: the brain decides what to research, draft, or analyse, then dispatches LLM workers to execute.</p>
-        <Show when={workflows() && workflows()!.length > 0} fallback={<p class="muted">No worker runs yet.</p>}>
+        <Show when={workflows() && workflows()!.length > 0} fallback={<EmptyState label="No worker runs" hint="Worker runs are LLM agent executions dispatched by the Brain. They appear here once the autopilot starts dispatching." />}>
           <div class="growth-workflow-list">
             <For each={workflows()}>{(wf) => (
               <button class="growth-workflow-card" onClick={() => viewWorkflowDetail(wf)}>

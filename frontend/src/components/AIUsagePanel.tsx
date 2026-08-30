@@ -5,6 +5,7 @@ import { refreshTick, triggerRefresh } from '../lib/refresh'
 import { ModelIcon } from './ProviderIcon'
 import { Sparkline } from './Sparkline'
 import type { UsageAnalyticsData, TemplateRoi, ModelAnalytics } from '../lib/types'
+import { EmptyState } from './EmptyState'
 
 // --- Icons ---
 const CrownIcon = (props: { size?: number }) => (
@@ -228,8 +229,7 @@ export function AIUsagePanel(props: { slug: string }) {
     {/* Empty state */}
     <Show when={data() && templateRoi().length === 0 && modelAnalytics().length === 0}>
       <div class="inherit-card">
-        <p>No AI usage data yet. The brain hasn't dispatched any workers in the current period.</p>
-        <p class="muted">Once the brain starts dispatching worker tasks, you'll see cost-ROI per template, model performance, and daily spend trends here.</p>
+        <EmptyState label="No AI usage data" hint="AI usage tracks token consumption and costs for worker agents. Data appears here once the Brain dispatches workers." />
       </div>
     </Show>
 

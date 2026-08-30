@@ -6,6 +6,7 @@ import { refreshTick } from '../lib/refresh'
 import type { AreaCity, AreaDropDraft, AreaStatus, AreaValidationResult } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { LocationCanvas } from '../components/area/LocationCanvas'
+import { EmptyState } from '../components/EmptyState'
 
 const statusTone = (status: AreaStatus) => status === 'LIVE' ? 'good' : status === 'SCHEDULED' || status === 'DRAFT' ? 'warn' : status === 'ARCHIVED' ? 'muted' : status === 'PAUSED' ? 'bad' : 'muted'
 const formatDate = (value: string) => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString() }
@@ -187,7 +188,7 @@ export function AreaPage() {
         <For each={drops.data?.items ?? []}>{item => <div class="area-drop-row">
           <code>{item.number}</code><div><strong>{item.city}</strong><small>{item.id} · rev {item.revision}{item.hasDraft ? ' · draft' : ''}</small></div><StatusBadge status={item.status} tone={statusTone(item.status)} /><span>{item.claimCount} / {item.maxClaims}</span><small>{formatDate(item.startsAt)}<br/>{formatDate(item.endsAt)}</small><button class="ghost" onClick={()=>{setSelectedId(item.id);setEditorStep('city')}}>Edit</button>
         </div>}</For>
-        <Show when={!drops.isPending && (drops.data?.items.length ?? 0)===0}><div class="inherit-card"><p>No AREA locations yet. Create the first tenant draft above.</p></div></Show>
+        <Show when={!drops.isPending && (drops.data?.items.length ?? 0)===0}><div class="inherit-card"><EmptyState label="No AREA locations" hint="AREA locations define geographic targeting for fan discovery. Create the first location draft above." /></div></Show>
       </div>
     </article>
 

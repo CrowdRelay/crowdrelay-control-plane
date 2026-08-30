@@ -5,6 +5,7 @@ import { refreshTick } from '../lib/refresh'
 import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
 import { LlmProviderIconWithTier, ModelIcon } from './ProviderIcon'
+import { EmptyState } from './EmptyState'
 import type { AgentProvider, AgentCredential, AgentModel } from '../lib/types'
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -456,6 +457,7 @@ export function PremiumAIPanel(props: {
                                 classList={{ 'premium-key-error': !!error() && connectingProvider() !== provider.id }}
                                 type="password"
                                 placeholder="Paste API key…"
+                                aria-label={`${provider.name} API key`}
                                 value={apiKeyInput()}
                                 onInput={(e) => setApiKeyInput(e.currentTarget.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleConnectApiKey(provider.id) }}
@@ -508,9 +510,7 @@ export function PremiumAIPanel(props: {
             when={usage()!.premium_models.length > 0}
             fallback={
               <div class="premium-empty">
-                <div class="premium-empty-icon"><SparkIcon size={28} /></div>
-                <p>No premium models active yet.</p>
-                <span>Connect a provider above to unlock frontier models for the autopilot brain.</span>
+                <EmptyState label="No premium models active" hint="Premium AI models provide higher quality output for critical worker tasks. Configure API keys to enable them." />
               </div>
             }
           >

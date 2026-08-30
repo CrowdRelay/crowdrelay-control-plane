@@ -39,25 +39,9 @@
   min-height: 100vh;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(390px, 460px);
-  background:
-    radial-gradient(ellipse at 20% 0%, rgba(155,135,245,0.10), transparent 50%),
-    radial-gradient(ellipse at 80% 30%, rgba(85,214,233,0.06), transparent 45%),
-    radial-gradient(ellipse at 40% 80%, rgba(61,220,132,0.04), transparent 50%),
-    radial-gradient(ellipse at 90% 90%, rgba(255,107,157,0.04), transparent 40%),
-    var(--login-bg);
+  background: var(--login-bg);
   color: var(--login-text);
   position: relative;
-}
-
-/* Noise overlay for film-grain texture */
-.login-shell::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.015;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 /* === Hero (left panel) === */
@@ -105,7 +89,7 @@
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  filter: drop-shadow(0 8px 24px #9b87f530);
+  filter: none;
 }
 
 .brand-logo img {
@@ -196,6 +180,7 @@
   transform-origin: 310px 80px;
   animation: flow-pulse 3s ease-out infinite;
 }
+.flow-ring-1 { animation-delay: 0s; }
 .flow-ring-2 { animation-delay: 0.5s; }
 .flow-ring-3 { animation-delay: 1s; }
 
@@ -224,10 +209,8 @@
   width: min(100%, 640px);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 14px;
-  background: rgba(17,19,27,0.50);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.32), 0 2px 8px rgba(0,0,0,0.20);
+  background: var(--login-panel);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
 
 .hero-stat {
@@ -242,10 +225,7 @@
   font-size: 1.15rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  background: linear-gradient(135deg, #c9c0ff, #6fd8ef);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--login-accent);
 }
 
 .hero-stat span {
@@ -297,21 +277,15 @@
   align-content: start;
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 14px;
-  background: rgba(17,19,27,0.40);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--login-panel);
   transition:
     border-color .2s ease,
-    transform .15s ease,
     box-shadow .2s ease;
 }
 
 .hero-features li:hover {
   border-color: rgba(155,135,245,0.25);
-  transform: translateY(-2px);
-  box-shadow:
-    0 12px 32px rgba(0,0,0,0.32),
-    0 0 20px rgba(155,135,245,0.10);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
 }
 
 .hero-features svg {
@@ -355,10 +329,8 @@
   align-items: start;
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 16px;
-  background: rgba(18,19,27,0.40);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.32), 0 2px 8px rgba(0,0,0,0.20);
+  background: var(--login-panel);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
   position: relative;
 }
 
@@ -392,19 +364,15 @@
   border: 1px solid rgba(87,72,143,0.5);
   border-radius: 10px;
   color: #ddd7ff;
-  background: rgba(23,18,34,0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--login-panel-2);
   font-weight: 700;
   white-space: nowrap;
-  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+  transition: background .15s ease, border-color .15s ease;
 }
 
 .hero-cta:hover {
-  background: rgba(32,26,49,0.8);
-  border-color: #7663d8;
-  box-shadow: 0 4px 20px rgba(102,83,191,0.25), 0 0 0 1px rgba(155,135,245,0.15);
-  transform: translateY(-1px);
+  background: rgba(155,135,245,0.12);
+  border-color: var(--login-accent);
 }
 
 .hero-links {
@@ -445,23 +413,16 @@
   justify-content: center;
   border: 1px solid rgba(255,255,255,0.10);
   border-radius: 20px;
-  background: rgba(17,19,26,0.68);
-  box-shadow: 0 32px 72px rgba(0,0,0,0.40), 0 8px 24px rgba(0,0,0,0.24), 0 0 24px rgba(155,135,245,0.10);
-  backdrop-filter: blur(36px);
-  -webkit-backdrop-filter: blur(36px);
+  background: var(--login-panel);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
   animation: fadeInUp 0.4s ease-out both;
   position: relative;
   overflow: hidden;
 }
 
-/* Top-edge light refraction */
+/* Top-edge light refraction — removed (flat design) */
 .login-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.06), transparent 40%);
-  pointer-events: none;
-  border-radius: inherit;
+  content: none;
 }
 
 .login-brand {
@@ -477,10 +438,9 @@
   display: grid;
   place-items: center;
   border-radius: 10px;
-  background: linear-gradient(135deg, #a789ff, #6fd8ef);
-  color: #0b0c10;
+  background: var(--login-accent);
+  color: #fff;
   font-weight: 900;
-  box-shadow: 0 4px 16px #9b87f533;
 }
 
 .login-brand strong,
@@ -534,16 +494,15 @@
   padding: 10px 14px;
   border: 1px solid rgba(255,255,255,0.10);
   border-radius: 10px;
-  background: rgba(10,12,16,0.55);
+  background: var(--login-bg);
   color: #f7f7f9;
   outline: none;
-  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
 
 .login-form input:focus {
-  border-color: #7663d8;
-  box-shadow: 0 0 0 3px rgba(118,99,216,0.15), 0 0 20px rgba(155,135,245,0.12);
-  background: rgba(10,12,16,0.75);
+  border-color: var(--login-accent);
+  box-shadow: 0 0 0 3px rgba(155,135,245,0.15);
 }
 
 .login-form button {
@@ -551,10 +510,10 @@
   width: 100%;
   min-height: 48px;
   border-radius: 10px;
-  background: linear-gradient(180deg, #ede9fe, #d4c5f9);
-  color: #15131b;
+  background: var(--login-accent);
+  color: #fff;
   font-weight: 700;
-  transition: transform .1s ease, box-shadow .15s ease;
+  transition: background .15s ease;
 }
 
 .login-form button:hover:not(:disabled) {
@@ -570,10 +529,7 @@
   padding: 10px 12px;
   border: 1px solid rgba(255,101,101,0.25);
   border-radius: 10px;
-  background: rgba(43,19,19,0.50);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 0 20px rgba(255,101,101,0.12), 0 4px 16px rgba(0,0,0,0.24);
+  background: rgba(43,19,19,0.85);
   color: #ffb3b3;
   font-size: 0.82rem;
 }

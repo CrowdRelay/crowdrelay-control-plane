@@ -1,6 +1,7 @@
 import { Show } from 'solid-js'
 import type { AudienceOverview } from '../lib/types'
 import { compactNumber } from '../lib/charts'
+import { EmptyState } from './EmptyState'
 
 const fmt = (value: number | undefined) => value == null ? '—' : compactNumber(value)
 
@@ -9,7 +10,7 @@ export function AudienceOverviewPanel(props: { overview?: AudienceOverview }) {
     <div class="agent-section-head">
       <h3>Audience KPIs</h3>
     </div>
-    <Show when={props.overview} fallback={<p class="muted">Audience overview not available.</p>}>
+    <Show when={props.overview} fallback={<EmptyState label="Audience overview unavailable" hint="The audience overview could not be loaded. This may be a temporary issue — try refreshing." />}>
       <div class="kpi-strip">
         <div class="kpi-card">
           <span class="kpi-label">Active fans</span>

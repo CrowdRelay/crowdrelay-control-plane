@@ -8,6 +8,7 @@ import { formatTimestamp as observed } from '../lib/format'
 import type { DeliveryDetails, OperationsSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
+import { EmptyState } from '../components/EmptyState'
 import { SignalOverviewPanel } from '../components/SignalOverviewPanel'
 import { refreshTick } from '../lib/refresh'
 
@@ -231,7 +232,7 @@ export function TenantAttentionPage() {
       <For each={findings.data ?? []}>{finding => <div class={finding.severity === 'critical' ? 'error-card' : 'warning-card'}>
         <div class="section-title"><div><strong>{finding.summary}</strong><small>{finding.severity} · {finding.kind} · {finding.entity_label ?? finding.entity_type}</small><Show when={finding.suggested_action}><p>{finding.suggested_action}</p></Show></div><StatusBadge status={finding.severity} tone={finding.severity === 'critical' ? 'bad' : finding.severity === 'warning' ? 'warn' : 'muted'} /></div>
       </div>}</For>
-      <Show when={!findings.isLoading && (findings.data?.length ?? 0) === 0}><div class="inherit-card"><p>No open reconciliation findings.</p></div></Show>
+      <Show when={!findings.isLoading && (findings.data?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No reconciliation findings" hint="The reconciliation engine checks for state mismatches between systems. Findings appear here when discrepancies are detected." /></div></Show>
 
       <div class="section-title"><div><span class="eyebrow">POSTGRES RUNTIME</span><h3>Database health</h3></div><StatusBadge status={data().database.async_io_active ? 'async I/O active' : 'check I/O'} tone={data().database.async_io_active ? 'good' : 'warn'} /></div>
       <div class="operations-metrics">
@@ -259,7 +260,7 @@ export function TenantAttentionPage() {
     <For each={deadOutbox.data ?? []}>{item => <div class="warning-card">
       <div class="section-title"><div><strong>{item.event_type}</strong><small class="mono">{item.id}</small><p>{item.last_error_kind ?? 'unknown error'} · attempts {item.attempts}/{item.max_attempts} · dead {observed(item.dead_at)}</p></div><button class="ghost" disabled={!!busy()} onClick={() => void retryOutbox(item.id)}>{busy() === `outbox:${item.id}` ? 'Retrying…' : 'Retry'}</button></div>
     </div>}</For>
-    <Show when={!deadOutbox.isLoading && (deadOutbox.data?.length ?? 0) === 0}><div class="inherit-card"><p>No dead outbox events.</p></div></Show>
+    <Show when={!deadOutbox.isLoading && (deadOutbox.data?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead outbox events" hint="Dead outbox events are messages that failed delivery after all retries. A clean queue means everything is flowing." /></div></Show>
 
     <div class="section-title" id="dead-deliveries">
       <div><span class="eyebrow">DEAD WEBHOOK DELIVERIES</span><h3>Delivery failures</h3><p>Inspect attempt history before retrying.</p></div>
@@ -269,12 +270,12 @@ export function TenantAttentionPage() {
     <For each={deadDeliveries.data ?? []}>{item => <div class="warning-card">
       <div class="section-title"><div><strong>{item.endpoint_name} · {item.event_type}</strong><small class="mono">{item.id}</small><p>{item.last_error_kind ?? 'unknown error'} · HTTP {item.last_response_status ?? '—'} · attempts {item.attempt_count}/{item.max_attempts}</p></div><div><button class="ghost" disabled={!!busy()} onClick={() => void loadDeliveryDetails(item.id)}>Details</button> <button class="ghost" disabled={!!busy()} onClick={() => void retryDelivery(item.id)}>{busy() === `delivery:${item.id}` ? 'Retrying…' : 'Retry'}</button></div></div>
     </div>}</For>
-    <Show when={!deadDeliveries.isLoading && (deadDeliveries.data?.length ?? 0) === 0}><div class="inherit-card"><p>No dead webhook deliveries.</p></div></Show>
+    <Show when={!deadDeliveries.isLoading && (deadDeliveries.data?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead webhook deliveries" hint="Dead webhooks are deliveries that failed after all retries. A clean list means webhooks are reaching their destinations." /></div></Show>
 
     <Show when={deliveryDetails()}>{details => <div class="panel">
       <div class="section-title"><div><span class="eyebrow">DELIVERY DETAILS</span><h3>{details().delivery.endpoint_name}</h3><small class="mono">{details().delivery.id}</small></div><button class="ghost" onClick={() => setDeliveryDetails(null)}>Close</button></div>
       <For each={details().attempts}>{attempt => <div class="warning-card"><strong>Attempt {attempt.attempt_number} · {attempt.outcome}</strong><p>HTTP {attempt.response_status ?? '—'} · {attempt.error_kind ?? 'no error kind'} · {attempt.duration_ms} ms · {observed(attempt.finished_at)}</p></div>}</For>
-      <Show when={details().attempts.length === 0}><p>No delivery attempts recorded.</p></Show>
+      <Show when={details().attempts.length === 0}><EmptyState label="No delivery attempts" hint="Delivery attempts are logged here once the outbox starts processing messages." /></Show>
     </div>}</Show>
 
     <div class="section-title" id="dead-push">
@@ -285,11 +286,11 @@ export function TenantAttentionPage() {
     <For each={deadPush.data ?? []}>{item => <div class="warning-card">
       <div class="section-title"><div><strong>{item.title}</strong><small class="mono">{item.id}</small><p>{item.error_code ?? 'unknown error'} · attempts {item.attempt_count} · {item.source_kind}</p></div><button class="ghost" disabled={!!busy()} onClick={() => void retryPush(item.id)}>{busy() === `push:${item.id}` ? 'Retrying…' : 'Retry'}</button></div>
     </div>}</For>
-    <Show when={!deadPush.isLoading && (deadPush.data?.length ?? 0) === 0}><div class="inherit-card"><p>No dead push deliveries.</p></div></Show>
+    <Show when={!deadPush.isLoading && (deadPush.data?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead push deliveries" hint="Dead push notifications are deliveries that failed after all retries. A clean list means pushes are reaching devices." /></div></Show>
 
     <div class="section-title"><div><span class="eyebrow">REQUEST TIMELINE</span><h3>Correlation trace</h3><p>Metadata-only trace across audit, outbox, delivery and operator actions.</p></div></div>
     <div class="provision-row">
-      <input class="mono" value={timelineInput()} onInput={(event) => setTimelineInput(event.currentTarget.value)} placeholder="request / correlation id" />
+      <input class="mono" value={timelineInput()} onInput={(event) => setTimelineInput(event.currentTarget.value)} placeholder="Request or correlation ID" aria-label="Request or correlation ID" />
       <button class="ghost" disabled={!timelineInput().trim() || !!busy()} onClick={() => void lookupTimeline()}>{busy() === 'timeline' ? 'Tracing…' : 'Trace request'}</button>
     </div>
     <Show when={timeline()}>{result => <div class="panel"><div class="section-title"><div><strong>{result().events.length} timeline event(s)</strong><small class="mono">{result().request_id}</small></div><button class="ghost" onClick={() => setTimeline(null)}>Close</button></div><For each={result().events}>{event => <div class="warning-card"><strong>{event.source} · {event.kind}</strong><p>{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'} · <span class="mono">{event.target_id ?? '—'}</span></p></div>}</For></div>}</Show>

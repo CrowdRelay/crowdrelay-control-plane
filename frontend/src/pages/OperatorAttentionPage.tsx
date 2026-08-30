@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { StatusBadge } from '../components/StatusBadge'
+import { EmptyState } from '../components/EmptyState'
 import type { RuntimeHealth, TenantSummary } from '../lib/types'
 
 const healthTone = (health: RuntimeHealth) => health === 'healthy' ? 'good' : health === 'degraded' ? 'bad' : health === 'stale' ? 'warn' : 'muted'
@@ -77,7 +78,7 @@ export function OperatorAttentionPage() {
           </Link>
         )}</For>
         <Show when={items().length === 0}>
-          <div class="inherit-card"><p>No tenants provisioned yet.</p></div>
+          <EmptyState label="No tenants provisioned" hint="Create a tenant to start monitoring operational health." />
         </Show>
       </div>
     </Show>

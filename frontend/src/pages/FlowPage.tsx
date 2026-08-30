@@ -24,8 +24,9 @@ export function FlowPage() {
           <span class="eyebrow">BIG PICTURE</span>
           <h1>Process map</h1>
           <p>
-            Inputs → agent → outcome. Click any block to jump to the tab that
-            manages it.
+            Sources feed the Brain (deterministic Rust autopilot). The Brain dispatches LLM workers
+            that gather intelligence and draft content. Outcomes feed back into the causal model.
+            Click any block to jump to its page.
           </p>
         </div>
         <Show when={tenants.data?.items.length}>
@@ -49,10 +50,11 @@ export function FlowPage() {
         fallback={<div class="error-card" role="alert">No active tenant — create one on the Tenants tab.</div>}
       >
         <div class="process-map-legend">
-          <span><i style={{ background: '#71dcff' }} />Inputs</span>
-          <span><i style={{ background: '#ffd56d' }} />Agent</span>
-          <span><i style={{ background: '#ff6680' }} />Outcome</span>
-          <span><i style={{ background: '#7dffb2' }} />Learning loop</span>
+          <span><i class="legend-swatch legend-inputs" />Sources</span>
+          <span><i class="legend-swatch legend-brain" />Brain</span>
+          <span><i class="legend-swatch legend-worker" />Workers</span>
+          <span><i class="legend-swatch legend-outcome" />Outcomes</span>
+          <span><i class="legend-swatch legend-learning" />Learning loop</span>
         </div>
         <ProcessMap slug={slug} />
       </Show>

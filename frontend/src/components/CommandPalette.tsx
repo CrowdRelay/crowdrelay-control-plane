@@ -177,6 +177,7 @@ export const CommandPalette: Component = () => {
           ref={inputRef}
           class="cmdk-input"
           placeholder="Type a page, tenant or action…"
+          aria-label="Command palette search"
           value={query()}
           onInput={event => { setQuery(event.currentTarget.value); setArmed(null) }}
           spellcheck={false}

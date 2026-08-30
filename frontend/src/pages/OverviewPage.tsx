@@ -7,6 +7,7 @@ import type { PlatformHealthEntry, RuntimeHealth, TenantSummary } from '../lib/t
 import { StatusBadge } from '../components/StatusBadge'
 import { CountUp } from '../components/CountUp'
 import { ProgressRing } from '../components/ProgressRing'
+import { EmptyState } from '../components/EmptyState'
 
 const healthTone = (health: RuntimeHealth) => health === 'healthy' ? 'good' : health === 'degraded' ? 'bad' : health === 'stale' ? 'warn' : 'muted'
 
@@ -120,7 +121,7 @@ export function OverviewPage() {
         </Link>
       )}</For>
       <Show when={items().length === 0}>
-        <div class="inherit-card"><p>No tenants provisioned yet.</p></div>
+        <EmptyState label="No tenants provisioned" hint="Create your first tenant to start managing fan growth operations." />
       </Show>
     </div>
   </section>

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { refreshTick } from '../lib/refresh'
+import { EmptyState } from './EmptyState'
 import type { ReplyTriageEntry } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 
@@ -118,7 +119,7 @@ export function ReplyTriagePanel() {
         </div>
         <Show
           when={d().needs_human.length > 0}
-          fallback={<div class="inherit-card"><p>No replies need human review right now.</p></div>}
+          fallback={<EmptyState label="No replies need human review" hint="The agent handles routine replies automatically. Items that need a human touch appear here." />}
         >
           <div class="flag-list">
             <For each={d().needs_human}>{entry => <ReplyRow entry={entry} />}</For>

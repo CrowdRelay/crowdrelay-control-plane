@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { refreshTick } from '../lib/refresh'
 import { formatTimestamp } from '../lib/format'
 import type { BeaconDashboardResponse, BeaconCandidatesResponse, BeaconNetworkResponse } from '../lib/types'
+import { EmptyState } from './EmptyState'
 
 const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (status) {
@@ -59,7 +60,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
         <div class="kpi"><span class="kpi-value">{dashboard()!.revoked}</span><span class="kpi-label">Revoked</span></div>
       </div>
 
-      <Show when={dashboard()!.profiles.length > 0} fallback={<p class="muted">No beacon profiles yet.</p>}>
+      <Show when={dashboard()!.profiles.length > 0} fallback={<EmptyState label="No beacon profiles" hint="Beacon profiles define how this tenant discovers and invites fans in physical venues." />}>
         <div class="table-wrap">
           <table class="data-table">
             <thead>
@@ -129,7 +130,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
 
     <Show when={network()} fallback={<p class="muted">Loading network…</p>}>
       <h4 class="subsection">Network Discovery</h4>
-      <Show when={network()!.discoveryRuns.length > 0} fallback={<p class="muted">No discovery runs.</p>}>
+      <Show when={network()!.discoveryRuns.length > 0} fallback={<EmptyState label="No discovery runs" hint="Discovery runs scan for nearby fans using beacon campaigns. Runs appear here once the Brain dispatches them." />}>
         <div class="table-wrap">
           <table class="data-table">
             <thead>

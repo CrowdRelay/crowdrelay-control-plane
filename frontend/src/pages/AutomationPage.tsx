@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { refreshTick } from '../lib/refresh'
 import { toast } from '../lib/toast'
 import type { AutomationEvent, AutomationWorkflowConfig } from '../lib/types'
+import { EmptyState } from '../components/EmptyState'
 
 const severityTone = (s: string) => s === 'error' ? 'bad' : s === 'warn' ? 'warn' : 'muted'
 const statusTone = (s: string) => s === 'new' ? 'bad' : s === 'acknowledged' ? 'warn' : s === 'retried' ? 'warn' : 'muted'
@@ -119,7 +120,7 @@ export function AutomationPage() {
             </div>
           )}</For>
           <Show when={configs.data!.items.length === 0}>
-            <div class="inherit-card"><p>No workflows have sent events yet. Configurations appear here automatically when n8n pushes the first event.</p></div>
+            <div class="inherit-card"><EmptyState label="No workflow events" hint="Workflow events appear here when automation rules fire. Connect event sources to start tracking." /></div>
           </Show>
         </div>
       </Show>
@@ -193,7 +194,7 @@ export function AutomationPage() {
             )
           }}</For>
           <Show when={events.data!.items.length === 0}>
-            <div class="inherit-card"><p>No automation events match this filter.</p></div>
+            <div class="inherit-card"><EmptyState label="No events match this filter" hint="Try adjusting the event type or time range filter." /></div>
           </Show>
         </div>
       </Show>

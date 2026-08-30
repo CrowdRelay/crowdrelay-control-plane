@@ -108,7 +108,7 @@ function TenantSwitcher(props: {
   }
 
   return <div class="tenant-switcher" classList={{ open: props.open, collapsed: props.collapsed }}>
-    <button type="button" class="tenant-switcher-trigger" onClick={() => props.onToggle()} title={current()?.displayName}>
+    <button type="button" class="tenant-switcher-trigger" onClick={() => props.onToggle()} title={current()?.displayName} aria-expanded={props.open} aria-haspopup="listbox" aria-label="Select tenant">
       <Show when={current()} fallback={<span class="tenant-switcher-dot muted" />}>
         {t => <span class={`tenant-switcher-dot ${healthDot(t())}`} />}
       </Show>
@@ -123,6 +123,7 @@ function TenantSwitcher(props: {
           <input
             class="tenant-switcher-search"
             placeholder="Filter tenants…"
+            aria-label="Filter tenants"
             value={search()}
             onInput={(e) => setSearch(e.currentTarget.value)}
             onClick={(e) => e.stopPropagation()}

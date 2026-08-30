@@ -391,8 +391,8 @@ export function ChatWidget(props: { slug: string }) {
             <Show when={messages().length === 0}>
               <div class="chat-welcome">
                 <div class="chat-welcome-icon"><SparkIcon /></div>
-                <h3>Hi! I'm your AI copilot</h3>
-                <p>I know everything you can do in CrowdRelay and can help you get things done. Ask me anything, or try one of these:</p>
+                <h3>AI Assistant</h3>
+                <p>Ask about tenants, operations, growth metrics, or platform health. Try one of these to start:</p>
                 <div class="chat-suggestions">
                   <For each={SUGGESTIONS}>
                     {(s) => (
@@ -451,7 +451,7 @@ export function ChatWidget(props: { slug: string }) {
             <textarea
               ref={inputRef}
               class="chat-input"
-              placeholder="Ask me anything…"
+              placeholder="Ask about tenants, operations, or growth…"
               value={input()}
               onInput={(e) => setInput(e.currentTarget.value)}
               onKeyDown={(e) => {
