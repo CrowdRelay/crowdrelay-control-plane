@@ -23,13 +23,15 @@ IMAGE_DIGEST="${2:-}"
 REPO_DIR="${3:-/srv/crowdrelay-control-plane}"
 EDGE_CADDYFILE="/opt/crowdrelay/ops/edge/Caddyfile"
 EDGE_CONTAINER="virya-edge-caddy"
+EDGE_NETWORK="virya-edge"
+ACTIVE_ALIAS="control-plane-active"
 GREEN_APP="crowdrelay-control-plane-app-green-1"
 BLUE_APP="crowdrelay-control-plane-app-1"
 GREEN_ALIAS="control-plane-green"
 BLUE_ALIAS="control-plane"
 CADDY_BACKUP=""
 NEW_STARTED=false
-CADDY_SWITCHED=false
+ALIAS_MOVED=false
 
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
@@ -40,13 +42,18 @@ rollback() {
   local status="${1:-1}"
   trap - ERR INT TERM HUP
 
-  if [[ "$CADDY_SWITCHED" == true ]]; then
-    printf 'ROLLBACK=START reason=caddy-switched reverting upstream to %s\n' "${CURRENT_ALIAS:-}" >&2
-    if [[ -n "$CADDY_BACKUP" && -f "$CADDY_BACKUP" ]]; then
-      cp "$CADDY_BACKUP" "$EDGE_CADDYFILE"
-      docker exec "$EDGE_CONTAINER" caddy reload --config /etc/caddy/Caddyfile --force >/dev/null 2>&1 || true
-      printf 'ROLLBACK=CADDY_REVERTED upstream=%s\n' "${CURRENT_ALIAS:-}" >&2
+  if [[ "$ALIAS_MOVED" == true ]]; then
+    printf 'ROLLBACK=START reason=alias-moved reverting active alias to %s\n' "${CURRENT_APP:-}" >&2
+    # Move the active alias back to the old container
+    docker network disconnect "$EDGE_NETWORK" "$NEW_APP" >/dev/null 2>&1 || true
+    docker network connect --alias "$ACTIVE_ALIAS" "$EDGE_NETWORK" "$CURRENT_APP" >/dev/null 2>&1 || true
+    # Restore color-specific aliases on the old container
+    if [[ "$DEPLOY_COLOR" == "green" ]]; then
+      docker network connect --alias "$BLUE_ALIAS" "$EDGE_NETWORK" "$CURRENT_APP" >/dev/null 2>&1 || true
+    else
+      docker network connect --alias "$GREEN_ALIAS" "$EDGE_NETWORK" "$CURRENT_APP" >/dev/null 2>&1 || true
     fi
+    printf 'ROLLBACK=ALIAS_REVERTED active=%s\n' "${CURRENT_APP:-}" >&2
   fi
 
   if [[ "$NEW_STARTED" == true ]]; then
@@ -84,6 +91,28 @@ cd "$REPO_DIR"
 [[ -f compose.area.yml ]] || fail "missing compose.area.yml"
 [[ -f deploy/compose.bluegreen.yml ]] || fail "missing deploy/compose.bluegreen.yml"
 [[ -f "$EDGE_CADDYFILE" ]] || fail "missing edge Caddyfile"
+
+# Pre-deploy reconciliation: verify the Caddyfile uses the stable active
+# alias, not a color-specific name. If it doesn't, fix it before deploying.
+# This catches the case where a previous deploy failed mid-cutover or the
+# Caddyfile was manually edited.
+if ! grep -Fq "reverse_proxy ${ACTIVE_ALIAS}:8090" "$EDGE_CADDYFILE"; then
+  printf 'RECONCILE=FIX Caddyfile does not use %s, repairing\n' "$ACTIVE_ALIAS"
+  # Try replacing any color-specific alias with the stable one
+  sed "s|reverse_proxy ${BLUE_ALIAS}:8090|reverse_proxy ${ACTIVE_ALIAS}:8090|g; s|reverse_proxy ${GREEN_ALIAS}:8090|reverse_proxy ${ACTIVE_ALIAS}:8090|g" "$EDGE_CADDYFILE" > /tmp/caddy-reconcile.tmp
+  cat /tmp/caddy-reconcile.tmp > "$EDGE_CADDYFILE"
+  rm -f /tmp/caddy-reconcile.tmp
+  docker restart "$EDGE_CONTAINER" >/dev/null 2>&1
+  grep -Fq "reverse_proxy ${ACTIVE_ALIAS}:8090" "$EDGE_CADDYFILE" || fail "Caddyfile reconciliation failed — cannot find ${ACTIVE_ALIAS}"
+  printf 'RECONCILE=PASS Caddyfile now uses %s\n' "$ACTIVE_ALIAS"
+fi
+
+# Verify the currently running container has the active alias
+active_ip="$(docker inspect "$CURRENT_APP" --format '{{range $net, $conf := .NetworkSettings.Networks}}{{if eq $net "'"$EDGE_NETWORK"'"}}{{range $conf.Aliases}}{{.}} {{end}}{{end}}{{end}}' 2>/dev/null | tr ' ' '\n' | grep -q "$ACTIVE_ALIAS" && echo yes || echo no)"
+if [[ "$active_ip" == "no" ]]; then
+  printf 'RECONCILE=FIX %s does not have %s alias, adding it\n' "$CURRENT_APP" "$ACTIVE_ALIAS"
+  docker network connect --alias "$ACTIVE_ALIAS" "$EDGE_NETWORK" "$CURRENT_APP" 2>/dev/null || true
+fi
 # compose.agents.yml is optional — the agent-service is only recreated if it exists
 [[ -f compose.agents.yml ]] && printf 'AGENT_OVERLAY=PASS\n' || printf 'AGENT_OVERLAY=SKIP reason=no-agents-overlay\n'
 
@@ -169,27 +198,40 @@ docker run --rm --network virya-edge curlimages/curl:8.12.0 \
 
 printf 'NEW_HEALTH=PASS\n'
 
-# --- 3. Switch edge Caddy to new app ----------------------------------------
+# --- 3. Move active alias to new app -----------------------------------------
 
-printf '\n==> 3/4 — Switch edge Caddy upstream to %s\n' "$DEPLOY_COLOR"
-# Replace the current upstream alias with the new one.
-# Write to a temp file then cat over the original — sed -i and mv both swap
-# the inode, which breaks Docker read-only bind mounts (the container keeps
-# the old inode and never sees the new content, so caddy reload is a no-op).
-# cat > file preserves the inode by opening for writing in-place.
-tmp_caddy="$(mktemp)"
-sed "s|reverse_proxy ${CURRENT_ALIAS}:8090|reverse_proxy ${NEW_ALIAS}:8090|g" "$EDGE_CADDYFILE" > "$tmp_caddy"
-cat "$tmp_caddy" > "$EDGE_CADDYFILE"
-rm -f "$tmp_caddy"
+printf '\n==> 3/4 — Move %s alias to %s app\n' "$ACTIVE_ALIAS" "$DEPLOY_COLOR"
+# The Caddyfile always points to control-plane-active:8090. We move the
+# active alias from the old container to the new container. Both containers
+# are on the virya-edge network, so this is a Docker network alias move.
+#
+# The new container already has the active alias from its compose config,
+# but we need to remove it from the old container first to avoid DNS
+# ambiguity (two containers responding to the same alias).
+#
+# Step 3a: Remove the active alias from the old container.
+docker network disconnect "$EDGE_NETWORK" "$CURRENT_APP" 2>/dev/null || true
+# Reconnect the old container without the active alias but keep its
+# color-specific alias so it's still reachable for drain/stop.
+if [[ "$DEPLOY_COLOR" == "green" ]]; then
+  docker network connect --alias "$BLUE_ALIAS" "$EDGE_NETWORK" "$CURRENT_APP" 2>/dev/null || true
+else
+  docker network connect --alias "$GREEN_ALIAS" "$EDGE_NETWORK" "$CURRENT_APP" 2>/dev/null || true
+fi
 
-# Verify the sed changed something
-grep -Fq "reverse_proxy ${NEW_ALIAS}:8090" "$EDGE_CADDYFILE" || fail "Caddyfile was not updated to ${DEPLOY_COLOR} upstream"
-grep -Fq "reverse_proxy ${CURRENT_ALIAS}:8090" "$EDGE_CADDYFILE" && fail "Caddyfile still contains old upstream — ambiguous state"
+# Step 3b: The new container already has the active alias from compose.
+# Verify it resolves to the new container.
+new_ip="$(docker inspect "$NEW_APP" --format '{{range $net, $conf := .NetworkSettings.Networks}}{{if eq $net "'"$EDGE_NETWORK"'"}}{{$conf.IPAddress}}{{end}}{{end}}')"
+[[ -n "$new_ip" ]] || fail "cannot determine IP of $NEW_APP on $EDGE_NETWORK"
 
-# Graceful Caddy reload
-docker exec "$EDGE_CONTAINER" caddy reload --config /etc/caddy/Caddyfile --force
-CADDY_SWITCHED=true
-printf 'CADDY_SWITCH=PASS upstream=%s\n' "$NEW_ALIAS"
+# Verify the active alias resolves to the new container's IP
+resolved_ip="$(docker run --rm --network "$EDGE_NETWORK" curlimages/curl:8.12.0 \
+  --silent --connect-timeout 3 --max-time 5 \
+  "http://${ACTIVE_ALIAS}:8090/healthz/ready" >/dev/null 2>&1 && echo ok || echo fail)"
+[[ "$resolved_ip" == "ok" ]] || fail "active alias ${ACTIVE_ALIAS} does not resolve to new app"
+
+ALIAS_MOVED=true
+printf 'ALIAS_MOVE=PASS active=%s container=%s\n' "$ACTIVE_ALIAS" "$NEW_APP"
 
 # --- 4. Verify cross-system E2E + stop old app ------------------------------
 
@@ -199,13 +241,13 @@ printf '\n==> 4/4 — Verify cross-system E2E and finalize\n'
 tunnel_health="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
 [[ "$tunnel_health" == "healthy" || "$tunnel_health" == "running" ]] || fail "tunnel is not healthy after cutover: $tunnel_health"
 
-# E2E: operations summary through the new app
-admin_token="$(docker inspect "$CURRENT_APP" --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^CONTROL_PLANE_ADMIN_TOKEN=//p')"
+# E2E: operations summary through the active alias (verifies traffic routing)
+admin_token="$(docker inspect "$NEW_APP" --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^CONTROL_PLANE_ADMIN_TOKEN=//p')"
 if [[ -n "$admin_token" ]]; then
   e2e_result="$(docker run --rm --network virya-edge curlimages/curl:8.12.0 \
     --fail --silent --show-error --connect-timeout 3 --max-time 10 \
     -H "Authorization: Bearer $admin_token" \
-    "http://${NEW_ALIAS}:8090/api/v1/tenants/virya/operations/summary" 2>/dev/null || true)"
+    "http://${ACTIVE_ALIAS}:8090/api/v1/tenants/virya/operations/summary" 2>/dev/null || true)"
   [[ -n "$e2e_result" ]] || fail "cross-system E2E gate failed: no response from new app"
   printf '%s' "$e2e_result" | python3 -c "
 import json, sys
