@@ -59,6 +59,15 @@ pub fn router() -> Router<AppState> {
             get(operation_timeline),
         )
         .route(
+            "/tenants/{slug}/operations/trace/{trace_id}",
+            get(trace_timeline),
+        )
+        .route("/tenants/{slug}/operations/actions", get(list_actions))
+        .route(
+            "/tenants/{slug}/operations/actions/{action_id}",
+            get(get_action),
+        )
+        .route(
             "/tenants/{slug}/operations/reconcile",
             post(run_reconciliation),
         )
@@ -430,6 +439,43 @@ async fn operation_timeline(
     let path = format!("/v1/control-plane/ops/operations/{request_id}");
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     object_no_store(value, "operation timeline")
+}
+
+/// Trace timeline: joins all event tables by trace_id to reconstruct the
+/// full causal chain of an action lifecycle.
+async fn trace_timeline(
+    State(state): State<AppState>,
+    Path((slug, trace_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let trace_id = uuid_segment(&trace_id)?.to_owned();
+    let path = format!("/v1/control-plane/ops/trace/{trace_id}");
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "trace timeline")
+}
+
+/// Action ledger list: canonical execution state for all autopilot actions.
+async fn list_actions(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    Query(params): Query<ActionLedgerQuery>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let path = build_action_ledger_path(&params);
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    array_no_store(value, "action ledger")
+}
+
+/// Single action ledger entry.
+async fn get_action(
+    State(state): State<AppState>,
+    Path((slug, action_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let action_id = uuid_segment(&action_id)?.to_owned();
+    let path = format!("/v1/control-plane/ops/actions/{action_id}");
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "action ledger entry")
 }
 
 async fn retry_outbox(
@@ -1352,6 +1398,29 @@ fn build_list_path(base: &str, params: &ListQuery) -> String {
         base.to_owned()
     } else {
         format!("{base}?{}", query.join("&"))
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct ActionLedgerQuery {
+    limit: Option<u64>,
+    state: Option<String>,
+}
+
+fn build_action_ledger_path(params: &ActionLedgerQuery) -> String {
+    let mut query = Vec::new();
+    if let Some(limit) = params.limit {
+        query.push(format!("limit={limit}"));
+    }
+    if let Some(state) = &params.state {
+        if !state.is_empty() && safe_segment(state) {
+            query.push(format!("state={state}"));
+        }
+    }
+    if query.is_empty() {
+        "/v1/control-plane/ops/actions".to_owned()
+    } else {
+        format!("/v1/control-plane/ops/actions?{}", query.join("&"))
     }
 }
 

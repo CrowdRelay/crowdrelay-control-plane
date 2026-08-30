@@ -18,6 +18,9 @@
         /v1/control-plane/ops/deliveries/dead/clear \
         /v1/control-plane/ops/deliveries/* \
         /v1/control-plane/ops/operations/* \
+        /v1/control-plane/ops/trace/* \
+        /v1/control-plane/ops/actions \
+        /v1/control-plane/ops/actions/* \
         /v1/control-plane/ops/push/* \
         /v1/control-plane/ecosystem/reconcile \
         /v1/control-plane/ecosystem/flags \

@@ -219,6 +219,11 @@ fn timeline_segment(path: &str) -> bool {
         })
 }
 
+/// Matches trace timeline paths: /v1/control-plane/ops/trace/{uuid}
+fn trace_segment(path: &str) -> bool {
+    uuid_segment_between(path, "/v1/control-plane/ops/trace/", "")
+}
+
 /// Matches fan tag mutation paths:
 /// `/v1/control-plane/audience/fans/{uuid}/tags/{tag}` (add)
 /// `/v1/control-plane/audience/fans/{uuid}/tags/{tag}/remove` (remove)
@@ -294,12 +299,15 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/audience/overview"
                     | "/v1/control-plane/audience/fans"
                     | "/v1/control-plane/audience/segments"
+                    | "/v1/control-plane/ops/actions"
             ) || path.starts_with("/v1/control-plane/ops/outbox?")
                 || path.starts_with("/v1/control-plane/ops/deliveries?")
+                || path.starts_with("/v1/control-plane/ops/actions?")
                 || path.starts_with("/v1/control-plane/audience/fans?")
                 || path.starts_with("/v1/control-plane/autopilot/outreach/candidates?")
                 || path.starts_with("/v1/control-plane/autopilot/booking-discovery/candidates?")
                 || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "")
+                || uuid_segment_between(path, "/v1/control-plane/ops/actions/", "")
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "")
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/journey")
                 || safe_segment_between(path, "/v1/control-plane/audience/segments/", "/preview")
@@ -309,6 +317,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/recipients",
                 )
                 || timeline_segment(path)
+                || trace_segment(path)
         }
         "POST" => {
             matches!(
