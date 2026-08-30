@@ -663,14 +663,30 @@
 }
 
 /* === Ultrawide / large desktop (3440x1440 and similar) === */
-/* Fit the hero into the viewport without scrolling on large screens.
-   Dense, professional layout: single-row features, compact diagram, no footer. */
+/* Fit the entire login shell into the viewport without scrolling on large
+   screens. Both the hero and the login card are constrained to 100vh; the
+   card gets its own scroll only if its content overflows (it won't — the
+   form is short). This prevents the page-level scroll that the card's
+   margin and the shell's min-height were causing. */
 @media (min-width: 1400px) and (min-height: 900px) {
+  .login-shell {
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+  }
+
   .login-hero {
     height: 100vh;
     max-height: 100vh;
     padding: 28px 48px 24px;
     gap: 20px;
+  }
+
+  .login-card {
+    margin: 0;
+    height: 100vh;
+    max-height: 100vh;
+    overflow-y: auto;
   }
 
   .hero-features {
