@@ -67,7 +67,7 @@ services:
     networks:
       internal: {}
       virya-edge:
-        aliases: [control-plane]
+        aliases: [control-plane, control-plane-active]
 
   agent-service:
     image: ghcr.io/crowdrelay/crowdrelay-agents:${AGENT_SERVICE_IMAGE_TAG:?AGENT_SERVICE_IMAGE_TAG required}

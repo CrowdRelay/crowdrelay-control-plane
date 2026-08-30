@@ -52,4 +52,4 @@ services:
     networks:
       internal: {}
       virya-edge:
-        aliases: [control-plane-green]
+        aliases: [control-plane-green, control-plane-active]
