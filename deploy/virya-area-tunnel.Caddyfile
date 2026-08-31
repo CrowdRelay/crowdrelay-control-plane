@@ -71,6 +71,7 @@
         /v1/control-plane/connections/deezer \
         /v1/control-plane/connections/discogs \
         /v1/control-plane/connections/bluesky \
+        /v1/control-plane/connections/bandcamp \
         /v1/control-plane/autopilot/actions/* \
         /v1/control-plane/autopilot/decisions/* \
         /v1/control-plane/audience/overview \

@@ -184,7 +184,7 @@ fn one_safe_segment(path: &str, prefix: &str) -> bool {
             && segment.len() <= 96
             && segment
                 .bytes()
-                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-')
     })
 }
 
@@ -198,7 +198,7 @@ fn safe_segment_between(path: &str, prefix: &str, suffix: &str) -> bool {
                 && segment.len() <= 96
                 && segment
                     .bytes()
-                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-')
         })
 }
 
@@ -380,6 +380,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || path == "/v1/control-plane/connections/deezer"
                 || path == "/v1/control-plane/connections/discogs"
                 || path == "/v1/control-plane/connections/bluesky"
+                || path == "/v1/control-plane/connections/bandcamp"
                 || uuid_segment_between(path, "/v1/control-plane/fanbases/", "/ingest")
                 || fan_tag_path(path)
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/referral-code")

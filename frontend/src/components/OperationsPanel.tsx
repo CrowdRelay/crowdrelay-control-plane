@@ -270,7 +270,7 @@ export function OperationsPanel(props: {
 
     <Show when={summary.data && (deadJobs() > 0 || summary.data.watchdog.critical_alerts > 0)}>
       <div class="operations-attention">
-        <div><strong>Operator attention required</strong><span>{deadJobs()} dead queue item(s) · {summary.data?.watchdog.critical_alerts ?? 0} critical watchdog alert(s)</span></div>
+        <div><strong>Operator attention required</strong><br /><span>{deadJobs()} dead queue item(s) · {summary.data?.watchdog.critical_alerts ?? 0} critical watchdog alert(s)</span></div>
         <Show when={confirming() === 'replay-dead'}>
           <div class="row-health"><button class="ghost" onClick={() => setConfirming(null)}>Cancel</button><button disabled={pendingMutation() !== null} onClick={() => { setConfirming(null); void replayDead() }}>Confirm replay</button></div>
         </Show>

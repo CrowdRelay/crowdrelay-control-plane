@@ -326,6 +326,12 @@ export const api = {
       headers: { 'idempotency-key': crypto.randomUUID() },
       body: JSON.stringify({ handle, label }),
     }),
+  createBandcampConnection: (slug: string, subdomain: string, label?: string) =>
+    request<{ platform: string; status: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/connections/bandcamp`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ subdomain, label }),
+    }),
 
   // --- Audience Intelligence ---
   audienceModel: (slug: string) =>

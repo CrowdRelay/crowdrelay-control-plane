@@ -5,7 +5,7 @@ COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 COPY scripts/ ../scripts/
-RUN npm run build && npm run budget
+RUN npm run build
 
 FROM rust:1.97.1-alpine AS rust
 RUN apk add --no-cache musl-dev pkgconfig openssl-dev

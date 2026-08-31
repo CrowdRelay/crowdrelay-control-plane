@@ -31,6 +31,7 @@ const PLATFORM_CONFIG: Record<string, { label: string; color: string }> = {
   deezer:       { label: 'Deezer',       color: '#a238ff' },
   discogs:      { label: 'Discogs',      color: '#333333' },
   bluesky:      { label: 'Bluesky',      color: '#0085ff' },
+  bandcamp:     { label: 'Bandcamp',     color: '#629aa9' },
   signal:       { label: 'Signal',       color: '#9b87f5' },
   ticketing:    { label: 'Ticketing',    color: '#3ddc84' },
   merch:        { label: 'Merch',        color: '#f5b942' },
@@ -75,18 +76,32 @@ export function GrowthMetricsPanel(props: { slug: string }) {
   const hasLive = () => liveSeries() > 0
 
   // Group trends by platform, split into upstream (intermediate/vanity) and downstream.
+  // Deduplicate by (platform, display_name) — orphaned series from deleted
+  // connections can produce duplicate bars with identical display names.
+  // We keep the one with the most recent latest_at.
   const grouped = createMemo(() => {
     const all = trends() ?? []
+    // Deduplicate: group by (platform, display_name), keep most recent
+    const dedup: Record<string, GrowthMetricTrendView> = {}
+    for (const t of all) {
+      if (t.value_tier === 'downstream') continue
+      const key = `${t.platform}|${t.display_name}`
+      const existing = dedup[key]
+      if (!existing || t.latest_at > existing.latest_at) {
+        dedup[key] = t
+      }
+    }
     const groups: Record<string, GrowthMetricTrendView[]> = {}
     const downstream: GrowthMetricTrendView[] = []
     for (const t of all) {
       if (t.value_tier === 'downstream') {
         downstream.push(t)
-      } else {
-        const key = t.platform
-        if (!groups[key]) groups[key] = []
-        groups[key].push(t)
       }
+    }
+    for (const t of Object.values(dedup)) {
+      const key = t.platform
+      if (!groups[key]) groups[key] = []
+      groups[key].push(t)
     }
     // Sort each group by value descending
     for (const key of Object.keys(groups)) {

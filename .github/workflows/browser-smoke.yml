@@ -59,7 +59,7 @@ jobs:
         if: steps.preflight.outputs.enabled == 'true'
         working-directory: frontend
         shell: bash
-        run: npx playwright test e2e/control-plane.spec.ts --browser=chromium --workers=1 --reporter=line
+        run: npx playwright test e2e/control-plane.spec.ts --workers=1 --reporter=line
 
       - name: Purge stale artifacts before upload
         if: always() && steps.preflight.outputs.enabled == 'true'

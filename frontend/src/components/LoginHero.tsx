@@ -205,7 +205,7 @@ const FeatureIcon: Component<{ children: unknown }> = (props) => (
 // Stated as what the artist gets, not as vendor capability. "10+ LLM
 // providers" is our shopping list; nobody buys a shopping list.
 const stats = [
-  { value: '6+', label: 'Fan sources, one fanbase' },
+  { value: '10+', label: 'Fan sources, one fanbase' },
   { value: 'Double opt-in', label: 'No spam, no bought lists' },
   { value: 'Every cycle', label: 'Learns from real outcomes' },
   { value: 'EU / US', label: 'Fan data stays in region' },

@@ -32,6 +32,7 @@ const OAUTH_PLATFORMS = [
   { value: 'deezer', label: 'Deezer', icon: 'deezer' },
   { value: 'discogs', label: 'Discogs', icon: 'discogs' },
   { value: 'bluesky', label: 'Bluesky', icon: 'bluesky' },
+  { value: 'bandcamp', label: 'Bandcamp', icon: 'bandcamp' },
 ]
 
 const EMPTY_INGEST = ''
@@ -84,6 +85,7 @@ export function FanSourcesPanel(props: {
   const [deezerArtistId, setDeezerArtistId] = createSignal('')
   const [discogsArtistId, setDiscogsArtistId] = createSignal('')
   const [blueskyHandle, setBlueskyHandle] = createSignal('')
+  const [bandcampSubdomain, setBandcampSubdomain] = createSignal('')
 
   const needsAttestation = createMemo(() => sourceKind() !== 'http_json_pull')
 
@@ -265,6 +267,19 @@ export function FanSourcesPanel(props: {
     onError: (error) => setErrorText(error instanceof Error ? error.message : 'Bluesky connection failed'),
   }))
 
+  const connectBandcamp = useMutation(() => ({
+    mutationFn: () => api.createBandcampConnection(props.slug, bandcampSubdomain().trim()),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
+      refetchConnections()
+      setConnectingPlatform(null)
+      setBandcampSubdomain('')
+      setErrorText(null)
+      setNotice('Bandcamp connection created.')
+    },
+    onError: (error) => setErrorText(error instanceof Error ? error.message : 'Bandcamp connection failed'),
+  }))
+
   const connTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
     status === 'connected' ? 'good' : status === 'expired' ? 'warn' : status === 'disconnected' ? 'bad' : 'muted'
 
@@ -341,6 +356,9 @@ export function FanSourcesPanel(props: {
                 </Show>
                 <Show when={!conn() && plat.value === 'bluesky'}>
                   <button onClick={() => setConnectingPlatform('bluesky')}>Connect</button>
+                </Show>
+                <Show when={!conn() && plat.value === 'bandcamp'}>
+                  <button onClick={() => setConnectingPlatform('bandcamp')}>Connect</button>
                 </Show>
               </div>
             </div>
@@ -422,6 +440,19 @@ export function FanSourcesPanel(props: {
           <button disabled={!blueskyHandle().trim() || connectBluesky.isPending}
             onClick={() => connectBluesky.mutate()}>
             {connectBluesky.isPending ? 'Connecting…' : 'Connect Bluesky'}
+          </button>
+          <button class="ghost" onClick={() => setConnectingPlatform(null)}>Cancel</button>
+        </div>
+      </Show>
+      {/* Bandcamp connection form */}
+      <Show when={connectingPlatform() === 'bandcamp'}>
+        <div class="form-grid" style={{ 'margin-top': '12px' }}>
+          <label>Bandcamp subdomain<small>The part before .bandcamp.com</small><input value={bandcampSubdomain()} onInput={e => setBandcampSubdomain(e.currentTarget.value)} placeholder="virya" /></label>
+        </div>
+        <div class="form-actions">
+          <button disabled={!bandcampSubdomain().trim() || connectBandcamp.isPending}
+            onClick={() => connectBandcamp.mutate()}>
+            {connectBandcamp.isPending ? 'Connecting…' : 'Connect Bandcamp'}
           </button>
           <button class="ghost" onClick={() => setConnectingPlatform(null)}>Cancel</button>
         </div>

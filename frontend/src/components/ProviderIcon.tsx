@@ -296,6 +296,16 @@ function BlueskyIcon(props: IconProps) {
   )
 }
 
+// Bandcamp — lowercase "b" in a circle (simplified brand mark, currentColor).
+function BandcampIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 7l-4 6h-4l4-6h4z" fill-rule="evenodd"/>
+    </svg>
+  )
+}
+
 // CSV — document with lines (generic, currentColor).
 function CsvIcon(props: IconProps) {
   const s = props.size ?? 20
@@ -378,6 +388,7 @@ const FANBASE_ICONS: Record<string, (props: IconProps) => JSX.Element> = {
   deezer: DeezerIcon,
   discogs: DiscogsIcon,
   bluesky: BlueskyIcon,
+  bandcamp: BandcampIcon,
 }
 
 export function LlmProviderIcon(props: { providerId: string; size?: number; class?: string }) {

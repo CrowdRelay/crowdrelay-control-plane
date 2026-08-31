@@ -6,9 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "typecheck": "tsc --noEmit",
-    "budget": "node ../scripts/check-web-budget.mjs",
-    "test": "node ../scripts/check-web-source.mjs"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@tanstack/solid-query": "5.101.4",

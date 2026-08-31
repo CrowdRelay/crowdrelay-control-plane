@@ -145,6 +145,10 @@ pub fn router() -> Router<AppState> {
             post(create_bluesky_connection),
         )
         .route(
+            "/tenants/{slug}/portfolio/connections/bandcamp",
+            post(create_bandcamp_connection),
+        )
+        .route(
             "/tenants/{slug}/notifiers/discovered",
             get(discovered_notifier_endpoints),
         )
@@ -1651,6 +1655,26 @@ async fn create_bluesky_connection(
     )
     .await?;
     object_no_store(value, "bluesky connection")
+}
+
+async fn create_bandcamp_connection(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    body: axum::Json<serde_json::Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (_, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/connections/bandcamp",
+        Some(&body.0),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    object_no_store(value, "bandcamp connection")
 }
 
 // ---------------------------------------------------------------------------

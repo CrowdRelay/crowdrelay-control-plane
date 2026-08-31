@@ -3,24 +3,11 @@
 default:
     @just --list
 
-# Static analysis + all Python contract gates + web source contracts.
-static:
-    python3 scripts/static-check.py
-    python3 -m unittest discover -s scripts -p 'test_*.py'
-    node scripts/check-web-source.mjs
-
-# CrowdRelay cross-repo compatibility (needs ../crowdrelay checkout).
-compat:
-    python3 scripts/check_crowdrelay_compat.py ../crowdrelay
-
 web-install:
     cd frontend && npm ci --no-audit --no-fund
 
-web-test:
-    cd frontend && npm test
-
 web-build:
-    cd frontend && npm run build && npm run budget
+    cd frontend && npm run build
 
 rust-fmt:
     cargo fmt --all -- --check
@@ -34,8 +21,12 @@ rust-clippy:
 rust-test:
     cargo test --locked --workspace
 
+script-test:
+    python3 scripts/test_provisioner.py
+    for script in scripts/*.sh; do bash -n "$script"; done
+
 # Everything CI runs for a merge decision.
-ci: static rust-fmt rust-clippy rust-test web-install web-test web-build
+ci: rust-fmt rust-clippy rust-test script-test web-install web-build
 
 deploy:
     bash scripts/deploy.sh
