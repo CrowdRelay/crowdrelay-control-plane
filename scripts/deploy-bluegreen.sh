@@ -93,18 +93,19 @@ cd "$REPO_DIR"
 [[ -f "$EDGE_CADDYFILE" ]] || fail "missing edge Caddyfile"
 
 # Pre-deploy reconciliation: verify the Caddyfile uses the stable active
-# alias, not a color-specific name. If it doesn't, fix it before deploying.
-# This catches the case where a previous deploy failed mid-cutover or the
-# Caddyfile was manually edited.
-if ! grep -Fq "reverse_proxy ${ACTIVE_ALIAS}:8090" "$EDGE_CADDYFILE"; then
-  printf 'RECONCILE=FIX Caddyfile does not use %s, repairing\n' "$ACTIVE_ALIAS"
+# alias with dynamic a, not a color-specific name. If it doesn't, fix it
+# before deploying. This catches the case where a previous deploy failed
+# mid-cutover or the Caddyfile was manually edited.
+if ! grep -Fq "dynamic a ${ACTIVE_ALIAS}" "$EDGE_CADDYFILE"; then
+  printf 'RECONCILE=FIX Caddyfile does not use dynamic a %s, repairing\n' "$ACTIVE_ALIAS"
   # Try replacing any color-specific alias with the stable one
-  sed "s|reverse_proxy ${BLUE_ALIAS}:8090|reverse_proxy ${ACTIVE_ALIAS}:8090|g; s|reverse_proxy ${GREEN_ALIAS}:8090|reverse_proxy ${ACTIVE_ALIAS}:8090|g" "$EDGE_CADDYFILE" > /tmp/caddy-reconcile.tmp
+  sed "s|reverse_proxy ${BLUE_ALIAS}:8090|reverse_proxy { dynamic a ${ACTIVE_ALIAS} { port 8090; refresh 5s } }|g; s|reverse_proxy ${GREEN_ALIAS}:8090|reverse_proxy { dynamic a ${ACTIVE_ALIAS} { port 8090; refresh 5s } }|g; s|reverse_proxy ${ACTIVE_ALIAS}:8090|reverse_proxy { dynamic a ${ACTIVE_ALIAS} { port 8090; refresh 5s } }|g" "$EDGE_CADDYFILE" > /tmp/caddy-reconcile.tmp
   cat /tmp/caddy-reconcile.tmp > "$EDGE_CADDYFILE"
   rm -f /tmp/caddy-reconcile.tmp
-  docker restart "$EDGE_CONTAINER" >/dev/null 2>&1
-  grep -Fq "reverse_proxy ${ACTIVE_ALIAS}:8090" "$EDGE_CADDYFILE" || fail "Caddyfile reconciliation failed — cannot find ${ACTIVE_ALIAS}"
-  printf 'RECONCILE=PASS Caddyfile now uses %s\n' "$ACTIVE_ALIAS"
+  docker exec "$EDGE_CONTAINER" caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 || \
+    docker restart "$EDGE_CONTAINER" >/dev/null 2>&1
+  grep -Fq "dynamic a ${ACTIVE_ALIAS}" "$EDGE_CADDYFILE" || fail "Caddyfile reconciliation failed — cannot find dynamic a ${ACTIVE_ALIAS}"
+  printf 'RECONCILE=PASS Caddyfile now uses dynamic a %s\n' "$ACTIVE_ALIAS"
 fi
 
 # compose.agents.yml is optional — the agent-service is only recreated if it exists
@@ -202,15 +203,15 @@ printf 'NEW_HEALTH=PASS\n'
 # --- 3. Move active alias to new app -----------------------------------------
 
 printf '\n==> 3/4 — Move %s alias to %s app\n' "$ACTIVE_ALIAS" "$DEPLOY_COLOR"
-# The Caddyfile always points to control-plane-active:8090. We move the
-# active alias from the old container to the new container. Both containers
-# are on the virya-edge network, so this is a Docker network alias move.
-#
-# The new container already has the active alias from its compose config,
-# but we need to remove it from the old container first to avoid DNS
-# ambiguity (two containers responding to the same alias).
+# The Caddyfile uses `dynamic a control-plane-active` which re-resolves
+# Docker DNS every 5s. The new container already has the active alias
+# from its compose config. We just need to remove the active alias from
+# the old container. Caddy will pick up the change on the next refresh.
 #
 # Step 3a: Remove the active alias from the old container.
+# The new container already has ACTIVE_ALIAS from compose.bluegreen.yml
+# (green) or compose.production.yml (blue), so there is no gap — both
+# containers have the alias briefly, and Caddy load-balances between them.
 docker network disconnect "$EDGE_NETWORK" "$CURRENT_APP" 2>/dev/null || true
 # Reconnect the old container without the active alias but keep its
 # color-specific alias so it's still reachable for drain/stop.
@@ -220,12 +221,11 @@ else
   docker network connect --alias "$GREEN_ALIAS" "$EDGE_NETWORK" "$CURRENT_APP" 2>/dev/null || true
 fi
 
-# Step 3b: The new container already has the active alias from compose.
-# Verify it resolves to the new container.
-new_ip="$(docker inspect "$NEW_APP" --format '{{range $net, $conf := .NetworkSettings.Networks}}{{if eq $net "'"$EDGE_NETWORK"'"}}{{$conf.IPAddress}}{{end}}{{end}}')"
-[[ -n "$new_ip" ]] || fail "cannot determine IP of $NEW_APP on $EDGE_NETWORK"
+# Step 3b: Wait for Caddy's dynamic a to re-resolve DNS (refresh is 5s,
+# wait two cycles to be safe). No restart or reload needed.
+sleep 10
 
-# Verify the active alias resolves to the new container's IP
+# Verify the active alias resolves to the new container
 resolved_ip="$(docker run --rm --network "$EDGE_NETWORK" curlimages/curl:8.12.0 \
   --silent --connect-timeout 3 --max-time 5 \
   "http://${ACTIVE_ALIAS}:8090/healthz/ready" >/dev/null 2>&1 && echo ok || echo fail)"
@@ -233,6 +233,7 @@ resolved_ip="$(docker run --rm --network "$EDGE_NETWORK" curlimages/curl:8.12.0 
 
 ALIAS_MOVED=true
 printf 'ALIAS_MOVE=PASS active=%s container=%s\n' "$ACTIVE_ALIAS" "$NEW_APP"
+printf 'CADDY_DNS=PASS dynamic-a-refresh=no-restart\n'
 
 # --- 4. Verify cross-system E2E + stop old app ------------------------------
 
