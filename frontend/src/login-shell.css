@@ -263,12 +263,20 @@ body {
   min-width: 0;
   height: 100vh;
   max-height: 100vh;
-  padding: 12px 48px 10px;
+  padding: 12px 48px 28px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   position: relative;
-  overflow: hidden;
+  /* The hero is taller than a 720p or 900p viewport. It used to be clipped
+     with `overflow: hidden` while the shell blocked page scroll, so the brain
+     callout, every feature card, the contact block and the footer were
+     unreachable on most laptops. It scrolls instead. */
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--login-line) transparent;
 }
 
 /* Lead paragraph — no clamping, let it wrap naturally */
@@ -457,7 +465,7 @@ body {
   display: block;
   margin-top: 4px;
   color: var(--login-muted);
-  font-size: 0.74rem;
+  font-size: 0.82rem;
   letter-spacing: 0.02em;
 }
 
@@ -548,11 +556,13 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
+/* Marketing copy, not UI chrome: 12–13px reads as a caption and gets skipped.
+   Everything a visitor is meant to actually read sits at >=0.9rem. */
 .hero-brain-copy p {
   margin: 0;
   color: #b8c0d0;
-  font-size: 0.78rem;
-  line-height: 1.4;
+  font-size: 0.9rem;
+  line-height: 1.5;
   max-width: 680px;
 }
 
@@ -615,8 +625,8 @@ body {
   display: block;
   margin-top: 0;
   color: var(--login-muted);
-  line-height: 1.35;
-  font-size: 0.78rem;
+  line-height: 1.45;
+  font-size: 0.9rem;
 }
 
 /* === Contact card === */
@@ -660,9 +670,9 @@ body {
 
 .hero-contact-copy span {
   margin-top: 5px;
-  color: #9ca2af;
-  line-height: 1.45;
-  font-size: 0.86rem;
+  color: #a8aebc;
+  line-height: 1.5;
+  font-size: 0.92rem;
 }
 
 .hero-cta {
@@ -689,10 +699,11 @@ body {
 
 .hero-links-row {
   display: flex;
-  flex-wrap: nowrap;
+  /* nowrap forced the LinkedIn URL to break mid-word. */
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px 18px;
   margin: 0;
   padding: 0;
   border-top: none;
@@ -708,8 +719,8 @@ body {
 }
 
 .hero-links a {
-  color: #8f95a4;
-  font-size: 0.76rem;
+  color: #a8aebc;
+  font-size: 0.88rem;
 }
 
 .hero-links a:hover {
@@ -738,7 +749,12 @@ body {
   border-radius: 0;
   background: var(--login-panel);
   position: relative;
-  overflow: hidden;
+  /* Same reason as the hero: the card is ~790px tall and was clipping its
+     own security note on a 720p screen. */
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--login-line) transparent;
 }
 
 .login-brand {
@@ -751,12 +767,8 @@ body {
 .login-brand .brand-mark {
   width: 36px;
   height: 36px;
-  display: grid;
-  place-items: center;
   border-radius: 10px;
-  background: var(--login-accent);
-  color: #fff;
-  font-weight: 900;
+  object-fit: contain;
 }
 
 .login-brand strong,
@@ -967,10 +979,8 @@ body {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
   }
-
-  .hero-foot {
-    display: none;
-  }
+  /* The footer used to be hidden here to buy vertical space. The hero
+     scrolls now, so it does not need to disappear to fit. */
 }
 
 @media (min-width: 2000px) {

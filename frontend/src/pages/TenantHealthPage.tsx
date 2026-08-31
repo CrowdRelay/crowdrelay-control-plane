@@ -41,7 +41,7 @@ export function TenantHealthPage() {
   return <section class="page">
     <div class="page-head">
       <div>
-        <span class="eyebrow">TENANT / {params().slug.toUpperCase()}</span>
+        <span class="eyebrow">SYSTEM</span>
         <h1>Autopilot</h1>
         <p>Live telemetry, delivery queues, watchdog alerts, runtime switches and Autopilot authority policies.</p>
       </div>

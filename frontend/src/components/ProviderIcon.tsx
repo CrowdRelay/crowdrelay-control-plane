@@ -243,6 +243,24 @@ function TikTokIcon(props: IconProps) {
   )
 }
 
+function TelegramIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
+      <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/>
+    </svg>
+  )
+}
+
+function LastfmIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
+      <path d="M7.32 17.5c-1.94 0-3.32-1.23-3.32-3.18 0-1.96 1.38-3.19 3.32-3.19 1.31 0 2.06.66 2.56 1.52l.97-.42c-.62-1.27-1.86-2.1-3.53-2.1-2.68 0-4.32 1.84-4.32 4.19 0 2.34 1.64 4.18 4.32 4.18 1.67 0 2.91-.83 3.53-2.1l-.97-.42c-.5.86-1.25 1.52-2.56 1.52zm5.68-3.18c0-2.35 1.64-4.19 4.32-4.19 2.68 0 4.32 1.84 4.32 4.19 0 2.34-1.64 4.18-4.32 4.18-2.68 0-4.32-1.84-4.32-4.18zm1 0c0 1.95 1.38 3.18 3.32 3.18s3.32-1.23 3.32-3.18c0-1.96-1.38-3.19-3.32-3.19s-3.32 1.23-3.32 3.19z"/>
+    </svg>
+  )
+}
+
 // CSV — document with lines (generic, currentColor).
 function CsvIcon(props: IconProps) {
   const s = props.size ?? 20
@@ -319,6 +337,9 @@ const FANBASE_ICONS: Record<string, (props: IconProps) => JSX.Element> = {
   spotify: SpotifyIcon,
   reddit: RedditIcon,
   tiktok: TikTokIcon,
+  discord: DiscordIcon,
+  telegram: TelegramIcon,
+  lastfm: LastfmIcon,
 }
 
 export function LlmProviderIcon(props: { providerId: string; size?: number; class?: string }) {

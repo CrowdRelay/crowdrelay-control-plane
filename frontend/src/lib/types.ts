@@ -517,6 +517,12 @@ export type TenantOverviewReadModel = {
     runtimeStaleAfterSeconds: number
     provisionerConfigured: boolean
     provisionerDefaultImageTag: string | null
+    /** Server-decided lifecycle policy. The browser renders these, it does
+     *  not re-derive them from the tenant slug. */
+    capabilities: {
+      canSuspend: boolean
+      canProvision: boolean
+    }
   }
 }
 

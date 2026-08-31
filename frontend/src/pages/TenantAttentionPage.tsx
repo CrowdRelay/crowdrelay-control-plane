@@ -190,7 +190,7 @@ export function TenantAttentionPage() {
   return <section class="page">
     <div class="page-head">
       <div>
-        <span class="eyebrow">TENANT / {params().slug.toUpperCase()}</span>
+        <span class="eyebrow">CONTROL</span>
         <h1>Operator Attention</h1>
         <p>Incidents, observability and bounded maintenance. One snapshot, on-demand details.</p>
       </div>

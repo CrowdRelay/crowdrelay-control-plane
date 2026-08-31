@@ -15,6 +15,18 @@ use crate::{
     },
 };
 
+/// Virya runs on the pre-existing production deployment. The Control Plane
+/// registers the tenant but does not own its lifecycle: it may not be created
+/// a second time, suspended, or provisioned by the tenant agent.
+///
+/// The rule is named once here so the create/suspend/provision guards below
+/// and the capability flags published in the tenant Overview read model can
+/// never disagree. The browser reads those flags instead of restating the
+/// policy in JSX, which is how it drifted before.
+pub fn tenant_lifecycle_is_externally_owned(slug: &str) -> bool {
+    slug == "virya"
+}
+
 #[derive(Clone)]
 pub struct Store {
     pool: PgPool,
@@ -228,7 +240,7 @@ impl Store {
         actor: &str,
         request_id: Option<&str>,
     ) -> Result<TenantSummary, ApiError> {
-        if input.slug == "virya" {
+        if tenant_lifecycle_is_externally_owned(&input.slug) {
             return Err(ApiError::Conflict("Virya tenant already exists".to_owned()));
         }
         let id = Uuid::new_v4();
@@ -433,7 +445,7 @@ impl Store {
         request_id: Option<&str>,
     ) -> Result<TenantSummary, ApiError> {
         let tenant = self.tenant_by_slug(slug).await?;
-        if tenant.tenant.slug == "virya" && status == "suspended" {
+        if tenant_lifecycle_is_externally_owned(&tenant.tenant.slug) && status == "suspended" {
             return Err(ApiError::Conflict(
                 "Virya cannot be suspended from Control Plane".to_owned(),
             ));
@@ -551,7 +563,7 @@ impl Store {
         request_id: Option<&str>,
     ) -> Result<(ProvisioningJobRow, bool), ApiError> {
         let tenant = self.tenant_by_slug(slug).await?;
-        if tenant.tenant.slug == "virya" {
+        if tenant_lifecycle_is_externally_owned(&tenant.tenant.slug) {
             return Err(ApiError::Conflict(
                 "Virya uses the existing production deployment and is not provisioned by the tenant agent".to_owned(),
             ));

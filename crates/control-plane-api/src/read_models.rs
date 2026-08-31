@@ -70,6 +70,8 @@ async fn overview(
         state.store.audit_for_tenant_id(tenant.tenant.id, 40),
     )?;
 
+    let externally_owned = crate::store::tenant_lifecycle_is_externally_owned(&tenant.tenant.slug);
+
     Ok(no_store(json!({
         // Stable identity so the browser can patch this model in place on a
         // refresh instead of replacing the whole subpage.
@@ -81,6 +83,13 @@ async fn overview(
             "runtimeStaleAfterSeconds": state.runtime_stale_after_seconds,
             "provisionerConfigured": state.provisioner_token_hash.is_some(),
             "provisionerDefaultImageTag": state.provisioner_default_image_tag.as_deref(),
+            // Lifecycle policy is decided here, from the same predicate the
+            // store guards use, so the browser renders capability instead of
+            // re-deriving the rule from a slug it happens to recognise.
+            "capabilities": {
+                "canSuspend": !externally_owned,
+                "canProvision": !externally_owned,
+            },
         },
     })))
 }

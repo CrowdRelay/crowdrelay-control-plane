@@ -1,14 +1,15 @@
 import { Link, Outlet, useParams, useNavigate, useRouter } from '@tanstack/solid-router'
-import { Show, For, createSignal, lazy, onMount, onCleanup, Suspense, type Component } from 'solid-js'
+import { Show, For, createSignal, createEffect, lazy, onMount, onCleanup, Suspense, type Component } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { authState } from '../lib/auth'
 import { commandPaletteOpen, toggleCommandPalette } from './command-palette-state'
-import { LoginGate } from './LoginGate'
 import { api } from '../lib/api'
 import { ToastContainer } from '../lib/toast'
 import { RefreshControl } from './RefreshControl'
 import { ChatWidget } from './ChatWidget'
 import { SkeletonPage } from './Skeleton'
+import { ErrorBoundaryPanel } from './ErrorBoundaryPanel'
+import { ConfirmHost } from './Dialog'
 import type { TenantSummary } from '../lib/types'
 
 // The palette component loads on first invocation; the shortcut lives here so
@@ -162,6 +163,36 @@ function TenantSwitcher(props: {
   </div>
 }
 
+// Global nav, declared once so the topbar breadcrumb can name the current
+// page instead of repeating the tenant name the page heading already shows.
+const GLOBAL_NAV: NavItem[] = [
+  { path: '/', label: 'Overview', exact: true, icon: 'overview' },
+  { path: '/tenants', label: 'Tenants', exact: true, icon: 'portfolio' },
+  { path: '/tenants/new', label: 'New tenant', exact: true, icon: 'portfolio' },
+  { path: '/flow', label: 'Process map', exact: false, icon: 'flow' },
+  { path: '/attention', label: 'Attention', exact: false, icon: 'attention' },
+  { path: '/automation', label: 'Automation', exact: false, icon: 'automation' },
+]
+
+// Longest tenant suffix wins so `/operations` never matches before a deeper
+// child route added later.
+const TENANT_NAV_ITEMS = TENANT_NAV_GROUPS.flatMap(group => group.items)
+  .slice()
+  .sort((a, b) => b.path.length - a.path.length)
+
+const currentPageLabel = (pathname: string, slug: string | undefined) => {
+  if (slug) {
+    const base = `/tenants/${slug}`
+    const suffix = pathname.slice(base.length)
+    const match = TENANT_NAV_ITEMS.find(item => {
+      const itemSuffix = item.path.replace('/tenants/$slug', '')
+      return itemSuffix ? suffix.startsWith(itemSuffix) : suffix === ''
+    })
+    return match?.label ?? 'Overview'
+  }
+  return GLOBAL_NAV.find(item => item.exact ? pathname === item.path : pathname.startsWith(item.path))?.label ?? 'Overview'
+}
+
 export const Shell: Component = () => {
   const params = useParams({ strict: false })
   const slug = () => (params() as { slug?: string }).slug
@@ -171,6 +202,8 @@ export const Shell: Component = () => {
   const pathname = () => router.state.location.pathname
   const isAdmin = () => profile()?.role === 'platform_admin'
   const [switcherOpen, setSwitcherOpen] = createSignal(false)
+  // Mobile drawer. Desktop ignores it; the media query does the hiding.
+  const [mobileNavOpen, setMobileNavOpen] = createSignal(false)
   // Sidebar collapse state — persisted in localStorage so it survives refresh.
   const [collapsed, setCollapsed] = createSignal(
     typeof localStorage !== 'undefined' && localStorage.getItem('sidebar-collapsed') === '1'
@@ -200,12 +233,20 @@ export const Shell: Component = () => {
     }
   }
 
+  // A tap on a nav link navigates; the drawer must not stay over the page it
+  // just moved to.
+  createEffect(() => {
+    pathname()
+    setMobileNavOpen(false)
+  })
+
   onMount(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
         toggleCommandPalette()
       }
+      if (event.key === 'Escape' && mobileNavOpen()) setMobileNavOpen(false)
     }
     const onDocClick = (event: MouseEvent) => {
       const el = event.target as HTMLElement
@@ -219,9 +260,12 @@ export const Shell: Component = () => {
     })
   })
 
-  return <LoginGate>
+  return <>
     <div class="app-shell" classList={{ collapsed: collapsed() }}>
-      <aside class="sidebar" classList={{ collapsed: collapsed() }}>
+      <Show when={mobileNavOpen()}>
+        <div class="nav-backdrop" onClick={() => setMobileNavOpen(false)} aria-hidden="true" />
+      </Show>
+      <aside class="sidebar" classList={{ collapsed: collapsed(), 'mobile-open': mobileNavOpen() }}>
         <div class="sidebar-head">
           <div class="brand">
             <span class="brand-mark-wrap">
@@ -320,11 +364,26 @@ export const Shell: Component = () => {
 
       <main class="content">
         <header class="topbar">
+          <button
+            type="button"
+            class="topbar-menu"
+            onClick={() => setMobileNavOpen(open => !open)}
+            aria-label={mobileNavOpen() ? 'Close navigation' : 'Open navigation'}
+            aria-expanded={mobileNavOpen()}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <Show when={mobileNavOpen()} fallback={<path d="M4 7h16M4 12h16M4 17h16" />}>
+                <path d="M6 6l12 12M18 6L6 18" />
+              </Show>
+            </svg>
+          </button>
+          {/* Breadcrumb, not a second copy of the page heading: it says where
+              you are, while the page below says what it is. */}
           <div class="topbar-context">
-            <Show when={slug()} fallback={<><span class="eyebrow">PLATFORM</span><strong>Overview</strong></>}>
+            <Show when={slug()} fallback={<><span class="eyebrow">PLATFORM</span><strong>{currentPageLabel(pathname(), undefined)}</strong></>}>
               {s => <>
-                <span class="eyebrow">TENANT / {s().toUpperCase()}</span>
-                <strong>{tenants.data?.items.find(t => t.slug === s())?.displayName ?? s()}</strong>
+                <span class="eyebrow">{(tenants.data?.items.find(t => t.slug === s())?.displayName ?? s()).toUpperCase()}</span>
+                <strong>{currentPageLabel(pathname(), s())}</strong>
               </>}
             </Show>
           </div>
@@ -337,14 +396,19 @@ export const Shell: Component = () => {
           </div>
         </header>
         <div class="page-transition" data-key={pathname()}>
-          <Suspense fallback={<SkeletonPage />}>
-            <Outlet />
-          </Suspense>
+          {/* Keyed on the route so a thrown page recovers by navigating away
+              instead of leaving the console permanently blank. */}
+          <ErrorBoundaryPanel resetKey={pathname()} title="This page failed to render">
+            <Suspense fallback={<SkeletonPage />}>
+              <Outlet />
+            </Suspense>
+          </ErrorBoundaryPanel>
         </div>
         <Show when={commandPaletteOpen()}><CommandPalette /></Show>
         <ToastContainer />
+        <ConfirmHost />
       </main>
       <Show when={slug()}>{(s) => <ChatWidget slug={s()} />}</Show>
     </div>
-  </LoginGate>
+  </>
 }

@@ -9,7 +9,7 @@ export function GrowthFunnelPage() {
   return <section class="page">
     <div class="page-head">
       <div>
-        <span class="eyebrow">TENANT / {params().slug.toUpperCase()}</span>
+        <span class="eyebrow">AUDIENCE</span>
         <h1>Growth Funnel</h1>
         <p>The full fan growth journey — from community discovery through outreach, engagement, and conversion. See where fans drop off and what to act on.</p>
       </div>

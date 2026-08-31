@@ -10,6 +10,7 @@ import { errorMessage } from '../lib/format'
 import { NotifierIcon } from '../components/ProviderIcon'
 import { EmptyState } from '../components/EmptyState'
 import { SkeletonNotifiersPage, SkeletonSection } from '../components/Skeleton'
+import { confirmAction } from '../components/Dialog'
 
 const kindLabel = (k: NotifierChannel['kind']) => k === 'discord' ? 'Discord app' : k === 'webhook' ? 'Webhook' : 'Email (relay)'
 const evLabel = (e: string) => e.replaceAll('.', ' ')
@@ -41,7 +42,7 @@ export function TenantNotifiersPage() {
   const items = () => channels.data?.items ?? []
 
   return <section class="page">
-    <div class="page-head"><div><span class="eyebrow">TENANT / {slug().toUpperCase()}</span><h1>Notification channels</h1><p>Where this tenant's alerts land: provisioning failures and runtime health changes. Delivery is best-effort with bounded retries; endpoints belong to your own infrastructure.</p></div></div>
+    <div class="page-head"><div><span class="eyebrow">SYSTEM</span><h1>Notification channels</h1><p>Where this tenant's alerts land: provisioning failures and runtime health changes. Delivery is best-effort with bounded retries; endpoints belong to your own infrastructure.</p></div></div>
 
     {/* Active channels */}
     <Show when={channels.error}><div class="error-card" role="alert">{errorMessage(channels.error, 'Channels could not be loaded')}</div></Show>
@@ -51,7 +52,15 @@ export function TenantNotifiersPage() {
         <div class="section-title"><div><span class="eyebrow">CHANNELS</span><h2>Active destinations</h2></div><Show when={items().length > 0}><small class="muted">{items().length} configured</small></Show></div>
         <Show when={items().length === 0} fallback={<div class="notifier-list"><For each={items()}>{ch => <div class="notifier-row">
           <div class="notifier-meta notifier-meta-with-icon"><NotifierIcon kind={ch.kind} size={20} class="provider-icon" /><div><strong>{ch.label}</strong><small>{kindLabel(ch.kind)} · {ch.config.to ?? ch.config.urlHost ?? 'endpoint'} · {ch.events.length ? ch.events.map(evLabel).join(', ') : 'all events'}</small><Show when={testResult()[ch.id]}><small class={testResult()[ch.id]?.includes('failed') ? 'notifier-test-bad' : 'notifier-test-ok'}>{testResult()[ch.id]}</small></Show></div></div>
-          <div class="row-health"><button type="button" class="ghost" disabled={test.isPending} onClick={() => test.mutateAsync(ch.id)}>Send test</button><button type="button" class={`switch-control ${ch.enabled ? 'on' : ''}`} role="switch" aria-checked={ch.enabled} aria-label={`${ch.label} enabled`} onClick={() => update.mutate({ id: ch.id, enabled: !ch.enabled })}><span /></button><button type="button" class="danger-ghost" onClick={() => { if (confirm(`Delete channel "${ch.label}"?`)) remove.mutate(ch.id) }}>Delete</button></div>
+          <div class="row-health"><button type="button" class="ghost" disabled={test.isPending} onClick={() => test.mutateAsync(ch.id)}>Send test</button><button type="button" class={`switch-control ${ch.enabled ? 'on' : ''}`} role="switch" aria-checked={ch.enabled} aria-label={`${ch.label} enabled`} onClick={() => update.mutate({ id: ch.id, enabled: !ch.enabled })}><span /></button><button type="button" class="danger-ghost" onClick={async () => {
+            const ok = await confirmAction({
+              title: `Delete channel “${ch.label}”?`,
+              body: 'Alerts routed to this channel stop being delivered.',
+              confirmLabel: 'Delete channel',
+              destructive: true,
+            })
+            if (ok) remove.mutate(ch.id)
+          }}>Delete</button></div>
         </div>}</For></div>}><div class="inherit-card"><EmptyState label="No notification channels" hint="Add a destination below to start receiving operational alerts." /></div></Show>
       </article>
     </Show>

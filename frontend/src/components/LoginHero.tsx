@@ -140,10 +140,12 @@ const FlowDiagram: Component = () => {
   )
 }
 
+// One sentence each. Four cards of five-line prose sit in a row nobody reads;
+// the detail that matters is already in the lead and the brain callout.
 const features = [
   {
     title: 'Deterministic brain',
-    body: 'A Rust autopilot owns the strategy. It decides what intelligence to gather, applies policy rules, and dispatches workers — never following an LLM blindly.',
+    body: 'A Rust autopilot owns the strategy and never follows an LLM blindly.',
     icon: (
       <>
         <path d="M9.5 3A2.5 2.5 0 0 0 7 5.5v.3a3 3 0 0 0-2 2.8v.2a3 3 0 0 0-1 5.2v.2a3 3 0 0 0 2 2.8v.3a2.5 2.5 0 0 0 4.5 1.5V5.5A2.5 2.5 0 0 0 9.5 3z" />
@@ -157,7 +159,7 @@ const features = [
   },
   {
     title: 'Aggregate from everywhere',
-    body: 'Fans flow in from Reddit, Meta, Spotify, Bandsintown, press, live shows — into one fanbase with double opt-in. Active fans are never downgraded, opt-outs never resurrected.',
+    body: 'Reddit, Meta, Spotify, Bandsintown, press and live shows land in one double opt-in fanbase.',
     icon: (
       <>
         <path d="M4.9 16.1C6.8 14.2 9 13 12 13s5.2 1.2 7.1 3.1" />
@@ -169,7 +171,7 @@ const features = [
   },
   {
     title: 'LLM workers, your data',
-    body: 'Free or paid LLMs draft press pitches, social posts, campaign analysis — seeded with real data from your Postgres. Workers feed intelligence back to the brain.',
+    body: 'Workers draft press pitches and posts from real data in your own Postgres.',
     icon: (
       <>
         <ellipse cx="12" cy="8" rx="3" ry="2.5" />
@@ -184,7 +186,7 @@ const features = [
   },
   {
     title: 'Learns and converts',
-    body: 'Every outcome — press hit, social reply, ticket sale — feeds back into the brain. The autopilot learns what works and gets smarter each cycle. Convert with tickets, merch, and attendance.',
+    body: 'Every press hit, reply and ticket sale feeds back, so the next cycle is sharper.',
     icon: (
       <>
         <path d="M3 17l6-6 4 4 8-8" stroke-linecap="round" stroke-linejoin="round" />
@@ -200,11 +202,13 @@ const FeatureIcon: Component<{ children: unknown }> = (props) => (
   </svg>
 )
 
+// Stated as what the artist gets, not as vendor capability. "10+ LLM
+// providers" is our shopping list; nobody buys a shopping list.
 const stats = [
-  { value: '10+', label: 'LLM providers' },
-  { value: '6+', label: 'Fan sources' },
-  { value: 'Autopilot', label: 'Learns from outcomes' },
-  { value: 'EU / US', label: 'Multi-region' },
+  { value: '6+', label: 'Fan sources, one fanbase' },
+  { value: 'Double opt-in', label: 'No spam, no bought lists' },
+  { value: 'Every cycle', label: 'Learns from real outcomes' },
+  { value: 'EU / US', label: 'Fan data stays in region' },
 ]
 
 export const LoginHero: Component = () => (
@@ -225,6 +229,19 @@ export const LoginHero: Component = () => (
       </div>
     </header>
 
+    {/* Claim first, proof second. The diagram used to open the page, so the
+        first thing a visitor met was an architecture graph of a product they
+        could not yet name. */}
+    <div class="hero-content" style={{ position: 'relative', 'z-index': '1' }}>
+      <h2>Grow real fans. Autonomously.</h2>
+      <p class="hero-lead">
+        CrowdRelay aggregates fans from Reddit, Meta, Spotify, Bandsintown, and the live web —
+        a deterministic Rust brain decides the strategy, LLM workers draft the content,
+        and the autopilot learns from every outcome. Each cycle gets smarter. No spam,
+        no fake engagement, just real growth that converts.
+      </p>
+    </div>
+
     <div class="hero-visual" style={{ position: 'relative', 'z-index': '1' }}>
       <FlowDiagram />
       <div class="hero-stats">
@@ -238,14 +255,6 @@ export const LoginHero: Component = () => (
     </div>
 
     <div class="hero-content" style={{ position: 'relative', 'z-index': '1' }}>
-      <h2>Grow real fans. Autonomously.</h2>
-      <p class="hero-lead">
-        CrowdRelay aggregates fans from Reddit, Meta, Spotify, Bandsintown, and the live web —
-        a deterministic Rust brain decides the strategy, LLM workers draft the content,
-        and the autopilot learns from every outcome. Each cycle gets smarter. No spam,
-        no fake engagement, just real growth that converts.
-      </p>
-
       {/* Brain callout — the heart and brain of the system */}
       <div class="hero-brain-callout">
         <div class="hero-brain-icon">

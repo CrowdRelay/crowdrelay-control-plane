@@ -30,10 +30,16 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
 
   return <article class="panel runtime-panel" aria-busy={runtime.isFetching && !runtime.data}>
     <div class="section-title">
-      <div><span class="eyebrow">RUNTIME</span><h2>Health</h2></div>
+      {/* Named for its source. Plain "Health" read as a contradiction next to
+          the Operations page, which reports CrowdRelay's own HTTP health from
+          a different feed: this one is the heartbeat the tenant pushes here. */}
+      <div><span class="eyebrow">RUNTIME</span><h2>Heartbeat</h2></div>
       <StatusBadge status={snapshot().runtimeHealth} tone={runtimeTone(snapshot().runtimeHealth)} />
     </div>
     <Show when={runtime.error}><div class="inline-stale-note" role="status">Live refresh failed. Showing the last known runtime snapshot.</div></Show>
+    <Show when={snapshot().runtimeHealth === 'unknown'}>
+      <p class="runtime-unknown-note">This tenant has never reported a runtime heartbeat, so there is nothing to score here yet. Service health measured inside CrowdRelay is on the Operations page.</p>
+    </Show>
     <dl>
       <dt>API</dt><dd>{String(snapshot().runtime?.apiHealthy ?? 'unknown')}</dd>
       <dt>Worker</dt><dd>{String(snapshot().runtime?.workerHealthy ?? 'unknown')}</dd>

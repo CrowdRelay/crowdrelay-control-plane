@@ -54,6 +54,7 @@ export function TenantPage() {
   }))
   const tenant = { get data() { return model.data?.tenant }, get error() { return model.error } }
   const platform = () => model.data?.platform
+  const capabilities = () => model.data?.platform?.capabilities
   const provisioning = { get data() { return model.data?.provisioning } }
   const [palette, setPalette] = createSignal<Palette>(defaultPalette)
   const [editingPalette, setEditingPalette] = createSignal(false)
@@ -84,8 +85,8 @@ export function TenantPage() {
     const t = data()
     return <>
       <div class="page-head">
-        <div><span class="eyebrow">TENANT / {t.slug.toUpperCase()}</span><h1>{t.displayName}</h1><p>{t.workspaceId ?? 'Workspace mapping pending'} · {t.defaultCountryCode}</p></div>
-        <div class="row-health"><StatusBadge status={t.status} tone={t.status === 'active' ? 'good' : t.status === 'suspended' ? 'bad' : 'warn'} />{t.slug !== 'virya' && <button class="ghost" onClick={() => status.mutate(t.status === 'suspended' ? 'resume' : 'suspend')}>{t.status === 'suspended' ? 'Resume' : 'Suspend'}</button>}</div>
+        <div><span class="eyebrow">CONTROL</span><h1>{t.displayName}</h1><p>{t.workspaceId ?? 'Workspace mapping pending'} · {t.defaultCountryCode}</p></div>
+        <div class="row-health"><StatusBadge status={t.status} tone={t.status === 'active' ? 'good' : t.status === 'suspended' ? 'bad' : 'warn'} /><Show when={capabilities()?.canSuspend !== false}><button class="ghost" onClick={() => status.mutate(t.status === 'suspended' ? 'resume' : 'suspend')}>{t.status === 'suspended' ? 'Resume' : 'Suspend'}</button></Show></div>
       </div>
       <Show when={status.error || branding.error || plan.error || deploy.error || cancel.error}>
         <div class="error-card" role="alert">{errorMessage(status.error || branding.error || plan.error || deploy.error || cancel.error, 'Control Plane operation failed')}</div>
@@ -108,7 +109,7 @@ export function TenantPage() {
           <div><span class="eyebrow">PROVISIONING</span><h2>CrowdRelay instance</h2></div>
           <Show when={latestJob()}>{job => <StatusBadge status={job().status} tone={provisionTone(job().status)} />}</Show>
         </div>
-        <Show when={t.slug !== 'virya'} fallback={<div class="inherit-card"><p>Virya stays on the existing production CrowdRelay deployment. The tenant provisioner intentionally refuses to create a second Virya stack.</p></div>}>
+        <Show when={capabilities()?.canProvision !== false} fallback={<div class="inherit-card"><p>This tenant stays on its existing production CrowdRelay deployment. The tenant provisioner intentionally refuses to create a second stack for it.</p></div>}>
           <p>The browser only requests desired state. A separately authenticated host agent claims the job and runs a fixed Docker Compose recipe; the Control Plane API never receives Docker access.</p>
           <div class="deployment-target-grid">
             <div><span>Public API</span><strong>{t.crowdrelayBaseUrl ?? 'not configured'}</strong></div>

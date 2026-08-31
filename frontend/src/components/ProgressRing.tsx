@@ -24,6 +24,9 @@ const toneColor: Record<string, string> = {
   good: 'var(--good)',
   warn: 'var(--warn)',
   bad: 'var(--bad)',
+  // "We have no reading" is not "everything is on fire": a fleet that has
+  // never reported must not render in the same red as a failing one.
+  muted: 'var(--text-muted)',
 }
 
 // Map tone to a concrete RGBA for drop-shadow (CSS var() doesn't work inside filter).
@@ -31,6 +34,7 @@ const toneGlow: Record<string, string> = {
   good: 'rgba(34,197,94,0.35)',
   warn: 'rgba(245,158,11,0.35)',
   bad: 'rgba(239,68,68,0.35)',
+  muted: 'rgba(139,146,160,0.25)',
 }
 
 export const ProgressRing: Component<{
@@ -39,7 +43,7 @@ export const ProgressRing: Component<{
   strokeWidth?: number
   label?: string
   showValue?: boolean
-  tone?: 'good' | 'warn' | 'bad'
+  tone?: 'good' | 'warn' | 'bad' | 'muted'
 }> = (props) => {
   const size = () => props.size ?? 48
   const sw = () => props.strokeWidth ?? 4
@@ -110,20 +114,19 @@ export const ProgressRing: Component<{
           style={{ filter: `drop-shadow(0 0 4px ${glow()})` }}
         />
       </svg>
-      {showValue() && (
-        <span class="progress-ring-value" style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          'font-size': `${size() * 0.22}px`,
-          'font-weight': '800',
-          color: color(),
-        }}>
-          {Math.round(animatedValue())}
-          {props.label ? '' : '%'}
-        </span>
-      )}
+      {/* An empty ring reads as broken. With no value to show, say so. */}
+      <span class="progress-ring-value" style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        'font-size': `${size() * (showValue() ? 0.22 : 0.26)}px`,
+        'font-weight': '800',
+        'font-variant-numeric': 'tabular-nums',
+        color: color(),
+      }}>
+        {showValue() ? `${Math.round(animatedValue())}${props.label ? '' : '%'}` : '—'}
+      </span>
       {props.label && (
         <span class="progress-ring-label" style={{
           position: 'absolute',

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { errorMessage } from '../lib/format'
+import { confirmAction } from './Dialog'
 
 // Platform-admin-only management of a tenant's scoped operator accounts.
 // Tenant operators never see this panel: the API rejects them anyway, and
@@ -46,7 +47,15 @@ export function TenantOperatorsPanel(props: { slug: string }) {
     <div class="notifier-list"><For each={accounts.data?.items ?? []}>{account =>
       <div class="notifier-row">
         <div class="notifier-meta"><strong>{account.username}</strong><small>{account.active ? 'active' : 'disabled'} · tenant_operator</small></div>
-        <button type="button" class="danger-ghost" onClick={() => { if (confirm(`Remove operator “${account.username}”? Their sessions stop working immediately.`)) remove.mutate(account.id) }}>Remove</button>
+        <button type="button" class="danger-ghost" onClick={async () => {
+          const ok = await confirmAction({
+            title: `Remove operator “${account.username}”?`,
+            body: 'Their sessions stop working immediately.',
+            confirmLabel: 'Remove operator',
+            destructive: true,
+          })
+          if (ok) remove.mutate(account.id)
+        }}>Remove</button>
       </div>
     }</For></div>
   </article></Show>

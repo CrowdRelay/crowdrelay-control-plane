@@ -50,7 +50,7 @@ export function PortfolioPage() {
   return <section class="page">
     <div class="page-head">
       <div>
-        <span class="eyebrow">TENANT / {params().slug.toUpperCase()}</span>
+        <span class="eyebrow">AUDIENCE</span>
         <h1>Label Portfolio</h1>
         <p>Roster-wide audience totals, the amplification edges routing one artist's release in front of another artist's consenting fans, and the fan sources feeding both. Fans never leave their home workspace.</p>
       </div>

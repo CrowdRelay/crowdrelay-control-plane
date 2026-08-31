@@ -492,6 +492,32 @@ export function ChatWidget(props: { slug: string }) {
   )
 }
 
+// Only http(s) may reach an href. The reply text is model output seeded with
+// tenant data that itself came from outside (Reddit threads, press mail, fan
+// display names), so a link target here is untrusted input, not our own
+// string: `javascript:` and `data:` URLs must never survive this filter.
+function safeHref(url: string): string | null {
+  const trimmed = url.trim()
+  try {
+    const parsed = new URL(trimmed, window.location.origin)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : null
+  } catch {
+    return null
+  }
+}
+
+// Escaping `<`, `>` and `&` is not enough for a value interpolated inside an
+// attribute: an unescaped quote closes href="…" early and everything after it
+// becomes markup, which is how an event handler gets in.
+function escapeAttribute(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
 // Minimal markdown → HTML (bold, italic, code, links, line breaks)
 function renderMarkdown(text: string): string {
   const esc = text
@@ -502,6 +528,12 @@ function renderMarkdown(text: string): string {
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/`(.+?)`/g, '<code>$1</code>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (whole, label: string, url: string) => {
+      // The URL group still carries the `&amp;` escaping applied above; undo
+      // it before parsing so query strings round-trip intact.
+      const href = safeHref(url.replace(/&amp;/g, '&'))
+      if (!href) return whole
+      return `<a href="${escapeAttribute(href)}" target="_blank" rel="noopener noreferrer">${label}</a>`
+    })
     .replace(/\n/g, '<br>')
 }

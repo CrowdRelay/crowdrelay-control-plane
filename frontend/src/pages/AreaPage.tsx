@@ -8,6 +8,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { LocationCanvas } from '../components/area/LocationCanvas'
 import { EmptyState } from '../components/EmptyState'
 import { SkeletonRows } from '../components/Skeleton'
+import { confirmAction } from '../components/Dialog'
 
 const statusTone = (status: AreaStatus) => status === 'LIVE' ? 'good' : status === 'SCHEDULED' || status === 'DRAFT' ? 'warn' : status === 'ARCHIVED' ? 'muted' : status === 'PAUSED' ? 'bad' : 'muted'
 const formatDate = (value: string) => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString() }
@@ -144,7 +145,7 @@ export function AreaPage() {
 
   return <section class="page">
     <div class="page-head">
-      <div><span class="eyebrow">TENANT / {slug().toUpperCase()} / AREA</span><h1>AREA Designer</h1><p>Draft, validate and publish tenant-scoped AREA locations. Exact claim coordinates stay on the private management path and never appear in list responses.</p></div>
+      <div><span class="eyebrow">AUDIENCE / AREA</span><h1>AREA Designer</h1><p>Draft, validate and publish tenant-scoped AREA locations. Exact claim coordinates stay on the private management path and never appear in list responses.</p></div>
       <div class="row-health"><Show when={overview.data}><StatusBadge status={overview.data!.enabled ? 'enabled' : 'disabled'} tone={overview.data!.enabled ? 'good' : 'muted'} /></Show></div>
     </div>
 
@@ -254,7 +255,23 @@ export function AreaPage() {
 
         <div class="area-editor-footer">
           <div class="form-actions"><button class="ghost" disabled={allPending()} onClick={()=>save.mutate()}>Save draft</button><Show when={detail.data!.summary.hasDraft && detail.data!.summary.status!=='DRAFT'}><button class="ghost" disabled={discard.isPending} onClick={()=>discard.mutate()}>Discard draft</button></Show><Show when={detail.data!.summary.status!=='DRAFT' && detail.data!.summary.status!=='ARCHIVED'}><button class="ghost" disabled={allPending()} onClick={()=>setDuplicateOpen(v=>!v)}>Duplicate</button></Show></div>
-          <div class="form-actions"><Show when={detail.data!.summary.status==='LIVE'||detail.data!.summary.status==='SCHEDULED'}><button class="ghost danger-ghost" disabled={allPending()} onClick={()=>lifecycle.mutate('pause')}>Pause</button></Show><Show when={detail.data!.summary.status==='PAUSED'}><button class="ghost" disabled={allPending()} onClick={()=>lifecycle.mutate('resume')}>Resume</button></Show><Show when={detail.data!.summary.status!=='ARCHIVED' && detail.data!.summary.status!=='DRAFT'}><button class="ghost danger-ghost" disabled={allPending()} onClick={()=>{if(confirm('Archive this AREA location? Claims and history will be preserved.')) lifecycle.mutate('archive')}}>Archive</button></Show><Show when={detail.data!.summary.status==='DRAFT'}><button class="ghost danger-ghost" disabled={allPending()} onClick={()=>{if(confirm('Delete this never-published draft?')) lifecycle.mutate('delete')}}>Delete draft</button></Show></div>
+          <div class="form-actions"><Show when={detail.data!.summary.status==='LIVE'||detail.data!.summary.status==='SCHEDULED'}><button class="ghost danger-ghost" disabled={allPending()} onClick={()=>lifecycle.mutate('pause')}>Pause</button></Show><Show when={detail.data!.summary.status==='PAUSED'}><button class="ghost" disabled={allPending()} onClick={()=>lifecycle.mutate('resume')}>Resume</button></Show><Show when={detail.data!.summary.status!=='ARCHIVED' && detail.data!.summary.status!=='DRAFT'}><button class="ghost danger-ghost" disabled={allPending()} onClick={async()=>{
+            const ok = await confirmAction({
+              title: 'Archive this AREA location?',
+              body: 'Claims and history are preserved. The location stops accepting new claims.',
+              confirmLabel: 'Archive location',
+              destructive: true,
+            })
+            if (ok) lifecycle.mutate('archive')
+          }}>Archive</button></Show><Show when={detail.data!.summary.status==='DRAFT'}><button class="ghost danger-ghost" disabled={allPending()} onClick={async()=>{
+            const ok = await confirmAction({
+              title: 'Delete this never-published draft?',
+              body: 'The draft has never been live, so nothing downstream is affected. This cannot be undone.',
+              confirmLabel: 'Delete draft',
+              destructive: true,
+            })
+            if (ok) lifecycle.mutate('delete')
+          }}>Delete draft</button></Show></div>
         </div>
       </>}</Show>
     </article></Show>

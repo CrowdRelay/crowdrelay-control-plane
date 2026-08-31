@@ -26,6 +26,9 @@ const OAUTH_PLATFORMS = [
   { value: 'spotify', label: 'Spotify', icon: 'spotify' },
   { value: 'reddit', label: 'Reddit', icon: 'reddit' },
   { value: 'tiktok', label: 'TikTok', icon: 'tiktok' },
+  { value: 'discord', label: 'Discord', icon: 'discord' },
+  { value: 'telegram', label: 'Telegram', icon: 'telegram' },
+  { value: 'lastfm', label: 'Last.fm', icon: 'lastfm' },
 ]
 
 const EMPTY_INGEST = ''
@@ -68,6 +71,13 @@ export function FanSourcesPanel(props: {
   const [errorText, setErrorText] = createSignal<string | null>(null)
   const [pendingFor, setPendingFor] = createSignal<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = createSignal<string | null>(null)
+
+  // Simple-credential connection form state (Discord/Telegram/Last.fm)
+  const [connectingPlatform, setConnectingPlatform] = createSignal<string | null>(null)
+  const [discordGuildId, setDiscordGuildId] = createSignal('')
+  const [telegramChannel, setTelegramChannel] = createSignal('')
+  const [telegramBotToken, setTelegramBotToken] = createSignal('')
+  const [lastfmArtist, setLastfmArtist] = createSignal('')
 
   const needsAttestation = createMemo(() => sourceKind() !== 'http_json_pull')
 
@@ -170,6 +180,46 @@ export function FanSourcesPanel(props: {
     }
   }
 
+  const connectDiscord = useMutation(() => ({
+    mutationFn: () => api.createDiscordConnection(props.slug, discordGuildId().trim()),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
+      refetchConnections()
+      setConnectingPlatform(null)
+      setDiscordGuildId('')
+      setErrorText(null)
+      setNotice('Discord connection created.')
+    },
+    onError: (error) => setErrorText(error instanceof Error ? error.message : 'Discord connection failed'),
+  }))
+
+  const connectTelegram = useMutation(() => ({
+    mutationFn: () => api.createTelegramConnection(props.slug, telegramChannel().trim(), telegramBotToken().trim()),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
+      refetchConnections()
+      setConnectingPlatform(null)
+      setTelegramChannel('')
+      setTelegramBotToken('')
+      setErrorText(null)
+      setNotice('Telegram connection created.')
+    },
+    onError: (error) => setErrorText(error instanceof Error ? error.message : 'Telegram connection failed'),
+  }))
+
+  const connectLastfm = useMutation(() => ({
+    mutationFn: () => api.createLastfmConnection(props.slug, lastfmArtist().trim()),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
+      refetchConnections()
+      setConnectingPlatform(null)
+      setLastfmArtist('')
+      setErrorText(null)
+      setNotice('Last.fm connection created.')
+    },
+    onError: (error) => setErrorText(error instanceof Error ? error.message : 'Last.fm connection failed'),
+  }))
+
   const connTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
     status === 'connected' ? 'good' : status === 'expired' ? 'warn' : status === 'disconnected' ? 'bad' : 'muted'
 
@@ -229,11 +279,60 @@ export function FanSourcesPanel(props: {
                     window.location.href = `https://signal-api.virya.music/v1/public/connections/tiktok/authorize?redirect=/tenants/${slug}/portfolio`
                   }}>Connect</button>
                 </Show>
+                <Show when={!conn() && plat.value === 'discord'}>
+                  <button onClick={() => setConnectingPlatform('discord')}>Connect</button>
+                </Show>
+                <Show when={!conn() && plat.value === 'telegram'}>
+                  <button onClick={() => setConnectingPlatform('telegram')}>Connect</button>
+                </Show>
+                <Show when={!conn() && plat.value === 'lastfm'}>
+                  <button onClick={() => setConnectingPlatform('lastfm')}>Connect</button>
+                </Show>
               </div>
             </div>
           )
         }}</For>
       </div>
+      {/* Discord connection form */}
+      <Show when={connectingPlatform() === 'discord'}>
+        <div class="form-grid" style={{ 'margin-top': '12px' }}>
+          <label>Discord server ID<small>Numeric snowflake from the server settings → Widget</small><input value={discordGuildId()} onInput={e => setDiscordGuildId(e.currentTarget.value)} placeholder="123456789012345678" /></label>
+        </div>
+        <div class="form-actions">
+          <button disabled={!discordGuildId().trim() || connectDiscord.isPending}
+            onClick={() => connectDiscord.mutate()}>
+            {connectDiscord.isPending ? 'Connecting…' : 'Connect Discord'}
+          </button>
+          <button class="ghost" onClick={() => setConnectingPlatform(null)}>Cancel</button>
+        </div>
+      </Show>
+      {/* Telegram connection form */}
+      <Show when={connectingPlatform() === 'telegram'}>
+        <div class="form-grid" style={{ 'margin-top': '12px' }}>
+          <label>Telegram channel<small>Public channel username</small><input value={telegramChannel()} onInput={e => setTelegramChannel(e.currentTarget.value)} placeholder="@virya_music" /></label>
+          <label>Bot token<small>From @BotFather</small><input type="password" value={telegramBotToken()} onInput={e => setTelegramBotToken(e.currentTarget.value)} placeholder="123456:ABC-DEF…" /></label>
+        </div>
+        <div class="form-actions">
+          <button disabled={!telegramChannel().trim() || !telegramBotToken().trim() || connectTelegram.isPending}
+            onClick={() => connectTelegram.mutate()}>
+            {connectTelegram.isPending ? 'Connecting…' : 'Connect Telegram'}
+          </button>
+          <button class="ghost" onClick={() => setConnectingPlatform(null)}>Cancel</button>
+        </div>
+      </Show>
+      {/* Last.fm connection form */}
+      <Show when={connectingPlatform() === 'lastfm'}>
+        <div class="form-grid" style={{ 'margin-top': '12px' }}>
+          <label>Last.fm artist name<small>Canonical spelling as on last.fm</small><input value={lastfmArtist()} onInput={e => setLastfmArtist(e.currentTarget.value)} placeholder="Iron Maiden" /></label>
+        </div>
+        <div class="form-actions">
+          <button disabled={!lastfmArtist().trim() || connectLastfm.isPending}
+            onClick={() => connectLastfm.mutate()}>
+            {connectLastfm.isPending ? 'Connecting…' : 'Connect Last.fm'}
+          </button>
+          <button class="ghost" onClick={() => setConnectingPlatform(null)}>Cancel</button>
+        </div>
+      </Show>
       </Show>
     </div>
 

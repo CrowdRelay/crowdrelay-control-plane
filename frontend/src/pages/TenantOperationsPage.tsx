@@ -2,6 +2,7 @@ import { Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
+import { KpiCard } from '../components/primitives'
 import { GrowthPanel } from '../components/GrowthPanel'
 import { GrowthMetricsPanel } from '../components/GrowthMetricsPanel'
 import { GrowthObjectivesPanel } from '../components/GrowthObjectivesPanel'
@@ -66,7 +67,7 @@ export function TenantOperationsPage() {
   return <section class="page">
     <div class="page-head">
       <div>
-        <span class="eyebrow">TENANT / {params().slug.toUpperCase()}</span>
+        <span class="eyebrow">EXECUTION</span>
         <h1>Operations</h1>
         <p>The opportunity board, growth delivery, outreach pipeline and release campaigns.</p>
       </div>
@@ -89,41 +90,47 @@ export function TenantOperationsPage() {
     <Show when={model.data}>{<>
       {/* KPI strip — persistent across all tabs */}
       <div class="ops-kpi-strip">
-        <div class="ops-kpi-card" classList={{ 'tone-good': autopilot()?.runtime_enabled, 'tone-muted': !autopilot()?.runtime_enabled }}>
-          <span class="ops-kpi-label">Autopilot</span>
-          <strong>{autopilot()?.runtime_enabled ? 'on' : 'off'}</strong>
-          <small>{autopilot()?.queued_actions ?? 0} queued</small>
-        </div>
-        <div class="ops-kpi-card" classList={{ 'tone-warn': hasAttention(), 'tone-good': !hasAttention() }}>
-          <span class="ops-kpi-label">Needs you</span>
-          <strong>{needsYouCount() + awaitingApproval()}</strong>
-          <small>{needsYouCount() > 0 ? `${needsYouCount()} approval(s)` : awaitingApproval() > 0 ? `${awaitingApproval()} awaiting` : 'all clear'}</small>
-        </div>
-        <div class="ops-kpi-card" classList={{ 'tone-bad': deadJobs() > 0, 'tone-warn': deadJobs() === 0 && healthTone() === 'warn', 'tone-good': healthTone() === 'good' }}>
-          <span class="ops-kpi-label">Health</span>
-          <strong>{healthLabel()}</strong>
-          <small>{deadJobs() > 0 ? `${deadJobs()} dead` : `${summary()?.http.p95_ms ?? 0}ms p95`}</small>
-        </div>
-        <div class="ops-kpi-card">
-          <span class="ops-kpi-label">Opportunities</span>
-          <strong>{metric(opCount())}</strong>
-          <small>awaiting decision</small>
-        </div>
-        <div class="ops-kpi-card">
-          <span class="ops-kpi-label">Growth delivered</span>
-          <strong>{metric(growth()?.totals.delivered)}</strong>
-          <small>{metric(growth()?.totals.pending)} pending</small>
-        </div>
-        <div class="ops-kpi-card">
-          <span class="ops-kpi-label">Outreach</span>
-          <strong>{metric(growth()?.outreach.active_opportunities)}</strong>
-          <small>{metric(growth()?.outreach.awaiting_reply)} awaiting reply</small>
-        </div>
-        <div class="ops-kpi-card">
-          <span class="ops-kpi-label">Autopilot 24h</span>
-          <strong>{metric(autopilot()?.succeeded_24h)}</strong>
-          <small class={autopilot() && autopilot()!.failed_24h > 0 ? 'tone-bad' : ''}>{autopilot() ? `${autopilot()!.failed_24h} failed` : '—'}</small>
-        </div>
+        <KpiCard
+          compact
+          label="Autopilot"
+          tone={autopilot()?.runtime_enabled ? 'good' : 'muted'}
+          value={autopilot()?.runtime_enabled ? 'on' : 'off'}
+          sub={`${autopilot()?.queued_actions ?? 0} queued`}
+        />
+        <KpiCard
+          compact
+          label="Needs you"
+          tone={hasAttention() ? 'warn' : 'good'}
+          value={needsYouCount() + awaitingApproval()}
+          sub={needsYouCount() > 0 ? `${needsYouCount()} approval(s)` : awaitingApproval() > 0 ? `${awaitingApproval()} awaiting` : 'all clear'}
+        />
+        <KpiCard
+          compact
+          label="Health"
+          tone={deadJobs() > 0 ? 'bad' : healthTone() === 'good' ? 'good' : healthTone() === 'warn' ? 'warn' : undefined}
+          value={healthLabel()}
+          sub={deadJobs() > 0 ? `${deadJobs()} dead` : `${summary()?.http.p95_ms ?? 0}ms p95`}
+        />
+        <KpiCard compact label="Opportunities" value={metric(opCount())} sub="awaiting decision" />
+        <KpiCard
+          compact
+          label="Growth delivered"
+          value={metric(growth()?.totals.delivered)}
+          sub={`${metric(growth()?.totals.pending)} pending`}
+        />
+        <KpiCard
+          compact
+          label="Outreach"
+          value={metric(growth()?.outreach.active_opportunities)}
+          sub={`${metric(growth()?.outreach.awaiting_reply)} awaiting reply`}
+        />
+        <KpiCard
+          compact
+          label="Autopilot 24h"
+          value={metric(autopilot()?.succeeded_24h)}
+          sub={autopilot() ? `${autopilot()!.failed_24h} failed` : '—'}
+          subClass={autopilot() && autopilot()!.failed_24h > 0 ? 'tone-bad' : undefined}
+        />
       </div>
 
       {/* Attention banner — persistent */}

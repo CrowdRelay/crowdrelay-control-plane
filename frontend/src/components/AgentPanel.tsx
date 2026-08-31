@@ -4,6 +4,7 @@ import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshTick } from '../lib/refresh'
 import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
+import { Dialog } from './Dialog'
 import { GrowthIntelligencePanel } from './GrowthIntelligencePanel'
 import { PremiumAIPanel } from './PremiumAIPanel'
 import { AIUsagePanel } from './AIUsagePanel'
@@ -464,9 +465,14 @@ export function AgentPanel(props: { slug: string }) {
       </div>
       </Show>
 
-      <Show when={viewingResult()}>
-        <div class="agent-result-overlay" onClick={() => setViewingResult(null)}>
-          <div class="agent-result-modal" onClick={(e) => e.stopPropagation()}>
+      <Dialog
+        open={viewingResult() !== null}
+        onClose={() => setViewingResult(null)}
+        label="Agent task result"
+        overlayClass="agent-result-overlay"
+        class="agent-result-modal"
+      >
+        <>
             <div class="agent-result-header">
               <h3>Result</h3>
               <button class="link" onClick={() => setViewingResult(null)}>Close</button>
@@ -503,9 +509,8 @@ export function AgentPanel(props: { slug: string }) {
                 Copy
               </button>
             </div>
-          </div>
-        </div>
-      </Show>
+        </>
+      </Dialog>
     </div>
   )
 }

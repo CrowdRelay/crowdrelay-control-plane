@@ -32,16 +32,18 @@ const SUBPAGES: Array<{ suffix: string; label: string }> = [
   { suffix: '/area', label: 'AREA' },
 ]
 
-// Query-oriented entries — natural-language labels that are still navigation
-// shortcuts. No fake AI; these jump to the page that answers the query.
+// Task-oriented shortcuts. These are navigation, so they are labelled as
+// navigation: "Explain this growth drop" promised an answer and delivered a
+// route change. Keywords still match the way an operator would phrase it, so
+// typing "explain growth drop" finds the funnel.
 const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix: string }> = [
-  { id: 'q-approvals', label: 'Show pending approvals', keywords: 'pending approvals review needs you attention', suffix: '/attention' },
-  { id: 'q-decisions', label: 'Show decisions from today', keywords: 'decisions today brain intelligence timeline', suffix: '/intelligence' },
-  { id: 'q-failed', label: 'Show failed deliveries', keywords: 'failed deliveries dead outbox webhook push', suffix: '/attention' },
+  { id: 'q-approvals', label: 'Open pending approvals', keywords: 'pending approvals review needs you attention show', suffix: '/attention' },
+  { id: 'q-decisions', label: 'Open the decision timeline', keywords: 'decisions today brain intelligence timeline show', suffix: '/intelligence' },
+  { id: 'q-failed', label: 'Open failed deliveries', keywords: 'failed deliveries dead outbox webhook push show', suffix: '/attention' },
   { id: 'q-beacons', label: 'Open Beacon signals', keywords: 'beacon signals operations outreach', suffix: '/operations' },
-  { id: 'q-growth', label: 'Explain this growth drop', keywords: 'growth drop decline metrics funnel', suffix: '/funnel' },
-  { id: 'q-learning', label: 'Show what the brain learned', keywords: 'learning loop outcome decision action intelligence', suffix: '/intelligence' },
-  { id: 'q-opportunities', label: 'Show current opportunities', keywords: 'opportunities board decision operations', suffix: '/operations' },
+  { id: 'q-growth', label: 'Open the growth funnel', keywords: 'growth drop decline metrics funnel explain why', suffix: '/funnel' },
+  { id: 'q-learning', label: 'Open the learning loop', keywords: 'learning loop outcome decision action intelligence what the brain learned', suffix: '/intelligence' },
+  { id: 'q-opportunities', label: 'Open the opportunity board', keywords: 'opportunities board decision operations show current', suffix: '/operations' },
 ]
 
 // Open state lives in command-palette-state.ts so Shell can toggle the

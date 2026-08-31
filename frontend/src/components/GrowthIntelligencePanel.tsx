@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshTick, triggerRefresh } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
+import { Dialog } from './Dialog'
 import { EmptyState } from './EmptyState'
 import { SkeletonGrid, SkeletonRows, SkeletonPanel } from './Skeleton'
 import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, PendingAutopilotAction, AgentWorkflow, AgentWorkflowTask } from '../lib/types'
@@ -383,9 +384,14 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
       </div>
 
       {/* Workflow detail modal */}
-      <Show when={viewingWorkflow()}>
-        <div class="agent-result-overlay" onClick={() => setViewingWorkflow(null)}>
-          <div class="agent-result-modal" onClick={(e) => e.stopPropagation()}>
+      <Dialog
+        open={viewingWorkflow() !== null}
+        onClose={() => setViewingWorkflow(null)}
+        label="Workflow detail"
+        overlayClass="agent-result-overlay"
+        class="agent-result-modal"
+      >
+        <>
             <div class="agent-result-header">
               <h3>Workflow Detail</h3>
               <button class="link" onClick={() => setViewingWorkflow(null)}>Close</button>
@@ -431,9 +437,8 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
                 </table>
               </div>
             </Show>
-          </div>
-        </div>
-      </Show>
+        </>
+      </Dialog>
     </div>
   )
 }

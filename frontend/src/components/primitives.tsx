@@ -1,5 +1,30 @@
 import { For, Show, type Component, type JSX } from 'solid-js'
 
+// ─── KpiCard ────────────────────────────────────────────────────────────
+// The KPI tile was hand-copied at every call site, so the strips drifted:
+// two class families, two label sizes, tone classes applied inconsistently.
+// This is the one shape. `compact` is the dense 7-across operations strip.
+
+export const KpiCard: Component<{
+  label: string
+  value: JSX.Element
+  sub?: JSX.Element
+  subClass?: string
+  tone?: 'good' | 'warn' | 'bad' | 'muted'
+  compact?: boolean
+}> = (props) => (
+  <div
+    class={props.compact ? 'ops-kpi-card' : 'kpi-card'}
+    classList={{ [`tone-${props.tone}`]: !!props.tone }}
+  >
+    <span class={props.compact ? 'ops-kpi-label' : 'kpi-label'}>{props.label}</span>
+    <strong>{props.value}</strong>
+    <Show when={props.sub != null}>
+      <small class={props.subClass}>{props.sub}</small>
+    </Show>
+  </div>
+)
+
 // ─── Surface ────────────────────────────────────────────────────────────
 // Flat container with border. No glass, no blur. The default treatment
 // for grouped content. Use `level` to pick the surface tier.

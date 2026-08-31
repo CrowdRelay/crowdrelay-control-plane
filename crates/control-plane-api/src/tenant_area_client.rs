@@ -374,6 +374,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || one_safe_segment(path, "/v1/control-plane/tenant-settings/")
                 || path == "/v1/control-plane/fanbases"
                 || path == "/v1/control-plane/fanbases/connections"
+                || path == "/v1/control-plane/connections/discord"
+                || path == "/v1/control-plane/connections/telegram"
+                || path == "/v1/control-plane/connections/lastfm"
                 || uuid_segment_between(path, "/v1/control-plane/fanbases/", "/ingest")
                 || fan_tag_path(path)
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/referral-code")

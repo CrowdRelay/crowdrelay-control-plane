@@ -2,6 +2,7 @@ import { For, Show } from 'solid-js'
 import type { FanDetail, FanJourneyEntry } from '../lib/types'
 import { EmptyState } from './EmptyState'
 import { SkeletonRows } from './Skeleton'
+import { Dialog } from './Dialog'
 
 const formatDateTime = (iso: string | null) => {
   if (!iso) return '—'
@@ -29,9 +30,14 @@ export function FanDetailDrawer(props: {
   error: string | null
   onClose: () => void
 }) {
-  return <Show when={props.fan}>
-    <div class="fan-drawer-overlay" onClick={props.onClose}>
-      <div class="fan-drawer" onClick={(e) => e.stopPropagation()}>
+  return <Dialog
+    open={props.fan !== null}
+    onClose={props.onClose}
+    label={`Fan detail: ${props.fan?.fan.display_name ?? 'Unknown fan'}`}
+    overlayClass="fan-drawer-overlay"
+    class="fan-drawer"
+  >
+    <>
         <div class="fan-drawer-head">
           <div>
             <h3>{props.fan!.fan.display_name ?? 'Unknown fan'}</h3>
@@ -93,7 +99,6 @@ export function FanDetailDrawer(props: {
             </Show>
           </div>
         </div>
-      </div>
-    </div>
-  </Show>
+    </>
+  </Dialog>
 }

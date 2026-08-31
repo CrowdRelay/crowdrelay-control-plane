@@ -26,11 +26,18 @@ export function OverviewPage() {
   const activeCount = () => items().filter(t => t.status === 'active').length
   const needsAttention = () => count('degraded') + count('stale')
   const suspendedCount = () => items().filter(t => t.status === 'suspended').length
+  // `unknown` is a real fourth state — a tenant that has never reported. It
+  // used to be invisible: a fleet of one unknown tenant read as "0 healthy,
+  // 0 degraded, 0 stale" behind a red 0% ring, which looks like an outage.
+  const unknownCount = () => count('unknown')
+  const reportingCount = () => items().length - unknownCount()
   const healthyPct = () => {
-    const total = items().length
-    if (total === 0) return 0
-    return Math.round((count('healthy') / total) * 100)
+    // Percentage of tenants that actually report, so silence dilutes nothing.
+    const reporting = reportingCount()
+    if (reporting === 0) return 0
+    return Math.round((count('healthy') / reporting) * 100)
   }
+  const fleetTone = () => reportingCount() === 0 ? 'muted' as const : undefined
 
   return <section class="page">
     <div class="page-head">
@@ -52,15 +59,22 @@ export function OverviewPage() {
             <CountUp value={items().length} />
             <span class="kpi-sub">{activeCount()} active<Show when={suspendedCount() > 0}> · {suspendedCount()} suspended</Show></span>
           </article>
-          <article class="kpi-card kpi-good">
+          <article class="kpi-card" classList={{ 'kpi-good': count('healthy') > 0 }}>
             <span class="kpi-label">Healthy</span>
             <CountUp value={count('healthy')} />
-            <span class="kpi-sub">{healthyPct()}% of fleet</span>
+            <span class="kpi-sub">
+              <Show when={reportingCount() > 0} fallback="no runtime reports yet">
+                {healthyPct()}% of reporting
+              </Show>
+            </span>
           </article>
-          <Link class="kpi-card" to="/attention" classList={{ 'kpi-warn': needsAttention() > 0, 'kpi-good': needsAttention() === 0 }}>
+          <Link class="kpi-card" to="/attention" classList={{ 'kpi-warn': needsAttention() > 0, 'kpi-good': needsAttention() === 0 && reportingCount() > 0 }}>
             <span class="kpi-label">Needs attention</span>
             <CountUp value={needsAttention()} />
-            <span class="kpi-sub">{count('degraded')} degraded · {count('stale')} stale</span>
+            <span class="kpi-sub">
+              {count('degraded')} degraded · {count('stale')} stale
+              <Show when={unknownCount() > 0}> · {unknownCount()} not reporting</Show>
+            </span>
           </Link>
           <article class="kpi-card">
             <span class="kpi-label">Platform services</span>
@@ -99,10 +113,17 @@ export function OverviewPage() {
     <Show when={items().length > 0}>
       <div class="fleet-health-row">
         <div class="fleet-health-ring">
-          <ProgressRing value={healthyPct()} size={72} strokeWidth={6} />
+          <ProgressRing value={healthyPct()} size={72} strokeWidth={6} tone={fleetTone()} showValue={reportingCount() > 0} />
         </div>
         <div class="fleet-health-stats">
-          <strong>{count('healthy')} healthy · {needsAttention()} need attention · {items().length} total</strong>
+          <strong>
+            {count('healthy')} healthy · {needsAttention()} need attention
+            <Show when={unknownCount() > 0}> · {unknownCount()} not reporting</Show>
+            {' '}· {items().length} total
+          </strong>
+          <Show when={reportingCount() === 0}>
+            <span class="muted">No tenant has sent a runtime heartbeat yet, so there is nothing to score.</span>
+          </Show>
         </div>
       </div>
     </Show>

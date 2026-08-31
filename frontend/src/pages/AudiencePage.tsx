@@ -40,7 +40,7 @@ export function AudiencePage() {
   return <section class="page">
     <div class="page-head">
       <div>
-        <span class="eyebrow">TENANT / {params().slug.toUpperCase()}</span>
+        <span class="eyebrow">AUDIENCE</span>
         <h1>Fan Intelligence</h1>
         <p>Every fan aggregated from all sides of the internet — Reddit, Meta, Spotify, Bandsintown, forums, press, live shows — in one view. Search, segment, and understand who your fans are and how they found you.</p>
       </div>

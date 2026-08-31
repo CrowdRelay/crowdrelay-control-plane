@@ -35,7 +35,7 @@ export function TenantIntelligencePage() {
   return <section class="page">
     <div class="page-head">
       <div>
-        <span class="eyebrow">TENANT / {params().slug.toUpperCase()}</span>
+        <span class="eyebrow">BRAIN</span>
         <h1>Intelligence</h1>
         <p>The deterministic autopilot's decision timeline, worker dispatch, and growth intelligence. The intelligence engine owns strategy — LLM workers gather and draft, but never decide.</p>
       </div>
@@ -71,7 +71,7 @@ export function TenantIntelligencePage() {
           <rect x="300" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-worker" />
           <text x="380" y="55" text-anchor="middle" class="intel-loop-label">Workers</text>
           <text x="380" y="72" text-anchor="middle" class="intel-loop-sub">LLM agents</text>
-          <line x1="460" y1="60" x2="570" y2="60" stroke="#ffd56d" stroke-width="1.5" marker-end="url(#intel-arrow)" />
+          <line x1="460" y1="60" x2="570" y2="60" stroke="#9b87f5" stroke-width="1.5" marker-end="url(#intel-arrow)" />
           <rect x="580" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-outcome" />
           <text x="660" y="55" text-anchor="middle" class="intel-loop-label">Outcomes</text>
           <text x="660" y="72" text-anchor="middle" class="intel-loop-sub">fans · engagement</text>

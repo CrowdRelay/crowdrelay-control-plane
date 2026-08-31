@@ -121,6 +121,18 @@ pub fn router() -> Router<AppState> {
             axum::routing::delete(delete_fanbase_connection),
         )
         .route(
+            "/tenants/{slug}/portfolio/connections/discord",
+            post(create_discord_connection),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/connections/telegram",
+            post(create_telegram_connection),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/connections/lastfm",
+            post(create_lastfm_connection),
+        )
+        .route(
             "/tenants/{slug}/notifiers/discovered",
             get(discovered_notifier_endpoints),
         )
@@ -1507,6 +1519,66 @@ async fn delete_fanbase_connection(
     let path = format!("/v1/control-plane/fanbases/connections/{connection_id}");
     let _ = call(&state, &slug, "DELETE", &path, None, &headers, None).await?;
     Ok(StatusCode::NO_CONTENT.into_response())
+}
+
+async fn create_discord_connection(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    body: axum::Json<serde_json::Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (_, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/connections/discord",
+        Some(&body.0),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    object_no_store(value, "discord connection")
+}
+
+async fn create_telegram_connection(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    body: axum::Json<serde_json::Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (_, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/connections/telegram",
+        Some(&body.0),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    object_no_store(value, "telegram connection")
+}
+
+async fn create_lastfm_connection(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    body: axum::Json<serde_json::Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (_, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/connections/lastfm",
+        Some(&body.0),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    object_no_store(value, "lastfm connection")
 }
 
 // ---------------------------------------------------------------------------
