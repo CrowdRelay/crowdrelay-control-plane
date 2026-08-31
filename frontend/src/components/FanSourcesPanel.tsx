@@ -223,7 +223,8 @@ export function FanSourcesPanel(props: {
                 </Show>
                 <Show when={!conn() && plat.value === 'tiktok'}>
                   <button onClick={() => {
-                    window.location.href = 'https://signal-api.virya.music/v1/public/connections/tiktok/authorize'
+                    const slug = window.location.pathname.split('/')[2] || ''
+                    window.location.href = `https://signal-api.virya.music/v1/public/connections/tiktok/authorize?redirect=/tenants/${slug}/portfolio`
                   }}>Connect</button>
                 </Show>
               </div>
