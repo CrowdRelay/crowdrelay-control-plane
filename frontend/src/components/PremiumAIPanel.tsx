@@ -116,6 +116,7 @@ export function PremiumAIPanel(props: {
   const [error, setError] = createSignal<string | null>(null)
   const [connectingProvider, setConnectingProvider] = createSignal<string | null>(null)
   const [apiKeyInput, setApiKeyInput] = createSignal('')
+  const [orgIdInput, setOrgIdInput] = createSignal('')
   const [showKeyInputFor, setShowKeyInputFor] = createSignal<string | null>(null)
 
   // Premium usage is unique to this panel — always fetch here.
@@ -195,13 +196,26 @@ export function PremiumAIPanel(props: {
   const handleConnectApiKey = async (providerId: string) => {
     const key = apiKeyInput().trim()
     if (!key) return
+    // Cognition (Devin) requires an org ID in addition to the API key.
+    const needsOrgId = providerId === 'cognition'
+    const orgId = orgIdInput().trim()
+    if (needsOrgId && !orgId) {
+      setError('Cognition requires an organization ID (org-...)')
+      return
+    }
     setConnectingProvider(providerId)
     setError(null)
     try {
-      await api.agentPasteCredential(props.slug, { provider: providerId, api_key: key, label: '' })
+      await api.agentPasteCredential(props.slug, {
+        provider: providerId,
+        api_key: key,
+        label: '',
+        ...(needsOrgId ? { provider_account: orgId } : {}),
+      })
       const provider = apiKeyProviders().find(p => p.id === providerId)
       toast.success(`Connected to ${provider?.name ?? providerId} — ${provider?.modelCount ?? 0} models unlocked`)
       setApiKeyInput('')
+      setOrgIdInput('')
       setShowKeyInputFor(null)
       refetchCreds()
       triggerLocalRefresh()
@@ -462,9 +476,21 @@ export function PremiumAIPanel(props: {
                                 onInput={(e) => setApiKeyInput(e.currentTarget.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleConnectApiKey(provider.id) }}
                               />
+                              <Show when={provider.id === 'cognition'}>
+                                <input
+                                  class="premium-key-input"
+                                  classList={{ 'premium-key-error': !!error() && connectingProvider() !== provider.id }}
+                                  type="text"
+                                  placeholder="Organization ID (org-…)"
+                                  aria-label={`${provider.name} organization ID`}
+                                  value={orgIdInput()}
+                                  onInput={(e) => setOrgIdInput(e.currentTarget.value)}
+                                  onKeyDown={(e) => { if (e.key === 'Enter') handleConnectApiKey(provider.id) }}
+                                />
+                              </Show>
                               <button
                                 class="premium-btn-connect"
-                                disabled={connectingProvider() === provider.id || !apiKeyInput().trim()}
+                                disabled={connectingProvider() === provider.id || !apiKeyInput().trim() || (provider.id === 'cognition' && !orgIdInput().trim())}
                                 onClick={() => handleConnectApiKey(provider.id)}
                               >
                                 <Show when={connectingProvider() === provider.id}>
@@ -472,7 +498,7 @@ export function PremiumAIPanel(props: {
                                 </Show>
                                 {connectingProvider() === provider.id ? 'Validating…' : 'Connect'}
                               </button>
-                              <button class="premium-btn-cancel" onClick={() => { setShowKeyInputFor(null); setApiKeyInput(''); setError(null) }}>
+                              <button class="premium-btn-cancel" onClick={() => { setShowKeyInputFor(null); setApiKeyInput(''); setOrgIdInput(''); setError(null) }}>
                                 Cancel
                               </button>
                             </div>

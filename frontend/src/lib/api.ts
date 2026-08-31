@@ -236,7 +236,7 @@ export const api = {
     request<{ providers: AgentProvider[] }>(`/tenants/${encodeURIComponent(slug)}/agents/providers`),
   agentCredentials: (slug: string) =>
     request<{ credentials: AgentCredential[] }>(`/tenants/${encodeURIComponent(slug)}/agents/credentials`),
-  agentPasteCredential: (slug: string, input: { provider: string; api_key: string; label?: string }) =>
+  agentPasteCredential: (slug: string, input: { provider: string; api_key: string; label?: string; provider_account?: string }) =>
     request<void>(`/tenants/${encodeURIComponent(slug)}/agents/credentials`, { method: 'POST', body: JSON.stringify(input) }),
   agentDeleteCredential: (slug: string, provider: string) =>
     request<void>(`/tenants/${encodeURIComponent(slug)}/agents/credentials/${encodeURIComponent(provider)}`, { method: 'DELETE' }),

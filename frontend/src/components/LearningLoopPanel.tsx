@@ -48,9 +48,11 @@ export function LearningLoopPanel(props: { slug: string }) {
 
   const entries = (): LearningLoopEntry[] => model.data ?? []
   const total = () => entries().length
-  const withAction = () => entries().filter(e => e.action).length
+  const actionsCreated = () => entries().filter(e => e.action).length
+  const executed = () => entries().filter(e => e.action?.status === 'succeeded').length
   const withOutcome = () => entries().filter(e => e.outcome).length
-  const successRate = () => {
+  const positiveOutcomes = () => entries().filter(e => e.outcome?.effect_assessment === 'improved').length
+  const positiveOutcomeRate = () => {
     const measured = entries().filter(e => e.outcome)
     if (measured.length === 0) return null
     const improved = measured.filter(e => e.outcome!.effect_assessment === 'improved').length
@@ -89,16 +91,24 @@ export function LearningLoopPanel(props: { slug: string }) {
             <strong>{total()}</strong>
           </div>
           <div class="learning-loop-stat">
-            <span>Actions executed</span>
-            <strong>{withAction()}</strong>
+            <span>Actions created</span>
+            <strong>{actionsCreated()}</strong>
+          </div>
+          <div class="learning-loop-stat">
+            <span>Executed</span>
+            <strong>{executed()}</strong>
           </div>
           <div class="learning-loop-stat">
             <span>Outcomes measured</span>
             <strong>{withOutcome()}</strong>
           </div>
           <div class="learning-loop-stat">
-            <span>Success rate</span>
-            <strong>{successRate() != null ? `${successRate()}%` : '—'}</strong>
+            <span>Positive outcomes</span>
+            <strong>{positiveOutcomes()}</strong>
+          </div>
+          <div class="learning-loop-stat">
+            <span>Positive outcome rate</span>
+            <strong>{positiveOutcomeRate() != null ? `${positiveOutcomeRate()}%` : '—'}</strong>
           </div>
         </div>
 
@@ -131,7 +141,7 @@ export function LearningLoopPanel(props: { slug: string }) {
               <div class="learning-loop-stage">
                 <span class="learning-loop-stage-label">Action</span>
                 <Show when={entry.action} fallback={
-                  <Show when={entry.data_integrity_warning} fallback={
+                  <Show when={entry.data_integrity?.action} fallback={
                     <span class="learning-loop-stage-content learning-loop-pending">
                       No action — {dispositionLabel(entry.disposition)} decision
                     </span>
@@ -159,7 +169,7 @@ export function LearningLoopPanel(props: { slug: string }) {
               <div class="learning-loop-stage">
                 <span class="learning-loop-stage-label">Outcome</span>
                 <Show when={entry.outcome} fallback={
-                  <Show when={entry.data_integrity_warning} fallback={
+                  <Show when={entry.data_integrity?.outcome} fallback={
                     <span class="learning-loop-stage-content learning-loop-pending">
                       Not yet measured
                     </span>

@@ -418,6 +418,18 @@ export type PendingAutopilotAction = {
   executor_ready: boolean
 }
 
+/// Lightweight summary of a pending autopilot action — just the fields the
+/// AttentionInbox needs to render an approval item. NOT the full
+/// PendingAutopilotAction (which includes payload, briefing, assignee,
+/// executor readiness). Used in the attention snapshot.
+export type PendingActionSummary = {
+  id: string
+  context: string
+  action_kind: string
+  subject_kind: string
+  approval_expires_at: string | null
+}
+
 /// Tagged union of autopilot action payloads. The `kind` field discriminates.
 /// Only the variants the control panel renders are typed; the rest pass through
 /// as the generic catch-all.
@@ -1823,9 +1835,10 @@ export type DecisionEvidence = {
 /// One entry in the learning loop: a decision with its action and outcome
 /// where they exist. Missing stages are null — the frontend shows
 /// "Not yet measured", never fabricated success. If an action or outcome row
-/// exists but has corrupt/missing required fields, `data_integrity_warning`
-/// is set and the entity is absent — distinguishing "no action" from
-/// "action row exists but is corrupt."
+/// exists but has corrupt/missing required fields, the corresponding field
+/// in `data_integrity` is set and the entity is absent — distinguishing
+/// "no action" from "action row exists but is corrupt." Action corruption
+/// does NOT imply outcome corruption, and vice versa.
 export type LearningLoopEntry = {
   decision_id: string
   context: string
@@ -1848,8 +1861,12 @@ export type LearningLoopEntry = {
     delta_basis_points: number
     observed_at: string
   }
-  /// Set when an action or outcome row exists but has missing required
-  /// fields. The frontend renders this as an explicit "Data integrity
-  /// issue" — never as fabricated success.
-  data_integrity_warning?: string
+  /// Stage-specific integrity warnings. `action` is set when an action row
+  /// exists but has missing required fields; `outcome` is set when an
+  /// outcome row exists but has missing required fields. The two are
+  /// independent — action corruption does NOT mark the outcome corrupt.
+  data_integrity?: {
+    action?: string
+    outcome?: string
+  }
 }

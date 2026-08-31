@@ -1,5 +1,5 @@
 import { For, Show } from 'solid-js'
-import type { PendingAutopilotAction } from '../lib/types'
+import type { PendingActionSummary } from '../lib/types'
 import { EmptyState } from './EmptyState'
 
 // The attention inbox — converts the operator-attention experience from an
@@ -22,7 +22,7 @@ export type AttentionItem = {
 }
 
 export function AttentionInbox(props: {
-  needsYou: PendingAutopilotAction[]
+  needsYou: PendingActionSummary[]
   deadJobs: number
   criticalAlerts: number
   staleReservations: number

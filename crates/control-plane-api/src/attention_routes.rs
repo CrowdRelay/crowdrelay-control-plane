@@ -114,6 +114,17 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     let dead_deliveries = section(snapshot, "dead_deliveries")?;
     let ecosystem = section(snapshot, "ecosystem")?;
     let findings = section(snapshot, "findings")?;
+    // Optional: a CrowdRelay that predates needs_you/awaiting_approval in
+    // the attention snapshot still serves a valid response. An older
+    // upstream simply does not publish these fields yet.
+    let needs_you = snapshot
+        .get("needs_you")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
+    let awaiting_approval = snapshot
+        .get("awaiting_approval")
+        .cloned()
+        .unwrap_or_else(|| json!(0));
 
     expect_object(summary, "summary")?;
     expect_array(&alerts, "alerts")?;
@@ -122,6 +133,7 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     expect_array(dead_deliveries, "dead deliveries")?;
     expect_object(ecosystem, "ecosystem")?;
     expect_array(findings, "findings")?;
+    expect_array(&needs_you, "needs_you")?;
 
     Ok(json!({
         // Stable identity so the browser patches this model in place on a
@@ -134,6 +146,8 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
         "dead_deliveries": dead_deliveries,
         "ecosystem": ecosystem,
         "findings": findings,
+        "needs_you": needs_you,
+        "awaiting_approval": awaiting_approval,
     }))
 }
 

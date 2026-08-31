@@ -201,12 +201,12 @@ export function TenantAttentionPage() {
     {/* ─── Attention Inbox — tiered action center ──────────────────── */}
     <Show when={summary.data}>
       <AttentionInbox
-        needsYou={[]}
+        needsYou={attention.data?.needs_you ?? []}
         deadJobs={summary.data ? totalDead(summary.data) : 0}
         criticalAlerts={summary.data?.watchdog.critical_alerts ?? 0}
         staleReservations={summary.data ? staleAreaReservations(summary.data) : 0}
         activeAlerts={summary.data?.watchdog.active_alerts ?? 0}
-        awaitingApproval={0}
+        awaitingApproval={attention.data?.awaiting_approval ?? 0}
       />
     </Show>
 
