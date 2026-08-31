@@ -82,7 +82,7 @@ rollback() {
 for command in docker curl python3 flock; do command -v "$command" >/dev/null 2>&1 || fail "missing command: $command"; done
 
 cd "$REPO_DIR"
-exec 9> .git/control-plane-deploy.lock
+exec 9> /run/lock/crowdrelay-control-plane-deploy.lock
 flock -n 9 || fail 'another Control Plane deployment is already running'
 [[ -f .env && ! -L .env ]] || fail "missing .env"
 [[ "$(stat -c '%a' .env)" == "600" ]] || fail '.env must have mode 600'
