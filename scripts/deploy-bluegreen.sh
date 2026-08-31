@@ -309,13 +309,19 @@ for soak_attempt in $(seq 1 60); do
   fi
   # Immediate rollback on deterministic critical probe failure
   [[ "$code" == "200" ]] || fail "candidate soak critical probe failed attempt=$soak_attempt status=${code:-transport}"
-  # Error-rate threshold check
-  if [[ "$soak_total" -ge 50 ]] && [[ "$soak_errors" -ge 3 ]]; then
-    error_rate="$(python3 -c "print(f'{$soak_errors/$soak_total*100:.1f}')")"
-    fail "soak error-rate breach: ${soak_errors}/${soak_total} (${error_rate}%) — rolling back"
-  fi
-  if [[ "$soak_errors" -ge 3 ]]; then
-    fail "soak absolute error floor reached: ${soak_errors} failures — rolling back"
+  # Error-rate threshold check: 2% with >=50 samples, or absolute floor of 3
+  # when sample size is too small for a meaningful rate (early in the soak).
+  if [[ "$soak_total" -ge 50 ]]; then
+    if [[ "$soak_errors" -ge 3 ]]; then
+      error_rate="$(python3 -c "print(f'{$soak_errors/$soak_total*100:.1f}')")"
+      if (( $(python3 -c "print(1 if $soak_errors/$soak_total*100 >= 2.0 else 0)") )); then
+        fail "soak error-rate breach: ${soak_errors}/${soak_total} (${error_rate}%) — rolling back"
+      fi
+    fi
+  else
+    if [[ "$soak_errors" -ge 3 ]]; then
+      fail "soak absolute error floor reached: ${soak_errors} failures in ${soak_total} probes — rolling back"
+    fi
   fi
   sleep 5
 done
@@ -338,8 +344,8 @@ agent_container="crowdrelay-control-plane-agent-service-1"
 agent_tag="$(sed -n 's/^AGENT_SERVICE_IMAGE_TAG=//p' .env | tail -n1)"
 agent_digest="${AGENT_SERVICE_IMAGE_DIGEST:-}"
 if [[ "$agent_tag" =~ ^sha-[0-9a-f]{40}$ ]]; then
-  # Record the previous agent image for rollback
-  prev_agent_image="$(docker inspect "$agent_container" --format '{{.Config.Image}}' 2>/dev/null || true)"
+  # Record the previous agent tag for rollback (restore via compose)
+  prev_agent_tag="$(docker inspect "$agent_container" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || true)"
 
   # Pull by digest if available, otherwise by tag
   if [[ -n "$agent_digest" ]]; then
@@ -352,11 +358,11 @@ if [[ "$agent_tag" =~ ^sha-[0-9a-f]{40}$ ]]; then
     agent_image="crowdrelay-agents:${agent_tag}"
     if ! docker image inspect "$agent_image" >/dev/null 2>&1; then
       printf 'AGENT_IMAGE=SKIP reason=image-not-found tag=%s\n' "$agent_tag"
-      prev_agent_image=""
+      prev_agent_tag=""
     fi
   fi
 
-  if [[ -z "$prev_agent_image" || -n "$agent_digest" ]] || docker image inspect "crowdrelay-agents:${agent_tag}" >/dev/null 2>&1; then
+  if [[ -z "$prev_agent_tag" || -n "$agent_digest" ]] || docker image inspect "crowdrelay-agents:${agent_tag}" >/dev/null 2>&1; then
     printf '\n==> Recreating agent-service with tag %s\n' "$agent_tag"
     docker compose -f compose.production.yml -f compose.area.yml -f compose.agents.yml \
       up -d --no-deps --force-recreate agent-service
@@ -372,15 +378,13 @@ if [[ "$agent_tag" =~ ^sha-[0-9a-f]{40}$ ]]; then
       printf 'AGENT_SERVICE=PASS health=%s tag=%s\n' "$agent_health" "$agent_tag"
     else
       printf 'AGENT_SERVICE=FAILED health=%s tag=%s — rolling back agent\n' "$agent_health" "$agent_tag" >&2
-      # Rollback: restart with the previous image
-      if [[ -n "$prev_agent_image" ]]; then
-        docker stop --time 15 "$agent_container" >/dev/null 2>&1 || true
-        docker rm "$agent_container" >/dev/null 2>&1 || true
-        docker run -d --name "$agent_container" --restart unless-stopped \
-          --network crowdrelay-control-plane_internal \
-          --network crowdrelay-control-plane_crowdrelay-shared \
-          "$prev_agent_image" 2>/dev/null || true
-        printf 'AGENT_SERVICE=ROLLBACK restored=%s\n' "$prev_agent_image"
+      # Rollback: restore the previous tag in .env and recreate via compose
+      # so the container gets the correct env, volumes, and networks.
+      if [[ -n "$prev_agent_tag" ]]; then
+        sed -i "s|^AGENT_SERVICE_IMAGE_TAG=.*|AGENT_SERVICE_IMAGE_TAG=${prev_agent_tag}|" .env
+        docker compose -f compose.production.yml -f compose.area.yml -f compose.agents.yml \
+          up -d --no-deps --force-recreate agent-service 2>/dev/null || true
+        printf 'AGENT_SERVICE=ROLLBACK restored_tag=%s\n' "$prev_agent_tag"
       fi
       fail "agent-service failed health check after deploy"
     fi
