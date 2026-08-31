@@ -20,6 +20,14 @@
   src: url('/fonts/Inter-Bold.woff2') format('woff2');
 }
 
+/* Apply Inter to the login page immediately — styles.css (with the main
+   :root{font-family:Inter} rule) is code-split into AuthenticatedApp and
+   loads dynamically after JS executes. Without this, the landing page
+   renders in the browser default font until the app CSS loads. */
+body {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
 :root {
   --login-bg: #090a0e;
   --login-panel: #101218;
