@@ -121,23 +121,29 @@ const FlowDiagram: Component = () => (
 
 const features = [
   {
-    title: 'Autonomous decisions',
-    body: 'Context-aware decisions driven by your policies and constraints.',
+    title: 'Deterministic brain',
+    body: 'A Rust autopilot owns the strategy. It decides what intelligence to gather, applies policy rules, and dispatches workers — never following an LLM blindly.',
     icon: (
       <>
-        <path d="M12 3l7 3v6c0 4.2-2.9 7.9-7 9-4.1-1.1-7-4.8-7-9V6z" />
-        <path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="M24 12c0-2.2-1.5-4-3.5-4.3.3-1.8-.8-3.7-2.7-4.2-1.6-.4-3.2.3-4 1.6-.6-.7-1.5-1.1-2.5-1.1-1.8 0-3.3 1.3-3.6 3C6.3 7.3 4.8 8.7 4.5 10.6 2.7 11 1.5 12.7 1.8 14.5c.2 1.5 1.4 2.7 2.9 2.9.1 2.2 1.9 4 4.1 4 .8 0 1.5-.2 2.1-.6.5 1.5 1.9 2.6 3.6 2.6 1.4 0 2.6-.8 3.3-2 .5.3 1.1.5 1.7.5 1.7 0 3.1-1.2 3.5-2.8 1.9-.2 3.3-1.8 3.3-3.7 0-1.8-1.3-3.4-3-3.7z" />
       </>
     ),
   },
   {
-    title: 'Execute with confidence',
-    body: 'Run actions across integrations with built-in retries, tracking and failure recovery.',
-    icon: <path d="M13 2L4 14h6l-1 8 9-12h-6z" stroke-linejoin="round" />,
+    title: 'Aggregate from everywhere',
+    body: 'Fans flow in from Reddit, Meta, Spotify, Bandsintown, press, live shows — into one fanbase with double opt-in. Active fans are never downgraded, opt-outs never resurrected.',
+    icon: (
+      <>
+        <path d="M4.9 16.1C6.8 14.2 9 13 12 13s5.2 1.2 7.1 3.1" />
+        <path d="M2 8.82a15 15 0 0 1 20 0" />
+        <path d="M5 12.1a10 10 0 0 1 14 0" />
+        <line x1="12" x2="12" y1="20" y2="13" />
+      </>
+    ),
   },
   {
-    title: 'AI agents with your data',
-    body: 'Delegate creative work to free or paid LLMs — press pitches, social posts, analysis — seeded with real tenant data from your database.',
+    title: 'LLM workers, your data',
+    body: 'Free or paid LLMs draft press pitches, social posts, campaign analysis — seeded with real data from your Postgres. Workers feed intelligence back to the brain.',
     icon: (
       <>
         <ellipse cx="12" cy="8" rx="3" ry="2.5" />
@@ -151,8 +157,8 @@ const features = [
     ),
   },
   {
-    title: 'Observe everything',
-    body: 'Full visibility into decisions, actions and outcomes in real time.',
+    title: 'Grow and convert',
+    body: 'Genuine engagement, not spam. Convert fans with tickets, merch, and attendance — the full 360. Every outcome feeds back into the brain for the next cycle.',
     icon: (
       <>
         <path d="M3 17l6-6 4 4 8-8" stroke-linecap="round" stroke-linejoin="round" />
@@ -169,10 +175,10 @@ const FeatureIcon: Component<{ children: unknown }> = (props) => (
 )
 
 const stats = [
-  { value: '10+', label: 'AI providers' },
-  { value: '22', label: 'Autopilot contexts' },
-  { value: 'Real-time', label: 'Telemetry' },
-  { value: 'Multi-region', label: 'EU / US' },
+  { value: '10+', label: 'LLM providers' },
+  { value: '6+', label: 'Fan sources' },
+  { value: 'Rust', label: 'Deterministic brain' },
+  { value: 'EU / US', label: 'Multi-region' },
 ]
 
 export const LoginHero: Component = () => (
@@ -189,7 +195,7 @@ export const LoginHero: Component = () => (
       <BrandMark size={76} />
       <div>
         <strong>CrowdRelay</strong>
-        <span>Decision engine for autonomous systems</span>
+        <span>Fan growth engine for autonomous artists</span>
       </div>
     </header>
 
@@ -206,11 +212,12 @@ export const LoginHero: Component = () => (
     </div>
 
     <div class="hero-content" style={{ position: 'relative', 'z-index': '1' }}>
-      <h2>Turn signals into real-world actions.</h2>
+      <h2>Grow real fans. Autonomously.</h2>
       <p class="hero-lead">
-        CrowdRelay evaluates signals, makes policy-driven decisions, and executes actions across your tools —
-        with AI agents that draft press pitches, social posts, and campaign analysis using free or paid LLMs,
-        seeded with real data from your database.
+        CrowdRelay aggregates fans from Reddit, Meta, Spotify, Bandsintown, and the live web —
+        a deterministic Rust brain decides the strategy, LLM workers draft the content,
+        and every outcome feeds back into the next cycle. No spam, no fake engagement,
+        just real growth that converts.
       </p>
 
       <ul class="hero-features">

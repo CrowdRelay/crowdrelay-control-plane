@@ -324,6 +324,10 @@ body {
   font-size: 1.3rem;
   line-height: 1.05;
   letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #c4b5fd 0%, #f4f5fa 40%, #6fd8ef 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .hero-brand span {
@@ -337,6 +341,10 @@ body {
 .hero-stat strong {
   font-size: 1.15rem;
   font-weight: 700;
+  background: linear-gradient(135deg, #c4b5fd 0%, #6fd8ef 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 /* === Visual section (flow diagram + stats) === */
@@ -484,6 +492,10 @@ body {
   line-height: 1.05;
   letter-spacing: -0.055em;
   padding-bottom: 0.1em;
+  background: linear-gradient(135deg, #ddd6fe 0%, #f4f5fa 30%, #a5f3fc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .hero-lead {
@@ -539,6 +551,10 @@ body {
   font-size: 0.95rem;
   line-height: 1.2;
   letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #c4b5fd 0%, #f4f5fa 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .hero-features span {
