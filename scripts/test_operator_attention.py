@@ -37,8 +37,8 @@ class OperatorAttentionContract(unittest.TestCase):
         self.assertIn("Dead push", page)
         self.assertIn("Critical watchdog", page)
         self.assertIn("tenant-operator-attention-snapshot", page)
-        self.assertEqual(page.count("refetchInterval: 30_000"), 1)
-        self.assertNotIn("refetchInterval: 15_000", page)
+        self.assertIn("refreshTick()", page)
+        self.assertNotIn("refetchInterval:", page)
         self.assertIn("fetchOperationsAttention", page)
         self.assertIn("/operations/attention", attention)
         # One tenant call, not a five-way fan-out: CrowdRelay assembles the

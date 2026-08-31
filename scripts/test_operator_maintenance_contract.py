@@ -89,8 +89,8 @@ class OperatorMaintenanceContract(unittest.TestCase):
         # One poll in the browser, one tenant call behind it.
         self.assertIn("/v1/control-plane/ops/attention", ATTENTION_ROUTES)
         self.assertEqual(ATTENTION_ROUTES.count("request_management("), 1)
-        self.assertEqual(UI.count("refetchInterval: 30_000"), 1)
-        self.assertNotIn("refetchInterval: 15_000", UI)
+        self.assertIn("refreshTick()", UI)
+        self.assertNotIn("refetchInterval:", UI)
         self.assertIn("fetchOperationsAttention", UI)
         for token in (
             "POSTGRES RUNTIME",

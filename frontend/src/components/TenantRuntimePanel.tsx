@@ -2,6 +2,7 @@ import { Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { formatTimestamp } from '../lib/format'
+import { refreshTick } from '../lib/refresh'
 import type { RuntimeHealth, TenantRuntimeSnapshot } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 
@@ -9,10 +10,11 @@ const runtimeTone = (health: RuntimeHealth) => health === 'healthy' ? 'good' : h
 
 export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntimeSnapshot }) {
   // This query is deliberately owned by the smallest live surface. The tenant
-  // page itself must never subscribe to the 15s runtime tick: forms, scroll,
+  // page itself must never subscribe to the runtime tick: forms, scroll,
   // provisioning controls and configuration stay mounted while telemetry changes.
+  // Refetching is driven by the global refresh tick, not a hardcoded interval.
   const runtime = useQuery(() => ({
-    queryKey: ['tenant-runtime', props.slug],
+    queryKey: ['tenant-runtime', props.slug, refreshTick()],
     queryFn: () => api.tenantRuntime(props.slug),
     initialData: props.initial,
     // The subpage read model already carried this snapshot, so the first tick

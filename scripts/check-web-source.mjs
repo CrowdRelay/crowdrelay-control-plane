@@ -47,7 +47,7 @@ const attentionIndex = fs.readFileSync(path.join(root, 'frontend/src/pages/Opera
 if (attentionIndex.includes('fetchOperationsAttention')) throw new Error('Operator Attention index must not fetch a snapshot per tenant row')
 if (tenant.includes('const runtimeTenant = useQuery')) throw new Error('TenantPage must not subscribe to the live runtime polling query')
 if (!tenant.includes('<TenantRuntimePanel') || !tenant.includes('initial={{ runtime: t.runtime, runtimeHealth: t.runtimeHealth }}')) throw new Error('runtime telemetry must live in an isolated child surface')
-if (!tenantRuntime.includes("queryKey: ['tenant-runtime', props.slug]") || !tenantRuntime.includes('api.tenantRuntime(props.slug)') || !tenantRuntime.includes('refetchInterval: 15_000')) throw new Error('runtime health must refresh through an isolated focused 15s query')
+if (!tenantRuntime.includes("queryKey: ['tenant-runtime', props.slug, refreshTick()]") || !tenantRuntime.includes('api.tenantRuntime(props.slug)') || !tenantRuntime.includes('refreshTick()')) throw new Error('runtime health must refresh through an isolated focused query driven by the global refresh tick')
 if (!tenantRuntime.includes('refetchOnWindowFocus: false')) throw new Error('runtime polling must not burst on browser focus')
 if (!api.includes('tenantRuntime:') || !api.includes('/runtime`')) throw new Error('focused tenant runtime API client missing')
 if (!runtimeRoutes.includes('/tenants/{slug}/runtime') || !runtimeRoutes.includes('"runtime": tenant.runtime') || !runtimeRoutes.includes('"runtimeHealth": tenant.runtime_health')) throw new Error('focused runtime backend endpoint missing')
@@ -92,7 +92,7 @@ for (const token of ['ECOSYSTEM RELEASE', 'Production convergence', 'backend_sha
   if (!releaseConvergence.includes(token)) throw new Error(`release convergence UI missing ${token}`)
 }
 if (operations.includes('useQuery')) throw new Error('OperationsPanel must render the subpage read model, not fetch its own sections')
-if (!operationsPage.includes('refetchInterval: 15_000') || !operationsPage.includes('refetchOnWindowFocus: false') || !operationsPage.includes('staleTime: 10_000')) throw new Error('Operations subpage polling must stay bounded and local')
+if (!operationsPage.includes('refreshTick()') || !operationsPage.includes('refetchOnWindowFocus: false') || !operationsPage.includes('staleTime: 10_000')) throw new Error('Operations subpage polling must stay bounded and driven by the global refresh tick')
 if (!styles.includes('.form-grid input,.form-grid select,.form-grid textarea')) throw new Error('generic Control Plane selects must share dark form styling')
 if (!styles.includes('.warning-card + .form-grid{margin-top:16px}')) throw new Error('regional warning must not collide with form labels')
 if (!styles.includes(':focus-visible')) throw new Error('keyboard focus visibility regression')
