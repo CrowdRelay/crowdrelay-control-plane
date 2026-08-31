@@ -152,7 +152,15 @@ const stats = [
 
 export const LoginHero: Component = () => (
   <section class="login-hero">
-    <header class="hero-brand">
+    {/* Animated background — floating gradient orbs + aurora sweep */}
+    <div class="hero-orbs" aria-hidden="true">
+      <div class="hero-orb hero-orb-1" />
+      <div class="hero-orb hero-orb-2" />
+      <div class="hero-orb hero-orb-3" />
+    </div>
+    <div class="hero-aurora" aria-hidden="true" />
+
+    <header class="hero-brand" style={{ position: 'relative', 'z-index': '1' }}>
       <BrandMark size={76} />
       <div>
         <strong>CrowdRelay</strong>
@@ -160,7 +168,7 @@ export const LoginHero: Component = () => (
       </div>
     </header>
 
-    <div class="hero-visual">
+    <div class="hero-visual" style={{ position: 'relative', 'z-index': '1' }}>
       <FlowDiagram />
       <div class="hero-stats">
         {stats.map(s => (
@@ -172,11 +180,12 @@ export const LoginHero: Component = () => (
       </div>
     </div>
 
-    <div class="hero-content">
+    <div class="hero-content" style={{ position: 'relative', 'z-index': '1' }}>
       <h2>Turn signals into real-world actions.</h2>
       <p class="hero-lead">
         CrowdRelay evaluates signals, makes policy-driven decisions, and executes actions across your tools —
-        with AI agents that write press pitches, social posts, and campaign analysis using free or paid LLMs.
+        with AI agents that draft press pitches, social posts, and campaign analysis using free or paid LLMs,
+        seeded with real data from your database.
       </p>
 
       <ul class="hero-features">
@@ -190,7 +199,7 @@ export const LoginHero: Component = () => (
       </ul>
     </div>
 
-    <div class="hero-contact">
+    <div class="hero-contact" style={{ position: 'relative', 'z-index': '1' }}>
       <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
         <path d="M4 5h16v11H9l-5 4z" stroke-linejoin="round" />
         <path d="M8 10h8M8 13h5" stroke-linecap="round" />
@@ -207,6 +216,6 @@ export const LoginHero: Component = () => (
       </ul>
     </div>
 
-    <small class="hero-foot">© 2026 CrowdRelay. All rights reserved.</small>
+    <small class="hero-foot" style={{ position: 'relative', 'z-index': '1' }}>© 2026 CrowdRelay. All rights reserved.</small>
   </section>
 )
