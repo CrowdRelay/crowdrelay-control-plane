@@ -77,14 +77,13 @@ rollback() {
   exit "$status"
 }
 
-[[ "$TARGET" =~ ^[0-9a-f]{40}$ ]] || fail "usage: deploy-bluegreen.sh <sha> [digest] [repo-dir]"
-# Digest is optional — if not provided, we rely on the SHA-based tag only
-if [[ -n "$IMAGE_DIGEST" ]]; then
-  [[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "invalid image digest: $IMAGE_DIGEST"
-fi
-for command in docker curl python3; do command -v "$command" >/dev/null 2>&1 || fail "missing command: $command"; done
+[[ "$TARGET" =~ ^[0-9a-f]{40}$ ]] || fail "usage: deploy-bluegreen.sh <sha> <digest> [repo-dir]"
+[[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "invalid image digest: $IMAGE_DIGEST"
+for command in docker curl python3 flock; do command -v "$command" >/dev/null 2>&1 || fail "missing command: $command"; done
 
 cd "$REPO_DIR"
+exec 9> .git/control-plane-deploy.lock
+flock -n 9 || fail 'another Control Plane deployment is already running'
 [[ -f .env && ! -L .env ]] || fail "missing .env"
 [[ "$(stat -c '%a' .env)" == "600" ]] || fail '.env must have mode 600'
 [[ -f compose.production.yml ]] || fail "missing compose.production.yml"
@@ -116,19 +115,20 @@ fi
 # compose.agents.yml is optional — the agent-service is only recreated if it exists
 [[ -f compose.agents.yml ]] && printf 'AGENT_OVERLAY=PASS\n' || printf 'AGENT_OVERLAY=SKIP reason=no-agents-overlay\n'
 
-# Verify the new image is available
+registry_image="ghcr.io/crowdrelay/crowdrelay-control-plane"
+registry_ref="${registry_image}@${IMAGE_DIGEST}"
 new_image="crowdrelay-control-plane:sha-${TARGET}"
-docker image inspect "$new_image" >/dev/null 2>&1 || {
-  registry_image="ghcr.io/crowdrelay/crowdrelay-control-plane"
-  if [[ -n "$IMAGE_DIGEST" ]]; then
-    docker pull "${registry_image}@${IMAGE_DIGEST}" >/dev/null 2>&1 || fail "cannot pull image by digest"
-    docker tag "${registry_image}@${IMAGE_DIGEST}" "$new_image"
-  else
-    docker pull "${registry_image}:sha-${TARGET}" >/dev/null 2>&1 || fail "cannot pull image by tag"
-    docker tag "${registry_image}:sha-${TARGET}" "$new_image"
-  fi
-}
-printf 'NEW_IMAGE=PASS sha=%s\n' "$TARGET"
+docker pull "$registry_ref" >/dev/null || fail "cannot pull immutable Control Plane image: $registry_ref"
+image_id="$(docker image inspect "$registry_ref" --format '{{.Id}}')"
+revision="$(docker image inspect "$image_id" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
+architecture="$(docker image inspect "$image_id" --format '{{.Architecture}}')"
+host_architecture="$(docker version --format '{{.Server.Arch}}')"
+repo_digests="$(docker image inspect "$image_id" --format '{{join .RepoDigests "\n"}}')"
+[[ "$revision" == "$TARGET" ]] || fail "OCI revision mismatch: got=$revision expected=$TARGET"
+[[ "$architecture" == "$host_architecture" ]] || fail "architecture mismatch: got=$architecture expected=$host_architecture"
+grep -Fq "@${IMAGE_DIGEST}" <<<"$repo_digests" || fail "RepoDigests do not contain $IMAGE_DIGEST"
+docker tag "$image_id" "$new_image"
+printf 'NEW_IMAGE=PASS sha=%s digest=%s architecture=%s\n' "$TARGET" "$IMAGE_DIGEST" "$architecture"
 
 # Detect which color is currently active and determine deploy direction.
 # If blue (app) is running → deploy green. If green (app-green) is running
