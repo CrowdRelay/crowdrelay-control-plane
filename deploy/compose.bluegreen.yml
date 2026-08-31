@@ -12,7 +12,7 @@
 services:
   app-green:
     image: crowdrelay-control-plane:${CONTROL_PLANE_GREEN_TAG:?Set CONTROL_PLANE_GREEN_TAG}
-    restart: "no"
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy

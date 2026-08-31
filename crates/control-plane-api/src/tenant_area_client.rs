@@ -182,9 +182,9 @@ fn one_safe_segment(path: &str, prefix: &str) -> bool {
     path.strip_prefix(prefix).is_some_and(|segment| {
         !segment.is_empty()
             && segment.len() <= 96
-            && segment
-                .bytes()
-                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-')
+            && segment.bytes().all(|byte| {
+                byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-'
+            })
     })
 }
 
@@ -196,9 +196,12 @@ fn safe_segment_between(path: &str, prefix: &str, suffix: &str) -> bool {
         .is_some_and(|segment| {
             !segment.is_empty()
                 && segment.len() <= 96
-                && segment
-                    .bytes()
-                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-')
+                && segment.bytes().all(|byte| {
+                    byte.is_ascii_lowercase()
+                        || byte.is_ascii_digit()
+                        || byte == b'_'
+                        || byte == b'-'
+                })
         })
 }
 
