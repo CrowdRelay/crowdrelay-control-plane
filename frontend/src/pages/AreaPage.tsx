@@ -7,6 +7,7 @@ import type { AreaCity, AreaDropDraft, AreaStatus, AreaValidationResult } from '
 import { StatusBadge } from '../components/StatusBadge'
 import { LocationCanvas } from '../components/area/LocationCanvas'
 import { EmptyState } from '../components/EmptyState'
+import { SkeletonRows } from '../components/Skeleton'
 
 const statusTone = (status: AreaStatus) => status === 'LIVE' ? 'good' : status === 'SCHEDULED' || status === 'DRAFT' ? 'warn' : status === 'ARCHIVED' ? 'muted' : status === 'PAUSED' ? 'bad' : 'muted'
 const formatDate = (value: string) => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString() }
@@ -152,7 +153,7 @@ export function AreaPage() {
 
     <Show when={overview.data} fallback={
       <Show when={overview.isPending} fallback={<div class="error-card">AREA management is unavailable. This is not an empty game state. <button class="ghost" onClick={()=>overview.refetch()}>Retry</button></div>}>
-        <div class="skeleton-block"/>
+        <SkeletonRows count={4} />
       </Show>
     }>{o => <>
       <div class="metric-grid area-metrics">
@@ -194,7 +195,7 @@ export function AreaPage() {
 
     <Show when={selectedId()}><article class="panel area-editor">
       <div class="section-title"><div><span class="eyebrow">PRIVATE EDITOR</span><h2>{selectedId()}</h2><p>Single-drop response only · <code>Cache-Control: private, no-store</code></p></div><button class="ghost" onClick={closeEditor}>Close & purge coordinates</button></div>
-      <Show when={detail.data && draft()} fallback={<div class="skeleton-block"/>}>{_ready => <>
+      <Show when={detail.data && draft()} fallback={<SkeletonRows count={4} />}>{_ready => <>
         <div class="area-step-tabs"><For each={['city','location','content','schedule','review'] as const}>{step=><button class={editorStep()===step?'active ghost':'ghost'} onClick={()=>setEditorStep(step)}>{step}</button>}</For></div>
 
         <Show when={editorStep()==='city'}><div class="area-form-grid">

@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { PortfolioPanel } from '../components/PortfolioPanel'
 import { PortfolioSettingsPanel } from '../components/PortfolioSettingsPanel'
 import { FanSourcesPanel } from '../components/FanSourcesPanel'
+import { SkeletonPageHead, SkeletonSection } from '../components/Skeleton'
 import { refreshTick } from '../lib/refresh'
 import type { TenantPortfolioSection } from '../lib/types'
 
@@ -59,7 +60,7 @@ export function PortfolioPage() {
     </Show>
     {/* Skeleton only before the first response; background refreshes keep the
         rendered page exactly like the Operations subpage does. */}
-    <Show when={!model.error && model.isPending}><div class="skeleton-block" /></Show>
+    <Show when={!model.error && model.isPending}><SkeletonPageHead /><SkeletonSection titleWidth="180px" lines={5} minHeight="180px" /><SkeletonSection titleWidth="200px" lines={4} minHeight="160px" /><SkeletonSection titleWidth="140px" lines={3} minHeight="120px" /></Show>
     <Show when={model.data} keyed>{(data) => <>
       <DegradedSections degraded={data.degraded} />
       <Show when={!data.degraded.includes('overview') || !data.degraded.includes('amplification')}>

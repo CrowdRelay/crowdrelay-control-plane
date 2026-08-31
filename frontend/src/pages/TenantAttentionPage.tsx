@@ -11,6 +11,7 @@ import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
 import { AttentionInbox } from '../components/AttentionInbox'
 import { EmptyState } from '../components/EmptyState'
 import { SignalOverviewPanel } from '../components/SignalOverviewPanel'
+import { SkeletonAttentionPage } from '../components/Skeleton'
 import { refreshTick } from '../lib/refresh'
 
 const totalDead = (summary: OperationsSummary) => summary.outbox.dead + summary.deliveries.dead + summary.push.dead
@@ -213,6 +214,8 @@ export function TenantAttentionPage() {
     <Show when={summary.error}>
       <div class="error-card" role="alert">{summary.error instanceof Error ? summary.error.message : 'Operations attention snapshot unavailable'}</div>
     </Show>
+
+    <Show when={!summary.error && summary.isLoading}><SkeletonAttentionPage /></Show>
 
     <Show when={summary.data}>{data => <>
       <Show when={totalDead(data()) > 0 || data().watchdog.critical_alerts > 0 || staleAreaReservations(data()) > 0}>

@@ -16,6 +16,7 @@ import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { CollapsibleSection } from '../components/CollapsibleSection'
+import { SkeletonOperationsPage } from '../components/Skeleton'
 import { StatusBadge } from '../components/StatusBadge'
 import { refreshTick } from '../lib/refresh'
 import type { TenantOperationsReadModel } from '../lib/types'
@@ -87,7 +88,7 @@ export function TenantOperationsPage() {
       <div class="error-card" role="alert">{model.error instanceof Error ? model.error.message : 'Tenant operations channel unavailable'}</div>
     </Show>
 
-    <Show when={!model.error && model.isPending}><div class="skeleton-block"/></Show>
+    <Show when={!model.error && model.isPending}><SkeletonOperationsPage /></Show>
 
     <Show when={model.data}>{<>
       {/* ─── Tier 1 KPIs — autonomy, needs-you, decision state ─────── */}

@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { AudienceOverviewPanel } from '../components/AudienceOverviewPanel'
 import { FanTablePanel } from '../components/FanTablePanel'
 import { SegmentPanel } from '../components/SegmentPanel'
+import { SkeletonPageHead, SkeletonSection } from '../components/Skeleton'
 import { refreshTick } from '../lib/refresh'
 
 const SECTION_LABEL: Record<string, string> = {
@@ -47,7 +48,7 @@ export function AudiencePage() {
     <Show when={model.error}>
       <div class="error-card" role="alert">{model.error instanceof Error ? model.error.message : 'Audience channel unavailable'}</div>
     </Show>
-    <Show when={!model.error && model.isPending}><div class="skeleton-block" /></Show>
+    <Show when={!model.error && model.isPending}><SkeletonPageHead /><SkeletonSection titleWidth="160px" lines={4} minHeight="140px" /><SkeletonSection titleWidth="200px" lines={6} minHeight="200px" /><SkeletonSection titleWidth="140px" lines={3} minHeight="120px" /></Show>
     <Show when={model.data} keyed>{(data) => <>
       <DegradedSections degraded={data.degraded} />
       <Show when={!data.degraded.includes('overview')}>

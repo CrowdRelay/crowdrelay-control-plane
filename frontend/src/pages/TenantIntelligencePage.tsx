@@ -13,6 +13,7 @@ import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { StatusBadge } from '../components/StatusBadge'
+import { SkeletonIntelligencePage } from '../components/Skeleton'
 import { refreshTick } from '../lib/refresh'
 
 /**
@@ -57,7 +58,7 @@ export function TenantIntelligencePage() {
       <div class="error-card" role="alert">{model.error instanceof Error ? model.error.message : 'Intelligence channel unavailable'}</div>
     </Show>
 
-    <Show when={!model.error && model.isPending}><div class="skeleton-block" /></Show>
+    <Show when={!model.error && model.isPending}><SkeletonIntelligencePage /></Show>
 
     <Show when={model.data}>{<>
       {/* ─── Intelligence loop SVG ──────────────────────────────────── */}

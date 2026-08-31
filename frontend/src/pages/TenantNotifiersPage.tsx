@@ -9,6 +9,7 @@ import { NOTIFIER_EVENTS } from '../lib/types'
 import { errorMessage } from '../lib/format'
 import { NotifierIcon } from '../components/ProviderIcon'
 import { EmptyState } from '../components/EmptyState'
+import { SkeletonNotifiersPage, SkeletonSection } from '../components/Skeleton'
 
 const kindLabel = (k: NotifierChannel['kind']) => k === 'discord' ? 'Discord app' : k === 'webhook' ? 'Webhook' : 'Email (relay)'
 const evLabel = (e: string) => e.replaceAll('.', ' ')
@@ -44,7 +45,7 @@ export function TenantNotifiersPage() {
 
     {/* Active channels */}
     <Show when={channels.error}><div class="error-card" role="alert">{errorMessage(channels.error, 'Channels could not be loaded')}</div></Show>
-    <Show when={!channels.error && channels.isPending}><div class="skeleton-block" /></Show>
+    <Show when={!channels.error && channels.isPending}><SkeletonNotifiersPage /></Show>
     <Show when={channels.data} fallback={!channels.error ? null : undefined}>
       <article class="panel">
         <div class="section-title"><div><span class="eyebrow">CHANNELS</span><h2>Active destinations</h2></div><Show when={items().length > 0}><small class="muted">{items().length} configured</small></Show></div>
@@ -57,7 +58,7 @@ export function TenantNotifiersPage() {
 
     {/* Discovered webhook endpoints */}
     <Show when={discovered.error}><article class="panel"><div class="section-title"><div><span class="eyebrow">CROWDRELAY</span><h2>Discovered webhook endpoints</h2></div></div><div class="inherit-card"><p>CrowdRelay webhook endpoints unavailable: {errorMessage(discovered.error, 'read failed')}</p></div></article></Show>
-    <Show when={!discovered.error && discovered.isPending}><div class="skeleton-block" /></Show>
+    <Show when={!discovered.error && discovered.isPending}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={discovered.data && discovered.data.endpoints.length > 0}><article class="panel"><div class="section-title"><div><span class="eyebrow">CROWDRELAY</span><h2>Discovered webhook endpoints</h2><p>Outbound webhook delivery targets already configured in this tenant's CrowdRelay instance.</p></div></div><table class="data-table"><thead><tr><th>Name</th><th>Target</th><th>Active</th></tr></thead><tbody><For each={discovered.data?.endpoints ?? []}>{(ep: DiscoveredEndpoint) => <tr><td>{ep.name}</td><td><code>{ep.urlHost}</code></td><td><span class={`status-badge ${ep.active ? 'good' : 'muted'}`}>{ep.active ? 'active' : 'inactive'}</span></td></tr>}</For></tbody></table></article></Show>
 
     {/* Create form */}

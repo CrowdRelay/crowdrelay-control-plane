@@ -4,6 +4,7 @@ import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { StatusBadge } from '../components/StatusBadge'
 import { EmptyState } from '../components/EmptyState'
+import { SkeletonRows } from '../components/Skeleton'
 import type { RuntimeHealth, TenantSummary } from '../lib/types'
 
 const healthTone = (health: RuntimeHealth) => health === 'healthy' ? 'good' : health === 'degraded' ? 'bad' : health === 'stale' ? 'warn' : 'muted'
@@ -39,7 +40,7 @@ export function OperatorAttentionPage() {
 
     <Show when={tenants.error}><div class="error-card" role="alert">{tenants.error instanceof Error ? tenants.error.message : 'Tenant registry unavailable'}</div></Show>
 
-    <Show when={tenants.data} fallback={!tenants.error ? <div class="skeleton-block"/> : null}>
+    <Show when={tenants.data} fallback={!tenants.error ? <SkeletonRows count={4} /> : null}>
       <div class="kpi-strip">
         <article class="kpi-card">
           <span class="kpi-label">Active tenants</span>

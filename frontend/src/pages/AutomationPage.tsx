@@ -5,6 +5,7 @@ import { refreshTick } from '../lib/refresh'
 import { toast } from '../lib/toast'
 import type { AutomationEvent, AutomationWorkflowConfig } from '../lib/types'
 import { EmptyState } from '../components/EmptyState'
+import { SkeletonRows } from '../components/Skeleton'
 
 const severityTone = (s: string) => s === 'error' ? 'bad' : s === 'warn' ? 'warn' : 'muted'
 const statusTone = (s: string) => s === 'new' ? 'bad' : s === 'acknowledged' ? 'warn' : s === 'retried' ? 'warn' : 'muted'
@@ -83,7 +84,7 @@ export function AutomationPage() {
     <Show when={showConfigs()}>
       <div class="section-title"><h2>Workflow routing</h2></div>
       <Show when={configs.error}><div class="error-card">{configs.error?.message}</div></Show>
-      <Show when={configs.data} fallback={!configs.error ? <div class="skeleton-block"/> : null}>
+      <Show when={configs.data} fallback={!configs.error ? <SkeletonRows count={3} /> : null}>
         <div class="automation-config-list">
           <For each={configs.data!.items}>{(cfg: AutomationWorkflowConfig) => (
             <div class="inherit-card automation-config-row">
@@ -159,7 +160,7 @@ export function AutomationPage() {
       </div>
 
       <Show when={events.error}><div class="error-card">{events.error?.message}</div></Show>
-      <Show when={events.data} fallback={!events.error ? <div class="skeleton-block"/> : null}>
+      <Show when={events.data} fallback={!events.error ? <SkeletonRows count={5} /> : null}>
         <div class="automation-event-list">
           <For each={events.data!.items}>{(ev: AutomationEvent) => {
             const cfg = configMap().get(ev.workflowId)
