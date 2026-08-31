@@ -39,12 +39,12 @@ const BrandMark: Component<{ size: number }> = (props) => (
 
 // Architecture flow — the real system:
 // Sources → Brain (deterministic Rust) → Workers (LLM agents) → Outcomes
-// with a learning loop back into the brain.
-// Clean filled nodes with a subtle glow on the brain.
+// with a learning loop arc ABOVE, pointing from outcomes back to brain.
+// Even spacing between all four nodes.
 const FlowDiagram: Component = () => (
   <svg
     class="flow-diagram"
-    viewBox="0 0 900 240"
+    viewBox="0 0 1000 280"
     role="img"
     aria-label="Fan sources flow into the brain (deterministic Rust autopilot), which dispatches LLM workers to produce outcomes. Outcomes feed back into the brain through a learning loop."
   >
@@ -67,82 +67,78 @@ const FlowDiagram: Component = () => (
       </radialGradient>
     </defs>
 
-    {/* Brain glow — subtle, breathing, not janky */}
-    <circle cx="450" cy="80" r="90" fill="url(#cr-brain-glow)" class="flow-brain-glow" />
-
-    {/* Connection lines */}
-    <g stroke="url(#cr-flow-line)" stroke-width="2" fill="none">
-      <line x1="130" y1="80" x2="210" y2="80" marker-end="url(#cr-arrow)" />
-      <line x1="350" y1="80" x2="530" y2="80" marker-end="url(#cr-arrow)" />
-      <line x1="670" y1="80" x2="750" y2="80" marker-end="url(#cr-arrow)" />
-    </g>
-
-    {/* Learning loop — green dashed arc back to brain */}
+    {/* Learning loop — arc ABOVE the graph, from outcomes → brain */}
     <path
-      d="M 810 80 Q 810 180, 450 180 Q 90 180, 90 80"
+      d="M 880 120 Q 880 20, 500 20 Q 320 20, 320 120"
       fill="none"
       stroke="#3ddc84"
-      stroke-width="1.5"
-      stroke-dasharray="5 5"
+      stroke-width="1.8"
+      stroke-dasharray="6 5"
       class="flow-learning"
       marker-end="url(#cr-arrow-green)"
     />
-    <text x="450" y="205" text-anchor="middle" class="flow-loop-label">learning loop</text>
+    <text x="600" y="14" text-anchor="middle" class="flow-loop-label">learning loop</text>
 
-    {/* ── Source nodes (left cluster) ── */}
+    {/* Brain glow — subtle, breathing */}
+    <circle cx="380" cy="160" r="90" fill="url(#cr-brain-glow)" class="flow-brain-glow" />
+
+    {/* Connection lines — even spacing: 120→300, 460→620, 780→880 */}
+    <g stroke="url(#cr-flow-line)" stroke-width="2.5" fill="none">
+      <line x1="120" y1="160" x2="300" y2="160" marker-end="url(#cr-arrow)" />
+      <line x1="460" y1="160" x2="620" y2="160" marker-end="url(#cr-arrow)" />
+      <line x1="780" y1="160" x2="880" y2="160" marker-end="url(#cr-arrow)" />
+    </g>
+
+    {/* ── Source node (left) ── */}
     <g class="flow-node flow-node-source">
-      <rect x="20" y="32" width="100" height="96" rx="14" />
-      <text x="70" y="52" text-anchor="middle" class="flow-node-title">Sources</text>
-      {/* Source icons: reddit, meta, spotify, bandsintown as small dots */}
-      <g transform="translate(35 62)" class="flow-source-icons">
-        <circle cx="10" cy="10" r="8" fill="#ff4500" opacity="0.8" />
-        <text x="10" y="14" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">R</text>
-        <circle cx="35" cy="10" r="8" fill="#0866ff" opacity="0.8" />
-        <text x="35" y="14" text-anchor="middle" font-size="8" fill="#fff" font-weight="700">f</text>
-        <circle cx="60" cy="10" r="8" fill="#1db954" opacity="0.8" />
-        <text x="60" y="14" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">S</text>
-        <circle cx="10" cy="32" r="8" fill="#e6b04c" opacity="0.8" />
-        <text x="10" y="36" text-anchor="middle" font-size="7" fill="#fff" font-weight="700">Bi</text>
-        <circle cx="35" cy="32" r="8" fill="#25f4ee" opacity="0.7" />
-        <text x="35" y="36" text-anchor="middle" font-size="8" fill="#000" font-weight="700">TT</text>
-        <circle cx="60" cy="32" r="8" fill="#7d8491" opacity="0.6" />
-        <text x="60" y="36" text-anchor="middle" font-size="8" fill="#fff" font-weight="700">+</text>
+      <rect x="10" y="112" width="110" height="96" rx="14" />
+      <text x="65" y="134" text-anchor="middle" class="flow-node-title">Sources</text>
+      <g transform="translate(28 144)" class="flow-source-icons">
+        <circle cx="10" cy="10" r="9" fill="#ff4500" opacity="0.85" />
+        <text x="10" y="14" text-anchor="middle" font-size="10" fill="#fff" font-weight="700">R</text>
+        <circle cx="37" cy="10" r="9" fill="#0866ff" opacity="0.85" />
+        <text x="37" y="14" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">f</text>
+        <circle cx="64" cy="10" r="9" fill="#1db954" opacity="0.85" />
+        <text x="64" y="14" text-anchor="middle" font-size="10" fill="#fff" font-weight="700">S</text>
+        <circle cx="10" cy="33" r="9" fill="#e6b04c" opacity="0.85" />
+        <text x="10" y="37" text-anchor="middle" font-size="7" fill="#fff" font-weight="700">Bi</text>
+        <circle cx="37" cy="33" r="9" fill="#25f4ee" opacity="0.75" />
+        <text x="37" y="37" text-anchor="middle" font-size="8" fill="#000" font-weight="700">TT</text>
+        <circle cx="64" cy="33" r="9" fill="#7d8491" opacity="0.6" />
+        <text x="64" y="37" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">+</text>
       </g>
     </g>
 
-    {/* ── Brain node (center, large, glowing) ── */}
+    {/* ── Brain node (center-left, large, glowing) ── */}
     <g class="flow-node flow-node-brain">
-      <rect x="210" y="24" width="140" height="112" rx="18" />
-      <text x="280" y="46" text-anchor="middle" class="flow-node-title">Brain</text>
-      <text x="280" y="62" text-anchor="middle" class="flow-node-sub">Rust autopilot</text>
-      {/* Brain icon — detailed, with gyri folds and brainstem */}
-      <g transform="translate(258 68)" class="flow-brain-icon" style={{ color: '#c4b5fd' }}>
-        <BrainIcon size={44} />
+      <rect x="300" y="104" width="160" height="112" rx="18" />
+      <text x="380" y="128" text-anchor="middle" class="flow-node-title">Brain</text>
+      <text x="380" y="144" text-anchor="middle" class="flow-node-sub">Rust autopilot</text>
+      <g transform="translate(356 150)" class="flow-brain-icon" style={{ color: '#c4b5fd' }}>
+        <BrainIcon size={48} />
       </g>
     </g>
 
-    {/* ── Workers node (right of brain) ── */}
+    {/* ── Workers node (center-right) ── */}
     <g class="flow-node flow-node-worker">
-      <rect x="530" y="32" width="140" height="96" rx="14" />
-      <text x="600" y="52" text-anchor="middle" class="flow-node-title">Workers</text>
-      <text x="600" y="68" text-anchor="middle" class="flow-node-sub">LLM agents</text>
-      {/* Worker icon — stacked layers */}
-      <g transform="translate(584 78)" class="flow-worker-icon" fill="none" stroke="#6fd8ef" stroke-width="1.3" stroke-linejoin="round">
-        <rect x="2" y="2" width="28" height="8" rx="2" opacity="0.5" />
-        <rect x="2" y="13" width="28" height="8" rx="2" opacity="0.7" />
-        <rect x="2" y="24" width="28" height="8" rx="2" />
+      <rect x="620" y="112" width="160" height="96" rx="14" />
+      <text x="700" y="134" text-anchor="middle" class="flow-node-title">Workers</text>
+      <text x="700" y="150" text-anchor="middle" class="flow-node-sub">LLM agents</text>
+      <g transform="translate(682 160)" class="flow-worker-icon" fill="none" stroke="#6fd8ef" stroke-width="1.4" stroke-linejoin="round">
+        <rect x="2" y="2" width="32" height="9" rx="2" opacity="0.5" />
+        <rect x="2" y="14" width="32" height="9" rx="2" opacity="0.7" />
+        <rect x="2" y="26" width="32" height="9" rx="2" />
       </g>
     </g>
 
     {/* ── Outcomes node (far right) ── */}
     <g class="flow-node flow-node-outcome">
-      <rect x="750" y="32" width="120" height="96" rx="14" />
-      <text x="810" y="52" text-anchor="middle" class="flow-node-title">Outcomes</text>
-      <text x="810" y="68" text-anchor="middle" class="flow-node-sub">fans · growth</text>
-      {/* Outcome icon — upward trend */}
-      <g transform="translate(796 78)" class="flow-outcome-icon" fill="none" stroke="#3ddc84" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 20l8-8 5 5 8-8" />
-        <path d="M21 9v6h-6" />
+      <rect x="880" y="112" width="110" height="96" rx="14" />
+      <text x="935" y="134" text-anchor="middle" class="flow-node-title">Outcomes</text>
+      <text x="935" y="150" text-anchor="middle" class="flow-node-sub">fans · growth</text>
+      <g transform="translate(918 160)" class="flow-outcome-icon" fill="none" stroke="#3ddc84" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 22l9-9 5 5 9-9" />
+        <path d="M22 9v7h-7" />
       </g>
     </g>
   </svg>
