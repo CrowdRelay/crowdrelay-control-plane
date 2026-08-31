@@ -35,8 +35,16 @@ const BrandMark: Component<{ size: number }> = (props) => (
 // Architecture flow — the real system:
 // Sources → Brain (deterministic Rust) → Workers (LLM agents) → Outcomes
 // with a learning loop arc ABOVE, pointing from outcomes back to brain.
-// All four nodes are the same size. Arrows are full pipes (--->) not just >.
-const FlowDiagram: Component = () => (
+// All four nodes are the same size. Arrows are drawn as explicit ---> shapes.
+const FlowDiagram: Component = () => {
+  // Arrow: a line + chevron arrowhead, drawn as a single path.
+  // startX..endX is the gap between blocks. The arrowhead sits at endX.
+  const arrow = (x1: number, x2: number, y: number) => {
+    const head = 14 // arrowhead length
+    const half = 7  // arrowhead half-width
+    return `M${x1} ${y} L${x2 - head} ${y} M${x2 - head} ${y - half} L${x2} ${y} L${x2 - head} ${y + half}`
+  }
+  return (
   <svg
     class="flow-diagram"
     viewBox="0 0 1200 400"
@@ -44,18 +52,9 @@ const FlowDiagram: Component = () => (
     aria-label="Fan sources flow into the brain (deterministic Rust autopilot), which dispatches LLM workers to produce outcomes. Outcomes feed back into the brain through a learning loop."
   >
     <defs>
-      {/* Arrow head — sits at the end of the line, looks like ---> */}
-      <marker id="cr-arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto">
-        <path d="M0 2 L10 6 L0 10 L3 6 z" fill="#9b87f5" />
-      </marker>
       <marker id="cr-arrow-green" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto">
         <path d="M0 2 L10 6 L0 10 L3 6 z" fill="#3ddc84" />
       </marker>
-      <linearGradient id="cr-flow-line" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#9b87f5" stop-opacity="0.4" />
-        <stop offset="50%" stop-color="#9b87f5" stop-opacity="0.9" />
-        <stop offset="100%" stop-color="#9b87f5" stop-opacity="0.4" />
-      </linearGradient>
       <radialGradient id="cr-brain-glow" cx="50%" cy="50%" r="50%">
         <stop offset="0%" stop-color="#9b87f5" stop-opacity="0.3" />
         <stop offset="60%" stop-color="#9b87f5" stop-opacity="0.06" />
@@ -73,16 +72,16 @@ const FlowDiagram: Component = () => (
       class="flow-learning"
       marker-end="url(#cr-arrow-green)"
     />
-    <text x="660" y="32" text-anchor="middle" class="flow-loop-label">learning loop</text>
+    <text x="660" y="58" text-anchor="middle" class="flow-loop-label">learning loop</text>
 
     {/* Brain glow — subtle, breathing */}
     <circle cx="390" cy="250" r="110" fill="url(#cr-brain-glow)" class="flow-brain-glow" />
 
-    {/* Connection pipes — full lines from block edge to block edge with arrowhead */}
-    <g stroke="url(#cr-flow-line)" stroke-width="3" fill="none" stroke-linecap="round">
-      <line x1="220" y1="250" x2="286" y2="250" marker-end="url(#cr-arrow)" />
-      <line x1="490" y1="250" x2="556" y2="250" marker-end="url(#cr-arrow)" />
-      <line x1="760" y1="250" x2="826" y2="250" marker-end="url(#cr-arrow)" />
+    {/* Connection arrows — explicit line + chevron, looks like ---> */}
+    <g stroke="#9b87f5" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.8">
+      <path d={arrow(220, 290, 250)} />
+      <path d={arrow(490, 560, 250)} />
+      <path d={arrow(760, 830, 250)} />
     </g>
 
     {/* ── Source node (left) — 200x160 ── */}
@@ -138,7 +137,8 @@ const FlowDiagram: Component = () => (
       </g>
     </g>
   </svg>
-)
+  )
+}
 
 const features = [
   {

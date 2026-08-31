@@ -344,7 +344,7 @@ body {
 }
 
 .hero-stat strong {
-  font-size: 1.7rem;
+  font-size: 1.19rem;
   font-weight: 700;
   background: linear-gradient(135deg, #c4b5fd 0%, #6fd8ef 100%);
   -webkit-background-clip: text;
@@ -471,7 +471,7 @@ body {
   display: block;
   margin-top: 4px;
   color: var(--login-muted);
-  font-size: 1.05rem;
+  font-size: 0.74rem;
   letter-spacing: 0.02em;
 }
 
@@ -499,7 +499,7 @@ body {
   margin: 10px 0 0;
   color: #aeb3c0;
   line-height: 1.5;
-  font-size: 1.1rem;
+  font-size: 0.77rem;
 }
 
 /* Brain callout — the heart and brain of the system */
@@ -987,24 +987,91 @@ body {
 
 @media (min-width: 2000px) {
   .login-hero {
-    padding: 28px 64px 20px;
-    gap: 18px;
+    padding: 24px 64px 18px;
+    gap: 14px;
+  }
+
+  .flow-diagram {
+    max-width: 1000px;
+  }
+
+  .hero-stats {
+    width: min(100%, 700px);
+  }
+
+  .hero-stat strong {
+    font-size: 1.4rem;
+  }
+
+  .hero-stat span {
+    font-size: 0.77rem;
+  }
+
+  .hero-brand strong {
+    font-size: 2.2rem;
+  }
+
+  .hero-brand span {
+    font-size: 1.1rem;
+  }
+
+  .login-hero h2 {
+    font-size: clamp(2rem, 3vw, 3rem);
+  }
+
+  .hero-lead {
+    font-size: 0.9rem;
+  }
+}
+
+@media (min-width: 2560px) and (min-height: 1080px) {
+  .login-hero {
+    padding: 28px 80px 20px;
+    gap: 16px;
   }
 
   .flow-diagram {
     max-width: 1100px;
   }
 
+  .hero-features {
+    gap: 10px;
+  }
+
+  .hero-features li {
+    padding: 14px 18px;
+  }
+
+  .hero-features strong {
+    font-size: 1rem;
+  }
+
+  .hero-features span {
+    font-size: 0.8rem;
+  }
+
+  .login-hero h2 {
+    font-size: clamp(2.5rem, 4vw, 3.5rem);
+  }
+
+  .hero-lead {
+    font-size: 1rem;
+  }
+
   .hero-stats {
-    width: min(100%, 900px);
+    width: min(100%, 800px);
+  }
+
+  .hero-stat {
+    padding: 12px 12px;
   }
 
   .hero-stat strong {
-    font-size: 2rem;
+    font-size: 1.6rem;
   }
 
   .hero-stat span {
-    font-size: 1.1rem;
+    font-size: 0.85rem;
   }
 
   .hero-brand strong {
@@ -1012,73 +1079,6 @@ body {
   }
 
   .hero-brand span {
-    font-size: 1.3rem;
-  }
-
-  .login-hero h2 {
-    font-size: clamp(2.5rem, 4vw, 4rem);
-  }
-
-  .hero-lead {
-    font-size: 1.3rem;
-  }
-}
-
-@media (min-width: 2560px) and (min-height: 1080px) {
-  .login-hero {
-    padding: 36px 80px 24px;
-    gap: 22px;
-  }
-
-  .flow-diagram {
-    max-width: 1200px;
-  }
-
-  .hero-features {
-    gap: 12px;
-  }
-
-  .hero-features li {
-    padding: 16px 20px;
-  }
-
-  .hero-features strong {
-    font-size: 1.05rem;
-  }
-
-  .hero-features span {
-    font-size: 0.85rem;
-  }
-
-  .login-hero h2 {
-    font-size: clamp(3rem, 5vw, 5rem);
-  }
-
-  .hero-lead {
-    font-size: 1.5rem;
-  }
-
-  .hero-stats {
-    width: min(100%, 1000px);
-  }
-
-  .hero-stat {
-    padding: 16px 14px;
-  }
-
-  .hero-stat strong {
-    font-size: 2.2rem;
-  }
-
-  .hero-stat span {
     font-size: 1.2rem;
-  }
-
-  .hero-brand strong {
-    font-size: 2.8rem;
-  }
-
-  .hero-brand span {
-    font-size: 1.4rem;
   }
 }
