@@ -88,7 +88,7 @@ export function TenantsPage() {
         <h1>Teams on the platform</h1>
         <p>Create an isolated CrowdRelay + Signal tenant with an explicit regional profile. Browser locale/IP never silently decides currency, timezone or data residency.</p>
       </div>
-      <button onClick={() => { setNotice(null); setCreating(true) }}>+ New tenant</button>
+      <Link to="/tenants/new"><button>+ New tenant</button></Link>
     </div>
 
     <Show when={notice()}>{message => <div class="notice-card">{message()}</div>}</Show>

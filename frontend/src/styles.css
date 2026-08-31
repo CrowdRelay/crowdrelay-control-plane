@@ -1583,6 +1583,31 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .tenant-create-form{background:var(--surface-2);border:1px solid var(--border-default);border-radius:var(--radius-lg);box-shadow:var(--shadow-md)}
 
 /* ═══════════════════════════════════════════════════════════════════════
+   Onboarding wizard
+   ═══════════════════════════════════════════════════════════════════════ */
+.wizard-page{max-width:840px}
+.wizard-steps{display:flex;gap:0;margin:18px 0 24px;flex-wrap:wrap}
+.wizard-step-indicator{flex:1;min-width:140px;padding:10px 14px;font-size:.78rem;color:var(--text-muted);border-bottom:2px solid var(--border-subtle);transition:color var(--t-fast),border-color var(--t-fast);text-align:center}
+.wizard-step-indicator.active{color:var(--text-primary);border-bottom-color:var(--accent)}
+.wizard-step-indicator.current{font-weight:600;color:var(--accent);border-bottom-color:var(--accent)}
+.wizard-card{background:var(--surface-2);border:1px solid var(--border-default);border-radius:var(--radius-lg);padding:24px;box-shadow:var(--shadow-md)}
+.wizard-intro{color:var(--text-muted);font-size:.9rem;margin:0 0 18px}
+.product-cards,.goal-cards,.source-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.product-card,.goal-card,.source-card{display:flex;align-items:flex-start;gap:12px;padding:16px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-1);cursor:pointer;transition:border-color var(--t-fast),background var(--t-fast)}
+.product-card:hover,.goal-card:hover,.source-card:hover{border-color:var(--accent)}
+.product-card.selected,.goal-card.selected,.source-card.selected{border-color:var(--accent);background:rgba(46,89,132,0.15)}
+.product-card input,.goal-card input,.source-card input{margin-top:3px;flex-shrink:0}
+.product-card-body,.goal-card-body,.source-card-body{display:grid;gap:5px}
+.product-card-body strong,.goal-card-body strong,.source-card-body strong{font-size:.92rem;color:var(--text-primary)}
+.product-card-body small,.goal-card-body small,.source-card-body small{font-size:.78rem;color:var(--text-muted);line-height:1.45}
+.wizard-summary{display:grid;gap:10px;margin-bottom:20px}
+.summary-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--surface-1)}
+.summary-row span{color:var(--text-muted);font-size:.82rem}
+.summary-row strong{font-size:.9rem}
+.summary-row strong.on{color:#9ff0bd}
+.summary-row strong.off{color:var(--text-muted)}
+
+/* ═══════════════════════════════════════════════════════════════════════
    Phase 7 — Usability refinements
    Data density, hierarchies, micro-interactions, sticky headers
    ═══════════════════════════════════════════════════════════════════════ */

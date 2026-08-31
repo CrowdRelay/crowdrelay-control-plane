@@ -210,20 +210,7 @@ body {
 
 /* === Login card glow border === */
 .login-card {
-  box-shadow: 0 8px 24px rgba(0,0,0,0.35), 0 0 0 1px rgba(155, 135, 245, 0.04);
-}
-
-.login-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 20px;
-  padding: 1px;
-  background: linear-gradient(135deg, rgba(155, 135, 245, 0.15), transparent 40%, transparent 60%, rgba(85, 214, 233, 0.08));
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
 }
 
 /* === CTA button glow === */
@@ -360,7 +347,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
+  gap: 18px;
   flex-shrink: 0;
 }
 
@@ -838,10 +825,12 @@ body {
   margin-top: 4px;
   width: 100%;
   min-height: 48px;
+  border: 0;
   border-radius: 10px;
   background: var(--login-accent);
   color: #fff;
   font-weight: 700;
+  cursor: pointer;
   transition: background .15s ease;
 }
 

@@ -43,6 +43,10 @@ type CreateTenantInput = {
   deployCrowdrelay?: boolean
   desiredVersion?: string
   initialOperator?: { username: string; password: string }
+  signalEnabled?: boolean
+  synesthesiaEnabled?: boolean
+  northStarMetric?: string
+  fanbaseSources?: string[]
 }
 
 export const api = {

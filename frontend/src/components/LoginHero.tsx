@@ -120,8 +120,8 @@ const FlowDiagram: Component = () => {
       <text x="660" y="198" text-anchor="middle" class="flow-node-title">Workers</text>
       <text x="660" y="220" text-anchor="middle" class="flow-node-sub">LLM agents</text>
       <g transform="translate(620 235)" class="flow-worker-icon" fill="none" stroke="#6fd8ef" stroke-width="2" stroke-linejoin="round">
-        <rect x="4" y="4" width="72" height="20" rx="4" opacity="0.5" />
-        <rect x="4" y="30" width="72" height="20" rx="4" opacity="0.7" />
+        <rect x="4" y="4" width="72" height="20" rx="4" opacity="0.7" />
+        <rect x="4" y="30" width="72" height="20" rx="4" opacity="0.85" />
         <rect x="4" y="56" width="72" height="20" rx="4" />
       </g>
     </g>
@@ -146,7 +146,12 @@ const features = [
     body: 'A Rust autopilot owns the strategy. It decides what intelligence to gather, applies policy rules, and dispatches workers — never following an LLM blindly.',
     icon: (
       <>
-        <path d="M24 12c0-2.2-1.5-4-3.5-4.3.3-1.8-.8-3.7-2.7-4.2-1.6-.4-3.2.3-4 1.6-.6-.7-1.5-1.1-2.5-1.1-1.8 0-3.3 1.3-3.6 3C6.3 7.3 4.8 8.7 4.5 10.6 2.7 11 1.5 12.7 1.8 14.5c.2 1.5 1.4 2.7 2.9 2.9.1 2.2 1.9 4 4.1 4 .8 0 1.5-.2 2.1-.6.5 1.5 1.9 2.6 3.6 2.6 1.4 0 2.6-.8 3.3-2 .5.3 1.1.5 1.7.5 1.7 0 3.1-1.2 3.5-2.8 1.9-.2 3.3-1.8 3.3-3.7 0-1.8-1.3-3.4-3-3.7z" />
+        <path d="M9.5 3A2.5 2.5 0 0 0 7 5.5v.3a3 3 0 0 0-2 2.8v.2a3 3 0 0 0-1 5.2v.2a3 3 0 0 0 2 2.8v.3a2.5 2.5 0 0 0 4.5 1.5V5.5A2.5 2.5 0 0 0 9.5 3z" />
+        <path d="M14.5 3A2.5 2.5 0 0 1 17 5.5v.3a3 3 0 0 1 2 2.8v.2a3 3 0 0 1 1 5.2v.2a3 3 0 0 1-2 2.8v.3a2.5 2.5 0 0 1-4.5 1.5V5.5A2.5 2.5 0 0 1 14.5 3z" />
+        <path d="M9.5 8a1.5 1.5 0 0 0-1.5 1.5" />
+        <path d="M8 12a1.5 1.5 0 0 0 1.5 1.5" />
+        <path d="M14.5 8a1.5 1.5 0 0 1 1.5 1.5" />
+        <path d="M16 12a1.5 1.5 0 0 1-1.5 1.5" />
       </>
     ),
   },
