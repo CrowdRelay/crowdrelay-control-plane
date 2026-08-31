@@ -30,29 +30,33 @@ const healthLabel = (tenant: TenantSummary) => {
   return 'unknown'
 }
 
-// Tenant-scoped nav, grouped by system role. The groups reflect where each
-// section sits in the operator's mental model:
-//   Monitor — what's happening right now (dashboard, agent, incidents)
-//   AI Integrations — LLM providers and agent task delegation
-//   Audience — who you're reaching and how (roster, amplification, fanbases, AREA)
-//   Settings — how the tenant is wired (alert channels)
+// Tenant-scoped nav, grouped by the operator's mental model:
+//   CONTROL — what needs your attention right now (overview, incidents)
+//   BRAIN — the deterministic autopilot's intelligence and learning
+//   EXECUTION — live operations and growth delivery
+//   AUDIENCE — who you're reaching and how (roster, amplification, fanbases, AREA)
+//   SYSTEM — how the tenant is wired (LLM providers, alert channels)
 type NavItem = { path: string; label: string; exact: boolean; icon: string }
 type NavGroup = { label: string; items: NavItem[] }
 
 const TENANT_NAV_GROUPS: NavGroup[] = [
   {
-    label: 'Monitor',
+    label: 'Control',
     items: [
       { path: '/tenants/$slug', label: 'Overview', exact: true, icon: 'overview' },
-      { path: '/tenants/$slug/operations', label: 'Operations', exact: false, icon: 'operations' },
-      { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
       { path: '/tenants/$slug/attention', label: 'Attention', exact: false, icon: 'attention' },
     ],
   },
   {
-    label: 'AI Integrations',
+    label: 'Brain',
     items: [
-      { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
+      { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
+    ],
+  },
+  {
+    label: 'Execution',
+    items: [
+      { path: '/tenants/$slug/operations', label: 'Operations', exact: false, icon: 'operations' },
     ],
   },
   {
@@ -65,8 +69,9 @@ const TENANT_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Settings',
+    label: 'System',
     items: [
+      { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
       { path: '/tenants/$slug/notifiers', label: 'Notifiers', exact: false, icon: 'notifiers' },
     ],
   },

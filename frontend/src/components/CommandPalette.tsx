@@ -23,10 +23,25 @@ const SUBPAGES: Array<{ suffix: string; label: string }> = [
   { suffix: '', label: 'Overview' },
   { suffix: '/attention', label: 'Attention' },
   { suffix: '/operations', label: 'Operations' },
-  { suffix: '/audience', label: 'Audience' },
+  { suffix: '/intelligence', label: 'Intelligence' },
+  { suffix: '/audience', label: 'Fan Intelligence' },
+  { suffix: '/funnel', label: 'Growth Funnel' },
   { suffix: '/notifiers', label: 'Notifiers' },
+  { suffix: '/integrations', label: 'AI Integrations' },
   { suffix: '/portfolio', label: 'Portfolio' },
   { suffix: '/area', label: 'AREA' },
+]
+
+// Query-oriented entries — natural-language labels that are still navigation
+// shortcuts. No fake AI; these jump to the page that answers the query.
+const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix: string }> = [
+  { id: 'q-approvals', label: 'Show pending approvals', keywords: 'pending approvals review needs you attention', suffix: '/attention' },
+  { id: 'q-decisions', label: 'Show decisions from today', keywords: 'decisions today brain intelligence timeline', suffix: '/intelligence' },
+  { id: 'q-failed', label: 'Show failed deliveries', keywords: 'failed deliveries dead outbox webhook push', suffix: '/attention' },
+  { id: 'q-beacons', label: 'Open Beacon signals', keywords: 'beacon signals operations outreach', suffix: '/operations' },
+  { id: 'q-growth', label: 'Explain this growth drop', keywords: 'growth drop decline metrics funnel', suffix: '/funnel' },
+  { id: 'q-learning', label: 'Show what the brain learned', keywords: 'learning loop outcome decision action intelligence', suffix: '/intelligence' },
+  { id: 'q-opportunities', label: 'Show current opportunities', keywords: 'opportunities board decision operations', suffix: '/operations' },
 ]
 
 // Open state lives in command-palette-state.ts so Shell can toggle the
@@ -97,6 +112,16 @@ export const CommandPalette: Component = () => {
           perform: () => page.suffix === ''
             ? navigate({ to: '/tenants/$slug', params: { slug } })
             : navigate({ to: `/tenants/$slug${page.suffix}`, params: { slug } }),
+        })
+      }
+      // Query-oriented entries — natural-language labels for common operator questions
+      for (const qe of QUERY_ENTRIES) {
+        list.push({
+          id: `${qe.id}-${slug}`,
+          label: `${qe.label} · ${slug}`,
+          group: 'Query',
+          keywords: `${slug} ${qe.keywords}`,
+          perform: () => navigate({ to: `/tenants/$slug${qe.suffix}`, params: { slug } }),
         })
       }
       list.push(

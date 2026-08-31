@@ -19,6 +19,7 @@ export const EmptyState: Component<{
   icon?: JSX.Element
   label: string
   hint?: string
+  signal?: string
   class?: string
 }> = (props) => (
   <div class={`empty-state ${props.class ?? ''}`}>
@@ -26,6 +27,9 @@ export const EmptyState: Component<{
     <strong class="empty-state-label">{props.label}</strong>
     <Show when={props.hint}>
       <p class="empty-state-hint">{props.hint}</p>
+    </Show>
+    <Show when={props.signal}>
+      <p class="empty-state-signal">{props.signal}</p>
     </Show>
   </div>
 )

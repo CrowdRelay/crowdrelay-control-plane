@@ -140,6 +140,18 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/opportunities/decisions/{decision_id}/handled-externally",
             post(handle_opportunity_externally),
         )
+        // Decision evidence: structured "why this decision" data.
+        // Read-only proxy to CrowdRelay's decision evidence read model.
+        .route(
+            "/tenants/{slug}/operations/decisions/{decision_id}/evidence",
+            get(decision_evidence),
+        )
+        // Learning loop: last 20 decisions with actions and outcomes.
+        // Read-only proxy to CrowdRelay's learning loop read model.
+        .route(
+            "/tenants/{slug}/operations/learning-loop",
+            get(learning_loop),
+        )
         // ── Audience intelligence (read-only proxies) ───────────────────
         .route("/tenants/{slug}/audience/overview", get(audience_overview))
         .route("/tenants/{slug}/audience/fans", get(audience_fans))
@@ -777,6 +789,46 @@ async fn autopilot_reply_triage(
     )
     .await?;
     object_no_store(value, "autopilot reply triage")
+}
+
+/// Decision evidence: structured "why this decision" data from the persisted
+/// decision row. Read-only proxy to CrowdRelay's decision evidence read model.
+async fn decision_evidence(
+    State(state): State<AppState>,
+    Path((slug, decision_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        &format!("/v1/control-plane/autopilot/decisions/{decision_id}/evidence"),
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "decision evidence")
+}
+
+/// Learning loop: last 20 decisions with their actions and outcomes.
+/// Read-only proxy to CrowdRelay's learning loop read model.
+async fn learning_loop(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/learning-loop",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    array_no_store(value, "learning loop")
 }
 
 #[derive(Debug, Deserialize)]

@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { IntelligenceTransparencyPanel } from '../components/IntelligenceTransparencyPanel'
 import { GrowthIntelligencePanel } from '../components/GrowthIntelligencePanel'
 import { GrowthObjectivesPanel } from '../components/GrowthObjectivesPanel'
+import { LearningLoopPanel } from '../components/LearningLoopPanel'
 import { ScorecardPanel } from '../components/ScorecardPanel'
 import { OutreachPipelinePanel } from '../components/OutreachPipelinePanel'
 import { BeaconSignalPanel } from '../components/BeaconSignalPanel'
@@ -95,17 +96,42 @@ export function TenantIntelligencePage() {
         </svg>
       </div>
 
-      {/* ─── Scorecard ──────────────────────────────────────────────── */}
-      <ScorecardPanel slug={params().slug} />
+      {/* ─── WHAT IT KNOWS — scorecard + objectives ─────────────────── */}
+      <div class="brain-group">
+        <div class="brain-group-head">
+          <span class="eyebrow">WHAT IT KNOWS</span>
+          <h3>Scorecard & objectives</h3>
+        </div>
+        <ScorecardPanel slug={params().slug} />
+        <GrowthObjectivesPanel slug={params().slug} />
+      </div>
 
-      {/* ─── Growth objectives ──────────────────────────────────────── */}
-      <GrowthObjectivesPanel slug={params().slug} />
+      {/* ─── WHAT IT BELIEVES — growth intelligence ─────────────────── */}
+      <div class="brain-group">
+        <div class="brain-group-head">
+          <span class="eyebrow">WHAT IT BELIEVES</span>
+          <h3>Growth intelligence</h3>
+        </div>
+        <GrowthIntelligencePanel slug={params().slug} />
+      </div>
 
-      {/* ─── Growth intelligence (approval queue + autonomy + workflows) ── */}
-      <GrowthIntelligencePanel slug={params().slug} />
+      {/* ─── WHAT IT DECIDED — decision timeline ────────────────────── */}
+      <div class="brain-group">
+        <div class="brain-group-head">
+          <span class="eyebrow">WHAT IT DECIDED</span>
+          <h3>Decision timeline</h3>
+        </div>
+        <IntelligenceTransparencyPanel slug={params().slug} />
+      </div>
 
-      {/* ─── Intelligence transparency (decision timeline) ──────────── */}
-      <IntelligenceTransparencyPanel slug={params().slug} />
+      {/* ─── WHAT IT LEARNED — learning loop ────────────────────────── */}
+      <div class="brain-group">
+        <div class="brain-group-head">
+          <span class="eyebrow">WHAT IT LEARNED</span>
+          <h3>Decision → Action → Outcome → Learning</h3>
+        </div>
+        <LearningLoopPanel slug={params().slug} />
+      </div>
 
       {/* ─── Detailed subsystem views — all expanded by default ─────── */}
       <div class="intel-section">

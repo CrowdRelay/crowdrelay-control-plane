@@ -8,6 +8,7 @@ import { formatTimestamp as observed } from '../lib/format'
 import type { DeliveryDetails, OperationsSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
+import { AttentionInbox } from '../components/AttentionInbox'
 import { EmptyState } from '../components/EmptyState'
 import { SignalOverviewPanel } from '../components/SignalOverviewPanel'
 import { refreshTick } from '../lib/refresh'
@@ -66,6 +67,18 @@ export function TenantAttentionPage() {
   const [deliveryDetails, setDeliveryDetails] = createSignal<DeliveryDetails | null>(null)
   const [timelineInput, setTimelineInput] = createSignal('')
   const [timeline, setTimeline] = createSignal<Awaited<ReturnType<typeof api.operationTimeline>> | null>(null)
+
+  // Operations read model — for the attention inbox (needs_you, opportunities)
+  const ops = useQuery(() => ({
+    queryKey: ['tenant-operations', params().slug, refreshTick()],
+    queryFn: () => api.tenantOperations(params().slug),
+    reconcile: 'id',
+    refetchOnWindowFocus: false,
+    refetchInterval: 15_000,
+    staleTime: 10_000,
+  }))
+  const needsYou = () => ops.data?.autopilot?.needs_you ?? []
+  const awaitingApproval = () => ops.data?.opportunities?.filter(o => o.authority === 'awaiting_approval').length ?? 0
 
   const refreshMaintenance = async () => {
     await attention.refetch()
@@ -197,6 +210,18 @@ export function TenantAttentionPage() {
 
     {/* Critical watchdog alerts are rendered by WatchdogAlertsPanel */}
     <WatchdogAlertsPanel alerts={attention.data?.alerts ?? []} slug={params().slug} />
+
+    {/* ─── Attention Inbox — tiered action center ──────────────────── */}
+    <Show when={summary.data}>
+      <AttentionInbox
+        needsYou={needsYou()}
+        deadJobs={summary.data ? totalDead(summary.data) : 0}
+        criticalAlerts={summary.data?.watchdog.critical_alerts ?? 0}
+        staleReservations={summary.data ? staleAreaReservations(summary.data) : 0}
+        activeAlerts={summary.data?.watchdog.active_alerts ?? 0}
+        awaitingApproval={awaitingApproval()}
+      />
+    </Show>
 
     <Show when={summary.error}>
       <div class="error-card" role="alert">{summary.error instanceof Error ? summary.error.message : 'Operations attention snapshot unavailable'}</div>

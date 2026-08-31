@@ -7,6 +7,7 @@ import { GrowthPanel } from '../components/GrowthPanel'
 import { GrowthMetricsPanel } from '../components/GrowthMetricsPanel'
 import { GrowthObjectivesPanel } from '../components/GrowthObjectivesPanel'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
+import { BrainDecisionPanel } from '../components/BrainDecisionPanel'
 import { ScorecardPanel } from '../components/ScorecardPanel'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
 import { OutreachPipelinePanel } from '../components/OutreachPipelinePanel'
@@ -62,6 +63,10 @@ export function TenantOperationsPage() {
   const awaitingApproval = () => d()?.opportunities?.filter(o => o.authority === 'awaiting_approval').length ?? 0
   const hasAttention = () => needsYouCount() > 0 || awaitingApproval() > 0 || deadJobs() > 0
 
+  // The flagship decision — opportunity board position #1
+  const topOpportunity = () => d()?.opportunities?.[0] ?? null
+  const lastDecisionAt = () => d()?.opportunities?.[0]?.due_at ?? null
+
   return <section class="page">
     <div class="page-head">
       <div>
@@ -86,22 +91,31 @@ export function TenantOperationsPage() {
     <Show when={!model.error && model.isPending}><div class="skeleton-block"/></Show>
 
     <Show when={model.data}>{<>
-      {/* ─── KPI strip — always visible ──────────────────────────── */}
+      {/* ─── Tier 1 KPIs — autonomy, needs-you, decision state ─────── */}
       <div class="ops-kpi-strip">
         <div class="ops-kpi-card" classList={{ 'tone-good': autopilot()?.runtime_enabled, 'tone-muted': !autopilot()?.runtime_enabled }}>
           <span class="ops-kpi-label">Autopilot</span>
           <strong>{autopilot()?.runtime_enabled ? 'on' : 'off'}</strong>
           <small>{autopilot()?.queued_actions ?? 0} queued</small>
         </div>
+        <div class="ops-kpi-card" classList={{ 'tone-warn': hasAttention(), 'tone-good': !hasAttention() }}>
+          <span class="ops-kpi-label">Needs you</span>
+          <strong>{needsYouCount() + awaitingApproval()}</strong>
+          <small>{needsYouCount() > 0 ? `${needsYouCount()} approval(s)` : awaitingApproval() > 0 ? `${awaitingApproval()} awaiting` : 'all clear'}</small>
+        </div>
+        <div class="ops-kpi-card" classList={{ 'tone-bad': deadJobs() > 0, 'tone-warn': deadJobs() === 0 && healthTone() === 'warn', 'tone-good': healthTone() === 'good' }}>
+          <span class="ops-kpi-label">Health</span>
+          <strong>{healthLabel()}</strong>
+          <small>{deadJobs() > 0 ? `${deadJobs()} dead` : `${summary()?.http.p95_ms ?? 0}ms p95`}</small>
+        </div>
+      </div>
+
+      {/* ─── Tier 2 KPIs — opportunities, growth, outreach ─────────── */}
+      <div class="ops-kpi-strip">
         <div class="ops-kpi-card">
           <span class="ops-kpi-label">Opportunities</span>
           <strong>{metric(opCount())}</strong>
           <small>awaiting decision</small>
-        </div>
-        <div class="ops-kpi-card" classList={{ 'tone-warn': deadJobs() > 0 }}>
-          <span class="ops-kpi-label">Health</span>
-          <strong>{healthLabel()}</strong>
-          <small>{deadJobs() > 0 ? `${deadJobs()} dead` : `${summary()?.http.p95_ms ?? 0}ms p95`}</small>
         </div>
         <div class="ops-kpi-card">
           <span class="ops-kpi-label">Growth delivered</span>
@@ -113,12 +127,25 @@ export function TenantOperationsPage() {
           <strong>{metric(growth()?.outreach.active_opportunities)}</strong>
           <small>{metric(growth()?.outreach.awaiting_reply)} awaiting reply</small>
         </div>
+      </div>
+
+      {/* ─── Tier 3 KPIs — throughput/24h supporting metrics ────────── */}
+      <div class="ops-kpi-strip">
         <div class="ops-kpi-card">
           <span class="ops-kpi-label">Autopilot 24h</span>
           <strong>{metric(autopilot()?.succeeded_24h)}</strong>
           <small class={autopilot() && autopilot()!.failed_24h > 0 ? 'tone-bad' : ''}>{autopilot() ? `${autopilot()!.failed_24h} failed` : '—'}</small>
         </div>
       </div>
+
+      {/* ─── Flagship: Brain Decision Panel ─────────────────────────── */}
+      <BrainDecisionPanel
+        slug={params().slug}
+        opportunity={topOpportunity()}
+        degraded={d()?.degraded.includes('opportunities') ?? false}
+        lastDecisionAt={lastDecisionAt()}
+        refresh={refresh}
+      />
 
       {/* ─── Operator attention banner — visible when action needed ── */}
       <Show when={hasAttention()}>
@@ -141,9 +168,8 @@ export function TenantOperationsPage() {
         </div>
       </Show>
 
-      {/* ─── Primary cockpit: decision + attention + scorecard ──── */}
+      {/* ─── Primary cockpit: opportunity board + scorecard ────────── */}
       <div class="cockpit-primary">
-        {/* Central decision panel — the flagship visual element */}
         <div class="cockpit-decision">
           <OpportunityBoardPanel
             slug={params().slug}
@@ -152,8 +178,6 @@ export function TenantOperationsPage() {
             refresh={refresh}
           />
         </div>
-
-        {/* Right column: scorecard summary + operator attention detail */}
         <div class="cockpit-aside">
           <ScorecardPanel slug={params().slug} />
           <Show when={autopilot()?.needs_you.length}>
@@ -208,11 +232,12 @@ export function TenantOperationsPage() {
         refresh={refresh}
       />
 
-      {/* ─── Diagnostics — collapsible (this is where accordions belong) ── */}
-      <div class="intel-section">
+      {/* ─── ADVANCED — diagnostics, collapsed by default ─────────── */}
+      <div class="advanced-section">
         <div class="intel-header">
-          <span class="eyebrow">DIAGNOSTICS</span>
+          <span class="eyebrow">ADVANCED</span>
           <h2>Detailed subsystem views</h2>
+          <p class="muted">Raw subsystem views — not needed for normal operation.</p>
         </div>
 
         <div class="intel-group">
