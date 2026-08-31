@@ -1545,9 +1545,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .gm-platform-head .muted{font-size:.72rem;color:var(--text-muted)}
 .gm-platform-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;box-shadow:0 0 6px currentColor;opacity:0.9}
 .gm-bar-list{display:flex;flex-direction:column;gap:5px}
-.gm-bar-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(80px,2fr) auto auto;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border-subtle)}
+.gm-bar-row{display:grid;grid-template-columns:minmax(120px,1.2fr) minmax(60px,2fr) auto auto;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border-subtle)}
 .gm-bar-row:last-child{border-bottom:0}
-.gm-bar-label{font-size:.78rem;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gm-bar-label{font-size:.78rem;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help}
 .gm-bar-track{height:6px;background:var(--surface-1);border-radius:3px;overflow:hidden}
 .gm-bar-fill{height:100%;border-radius:3px;transition:width .4s ease}
 .gm-bar-value{font-size:.82rem;font-weight:600;color:var(--text-primary);white-space:nowrap;text-align:right}

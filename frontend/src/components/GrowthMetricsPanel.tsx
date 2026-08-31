@@ -176,8 +176,8 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                     const delta = trend.delta_7d ?? trend.delta_24h ?? trend.delta_28d
                     const dir = trendDirection(delta)
                     return (
-                      <div class="gm-bar-row">
-                        <span class="gm-bar-label" title={trend.display_name}>{trend.display_name}</span>
+                      <div class="gm-bar-row" title={trend.display_name}>
+                        <span class="gm-bar-label">{trend.display_name}</span>
                         <Bar value={trend.latest_value} max={max()} color={color} />
                         <span class="gm-bar-value">{compactNumber(trend.latest_value)}</span>
                         <Show when={delta != null}>
