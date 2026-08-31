@@ -330,33 +330,59 @@ printf '\n==> 5/5 — Stop old app, finalize\n'
 docker stop --time 30 "$CURRENT_APP" >/dev/null 2>&1 || true
 docker rm "$CURRENT_APP" >/dev/null 2>&1 || true
 
-# --- 5b. Recreate agent-service with the latest image ---------------------
-# The agent-service is stateless and doesn't need blue-green itself, but it
-# must be kept running during the cutover and updated to match the new
-# control-plane release. We recreate it after the cutover succeeds so a
-# failure here doesn't take down the already-verified new app.
+# --- 5b. Update agent-service with exact-digest and hard health gate -------
+# The agent-service is stateless from the deploy perspective. We pull by exact
+# digest, recreate it, and hard-gate on health. If the new agent fails health,
+# we roll back to the previous container image.
 agent_container="crowdrelay-control-plane-agent-service-1"
 agent_tag="$(sed -n 's/^AGENT_SERVICE_IMAGE_TAG=//p' .env | tail -n1)"
+agent_digest="${AGENT_SERVICE_IMAGE_DIGEST:-}"
 if [[ "$agent_tag" =~ ^sha-[0-9a-f]{40}$ ]]; then
-  agent_image="crowdrelay-agents:${agent_tag}"
-  if ! docker image inspect "$agent_image" >/dev/null 2>&1; then
-    printf 'AGENT_IMAGE=SKIP reason=image-not-found tag=%s\n' "$agent_tag"
+  # Record the previous agent image for rollback
+  prev_agent_image="$(docker inspect "$agent_container" --format '{{.Config.Image}}' 2>/dev/null || true)"
+
+  # Pull by digest if available, otherwise by tag
+  if [[ -n "$agent_digest" ]]; then
+    agent_registry_image="ghcr.io/crowdrelay/crowdrelay-agents@${agent_digest}"
+    printf '\n==> Pulling agent-service by exact digest %s\n' "$agent_digest"
+    docker pull "$agent_registry_image" >/dev/null
+    # Tag locally so compose can reference it by tag
+    docker tag "$agent_registry_image" "crowdrelay-agents:${agent_tag}"
   else
+    agent_image="crowdrelay-agents:${agent_tag}"
+    if ! docker image inspect "$agent_image" >/dev/null 2>&1; then
+      printf 'AGENT_IMAGE=SKIP reason=image-not-found tag=%s\n' "$agent_tag"
+      prev_agent_image=""
+    fi
+  fi
+
+  if [[ -z "$prev_agent_image" || -n "$agent_digest" ]] || docker image inspect "crowdrelay-agents:${agent_tag}" >/dev/null 2>&1; then
     printf '\n==> Recreating agent-service with tag %s\n' "$agent_tag"
     docker compose -f compose.production.yml -f compose.area.yml -f compose.agents.yml \
-      up -d --no-deps --force-recreate agent-service 2>/dev/null || true
+      up -d --no-deps --force-recreate agent-service
     agent_health=""
     for attempt in $(seq 1 30); do
       agent_health="$(docker inspect "$agent_container" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
-      if [[ "$agent_health" == "healthy" || "$agent_health" == "running" ]]; then
+      if [[ "$agent_health" == "healthy" ]]; then
         break
       fi
       sleep 2
     done
-    if [[ "$agent_health" == "healthy" || "$agent_health" == "running" ]]; then
+    if [[ "$agent_health" == "healthy" ]]; then
       printf 'AGENT_SERVICE=PASS health=%s tag=%s\n' "$agent_health" "$agent_tag"
     else
-      printf 'AGENT_SERVICE=WARNING health=%s tag=%s (new app is active)\n' "$agent_health" "$agent_tag" >&2
+      printf 'AGENT_SERVICE=FAILED health=%s tag=%s — rolling back agent\n' "$agent_health" "$agent_tag" >&2
+      # Rollback: restart with the previous image
+      if [[ -n "$prev_agent_image" ]]; then
+        docker stop --time 15 "$agent_container" >/dev/null 2>&1 || true
+        docker rm "$agent_container" >/dev/null 2>&1 || true
+        docker run -d --name "$agent_container" --restart unless-stopped \
+          --network crowdrelay-control-plane_internal \
+          --network crowdrelay-control-plane_crowdrelay-shared \
+          "$prev_agent_image" 2>/dev/null || true
+        printf 'AGENT_SERVICE=ROLLBACK restored=%s\n' "$prev_agent_image"
+      fi
+      fail "agent-service failed health check after deploy"
     fi
   fi
 else

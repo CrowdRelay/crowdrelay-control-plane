@@ -293,9 +293,15 @@ printf 'REGISTRY_IMAGE=PASS digest=%s revision=%s architecture=%s\n' "$image_dig
 # optional — if AGENT_SERVICE_IMAGE_TAG is unset, the service is skipped and
 # the control plane runs without LLM worker dispatch.
 agent_tag="$(sed -n 's/^AGENT_SERVICE_IMAGE_TAG=//p' .env | tail -n1)"
+agent_digest="${AGENT_SERVICE_IMAGE_DIGEST:-}"
 if [[ "$agent_tag" =~ ^sha-[0-9a-f]{40}$ ]]; then
-  agent_registry_ref="ghcr.io/crowdrelay/crowdrelay-agents@${agent_tag}"
-  if ! docker image inspect "ghcr.io/crowdrelay/crowdrelay-agents:${agent_tag}" >/dev/null 2>&1; then
+  # Pull by digest if available (exact artifact), otherwise by tag.
+  if [[ -n "$agent_digest" ]]; then
+    agent_registry_ref="ghcr.io/crowdrelay/crowdrelay-agents@${agent_digest}"
+  else
+    agent_registry_ref="ghcr.io/crowdrelay/crowdrelay-agents:${agent_tag}"
+  fi
+  if ! docker image inspect "crowdrelay-agents:${agent_tag}" >/dev/null 2>&1; then
     timeout 180s docker pull "$agent_registry_ref" >/dev/null \
       || fail "unable to pull agent service image: $agent_registry_ref"
   fi
@@ -304,7 +310,7 @@ if [[ "$agent_tag" =~ ^sha-[0-9a-f]{40}$ ]]; then
   [[ "$agent_revision" == "$agent_tag" ]] \
     || fail "agent service OCI revision mismatch: got=$agent_revision expected=$agent_tag"
   docker tag "$agent_image_id" "crowdrelay-agents:${agent_tag}"
-  printf 'AGENT_IMAGE=PASS tag=%s revision=%s\n' "$agent_tag" "$agent_revision"
+  printf 'AGENT_IMAGE=PASS tag=%s revision=%s digest=%s\n' "$agent_tag" "$agent_revision" "${agent_digest:-tag-pull}"
 else
   printf 'AGENT_IMAGE=SKIP reason=no-tag-configured\n'
 fi

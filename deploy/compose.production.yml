@@ -101,6 +101,49 @@ services:
       timeout: 3s
       retries: 12
       start_period: 10s
+    mem_limit: 512m
+    cpus: 1.0
+    read_only: false
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    volumes:
+      - agent-browser-state:/data
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      internal: {}
+      crowdrelay-shared: {}
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      AGENT_SERVICE_BIND: "0.0.0.0:8095"
+      DATABASE_URL: "postgres://crowdrelay:${CROWDRELAY_DB_PASSWORD:?CROWDRELAY_DB_PASSWORD required}@crowdrelay-db:5432/crowdrelay"
+      AGENT_SERVICE_AUTH_KEY: "${AGENT_SERVICE_AUTH_KEY:?AGENT_SERVICE_AUTH_KEY required}"
+      AGENT_SERVICE_ENCRYPTION_KEY: "${AGENT_SERVICE_ENCRYPTION_KEY:?AGENT_SERVICE_ENCRYPTION_KEY required}"
+      REDDIT_BROWSER_PROFILE_DIR: "/data/reddit-browser-profile"
+      OPENCODE_ZEN_TOKEN: "${OPENCODE_ZEN_TOKEN:-}"
+      GOOGLE_API_KEY: "${GOOGLE_API_KEY:-}"
+      GROQ_API_KEY: "${GROQ_API_KEY:-}"
+      GOOGLE_OAUTH_CLIENT_ID: "${GOOGLE_OAUTH_CLIENT_ID:-}"
+      GOOGLE_OAUTH_CLIENT_SECRET: "${GOOGLE_OAUTH_CLIENT_SECRET:-}"
+      OPENAI_OAUTH_CLIENT_ID: "${OPENAI_OAUTH_CLIENT_ID:-}"
+      OPENAI_OAUTH_CLIENT_SECRET: "${OPENAI_OAUTH_CLIENT_SECRET:-}"
+      ANTHROPIC_OAUTH_CLIENT_ID: "${ANTHROPIC_OAUTH_CLIENT_ID:-}"
+      ANTHROPIC_OAUTH_CLIENT_SECRET: "${ANTHROPIC_OAUTH_CLIENT_SECRET:-}"
+      OPENROUTER_OAUTH_CLIENT_ID: "${OPENROUTER_OAUTH_CLIENT_ID:-}"
+      OPENROUTER_OAUTH_CLIENT_SECRET: "${OPENROUTER_OAUTH_CLIENT_SECRET:-}"
+      GITHUB_OAUTH_CLIENT_ID: "${GITHUB_OAUTH_CLIENT_ID:-}"
+      GITHUB_OAUTH_CLIENT_SECRET: "${GITHUB_OAUTH_CLIENT_SECRET:-}"
+      RUST_LOG: "${RUST_LOG:-info}"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8095/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
     # Playwright/Chromium needs more memory than a pure API service.
     # The browser is used for Reddit scraping (6h cycle) and posting (on demand).
     mem_limit: 512m
