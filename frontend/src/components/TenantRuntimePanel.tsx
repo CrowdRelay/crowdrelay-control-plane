@@ -40,6 +40,9 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
     <Show when={snapshot().runtimeHealth === 'unknown'}>
       <p class="runtime-unknown-note">This tenant has never reported a runtime heartbeat, so there is nothing to score here yet. Service health measured inside CrowdRelay is on the Operations page.</p>
     </Show>
+    <Show when={snapshot().runtimeHealth === 'stale'}>
+      <p class="runtime-unknown-note">The runtime reporter has stopped sending fresh telemetry. Optional products and app-store distribution do not affect this status.</p>
+    </Show>
     <dl>
       <dt>API</dt><dd>{String(snapshot().runtime?.apiHealthy ?? 'unknown')}</dd>
       <dt>Worker</dt><dd>{String(snapshot().runtime?.workerHealthy ?? 'unknown')}</dd>

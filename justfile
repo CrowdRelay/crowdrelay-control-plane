@@ -23,6 +23,7 @@ rust-test:
 
 script-test:
     python3 scripts/test_provisioner.py
+    python3 scripts/test_runtime_observer.py
     for script in scripts/*.sh; do bash -n "$script"; done
 
 # Everything CI runs for a merge decision.

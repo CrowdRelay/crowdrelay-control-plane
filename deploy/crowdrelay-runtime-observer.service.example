@@ -1,0 +1,20 @@
+[Unit]
+Description=CrowdRelay runtime telemetry observer
+After=network-online.target docker.service
+Wants=network-online.target docker.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=docker
+EnvironmentFile=/etc/crowdrelay-control-plane/runtime-observer.env
+ExecStart=/usr/bin/python3 /srv/crowdrelay-control-plane/deploy/runtime_observer.py
+Restart=always
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target
