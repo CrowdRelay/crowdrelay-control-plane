@@ -64,7 +64,7 @@ const FlowDiagram: Component = () => {
 
     {/* Learning loop — symmetric arc ABOVE, from outcomes → brain */}
     <path
-      d="M 930 190 C 930 50, 390 50, 390 190"
+      d="M 930 170 C 930 40, 390 40, 390 170"
       fill="none"
       stroke="#3ddc84"
       stroke-width="2"

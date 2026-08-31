@@ -496,9 +496,9 @@ body {
 
 .hero-lead {
   max-width: 820px;
-  margin: 10px 0 0;
+  margin: 6px 0 0;
   color: #aeb3c0;
-  line-height: 1.5;
+  line-height: 1.45;
   font-size: 0.77rem;
 }
 
@@ -506,9 +506,9 @@ body {
 .hero-brain-callout {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
-  margin: 12px 0 0;
-  padding: 14px 18px;
+  gap: 12px;
+  margin: 8px 0 0;
+  padding: 10px 14px;
   border-radius: 14px;
   background: linear-gradient(135deg, rgba(155,135,245,0.08) 0%, rgba(85,214,233,0.05) 100%);
   border: 1px solid rgba(155,135,245,0.18);
@@ -534,11 +534,11 @@ body {
 
 .hero-brain-icon {
   flex-shrink: 0;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
-  border-radius: 14px;
+  border-radius: 12px;
   background: rgba(155,135,245,0.12);
   border: 1px solid rgba(155,135,245,0.2);
   color: #c4b5fd;
@@ -565,29 +565,29 @@ body {
 .hero-brain-copy p {
   margin: 0;
   color: #b8c0d0;
-  font-size: 0.85rem;
-  line-height: 1.55;
+  font-size: 0.78rem;
+  line-height: 1.4;
   max-width: 680px;
 }
 
 .hero-features {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
   list-style: none;
-  margin: 14px 0 0;
+  margin: 8px 0 0;
   padding: 0;
   flex-shrink: 0;
 }
 
 .hero-features li {
   min-width: 0;
-  padding: 12px 16px;
+  padding: 10px 14px;
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr);
   grid-template-rows: auto auto;
   column-gap: 12px;
-  row-gap: 6px;
+  row-gap: 4px;
   align-content: start;
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 12px;
@@ -629,18 +629,18 @@ body {
   display: block;
   margin-top: 0;
   color: var(--login-muted);
-  line-height: 1.42;
-  font-size: 0.84rem;
+  line-height: 1.35;
+  font-size: 0.78rem;
 }
 
 /* === Contact card === */
 
 .hero-contact {
-  padding: 14px 16px 10px;
+  padding: 10px 14px 8px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   grid-template-rows: auto auto auto;
-  gap: 10px;
+  gap: 8px;
   align-items: start;
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 14px;
