@@ -170,6 +170,8 @@ mod tests {
             "dead_deliveries": [],
             "ecosystem": {"schema_version": 1, "flags": []},
             "findings": [{"id": "f"}],
+            "needs_you": [],
+            "awaiting_approval": 0,
         })
     }
 
