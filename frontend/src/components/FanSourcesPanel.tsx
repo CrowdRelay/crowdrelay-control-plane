@@ -238,7 +238,7 @@ export function FanSourcesPanel(props: {
     </div>
 
     <Show when={creating}>
-      <div class="form-grid">
+      <div class="form-grid" style={{ 'margin-top': '20px' }}>
         <label>Name<input value={name()} onInput={e => setName(e.currentTarget.value)} placeholder="e.g. Meta Lead Ads — Warsaw" /></label>
         <label>Source kind
           <select value={sourceKind()} onChange={e => setSourceKind(e.currentTarget.value)}>
