@@ -54,6 +54,7 @@ export function AttentionInbox(props: {
         title: `${props.criticalAlerts} critical watchdog alert(s)`,
         detail: 'Watchdog has raised critical alerts requiring immediate attention.',
         consequence: 'System health may be compromised.',
+        action: { label: 'Inspect', to: opsPath(), hash: '#watchdog' },
       })
     }
     if (props.staleReservations > 0) {
@@ -97,6 +98,7 @@ export function AttentionInbox(props: {
         tier: 'informational',
         title: `${props.activeAlerts} active watchdog alert(s)`,
         detail: 'Non-critical alerts that may indicate emerging issues.',
+        action: { label: 'Inspect', to: opsPath(), hash: '#watchdog' },
       })
     }
 
