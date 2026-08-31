@@ -152,21 +152,22 @@ export function AttentionInbox(props: {
 }
 
 function AttentionItemRow(props: { item: AttentionItem }) {
-  return <div class="attention-item">
+  const tierClass = () => `attention-action-${props.item.tier}`
+  return <div class={`attention-item attention-item-${props.item.tier}`}>
     <div class="attention-item-body">
       <strong>{props.item.title}</strong>
       <small>{props.item.detail}</small>
       <Show when={props.item.consequence}>
-        <small>{props.item.consequence}</small>
+        <small class="attention-item-consequence">{props.item.consequence}</small>
       </Show>
     </div>
     <Show when={props.item.action}>
       <div class="attention-item-actions">
         <Show when={props.item.action!.href} fallback={
-          <button class="ghost">{props.item.action!.label}</button>
+          <button class={tierClass()}>{props.item.action!.label}</button>
         }>
           {(href) => (
-            <a class="ghost" href={href()}>{props.item.action!.label}</a>
+            <a class={tierClass()} href={href()}>{props.item.action!.label}</a>
           )}
         </Show>
       </div>
