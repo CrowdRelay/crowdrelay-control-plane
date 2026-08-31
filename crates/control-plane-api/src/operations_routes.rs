@@ -303,9 +303,9 @@ fn idempotency_key(headers: &HeaderMap) -> Result<&str, ApiError> {
 fn safe_segment(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 96
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-')
+        && value.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-'
+        })
 }
 
 fn uuid_segment(value: &str) -> Result<&str, ApiError> {
