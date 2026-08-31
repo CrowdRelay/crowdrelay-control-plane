@@ -208,6 +208,7 @@ export function TenantAttentionPage() {
     {/* ─── Attention Inbox — tiered action center ──────────────────── */}
     <Show when={summary.data}>
       <AttentionInbox
+        slug={params().slug}
         needsYou={attention.data?.needs_you ?? []}
         deadJobs={summary.data ? totalDead(summary.data) : 0}
         criticalAlerts={summary.data?.watchdog.critical_alerts ?? 0}

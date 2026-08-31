@@ -1,4 +1,5 @@
 import { For, Show } from 'solid-js'
+import { Link } from '@tanstack/solid-router'
 import type { PendingActionSummary } from '../lib/types'
 import { EmptyState } from './EmptyState'
 
@@ -18,10 +19,11 @@ export type AttentionItem = {
   title: string
   detail: string
   consequence?: string
-  action?: { label: string; href?: string }
+  action?: { label: string; to?: string; hash?: string }
 }
 
 export function AttentionInbox(props: {
+  slug: string
   needsYou: PendingActionSummary[]
   deadJobs: number
   criticalAlerts: number
@@ -29,6 +31,8 @@ export function AttentionInbox(props: {
   activeAlerts: number
   awaitingApproval: number
 }) {
+  const opsPath = () => `/tenants/${props.slug}/operations`
+
   const items = (): AttentionItem[] => {
     const list: AttentionItem[] = []
 
@@ -40,7 +44,7 @@ export function AttentionInbox(props: {
         title: `${props.deadJobs} dead queue item(s)`,
         detail: 'Dead outbox, webhook, or push deliveries that failed after all retries.',
         consequence: 'Events are not reaching their destinations.',
-        action: { label: 'Retry', href: '#dead-outbox' },
+        action: { label: 'Retry', to: opsPath(), hash: '#dead-outbox' },
       })
     }
     if (props.criticalAlerts > 0) {
@@ -59,7 +63,7 @@ export function AttentionInbox(props: {
         title: `${props.staleReservations} stale AREA reservation(s)`,
         detail: 'Voucher or ticket reward reservations that have been held too long.',
         consequence: 'Reservations may need to be released.',
-        action: { label: 'Inspect', href: '#reconciliation-findings' },
+        action: { label: 'Inspect', to: opsPath(), hash: '#reconciliation-findings' },
       })
     }
 
@@ -73,7 +77,7 @@ export function AttentionInbox(props: {
         consequence: action.approval_expires_at
           ? `Approval expires ${new Date(action.approval_expires_at).toLocaleDateString()}`
           : undefined,
-        action: { label: 'Review', href: '/operations' },
+        action: { label: 'Review', to: opsPath() },
       })
     }
     if (props.awaitingApproval > 0) {
@@ -82,7 +86,7 @@ export function AttentionInbox(props: {
         tier: 'review',
         title: `${props.awaitingApproval} opportunity(ies) awaiting decision`,
         detail: 'The brain has found opportunities that need your decision.',
-        action: { label: 'Review', href: '/operations' },
+        action: { label: 'Review', to: opsPath() },
       })
     }
 
@@ -163,12 +167,10 @@ function AttentionItemRow(props: { item: AttentionItem }) {
     </div>
     <Show when={props.item.action}>
       <div class="attention-item-actions">
-        <Show when={props.item.action!.href} fallback={
+        <Show when={props.item.action!.to} fallback={
           <button class={tierClass()}>{props.item.action!.label}</button>
         }>
-          {(href) => (
-            <a class={tierClass()} href={href()}>{props.item.action!.label}</a>
-          )}
+          <Link class={tierClass()} to={props.item.action!.to!}>{props.item.action!.label}</Link>
         </Show>
       </div>
     </Show>

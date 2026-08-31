@@ -106,15 +106,16 @@ export function OverviewPage() {
         </div>
       </div>
     </Show>
-    <div class="tenant-pulse-grid">
+    <div class="tenant-pulse-list">
       <For each={items()}>{tenant => (
-        <Link to="/tenants/$slug" params={{ slug: tenant.slug }} class="tenant-pulse-card">
-          <div class="tenant-pulse-head">
+        <Link to="/tenants/$slug" params={{ slug: tenant.slug }} class="tenant-pulse-row">
+          <div class="tenant-pulse-row-left">
             <span class={`tenant-pulse-dot ${healthTone(tenant.runtimeHealth)}`} />
             <strong>{tenant.displayName}</strong>
-          </div>
-          <div class="tenant-pulse-meta">
             <span class="muted">{tenant.slug}</span>
+          </div>
+          <div class="tenant-pulse-row-right">
+            <StatusBadge status={tenant.runtimeHealth} tone={healthTone(tenant.runtimeHealth)} />
             <StatusBadge status={tenant.status} tone={tenant.status === 'active' ? 'good' : tenant.status === 'suspended' ? 'bad' : 'warn'} />
           </div>
         </Link>
