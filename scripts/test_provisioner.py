@@ -89,6 +89,17 @@ class ProvisionerContractTests(unittest.TestCase):
         self.assertEqual(plan["tenantId"], tenant_id)
         self.assertNotIn("tenantId", job["plan"])
 
+    def test_safe_plan_accepts_optional_signal_product(self):
+        """Signal is an optional add-on. A plan without publicSiteBaseUrl
+        and with empty allowedOrigins is valid — CrowdRelay deploys
+        without a public site."""
+        job = valid_job()
+        job["plan"]["publicSiteBaseUrl"] = None
+        job["plan"]["allowedOrigins"] = []
+        plan = provisioner.safe_plan(job)
+        self.assertIsNone(plan["publicSiteBaseUrl"])
+        self.assertEqual(plan["allowedOrigins"], [])
+
     def test_area_secret_is_opt_in_for_existing_provisioner_rollout(self):
         plan = provisioner.safe_plan(valid_job())
         config = DummyConfig(Path("/tmp"))

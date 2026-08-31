@@ -245,9 +245,13 @@ def safe_plan(job: dict[str, Any]) -> dict[str, Any]:
             raise ProvisionError("invalid_plan", "invalid CrowdRelay image reference")
     if not safe_https_origin(crowdrelay_base):
         raise ProvisionError("invalid_plan", "CrowdRelay base URL must be a bare HTTPS origin")
-    if not safe_https_origin(public_site):
+    # Signal (public site) is an optional add-on product. If present,
+    # validate it; if absent, CrowdRelay deploys without a public site.
+    if public_site is not None and not safe_https_origin(public_site):
         raise ProvisionError("invalid_plan", "public site URL must be a bare HTTPS origin")
-    if not isinstance(origins, list) or not origins or any(not safe_https_origin(origin) for origin in origins):
+    if not isinstance(origins, list):
+        raise ProvisionError("invalid_plan", "allowed origins must be a list")
+    if origins and any(not safe_https_origin(origin) for origin in origins):
         raise ProvisionError("invalid_plan", "allowed origins are invalid")
     if palette is not None:
         if not isinstance(palette, dict) or set(palette) != PALETTE_KEYS:
@@ -410,7 +414,7 @@ def create_secret_env(config: Config, plan: dict[str, Any]) -> str:
 
 
 def create_runtime_env(plan: dict[str, Any]) -> str:
-    origins = ",".join(plan["allowedOrigins"])
+    origins = ",".join(plan.get("allowedOrigins") or [])
     values = {
         "CROWDRELAY_ENV": "production",
         "CROWDRELAY_BIND_ADDR": "0.0.0.0:8080",
@@ -422,7 +426,7 @@ def create_runtime_env(plan: dict[str, Any]) -> str:
         "CROWDRELAY_ALLOWED_ORIGINS": origins,
         "CROWDRELAY_WORKSPACE_SLUG": plan["workspaceSlug"],
         "CROWDRELAY_TENANT_DISPLAY_NAME": plan["displayName"],
-        "CROWDRELAY_PUBLIC_SITE_BASE_URL": plan["publicSiteBaseUrl"],
+        "CROWDRELAY_PUBLIC_SITE_BASE_URL": plan.get("publicSiteBaseUrl") or "",
         "CROWDRELAY_DEFAULT_COUNTRY_CODE": plan["defaultCountryCode"],
         "CROWDRELAY_REDIRECT_REFRESH_INTERVAL_MS": "15000",
         "CROWDRELAY_CLICK_CHANNEL_CAPACITY": "2048",

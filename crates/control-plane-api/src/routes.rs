@@ -192,12 +192,13 @@ async fn create_tenant(
                 "tenant provisioner is not configured".to_owned(),
             ));
         }
-        if input.crowdrelay_base_url.is_none() || input.signal_base_url.is_none() {
+        if input.crowdrelay_base_url.is_none() {
             return Err(ApiError::InvalidInput(
-                "crowdrelayBaseUrl and signalBaseUrl are required when deployCrowdrelay=true"
-                    .to_owned(),
+                "crowdrelayBaseUrl is required when deployCrowdrelay=true".to_owned(),
             ));
         }
+        // Signal base URL is optional — Signal is an add-on product.
+        // If absent, the provisioner deploys CrowdRelay without a public site.
         if input.workspace_id.is_some() {
             return Err(ApiError::InvalidInput(
                 "workspaceId must be omitted when the provisioner creates a new CrowdRelay instance".to_owned(),

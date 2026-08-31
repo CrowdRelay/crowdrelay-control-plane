@@ -2027,9 +2027,10 @@ fn deployment_plan(
     let crowdrelay_base_url = tenant.crowdrelay_base_url.as_deref().ok_or_else(|| {
         ApiError::InvalidInput("crowdrelayBaseUrl is required before deployment".to_owned())
     })?;
-    let signal_base_url = tenant.signal_base_url.as_deref().ok_or_else(|| {
-        ApiError::InvalidInput("signalBaseUrl is required before deployment".to_owned())
-    })?;
+    // Signal is an optional add-on product. If the tenant has no
+    // signal_base_url, the provisioner deploys CrowdRelay without a
+    // public site and with no CORS origins beyond the API itself.
+    let signal_base_url = tenant.signal_base_url.as_deref();
     let regional_profile: RegionalProfile =
         serde_json::from_value(tenant.regional_profile.clone().ok_or_else(|| {
             ApiError::InvalidInput(
@@ -2048,7 +2049,7 @@ fn deployment_plan(
         "workspaceId": tenant.workspace_id,
         "crowdRelayBaseUrl": crowdrelay_base_url,
         "publicSiteBaseUrl": signal_base_url,
-        "allowedOrigins": [signal_base_url],
+        "allowedOrigins": signal_base_url.map(|u| vec![u]).unwrap_or_default(),
         "defaultCountryCode": tenant.default_country_code.as_str(),
         "regionalProfile": regional_profile,
         "brandingPalette": tenant.branding_palette.as_ref(),
