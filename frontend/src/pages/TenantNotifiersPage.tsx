@@ -68,7 +68,10 @@ export function TenantNotifiersPage() {
         <label>Label<input value={label()} onInput={(e) => setLabel(e.currentTarget.value)} placeholder="Ops Discord" /></label>
         <label style={{ 'grid-column': '1 / -1' }}>{targetLabel()}<input value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPh()} /></label>
       </div>
-      <div class="check-row-group" role="group" aria-label="Subscribed events"><For each={[...NOTIFIER_EVENTS]}>{ev => <label class="check-row"><input type="checkbox" checked={events().includes(ev)} onChange={() => toggleEvent(ev)} /><span><strong>{evLabel(ev)}</strong><small>{events().length ? '' : 'no selection = all events'}</small></span></label>}</For></div>
+      <div class="check-row-group" role="group" aria-label="Subscribed events">
+        <For each={[...NOTIFIER_EVENTS]}>{ev => <label class="check-row"><input type="checkbox" checked={events().includes(ev)} onChange={() => toggleEvent(ev)} /><span><strong>{evLabel(ev)}</strong></span></label>}</For>
+        <Show when={!events().length}><small class="check-row-hint">No selection = all events</small></Show>
+      </div>
       <Show when={create.error}><div class="error-card" role="alert">{errorMessage(create.error, 'Channel creation failed')}</div></Show>
       <div class="form-actions right"><button type="submit" disabled={create.isPending || !formReady()}>{create.isPending ? 'Adding…' : 'Add channel'}</button></div>
     </form>

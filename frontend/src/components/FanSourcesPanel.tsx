@@ -316,9 +316,8 @@ export function FanSourcesPanel(props: {
     </Show>
     <Show when={!blocks().length}>
       <div class="inherit-card portfolio-empty">
-        <p><strong>No fanbases yet.</strong></p>
-        <p>A fanbase is a first-class audience block with a swappable acquisition origin (Meta Lead Ads, Bandsintown followers, HTTP JSON pull, CSV import, etc.). Every ingest lands candidates as pending double opt-in — active fans are never downgraded and opt-outs are never resurrected.</p>
-        <p>Click "New fanbase" above to create one and start collecting candidates.</p>
+        <p><strong>No fanbases created yet.</strong> {connections()?.length ? 'Your platform connections are ready — create a fanbase to start ingesting candidates from them.' : 'Connect a platform above or create a fanbase with a manual source to start collecting candidates.'}</p>
+        <p>Each fanbase is an audience block with a swappable acquisition origin. Every ingest lands candidates as pending double opt-in.</p>
       </div>
     </Show>
   </article>
