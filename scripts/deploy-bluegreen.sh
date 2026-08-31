@@ -290,17 +290,36 @@ print('CROSS_GATE=PASS')
 " || fail "cross-system E2E gate failed: invalid response"
 fi
 
-# Soak candidate for 300 seconds with old app available as fallback
+# Soak candidate for 300 seconds with old app available as fallback.
+# Error-rate rollback: fail when 5xx exceeds 2% with at least 50 requests
+# and an absolute floor of 3 failures.
 printf '\n==> Soak candidate for 300 seconds with old app available as fallback\n'
+soak_total=0
+soak_errors=0
 for soak_attempt in $(seq 1 60); do
   code="$(docker run --rm --network virya-edge curlimages/curl:8.12.0 \
     --silent --output /dev/null --write-out '%{http_code}' \
     --connect-timeout 3 --max-time 10 \
     "http://${NEW_ALIAS}:8090/healthz/ready" || true)"
-  [[ "$code" == "200" ]] || fail "candidate soak failed attempt=$soak_attempt path=healthz/ready status=${code:-transport}"
+  soak_total=$((soak_total + 1))
+  if [[ "$code" =~ ^5 ]] || [[ -z "$code" ]] || [[ "$code" == "000" ]]; then
+    soak_errors=$((soak_errors + 1))
+    printf 'SOAK_ERROR attempt=%s status=%s total=%s errors=%s\n' \
+      "$soak_attempt" "${code:-transport}" "$soak_total" "$soak_errors" >&2
+  fi
+  # Immediate rollback on deterministic critical probe failure
+  [[ "$code" == "200" ]] || fail "candidate soak critical probe failed attempt=$soak_attempt status=${code:-transport}"
+  # Error-rate threshold check
+  if [[ "$soak_total" -ge 50 ]] && [[ "$soak_errors" -ge 3 ]]; then
+    error_rate="$(python3 -c "print(f'{$soak_errors/$soak_total*100:.1f}')")"
+    fail "soak error-rate breach: ${soak_errors}/${soak_total} (${error_rate}%) — rolling back"
+  fi
+  if [[ "$soak_errors" -ge 3 ]]; then
+    fail "soak absolute error floor reached: ${soak_errors} failures — rolling back"
+  fi
   sleep 5
 done
-printf 'SOAK=PASS seconds=300 probes=60 fallback=%s\n' "$CURRENT_APP"
+printf 'SOAK=PASS seconds=300 probes=%s errors=%s fallback=%s\n' "$soak_total" "$soak_errors" "$CURRENT_APP"
 
 python3 "$RECEIPT_HELPER" phase --state-dir "$RELEASE_STATE_DIR" \
   --release-id "$RELEASE_ID" --phase soak --status pass >/dev/null
