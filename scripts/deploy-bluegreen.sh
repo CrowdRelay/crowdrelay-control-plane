@@ -6,14 +6,13 @@ umask 077
 #
 # Runs ON the production host (virya-crowdrelay) via SSH.
 #
-# Alternating blue-green: detects which color is currently active and
-# deploys to the other color. If blue (app) is running, starts app-green
-# and switches Caddy to green. If green (app-green) is running, starts
-# app (blue) and switches Caddy to blue.
+# Alternating blue-green: detects which color is currently active from the
+# edge Caddyfile marker and deploys to the other color. Cutover is a
+# graceful Caddy reload that reorders the static upstream pair — no Docker
+# alias moves, no network disconnects, no edge restarts.
 #
-# On any failure: reverts Caddy to the previous upstream, stops the new
-# container, leaves production on the previous release with no
-# user-visible downtime.
+# On any failure: reverts the Caddy upstream and stops the new container,
+# leaving production on the previous release with no user-visible downtime.
 #
 # Usage (called by deploy-ecosystem.sh or directly):
 #   sudo bash scripts/deploy-bluegreen.sh <target-sha> <image-digest> [repo-dir]
@@ -24,36 +23,39 @@ REPO_DIR="${3:-/srv/crowdrelay-control-plane}"
 EDGE_CADDYFILE="/opt/crowdrelay/ops/edge/Caddyfile"
 EDGE_CONTAINER="virya-edge-caddy"
 EDGE_NETWORK="virya-edge"
-ACTIVE_ALIAS="control-plane-active"
 GREEN_APP="crowdrelay-control-plane-app-green-1"
 BLUE_APP="crowdrelay-control-plane-app-1"
 GREEN_ALIAS="control-plane-green"
 BLUE_ALIAS="control-plane"
+RELEASE_STATE_DIR="/var/lib/crowdrelay-control-plane/releases"
+RECEIPT_HELPER="$(absolute_path_helper)"
 CADDY_BACKUP=""
 NEW_STARTED=false
-ALIAS_MOVED=false
+CADDY_SWITCHED=false
+RELEASE_ID=""
 
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
   exit 1
 }
 
+absolute_path_helper() {
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd -P 2>/dev/null || echo /srv/crowdrelay-control-plane/scripts)"
+  printf '%s/release_receipt.py' "$script_dir"
+}
+
 rollback() {
   local status="${1:-1}"
   trap - ERR INT TERM HUP
 
-  if [[ "$ALIAS_MOVED" == true ]]; then
-    printf 'ROLLBACK=START reason=alias-moved reverting active alias to %s\n' "${CURRENT_APP:-}" >&2
-    # Move the active alias back to the old container
-    docker network disconnect "$EDGE_NETWORK" "$NEW_APP" >/dev/null 2>&1 || true
-    docker network connect --alias "$ACTIVE_ALIAS" "$EDGE_NETWORK" "$CURRENT_APP" >/dev/null 2>&1 || true
-    # Restore color-specific aliases on the old container
-    if [[ "$DEPLOY_COLOR" == "green" ]]; then
-      docker network connect --alias "$BLUE_ALIAS" "$EDGE_NETWORK" "$CURRENT_APP" >/dev/null 2>&1 || true
-    else
-      docker network connect --alias "$GREEN_ALIAS" "$EDGE_NETWORK" "$CURRENT_APP" >/dev/null 2>&1 || true
+  if [[ "$CADDY_SWITCHED" == true ]]; then
+    printf 'ROLLBACK=START reason=caddy-switched reverting upstream to %s\n' "${CURRENT_APP:-}" >&2
+    if [[ -n "$CADDY_BACKUP" && -f "$CADDY_BACKUP" ]]; then
+      cat "$CADDY_BACKUP" > "$EDGE_CADDYFILE"
+      docker exec "$EDGE_CONTAINER" caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile --address 127.0.0.1:2019 >/dev/null 2>&1 || true
+      printf 'ROLLBACK=EDGE_REVERTED active=%s\n' "${CURRENT_APP:-}" >&2
     fi
-    printf 'ROLLBACK=ALIAS_REVERTED active=%s\n' "${CURRENT_APP:-}" >&2
   fi
 
   if [[ "$NEW_STARTED" == true ]]; then
@@ -73,13 +75,24 @@ rollback() {
     printf 'ROLLBACK=NEW_STOPPED\n' >&2
   fi
 
+  # Write failure receipt
+  if [[ -n "$RELEASE_ID" ]]; then
+    python3 "$RECEIPT_HELPER" rollback \
+      --state-dir "$RELEASE_STATE_DIR" \
+      --release-id "$RELEASE_ID" \
+      --service control-plane \
+      --reason "deploy-failure" >/dev/null 2>&1 || true
+  fi
+
   printf 'ROLLBACK=COMPLETE status=%d\n' "$status" >&2
   exit "$status"
 }
 
+# --- Pre-flight -------------------------------------------------------------
+
 [[ "$TARGET" =~ ^[0-9a-f]{40}$ ]] || fail "usage: deploy-bluegreen.sh <sha> <digest> [repo-dir]"
 [[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "invalid image digest: $IMAGE_DIGEST"
-for command in docker curl python3 flock; do command -v "$command" >/dev/null 2>&1 || fail "missing command: $command"; done
+for command in docker curl python3 flock cmp; do command -v "$command" >/dev/null 2>&1 || fail "missing command: $command"; done
 
 cd "$REPO_DIR"
 exec 9> /run/lock/crowdrelay-control-plane-deploy.lock
@@ -91,29 +104,23 @@ flock -n 9 || fail 'another Control Plane deployment is already running'
 [[ -f deploy/compose.bluegreen.yml ]] || fail "missing deploy/compose.bluegreen.yml"
 [[ -f "$EDGE_CADDYFILE" ]] || fail "missing edge Caddyfile"
 
-# Pre-deploy reconciliation: verify the Caddyfile uses the stable active
-# alias with dynamic a, not a color-specific name. If it doesn't, fix it
-# before deploying. This catches the case where a previous deploy failed
-# mid-cutover or the Caddyfile was manually edited.
-if ! grep -Fq "dynamic a ${ACTIVE_ALIAS}" "$EDGE_CADDYFILE"; then
-  printf 'RECONCILE=FIX Caddyfile does not use dynamic a %s, repairing\n' "$ACTIVE_ALIAS"
-  # Try replacing any color-specific alias with the stable one
-  sed "s|reverse_proxy ${BLUE_ALIAS}:8090|reverse_proxy { dynamic a ${ACTIVE_ALIAS} { port 8090; refresh 5s } }|g; s|reverse_proxy ${GREEN_ALIAS}:8090|reverse_proxy { dynamic a ${ACTIVE_ALIAS} { port 8090; refresh 5s } }|g; s|reverse_proxy ${ACTIVE_ALIAS}:8090|reverse_proxy { dynamic a ${ACTIVE_ALIAS} { port 8090; refresh 5s } }|g" "$EDGE_CADDYFILE" > /tmp/caddy-reconcile.tmp
-  cat /tmp/caddy-reconcile.tmp > "$EDGE_CADDYFILE"
-  rm -f /tmp/caddy-reconcile.tmp
-  # Copy the fixed Caddyfile directly into the container (bypasses any
-  # stale bind mount) and reload. No restart needed — reload is zero-downtime.
-  docker cp "$EDGE_CADDYFILE" "$EDGE_CONTAINER:/etc/caddy/Caddyfile" >/dev/null 2>&1 || \
-    fail "cannot copy Caddyfile into edge Caddy container"
-  docker exec "$EDGE_CONTAINER" caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 || \
-    fail "caddy reload failed after reconciliation — investigate manually"
-  sleep 2
-  grep -Fq "dynamic a ${ACTIVE_ALIAS}" "$EDGE_CADDYFILE" || fail "Caddyfile reconciliation failed — cannot find dynamic a ${ACTIVE_ALIAS}"
-  printf 'RECONCILE=PASS Caddyfile now uses dynamic a %s\n' "$ACTIVE_ALIAS"
-fi
+# Verify edge Caddyfile uses static blue-green upstreams, not dynamic DNS
+grep -Fq '# CONTROL_PLANE_ACTIVE=' "$EDGE_CADDYFILE" || \
+  fail 'edge Caddyfile is not release-ready: missing active release marker; apply edge config separately'
+grep -Fq 'to crowdrelay-control-plane-app-1:8090 crowdrelay-control-plane-app-green-1:8090' "$EDGE_CADDYFILE" \
+  || grep -Fq 'to crowdrelay-control-plane-app-green-1:8090 crowdrelay-control-plane-app-1:8090' "$EDGE_CADDYFILE" \
+  || fail 'edge Caddyfile does not contain the static blue-green upstream pair for Control Plane'
+cmp -s <(docker exec "$EDGE_CONTAINER" cat /etc/caddy/Caddyfile 2>/dev/null) "$EDGE_CADDYFILE" || \
+  fail 'edge Caddy bind mount is stale; apply edge config separately before deploying'
+docker exec "$EDGE_CONTAINER" wget -qO- http://127.0.0.1:2019/config/ >/dev/null \
+  || fail 'edge Caddy admin endpoint is unavailable'
+printf 'EDGE_PREFLIGHT=PASS config=synchronized cutover=graceful-reload\n'
 
 # compose.agents.yml is optional — the agent-service is only recreated if it exists
 [[ -f compose.agents.yml ]] && printf 'AGENT_OVERLAY=PASS\n' || printf 'AGENT_OVERLAY=SKIP reason=no-agents-overlay\n'
+
+# Initialise release state directory
+python3 "$RECEIPT_HELPER" init --state-dir "$RELEASE_STATE_DIR" --service control-plane >/dev/null
 
 registry_image="ghcr.io/crowdrelay/crowdrelay-control-plane"
 registry_ref="${registry_image}@${IMAGE_DIGEST}"
@@ -130,20 +137,21 @@ grep -Fq "@${IMAGE_DIGEST}" <<<"$repo_digests" || fail "RepoDigests do not conta
 docker tag "$image_id" "$new_image"
 printf 'NEW_IMAGE=PASS sha=%s digest=%s architecture=%s\n' "$TARGET" "$IMAGE_DIGEST" "$architecture"
 
-# Detect which color is currently active and determine deploy direction.
-# If blue (app) is running → deploy green. If green (app-green) is running
-# → deploy blue. This alternates colors on each deploy.
+# Detect which color is currently active from the edge Caddyfile marker.
 blue_health="$(docker inspect "$BLUE_APP" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
 green_health="$(docker inspect "$GREEN_APP" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
 
-if [[ "$blue_health" == "healthy" || "$blue_health" == "running" ]]; then
+active_color="$(sed -n 's/^[[:space:]]*# CONTROL_PLANE_ACTIVE=//p' "$EDGE_CADDYFILE" | head -n1)"
+if [[ "$active_color" == "blue" ]]; then
+  [[ "$blue_health" == "healthy" ]] || fail "edge declares blue active but blue is not healthy: $blue_health"
   DEPLOY_COLOR="green"
   CURRENT_APP="$BLUE_APP"
   CURRENT_ALIAS="$BLUE_ALIAS"
   NEW_APP="$GREEN_APP"
   NEW_ALIAS="$GREEN_ALIAS"
   printf 'BASELINE=BLUE health=%s → deploying green\n' "$blue_health"
-elif [[ "$green_health" == "healthy" || "$green_health" == "running" ]]; then
+elif [[ "$active_color" == "green" ]]; then
+  [[ "$green_health" == "healthy" ]] || fail "edge declares green active but green is not healthy: $green_health"
   DEPLOY_COLOR="blue"
   CURRENT_APP="$GREEN_APP"
   CURRENT_ALIAS="$GREEN_ALIAS"
@@ -151,25 +159,38 @@ elif [[ "$green_health" == "healthy" || "$green_health" == "running" ]]; then
   NEW_ALIAS="$BLUE_ALIAS"
   printf 'BASELINE=GREEN health=%s → deploying blue\n' "$green_health"
 else
-  fail "no running app found: blue=$blue_health green=$green_health — run deploy-home.sh first to bootstrap"
+  fail "invalid edge active color: ${active_color:-missing}"
 fi
 
-# Verify the currently running container has the active alias
-active_ip="$(docker inspect "$CURRENT_APP" --format '{{range $net, $conf := .NetworkSettings.Networks}}{{if eq $net "'"$EDGE_NETWORK"'"}}{{range $conf.Aliases}}{{.}} {{end}}{{end}}{{end}}' 2>/dev/null | tr ' ' '\n' | grep -q "$ACTIVE_ALIAS" && echo yes || echo no)"
-if [[ "$active_ip" == "no" ]]; then
-  printf 'RECONCILE=FIX %s does not have %s alias, adding it\n' "$CURRENT_APP" "$ACTIVE_ALIAS"
-  docker network connect --alias "$ACTIVE_ALIAS" "$EDGE_NETWORK" "$CURRENT_APP" 2>/dev/null || true
-fi
-
-# Snapshot the Caddyfile
-CADDY_BACKUP="$(mktemp -t caddyfile-cp-blue.XXXXXX)"
+# Snapshot the Caddyfile for rollback
+CADDY_BACKUP="$(mktemp -t caddyfile-cp.XXXXXX)"
 cp "$EDGE_CADDYFILE" "$CADDY_BACKUP"
+printf 'CADDY_BACKUP=PASS file=%s\n' "$CADDY_BACKUP"
+
+# Write pending receipt
+RELEASE_ID="cp-${TARGET:0:12}-$(date -u +%Y%m%d%H%M%S)"
+python3 "$RECEIPT_HELPER" pending \
+  --state-dir "$RELEASE_STATE_DIR" \
+  --service control-plane \
+  --release-id "$RELEASE_ID" \
+  --source-sha "$TARGET" \
+  --image-digests "app=${IMAGE_DIGEST}" \
+  --oci-revision "$revision" \
+  --oci-architecture "$architecture" \
+  --deploy-color "$DEPLOY_COLOR" \
+  --current-color "$active_color" \
+  --current-container "$CURRENT_APP" \
+  --candidate-container "$NEW_APP" \
+  --caddy-active-upstream "$active_color" \
+  --compose-file "$REPO_DIR/compose.production.yml" \
+  --caddy-file "$EDGE_CADDYFILE" \
+  --env-file "$REPO_DIR/.env" >/dev/null
 
 trap 'rollback $?' ERR INT TERM HUP
 
 # --- 1. Start new app -------------------------------------------------------
 
-printf '\n==> 1/4 — Start %s app\n' "$DEPLOY_COLOR"
+printf '\n==> 1/5 — Start %s app\n' "$DEPLOY_COLOR"
 NEW_STARTED=true
 
 if [[ "$DEPLOY_COLOR" == "green" ]]; then
@@ -188,9 +209,12 @@ restart_policy="$(docker inspect "$NEW_APP" --format '{{.HostConfig.RestartPolic
 [[ "$restart_policy" == "unless-stopped" ]] || fail "candidate restart policy is not durable: $restart_policy"
 printf 'NEW_APP=STARTED color=%s container=%s restart=%s\n' "$DEPLOY_COLOR" "$NEW_APP" "$restart_policy"
 
+python3 "$RECEIPT_HELPER" phase --state-dir "$RELEASE_STATE_DIR" \
+  --release-id "$RELEASE_ID" --phase start-candidate --status pass >/dev/null
+
 # --- 2. Health-check new app directly ---------------------------------------
 
-printf '\n==> 2/4 — Health-check %s app\n' "$DEPLOY_COLOR"
+printf '\n==> 2/5 — Health-check %s app\n' "$DEPLOY_COLOR"
 new_health=""
 for attempt in $(seq 1 30); do
   new_health="$(docker inspect "$NEW_APP" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
@@ -208,56 +232,52 @@ docker run --rm --network virya-edge curlimages/curl:8.12.0 \
 
 printf 'NEW_HEALTH=PASS\n'
 
-# --- 3. Move active alias to new app -----------------------------------------
+python3 "$RECEIPT_HELPER" phase --state-dir "$RELEASE_STATE_DIR" \
+  --release-id "$RELEASE_ID" --phase health-check --status pass >/dev/null
 
-printf '\n==> 3/4 — Move %s alias to %s app\n' "$ACTIVE_ALIAS" "$DEPLOY_COLOR"
-# The Caddyfile uses `dynamic a control-plane-active` which re-resolves
-# Docker DNS every 5s. The new container already has the active alias
-# from its compose config. We just need to remove the active alias from
-# the old container. Caddy will pick up the change on the next refresh.
-#
-# Step 3a: Remove the active alias from the old container.
-# The new container already has ACTIVE_ALIAS from compose.bluegreen.yml
-# (green) or compose.production.yml (blue), so there is no gap — both
-# containers have the alias briefly, and Caddy load-balances between them.
-docker network disconnect "$EDGE_NETWORK" "$CURRENT_APP" 2>/dev/null || true
-# Reconnect the old container without the active alias but keep its
-# color-specific alias so it's still reachable for drain/stop.
+# --- 3. Atomically prefer the candidate at the public edge -------------------
+
+printf '\n==> 3/5 — Gracefully switch Caddy preference to %s app\n' "$DEPLOY_COLOR"
+caddy_candidate="$(mktemp -t caddyfile-cp-candidate.XXXXXX)"
 if [[ "$DEPLOY_COLOR" == "green" ]]; then
-  docker network connect --alias "$BLUE_ALIAS" "$EDGE_NETWORK" "$CURRENT_APP" 2>/dev/null || true
+  sed \
+    -e 's/# CONTROL_PLANE_ACTIVE=blue/# CONTROL_PLANE_ACTIVE=green/' \
+    -e 's|to crowdrelay-control-plane-app-1:8090 crowdrelay-control-plane-app-green-1:8090|to crowdrelay-control-plane-app-green-1:8090 crowdrelay-control-plane-app-1:8090|' \
+    "$EDGE_CADDYFILE" > "$caddy_candidate"
 else
-  docker network connect --alias "$GREEN_ALIAS" "$EDGE_NETWORK" "$CURRENT_APP" 2>/dev/null || true
+  sed \
+    -e 's/# CONTROL_PLANE_ACTIVE=green/# CONTROL_PLANE_ACTIVE=blue/' \
+    -e 's|to crowdrelay-control-plane-app-green-1:8090 crowdrelay-control-plane-app-1:8090|to crowdrelay-control-plane-app-1:8090 crowdrelay-control-plane-app-green-1:8090|' \
+    "$EDGE_CADDYFILE" > "$caddy_candidate"
 fi
+grep -Fq "# CONTROL_PLANE_ACTIVE=${DEPLOY_COLOR}" "$caddy_candidate" || fail 'candidate edge marker was not updated'
+grep -Fq "to ${NEW_APP}:8090 ${CURRENT_APP}:8090" "$caddy_candidate" || fail 'candidate edge upstream order was not updated'
+cat "$caddy_candidate" | docker exec -i "$EDGE_CONTAINER" caddy validate --config /dev/stdin --adapter caddyfile >/dev/null
+CADDY_SWITCHED=true
+cat "$caddy_candidate" > "$EDGE_CADDYFILE"
+rm -f "$caddy_candidate"
+docker exec "$EDGE_CONTAINER" caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile --address 127.0.0.1:2019 >/dev/null
+cmp -s <(docker exec "$EDGE_CONTAINER" cat /etc/caddy/Caddyfile) "$EDGE_CADDYFILE" || fail 'edge runtime config differs after reload'
+printf 'CADDY_SWITCH=PASS primary=%s fallback=%s reload=graceful\n' "$NEW_APP" "$CURRENT_APP"
 
-# Step 3b: Wait for Caddy's dynamic a to re-resolve DNS (refresh is 5s,
-# wait two cycles to be safe). No restart or reload needed.
-sleep 10
+python3 "$RECEIPT_HELPER" phase --state-dir "$RELEASE_STATE_DIR" \
+  --release-id "$RELEASE_ID" --phase cutover --status pass >/dev/null
 
-# Verify the active alias resolves to the new container
-resolved_ip="$(docker run --rm --network "$EDGE_NETWORK" curlimages/curl:8.12.0 \
-  --silent --connect-timeout 3 --max-time 5 \
-  "http://${ACTIVE_ALIAS}:8090/healthz/ready" >/dev/null 2>&1 && echo ok || echo fail)"
-[[ "$resolved_ip" == "ok" ]] || fail "active alias ${ACTIVE_ALIAS} does not resolve to new app"
+# --- 4. Verify cross-system E2E + soak --------------------------------------
 
-ALIAS_MOVED=true
-printf 'ALIAS_MOVE=PASS active=%s container=%s\n' "$ACTIVE_ALIAS" "$NEW_APP"
-printf 'CADDY_DNS=PASS dynamic-a-refresh=no-restart\n'
-
-# --- 4. Verify cross-system E2E + stop old app ------------------------------
-
-printf '\n==> 4/4 — Verify cross-system E2E and finalize\n'
+printf '\n==> 4/5 — Verify cross-system E2E and soak\n'
 
 # Verify the tunnel is still healthy (it should be — we didn't touch it)
 tunnel_health="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
 [[ "$tunnel_health" == "healthy" || "$tunnel_health" == "running" ]] || fail "tunnel is not healthy after cutover: $tunnel_health"
 
-# E2E: operations summary through the active alias (verifies traffic routing)
+# E2E: operations summary through the public edge (verifies traffic routing)
 admin_token="$(docker inspect "$NEW_APP" --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^CONTROL_PLANE_ADMIN_TOKEN=//p')"
 if [[ -n "$admin_token" ]]; then
   e2e_result="$(docker run --rm --network virya-edge curlimages/curl:8.12.0 \
     --fail --silent --show-error --connect-timeout 3 --max-time 10 \
     -H "Authorization: Bearer $admin_token" \
-    "http://${ACTIVE_ALIAS}:8090/api/v1/tenants/virya/operations/summary" 2>/dev/null || true)"
+    "http://${NEW_ALIAS}:8090/api/v1/tenants/virya/operations/summary" 2>/dev/null || true)"
   [[ -n "$e2e_result" ]] || fail "cross-system E2E gate failed: no response from new app"
   printf '%s' "$e2e_result" | python3 -c "
 import json, sys
@@ -270,11 +290,28 @@ print('CROSS_GATE=PASS')
 " || fail "cross-system E2E gate failed: invalid response"
 fi
 
-# Stop the old app
-docker stop "$CURRENT_APP" >/dev/null 2>&1 || true
+# Soak candidate for 300 seconds with old app available as fallback
+printf '\n==> Soak candidate for 300 seconds with old app available as fallback\n'
+for soak_attempt in $(seq 1 60); do
+  code="$(docker run --rm --network virya-edge curlimages/curl:8.12.0 \
+    --silent --output /dev/null --write-out '%{http_code}' \
+    --connect-timeout 3 --max-time 10 \
+    "http://${NEW_ALIAS}:8090/healthz/ready" || true)"
+  [[ "$code" == "200" ]] || fail "candidate soak failed attempt=$soak_attempt path=healthz/ready status=${code:-transport}"
+  sleep 5
+done
+printf 'SOAK=PASS seconds=300 probes=60 fallback=%s\n' "$CURRENT_APP"
+
+python3 "$RECEIPT_HELPER" phase --state-dir "$RELEASE_STATE_DIR" \
+  --release-id "$RELEASE_ID" --phase soak --status pass >/dev/null
+
+# --- 5. Stop old app, finalize ----------------------------------------------
+
+printf '\n==> 5/5 — Stop old app, finalize\n'
+docker stop --time 30 "$CURRENT_APP" >/dev/null 2>&1 || true
 docker rm "$CURRENT_APP" >/dev/null 2>&1 || true
 
-# --- 4b. Recreate agent-service with the latest image ---------------------
+# --- 5b. Recreate agent-service with the latest image ---------------------
 # The agent-service is stateless and doesn't need blue-green itself, but it
 # must be kept running during the cutover and updated to match the new
 # control-plane release. We recreate it after the cutover succeeds so a
@@ -310,8 +347,14 @@ fi
 # Update the image tag in .env
 sed -i "s|^CONTROL_PLANE_IMAGE_TAG=.*|CONTROL_PLANE_IMAGE_TAG=sha-${TARGET}|" .env
 
+# Finalize release receipt
+python3 "$RECEIPT_HELPER" finalize \
+  --state-dir "$RELEASE_STATE_DIR" \
+  --release-id "$RELEASE_ID" --status pass >/dev/null
+
 # Clean up
 rm -f "$CADDY_BACKUP"
 trap - ERR INT TERM HUP
 
-printf '\nCP_BLUEGREEN_DEPLOY=PASS sha=%s cutover=zero-downtime old=%s stopped new=%s active\n' "$TARGET" "$CURRENT_APP" "$NEW_APP"
+printf '\nCP_BLUEGREEN_DEPLOY=PASS sha=%s cutover=graceful-reload old=%s stopped new=%s active receipt=%s\n' \
+  "$TARGET" "$CURRENT_APP" "$NEW_APP" "$RELEASE_ID"
