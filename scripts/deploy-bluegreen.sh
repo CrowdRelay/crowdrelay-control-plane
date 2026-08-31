@@ -102,8 +102,13 @@ if ! grep -Fq "dynamic a ${ACTIVE_ALIAS}" "$EDGE_CADDYFILE"; then
   sed "s|reverse_proxy ${BLUE_ALIAS}:8090|reverse_proxy { dynamic a ${ACTIVE_ALIAS} { port 8090; refresh 5s } }|g; s|reverse_proxy ${GREEN_ALIAS}:8090|reverse_proxy { dynamic a ${ACTIVE_ALIAS} { port 8090; refresh 5s } }|g; s|reverse_proxy ${ACTIVE_ALIAS}:8090|reverse_proxy { dynamic a ${ACTIVE_ALIAS} { port 8090; refresh 5s } }|g" "$EDGE_CADDYFILE" > /tmp/caddy-reconcile.tmp
   cat /tmp/caddy-reconcile.tmp > "$EDGE_CADDYFILE"
   rm -f /tmp/caddy-reconcile.tmp
+  # Copy the fixed Caddyfile directly into the container (bypasses any
+  # stale bind mount) and reload. No restart needed — reload is zero-downtime.
+  docker cp "$EDGE_CADDYFILE" "$EDGE_CONTAINER:/etc/caddy/Caddyfile" >/dev/null 2>&1 || \
+    fail "cannot copy Caddyfile into edge Caddy container"
   docker exec "$EDGE_CONTAINER" caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 || \
-    docker restart "$EDGE_CONTAINER" >/dev/null 2>&1
+    fail "caddy reload failed after reconciliation — investigate manually"
+  sleep 2
   grep -Fq "dynamic a ${ACTIVE_ALIAS}" "$EDGE_CADDYFILE" || fail "Caddyfile reconciliation failed — cannot find dynamic a ${ACTIVE_ALIAS}"
   printf 'RECONCILE=PASS Caddyfile now uses dynamic a %s\n' "$ACTIVE_ALIAS"
 fi
