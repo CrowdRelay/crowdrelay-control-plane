@@ -70,6 +70,7 @@ export function TenantHealthPage() {
         autopilot={d()?.autopilot ?? null}
         degraded={d()?.degraded ?? []}
         refresh={refresh}
+        mode="controls"
       />
     </Show>
   </section>

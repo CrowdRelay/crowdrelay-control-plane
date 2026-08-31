@@ -149,6 +149,7 @@ export function TenantPage() {
           autopilot={ops()?.autopilot ?? null}
           degraded={ops()?.degraded ?? []}
           refresh={async () => { await queryClient.invalidateQueries({ queryKey: ['tenant-overview', params().slug] }) }}
+          mode="health"
         />}
       </Show>
 

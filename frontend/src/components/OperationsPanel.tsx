@@ -129,6 +129,7 @@ export function OperationsPanel(props: {
   autopilot: AutopilotOverview | null | undefined
   degraded: readonly string[]
   refresh: () => Promise<unknown>
+  mode?: 'full' | 'health' | 'controls'
 }) {
   // The Operations subpage owns the one read-model request. This panel renders
   // its health metrics and control sections and keeps each section's degraded
@@ -179,6 +180,8 @@ export function OperationsPanel(props: {
 
   const unavailable = () => summary.error || flags.error || autopilot.error
   const deadJobs = () => summary.data ? summary.data.outbox.dead + summary.data.deliveries.dead + summary.data.push.dead : 0
+  const showHealth = () => !props.mode || props.mode === 'full' || props.mode === 'health'
+  const showControls = () => !props.mode || props.mode === 'full' || props.mode === 'controls'
 
   // Destructive/blast-radius actions share one inline confirmation so a
   // mis-click never flips every policy or redeploys an app by accident.
@@ -219,6 +222,7 @@ export function OperationsPanel(props: {
   }
 
   return <article class="panel operations-panel">
+    <Show when={showHealth()}>
     <div class="section-title operations-title">
       <div><span class="eyebrow">OPERATIONS</span><h2>Health & controls</h2><p>Live CrowdRelay telemetry and bounded runtime controls. Changes are tenant-scoped and audited.</p></div>
       <div class="row-health">
@@ -275,7 +279,9 @@ export function OperationsPanel(props: {
         </Show>
       </div>
     </Show>
+    </Show>
 
+    <Show when={showControls()}>
     <div class="operations-split">
       <section class="operations-section">
         <details open>
@@ -347,5 +353,6 @@ export function OperationsPanel(props: {
         </details>
       </section>
     </div>
+    </Show>
   </article>
 }
