@@ -4,6 +4,7 @@ import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshTick, triggerRefresh } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './EmptyState'
+import { SkeletonGrid, SkeletonRows, SkeletonPanel } from './Skeleton'
 import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, PendingAutopilotAction, AgentWorkflow, AgentWorkflowTask } from '../lib/types'
 
 // --- Intelligence icon (deterministic Rust autopilot) ---
@@ -241,7 +242,11 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
           </Show>
         </div>
         <p class="agent-section-intro">Actions the intelligence has queued for your approval. Community posts, press pitches, and other growth actions appear here with rich detail before they're executed.</p>
-        <Show when={pendingGrowthActions().length > 0} fallback={<EmptyState label="No actions awaiting approval" hint="When the intelligence proposes actions that require human approval, they appear here." />}>
+        <Show when={pendingGrowthActions().length > 0} fallback={
+          <Show when={overview()} fallback={<SkeletonRows count={2} />}>
+            <EmptyState label="No actions awaiting approval" hint="When the intelligence proposes actions that require human approval, they appear here." />
+          </Show>
+        }>
           <div class="growth-approval-list">
             <For each={pendingGrowthActions()}>{(action) => {
               const summary = payloadSummary(action)
@@ -314,7 +319,11 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
           <h3>Autonomy Controls</h3>
         </div>
         <p class="agent-section-intro">Set how much freedom the intelligence has to act on growth intelligence findings. "Require approval" queues every action for your sign-off; "Bounded auto" lets it execute within daily limits.</p>
-        <Show when={growthPolicy()} fallback={<EmptyState label="Policy unavailable" hint="The growth intelligence policy could not be loaded. This may be a temporary issue." />}>
+        <Show when={growthPolicy()} fallback={
+          <Show when={overview()} fallback={<SkeletonPanel lines={4} />}>
+            <EmptyState label="Policy unavailable" hint="The growth intelligence policy could not be loaded. This may be a temporary issue." />
+          </Show>
+        }>
           <div class="autopilot-policy-list">
             <PolicyEditor
               policy={growthPolicy()!}
@@ -337,7 +346,11 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
           </Show>
         </div>
         <p class="agent-section-intro">Worker runs dispatched by the intelligence. Each workflow is a growth plan: the intelligence decides what to research, draft, or analyse, then dispatches LLM workers to execute.</p>
-        <Show when={workflows() && workflows()!.length > 0} fallback={<EmptyState label="No worker runs" hint="Worker runs are LLM agent executions dispatched by the intelligence. They appear here once the autopilot starts dispatching." />}>
+        <Show when={workflows() && workflows()!.length > 0} fallback={
+          <Show when={workflows()} fallback={<SkeletonGrid count={3} minCardHeight='100px' />}>
+            <EmptyState label="No worker runs" hint="Worker runs are LLM agent executions dispatched by the intelligence. They appear here once the autopilot starts dispatching." />
+          </Show>
+        }>
           <div class="growth-workflow-list">
             <For each={workflows()}>{(wf) => (
               <button class="growth-workflow-card" onClick={() => viewWorkflowDetail(wf)}>

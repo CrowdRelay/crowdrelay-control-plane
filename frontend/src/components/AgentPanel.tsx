@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createResource, createSignal } from 'solid-js'
+import { For, Show, createEffect, createResource, createSignal, createMemo } from 'solid-js'
 import { api, request, ApiError } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshTick } from '../lib/refresh'
@@ -9,6 +9,7 @@ import { PremiumAIPanel } from './PremiumAIPanel'
 import { AIUsagePanel } from './AIUsagePanel'
 import { IntelligenceTransparencyPanel } from './IntelligenceTransparencyPanel'
 import { EmptyState } from './EmptyState'
+import { SkeletonGrid, SkeletonRows } from './Skeleton'
 import type { AgentTemplate, AgentTask, AgentTaskResult, AgentProvider, AgentCredential, AgentModel, TaskSuggestion, AgentSchedule, AgentOutcome } from '../lib/types'
 
 // --- Ant icon (agent service mascot) ---
@@ -45,6 +46,18 @@ const priorityTone = (p: string): 'good' | 'warn' | 'muted' =>
 
 export function AgentPanel(props: { slug: string }) {
   const [activeTab, setActiveTab] = createSignal<'providers' | 'tasks' | 'growth' | 'usage' | 'intel'>('providers')
+  // Track which tabs have been visited — only mount a tab's panel after
+  // it's been visited for the first time. This prevents all 5 panels from
+  // firing their API requests simultaneously on page load. Once visited,
+  // the panel stays mounted (CSS toggles visibility) so re-entering doesn't
+  // re-fetch.
+  const [visitedTabs, setVisitedTabs] = createSignal<Set<string>>(new Set(['providers']))
+  const switchTab = (tab: 'providers' | 'tasks' | 'growth' | 'usage' | 'intel') => {
+    setActiveTab(tab)
+    setVisitedTabs(prev => prev.has(tab) ? prev : new Set([...prev, tab]))
+  }
+  const tabVisited = (tab: string) => visitedTabs().has(tab)
+
   const [selectedTemplate, setSelectedTemplate] = createSignal<string | null>(null)
   const [selectedModel, setSelectedModel] = createSignal<string>('laguna-s-2.1-free')
   const [prompt, setPrompt] = createSignal('')
@@ -228,31 +241,39 @@ export function AgentPanel(props: { slug: string }) {
           {(tab) => (
             <button
               class={activeTab() === tab.id ? 'active ghost' : 'ghost'}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => switchTab(tab.id)}
             >{tab.label}</button>
           )}
         </For>
       </div>
 
-      {/* All tab panels are kept mounted — CSS toggles visibility.
-          This eliminates the blink/flash on tab switch because resources
-          are created once and never re-fetch when re-entering a tab. */}
-      <div class={activeTab() === 'growth' ? '' : 'tab-hidden'}>
-        <GrowthIntelligencePanel slug={props.slug} />
-      </div>
+      {/* Tab panels — lazy-mounted on first visit, then kept mounted.
+          CSS toggles visibility so re-entering doesn't re-fetch. */}
+      <Show when={tabVisited('growth')}>
+        <div class={activeTab() === 'growth' ? '' : 'tab-hidden'}>
+          <GrowthIntelligencePanel slug={props.slug} />
+        </div>
+      </Show>
 
-      <div class={activeTab() === 'providers' ? '' : 'tab-hidden'}>
-        <PremiumAIPanel slug={props.slug} providers={providers()} credentials={credentials()} refetchCreds={refetchCreds} active={activeTab() === 'providers'} models={models()} />
-      </div>
+      <Show when={tabVisited('providers')}>
+        <div class={activeTab() === 'providers' ? '' : 'tab-hidden'}>
+          <PremiumAIPanel slug={props.slug} providers={providers()} credentials={credentials()} refetchCreds={refetchCreds} active={activeTab() === 'providers'} models={models()} />
+        </div>
+      </Show>
 
-      <div class={activeTab() === 'usage' ? '' : 'tab-hidden'}>
-        <AIUsagePanel slug={props.slug} />
-      </div>
+      <Show when={tabVisited('usage')}>
+        <div class={activeTab() === 'usage' ? '' : 'tab-hidden'}>
+          <AIUsagePanel slug={props.slug} />
+        </div>
+      </Show>
 
-      <div class={activeTab() === 'intel' ? '' : 'tab-hidden'}>
-        <IntelligenceTransparencyPanel slug={props.slug} />
-      </div>
+      <Show when={tabVisited('intel')}>
+        <div class={activeTab() === 'intel' ? '' : 'tab-hidden'}>
+          <IntelligenceTransparencyPanel slug={props.slug} />
+        </div>
+      </Show>
 
+      <Show when={tabVisited('tasks')}>
       <div class={activeTab() === 'tasks' ? '' : 'tab-hidden'}>
       {/* Autopilot intelligence → agent suggestions — the bridge between operations data and LLM execution */}
       <Show when={suggestions() && suggestions()!.length > 0}>
@@ -283,7 +304,7 @@ export function AgentPanel(props: { slug: string }) {
         <div class="agent-section-head">
           <h3>Agent Tasks</h3>
         </div>
-        <Show when={templates()} fallback={<p class="muted">Loading templates…</p>}>
+        <Show when={templates()} fallback={<SkeletonGrid count={4} minCardHeight='120px' />}>
           <div class="agent-template-grid">
             <For each={templates()}>
               {(template) => (
@@ -404,7 +425,11 @@ export function AgentPanel(props: { slug: string }) {
 
       <div class="agent-section">
         <h3>Recent Tasks</h3>
-        <Show when={tasks()} fallback={<EmptyState label="No tasks yet" hint="Tasks are individual worker runs. They appear here once the intelligence or a schedule dispatches them." />}>
+        <Show when={tasks()} fallback={
+          <Show when={tasks.loading} fallback={<EmptyState label="No tasks yet" hint="Tasks are individual worker runs. They appear here once the intelligence or a schedule dispatches them." />}>
+            <SkeletonRows count={4} />
+          </Show>
+        }>
           <table class="agent-task-table">
             <thead>
               <tr>
@@ -437,6 +462,7 @@ export function AgentPanel(props: { slug: string }) {
         </Show>
       </div>
       </div>
+      </Show>
 
       <Show when={viewingResult()}>
         <div class="agent-result-overlay" onClick={() => setViewingResult(null)}>

@@ -2,6 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
+import { SkeletonRows } from '../components/Skeleton'
 import type { RegionalProfile } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 
@@ -122,6 +123,7 @@ export function TenantsPage() {
       </form>
     </Show>
 
+    <Show when={tenants.isPending && !tenants.data}><SkeletonRows count={4} /></Show>
     <div class="tenant-list"><For each={tenants.data?.items ?? []}>{tenant =>
       <Link to="/tenants/$slug" params={{ slug: tenant.slug }} class="tenant-row large">
         <div><strong>{tenant.displayName}</strong><small>{tenant.slug} · {tenant.workspaceId ?? 'workspace pending'} · {tenant.regionalProfile ? `${tenant.regionalProfile.locale} · ${tenant.regionalProfile.timezone} · ${tenant.regionalProfile.dataRegion.toUpperCase()}` : 'regional profile unclassified'}</small></div>

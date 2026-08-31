@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshTick, triggerRefresh } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
+import { SkeletonRows } from './Skeleton'
 import { EmptyState } from './EmptyState'
 import type { IntelligenceDecision, IntelligenceDecisionTask, IntelligenceDecisionsData } from '../lib/types'
 
@@ -82,7 +83,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string }) {
     </div>
 
     {/* Summary KPIs */}
-    <Show when={summary()} fallback={<Show when={!error()}><div class="skeleton-block" /></Show>}>
+    <Show when={summary()} fallback={<Show when={!error()}><SkeletonRows count={3} /></Show>}>
       <div class="kpi-strip">
         <article class="kpi-card">
           <span class="kpi-label">Intelligence decisions</span>
@@ -113,6 +114,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string }) {
       <p class="agent-section-intro">The intelligence's decision log. Each entry shows what the intelligence decided to research, why (rationale), which workers it dispatched, and what they found. The intelligence is deterministic Rust — it never follows an LLM blindly.</p>
 
       <Show when={data() && decisions().length === 0} fallback={
+        <Show when={data()} fallback={<SkeletonRows count={3} />}>
         <div class="intel-decision-list">
           <For each={decisions()}>{(decision: IntelligenceDecision) => (
             <div class="intel-decision-card">
@@ -240,6 +242,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string }) {
             </div>
           )}</For>
         </div>
+        </Show>
       }>
         <div class="inherit-card">
           <EmptyState label="No intelligence decisions" hint="The intelligence dispatches growth plans on a deterministic schedule. Decisions appear here once the autopilot starts running." />

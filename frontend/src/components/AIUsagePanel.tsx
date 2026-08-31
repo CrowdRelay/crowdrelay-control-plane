@@ -6,6 +6,7 @@ import { ModelIcon } from './ProviderIcon'
 import { Sparkline } from './Sparkline'
 import type { UsageAnalyticsData, TemplateRoi, ModelAnalytics } from '../lib/types'
 import { EmptyState } from './EmptyState'
+import { SkeletonRows } from './Skeleton'
 
 // --- Icons ---
 const CrownIcon = (props: { size?: number }) => (
@@ -82,7 +83,7 @@ export function AIUsagePanel(props: { slug: string }) {
     </Show>
 
     {/* Budget header */}
-    <Show when={budget()} fallback={<Show when={!error()}><div class="skeleton-block" /></Show>}>
+    <Show when={budget()} fallback={<Show when={!error()}><SkeletonRows count={3} /></Show>}>
       <div class="agent-section">
         <div class="agent-section-head">
           <h3><CrownIcon size={16} /> AI Budget</h3>
