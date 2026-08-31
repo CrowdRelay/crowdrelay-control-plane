@@ -334,6 +334,11 @@ body {
   letter-spacing: 0.02em;
 }
 
+.hero-stat strong {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
 /* === Visual section (flow diagram + stats) === */
 
 .hero-visual {
@@ -914,7 +919,27 @@ body {
   }
 
   .hero-stats {
-    width: min(100%, 720px);
+    width: min(100%, 820px);
+  }
+
+  .hero-stat {
+    padding: 16px 14px;
+  }
+
+  .hero-stat strong {
+    font-size: 1.35rem;
+  }
+
+  .hero-stat span {
+    font-size: 0.8rem;
+  }
+
+  .hero-brand strong {
+    font-size: 1.6rem;
+  }
+
+  .hero-brand span {
+    font-size: 0.9rem;
   }
 }
 
@@ -941,5 +966,29 @@ body {
 
   .login-hero h2 {
     font-size: clamp(2rem, 3vw, 3.2rem);
+  }
+
+  .hero-stats {
+    width: min(100%, 920px);
+  }
+
+  .hero-stat {
+    padding: 20px 18px;
+  }
+
+  .hero-stat strong {
+    font-size: 1.55rem;
+  }
+
+  .hero-stat span {
+    font-size: 0.88rem;
+  }
+
+  .hero-brand strong {
+    font-size: 1.85rem;
+  }
+
+  .hero-brand span {
+    font-size: 1rem;
   }
 }
