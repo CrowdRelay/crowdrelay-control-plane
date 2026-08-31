@@ -1,5 +1,5 @@
 import { Link, Outlet, useParams, useNavigate, useRouter } from '@tanstack/solid-router'
-import { Show, For, createSignal, lazy, onMount, onCleanup, type Component } from 'solid-js'
+import { Show, For, createSignal, lazy, onMount, onCleanup, Suspense, type Component } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { authState } from '../lib/auth'
 import { commandPaletteOpen, toggleCommandPalette } from './command-palette-state'
@@ -8,6 +8,7 @@ import { api } from '../lib/api'
 import { ToastContainer } from '../lib/toast'
 import { RefreshControl } from './RefreshControl'
 import { ChatWidget } from './ChatWidget'
+import { SkeletonPage } from './Skeleton'
 import type { TenantSummary } from '../lib/types'
 
 // The palette component loads on first invocation; the shortcut lives here so
@@ -334,7 +335,9 @@ export const Shell: Component = () => {
           </div>
         </header>
         <div class="page-transition" data-key={pathname()}>
-          <Outlet />
+          <Suspense fallback={<SkeletonPage />}>
+            <Outlet />
+          </Suspense>
         </div>
         <Show when={commandPaletteOpen()}><CommandPalette /></Show>
         <ToastContainer />

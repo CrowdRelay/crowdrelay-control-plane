@@ -178,3 +178,18 @@ export const SkeletonNotifiersPage: Component = () => (
     <SkeletonSection titleWidth="200px" lines={2} minHeight="100px" />
   </>
 )
+
+/** Generic full-page skeleton — shown while a lazy route chunk loads.
+ *  Mirrors the common page shape: head + KPI strip + panel grid. */
+export const SkeletonPage: Component = () => (
+  <section class="page">
+    <SkeletonPageHead />
+    <SkeletonKpiStrip count={4} />
+    <div class="panel-grid" style={{ display: 'grid', 'grid-template-columns': 'repeat(auto-fill, minmax(340px, 1fr))', gap: '16px', 'margin-top': '16px' }}>
+      <SkeletonSection titleWidth="160px" lines={4} minHeight="180px" />
+      <SkeletonSection titleWidth="200px" lines={3} minHeight="180px" />
+      <SkeletonSection titleWidth="140px" lines={5} minHeight="180px" />
+    </div>
+    <div class="skeleton-block" style={{ height: '220px', 'border-radius': 'var(--radius-lg)', 'margin-top': '16px' }} />
+  </section>
+)
