@@ -157,8 +157,8 @@ const features = [
     ),
   },
   {
-    title: 'Grow and convert',
-    body: 'Genuine engagement, not spam. Convert fans with tickets, merch, and attendance — the full 360. Every outcome feeds back into the brain for the next cycle.',
+    title: 'Learns and converts',
+    body: 'Every outcome — press hit, social reply, ticket sale — feeds back into the brain. The autopilot learns what works and gets smarter each cycle. Convert with tickets, merch, and attendance.',
     icon: (
       <>
         <path d="M3 17l6-6 4 4 8-8" stroke-linecap="round" stroke-linejoin="round" />
@@ -177,7 +177,7 @@ const FeatureIcon: Component<{ children: unknown }> = (props) => (
 const stats = [
   { value: '10+', label: 'LLM providers' },
   { value: '6+', label: 'Fan sources' },
-  { value: 'Rust', label: 'Deterministic brain' },
+  { value: 'Autopilot', label: 'Learns from outcomes' },
   { value: 'EU / US', label: 'Multi-region' },
 ]
 
@@ -216,8 +216,8 @@ export const LoginHero: Component = () => (
       <p class="hero-lead">
         CrowdRelay aggregates fans from Reddit, Meta, Spotify, Bandsintown, and the live web —
         a deterministic Rust brain decides the strategy, LLM workers draft the content,
-        and every outcome feeds back into the next cycle. No spam, no fake engagement,
-        just real growth that converts.
+        and the autopilot learns from every outcome. Each cycle gets smarter. No spam,
+        no fake engagement, just real growth that converts.
       </p>
 
       <ul class="hero-features">
