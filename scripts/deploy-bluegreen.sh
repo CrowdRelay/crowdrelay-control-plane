@@ -183,7 +183,10 @@ else
     up -d --no-deps --wait --wait-timeout 120 app
 fi
 
-printf 'NEW_APP=STARTED color=%s container=%s\n' "$DEPLOY_COLOR" "$NEW_APP"
+docker update --restart unless-stopped "$NEW_APP" >/dev/null
+restart_policy="$(docker inspect "$NEW_APP" --format '{{.HostConfig.RestartPolicy.Name}}')"
+[[ "$restart_policy" == "unless-stopped" ]] || fail "candidate restart policy is not durable: $restart_policy"
+printf 'NEW_APP=STARTED color=%s container=%s restart=%s\n' "$DEPLOY_COLOR" "$NEW_APP" "$restart_policy"
 
 # --- 2. Health-check new app directly ---------------------------------------
 
