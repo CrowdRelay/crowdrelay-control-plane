@@ -210,17 +210,15 @@ export function FanSourcesPanel(props: {
               </div>
               <div class="fanbase-connection-info">
                 <div class="fanbase-connection-name">{plat.label}</div>
-                <Show when={conn()}>
+                <Show when={conn() && conn()!.last_sync_at}>
                   <div class="fanbase-connection-meta">
-                    <StatusBadge status={conn()!.status} tone={connTone(conn()!.status)} />
-                    <Show when={conn()!.last_sync_at}>
-                      <span class="muted">last sync {formatAge(conn()!.last_sync_at!)}</span>
-                    </Show>
+                    <span class="muted">last sync {formatAge(conn()!.last_sync_at!)}</span>
                   </div>
                 </Show>
               </div>
               <div class="fanbase-connection-actions">
                 <Show when={conn()}>
+                  <StatusBadge status={conn()!.status} tone={connTone(conn()!.status)} />
                   <button class="agent-btn-danger" onClick={() => disconnectConnection(conn()!.id)}>Disconnect</button>
                 </Show>
                 <Show when={!conn() && plat.value === 'tiktok'}>

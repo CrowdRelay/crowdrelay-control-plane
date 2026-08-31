@@ -663,11 +663,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .agent-outcome-item{font-size:.72rem;color:#9aa;white-space:pre-wrap;max-height:200px;overflow:auto;margin:.3rem 0 0}
 .agent-schedule-form{padding:.5rem 0;margin-bottom:.75rem}
 .agent-schedule-form .agent-actions{display:flex;gap:8px;align-items:center;margin-top:.5rem}
-.fanbase-connection-card{display:flex;align-items:flex-start;gap:.75rem;background:#1a1d24;border:1px solid #2a2d36;border-radius:6px;padding:.7rem .85rem;margin-bottom:.5rem}
+.fanbase-connection-card{display:flex;align-items:center;gap:.75rem;background:#1a1d24;border:1px solid #2a2d36;border-radius:6px;padding:.7rem .85rem;margin-bottom:.5rem}
 .fanbase-connection-info{flex:1}
 .fanbase-connection-name{font-size:.88rem;font-weight:600}
 .fanbase-connection-meta{font-size:.72rem;color:var(--muted);margin-top:.2rem}
-.fanbase-connection-actions{display:flex;gap:6px;align-items:center}
+.fanbase-connection-actions{display:flex;gap:8px;align-items:center;flex-shrink:0;white-space:nowrap}
 
 /* ─── AI Chatbot Widget ────────────────────────────────────────────────── */
 .chat-fab{position:fixed;bottom:1.5rem;right:1.5rem;z-index:9000;display:flex;align-items:center;gap:.5rem;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-lg);padding:.6rem 1.1rem;cursor:pointer;font:inherit;font-size:.85rem;font-weight:600;box-shadow:var(--shadow-md);transition:background var(--t-fast),box-shadow var(--t-fast)}
