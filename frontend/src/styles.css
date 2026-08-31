@@ -553,7 +553,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .premium-section{background:#14161c;border:1px solid #252830;border-radius:10px;padding:1.25rem}
 .premium-section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem}
 .premium-section-head h3{display:flex;align-items:center;gap:.4rem;margin:0;font-size:.9rem;font-weight:600;color:#e4e7ee}
-.premium-section-intro{font-size:.76rem;color:#8b92a0;line-height:1.5;margin:0 0 .85rem}
+.premium-section-intro{font-size:.76rem;color:#8b92a0;line-height:1.5;margin:0 0 .85rem;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
 .premium-connection-summary{display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:#8b92a0}
 .premium-count-chip{font-size:.68rem;color:#8b92a0;background:#1e2128;border:1px solid #2a2d36;border-radius:10px;padding:1px 8px}
 
@@ -568,7 +568,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .premium-connector-name{font-weight:600;font-size:.85rem;color:#e4e7ee}
 .premium-connector-models{font-size:.68rem;color:#6d7480}
 .premium-connected-badge{display:inline-flex;align-items:center;gap:.25rem;font-size:.65rem;font-weight:600;color:#4ade80;background:#1a2e1a;border:1px solid #2d4a2d;border-radius:10px;padding:2px 7px}
-.premium-connector-desc{font-size:.72rem;color:#8b92a0;line-height:1.4;min-height:2rem}
+.premium-connector-desc{font-size:.72rem;color:#8b92a0;line-height:1.4;min-height:2rem;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
 .premium-connector-actions{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-top:.25rem}
 
 /* API key input row */
@@ -930,7 +930,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .premium-free-banner-text strong{font-size:.9rem}
 .premium-free-banner-text span{font-size:.78rem;color:#c5c8cf;line-height:1.5}
 .premium-recommendation{margin:8px 0;padding:8px 10px;border-radius:8px;background:rgba(0,200,150,.05);border:1px solid rgba(0,200,150,.15)}
-.premium-rec-text{font-size:.72rem;color:#a8d8c8;line-height:1.4}
+.premium-rec-text{font-size:.72rem;color:#a8d8c8;line-height:1.4;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
 .premium-health-badge{margin:6px 0;padding:4px 10px;border-radius:999px;font-size:.68rem;font-weight:600;display:inline-flex;align-items:center;gap:4px;background:#12141a;border:1px solid #2a2d36}
 .premium-health-badge .badge{font-size:.62rem}
 

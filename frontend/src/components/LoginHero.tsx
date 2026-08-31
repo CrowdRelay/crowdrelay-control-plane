@@ -8,6 +8,7 @@ const BrandMark: Component<{ size: number }> = (props) => (
 
 // Animated flow diagram — signals → context → decision → action → delivery
 // with a recovery loop. Nodes pulse on a staggered timer.
+// Icons use official Lucide (MIT) path data for a clean, professional look.
 const FlowDiagram: Component = () => (
   <svg
     class="flow-diagram"
@@ -41,36 +42,45 @@ const FlowDiagram: Component = () => (
       <line x1="473" y1="80" x2="532" y2="80" />
     </g>
 
-    {/* Flow nodes */}
+    {/* Flow nodes — Lucide icons scaled to fit 56x56 boxes */}
+    {/* Signals: radio-tower */}
     <g class="flow-node">
       <rect x="32" y="52" width="56" height="56" rx="15" />
-      <g transform="translate(60 80)" class="flow-icon" fill="none" stroke="currentColor" stroke-width="1.6">
-        <circle r="2.6" fill="currentColor" stroke="none" />
-        <path d="M-6.5 -6.5a9.2 9.2 0 0 0 0 13M6.5 -6.5a9.2 9.2 0 0 1 0 13" />
-        <path d="M-11 -11a15.6 15.6 0 0 0 0 22M11 -11a15.6 15.6 0 0 1 0 22" opacity=".55" />
+      <g transform="translate(48 68)" class="flow-icon" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.9 16.1C6.8 14.2 9 13 12 13s5.2 1.2 7.1 3.1" />
+        <path d="M7.8 13.2C8.8 12.2 10.3 11 12 11s3.2 1.2 4.2 2.2" />
+        <path d="M2 8.82a15 15 0 0 1 20 0" />
+        <path d="M5 12.1a10 10 0 0 1 14 0" />
+        <line x1="12" x2="12" y1="20" y2="13" />
       </g>
     </g>
+    {/* Context: database */}
     <g class="flow-node">
       <rect x="147" y="52" width="56" height="56" rx="15" />
-      <g transform="translate(175 80)" class="flow-icon" fill="currentColor" stroke="none">
-        <circle cx="-8" cy="-8" r="2" /><circle cx="0" cy="-8" r="2" /><circle cx="8" cy="-8" r="2" />
-        <circle cx="-8" cy="0" r="2" /><circle cx="0" cy="0" r="2" /><circle cx="8" cy="0" r="2" />
-        <circle cx="-8" cy="8" r="2" /><circle cx="0" cy="8" r="2" /><circle cx="8" cy="8" r="2" />
+      <g transform="translate(163 68)" class="flow-icon" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <ellipse cx="12" cy="5" rx="9" ry="3" />
+        <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+        <path d="M3 12A9 3 0 0 0 21 12" />
       </g>
     </g>
+    {/* Decision: brand mark */}
     <g class="flow-node flow-node-active">
       <rect x="272" y="42" width="76" height="76" rx="20" />
       <image href="/crowdrelay-brand-mark.png" x="264" y="34" width="92" height="92" clip-path="inset(8px round 22px)" />
     </g>
+    {/* Action: zap */}
     <g class="flow-node">
       <rect x="417" y="52" width="56" height="56" rx="15" />
-      <path class="flow-icon" d="M448 66l-9 15h8l-2 13 10-16h-8z" fill="currentColor" stroke="none" />
+      <g transform="translate(433 68)" class="flow-icon" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
+      </g>
     </g>
+    {/* Delivery: circle-check */}
     <g class="flow-node">
       <rect x="532" y="52" width="56" height="56" rx="15" />
-      <g transform="translate(560 80)" class="flow-icon" fill="none" stroke="currentColor" stroke-width="1.6">
-        <circle r="12" />
-        <path d="M-5 0l3.5 4L6 -4.5" stroke-linecap="round" stroke-linejoin="round" />
+      <g transform="translate(548 68)" class="flow-icon" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="m9 12 2 2 4-4" />
       </g>
     </g>
 
