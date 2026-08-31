@@ -6,115 +6,123 @@ const BrandMark: Component<{ size: number }> = (props) => (
   </span>
 )
 
-// Animated flow diagram — signals → context → decision → action → delivery
-// with a recovery loop. Nodes pulse on a staggered timer.
-// Icons use official Lucide (MIT) path data for a clean, professional look.
+// Architecture flow — the real system:
+// Sources → Brain (deterministic Rust) → Workers (LLM agents) → Outcomes
+// with a learning loop back into the brain.
+// Clean filled nodes with a subtle glow on the brain.
 const FlowDiagram: Component = () => (
   <svg
     class="flow-diagram"
-    viewBox="0 0 620 300"
+    viewBox="0 0 900 240"
     role="img"
-    aria-label="Signals flow into the brain (deterministic autopilot) which dispatches workers for action and delivery, with a recovery loop"
+    aria-label="Fan sources flow into the brain (deterministic Rust autopilot), which dispatches LLM workers to produce outcomes. Outcomes feed back into the brain through a learning loop."
   >
     <defs>
-      <marker id="cr-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <marker id="cr-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
         <path d="M0 0 L10 5 L0 10 z" fill="#8b5cf6" />
       </marker>
+      <marker id="cr-arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M0 0 L10 5 L0 10 z" fill="#3ddc84" />
+      </marker>
       <linearGradient id="cr-flow-line" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#9b87f5" stop-opacity="0.3" />
-        <stop offset="50%" stop-color="#9b87f5" stop-opacity="0.6" />
-        <stop offset="100%" stop-color="#6fd8ef" stop-opacity="0.3" />
+        <stop offset="0%" stop-color="#9b87f5" stop-opacity="0.2" />
+        <stop offset="50%" stop-color="#9b87f5" stop-opacity="0.7" />
+        <stop offset="100%" stop-color="#6fd8ef" stop-opacity="0.2" />
       </linearGradient>
+      <radialGradient id="cr-brain-glow" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#9b87f5" stop-opacity="0.35" />
+        <stop offset="60%" stop-color="#9b87f5" stop-opacity="0.08" />
+        <stop offset="100%" stop-color="#9b87f5" stop-opacity="0" />
+      </radialGradient>
     </defs>
 
-    {/* Ambient pulse rings around the decision node */}
-    <g fill="none" stroke="#9b87f5" opacity=".22">
-      <circle cx="310" cy="80" r="66" class="flow-ring flow-ring-1" />
-      <circle cx="310" cy="80" r="92" class="flow-ring flow-ring-2" opacity=".6" />
-      <circle cx="310" cy="80" r="118" class="flow-ring flow-ring-3" opacity=".3" />
+    {/* Brain glow — subtle, breathing, not janky */}
+    <circle cx="450" cy="80" r="90" fill="url(#cr-brain-glow)" class="flow-brain-glow" />
+
+    {/* Connection lines */}
+    <g stroke="url(#cr-flow-line)" stroke-width="2" fill="none">
+      <line x1="130" y1="80" x2="210" y2="80" marker-end="url(#cr-arrow)" />
+      <line x1="350" y1="80" x2="530" y2="80" marker-end="url(#cr-arrow)" />
+      <line x1="670" y1="80" x2="750" y2="80" marker-end="url(#cr-arrow)" />
     </g>
 
-    {/* Connection lines with gradient */}
-    <g stroke="url(#cr-flow-line)" stroke-width="1.5" fill="none">
-      <line x1="88" y1="80" x2="147" y2="80" />
-      <line x1="203" y1="80" x2="272" y2="80" />
-      <line x1="348" y1="80" x2="417" y2="80" />
-      <line x1="473" y1="80" x2="532" y2="80" />
+    {/* Learning loop — green dashed arc back to brain */}
+    <path
+      d="M 810 80 Q 810 180, 450 180 Q 90 180, 90 80"
+      fill="none"
+      stroke="#3ddc84"
+      stroke-width="1.5"
+      stroke-dasharray="5 5"
+      class="flow-learning"
+      marker-end="url(#cr-arrow-green)"
+    />
+    <text x="450" y="205" text-anchor="middle" class="flow-loop-label">learning loop</text>
+
+    {/* ── Source nodes (left cluster) ── */}
+    <g class="flow-node flow-node-source">
+      <rect x="20" y="32" width="100" height="96" rx="14" />
+      <text x="70" y="52" text-anchor="middle" class="flow-node-title">Sources</text>
+      {/* Source icons: reddit, meta, spotify, bandsintown as small dots */}
+      <g transform="translate(35 62)" class="flow-source-icons">
+        <circle cx="10" cy="10" r="8" fill="#ff4500" opacity="0.8" />
+        <text x="10" y="14" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">R</text>
+        <circle cx="35" cy="10" r="8" fill="#0866ff" opacity="0.8" />
+        <text x="35" y="14" text-anchor="middle" font-size="8" fill="#fff" font-weight="700">f</text>
+        <circle cx="60" cy="10" r="8" fill="#1db954" opacity="0.8" />
+        <text x="60" y="14" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">S</text>
+        <circle cx="10" cy="32" r="8" fill="#e6b04c" opacity="0.8" />
+        <text x="10" y="36" text-anchor="middle" font-size="7" fill="#fff" font-weight="700">Bi</text>
+        <circle cx="35" cy="32" r="8" fill="#25f4ee" opacity="0.7" />
+        <text x="35" y="36" text-anchor="middle" font-size="8" fill="#000" font-weight="700">TT</text>
+        <circle cx="60" cy="32" r="8" fill="#7d8491" opacity="0.6" />
+        <text x="60" y="36" text-anchor="middle" font-size="8" fill="#fff" font-weight="700">+</text>
+      </g>
     </g>
 
-    {/* Flow nodes — Lucide icons scaled to fit 56x56 boxes */}
-    {/* Signals: radio-tower */}
-    <g class="flow-node">
-      <rect x="32" y="52" width="56" height="56" rx="15" />
-      <g transform="translate(48 68)" class="flow-icon" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4.9 16.1C6.8 14.2 9 13 12 13s5.2 1.2 7.1 3.1" />
-        <path d="M7.8 13.2C8.8 12.2 10.3 11 12 11s3.2 1.2 4.2 2.2" />
-        <path d="M2 8.82a15 15 0 0 1 20 0" />
-        <path d="M5 12.1a10 10 0 0 1 14 0" />
-        <line x1="12" x2="12" y1="20" y2="13" />
-      </g>
-    </g>
-    {/* Context: database */}
-    <g class="flow-node">
-      <rect x="147" y="52" width="56" height="56" rx="15" />
-      <g transform="translate(163 68)" class="flow-icon" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <ellipse cx="12" cy="5" rx="9" ry="3" />
-        <path d="M3 5V19A9 3 0 0 0 21 19V5" />
-        <path d="M3 12A9 3 0 0 0 21 12" />
-      </g>
-    </g>
-    {/* Decision: brain (deterministic Rust autopilot) — pulses like a heartbeat */}
-    <g class="flow-node flow-node-active">
-      <rect x="272" y="42" width="76" height="76" rx="20" />
-      <g transform="translate(286 56)" class="flow-brain">
+    {/* ── Brain node (center, large, glowing) ── */}
+    <g class="flow-node flow-node-brain">
+      <rect x="210" y="24" width="140" height="112" rx="18" />
+      <text x="280" y="46" text-anchor="middle" class="flow-node-title">Brain</text>
+      <text x="280" y="62" text-anchor="middle" class="flow-node-sub">Rust autopilot</text>
+      {/* Brain icon — clean, stylized, centered */}
+      <g transform="translate(256 72)" class="flow-brain-icon">
         <path
-          d="M24 12c0-2.2-1.5-4-3.5-4.3.3-1.8-.8-3.7-2.7-4.2-1.6-.4-3.2.3-4 1.6-.6-.7-1.5-1.1-2.5-1.1-1.8 0-3.3 1.3-3.6 3C6.3 7.3 4.8 8.7 4.5 10.6 2.7 11 1.5 12.7 1.8 14.5c.2 1.5 1.4 2.7 2.9 2.9.1 2.2 1.9 4 4.1 4 .8 0 1.5-.2 2.1-.6.5 1.5 1.9 2.6 3.6 2.6 1.4 0 2.6-.8 3.3-2 .5.3 1.1.5 1.7.5 1.7 0 3.1-1.2 3.5-2.8 1.9-.2 3.3-1.8 3.3-3.7 0-1.8-1.3-3.4-3-3.7z"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
+          d="M24 14c0-2.5-1.8-4.6-4.2-5 .3-2-1-3.9-3-4.3-1.8-.4-3.5.4-4.3 1.8-.7-.8-1.7-1.3-2.8-1.3-2 0-3.7 1.5-4 3.4-2 .3-3.5 2-3.2 4 .2 1.7 1.6 3 3.2 3.2.1 2.5 2.1 4.5 4.6 4.5.9 0 1.7-.3 2.4-.7.6 1.7 2.2 2.9 4.1 2.9 1.6 0 3-.9 3.7-2.3.6.4 1.3.6 2 .6 1.9 0 3.5-1.4 3.9-3.2 2.1-.2 3.7-2 3.7-4.1z"
+          fill="rgba(155,135,245,0.15)"
+          stroke="#c4b5fd"
+          stroke-width="1.2"
           stroke-linejoin="round"
         />
-        <path d="M12 8.5v8M8 10c1 0 1.5.8 1.5 1.5M16 10c-1 0-1.5.8-1.5 1.5M7.5 14c.8 0 1.5.6 1.5 1.5M16.5 14c-.8 0-1.5.6-1.5 1.5"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1"
-          stroke-linecap="round"
-          opacity="0.5"
-        />
-      </g>
-    </g>
-    {/* Action: zap */}
-    <g class="flow-node">
-      <rect x="417" y="52" width="56" height="56" rx="15" />
-      <g transform="translate(433 68)" class="flow-icon" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
-      </g>
-    </g>
-    {/* Delivery: circle-check */}
-    <g class="flow-node">
-      <rect x="532" y="52" width="56" height="56" rx="15" />
-      <g transform="translate(548 68)" class="flow-icon" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <path d="m9 12 2 2 4-4" />
+        {/* Hemispheres */}
+        <path d="M12 10v12" fill="none" stroke="#c4b5fd" stroke-width="0.8" opacity="0.4" />
+        <path d="M8 12c.8 0 1.4.7 1.4 1.4M16 12c-.8 0-1.4.7-1.4 1.4M7 16c.7 0 1.3.6 1.3 1.3M17 16c-.7 0-1.3.6-1.3 1.3"
+          fill="none" stroke="#c4b5fd" stroke-width="0.7" opacity="0.3" />
       </g>
     </g>
 
-    {/* Recovery loop */}
-    <g fill="none" stroke="#6d5bb8" stroke-width="1.5" stroke-dasharray="6 6" class="flow-recovery">
-      <path d="M560 152v66H372" />
-      <path d="M248 218H175v-62" marker-end="url(#cr-arrow)" />
-    </g>
-    <g class="flow-pill">
-      <rect x="262" y="202" width="96" height="32" rx="10" />
-      <text x="310" y="223">Outcomes</text>
+    {/* ── Workers node (right of brain) ── */}
+    <g class="flow-node flow-node-worker">
+      <rect x="530" y="32" width="140" height="96" rx="14" />
+      <text x="600" y="52" text-anchor="middle" class="flow-node-title">Workers</text>
+      <text x="600" y="68" text-anchor="middle" class="flow-node-sub">LLM agents</text>
+      {/* Worker icon — stacked layers */}
+      <g transform="translate(584 78)" class="flow-worker-icon" fill="none" stroke="#6fd8ef" stroke-width="1.3" stroke-linejoin="round">
+        <rect x="2" y="2" width="28" height="8" rx="2" opacity="0.5" />
+        <rect x="2" y="13" width="28" height="8" rx="2" opacity="0.7" />
+        <rect x="2" y="24" width="28" height="8" rx="2" />
+      </g>
     </g>
 
-    <g class="flow-label">
-      <text x="60" y="136">Signals</text>
-      <text x="175" y="136">Context</text>
-      <text x="310" y="146">Brain</text>
-      <text x="448" y="136">Action</text>
-      <text x="560" y="136">Delivery</text>
+    {/* ── Outcomes node (far right) ── */}
+    <g class="flow-node flow-node-outcome">
+      <rect x="750" y="32" width="120" height="96" rx="14" />
+      <text x="810" y="52" text-anchor="middle" class="flow-node-title">Outcomes</text>
+      <text x="810" y="68" text-anchor="middle" class="flow-node-sub">fans · growth</text>
+      {/* Outcome icon — upward trend */}
+      <g transform="translate(796 78)" class="flow-outcome-icon" fill="none" stroke="#3ddc84" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 20l8-8 5 5 8-8" />
+        <path d="M21 9v6h-6" />
+      </g>
     </g>
   </svg>
 )
