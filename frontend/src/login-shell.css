@@ -280,11 +280,8 @@ body {
   overflow: hidden;
 }
 
-/* Clamp lead paragraph to 2 lines for a compact, professional look */
+/* Lead paragraph — no clamping, let it wrap naturally */
 .hero-lead {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
@@ -459,8 +456,9 @@ body {
 .login-hero h2 {
   margin: 0;
   font-size: clamp(2rem, 3vw, 3.35rem);
-  line-height: 0.98;
+  line-height: 1.05;
   letter-spacing: -0.055em;
+  padding-bottom: 0.1em;
 }
 
 .hero-lead {
@@ -534,7 +532,8 @@ body {
 .hero-contact {
   padding: 20px 20px 14px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
   gap: 14px;
   align-items: start;
   border: 1px solid rgba(255,255,255,0.08);
@@ -542,6 +541,11 @@ body {
   background: var(--login-panel);
   box-shadow: 0 2px 8px rgba(0,0,0,0.25);
   position: relative;
+}
+
+/* CTA spans full width below the copy */
+.hero-contact > .hero-cta {
+  grid-column: 1 / -1;
 }
 
 .hero-contact > svg {
@@ -785,12 +789,7 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .hero-contact {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
   .hero-cta {
-    grid-column: 1 / -1;
     justify-self: start;
   }
 
