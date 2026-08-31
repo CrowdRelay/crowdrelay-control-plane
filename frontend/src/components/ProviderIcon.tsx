@@ -261,6 +261,41 @@ function LastfmIcon(props: IconProps) {
   )
 }
 
+// Deezer — equalizer bars (simplified brand mark, currentColor).
+function DeezerIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
+      <rect x="3" y="10" width="3" height="4" rx="0.5"/>
+      <rect x="8" y="7" width="3" height="10" rx="0.5"/>
+      <rect x="13" y="4" width="3" height="16" rx="0.5"/>
+      <rect x="18" y="9" width="3" height="6" rx="0.5"/>
+    </svg>
+  )
+}
+
+// Discogs — vinyl record (simplified, currentColor).
+function DiscogsIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class={props.class} aria-hidden="true">
+      <circle cx="12" cy="12" r="10"/>
+      <circle cx="12" cy="12" r="6"/>
+      <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>
+    </svg>
+  )
+}
+
+// Bluesky — butterfly silhouette (simplified, currentColor).
+function BlueskyIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
+      <path d="M12 10.8C10.6 8.2 7.1 3.5 4.2 3.5c-2 0-2.7 2.3-2.7 4.6 0 2.4.9 5.7 1.6 7.6.3.8.6 1.3 1.2 1.3.8 0 1.7-.9 2.4-1.8.5-.6 1-1.2 1.5-1.2.4 0 .7.3.8.8.2.7.5 1.5.9 2.2.4.6.9 1 1.6 1s1.2-.4 1.6-1c.4-.7.7-1.5.9-2.2.1-.5.4-.8.8-.8.5 0 1 .6 1.5 1.2.7.9 1.6 1.8 2.4 1.8.6 0 .9-.5 1.2-1.3.7-1.9 1.6-5.2 1.6-7.6 0-2.3-.7-4.6-2.7-4.6-2.9 0-6.4 4.7-7.8 7.3z"/>
+    </svg>
+  )
+}
+
 // CSV — document with lines (generic, currentColor).
 function CsvIcon(props: IconProps) {
   const s = props.size ?? 20
@@ -340,6 +375,9 @@ const FANBASE_ICONS: Record<string, (props: IconProps) => JSX.Element> = {
   discord: DiscordIcon,
   telegram: TelegramIcon,
   lastfm: LastfmIcon,
+  deezer: DeezerIcon,
+  discogs: DiscogsIcon,
+  bluesky: BlueskyIcon,
 }
 
 export function LlmProviderIcon(props: { providerId: string; size?: number; class?: string }) {

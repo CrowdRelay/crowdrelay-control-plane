@@ -377,6 +377,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || path == "/v1/control-plane/connections/discord"
                 || path == "/v1/control-plane/connections/telegram"
                 || path == "/v1/control-plane/connections/lastfm"
+                || path == "/v1/control-plane/connections/deezer"
+                || path == "/v1/control-plane/connections/discogs"
+                || path == "/v1/control-plane/connections/bluesky"
                 || uuid_segment_between(path, "/v1/control-plane/fanbases/", "/ingest")
                 || fan_tag_path(path)
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/referral-code")

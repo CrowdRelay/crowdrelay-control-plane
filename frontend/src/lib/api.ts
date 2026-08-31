@@ -308,6 +308,24 @@ export const api = {
       headers: { 'idempotency-key': crypto.randomUUID() },
       body: JSON.stringify({ artist, label }),
     }),
+  createDeezerConnection: (slug: string, artistId: string, label?: string) =>
+    request<{ platform: string; status: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/connections/deezer`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ artistId, label }),
+    }),
+  createDiscogsConnection: (slug: string, artistId: string, label?: string) =>
+    request<{ platform: string; status: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/connections/discogs`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ artistId, label }),
+    }),
+  createBlueskyConnection: (slug: string, handle: string, label?: string) =>
+    request<{ platform: string; status: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/connections/bluesky`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ handle, label }),
+    }),
 
   // --- Audience Intelligence ---
   audienceModel: (slug: string) =>

@@ -29,6 +29,9 @@ const OAUTH_PLATFORMS = [
   { value: 'discord', label: 'Discord', icon: 'discord' },
   { value: 'telegram', label: 'Telegram', icon: 'telegram' },
   { value: 'lastfm', label: 'Last.fm', icon: 'lastfm' },
+  { value: 'deezer', label: 'Deezer', icon: 'deezer' },
+  { value: 'discogs', label: 'Discogs', icon: 'discogs' },
+  { value: 'bluesky', label: 'Bluesky', icon: 'bluesky' },
 ]
 
 const EMPTY_INGEST = ''
@@ -72,12 +75,15 @@ export function FanSourcesPanel(props: {
   const [pendingFor, setPendingFor] = createSignal<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = createSignal<string | null>(null)
 
-  // Simple-credential connection form state (Discord/Telegram/Last.fm)
+  // Simple-credential connection form state (Discord/Telegram/Last.fm/Deezer/Discogs/Bluesky)
   const [connectingPlatform, setConnectingPlatform] = createSignal<string | null>(null)
   const [discordGuildId, setDiscordGuildId] = createSignal('')
   const [telegramChannel, setTelegramChannel] = createSignal('')
   const [telegramBotToken, setTelegramBotToken] = createSignal('')
   const [lastfmArtist, setLastfmArtist] = createSignal('')
+  const [deezerArtistId, setDeezerArtistId] = createSignal('')
+  const [discogsArtistId, setDiscogsArtistId] = createSignal('')
+  const [blueskyHandle, setBlueskyHandle] = createSignal('')
 
   const needsAttestation = createMemo(() => sourceKind() !== 'http_json_pull')
 
@@ -220,6 +226,45 @@ export function FanSourcesPanel(props: {
     onError: (error) => setErrorText(error instanceof Error ? error.message : 'Last.fm connection failed'),
   }))
 
+  const connectDeezer = useMutation(() => ({
+    mutationFn: () => api.createDeezerConnection(props.slug, deezerArtistId().trim()),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
+      refetchConnections()
+      setConnectingPlatform(null)
+      setDeezerArtistId('')
+      setErrorText(null)
+      setNotice('Deezer connection created.')
+    },
+    onError: (error) => setErrorText(error instanceof Error ? error.message : 'Deezer connection failed'),
+  }))
+
+  const connectDiscogs = useMutation(() => ({
+    mutationFn: () => api.createDiscogsConnection(props.slug, discogsArtistId().trim()),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
+      refetchConnections()
+      setConnectingPlatform(null)
+      setDiscogsArtistId('')
+      setErrorText(null)
+      setNotice('Discogs connection created.')
+    },
+    onError: (error) => setErrorText(error instanceof Error ? error.message : 'Discogs connection failed'),
+  }))
+
+  const connectBluesky = useMutation(() => ({
+    mutationFn: () => api.createBlueskyConnection(props.slug, blueskyHandle().trim()),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
+      refetchConnections()
+      setConnectingPlatform(null)
+      setBlueskyHandle('')
+      setErrorText(null)
+      setNotice('Bluesky connection created.')
+    },
+    onError: (error) => setErrorText(error instanceof Error ? error.message : 'Bluesky connection failed'),
+  }))
+
   const connTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
     status === 'connected' ? 'good' : status === 'expired' ? 'warn' : status === 'disconnected' ? 'bad' : 'muted'
 
@@ -288,6 +333,15 @@ export function FanSourcesPanel(props: {
                 <Show when={!conn() && plat.value === 'lastfm'}>
                   <button onClick={() => setConnectingPlatform('lastfm')}>Connect</button>
                 </Show>
+                <Show when={!conn() && plat.value === 'deezer'}>
+                  <button onClick={() => setConnectingPlatform('deezer')}>Connect</button>
+                </Show>
+                <Show when={!conn() && plat.value === 'discogs'}>
+                  <button onClick={() => setConnectingPlatform('discogs')}>Connect</button>
+                </Show>
+                <Show when={!conn() && plat.value === 'bluesky'}>
+                  <button onClick={() => setConnectingPlatform('bluesky')}>Connect</button>
+                </Show>
               </div>
             </div>
           )
@@ -329,6 +383,45 @@ export function FanSourcesPanel(props: {
           <button disabled={!lastfmArtist().trim() || connectLastfm.isPending}
             onClick={() => connectLastfm.mutate()}>
             {connectLastfm.isPending ? 'Connecting…' : 'Connect Last.fm'}
+          </button>
+          <button class="ghost" onClick={() => setConnectingPlatform(null)}>Cancel</button>
+        </div>
+      </Show>
+      {/* Deezer connection form */}
+      <Show when={connectingPlatform() === 'deezer'}>
+        <div class="form-grid" style={{ 'margin-top': '12px' }}>
+          <label>Deezer artist ID<small>Numeric ID from the Deezer artist page URL</small><input value={deezerArtistId()} onInput={e => setDeezerArtistId(e.currentTarget.value)} placeholder="13" /></label>
+        </div>
+        <div class="form-actions">
+          <button disabled={!deezerArtistId().trim() || connectDeezer.isPending}
+            onClick={() => connectDeezer.mutate()}>
+            {connectDeezer.isPending ? 'Connecting…' : 'Connect Deezer'}
+          </button>
+          <button class="ghost" onClick={() => setConnectingPlatform(null)}>Cancel</button>
+        </div>
+      </Show>
+      {/* Discogs connection form */}
+      <Show when={connectingPlatform() === 'discogs'}>
+        <div class="form-grid" style={{ 'margin-top': '12px' }}>
+          <label>Discogs artist ID<small>Numeric ID from the Discogs artist page URL</small><input value={discogsArtistId()} onInput={e => setDiscogsArtistId(e.currentTarget.value)} placeholder="18839" /></label>
+        </div>
+        <div class="form-actions">
+          <button disabled={!discogsArtistId().trim() || connectDiscogs.isPending}
+            onClick={() => connectDiscogs.mutate()}>
+            {connectDiscogs.isPending ? 'Connecting…' : 'Connect Discogs'}
+          </button>
+          <button class="ghost" onClick={() => setConnectingPlatform(null)}>Cancel</button>
+        </div>
+      </Show>
+      {/* Bluesky connection form */}
+      <Show when={connectingPlatform() === 'bluesky'}>
+        <div class="form-grid" style={{ 'margin-top': '12px' }}>
+          <label>Bluesky handle<small>Full handle including domain</small><input value={blueskyHandle()} onInput={e => setBlueskyHandle(e.currentTarget.value)} placeholder="virya.bsky.social" /></label>
+        </div>
+        <div class="form-actions">
+          <button disabled={!blueskyHandle().trim() || connectBluesky.isPending}
+            onClick={() => connectBluesky.mutate()}>
+            {connectBluesky.isPending ? 'Connecting…' : 'Connect Bluesky'}
           </button>
           <button class="ghost" onClick={() => setConnectingPlatform(null)}>Cancel</button>
         </div>

@@ -133,6 +133,18 @@ pub fn router() -> Router<AppState> {
             post(create_lastfm_connection),
         )
         .route(
+            "/tenants/{slug}/portfolio/connections/deezer",
+            post(create_deezer_connection),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/connections/discogs",
+            post(create_discogs_connection),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/connections/bluesky",
+            post(create_bluesky_connection),
+        )
+        .route(
             "/tenants/{slug}/notifiers/discovered",
             get(discovered_notifier_endpoints),
         )
@@ -1579,6 +1591,66 @@ async fn create_lastfm_connection(
     )
     .await?;
     object_no_store(value, "lastfm connection")
+}
+
+async fn create_deezer_connection(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    body: axum::Json<serde_json::Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (_, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/connections/deezer",
+        Some(&body.0),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    object_no_store(value, "deezer connection")
+}
+
+async fn create_discogs_connection(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    body: axum::Json<serde_json::Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (_, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/connections/discogs",
+        Some(&body.0),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    object_no_store(value, "discogs connection")
+}
+
+async fn create_bluesky_connection(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    body: axum::Json<serde_json::Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (_, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/connections/bluesky",
+        Some(&body.0),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    object_no_store(value, "bluesky connection")
 }
 
 // ---------------------------------------------------------------------------
