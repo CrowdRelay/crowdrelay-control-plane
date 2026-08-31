@@ -43,7 +43,6 @@ export function LearningLoopPanel(props: { slug: string }) {
     queryFn: () => api.learningLoop(props.slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
-    refetchInterval: 30_000,
     staleTime: 20_000,
   }))
 

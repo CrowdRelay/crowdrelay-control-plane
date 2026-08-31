@@ -99,10 +99,9 @@ export function OverviewPage() {
     <Show when={items().length > 0}>
       <div class="fleet-health-row">
         <div class="fleet-health-ring">
-          <ProgressRing value={healthyPct()} size={72} strokeWidth={6} label="fleet health" />
+          <ProgressRing value={healthyPct()} size={72} strokeWidth={6} />
         </div>
         <div class="fleet-health-stats">
-          <span class="muted">Fleet health</span>
           <strong>{count('healthy')} healthy · {needsAttention()} need attention · {items().length} total</strong>
         </div>
       </div>

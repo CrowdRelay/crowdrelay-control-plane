@@ -61,7 +61,6 @@ export function useIntelligenceData(slug: string): IntelligenceData {
     queryFn: () => api.tenantOperations(slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
-    refetchInterval: 15_000,
     staleTime: 10_000,
   }))
 

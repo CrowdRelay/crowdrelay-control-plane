@@ -29,7 +29,6 @@ export function TenantIntelligencePage() {
     queryFn: () => api.tenantOperations(params().slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
-    refetchInterval: 15_000,
     staleTime: 10_000,
   }))
 
