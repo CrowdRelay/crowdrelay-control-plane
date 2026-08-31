@@ -223,6 +223,11 @@ export function FanSourcesPanel(props: {
                 <Show when={conn()}>
                   <button class="agent-btn-danger" onClick={() => disconnectConnection(conn()!.id)}>Disconnect</button>
                 </Show>
+                <Show when={!conn() && plat.value === 'tiktok'}>
+                  <button onClick={() => {
+                    window.location.href = 'https://signal-api.virya.music/v1/public/connections/tiktok/authorize'
+                  }}>Connect</button>
+                </Show>
               </div>
             </div>
           )
