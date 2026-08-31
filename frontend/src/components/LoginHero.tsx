@@ -47,7 +47,7 @@ const FlowDiagram: Component = () => {
   return (
   <svg
     class="flow-diagram"
-    viewBox="0 0 1200 400"
+    viewBox="0 35 1200 310"
     role="img"
     aria-label="Fan sources flow into the brain (deterministic Rust autopilot), which dispatches LLM workers to produce outcomes. Outcomes feed back into the brain through a learning loop."
   >

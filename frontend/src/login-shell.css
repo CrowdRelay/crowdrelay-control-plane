@@ -276,10 +276,10 @@ body {
   min-width: 0;
   height: 100vh;
   max-height: 100vh;
-  padding: 20px 48px 14px;
+  padding: 16px 48px 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   position: relative;
   overflow: hidden;
 }
@@ -360,7 +360,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: 12px;
+  gap: 8px;
   flex: 1 1 auto;
   min-height: 0;
 }
@@ -987,8 +987,8 @@ body {
 
 @media (min-width: 2000px) {
   .login-hero {
-    padding: 20px 64px 16px;
-    gap: 12px;
+    padding: 16px 64px 14px;
+    gap: 8px;
   }
 
   .flow-diagram {
@@ -1026,8 +1026,8 @@ body {
 
 @media (min-width: 2560px) and (min-height: 1080px) {
   .login-hero {
-    padding: 24px 80px 18px;
-    gap: 14px;
+    padding: 18px 80px 16px;
+    gap: 10px;
   }
 
   .flow-diagram {
