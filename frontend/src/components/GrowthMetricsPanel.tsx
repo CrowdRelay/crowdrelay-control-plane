@@ -1,10 +1,10 @@
-import { For, Show, createResource } from 'solid-js'
+import { For, Show, createMemo, createResource, type Component } from 'solid-js'
 import { api } from '../lib/api'
 import { refreshTick } from '../lib/refresh'
 import { compactNumber, trendArrow, trendDirection } from '../lib/charts'
 import { Sparkline } from './Sparkline'
 import { EmptyState } from './EmptyState'
-import { SkeletonBlock, SkeletonRows } from './Skeleton'
+import { SkeletonBlock, SkeletonRows } from '../components/Skeleton'
 import type { FeedCoverage, GrowthMetricTrendView } from '../lib/types'
 
 const feedStateLabel = (state: string): string =>
@@ -13,16 +13,35 @@ const feedStateLabel = (state: string): string =>
 const feedStateTone = (state: string): 'good' | 'warn' | 'bad' =>
   state === 'live' ? 'good' : state === 'stale' ? 'warn' : 'bad'
 
-const PLATFORM_LABELS: Record<string, string> = {
-  spotify: 'Spotify',
-  you_tube: 'YouTube',
-  bandsintown: 'Bandsintown',
-  social: 'Social',
-  meta: 'Meta',
-  tiktok: 'TikTok',
+// Platform display config — label + brand color for bars and headers.
+const PLATFORM_CONFIG: Record<string, { label: string; color: string }> = {
+  spotify:      { label: 'Spotify',      color: '#1db954' },
+  you_tube:     { label: 'YouTube',      color: '#ff0000' },
+  bandsintown:  { label: 'Bandsintown',  color: '#e6b04c' },
+  social:       { label: 'Social',       color: '#ff4500' },
+  meta:         { label: 'Meta',         color: '#0866ff' },
+  tiktok:       { label: 'TikTok',       color: '#25f4ee' },
+  tik_tok:      { label: 'TikTok',       color: '#25f4ee' },
+  sound_cloud:  { label: 'SoundCloud',   color: '#ff5500' },
+  instagram:    { label: 'Instagram',    color: '#e1306c' },
+  facebook:     { label: 'Facebook',     color: '#0866ff' },
+  signal:       { label: 'Signal',       color: '#9b87f5' },
+  ticketing:    { label: 'Ticketing',    color: '#3ddc84' },
+  merch:        { label: 'Merch',        color: '#f5b942' },
 }
 
-const platformLabel = (key: string) => PLATFORM_LABELS[key] ?? key.replace(/_/g, ' ')
+const platformLabel = (key: string) => PLATFORM_CONFIG[key]?.label ?? key.replace(/_/g, ' ')
+const platformColor = (key: string) => PLATFORM_CONFIG[key]?.color ?? '#9b87f5'
+
+// ── Horizontal bar — scaled relative to the max value in the group ──
+const Bar: Component<{ value: number; max: number; color: string }> = (props) => {
+  const pct = () => Math.max(2, Math.min(100, (props.value / props.max) * 100))
+  return (
+    <div class="gm-bar-track" title={compactNumber(props.value)}>
+      <div class="gm-bar-fill" style={{ width: `${pct()}%`, background: props.color }} />
+    </div>
+  )
+}
 
 export function GrowthMetricsPanel(props: { slug: string }) {
   const refreshSource = () => refreshTick()
@@ -48,6 +67,40 @@ export function GrowthMetricsPanel(props: { slug: string }) {
   const liveSeries = () => (coverage()?.platforms ?? []).reduce((sum, p) => sum + p.live_series, 0)
   const hasFeeds = () => totalSeries() > 0
   const hasLive = () => liveSeries() > 0
+
+  // Group trends by platform, split into upstream (intermediate/vanity) and downstream.
+  const grouped = createMemo(() => {
+    const all = trends() ?? []
+    const groups: Record<string, GrowthMetricTrendView[]> = {}
+    const downstream: GrowthMetricTrendView[] = []
+    for (const t of all) {
+      if (t.value_tier === 'downstream') {
+        downstream.push(t)
+      } else {
+        const key = t.platform
+        if (!groups[key]) groups[key] = []
+        groups[key].push(t)
+      }
+    }
+    // Sort each group by value descending
+    for (const key of Object.keys(groups)) {
+      groups[key]!.sort((a, b) => b.latest_value - a.latest_value)
+    }
+    // Sort downstream by platform then value
+    downstream.sort((a, b) => a.platform.localeCompare(b.platform) || b.latest_value - a.latest_value)
+    return { groups, downstream }
+  })
+
+  // Group downstream by platform
+  const downstreamGrouped = createMemo(() => {
+    const groups: Record<string, GrowthMetricTrendView[]> = {}
+    for (const t of grouped().downstream) {
+      const key = t.platform
+      if (!groups[key]) groups[key] = []
+      groups[key].push(t)
+    }
+    return groups
+  })
 
   return <div class="agent-section">
     <div class="agent-section-head">
@@ -76,6 +129,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
         </Show>
       }
     >
+      {/* Feed coverage */}
       <div class="coverage-bar-wrap">
         <div class="objective-card-head">
           <span class="trend-card-label">Feed coverage</span>
@@ -105,45 +159,81 @@ export function GrowthMetricsPanel(props: { slug: string }) {
           </div>
         </Show>
       }>
-        <div class="growth-metrics-grid">
-          <For each={trends()}>{(trend: GrowthMetricTrendView) => {
-            const delta = trend.delta_7d ?? trend.delta_24h ?? trend.delta_28d
-            const dir = trendDirection(delta)
-            const ratioPct = trend.velocity_ratio_basis_points != null
-              ? Math.round(trend.velocity_ratio_basis_points / 100)
-              : null
-            // Build a synthetic sparkline from available deltas:
-            // 28d ago → 7d ago → 24h ago → now
-            const sparkData = () => {
-              const v = trend.latest_value
-              const d28 = trend.delta_28d != null ? v - trend.delta_28d : v
-              const d7 = trend.delta_7d != null ? v - trend.delta_7d : d28
-              const d24 = trend.delta_24h != null ? v - trend.delta_24h : d7
-              return [d28, d7, d24, v].map(n => Math.max(0, n))
-            }
-            const sparkColor = dir === 'up' ? 'var(--good)' : dir === 'down' ? 'var(--bad)' : 'var(--muted)'
+        {/* ── Platform sections with bar charts ── */}
+        <For each={Object.entries(grouped().groups).sort((a, b) => platformLabel(a[0]).localeCompare(platformLabel(b[0])))}>
+          {([platform, items]) => {
+            const max = () => Math.max(...items.map(t => t.latest_value), 1)
+            const color = platformColor(platform)
             return (
-              <div class="trend-card">
-                <div class="trend-card-head">
-                  <span class="trend-card-label">{trend.display_name}</span>
-                  <span class={`trend-arrow ${dir}`}>{trendArrow(dir)}</span>
+              <div class="gm-platform-section">
+                <div class="gm-platform-head">
+                  <span class="gm-platform-dot" style={{ background: color }} />
+                  <strong>{platformLabel(platform)}</strong>
+                  <span class="muted">{items.length} series</span>
                 </div>
-                <span class="trend-card-value">{compactNumber(trend.latest_value)}</span>
-                <Show when={sparkData().some((n, i) => i > 0 && n !== sparkData()[0])}>
-                  <div class="trend-card-spark">
-                    <Sparkline data={sparkData()} width={120} height={28} color={sparkColor} />
-                  </div>
-                </Show>
-                <span class="trend-delta">
-                  {delta != null ? `${delta > 0 ? '+' : ''}${compactNumber(delta)} (7d)` : 'no prior'}
-                  {ratioPct != null ? ` · ${ratioPct > 0 ? '+' : ''}${ratioPct}% vs baseline` : ''}
-                  {trend.stale ? ' · stale' : ''}
-                </span>
-                <span class="muted trend-platform">{trend.platform} · {trend.value_tier}</span>
+                <div class="gm-bar-list">
+                  <For each={items}>{(trend: GrowthMetricTrendView) => {
+                    const delta = trend.delta_7d ?? trend.delta_24h ?? trend.delta_28d
+                    const dir = trendDirection(delta)
+                    return (
+                      <div class="gm-bar-row">
+                        <span class="gm-bar-label" title={trend.display_name}>{trend.display_name}</span>
+                        <Bar value={trend.latest_value} max={max()} color={color} />
+                        <span class="gm-bar-value">{compactNumber(trend.latest_value)}</span>
+                        <Show when={delta != null}>
+                          <span class={`gm-bar-delta ${dir}`}>{delta! > 0 ? '+' : ''}{compactNumber(delta!)}</span>
+                        </Show>
+                      </div>
+                    )
+                  }}</For>
+                </div>
               </div>
             )
-          }}</For>
-        </div>
+          }}
+        </For>
+
+        {/* ── Conversion (downstream) section ── */}
+        <Show when={grouped().downstream.length > 0}>
+          <div class="gm-conversion-section">
+            <div class="gm-platform-head">
+              <strong>Conversion</strong>
+              <span class="muted">{grouped().downstream.length} metrics</span>
+            </div>
+            <div class="growth-metrics-grid">
+              <For each={grouped().downstream}>{(trend: GrowthMetricTrendView) => {
+                const delta = trend.delta_7d ?? trend.delta_24h ?? trend.delta_28d
+                const dir = trendDirection(delta)
+                const sparkData = () => {
+                  const v = trend.latest_value
+                  const d28 = trend.delta_28d != null ? v - trend.delta_28d : v
+                  const d7 = trend.delta_7d != null ? v - trend.delta_7d : d28
+                  const d24 = trend.delta_24h != null ? v - trend.delta_24h : d7
+                  return [d28, d7, d24, v].map(n => Math.max(0, n))
+                }
+                const sparkColor = dir === 'up' ? 'var(--good)' : dir === 'down' ? 'var(--bad)' : 'var(--muted)'
+                return (
+                  <div class="trend-card">
+                    <div class="trend-card-head">
+                      <span class="trend-card-label">{trend.display_name}</span>
+                      <span class={`trend-arrow ${dir}`}>{trendArrow(dir)}</span>
+                    </div>
+                    <span class="trend-card-value">{compactNumber(trend.latest_value)}</span>
+                    <Show when={sparkData().some((n, i) => i > 0 && n !== sparkData()[0])}>
+                      <div class="trend-card-spark">
+                        <Sparkline data={sparkData()} width={120} height={28} color={sparkColor} />
+                      </div>
+                    </Show>
+                    <span class="trend-delta">
+                      {delta != null ? `${delta > 0 ? '+' : ''}${compactNumber(delta)} (7d)` : 'no prior'}
+                      {trend.stale ? ' · stale' : ''}
+                    </span>
+                    <span class="muted trend-platform">{platformLabel(trend.platform)}</span>
+                  </div>
+                )
+              }}</For>
+            </div>
+          </div>
+        </Show>
       </Show>
     </Show>
   </div>
