@@ -6,6 +6,7 @@ import { StatusBadge } from './StatusBadge'
 import { CountUp } from './CountUp'
 import { FunnelChart } from './FunnelChart'
 import { EmptyState } from './EmptyState'
+import { SkeletonBlock, SkeletonRows } from './Skeleton'
 import type { GrowthFunnelData, FunnelRecentWorkerRun } from '../lib/types'
 
 // --- Funnel icon ---
@@ -129,7 +130,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     </div>
 
     {/* KPI strip */}
-    <Show when={funnel()} fallback={<Show when={!error()}><div class="skeleton-block" /></Show>}>
+    <Show when={funnel()} fallback={<Show when={!error()}><SkeletonBlock height="100px" radius="10px" /></Show>}>
       <div class="kpi-strip">
         <article class="kpi-card">
           <span class="kpi-label">Communities</span>

@@ -1,6 +1,7 @@
 import { For, Show } from 'solid-js'
 import type { FanDetail, FanJourneyEntry } from '../lib/types'
 import { EmptyState } from './EmptyState'
+import { SkeletonRows } from './Skeleton'
 
 const formatDateTime = (iso: string | null) => {
   if (!iso) return '—'
@@ -73,7 +74,7 @@ export function FanDetailDrawer(props: {
           </Show>
           <div class="fan-drawer-journey">
             <h4>Journey</h4>
-            <Show when={props.loading}><p class="muted">Loading…</p></Show>
+            <Show when={props.loading}><SkeletonRows count={3} /></Show>
             <Show when={props.error}><div class="error-card">{props.error}</div></Show>
             <Show when={!props.loading && !props.error && props.journey.length === 0}>
               <EmptyState label="No journey events" hint="Journey events track fan interactions over time. They appear here once the fan engages with the platform." />

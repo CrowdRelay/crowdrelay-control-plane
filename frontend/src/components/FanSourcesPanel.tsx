@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import type { FanbaseBlock, FanbaseConnection } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { FanbaseIcon } from './ProviderIcon'
+import { SkeletonRows } from './Skeleton'
 
 const SOURCE_KINDS = [
   { value: 'http_json_pull', label: 'HTTP JSON (pull)' },
@@ -200,6 +201,7 @@ export function FanSourcesPanel(props: {
         </Show>
       </div>
       <p class="agent-section-intro">Connected ad and music platforms. Disconnect to revoke access.</p>
+      <Show when={!connections.loading} fallback={<SkeletonRows count={3} />}>
       <div class="agent-providers">
         <For each={OAUTH_PLATFORMS}>{(plat) => {
           const conn = () => connections()?.find(c => c.platform === plat.value)
@@ -232,6 +234,7 @@ export function FanSourcesPanel(props: {
           )
         }}</For>
       </div>
+      </Show>
     </div>
 
     <Show when={creating}>

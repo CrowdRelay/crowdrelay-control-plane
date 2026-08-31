@@ -4,6 +4,7 @@ import { refreshTick, triggerRefresh } from '../lib/refresh'
 import { errorMessage } from '../lib/format'
 import { compactNumber } from '../lib/charts'
 import { EmptyState } from './EmptyState'
+import { SkeletonRows } from './Skeleton'
 import type { GrowthObjectiveView, ObjectiveState } from '../lib/types'
 
 const formatDeadline = (iso: string) => {
@@ -88,7 +89,11 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
     </Show>
 
     <Show when={objectives() && objectives()!.length > 0} fallback={
-      <EmptyState label="No growth objectives declared" hint="Declare a target metric and deadline to start tracking progress. The intelligence measures every action against active objectives." />
+      <Show when={objectives.loading} fallback={
+        <EmptyState label="No growth objectives declared" hint="Declare a target metric and deadline to start tracking progress. The intelligence measures every action against active objectives." />
+      }>
+        <SkeletonRows count={3} />
+      </Show>
     }>
       <div class="objective-list">
         <For each={objectives()}>{(obj: GrowthObjectiveView) => {

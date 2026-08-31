@@ -2,6 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { api } from '../lib/api'
 import type { AudienceSegment } from '../lib/types'
 import { EmptyState } from './EmptyState'
+import { SkeletonBlock } from './Skeleton'
 
 export function SegmentPanel(props: {
   slug: string
@@ -52,7 +53,7 @@ export function SegmentPanel(props: {
             <Show when={segment.description}><p class="muted segment-desc">{segment.description}</p></Show>
             <Show when={previewSlug() === segment.slug}>
               <div class="segment-preview">
-                <Show when={loading}><span class="muted">Loading…</span></Show>
+                <Show when={loading}><SkeletonBlock height="18px" width="120px" /></Show>
                 <Show when={error}><span class="agent-error">{error()}</span></Show>
                 <Show when={!loading && !error && previewCount() != null}>
                   <span class="muted">~{previewCount()} fans in this segment</span>

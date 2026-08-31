@@ -4,6 +4,7 @@ import { refreshTick } from '../lib/refresh'
 import { compactNumber, trendArrow, trendDirection } from '../lib/charts'
 import { Sparkline } from './Sparkline'
 import { EmptyState } from './EmptyState'
+import { SkeletonBlock, SkeletonRows } from './Skeleton'
 import type { FeedCoverage, GrowthMetricTrendView } from '../lib/types'
 
 const feedStateLabel = (state: string): string =>
@@ -59,12 +60,19 @@ export function GrowthMetricsPanel(props: { slug: string }) {
     <Show
       when={coverage() && hasFeeds()}
       fallback={
-        <Show when={coverage()} fallback={<p class="muted">Growth metric coverage not available.</p>}>
-          <EmptyState
-            icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 14l4-4 4 4 6-6" /></svg>}
-            label="No metric feeds connected"
-            hint="Connect Spotify, YouTube, Bandsintown, or social feeds to start tracking growth trends. The intelligence needs metric data to measure whether actions are moving the needle."
-          />
+        <Show when={coverage.loading} fallback={
+          <Show when={coverage()} fallback={
+            <EmptyState
+              icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 14l4-4 4 4 6-6" /></svg>}
+              label="No metric feeds connected"
+              hint="Connect Spotify, YouTube, Bandsintown, or social feeds to start tracking growth trends. The intelligence needs metric data to measure whether actions are moving the needle."
+            />
+          }>
+            <SkeletonRows count={4} />
+          </Show>
+        }>
+          <SkeletonBlock height="80px" radius="10px" />
+          <SkeletonRows count={3} />
         </Show>
       }
     >
@@ -85,8 +93,16 @@ export function GrowthMetricsPanel(props: { slug: string }) {
       </div>
 
       <Show when={trends() && trends()!.length > 0} fallback={
-        <Show when={hasLive()} fallback={<p class="muted">No live feeds yet — trends appear once data starts flowing.</p>}>
-          <p class="muted">No growth metric trends available.</p>
+        <Show when={trends.loading} fallback={
+          <Show when={hasLive()} fallback={<p class="muted">No live feeds yet — trends appear once data starts flowing.</p>}>
+            <p class="muted">No growth metric trends available.</p>
+          </Show>
+        }>
+          <div class="growth-metrics-grid">
+            <SkeletonBlock height="120px" radius="10px" />
+            <SkeletonBlock height="120px" radius="10px" />
+            <SkeletonBlock height="120px" radius="10px" />
+          </div>
         </Show>
       }>
         <div class="growth-metrics-grid">
