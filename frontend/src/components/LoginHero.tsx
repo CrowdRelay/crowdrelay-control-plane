@@ -119,7 +119,7 @@ const FlowDiagram: Component = () => {
       <rect x="560" y="170" width="200" height="160" rx="18" />
       <text x="660" y="198" text-anchor="middle" class="flow-node-title">Workers</text>
       <text x="660" y="220" text-anchor="middle" class="flow-node-sub">LLM agents</text>
-      <g transform="translate(620 235)" class="flow-worker-icon" fill="none" stroke="#6fd8ef" stroke-width="2" stroke-linejoin="round">
+      <g transform="translate(620 235)" class="flow-worker-icon" fill="none" stroke="#c4b5fd" stroke-width="2" stroke-linejoin="round">
         <rect x="4" y="4" width="72" height="20" rx="4" opacity="0.7" />
         <rect x="4" y="30" width="72" height="20" rx="4" opacity="0.85" />
         <rect x="4" y="56" width="72" height="20" rx="4" />
@@ -131,7 +131,7 @@ const FlowDiagram: Component = () => {
       <rect x="830" y="170" width="200" height="160" rx="18" />
       <text x="930" y="198" text-anchor="middle" class="flow-node-title">Outcomes</text>
       <text x="930" y="220" text-anchor="middle" class="flow-node-sub">fans · growth</text>
-      <g transform="translate(890 240)" class="flow-outcome-icon" fill="none" stroke="#3ddc84" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <g transform="translate(890 240)" class="flow-outcome-icon" fill="none" stroke="#c4b5fd" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M8 40L24 24L34 34L52 16" />
         <path d="M40 16h12v12" />
       </g>
