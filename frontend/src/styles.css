@@ -342,7 +342,7 @@ button{border-radius:var(--radius-md);padding:.6rem 1rem;background:var(--accent
 .opportunity-row{padding:14px 16px}
 
 /* Skeleton — smoother shimmer */
-.skeleton-grid div,.skeleton-block{border-radius:var(--radius-lg);background:linear-gradient(100deg,rgba(17,19,24,0.6) 20%,rgba(30,34,42,0.8) 50%,rgba(17,19,24,0.6) 80%);background-size:200% 100%;border:1px solid var(--border-default);animation:shimmer 1.8s infinite ease-in-out}
+.skeleton-grid div,.skeleton-block{border-radius:var(--radius-lg);background:linear-gradient(100deg,rgba(26,30,39,0.8) 20%,rgba(40,46,60,0.9) 50%,rgba(26,30,39,0.8) 80%);background-size:200% 100%;border:1px solid var(--border-strong);animation:shimmer 1.8s infinite ease-in-out}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .mini-skeleton{border-radius:12px;background:linear-gradient(100deg,#11141a 20%,#1a1e26 50%,#11141a 80%);background-size:200% 100%;animation:shimmer 1.8s infinite ease-in-out}
 

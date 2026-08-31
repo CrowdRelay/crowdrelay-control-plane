@@ -91,7 +91,11 @@ export function IntelligenceTransparencyPanel(props: { slug: string }) {
           <article class="kpi-card"><span class="kpi-label">Worker tasks</span><strong class="kpi-value muted">—</strong></article>
         </div>
       }>
-        <SkeletonRows count={3} />
+        <div class="kpi-strip">
+          <article class="kpi-card"><div class="skeleton-block" style={{ height: '14px', width: '60%', 'border-radius': '6px', 'margin-bottom': '8px' }} /><div class="skeleton-block" style={{ height: '28px', width: '40%', 'border-radius': '6px' }} /></article>
+          <article class="kpi-card"><div class="skeleton-block" style={{ height: '14px', width: '50%', 'border-radius': '6px', 'margin-bottom': '8px' }} /><div class="skeleton-block" style={{ height: '28px', width: '30%', 'border-radius': '6px' }} /></article>
+          <article class="kpi-card"><div class="skeleton-block" style={{ height: '14px', width: '55%', 'border-radius': '6px', 'margin-bottom': '8px' }} /><div class="skeleton-block" style={{ height: '28px', width: '35%', 'border-radius': '6px' }} /></article>
+        </div>
       </Show>
     }>
       <div class="kpi-strip">
@@ -125,7 +129,17 @@ export function IntelligenceTransparencyPanel(props: { slug: string }) {
 
       <Show when={data() && decisions().length === 0} fallback={
         <Show when={error()} fallback={
-          <Show when={data()} fallback={<SkeletonRows count={3} />}>
+          <Show when={data()} fallback={
+            <div class="intel-decision-list">
+              {Array.from({ length: 3 }, () => (
+                <div class="intel-decision-card" style={{ opacity: '0.8' }}>
+                  <div class="skeleton-block" style={{ height: '20px', width: '40%', 'border-radius': '8px', 'margin-bottom': '12px' }} />
+                  <div class="skeleton-block" style={{ height: '14px', width: '100%', 'border-radius': '6px', 'margin-bottom': '8px' }} />
+                  <div class="skeleton-block" style={{ height: '14px', width: '80%', 'border-radius': '6px' }} />
+                </div>
+              ))}
+            </div>
+          }>
             <div class="intel-decision-list">
               <For each={decisions()}>{(decision: IntelligenceDecision) => (
                 <div class="intel-decision-card">

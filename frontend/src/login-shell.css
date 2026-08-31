@@ -904,14 +904,14 @@ body {
 @media (min-width: 2000px) {
   .login-hero {
     padding: 32px 64px 24px;
-    gap: 18px;
+    gap: 20px;
   }
 
   .flow-diagram {
-    max-width: 820px;
-    width: min(100%, 820px);
-    max-height: 220px;
-    height: 220px;
+    max-width: 880px;
+    width: min(100%, 880px);
+    max-height: 230px;
+    height: 230px;
   }
 
   .hero-features li {
@@ -919,41 +919,45 @@ body {
   }
 
   .hero-stats {
-    width: min(100%, 820px);
+    width: min(100%, 880px);
   }
 
   .hero-stat {
-    padding: 16px 14px;
+    padding: 18px 16px;
   }
 
   .hero-stat strong {
-    font-size: 1.35rem;
+    font-size: 1.5rem;
   }
 
   .hero-stat span {
-    font-size: 0.8rem;
+    font-size: 0.85rem;
   }
 
   .hero-brand strong {
-    font-size: 1.6rem;
+    font-size: 1.8rem;
   }
 
   .hero-brand span {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
+  }
+
+  .login-hero h2 {
+    font-size: clamp(1.8rem, 2.8vw, 3rem);
   }
 }
 
 @media (min-width: 2560px) and (min-height: 1080px) {
   .login-hero {
-    padding: 36px 80px 28px;
-    gap: 22px;
+    padding: 40px 80px 28px;
+    gap: 24px;
   }
 
   .flow-diagram {
-    max-width: 880px;
-    width: min(100%, 880px);
-    max-height: 240px;
-    height: 240px;
+    max-width: 960px;
+    width: min(100%, 960px);
+    max-height: 260px;
+    height: 260px;
   }
 
   .hero-features {
@@ -961,34 +965,46 @@ body {
   }
 
   .hero-features li {
-    padding: 20px 24px;
+    padding: 22px 26px;
+  }
+
+  .hero-features strong {
+    font-size: 1rem;
+  }
+
+  .hero-features span {
+    font-size: 0.82rem;
   }
 
   .login-hero h2 {
-    font-size: clamp(2rem, 3vw, 3.2rem);
+    font-size: clamp(2.2rem, 3.2vw, 3.6rem);
+  }
+
+  .hero-lead {
+    font-size: 1rem;
   }
 
   .hero-stats {
-    width: min(100%, 920px);
+    width: min(100%, 1000px);
   }
 
   .hero-stat {
-    padding: 20px 18px;
+    padding: 24px 20px;
   }
 
   .hero-stat strong {
-    font-size: 1.55rem;
+    font-size: 1.8rem;
   }
 
   .hero-stat span {
-    font-size: 0.88rem;
+    font-size: 0.95rem;
   }
 
   .hero-brand strong {
-    font-size: 1.85rem;
+    font-size: 2.2rem;
   }
 
   .hero-brand span {
-    font-size: 1rem;
+    font-size: 1.1rem;
   }
 }
