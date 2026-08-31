@@ -1,6 +1,6 @@
 import type { Component } from 'solid-js'
 
-// Detailed brain SVG — gyri (folds), central fissure, cerebellum, brainstem.
+// Detailed brain SVG — clean symmetric brain with gyri folds.
 // Used in both the flow diagram and the brain callout.
 const BrainIcon: Component<{ size?: number; class?: string }> = (props) => (
   <svg
@@ -11,22 +11,17 @@ const BrainIcon: Component<{ size?: number; class?: string }> = (props) => (
     fill="none"
     aria-hidden="true"
   >
-    {/* Brain body — two hemispheres with gyri folds */}
-    <g stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
-      {/* Left hemisphere outline */}
-      <path d="M24 8c-2-1.5-5-2-7-1-2 .8-3.5 2.5-4 4.5-2 .3-3.8 1.5-4.2 3.5-.3 1.8.5 3.5 2 4.5-.8 1.5-.8 3.5.2 5 1 1.5 2.8 2.2 4.5 2 .5 2 2 3.5 4 3.8 1.8.2 3.5-.5 4.5-2" fill="rgba(155,135,245,0.12)" />
-      {/* Right hemisphere outline */}
-      <path d="M24 8c2-1.5 5-2 7-1 2 .8 3.5 2.5 4 4.5 2 .3 3.8 1.5 4.2 3.5.3 1.8-.5 3.5-2 4.5.8 1.5.8 3.5-.2 5-1 1.5-2.8 2.2-4.5 2-.5 2-2 3.5-4 3.8-1.8.2-3.5-.5-4.5-2" fill="rgba(155,135,245,0.12)" />
-      {/* Central fissure (longitudinal) */}
-      <path d="M24 8v22" stroke-width="1" opacity="0.5" />
-      {/* Left hemisphere gyri — the wrinkly folds */}
-      <path d="M14 13c1.5.5 2.5 1.5 3 3M10 17c1.5.3 2.8 1 3.5 2.5M12 22c1.5.3 2.8 1 3.5 2.5M14 27c1.2.5 2.2 1.5 2.8 3M18 31c1 .8 1.8 2 2.2 3.2" stroke-width="1" opacity="0.4" />
-      {/* Right hemisphere gyri */}
-      <path d="M34 13c-1.5.5-2.5 1.5-3 3M38 17c-1.5.3-2.8 1-3.5 2.5M36 22c-1.5.3-2.8 1-3.5 2.5M34 27c-1.2.5-2.2 1.5-2.8 3M30 31c-1 .8-1.8 2-2.2 3.2" stroke-width="1" opacity="0.4" />
+    <g stroke="currentColor" stroke-linejoin="round" stroke-linecap="round">
+      {/* Brain body — single closed path, symmetric */}
+      <path d="M24 10c-3-2-7-2-9 0-2 1.5-3 4-2.5 6.5-2 1-3 3-2.5 5.5.5 2 2 3.5 4 4-.5 2.5.5 5 2.5 6.5 2 1.5 5 1.5 7.5 0 2.5 1.5 5.5 1.5 7.5 0 2-1.5 3-4 2.5-6.5 2-0.5 3.5-2 4-4 .5-2.5-.5-4.5-2.5-5.5.5-2.5-.5-5-2.5-6.5-2-2-6-2-9 0z" fill="rgba(155,135,245,0.12)" stroke-width="1.5" />
+      {/* Central fissure */}
+      <path d="M24 10v22" stroke-width="1" opacity="0.4" />
+      {/* Left gyri */}
+      <path d="M16 16c1.5.5 2.5 1.5 3 3M13 20c1.5.3 2.5 1 3 2.5M15 25c1.2.5 2 1.5 2.5 3M18 30c.8.8 1.5 2 2 3" stroke-width="0.8" opacity="0.35" />
+      {/* Right gyri */}
+      <path d="M32 16c-1.5.5-2.5 1.5-3 3M35 20c-1.5.3-2.5 1-3 2.5M33 25c-1.2.5-2 1.5-2.5 3M30 30c-.8.8-1.5 2-2 3" stroke-width="0.8" opacity="0.35" />
       {/* Cerebellum */}
-      <path d="M18 36c2 2 10 2 12 0" stroke-width="1.2" opacity="0.6" />
-      {/* Brainstem */}
-      <path d="M22 36v4c0 1.5 4 1.5 4 0v-4" stroke-width="1.2" />
+      <path d="M19 36c2 1.5 8 1.5 10 0" stroke-width="1" opacity="0.5" />
     </g>
   </svg>
 )
@@ -40,36 +35,37 @@ const BrandMark: Component<{ size: number }> = (props) => (
 // Architecture flow — the real system:
 // Sources → Brain (deterministic Rust) → Workers (LLM agents) → Outcomes
 // with a learning loop arc ABOVE, pointing from outcomes back to brain.
-// All four nodes are the same size, 1.8-2x bigger than the original.
+// All four nodes are the same size. Arrows are full pipes (--->) not just >.
 const FlowDiagram: Component = () => (
   <svg
     class="flow-diagram"
-    viewBox="0 0 1200 420"
+    viewBox="0 0 1200 400"
     role="img"
     aria-label="Fan sources flow into the brain (deterministic Rust autopilot), which dispatches LLM workers to produce outcomes. Outcomes feed back into the brain through a learning loop."
   >
     <defs>
-      <marker id="cr-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
-        <path d="M0 0 L10 5 L0 10 z" fill="#8b5cf6" />
+      {/* Arrow head — sits at the end of the line, looks like ---> */}
+      <marker id="cr-arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto">
+        <path d="M0 2 L10 6 L0 10 L3 6 z" fill="#9b87f5" />
       </marker>
-      <marker id="cr-arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
-        <path d="M0 0 L10 5 L0 10 z" fill="#3ddc84" />
+      <marker id="cr-arrow-green" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto">
+        <path d="M0 2 L10 6 L0 10 L3 6 z" fill="#3ddc84" />
       </marker>
       <linearGradient id="cr-flow-line" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#9b87f5" stop-opacity="0.3" />
-        <stop offset="50%" stop-color="#9b87f5" stop-opacity="0.8" />
-        <stop offset="100%" stop-color="#6fd8ef" stop-opacity="0.3" />
+        <stop offset="0%" stop-color="#9b87f5" stop-opacity="0.4" />
+        <stop offset="50%" stop-color="#9b87f5" stop-opacity="0.9" />
+        <stop offset="100%" stop-color="#9b87f5" stop-opacity="0.4" />
       </linearGradient>
       <radialGradient id="cr-brain-glow" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stop-color="#9b87f5" stop-opacity="0.35" />
-        <stop offset="60%" stop-color="#9b87f5" stop-opacity="0.08" />
+        <stop offset="0%" stop-color="#9b87f5" stop-opacity="0.3" />
+        <stop offset="60%" stop-color="#9b87f5" stop-opacity="0.06" />
         <stop offset="100%" stop-color="#9b87f5" stop-opacity="0" />
       </radialGradient>
     </defs>
 
     {/* Learning loop — symmetric arc ABOVE, from outcomes → brain */}
     <path
-      d="M 920 200 C 920 60, 380 60, 380 200"
+      d="M 930 190 C 930 50, 390 50, 390 190"
       fill="none"
       stroke="#3ddc84"
       stroke-width="2"
@@ -77,23 +73,23 @@ const FlowDiagram: Component = () => (
       class="flow-learning"
       marker-end="url(#cr-arrow-green)"
     />
-    <text x="650" y="40" text-anchor="middle" class="flow-loop-label">learning loop</text>
+    <text x="660" y="32" text-anchor="middle" class="flow-loop-label">learning loop</text>
 
     {/* Brain glow — subtle, breathing */}
-    <circle cx="380" cy="260" r="120" fill="url(#cr-brain-glow)" class="flow-brain-glow" />
+    <circle cx="390" cy="250" r="110" fill="url(#cr-brain-glow)" class="flow-brain-glow" />
 
-    {/* Connection lines — from right edge of one block to left edge of next */}
-    <g stroke="url(#cr-flow-line)" stroke-width="3" fill="none">
-      <line x1="220" y1="260" x2="290" y2="260" marker-end="url(#cr-arrow)" />
-      <line x1="470" y1="260" x2="560" y2="260" marker-end="url(#cr-arrow)" />
-      <line x1="740" y1="260" x2="830" y2="260" marker-end="url(#cr-arrow)" />
+    {/* Connection pipes — full lines from block edge to block edge with arrowhead */}
+    <g stroke="url(#cr-flow-line)" stroke-width="3" fill="none" stroke-linecap="round">
+      <line x1="220" y1="250" x2="286" y2="250" marker-end="url(#cr-arrow)" />
+      <line x1="490" y1="250" x2="556" y2="250" marker-end="url(#cr-arrow)" />
+      <line x1="760" y1="250" x2="826" y2="250" marker-end="url(#cr-arrow)" />
     </g>
 
-    {/* ── Source node (left) — 200x180, same as all others ── */}
+    {/* ── Source node (left) — 200x160 ── */}
     <g class="flow-node flow-node-source">
-      <rect x="20" y="170" width="200" height="180" rx="18" />
-      <text x="120" y="200" text-anchor="middle" class="flow-node-title">Sources</text>
-      <g transform="translate(50 220)" class="flow-source-icons">
+      <rect x="20" y="170" width="200" height="160" rx="18" />
+      <text x="120" y="198" text-anchor="middle" class="flow-node-title">Sources</text>
+      <g transform="translate(50 215)" class="flow-source-icons">
         <circle cx="18" cy="18" r="16" fill="#ff4500" opacity="0.85" />
         <text x="18" y="24" text-anchor="middle" font-size="18" fill="#fff" font-weight="700">R</text>
         <circle cx="62" cy="18" r="16" fill="#0866ff" opacity="0.85" />
@@ -109,36 +105,36 @@ const FlowDiagram: Component = () => (
       </g>
     </g>
 
-    {/* ── Brain node (center-left, glowing) — 200x180 ── */}
+    {/* ── Brain node (center-left, glowing) — 200x160 ── */}
     <g class="flow-node flow-node-brain">
-      <rect x="290" y="170" width="200" height="180" rx="20" />
-      <text x="390" y="200" text-anchor="middle" class="flow-node-title">Brain</text>
-      <text x="390" y="222" text-anchor="middle" class="flow-node-sub">Rust autopilot</text>
-      <g transform="translate(350 240)" class="flow-brain-icon" style={{ color: '#c4b5fd' }}>
+      <rect x="290" y="170" width="200" height="160" rx="20" />
+      <text x="390" y="198" text-anchor="middle" class="flow-node-title">Brain</text>
+      <text x="390" y="220" text-anchor="middle" class="flow-node-sub">Rust autopilot</text>
+      <g transform="translate(350 235)" class="flow-brain-icon" style={{ color: '#c4b5fd' }}>
         <BrainIcon size={80} />
       </g>
     </g>
 
-    {/* ── Workers node (center-right) — 200x180 ── */}
+    {/* ── Workers node (center-right) — 200x160 ── */}
     <g class="flow-node flow-node-worker">
-      <rect x="560" y="170" width="200" height="180" rx="18" />
-      <text x="660" y="200" text-anchor="middle" class="flow-node-title">Workers</text>
-      <text x="660" y="222" text-anchor="middle" class="flow-node-sub">LLM agents</text>
-      <g transform="translate(620 240)" class="flow-worker-icon" fill="none" stroke="#6fd8ef" stroke-width="2" stroke-linejoin="round">
+      <rect x="560" y="170" width="200" height="160" rx="18" />
+      <text x="660" y="198" text-anchor="middle" class="flow-node-title">Workers</text>
+      <text x="660" y="220" text-anchor="middle" class="flow-node-sub">LLM agents</text>
+      <g transform="translate(620 235)" class="flow-worker-icon" fill="none" stroke="#6fd8ef" stroke-width="2" stroke-linejoin="round">
         <rect x="4" y="4" width="72" height="20" rx="4" opacity="0.5" />
         <rect x="4" y="30" width="72" height="20" rx="4" opacity="0.7" />
         <rect x="4" y="56" width="72" height="20" rx="4" />
       </g>
     </g>
 
-    {/* ── Outcomes node (far right) — 200x180 ── */}
+    {/* ── Outcomes node (far right) — 200x160 ── */}
     <g class="flow-node flow-node-outcome">
-      <rect x="830" y="170" width="200" height="180" rx="18" />
-      <text x="930" y="200" text-anchor="middle" class="flow-node-title">Outcomes</text>
-      <text x="930" y="222" text-anchor="middle" class="flow-node-sub">fans · growth</text>
+      <rect x="830" y="170" width="200" height="160" rx="18" />
+      <text x="930" y="198" text-anchor="middle" class="flow-node-title">Outcomes</text>
+      <text x="930" y="220" text-anchor="middle" class="flow-node-sub">fans · growth</text>
       <g transform="translate(890 240)" class="flow-outcome-icon" fill="none" stroke="#3ddc84" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M6 48l18-18 10 10 18-18" />
-        <path d="M44 22v14h-14" />
+        <path d="M8 40L24 24L34 34L52 16" />
+        <path d="M40 16h12v12" />
       </g>
     </g>
   </svg>
