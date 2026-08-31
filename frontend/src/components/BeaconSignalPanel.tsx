@@ -4,6 +4,7 @@ import { refreshTick } from '../lib/refresh'
 import { formatTimestamp } from '../lib/format'
 import type { BeaconDashboardResponse, BeaconCandidatesResponse, BeaconNetworkResponse } from '../lib/types'
 import { EmptyState } from './EmptyState'
+import { SkeletonBlock } from './Skeleton'
 
 const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (status) {
@@ -51,7 +52,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
     </div>
     <p class="agent-section-intro">Press and industry relationships. Beacons are the people the agent is talking to — journalists, promoters, superfans. The network shows discovery runs and invite jobs.</p>
 
-    <Show when={dashboard()} fallback={<p class="muted">Loading beacon dashboard…</p>}>
+    <Show when={dashboard()} fallback={<SkeletonBlock height="60px" radius="10px" />}>
       <div class="kpi-strip">
         <div class="kpi"><span class="kpi-value">{dashboard()!.total}</span><span class="kpi-label">Total</span></div>
         <div class="kpi"><span class="kpi-value">{dashboard()!.active}</span><span class="kpi-label">Active</span></div>
@@ -94,7 +95,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
       </Show>
     </Show>
 
-    <Show when={candidates()} fallback={<p class="muted">Loading candidates…</p>}>
+    <Show when={candidates()} fallback={<SkeletonBlock height="120px" radius="10px" />}>
       <Show when={candidates()!.candidates.length > 0}>
         <h4 class="subsection">Candidates</h4>
         <div class="table-wrap">
@@ -128,7 +129,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
       </Show>
     </Show>
 
-    <Show when={network()} fallback={<p class="muted">Loading network…</p>}>
+    <Show when={network()} fallback={<SkeletonBlock height="120px" radius="10px" />}>
       <h4 class="subsection">Network Discovery</h4>
       <Show when={network()!.discoveryRuns.length > 0} fallback={<EmptyState label="No discovery runs" hint="Discovery runs scan for nearby fans using beacon campaigns. Runs appear here once the intelligence dispatches them." />}>
         <div class="table-wrap">

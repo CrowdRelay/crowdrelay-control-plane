@@ -870,10 +870,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .funnel-worker-table td{padding:8px 10px;border-bottom:1px solid var(--line)}
 .funnel-worker-table td strong{font-size:.82rem}
 .funnel-recent-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
-.funnel-recent-row{padding:10px 14px;border:1px solid var(--border-default);border-radius:10px;background:var(--surface-3);}
-.funnel-recent-head{display:flex;align-items:center;gap:10px}
-.funnel-recent-head strong{font-size:.85rem}
-.funnel-recent-meta{display:flex;gap:10px;margin-top:6px;font-size:.72rem}
+.funnel-recent-row{padding:12px 16px;border:1px solid var(--border-default);border-radius:10px;background:var(--surface-3);transition:border-color .2s ease}
+.funnel-recent-row:hover{border-color:var(--border-strong)}
+.funnel-recent-head{display:flex;align-items:center;gap:12px}
+.funnel-recent-head strong{font-size:.85rem;flex-shrink:0}
+.funnel-recent-head .muted{margin-left:auto;font-size:.72rem}
+.funnel-recent-meta{display:flex;align-items:center;gap:12px;margin-top:8px;font-size:.72rem;padding-left:2px}
+.funnel-recent-meta .muted{margin-left:auto;color:var(--text-muted)}
 
 /* Intelligence Transparency panel */
 .intel-decision-list{display:flex;flex-direction:column;gap:10px;margin-top:14px}
@@ -1199,7 +1202,31 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 /* === Operations dashboard redesign === */
 
 /* KPI summary strip — Zone 1 */
-.ops-kpi-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:24px}
+.ops-kpi-strip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin-bottom:24px}
+/* Page tab bar */
+.dead-expand-btn{width:100%;text-align:center;padding:10px;margin-top:8px;border:1px dashed var(--border-default);border-radius:8px;color:var(--text-muted);font-size:.78rem;font-weight:600;transition:all .15s ease}
+.dead-expand-btn:hover{border-color:var(--accent);color:var(--text-secondary);background:rgba(155,135,245,0.05)}
+.page-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border-default);margin-bottom:20px;overflow-x:auto;scrollbar-width:none}
+.page-tabs::-webkit-scrollbar{display:none}
+.page-tab{padding:10px 16px;border:none;background:none;color:var(--text-muted);font-size:.82rem;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:color .15s ease,border-color .15s ease;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.page-tab:hover{color:var(--text-secondary)}
+.page-tab.active{color:var(--text-primary);border-bottom-color:var(--accent)}
+.page-tab-count{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:rgba(155,135,245,0.15);color:#c4b5fd;font-size:.68rem;font-weight:700}
+.page-tab-content{animation:tab-fade-in .15s ease}
+@keyframes tab-fade-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:1100px){.ops-kpi-strip{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:700px){.ops-kpi-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* Scorecard grid layouts — compact multi-column */
+.scorecard-grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.scorecard-grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+@media(max-width:800px){.scorecard-grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}.scorecard-grid-2{grid-template-columns:1fr}}
+.scorecard-context-card{padding:12px 14px;border:1px solid var(--border-default);border-radius:10px;background:var(--surface-2);display:flex;flex-direction:column;gap:4px}
+.scorecard-context-card strong{font-size:.85rem;font-weight:600}
+.scorecard-context-card small{font-size:.72rem;color:var(--text-muted)}
+.scorecard-result-card{padding:12px 14px;border:1px solid var(--border-default);border-radius:10px;background:var(--surface-2);display:flex;flex-direction:column;gap:4px}
+.scorecard-result-head{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.scorecard-result-head strong{font-size:.82rem;font-weight:600}
+.scorecard-result-card small{font-size:.72rem;color:var(--text-muted)}
 .ops-kpi-card{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-2);transition:border-color var(--t-fast)}
 .ops-kpi-card:hover{border-color:var(--border-strong)}
 .ops-kpi-card.tone-good{border-color:rgba(61,220,132,0.25)}

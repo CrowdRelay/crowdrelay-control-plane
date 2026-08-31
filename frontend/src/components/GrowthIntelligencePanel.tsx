@@ -243,8 +243,14 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
         </div>
         <p class="agent-section-intro">Actions the intelligence has queued for your approval. Community posts, press pitches, and other growth actions appear here with rich detail before they're executed.</p>
         <Show when={pendingGrowthActions().length > 0} fallback={
-          <Show when={overview()} fallback={<SkeletonRows count={2} />}>
-            <EmptyState label="No actions awaiting approval" hint="When the intelligence proposes actions that require human approval, they appear here." />
+          <Show when={overview.loading} fallback={
+            <Show when={overview()} fallback={
+              <EmptyState label="Intelligence unavailable" hint="The autopilot overview could not be loaded. This may be a temporary issue." />
+            }>
+              <EmptyState label="No actions awaiting approval" hint="When the intelligence proposes actions that require human approval, they appear here." />
+            </Show>
+          }>
+            <SkeletonRows count={2} />
           </Show>
         }>
           <div class="growth-approval-list">
@@ -320,8 +326,14 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
         </div>
         <p class="agent-section-intro">Set how much freedom the intelligence has to act on growth intelligence findings. "Require approval" queues every action for your sign-off; "Bounded auto" lets it execute within daily limits.</p>
         <Show when={growthPolicy()} fallback={
-          <Show when={overview()} fallback={<SkeletonPanel lines={4} />}>
-            <EmptyState label="Policy unavailable" hint="The growth intelligence policy could not be loaded. This may be a temporary issue." />
+          <Show when={overview.loading} fallback={
+            <Show when={overview()} fallback={
+              <EmptyState label="Policy unavailable" hint="The autopilot overview could not be loaded. This may be a temporary issue." />
+            }>
+              <EmptyState label="No growth intelligence policy" hint="The growth intelligence policy was not found in the autopilot overview. Ensure the autopilot is configured for this tenant." />
+            </Show>
+          }>
+            <SkeletonPanel lines={4} />
           </Show>
         }>
           <div class="autopilot-policy-list">

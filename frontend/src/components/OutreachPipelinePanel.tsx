@@ -4,6 +4,7 @@ import { refreshTick, triggerRefresh } from '../lib/refresh'
 import { errorMessage } from '../lib/format'
 import type { OutreachCandidateView, BookingCandidateView } from '../lib/types'
 import { EmptyState } from './EmptyState'
+import { SkeletonBlock } from './Skeleton'
 
 const fitLabel = (bps: number) => `${Math.round(bps / 100)}%`
 
@@ -83,7 +84,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'outreach'} fallback={
-      <Show when={booking()} fallback={<p class="muted">Loading booking candidates…</p>}>
+      <Show when={booking()} fallback={<SkeletonBlock height="120px" radius="10px" />}>
         <Show when={booking()!.length > 0} fallback={<EmptyState label="No booking candidates" hint="The intelligence scans for gig opportunities with computed economics. Candidates appear here when the detector finds viable shows." />}>
           <div class="table-wrap">
             <table class="data-table">
@@ -122,7 +123,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
         </Show>
       </Show>
     }>
-      <Show when={outreach()} fallback={<p class="muted">Loading outreach candidates…</p>}>
+      <Show when={outreach()} fallback={<SkeletonBlock height="120px" radius="10px" />}>
         <Show when={outreach()!.length > 0} fallback={<EmptyState label="No outreach candidates" hint="Outreach candidates are fans or contacts the intelligence identified for engagement. They appear here when detectors raise them." />}>
           <div class="table-wrap">
             <table class="data-table">

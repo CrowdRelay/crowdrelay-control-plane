@@ -4,6 +4,7 @@ import { refreshTick } from '../lib/refresh'
 import { formatTimestamp } from '../lib/format'
 import type { PlayLedger, PlayKindStanding } from '../lib/types'
 import { EmptyState } from './EmptyState'
+import { SkeletonBlock } from './Skeleton'
 
 const kindLabel = (kind: string): string => {
   switch (kind) {
@@ -72,7 +73,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
     </div>
     <p class="agent-section-intro">What the agent committed to, what it did, and what each number is allowed to prove. Each play is a structured experiment with claims, evidence, and effect assessment.</p>
 
-    <Show when={ledger()} fallback={<p class="muted">Loading play ledger…</p>}>
+    <Show when={ledger()} fallback={<SkeletonBlock height="120px" radius="10px" />}>
       <Show when={ledger()!.standings.length > 0}>
         <h4 class="subsection">Kind Standings</h4>
         <div class="standings-grid">

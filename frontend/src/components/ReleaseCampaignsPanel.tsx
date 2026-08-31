@@ -4,6 +4,7 @@ import { refreshTick, triggerRefresh } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import type { AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse } from '../lib/types'
 import { EmptyState } from './EmptyState'
+import { SkeletonBlock } from './Skeleton'
 
 const phaseTone = (phase: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (phase) {
@@ -96,7 +97,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
       <div class="error-card">{error()}</div>
     </Show>
 
-    <Show when={campaigns()} fallback={<p class="muted">Loading release campaigns…</p>}>
+    <Show when={campaigns()} fallback={<SkeletonBlock height="120px" radius="10px" />}>
       <Show when={campaigns()!.pool.active_release_latarnicy > 0 || campaigns()!.pool.missing_email > 0}>
         <div class="kpi-strip">
           <div class="kpi"><span class="kpi-value">{campaigns()!.pool.active_release_latarnicy}</span><span class="kpi-label">Active Latarnicy</span></div>
@@ -148,7 +149,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
               </div>
 
               <Show when={selectedCampaign() === c.id}>
-                <Show when={recipients()} fallback={<p class="muted">Loading recipients…</p>}>
+                <Show when={recipients()} fallback={<SkeletonBlock height="80px" radius="10px" />}>
                   <div class="table-wrap">
                     <table class="data-table">
                       <thead>

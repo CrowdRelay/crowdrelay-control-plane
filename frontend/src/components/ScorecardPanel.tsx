@@ -176,13 +176,11 @@ export function ScorecardPanel(props: { slug: string }) {
           <div class="operations-section-head">
             <div><span class="eyebrow">BY CONTEXT</span><h3>Which parts are producing</h3></div>
           </div>
-          <div class="flag-list">
-            <For each={d().by_context}>{ctx => <div class="flag-row release-component-row">
-              <div>
-                <strong>{contextLabel(ctx.context)}</strong>
-                <small>{count(ctx.executed)} executed · {count(ctx.succeeded)} succeeded · {count(ctx.failed)} failed</small>
-                <Show when={ctx.parked > 0}><small>{count(ctx.parked)} parked</small></Show>
-              </div>
+          <div class="scorecard-grid-3">
+            <For each={d().by_context}>{ctx => <div class="scorecard-context-card">
+              <strong>{contextLabel(ctx.context)}</strong>
+              <small>{count(ctx.executed)} executed · {count(ctx.succeeded)} succeeded · {count(ctx.failed)} failed</small>
+              <Show when={ctx.parked > 0}><small class="muted">{count(ctx.parked)} parked</small></Show>
             </div>}</For>
           </div>
         </section>
@@ -194,20 +192,15 @@ export function ScorecardPanel(props: { slug: string }) {
           <div><span class="eyebrow">RECENT RESULTS</span><h3>Last 10 completed actions</h3></div>
         </div>
         <Show when={d().recent_results.length > 0} fallback={<div class="inherit-card"><p>The agent has not completed any actions yet.</p></div>}>
-          <div class="flag-list">
-            <For each={d().recent_results}>{result => <div class="flag-row release-component-row">
-              <div>
+          <div class="scorecard-grid-2">
+            <For each={d().recent_results}>{result => <div class="scorecard-result-card">
+              <div class="scorecard-result-head">
                 <strong>{actionLabel(result.action_kind)}</strong>
-                <small>{contextLabel(result.context)} · {result.subject_kind}</small>
-                <Show when={result.metric_key}><small>metric: {result.metric_key}</small></Show>
-                <Show when={deltaLabel(result.delta_basis_points)}>{delta =>
-                  <small>delta: {delta()}</small>
-                }</Show>
-                <small>{timeAgo(result.completed_at)}<Show when={result.executor_id}>{` · ${result.executor_id}`}</Show></small>
-              </div>
-              <div class="row-health">
                 <StatusBadge status={outcomeLabel(result.outcome)} tone={outcomeTone(result.outcome)} />
               </div>
+              <small>{contextLabel(result.context)} · {result.subject_kind}</small>
+              <Show when={result.metric_key}><small class="muted">metric: {result.metric_key}</small></Show>
+              <small class="muted">{timeAgo(result.completed_at)}<Show when={result.executor_id}>{` · ${result.executor_id}`}</Show></small>
             </div>}</For>
           </div>
         </Show>

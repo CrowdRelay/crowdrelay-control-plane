@@ -298,7 +298,7 @@ export function OperationsPanel(props: {
       </section>
 
       <section class="operations-section autopilot-section">
-        <details>
+        <details open>
           <summary class="operations-section-head">
             <div><span class="eyebrow">AUTOPILOT</span><h3>Authority policies</h3></div>
             <div class="row-health">
