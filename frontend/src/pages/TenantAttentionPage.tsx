@@ -68,18 +68,6 @@ export function TenantAttentionPage() {
   const [timelineInput, setTimelineInput] = createSignal('')
   const [timeline, setTimeline] = createSignal<Awaited<ReturnType<typeof api.operationTimeline>> | null>(null)
 
-  // Operations read model — for the attention inbox (needs_you, opportunities)
-  const ops = useQuery(() => ({
-    queryKey: ['tenant-operations', params().slug, refreshTick()],
-    queryFn: () => api.tenantOperations(params().slug),
-    reconcile: 'id',
-    refetchOnWindowFocus: false,
-    refetchInterval: 15_000,
-    staleTime: 10_000,
-  }))
-  const needsYou = () => ops.data?.autopilot?.needs_you ?? []
-  const awaitingApproval = () => ops.data?.opportunities?.filter(o => o.authority === 'awaiting_approval').length ?? 0
-
   const refreshMaintenance = async () => {
     await attention.refetch()
   }
@@ -214,12 +202,12 @@ export function TenantAttentionPage() {
     {/* ─── Attention Inbox — tiered action center ──────────────────── */}
     <Show when={summary.data}>
       <AttentionInbox
-        needsYou={needsYou()}
+        needsYou={[]}
         deadJobs={summary.data ? totalDead(summary.data) : 0}
         criticalAlerts={summary.data?.watchdog.critical_alerts ?? 0}
         staleReservations={summary.data ? staleAreaReservations(summary.data) : 0}
         activeAlerts={summary.data?.watchdog.active_alerts ?? 0}
-        awaitingApproval={awaitingApproval()}
+        awaitingApproval={0}
       />
     </Show>
 

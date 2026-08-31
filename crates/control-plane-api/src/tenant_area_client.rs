@@ -290,6 +290,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/beacon-network"
                     | "/v1/control-plane/autopilot/beacon-release-campaigns"
                     | "/v1/control-plane/autopilot/plays"
+                    | "/v1/control-plane/autopilot/learning-loop"
                     | "/v1/control-plane/portfolio/overview"
                     | "/v1/control-plane/portfolio/amplification"
                     | "/v1/control-plane/tenant-settings"
@@ -316,6 +317,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/v1/control-plane/autopilot/beacon-release-campaigns/",
                     "/recipients",
                 )
+                || uuid_segment_between(path, "/v1/control-plane/autopilot/decisions/", "/evidence")
                 || timeline_segment(path)
                 || trace_segment(path)
         }
