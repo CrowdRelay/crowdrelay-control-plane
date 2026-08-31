@@ -14,7 +14,7 @@ const FlowDiagram: Component = () => (
     class="flow-diagram"
     viewBox="0 0 620 300"
     role="img"
-    aria-label="Signals, context, decision, action and delivery, with a recovery loop back into context"
+    aria-label="Signals flow into the brain (deterministic autopilot) which dispatches workers for action and delivery, with a recovery loop"
   >
     <defs>
       <marker id="cr-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
@@ -63,10 +63,25 @@ const FlowDiagram: Component = () => (
         <path d="M3 12A9 3 0 0 0 21 12" />
       </g>
     </g>
-    {/* Decision: brand mark */}
+    {/* Decision: brain (deterministic Rust autopilot) — pulses like a heartbeat */}
     <g class="flow-node flow-node-active">
       <rect x="272" y="42" width="76" height="76" rx="20" />
-      <image href="/crowdrelay-brand-mark.png" x="264" y="34" width="92" height="92" clip-path="inset(8px round 22px)" />
+      <g transform="translate(286 56)" class="flow-brain">
+        <path
+          d="M24 12c0-2.2-1.5-4-3.5-4.3.3-1.8-.8-3.7-2.7-4.2-1.6-.4-3.2.3-4 1.6-.6-.7-1.5-1.1-2.5-1.1-1.8 0-3.3 1.3-3.6 3C6.3 7.3 4.8 8.7 4.5 10.6 2.7 11 1.5 12.7 1.8 14.5c.2 1.5 1.4 2.7 2.9 2.9.1 2.2 1.9 4 4.1 4 .8 0 1.5-.2 2.1-.6.5 1.5 1.9 2.6 3.6 2.6 1.4 0 2.6-.8 3.3-2 .5.3 1.1.5 1.7.5 1.7 0 3.1-1.2 3.5-2.8 1.9-.2 3.3-1.8 3.3-3.7 0-1.8-1.3-3.4-3-3.7z"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linejoin="round"
+        />
+        <path d="M12 8.5v8M8 10c1 0 1.5.8 1.5 1.5M16 10c-1 0-1.5.8-1.5 1.5M7.5 14c.8 0 1.5.6 1.5 1.5M16.5 14c-.8 0-1.5.6-1.5 1.5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1"
+          stroke-linecap="round"
+          opacity="0.5"
+        />
+      </g>
     </g>
     {/* Action: zap */}
     <g class="flow-node">
@@ -91,13 +106,13 @@ const FlowDiagram: Component = () => (
     </g>
     <g class="flow-pill">
       <rect x="262" y="202" width="96" height="32" rx="10" />
-      <text x="310" y="223">Recovery</text>
+      <text x="310" y="223">Outcomes</text>
     </g>
 
     <g class="flow-label">
       <text x="60" y="136">Signals</text>
       <text x="175" y="136">Context</text>
-      <text x="310" y="146">Decision</text>
+      <text x="310" y="146">Brain</text>
       <text x="448" y="136">Action</text>
       <text x="560" y="136">Delivery</text>
     </g>

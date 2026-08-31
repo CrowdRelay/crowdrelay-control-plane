@@ -414,6 +414,26 @@ body {
   100% { transform: scale(1.15); opacity: 0; }
 }
 
+/* Brain heartbeat — double-pulse (lub-dub) like a real heart */
+.flow-brain {
+  color: #c4b5fd;
+  transform-origin: 310px 80px;
+  animation: brain-heartbeat 2.4s ease-in-out infinite;
+}
+
+@keyframes brain-heartbeat {
+  0%, 100% { transform: scale(1); }
+  8% { transform: scale(1.12); }
+  16% { transform: scale(1); }
+  24% { transform: scale(1.08); }
+  32% { transform: scale(1); }
+  50% { transform: scale(1); }
+  58% { transform: scale(1.12); }
+  66% { transform: scale(1); }
+  74% { transform: scale(1.08); }
+  82% { transform: scale(1); }
+}
+
 /* Recovery loop — marching ants */
 .flow-recovery {
   stroke-dashoffset: 0;
