@@ -42,7 +42,7 @@ export function TenantHealthPage() {
     <div class="page-head">
       <div>
         <span class="eyebrow">TENANT / {params().slug.toUpperCase()}</span>
-        <h1>System Health</h1>
+        <h1>Autopilot</h1>
         <p>Live telemetry, delivery queues, watchdog alerts, runtime switches and Autopilot authority policies.</p>
       </div>
       <Show when={model.data}>

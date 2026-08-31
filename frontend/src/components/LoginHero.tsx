@@ -40,25 +40,25 @@ const BrandMark: Component<{ size: number }> = (props) => (
 // Architecture flow — the real system:
 // Sources → Brain (deterministic Rust) → Workers (LLM agents) → Outcomes
 // with a learning loop arc ABOVE, pointing from outcomes back to brain.
-// Even spacing between all four nodes.
+// All four nodes are the same size, 1.8-2x bigger than the original.
 const FlowDiagram: Component = () => (
   <svg
     class="flow-diagram"
-    viewBox="0 0 1000 280"
+    viewBox="0 0 1200 420"
     role="img"
     aria-label="Fan sources flow into the brain (deterministic Rust autopilot), which dispatches LLM workers to produce outcomes. Outcomes feed back into the brain through a learning loop."
   >
     <defs>
-      <marker id="cr-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <marker id="cr-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
         <path d="M0 0 L10 5 L0 10 z" fill="#8b5cf6" />
       </marker>
-      <marker id="cr-arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <marker id="cr-arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
         <path d="M0 0 L10 5 L0 10 z" fill="#3ddc84" />
       </marker>
       <linearGradient id="cr-flow-line" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#9b87f5" stop-opacity="0.2" />
-        <stop offset="50%" stop-color="#9b87f5" stop-opacity="0.7" />
-        <stop offset="100%" stop-color="#6fd8ef" stop-opacity="0.2" />
+        <stop offset="0%" stop-color="#9b87f5" stop-opacity="0.3" />
+        <stop offset="50%" stop-color="#9b87f5" stop-opacity="0.8" />
+        <stop offset="100%" stop-color="#6fd8ef" stop-opacity="0.3" />
       </linearGradient>
       <radialGradient id="cr-brain-glow" cx="50%" cy="50%" r="50%">
         <stop offset="0%" stop-color="#9b87f5" stop-opacity="0.35" />
@@ -67,78 +67,78 @@ const FlowDiagram: Component = () => (
       </radialGradient>
     </defs>
 
-    {/* Learning loop — arc ABOVE the graph, from outcomes → brain */}
+    {/* Learning loop — symmetric arc ABOVE, from outcomes → brain */}
     <path
-      d="M 880 120 Q 880 20, 500 20 Q 320 20, 320 120"
+      d="M 920 200 C 920 60, 380 60, 380 200"
       fill="none"
       stroke="#3ddc84"
-      stroke-width="1.8"
-      stroke-dasharray="6 5"
+      stroke-width="2"
+      stroke-dasharray="8 6"
       class="flow-learning"
       marker-end="url(#cr-arrow-green)"
     />
-    <text x="600" y="14" text-anchor="middle" class="flow-loop-label">learning loop</text>
+    <text x="650" y="40" text-anchor="middle" class="flow-loop-label">learning loop</text>
 
     {/* Brain glow — subtle, breathing */}
-    <circle cx="380" cy="160" r="90" fill="url(#cr-brain-glow)" class="flow-brain-glow" />
+    <circle cx="380" cy="260" r="120" fill="url(#cr-brain-glow)" class="flow-brain-glow" />
 
-    {/* Connection lines — even spacing: 120→300, 460→620, 780→880 */}
-    <g stroke="url(#cr-flow-line)" stroke-width="2.5" fill="none">
-      <line x1="120" y1="160" x2="300" y2="160" marker-end="url(#cr-arrow)" />
-      <line x1="460" y1="160" x2="620" y2="160" marker-end="url(#cr-arrow)" />
-      <line x1="780" y1="160" x2="880" y2="160" marker-end="url(#cr-arrow)" />
+    {/* Connection lines — from right edge of one block to left edge of next */}
+    <g stroke="url(#cr-flow-line)" stroke-width="3" fill="none">
+      <line x1="220" y1="260" x2="290" y2="260" marker-end="url(#cr-arrow)" />
+      <line x1="470" y1="260" x2="560" y2="260" marker-end="url(#cr-arrow)" />
+      <line x1="740" y1="260" x2="830" y2="260" marker-end="url(#cr-arrow)" />
     </g>
 
-    {/* ── Source node (left) ── */}
+    {/* ── Source node (left) — 200x180, same as all others ── */}
     <g class="flow-node flow-node-source">
-      <rect x="10" y="112" width="110" height="96" rx="14" />
-      <text x="65" y="134" text-anchor="middle" class="flow-node-title">Sources</text>
-      <g transform="translate(28 144)" class="flow-source-icons">
-        <circle cx="10" cy="10" r="9" fill="#ff4500" opacity="0.85" />
-        <text x="10" y="14" text-anchor="middle" font-size="10" fill="#fff" font-weight="700">R</text>
-        <circle cx="37" cy="10" r="9" fill="#0866ff" opacity="0.85" />
-        <text x="37" y="14" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">f</text>
-        <circle cx="64" cy="10" r="9" fill="#1db954" opacity="0.85" />
-        <text x="64" y="14" text-anchor="middle" font-size="10" fill="#fff" font-weight="700">S</text>
-        <circle cx="10" cy="33" r="9" fill="#e6b04c" opacity="0.85" />
-        <text x="10" y="37" text-anchor="middle" font-size="7" fill="#fff" font-weight="700">Bi</text>
-        <circle cx="37" cy="33" r="9" fill="#25f4ee" opacity="0.75" />
-        <text x="37" y="37" text-anchor="middle" font-size="8" fill="#000" font-weight="700">TT</text>
-        <circle cx="64" cy="33" r="9" fill="#7d8491" opacity="0.6" />
-        <text x="64" y="37" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">+</text>
+      <rect x="20" y="170" width="200" height="180" rx="18" />
+      <text x="120" y="200" text-anchor="middle" class="flow-node-title">Sources</text>
+      <g transform="translate(50 220)" class="flow-source-icons">
+        <circle cx="18" cy="18" r="16" fill="#ff4500" opacity="0.85" />
+        <text x="18" y="24" text-anchor="middle" font-size="18" fill="#fff" font-weight="700">R</text>
+        <circle cx="62" cy="18" r="16" fill="#0866ff" opacity="0.85" />
+        <text x="62" y="24" text-anchor="middle" font-size="16" fill="#fff" font-weight="700">f</text>
+        <circle cx="106" cy="18" r="16" fill="#1db954" opacity="0.85" />
+        <text x="106" y="24" text-anchor="middle" font-size="18" fill="#fff" font-weight="700">S</text>
+        <circle cx="18" cy="58" r="16" fill="#e6b04c" opacity="0.85" />
+        <text x="18" y="63" text-anchor="middle" font-size="12" fill="#fff" font-weight="700">Bi</text>
+        <circle cx="62" cy="58" r="16" fill="#25f4ee" opacity="0.75" />
+        <text x="62" y="63" text-anchor="middle" font-size="14" fill="#000" font-weight="700">TT</text>
+        <circle cx="106" cy="58" r="16" fill="#7d8491" opacity="0.6" />
+        <text x="106" y="63" text-anchor="middle" font-size="16" fill="#fff" font-weight="700">+</text>
       </g>
     </g>
 
-    {/* ── Brain node (center-left, large, glowing) ── */}
+    {/* ── Brain node (center-left, glowing) — 200x180 ── */}
     <g class="flow-node flow-node-brain">
-      <rect x="300" y="104" width="160" height="112" rx="18" />
-      <text x="380" y="128" text-anchor="middle" class="flow-node-title">Brain</text>
-      <text x="380" y="144" text-anchor="middle" class="flow-node-sub">Rust autopilot</text>
-      <g transform="translate(356 150)" class="flow-brain-icon" style={{ color: '#c4b5fd' }}>
-        <BrainIcon size={48} />
+      <rect x="290" y="170" width="200" height="180" rx="20" />
+      <text x="390" y="200" text-anchor="middle" class="flow-node-title">Brain</text>
+      <text x="390" y="222" text-anchor="middle" class="flow-node-sub">Rust autopilot</text>
+      <g transform="translate(350 240)" class="flow-brain-icon" style={{ color: '#c4b5fd' }}>
+        <BrainIcon size={80} />
       </g>
     </g>
 
-    {/* ── Workers node (center-right) ── */}
+    {/* ── Workers node (center-right) — 200x180 ── */}
     <g class="flow-node flow-node-worker">
-      <rect x="620" y="112" width="160" height="96" rx="14" />
-      <text x="700" y="134" text-anchor="middle" class="flow-node-title">Workers</text>
-      <text x="700" y="150" text-anchor="middle" class="flow-node-sub">LLM agents</text>
-      <g transform="translate(682 160)" class="flow-worker-icon" fill="none" stroke="#6fd8ef" stroke-width="1.4" stroke-linejoin="round">
-        <rect x="2" y="2" width="32" height="9" rx="2" opacity="0.5" />
-        <rect x="2" y="14" width="32" height="9" rx="2" opacity="0.7" />
-        <rect x="2" y="26" width="32" height="9" rx="2" />
+      <rect x="560" y="170" width="200" height="180" rx="18" />
+      <text x="660" y="200" text-anchor="middle" class="flow-node-title">Workers</text>
+      <text x="660" y="222" text-anchor="middle" class="flow-node-sub">LLM agents</text>
+      <g transform="translate(620 240)" class="flow-worker-icon" fill="none" stroke="#6fd8ef" stroke-width="2" stroke-linejoin="round">
+        <rect x="4" y="4" width="72" height="20" rx="4" opacity="0.5" />
+        <rect x="4" y="30" width="72" height="20" rx="4" opacity="0.7" />
+        <rect x="4" y="56" width="72" height="20" rx="4" />
       </g>
     </g>
 
-    {/* ── Outcomes node (far right) ── */}
+    {/* ── Outcomes node (far right) — 200x180 ── */}
     <g class="flow-node flow-node-outcome">
-      <rect x="880" y="112" width="110" height="96" rx="14" />
-      <text x="935" y="134" text-anchor="middle" class="flow-node-title">Outcomes</text>
-      <text x="935" y="150" text-anchor="middle" class="flow-node-sub">fans · growth</text>
-      <g transform="translate(918 160)" class="flow-outcome-icon" fill="none" stroke="#3ddc84" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 22l9-9 5 5 9-9" />
-        <path d="M22 9v7h-7" />
+      <rect x="830" y="170" width="200" height="180" rx="18" />
+      <text x="930" y="200" text-anchor="middle" class="flow-node-title">Outcomes</text>
+      <text x="930" y="222" text-anchor="middle" class="flow-node-sub">fans · growth</text>
+      <g transform="translate(890 240)" class="flow-outcome-icon" fill="none" stroke="#3ddc84" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 48l18-18 10 10 18-18" />
+        <path d="M44 22v14h-14" />
       </g>
     </g>
   </svg>
@@ -217,7 +217,7 @@ export const LoginHero: Component = () => (
     <div class="hero-aurora" aria-hidden="true" />
 
     <header class="hero-brand" style={{ position: 'relative', 'z-index': '1' }}>
-      <BrandMark size={76} />
+      <BrandMark size={114} />
       <div>
         <strong>CrowdRelay</strong>
         <span>Fan growth engine for autonomous artists</span>
@@ -276,8 +276,8 @@ export const LoginHero: Component = () => (
         <strong>Let's build something smart together</strong>
         <span>CrowdRelay is in active development and we're always open to new partnerships, integrations and use cases.</span>
       </div>
-      <a class="hero-cta" href="mailto:wojciech.jan.bator@proton.me">Get in touch <span aria-hidden="true">→</span></a>
-      <ul class="hero-links">
+      <ul class="hero-links hero-links-row">
+        <li><a class="hero-cta" href="mailto:wojciech.jan.bator@proton.me">Get in touch <span aria-hidden="true">→</span></a></li>
         <li><a href="mailto:wojciech.jan.bator@proton.me">wojciech.jan.bator@proton.me</a></li>
         <li><a href="https://virya.music" target="_blank" rel="noreferrer noopener">virya.music</a></li>
         <li><a href="https://www.linkedin.com/in/wojciech-bator/" target="_blank" rel="noreferrer noopener">linkedin.com/in/wojciech-bator</a></li>

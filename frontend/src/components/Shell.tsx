@@ -72,7 +72,7 @@ const TENANT_NAV_GROUPS: NavGroup[] = [
   {
     label: 'System',
     items: [
-      { path: '/tenants/$slug/health', label: 'Health', exact: false, icon: 'health' },
+      { path: '/tenants/$slug/health', label: 'Autopilot', exact: false, icon: 'health' },
       { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
       { path: '/tenants/$slug/notifiers', label: 'Notifiers', exact: false, icon: 'notifiers' },
     ],

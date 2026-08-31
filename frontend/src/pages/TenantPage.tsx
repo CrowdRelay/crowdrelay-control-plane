@@ -11,6 +11,7 @@ import { RegionalProfilePanel } from '../components/RegionalProfilePanel'
 import { TenantRuntimePanel } from '../components/TenantRuntimePanel'
 import { TenantAuditPanel } from '../components/TenantAuditPanel'
 import { TenantOperatorsPanel } from '../components/TenantOperatorsPanel'
+import { OperationsPanel } from '../components/OperationsPanel'
 import { SkeletonTenantPage } from '../components/Skeleton'
 
 const paletteFields: Array<keyof Palette> = ['primary','primaryContrast','accent','surface','surfaceElevated','text','textMuted','success','warning','danger']
@@ -46,7 +47,7 @@ export function TenantPage() {
         api.tenantOverview(params().slug),
         api.tenantOperations(params().slug).catch(() => null),
       ])
-      return { ...overview, releaseLedger: operations?.autopilot?.release_ledger ?? null }
+      return { ...overview, operations, releaseLedger: operations?.autopilot?.release_ledger ?? null }
     },
     reconcile: 'id',
     refetchOnWindowFocus: false,
@@ -139,6 +140,17 @@ export function TenantPage() {
           </div>}</Show>
         </Show>
       </article>
+
+      <Show when={model.data?.operations}>
+        {ops => <OperationsPanel
+          slug={t.slug}
+          summary={ops()?.summary ?? null}
+          flags={ops()?.flags ?? null}
+          autopilot={ops()?.autopilot ?? null}
+          degraded={ops()?.degraded ?? []}
+          refresh={async () => { await queryClient.invalidateQueries({ queryKey: ['tenant-overview', params().slug] }) }}
+        />}
+      </Show>
 
       <ReleaseConvergencePanel releaseLedger={model.data?.releaseLedger ?? null} />
       <TenantAuditPanel items={model.data?.audit.items ?? []} />

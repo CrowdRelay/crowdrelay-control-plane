@@ -278,7 +278,7 @@ export function OperationsPanel(props: {
 
     <div class="operations-split">
       <section class="operations-section">
-        <details>
+        <details open>
           <summary class="operations-section-head"><div><span class="eyebrow">FEATURES</span><h3>Runtime switches</h3></div><small>{flags.data?.length ?? 0} declared</small></summary>
         <Show when={flags.data} fallback={flags.error ? null : <div class="mini-skeleton"/>}>{items => <div class="flag-list">
           <For each={items()}>{flag => <div class="flag-row">
