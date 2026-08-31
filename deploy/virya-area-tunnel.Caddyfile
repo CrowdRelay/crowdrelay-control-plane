@@ -65,6 +65,9 @@
         /v1/control-plane/fanbases \
         /v1/control-plane/fanbases/* \
         /v1/control-plane/webhook-endpoints \
+        /v1/control-plane/connections/discord \
+        /v1/control-plane/connections/telegram \
+        /v1/control-plane/connections/lastfm \
         /v1/control-plane/autopilot/actions/* \
         /v1/control-plane/autopilot/decisions/* \
         /v1/control-plane/audience/overview \

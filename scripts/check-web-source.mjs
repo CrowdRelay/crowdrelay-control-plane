@@ -26,7 +26,8 @@ const collect = (dir) => {
 collect(path.join(root, 'frontend/src'))
 const frontend = frontendFiles.join('\n')
 if (!main.includes('@tanstack/solid-query') || !main.includes('@tanstack/solid-router')) throw new Error('Solid Query/Router contract missing')
-if (/\b(?:window\.)?location\.reload\s*\(/.test(frontend) || /http-equiv\s*=\s*["']refresh/i.test(index)) throw new Error('Control Plane must never hard-reload the document for live data refresh')
+const hardReloads = frontend.match(/\b(?:window\.)?location\.reload\s*\(/g) ?? []
+if (hardReloads.length !== 1 || !main.includes("addEventListener('vite:preloadError'") || !main.includes('event.preventDefault()') || /http-equiv\s*=\s*["']refresh/i.test(index)) throw new Error('Only stale deployment chunks may hard-reload the document')
 // One purpose-built read model per tenant subpage, one initial request each.
 const operationsPage = fs.readFileSync(path.join(root, 'frontend/src/pages/TenantOperationsPage.tsx'), 'utf8')
 const attentionPage = fs.readFileSync(path.join(root, 'frontend/src/pages/TenantAttentionPage.tsx'), 'utf8')

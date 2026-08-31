@@ -275,6 +275,10 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/healthz/ready", get(ready))
         .nest("/api/v1", api)
+        .nest_service(
+            "/assets",
+            ServeDir::new(config.frontend_dist.join("assets")),
+        )
         .fallback_service(static_files)
         .layer(CompressionLayer::new())
         .layer(middleware::from_fn(security_headers))
@@ -296,9 +300,25 @@ async fn security_headers(
     request: axum::extract::Request,
     next: middleware::Next,
 ) -> axum::response::Response {
-    use axum::http::HeaderValue;
+    use axum::http::{HeaderValue, header};
+    let asset_request = request.uri().path().starts_with("/assets/");
     let mut response = next.run(request).await;
+    let successful_asset = asset_request && response.status().is_success();
+    let html_response = response
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .is_some_and(|value| value.as_bytes().starts_with(b"text/html"));
     let headers = response.headers_mut();
+    if successful_asset {
+        headers.insert(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("public, max-age=31536000, immutable"),
+        );
+    } else if asset_request {
+        headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    } else if html_response {
+        headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+    }
     for (name, value) in [
         (
             "content-security-policy",

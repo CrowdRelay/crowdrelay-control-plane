@@ -60,10 +60,19 @@ assert 'action: "tenant.runtime.reported"' not in store, "heartbeat write amplif
 main = (root / "crates/control-plane-api/src/main.rs").read_text()
 assert ".not_found_service(ServeFile::new(index))" not in main, \
     "SPA deep-link fallback must preserve index.html's 200 status instead of forcing 404"
+asset_service = 'ServeDir::new(config.frontend_dist.join("assets"))'
+assert '.nest_service(' in main and asset_service in main \
+    and main.index(asset_service) < main.index(".fallback_service(static_files)"), \
+    "missing hashed assets must return 404 instead of the SPA shell"
 spa = (root / "frontend/src/lib/api.ts").read_text()
 frontend = "\n".join(path.read_text() for path in (root / "frontend/src").rglob("*.ts*") if path.is_file())
 auth = (root / "crates/control-plane-api/src/auth.rs").read_text()
 caddy = (root / "deploy/Caddyfile.control.virya.music.example").read_text()
+assert 'HeaderValue::from_static("public, max-age=31536000, immutable")' in main \
+    and 'HeaderValue::from_static("no-store")' in main \
+    and 'HeaderValue::from_static("no-cache")' in main, \
+    "backend must own successful asset, missing asset, and SPA shell cache policy"
+assert "header @immutable" not in caddy, "edge must not cache proxy errors as immutable assets"
 assert "x-control-plane-token" not in auth.lower(), "backend must not grow a browser-only admin header"
 assert "x-control-plane-token" not in frontend.lower(), "SPA must not carry the platform admin secret"
 assert "Basic ${btoa" not in spa, "browser-built Basic credentials are gone: sessions are server-issued"

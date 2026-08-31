@@ -10,10 +10,6 @@
 control.virya.music {
     encode zstd gzip
 
-    # Fingerprinted bundles and static brand assets can be cached immutably.
-    @immutable path /assets/* /crowdrelay-brand-mark.png /favicon.ico
-    header @immutable Cache-Control "public, max-age=31536000, immutable"
-
     log {
         output stdout
         format console
