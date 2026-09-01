@@ -254,13 +254,14 @@ REMOTE_CHECK
 
 if [[ "$blue_green_eligible" == "eligible" ]]; then
   printf '\n==> Blue-green deploy (zero-downtime Caddy cutover)\n'
-  # Ship the blue-green script to the remote and execute it with the SHA and digest
+  # Ship the blue-green script and receipt helper to the remote and execute
   scp -q "$BLUEGREEN" "$REMOTE:/tmp/cp-deploy-bluegreen.sh"
+  scp -q "$ROOT_DIR/scripts/release_receipt.py" "$REMOTE:/tmp/release_receipt.py"
   set +e
   ssh -T "$REMOTE" sudo bash /tmp/cp-deploy-bluegreen.sh "$TARGET" "${CONTROL_PLANE_IMAGE_DIGEST:-}" "$REMOTE_DIR"
   deploy_status=$?
   set -e
-  ssh -T "$REMOTE" "rm -f /tmp/cp-deploy-bluegreen.sh" 2>/dev/null || true
+  ssh -T "$REMOTE" "rm -f /tmp/cp-deploy-bluegreen.sh /tmp/release_receipt.py" 2>/dev/null || true
   trap - INT TERM HUP
 else
   printf '\n==> Bootstrap/recovery deploy (force-recreate — no blue/green container running)\n'

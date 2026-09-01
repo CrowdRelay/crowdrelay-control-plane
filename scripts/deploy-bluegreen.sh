@@ -39,9 +39,8 @@ fail() {
 }
 
 absolute_path_helper() {
-  # When piped via SSH, BASH_SOURCE is empty and dirname resolves to /tmp.
-  # Prefer the explicit REPO_DIR (third arg) which is always the repo root.
-  printf '%s/scripts/release_receipt.py' "${REPO_DIR:-/srv/crowdrelay-control-plane}"
+  # deploy.sh scp's the receipt helper to /tmp alongside this script.
+  printf '/tmp/release_receipt.py'
 }
 
 RECEIPT_HELPER="$(absolute_path_helper)"
