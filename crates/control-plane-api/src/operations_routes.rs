@@ -116,6 +116,15 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/portfolio/fanbases",
             post(create_portfolio_fanbase),
         )
+        // Audience graph: the communities the brain scans and posts into.
+        .route(
+            "/tenants/{slug}/audience-graph/places",
+            get(list_audience_places).post(upsert_audience_place),
+        )
+        .route(
+            "/tenants/{slug}/audience-graph/places/import",
+            post(import_audience_places),
+        )
         .route(
             "/tenants/{slug}/portfolio/fanbases/{fanbase_id}",
             axum::routing::delete(delete_portfolio_fanbase),
@@ -1369,6 +1378,131 @@ async fn update_portfolio_setting(
 }
 
 /// Registers a new audience block with its acquisition origin.
+/// Filters accepted when listing communities.
+///
+/// Typed rather than forwarded raw. A raw query string would be pasted into the
+/// proxied path, which both hands unvalidated input to the URL builder and
+/// breaks the proxy allowlist — that matches on the path, so anything with a
+/// query appended stops matching and the call is rejected. Rebuilding from
+/// named fields keeps the forwarded query a closed set.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AudiencePlacesQuery {
+    kind: Option<String>,
+    stage: Option<String>,
+    limit: Option<u32>,
+}
+
+/// Communities the tenant can be discovered in.
+///
+/// `kind` and `stage` vocabularies are validated upstream, which owns them;
+/// this only bounds their shape so a malformed value cannot reach the URL.
+async fn list_audience_places(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Query(query): Query<AudiencePlacesQuery>,
+) -> Result<Response, ApiError> {
+    let mut filters: Vec<String> = Vec::new();
+    for (name, value) in [("kind", &query.kind), ("stage", &query.stage)] {
+        let Some(value) = value.as_deref().map(str::trim).filter(|v| !v.is_empty()) else {
+            continue;
+        };
+        if value.len() > 64
+            || !value
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte == b'_')
+        {
+            return Err(ApiError::InvalidInput(format!("invalid {name}")));
+        }
+        filters.push(format!("{name}={value}"));
+    }
+    if let Some(limit) = query.limit {
+        filters.push(format!("limit={}", limit.clamp(1, 200)));
+    }
+    let path = if filters.is_empty() {
+        "/v1/control-plane/audience-graph/places".to_owned()
+    } else {
+        format!(
+            "/v1/control-plane/audience-graph/places?{}",
+            filters.join("&")
+        )
+    };
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "audience graph places")
+}
+
+/// Registers one community, or refreshes the mutable facts of an existing one.
+async fn upsert_audience_place(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/audience-graph/places",
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.audience_place.upserted",
+        "audience_place",
+        body.get("url").and_then(Value::as_str).unwrap_or("unknown"),
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "audience graph place upsert")
+}
+
+/// Registers a scan of communities in one call.
+///
+/// The bulk path exists because the alternative is what operators were doing:
+/// psql against the tenant's database, with no audit entry and no validation.
+async fn import_audience_places(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let count = body
+        .get("places")
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/audience-graph/places/import",
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.audience_places.imported",
+        "audience_place_import",
+        &count.to_string(),
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "audience graph place import")
+}
+
 async fn create_portfolio_fanbase(
     State(state): State<AppState>,
     Path(slug): Path<String>,

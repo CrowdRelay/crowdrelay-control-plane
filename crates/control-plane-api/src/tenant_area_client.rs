@@ -306,7 +306,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/audience/segments"
                     | "/v1/control-plane/ops/actions"
                     | "/v1/control-plane/community-intelligence/communities"
-            ) || path.starts_with("/v1/control-plane/ops/outbox?")
+                    | "/v1/control-plane/audience-graph/places"
+            ) || path.starts_with("/v1/control-plane/audience-graph/places?")
+                || path.starts_with("/v1/control-plane/ops/outbox?")
                 || path.starts_with("/v1/control-plane/ops/deliveries?")
                 || path.starts_with("/v1/control-plane/ops/actions?")
                 || path.starts_with("/v1/control-plane/audience/fans?")
@@ -389,6 +391,11 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || one_safe_segment(path, "/v1/control-plane/tenant-settings/")
                 || path == "/v1/control-plane/fanbases"
                 || path == "/v1/control-plane/fanbases/connections"
+                // Registering a community used to require psql against the
+                // tenant database: the capability lived only under /v1/admin,
+                // which this proxy deliberately cannot reach.
+                || path == "/v1/control-plane/audience-graph/places"
+                || path == "/v1/control-plane/audience-graph/places/import"
                 || path == "/v1/control-plane/connections/discord"
                 || path == "/v1/control-plane/connections/telegram"
                 || path == "/v1/control-plane/connections/lastfm"

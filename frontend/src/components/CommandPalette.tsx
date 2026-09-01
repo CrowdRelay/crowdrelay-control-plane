@@ -16,6 +16,18 @@ type Cmd = {
   keywords?: string
   hint?: string
   confirm?: boolean
+  /// What running this does, which decides whether the palette stays open.
+  ///
+  /// Navigation dismisses the palette — the operator asked to be somewhere
+  /// else, and leaving a modal over the destination means a second keystroke
+  /// to see what they navigated to. Mutations keep it open so the result line
+  /// is readable and a follow-up command needs no reopen.
+  ///
+  /// This used to be inferred from the id prefix (`nav-`, `page-`), which
+  /// silently excluded the whole Query group: those entries navigate but their
+  /// ids start with `q-`, so every one of them left the palette covering the
+  /// page it had just opened.
+  kind: 'navigate' | 'mutate'
   perform: () => void | Promise<void>
 }
 
@@ -38,7 +50,9 @@ const SUBPAGES: Array<{ suffix: string; label: string }> = [
 // typing "explain growth drop" finds the funnel.
 const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix: string }> = [
   { id: 'q-approvals', label: 'Open pending approvals', keywords: 'pending approvals review needs you attention show', suffix: '/attention' },
-  { id: 'q-decisions', label: 'Open the decision timeline', keywords: 'decisions today brain intelligence timeline show', suffix: '/intelligence' },
+  { id: 'q-decisions', label: 'Open brain decisions', keywords: 'brain decision decisions timeline why reasoning intelligence what did the brain decide today show', suffix: '/intelligence' },
+  { id: 'q-cycle', label: 'Run a growth cycle (brain)', keywords: 'brain run cycle growth grow fans preview dispatch intelligence', suffix: '/intelligence' },
+  { id: 'q-goal', label: 'Change the brain goal (north star)', keywords: 'brain goal north star metric target objective intelligence', suffix: '/intelligence' },
   { id: 'q-failed', label: 'Open failed deliveries', keywords: 'failed deliveries dead outbox webhook push show', suffix: '/attention' },
   { id: 'q-beacons', label: 'Open Beacon signals', keywords: 'beacon signals operations outreach', suffix: '/operations' },
   { id: 'q-growth', label: 'Open the growth funnel', keywords: 'growth drop decline metrics funnel explain why', suffix: '/funnel' },
@@ -94,12 +108,12 @@ export const CommandPalette: Component = () => {
 
   const commands = createMemo<Cmd[]>(() => {
     const list: Cmd[] = [
-      { id: 'page-overview', label: 'Overview', group: 'Go', perform: () => navigate({ to: '/' }) },
+      { id: 'page-overview', label: 'Overview', group: 'Go', kind: 'navigate', perform: () => navigate({ to: '/' }) },
     ]
     if (isAdmin()) {
       list.push(
-        { id: 'page-tenants', label: 'Tenants', group: 'Go', keywords: 'registry', perform: () => navigate({ to: '/tenants' }) },
-        { id: 'page-attention', label: 'Attention', group: 'Go', keywords: 'alerts watchdog', perform: () => navigate({ to: '/attention' }) },
+        { id: 'page-tenants', label: 'Tenants', group: 'Go', keywords: 'registry', kind: 'navigate', perform: () => navigate({ to: '/tenants' }) },
+        { id: 'page-attention', label: 'Attention', group: 'Go', keywords: 'alerts watchdog', kind: 'navigate', perform: () => navigate({ to: '/attention' }) },
       )
     }
     const visible = scopedTenants()
@@ -111,6 +125,7 @@ export const CommandPalette: Component = () => {
           label: `${slug} · ${page.label}`,
           group: 'Jump',
           keywords: `${slug} ${page.label.toLowerCase()}`,
+          kind: 'navigate',
           perform: () => page.suffix === ''
             ? navigate({ to: '/tenants/$slug', params: { slug } })
             : navigate({ to: `/tenants/$slug${page.suffix}`, params: { slug } }),
@@ -123,17 +138,18 @@ export const CommandPalette: Component = () => {
           label: `${qe.label} · ${slug}`,
           group: 'Query',
           keywords: `${slug} ${qe.keywords}`,
+          kind: 'navigate',
           perform: () => navigate({ to: `/tenants/$slug${qe.suffix}`, params: { slug } }),
         })
       }
       list.push(
-        { id: `act-${slug}-reconcile`, label: `Reconcile ${slug}`, group: 'Actions', keywords: `${slug} reconcile sync`, confirm: true, perform: async () => { await api.runReconciliation(slug) } },
-        { id: `act-${slug}-dead`, label: `Clear dead deliveries · ${slug}`, group: 'Actions', keywords: `${slug} dead deliveries clear outbox`, confirm: true, perform: async () => { await api.clearDeadDeliveries(slug) } },
-        { id: `act-${slug}-plan`, label: `Plan provisioning · ${slug}`, group: 'Actions', keywords: `${slug} provisioning plan job`, confirm: true, perform: async () => { await api.planProvisioning(slug) } },
-        { id: `act-${slug}-deploy`, label: `Deploy latest · ${slug}`, group: 'Actions', keywords: `${slug} deploy provision release`, hint: 'latest version', confirm: true, perform: async () => { await api.deployTenant(slug) } },
-        { id: `act-${slug}-cancel`, label: `Cancel provisioning job · ${slug}`, group: 'Actions', keywords: `${slug} provisioning cancel job`, confirm: true, perform: async () => { await api.cancelProvisioning(slug) } },
-        { id: `act-${slug}-suspend`, label: `Suspend tenant · ${slug}`, group: 'Actions', keywords: `${slug} suspend pause disable`, hint: 'stops tenant traffic handling', confirm: true, perform: async () => { await api.suspend(slug) } },
-        { id: `act-${slug}-resume`, label: `Resume tenant · ${slug}`, group: 'Actions', keywords: `${slug} resume enable restore`, confirm: true, perform: async () => { await api.resume(slug) } },
+        { id: `act-${slug}-reconcile`, label: `Reconcile ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} reconcile sync`, confirm: true, perform: async () => { await api.runReconciliation(slug) } },
+        { id: `act-${slug}-dead`, label: `Clear dead deliveries · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} dead deliveries clear outbox`, confirm: true, perform: async () => { await api.clearDeadDeliveries(slug) } },
+        { id: `act-${slug}-plan`, label: `Plan provisioning · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} provisioning plan job`, confirm: true, perform: async () => { await api.planProvisioning(slug) } },
+        { id: `act-${slug}-deploy`, label: `Deploy latest · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} deploy provision release`, hint: 'latest version', confirm: true, perform: async () => { await api.deployTenant(slug) } },
+        { id: `act-${slug}-cancel`, label: `Cancel provisioning job · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} provisioning cancel job`, confirm: true, perform: async () => { await api.cancelProvisioning(slug) } },
+        { id: `act-${slug}-suspend`, label: `Suspend tenant · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} suspend pause disable`, hint: 'stops tenant traffic handling', confirm: true, perform: async () => { await api.suspend(slug) } },
+        { id: `act-${slug}-resume`, label: `Resume tenant · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} resume enable restore`, confirm: true, perform: async () => { await api.resume(slug) } },
       )
     }
     return list
@@ -165,8 +181,8 @@ export const CommandPalette: Component = () => {
     setBusy(cmd.id)
     try {
       await cmd.perform()
+      if (cmd.kind === 'navigate') { close(); return }
       setMessage(`✓ ${cmd.label}`)
-      if (cmd.id.startsWith('nav-') || cmd.id.startsWith('page-')) close()
     } catch (error) {
       setMessage(error instanceof Error ? `✕ ${error.message}` : `✕ ${cmd.label} failed`)
     } finally {

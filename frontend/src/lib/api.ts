@@ -1,4 +1,4 @@
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AgentScorecard, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentOutcome, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationRoutingItem, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, ChatAction, CommunityItem, CommunityObservationItem, CommunityEntityItem, ConnectionCreationResult, DeliveryDetails, DeliveryItem, DiscoveredEndpoint, FanbaseConnection, FeatureFlag, GrowthFunnelData, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, OutboxItem, Palette, PlatformConfigItem, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, AudienceOverview, FanCard, FanDetail, FanJourneyEntry, AudienceSegment, SegmentPreview, AudienceReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectiveView, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TourEconomicsSummary, AutopilotChiefOfStaff, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, CyclePreview, CycleRunResult, NorthStarOption } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AgentScorecard, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentOutcome, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationRoutingItem, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, ChatAction, CommunityItem, CommunityObservationItem, CommunityEntityItem, ConnectionCreationResult, DeliveryDetails, DeliveryItem, DiscoveredEndpoint, FanbaseConnection, FeatureFlag, GrowthFunnelData, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, OutboxItem, Palette, PlatformConfigItem, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, AudienceOverview, FanCard, FanDetail, FanJourneyEntry, AudienceSegment, SegmentPreview, AudienceReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectiveView, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TourEconomicsSummary, AutopilotChiefOfStaff, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
@@ -196,6 +196,29 @@ export const api = {
   // The brain's goal, readable and writable after creation. The wizard could
   // set it once and nothing could change it afterwards, so a tenant that
   // connected new platforms was stuck with whichever goal it guessed on day one.
+  // Audience graph — the communities the brain scans and posts into. Until
+  // these existed, the only way to register one was psql against the tenant's
+  // database, with no validation and no audit entry.
+  audiencePlaces: (slug: string, filters?: { kind?: string; stage?: string; limit?: number }) => {
+    const query = new URLSearchParams()
+    if (filters?.kind) query.set('kind', filters.kind)
+    if (filters?.stage) query.set('stage', filters.stage)
+    if (filters?.limit) query.set('limit', String(filters.limit))
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    return request<{ places: AudiencePlace[] }>(`/tenants/${encodeURIComponent(slug)}/audience-graph/places${suffix}`)
+  },
+  upsertAudiencePlace: (slug: string, place: AudiencePlaceInput) =>
+    request<{ placeId: string }>(`/tenants/${encodeURIComponent(slug)}/audience-graph/places`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify(place),
+    }),
+  importAudiencePlaces: (slug: string, places: AudiencePlaceInput[]) =>
+    request<{ imported: number }>(`/tenants/${encodeURIComponent(slug)}/audience-graph/places/import`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ places }),
+    }),
   northStarOptions: (slug: string) =>
     request<{ options: NorthStarOption[] }>(`/tenants/${encodeURIComponent(slug)}/portfolio/north-stars`),
   updatePortfolioSetting: (slug: string, key: string, value: string) =>
@@ -384,20 +407,16 @@ export const api = {
     }),
 
   // --- Audience Intelligence ---
+  // `audienceModel` is the one entry point: the read model already composes
+  // the overview, fan and segment sections server-side in a single request.
+  // Per-section clients for those three existed alongside it, called nothing,
+  // and would have made the page fetch four times what it needs.
   audienceModel: (slug: string) =>
     request<AudienceReadModel>(`/tenants/${encodeURIComponent(slug)}/audience/model`),
-  audienceOverview: (slug: string) =>
-    request<AudienceOverview>(`/tenants/${encodeURIComponent(slug)}/audience/overview`),
-  audienceFans: (slug: string, params?: { limit?: number; search?: string; city_slug?: string; activation?: string }) => {
-    const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)] as [string, string])).toString() : ''
-    return request<FanCard[]>(`/tenants/${encodeURIComponent(slug)}/audience/fans${qs}`)
-  },
   fanDetail: (slug: string, fanId: string) =>
     request<FanDetail>(`/tenants/${encodeURIComponent(slug)}/audience/fans/${encodeURIComponent(fanId)}`),
   fanJourney: (slug: string, fanId: string) =>
     request<FanJourneyEntry[]>(`/tenants/${encodeURIComponent(slug)}/audience/fans/${encodeURIComponent(fanId)}/journey`),
-  audienceSegments: (slug: string) =>
-    request<AudienceSegment[]>(`/tenants/${encodeURIComponent(slug)}/audience/segments`),
   audienceSegmentPreview: (slug: string, segmentSlug: string) =>
     request<SegmentPreview>(`/tenants/${encodeURIComponent(slug)}/audience/segments/${encodeURIComponent(segmentSlug)}/preview`),
 

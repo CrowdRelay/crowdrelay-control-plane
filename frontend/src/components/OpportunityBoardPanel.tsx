@@ -27,6 +27,23 @@ const authorityTone = (entry: OpportunityBoardEntry): 'good' | 'warn' | 'bad' | 
 const authorityLabel = (entry: OpportunityBoardEntry) =>
   entry.authority.replaceAll('_', ' ')
 
+// Only a parked action can be approved. Everything else on this board is
+// reported, not requested: `auto_executing` already ran under a bounded_auto
+// policy, and `recommended`/`observed` never produced an action to approve.
+//
+// The button used to render whenever an `action_id` existed, which is true of
+// every executed action too — so on a tenant whose policies are all
+// bounded_auto, every "Do it" hit a 409 and the board looked broken while
+// working exactly as designed.
+const isApprovable = (entry: OpportunityBoardEntry) =>
+  entry.authority === 'awaiting_approval' && entry.action_id !== null
+
+const NOT_APPROVABLE_NOTE: Record<string, string> = {
+  auto_executing: 'ran automatically — nothing to approve',
+  recommended: 'advice only — no action was parked',
+  observed: 'recorded for measurement — no action was parked',
+}
+
 const RANK_FACTOR_LABELS: Record<string, string> = {
   authority: 'authority state',
   deadline: 'deadline proximity',
@@ -158,7 +175,14 @@ export function OpportunityBoardPanel(props: {
                 </div>
               </div>
               <div class="opportunity-actions">
-                <Show when={entry.action_id} fallback={<span class="opportunity-no-action">no executable step — handle it yourself</span>}>
+                <Show
+                  when={isApprovable(entry)}
+                  fallback={
+                    <span class="opportunity-no-action">
+                      {NOT_APPROVABLE_NOTE[entry.authority] ?? 'no executable step — handle it yourself'}
+                    </span>
+                  }
+                >
                   <button
                     type="button"
                     classList={{ 'confirm-danger': confirming() === `do:${entry.decision_id}` }}

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { OperationsPanel } from '../components/OperationsPanel'
+import { SystemHealthPanel } from '../components/SystemHealthPanel'
 import { SkeletonPageHead, SkeletonBlock } from '../components/Skeleton'
 import { StatusBadge } from '../components/StatusBadge'
 import { refreshTick } from '../lib/refresh'
@@ -63,6 +64,13 @@ export function TenantHealthPage() {
     </Show>
 
     <Show when={model.data}>
+      {/* Above the numbers on purpose: the numbers assume you already know
+          which ones are bad. This says what to do. */}
+      <SystemHealthPanel
+        slug={params().slug}
+        summary={d()?.summary ?? undefined}
+        onChanged={refresh}
+      />
       <OperationsPanel
         slug={params().slug}
         summary={d()?.summary ?? null}

@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { PortfolioPanel } from '../components/PortfolioPanel'
 import { PortfolioSettingsPanel } from '../components/PortfolioSettingsPanel'
 import { FanSourcesPanel } from '../components/FanSourcesPanel'
+import { CommunitiesPanel } from '../components/CommunitiesPanel'
 import { SkeletonPageHead, SkeletonSection } from '../components/Skeleton'
 import { refreshTick } from '../lib/refresh'
 import type { TenantPortfolioSection } from '../lib/types'
@@ -78,6 +79,9 @@ export function PortfolioPage() {
           onChanged={refresh}
         />
       </Show>
+      {/* Loads independently of the portfolio read model, so a slow or failing
+          community list degrades only itself. */}
+      <CommunitiesPanel slug={params().slug} />
       <Show when={!data.degraded.includes('settings')}>
         <PortfolioSettingsPanel
           slug={params().slug}

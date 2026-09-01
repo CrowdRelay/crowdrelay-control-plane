@@ -159,6 +159,9 @@ export type OperationsSummary = {
   deliveries: OperationsQueueSummary
   push: OperationsQueueSummary
   watchdog: { active_alerts: number; critical_alerts: number; last_observed_at: string | null }
+  /// Liveness of the process running the brain, the outbox and metric sync.
+  /// Optional because a tenant on an older CrowdRelay will not report it.
+  worker?: { lease_age_seconds: number; alive: boolean }
   http: { requests: number; errors_4xx: number; errors_5xx: number; average_ms: number; p50_ms: number; p95_ms: number }
   database: DatabaseRuntimeSummary
   area: AreaRuntimeSummary
@@ -1992,4 +1995,34 @@ export interface NorthStarOption {
   requiresSignal: boolean
   isAggregate: boolean
   platform: string | null
+}
+
+/// A community the brain can scan and post into.
+export interface AudiencePlace {
+  id: string
+  placeKind: string
+  platform: string
+  name: string
+  url: string
+  countryCode: string | null
+  language: string | null
+  genres: string[]
+  memberCount: number | null
+  status: string
+  notes: string | null
+}
+
+/// The fields an operator supplies when registering a community. Identity is
+/// `(platform, url)`; upserting an existing pair refreshes the mutable facts
+/// and never rewrites the kind.
+export interface AudiencePlaceInput {
+  placeKind: string
+  platform: string
+  name: string
+  url: string
+  countryCode?: string
+  language?: string
+  genres?: string[]
+  memberCount?: number
+  notes?: string
 }
