@@ -1,0 +1,336 @@
+name: Build and promote
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**/*.md", "docs/**"]
+  pull_request:
+    paths-ignore: ["**/*.md", "docs/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: deploy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build frontend and assemble artifact
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci --prefer-offline --no-audit --no-fund
+      - name: Build production output
+        working-directory: frontend
+        run: npm run build
+      - name: Verify build artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d frontend/dist
+          test -n "$(find frontend/dist -type f -print -quit)"
+          test -s frontend/dist/index.html
+          echo "Static output: $(find frontend/dist -type f | wc -l) files"
+
+      - name: Purge stale artifacts before upload
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t ids < <(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
+            --jq ".artifacts[] | select(.workflow_run.id != ${GITHUB_RUN_ID}) | select(.created_at < (now - 7200 | strftime(\"%Y-%m-%dT%H:%M:%SZ\"))) | .id" 2>/dev/null || true)
+          for id in "${ids[@]}"; do
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}" 2>/dev/null || true
+          done
+          echo "Purged ${#ids[@]} stale artifact(s)"
+
+      - name: Assemble immutable Netlify promotion artifact
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d frontend/dist
+          test -n "$(find frontend/dist -type f -print -quit)"
+
+          rm -rf deploy-artifact
+          mkdir -p deploy-artifact/site
+          cp -a frontend/dist/. deploy-artifact/site/
+          python3 scripts/artifact_manifest.py create deploy-artifact/site deploy-artifact-manifest.json --source-sha "${GITHUB_SHA}"
+          python3 scripts/write_release_provenance.py \
+            --source-sha "${GITHUB_SHA}" \
+            --lockfile frontend/package-lock.json \
+            --artifact-manifest deploy-artifact-manifest.json \
+            --output release-provenance.json
+          tar --zstd -cf deploy-artifact.tar.zst -C deploy-artifact .
+          echo "CONTROL_PLANE_NETLIFY_ARTIFACT=PASS static=$(find deploy-artifact/site -type f | wc -l | tr -d ' ') archive=$(stat -c%s deploy-artifact.tar.zst) bytes"
+
+      - name: Upload immutable Netlify promotion artifact
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: control-plane-netlify-${{ github.sha }}
+          path: |
+            deploy-artifact.tar.zst
+            deploy-artifact-manifest.json
+            release-provenance.json
+            scripts/artifact_manifest.py
+            scripts/write_release_provenance.py
+          retention-days: 7
+
+  candidate:
+    name: Deploy candidate to Netlify alias
+    needs: build
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Download exact build artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: control-plane-netlify-${{ github.sha }}
+          path: promoted
+
+      - name: Extract deploy artifact archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s promoted/deploy-artifact.tar.zst
+          mkdir -p promoted/deploy-artifact
+          tar --zstd -xf promoted/deploy-artifact.tar.zst -C promoted/deploy-artifact
+          test -s promoted/deploy-artifact/index.html
+
+      - name: Verify immutable artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s promoted/deploy-artifact/index.html
+          python3 promoted/scripts/artifact_manifest.py verify \
+            promoted/deploy-artifact \
+            promoted/deploy-artifact-manifest.json \
+            --source-sha "${GITHUB_SHA}"
+          python3 - promoted/release-provenance.json "${GITHUB_SHA}" <<'PY'
+          import json, re, sys
+          data = json.load(open(sys.argv[1]))
+          if data.get("sourceSha") != sys.argv[2]: raise SystemExit("release provenance source mismatch")
+          for key in ("dependencyLockSha256", "artifactManifestSha256"):
+              if not re.fullmatch(r"[0-9a-f]{64}", str(data.get(key, ""))):
+                  raise SystemExit(f"invalid {key}")
+          print("CONTROL_PLANE_DEPLOY_PROVENANCE=PASS source=" + data["sourceSha"] + " rebuild=false")
+          PY
+
+      - name: Verify Netlify source builds are stopped
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${NETLIFY_AUTH_TOKEN}"
+          test -n "${NETLIFY_SITE_ID}"
+          curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+            -H "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+            "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}" \
+            -o "${RUNNER_TEMP}/netlify-site.json"
+          python3 - "${RUNNER_TEMP}/netlify-site.json" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+
+          data = json.loads(Path(sys.argv[1]).read_text())
+          stopped = bool((data.get("build_settings") or {}).get("stop_builds"))
+          if not stopped:
+              raise SystemExit(
+                  "CONTROL_PLANE_NETLIFY_ZERO_BUILD=FAIL reason=source-builds-active "
+                  "action='Netlify > Project configuration > Build & deploy > Build settings > Stopped builds'"
+              )
+          print("CONTROL_PLANE_NETLIFY_ZERO_BUILD=PASS source_builds=stopped deploy=artifact-promotion")
+          PY
+
+      - name: Setup Node.js for Netlify CLI
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Deploy candidate to Netlify alias
+        id: candidate
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          deploy_output="$(npx --yes netlify-cli@26.2.0 deploy \
+            --alias=candidate \
+            --no-build \
+            --dir=promoted/deploy-artifact \
+            --site="${NETLIFY_SITE_ID}" \
+            --auth="${NETLIFY_AUTH_TOKEN}" \
+            --message="GitHub Actions candidate ${GITHUB_SHA}")"
+          echo "${deploy_output}"
+          candidate_url="$(echo "${deploy_output}" | grep -oE 'https://[^ ]+--[^ ]+\.netlify\.app' | head -1)"
+          [[ -n "${candidate_url}" ]] || { echo "Failed to extract candidate URL from deploy output" >&2; exit 1; }
+          echo "url=${candidate_url}" >> "${GITHUB_OUTPUT}"
+          echo "CONTROL_PLANE_CANDIDATE_DEPLOY=PASS url=${candidate_url}"
+
+      - name: Soak test candidate for 60 seconds
+        env:
+          CANDIDATE_URL: ${{ steps.candidate.outputs.url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${CANDIDATE_URL}" ]]
+          deadline=$((SECONDS + 60))
+          attempt=0
+          while [[ ${SECONDS} -lt ${deadline} ]]; do
+            attempt=$((attempt + 1))
+            code="$(curl --proto '=https' --tlsv1.2 --silent --show-error \
+              --max-time 10 --write-out '%{http_code}' \
+              "${CANDIDATE_URL}/" -o "${RUNNER_TEMP}/candidate-home.html" || true)"
+            if [[ "${code}" == "200" ]] && grep -qi '<html' "${RUNNER_TEMP}/candidate-home.html"; then
+              echo "CONTROL_PLANE_CANDIDATE_SOAK=PASS attempt=${attempt} code=${code}"
+              exit 0
+            fi
+            echo "Soak attempt ${attempt}: code=${code}, retrying in 5s..."
+            sleep 5
+          done
+          echo "CONTROL_PLANE_CANDIDATE_SOAK=FAIL attempts=${attempt} last_code=${code}" >&2
+          exit 1
+
+  promote:
+    name: Promote exact build artifact to production
+    needs: candidate
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Download exact build artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: control-plane-netlify-${{ github.sha }}
+          path: promoted
+
+      - name: Extract deploy artifact archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s promoted/deploy-artifact.tar.zst
+          mkdir -p promoted/deploy-artifact
+          tar --zstd -xf promoted/deploy-artifact.tar.zst -C promoted/deploy-artifact
+          test -s promoted/deploy-artifact/index.html
+
+      - name: Verify immutable artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s promoted/deploy-artifact/index.html
+          python3 promoted/scripts/artifact_manifest.py verify \
+            promoted/deploy-artifact \
+            promoted/deploy-artifact-manifest.json \
+            --source-sha "${GITHUB_SHA}"
+          python3 - promoted/release-provenance.json "${GITHUB_SHA}" <<'PY'
+          import json, re, sys
+          data = json.load(open(sys.argv[1]))
+          if data.get("sourceSha") != sys.argv[2]: raise SystemExit("release provenance source mismatch")
+          for key in ("dependencyLockSha256", "artifactManifestSha256"):
+              if not re.fullmatch(r"[0-9a-f]{64}", str(data.get(key, ""))):
+                  raise SystemExit(f"invalid {key}")
+          print("CONTROL_PLANE_DEPLOY_PROVENANCE=PASS source=" + data["sourceSha"] + " rebuild=false")
+          PY
+
+      - name: Refuse stale production promotion
+        id: freshness
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_sha="$(curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/commits/main" | jq -r '.sha')"
+          [[ "${current_sha}" =~ ^[0-9a-f]{40}$ ]]
+          if [[ "${current_sha}" == "${GITHUB_SHA}" ]]; then
+            echo "current=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "current=false" >> "${GITHUB_OUTPUT}"
+            echo "CONTROL_PLANE_DEPLOY_FRESHNESS=SKIP artifact=${GITHUB_SHA} main=${current_sha}"
+          fi
+
+      - name: Setup Node.js for Netlify CLI
+        if: steps.freshness.outputs.current == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Capture previous production deploy ID
+        id: previous
+        if: steps.freshness.outputs.current == 'true'
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          deploys_json="$(curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+            -H "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+            "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}/deploys?per_page=1")"
+          previous_id="$(echo "${deploys_json}" | jq -r '.[0].id // empty')"
+          [[ -n "${previous_id}" ]] || { echo "Failed to capture previous production deploy ID" >&2; exit 1; }
+          echo "deploy_id=${previous_id}" >> "${GITHUB_OUTPUT}"
+          echo "CONTROL_PLANE_PREVIOUS_DEPLOY=${previous_id}"
+
+      - name: Deploy exact prebuilt artifact to production
+        if: steps.freshness.outputs.current == 'true'
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes netlify-cli@26.2.0 deploy \
+            --prod \
+            --no-build \
+            --dir=promoted/deploy-artifact \
+            --site="${NETLIFY_SITE_ID}" \
+            --auth="${NETLIFY_AUTH_TOKEN}" \
+            --message="GitHub Actions artifact ${GITHUB_SHA}"
+          echo "CONTROL_PLANE_PREVIOUS_DEPLOY_ID=${{ steps.previous.outputs.deploy_id }}" >> "${GITHUB_ENV}"
+
+      - name: Verify production health after promotion
+        if: steps.freshness.outputs.current == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 10); do
+            code="$(curl --proto '=https' --tlsv1.2 --silent --show-error \
+              --max-time 10 --write-out '%{http_code}' \
+              'https://crowdrelay.music/' -o "${RUNNER_TEMP}/prod-home.html" || true)"
+            if [[ "${code}" == "200" ]] && grep -qi '<html' "${RUNNER_TEMP}/prod-home.html"; then
+              echo "CONTROL_PLANE_PRODUCTION_HEALTH=PASS attempt=${attempt} code=${code}"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "CONTROL_PLANE_PRODUCTION_HEALTH=FAIL last_code=${code}" >&2
+          exit 1

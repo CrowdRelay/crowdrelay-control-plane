@@ -1,0 +1,76 @@
+name: Rollback production deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_id:
+        description: "Netlify deploy ID to restore (defaults to previous production deploy)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  rollback:
+    name: Restore previous Netlify production deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - name: Setup Node.js for Netlify CLI
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Resolve target deploy ID
+        id: target
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          INPUT_DEPLOY_ID: ${{ inputs.deploy_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${NETLIFY_AUTH_TOKEN}"
+          test -n "${NETLIFY_SITE_ID}"
+          if [[ -n "${INPUT_DEPLOY_ID}" ]]; then
+            deploy_id="${INPUT_DEPLOY_ID}"
+          else
+            deploys_json="$(curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+              -H "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+              "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}/deploys?per_page=2")"
+            deploy_id="$(echo "${deploys_json}" | jq -r '.[1].id // empty')"
+            [[ -n "${deploy_id}" ]] || { echo "Failed to resolve previous deploy ID" >&2; exit 1; }
+          fi
+          [[ "${deploy_id}" =~ ^[a-zA-Z0-9-]+$ ]] || { echo "Invalid deploy ID: ${deploy_id}" >&2; exit 1; }
+          echo "deploy_id=${deploy_id}" >> "${GITHUB_OUTPUT}"
+          echo "CONTROL_PLANE_ROLLBACK_TARGET=${deploy_id}"
+
+      - name: Restore Netlify deploy
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes netlify-cli@26.2.0 api restoreSiteDeploy \
+            --data "{\"site_id\":\"${NETLIFY_SITE_ID}\",\"deploy_id\":\"${{ steps.target.outputs.deploy_id }}\"}"
+          echo "CONTROL_PLANE_ROLLBACK=PASS deploy_id=${{ steps.target.outputs.deploy_id }}"
+
+      - name: Verify production health after rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 10); do
+            code="$(curl --proto '=https' --tlsv1.2 --silent --show-error \
+              --max-time 10 --write-out '%{http_code}' \
+              'https://crowdrelay.music/' -o "${RUNNER_TEMP}/rollback-home.html" || true)"
+            if [[ "${code}" == "200" ]] && grep -qi '<html' "${RUNNER_TEMP}/rollback-home.html"; then
+              echo "CONTROL_PLANE_ROLLBACK_HEALTH=PASS attempt=${attempt} code=${code}"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "CONTROL_PLANE_ROLLBACK_HEALTH=FAIL last_code=${code}" >&2
+          exit 1
