@@ -12,11 +12,11 @@ const credentials = () => {
 test('operator journey keeps tenant shell stable across live polling', async ({ page }) => {
   const { username, password } = credentials()
   await page.goto(baseURL, { waitUntil: 'domcontentloaded' })
-  await expect(page.getByRole('heading', { name: 'Welcome to Control Plane' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
   await page.getByLabel('Username').fill(username)
   await page.getByLabel('Password').fill(password)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByText('Operator panel')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Operations dashboard' })).toBeVisible()
 
   await page.getByRole('link', { name: 'Tenants' }).first().click()
   await expect(page.getByRole('heading', { name: 'Teams on the platform' })).toBeVisible()
@@ -49,5 +49,5 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   await expect(page.locator('.runtime-panel')).toBeVisible()
 
   await page.getByRole('button', { name: 'Log out' }).click()
-  await expect(page.getByRole('heading', { name: 'Welcome to Control Plane' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
 })
