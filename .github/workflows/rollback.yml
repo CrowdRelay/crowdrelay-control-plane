@@ -65,7 +65,7 @@ jobs:
           for attempt in $(seq 1 10); do
             code="$(curl --proto '=https' --tlsv1.2 --silent --show-error \
               --max-time 10 --write-out '%{http_code}' \
-              'https://crowdrelay.music/' -o "${RUNNER_TEMP}/rollback-home.html" || true)"
+              'https://crowdrelay.netlify.app/' -o "${RUNNER_TEMP}/rollback-home.html" || true)"
             if [[ "${code}" == "200" ]] && grep -qi '<html' "${RUNNER_TEMP}/rollback-home.html"; then
               echo "CONTROL_PLANE_ROLLBACK_HEALTH=PASS attempt=${attempt} code=${code}"
               exit 0
