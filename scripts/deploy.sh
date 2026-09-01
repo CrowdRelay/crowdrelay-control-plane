@@ -257,6 +257,10 @@ if [[ "$blue_green_eligible" == "eligible" ]]; then
   # Ship the blue-green script and receipt helper to the remote and execute
   scp -q "$BLUEGREEN" "$REMOTE:/tmp/cp-deploy-bluegreen.sh"
   scp -q "$ROOT_DIR/scripts/release_receipt.py" "$REMOTE:/tmp/release_receipt.py"
+  # Sync the tunnel Caddyfile so the blue-green script can detect and reload
+  # changes to the AREA tunnel allowlist without a separate manual step.
+  scp -q "$ROOT_DIR/deploy/virya-area-tunnel.Caddyfile" \
+       "$REMOTE:/tmp/cp-virya-area-tunnel.Caddyfile"
   set +e
   ssh -T "$REMOTE" sudo bash /tmp/cp-deploy-bluegreen.sh "$TARGET" "${CONTROL_PLANE_IMAGE_DIGEST:-}" "$REMOTE_DIR"
   deploy_status=$?

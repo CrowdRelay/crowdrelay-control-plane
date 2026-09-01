@@ -116,6 +116,30 @@ docker exec "$EDGE_CONTAINER" wget -qO- http://127.0.0.1:2019/config/ >/dev/null
   || fail 'edge Caddy admin endpoint is unavailable'
 printf 'EDGE_PREFLIGHT=PASS config=synchronized cutover=graceful-reload\n'
 
+# --- Sync the AREA tunnel Caddyfile if the repo copy changed ---------------
+# The tunnel is a separate container with its own bind-mounted Caddyfile.
+# The blue-green app cutover does not touch it, so a stale allowlist silently
+# 404s new control-plane routes the app just learned about. Sync before the
+# app cutover so the new routes are reachable the moment the edge switches.
+# deploy.sh scp's the current Caddyfile to /tmp; fall back to the repo copy
+# if the scp artifact is missing (e.g. direct invocation on the remote).
+TUNNEL_CONTAINER="crowdrelay-control-plane-virya-area-tunnel-1"
+TUNNEL_CADDYFILE="/tmp/cp-virya-area-tunnel.Caddyfile"
+[[ -f "$TUNNEL_CADDYFILE" ]] || TUNNEL_CADDYFILE="${REPO_DIR}/deploy/virya-area-tunnel.Caddyfile"
+[[ -f "$TUNNEL_CADDYFILE" ]] || fail "missing tunnel Caddyfile: $TUNNEL_CADDYFILE"
+if ! cmp -s "$TUNNEL_CADDYFILE" <(docker exec "$TUNNEL_CONTAINER" cat /etc/caddy/Caddyfile 2>/dev/null); then
+  # Update the bind-mounted source so a container recreate picks it up too.
+  cp "$TUNNEL_CADDYFILE" "${REPO_DIR}/deploy/virya-area-tunnel.Caddyfile"
+  docker cp "$TUNNEL_CADDYFILE" "${TUNNEL_CONTAINER}:/etc/caddy/Caddyfile"
+  docker exec "$TUNNEL_CONTAINER" caddy validate --config /etc/caddy/Caddyfile >/dev/null \
+    || fail 'tunnel Caddyfile is invalid after sync'
+  docker exec "$TUNNEL_CONTAINER" caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile --address 127.0.0.1:2019 >/dev/null \
+    || fail 'tunnel Caddy reload failed after sync'
+  printf 'TUNNEL_CADDYFILE=SYNCED reload=graceful\n'
+else
+  printf 'TUNNEL_CADDYFILE=NOOP unchanged=true\n'
+fi
+
 # compose.agents.yml is optional — the agent-service is only recreated if it exists
 [[ -f compose.agents.yml ]] && printf 'AGENT_OVERLAY=PASS\n' || printf 'AGENT_OVERLAY=SKIP reason=no-agents-overlay\n'
 
