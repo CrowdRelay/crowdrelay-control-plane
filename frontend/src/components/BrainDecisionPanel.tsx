@@ -1,6 +1,7 @@
 import { Show, createSignal, For, createResource } from 'solid-js'
 import type { OpportunityBoardEntry, DecisionEvidence } from '../lib/types'
 import { api } from '../lib/api'
+import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './EmptyState'
 
@@ -116,6 +117,8 @@ function renderEvidenceDetail(data: DecisionEvidence) {
   )
 }
 
+const errorMessage = (value: unknown, fallback: string) => value instanceof Error ? value.message : fallback
+
 export function BrainDecisionPanel(props: {
   slug: string
   opportunity: OpportunityBoardEntry | null | undefined
@@ -124,6 +127,8 @@ export function BrainDecisionPanel(props: {
   refresh: () => Promise<unknown>
 }) {
   const [showEvidence, setShowEvidence] = createSignal(false)
+  const [pendingMutation, setPendingMutation] = createSignal<string | null>(null)
+  const [confirming, setConfirming] = createSignal<string | null>(null)
 
   const [evidence] = createResource(showEvidence, async (show) => {
     if (!show || !props.opportunity?.decision_id) return null
@@ -138,6 +143,38 @@ export function BrainDecisionPanel(props: {
   const hasDecision = () => entry() != null
 
   const toggleEvidence = () => setShowEvidence(s => !s)
+
+  // Two-click confirmation: destructive intent needs a second click on the
+  // same control before anything is sent. Toasts give success/error feedback
+  // without layout shift — matches TenantAttentionPage's mutation pattern.
+  const decide = async (key: string, operation: () => Promise<unknown>, successMsg: string) => {
+    if (pendingMutation() !== null) return
+    if (confirming() !== key) {
+      setConfirming(key)
+      return
+    }
+    setConfirming(null)
+    setPendingMutation(key)
+    try {
+      await operation()
+      await props.refresh()
+      toast.success(successMsg)
+    } catch (error) {
+      toast.error(errorMessage(error, 'Decision failed'))
+    } finally {
+      setPendingMutation(null)
+    }
+  }
+
+  const approve = (e: OpportunityBoardEntry) => {
+    if (!e.action_id) return
+    void decide(`approve:${e.decision_id}`, () => api.approveOpportunityAction(props.slug, e.action_id!), 'Decision approved — action is now executing')
+  }
+
+  const reject = (e: OpportunityBoardEntry) => {
+    if (!e.action_id) return
+    void decide(`reject:${e.decision_id}`, () => api.cancelOpportunityAction(props.slug, e.action_id!), 'Decision rejected — action cancelled')
+  }
 
   return <article class="panel brain-decision-panel">
     <div class="brain-decision-head">
@@ -229,6 +266,28 @@ export function BrainDecisionPanel(props: {
           </div>
           <Show when={e.consequence}>
             <small class="brain-decision-consequence">if ignored: {e.consequence}</small>
+          </Show>
+
+          {/* Approve / Reject — only when the brain is awaiting approval and
+              there is an executable action to approve or cancel. */}
+          <Show when={e.authority === 'awaiting_approval' && e.action_id}>
+            <div class="brain-decision-buttons">
+              <button
+                type="button"
+                classList={{ 'confirm-danger': confirming() === `reject:${e.decision_id}` }}
+                disabled={pendingMutation() !== null}
+                onClick={() => reject(e)}
+              >
+                {pendingMutation() === `reject:${e.decision_id}` ? 'Rejecting…' : confirming() === `reject:${e.decision_id}` ? 'Confirm reject' : 'Reject'}
+              </button>
+              <button
+                type="button"
+                disabled={pendingMutation() !== null}
+                onClick={() => approve(e)}
+              >
+                {pendingMutation() === `approve:${e.decision_id}` ? 'Approving…' : confirming() === `approve:${e.decision_id}` ? 'Confirm approval' : 'Approve'}
+              </button>
+            </div>
           </Show>
         </div>
 
