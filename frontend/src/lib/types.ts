@@ -1979,3 +1979,17 @@ export interface CycleRunResult {
   status: string
   detail: string
 }
+
+/// One selectable brain goal, as returned by the tenant's own CrowdRelay.
+///
+/// The list is fetched rather than hardcoded: the wizard has to hardcode it
+/// because it runs before a tenant exists, but every post-creation surface can
+/// ask, and asking is what keeps this from becoming a fourth copy of the
+/// vocabulary that drifts.
+export interface NorthStarOption {
+  value: string
+  label: string
+  requiresSignal: boolean
+  isAggregate: boolean
+  platform: string | null
+}

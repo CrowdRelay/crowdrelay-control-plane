@@ -27,6 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CROWDRELAY = ROOT.parent / "crowdrelay"
 DOMAIN = CROWDRELAY / "crates/crowdrelay-domain/src/growth_metrics.rs"
 WIZARD = ROOT / "frontend/src/pages/TenantWizardPage.tsx"
+VALIDATION = ROOT / "crates/control-plane-api/src/validation.rs"
 
 
 def rust_north_stars() -> set[str]:
@@ -54,6 +55,19 @@ def rust_north_stars() -> set[str]:
             continue
         values.add(key)
     return values
+
+
+def validator_list() -> set[str]:
+    """`NORTH_STAR_METRICS` in the control-plane's own request validation.
+
+    The third copy, and the one that actually rejects a create call. It sat at
+    the original four values while the wizard offered seventeen, so choosing a
+    widened goal failed with "unknown northStarMetric" — the UI and the domain
+    agreed with each other and the validator between them agreed with neither.
+    """
+    source = VALIDATION.read_text()
+    block = source.split("pub const NORTH_STAR_METRICS", 1)[1].split("];", 1)[0]
+    return set(re.findall(r'"([a-z0-9_]+)"', block))
 
 
 def wizard_union() -> set[str]:
@@ -104,6 +118,36 @@ class NorthStarVocabularyParity(unittest.TestCase):
         )
         self.assertEqual(
             len(options), len(set(options)), "the wizard lists a north star twice"
+        )
+
+    def test_the_validator_accepts_every_domain_north_star(self) -> None:
+        """The list that rejects create calls must not be the narrowest one."""
+        rust, validator = rust_north_stars(), validator_list()
+        self.assertEqual(
+            sorted(rust - validator),
+            [],
+            "the control-plane validator rejects north stars the domain "
+            "supports; a tenant picking one of these cannot be created",
+        )
+        self.assertEqual(
+            sorted(validator - rust),
+            [],
+            "the validator accepts north stars the tenant runtime cannot "
+            "parse, which silently fall back to signal_installs",
+        )
+
+    def test_the_signal_off_fallback_is_not_platform_specific(self) -> None:
+        """A tenant with no YouTube channel must not be handed a YouTube goal.
+
+        The fallback fires before any platform is connected, so the only honest
+        default is the aggregate.
+        """
+        source = VALIDATION.read_text()
+        self.assertIn('"total_audience"', source)
+        self.assertNotIn(
+            '} else {\n            "youtube_subscribers"',
+            source,
+            "the Signal-off fallback still names a single platform",
         )
 
     def test_the_default_does_not_assume_signal(self) -> None:

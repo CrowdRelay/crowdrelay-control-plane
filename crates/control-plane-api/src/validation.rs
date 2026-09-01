@@ -73,11 +73,31 @@ pub const NOTIFIER_EVENTS: &[&str] = &[
 /// `crowdrelay_domain::growth_metrics::NorthStarMetric`; the tenant runtime
 /// silently falls back to `signal_installs` for anything it cannot parse, so an
 /// unknown value must be rejected here rather than stored as unreadable intent.
+/// This list fell four values behind when the vocabulary widened to cover
+/// metal, DJ and pop fanbases. The wizard offered seventeen goals while this
+/// rejected all but four, so a tenant measured on SoundCloud or TikTok picked a
+/// goal and the create call failed with "unknown northStarMetric" — the UI was
+/// widened and the validator guarding it was not.
+/// `scripts/test_north_star_vocabulary_parity.py` now pins all three copies
+/// (the domain enum, this list, and the wizard's TypeScript union) together.
 pub const NORTH_STAR_METRICS: &[&str] = &[
     "signal_installs",
-    "youtube_subscribers",
-    "spotify_followers",
+    "total_audience",
+    "bandcamp_supporters",
     "bandsintown_trackers",
+    "bluesky_followers",
+    "deezer_fans",
+    "discogs_in_collection",
+    "discord_members",
+    "facebook_followers",
+    "instagram_followers",
+    "lastfm_listeners",
+    "social_subscribers",
+    "soundcloud_followers",
+    "spotify_followers",
+    "telegram_subscribers",
+    "tiktok_followers",
+    "youtube_subscribers",
 ];
 
 /// Discovery platforms the onboarding wizard offers.
@@ -97,7 +117,11 @@ pub fn north_star_metric(value: Option<String>, signal_enabled: bool) -> Result<
         .unwrap_or(if signal_enabled {
             "signal_installs"
         } else {
-            "youtube_subscribers"
+            // `total_audience`, not `youtube_subscribers`: the fallback fires
+            // before anyone knows which platforms this tenant will connect, and
+            // handing a YouTube goal to a tenant with no YouTube channel means
+            // the brain optimizes a number that stays at zero forever.
+            "total_audience"
         });
     if !NORTH_STAR_METRICS.contains(&value) {
         return Err(ApiError::InvalidInput(format!(

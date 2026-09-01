@@ -287,8 +287,8 @@ export const LoginHero: Component = () => (
         <span>CrowdRelay is in active development and we're always open to new partnerships, integrations and use cases.</span>
       </div>
       <ul class="hero-links hero-links-row">
-        <li><a class="hero-cta" href="mailto:wojciech.jan.bator@proton.me">Get in touch <span aria-hidden="true">→</span></a></li>
-        <li><a href="mailto:wojciech.jan.bator@proton.me">wojciech.jan.bator@proton.me</a></li>
+        <li><a class="hero-cta" href="mailto:hello@crowdrelay.music">Get in touch <span aria-hidden="true">→</span></a></li>
+        <li><a href="mailto:hello@crowdrelay.music">hello@crowdrelay.music</a></li>
         <li><a href="https://virya.music" target="_blank" rel="noreferrer noopener">virya.music</a></li>
         <li><a href="https://www.linkedin.com/in/wojciech-bator/" target="_blank" rel="noreferrer noopener">linkedin.com/in/wojciech-bator</a></li>
       </ul>

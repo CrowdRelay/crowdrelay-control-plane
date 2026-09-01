@@ -28,6 +28,27 @@ export function RunBrainCyclePanel(props: { slug: string }) {
   const [running, setRunning] = createSignal(false)
   const [notice, setNotice] = createSignal<{ tone: 'good' | 'bad'; message: string } | null>(null)
 
+  // The goal is loaded lazily: it is only needed once the operator opens the
+  // picker, and the panel's own preview is the thing worth waiting for.
+  const [goals] = createResource(() => props.slug, api.northStarOptions)
+  const [savingGoal, setSavingGoal] = createSignal(false)
+
+  const changeGoal = async (value: string) => {
+    if (!value || value === preview()?.northStar) return
+    setSavingGoal(true)
+    setNotice(null)
+    try {
+      await api.updatePortfolioSetting(props.slug, 'north_star_metric', value)
+      setNotice({ tone: 'good', message: 'Goal updated. The next cycle will optimise for it.' })
+      triggerRefresh()
+      await refetch()
+    } catch (error) {
+      setNotice({ tone: 'bad', message: errorMessage(error, 'Could not change the goal') })
+    } finally {
+      setSavingGoal(false)
+    }
+  }
+
   const runCycle = async () => {
     setRunning(true)
     setNotice(null)
@@ -79,8 +100,26 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                 <span class="stat-value">{number(data().offPlatformAudience)}</span>
                 <span class="stat-note">+{number(data().offPlatformAudienceThisMonth)} this month</span>
               </div>
+              {/* The goal is the one number the brain optimises, so it is
+                  editable where it is displayed rather than hidden in a
+                  settings screen. Before this it could only be chosen in the
+                  creation wizard and never changed again. */}
               <div class="stat">
-                <span class="stat-label">{strategyLabel(data().northStar)}</span>
+                <label class="stat-label" for="north-star-select">Goal</label>
+                <select
+                  id="north-star-select"
+                  class="stat-select"
+                  value={data().northStar}
+                  disabled={savingGoal() || goals.loading}
+                  onChange={event => void changeGoal(event.currentTarget.value)}
+                >
+                  <Show when={goals.error}>
+                    <option value={data().northStar}>{strategyLabel(data().northStar)}</option>
+                  </Show>
+                  <For each={goals()?.options ?? []}>
+                    {option => <option value={option.value}>{option.label}</option>}
+                  </For>
+                </select>
                 <span class="stat-value">{number(data().northStarCurrent)}</span>
                 <span class="stat-note">+{number(data().northStarThisMonth)} this month</span>
               </div>

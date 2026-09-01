@@ -2119,6 +2119,11 @@ table tbody tr:hover{background:rgba(255,255,255,.025)}
 .stat-label{font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em}
 .stat-value{font-size:1.4rem;font-weight:800;letter-spacing:-.02em}
 .stat-note{font-size:var(--text-xs);color:var(--text-muted)}
+/* The goal picker sits inside a stat card, so it takes the card's width and a
+   tighter box than a form select. Colours, focus ring and chevron come from the
+   global `select` rule; only the metrics change here. */
+.stat-select{width:100%;padding-top:6px;padding-bottom:6px;font-size:var(--text-sm);font-weight:600}
+.stat-select:disabled{opacity:.6;cursor:progress}
 .template-priority{margin:16px 0}
 .template-priority .stat-label{display:block;margin-bottom:8px}
 .template-priority ol{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
