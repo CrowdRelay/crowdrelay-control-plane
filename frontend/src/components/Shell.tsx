@@ -10,6 +10,8 @@ import { ChatWidget } from './ChatWidget'
 import { SkeletonPage } from './Skeleton'
 import { ErrorBoundaryPanel } from './ErrorBoundaryPanel'
 import { ConfirmHost } from './Dialog'
+import { ReauthModal } from './ReauthModal'
+import { MobileTabBar } from './MobileTabBar'
 import type { TenantSummary } from '../lib/types'
 
 // The palette component loads on first invocation; the shortcut lives here so
@@ -215,6 +217,17 @@ export const Shell: Component = () => {
     try { localStorage.setItem('sidebar-collapsed', next ? '1' : '0') } catch {}
   }
 
+  // Opening the mobile drawer must show labels — a collapsed sidebar
+  // (persisted from desktop) hides them via <Show when={!collapsed()}> in
+  // JSX, which CSS cannot override. Reset to expanded on mobile open.
+  const openMobileNav = () => {
+    if (collapsed()) {
+      setCollapsed(false)
+      try { localStorage.setItem('sidebar-collapsed', '0') } catch {}
+    }
+    setMobileNavOpen(true)
+  }
+
   const tenants = useQuery(() => ({
     queryKey: ['tenants'],
     queryFn: () => api.tenants(),
@@ -368,7 +381,7 @@ export const Shell: Component = () => {
           <button
             type="button"
             class="topbar-menu"
-            onClick={() => setMobileNavOpen(open => !open)}
+            onClick={() => mobileNavOpen() ? setMobileNavOpen(false) : openMobileNav()}
             aria-label={mobileNavOpen() ? 'Close navigation' : 'Open navigation'}
             aria-expanded={mobileNavOpen()}
           >
@@ -409,6 +422,8 @@ export const Shell: Component = () => {
         <ToastContainer />
         <ConfirmHost />
       </main>
+      <MobileTabBar />
+      <ReauthModal />
       <Show when={slug()}>{(s) => <ChatWidget slug={s()} />}</Show>
     </div>
   </>

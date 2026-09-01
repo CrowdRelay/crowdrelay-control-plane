@@ -2077,3 +2077,73 @@ table tbody tr:hover{background:rgba(255,255,255,.025)}
 .entity-strength-bar{flex:1;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden}
 .entity-strength-fill{height:100%;background:var(--accent);border-radius:3px;transition:width var(--t-fast)}
 .entity-strength-value{font-size:var(--text-xs);color:var(--text-muted);min-width:40px;text-align:right}
+
+/* ── Re-auth modal ──────────────────────────────────────────────────────── */
+.reauth-panel{max-width:420px}
+.reauth-description{margin:0 0 var(--space-2);font-weight:600;color:var(--text-primary)}
+.reauth-hint{margin:0 0 var(--space-4);color:var(--text-muted);font-size:var(--text-sm)}
+.reauth-form{display:grid;gap:var(--space-3)}
+.reauth-input{width:100%;background:var(--surface-0);border:1px solid var(--border-default);color:white;padding:11px 12px;border-radius:9px;outline:none;transition:border-color var(--t-fast),box-shadow var(--t-fast)}
+.reauth-input:focus{border-color:var(--accent);box-shadow:var(--shadow-focus)}
+.reauth-error{color:var(--bad);font-size:var(--text-sm);padding:8px 12px;background:rgba(255,101,101,0.08);border:1px solid rgba(255,101,101,0.2);border-radius:var(--radius-sm)}
+
+/* ── Mobile bottom tab bar ──────────────────────────────────────────────── */
+.mobile-tab-bar{
+  display:none;
+  position:fixed;bottom:0;left:0;right:0;z-index:20;
+  background:var(--surface-2);border-top:1px solid var(--border-default);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.mobile-tab-bar-inner{
+  display:flex;width:100%;max-width:600px;margin:0 auto;
+  padding:0 var(--space-1)
+}
+.mobile-tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:10px 4px;background:transparent;color:var(--text-muted);
+  border:0;border-radius:0;cursor:pointer;transition:color var(--t-fast);
+  min-height:52px;font-size:var(--text-xs);font-weight:600;letter-spacing:.02em
+}
+.mobile-tab svg{width:22px;height:22px}
+.mobile-tab.active{color:var(--accent)}
+.mobile-tab:hover:not(.active){color:var(--text-secondary)}
+@media(max-width:560px){
+  .mobile-tab-bar{display:block}
+  .page{padding-bottom:100px}
+}
+
+/* ── 375px mobile audit pass ────────────────────────────────────────────── */
+/* Stat row (RunBrainCyclePanel) — no existing CSS, add responsive grid */
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0}
+.stat{display:flex;flex-direction:column;gap:4px;padding:14px;border:1px solid var(--border-default);border-radius:10px;background:var(--surface-2)}
+.stat-label{font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em}
+.stat-value{font-size:1.4rem;font-weight:800;letter-spacing:-.02em}
+.stat-note{font-size:var(--text-xs);color:var(--text-muted)}
+.template-priority{margin:16px 0}
+.template-priority .stat-label{display:block;margin-bottom:8px}
+.template-priority ol{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.template-priority li{display:flex;align-items:center;gap:8px}
+.panel-footer{display:flex;align-items:center;gap:16px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border-default);flex-wrap:wrap}
+.panel-footer button{min-height:44px}
+.panel-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.panel-header h2{margin:0;display:flex;align-items:center;gap:8px;font-size:1.1rem}
+
+@media(max-width:375px){
+  .operations-metrics,.autopilot-kpis{grid-template-columns:1fr}
+  .stat-row{grid-template-columns:1fr}
+  .kpi-strip{grid-template-columns:1fr}
+}
+
+/* Touch targets — ≥44px on mobile for all action buttons */
+@media(max-width:560px){
+  .opportunity-actions button,.panel-footer button,.operations-attention button,
+  .section-title button,.dead-expand-btn{
+    min-height:44px;padding:.6rem 1rem
+  }
+  .login-shell{padding:16px}
+  .login-card{padding:20px 16px;max-width:none;width:100%}
+  .page{padding:20px 14px 100px}
+  .page-head h1{font-size:1.6rem}
+  .topbar-context .eyebrow{font-size:0.625rem}
+  .topbar-context strong{font-size:var(--text-sm)}
+}

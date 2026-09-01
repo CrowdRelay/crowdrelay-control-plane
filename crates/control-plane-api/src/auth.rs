@@ -51,8 +51,11 @@ pub fn is_mobile_user_agent(headers: &HeaderMap) -> bool {
         .and_then(|value| value.to_str().ok())
         .is_some_and(|ua| {
             let ua = ua.to_ascii_lowercase();
-            ua.contains("mobile") || ua.contains("android") || ua.contains("iphone")
-                || ua.contains("ipad") || ua.contains("ipod")
+            ua.contains("mobile")
+                || ua.contains("android")
+                || ua.contains("iphone")
+                || ua.contains("ipad")
+                || ua.contains("ipod")
         })
 }
 

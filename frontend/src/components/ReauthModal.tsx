@@ -23,16 +23,12 @@ export const ReauthModal: Component = () => {
 
   return (
     <Show when={reauthState.pending()}>
-      <div class="modal-overlay" onClick={cancel}>
-        <div class="modal reauth-modal" onClick={(e) => e.stopPropagation()}>
-          <div class="modal-title">Confirm your identity</div>
-          <div class="modal-body">
-            <p class="reauth-description">
-              {reauthState.pending()?.description}
-            </p>
-            <p class="reauth-hint">
-              Enter your password to authorize this action from your mobile device.
-            </p>
+      <div class="dialog-overlay" onClick={cancel}>
+        <div class="dialog-panel reauth-panel" onClick={(e) => e.stopPropagation()}>
+          <h2 class="confirm-dialog-title">Confirm your identity</h2>
+          <div class="confirm-dialog-body">
+            <p class="reauth-description">{reauthState.pending()?.description}</p>
+            <p class="reauth-hint">Enter your password to authorize this action from your mobile device.</p>
             <form class="reauth-form" onSubmit={submit}>
               <input
                 type="password"
@@ -47,7 +43,7 @@ export const ReauthModal: Component = () => {
               <Show when={reauthState.error()}>
                 <div class="reauth-error" role="alert">{reauthState.error()}</div>
               </Show>
-              <div class="modal-actions">
+              <div class="confirm-dialog-actions">
                 <button type="button" class="ghost" onClick={cancel} disabled={reauthState.busy()}>
                   Cancel
                 </button>

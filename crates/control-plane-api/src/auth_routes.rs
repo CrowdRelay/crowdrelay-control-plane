@@ -166,7 +166,7 @@ async fn create_session(
             state.cookie_secure,
             ttl,
         ))
-            .map_err(|_| ApiError::InvalidInput("invalid cookie value".to_owned()))?,
+        .map_err(|_| ApiError::InvalidInput("invalid cookie value".to_owned()))?,
     );
     Ok(response)
 }
