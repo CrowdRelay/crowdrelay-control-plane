@@ -106,14 +106,18 @@ jobs:
         with:
           name: control-plane-netlify-${{ github.sha }}
           path: promoted
+          merge-multiple: true
 
-      - name: Extract deploy artifact archive
+      - name: Locate and extract deploy artifact archive
         shell: bash
         run: |
           set -euo pipefail
-          test -s promoted/deploy-artifact.tar.zst
+          echo "Contents of promoted/:"
+          find promoted -maxdepth 3 -type f | sort | head -50
+          archive="$(find promoted -name 'deploy-artifact.tar.zst' -type f | head -1)"
+          [[ -n "${archive}" ]] || { echo "deploy-artifact.tar.zst not found in promoted/" >&2; exit 1; }
           mkdir -p promoted/deploy-artifact
-          tar --zstd -xf promoted/deploy-artifact.tar.zst -C promoted/deploy-artifact
+          tar --zstd -xf "${archive}" -C promoted/deploy-artifact
           test -s promoted/deploy-artifact/index.html
 
       - name: Verify immutable artifact
@@ -229,14 +233,18 @@ jobs:
         with:
           name: control-plane-netlify-${{ github.sha }}
           path: promoted
+          merge-multiple: true
 
-      - name: Extract deploy artifact archive
+      - name: Locate and extract deploy artifact archive
         shell: bash
         run: |
           set -euo pipefail
-          test -s promoted/deploy-artifact.tar.zst
+          echo "Contents of promoted/:"
+          find promoted -maxdepth 3 -type f | sort | head -50
+          archive="$(find promoted -name 'deploy-artifact.tar.zst' -type f | head -1)"
+          [[ -n "${archive}" ]] || { echo "deploy-artifact.tar.zst not found in promoted/" >&2; exit 1; }
           mkdir -p promoted/deploy-artifact
-          tar --zstd -xf promoted/deploy-artifact.tar.zst -C promoted/deploy-artifact
+          tar --zstd -xf "${archive}" -C promoted/deploy-artifact
           test -s promoted/deploy-artifact/index.html
 
       - name: Verify immutable artifact
