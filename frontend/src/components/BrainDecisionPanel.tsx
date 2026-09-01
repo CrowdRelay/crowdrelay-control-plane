@@ -51,17 +51,18 @@ const RANK_FACTOR_LABELS: Record<string, string> = {
 // Render input_snapshot as key/value evidence. The snapshot is raw JSON from
 // the decision row — we display its top-level keys as evidence rows, never
 // inventing numeric contributions or causal explanations.
-const renderEvidence = (snapshot: Record<string, unknown>): Array<{ key: string; value: string }> => {
-  const rows: Array<{ key: string; value: string }> = []
+const renderEvidence = (snapshot: Record<string, unknown>): Array<{ key: string; value: string; isJson: boolean }> => {
+  const rows: Array<{ key: string; value: string; isJson: boolean }> = []
   for (const [key, value] of Object.entries(snapshot)) {
     if (value == null) continue
-    const display = typeof value === 'object'
-      ? JSON.stringify(value).slice(0, 200)
+    const isJson = typeof value === 'object'
+    const display = isJson
+      ? JSON.stringify(value, null, 2)
       : String(value)
     if (display.trim().length === 0) continue
-    rows.push({ key: key.replaceAll('_', ' '), value: display })
+    rows.push({ key: key.replaceAll('_', ' '), value: display, isJson })
   }
-  return rows.slice(0, 8) // cap to avoid wall of JSON
+  return rows.slice(0, 12)
 }
 
 const timeAgoBrief = (iso: string): string => {
@@ -88,7 +89,11 @@ function renderEvidenceDetail(data: DecisionEvidence) {
             <For each={inputRows}>{row => (
               <div class="brain-evidence-row">
                 <dt>{row.key}</dt>
-                <dd>{row.value}</dd>
+                <dd>
+                  <Show when={row.isJson} fallback={row.value}>
+                    <pre class="brain-evidence-json">{row.value}</pre>
+                  </Show>
+                </dd>
               </div>
             )}</For>
           </dl>
@@ -103,7 +108,11 @@ function renderEvidenceDetail(data: DecisionEvidence) {
             <For each={policyRows}>{row => (
               <div class="brain-evidence-row">
                 <dt>{row.key}</dt>
-                <dd>{row.value}</dd>
+                <dd>
+                  <Show when={row.isJson} fallback={row.value}>
+                    <pre class="brain-evidence-json">{row.value}</pre>
+                  </Show>
+                </dd>
               </div>
             )}</For>
           </dl>
@@ -129,6 +138,11 @@ export function BrainDecisionPanel(props: {
   const [showEvidence, setShowEvidence] = createSignal(false)
   const [pendingMutation, setPendingMutation] = createSignal<string | null>(null)
   const [confirming, setConfirming] = createSignal<string | null>(null)
+  // Track decisions we've already acted on locally. After a successful
+  // approve/reject, the backend may still report awaiting_approval on
+  // refresh (processing lag). This prevents the buttons from reappearing
+  // and forcing the user to click through confirmation a second time.
+  const [actedOn, setActedOn] = createSignal<Set<string>>(new Set())
 
   const [evidence] = createResource(showEvidence, async (show) => {
     if (!show || !props.opportunity?.decision_id) return null
@@ -157,6 +171,10 @@ export function BrainDecisionPanel(props: {
     setPendingMutation(key)
     try {
       await operation()
+      // Mark this decision as acted on so the buttons don't reappear
+      // when refresh brings back the same awaiting_approval state.
+      const decisionId = key.split(':')[1] ?? ''
+      setActedOn(prev => new Set(prev).add(decisionId))
       await props.refresh()
       toast.success(successMsg)
     } catch (error) {
@@ -268,9 +286,10 @@ export function BrainDecisionPanel(props: {
             <small class="brain-decision-consequence">if ignored: {e.consequence}</small>
           </Show>
 
-          {/* Approve / Reject — only when the brain is awaiting approval and
-              there is an executable action to approve or cancel. */}
-          <Show when={e.authority === 'awaiting_approval' && e.action_id}>
+          {/* Approve / Reject — only when the brain is awaiting approval,
+              there is an executable action, and we haven't already acted
+              on this decision (local guard against refresh lag). */}
+          <Show when={e.authority === 'awaiting_approval' && e.action_id && !actedOn().has(e.decision_id)}>
             <div class="brain-decision-buttons">
               <button
                 type="button"
