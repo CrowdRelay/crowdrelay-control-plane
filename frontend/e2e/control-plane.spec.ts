@@ -1,12 +1,15 @@
 import { expect, test } from '@playwright/test'
 
 const baseURL = process.env.CONTROL_PLANE_BASE_URL ?? 'https://control.virya.music'
-const basic = process.env.CONTROL_PLANE_SMOKE_BASIC_AUTH ?? ''
+// The app login credentials are distinct from the edge Basic Auth credentials.
+// CONTROL_PLANE_SMOKE_LOGIN is the app-level operator account (username:password).
+// Fall back to CONTROL_PLANE_SMOKE_BASIC_AUTH for backward compatibility.
+const login = process.env.CONTROL_PLANE_SMOKE_LOGIN ?? process.env.CONTROL_PLANE_SMOKE_BASIC_AUTH ?? ''
 
 const credentials = () => {
-  const separator = basic.indexOf(':')
-  if (separator <= 0 || separator === basic.length - 1) throw new Error('CONTROL_PLANE_SMOKE_BASIC_AUTH must be username:password')
-  return { username: basic.slice(0, separator), password: basic.slice(separator + 1) }
+  const separator = login.indexOf(':')
+  if (separator <= 0 || separator === login.length - 1) throw new Error('CONTROL_PLANE_SMOKE_LOGIN must be username:password')
+  return { username: login.slice(0, separator), password: login.slice(separator + 1) }
 }
 
 test('operator journey keeps tenant shell stable across live polling', async ({ page }) => {
