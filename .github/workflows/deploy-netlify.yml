@@ -72,16 +72,16 @@ jobs:
           # _redirects and _headers are read from the publish directory by
           # Netlify's edge, independent of netlify.toml location. These
           # ensure proxy redirects work with --no-build CLI deploys.
-          cat > deploy-artifact/site/_redirects <<'REDIRECTS'
-/api/*     https://control.virya.music/api/:splat     200!
-/healthz/* https://control.virya.music/healthz/:splat 200!
-/healthz   https://control.virya.music/healthz       200!
-/*         /index.html                                200
-REDIRECTS
-          cat > deploy-artifact/site/_headers <<'HEADERS'
-/assets/*
-  Cache-Control: public, max-age=31536000, immutable
-HEADERS
+          printf '%s\n' \
+            '/api/*     https://control.virya.music/api/:splat     200!' \
+            '/healthz/* https://control.virya.music/healthz/:splat 200!' \
+            '/healthz   https://control.virya.music/healthz       200!' \
+            '/*         /index.html                                200' \
+            > deploy-artifact/site/_redirects
+          printf '%s\n' \
+            '/assets/*' \
+            '  Cache-Control: public, max-age=31536000, immutable' \
+            > deploy-artifact/site/_headers
           python3 scripts/artifact_manifest.py create deploy-artifact/site deploy-artifact-manifest.json --source-sha "${GITHUB_SHA}"
           python3 scripts/write_release_provenance.py \
             --source-sha "${GITHUB_SHA}" \
