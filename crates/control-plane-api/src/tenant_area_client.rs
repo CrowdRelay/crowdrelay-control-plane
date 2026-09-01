@@ -304,6 +304,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/audience/fans"
                     | "/v1/control-plane/audience/segments"
                     | "/v1/control-plane/ops/actions"
+                    | "/v1/admin/community-intelligence/communities"
             ) || path.starts_with("/v1/control-plane/ops/outbox?")
                 || path.starts_with("/v1/control-plane/ops/deliveries?")
                 || path.starts_with("/v1/control-plane/ops/actions?")
@@ -321,6 +322,16 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/recipients",
                 )
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/decisions/", "/evidence")
+                || uuid_segment_between(
+                    path,
+                    "/v1/admin/community-intelligence/communities/",
+                    "/observations",
+                )
+                || uuid_segment_between(
+                    path,
+                    "/v1/admin/community-intelligence/communities/",
+                    "/entities",
+                )
                 || timeline_segment(path)
                 || trace_segment(path)
         }
@@ -384,6 +395,11 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || path == "/v1/control-plane/connections/discogs"
                 || path == "/v1/control-plane/connections/bluesky"
                 || path == "/v1/control-plane/connections/bandcamp"
+                || path == "/v1/control-plane/connections/youtube"
+                || path == "/v1/control-plane/connections/facebook"
+                || path == "/v1/control-plane/connections/instagram"
+                || path == "/v1/control-plane/connections/soundcloud"
+                || path == "/v1/control-plane/connections/reddit"
                 || uuid_segment_between(path, "/v1/control-plane/fanbases/", "/ingest")
                 || fan_tag_path(path)
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/referral-code")

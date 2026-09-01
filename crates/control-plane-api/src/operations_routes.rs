@@ -83,6 +83,14 @@ pub fn router() -> Router<AppState> {
         )
         .route("/tenants/{slug}/operations/growth", get(autopilot_growth))
         .route(
+            "/tenants/{slug}/operations/autopilot/cycle/preview",
+            get(autopilot_cycle_preview),
+        )
+        .route(
+            "/tenants/{slug}/operations/autopilot/cycle/run",
+            post(autopilot_cycle_run),
+        )
+        .route(
             "/tenants/{slug}/operations/autopilot/scorecard",
             get(autopilot_scorecard),
         )
@@ -147,6 +155,38 @@ pub fn router() -> Router<AppState> {
         .route(
             "/tenants/{slug}/portfolio/connections/bandcamp",
             post(create_bandcamp_connection),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/connections/youtube",
+            post(create_youtube_connection),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/connections/facebook",
+            post(create_facebook_connection),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/connections/instagram",
+            post(create_instagram_connection),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/connections/soundcloud",
+            post(create_soundcloud_connection),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/connections/reddit",
+            post(create_reddit_connection),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/communities",
+            get(list_communities),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/communities/{place_id}/observations",
+            get(list_community_observations),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/communities/{place_id}/entities",
+            get(list_community_entities),
         )
         .route(
             "/tenants/{slug}/notifiers/discovered",
@@ -780,6 +820,65 @@ async fn autopilot_growth(
 
 /// Agent scorecard: is it running, what did it do, did it work.
 /// Read-only proxy to CrowdRelay's scorecard read model.
+/// What a full autopilot cycle would decide right now. Read-only: nothing is
+/// dispatched, so this is safe to poll while an operator decides whether to run.
+async fn autopilot_cycle_preview(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/cycle/preview",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "autopilot cycle preview")
+}
+
+/// Runs a full autopilot cycle now.
+///
+/// This dispatches real work — outreach, posts, invites — so it is audited like
+/// every other outward-facing operator action, and requires an idempotency key
+/// so a double-click cannot queue two cycles.
+async fn autopilot_cycle_run(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: "/v1/control-plane/autopilot/cycle/run",
+                body: None,
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.autopilot.cycle_requested",
+        "workspace",
+        &slug,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(result?, "autopilot cycle run")
+}
+
 async fn autopilot_scorecard(
     State(state): State<AppState>,
     Path(slug): Path<String>,
@@ -1677,6 +1776,106 @@ async fn create_bandcamp_connection(
     object_no_store(value, "bandcamp connection")
 }
 
+async fn create_youtube_connection(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    body: axum::Json<serde_json::Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (_, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/connections/youtube",
+        Some(&body.0),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    object_no_store(value, "youtube connection")
+}
+
+async fn create_facebook_connection(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    body: axum::Json<serde_json::Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (_, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/connections/facebook",
+        Some(&body.0),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    object_no_store(value, "facebook connection")
+}
+
+async fn create_instagram_connection(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    body: axum::Json<serde_json::Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (_, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/connections/instagram",
+        Some(&body.0),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    object_no_store(value, "instagram connection")
+}
+
+async fn create_soundcloud_connection(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    body: axum::Json<serde_json::Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (_, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/connections/soundcloud",
+        Some(&body.0),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    object_no_store(value, "soundcloud connection")
+}
+
+async fn create_reddit_connection(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    body: axum::Json<serde_json::Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (_, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/connections/reddit",
+        Some(&body.0),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    object_no_store(value, "reddit connection")
+}
+
 // ---------------------------------------------------------------------------
 // Audience intelligence — read-only proxies to CrowdRelay's control-plane
 // audience endpoints. Fan list, fan detail, fan journey, audience segments.
@@ -2400,4 +2599,48 @@ async fn play_ledger(
     )
     .await?;
     object_no_store(value, "play ledger")
+}
+
+// ---------------------------------------------------------------------------
+// Community Intelligence — read-only proxy endpoints
+// ---------------------------------------------------------------------------
+
+async fn list_communities(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/admin/community-intelligence/communities",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "community intelligence communities")
+}
+
+async fn list_community_observations(
+    State(state): State<AppState>,
+    Path((slug, place_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    uuid_segment(&place_id)?;
+    let path = format!("/v1/admin/community-intelligence/communities/{place_id}/observations");
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "community intelligence observations")
+}
+
+async fn list_community_entities(
+    State(state): State<AppState>,
+    Path((slug, place_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    uuid_segment(&place_id)?;
+    let path = format!("/v1/admin/community-intelligence/communities/{place_id}/entities");
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "community intelligence entities")
 }

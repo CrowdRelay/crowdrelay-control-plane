@@ -13,6 +13,12 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use std::{
+    collections::HashMap,
+    sync::{Mutex, OnceLock},
+    time::{Duration, Instant},
+};
+
 use serde::Deserialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -25,6 +31,78 @@ use crate::{
 
 const PRIVATE_NO_STORE: &str = "private, no-store";
 const MAX_EVENT_BODY_BYTES: usize = 32 * 1024;
+
+/// How long an identical message stays suppressed after being forwarded.
+///
+/// The comment on `ingest_event` already records that n8n retries when a call
+/// times out, and a stuck workflow re-reports the same failure every run. Both
+/// produce the same text repeatedly, which is the shape Discord spam actually
+/// takes here. The event is always stored; only the duplicate *notification*
+/// is dropped, so the operator surface still shows every occurrence.
+const DUPLICATE_SUPPRESSION_WINDOW: Duration = Duration::from_secs(10 * 60);
+
+/// Ceiling on forwards per rolling minute across all workflows.
+///
+/// Discord rate-limits webhooks and answers 429 once exceeded, which this code
+/// can only log. Refusing to send past the cap keeps a runaway workflow from
+/// burning the webhook's budget and drowning the messages that matter.
+const MAX_FORWARDS_PER_MINUTE: usize = 20;
+
+/// Forwarding state: last-send time per message, plus recent send timestamps.
+struct DiscordThrottle {
+    recent_messages: HashMap<String, Instant>,
+    recent_sends: Vec<Instant>,
+}
+
+fn throttle() -> &'static Mutex<DiscordThrottle> {
+    static THROTTLE: OnceLock<Mutex<DiscordThrottle>> = OnceLock::new();
+    THROTTLE.get_or_init(|| {
+        Mutex::new(DiscordThrottle {
+            recent_messages: HashMap::new(),
+            recent_sends: Vec::new(),
+        })
+    })
+}
+
+/// Why a forward was skipped, for the log line.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ForwardDecision {
+    Send,
+    DuplicateWithinWindow,
+    RateLimited,
+}
+
+/// Decides whether this message may go to Discord now, recording the send when
+/// it may. Pure bookkeeping over the two guards above, taking the state by
+/// reference so it is testable without touching the process-wide bucket.
+fn decide_forward_in(state: &mut DiscordThrottle, message: &str, now: Instant) -> ForwardDecision {
+    state
+        .recent_messages
+        .retain(|_, seen| now.duration_since(*seen) < DUPLICATE_SUPPRESSION_WINDOW);
+    state
+        .recent_sends
+        .retain(|sent| now.duration_since(*sent) < Duration::from_secs(60));
+
+    if state.recent_messages.contains_key(message) {
+        return ForwardDecision::DuplicateWithinWindow;
+    }
+    if state.recent_sends.len() >= MAX_FORWARDS_PER_MINUTE {
+        return ForwardDecision::RateLimited;
+    }
+
+    state.recent_messages.insert(message.to_owned(), now);
+    state.recent_sends.push(now);
+    ForwardDecision::Send
+}
+
+/// `decide_forward_in` against the process-wide bucket.
+fn decide_forward(message: &str, now: Instant) -> ForwardDecision {
+    let Ok(mut state) = throttle().lock() else {
+        // A poisoned lock must not silence alerting; send and move on.
+        return ForwardDecision::Send;
+    };
+    decide_forward_in(&mut state, message, now)
+}
 
 /// Machine-to-machine router: n8n posts events here. Authed via
 /// `require_automation` middleware (separate token from admin/telemetry).
@@ -73,6 +151,24 @@ async fn ingest_event(
         let message = event.message.clone();
         let workflow_id = event.workflow_id.clone();
         tokio::spawn(async move {
+            match decide_forward(&message, Instant::now()) {
+                ForwardDecision::DuplicateWithinWindow => {
+                    tracing::debug!(
+                        %workflow_id,
+                        "discord forward suppressed: identical message already sent"
+                    );
+                    return;
+                }
+                ForwardDecision::RateLimited => {
+                    tracing::warn!(
+                        %workflow_id,
+                        cap = MAX_FORWARDS_PER_MINUTE,
+                        "discord forward rate limited; event still stored"
+                    );
+                    return;
+                }
+                ForwardDecision::Send => {}
+            }
             if let Err(error) = forward_to_discord(&discord_state, &message).await {
                 tracing::warn!(
                     %error,
@@ -209,4 +305,84 @@ async fn update_workflow_config(
         )
         .await?;
     Ok(json_no_store(json!(config)))
+}
+
+#[cfg(test)]
+mod discord_throttle_tests {
+    use super::*;
+
+    /// A bucket per test. Sharing the process-wide one made the rate-limit
+    /// test's sends count against the suppression test.
+    fn bucket() -> DiscordThrottle {
+        DiscordThrottle {
+            recent_messages: HashMap::new(),
+            recent_sends: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn an_identical_message_is_suppressed_inside_the_window() {
+        let mut state = bucket();
+        let now = Instant::now();
+        assert_eq!(
+            decide_forward_in(&mut state, "workflow failed", now),
+            ForwardDecision::Send
+        );
+        assert_eq!(
+            decide_forward_in(&mut state, "workflow failed", now),
+            ForwardDecision::DuplicateWithinWindow,
+            "an n8n retry must not post the same text twice"
+        );
+    }
+
+    #[test]
+    fn the_same_message_sends_again_once_the_window_passes() {
+        let mut state = bucket();
+        let now = Instant::now();
+        assert_eq!(
+            decide_forward_in(&mut state, "workflow failed", now),
+            ForwardDecision::Send
+        );
+        let later = now + DUPLICATE_SUPPRESSION_WINDOW + Duration::from_secs(1);
+        assert_eq!(
+            decide_forward_in(&mut state, "workflow failed", later),
+            ForwardDecision::Send,
+            "suppression must expire, or a recurring failure goes unreported"
+        );
+    }
+
+    #[test]
+    fn distinct_messages_are_not_suppressed() {
+        let mut state = bucket();
+        let now = Instant::now();
+        assert_eq!(
+            decide_forward_in(&mut state, "a", now),
+            ForwardDecision::Send
+        );
+        assert_eq!(
+            decide_forward_in(&mut state, "b", now),
+            ForwardDecision::Send
+        );
+    }
+
+    #[test]
+    fn a_runaway_workflow_is_capped_per_minute() {
+        let mut state = bucket();
+        let now = Instant::now();
+        // Distinct texts, so only the rate limit can stop them.
+        let mut sent = 0usize;
+        let mut limited = 0usize;
+        for index in 0..(MAX_FORWARDS_PER_MINUTE * 2) {
+            match decide_forward_in(&mut state, &format!("burst-{index}"), now) {
+                ForwardDecision::Send => sent += 1,
+                ForwardDecision::RateLimited => limited += 1,
+                ForwardDecision::DuplicateWithinWindow => {}
+            }
+        }
+        assert!(
+            sent <= MAX_FORWARDS_PER_MINUTE,
+            "sent {sent} exceeds the per-minute cap"
+        );
+        assert!(limited > 0, "the cap never engaged");
+    }
 }

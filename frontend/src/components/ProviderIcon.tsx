@@ -306,6 +306,49 @@ function BandcampIcon(props: IconProps) {
   )
 }
 
+// YouTube — play button in a rounded rectangle (official brand colours).
+function YoutubeIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
+      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z" fill="#FF0000"/>
+      <path d="M9.546 15.568V8.432L15.818 12l-6.272 3.568z" fill="#fff"/>
+    </svg>
+  )
+}
+
+// Facebook — the "f" mark in Facebook blue.
+function FacebookIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="#1877F2" class={props.class} aria-hidden="true">
+      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+    </svg>
+  )
+}
+
+// Instagram — the camera outline with gradient (simplified, currentColor).
+function InstagramIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class={props.class} aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="5"/>
+      <circle cx="12" cy="12" r="4"/>
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
+    </svg>
+  )
+}
+
+// SoundCloud — cloud with sound waves (simplified, currentColor).
+function SoundcloudIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
+      <path d="M1 17h1.5v-5H1v5zm3 0h1.5v-7H4v7zm3 0h1.5v-9H7v9zm3 0h1.5v-11H10v11zm3 0h1.5v-12H13v12zm3 0h1.5v-12H16v12zm3.5 0c1.38 0 2.5-1.12 2.5-2.5S20.88 12 19.5 12c-.17 0-.34.02-.5.05V8.5c0-2.49-2.01-4.5-4.5-4.5-.34 0-.67.04-1 .1V17h6z"/>
+    </svg>
+  )
+}
+
 // CSV — document with lines (generic, currentColor).
 function CsvIcon(props: IconProps) {
   const s = props.size ?? 20
@@ -389,6 +432,10 @@ const FANBASE_ICONS: Record<string, (props: IconProps) => JSX.Element> = {
   discogs: DiscogsIcon,
   bluesky: BlueskyIcon,
   bandcamp: BandcampIcon,
+  youtube: YoutubeIcon,
+  facebook: FacebookIcon,
+  instagram: InstagramIcon,
+  soundcloud: SoundcloudIcon,
 }
 
 export function LlmProviderIcon(props: { providerId: string; size?: number; class?: string }) {

@@ -33,6 +33,10 @@ const OAUTH_PLATFORMS = [
   { value: 'discogs', label: 'Discogs', icon: 'discogs' },
   { value: 'bluesky', label: 'Bluesky', icon: 'bluesky' },
   { value: 'bandcamp', label: 'Bandcamp', icon: 'bandcamp' },
+  { value: 'youtube', label: 'YouTube', icon: 'youtube' },
+  { value: 'facebook', label: 'Facebook', icon: 'facebook' },
+  { value: 'instagram', label: 'Instagram', icon: 'instagram' },
+  { value: 'soundcloud', label: 'SoundCloud', icon: 'soundcloud' },
 ]
 
 const EMPTY_INGEST = ''
@@ -86,6 +90,13 @@ export function FanSourcesPanel(props: {
   const [discogsArtistId, setDiscogsArtistId] = createSignal('')
   const [blueskyHandle, setBlueskyHandle] = createSignal('')
   const [bandcampSubdomain, setBandcampSubdomain] = createSignal('')
+  const [youtubeChannelId, setYoutubeChannelId] = createSignal('')
+  const [facebookPageId, setFacebookPageId] = createSignal('')
+  const [instagramIgUserId, setInstagramIgUserId] = createSignal('')
+  const [soundcloudPermalink, setSoundcloudPermalink] = createSignal('')
+  const [redditSubreddit, setRedditSubreddit] = createSignal('')
+  // Verification result from the provider probe (creation-time diagnostic only).
+  const [verificationNotice, setVerificationNotice] = createSignal<string | null>(null)
 
   const needsAttestation = createMemo(() => sourceKind() !== 'http_json_pull')
 
@@ -280,8 +291,86 @@ export function FanSourcesPanel(props: {
     onError: (error) => setErrorText(error instanceof Error ? error.message : 'Bandcamp connection failed'),
   }))
 
+  const connectYoutube = useMutation(() => ({
+    mutationFn: () => api.createYoutubeConnection(props.slug, youtubeChannelId().trim()),
+    onSuccess: async (result: { verification?: string; displayName?: string; reason?: string; status?: string }) => {
+      await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
+      refetchConnections()
+      setConnectingPlatform(null)
+      setYoutubeChannelId('')
+      setErrorText(null)
+      setVerificationNotice(formatVerification(result))
+      setNotice('YouTube connection created.')
+    },
+    onError: (error) => setErrorText(error instanceof Error ? error.message : 'YouTube connection failed'),
+  }))
+
+  const connectFacebook = useMutation(() => ({
+    mutationFn: () => api.createFacebookConnection(props.slug, facebookPageId().trim()),
+    onSuccess: async (result: { verification?: string; displayName?: string; reason?: string; status?: string }) => {
+      await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
+      refetchConnections()
+      setConnectingPlatform(null)
+      setFacebookPageId('')
+      setErrorText(null)
+      setVerificationNotice(formatVerification(result))
+      setNotice('Facebook connection created.')
+    },
+    onError: (error) => setErrorText(error instanceof Error ? error.message : 'Facebook connection failed'),
+  }))
+
+  const connectInstagram = useMutation(() => ({
+    mutationFn: () => api.createInstagramConnection(props.slug, instagramIgUserId().trim()),
+    onSuccess: async (result: { verification?: string; displayName?: string; reason?: string; status?: string }) => {
+      await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
+      refetchConnections()
+      setConnectingPlatform(null)
+      setInstagramIgUserId('')
+      setErrorText(null)
+      setVerificationNotice(formatVerification(result))
+      setNotice('Instagram connection created.')
+    },
+    onError: (error) => setErrorText(error instanceof Error ? error.message : 'Instagram connection failed'),
+  }))
+
+  const connectSoundcloud = useMutation(() => ({
+    mutationFn: () => api.createSoundcloudConnection(props.slug, soundcloudPermalink().trim()),
+    onSuccess: async (result: { verification?: string; displayName?: string; reason?: string; status?: string }) => {
+      await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
+      refetchConnections()
+      setConnectingPlatform(null)
+      setSoundcloudPermalink('')
+      setErrorText(null)
+      setVerificationNotice(formatVerification(result))
+      setNotice('SoundCloud connection created.')
+    },
+    onError: (error) => setErrorText(error instanceof Error ? error.message : 'SoundCloud connection failed'),
+  }))
+
+  const connectReddit = useMutation(() => ({
+    mutationFn: () => api.createRedditConnection(props.slug, redditSubreddit().trim()),
+    onSuccess: async (result: { verification?: string; displayName?: string; reason?: string; status?: string }) => {
+      await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
+      refetchConnections()
+      setConnectingPlatform(null)
+      setRedditSubreddit('')
+      setErrorText(null)
+      setVerificationNotice(formatVerification(result))
+      setNotice('Reddit connection created.')
+    },
+    onError: (error) => setErrorText(error instanceof Error ? error.message : 'Reddit connection failed'),
+  }))
+
   const connTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
-    status === 'connected' ? 'good' : status === 'expired' ? 'warn' : status === 'disconnected' ? 'bad' : 'muted'
+    status === 'connected' ? 'good' : status === 'expired' ? 'warn' : status === 'disconnected' || status === 'invalid' ? 'bad' : 'muted'
+
+  const formatVerification = (result: { verification?: string; displayName?: string; reason?: string; status?: string }): string | null => {
+    const v = result.verification
+    if (v === 'verified') return result.displayName ? `Verified: ${result.displayName}` : 'Verified'
+    if (v === 'invalid') return `Invalid: ${result.reason ?? 'identity not found'}`
+    if (v === 'unavailable') return `Probe unavailable: ${result.reason ?? 'could not verify'}`
+    return null
+  }
 
   return <article class="panel">
     <div class="section-title">
@@ -359,6 +448,21 @@ export function FanSourcesPanel(props: {
                 </Show>
                 <Show when={!conn() && plat.value === 'bandcamp'}>
                   <button onClick={() => setConnectingPlatform('bandcamp')}>Connect</button>
+                </Show>
+                <Show when={!conn() && plat.value === 'youtube'}>
+                  <button onClick={() => { setConnectingPlatform('youtube'); setVerificationNotice(null) }}>Connect</button>
+                </Show>
+                <Show when={!conn() && plat.value === 'facebook'}>
+                  <button onClick={() => { setConnectingPlatform('facebook'); setVerificationNotice(null) }}>Connect</button>
+                </Show>
+                <Show when={!conn() && plat.value === 'instagram'}>
+                  <button onClick={() => { setConnectingPlatform('instagram'); setVerificationNotice(null) }}>Connect</button>
+                </Show>
+                <Show when={!conn() && plat.value === 'soundcloud'}>
+                  <button onClick={() => { setConnectingPlatform('soundcloud'); setVerificationNotice(null) }}>Connect</button>
+                </Show>
+                <Show when={!conn() && plat.value === 'reddit'}>
+                  <button onClick={() => { setConnectingPlatform('reddit'); setVerificationNotice(null) }}>Connect</button>
                 </Show>
               </div>
             </div>
@@ -456,6 +560,76 @@ export function FanSourcesPanel(props: {
           </button>
           <button class="ghost" onClick={() => setConnectingPlatform(null)}>Cancel</button>
         </div>
+      </Show>
+      {/* YouTube connection form */}
+      <Show when={connectingPlatform() === 'youtube'}>
+        <div class="form-grid" style={{ 'margin-top': '12px' }}>
+          <label>YouTube channel ID<small>Starts with UC… (from the channel URL or API)</small><input value={youtubeChannelId()} onInput={e => setYoutubeChannelId(e.currentTarget.value)} placeholder="UCxxxxxxxxxxxxxxxxxxxxxx" /></label>
+        </div>
+        <div class="form-actions">
+          <button disabled={!youtubeChannelId().trim() || connectYoutube.isPending}
+            onClick={() => connectYoutube.mutate()}>
+            {connectYoutube.isPending ? 'Connecting…' : 'Connect YouTube'}
+          </button>
+          <button class="ghost" onClick={() => { setConnectingPlatform(null); setVerificationNotice(null) }}>Cancel</button>
+        </div>
+        <Show when={verificationNotice()}><div class="notice-card" role="status">{verificationNotice()}</div></Show>
+      </Show>
+      {/* Facebook connection form */}
+      <Show when={connectingPlatform() === 'facebook'}>
+        <div class="form-grid" style={{ 'margin-top': '12px' }}>
+          <label>Facebook Page ID<small>Numeric Page ID (from the page URL or Graph API)</small><input value={facebookPageId()} onInput={e => setFacebookPageId(e.currentTarget.value)} placeholder="1234567890" /></label>
+        </div>
+        <div class="form-actions">
+          <button disabled={!facebookPageId().trim() || connectFacebook.isPending}
+            onClick={() => connectFacebook.mutate()}>
+            {connectFacebook.isPending ? 'Connecting…' : 'Connect Facebook'}
+          </button>
+          <button class="ghost" onClick={() => { setConnectingPlatform(null); setVerificationNotice(null) }}>Cancel</button>
+        </div>
+        <Show when={verificationNotice()}><div class="notice-card" role="status">{verificationNotice()}</div></Show>
+      </Show>
+      {/* Instagram connection form */}
+      <Show when={connectingPlatform() === 'instagram'}>
+        <div class="form-grid" style={{ 'margin-top': '12px' }}>
+          <label>Instagram Business account ID<small>Numeric IG Business account ID (from Graph API)</small><input value={instagramIgUserId()} onInput={e => setInstagramIgUserId(e.currentTarget.value)} placeholder="178414xxxxxxxxxx" /></label>
+        </div>
+        <div class="form-actions">
+          <button disabled={!instagramIgUserId().trim() || connectInstagram.isPending}
+            onClick={() => connectInstagram.mutate()}>
+            {connectInstagram.isPending ? 'Connecting…' : 'Connect Instagram'}
+          </button>
+          <button class="ghost" onClick={() => { setConnectingPlatform(null); setVerificationNotice(null) }}>Cancel</button>
+        </div>
+        <Show when={verificationNotice()}><div class="notice-card" role="status">{verificationNotice()}</div></Show>
+      </Show>
+      {/* SoundCloud connection form */}
+      <Show when={connectingPlatform() === 'soundcloud'}>
+        <div class="form-grid" style={{ 'margin-top': '12px' }}>
+          <label>SoundCloud permalink<small>The artist's permalink (e.g. "virya" or full URL)</small><input value={soundcloudPermalink()} onInput={e => setSoundcloudPermalink(e.currentTarget.value)} placeholder="virya" /></label>
+        </div>
+        <div class="form-actions">
+          <button disabled={!soundcloudPermalink().trim() || connectSoundcloud.isPending}
+            onClick={() => connectSoundcloud.mutate()}>
+            {connectSoundcloud.isPending ? 'Connecting…' : 'Connect SoundCloud'}
+          </button>
+          <button class="ghost" onClick={() => { setConnectingPlatform(null); setVerificationNotice(null) }}>Cancel</button>
+        </div>
+        <Show when={verificationNotice()}><div class="notice-card" role="status">{verificationNotice()}</div></Show>
+      </Show>
+      {/* Reddit connection form */}
+      <Show when={connectingPlatform() === 'reddit'}>
+        <div class="form-grid" style={{ 'margin-top': '12px' }}>
+          <label>Subreddit name<small>The subreddit name (e.g. "Metal", "r/Metal")</small><input value={redditSubreddit()} onInput={e => setRedditSubreddit(e.currentTarget.value)} placeholder="Metal" /></label>
+        </div>
+        <div class="form-actions">
+          <button disabled={!redditSubreddit().trim() || connectReddit.isPending}
+            onClick={() => connectReddit.mutate()}>
+            {connectReddit.isPending ? 'Connecting…' : 'Connect Reddit'}
+          </button>
+          <button class="ghost" onClick={() => { setConnectingPlatform(null); setVerificationNotice(null) }}>Cancel</button>
+        </div>
+        <Show when={verificationNotice()}><div class="notice-card" role="status">{verificationNotice()}</div></Show>
       </Show>
       </Show>
     </div>

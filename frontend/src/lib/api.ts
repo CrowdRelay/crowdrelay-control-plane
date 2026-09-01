@@ -1,4 +1,4 @@
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AgentScorecard, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentOutcome, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, ChatAction, DeliveryDetails, DeliveryItem, DiscoveredEndpoint, FanbaseConnection, FeatureFlag, GrowthFunnelData, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, OutboxItem, Palette, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, AudienceOverview, FanCard, FanDetail, FanJourneyEntry, AudienceSegment, SegmentPreview, AudienceReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectiveView, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TourEconomicsSummary, AutopilotChiefOfStaff, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AgentScorecard, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentOutcome, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationRoutingItem, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, ChatAction, CommunityItem, CommunityObservationItem, CommunityEntityItem, ConnectionCreationResult, DeliveryDetails, DeliveryItem, DiscoveredEndpoint, FanbaseConnection, FeatureFlag, GrowthFunnelData, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, OutboxItem, Palette, PlatformConfigItem, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, AudienceOverview, FanCard, FanDetail, FanJourneyEntry, AudienceSegment, SegmentPreview, AudienceReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectiveView, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TourEconomicsSummary, AutopilotChiefOfStaff, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, CyclePreview, CycleRunResult } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
@@ -72,6 +72,16 @@ export const api = {
     request<{ ok: boolean; error?: string }>(`/tenants/${encodeURIComponent(slug)}/notifiers/${encodeURIComponent(id)}/test`, { method: 'POST', body: '{}' }),
   discoveredEndpoints: (slug: string) =>
     request<{ endpoints: DiscoveredEndpoint[] }>(`/tenants/${encodeURIComponent(slug)}/notifiers/discovered`),
+  notifierPlatformConfig: (slug: string) =>
+    request<{ items: PlatformConfigItem[] }>(`/tenants/${encodeURIComponent(slug)}/notifiers/platform-config`),
+  notifierAutomationRouting: (slug: string) =>
+    request<{ items: AutomationRoutingItem[] }>(`/tenants/${encodeURIComponent(slug)}/notifiers/automation-routing`),
+  communityIntelligenceCommunities: (slug: string) =>
+    request<{ items: CommunityItem[] }>(`/tenants/${encodeURIComponent(slug)}/portfolio/communities`),
+  communityIntelligenceObservations: (slug: string, placeId: string) =>
+    request<{ items: CommunityObservationItem[] }>(`/tenants/${encodeURIComponent(slug)}/portfolio/communities/${encodeURIComponent(placeId)}/observations`),
+  communityIntelligenceEntities: (slug: string, placeId: string) =>
+    request<{ items: CommunityEntityItem[]; observationId: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/communities/${encodeURIComponent(placeId)}/entities`),
   autopilotBulk: (slug: string, enabled: boolean) =>
     request<BulkAutopilotResult>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/bulk`, { method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify({ enabled }) }),
   overview: () => request<{
@@ -94,6 +104,8 @@ export const api = {
   replyTriage: (slug: string) => request<ReplyTriageView>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/reply-triage`),
   decisionEvidence: (slug: string, decisionId: string) => request<DecisionEvidence>(`/tenants/${encodeURIComponent(slug)}/operations/decisions/${encodeURIComponent(decisionId)}/evidence`),
   learningLoop: (slug: string) => request<LearningLoopEntry[]>(`/tenants/${encodeURIComponent(slug)}/operations/learning-loop`),
+  autopilotCyclePreview: (slug: string) => request<CyclePreview>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/cycle/preview`),
+  autopilotCycleRun: (slug: string) => request<CycleRunResult>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/cycle/run`, { method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() } }),
   autopilotOverview: (slug: string) => request<AutopilotOverview>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot`),
   tenant: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}`),
   tenantRuntime: (slug: string) => request<TenantRuntimeSnapshot>(`/tenants/${encodeURIComponent(slug)}/runtime`),
@@ -331,6 +343,36 @@ export const api = {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
       body: JSON.stringify({ subdomain, label }),
+    }),
+  createYoutubeConnection: (slug: string, channelId: string, label?: string) =>
+    request<ConnectionCreationResult>(`/tenants/${encodeURIComponent(slug)}/portfolio/connections/youtube`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ channelId, label }),
+    }),
+  createFacebookConnection: (slug: string, pageId: string, label?: string) =>
+    request<ConnectionCreationResult>(`/tenants/${encodeURIComponent(slug)}/portfolio/connections/facebook`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ pageId, label }),
+    }),
+  createInstagramConnection: (slug: string, igUserId: string, label?: string) =>
+    request<ConnectionCreationResult>(`/tenants/${encodeURIComponent(slug)}/portfolio/connections/instagram`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ igUserId, label }),
+    }),
+  createSoundcloudConnection: (slug: string, permalink: string, label?: string) =>
+    request<ConnectionCreationResult>(`/tenants/${encodeURIComponent(slug)}/portfolio/connections/soundcloud`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ permalink, label }),
+    }),
+  createRedditConnection: (slug: string, subreddit: string, label?: string) =>
+    request<ConnectionCreationResult>(`/tenants/${encodeURIComponent(slug)}/portfolio/connections/reddit`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ subreddit, label }),
     }),
 
   // --- Audience Intelligence ---

@@ -35,6 +35,14 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/notifiers/{channel_id}/test",
             post(test_channel),
         )
+        .route(
+            "/tenants/{slug}/notifiers/platform-config",
+            get(platform_config),
+        )
+        .route(
+            "/tenants/{slug}/notifiers/automation-routing",
+            get(automation_routing),
+        )
         .layer(axum::extract::DefaultBodyLimit::max(
             MAX_NOTIFIER_BODY_BYTES,
         ))
@@ -235,4 +243,91 @@ async fn test_channel(
         )
             .into_response()),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Notification Topology — read-only observability endpoints
+//
+// These endpoints show the routing topology: where each notification config
+// lives (source), who owns it (owner), and how it reaches its destination
+// (path). Three Discord notifications can arrive via three different paths,
+// and the operator needs to see all three.
+// ---------------------------------------------------------------------------
+
+/// Extracts just the host from a URL, redacting the full URL.
+fn url_host(url_str: &str) -> String {
+    url::Url::parse(url_str)
+        .ok()
+        .map(|u| format!("{}://{}", u.scheme(), u.host_str().unwrap_or_default()))
+        .unwrap_or_else(|| "(invalid)".to_owned())
+}
+
+/// Returns platform-level notification config (from environment variables).
+/// Read-only — no mutation of platform-level config in this iteration.
+async fn platform_config(
+    State(state): State<AppState>,
+    Path(_slug): Path<String>,
+) -> Result<Response, ApiError> {
+    let discord_webhook = &state.discord_automation_webhook_url;
+    let email_relay = &state.notify_email_relay_url;
+    let n8n_base = &state.n8n_base_url;
+    let items = json!({
+        "items": [
+            {
+                "source": "environment",
+                "owner": "platform",
+                "type": "discord_automation_webhook",
+                "path": "direct",
+                "configured": discord_webhook.is_some(),
+                "destination": discord_webhook.as_deref().map(url_host),
+                "enabled": discord_webhook.is_some(),
+            },
+            {
+                "source": "environment",
+                "owner": "platform",
+                "type": "email_relay",
+                "path": "relay",
+                "configured": email_relay.is_some(),
+                "destination": email_relay.as_deref().map(url_host),
+                "enabled": email_relay.is_some(),
+            },
+            {
+                "source": "environment",
+                "owner": "platform",
+                "type": "n8n_base_url",
+                "path": "workflow",
+                "configured": n8n_base.is_some(),
+                "destination": n8n_base.as_deref().map(url_host),
+                "enabled": n8n_base.is_some(),
+            },
+        ]
+    });
+    Ok(axum::Json(items).into_response())
+}
+
+/// Returns automation routing configs (from database).
+/// Read-only — no mutation of automation routing in this iteration.
+async fn automation_routing(
+    State(state): State<AppState>,
+    Path(_slug): Path<String>,
+) -> Result<Response, ApiError> {
+    let configs = state.store.list_automation_workflow_configs().await?;
+    let items: Vec<serde_json::Value> = configs
+        .iter()
+        .map(|row| {
+            json!({
+                "source": "database",
+                "owner": "automation",
+                "type": "n8n_workflow",
+                "path": "workflow",
+                "workflowId": row.workflow_id,
+                "label": row.label,
+                "category": row.category,
+                "discordEnabled": row.discord_enabled,
+                "muted": row.muted,
+                "enabled": !row.muted,
+            })
+        })
+        .collect();
+    Ok(axum::Json(json!({ "items": items })).into_response())
 }

@@ -4,6 +4,7 @@ import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { IntelligenceTransparencyPanel } from '../components/IntelligenceTransparencyPanel'
 import { GrowthIntelligencePanel } from '../components/GrowthIntelligencePanel'
+import { RunBrainCyclePanel } from '../components/RunBrainCyclePanel'
 import { GrowthObjectivesPanel } from '../components/GrowthObjectivesPanel'
 import { LearningLoopPanel } from '../components/LearningLoopPanel'
 import { ScorecardPanel } from '../components/ScorecardPanel'
@@ -111,6 +112,7 @@ export function TenantIntelligencePage() {
             <span class="eyebrow">WHAT IT BELIEVES</span>
             <h3>Growth intelligence</h3>
           </div>
+          <RunBrainCyclePanel slug={params().slug} />
           <GrowthIntelligencePanel slug={params().slug} />
         </div>
       </TabContent>

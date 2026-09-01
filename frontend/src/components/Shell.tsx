@@ -53,6 +53,7 @@ const TENANT_NAV_GROUPS: NavGroup[] = [
     label: 'Brain',
     items: [
       { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
+      { path: '/tenants/$slug/communities', label: 'Communities', exact: false, icon: 'audience' },
     ],
   },
   {

@@ -589,6 +589,76 @@ export type NotifierChannel = {
   events: string[]
   enabled: boolean
 }
+
+/// Platform-level notification config item (from environment variables).
+/// Read-only — shows routing topology, not just "is something configured."
+export interface PlatformConfigItem {
+  source: 'environment' | 'database' | 'n8n'
+  owner: 'platform' | 'tenant' | 'automation'
+  type: string
+  path: 'direct' | 'relay' | 'workflow'
+  configured: boolean
+  destination: string | null
+  enabled: boolean
+}
+
+/// Automation routing config item (from database).
+/// Read-only — shows n8n workflow routing with provenance labels.
+export interface AutomationRoutingItem {
+  source: 'environment' | 'database' | 'n8n'
+  owner: 'platform' | 'tenant' | 'automation'
+  type: string
+  path: 'direct' | 'relay' | 'workflow'
+  workflowId: string
+  label: string
+  category: string
+  discordEnabled: boolean
+  muted: boolean
+  enabled: boolean
+}
+
+/// Community Intelligence — a tracked community surface with its latest observation.
+export interface CommunityItem {
+  placeId: string
+  placeKind: string
+  platform: string
+  name: string
+  url: string
+  countryCode: string | null
+  language: string | null
+  genres: string[]
+  memberCount: number | null
+  latestObservation: {
+    id: string
+    observedAt: string
+    source: string
+    quality: number
+    rawActivityMetrics: unknown
+  } | null
+}
+
+/// Community Intelligence — one observation in the time series.
+export interface CommunityObservationItem {
+  id: string
+  placeId: string
+  observedAt: string
+  source: string
+  sourceUrl: string
+  collectorVersion: string
+  rawActivityMetrics: unknown
+  observationQuality: number
+  createdAt: string
+}
+
+/// Community Intelligence — an extracted entity from an observation.
+export interface CommunityEntityItem {
+  id: string
+  observationId: string
+  entityType: string
+  entityRef: string
+  strength: number
+  observedAt: string
+}
 export const NOTIFIER_EVENTS = [
   'provisioning.failed',
   'runtime.degraded',
@@ -895,9 +965,20 @@ export interface FanbaseConnection {
   platform: string
   external_account_ref: string
   label: string
-  status: 'connected' | 'expired' | 'disconnected'
+  status: 'connected' | 'expired' | 'disconnected' | 'invalid'
   last_sync_at: string | null
   created_at: string
+}
+
+/// Result of a connection creation with provider probe verification.
+/// `verification` is a creation-time diagnostic only — it is NOT a durable
+/// health state. `verified` describes the probe result at creation time.
+export interface ConnectionCreationResult {
+  platform: string
+  status: 'connected' | 'invalid'
+  verification: 'verified' | 'invalid' | 'unavailable'
+  displayName?: string
+  reason?: string
 }
 
 export type FanbasePlatform = 'meta' | 'tiktok' | 'google_ads' | 'reddit' | 'bandsintown' | 'spotify'
@@ -1875,4 +1956,25 @@ export type LearningLoopEntry = {
     action?: string
     outcome?: string
   }
+}
+
+/// What a full autopilot cycle would decide right now, without running one.
+export interface CyclePreview {
+  strategy: string
+  templatePriority: string[]
+  templatesConsidered: number
+  totalFans: number
+  offPlatformAudience: number
+  offPlatformAudienceThisMonth: number
+  connectedPlatforms: number
+  freshPlatforms: number
+  northStar: string
+  northStarCurrent: number
+  northStarThisMonth: number
+  hasAnyConnectedPlatform: boolean
+}
+
+export interface CycleRunResult {
+  status: string
+  detail: string
 }

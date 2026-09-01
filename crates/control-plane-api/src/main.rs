@@ -58,6 +58,8 @@ pub struct AppState {
     n8n_api_key: Option<Arc<str>>,
     /// Discord webhook URL for forwarding real-work automation events.
     discord_automation_webhook_url: Option<Arc<str>>,
+    /// Email relay URL for the notification topology view (read-only).
+    notify_email_relay_url: Option<Arc<str>>,
     /// Shared HTTP client for outbound calls (Discord, n8n API).
     http_client: reqwest::Client,
     /// Comma-separated allow-list of origins permitted as OAuth redirect_uri
@@ -143,12 +145,13 @@ async fn main() -> anyhow::Result<()> {
         virya_management_url: config.virya_management_url.map(Arc::from),
         cookie_secure: config.cookie_secure,
         notifier: notifier_client::NotifierClient::new(
-            config.notify_email_relay_url.map(Arc::from),
+            config.notify_email_relay_url.clone().map(Arc::from),
         ),
         agent_service_url: config.agent_service_url.map(Arc::from),
         n8n_base_url: config.n8n_base_url.map(Arc::from),
         n8n_api_key: config.n8n_api_key.map(Arc::from),
         discord_automation_webhook_url: config.discord_automation_webhook_url.map(Arc::from),
+        notify_email_relay_url: config.notify_email_relay_url.map(Arc::from),
         http_client,
         allowed_redirect_origins: Arc::from(config.allowed_redirect_origins.as_slice()),
     };
