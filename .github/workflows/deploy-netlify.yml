@@ -118,15 +118,15 @@ jobs:
           [[ -n "${archive}" ]] || { echo "deploy-artifact.tar.zst not found in promoted/" >&2; exit 1; }
           mkdir -p promoted/deploy-artifact
           tar --zstd -xf "${archive}" -C promoted/deploy-artifact
-          test -s promoted/deploy-artifact/index.html
+          test -s promoted/deploy-artifact/site/index.html
 
       - name: Verify immutable artifact
         shell: bash
         run: |
           set -euo pipefail
-          test -s promoted/deploy-artifact/index.html
+          test -s promoted/deploy-artifact/site/index.html
           python3 promoted/scripts/artifact_manifest.py verify \
-            promoted/deploy-artifact \
+            promoted/deploy-artifact/site \
             promoted/deploy-artifact-manifest.json \
             --source-sha "${GITHUB_SHA}"
           python3 - promoted/release-provenance.json "${GITHUB_SHA}" <<'PY'
@@ -183,7 +183,7 @@ jobs:
           deploy_output="$(npx --yes netlify-cli@26.2.0 deploy \
             --alias=candidate \
             --no-build \
-            --dir=promoted/deploy-artifact \
+            --dir=promoted/deploy-artifact/site \
             --site="${NETLIFY_SITE_ID}" \
             --auth="${NETLIFY_AUTH_TOKEN}" \
             --message="GitHub Actions candidate ${GITHUB_SHA}")"
@@ -245,15 +245,15 @@ jobs:
           [[ -n "${archive}" ]] || { echo "deploy-artifact.tar.zst not found in promoted/" >&2; exit 1; }
           mkdir -p promoted/deploy-artifact
           tar --zstd -xf "${archive}" -C promoted/deploy-artifact
-          test -s promoted/deploy-artifact/index.html
+          test -s promoted/deploy-artifact/site/index.html
 
       - name: Verify immutable artifact
         shell: bash
         run: |
           set -euo pipefail
-          test -s promoted/deploy-artifact/index.html
+          test -s promoted/deploy-artifact/site/index.html
           python3 promoted/scripts/artifact_manifest.py verify \
-            promoted/deploy-artifact \
+            promoted/deploy-artifact/site \
             promoted/deploy-artifact-manifest.json \
             --source-sha "${GITHUB_SHA}"
           python3 - promoted/release-provenance.json "${GITHUB_SHA}" <<'PY'
@@ -319,7 +319,7 @@ jobs:
           npx --yes netlify-cli@26.2.0 deploy \
             --prod \
             --no-build \
-            --dir=promoted/deploy-artifact \
+            --dir=promoted/deploy-artifact/site \
             --site="${NETLIFY_SITE_ID}" \
             --auth="${NETLIFY_AUTH_TOKEN}" \
             --message="GitHub Actions artifact ${GITHUB_SHA}"
