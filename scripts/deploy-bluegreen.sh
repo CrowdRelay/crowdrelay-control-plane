@@ -128,14 +128,21 @@ TUNNEL_CADDYFILE="/tmp/cp-virya-area-tunnel.Caddyfile"
 [[ -f "$TUNNEL_CADDYFILE" ]] || TUNNEL_CADDYFILE="${REPO_DIR}/deploy/virya-area-tunnel.Caddyfile"
 [[ -f "$TUNNEL_CADDYFILE" ]] || fail "missing tunnel Caddyfile: $TUNNEL_CADDYFILE"
 if ! cmp -s "$TUNNEL_CADDYFILE" <(docker exec "$TUNNEL_CONTAINER" cat /etc/caddy/Caddyfile 2>/dev/null); then
-  # Update the bind-mounted source so a container recreate picks it up too.
+  # The tunnel Caddyfile is bind-mounted read-only with admin off, so we
+  # update the source on the host and restart the container to pick it up.
   cp "$TUNNEL_CADDYFILE" "${REPO_DIR}/deploy/virya-area-tunnel.Caddyfile"
-  docker cp "$TUNNEL_CADDYFILE" "${TUNNEL_CONTAINER}:/etc/caddy/Caddyfile"
-  docker exec "$TUNNEL_CONTAINER" caddy validate --config /etc/caddy/Caddyfile >/dev/null \
-    || fail 'tunnel Caddyfile is invalid after sync'
-  docker exec "$TUNNEL_CONTAINER" caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile --address 127.0.0.1:2019 >/dev/null \
-    || fail 'tunnel Caddy reload failed after sync'
-  printf 'TUNNEL_CADDYFILE=SYNCED reload=graceful\n'
+  docker exec "$TUNNEL_CONTAINER" caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1 || true
+  docker restart "$TUNNEL_CONTAINER" >/dev/null \
+    || fail 'tunnel container restart failed after Caddyfile sync'
+  # Wait for the tunnel to come back up.
+  for _ in $(seq 1 15); do
+    tunnel_state="$(docker inspect "$TUNNEL_CONTAINER" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
+    [[ "$tunnel_state" == "healthy" || "$tunnel_state" == "running" ]] && break
+    sleep 1
+  done
+  [[ "$tunnel_state" == "healthy" || "$tunnel_state" == "running" ]] \
+    || fail "tunnel did not recover after Caddyfile sync: $tunnel_state"
+  printf 'TUNNEL_CADDYFILE=SYNCED restart=true\n'
 else
   printf 'TUNNEL_CADDYFILE=NOOP unchanged=true\n'
 fi
