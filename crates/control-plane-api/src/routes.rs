@@ -171,6 +171,19 @@ async fn create_tenant(
         }
     }
     input.default_country_code = Some(input.regional_profile.country_code.clone());
+    input.synesthesia_enabled =
+        validation::synesthesia_opt_in(input.synesthesia_enabled, &input.slug)?;
+    input.north_star_metric = Some(validation::north_star_metric(
+        input.north_star_metric.take(),
+        input.signal_enabled,
+    )?);
+    input.fanbase_sources =
+        validation::fanbase_sources(std::mem::take(&mut input.fanbase_sources))?;
+    if !input.signal_enabled && input.signal_base_url.is_some() {
+        return Err(ApiError::InvalidInput(
+            "signalBaseUrl requires signalEnabled=true".to_owned(),
+        ));
+    }
     let palette = validation::palette(input.branding_palette.take())?;
     // Hash before the transaction: the KDF must never run while row locks
     // are held.

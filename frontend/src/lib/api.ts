@@ -45,6 +45,7 @@ type CreateTenantInput = {
   initialOperator?: { username: string; password: string }
   signalEnabled?: boolean
   synesthesiaEnabled?: boolean
+  areaEnabled?: boolean
   northStarMetric?: string
   fanbaseSources?: string[]
 }

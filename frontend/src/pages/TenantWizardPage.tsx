@@ -111,6 +111,7 @@ export function TenantWizardPage() {
       initialOperator: opUsername().trim() && opPassword() ? { username: opUsername().trim(), password: opPassword() } : undefined,
       signalEnabled: signalEnabled(),
       synesthesiaEnabled: synesthesiaEnabled(),
+      areaEnabled: areaEnabled(),
       northStarMetric: effectiveNorthStar(),
       fanbaseSources: selectedSources(),
     }),

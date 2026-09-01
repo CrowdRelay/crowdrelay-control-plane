@@ -78,7 +78,9 @@
         /v1/control-plane/audience/fans \
         /v1/control-plane/audience/fans/* \
         /v1/control-plane/audience/segments \
-        /v1/control-plane/audience/segments/*
+        /v1/control-plane/audience/segments/* \
+        /v1/control-plane/community-intelligence/communities \
+        /v1/control-plane/community-intelligence/communities/*
 
     handle /healthz/ready {
         reverse_proxy {$VIRYA_AREA_UPSTREAM}

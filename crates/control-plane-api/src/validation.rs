@@ -69,6 +69,81 @@ pub const NOTIFIER_EVENTS: &[&str] = &[
     "runtime.recovered",
 ];
 
+/// Brain growth goals. Mirrors
+/// `crowdrelay_domain::growth_metrics::NorthStarMetric`; the tenant runtime
+/// silently falls back to `signal_installs` for anything it cannot parse, so an
+/// unknown value must be rejected here rather than stored as unreadable intent.
+pub const NORTH_STAR_METRICS: &[&str] = &[
+    "signal_installs",
+    "youtube_subscribers",
+    "spotify_followers",
+    "bandsintown_trackers",
+];
+
+/// Discovery platforms the onboarding wizard offers.
+pub const FANBASE_SOURCES: &[&str] = &["discord", "facebook_group", "youtube", "forum", "reddit"];
+
+/// Validates the growth goal and reconciles it with the Signal opt-in.
+///
+/// `signal_installs` is unreachable for a Signal-disabled tenant: the beacon
+/// routes the Signal workers call return 404, so the brain would keep
+/// dispatching `signal-inviter` into a disabled surface forever. Rejecting the
+/// combination keeps the two settings consistent at the point they are chosen.
+pub fn north_star_metric(value: Option<String>, signal_enabled: bool) -> Result<String, ApiError> {
+    let value = value
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(if signal_enabled {
+            "signal_installs"
+        } else {
+            "youtube_subscribers"
+        });
+    if !NORTH_STAR_METRICS.contains(&value) {
+        return Err(ApiError::InvalidInput(format!(
+            "unknown northStarMetric: {value}"
+        )));
+    }
+    if !signal_enabled && value == "signal_installs" {
+        return Err(ApiError::InvalidInput(
+            "northStarMetric cannot be signal_installs when signalEnabled=false".to_owned(),
+        ));
+    }
+    Ok(value.to_owned())
+}
+
+/// Validates the selected discovery platforms, rejecting duplicates so the
+/// stored array is a set.
+pub fn fanbase_sources(values: Vec<String>) -> Result<Vec<String>, ApiError> {
+    let mut seen: Vec<String> = Vec::with_capacity(values.len());
+    for value in values {
+        let value = value.trim().to_owned();
+        if !FANBASE_SOURCES.contains(&value.as_str()) {
+            return Err(ApiError::InvalidInput(format!(
+                "unknown fanbase source: {value}"
+            )));
+        }
+        if seen.contains(&value) {
+            return Err(ApiError::InvalidInput(format!(
+                "duplicate fanbase source: {value}"
+            )));
+        }
+        seen.push(value);
+    }
+    Ok(seen)
+}
+
+/// Synesthesia is a Virya-only product, enforced by a database CHECK. Rejecting
+/// it here turns a constraint violation into an actionable message.
+pub fn synesthesia_opt_in(enabled: bool, slug: &str) -> Result<bool, ApiError> {
+    if enabled && slug != "virya" {
+        return Err(ApiError::InvalidInput(
+            "synesthesiaEnabled is only available for the virya tenant".to_owned(),
+        ));
+    }
+    Ok(enabled)
+}
+
 pub fn notifier_events(values: Vec<String>) -> Result<Vec<String>, ApiError> {
     if values.len() > NOTIFIER_EVENTS.len() {
         return Err(ApiError::InvalidInput(

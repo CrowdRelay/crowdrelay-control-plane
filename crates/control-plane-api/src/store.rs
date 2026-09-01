@@ -144,7 +144,9 @@ impl Store {
         let rows = sqlx::query_as::<_, TenantSummaryJoinRow>(
             r#"SELECT t.id, t.slug, t.display_name, t.status, t.workspace_id,
                       t.crowdrelay_base_url, t.signal_base_url, t.default_country_code, t.regional_profile, t.branding_palette,
-                      t.synesthesia_enabled, t.area_enabled, t.created_at, t.updated_at,
+                      t.synesthesia_enabled, t.area_enabled,
+                      t.signal_enabled, t.north_star_metric, t.fanbase_sources,
+                      t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
                       r.worker_healthy AS runtime_worker_healthy,
@@ -171,7 +173,9 @@ impl Store {
         let row = sqlx::query_as::<_, TenantSummaryJoinRow>(
             r#"SELECT t.id, t.slug, t.display_name, t.status, t.workspace_id,
                       t.crowdrelay_base_url, t.signal_base_url, t.default_country_code, t.regional_profile, t.branding_palette,
-                      t.synesthesia_enabled, t.area_enabled, t.created_at, t.updated_at,
+                      t.synesthesia_enabled, t.area_enabled,
+                      t.signal_enabled, t.north_star_metric, t.fanbase_sources,
+                      t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
                       r.worker_healthy AS runtime_worker_healthy,
@@ -249,10 +253,11 @@ impl Store {
         let mut tx = self.pool.begin().await?;
         let tenant = sqlx::query_as::<_, TenantRow>(
             r#"INSERT INTO control_plane_tenants
-               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled)
-               VALUES ($1, $2, $3, 'provisioning', $4, $5, $6, $7, $8, $9, false, false)
+               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled, signal_enabled, north_star_metric, fanbase_sources)
+               VALUES ($1, $2, $3, 'provisioning', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                RETURNING id, slug, display_name, status, workspace_id, crowdrelay_base_url,
                          signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled,
+                         signal_enabled, north_star_metric, fanbase_sources,
                          created_at, updated_at"#,
         )
         .bind(id)
@@ -264,6 +269,11 @@ impl Store {
         .bind(&input.regional_profile.country_code)
         .bind(regional_profile_json)
         .bind(palette_json)
+        .bind(input.synesthesia_enabled)
+        .bind(input.area_enabled)
+        .bind(input.signal_enabled)
+        .bind(input.north_star_metric.as_deref().unwrap_or("signal_installs"))
+        .bind(&input.fanbase_sources)
         .fetch_one(&mut *tx)
         .await
         .map_err(|error| match error {

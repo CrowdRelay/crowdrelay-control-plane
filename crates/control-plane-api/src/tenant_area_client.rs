@@ -304,7 +304,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/audience/fans"
                     | "/v1/control-plane/audience/segments"
                     | "/v1/control-plane/ops/actions"
-                    | "/v1/admin/community-intelligence/communities"
+                    | "/v1/control-plane/community-intelligence/communities"
             ) || path.starts_with("/v1/control-plane/ops/outbox?")
                 || path.starts_with("/v1/control-plane/ops/deliveries?")
                 || path.starts_with("/v1/control-plane/ops/actions?")
@@ -324,12 +324,12 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/decisions/", "/evidence")
                 || uuid_segment_between(
                     path,
-                    "/v1/admin/community-intelligence/communities/",
+                    "/v1/control-plane/community-intelligence/communities/",
                     "/observations",
                 )
                 || uuid_segment_between(
                     path,
-                    "/v1/admin/community-intelligence/communities/",
+                    "/v1/control-plane/community-intelligence/communities/",
                     "/entities",
                 )
                 || timeline_segment(path)

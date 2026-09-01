@@ -47,6 +47,9 @@ pub struct TenantRow {
     pub branding_palette: Option<Value>,
     pub synesthesia_enabled: bool,
     pub area_enabled: bool,
+    pub signal_enabled: bool,
+    pub north_star_metric: String,
+    pub fanbase_sources: Vec<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -126,6 +129,9 @@ pub struct TenantSummaryJoinRow {
     pub branding_palette: Option<Value>,
     pub synesthesia_enabled: bool,
     pub area_enabled: bool,
+    pub signal_enabled: bool,
+    pub north_star_metric: String,
+    pub fanbase_sources: Vec<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub runtime_tenant_id: Option<Uuid>,
@@ -167,6 +173,9 @@ impl TenantSummaryJoinRow {
                 branding_palette: self.branding_palette,
                 synesthesia_enabled: self.synesthesia_enabled,
                 area_enabled: self.area_enabled,
+                signal_enabled: self.signal_enabled,
+                north_star_metric: self.north_star_metric,
+                fanbase_sources: self.fanbase_sources,
                 created_at: self.created_at,
                 updated_at: self.updated_at,
             },
@@ -233,6 +242,29 @@ pub struct CreateTenantRequest {
     /// operator account in the same transaction as the tenant itself.
     #[serde(default)]
     pub initial_operator: Option<InitialOperatorRequest>,
+    /// Product opt-ins and growth intent from the onboarding wizard.
+    ///
+    /// These are declared because the wizard has always sent them and this
+    /// struct is `deny_unknown_fields`: without them every wizard submission
+    /// is rejected with 422 and no tenant can be created through the UI.
+    /// Signal defaults to true so an API caller that omits it keeps the
+    /// historical behaviour.
+    #[serde(default = "default_true")]
+    pub signal_enabled: bool,
+    #[serde(default)]
+    pub synesthesia_enabled: bool,
+    #[serde(default)]
+    pub area_enabled: bool,
+    /// Brain growth goal. Validated against the CrowdRelay NorthStarMetric
+    /// vocabulary, and rejected as `signal_installs` when Signal is disabled.
+    pub north_star_metric: Option<String>,
+    /// Discovery platforms the operator selected. Advisory only.
+    #[serde(default)]
+    pub fanbase_sources: Vec<String>,
+}
+
+const fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Deserialize)]

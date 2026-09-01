@@ -2614,7 +2614,7 @@ async fn list_communities(
         &state,
         &slug,
         "GET",
-        "/v1/admin/community-intelligence/communities",
+        "/v1/control-plane/community-intelligence/communities",
         None,
         &headers,
         None,
@@ -2629,7 +2629,8 @@ async fn list_community_observations(
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     uuid_segment(&place_id)?;
-    let path = format!("/v1/admin/community-intelligence/communities/{place_id}/observations");
+    let path =
+        format!("/v1/control-plane/community-intelligence/communities/{place_id}/observations");
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     object_no_store(value, "community intelligence observations")
 }
@@ -2640,7 +2641,7 @@ async fn list_community_entities(
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     uuid_segment(&place_id)?;
-    let path = format!("/v1/admin/community-intelligence/communities/{place_id}/entities");
+    let path = format!("/v1/control-plane/community-intelligence/communities/{place_id}/entities");
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     object_no_store(value, "community intelligence entities")
 }
