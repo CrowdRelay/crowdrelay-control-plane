@@ -69,9 +69,19 @@ jobs:
           rm -rf deploy-artifact
           mkdir -p deploy-artifact/site
           cp -a frontend/dist/. deploy-artifact/site/
-          # netlify.toml must be in the deploy directory for redirect/header
-          # rules to apply when using --no-build with a pre-built artifact.
-          cp netlify.toml deploy-artifact/site/netlify.toml
+          # _redirects and _headers are read from the publish directory by
+          # Netlify's edge, independent of netlify.toml location. These
+          # ensure proxy redirects work with --no-build CLI deploys.
+          cat > deploy-artifact/site/_redirects <<'REDIRECTS'
+/api/*     https://control.virya.music/api/:splat     200!
+/healthz/* https://control.virya.music/healthz/:splat 200!
+/healthz   https://control.virya.music/healthz       200!
+/*         /index.html                                200
+REDIRECTS
+          cat > deploy-artifact/site/_headers <<'HEADERS'
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+HEADERS
           python3 scripts/artifact_manifest.py create deploy-artifact/site deploy-artifact-manifest.json --source-sha "${GITHUB_SHA}"
           python3 scripts/write_release_provenance.py \
             --source-sha "${GITHUB_SHA}" \
