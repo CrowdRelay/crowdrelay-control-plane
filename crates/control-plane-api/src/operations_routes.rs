@@ -105,6 +105,10 @@ pub fn router() -> Router<AppState> {
             post(decide_portfolio_amplification),
         )
         .route(
+            "/tenants/{slug}/portfolio/north-stars",
+            get(list_north_star_options),
+        )
+        .route(
             "/tenants/{slug}/portfolio/settings/{setting_key}",
             post(update_portfolio_setting),
         )
@@ -822,6 +826,30 @@ async fn autopilot_growth(
 /// Read-only proxy to CrowdRelay's scorecard read model.
 /// What a full autopilot cycle would decide right now. Read-only: nothing is
 /// dispatched, so this is safe to poll while an operator decides whether to run.
+/// The north stars this tenant may choose.
+///
+/// Read-only passthrough of the domain vocabulary. The operator UI used to
+/// carry its own four-entry copy of this list, which stopped matching the
+/// backend the moment the vocabulary widened — so a tenant measured on
+/// SoundCloud could not select SoundCloud. One list, served.
+async fn list_north_star_options(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/tenant-settings/north-stars",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "north star options")
+}
+
 async fn autopilot_cycle_preview(
     State(state): State<AppState>,
     Path(slug): Path<String>,

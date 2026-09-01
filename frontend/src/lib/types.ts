@@ -570,6 +570,7 @@ export type Profile = {
   username: string
   role: 'platform_admin' | 'tenant_operator'
   tenantSlug: string | null
+  isMobile?: boolean
 }
 
 export type OperatorAccount = {

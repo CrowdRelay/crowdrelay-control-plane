@@ -1,4 +1,5 @@
 import { createEffect, createSignal, onCleanup, type Component } from 'solid-js'
+import { prefersReducedMotion } from '../lib/format'
 
 // SVG progress ring with animated stroke-dashoffset.
 // Re-animates from the previous value when the prop changes.
@@ -8,9 +9,6 @@ import { createEffect, createSignal, onCleanup, type Component } from 'solid-js'
 //   <ProgressRing value={75} size={48} />
 //   <ProgressRing value={92} size={64} label="health" />
 
-const prefersReducedMotion = () =>
-  typeof window !== 'undefined' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3)
 

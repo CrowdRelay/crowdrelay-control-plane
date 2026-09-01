@@ -297,6 +297,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/portfolio/overview"
                     | "/v1/control-plane/portfolio/amplification"
                     | "/v1/control-plane/tenant-settings"
+                    | "/v1/control-plane/tenant-settings/north-stars"
                     | "/v1/control-plane/fanbases"
                     | "/v1/control-plane/fanbases/connections"
                     | "/v1/control-plane/webhook-endpoints"

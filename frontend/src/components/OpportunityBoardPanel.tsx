@@ -2,6 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import type { OpportunityBoardEntry } from '../lib/types'
 import { api } from '../lib/api'
 import { StatusBadge } from './StatusBadge'
+import { errorMessage } from '../lib/format'
 
 // Phase 18 — find, then "do it". CrowdRelay parks what its agent found; this
 // board is where a human decides. "Do it" approves through CrowdRelay's own
@@ -9,7 +10,6 @@ import { StatusBadge } from './StatusBadge'
 // opportunity outside the system — a first-class outcome, not a dismissal.
 // The panel renders one slice of the Operations read model and never fetches.
 
-const errorMessage = (value: unknown, fallback: string) => value instanceof Error ? value.message : fallback
 
 const formatDue = (value: string | null) => {
   if (!value) return null

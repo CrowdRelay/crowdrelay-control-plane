@@ -76,12 +76,14 @@ fn throttled(username: &str) -> bool {
 }
 
 pub fn router() -> Router<AppState> {
-    Router::new().route(
-        "/auth/session",
-        get(current_session)
-            .post(create_session)
-            .delete(delete_session),
-    )
+    Router::new()
+        .route(
+            "/auth/session",
+            get(current_session)
+                .post(create_session)
+                .delete(delete_session),
+        )
+        .route("/auth/reauth", axum::routing::post(reauth_session))
 }
 
 #[derive(Debug, Deserialize)]
@@ -136,7 +138,13 @@ async fn create_session(
     }
     let account = account.expect("verified implies present");
 
-    let issued = auth::new_session_token(account.id, &state.store).await?;
+    let is_mobile = auth::is_mobile_user_agent(&headers);
+    let ttl = if is_mobile {
+        auth::MOBILE_SESSION_TTL_SECONDS
+    } else {
+        auth::SESSION_TTL_SECONDS
+    };
+    let issued = auth::new_session_token(account.id, &state.store, ttl).await?;
     let tenant_slug = match account.tenant_id {
         Some(tenant_id) => state.store.tenant_slug_by_id(tenant_id).await?,
         None => None,
@@ -147,12 +155,17 @@ async fn create_session(
             "username": account.username,
             "role": account.role,
             "tenantSlug": tenant_slug,
+            "isMobile": is_mobile,
         })),
     )
         .into_response();
     response.headers_mut().append(
         header::SET_COOKIE,
-        header::HeaderValue::from_str(&auth::session_cookie(&issued.token, state.cookie_secure))
+        header::HeaderValue::from_str(&auth::session_cookie_with_ttl(
+            &issued.token,
+            state.cookie_secure,
+            ttl,
+        ))
             .map_err(|_| ApiError::InvalidInput("invalid cookie value".to_owned()))?,
     );
     Ok(response)
@@ -217,4 +230,45 @@ async fn delete_session(
             .map_err(|_| ApiError::InvalidInput("invalid cookie value".to_owned()))?,
     );
     Ok(response)
+}
+
+/// Re-authentication for destructive mutations from mobile sessions.
+///
+/// Mobile sessions get a shorter TTL, but a lost phone with a live session
+/// can still approve outreach or flip flags. The frontend intercepts a
+/// `403 x-reauth-required` response, prompts for the operator's password,
+/// and calls this endpoint to prove the human is still the account owner.
+/// On success, the session's `last_seen_at` is slid forward (the existing
+/// `resolve_session` UPDATE already does this on the next request), and the
+/// frontend retries the original mutation.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ReauthRequest {
+    password: String,
+}
+
+async fn reauth_session(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<ReauthRequest>,
+) -> Result<axum::Json<serde_json::Value>, ApiError> {
+    let identity = auth::resolve_identity(&state, &headers).await?;
+    let Identity::Account { username, .. } = &identity else {
+        return Err(ApiError::Forbidden(
+            "re-authentication requires an operator session".to_owned(),
+        ));
+    };
+    let username = validation::username(username)?;
+    let account = state
+        .store
+        .find_active_account_with_secret(&username)
+        .await?;
+    let verified = account
+        .as_ref()
+        .is_some_and(|account| auth::verify_password(&input.password, &account.password_hash));
+    if !verified {
+        reject_with_pad(&input.password);
+        return Err(ApiError::Unauthorized);
+    }
+    Ok(axum::Json(json!({"status": "ok"})))
 }

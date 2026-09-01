@@ -1,4 +1,5 @@
 import { createEffect, createSignal, onCleanup, type Component } from 'solid-js'
+import { prefersReducedMotion } from '../lib/format'
 
 // Animated number counter — ramps from 0 to target on mount, and
 // re-animates from the previous value when the prop changes.
@@ -9,9 +10,6 @@ import { createEffect, createSignal, onCleanup, type Component } from 'solid-js'
 //   <CountUp value={42} />
 //   <CountUp value={1337} duration={800} format={(n) => `${n}%`} />
 
-const prefersReducedMotion = () =>
-  typeof window !== 'undefined' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3)
 

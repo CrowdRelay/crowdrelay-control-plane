@@ -1,4 +1,5 @@
 import { type Component } from 'solid-js'
+import { prefersReducedMotion } from '../lib/format'
 
 // Inline SVG sparkline — no dependency. Draws a line + gradient fill.
 // Animates the line draw on mount via CSS stroke-dashoffset.
@@ -7,9 +8,6 @@ import { type Component } from 'solid-js'
 //   <Sparkline data={[3, 7, 2, 8, 5, 10]} />
 //   <Sparkline data={points} width={120} height={32} color="var(--good)" />
 
-const prefersReducedMotion = () =>
-  typeof window !== 'undefined' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 export const Sparkline: Component<{
   data: number[]

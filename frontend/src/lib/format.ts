@@ -4,6 +4,15 @@
 export const errorMessage = (value: unknown, fallback: string) =>
   value instanceof Error ? value.message : fallback
 
+/// Whether the operator has asked the OS to reduce motion.
+///
+/// Four animated components each carried a byte-identical copy of this, so a
+/// change to how motion preference is read — or a fix to the `window`
+/// guard — had to be made in four places or the surfaces would disagree.
+export const prefersReducedMotion = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
 export const formatTimestamp = (value: string | null | undefined) => {
   if (!value) return '—'
   const parsed = new Date(value)

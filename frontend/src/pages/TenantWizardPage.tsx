@@ -13,14 +13,48 @@ const presets: Record<Preset, RegionalProfile> = {
   US: { countryCode:'US', region:'us', locale:'en-US', timezone:'', currency:'USD', dateFormat:'mdy', numberFormat:'dot_decimal', dataRegion:'us' },
 }
 
-type NorthStar = 'signal_installs' | 'youtube_subscribers' | 'spotify_followers' | 'bandsintown_trackers'
+// Mirrors `NorthStarMetric::all()` in crowdrelay-domain. The wizard creates a
+// tenant, so there is no instance to ask yet — the list has to live here. It is
+// pinned to the Rust vocabulary by
+// `scripts/test_north_star_vocabulary_parity.py`, which fails if the two drift.
+type NorthStar =
+  | 'signal_installs'
+  | 'total_audience'
+  | 'spotify_followers'
+  | 'youtube_subscribers'
+  | 'bandsintown_trackers'
+  | 'social_subscribers'
+  | 'tiktok_followers'
+  | 'soundcloud_followers'
+  | 'instagram_followers'
+  | 'facebook_followers'
+  | 'discord_members'
+  | 'telegram_subscribers'
+  | 'lastfm_listeners'
+  | 'deezer_fans'
+  | 'discogs_in_collection'
+  | 'bluesky_followers'
+  | 'bandcamp_supporters'
 type FanbaseSource = 'discord' | 'facebook_group' | 'youtube' | 'forum' | 'reddit'
 
 const northStars: { value: NorthStar; label: string; description: string; requiresSignal?: boolean }[] = [
+  { value: 'total_audience', label: 'Total audience', description: 'Optimize the whole connected portfolio — every platform summed. The right choice when reach is spread across accounts rather than concentrated in one.' },
   { value: 'signal_installs', label: 'Signal fans', description: 'Optimize for Signal mobile app installs. The brain prioritizes signal-inviter workers and conversion-focused content.', requiresSignal: true },
-  { value: 'youtube_subscribers', label: 'YouTube growth', description: 'Optimize for YouTube channel subscriber growth. The brain prioritizes YouTube-focused social posts and community engagement.' },
-  { value: 'spotify_followers', label: 'Spotify growth', description: 'Optimize for Spotify artist follower growth. The brain prioritizes Spotify playlist outreach and content.' },
-  { value: 'bandsintown_trackers', label: 'Bandsintown trackers', description: 'Optimize for Bandsintown event tracker count. The brain prioritizes event-driven promotion and tour marketing.' },
+  { value: 'spotify_followers', label: 'Spotify followers', description: 'Optimize Spotify artist follower growth. The brain prioritizes playlist outreach and release content.' },
+  { value: 'youtube_subscribers', label: 'YouTube subscribers', description: 'Optimize YouTube channel subscriber growth. The brain prioritizes video-led posts and community engagement.' },
+  { value: 'bandsintown_trackers', label: 'Bandsintown trackers', description: 'Optimize Bandsintown tracker count. The brain prioritizes event-driven promotion and tour marketing.' },
+  { value: 'soundcloud_followers', label: 'SoundCloud followers', description: 'Optimize SoundCloud follower growth. Common north star for DJs and producers releasing there first.' },
+  { value: 'tiktok_followers', label: 'TikTok followers', description: 'Optimize TikTok follower growth. The brain prioritizes short-form content and trend-led posting.' },
+  { value: 'instagram_followers', label: 'Instagram followers', description: 'Optimize Instagram follower growth. The brain prioritizes visual content and story-led engagement.' },
+  { value: 'facebook_followers', label: 'Facebook followers', description: 'Optimize Facebook Page follower growth.' },
+  { value: 'bandcamp_supporters', label: 'Bandcamp supporters', description: 'Optimize Bandcamp supporter count — the audience that has actually paid.' },
+  { value: 'discord_members', label: 'Discord members', description: 'Optimize Discord server membership. The brain prioritizes community-building over broadcast.' },
+  { value: 'telegram_subscribers', label: 'Telegram subscribers', description: 'Optimize Telegram channel subscribers.' },
+  { value: 'social_subscribers', label: 'Reddit subscribers', description: 'Optimize subscriber count across tracked subreddits.' },
+  { value: 'lastfm_listeners', label: 'Last.fm listeners', description: 'Optimize Last.fm listener count — people, not plays.' },
+  { value: 'deezer_fans', label: 'Deezer fans', description: 'Optimize Deezer artist fan count.' },
+  { value: 'bluesky_followers', label: 'Bluesky followers', description: 'Optimize Bluesky follower growth.' },
+  { value: 'discogs_in_collection', label: 'Discogs collectors', description: 'Optimize the number of collectors who own a release. A strong signal for physical-format acts.' },
 ]
 
 const fanbaseSources: { value: FanbaseSource; label: string; description: string }[] = [
@@ -53,7 +87,7 @@ export function TenantWizardPage() {
   const [areaEnabled, setAreaEnabled] = createSignal(false)
 
   // Step 3: Goal
-  const [northStar, setNorthStar] = createSignal<NorthStar>('signal_installs')
+  const [northStar, setNorthStar] = createSignal<NorthStar>('total_audience')
 
   // Step 4: Fanbase sources
   const [selectedSources, setSelectedSources] = createSignal<FanbaseSource[]>([])
@@ -75,7 +109,7 @@ export function TenantWizardPage() {
 
   const effectiveNorthStar = createMemo(() => {
     const ns = northStar()
-    if (ns === 'signal_installs' && !signalEnabled()) return 'youtube_subscribers' as NorthStar
+    if (ns === 'signal_installs' && !signalEnabled()) return 'total_audience' as NorthStar
     return ns
   })
 

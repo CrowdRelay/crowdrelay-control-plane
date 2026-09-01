@@ -37,7 +37,24 @@ use crate::{AppState, error::ApiError};
 
 pub const SESSION_COOKIE: &str = "crowdrelay_cp_session";
 pub const SESSION_TTL_SECONDS: i64 = 12 * 60 * 60;
+pub const MOBILE_SESSION_TTL_SECONDS: i64 = 2 * 60 * 60;
 const TIMING_PAD: &str = "crowdrelay-control-plane-login-timing-pad";
+
+/// Detect mobile user agents so we can issue shorter-lived sessions on
+/// devices that are more likely to be lost or stolen. False positives
+/// (desktop flagged as mobile) are safe-fail: a shorter session is an
+/// inconvenience, not a security hole. False negatives are the risk, but
+/// modern mobile browsers send clear UA strings.
+pub fn is_mobile_user_agent(headers: &HeaderMap) -> bool {
+    headers
+        .get(axum::http::header::USER_AGENT)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|ua| {
+            let ua = ua.to_ascii_lowercase();
+            ua.contains("mobile") || ua.contains("android") || ua.contains("iphone")
+                || ua.contains("ipad") || ua.contains("ipod")
+        })
+}
 
 #[derive(Debug, Clone)]
 pub enum Identity {
@@ -274,9 +291,12 @@ pub struct IssuedSession {
 }
 
 /// Generate the opaque session token and persist only its sha256.
+/// The TTL is caller-controlled so mobile sessions can get a shorter
+/// lifetime than desktop ones.
 pub async fn new_session_token(
     account_id: Uuid,
     store: &crate::store::Store,
+    ttl_seconds: i64,
 ) -> Result<IssuedSession, ApiError> {
     let mut bytes = [0u8; 32];
     OsRng.fill_bytes(&mut bytes);
@@ -284,16 +304,16 @@ pub async fn new_session_token(
     for byte in &bytes {
         token.push_str(&format!("{byte:02x}"));
     }
-    let expires_at = Utc::now() + Duration::seconds(SESSION_TTL_SECONDS);
+    let expires_at = Utc::now() + Duration::seconds(ttl_seconds);
     store
         .create_session(account_id, hash_token(&token).as_slice(), expires_at)
         .await?;
     Ok(IssuedSession { token })
 }
 
-pub fn session_cookie(token: &str, secure: bool) -> String {
+pub fn session_cookie_with_ttl(token: &str, secure: bool, max_age: i64) -> String {
     format!(
-        "{SESSION_COOKIE}={token}; Path=/; Max-Age={SESSION_TTL_SECONDS}; HttpOnly; SameSite=Lax{}",
+        "{SESSION_COOKIE}={token}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Lax{}",
         if secure {
             "; Secure"
         } else {

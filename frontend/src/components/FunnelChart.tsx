@@ -1,4 +1,5 @@
 import { For, type Component } from 'solid-js'
+import { prefersReducedMotion } from '../lib/format'
 
 // SVG trapezoid funnel — each stage is a trapezoid whose top width
 // is proportional to the previous stage and bottom width to the current.
@@ -8,9 +9,6 @@ import { For, type Component } from 'solid-js'
 // Usage:
 //   <FunnelChart stages={[{label, value, hint}, ...]} />
 
-const prefersReducedMotion = () =>
-  typeof window !== 'undefined' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 export interface FunnelStage {
   label: string

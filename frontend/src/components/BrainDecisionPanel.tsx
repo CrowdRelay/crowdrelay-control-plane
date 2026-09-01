@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './EmptyState'
+import { errorMessage } from '../lib/format'
 
 // The flagship decision surface. Shows the single most important current
 // decision (opportunity board position #1) in a structured narrative:
@@ -126,7 +127,6 @@ function renderEvidenceDetail(data: DecisionEvidence) {
   )
 }
 
-const errorMessage = (value: unknown, fallback: string) => value instanceof Error ? value.message : fallback
 
 export function BrainDecisionPanel(props: {
   slug: string

@@ -57,6 +57,8 @@ export const api = {
     request<Profile>('/auth/session', { method: 'POST', body: JSON.stringify({ username, password }) }),
   session: () => request<Profile | null>('/auth/session'),
   logout: () => request<void>('/auth/session', { method: 'DELETE' }),
+  reauth: (password: string) =>
+    request<{ status: string }>('/auth/reauth', { method: 'POST', body: JSON.stringify({ password }) }),
   operators: (slug: string) => request<{ items: OperatorAccount[] }>(`/tenants/${encodeURIComponent(slug)}/operators`),
   createOperator: (slug: string, username: string, password: string) =>
     request<OperatorAccount>(`/tenants/${encodeURIComponent(slug)}/operators`, { method: 'POST', body: JSON.stringify({ username, password }) }),

@@ -2,6 +2,7 @@ import { For, Show } from 'solid-js'
 import type { GrowthCampaignProgress, GrowthOverview } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './EmptyState'
+import { errorMessage } from '../lib/format'
 
 // CrowdRelay only queues growth campaigns; the sends happen in external n8n
 // workers. The panel therefore reports whether those workers are draining the
@@ -14,7 +15,6 @@ const templateLabels: Record<string, string> = {
 
 const templateLabel = (key: string) => templateLabels[key] ?? key
 const count = (value: number | undefined) => value == null ? '—' : value.toLocaleString()
-const errorMessage = (value: unknown, fallback: string) => value instanceof Error ? value.message : fallback
 
 const formatTimestamp = (value: string | null) => {
   if (!value) return null

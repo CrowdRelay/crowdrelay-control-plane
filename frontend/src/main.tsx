@@ -23,3 +23,9 @@ const AuthenticatedApp = lazy(() => import('./AuthenticatedApp').then((module) =
 }))
 
 render(() => <LoginGate><AuthenticatedApp /></LoginGate>, document.getElementById('app')!)
+
+// Register the service worker in production only. The dev server doesn't
+// need SW caching — it would intercept HMR and stale the module graph.
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {})
+}

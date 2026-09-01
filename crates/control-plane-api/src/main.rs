@@ -325,7 +325,7 @@ async fn security_headers(
     for (name, value) in [
         (
             "content-security-policy",
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+            "default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
         ),
         ("x-content-type-options", "nosniff"),
         ("x-frame-options", "DENY"),
