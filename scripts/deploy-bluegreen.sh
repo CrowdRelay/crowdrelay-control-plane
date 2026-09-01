@@ -28,7 +28,6 @@ BLUE_APP="crowdrelay-control-plane-app-1"
 GREEN_ALIAS="control-plane-green"
 BLUE_ALIAS="control-plane"
 RELEASE_STATE_DIR="/var/lib/crowdrelay-control-plane/releases"
-RECEIPT_HELPER="$(absolute_path_helper)"
 CADDY_BACKUP=""
 NEW_STARTED=false
 CADDY_SWITCHED=false
@@ -44,6 +43,8 @@ absolute_path_helper() {
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd -P 2>/dev/null || echo /srv/crowdrelay-control-plane/scripts)"
   printf '%s/release_receipt.py' "$script_dir"
 }
+
+RECEIPT_HELPER="$(absolute_path_helper)"
 
 rollback() {
   local status="${1:-1}"
