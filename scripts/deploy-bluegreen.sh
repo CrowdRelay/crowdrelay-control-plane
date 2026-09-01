@@ -39,9 +39,9 @@ fail() {
 }
 
 absolute_path_helper() {
-  local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd -P 2>/dev/null || echo /srv/crowdrelay-control-plane/scripts)"
-  printf '%s/release_receipt.py' "$script_dir"
+  # When piped via SSH, BASH_SOURCE is empty and dirname resolves to /tmp.
+  # Prefer the explicit REPO_DIR (third arg) which is always the repo root.
+  printf '%s/scripts/release_receipt.py' "${REPO_DIR:-/srv/crowdrelay-control-plane}"
 }
 
 RECEIPT_HELPER="$(absolute_path_helper)"
