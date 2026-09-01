@@ -88,7 +88,7 @@ function renderEvidenceDetail(data: DecisionEvidence) {
         }>
           <dl class="brain-evidence-list">
             <For each={inputRows}>{row => (
-              <div class="brain-evidence-row">
+              <div classList={{ 'brain-evidence-row': true, 'brain-evidence-row-json': row.isJson }}>
                 <dt>{row.key}</dt>
                 <dd>
                   <Show when={row.isJson} fallback={row.value}>
@@ -107,7 +107,7 @@ function renderEvidenceDetail(data: DecisionEvidence) {
         }>
           <dl class="brain-evidence-list">
             <For each={policyRows}>{row => (
-              <div class="brain-evidence-row">
+              <div classList={{ 'brain-evidence-row': true, 'brain-evidence-row-json': row.isJson }}>
                 <dt>{row.key}</dt>
                 <dd>
                   <Show when={row.isJson} fallback={row.value}>
