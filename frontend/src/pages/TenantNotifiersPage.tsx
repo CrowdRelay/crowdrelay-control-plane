@@ -4,7 +4,7 @@ import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { refreshTick } from '../lib/refresh'
 import { toast } from '../lib/toast'
-import type { NotifierChannel, NotifierEvent, DiscoveredEndpoint, PlatformConfigItem, AutomationRoutingItem } from '../lib/types'
+import type { NotifierChannel, NotifierEvent, DiscoveredEndpoint, PlatformConfigItem, AutomationRoutingItem, NotifiersOverview } from '../lib/types'
 import { NOTIFIER_EVENTS } from '../lib/types'
 import { errorMessage } from '../lib/format'
 import { NotifierIcon } from '../components/ProviderIcon'
@@ -49,10 +49,23 @@ export function TenantNotifiersPage() {
   const params = useParams({ from: '/tenants/$slug/notifiers' })
   const slug = () => params().slug
   const qc = useQueryClient()
-  const channels = useQuery(() => ({ queryKey: ['notifiers', slug(), refreshTick()], queryFn: () => api.notifiers(slug()), refetchOnWindowFocus: false, reconcile: 'id', staleTime: 20_000 }))
-  const discovered = useQuery(() => ({ queryKey: ['notifiers-discovered', slug(), refreshTick()], queryFn: () => api.discoveredEndpoints(slug()), refetchOnWindowFocus: false, reconcile: 'id', staleTime: 20_000 }))
-  const platformConfig = useQuery(() => ({ queryKey: ['notifier-platform-config', slug(), refreshTick()], queryFn: () => api.notifierPlatformConfig(slug()), refetchOnWindowFocus: false, staleTime: 20_000 }))
-  const automationRouting = useQuery(() => ({ queryKey: ['notifier-automation-routing', slug(), refreshTick()], queryFn: () => api.notifierAutomationRouting(slug()), refetchOnWindowFocus: false, staleTime: 20_000 }))
+  // One request for the whole topology. This was four independent queries,
+  // each with its own loading and error state, so the page assembled itself
+  // in front of the operator and any one failure left a hole in a picture
+  // that only means anything whole.
+  const overview = useQuery(() => ({ queryKey: ['notifiers-overview', slug(), refreshTick()], queryFn: () => api.notifiersOverview(slug()), refetchOnWindowFocus: false, staleTime: 20_000 }))
+
+  // The panels below still read four names; each now projects one section of
+  // the single response, including that section's own error.
+  const section = <T,>(pick: (o: NotifiersOverview) => { error?: string } | undefined, take: (o: NotifiersOverview) => T | undefined) => ({
+    get data() { const o = overview.data; return o && !pick(o)?.error ? take(o) : undefined },
+    get error() { const o = overview.data; return overview.error ?? (o && pick(o)?.error ? new Error(pick(o)!.error) : undefined) },
+    get isPending() { return overview.isPending },
+  })
+  const channels = section(o => o.channels, o => ({ items: o.channels.items ?? [] }))
+  const discovered = section(o => o.discovered, o => ({ endpoints: o.discovered.endpoints ?? [] }))
+  const platformConfig = section(o => o.platformConfig, o => ({ items: o.platformConfig.items ?? [] }))
+  const automationRouting = section(o => o.automationRouting, o => ({ items: o.automationRouting.items ?? [] }))
 
   const [kind, setKind] = createSignal<NotifierChannel['kind']>('discord')
   const [label, setLabel] = createSignal('')
@@ -60,7 +73,7 @@ export function TenantNotifiersPage() {
   const [events, setEvents] = createSignal<string[]>([])
   const [testResult, setTestResult] = createSignal<Record<string, string>>({})
 
-  const refresh = () => { qc.invalidateQueries({ queryKey: ['notifiers', slug()] }); qc.invalidateQueries({ queryKey: ['notifiers-discovered', slug()] }); qc.invalidateQueries({ queryKey: ['notifier-platform-config', slug()] }); qc.invalidateQueries({ queryKey: ['notifier-automation-routing', slug()] }) }
+  const refresh = () => qc.invalidateQueries({ queryKey: ['notifiers-overview', slug()] })
   const toggleEvent = (e: NotifierEvent) => setEvents(c => c.includes(e) ? c.filter(i => i !== e) : [...c, e])
   const targetLabel = () => kind() === 'email_relay' ? 'Recipient email' : 'Webhook URL'
   const targetPh = () => kind() === 'discord' ? 'https://discord.com/api/webhooks/…' : kind() === 'webhook' ? 'https://ops.example.com/hooks/crowdrelay' : 'alerts@future-metal.example'

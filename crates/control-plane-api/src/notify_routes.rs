@@ -35,6 +35,7 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/notifiers/{channel_id}/test",
             post(test_channel),
         )
+        .route("/tenants/{slug}/notifiers/overview", get(overview))
         .route(
             "/tenants/{slug}/notifiers/platform-config",
             get(platform_config),
@@ -268,6 +269,91 @@ fn url_host(url_str: &str) -> String {
 
 /// Returns platform-level notification config (from environment variables).
 /// Read-only — no mutation of platform-level config in this iteration.
+/// The whole Notifications page in one request.
+///
+/// The page reads four independent endpoints — channels, discovered
+/// endpoints, platform config, automation routing — and renders them as one
+/// picture of where alerts go. Four round trips for one screen, each with its
+/// own loading and error state, so the page assembles itself in front of the
+/// operator and any one of them failing leaves a hole in a topology that is
+/// only meaningful whole.
+///
+/// The individual routes stay: they are the write-and-refresh path for the
+/// panels, and other callers use them.
+///
+/// A section that cannot be read reports its error inline instead of failing
+/// the request. Three working layers and one broken one is a more useful
+/// answer than nothing, and it is the honest one — the page's whole job is
+/// saying which parts of the topology are healthy.
+async fn overview(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let slug = validation::slug(&slug)?;
+    let tenant = state.store.tenant_by_slug(&slug).await?;
+
+    let channels = match state.store.list_notifier_channels(tenant.tenant.id).await {
+        Ok(rows) => json!({ "items": rows.iter().map(mask).collect::<Vec<_>>() }),
+        Err(error) => json!({ "error": error.to_string() }),
+    };
+
+    let platform = match response_body(platform_config(
+        State(state.clone()),
+        Path(slug.to_string()),
+    ))
+    .await
+    {
+        Ok(value) => value,
+        Err(error) => json!({ "error": error.to_string() }),
+    };
+
+    let routing = match response_body(automation_routing(
+        State(state.clone()),
+        Path(slug.to_string()),
+    ))
+    .await
+    {
+        Ok(value) => value,
+        Err(error) => json!({ "error": error.to_string() }),
+    };
+
+    let discovered = match crate::operations_routes::discovered_notifier_endpoints_value(
+        &state, &slug, &headers,
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(error) => json!({ "error": error.to_string() }),
+    };
+
+    Ok(axum::Json(json!({
+        "channels": channels,
+        "platformConfig": platform,
+        "automationRouting": routing,
+        "discovered": discovered,
+    }))
+    .into_response())
+}
+
+/// Runs one of the section handlers and returns its JSON body.
+///
+/// The sections already exist as handlers and their shapes are what the page
+/// expects; re-deriving them here would be a second definition to keep in
+/// step with the first.
+async fn response_body<F>(handler: F) -> Result<serde_json::Value, ApiError>
+where
+    F: std::future::Future<Output = Result<Response, ApiError>>,
+{
+    use axum::body::to_bytes;
+    let response = handler.await?;
+    let bytes = to_bytes(response.into_body(), 1024 * 1024)
+        .await
+        .map_err(|error| ApiError::Unavailable(format!("section body unreadable: {error}")))?;
+    serde_json::from_slice(&bytes)
+        .map_err(|error| ApiError::Unavailable(format!("section body is not JSON: {error}")))
+}
+
 async fn platform_config(
     State(state): State<AppState>,
     Path(_slug): Path<String>,

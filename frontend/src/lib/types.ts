@@ -2065,3 +2065,15 @@ export interface BeaconUpsertInput {
   relevanceBasisPoints: number
   confidenceBasisPoints: number
 }
+
+/// Every layer of the notification topology, read in one request.
+///
+/// Each section carries either its payload or its own `error`, because three
+/// working layers and one broken one is a more useful answer than nothing —
+/// and saying which parts are healthy is the page's whole job.
+export type NotifiersOverview = {
+  channels: { items?: NotifierChannel[]; error?: string }
+  platformConfig: { items?: PlatformConfigItem[]; error?: string }
+  automationRouting: { items?: AutomationRoutingItem[]; error?: string }
+  discovered: { endpoints?: DiscoveredEndpoint[]; error?: string }
+}

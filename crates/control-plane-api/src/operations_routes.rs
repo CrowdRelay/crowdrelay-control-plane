@@ -1605,17 +1605,30 @@ async fn discovered_notifier_endpoints(
     Path(slug): Path<String>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
+    let value = discovered_notifier_endpoints_value(&state, &slug, &headers).await?;
+    object_no_store(value, "discovered notifier endpoints")
+}
+
+/// The same read, without the response wrapper.
+///
+/// The notifier overview composes four sections into one request and needs
+/// the value, not an HTTP response it would have to parse back.
+pub(crate) async fn discovered_notifier_endpoints_value(
+    state: &AppState,
+    slug: &str,
+    headers: &HeaderMap,
+) -> Result<Value, ApiError> {
     let (_tenant, value) = call(
-        &state,
-        &slug,
+        state,
+        slug,
         "GET",
         "/v1/control-plane/webhook-endpoints",
         None,
-        &headers,
+        headers,
         None,
     )
     .await?;
-    object_no_store(value, "discovered notifier endpoints")
+    Ok(value)
 }
 
 /// Signal app install metrics and top cities. Read-only proxy to CrowdRelay's
