@@ -267,6 +267,19 @@ export const Shell: Component = () => {
         toggleCommandPalette()
       }
       if (event.key === 'Escape' && mobileNavOpen()) setMobileNavOpen(false)
+      // Left/Right arrow collapses/expands sidebar (desktop only, not in inputs).
+      if (window.innerWidth > 780) {
+        const target = event.target as HTMLElement
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
+        if (event.metaKey || event.ctrlKey || event.altKey) return
+        if (event.key === 'ArrowLeft' && !collapsed()) {
+          event.preventDefault()
+          toggleCollapsed()
+        } else if (event.key === 'ArrowRight' && collapsed()) {
+          event.preventDefault()
+          toggleCollapsed()
+        }
+      }
     }
     const onDocClick = (event: MouseEvent) => {
       const el = event.target as HTMLElement
@@ -415,9 +428,10 @@ export const Shell: Component = () => {
             <button class="topbar-logout" type="button" onClick={() => { void authState.logout() }}>Log out</button>
           </div>
         </header>
-        <div class="page-transition" data-key={pathname()}>
-          {/* Keyed on the route so a thrown page recovers by navigating away
-              instead of leaving the console permanently blank. */}
+        {/* Keyed on the route so a thrown page recovers by navigating away
+            instead of leaving the console permanently blank. The key forces
+            a remount which resets Suspense + ErrorBoundary state per page. */}
+        <div class="page-content" data-key={pathname()}>
           <ErrorBoundaryPanel resetKey={pathname()} title="This page failed to render">
             <Suspense fallback={<SkeletonPage />}>
               <Outlet />

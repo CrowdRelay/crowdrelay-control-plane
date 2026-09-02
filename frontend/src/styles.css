@@ -1036,18 +1036,19 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .anim-slide-in-right{animation:slideInRight var(--t-smooth) ease-out both}
 .anim-pulse-glow{animation:pulseGlow 3s ease-in-out infinite}
 
-/* Page transition — re-runs animation on route change via data-key attr */
-.page-transition{animation:fadeInUp var(--t-smooth) ease-out both}
-.page-transition > .page{animation:staggerIn var(--t-smooth) ease-out both}
-.page-transition > .page > *{animation:staggerIn var(--t-smooth) ease-out both}
-.page-transition > .page > *:nth-child(1){animation-delay:30ms}
-.page-transition > .page > *:nth-child(2){animation-delay:60ms}
-.page-transition > .page > *:nth-child(3){animation-delay:90ms}
-.page-transition > .page > *:nth-child(4){animation-delay:120ms}
-.page-transition > .page > *:nth-child(5){animation-delay:150ms}
-.page-transition > .page > *:nth-child(6){animation-delay:180ms}
-.page-transition > .page > *:nth-child(7){animation-delay:210ms}
-.page-transition > .page > *:nth-child(8){animation-delay:240ms}
+/* Page content — no full-page blink on route change. The Suspense fallback
+   (SkeletonPage) handles the transition smoothly: skeleton shows while data
+   loads, then content fades in with a gentle stagger. */
+.page-content > .page{animation:fadeIn var(--t-smooth) ease-out both}
+.page-content > .page > *{animation:staggerIn var(--t-smooth) ease-out both}
+.page-content > .page > *:nth-child(1){animation-delay:20ms}
+.page-content > .page > *:nth-child(2){animation-delay:50ms}
+.page-content > .page > *:nth-child(3){animation-delay:80ms}
+.page-content > .page > *:nth-child(4){animation-delay:110ms}
+.page-content > .page > *:nth-child(5){animation-delay:140ms}
+.page-content > .page > *:nth-child(6){animation-delay:170ms}
+.page-content > .page > *:nth-child(7){animation-delay:200ms}
+.page-content > .page > *:nth-child(8){animation-delay:230ms}
 
 /* Staggered children — apply to parent. Up to 12 items. */
 .stagger > *{animation:staggerIn var(--t-smooth) ease-out both}
@@ -1475,8 +1476,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 /* Sidebar footer — glass-subtle */
 .sidebar-foot{color:var(--muted);font-size:var(--text-sm);display:flex;align-items:center;gap:8px}
 
-/* Page transition — smoother fade+slide */
-.page-transition{animation:fadeInUp var(--t-smooth) ease-out both}
+/* Page content — gentle fade (no full-page slide on route change) */
+.page-content{min-height:0}
 
 /* ═══════════════════════════════════════════════════════════════════════
    Shared Components v2 — Glass refinement
