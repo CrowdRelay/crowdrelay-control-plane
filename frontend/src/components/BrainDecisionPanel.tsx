@@ -5,6 +5,7 @@ import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './EmptyState'
 import { errorMessage } from '../lib/format'
+import { SkeletonRows } from './Skeleton'
 
 // The flagship decision surface. Shows the single most important current
 // decision (opportunity board position #1) in a structured narrative:
@@ -318,7 +319,7 @@ export function BrainDecisionPanel(props: {
         <Show when={showEvidence()}>
           <>
             <Show when={evidence.loading}>
-              <div class="mini-skeleton" />
+              <SkeletonRows count={3} />
             </Show>
             <Show when={!evidence.loading && evidence() === null}>
               <div class="warning-card" role="status">

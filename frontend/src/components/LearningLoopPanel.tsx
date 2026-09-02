@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { refreshTick } from '../lib/refresh'
 import { EmptyState } from './EmptyState'
 import type { LearningLoopEntry } from '../lib/types'
+import { SkeletonLearningLoop } from './Skeleton'
 
 // The learning loop panel — shows the real decision → action → outcome chain.
 // Uses the learning-loop endpoint which joins viryaos_autopilot_decisions,
@@ -74,7 +75,7 @@ export function LearningLoopPanel(props: { slug: string }) {
     </Show>
 
     <Show when={!model.error && model.isPending}>
-      <div class="mini-skeleton" />
+      <SkeletonLearningLoop />
     </Show>
 
     <Show when={model.data}>

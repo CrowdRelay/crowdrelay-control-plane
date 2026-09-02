@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, FeatureFlag, OperationsSummary } from '../lib/types'
 import { errorMessage, formatAge, oldestQueueAge } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
+import { SkeletonFlagList, SkeletonAutopilotKpis } from './Skeleton'
 
 const flagLabel = (key: string) => key
   .replace(/_enabled$/, '')
@@ -286,7 +287,7 @@ export function OperationsPanel(props: {
       <section class="operations-section">
         <details open>
           <summary class="operations-section-head"><div><span class="eyebrow">FEATURES</span><h3>Runtime switches</h3></div><small>{flags.data?.length ?? 0} declared</small></summary>
-        <Show when={flags.data} fallback={flags.error ? null : <div class="mini-skeleton"/>}>{items => <div class="flag-list">
+        <Show when={flags.data} fallback={flags.error ? null : <SkeletonFlagList />}>{items => <div class="flag-list">
           <For each={items()}>{flag => <div class="flag-row">
             <div><strong>{flagLabel(flag.key)}</strong><small>{flag.reason || `v${flag.version} · no reason provided`}</small></div>
             <button
@@ -330,7 +331,7 @@ export function OperationsPanel(props: {
             <button class={confirming() === 'autopilot-disable' ? 'danger-ghost' : ''} disabled={pendingMutation() !== null} onClick={() => { const enable = confirming() === 'autopilot-enable'; setConfirming(null); void bulkAutopilot(enable) }}>{confirmCopy()!.action}</button>
           </div>
         </div></Show>
-        <Show when={autopilot.data} fallback={autopilot.error ? null : <div class="mini-skeleton"/>}>{data => <>
+        <Show when={autopilot.data} fallback={autopilot.error ? null : <SkeletonAutopilotKpis />}>{data => <>
           <div class="autopilot-kpis">
             <div><strong>{data().needs_you.length}</strong><span>needs you</span></div>
             <div><strong>{data().queued_actions}</strong><span>queued</span></div>

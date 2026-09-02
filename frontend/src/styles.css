@@ -1036,19 +1036,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .anim-slide-in-right{animation:slideInRight var(--t-smooth) ease-out both}
 .anim-pulse-glow{animation:pulseGlow 3s ease-in-out infinite}
 
-/* Page content — no full-page blink on route change. The Suspense fallback
-   (SkeletonPage) handles the transition smoothly: skeleton shows while data
-   loads, then content fades in with a gentle stagger. */
-.page-content > .page{animation:fadeIn var(--t-smooth) ease-out both}
-.page-content > .page > *{animation:staggerIn var(--t-smooth) ease-out both}
-.page-content > .page > *:nth-child(1){animation-delay:20ms}
-.page-content > .page > *:nth-child(2){animation-delay:50ms}
-.page-content > .page > *:nth-child(3){animation-delay:80ms}
-.page-content > .page > *:nth-child(4){animation-delay:110ms}
-.page-content > .page > *:nth-child(5){animation-delay:140ms}
-.page-content > .page > *:nth-child(6){animation-delay:170ms}
-.page-content > .page > *:nth-child(7){animation-delay:200ms}
-.page-content > .page > *:nth-child(8){animation-delay:230ms}
+/* Page content — no animation on route change. The Suspense fallback
+   (SkeletonPage) handles the transition: skeleton shows while data loads,
+   then content appears instantly. A fadeIn/staggerIn here fires after data
+   arrives (not during the skeleton phase), which reads as a flash rather
+   than a smooth transition. */
 
 /* Staggered children — apply to parent. Up to 12 items. */
 .stagger > *{animation:staggerIn var(--t-smooth) ease-out both}

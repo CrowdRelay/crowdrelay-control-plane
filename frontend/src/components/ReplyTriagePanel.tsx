@@ -6,6 +6,7 @@ import { refreshTick } from '../lib/refresh'
 import { EmptyState } from './EmptyState'
 import type { ReplyTriageEntry } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
+import { SkeletonReplyTriage } from './Skeleton'
 
 const timeAgo = (value: string | null | undefined) => {
   if (!value) return 'never'
@@ -79,7 +80,7 @@ export function ReplyTriagePanel() {
       </div>
     </Show>
 
-    <Show when={!model.error && model.isPending}><div class="mini-skeleton" /></Show>
+    <Show when={!model.error && model.isPending}><SkeletonReplyTriage /></Show>
 
     <Show when={data()}>{d => <>
       {/* Summary */}

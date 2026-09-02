@@ -3,6 +3,7 @@ import type { OpportunityBoardEntry } from '../lib/types'
 import { api } from '../lib/api'
 import { StatusBadge } from './StatusBadge'
 import { errorMessage } from '../lib/format'
+import { SkeletonOpportunityBoard } from './Skeleton'
 
 // Phase 18 — find, then "do it". CrowdRelay parks what its agent found; this
 // board is where a human decides. "Do it" approves through CrowdRelay's own
@@ -132,7 +133,7 @@ export function OpportunityBoardPanel(props: {
       {message => <div class="error-card operations-error" role="alert">{message()}</div>}
     </Show>
 
-    <Show when={board.data} fallback={!board.error ? <div class="mini-skeleton"/> : null}>{data => <>
+    <Show when={board.data} fallback={!board.error ? <SkeletonOpportunityBoard /> : null}>{data => <>
       <Show when={data().length === 0}>
         <div class="inherit-card"><p>The agent has nothing parked right now. Findings appear here the moment a detector raises them.</p></div>
       </Show>

@@ -7,6 +7,7 @@ import type { AgentScorecard } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { CountUp } from './CountUp'
 import { ProgressRing } from './ProgressRing'
+import { SkeletonScorecard } from './Skeleton'
 
 const count = (value: number | undefined | null) =>
   value == null ? '—' : value.toLocaleString()
@@ -103,7 +104,7 @@ export function ScorecardPanel(props: { slug: string }) {
       </div>
     </Show>
 
-    <Show when={!model.error && model.isPending}><div class="mini-skeleton"/></Show>
+    <Show when={!model.error && model.isPending}><SkeletonScorecard /></Show>
 
     <Show when={data()}>{d => <>
       {/* Status row */}

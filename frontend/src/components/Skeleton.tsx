@@ -193,3 +193,159 @@ export const SkeletonPage: Component = () => (
     <div class="skeleton-block" style={{ height: '220px', 'border-radius': 'var(--radius-lg)', 'margin-top': '16px' }} />
   </section>
 )
+
+// ── Panel-specific skeletons — match each panel's real layout shape ──
+// These replace the old `mini-skeleton` (a 100px shimmer bar) that caused
+// layout shift when data arrived. Each skeleton occupies the same space
+// the real content will, so the swap is invisible.
+
+/** Skeleton for ScorecardPanel — status metrics row + week summary + track record */
+export const SkeletonScorecard: Component = () => (
+  <>
+    <div class="operations-metrics">
+      {Array.from({ length: 3 }, () => (
+        <div>
+          <div class="skeleton-block" style={{ height: '11px', width: '70px', 'border-radius': '5px', 'margin-bottom': '8px' }} />
+          <div class="skeleton-block" style={{ height: '22px', width: '50px', 'border-radius': '6px', 'margin-bottom': '6px' }} />
+          <div class="skeleton-block" style={{ height: '11px', width: '90px', 'border-radius': '5px' }} />
+        </div>
+      ))}
+    </div>
+    <section class="operations-section">
+      <div class="operations-section-head">
+        <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px', 'margin-bottom': '6px' }} />
+        <div class="skeleton-block" style={{ height: '18px', width: '120px', 'border-radius': '6px' }} />
+      </div>
+      <div class="operations-metrics">
+        {Array.from({ length: 4 }, () => (
+          <div>
+            <div class="skeleton-block" style={{ height: '11px', width: '60px', 'border-radius': '5px', 'margin-bottom': '8px' }} />
+            <div class="skeleton-block" style={{ height: '22px', width: '40px', 'border-radius': '6px', 'margin-bottom': '6px' }} />
+            <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px' }} />
+          </div>
+        ))}
+      </div>
+    </section>
+    <section class="operations-section">
+      <div class="operations-section-head">
+        <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px', 'margin-bottom': '6px' }} />
+        <div class="skeleton-block" style={{ height: '18px', width: '100px', 'border-radius': '6px' }} />
+      </div>
+      <div class="operations-metrics">
+        {Array.from({ length: 4 }, () => (
+          <div>
+            <div class="skeleton-block" style={{ height: '11px', width: '60px', 'border-radius': '5px', 'margin-bottom': '8px' }} />
+            <div class="skeleton-block" style={{ height: '22px', width: '40px', 'border-radius': '6px', 'margin-bottom': '6px' }} />
+            <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px' }} />
+          </div>
+        ))}
+      </div>
+    </section>
+  </>
+)
+
+/** Skeleton for ReplyTriagePanel — summary metrics + reply rows */
+export const SkeletonReplyTriage: Component = () => (
+  <>
+    <div class="operations-metrics">
+      {Array.from({ length: 3 }, () => (
+        <div>
+          <div class="skeleton-block" style={{ height: '11px', width: '70px', 'border-radius': '5px', 'margin-bottom': '8px' }} />
+          <div class="skeleton-block" style={{ height: '22px', width: '40px', 'border-radius': '6px', 'margin-bottom': '6px' }} />
+          <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px' }} />
+        </div>
+      ))}
+    </div>
+    <div style={{ display: 'flex', 'flex-direction': 'column', gap: '10px', 'margin-top': '16px' }}>
+      {Array.from({ length: 3 }, () => (
+        <div class="skeleton-block" style={{ height: '64px', width: '100%', 'border-radius': '10px' }} />
+      ))}
+    </div>
+  </>
+)
+
+/** Skeleton for LearningLoopPanel — summary line + entry cards */
+export const SkeletonLearningLoop: Component = () => (
+  <>
+    <div class="learning-loop-summary">
+      {Array.from({ length: 4 }, () => (
+        <div class="learning-loop-stat">
+          <div class="skeleton-block" style={{ height: '11px', width: '60px', 'border-radius': '5px', 'margin-bottom': '6px' }} />
+          <div class="skeleton-block" style={{ height: '20px', width: '40px', 'border-radius': '6px' }} />
+        </div>
+      ))}
+    </div>
+    <div style={{ display: 'flex', 'flex-direction': 'column', gap: '10px', 'margin-top': '16px' }}>
+      {Array.from({ length: 4 }, () => (
+        <div class="skeleton-block" style={{ height: '72px', width: '100%', 'border-radius': '10px' }} />
+      ))}
+    </div>
+  </>
+)
+
+/** Skeleton for OpportunityBoardPanel — opportunity list rows */
+export const SkeletonOpportunityBoard: Component = () => (
+  <div class="flag-list opportunity-list">
+    {Array.from({ length: 3 }, () => (
+      <div class="flag-row release-component-row opportunity-row">
+        <div class="opportunity-body">
+          <div class="skeleton-block" style={{ height: '16px', width: '60%', 'border-radius': '6px', 'margin-bottom': '6px' }} />
+          <div class="skeleton-block" style={{ height: '12px', width: '40%', 'border-radius': '5px', 'margin-bottom': '4px' }} />
+          <div class="skeleton-block" style={{ height: '12px', width: '80%', 'border-radius': '5px' }} />
+        </div>
+        <div class="skeleton-block" style={{ height: '32px', width: '70px', 'border-radius': '8px' }} />
+      </div>
+    ))}
+  </div>
+)
+
+/** Skeleton for OperationsPanel flag list — flag rows in a 2-col grid */
+export const SkeletonFlagList: Component = () => (
+  <div class="flag-list" style={{ display: 'grid', 'grid-template-columns': 'repeat(2, minmax(0,1fr))', 'column-gap': '24px' }}>
+    {Array.from({ length: 4 }, () => (
+      <div class="flag-row">
+        <div>
+          <div class="skeleton-block" style={{ height: '14px', width: '120px', 'border-radius': '6px', 'margin-bottom': '6px' }} />
+          <div class="skeleton-block" style={{ height: '11px', width: '180px', 'border-radius': '5px' }} />
+        </div>
+        <div class="skeleton-block" style={{ height: '24px', width: '50px', 'border-radius': '999px' }} />
+      </div>
+    ))}
+  </div>
+)
+
+/** Skeleton for OperationsPanel autopilot KPIs — 4-col KPI grid */
+export const SkeletonAutopilotKpis: Component = () => (
+  <div class="autopilot-kpis">
+    {Array.from({ length: 4 }, () => (
+      <div>
+        <div class="skeleton-block" style={{ height: '11px', width: '60px', 'border-radius': '5px', 'margin-bottom': '8px' }} />
+        <div class="skeleton-block" style={{ height: '22px', width: '40px', 'border-radius': '6px', 'margin-bottom': '6px' }} />
+        <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px' }} />
+      </div>
+    ))}
+  </div>
+)
+
+/** Skeleton for BrainDecisionPanel — decision narrative layout */
+export const SkeletonBrainDecision: Component = () => (
+  <div class="brain-decision-body">
+    <div class="brain-decision-what">
+      <div class="skeleton-block" style={{ height: '20px', width: '50%', 'border-radius': '6px', 'margin-bottom': '8px' }} />
+      <div class="skeleton-block" style={{ height: '12px', width: '40%', 'border-radius': '5px' }} />
+    </div>
+    <div class="brain-decision-why">
+      <div class="skeleton-block" style={{ height: '11px', width: '40px', 'border-radius': '5px', 'margin-bottom': '8px' }} />
+      <div class="skeleton-block" style={{ height: '14px', width: '100%', 'border-radius': '6px', 'margin-bottom': '6px' }} />
+      <div class="skeleton-block" style={{ height: '14px', width: '90%', 'border-radius': '6px' }} />
+    </div>
+    <div class="brain-decision-factors">
+      {Array.from({ length: 3 }, () => (
+        <div class="brain-decision-factor">
+          <div class="skeleton-block" style={{ height: '11px', width: '50px', 'border-radius': '5px', 'margin-bottom': '6px' }} />
+          <div class="skeleton-block" style={{ height: '16px', width: '40px', 'border-radius': '5px' }} />
+        </div>
+      ))}
+    </div>
+  </div>
+)
