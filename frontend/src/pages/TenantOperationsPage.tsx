@@ -7,14 +7,11 @@ import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { BrainDecisionPanel } from '../components/BrainDecisionPanel'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
 import { OutreachPipelinePanel } from '../components/OutreachPipelinePanel'
-import { BeaconSignalPanel } from '../components/BeaconSignalPanel'
-import { BeaconConsolePanel } from '../components/BeaconConsolePanel'
 import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { SkeletonOperationsPage, SkeletonSection } from '../components/Skeleton'
 import { TabBar, TabContent } from '../components/TabBar'
-import { LighthouseIcon } from '../components/icons/LighthouseIcon'
 import { StatusBadge } from '../components/StatusBadge'
 import { refreshTick } from '../lib/refresh'
 import type { TenantOperationsReadModel } from '../lib/types'
@@ -160,7 +157,6 @@ export function TenantOperationsPage() {
         tabs={[
           { id: 'opportunities', label: 'Opportunities', count: () => opCount() },
           { id: 'outreach', label: 'Outreach' },
-          { id: 'beacons', label: 'Beacons', icon: LighthouseIcon },
           { id: 'releases', label: 'Releases' },
         ]}
       />
@@ -193,14 +189,8 @@ export function TenantOperationsPage() {
         <PressRoomPanel slug={params().slug} />
       </TabContent>
 
-      {/* ── Beacons tab ──
-          The roster and every action on it in one place. The Signal panel
-          below is the same data seen as a funnel; it stays because it answers
-          "how is the invite pipeline doing", which the roster does not. */}
-      <TabContent active={activeTab()} id="beacons">
-        <BeaconConsolePanel slug={params().slug} />
-        <BeaconSignalPanel slug={params().slug} />
-      </TabContent>
+      {/* Beacons moved to Audience in the left nav — a beacon is part of who
+          the audience is, not an operation you run. See pages/BeaconsPage.tsx. */}
 
       {/* ── Releases tab ── */}
       <TabContent active={activeTab()} id="releases">

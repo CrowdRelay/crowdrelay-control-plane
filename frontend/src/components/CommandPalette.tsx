@@ -38,6 +38,7 @@ const SUBPAGES: Array<{ suffix: string; label: string }> = [
   { suffix: '/intelligence', label: 'Intelligence' },
   { suffix: '/audience', label: 'Fan Intelligence' },
   { suffix: '/funnel', label: 'Growth Funnel' },
+  { suffix: '/beacons', label: 'Beacons' },
   { suffix: '/notifiers', label: 'Notifiers' },
   { suffix: '/integrations', label: 'AI Integrations' },
   { suffix: '/portfolio', label: 'Portfolio' },

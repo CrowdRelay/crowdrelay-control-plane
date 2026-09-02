@@ -69,6 +69,11 @@ const TENANT_NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/tenants/$slug/audience', label: 'Fan Intelligence', exact: false, icon: 'audience' },
       { path: '/tenants/$slug/funnel', label: 'Growth', exact: false, icon: 'funnel' },
+      // Beacons were a tab under Operations, next to the things you *do*. But a
+      // beacon is a person carrying a release into a city the band has no
+      // audience in, which makes the roster a question about who the audience
+      // is — so it belongs here, not behind two clicks under Execution.
+      { path: '/tenants/$slug/beacons', label: 'Beacons', exact: false, icon: 'beacons' },
       { path: '/tenants/$slug/portfolio', label: 'Portfolio', exact: false, icon: 'portfolio' },
       { path: '/tenants/$slug/area', label: 'AREA', exact: false, icon: 'area' },
     ],
@@ -98,6 +103,7 @@ function NavIcon(props: { name: string }) {
     automation: <><circle cx="6" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 6h7M9 8l2 7M15 8l-2 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></>,
     flow: <><circle cx="5" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="19" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 6h4l3 8M17 6h-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></>,
     funnel: <><path d="M3 4h18l-7 8v6l-4 2v-8L3 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></>,
+    beacons: <><path d="M9.5 21h5l-.9-10h-3.2zM9.9 11h4.2l-.5-3h-3.2zM8 6.5 5 5M16 6.5 19 5M8 9 5 9.5M16 9l3 .5M7.5 21h9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></>,
     health: <><path d="M3 12h4l2-5 4 10 2-5h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="20" cy="6" r="1.5" fill="currentColor"/></>,
   }
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="nav-icon" aria-hidden="true">{icons[props.name] ?? icons.overview}</svg>
