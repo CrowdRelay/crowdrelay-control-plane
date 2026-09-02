@@ -31,10 +31,39 @@ export function TabBar(props: {
   </div>
 }
 
-export function TabContent(props: { active: string; id: string; children: JSX.Element }) {
-  return <Show when={props.active === props.id}>
-    <div class="page-tab-content">{props.children}</div>
+/// Keep-mounted tab panel: lazy-mounts on first visit (so API requests
+/// only fire when the tab is opened), then stays in the DOM with
+/// `display:none` so re-entering is instant — no refetch, no blink.
+/// This replaces the old `TabContent` which unmounted/remounted on
+/// every switch, causing a full loading cycle + fade-in animation each
+/// time.
+export function TabPanel(props: {
+  active: string
+  id: string
+  visited: boolean
+  children: JSX.Element
+}) {
+  return <Show when={props.visited}>
+    <div
+      class="page-tab-content"
+      classList={{ 'tab-hidden': props.active !== props.id }}
+    >
+      {props.children}
+    </div>
   </Show>
+}
+
+/// Tab state manager with lazy-mount tracking. The initial tab is
+/// marked visited so its panel mounts immediately; subsequent tabs
+/// mount on first open.
+export function useTabPanels(initial: string) {
+  const [activeTab, setActiveTab] = createSignal(initial)
+  const [visited, setVisited] = createSignal<Set<string>>(new Set([initial]))
+  const switchTab = (id: string) => {
+    setActiveTab(id)
+    setVisited(prev => prev.has(id) ? prev : new Set([...prev, id]))
+  }
+  return { activeTab, switchTab, visited, isVisited: (id: string) => visited().has(id) }
 }
 
 export function useTabs(initial: string) {

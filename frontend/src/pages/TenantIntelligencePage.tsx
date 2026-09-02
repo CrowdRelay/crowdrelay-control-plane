@@ -1,4 +1,4 @@
-import { Show, createSignal } from 'solid-js'
+import { Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -10,7 +10,7 @@ import { LearningLoopPanel } from '../components/LearningLoopPanel'
 import { ScorecardPanel } from '../components/ScorecardPanel'
 import { StatusBadge } from '../components/StatusBadge'
 import { SkeletonIntelligencePage } from '../components/Skeleton'
-import { TabBar, TabContent } from '../components/TabBar'
+import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
 import { refreshTick } from '../lib/refresh'
 
 /**
@@ -21,7 +21,7 @@ import { refreshTick } from '../lib/refresh'
  */
 export function TenantIntelligencePage() {
   const params = useParams({ from: '/tenants/$slug/intelligence' })
-  const [activeTab, setActiveTab] = createSignal('overview')
+  const { activeTab, switchTab, isVisited } = useTabPanels('overview')
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug, refreshTick()],
     queryFn: () => api.tenantOperations(params().slug),
@@ -84,7 +84,7 @@ export function TenantIntelligencePage() {
       {/* Tab bar */}
       <TabBar
         active={activeTab()}
-        onChange={setActiveTab}
+        onChange={switchTab}
         tabs={[
           { id: 'overview', label: 'Overview' },
           { id: 'growth', label: 'Growth Intelligence' },
@@ -94,7 +94,7 @@ export function TenantIntelligencePage() {
       />
 
       {/* ── Overview tab — what it knows ── */}
-      <TabContent active={activeTab()} id="overview">
+      <TabPanel active={activeTab()} id="overview" visited={isVisited('overview')}>
         <div class="brain-group">
           <div class="brain-group-head">
             <span class="eyebrow">WHAT IT KNOWS</span>
@@ -103,10 +103,10 @@ export function TenantIntelligencePage() {
           <ScorecardPanel slug={params().slug} />
           <GrowthObjectivesPanel slug={params().slug} />
         </div>
-      </TabContent>
+      </TabPanel>
 
       {/* ── Growth Intelligence tab — what it believes ── */}
-      <TabContent active={activeTab()} id="growth">
+      <TabPanel active={activeTab()} id="growth" visited={isVisited('growth')}>
         <div class="brain-group">
           <div class="brain-group-head">
             <span class="eyebrow">WHAT IT BELIEVES</span>
@@ -115,10 +115,10 @@ export function TenantIntelligencePage() {
           <RunBrainCyclePanel slug={params().slug} />
           <GrowthIntelligencePanel slug={params().slug} />
         </div>
-      </TabContent>
+      </TabPanel>
 
       {/* ── Decisions tab — what it decided ── */}
-      <TabContent active={activeTab()} id="decisions">
+      <TabPanel active={activeTab()} id="decisions" visited={isVisited('decisions')}>
         <div class="brain-group">
           <div class="brain-group-head">
             <span class="eyebrow">WHAT IT DECIDED</span>
@@ -126,10 +126,10 @@ export function TenantIntelligencePage() {
           </div>
           <IntelligenceTransparencyPanel slug={params().slug} />
         </div>
-      </TabContent>
+      </TabPanel>
 
       {/* ── Learning tab — what it learned ── */}
-      <TabContent active={activeTab()} id="learning">
+      <TabPanel active={activeTab()} id="learning" visited={isVisited('learning')}>
         <div class="brain-group">
           <div class="brain-group-head">
             <span class="eyebrow">WHAT IT LEARNED</span>
@@ -137,7 +137,7 @@ export function TenantIntelligencePage() {
           </div>
           <LearningLoopPanel slug={params().slug} />
         </div>
-      </TabContent>
+      </TabPanel>
     </>}</Show>
   </section>
 }

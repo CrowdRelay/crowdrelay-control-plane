@@ -1,4 +1,4 @@
-import { Show, createSignal } from 'solid-js'
+import { Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -11,7 +11,7 @@ import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { SkeletonOperationsPage, SkeletonSection } from '../components/Skeleton'
-import { TabBar, TabContent } from '../components/TabBar'
+import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
 import { StatusBadge } from '../components/StatusBadge'
 import { refreshTick } from '../lib/refresh'
 import type { TenantOperationsReadModel } from '../lib/types'
@@ -21,7 +21,7 @@ const metric = (value: number | undefined | null, suffix = '') =>
 
 export function TenantOperationsPage() {
   const params = useParams({ from: '/tenants/$slug/operations' })
-  const [activeTab, setActiveTab] = createSignal('opportunities')
+  const { activeTab, switchTab, isVisited } = useTabPanels('opportunities')
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug, refreshTick()],
     queryFn: () => api.tenantOperations(params().slug),
@@ -153,7 +153,7 @@ export function TenantOperationsPage() {
       {/* Tab bar */}
       <TabBar
         active={activeTab()}
-        onChange={setActiveTab}
+        onChange={switchTab}
         tabs={[
           { id: 'opportunities', label: 'Opportunities', count: () => opCount() },
           { id: 'outreach', label: 'Outreach' },
@@ -162,7 +162,7 @@ export function TenantOperationsPage() {
       />
 
       {/* ── Opportunities tab ── */}
-      <TabContent active={activeTab()} id="opportunities">
+      <TabPanel active={activeTab()} id="opportunities" visited={isVisited('opportunities')}>
         <BrainDecisionPanel
           slug={params().slug}
           opportunity={topOpportunity()}
@@ -176,27 +176,27 @@ export function TenantOperationsPage() {
           degraded={d()?.degraded.includes('opportunities') ?? false}
           refresh={refresh}
         />
-      </TabContent>
+      </TabPanel>
 
 
       {/* ── Outreach tab ── */}
-      <TabContent active={activeTab()} id="outreach">
+      <TabPanel active={activeTab()} id="outreach" visited={isVisited('outreach')}>
         {/* Replies are worked here, next to the pipeline that produced them.
             They used to sit under a Growth tab that duplicated the Growth
             page's panels wholesale. */}
         <ReplyTriagePanel />
         <OutreachPipelinePanel slug={params().slug} />
         <PressRoomPanel slug={params().slug} />
-      </TabContent>
+      </TabPanel>
 
       {/* Beacons moved to Audience in the left nav — a beacon is part of who
           the audience is, not an operation you run. See pages/BeaconsPage.tsx. */}
 
       {/* ── Releases tab ── */}
-      <TabContent active={activeTab()} id="releases">
+      <TabPanel active={activeTab()} id="releases" visited={isVisited('releases')}>
         <ReleaseCampaignsPanel slug={params().slug} />
         <PlayLedgerPanel slug={params().slug} />
-      </TabContent>
+      </TabPanel>
     </>}</Show>
   </section>
 }
