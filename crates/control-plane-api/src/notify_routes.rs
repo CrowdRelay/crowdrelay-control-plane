@@ -43,6 +43,10 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/notifiers/automation-routing",
             get(automation_routing),
         )
+        .route(
+            "/tenants/{slug}/notifiers/automation-routing/sync",
+            post(sync_automation_routing),
+        )
         .layer(axum::extract::DefaultBodyLimit::max(
             MAX_NOTIFIER_BODY_BYTES,
         ))
@@ -307,6 +311,157 @@ async fn platform_config(
 
 /// Returns automation routing configs (from database).
 /// Read-only — no mutation of automation routing in this iteration.
+/// Categorises an n8n workflow by what it does, from its name.
+///
+/// The three categories the config table accepts mean: `real_work` changes
+/// something outside the system (mail, posts, submissions), `status` reports
+/// on it, `system` keeps the machinery running. An operator muting "status"
+/// wants to stop being told things, not to stop the band's outreach — so
+/// putting a mail executor in the wrong bucket would silence real work.
+///
+/// Defaults to `real_work` on an unrecognised name. That errs toward showing
+/// a workflow as consequential, which is the safe direction: a status job
+/// mislabelled as real work is noise, while real work mislabelled as status
+/// invites someone to mute it.
+fn categorise_workflow(name: &str) -> &'static str {
+    let lowered = name.to_lowercase();
+    const SYSTEM: [&str; 6] = [
+        "heartbeat",
+        "error handler",
+        "health check",
+        "watchdog",
+        "receipt spooler",
+        "rebuilder",
+    ];
+    const STATUS: [&str; 5] = ["digest", "brief", "radar", "monitor", "report"];
+    if SYSTEM.iter().any(|needle| lowered.contains(needle)) {
+        return "system";
+    }
+    if STATUS.iter().any(|needle| lowered.contains(needle)) {
+        return "status";
+    }
+    "real_work"
+}
+
+/// Pulls the live workflow list from n8n into the routing table.
+///
+/// The Notifications page renders three panels and production had every one
+/// of them empty — zero notifier channels, zero platform config, zero
+/// automation routing — while n8n ran 69 active workflows that send the
+/// band's mail, post its content and report to Discord. The page was
+/// structurally right and factually blank, which reads as broken.
+///
+/// n8n owns the workflows; this mirrors them so the control plane can show
+/// and mute them. Existing rows keep their `discord_enabled` and `muted`
+/// settings — those are the operator's decisions, and a sync must not
+/// silently re-enable something they turned off.
+async fn sync_automation_routing(
+    State(state): State<AppState>,
+    Path(_slug): Path<String>,
+) -> Result<Response, ApiError> {
+    let (base_url, api_key) = match (state.n8n_base_url.as_deref(), state.n8n_api_key.as_deref()) {
+        (Some(url), Some(key)) => (url, key),
+        _ => {
+            return Err(ApiError::Unavailable(
+                "n8n sync is not configured (CONTROL_PLANE_N8N_BASE_URL / \
+                 CONTROL_PLANE_N8N_API_KEY missing)"
+                    .to_owned(),
+            ));
+        }
+    };
+
+    let url = format!(
+        "{}/api/v1/workflows?limit=250",
+        base_url.trim_end_matches('/')
+    );
+    let response = state
+        .http_client
+        .get(&url)
+        .header("accept", "application/json")
+        .header("X-N8N-API-KEY", api_key)
+        .send()
+        .await
+        .map_err(|error| ApiError::Unavailable(format!("n8n workflow list failed: {error}")))?;
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(ApiError::Unavailable(format!(
+            "n8n workflow list returned {status}: {}",
+            body.chars().take(500).collect::<String>()
+        )));
+    }
+
+    #[derive(Deserialize)]
+    struct WorkflowList {
+        #[serde(default)]
+        data: Vec<Workflow>,
+    }
+    #[derive(Deserialize)]
+    struct Workflow {
+        id: String,
+        #[serde(default)]
+        name: String,
+        #[serde(default)]
+        active: bool,
+    }
+
+    let listed: WorkflowList = response.json().await.map_err(|error| {
+        ApiError::Unavailable(format!("n8n workflow list is not JSON: {error}"))
+    })?;
+
+    let existing: std::collections::HashSet<String> = state
+        .store
+        .list_automation_workflow_configs()
+        .await?
+        .into_iter()
+        .map(|row| row.workflow_id)
+        .collect();
+
+    let mut synced = 0u32;
+    let mut skipped = 0u32;
+    for workflow in listed.data {
+        // An id the config table would reject is skipped rather than failing
+        // the whole sync — one odd workflow must not block the other 68.
+        if existing.contains(&workflow.id) {
+            // Already known: refresh only the label, so a rename shows up
+            // without discarding the operator's mute or Discord choice.
+            match state
+                .store
+                .upsert_automation_workflow_config(
+                    &workflow.id,
+                    Some(&workflow.name),
+                    None,
+                    None,
+                    None,
+                )
+                .await
+            {
+                Ok(_) => synced += 1,
+                Err(_) => skipped += 1,
+            }
+            continue;
+        }
+        // New workflow: an inactive one arrives muted, matching what n8n
+        // already says about it.
+        match state
+            .store
+            .upsert_automation_workflow_config(
+                &workflow.id,
+                Some(&workflow.name),
+                Some(categorise_workflow(&workflow.name)),
+                Some(false),
+                Some(!workflow.active),
+            )
+            .await
+        {
+            Ok(_) => synced += 1,
+            Err(_) => skipped += 1,
+        }
+    }
+
+    Ok(axum::Json(json!({ "synced": synced, "skipped": skipped })).into_response())
+}
+
 async fn automation_routing(
     State(state): State<AppState>,
     Path(_slug): Path<String>,
@@ -330,4 +485,77 @@ async fn automation_routing(
         })
         .collect();
     Ok(axum::Json(json!({ "items": items })).into_response())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::categorise_workflow;
+
+    #[test]
+    fn a_mail_sender_is_real_work() {
+        // The category decides what an operator is muting. "Status" reads as
+        // safe to silence; if a workflow that sends the band's mail lands
+        // there, muting the noise stops the outreach too.
+        for name in [
+            "CrowdRelay — CrowdRelayOS mail executor + daily Gemini polish",
+            "VIRYA 08 — Playlist Pitching Engine",
+            "CrowdRelay — CrowdRelayOS beacon invite batch executor",
+            "CrowdRelay — CrowdRelayOS opportunity application executor",
+        ] {
+            assert_eq!(categorise_workflow(name), "real_work", "{name}");
+        }
+    }
+
+    #[test]
+    fn a_reporter_is_status() {
+        for name in [
+            "VIRYA 19 — META Opportunity Router + Daily Digest",
+            "VIRYA 02 — Reply monitor → CRM + Discord Bot",
+            "VIRYA 18 — META Instagram Hashtag Radar",
+            "CrowdRelay — CrowdRelayOS operator brief",
+        ] {
+            assert_eq!(categorise_workflow(name), "status", "{name}");
+        }
+    }
+
+    #[test]
+    fn plumbing_is_system() {
+        for name in [
+            "CrowdRelay — CrowdRelayOS executor heartbeat",
+            "VIRYA 99 — Central Automation Error Handler",
+            "VIRYA 20 — META OAuth Health Check",
+            "VIRYA 98 — CrowdRelay Queue Watchdog",
+            "CrowdRelay — CrowdRelayOS execution receipt spooler",
+            "VIRYA 00 — Cockpit Rebuilder",
+        ] {
+            assert_eq!(categorise_workflow(name), "system", "{name}");
+        }
+    }
+
+    #[test]
+    fn an_unrecognised_name_errs_toward_real_work() {
+        // Wrong in the safe direction: a status job shown as real work is
+        // noise, but real work shown as status invites muting it.
+        assert_eq!(categorise_workflow("VIRYA 42 — something new"), "real_work");
+        assert_eq!(categorise_workflow(""), "real_work");
+    }
+
+    #[test]
+    fn every_category_is_one_the_store_accepts() {
+        // upsert_automation_workflow_config rejects anything outside this set
+        // with InvalidInput, which would silently skip the workflow during a
+        // sync and leave the panel short of rows with no error surfaced.
+        for name in [
+            "mail executor",
+            "daily digest",
+            "executor heartbeat",
+            "anything at all",
+        ] {
+            let category = categorise_workflow(name);
+            assert!(
+                matches!(category, "real_work" | "status" | "system"),
+                "{name} categorised as {category}, which the store rejects",
+            );
+        }
+    }
 }

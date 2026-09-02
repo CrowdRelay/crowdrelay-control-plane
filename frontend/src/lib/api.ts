@@ -79,6 +79,16 @@ export const api = {
     request<{ endpoints: DiscoveredEndpoint[] }>(`/tenants/${encodeURIComponent(slug)}/notifiers/discovered`),
   notifierPlatformConfig: (slug: string) =>
     request<{ items: PlatformConfigItem[] }>(`/tenants/${encodeURIComponent(slug)}/notifiers/platform-config`),
+  // n8n owns the workflows; the control plane mirrors them so they can be
+  // shown and muted. Without this the routing panel stays empty while n8n runs
+  // dozens of live workflows, which reads as a broken page rather than an
+  // unsynced one.
+  syncNotifierAutomationRouting: (slug: string) =>
+    request<{ synced: number; skipped: number }>(
+      `/tenants/${encodeURIComponent(slug)}/notifiers/automation-routing/sync`,
+      { method: 'POST' },
+    ),
+
   notifierAutomationRouting: (slug: string) =>
     request<{ items: AutomationRoutingItem[] }>(`/tenants/${encodeURIComponent(slug)}/notifiers/automation-routing`),
   communityIntelligenceCommunities: (slug: string) =>

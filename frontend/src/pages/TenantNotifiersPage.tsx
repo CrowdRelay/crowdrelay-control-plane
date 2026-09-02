@@ -68,6 +68,18 @@ export function TenantNotifiersPage() {
 
   const create = useMutation(() => ({ mutationFn: () => api.createNotifier(slug(), { kind: kind(), label: label().trim(), url: kind() === 'email_relay' ? undefined : target().trim(), events: events(), enabled: true }), onSuccess: async () => { await refresh(); toast.success(`${label().trim()} added.`); setLabel(''); setTarget(''); setEvents([]) } }))
   const update = useMutation(() => ({ mutationFn: (i: { id: string; enabled?: boolean }) => api.updateNotifier(slug(), i.id, { enabled: i.enabled }), onSuccess: refresh }))
+  const syncRouting = useMutation(() => ({
+    mutationFn: () => api.syncNotifierAutomationRouting(slug()),
+    onSuccess: (result) => {
+      refresh()
+      toast.success(
+        result.skipped > 0
+          ? `Synced ${result.synced} workflows, skipped ${result.skipped}.`
+          : `Synced ${result.synced} workflows from n8n.`,
+      )
+    },
+    onError: (error) => toast.error(errorMessage(error, 'n8n sync failed')),
+  }))
   const remove = useMutation(() => ({ mutationFn: (id: string) => api.deleteNotifier(slug(), id), onSuccess: () => { refresh(); toast.success('Notifier removed.') } }))
   const test = useMutation(() => ({ mutationFn: async (id: string) => { try { const r = await api.testNotifier(slug(), id); return r.ok ? '' : (r.error ?? 'delivery failed') } catch (e) { return errorMessage(e, 'test delivery failed') } }, onMutate: (id) => setTestResult(c => ({ ...c, [id]: 'testing…' })), onSuccess: (err, id) => { setTestResult(c => ({ ...c, [id]: err ? `failed: ${err}` : 'delivered ✓' })); if (err) toast.error(`Test delivery failed: ${err}`) } }))
 
@@ -133,10 +145,19 @@ export function TenantNotifiersPage() {
     {/* ── AUTOMATION / N8N ───────────────────────────────────────── */}
     <Show when={automationRouting.error}><article class="panel"><div class="error-card" role="alert">{errorMessage(automationRouting.error, 'Automation routing could not be loaded')}</div></article></Show>
     <Show when={!automationRouting.error && automationRouting.isPending}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
-    <Show when={automationRouting.data && routingItems().length > 0}>
+    <Show when={automationRouting.data}>
       <article class="panel">
-        <div class="section-title"><div><span class="eyebrow">AUTOMATION / N8N</span><h2>Workflow routing configs</h2></div><Show when={routingItems().length > 0}><small class="muted">{routingItems().length} workflows</small></Show></div>
+        <div class="section-title"><div><span class="eyebrow">AUTOMATION / N8N</span><h2>Workflow routing configs</h2></div><div class="row-health"><Show when={routingItems().length > 0}><small class="muted">{routingItems().length} workflows</small></Show><button type="button" class="ghost" disabled={syncRouting.isPending} onClick={() => syncRouting.mutate()}>{syncRouting.isPending ? 'Syncing…' : 'Sync from n8n'}</button></div></div>
         <p class="agent-section-intro">n8n workflow routing with Discord forwarding and mute controls. <strong>source:</strong> database · <strong>owner:</strong> automation · <strong>path:</strong> workflow</p>
+        <Show when={routingItems().length === 0}>
+          <div class="inherit-card">
+            <EmptyState
+              label="No workflows mirrored yet"
+              hint="n8n owns the workflows; this table is the control plane's copy. Sync to pull the live list in, then mute the ones you do not want reported."
+            />
+          </div>
+        </Show>
+        <Show when={routingItems().length > 0}>
         <table class="data-table">
           <thead><tr><th>Workflow</th><th>Label</th><th>Category</th><th>Discord</th><th>Muted</th><th>Status</th></tr></thead>
           <tbody>
@@ -150,6 +171,7 @@ export function TenantNotifiersPage() {
             </tr>}</For>
           </tbody>
         </table>
+        </Show>
       </article>
     </Show>
 
