@@ -15,11 +15,16 @@ umask 077
 # leaving production on the previous release with no user-visible downtime.
 #
 # Usage (called by deploy-ecosystem.sh or directly):
-#   sudo bash scripts/deploy-bluegreen.sh <target-sha> <image-digest> [repo-dir]
+#   sudo bash scripts/deploy-bluegreen.sh <target-sha> <image-digest> [repo-dir] \
+#     [agent-tag] [agent-digest]
 
 TARGET="${1:-}"
 IMAGE_DIGEST="${2:-}"
 REPO_DIR="${3:-/srv/crowdrelay-control-plane}"
+# The agent image is resolved by the caller from the agents repo; env does not
+# survive `ssh ... sudo bash`, so it arrives as arguments.
+AGENT_TAG_ARG="${4:-}"
+AGENT_DIGEST_ARG="${5:-}"
 EDGE_CADDYFILE="/opt/crowdrelay/ops/edge/Caddyfile"
 EDGE_CONTAINER="virya-edge-caddy"
 EDGE_NETWORK="virya-edge"
@@ -436,8 +441,9 @@ docker rm "$CURRENT_APP" >/dev/null 2>&1 || true
 #
 # Any tag is deployable now. The pin, when there is one, is a digest.
 agent_container="crowdrelay-control-plane-agent-service-1"
-agent_tag="$(sed -n 's/^AGENT_SERVICE_IMAGE_TAG=//p' .env | tail -n1)"
-agent_digest="${AGENT_SERVICE_IMAGE_DIGEST:-}"
+# Prefer what the caller resolved; .env is the fallback for a hand-run deploy.
+agent_tag="${AGENT_TAG_ARG:-$(sed -n 's/^AGENT_SERVICE_IMAGE_TAG=//p' .env | tail -n1)}"
+agent_digest="${AGENT_DIGEST_ARG:-${AGENT_SERVICE_IMAGE_DIGEST:-}}"
 agent_local="crowdrelay-agents:${agent_tag}"
 if [[ -n "$agent_tag" ]]; then
   # Roll back by image ID, not by tag. With a moving tag like `latest`,

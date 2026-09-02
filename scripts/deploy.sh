@@ -7,6 +7,8 @@ TARGET="${1:-}"
 WAIT_SECONDS="${CONTROL_PLANE_DEPLOY_WAIT_SECONDS:-3600}"
 POLL_SECONDS="${CONTROL_PLANE_DEPLOY_POLL_SECONDS:-3}"
 REMOTE="${CONTROL_PLANE_DEPLOY_HOST:-virya-crowdrelay}"
+AGENTS_REPO="${AGENTS_REPO:-CrowdRelay/crowdrelay-agents}"
+AGENTS_PUBLISH_WORKFLOW="${AGENTS_PUBLISH_WORKFLOW:-publish.yml}"
 REMOTE_DIR="${CONTROL_PLANE_DEPLOY_REMOTE_DIR:-/srv/crowdrelay-control-plane}"
 CANONICAL="$ROOT_DIR/scripts/deploy-production.sh"
 BLUEGREEN="$ROOT_DIR/scripts/deploy-bluegreen.sh"
@@ -233,6 +235,49 @@ wait_for_ci
 REMOTE_MAIN="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
 [[ "$REMOTE_MAIN" == "$TARGET" ]] || fail "origin/main moved while waiting: remote=$REMOTE_MAIN target=$TARGET"
 
+# --- Resolve the agent-service image from the agents repo's newest release ---
+# The agent-service ships alongside the control plane, but its image comes from
+# a different repository, so this deploy has to name a version.
+#
+# Production named `latest`, and the agents publish workflow has never pushed
+# that tag — it publishes `sha-<40 hex>` only. So the reference was fiction:
+# `crowdrelay-agents:latest` existed on the host as a tag someone built by hand
+# once, with no registry counterpart to move it forward. Pinning the sha by
+# hand in .env would work for exactly one release and then rot the same way.
+#
+# Resolve it instead. `publish.yml` only runs after CI passes, so the newest
+# published image is the newest green main — which is what `latest` was
+# reaching for. A failure here is not fatal: the control plane still deploys,
+# and the blue-green script reports the agent as stale on stderr.
+resolve_agent_image() {
+  local run_id digest release_sha artifact_dir
+  run_id="$(gh run list --repo "$AGENTS_REPO" --workflow "$AGENTS_PUBLISH_WORKFLOW" \
+    --branch main --status success --limit 1 --json databaseId \
+    --jq '.[0].databaseId' 2>/dev/null || true)"
+  if [[ -z "$run_id" ]]; then
+    printf 'AGENT_IMAGE=UNRESOLVED reason=no-successful-publish-run repo=%s\n' "$AGENTS_REPO" >&2
+    return 0
+  fi
+  artifact_dir="$(mktemp -d)"
+  if ! gh run download "$run_id" --repo "$AGENTS_REPO" --dir "$artifact_dir" >/dev/null 2>&1 \
+     || [[ ! -f "$artifact_dir/image.env" ]]; then
+    rm -rf -- "$artifact_dir"
+    printf 'AGENT_IMAGE=UNRESOLVED reason=missing-digest-artifact run=%s\n' "$run_id" >&2
+    return 0
+  fi
+  release_sha="$(sed -n 's/^AGENT_SERVICE_RELEASE_SHA=//p' "$artifact_dir/image.env")"
+  digest="$(sed -n 's/^AGENT_SERVICE_IMAGE_DIGEST=//p' "$artifact_dir/image.env")"
+  rm -rf -- "$artifact_dir"
+  if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ || ! "$release_sha" =~ ^[0-9a-f]{40}$ ]]; then
+    printf 'AGENT_IMAGE=UNRESOLVED reason=malformed-artifact run=%s\n' "$run_id" >&2
+    return 0
+  fi
+  export AGENT_SERVICE_IMAGE_DIGEST="$digest"
+  export AGENT_SERVICE_IMAGE_TAG="sha-${release_sha}"
+  printf 'AGENT_IMAGE=RESOLVED sha=%s digest=%s\n' "$release_sha" "$digest"
+}
+resolve_agent_image
+
 trap on_interrupt INT TERM HUP
 
 # --- Try blue-green (zero-downtime) first; fall back to force-recreate ---
@@ -267,7 +312,8 @@ if [[ "$blue_green_eligible" == "eligible" ]]; then
       || fail "could not copy ${pair%:*} to $REMOTE:${pair##*:}"
   done
   set +e
-  ssh -T "$REMOTE" sudo bash /tmp/cp-deploy-bluegreen.sh "$TARGET" "${CONTROL_PLANE_IMAGE_DIGEST:-}" "$REMOTE_DIR"
+  ssh -T "$REMOTE" sudo bash /tmp/cp-deploy-bluegreen.sh "$TARGET" "${CONTROL_PLANE_IMAGE_DIGEST:-}" \
+    "$REMOTE_DIR" "${AGENT_SERVICE_IMAGE_TAG:-}" "${AGENT_SERVICE_IMAGE_DIGEST:-}"
   deploy_status=$?
   set -e
   ssh -T "$REMOTE" "rm -f /tmp/cp-deploy-bluegreen.sh /tmp/release_receipt.py" 2>/dev/null || true
