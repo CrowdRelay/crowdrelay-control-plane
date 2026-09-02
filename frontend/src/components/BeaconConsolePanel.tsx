@@ -37,6 +37,12 @@ const EMPTY_FORM = {
 
 export function BeaconConsolePanel(props: { slug: string }) {
   const [roster, { refetch }] = createResource(() => props.slug, api.beaconSignalDashboard)
+  // Only for the researched-contact count. A button that cannot say how many
+  // contacts it will bring over is a dare: press it and find out.
+  const [network, { refetch: refetchNetwork }] = createResource(
+    () => props.slug,
+    api.beaconNetwork,
+  )
 
   const [query, setQuery] = createSignal('')
   const [statusFilter, setStatusFilter] = createSignal<string>('all')
@@ -93,6 +99,23 @@ export function BeaconConsolePanel(props: { slug: string }) {
     }
   }
 
+  // Researched contacts land unverified, so this queues names for review
+  // rather than adding people who can be emailed. That is the whole reason it
+  // is safe as a single button with no confirmation.
+  const importResearched = () => {
+    const waiting = network()?.researchedAvailable ?? 0
+    if (waiting === 0) return
+    void act(
+      'import',
+      async () => {
+        const result = await api.importResearchedBeacons(props.slug)
+        await refetchNetwork()
+        return result
+      },
+      `Imported researched contacts. They are unverified — approve them before inviting.`,
+    )
+  }
+
   const inviteSelected = () => {
     const ids = [...selected()]
     if (ids.length === 0) return
@@ -144,6 +167,18 @@ export function BeaconConsolePanel(props: { slug: string }) {
             <span class="muted">
               {roster()!.total} total · {roster()!.active} active · {roster()!.invited} invited
             </span>
+          </Show>
+          <Show when={(network()?.researchedAvailable ?? 0) > 0}>
+            <button
+              class="ghost"
+              disabled={busy() !== null}
+              onClick={importResearched}
+              title="Adds researched contacts to the roster as unverified. Approve them before inviting."
+            >
+              {busy() === 'import'
+                ? 'Importing…'
+                : `Import ${network()!.researchedAvailable} researched`}
+            </button>
           </Show>
           <button class="ghost" onClick={() => setAdding(value => !value)}>
             {adding() ? 'Cancel' : 'Add beacon'}

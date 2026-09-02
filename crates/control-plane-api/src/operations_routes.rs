@@ -334,7 +334,7 @@ pub fn router() -> Router<AppState> {
         )
         .route(
             "/tenants/{slug}/operations/beacon-network",
-            get(beacon_network),
+            get(beacon_network).post(beacon_network_action),
         )
         // ── Beacon management ─────────────────────────────────────────
         .route("/tenants/{slug}/operations/beacons", post(upsert_beacon))
@@ -2724,6 +2724,49 @@ async fn upsert_beacon(
     )
     .await;
     object_no_store(value, "beacon upsert")
+}
+
+/// Runs a beacon-network action: import researched contacts, approve a
+/// candidate, queue invites.
+///
+/// Import is the one that mattered first. Two pools of researched contacts
+/// existed — agent-proposed targets and screened candidate routes — and
+/// neither had a path onto the roster, which held three beacons while the
+/// research sat in tables nobody could reach from here.
+async fn beacon_network_action(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let action = body
+        .get("action")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown")
+        .to_owned();
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/autopilot/beacon-network",
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.beacon_network.action",
+        "beacon_network",
+        &action,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "beacon network action")
 }
 
 /// Invites many beacons to Signal in one call.

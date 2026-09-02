@@ -1579,6 +1579,17 @@ export type BeaconNetworkResponse = {
   pendingCandidates: DiscoveredBeaconView[]
   approvedCandidates: DiscoveredBeaconView[]
   inviteJobs: InviteJobView[]
+  /** Researched contacts not yet on the roster. */
+  researchedAvailable: number
+}
+
+/** What one press of Import did. */
+export type BeaconImportResult = {
+  imported: number
+  alreadyPresent: number
+  skippedNoRoute: number
+  skippedDoNotContact: number
+  considered: number
 }
 
 export type DiscoveryRunView = {
