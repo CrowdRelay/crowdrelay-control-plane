@@ -110,8 +110,23 @@ grep -Fq '# CONTROL_PLANE_ACTIVE=' "$EDGE_CADDYFILE" || \
 grep -Fq 'to crowdrelay-control-plane-app-1:8090 crowdrelay-control-plane-app-green-1:8090' "$EDGE_CADDYFILE" \
   || grep -Fq 'to crowdrelay-control-plane-app-green-1:8090 crowdrelay-control-plane-app-1:8090' "$EDGE_CADDYFILE" \
   || fail 'edge Caddyfile does not contain the static blue-green upstream pair for Control Plane'
-cmp -s <(docker exec "$EDGE_CONTAINER" cat /etc/caddy/Caddyfile 2>/dev/null) "$EDGE_CADDYFILE" || \
-  fail 'edge Caddy bind mount is stale; apply edge config separately before deploying'
+# A single-file bind mount is bound by inode, not by path. Any edit that
+# replaces the file — `cp`, `git apply`, `git checkout`, most editors writing
+# via a temp file and rename — leaves the container pinned to the old inode,
+# serving content the host file no longer has. The two can never converge, and
+# no amount of re-editing helps.
+#
+# The cutover below writes with `cat candidate > file`, which truncates in
+# place and keeps the inode, so the deploy itself never causes this. It is
+# always an out-of-band edit that does.
+if ! cmp -s <(docker exec "$EDGE_CONTAINER" cat /etc/caddy/Caddyfile 2>/dev/null) "$EDGE_CADDYFILE"; then
+  host_inode="$(stat -c %i "$EDGE_CADDYFILE" 2>/dev/null || echo unknown)"
+  container_inode="$(docker exec "$EDGE_CONTAINER" stat -c %i /etc/caddy/Caddyfile 2>/dev/null || echo unknown)"
+  if [[ "$host_inode" != "$container_inode" ]]; then
+    fail "edge Caddyfile inode differs from the mounted one (host=${host_inode} container=${container_inode}): the file was replaced rather than edited in place, so the container is pinned to an inode that no longer has a name. Restart ${EDGE_CONTAINER} to re-bind, then deploy. To edit it without a restart, write in place: cat new > ${EDGE_CADDYFILE}"
+  fi
+  fail "edge Caddy is serving different content from ${EDGE_CADDYFILE} despite a matching inode; reload ${EDGE_CONTAINER} before deploying"
+fi
 docker exec "$EDGE_CONTAINER" wget -qO- http://127.0.0.1:2019/config/ >/dev/null \
   || fail 'edge Caddy admin endpoint is unavailable'
 printf 'EDGE_PREFLIGHT=PASS config=synchronized cutover=graceful-reload\n'
