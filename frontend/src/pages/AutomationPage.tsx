@@ -12,8 +12,10 @@ const statusTone = (s: string) => s === 'new' ? 'bad' : s === 'acknowledged' ? '
 const categoryLabel = (c: string) => c === 'real_work' ? 'Real work' : c === 'system' ? 'System' : 'Status'
 const formatTime = (iso: string) => {
   const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return 'recently'
   const now = new Date()
   const diff = (now.getTime() - d.getTime()) / 1000
+  if (diff < 0) return 'just now'
   if (diff < 60) return 'just now'
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
