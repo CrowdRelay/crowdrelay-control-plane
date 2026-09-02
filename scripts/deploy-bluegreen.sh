@@ -535,6 +535,16 @@ if [[ -n "$agent_tag" ]]; then
       printf 'AGENT_SERVICE=UNCHANGED tag=%s image=%s\n' "$agent_tag" "${new_agent_image:0:19}"
     else
       printf '\n==> Recreating agent-service with tag %s\n' "$agent_tag"
+      # compose resolves `image: crowdrelay-agents:${AGENT_SERVICE_IMAGE_TAG}`
+      # from .env on this host, not from the tag this script was handed. Pull
+      # the right image, tag it, recreate — and compose would still start
+      # whatever .env named, which was `latest`: an image nobody publishes and
+      # that had sat unchanged on the host for days. The run then reported PASS
+      # because it inspected the sha-tagged image it had just pulled rather
+      # than the one the container actually got.
+      sed -i "s|^AGENT_SERVICE_IMAGE_TAG=.*|AGENT_SERVICE_IMAGE_TAG=${agent_tag}|" .env
+      grep -Fq "AGENT_SERVICE_IMAGE_TAG=${agent_tag}" .env \
+        || fail "could not point .env at agent tag ${agent_tag}"
       agent_compose_args=(-f compose.production.yml -f compose.area.yml)
       [[ -f compose.agents.yml ]] && agent_compose_args+=(-f compose.agents.yml)
       docker compose "${agent_compose_args[@]}" \
@@ -547,6 +557,15 @@ if [[ -n "$agent_tag" ]]; then
         fi
         sleep 2
       done
+      running_agent_image="$(docker inspect "$agent_container" --format '{{.Image}}' 2>/dev/null || true)"
+      if [[ "$agent_health" == "healthy" && "$running_agent_image" != "$new_agent_image" ]]; then
+        # Healthy, but running something else. Reporting PASS here is how a
+        # month of agent releases went out green while the container never
+        # moved off the image it booted with.
+        printf 'AGENT_SERVICE=FAILED reason=wrong-image expected=%s running=%s tag=%s\n' \
+          "${new_agent_image:0:19}" "${running_agent_image:0:19}" "$agent_tag" >&2
+        agent_health="wrong-image"
+      fi
       if [[ "$agent_health" == "healthy" ]]; then
         printf 'AGENT_SERVICE=PASS health=%s tag=%s image=%s\n' \
           "$agent_health" "$agent_tag" "${new_agent_image:0:19}"
