@@ -38,6 +38,11 @@ services:
       CONTROL_PLANE_N8N_BASE_URL: ${CONTROL_PLANE_N8N_BASE_URL:-}
       CONTROL_PLANE_N8N_API_KEY: ${CONTROL_PLANE_N8N_API_KEY:-}
       CONTROL_PLANE_DISCORD_AUTOMATION_WEBHOOK_URL: ${CONTROL_PLANE_DISCORD_AUTOMATION_WEBHOOK_URL:-}
+      # The Notifiers panel names this variable as the fix when the email
+      # relay is unset, and neither compose file passed it through — so
+      # setting it changed nothing and the panel kept asking for it. Both
+      # colours need it or a cutover silently drops the relay.
+      CONTROL_PLANE_NOTIFY_EMAIL_RELAY_URL: ${CONTROL_PLANE_NOTIFY_EMAIL_RELAY_URL:-}
       CONTROL_PLANE_ADMIN_ACTOR: ${CONTROL_PLANE_ADMIN_ACTOR:-wojciechbator}
       CONTROL_PLANE_FRONTEND_DIST: /app/frontend/dist
       CONTROL_PLANE_VIRYA_CROWDRELAY_URL: ${CONTROL_PLANE_VIRYA_CROWDRELAY_URL:-https://signal-api.virya.music}
