@@ -49,7 +49,7 @@ const PLATFORM_FOR_KIND: Record<string, string> = {
   other: 'web',
 }
 
-const number = (value: number | null) => (value === null ? '—' : value.toLocaleString())
+const number = (value: number | null | undefined) => (value == null ? '—' : value.toLocaleString())
 
 export function CommunitiesPanel(props: { slug: string }) {
   const [places, { refetch }] = createResource(() => props.slug, s => api.audiencePlaces(s, { limit: 200 }))
