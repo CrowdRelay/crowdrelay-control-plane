@@ -168,30 +168,67 @@ grep -Fq "@${IMAGE_DIGEST}" <<<"$repo_digests" || fail "RepoDigests do not conta
 docker tag "$image_id" "$new_image"
 printf 'NEW_IMAGE=PASS sha=%s digest=%s architecture=%s\n' "$TARGET" "$IMAGE_DIGEST" "$architecture"
 
-# Detect which color is currently active from the edge Caddyfile marker.
+# Which colour is live is a fact about the containers, not a claim in a comment.
+#
+# This used to read `# CONTROL_PLANE_ACTIVE=` from the Caddyfile, treat it as
+# the authority, and use container health only as a veto:
+#
+#     [[ "$blue_health" == "healthy" ]] || fail "edge declares blue active ..."
+#
+# So any drift between the marker and reality wedged every future deploy with
+# no way forward but hand-editing production config. Drift is easy: a deploy
+# interrupted between the marker flip and the container coming up, a container
+# removed by hand, a `git checkout` of the Caddyfile. And when *neither* colour
+# was healthy the run failed outright — the one state where a deploy is most
+# needed was the one it refused.
+#
+# Reality decides; the marker is only a tiebreak when both are healthy.
 blue_health="$(docker inspect "$BLUE_APP" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
 green_health="$(docker inspect "$GREEN_APP" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
+marker_color="$(sed -n 's/^[[:space:]]*# CONTROL_PLANE_ACTIVE=//p' "$EDGE_CADDYFILE" | head -n1)"
 
-active_color="$(sed -n 's/^[[:space:]]*# CONTROL_PLANE_ACTIVE=//p' "$EDGE_CADDYFILE" | head -n1)"
-if [[ "$active_color" == "blue" ]]; then
-  [[ "$blue_health" == "healthy" ]] || fail "edge declares blue active but blue is not healthy: $blue_health"
-  DEPLOY_COLOR="green"
-  CURRENT_APP="$BLUE_APP"
-  CURRENT_ALIAS="$BLUE_ALIAS"
-  NEW_APP="$GREEN_APP"
-  NEW_ALIAS="$GREEN_ALIAS"
-  printf 'BASELINE=BLUE health=%s → deploying green\n' "$blue_health"
-elif [[ "$active_color" == "green" ]]; then
-  [[ "$green_health" == "healthy" ]] || fail "edge declares green active but green is not healthy: $green_health"
-  DEPLOY_COLOR="blue"
-  CURRENT_APP="$GREEN_APP"
-  CURRENT_ALIAS="$GREEN_ALIAS"
-  NEW_APP="$BLUE_APP"
-  NEW_ALIAS="$BLUE_ALIAS"
-  printf 'BASELINE=GREEN health=%s → deploying blue\n' "$green_health"
+blue_ok=false; [[ "$blue_health" == "healthy" ]] && blue_ok=true
+green_ok=false; [[ "$green_health" == "healthy" ]] && green_ok=true
+
+COLD_START=false
+if $blue_ok && $green_ok; then
+  # Both serving: the marker breaks the tie, because it says which one Caddy
+  # actually prefers. An unreadable marker defaults to blue.
+  case "$marker_color" in
+    blue|green) active_color="$marker_color" ;;
+    *) active_color="blue" ;;
+  esac
+  baseline_reason="both healthy, marker=${marker_color:-missing}"
+elif $blue_ok; then
+  active_color="blue"
+  baseline_reason="only blue healthy"
+elif $green_ok; then
+  active_color="green"
+  baseline_reason="only green healthy"
 else
-  fail "invalid edge active color: ${active_color:-missing}"
+  # Nothing is serving. Deploy anyway — this is exactly when a deploy matters.
+  # Target the colour the marker does *not* claim, so a half-finished previous
+  # run does not land on the same broken container again.
+  COLD_START=true
+  active_color="$([[ "$marker_color" == "green" ]] && echo green || echo blue)"
+  baseline_reason="COLD START — neither healthy (blue=${blue_health:-absent} green=${green_health:-absent})"
 fi
+
+if [[ "$active_color" == "blue" ]]; then
+  DEPLOY_COLOR="green"; CURRENT_APP="$BLUE_APP"; CURRENT_ALIAS="$BLUE_ALIAS"
+  NEW_APP="$GREEN_APP"; NEW_ALIAS="$GREEN_ALIAS"
+else
+  DEPLOY_COLOR="blue"; CURRENT_APP="$GREEN_APP"; CURRENT_ALIAS="$GREEN_ALIAS"
+  NEW_APP="$BLUE_APP"; NEW_ALIAS="$BLUE_ALIAS"
+fi
+printf 'BASELINE=%s reason=%s → deploying %s\n' \
+  "$(printf '%s' "$active_color" | tr '[:lower:]' '[:upper:]')" "$baseline_reason" "$DEPLOY_COLOR"
+if [[ "$marker_color" != "$active_color" ]]; then
+  printf 'EDGE_MARKER=RECONCILED was=%s now=%s reason=derived-from-container-health\n' \
+    "${marker_color:-missing}" "$active_color"
+fi
+$COLD_START && printf 'COLD_START=TRUE no-traffic-to-drain cutover-is-a-cold-bring-up\n'
+
 
 # Snapshot the Caddyfile for rollback
 CADDY_BACKUP="$(mktemp -t caddyfile-cp.XXXXXX)"
@@ -270,17 +307,21 @@ python3 "$RECEIPT_HELPER" phase --state-dir "$RELEASE_STATE_DIR" \
 
 printf '\n==> 3/5 — Gracefully switch Caddy preference to %s app\n' "$DEPLOY_COLOR"
 caddy_candidate="$(mktemp -t caddyfile-cp-candidate.XXXXXX)"
-if [[ "$DEPLOY_COLOR" == "green" ]]; then
-  sed \
-    -e 's/# CONTROL_PLANE_ACTIVE=blue/# CONTROL_PLANE_ACTIVE=green/' \
-    -e 's|to crowdrelay-control-plane-app-1:8090 crowdrelay-control-plane-app-green-1:8090|to crowdrelay-control-plane-app-green-1:8090 crowdrelay-control-plane-app-1:8090|' \
-    "$EDGE_CADDYFILE" > "$caddy_candidate"
-else
-  sed \
-    -e 's/# CONTROL_PLANE_ACTIVE=green/# CONTROL_PLANE_ACTIVE=blue/' \
-    -e 's|to crowdrelay-control-plane-app-green-1:8090 crowdrelay-control-plane-app-1:8090|to crowdrelay-control-plane-app-1:8090 crowdrelay-control-plane-app-green-1:8090|' \
-    "$EDGE_CADDYFILE" > "$caddy_candidate"
-fi
+# Write the desired state, rather than substituting the state we assumed.
+#
+# These sed expressions used to match the *old* value — `s/ACTIVE=blue/green/`
+# and one exact upstream ordering. If the file did not already hold precisely
+# that value, neither expression fired, the candidate came out unchanged, and
+# the run died on the "was not updated" guard below. A stale marker therefore
+# broke the rewrite as well as the decision.
+#
+# Matching `.*` and rewriting the whole upstream line makes this idempotent and
+# independent of whatever the file said before, which is also what lets a
+# reconciled marker take effect in the same run.
+sed \
+  -e "s|^\([[:space:]]*\)# CONTROL_PLANE_ACTIVE=.*|\1# CONTROL_PLANE_ACTIVE=${DEPLOY_COLOR}|" \
+  -e "s|^\([[:space:]]*\)to crowdrelay-control-plane-app.*|\1to ${NEW_APP}:8090 ${CURRENT_APP}:8090|" \
+  "$EDGE_CADDYFILE" > "$caddy_candidate"
 grep -Fq "# CONTROL_PLANE_ACTIVE=${DEPLOY_COLOR}" "$caddy_candidate" || fail 'candidate edge marker was not updated'
 grep -Fq "to ${NEW_APP}:8090 ${CURRENT_APP}:8090" "$caddy_candidate" || fail 'candidate edge upstream order was not updated'
 cat "$caddy_candidate" | docker exec -i "$EDGE_CONTAINER" caddy validate --config /dev/stdin --adapter caddyfile >/dev/null
