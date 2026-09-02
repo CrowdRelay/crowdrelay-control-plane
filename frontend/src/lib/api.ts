@@ -353,11 +353,11 @@ export const api = {
     request<{ connections: FanbaseConnection[] }>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/connections`),
   deleteFanbaseConnection: (slug: string, id: string) =>
     request<void>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/connections/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-  createDiscordConnection: (slug: string, guildId: string, label?: string) =>
+  createDiscordConnection: (slug: string, inviteCode: string, label?: string) =>
     request<{ platform: string; status: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/connections/discord`, {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
-      body: JSON.stringify({ guildId, label }),
+      body: JSON.stringify({ inviteCode, label }),
     }),
   createTelegramConnection: (slug: string, channel: string, botToken: string, label?: string) =>
     request<{ platform: string; status: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/connections/telegram`, {
