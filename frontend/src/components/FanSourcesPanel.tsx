@@ -82,7 +82,7 @@ export function FanSourcesPanel(props: {
 
   // Simple-credential connection form state (Discord/Telegram/Last.fm/Deezer/Discogs/Bluesky)
   const [connectingPlatform, setConnectingPlatform] = createSignal<string | null>(null)
-  const [discordGuildId, setDiscordGuildId] = createSignal('')
+  const [discordInviteCode, setDiscordInviteCode] = createSignal('')
   const [telegramChannel, setTelegramChannel] = createSignal('')
   const [telegramBotToken, setTelegramBotToken] = createSignal('')
   const [lastfmArtist, setLastfmArtist] = createSignal('')
@@ -200,12 +200,12 @@ export function FanSourcesPanel(props: {
   }
 
   const connectDiscord = useMutation(() => ({
-    mutationFn: () => api.createDiscordConnection(props.slug, discordGuildId().trim()),
+    mutationFn: () => api.createDiscordConnection(props.slug, discordInviteCode().trim()),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
       refetchConnections()
       setConnectingPlatform(null)
-      setDiscordGuildId('')
+      setDiscordInviteCode('')
       setErrorText(null)
       setNotice('Discord connection created.')
     },
@@ -487,10 +487,10 @@ export function FanSourcesPanel(props: {
       {/* Discord connection form */}
       <Show when={connectingPlatform() === 'discord'}>
         <div class="form-grid" style={{ 'margin-top': '12px' }}>
-          <label>Discord server ID<small>Numeric snowflake from the server settings → Widget</small><input value={discordGuildId()} onInput={e => setDiscordGuildId(e.currentTarget.value)} placeholder="123456789012345678" /></label>
+          <label>Discord invite code<small>From discord.gg/ link (e.g. BBdDV6gVy)</small><input value={discordInviteCode()} onInput={e => setDiscordInviteCode(e.currentTarget.value)} placeholder="BBdDV6gVy" /></label>
         </div>
         <div class="form-actions">
-          <button disabled={!discordGuildId().trim() || connectDiscord.isPending}
+          <button disabled={!discordInviteCode().trim() || connectDiscord.isPending}
             onClick={() => connectDiscord.mutate()}>
             {connectDiscord.isPending ? 'Connecting…' : 'Connect Discord'}
           </button>
