@@ -347,8 +347,40 @@ grep -Fq "to ${NEW_APP}:8090 ${CURRENT_APP}:8090" "$caddy_candidate" || fail 'ca
 cat "$caddy_candidate" | docker exec -i "$EDGE_CONTAINER" caddy validate --config /dev/stdin --adapter caddyfile >/dev/null
 CADDY_SWITCHED=true
 cat "$caddy_candidate" > "$EDGE_CADDYFILE"
+
+# The edge Caddyfile is a **single-file** bind mount, and Docker resolves those
+# to an inode once, at container start. The container follows that inode for
+# its whole life. Anything that *replaces* the file rather than writing into it
+# produces a new inode — `git checkout`, `git pull`, `mv`, `cp`-then-rename,
+# most editors — and from that moment the host and the container are reading
+# two different files.
+#
+# `/opt/crowdrelay` is a git checkout and two repos' deploy scripts write this
+# file, so this happens for real. On 2026-09-02 a checkout at 10:59 swapped the
+# inode under a container running since 08:00; the next deploy wrote the host
+# copy, `caddy reload` read the container's orphaned copy, and the cutover did
+# nothing at all while every health check passed and the marker on disk said
+# the new colour was live.
+if ! cmp -s <(docker exec "$EDGE_CONTAINER" cat /etc/caddy/Caddyfile 2>/dev/null) "$EDGE_CADDYFILE"; then
+  # Only a restart can fix this. `docker cp` fails with "device or resource
+  # busy" because it removes-and-replaces, which is impossible on a mount
+  # point, and the mount is read-only so the container cannot write it either.
+  # Restarting makes Docker resolve the bind afresh against the current file.
+  printf 'EDGE_MOUNT=DETACHED reason=host-and-container-differ action=restarting-edge\n' >&2
+  docker restart "$EDGE_CONTAINER" >/dev/null || fail 'could not restart the edge to re-attach its config'
+  for _ in $(seq 1 30); do
+    edge_state="$(docker inspect "$EDGE_CONTAINER" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
+    [[ "$edge_state" == "healthy" || "$edge_state" == "running" ]] && break
+    sleep 1
+  done
+  cmp -s <(docker exec "$EDGE_CONTAINER" cat /etc/caddy/Caddyfile 2>/dev/null) "$EDGE_CADDYFILE" \
+    || fail 'edge config still differs after restart; something is rewriting it'
+  printf 'EDGE_MOUNT=REATTACHED\n' >&2
+fi
 rm -f "$caddy_candidate"
 docker exec "$EDGE_CONTAINER" caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile --address 127.0.0.1:2019 >/dev/null
+# Still verified afterwards. The copy above should make this hold, so a failure
+# here means something is rewriting the config underneath the deploy.
 cmp -s <(docker exec "$EDGE_CONTAINER" cat /etc/caddy/Caddyfile) "$EDGE_CADDYFILE" || fail 'edge runtime config differs after reload'
 printf 'CADDY_SWITCH=PASS primary=%s fallback=%s reload=graceful\n' "$NEW_APP" "$CURRENT_APP"
 
