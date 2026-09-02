@@ -2043,6 +2043,25 @@ table tbody tr:hover{background:rgba(255,255,255,.025)}
 .confirm-dialog-body{margin:0 0 var(--space-5);color:var(--muted);font-size:var(--text-base);line-height:1.55}
 .confirm-dialog-actions{display:flex;justify-content:flex-end;gap:var(--space-2)}
 
+/* Play Store badge link in product entitlement rows */
+.play-store-link{display:inline-flex;align-items:center;border-radius:6px;overflow:hidden}
+.play-store-link img{display:block;height:30px;width:auto}
+
+/* Mobile App Setup panel */
+.mobile-app-setup-panel .setup-checklist{display:grid;gap:var(--space-3);margin-bottom:var(--space-4)}
+.setup-step{display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default)}
+.setup-step.done{border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.04)}
+.setup-step.pending{border-color:var(--border-default);background:transparent}
+.setup-step-icon{font-size:1.2em;line-height:1.4;flex-shrink:0}
+.setup-step.done .setup-step-icon{color:var(--good)}
+.setup-step.pending .setup-step-icon{color:var(--muted)}
+.setup-step strong{display:block;font-size:var(--text-base)}
+.setup-step small{display:block;color:var(--muted);font-size:var(--text-sm);margin-top:2px}
+.setup-step small a{color:var(--accent)}
+.onboard-command-card{padding:var(--space-4);border-radius:var(--radius-md);border:1px solid var(--border-default);background:var(--surface);margin-top:var(--space-3)}
+.onboard-command-card pre{margin:var(--space-2) 0 0;overflow-x:auto}
+.onboard-command-card code{font-size:var(--text-sm);color:var(--text-muted)}
+
 /* Community Intelligence page */
 .community-intel-grid{display:grid;grid-template-columns:380px 1fr;gap:var(--space-4);margin-top:var(--space-4)}
 @media(max-width:1100px){.community-intel-grid{grid-template-columns:1fr}}

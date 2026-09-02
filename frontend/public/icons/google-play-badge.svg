@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 135 40" role="img" aria-labelledby="title desc">
+  <title id="title">Get it on Google Play</title>
+  <desc id="desc">Google Play Store badge</desc>
+  <rect width="135" height="40" rx="5" fill="#070908"/>
+  <path d="M 14 20 L 22 15.5 L 22 24.5 Z" fill="#22d3ee" opacity="0.9"/>
+  <path d="M 14 20 L 22 24.5 L 19.5 27 C 19 27.5 18.2 27.5 17.7 27.2 L 10.5 23.1 C 10 22.8 10 22 10.5 21.7 L 14 20 Z" fill="#93c6c0" opacity="0.85"/>
+  <path d="M 14 20 L 10.5 21.7 C 10 22 10 22.8 10.5 23.1 L 17.7 27.2 C 18.2 27.5 19 27.5 19.5 27 L 22 24.5 L 14 20 Z" fill="#5eead4" opacity="0.7"/>
+  <text x="30" y="17" font-family="system-ui, -apple-system, sans-serif" font-size="7" fill="#9ca3af">GET IT ON</text>
+  <text x="30" y="30" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600" fill="#f7f7f8">Google Play</text>
+</svg>

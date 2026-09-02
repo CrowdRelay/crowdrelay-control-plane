@@ -84,6 +84,8 @@ export function TenantWizardPage() {
   const [signalEnabled, setSignalEnabled] = createSignal(true)
   const [synesthesiaEnabled, setSynesthesiaEnabled] = createSignal(false)
   const [areaEnabled, setAreaEnabled] = createSignal(false)
+  const [signalPlayStoreUrl, setSignalPlayStoreUrl] = createSignal('')
+  const [synesthesiaPlayStoreUrl, setSynesthesiaPlayStoreUrl] = createSignal('')
 
   // Step 3: Goal
   const [northStar, setNorthStar] = createSignal<NorthStar>('total_audience')
@@ -147,6 +149,8 @@ export function TenantWizardPage() {
       areaEnabled: areaEnabled(),
       northStarMetric: effectiveNorthStar(),
       fanbaseSources: selectedSources(),
+      signalPlayStoreUrl: signalPlayStoreUrl().trim() || undefined,
+      synesthesiaPlayStoreUrl: synesthesiaPlayStoreUrl().trim() || undefined,
     }),
     onSuccess: async () => {
       await Promise.all([
@@ -240,6 +244,18 @@ export function TenantWizardPage() {
         <Show when={!signalEnabled()}>
           <div class="notice-card">Signal is disabled. The brain goal step will not offer "Signal fans" as a north star option. Signal base URL is not required for deployment.</div>
         </Show>
+        <Show when={signalEnabled() || synesthesiaEnabled()}>
+          <div class="form-section-head"><div><span class="eyebrow">GOOGLE PLAY</span><h2>Play Store URLs (optional)</h2></div></div>
+          <p class="wizard-intro">Set the Google Play Store URL for each enabled mobile app. Leave blank if the app is not yet published — you can add it later from the tenant page.</p>
+          <div class="form-grid">
+            <Show when={signalEnabled()}>
+              <label>Signal Play Store URL<input value={signalPlayStoreUrl()} onInput={(e) => setSignalPlayStoreUrl(e.currentTarget.value)} placeholder={`https://play.google.com/store/apps/details?id=music.${slug() || 'tenant'}.signal`} /></label>
+            </Show>
+            <Show when={synesthesiaEnabled()}>
+              <label>Synesthesia Play Store URL<input value={synesthesiaPlayStoreUrl()} onInput={(e) => setSynesthesiaPlayStoreUrl(e.currentTarget.value)} placeholder={`https://play.google.com/store/apps/details?id=music.${slug() || 'tenant'}.synesthesia`} /></label>
+            </Show>
+          </div>
+        </Show>
         <div class="form-actions right">
           <button class="ghost" onClick={prevStep}>← Back</button>
           <button onClick={nextStep} disabled={!step2Ready()}>Next: Goal →</button>
@@ -301,6 +317,12 @@ export function TenantWizardPage() {
           <div class="summary-row"><span>Signal</span><strong classList={{ on: signalEnabled(), off: !signalEnabled() }}>{signalEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
           <div class="summary-row"><span>Synesthesia</span><strong classList={{ on: synesthesiaEnabled(), off: !synesthesiaEnabled() }}>{synesthesiaEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
           <div class="summary-row"><span>AREA game</span><strong classList={{ on: areaEnabled(), off: !areaEnabled() }}>{areaEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
+          <Show when={signalEnabled() && signalPlayStoreUrl().trim()}>
+            <div class="summary-row"><span>Signal Play URL</span><strong>{signalPlayStoreUrl().trim()}</strong></div>
+          </Show>
+          <Show when={synesthesiaEnabled() && synesthesiaPlayStoreUrl().trim()}>
+            <div class="summary-row"><span>Synesthesia Play URL</span><strong>{synesthesiaPlayStoreUrl().trim()}</strong></div>
+          </Show>
           <div class="summary-row"><span>Brain goal</span><strong>{northStars.find(n => n.value === effectiveNorthStar())?.label ?? effectiveNorthStar()}</strong></div>
           <div class="summary-row"><span>Fanbase sources</span><strong>{selectedSources().length > 0 ? selectedSources().join(', ') : 'None selected'}</strong></div>
           <Show when={deployNow()}>

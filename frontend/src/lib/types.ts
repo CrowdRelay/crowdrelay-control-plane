@@ -47,6 +47,9 @@ export type Tenant = {
   brandingPalette: Palette | null
   synesthesiaEnabled: boolean
   areaEnabled: boolean
+  signalEnabled: boolean
+  signalPlayStoreUrl: string | null
+  synesthesiaPlayStoreUrl: string | null
   createdAt: string
   updatedAt: string
 }

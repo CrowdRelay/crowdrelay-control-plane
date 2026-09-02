@@ -156,15 +156,34 @@ pub fn fanbase_sources(values: Vec<String>) -> Result<Vec<String>, ApiError> {
     Ok(seen)
 }
 
-/// Synesthesia is a Virya-only product, enforced by a database CHECK. Rejecting
-/// it here turns a constraint violation into an actionable message.
-pub fn synesthesia_opt_in(enabled: bool, slug: &str) -> Result<bool, ApiError> {
-    if enabled && slug != "virya" {
-        return Err(ApiError::InvalidInput(
-            "synesthesiaEnabled is only available for the virya tenant".to_owned(),
-        ));
-    }
+/// Synesthesia is now available to all tenants. The former Virya-only database
+/// constraint was dropped in migration 0011. This function is kept as a no-op
+/// placeholder so the call site in create_tenant does not need to change — the
+/// validation layer is still the right place to add product gating if it
+/// returns in the future.
+pub fn synesthesia_opt_in(enabled: bool, _slug: &str) -> Result<bool, ApiError> {
     Ok(enabled)
+}
+
+/// Validate a Google Play Store URL. Must be the canonical Play Store details
+/// URL, or None when the app is not yet published.
+pub fn play_store_url(url: Option<String>) -> Result<Option<String>, ApiError> {
+    match url {
+        None => Ok(None),
+        Some(raw) => {
+            let trimmed = raw.trim();
+            if trimmed.is_empty() {
+                return Ok(None);
+            }
+            if !trimmed.starts_with("https://play.google.com/store/apps/details?id=") {
+                return Err(ApiError::InvalidInput(
+                    "play store URL must start with https://play.google.com/store/apps/details?id="
+                        .to_owned(),
+                ));
+            }
+            Ok(Some(trimmed.to_owned()))
+        }
+    }
 }
 
 pub fn notifier_events(values: Vec<String>) -> Result<Vec<String>, ApiError> {

@@ -17,7 +17,7 @@ use crate::{
         CreateTenantRequest, DeployTenantRequest, InitialOperator, PlanProvisioningRequest,
         ProvisioningClaimRequest, ProvisioningFailureRequest, ProvisioningLeaseRequest,
         ProvisioningSuccessRequest, RuntimeHealth, RuntimeReportRequest, TenantDeploymentSpec,
-        UpdateBrandingRequest, UpdateRegionalProfileRequest,
+        UpdateBrandingRequest, UpdateMobileAppsRequest, UpdateRegionalProfileRequest,
     },
     store::ProvisioningCompletion,
     validation,
@@ -35,6 +35,10 @@ pub fn admin_router() -> Router<AppState> {
         .route(
             "/tenants/{slug}/regional-profile",
             axum::routing::patch(update_regional_profile),
+        )
+        .route(
+            "/tenants/{slug}/mobile-apps",
+            axum::routing::patch(update_mobile_apps),
         )
         .route("/tenants/{slug}/suspend", post(suspend_tenant))
         .route("/tenants/{slug}/resume", post(resume_tenant))
@@ -179,6 +183,9 @@ async fn create_tenant(
     )?);
     input.fanbase_sources =
         validation::fanbase_sources(std::mem::take(&mut input.fanbase_sources))?;
+    input.signal_play_store_url = validation::play_store_url(input.signal_play_store_url.take())?;
+    input.synesthesia_play_store_url =
+        validation::play_store_url(input.synesthesia_play_store_url.take())?;
     if !input.signal_enabled && input.signal_base_url.is_some() {
         return Err(ApiError::InvalidInput(
             "signalBaseUrl requires signalEnabled=true".to_owned(),
@@ -283,6 +290,31 @@ async fn update_regional_profile(
             .update_regional_profile(
                 &slug,
                 profile,
+                state.admin_actor.as_ref(),
+                request_id(&headers),
+            )
+            .await?
+    )))
+}
+
+async fn update_mobile_apps(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
+    headers: HeaderMap,
+    Json(input): Json<UpdateMobileAppsRequest>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    identity.require_platform_admin()?;
+    let slug = validation::slug(&raw_slug)?;
+    let signal_url = validation::play_store_url(input.signal_play_store_url)?;
+    let synesthesia_url = validation::play_store_url(input.synesthesia_play_store_url)?;
+    Ok(Json(json!(
+        state
+            .store
+            .update_mobile_apps(
+                &slug,
+                signal_url,
+                synesthesia_url,
                 state.admin_actor.as_ref(),
                 request_id(&headers),
             )

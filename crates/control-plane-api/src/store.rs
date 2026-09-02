@@ -122,12 +122,16 @@ impl Store {
     ) -> Result<(), ApiError> {
         sqlx::query(
             r#"INSERT INTO control_plane_tenants
-               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, branding_palette, synesthesia_enabled, area_enabled)
-               VALUES ($1, 'virya', 'Virya', 'active', $2, $3, $4, 'PL', NULL, true, true)
+               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, branding_palette, synesthesia_enabled, area_enabled, signal_play_store_url, synesthesia_play_store_url)
+               VALUES ($1, 'virya', 'Virya', 'active', $2, $3, $4, 'PL', NULL, true, true,
+                       'https://play.google.com/store/apps/details?id=music.virya.signal',
+                       'https://play.google.com/store/apps/details?id=music.virya.synesthesia')
                ON CONFLICT (slug) DO UPDATE SET
                    workspace_id = COALESCE(control_plane_tenants.workspace_id, EXCLUDED.workspace_id),
                    crowdrelay_base_url = COALESCE(control_plane_tenants.crowdrelay_base_url, EXCLUDED.crowdrelay_base_url),
                    signal_base_url = COALESCE(control_plane_tenants.signal_base_url, EXCLUDED.signal_base_url),
+                   signal_play_store_url = COALESCE(control_plane_tenants.signal_play_store_url, EXCLUDED.signal_play_store_url),
+                   synesthesia_play_store_url = COALESCE(control_plane_tenants.synesthesia_play_store_url, EXCLUDED.synesthesia_play_store_url),
                    synesthesia_enabled = true,
                    updated_at = now()"#,
         )
@@ -146,6 +150,7 @@ impl Store {
                       t.crowdrelay_base_url, t.signal_base_url, t.default_country_code, t.regional_profile, t.branding_palette,
                       t.synesthesia_enabled, t.area_enabled,
                       t.signal_enabled, t.north_star_metric, t.fanbase_sources,
+                      t.signal_play_store_url, t.synesthesia_play_store_url,
                       t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
@@ -175,6 +180,7 @@ impl Store {
                       t.crowdrelay_base_url, t.signal_base_url, t.default_country_code, t.regional_profile, t.branding_palette,
                       t.synesthesia_enabled, t.area_enabled,
                       t.signal_enabled, t.north_star_metric, t.fanbase_sources,
+                      t.signal_play_store_url, t.synesthesia_play_store_url,
                       t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
@@ -253,11 +259,12 @@ impl Store {
         let mut tx = self.pool.begin().await?;
         let tenant = sqlx::query_as::<_, TenantRow>(
             r#"INSERT INTO control_plane_tenants
-               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled, signal_enabled, north_star_metric, fanbase_sources)
-               VALUES ($1, $2, $3, 'provisioning', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled, signal_enabled, north_star_metric, fanbase_sources, signal_play_store_url, synesthesia_play_store_url)
+               VALUES ($1, $2, $3, 'provisioning', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
                RETURNING id, slug, display_name, status, workspace_id, crowdrelay_base_url,
                          signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled,
                          signal_enabled, north_star_metric, fanbase_sources,
+                         signal_play_store_url, synesthesia_play_store_url,
                          created_at, updated_at"#,
         )
         .bind(id)
@@ -274,6 +281,8 @@ impl Store {
         .bind(input.signal_enabled)
         .bind(input.north_star_metric.as_deref().unwrap_or("signal_installs"))
         .bind(&input.fanbase_sources)
+        .bind(&input.signal_play_store_url)
+        .bind(&input.synesthesia_play_store_url)
         .fetch_one(&mut *tx)
         .await
         .map_err(|error| match error {
@@ -381,6 +390,44 @@ impl Store {
                 target_id: tenant.tenant.id.to_string(),
                 request_id,
                 detail: json!({"inheritsDefault": inherits_default}),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        self.tenant_by_slug(slug).await
+    }
+
+    pub async fn update_mobile_apps(
+        &self,
+        slug: &str,
+        signal_play_store_url: Option<String>,
+        synesthesia_play_store_url: Option<String>,
+        actor: &str,
+        request_id: Option<&str>,
+    ) -> Result<TenantSummary, ApiError> {
+        let tenant = self.tenant_by_slug(slug).await?;
+        let mut tx = self.pool.begin().await?;
+        sqlx::query(
+            "UPDATE control_plane_tenants SET signal_play_store_url = $2, synesthesia_play_store_url = $3, updated_at = now() WHERE id = $1",
+        )
+        .bind(tenant.tenant.id)
+        .bind(&signal_play_store_url)
+        .bind(&synesthesia_play_store_url)
+        .execute(&mut *tx)
+        .await?;
+        self.audit_tx(
+            &mut tx,
+            AuditRecord {
+                tenant_id: Some(tenant.tenant.id),
+                actor,
+                action: "tenant.mobile_apps.updated",
+                target_kind: "tenant",
+                target_id: tenant.tenant.id.to_string(),
+                request_id,
+                detail: json!({
+                    "signalPlayStoreUrl": signal_play_store_url,
+                    "synesthesiaPlayStoreUrl": synesthesia_play_store_url,
+                }),
             },
         )
         .await?;

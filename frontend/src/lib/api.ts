@@ -48,6 +48,8 @@ type CreateTenantInput = {
   areaEnabled?: boolean
   northStarMetric?: string
   fanbaseSources?: string[]
+  signalPlayStoreUrl?: string
+  synesthesiaPlayStoreUrl?: string
 }
 
 export const api = {
@@ -118,6 +120,8 @@ export const api = {
     request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/branding`, { method: 'PATCH', body: JSON.stringify({ brandingPalette }) }),
   regionalProfile: (slug: string, regionalProfile: RegionalProfile) =>
     request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/regional-profile`, { method: 'PATCH', body: JSON.stringify({ regionalProfile }) }),
+  mobileApps: (slug: string, input: { signalPlayStoreUrl?: string | null; synesthesiaPlayStoreUrl?: string | null }) =>
+    request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/mobile-apps`, { method: 'PATCH', body: JSON.stringify(input) }),
   suspend: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/suspend`, { method: 'POST', body: '{}' }),
   resume: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/resume`, { method: 'POST', body: '{}' }),
   planProvisioning: (slug: string, desiredVersion?: string) =>

@@ -50,6 +50,8 @@ pub struct TenantRow {
     pub signal_enabled: bool,
     pub north_star_metric: String,
     pub fanbase_sources: Vec<String>,
+    pub signal_play_store_url: Option<String>,
+    pub synesthesia_play_store_url: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -132,6 +134,8 @@ pub struct TenantSummaryJoinRow {
     pub signal_enabled: bool,
     pub north_star_metric: String,
     pub fanbase_sources: Vec<String>,
+    pub signal_play_store_url: Option<String>,
+    pub synesthesia_play_store_url: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub runtime_tenant_id: Option<Uuid>,
@@ -176,6 +180,8 @@ impl TenantSummaryJoinRow {
                 signal_enabled: self.signal_enabled,
                 north_star_metric: self.north_star_metric,
                 fanbase_sources: self.fanbase_sources,
+                signal_play_store_url: self.signal_play_store_url,
+                synesthesia_play_store_url: self.synesthesia_play_store_url,
                 created_at: self.created_at,
                 updated_at: self.updated_at,
             },
@@ -261,6 +267,12 @@ pub struct CreateTenantRequest {
     /// Discovery platforms the operator selected. Advisory only.
     #[serde(default)]
     pub fanbase_sources: Vec<String>,
+    /// Google Play Store URL for this tenant's Signal app. NULL until published.
+    #[serde(default)]
+    pub signal_play_store_url: Option<String>,
+    /// Google Play Store URL for this tenant's Synesthesia app. NULL until published.
+    #[serde(default)]
+    pub synesthesia_play_store_url: Option<String>,
 }
 
 const fn default_true() -> bool {
@@ -299,6 +311,13 @@ pub struct UpdateBrandingRequest {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct UpdateRegionalProfileRequest {
     pub regional_profile: RegionalProfile,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct UpdateMobileAppsRequest {
+    pub signal_play_store_url: Option<String>,
+    pub synesthesia_play_store_url: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

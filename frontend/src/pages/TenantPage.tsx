@@ -60,7 +60,16 @@ export function TenantPage() {
   const [editingPalette, setEditingPalette] = createSignal(false)
   const [desiredVersion, setDesiredVersion] = createSignal('')
   const [preview, setPreview] = createSignal<ProvisioningJob | null>(null)
+  const [editingMobileApps, setEditingMobileApps] = createSignal(false)
+  const [signalPlayUrl, setSignalPlayUrl] = createSignal('')
+  const [synesthesiaPlayUrl, setSynesthesiaPlayUrl] = createSignal('')
   createEffect(() => { if (tenant.data?.brandingPalette) setPalette(tenant.data.brandingPalette) })
+  createEffect(() => {
+    if (tenant.data) {
+      setSignalPlayUrl(tenant.data.signalPlayStoreUrl ?? '')
+      setSynesthesiaPlayUrl(tenant.data.synesthesiaPlayStoreUrl ?? '')
+    }
+  })
 
   const refreshTenant = async () => {
     await Promise.all([
@@ -70,6 +79,7 @@ export function TenantPage() {
     ])
   }
   const branding = useMutation(() => ({ mutationFn: (value: Palette | null) => api.branding(params().slug, value), onSuccess: refreshTenant }))
+  const mobileApps = useMutation(() => ({ mutationFn: (input: { signalPlayStoreUrl?: string | null; synesthesiaPlayStoreUrl?: string | null }) => api.mobileApps(params().slug, input), onSuccess: async () => { setEditingMobileApps(false); await refreshTenant() } }))
   const status = useMutation(() => ({ mutationFn: (action: 'suspend'|'resume') => action === 'suspend' ? api.suspend(params().slug) : api.resume(params().slug), onSuccess: refreshTenant }))
   const plan = useMutation(() => ({ mutationFn: () => api.planProvisioning(params().slug, desiredVersion() || platform()?.provisionerDefaultImageTag || undefined), onSuccess: (job) => setPreview(job) }))
   const deploy = useMutation(() => ({ mutationFn: () => api.deployTenant(params().slug, desiredVersion()), onSuccess: async () => { setPreview(null); await refreshTenant() } }))
@@ -88,21 +98,71 @@ export function TenantPage() {
         <div><span class="eyebrow">CONTROL</span><h1>{t.displayName}</h1><p>{t.workspaceId ?? 'Workspace mapping pending'} · {t.defaultCountryCode}</p></div>
         <div class="row-health"><StatusBadge status={t.status} tone={t.status === 'active' ? 'good' : t.status === 'suspended' ? 'bad' : 'warn'} /><Show when={capabilities()?.canSuspend !== false}><button class="ghost" onClick={() => status.mutate(t.status === 'suspended' ? 'resume' : 'suspend')}>{t.status === 'suspended' ? 'Resume' : 'Suspend'}</button></Show></div>
       </div>
-      <Show when={status.error || branding.error || plan.error || deploy.error || cancel.error}>
-        <div class="error-card" role="alert">{errorMessage(status.error || branding.error || plan.error || deploy.error || cancel.error, 'Control Plane operation failed')}</div>
+      <Show when={status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error}>
+        <div class="error-card" role="alert">{errorMessage(status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error, 'Control Plane operation failed')}</div>
       </Show>
       <div class="detail-grid">
         <TenantRuntimePanel slug={t.slug} initial={{ runtime: t.runtime, runtimeHealth: t.runtimeHealth }} />
         <article class="panel products-panel">
-          <span class="eyebrow">PRODUCTS</span><h2>Entitlements</h2>
+          <div class="section-title"><div><span class="eyebrow">PRODUCTS</span><h2>Entitlements</h2></div><button class="ghost" onClick={() => setEditingMobileApps(true)}>Edit Play Store URLs</button></div>
           <div class="product-row product-entitlement-row"><strong>CrowdRelay</strong><div class="product-action-slot" aria-hidden="true"/><div class="product-status-slot"><StatusBadge status="enabled" tone="good" /></div></div>
-          <div class="product-row product-entitlement-row"><strong>Signal</strong><div class="product-action-slot" aria-hidden="true"/><div class="product-status-slot"><StatusBadge status="enabled" tone="good" /></div></div>
+          <div class="product-row product-entitlement-row"><strong>Signal</strong><div class="product-action-slot"><Show when={t.signalEnabled && t.signalPlayStoreUrl}><a href={t.signalPlayStoreUrl!} target="_blank" rel="noopener noreferrer" class="play-store-link"><img src="/icons/google-play-badge.svg" alt="Get it on Google Play" width="100" height="30" /></a></Show></div><div class="product-status-slot"><StatusBadge status={t.signalEnabled ? 'enabled' : 'disabled'} tone={t.signalEnabled ? 'good' : 'muted'} /></div></div>
           <div class="product-row product-entitlement-row"><strong>AREA</strong><div class="product-action-slot"><Link class="ghost area-link-button" to="/tenants/$slug/area" params={{slug:t.slug}}>Manage</Link></div><div class="product-status-slot"><StatusBadge status={t.areaEnabled ? 'enabled' : 'disabled'} tone={t.areaEnabled ? 'good' : 'muted'} /></div></div>
-          <div class="product-row product-entitlement-row"><strong>Synesthesia</strong><div class="product-action-slot" aria-hidden="true"/><div class="product-status-slot"><StatusBadge status={t.synesthesiaEnabled ? 'Virya only' : 'not available'} tone={t.synesthesiaEnabled ? 'warn' : 'muted'} /></div></div>
+          <div class="product-row product-entitlement-row"><strong>Synesthesia</strong><div class="product-action-slot"><Show when={t.synesthesiaEnabled && t.synesthesiaPlayStoreUrl}><a href={t.synesthesiaPlayStoreUrl!} target="_blank" rel="noopener noreferrer" class="play-store-link"><img src="/icons/google-play-badge.svg" alt="Get it on Google Play" width="100" height="30" /></a></Show></div><div class="product-status-slot"><StatusBadge status={t.synesthesiaEnabled ? 'enabled' : 'disabled'} tone={t.synesthesiaEnabled ? 'good' : 'muted'} /></div></div>
         </article>
       </div>
       <RegionalProfilePanel tenant={t} />
       <article class="panel"><div class="section-title"><div><span class="eyebrow">BRANDING</span><h2>CrowdRelay + Signal palette</h2></div>{t.brandingPalette ? <button class="ghost" onClick={() => branding.mutate(null)}>Reset to product defaults</button> : <StatusBadge status="Inherits current product defaults" />}</div><Show when={t.brandingPalette || editingPalette()} fallback={<div class="inherit-card"><p>No palette is stored for this tenant. CrowdRelay and Signal therefore keep their own current default colors with zero theming lookup required.</p><button class="ghost" onClick={() => setEditingPalette(true)}>Create custom palette</button></div>}><div class="palette-grid"><For each={paletteFields}>{field => <label>{field}<div class="color-input"><input type="color" value={palette()[field]} onInput={(e) => setPalette(current => ({ ...current, [field]: e.currentTarget.value }))}/><code>{palette()[field]}</code></div></label>}</For></div><button onClick={() => branding.mutate(palette())} disabled={branding.isPending}>Save custom palette</button></Show></article>
+
+      <Show when={t.signalEnabled || t.synesthesiaEnabled}>
+        <article class="panel mobile-app-setup-panel">
+          <div class="section-title"><div><span class="eyebrow">MOBILE APPS</span><h2>Google Play setup</h2></div></div>
+          <p class="wizard-intro">Onboard this tenant's mobile apps for Google Play. Each step is automated by the onboarding script in the virya-signal repo.</p>
+          <div class="setup-checklist">
+            <div class="setup-step" classList={{ done: Boolean(t.brandingPalette), pending: !t.brandingPalette }}>
+              <span class="setup-step-icon">{t.brandingPalette ? '✓' : '○'}</span>
+              <div><strong>Branding palette</strong><small>{t.brandingPalette ? 'Custom palette configured' : 'Using product defaults — set a palette for custom app icons'}</small></div>
+            </div>
+            <Show when={t.signalEnabled}>
+              <div class="setup-step" classList={{ done: Boolean(t.signalPlayStoreUrl), pending: !t.signalPlayStoreUrl }}>
+                <span class="setup-step-icon">{t.signalPlayStoreUrl ? '✓' : '○'}</span>
+                <div><strong>Signal app published</strong><small>{t.signalPlayStoreUrl ? <a href={t.signalPlayStoreUrl!} target="_blank" rel="noopener noreferrer">{t.signalPlayStoreUrl}</a> : `Package: music.${t.slug}.signal — run the onboarding script to build and publish`}</small></div>
+              </div>
+            </Show>
+            <Show when={t.synesthesiaEnabled}>
+              <div class="setup-step" classList={{ done: Boolean(t.synesthesiaPlayStoreUrl), pending: !t.synesthesiaPlayStoreUrl }}>
+                <span class="setup-step-icon">{t.synesthesiaPlayStoreUrl ? '✓' : '○'}</span>
+                <div><strong>Synesthesia app published</strong><small>{t.synesthesiaPlayStoreUrl ? <a href={t.synesthesiaPlayStoreUrl!} target="_blank" rel="noopener noreferrer">{t.synesthesiaPlayStoreUrl}</a> : `Package: music.${t.slug}.synesthesia — run the onboarding script in the synesthesia repo`}</small></div>
+              </div>
+            </Show>
+          </div>
+          <Show when={!t.signalPlayStoreUrl && t.signalEnabled}>
+            <div class="onboard-command-card">
+              <span class="eyebrow">QUICK START</span>
+              <p>Run this in the virya-signal repo to onboard the Signal app end-to-end:</p>
+              <pre><code>bash scripts/onboard-tenant-app.sh \<br/>  --tenant {t.slug} \<br/>  --control-plane-url {window.location.origin.replace(/:\d+$/, '')} \<br/>  --token $CONTROL_PLANE_ADMIN_TOKEN \<br/>  --version 0.1.0 --version-code 1</code></pre>
+            </div>
+          </Show>
+        </article>
+      </Show>
+
+      <Show when={editingMobileApps()}>
+        <div class="dialog-overlay" onClick={() => setEditingMobileApps(false)}>
+          <div class="dialog-panel" onClick={(e) => e.stopPropagation()}>
+            <div class="section-title"><div><span class="eyebrow">MOBILE APPS</span><h2>Google Play Store URLs</h2></div></div>
+            <p class="wizard-intro">Set the Google Play Store URL for each tenant mobile app. Leave blank if the app is not yet published.</p>
+            <div class="form-grid">
+              <label>Signal Play Store URL<input value={signalPlayUrl()} onInput={(e) => setSignalPlayUrl(e.currentTarget.value)} placeholder="https://play.google.com/store/apps/details?id=music.{t.slug}.signal" /></label>
+              <label>Synesthesia Play Store URL<input value={synesthesiaPlayUrl()} onInput={(e) => setSynesthesiaPlayUrl(e.currentTarget.value)} placeholder="https://play.google.com/store/apps/details?id=music.{t.slug}.synesthesia" /></label>
+            </div>
+            <Show when={mobileApps.error}><div class="error-card" role="alert">{mobileApps.error instanceof Error ? mobileApps.error.message : 'Failed to update Play Store URLs'}</div></Show>
+            <div class="form-actions right">
+              <button class="ghost" onClick={() => setEditingMobileApps(false)}>Cancel</button>
+              <button onClick={() => mobileApps.mutate({ signalPlayStoreUrl: signalPlayUrl().trim() || null, synesthesiaPlayStoreUrl: synesthesiaPlayUrl().trim() || null })} disabled={mobileApps.isPending}>{mobileApps.isPending ? 'Saving…' : 'Save URLs'}</button>
+            </div>
+          </div>
+        </div>
+      </Show>
 
       <article class="panel provisioning-panel">
         <div class="section-title">
