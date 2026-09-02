@@ -128,9 +128,31 @@ if ! cmp -s <(docker exec "$EDGE_CONTAINER" cat /etc/caddy/Caddyfile 2>/dev/null
   host_inode="$(stat -c %i "$EDGE_CADDYFILE" 2>/dev/null || echo unknown)"
   container_inode="$(docker exec "$EDGE_CONTAINER" stat -c %i /etc/caddy/Caddyfile 2>/dev/null || echo unknown)"
   if [[ "$host_inode" != "$container_inode" ]]; then
-    fail "edge Caddyfile inode differs from the mounted one (host=${host_inode} container=${container_inode}): the file was replaced rather than edited in place, so the container is pinned to an inode that no longer has a name. Restart ${EDGE_CONTAINER} to re-bind, then deploy. To edit it without a restart, write in place: cat new > ${EDGE_CADDYFILE}"
+    # Restart rather than refuse. This condition arrives on its own — a
+    # `git checkout` in /opt/crowdrelay is enough, and two repos' deploys
+    # write this file — so telling the operator to go and restart it by hand
+    # turns a routine, recoverable state into a blocked release. It also
+    # cannot be fixed any other way: `docker cp` fails with "device or
+    # resource busy" on a mount point, and the mount is read-only, so
+    # restarting is the only thing that makes Docker re-resolve the bind.
+    printf 'EDGE_MOUNT=DETACHED host_inode=%s container_inode=%s action=restarting-edge\n' \
+      "$host_inode" "$container_inode" >&2
+    docker restart "$EDGE_CONTAINER" >/dev/null \
+      || fail "could not restart ${EDGE_CONTAINER} to re-attach its config"
+    for _ in $(seq 1 30); do
+      edge_state="$(docker inspect "$EDGE_CONTAINER" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
+      if [[ "$edge_state" == "healthy" || "$edge_state" == "running" ]]; then break; fi
+      sleep 1
+    done
+    cmp -s <(docker exec "$EDGE_CONTAINER" cat /etc/caddy/Caddyfile 2>/dev/null) "$EDGE_CADDYFILE" \
+      || fail "edge Caddyfile still differs after restarting ${EDGE_CONTAINER}; something is rewriting ${EDGE_CADDYFILE}"
+    printf 'EDGE_MOUNT=REATTACHED inode=%s\n' \
+      "$(stat -c %i "$EDGE_CADDYFILE" 2>/dev/null || echo unknown)" >&2
+  else
+    # Same inode, different content: not a mount problem. Caddy is serving
+    # something it was never given, which a restart would not explain away.
+    fail "edge Caddy is serving different content from ${EDGE_CADDYFILE} despite a matching inode; reload ${EDGE_CONTAINER} before deploying"
   fi
-  fail "edge Caddy is serving different content from ${EDGE_CADDYFILE} despite a matching inode; reload ${EDGE_CONTAINER} before deploying"
 fi
 docker exec "$EDGE_CONTAINER" wget -qO- http://127.0.0.1:2019/config/ >/dev/null \
   || fail 'edge Caddy admin endpoint is unavailable'
