@@ -198,6 +198,14 @@ pub fn router() -> Router<AppState> {
             get(list_community_observations),
         )
         .route(
+            "/tenants/{slug}/portfolio/communities/{place_id}/membership",
+            post(set_community_membership),
+        )
+        .route(
+            "/tenants/{slug}/portfolio/communities/{place_id}/intro-draft",
+            get(community_intro_draft),
+        )
+        .route(
             "/tenants/{slug}/portfolio/communities/{place_id}/entities",
             get(list_community_entities),
         )
@@ -3089,6 +3097,38 @@ async fn list_community_observations(
         format!("/v1/control-plane/community-intelligence/communities/{place_id}/observations");
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     object_no_store(value, "community intelligence observations")
+}
+
+/// Records where we stand with a community — joined, rejected, not a fit.
+///
+/// Joining is a human act, so this is where the operator writes down what
+/// happened. Without it the console listed 66 communities and every visit
+/// started from zero, which is why joining never became a task anyone picked
+/// up.
+async fn set_community_membership(
+    State(state): State<AppState>,
+    Path((slug, place_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    uuid_segment(&place_id)?;
+    let path =
+        format!("/v1/control-plane/community-intelligence/communities/{place_id}/membership");
+    let (_, value) = call(&state, &slug, "POST", &path, Some(&body), &headers, None).await?;
+    object_no_store(value, "community membership")
+}
+
+/// An introduction draft for a community, built from what was observed of it.
+async fn community_intro_draft(
+    State(state): State<AppState>,
+    Path((slug, place_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    uuid_segment(&place_id)?;
+    let path =
+        format!("/v1/control-plane/community-intelligence/communities/{place_id}/intro-draft");
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "community intro draft")
 }
 
 async fn list_community_entities(

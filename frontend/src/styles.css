@@ -2171,3 +2171,34 @@ table tbody tr:hover{background:rgba(255,255,255,.025)}
 .page-tab svg{margin-right:6px;vertical-align:-2px}
 @media (max-width:720px){.beacon-row{grid-template-columns:auto 1fr;row-gap:8px}.beacon-facts,.beacon-row-actions{grid-column:1/-1}}
 .push-no-retry{font-size:var(--text-xs);white-space:nowrap}
+
+/* Communities work queue.
+   The tracked list used to be a narrow scrollable column beside a detail
+   pane — fine for browsing, useless as a task list, so nobody worked it.
+   Cards give each community room for the two things that decide whether
+   somebody joins it: how big it is, and what it actually talks about. */
+.community-queue-summary{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 18px}
+.community-count{color:var(--muted);font-size:var(--text-sm)}
+.community-count strong{color:#e7ebf3;font-size:1.15rem;margin-right:4px}
+.community-count[data-state="not_joined"] strong{color:var(--accent)}
+
+.community-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;margin-bottom:28px}
+.community-card{border:1px solid var(--border-default);background:var(--surface-2);border-radius:var(--radius-lg);padding:18px;display:flex;flex-direction:column;gap:12px}
+/* Unjoined is the work, so it is the one that draws the eye. */
+.community-card[data-state="not_joined"]{border-color:#3a4150}
+.community-card[data-state="joined"]{opacity:.72}
+.community-card[data-state="rejected"],.community-card[data-state="not_a_fit"]{opacity:.55}
+.community-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.community-card-name{font-weight:700;font-size:1.05rem;color:#e7ebf3;text-decoration:none}
+.community-card-name:hover{color:var(--accent-hover);text-decoration:underline}
+.community-card-sub{color:var(--muted);font-size:var(--text-sm);margin-top:4px}
+.community-state-badge{font-size:var(--text-xs);padding:4px 9px;border-radius:6px;border:1px solid #313642;background:#1c2028;color:#b9c0cc;white-space:nowrap;font-weight:600}
+.community-state-badge[data-state="joined"]{border-color:#1e4a32;color:#6ee7a0;background:#0d2218}
+.community-state-badge[data-state="not_joined"]{border-color:#4a3f1e;color:#f5c468;background:#241c0d}
+.community-card-note{color:var(--muted);font-size:var(--text-sm);margin:0;font-style:italic}
+.community-card-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:auto}
+.community-state-select{background:#0c0e12;border:1px solid #2c313b;color:#d9ddea;padding:7px 9px;border-radius:8px;font-size:var(--text-sm)}
+.community-draft{margin-top:6px;border-top:1px solid var(--border-default);padding-top:12px;display:flex;flex-direction:column;gap:8px}
+.community-draft-text{width:100%;background:#0b0d11;border:1px solid var(--line);border-radius:10px;color:#c8d0de;padding:12px;font:inherit;font-size:var(--text-sm);line-height:1.55;resize:vertical}
+
+@media (max-width:720px){.community-card-grid{grid-template-columns:1fr}}
