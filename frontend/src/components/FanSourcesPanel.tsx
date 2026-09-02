@@ -42,13 +42,13 @@ const OAUTH_PLATFORMS = [
 const EMPTY_INGEST = ''
 
 const formatAge = (iso: string) => {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
+  const ms = new Date(iso).getTime()
+  if (Number.isNaN(ms)) return 'recently'
+  const diff = Date.now() - ms
+  if (diff < 0) return 'recently'
+  const days = Math.floor(diff / 86_400_000)
+  if (days < 1) return 'recently'
+  return `${days}d ago`
 }
 
 const metric = (value: number | null | undefined) => value == null ? '—' : value.toLocaleString()

@@ -28,7 +28,10 @@ export const formatAge = (seconds: number) => {
 
 /// Formats an ISO timestamp as a relative age string ("just now", "5m ago", etc.)
 export const formatIsoAge = (iso: string) => {
-  const diff = Date.now() - new Date(iso).getTime()
+  const ms = new Date(iso).getTime()
+  if (Number.isNaN(ms)) return 'recently'
+  const diff = Date.now() - ms
+  if (diff < 0) return 'just now'
   const mins = Math.floor(diff / 60000)
   if (mins < 1) return 'just now'
   if (mins < 60) return `${mins}m ago`
