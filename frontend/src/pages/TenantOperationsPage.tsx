@@ -1,4 +1,4 @@
-import { Show } from 'solid-js'
+import { Show, Suspense } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -81,8 +81,7 @@ export function TenantOperationsPage() {
       <div class="error-card" role="alert">{model.error instanceof Error ? model.error.message : 'Tenant operations channel unavailable'}</div>
     </Show>
 
-    <Show when={!model.error && model.isPending}><SkeletonOperationsPage /></Show>
-
+    <Suspense fallback={<SkeletonOperationsPage />}>
     <Show when={model.data}>{<>
       {/* KPI strip — persistent across all tabs */}
       <div class="ops-kpi-strip">
@@ -198,5 +197,6 @@ export function TenantOperationsPage() {
         <PlayLedgerPanel slug={params().slug} />
       </TabPanel>
     </>}</Show>
+    </Suspense>
   </section>
 }

@@ -1,6 +1,8 @@
+import { Suspense } from 'solid-js'
 import { useParams } from '@tanstack/solid-router'
 import { BeaconConsolePanel } from '../components/BeaconConsolePanel'
 import { BeaconSignalPanel } from '../components/BeaconSignalPanel'
+import { SkeletonPageHead, SkeletonSection } from '../components/Skeleton'
 
 /// Beacons are an audience surface, not an operations one.
 ///
@@ -27,7 +29,9 @@ export function BeaconsPage() {
         </p>
       </div>
     </div>
-    <BeaconConsolePanel slug={params().slug} />
-    <BeaconSignalPanel slug={params().slug} />
+    <Suspense fallback={<><SkeletonSection titleWidth="180px" lines={4} minHeight="200px" /><SkeletonSection titleWidth="200px" lines={3} minHeight="160px" /></>}>
+      <BeaconConsolePanel slug={params().slug} />
+      <BeaconSignalPanel slug={params().slug} />
+    </Suspense>
   </section>
 }

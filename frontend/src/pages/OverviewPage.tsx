@@ -1,4 +1,4 @@
-import { For, Match, Show, Switch } from 'solid-js'
+import { For, Match, Show, Switch, Suspense } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -49,6 +49,7 @@ export function OverviewPage() {
     </div>
 
     {/* KPI strip — the first thing an operator sees. */}
+    <Suspense fallback={<div class="skeleton-grid"><div/><div/><div/><div/></div>}>
     <Switch>
       <Match when={tenants.isPending}><div class="skeleton-grid"><div/><div/><div/><div/></div></Match>
       <Match when={tenants.isError}><div class="error-card">{tenants.error?.message}</div></Match>
@@ -145,5 +146,6 @@ export function OverviewPage() {
         <EmptyState label="No tenants provisioned" hint="Create your first tenant to start managing fan growth operations." />
       </Show>
     </div>
+    </Suspense>
   </section>
 }

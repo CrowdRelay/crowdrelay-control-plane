@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from 'solid-js'
+import { For, Show, Suspense, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -63,6 +63,7 @@ export function CommunityIntelligencePage() {
         <SkeletonRows />
       </Show>
 
+      <Suspense fallback={<SkeletonRows />}>
       <Show when={communities.data}>
         <div class="community-intel-grid">
           {/* Community list */}
@@ -170,6 +171,7 @@ export function CommunityIntelligencePage() {
           </div>
         </div>
       </Show>
+      </Suspense>
     </section>
   )
 }

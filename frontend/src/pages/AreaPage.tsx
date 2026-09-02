@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal } from 'solid-js'
+import { For, Show, Suspense, createEffect, createMemo, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { ApiError, api } from '../lib/api'
@@ -152,6 +152,7 @@ export function AreaPage() {
     <Show when={flash()}><div class="notice-card">{flash()}</div></Show>
     <Show when={mutationError()}><div class="error-card">{errorText(mutationError())}</div></Show>
 
+    <Suspense fallback={<SkeletonRows count={4} />}>
     <Show when={overview.data} fallback={
       <Show when={overview.isPending} fallback={<div class="error-card">AREA management is unavailable. This is not an empty game state. <button class="ghost" onClick={()=>overview.refetch()}>Retry</button></div>}>
         <SkeletonRows count={4} />
@@ -275,5 +276,6 @@ export function AreaPage() {
         </div>
       </>}</Show>
     </article></Show>
+    </Suspense>
   </section>
 }

@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from 'solid-js'
+import { For, Show, Suspense, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -124,11 +124,13 @@ export function TenantsPage() {
     </Show>
 
     <Show when={tenants.isPending && !tenants.data}><SkeletonRows count={4} /></Show>
+    <Suspense fallback={<SkeletonRows count={4} />}>
     <div class="tenant-list"><For each={tenants.data?.items ?? []}>{tenant =>
       <Link to="/tenants/$slug" params={{ slug: tenant.slug }} class="tenant-row large">
         <div><strong>{tenant.displayName}</strong><small>{tenant.slug} · {tenant.workspaceId ?? 'workspace pending'} · {tenant.regionalProfile ? `${tenant.regionalProfile.locale} · ${tenant.regionalProfile.timezone} · ${tenant.regionalProfile.dataRegion.toUpperCase()}` : 'regional profile unclassified'}</small></div>
         <div class="row-health"><StatusBadge status={tenant.status} tone={tenant.status === 'active' ? 'good' : tenant.status === 'suspended' ? 'bad' : 'warn'} /><StatusBadge status={tenant.runtimeHealth} tone={tenant.runtimeHealth === 'healthy' ? 'good' : tenant.runtimeHealth === 'degraded' ? 'bad' : tenant.runtimeHealth === 'stale' ? 'warn' : 'muted'} /><StatusBadge status={tenant.regionalProfile ? `${tenant.regionalProfile.dataRegion.toUpperCase()} region` : 'unclassified'} tone={tenant.regionalProfile ? 'good' : 'warn'} /><StatusBadge status={tenant.brandingPalette ? 'Custom palette' : 'Product defaults'} /></div>
       </Link>}
     </For></div>
+    </Suspense>
   </section>
 }

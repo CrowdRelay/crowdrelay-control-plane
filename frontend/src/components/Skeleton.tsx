@@ -349,3 +349,20 @@ export const SkeletonBrainDecision: Component = () => (
     </div>
   </div>
 )
+
+/** Generic tab content skeleton — shown when a tab's panels are loading
+ *  for the first time. Two panel-shaped shimmer blocks match the typical
+ *  tab layout without being specific to any one tab. */
+export const SkeletonTabContent: Component = () => (
+  <>
+    <article class="panel" style={{ padding: '24px', 'min-height': '180px' }}>
+      <div class="skeleton-block" style={{ height: '20px', width: '180px', 'border-radius': '8px', 'margin-bottom': '16px' }} />
+      <div class="skeleton-block" style={{ height: '14px', width: '100%', 'border-radius': '6px', 'margin-bottom': '10px' }} />
+      <div class="skeleton-block" style={{ height: '14px', width: '80%', 'border-radius': '6px' }} />
+    </article>
+    <article class="panel" style={{ padding: '24px', 'min-height': '140px' }}>
+      <div class="skeleton-block" style={{ height: '20px', width: '160px', 'border-radius': '8px', 'margin-bottom': '16px' }} />
+      <div class="skeleton-block" style={{ height: '14px', width: '100%', 'border-radius': '6px' }} />
+    </article>
+  </>
+)
