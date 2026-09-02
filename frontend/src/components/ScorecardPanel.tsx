@@ -2,6 +2,7 @@ import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { refreshTick } from '../lib/refresh'
+import { formatTimestamp } from '../lib/format'
 import type { AgentScorecard } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { CountUp } from './CountUp'
@@ -158,15 +159,39 @@ export function ScorecardPanel(props: { slug: string }) {
           <div><span>Worsened</span><strong>{count(d().track_record.worsened)}</strong><small class="tone-bad">measured losses</small></div>
           <div><span>Neutral</span><strong>{count(d().track_record.neutral)}</strong><small>no change</small></div>
           <div><span>Unmeasured</span><strong>{count(d().track_record.unmeasured)}</strong><small>{bpsToPercent(d().track_record.measurement_coverage_basis_points)} coverage</small></div>
+          <Show when={(d().track_record.awaiting_measurement ?? 0) > 0}>
+            <div>
+              <span>Awaiting</span>
+              <strong>{count(d().track_record.awaiting_measurement ?? 0)}</strong>
+              <small>{
+                d().track_record.next_measurement_due_at
+                  ? `first result ${formatTimestamp(d().track_record.next_measurement_due_at as string)}`
+                  : 'horizon not elapsed'
+              }</small>
+            </div>
+          </Show>
         </div>
-        <Show when={d().track_record.measurement_coverage_basis_points != null && (d().track_record.measurement_coverage_basis_points as number) < 5000}>
+        {/* Only warn about work that can never be judged. Actions still inside
+            a 7, 14 or 30 day horizon are not a coverage failure, and warning
+            about them told the operator the system was blind days before its
+            first result was due. */}
+        <Show when={d().track_record.measurement_coverage_basis_points != null
+                    && (d().track_record.measurement_coverage_basis_points as number) < 5000
+                    && d().track_record.unmeasured > 0}>
           <details class="ops-details-warning">
             <summary>Low measurement coverage — click for details</summary>
             <div class="operations-attention">
               <strong>Low measurement coverage</strong>
-              <span>Less than half of executed actions have a measured outcome. The agent is busy but nobody can tell if the work is paying off.</span>
+              <span>{d().track_record.unmeasured} executed action(s) have no measurement scheduled, so their effect can never be judged. This excludes anything still inside its measurement horizon.</span>
             </div>
           </details>
+        </Show>
+        <Show when={(d().track_record.awaiting_measurement ?? 0) > 0
+                    && d().track_record.improved + d().track_record.neutral + d().track_record.worsened === 0}>
+          <p class="muted">
+            No verdicts yet because no measurement horizon has elapsed — not because nothing is being
+            measured. {count(d().track_record.awaiting_measurement ?? 0)} action(s) are waiting on a 7, 14 or 30 day window.
+          </p>
         </Show>
       </section>
 

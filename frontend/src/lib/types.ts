@@ -780,6 +780,9 @@ export type AgentScorecard = {
     neutral: number
     worsened: number
     unmeasured: number
+    /// Scheduled, horizon not elapsed. Optional: an older tenant will not send it.
+    awaiting_measurement?: number
+    next_measurement_due_at?: string | null
     measurement_coverage_basis_points: number | null
   }
   by_context: Array<{
