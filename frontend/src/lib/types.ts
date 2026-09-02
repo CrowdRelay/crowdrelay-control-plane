@@ -635,6 +635,10 @@ export interface CommunityItem {
   language: string | null
   genres: string[]
   memberCount: number | null
+  /// Our relationship with the place, not whether we observe it.
+  membershipState: 'not_joined' | 'joining' | 'joined' | 'rejected' | 'not_a_fit'
+  membershipNote: string | null
+  membershipChangedAt: string | null
   latestObservation: {
     id: string
     observedAt: string
@@ -2085,4 +2089,18 @@ export type NotifiersOverview = {
   platformConfig: { items?: PlatformConfigItem[]; error?: string }
   automationRouting: { items?: AutomationRoutingItem[]; error?: string }
   discovered: { endpoints?: DiscoveredEndpoint[]; error?: string }
+}
+
+/// An introduction draft for a community, built from what was observed of it.
+///
+/// `grounded` is false when nothing has been observed yet — the draft then
+/// says so rather than offering a template that claims a fit nobody checked.
+export type CommunityIntroDraft = {
+  placeId: string
+  name: string
+  url: string
+  observedGenres: string[]
+  sharedGenres: string[]
+  draft: string
+  grounded: boolean
 }
