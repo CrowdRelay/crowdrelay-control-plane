@@ -307,7 +307,11 @@ if [[ "$agent_tag" =~ ^sha-[0-9a-f]{40}$ ]]; then
   fi
   agent_image_id="$(docker image inspect "$agent_registry_ref" --format '{{.Id}}')"
   agent_revision="$(docker image inspect "$agent_image_id" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
-  [[ "$agent_revision" == "$agent_tag" ]] \
+  # The OCI revision label is the bare SHA. The tag is sha-<sha>. Accept either
+  # the bare SHA or the sha- prefixed tag — both are the same commit.
+  agent_revision_short="${agent_revision#sha-}"
+  agent_tag_short="${agent_tag#sha-}"
+  [[ "$agent_revision_short" == "$agent_tag_short" ]] \
     || fail "agent service OCI revision mismatch: got=$agent_revision expected=$agent_tag"
   docker tag "$agent_image_id" "crowdrelay-agents:${agent_tag}"
   printf 'AGENT_IMAGE=PASS tag=%s revision=%s digest=%s\n' "$agent_tag" "$agent_revision" "${agent_digest:-tag-pull}"
