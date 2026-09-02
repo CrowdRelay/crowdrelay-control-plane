@@ -259,14 +259,26 @@ resolve_agent_image() {
     return 0
   fi
   artifact_dir="$(mktemp -d)"
-  if ! gh run download "$run_id" --repo "$AGENTS_REPO" --dir "$artifact_dir" >/dev/null 2>&1 \
-     || [[ ! -f "$artifact_dir/image.env" ]]; then
+  # Two things make a naive download fail here.
+  #
+  # `gh run download` with no `--name` unpacks each artifact into its own
+  # subdirectory, so image.env is never at the top level. And the publish run
+  # also uploads a `.dockerbuild` artifact that gh cannot extract ("not a valid
+  # zip file"), which makes the whole command exit non-zero even though the
+  # artifact we want came down fine.
+  #
+  # So: ask for the one artifact by name, and find the file wherever it lands.
+  gh run download "$run_id" --repo "$AGENTS_REPO" \
+    --pattern 'agent-service-image-digest-*' --dir "$artifact_dir" >/dev/null 2>&1 || true
+  local image_env
+  image_env="$(find "$artifact_dir" -name image.env -type f 2>/dev/null | head -n1)"
+  if [[ -z "$image_env" ]]; then
     rm -rf -- "$artifact_dir"
     printf 'AGENT_IMAGE=UNRESOLVED reason=missing-digest-artifact run=%s\n' "$run_id" >&2
     return 0
   fi
-  release_sha="$(sed -n 's/^AGENT_SERVICE_RELEASE_SHA=//p' "$artifact_dir/image.env")"
-  digest="$(sed -n 's/^AGENT_SERVICE_IMAGE_DIGEST=//p' "$artifact_dir/image.env")"
+  release_sha="$(sed -n 's/^AGENT_SERVICE_RELEASE_SHA=//p' "$image_env")"
+  digest="$(sed -n 's/^AGENT_SERVICE_IMAGE_DIGEST=//p' "$image_env")"
   rm -rf -- "$artifact_dir"
   if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ || ! "$release_sha" =~ ^[0-9a-f]{40}$ ]]; then
     printf 'AGENT_IMAGE=UNRESOLVED reason=malformed-artifact run=%s\n' "$run_id" >&2
