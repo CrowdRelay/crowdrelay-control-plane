@@ -92,7 +92,6 @@ pub const NORTH_STAR_METRICS: &[&str] = &[
     "facebook_followers",
     "instagram_followers",
     "lastfm_listeners",
-    "social_subscribers",
     "soundcloud_followers",
     "spotify_followers",
     "telegram_subscribers",

@@ -23,7 +23,7 @@ type NorthStar =
   | 'spotify_followers'
   | 'youtube_subscribers'
   | 'bandsintown_trackers'
-  | 'social_subscribers'
+ 
   | 'tiktok_followers'
   | 'soundcloud_followers'
   | 'instagram_followers'
@@ -50,7 +50,6 @@ const northStars: { value: NorthStar; label: string; description: string; requir
   { value: 'bandcamp_supporters', label: 'Bandcamp supporters', description: 'Optimize Bandcamp supporter count — the audience that has actually paid.' },
   { value: 'discord_members', label: 'Discord members', description: 'Optimize Discord server membership. The brain prioritizes community-building over broadcast.' },
   { value: 'telegram_subscribers', label: 'Telegram subscribers', description: 'Optimize Telegram channel subscribers.' },
-  { value: 'social_subscribers', label: 'Reddit subscribers', description: 'Optimize subscriber count across tracked subreddits.' },
   { value: 'lastfm_listeners', label: 'Last.fm listeners', description: 'Optimize Last.fm listener count — people, not plays.' },
   { value: 'deezer_fans', label: 'Deezer fans', description: 'Optimize Deezer artist fan count.' },
   { value: 'bluesky_followers', label: 'Bluesky followers', description: 'Optimize Bluesky follower growth.' },
