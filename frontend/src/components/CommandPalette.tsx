@@ -34,14 +34,16 @@ type Cmd = {
 const SUBPAGES: Array<{ suffix: string; label: string }> = [
   { suffix: '', label: 'Overview' },
   { suffix: '/attention', label: 'Attention' },
-  { suffix: '/operations', label: 'Operations' },
   { suffix: '/intelligence', label: 'Intelligence' },
-  { suffix: '/audience', label: 'Fan Intelligence' },
-  { suffix: '/funnel', label: 'Growth Funnel' },
-  { suffix: '/beacons', label: 'Beacons' },
-  { suffix: '/notifiers', label: 'Notifiers' },
+  { suffix: '/health', label: 'Autopilot' },
+  { suffix: '/operations', label: 'Operations' },
   { suffix: '/integrations', label: 'AI Integrations' },
+  { suffix: '/notifiers', label: 'Notifiers' },
   { suffix: '/portfolio', label: 'Portfolio' },
+  { suffix: '/audience', label: 'Fan Intelligence' },
+  { suffix: '/communities', label: 'Communities' },
+  { suffix: '/beacons', label: 'Beacons' },
+  { suffix: '/funnel', label: 'Growth Funnel' },
   { suffix: '/area', label: 'AREA' },
 ]
 

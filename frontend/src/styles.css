@@ -221,7 +221,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent)26;out
 /* Wider pages — use the freed space when sidebar is collapsed.
    Default max-width is 1280px; collapsed pushes to 1600px so dense
    pages (operations, attention) fit more without scrolling. */
-.page{max-width:1280px;transition:max-width .2s ease}
+.page{max-width:1280px;transition:max-width var(--t-smooth)}
 .app-shell.collapsed .page{max-width:1600px}
 
 /* Mobile: sidebar becomes a top bar, tenant nav scrolls horizontally */

@@ -307,6 +307,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/ops/actions"
                     | "/v1/control-plane/community-intelligence/communities"
                     | "/v1/control-plane/audience-graph/places"
+                    | "/v1/control-plane/autopilot/cycle/preview"
             ) || path.starts_with("/v1/control-plane/audience-graph/places?")
                 || path.starts_with("/v1/control-plane/ops/outbox?")
                 || path.starts_with("/v1/control-plane/ops/deliveries?")
@@ -346,6 +347,8 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/objectives"
                     | "/v1/control-plane/autopilot/posture"
                     | "/v1/control-plane/autopilot/growth-envelope"
+                    | "/v1/control-plane/autopilot/beacon-network"
+                    | "/v1/control-plane/autopilot/cycle/run"
             ) || uuid_segment_between(path, "/v1/control-plane/ops/outbox/", "/retry")
                 || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "/retry")
                 || uuid_segment_between(path, "/v1/control-plane/ops/push/", "/retry")
@@ -935,6 +938,21 @@ mod tests {
         assert!(!valid_operations_request(
             "POST",
             "/v1/control-plane/ops/outbox/not-a-uuid/retry"
+        ));
+        // The action endpoints the control plane calls through the tunnel —
+        // beacon-network import and autopilot cycle run — must pass the
+        // allowlist for their respective methods.
+        assert!(valid_operations_request(
+            "POST",
+            "/v1/control-plane/autopilot/beacon-network"
+        ));
+        assert!(valid_operations_request(
+            "POST",
+            "/v1/control-plane/autopilot/cycle/run"
+        ));
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/autopilot/cycle/preview"
         ));
     }
 

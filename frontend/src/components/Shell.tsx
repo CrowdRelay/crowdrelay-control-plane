@@ -37,9 +37,8 @@ const healthLabel = (tenant: TenantSummary) => {
 // Tenant-scoped nav, grouped by the operator's mental model:
 //   CONTROL — what needs your attention right now (overview, incidents)
 //   BRAIN — the deterministic autopilot's intelligence and learning
-//   EXECUTION — live operations and growth delivery
-//   AUDIENCE — who you're reaching and how (roster, amplification, fanbases, AREA)
-//   SYSTEM — how the tenant is wired (LLM providers, alert channels)
+//   EXECUTION — live operations, integrations, and alert channels
+//   AUDIENCE — who you're reaching and how (portfolio, fans, communities, growth, AREA)
 type NavItem = { path: string; label: string; exact: boolean; icon: string }
 type NavGroup = { label: string; items: NavItem[] }
 
@@ -55,35 +54,26 @@ const TENANT_NAV_GROUPS: NavGroup[] = [
     label: 'Brain',
     items: [
       { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
-      { path: '/tenants/$slug/communities', label: 'Communities', exact: false, icon: 'audience' },
+      { path: '/tenants/$slug/health', label: 'Autopilot', exact: false, icon: 'health' },
     ],
   },
   {
     label: 'Execution',
     items: [
       { path: '/tenants/$slug/operations', label: 'Operations', exact: false, icon: 'operations' },
+      { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
+      { path: '/tenants/$slug/notifiers', label: 'Notifiers', exact: false, icon: 'notifiers' },
     ],
   },
   {
     label: 'Audience',
     items: [
-      { path: '/tenants/$slug/audience', label: 'Fan Intelligence', exact: false, icon: 'audience' },
-      { path: '/tenants/$slug/funnel', label: 'Growth', exact: false, icon: 'funnel' },
-      // Beacons were a tab under Operations, next to the things you *do*. But a
-      // beacon is a person carrying a release into a city the band has no
-      // audience in, which makes the roster a question about who the audience
-      // is — so it belongs here, not behind two clicks under Execution.
-      { path: '/tenants/$slug/beacons', label: 'Beacons', exact: false, icon: 'beacons' },
       { path: '/tenants/$slug/portfolio', label: 'Portfolio', exact: false, icon: 'portfolio' },
+      { path: '/tenants/$slug/audience', label: 'Fan Intelligence', exact: false, icon: 'fan-intel' },
+      { path: '/tenants/$slug/communities', label: 'Communities', exact: false, icon: 'audience' },
+      { path: '/tenants/$slug/beacons', label: 'Beacons', exact: false, icon: 'beacons' },
+      { path: '/tenants/$slug/funnel', label: 'Growth', exact: false, icon: 'funnel' },
       { path: '/tenants/$slug/area', label: 'AREA', exact: false, icon: 'area' },
-    ],
-  },
-  {
-    label: 'System',
-    items: [
-      { path: '/tenants/$slug/health', label: 'Autopilot', exact: false, icon: 'health' },
-      { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
-      { path: '/tenants/$slug/notifiers', label: 'Notifiers', exact: false, icon: 'notifiers' },
     ],
   },
 ]
@@ -99,6 +89,7 @@ function NavIcon(props: { name: string }) {
     notifiers: <><path d="M18 8a6 6 0 0 1-12 0M18 8a6 6 0 0 0-12 0M18 8v5a6 6 0 0 1-12 0V8M12 14v3M10 19h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></>,
     area: <><circle cx="12" cy="10" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></>,
     audience: <><circle cx="9" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="17" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15 14c0-2.2 1.8-4 4-4s4 1.8 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></>,
+    'fan-intel': <><path d="M12 2C7 2 4 5 4 9c0 3 2 5 2 7v1c0 1 1 2 2 2h8c1 0 2-1 2-2v-1c0-2 2-4 2-7 0-4-3-7-8-7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="9.5" cy="9" r="1.2" fill="currentColor"/><circle cx="14.5" cy="9" r="1.2" fill="currentColor"/><path d="M8 12.5c1 1 2.5 1.5 4 1.5s3-.5 4-1.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M12 2v-1M9 3L8 1.5M15 3l1-1.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></>,
     integrations: <><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1l2.1-2.1M17 7l2.1-2.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></>,
     automation: <><circle cx="6" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 6h7M9 8l2 7M15 8l-2 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></>,
     flow: <><circle cx="5" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="19" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 6h4l3 8M17 6h-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></>,

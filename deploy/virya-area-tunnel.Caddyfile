@@ -55,6 +55,10 @@
         /v1/control-plane/autopilot/beacon-network \
         /v1/control-plane/autopilot/beacon-release-campaigns \
         /v1/control-plane/autopilot/beacon-release-campaigns/* \
+        /v1/control-plane/autopilot/beacons \
+        /v1/control-plane/autopilot/beacons/* \
+        /v1/control-plane/autopilot/cycle/preview \
+        /v1/control-plane/autopilot/cycle/run \
         /v1/control-plane/autopilot/plays \
         /v1/control-plane/autopilot/learning-loop \
         /v1/control-plane/portfolio/overview \
@@ -72,6 +76,11 @@
         /v1/control-plane/connections/discogs \
         /v1/control-plane/connections/bluesky \
         /v1/control-plane/connections/bandcamp \
+        /v1/control-plane/connections/facebook \
+        /v1/control-plane/connections/instagram \
+        /v1/control-plane/connections/reddit \
+        /v1/control-plane/connections/soundcloud \
+        /v1/control-plane/connections/youtube \
         /v1/control-plane/autopilot/actions/* \
         /v1/control-plane/autopilot/decisions/* \
         /v1/control-plane/audience/overview \
@@ -79,6 +88,8 @@
         /v1/control-plane/audience/fans/* \
         /v1/control-plane/audience/segments \
         /v1/control-plane/audience/segments/* \
+        /v1/control-plane/audience-graph/places \
+        /v1/control-plane/audience-graph/places/import \
         /v1/control-plane/community-intelligence/communities \
         /v1/control-plane/community-intelligence/communities/*
 

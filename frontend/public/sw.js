@@ -9,9 +9,9 @@
 //
 // No external dependencies. Vanilla service worker.
 
-const SHELL_CACHE = 'cp-shell-v1';
-const API_CACHE = 'cp-api-v1';
-const ASSET_CACHE = 'cp-assets-v1';
+const SHELL_CACHE = 'cp-shell-v2';
+const API_CACHE = 'cp-api-v2';
+const ASSET_CACHE = 'cp-assets-v2';
 const API_STALE_MS = 30_000;
 
 const SHELL_ASSETS = [
@@ -103,6 +103,17 @@ async function networkFirstApi(request, url) {
   } catch (networkError) {
     const cached = await cache.match(request);
     if (cached) {
+      // Enforce API_STALE_MS: a cached response older than the threshold is
+      // not served — it is treated as a miss so the caller sees the real
+      // network error instead of indefinitely stale data after a deploy.
+      const dateHeader = cached.headers.get('date');
+      if (dateHeader) {
+        const ageMs = Date.now() - new Date(dateHeader).getTime();
+        if (ageMs > API_STALE_MS) {
+          cache.delete(request).catch(() => {});
+          throw networkError;
+        }
+      }
       // Stale-while-revalidate: return cached, kick off background refresh.
       fetch(request).then((response) => {
         if (response.ok) cache.put(request, response.clone());

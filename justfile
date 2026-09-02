@@ -29,6 +29,7 @@ script-test:
     python3 scripts/test_community_intelligence_contract.py
     python3 scripts/test_north_star_vocabulary_parity.py
     python3 scripts/test_mobile_apps_contract.py
+    python3 scripts/test_tunnel_route_contract.py
     for script in scripts/*.sh; do bash -n "$script"; done
 
 # Everything CI runs for a merge decision.

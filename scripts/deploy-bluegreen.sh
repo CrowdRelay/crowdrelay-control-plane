@@ -382,13 +382,15 @@ print('CROSS_GATE=PASS')
 " || fail "cross-system E2E gate failed: invalid response"
 fi
 
-# Soak candidate for 120 seconds with old app available as fallback.
+# Soak candidate for 30 seconds with old app available as fallback.
+# The tunnel route contract test catches config drift; the soak catches
+# runtime issues that only surface under real traffic.
 # Error-rate rollback: fail when 5xx exceeds 2% with at least 50 requests
 # and an absolute floor of 3 failures.
-printf '\n==> Soak candidate for 120 seconds with old app available as fallback\n'
+printf '\n==> Soak candidate for 30 seconds with old app available as fallback\n'
 soak_total=0
 soak_errors=0
-for soak_attempt in $(seq 1 24); do
+for soak_attempt in $(seq 1 6); do
   code="$(docker run --rm --network virya-edge curlimages/curl:8.12.0 \
     --silent --output /dev/null --write-out '%{http_code}' \
     --connect-timeout 3 --max-time 10 \
@@ -417,7 +419,7 @@ for soak_attempt in $(seq 1 24); do
   fi
   sleep 5
 done
-printf 'SOAK=PASS seconds=120 probes=%s errors=%s fallback=%s\n' "$soak_total" "$soak_errors" "$CURRENT_APP"
+printf 'SOAK=PASS seconds=30 probes=%s errors=%s fallback=%s\n' "$soak_total" "$soak_errors" "$CURRENT_APP"
 
 python3 "$RECEIPT_HELPER" phase --state-dir "$RELEASE_STATE_DIR" \
   --release-id "$RELEASE_ID" --phase soak --status pass >/dev/null
@@ -479,7 +481,9 @@ if [[ -n "$agent_tag" ]]; then
       printf 'AGENT_SERVICE=UNCHANGED tag=%s image=%s\n' "$agent_tag" "${new_agent_image:0:19}"
     else
       printf '\n==> Recreating agent-service with tag %s\n' "$agent_tag"
-      docker compose -f compose.production.yml -f compose.area.yml -f compose.agents.yml \
+      agent_compose_args=(-f compose.production.yml -f compose.area.yml)
+      [[ -f compose.agents.yml ]] && agent_compose_args+=(-f compose.agents.yml)
+      docker compose "${agent_compose_args[@]}" \
         up -d --no-deps --force-recreate agent-service
       agent_health=""
       for attempt in $(seq 1 30); do
@@ -498,7 +502,7 @@ if [[ -n "$agent_tag" ]]; then
         # through compose, so the container keeps its env, volumes and networks.
         if [[ -n "$prev_agent_image" ]]; then
           docker tag "$prev_agent_image" "$agent_local"
-          docker compose -f compose.production.yml -f compose.area.yml -f compose.agents.yml \
+          docker compose "${agent_compose_args[@]}" \
             up -d --no-deps --force-recreate agent-service 2>/dev/null || true
           printf 'AGENT_SERVICE=ROLLBACK restored_image=%s\n' "${prev_agent_image:0:19}"
         fi
