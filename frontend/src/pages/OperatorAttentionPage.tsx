@@ -1,4 +1,4 @@
-import { For, Show } from 'solid-js'
+import { For, Show, Suspense } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -40,6 +40,7 @@ export function OperatorAttentionPage() {
 
     <Show when={tenants.error}><div class="error-card" role="alert">{tenants.error instanceof Error ? tenants.error.message : 'Tenant registry unavailable'}</div></Show>
 
+    <Suspense fallback={<SkeletonRows count={4} />}>
     <Show when={tenants.data} fallback={!tenants.error ? <SkeletonRows count={4} /> : null}>
       <div class="kpi-strip">
         <article class="kpi-card">
@@ -83,5 +84,6 @@ export function OperatorAttentionPage() {
         </Show>
       </div>
     </Show>
+    </Suspense>
   </section>
 }

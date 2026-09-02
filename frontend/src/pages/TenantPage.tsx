@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createSignal } from 'solid-js'
+import { For, Show, Suspense, createEffect, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -91,6 +91,7 @@ export function TenantPage() {
 
   return <section class="page">
     <Show when={tenant.error}><div class="error-card" role="alert">{errorMessage(tenant.error, 'Tenant could not be loaded')}</div></Show>
+    <Suspense fallback={<SkeletonTenantPage />}>
     <Show when={!tenant.error && tenant.data} fallback={!tenant.error ? <SkeletonTenantPage /> : null}>{data => {
     const t = data()
     return <>
@@ -218,5 +219,5 @@ export function TenantPage() {
       <TenantAuditPanel items={model.data?.audit.items ?? []} />
       <TenantOperatorsPanel slug={t.slug} />
     </>
-  }}</Show></section>
+  }}</Show></Suspense></section>
 }

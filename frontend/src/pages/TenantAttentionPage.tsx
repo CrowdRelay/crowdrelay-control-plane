@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from 'solid-js'
+import { For, Show, Suspense, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -276,6 +276,7 @@ export function TenantAttentionPage() {
 
     <Show when={!summary.error && summary.isLoading}><SkeletonAttentionPage /></Show>
 
+    <Suspense fallback={<SkeletonAttentionPage />}>
     <Show when={summary.data}>{data => <>
       <Show when={totalDead(data()) > 0 || data().watchdog.critical_alerts > 0 || staleAreaReservations(data()) > 0}>
         <div class="operations-attention" role="alert">
@@ -390,5 +391,6 @@ export function TenantAttentionPage() {
       <button class="ghost" disabled={!timelineInput().trim() || !!busy()} onClick={() => void lookupTimeline()}>{busy() === 'timeline' ? 'Tracing…' : 'Trace request'}</button>
     </div>
     <Show when={timeline()}>{result => <div class="panel"><div class="section-title"><div><strong>{result().events.length} timeline event(s)</strong><small class="mono">{result().request_id}</small></div><button class="ghost" onClick={() => setTimeline(null)}>Close</button></div><For each={result().events}>{event => <div class="warning-card"><strong>{event.source} · {event.kind}</strong><p>{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'} · <span class="mono">{event.target_id ?? '—'}</span></p></div>}</For></div>}</Show>
+    </Suspense>
   </section>
 }

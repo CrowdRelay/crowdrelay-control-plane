@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from 'solid-js'
+import { For, Show, Suspense, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -104,6 +104,7 @@ export function TenantNotifiersPage() {
     <div class="page-head"><div><span class="eyebrow">SYSTEM</span><h1>Notification topology</h1><p>Where this tenant's alerts land and how they get there. Three layers: tenant channels, platform config, and automation routing. Delivery is best-effort with bounded retries; endpoints belong to your own infrastructure.</p></div></div>
 
     {/* ── TENANT / VIRYA ─────────────────────────────────────────── */}
+    <Suspense fallback={<SkeletonNotifiersPage />}>
     <Show when={channels.error}><div class="error-card" role="alert">{errorMessage(channels.error, 'Channels could not be loaded')}</div></Show>
     <Show when={!channels.error && channels.isPending}><SkeletonNotifiersPage /></Show>
     <Show when={channels.data} fallback={!channels.error ? null : undefined}>
@@ -208,5 +209,6 @@ export function TenantNotifiersPage() {
       <Show when={create.error}><div class="error-card" role="alert">{errorMessage(create.error, 'Channel creation failed')}</div></Show>
       <div class="form-actions right"><button type="submit" disabled={create.isPending || !formReady()}>{create.isPending ? 'Adding…' : 'Add channel'}</button></div>
     </form>
+    </Suspense>
   </section>
 }

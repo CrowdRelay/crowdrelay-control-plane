@@ -1,4 +1,4 @@
-import { For, Show, createSignal, createMemo } from 'solid-js'
+import { For, Show, Suspense, createSignal, createMemo } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { refreshTick } from '../lib/refresh'
@@ -81,6 +81,7 @@ export function AutomationPage() {
       </div>
     </div>
 
+    <Suspense fallback={<SkeletonRows count={5} />}>
     <Show when={showConfigs()}>
       <div class="section-title"><h2>Workflow routing</h2></div>
       <Show when={configs.error}><div class="error-card">{configs.error?.message}</div></Show>
@@ -200,5 +201,6 @@ export function AutomationPage() {
         </div>
       </Show>
     </Show>
+    </Suspense>
   </section>
 }

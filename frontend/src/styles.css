@@ -998,11 +998,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 }
 
 /* ── Keyframes ─────────────────────────────────────────────────────────── */
-@keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes staggerIn{from{opacity:0;transform:translateY(8px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(155,135,245,0.2)}50%{box-shadow:0 0 24px 4px rgba(155,135,245,0.15)}}
-@keyframes gradientShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
 @keyframes slideInRight{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
 @keyframes scaleIn{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}
 @keyframes drawLine{from{stroke-dashoffset:var(--len,200)}to{stroke-dashoffset:0}}
@@ -1028,34 +1024,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .glass-hover:hover{border-color:var(--border-accent)}
 .glass-hover-sm{transition:border-color var(--t-fast)}
 .glass-hover-sm:hover{border-color:var(--border-strong)}
-
-/* ── Animation utilities ───────────────────────────────────────────────── */
-.anim-fade-in-up{animation:fadeInUp var(--t-smooth) ease-out both}
-.anim-fade-in{animation:fadeIn var(--t-smooth) ease-out both}
-.anim-scale-in{animation:scaleIn var(--t-smooth) ease-out both}
-.anim-slide-in-right{animation:slideInRight var(--t-smooth) ease-out both}
-.anim-pulse-glow{animation:pulseGlow 3s ease-in-out infinite}
-
-/* Page content — no animation on route change. The Suspense fallback
-   (SkeletonPage) handles the transition: skeleton shows while data loads,
-   then content appears instantly. A fadeIn/staggerIn here fires after data
-   arrives (not during the skeleton phase), which reads as a flash rather
-   than a smooth transition. */
-
-/* Staggered children — apply to parent. Up to 12 items. */
-.stagger > *{animation:staggerIn var(--t-smooth) ease-out both}
-.stagger > *:nth-child(1){animation-delay:30ms}
-.stagger > *:nth-child(2){animation-delay:60ms}
-.stagger > *:nth-child(3){animation-delay:90ms}
-.stagger > *:nth-child(4){animation-delay:120ms}
-.stagger > *:nth-child(5){animation-delay:150ms}
-.stagger > *:nth-child(6){animation-delay:180ms}
-.stagger > *:nth-child(7){animation-delay:210ms}
-.stagger > *:nth-child(8){animation-delay:240ms}
-.stagger > *:nth-child(9){animation-delay:270ms}
-.stagger > *:nth-child(10){animation-delay:300ms}
-.stagger > *:nth-child(11){animation-delay:330ms}
-.stagger > *:nth-child(12){animation-delay:360ms}
 
 /* ── Sprint 2: Data visualization ── */
 

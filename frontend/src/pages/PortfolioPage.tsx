@@ -1,4 +1,4 @@
-import { For, Show } from 'solid-js'
+import { For, Show, Suspense } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -62,6 +62,7 @@ export function PortfolioPage() {
     {/* Skeleton only before the first response; background refreshes keep the
         rendered page exactly like the Operations subpage does. */}
     <Show when={!model.error && model.isPending}><SkeletonPageHead /><SkeletonSection titleWidth="180px" lines={5} minHeight="180px" /><SkeletonSection titleWidth="200px" lines={4} minHeight="160px" /><SkeletonSection titleWidth="140px" lines={3} minHeight="120px" /></Show>
+    <Suspense fallback={<><SkeletonPageHead /><SkeletonSection titleWidth="180px" lines={5} minHeight="180px" /><SkeletonSection titleWidth="200px" lines={4} minHeight="160px" /><SkeletonSection titleWidth="140px" lines={3} minHeight="120px" /></>}>
     <Show when={model.data} keyed>{(data) => <>
       <DegradedSections degraded={data.degraded} />
       <Show when={!data.degraded.includes('overview') || !data.degraded.includes('amplification')}>
@@ -90,5 +91,6 @@ export function PortfolioPage() {
         />
       </Show>
     </>}</Show>
+    </Suspense>
   </section>
 }

@@ -1,4 +1,4 @@
-import { Show } from 'solid-js'
+import { Show, Suspense } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -63,6 +63,7 @@ export function TenantHealthPage() {
       <SkeletonBlock height="160px" radius="var(--radius-lg)" />
     </Show>
 
+    <Suspense fallback={<><SkeletonPageHead /><SkeletonBlock height="200px" radius="var(--radius-lg)" /><SkeletonBlock height="160px" radius="var(--radius-lg)" /></>}>
     <Show when={model.data}>
       {/* Above the numbers on purpose: the numbers assume you already know
           which ones are bad. This says what to do. */}
@@ -81,5 +82,6 @@ export function TenantHealthPage() {
         mode="controls"
       />
     </Show>
+    </Suspense>
   </section>
 }
