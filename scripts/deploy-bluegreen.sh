@@ -423,57 +423,81 @@ printf '\n==> 5/5 — Stop old app, finalize\n'
 docker stop --time 30 "$CURRENT_APP" >/dev/null 2>&1 || true
 docker rm "$CURRENT_APP" >/dev/null 2>&1 || true
 
-# --- 5b. Update agent-service with exact-digest and hard health gate -------
-# The agent-service is stateless from the deploy perspective. We pull by exact
-# digest, recreate it, and hard-gate on health. If the new agent fails health,
-# we roll back to the previous container image.
+# --- 5b. Update agent-service with a fresh image and a hard health gate ----
+# The agent-service is stateless from the deploy perspective: pull, recreate,
+# hard-gate on health, roll back to the previous image if the new one fails.
+#
+# This block used to run only when the tag looked like `sha-<40 hex>`, and
+# production has always had `AGENT_SERVICE_IMAGE_TAG=latest`. So every deploy
+# printed `AGENT_SERVICE=SKIP reason=no-tag-configured` — a tag *was*
+# configured — and left the agent-service on whatever image it booted with.
+# It sat months behind the control plane: a Reddit navigation-timeout fix and
+# a whole generation of model names shipped to `latest` and never ran.
+#
+# Any tag is deployable now. The pin, when there is one, is a digest.
 agent_container="crowdrelay-control-plane-agent-service-1"
 agent_tag="$(sed -n 's/^AGENT_SERVICE_IMAGE_TAG=//p' .env | tail -n1)"
 agent_digest="${AGENT_SERVICE_IMAGE_DIGEST:-}"
-if [[ "$agent_tag" =~ ^sha-[0-9a-f]{40}$ ]]; then
-  # Record the previous agent tag for rollback (restore via compose)
-  prev_agent_tag="$(docker inspect "$agent_container" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || true)"
+agent_local="crowdrelay-agents:${agent_tag}"
+if [[ -n "$agent_tag" ]]; then
+  # Roll back by image ID, not by tag. With a moving tag like `latest`,
+  # restoring the tag name re-selects the image that just failed.
+  prev_agent_image="$(docker inspect "$agent_container" --format '{{.Image}}' 2>/dev/null || true)"
 
-  # Pull by digest if available, otherwise by tag
   if [[ -n "$agent_digest" ]]; then
     agent_registry_image="ghcr.io/crowdrelay/crowdrelay-agents@${agent_digest}"
     printf '\n==> Pulling agent-service by exact digest %s\n' "$agent_digest"
     docker pull "$agent_registry_image" >/dev/null
-    # Tag locally so compose can reference it by tag
-    docker tag "$agent_registry_image" "crowdrelay-agents:${agent_tag}"
   else
-    agent_image="crowdrelay-agents:${agent_tag}"
-    if ! docker image inspect "$agent_image" >/dev/null 2>&1; then
-      printf 'AGENT_IMAGE=SKIP reason=image-not-found tag=%s\n' "$agent_tag"
-      prev_agent_tag=""
+    agent_registry_image="ghcr.io/crowdrelay/crowdrelay-agents:${agent_tag}"
+    printf '\n==> Pulling agent-service %s\n' "$agent_registry_image"
+    if ! docker pull "$agent_registry_image" >/dev/null 2>&1; then
+      # The registry is not reachable. Carry on with whatever is already on
+      # the host rather than failing a control plane that is already live,
+      # but say plainly that the agent did not move.
+      agent_registry_image=""
+      printf 'AGENT_IMAGE=STALE reason=pull-failed ref=ghcr.io/crowdrelay/crowdrelay-agents:%s\n' "$agent_tag" >&2
     fi
   fi
 
-  if [[ -z "$prev_agent_tag" || -n "$agent_digest" ]] || docker image inspect "crowdrelay-agents:${agent_tag}" >/dev/null 2>&1; then
-    printf '\n==> Recreating agent-service with tag %s\n' "$agent_tag"
-    docker compose -f compose.production.yml -f compose.area.yml -f compose.agents.yml \
-      up -d --no-deps --force-recreate agent-service
-    agent_health=""
-    for attempt in $(seq 1 30); do
-      agent_health="$(docker inspect "$agent_container" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
-      if [[ "$agent_health" == "healthy" ]]; then
-        break
-      fi
-      sleep 2
-    done
-    if [[ "$agent_health" == "healthy" ]]; then
-      printf 'AGENT_SERVICE=PASS health=%s tag=%s\n' "$agent_health" "$agent_tag"
+  # Compose references the image by local tag; point that tag at what we pulled.
+  if [[ -n "$agent_registry_image" ]]; then
+    docker tag "$agent_registry_image" "$agent_local"
+  fi
+
+  if ! docker image inspect "$agent_local" >/dev/null 2>&1; then
+    printf 'AGENT_SERVICE=SKIP reason=image-not-found tag=%s\n' "$agent_tag" >&2
+  else
+    new_agent_image="$(docker image inspect "$agent_local" --format '{{.Id}}' 2>/dev/null || true)"
+    if [[ -n "$prev_agent_image" && "$new_agent_image" == "$prev_agent_image" ]]; then
+      printf 'AGENT_SERVICE=UNCHANGED tag=%s image=%s\n' "$agent_tag" "${new_agent_image:0:19}"
     else
-      printf 'AGENT_SERVICE=FAILED health=%s tag=%s — rolling back agent\n' "$agent_health" "$agent_tag" >&2
-      # Rollback: restore the previous tag in .env and recreate via compose
-      # so the container gets the correct env, volumes, and networks.
-      if [[ -n "$prev_agent_tag" ]]; then
-        sed -i "s|^AGENT_SERVICE_IMAGE_TAG=.*|AGENT_SERVICE_IMAGE_TAG=${prev_agent_tag}|" .env
-        docker compose -f compose.production.yml -f compose.area.yml -f compose.agents.yml \
-          up -d --no-deps --force-recreate agent-service 2>/dev/null || true
-        printf 'AGENT_SERVICE=ROLLBACK restored_tag=%s\n' "$prev_agent_tag"
+      printf '\n==> Recreating agent-service with tag %s\n' "$agent_tag"
+      docker compose -f compose.production.yml -f compose.area.yml -f compose.agents.yml \
+        up -d --no-deps --force-recreate agent-service
+      agent_health=""
+      for attempt in $(seq 1 30); do
+        agent_health="$(docker inspect "$agent_container" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
+        if [[ "$agent_health" == "healthy" ]]; then
+          break
+        fi
+        sleep 2
+      done
+      if [[ "$agent_health" == "healthy" ]]; then
+        printf 'AGENT_SERVICE=PASS health=%s tag=%s image=%s\n' \
+          "$agent_health" "$agent_tag" "${new_agent_image:0:19}"
+      else
+        printf 'AGENT_SERVICE=FAILED health=%s tag=%s — rolling back agent\n' "$agent_health" "$agent_tag" >&2
+        # Point the local tag back at the image that was running and recreate
+        # through compose, so the container keeps its env, volumes and networks.
+        if [[ -n "$prev_agent_image" ]]; then
+          docker tag "$prev_agent_image" "$agent_local"
+          docker compose -f compose.production.yml -f compose.area.yml -f compose.agents.yml \
+            up -d --no-deps --force-recreate agent-service 2>/dev/null || true
+          printf 'AGENT_SERVICE=ROLLBACK restored_image=%s\n' "${prev_agent_image:0:19}"
+        fi
+        fail "agent-service failed health check after deploy"
       fi
-      fail "agent-service failed health check after deploy"
     fi
   fi
 else
