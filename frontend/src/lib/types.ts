@@ -975,8 +975,17 @@ export interface FanbaseConnection {
   platform: string
   external_account_ref: string
   label: string
+  /// Whether credentials are present — not whether the channel works.
+  ///
+  /// Five production connections reported `connected` while failing every
+  /// sync since they were created, so this and the sync fields answer
+  /// different questions and both are needed.
   status: 'connected' | 'expired' | 'disconnected' | 'invalid'
   last_sync_at: string | null
+  /// Why the most recent sync failed, verbatim from the provider. Null once a
+  /// sync succeeds.
+  last_sync_error: string | null
+  last_sync_failed_at: string | null
   created_at: string
 }
 

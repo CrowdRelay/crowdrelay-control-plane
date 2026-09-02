@@ -361,8 +361,10 @@ export function FanSourcesPanel(props: {
     onError: (error) => setErrorText(error instanceof Error ? error.message : 'Reddit connection failed'),
   }))
 
-  const connTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
-    status === 'connected' ? 'good' : status === 'expired' ? 'warn' : status === 'disconnected' || status === 'invalid' ? 'bad' : 'muted'
+  // `connected` alone is not health. A channel whose last sync failed shows
+  // warn, so the badge stops contradicting the error printed beside it.
+  const connTone = (status: string, syncFailing = false): 'good' | 'warn' | 'bad' | 'muted' =>
+    status === 'connected' ? (syncFailing ? 'warn' : 'good') : status === 'expired' ? 'warn' : status === 'disconnected' || status === 'invalid' ? 'bad' : 'muted'
 
   const formatVerification = (result: { verification?: string; displayName?: string; reason?: string; status?: string }): string | null => {
     const v = result.verification
@@ -416,10 +418,24 @@ export function FanSourcesPanel(props: {
                     <span class="muted">last sync {formatAge(conn()!.last_sync_at!)}</span>
                   </div>
                 </Show>
+                {/* A connected channel that never syncs is the failure mode
+                    this panel could not show: five of them read `connected`
+                    while producing no data at all. The provider's own message
+                    goes here, because it names the fix — a wrong page id, a
+                    missing API key — and the status badge never can. */}
+                <Show when={conn() && conn()!.last_sync_error}>
+                  <div class="fanbase-connection-meta">
+                    <span class="notifier-test-bad">
+                      {conn()!.last_sync_at ? 'sync failing' : 'never synced'}
+                      {conn()!.last_sync_failed_at ? ` (${formatAge(conn()!.last_sync_failed_at!)})` : ''}
+                      : {conn()!.last_sync_error}
+                    </span>
+                  </div>
+                </Show>
               </div>
               <div class="fanbase-connection-actions">
                 <Show when={conn()}>
-                  <StatusBadge status={conn()!.status} tone={connTone(conn()!.status)} />
+                  <StatusBadge status={conn()!.status} tone={connTone(conn()!.status, !!conn()!.last_sync_error)} />
                   <button class="agent-btn-danger" onClick={() => disconnectConnection(conn()!.id)}>Disconnect</button>
                 </Show>
                 <Show when={!conn() && plat.value === 'tiktok'}>
