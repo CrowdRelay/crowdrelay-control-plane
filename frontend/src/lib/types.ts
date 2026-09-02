@@ -2026,3 +2026,25 @@ export interface AudiencePlaceInput {
   memberCount?: number
   notes?: string
 }
+
+/// Fields for creating or updating a beacon.
+///
+/// `beaconId` absent means create. The tenant accepts `citySlug` as an
+/// alternative to a city UUID precisely so operator surfaces can use the slug
+/// the public city list returns.
+export interface BeaconUpsertInput {
+  beaconId?: string
+  citySlug?: string
+  beaconKind: string
+  displayName: string
+  contactEmail?: string
+  destinationUrl?: string
+  sourceUrl?: string
+  active: boolean
+  verified: boolean
+  acceptsOutreach: boolean
+  doNotContact: boolean
+  relationshipScore: number
+  relevanceBasisPoints: number
+  confidenceBasisPoints: number
+}

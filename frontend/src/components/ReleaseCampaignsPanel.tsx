@@ -38,6 +38,11 @@ const formatDeadline = (iso: string) => {
 export function ReleaseCampaignsPanel(props: { slug: string }) {
   const [error, setError] = createSignal<string | null>(null)
   const [acting, setActing] = createSignal<string | null>(null)
+  // Creating a campaign. The panel could launch and close campaigns but never
+  // make one, and its empty state pointed at a "release plan" surface that does
+  // not exist anywhere in the control plane.
+  const [creating, setCreating] = createSignal(false)
+  const [form, setForm] = createSignal({ slug: '', title: '', sku: '', claimDeadline: '' })
   const [selectedCampaign, setSelectedCampaign] = createSignal<string | null>(null)
   const refreshSource = () => refreshTick()
 
@@ -84,17 +89,77 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
     }
   }
 
+  const createCampaign = async () => {
+    if (acting() !== null) return
+    setActing('create')
+    setError(null)
+    try {
+      const values = form()
+      await api.createBeaconReleaseCampaign(props.slug, {
+        slug: values.slug.trim(),
+        title: values.title.trim(),
+        sku: values.sku.trim(),
+        // `datetime-local` yields a local wall time with no zone. The tenant
+        // parses RFC3339 and rejects anything else, so convert rather than
+        // append a Z that would silently shift the deadline.
+        claimDeadline: new Date(values.claimDeadline).toISOString(),
+      })
+      setForm({ slug: '', title: '', sku: '', claimDeadline: '' })
+      setCreating(false)
+      triggerRefresh()
+    } catch (caught) {
+      setError(errorMessage(caught, 'Could not create the campaign'))
+    } finally {
+      setActing(null)
+    }
+  }
+
   return <div class="agent-section">
     <div class="agent-section-head">
       <h3>Release Campaigns</h3>
-      <Show when={campaigns()}>
-        <span class="muted">{campaigns()!.campaigns.length} campaigns · {campaigns()!.pool.contactable_latarnicy} contactable</span>
-      </Show>
+      <div class="agent-section-head-actions">
+        <Show when={campaigns()}>
+          <span class="muted">{campaigns()!.campaigns.length} campaigns · {campaigns()!.pool.contactable_latarnicy} contactable</span>
+        </Show>
+        <button class="ghost" onClick={() => setCreating(v => !v)}>
+          {creating() ? 'Cancel' : 'Add release campaign'}
+        </button>
+      </div>
     </div>
     <p class="agent-section-intro">Physical release delivery to beacon recipients. Launch a campaign to notify eligible beacons; close when all parcels are delivered.</p>
 
     <Show when={error()}>
       <div class="error-card">{error()}</div>
+    </Show>
+
+    <Show when={creating()}>
+      <form class="form-grid campaign-create" onSubmit={event => { event.preventDefault(); void createCampaign() }}>
+        <label>
+          Title <small>what the beacon sees</small>
+          <input value={form().title} maxlength={200} required
+                 onInput={e => setForm({ ...form(), title: e.currentTarget.value })} />
+        </label>
+        <label>
+          Slug <small>lowercase, used in links</small>
+          <input value={form().slug} maxlength={100} required
+                 onInput={e => setForm({ ...form(), slug: e.currentTarget.value })} />
+        </label>
+        <label>
+          SKU <small>the physical item being sent</small>
+          <input value={form().sku} maxlength={100} required
+                 onInput={e => setForm({ ...form(), sku: e.currentTarget.value })} />
+        </label>
+        <label>
+          Claim deadline <small>must be in the future</small>
+          <input type="datetime-local" value={form().claimDeadline} required
+                 onInput={e => setForm({ ...form(), claimDeadline: e.currentTarget.value })} />
+        </label>
+        <div class="form-actions right">
+          <button class="primary" type="submit" disabled={acting() === 'create'}>
+            {acting() === 'create' ? 'Creating…' : 'Create campaign'}
+          </button>
+        </div>
+      </form>
     </Show>
 
     <Show when={campaigns()} fallback={<SkeletonBlock height="120px" radius="10px" />}>

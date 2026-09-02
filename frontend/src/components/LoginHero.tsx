@@ -47,7 +47,11 @@ const FlowDiagram: Component = () => {
   return (
   <svg
     class="flow-diagram"
-    viewBox="0 35 1200 310"
+    // Cropped to the drawing's actual bounds. The old box carried 170 units
+    // of empty margin on the right and cut 15 units off the bottom, so every
+    // rendered size was ~14% smaller than it needed to be and the lowest
+    // strokes only survived because the SVG paints outside its box.
+    viewBox="10 35 1030 333"
     role="img"
     aria-label="Fan sources flow into the brain (deterministic Rust autopilot), which dispatches LLM workers to produce outcomes. Outcomes feed back into the brain through a learning loop."
   >

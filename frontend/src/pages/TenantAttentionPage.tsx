@@ -18,6 +18,45 @@ const totalDead = (summary: OperationsSummary) => summary.outbox.dead + summary.
 const staleAreaReservations = (summary: OperationsSummary) => summary.area.stale_voucher_reservations + summary.area.stale_ticket_reward_reservations
 const shortId = (value: string) => value.length > 16 ? `${value.slice(0, 8)}…${value.slice(-6)}` : value
 
+
+// Push failures in words, and whether retrying can possibly help.
+//
+// The raw codes read as accusations. `fan_or_consent_ineligible` on twenty-one
+// rows looked like the system had been messaging people who said no — it had
+// not; those were one fan's seven abandoned app installs, and the same fan
+// received their messages on the device they still use. A panel that cannot
+// say which of those two things happened turns a hygiene event into a scare.
+//
+// Retry is offered only where it can succeed. A dead endpoint is a phone that
+// reinstalled: there is nothing on the other end, and the button was a promise
+// the system could not keep.
+const PUSH_FAILURES: Record<string, { reason: string; retryable: boolean }> = {
+  endpoint_inactive: {
+    reason: 'device no longer registered — the app was reinstalled or removed',
+    retryable: false,
+  },
+  fcm_endpoint_invalid: {
+    reason: 'push service rejected the device token as stale',
+    retryable: false,
+  },
+  fan_or_consent_ineligible: {
+    reason: 'fan is inactive or has withdrawn marketing consent',
+    retryable: false,
+  },
+  beacon_session_ineligible: { reason: 'beacon session expired or revoked', retryable: false },
+  staff_endpoint_ineligible: { reason: 'staff session expired', retryable: false },
+  device_ack_timeout: { reason: 'sent, but the device never acknowledged', retryable: true },
+  preference_disabled: { reason: 'fan turned this notification category off', retryable: false },
+}
+
+const pushFailureReason = (code: string | null | undefined) =>
+  (code && PUSH_FAILURES[code]?.reason) ?? code ?? 'unknown error'
+
+// Unknown codes stay retryable: a new failure mode nobody has classified yet
+// should not silently lose its only remedy.
+const pushIsRetryable = (code: string | null | undefined) =>
+  !code || (PUSH_FAILURES[code]?.retryable ?? true)
+
 export function TenantAttentionPage() {
   const params = useParams({ from: '/tenants/$slug/attention' })
   const attention = useQuery(() => ({
@@ -66,6 +105,19 @@ export function TenantAttentionPage() {
   const [expandOutbox, setExpandOutbox] = createSignal(false)
   const [expandDeliveries, setExpandDeliveries] = createSignal(false)
   const [expandPush, setExpandPush] = createSignal(false)
+
+  /// Says what these failures mean before the operator reads twenty rows.
+  const pushFailureSummary = () => {
+    const items = deadPush.data ?? []
+    if (items.length === 0) return 'Retry is idempotent.'
+    const retryable = items.filter(item => pushIsRetryable(item.error_code)).length
+    const stale = items.length - retryable
+    if (stale === items.length) {
+      return `All ${items.length} are devices that no longer exist — reinstalled or uninstalled apps. Nothing was lost and there is nothing to retry.`
+    }
+    if (stale === 0) return `${retryable} worth retrying. Retry is idempotent.`
+    return `${stale} are devices that no longer exist and cannot be retried; ${retryable} are worth a retry. Retry is idempotent.`
+  }
 
   const [confirming, setConfirming] = createSignal(false)
   const [confirmingReconcile, setConfirmingReconcile] = createSignal(false)
@@ -311,12 +363,19 @@ export function TenantAttentionPage() {
     </div>}</Show>
 
     <div class="section-title" id="dead-push">
-      <div><span class="eyebrow">DEAD PUSH</span><h3>Failed push deliveries</h3><p>Retry is idempotent.</p></div>
+      <div><span class="eyebrow">DEAD PUSH</span><h3>Failed push deliveries</h3><p>{pushFailureSummary()}</p></div>
       <StatusBadge status={(summary.data?.push.dead ?? 0) > 0 ? 'dead' : 'clean'} tone={(summary.data?.push.dead ?? 0) > 0 ? 'bad' : 'good'} />
     </div>
     <Show when={deadPush.error}><div class="error-card">Dead push unavailable</div></Show>
     <For each={expandPush() ? (deadPush.data ?? []) : (deadPush.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card">
-      <div class="section-title"><div><strong>{item.title}</strong><small class="mono">{item.id}</small><p>{item.error_code ?? 'unknown error'} · attempts {item.attempt_count} · {item.source_kind}</p></div><button class="ghost" disabled={!!busy()} onClick={() => void retryPush(item.id)}>{busy() === `push:${item.id}` ? 'Retrying…' : 'Retry'}</button></div>
+      <div class="section-title"><div><strong>{item.title}</strong><small class="mono">{item.id}</small><p>{pushFailureReason(item.error_code)} · attempts {item.attempt_count} · {item.source_kind}</p></div>
+        <Show
+          when={pushIsRetryable(item.error_code)}
+          fallback={<span class="muted push-no-retry">nothing to retry</span>}
+        >
+          <button class="ghost" disabled={!!busy()} onClick={() => void retryPush(item.id)}>{busy() === `push:${item.id}` ? 'Retrying…' : 'Retry'}</button>
+        </Show>
+      </div>
     </div>}</For>
     <Show when={(deadPush.data?.length ?? 0) > DEAD_PREVIEW}>
       <button class="ghost dead-expand-btn" onClick={() => setExpandPush(!expandPush())}>

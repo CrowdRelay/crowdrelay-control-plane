@@ -1,4 +1,4 @@
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AgentScorecard, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentOutcome, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationRoutingItem, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, ChatAction, CommunityItem, CommunityObservationItem, CommunityEntityItem, ConnectionCreationResult, DeliveryDetails, DeliveryItem, DiscoveredEndpoint, FanbaseConnection, FeatureFlag, GrowthFunnelData, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, OutboxItem, Palette, PlatformConfigItem, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, AudienceOverview, FanCard, FanDetail, FanJourneyEntry, AudienceSegment, SegmentPreview, AudienceReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectiveView, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TourEconomicsSummary, AutopilotChiefOfStaff, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AgentScorecard, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentOutcome, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationRoutingItem, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, ChatAction, CommunityItem, CommunityObservationItem, CommunityEntityItem, ConnectionCreationResult, DeliveryDetails, DeliveryItem, DiscoveredEndpoint, FanbaseConnection, FeatureFlag, GrowthFunnelData, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, OutboxItem, Palette, PlatformConfigItem, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, AudienceOverview, FanCard, FanDetail, FanJourneyEntry, AudienceSegment, SegmentPreview, AudienceReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectiveView, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TourEconomicsSummary, AutopilotChiefOfStaff, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput, BeaconUpsertInput } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
@@ -496,9 +496,76 @@ export const api = {
   beaconNetwork: (slug: string) =>
     request<BeaconNetworkResponse>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-network`),
 
+  // --- Beacon management ---
+  // Six read endpoints existed before these; not one write. The roster was
+  // observable and unchangeable. Payloads are snake_case: the tenant's write
+  // contracts are, even though its responses are camelCase.
+  upsertBeacon: (slug: string, beacon: BeaconUpsertInput) =>
+    request<{ beaconId: string }>(`/tenants/${encodeURIComponent(slug)}/operations/beacons`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({
+        beacon_id: beacon.beaconId ?? null,
+        city_slug: beacon.citySlug ?? null,
+        beacon_kind: beacon.beaconKind,
+        display_name: beacon.displayName,
+        contact_email: beacon.contactEmail ?? null,
+        destination_url: beacon.destinationUrl ?? null,
+        source_url: beacon.sourceUrl ?? null,
+        active: beacon.active,
+        verified: beacon.verified,
+        accepts_outreach: beacon.acceptsOutreach,
+        do_not_contact: beacon.doNotContact,
+        relationship_score: beacon.relationshipScore,
+        relevance_basis_points: beacon.relevanceBasisPoints,
+        confidence_basis_points: beacon.confidenceBasisPoints,
+        metadata: {},
+      }),
+    }),
+  batchInviteBeacons: (slug: string, beaconIds: string[], options?: { ttlDays?: number; radiusKm?: number; locale?: string }) =>
+    request<{ invites: { beaconId: string; status: string }[] }>(`/tenants/${encodeURIComponent(slug)}/operations/beacons/signal-invites/batch`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({
+        beacon_ids: beaconIds,
+        ...(options?.ttlDays ? { ttl_days: options.ttlDays } : {}),
+        ...(options?.radiusKm ? { radius_km: options.radiusKm } : {}),
+        ...(options?.locale ? { locale: options.locale } : {}),
+      }),
+    }),
+  setBeaconState: (slug: string, beaconId: string, status: 'active' | 'paused' | 'revoked') =>
+    request<{ beaconId: string; status: string }>(`/tenants/${encodeURIComponent(slug)}/operations/beacons/${encodeURIComponent(beaconId)}/signal-state`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ status }),
+    }),
+  recordBeaconReply: (slug: string, beaconId: string, input: { eventId: string; disposition: string; occurredAt: string }) =>
+    request<{ beaconId: string }>(`/tenants/${encodeURIComponent(slug)}/operations/beacons/${encodeURIComponent(beaconId)}/reply`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({
+        event_id: input.eventId,
+        disposition: input.disposition,
+        occurred_at: input.occurredAt,
+      }),
+    }),
+
   // --- Release Campaigns ---
   beaconReleaseCampaigns: (slug: string) =>
     request<AdminReleaseCampaignsResponse>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-release-campaigns`),
+  createBeaconReleaseCampaign: (slug: string, input: { slug: string; title: string; sku: string; claimDeadline: string }) =>
+    request<{ campaignId: string; status: string }>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-release-campaigns`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      // snake_case: the tenant's create contract is not camelCased, unlike its
+      // responses. Sending claimDeadline silently fails validation.
+      body: JSON.stringify({
+        slug: input.slug,
+        title: input.title,
+        sku: input.sku,
+        claim_deadline: input.claimDeadline,
+      }),
+    }),
   launchBeaconReleaseCampaign: (slug: string, campaignId: string) =>
     request<{ campaignId: string; status: string; eligibleCount: number; reservedQuantity: number; availableBeforeReservation: number }>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-release-campaigns/${encodeURIComponent(campaignId)}/launch`, {
       method: 'POST',

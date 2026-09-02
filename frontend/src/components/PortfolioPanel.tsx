@@ -140,10 +140,42 @@ export function PortfolioPanel(props: {
         </tbody>
       </table>
     </Show>
+    {/* Two different empty states, because they mean different things.
+        With fewer than two artists amplification cannot exist at all, and
+        explaining an approval workflow to someone who has nothing to approve
+        reads as a broken feature rather than an inapplicable one. */}
     <Show when={!edges().length}><div class="inherit-card portfolio-empty">
-      <p><strong>No amplification edges yet.</strong></p>
-      <p>An amplification edge routes one artist's release or show in front of another artist's consenting fans. To create one, both artists need to be roster workspaces in this tenant. Once created, the edge appears here as "proposed" — approve it to start routing.</p>
-      <p class="muted">Edges are created from the artist workspace pages, not from here. This panel is where you approve, pause, or revoke them.</p>
+      <Show
+        when={(props.overview?.workspaceCount ?? 0) >= 2}
+        fallback={
+          <>
+            <p><strong>Amplification needs at least two artists. This tenant has {props.overview?.workspaceCount ?? 0}.</strong></p>
+            <p>
+              Amplification lends one artist's audience to another: a release or show is
+              routed in front of a different artist's consenting fans, who stay in their
+              own workspace throughout. With a single artist there is no second audience
+              to borrow, so there is nothing for this panel to do yet.
+            </p>
+            <p class="muted">
+              It becomes available when a second artist is added to the roster. Until then
+              this is not something to configure — it is a feature waiting on a roster,
+              not on you.
+            </p>
+          </>
+        }
+      >
+        <p><strong>No amplification edges yet.</strong></p>
+        <p>
+          An edge routes one artist's release or show in front of another artist's
+          consenting fans. Create one from either artist's workspace page — it arrives
+          here as <em>proposed</em>, and routing only starts once you approve it.
+        </p>
+        <p class="muted">
+          This panel is the approval gate: approve, pause or revoke. Fans never leave
+          their home workspace, and every decision is recorded against the operator who
+          made it.
+        </p>
+      </Show>
     </div></Show>
     <Show when={errorText()}><div class="error-card" role="alert">{errorText()}</div></Show>
   </article>

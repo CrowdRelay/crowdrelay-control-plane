@@ -10,12 +10,12 @@ export function GrowthFunnelPage() {
     <div class="page-head">
       <div>
         <span class="eyebrow">AUDIENCE</span>
-        <h1>Growth Funnel</h1>
-        <p>The full fan growth journey — from community discovery through outreach, engagement, and conversion. See where fans drop off and what to act on.</p>
+        <h1>Growth</h1>
+        <p>Where the audience actually is, how the funnel converts it, and what the brain is aiming at. The single place for growth state — Operations keeps only what you act on.</p>
       </div>
     </div>
-    <GrowthFunnelPanel slug={params().slug} />
     <GrowthMetricsPanel slug={params().slug} />
+    <GrowthFunnelPanel slug={params().slug} />
     <GrowthObjectivesPanel slug={params().slug} />
   </section>
 }

@@ -356,7 +356,11 @@ body {
   align-items: center;
   justify-content: flex-start;
   gap: 18px;
-  flex-shrink: 0;
+  /* `min-width: 0` matters as much as dropping `flex-shrink: 0`: a flex child
+     defaults to `min-width: auto`, which refuses to shrink below its content
+     and would keep the wide SVG pushing the column open. */
+  min-width: 0;
+  max-width: 100%;
 }
 
 .flow-diagram {
@@ -942,11 +946,34 @@ body {
 }
 
 @media (max-width: 560px) {
+  /* The diagram scales to the phone rather than overflowing it.
+     It used to be pinned to 1000px and dragged left by 15%, so on a 360px
+     screen two thirds of it sat outside the viewport and the page scrolled
+     sideways. Small is fine here — the shapes and the direction of flow are
+     what the diagram is for, and both survive at this size. */
   .flow-diagram {
-    width: 1000px;
-    max-width: none;
-    transform: translateX(-15%);
+    width: 100%;
+    max-width: 100%;
+    transform: none;
     margin-top: 0;
+  }
+
+  /* At phone width the diagram renders at roughly a third of its user units,
+     which put the labels at 4-6 CSS pixels: present, and unreadable. Rather
+     than ship text nobody can read, the titles grow to what the 200-unit node
+     boxes can actually hold, and the two smallest labels are dropped. The
+     shapes, the icons and the direction of flow are what the diagram is for,
+     and all three survive without the fine print. */
+  .flow-node-title {
+    /* 36, not 40: at 40 the word "Outcomes" measures 198 units inside a
+       200-unit node box and touches both edges. This keeps it legible with
+       room to breathe. */
+    font-size: 36px;
+  }
+
+  .flow-node-sub,
+  .flow-loop-label {
+    display: none;
   }
 
   .login-hero h2 {

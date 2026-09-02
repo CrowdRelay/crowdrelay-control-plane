@@ -4,6 +4,9 @@ export type Tab = {
   id: string
   label: string
   count?: () => number
+  /// Optional leading glyph. Tabs read fine without one, so this stays
+  /// optional rather than forcing an icon on every tab for symmetry.
+  icon?: Component
 }
 
 export function TabBar(props: {
@@ -18,6 +21,7 @@ export function TabBar(props: {
         classList={{ active: props.active === tab.id }}
         onClick={() => props.onChange(tab.id)}
       >
+        <Show when={tab.icon}>{icon => icon()({})}</Show>
         {tab.label}
         <Show when={tab.count && tab.count() > 0}>
           <span class="page-tab-count">{tab.count!()}</span>

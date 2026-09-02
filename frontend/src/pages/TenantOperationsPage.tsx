@@ -3,19 +3,18 @@ import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { KpiCard } from '../components/primitives'
-import { GrowthPanel } from '../components/GrowthPanel'
-import { GrowthMetricsPanel } from '../components/GrowthMetricsPanel'
-import { GrowthObjectivesPanel } from '../components/GrowthObjectivesPanel'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { BrainDecisionPanel } from '../components/BrainDecisionPanel'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
 import { OutreachPipelinePanel } from '../components/OutreachPipelinePanel'
 import { BeaconSignalPanel } from '../components/BeaconSignalPanel'
+import { BeaconConsolePanel } from '../components/BeaconConsolePanel'
 import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { SkeletonOperationsPage, SkeletonSection } from '../components/Skeleton'
 import { TabBar, TabContent } from '../components/TabBar'
+import { LighthouseIcon } from '../components/icons/LighthouseIcon'
 import { StatusBadge } from '../components/StatusBadge'
 import { refreshTick } from '../lib/refresh'
 import type { TenantOperationsReadModel } from '../lib/types'
@@ -160,8 +159,8 @@ export function TenantOperationsPage() {
         onChange={setActiveTab}
         tabs={[
           { id: 'opportunities', label: 'Opportunities', count: () => opCount() },
-          { id: 'growth', label: 'Growth' },
           { id: 'outreach', label: 'Outreach' },
+          { id: 'beacons', label: 'Beacons', icon: LighthouseIcon },
           { id: 'releases', label: 'Releases' },
         ]}
       />
@@ -183,27 +182,24 @@ export function TenantOperationsPage() {
         />
       </TabContent>
 
-      {/* ── Growth tab ── */}
-      <TabContent active={activeTab()} id="growth">
-        <GrowthObjectivesPanel slug={params().slug} />
-        <div class="cockpit-section">
-          <div class="cockpit-section-head">
-            <span class="eyebrow">GROWTH STATE</span>
-            <h3>Live growth operations</h3>
-          </div>
-          <div class="cockpit-growth-grid">
-            <GrowthPanel growth={d()?.growth ?? null} degraded={d()?.degraded.includes('growth') ?? false} />
-            <GrowthMetricsPanel slug={params().slug} />
-          </div>
-        </div>
-        <ReplyTriagePanel />
-      </TabContent>
 
       {/* ── Outreach tab ── */}
       <TabContent active={activeTab()} id="outreach">
+        {/* Replies are worked here, next to the pipeline that produced them.
+            They used to sit under a Growth tab that duplicated the Growth
+            page's panels wholesale. */}
+        <ReplyTriagePanel />
         <OutreachPipelinePanel slug={params().slug} />
-        <BeaconSignalPanel slug={params().slug} />
         <PressRoomPanel slug={params().slug} />
+      </TabContent>
+
+      {/* ── Beacons tab ──
+          The roster and every action on it in one place. The Signal panel
+          below is the same data seen as a funnel; it stays because it answers
+          "how is the invite pipeline doing", which the roster does not. */}
+      <TabContent active={activeTab()} id="beacons">
+        <BeaconConsolePanel slug={params().slug} />
+        <BeaconSignalPanel slug={params().slug} />
       </TabContent>
 
       {/* ── Releases tab ── */}

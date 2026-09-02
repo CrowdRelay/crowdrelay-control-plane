@@ -373,6 +373,23 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/v1/control-plane/autopilot/beacon-press-requests/",
                     "/resolve",
                 )
+                // Beacon management: the roster was readable and unchangeable.
+                || path == "/v1/control-plane/autopilot/beacons"
+                || path == "/v1/control-plane/autopilot/beacons/signal-invites/batch"
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/beacons/",
+                    "/signal-invites",
+                )
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/beacons/",
+                    "/signal-state",
+                )
+                || uuid_segment_between(path, "/v1/control-plane/autopilot/beacons/", "/reply")
+                // Creating a campaign: listed, launchable and closable before
+                // this, but never creatable through the proxy.
+                || path == "/v1/control-plane/autopilot/beacon-release-campaigns"
                 || uuid_segment_between(
                     path,
                     "/v1/control-plane/autopilot/beacon-release-campaigns/",

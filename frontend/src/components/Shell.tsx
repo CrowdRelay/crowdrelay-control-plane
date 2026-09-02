@@ -68,7 +68,7 @@ const TENANT_NAV_GROUPS: NavGroup[] = [
     label: 'Audience',
     items: [
       { path: '/tenants/$slug/audience', label: 'Fan Intelligence', exact: false, icon: 'audience' },
-      { path: '/tenants/$slug/funnel', label: 'Growth Funnel', exact: false, icon: 'funnel' },
+      { path: '/tenants/$slug/funnel', label: 'Growth', exact: false, icon: 'funnel' },
       { path: '/tenants/$slug/portfolio', label: 'Portfolio', exact: false, icon: 'portfolio' },
       { path: '/tenants/$slug/area', label: 'AREA', exact: false, icon: 'area' },
     ],

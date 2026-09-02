@@ -1563,8 +1563,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .gm-platform-head strong{font-size:var(--text-base);font-weight:700}
 .gm-platform-head .muted{font-size:var(--text-sm);color:var(--text-muted)}
 .gm-platform-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;box-shadow:0 0 6px currentColor;opacity:0.9}
-.gm-bar-list{display:flex;flex-direction:column;gap:5px}
-.gm-bar-row{display:grid;grid-template-columns:minmax(120px,1.2fr) minmax(60px,2fr) auto auto;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border-subtle)}
+.gm-bar-list{display:grid;grid-template-columns:minmax(120px,1.2fr) minmax(60px,2fr) auto auto;gap:5px 10px}
+.gm-bar-row{display:grid;grid-template-columns:subgrid;grid-column:1/-1;align-items:center;padding:5px 0;border-bottom:1px solid var(--border-subtle)}
 .gm-bar-row:last-child{border-bottom:0}
 .gm-bar-label{font-size:var(--text-sm);color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help}
 .gm-bar-track{height:6px;background:var(--surface-1);border-radius:3px;overflow:hidden}
@@ -1575,7 +1575,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .gm-bar-delta.down{color:var(--bad)}
 .gm-bar-delta.flat{color:var(--text-muted)}
 .gm-conversion-section{margin-top:18px}
-@media(max-width:560px){.gm-bar-row{grid-template-columns:minmax(0,1fr) auto}.gm-bar-track{display:none}}
+@media(max-width:560px){.gm-bar-list{grid-template-columns:minmax(0,1fr) auto}.gm-bar-track{display:none}}
 
 /* Outreach pipeline — glass */
 .campaign-card{background:var(--surface-3);border:1px solid var(--border-subtle);}
@@ -2169,3 +2169,21 @@ table tbody tr:hover{background:rgba(255,255,255,.025)}
 .health-steps{margin:12px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:8px;color:var(--muted);line-height:1.55}
 .health-steps code{background:var(--surface-0);padding:2px 6px;border-radius:5px;font-size:var(--text-sm)}
 .health-condition button{margin-top:14px}
+.agent-section-head-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.campaign-create{margin:14px 0 4px}
+/* Beacon console: roster, selection and per-row actions. */
+.beacon-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0}
+.beacon-search{flex:1 1 240px;min-width:200px;background:var(--surface-0);border:1px solid var(--border-default);color:var(--text);padding:10px 12px;border-radius:9px}
+.beacon-list{display:flex;flex-direction:column;gap:8px}
+.beacon-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--border-default);border-radius:10px;background:var(--surface-2)}
+.beacon-row.selected{border-color:var(--accent)}
+.beacon-pick{display:flex;align-items:center}
+.beacon-pick input{accent-color:var(--accent);width:16px;height:16px}
+.beacon-identity{display:flex;flex-direction:column;gap:3px;min-width:0}
+.beacon-identity span{overflow-wrap:anywhere}
+.beacon-facts{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:var(--text-xs)}
+.beacon-row-actions{display:flex;gap:6px;flex-wrap:wrap}
+.beacon-create{margin:14px 0 4px}
+.page-tab svg{margin-right:6px;vertical-align:-2px}
+@media (max-width:720px){.beacon-row{grid-template-columns:auto 1fr;row-gap:8px}.beacon-facts,.beacon-row-actions{grid-column:1/-1}}
+.push-no-retry{font-size:var(--text-xs);white-space:nowrap}

@@ -27,6 +27,24 @@ const platformTypeLabel = (t: string) => {
 const provenanceBadge = (source: string, owner: string) =>
   <span class="provenance-badge"><small class="muted">{source}</small> · <small class="muted">{owner}</small></span>
 
+
+// The environment variable behind each platform notifier.
+//
+// "not configured" with no variable name is a dead end: it reports a fact and
+// gives the operator nowhere to go. Worse, these are easy to believe are set —
+// Discord and n8n are both configured elsewhere in this system, so the panel
+// reads as broken rather than as an unset variable.
+//
+// They are interpolated by compose from `.env` in the deployment directory.
+// A variable that is absent there becomes an empty string via `${VAR:-}` and
+// silently overrides anything an env_file provides, which is exactly how these
+// three ended up empty while a file on the same server held real values.
+const PLATFORM_ENV_VAR: Record<string, string> = {
+  discord_automation_webhook: 'CONTROL_PLANE_DISCORD_AUTOMATION_WEBHOOK_URL',
+  email_relay: 'CONTROL_PLANE_NOTIFY_EMAIL_RELAY_URL',
+  n8n_base_url: 'CONTROL_PLANE_N8N_BASE_URL',
+}
+
 export function TenantNotifiersPage() {
   const params = useParams({ from: '/tenants/$slug/notifiers' })
   const slug = () => params().slug
@@ -89,6 +107,7 @@ export function TenantNotifiersPage() {
       <article class="panel">
         <div class="section-title"><div><span class="eyebrow">PLATFORM / CONTROL PLANE</span><h2>Platform notification config</h2></div></div>
         <p class="agent-section-intro">Environment-level notification routing. <strong>source:</strong> environment · <strong>owner:</strong> platform · <strong>path:</strong> direct, relay, or workflow</p>
+        <p class="agent-section-intro muted">These are separate from any Discord or n8n you have configured elsewhere — each is read from its own variable in the control plane's deployment environment, and an unset one shows the variable to set.</p>
         <table class="data-table">
           <thead><tr><th>Type</th><th>Source</th><th>Owner</th><th>Path</th><th>Destination</th><th>Status</th></tr></thead>
           <tbody>
@@ -97,7 +116,13 @@ export function TenantNotifiersPage() {
               <td><small class="muted">{item.source}</small></td>
               <td><small class="muted">{item.owner}</small></td>
               <td><small class="muted">{item.path}</small></td>
-              <td><code>{item.destination ?? '—'}</code></td>
+              <td>
+                <Show when={item.destination} fallback={
+                  <small class="muted">set <code>{PLATFORM_ENV_VAR[item.type] ?? item.type}</code> in the deployment's <code>.env</code></small>
+                }>
+                  <code>{item.destination}</code>
+                </Show>
+              </td>
               <td><span class={`status-badge ${item.configured && item.enabled ? 'good' : 'muted'}`}>{item.configured ? (item.enabled ? 'enabled' : 'disabled') : 'not configured'}</span></td>
             </tr>}</For>
           </tbody>

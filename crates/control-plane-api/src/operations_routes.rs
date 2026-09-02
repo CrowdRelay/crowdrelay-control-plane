@@ -336,10 +336,28 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/beacon-network",
             get(beacon_network),
         )
+        // ── Beacon management ─────────────────────────────────────────
+        .route("/tenants/{slug}/operations/beacons", post(upsert_beacon))
+        .route(
+            "/tenants/{slug}/operations/beacons/signal-invites/batch",
+            post(batch_invite_beacons),
+        )
+        .route(
+            "/tenants/{slug}/operations/beacons/{beacon_id}/signal-invites",
+            post(invite_beacon),
+        )
+        .route(
+            "/tenants/{slug}/operations/beacons/{beacon_id}/signal-state",
+            post(set_beacon_state),
+        )
+        .route(
+            "/tenants/{slug}/operations/beacons/{beacon_id}/reply",
+            post(record_beacon_reply),
+        )
         // ── Release campaigns ─────────────────────────────────────────
         .route(
             "/tenants/{slug}/operations/beacon-release-campaigns",
-            get(beacon_release_campaigns),
+            get(beacon_release_campaigns).post(create_beacon_release_campaign),
         )
         .route(
             "/tenants/{slug}/operations/beacon-release-campaigns/{campaign_id}/launch",
@@ -2662,6 +2680,226 @@ async fn beacon_release_campaigns(
     )
     .await?;
     object_no_store(value, "beacon release campaigns")
+}
+
+/// Creates a release campaign.
+///
+/// The panel could list, launch and close campaigns but not make one, so its
+/// own empty state pointed at a surface that did not exist. Validation stays
+/// upstream — slug, title, SKU lengths and the deadline being in the future are
+/// the tenant's rules, and duplicating them here would give two answers.
+/// Creates or updates a beacon.
+///
+/// Beacons carry a release or a show into a city we have no audience in. The
+/// control plane could read the roster through six endpoints and change nothing
+/// in it, so every beacon had to be created against `/v1/admin` by hand.
+async fn upsert_beacon(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/autopilot/beacons",
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.beacon.upserted",
+        "beacon",
+        body.get("display_name")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown"),
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "beacon upsert")
+}
+
+/// Invites many beacons to Signal in one call.
+///
+/// The bulk path is the point: inviting a city's worth of beacons one form at a
+/// time is how it does not get done.
+async fn batch_invite_beacons(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let count = body
+        .get("beacon_ids")
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/autopilot/beacons/signal-invites/batch",
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.beacon.invited_batch",
+        "beacon_invite_batch",
+        &count.to_string(),
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "beacon batch invite")
+}
+
+async fn invite_beacon(
+    State(state): State<AppState>,
+    Path((slug, beacon_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let beacon_id = uuid_segment(&beacon_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path = format!("/v1/control-plane/autopilot/beacons/{beacon_id}/signal-invites");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.beacon.invited",
+        "beacon",
+        &beacon_id,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "beacon invite")
+}
+
+/// Pauses, revokes or restores a beacon's Signal profile.
+async fn set_beacon_state(
+    State(state): State<AppState>,
+    Path((slug, beacon_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let beacon_id = uuid_segment(&beacon_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path = format!("/v1/control-plane/autopilot/beacons/{beacon_id}/signal-state");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.beacon.state_changed",
+        "beacon",
+        &beacon_id,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "beacon state")
+}
+
+/// Records that a beacon answered, and how.
+///
+/// This is the intelligence half: a beacon who declines twice is not a beacon
+/// to keep inviting, and nothing could write that down.
+async fn record_beacon_reply(
+    State(state): State<AppState>,
+    Path((slug, beacon_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let beacon_id = uuid_segment(&beacon_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path = format!("/v1/control-plane/autopilot/beacons/{beacon_id}/reply");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.beacon.reply_recorded",
+        "beacon",
+        &beacon_id,
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "beacon reply")
+}
+
+async fn create_beacon_release_campaign(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/autopilot/beacon-release-campaigns",
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.release_campaign.created",
+        "release_campaign",
+        body.get("slug")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown"),
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "beacon release campaign create")
 }
 
 async fn launch_beacon_release_campaign(
