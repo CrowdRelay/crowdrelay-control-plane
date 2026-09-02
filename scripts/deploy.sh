@@ -254,13 +254,18 @@ REMOTE_CHECK
 
 if [[ "$blue_green_eligible" == "eligible" ]]; then
   printf '\n==> Blue-green deploy (zero-downtime Caddy cutover)\n'
-  # Ship the blue-green script and receipt helper to the remote and execute
-  scp -q "$BLUEGREEN" "$REMOTE:/tmp/cp-deploy-bluegreen.sh"
-  scp -q "$ROOT_DIR/scripts/release_receipt.py" "$REMOTE:/tmp/release_receipt.py"
-  # Sync the tunnel Caddyfile so the blue-green script can detect and reload
-  # changes to the AREA tunnel allowlist without a separate manual step.
-  scp -q "$ROOT_DIR/deploy/virya-area-tunnel.Caddyfile" \
-       "$REMOTE:/tmp/cp-virya-area-tunnel.Caddyfile"
+  # Ship the blue-green script and receipt helper to the remote and execute.
+  # Each copy is checked: a silently dropped scp leaves the remote running a
+  # stale script or missing the receipt helper, and the failure then surfaces
+  # deep inside the deploy as a confusing "no such file" instead of here.
+  for pair in \
+    "$BLUEGREEN:/tmp/cp-deploy-bluegreen.sh" \
+    "$ROOT_DIR/scripts/release_receipt.py:/tmp/release_receipt.py" \
+    "$ROOT_DIR/deploy/virya-area-tunnel.Caddyfile:/tmp/cp-virya-area-tunnel.Caddyfile"
+  do
+    scp -q "${pair%:*}" "$REMOTE:${pair##*:}" \
+      || fail "could not copy ${pair%:*} to $REMOTE:${pair##*:}"
+  done
   set +e
   ssh -T "$REMOTE" sudo bash /tmp/cp-deploy-bluegreen.sh "$TARGET" "${CONTROL_PLANE_IMAGE_DIGEST:-}" "$REMOTE_DIR"
   deploy_status=$?
