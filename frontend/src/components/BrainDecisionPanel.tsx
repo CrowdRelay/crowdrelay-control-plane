@@ -1,4 +1,4 @@
-import { Show, createSignal, For, createResource } from 'solid-js'
+import { Show, createSignal, For, createResource, createMemo } from 'solid-js'
 import type { OpportunityBoardEntry, DecisionEvidence } from '../lib/types'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
@@ -59,9 +59,8 @@ const renderEvidence = (snapshot: Record<string, unknown>): Array<{ key: string;
   for (const [key, value] of Object.entries(snapshot)) {
     if (value == null) continue
     const isJson = typeof value === 'object'
-    // Two spaces: the evidence panel is narrow, and wrapping `pre-wrap`
-    // lines lose their hanging indent. A compact indent keeps the structure
-    // readable without forcing horizontal scroll for shallow objects.
+    // Two spaces and a compact width. JsonBlock splits the formatted string
+    // into per-line wrappers so long wrapped values keep their visual indent.
     const display = isJson
       ? JSON.stringify(value, null, 2)
       : String(value)
@@ -81,6 +80,25 @@ const timeAgoBrief = (iso: string): string => {
   return `${Math.floor(diff / 86_400_000)}d ago`
 }
 
+// A JSON block where every line is its own wrapper. The leading spaces of the
+// formatted JSON are converted to `padding-left` on the wrapper, so when a long
+// string value wraps, the continuation line starts at the same visual indent as
+// the first line. `white-space: pre-wrap` keeps internal spaces and wraps words.
+function JsonBlock(props: { source: string }) {
+  const lines = createMemo(() => props.source.split('\n'))
+  return (
+    <div class="brain-evidence-json">
+      <For each={lines()}>{line => {
+        const match = /^\s*/.exec(line)
+        const indent = match ? match[0].length : 0
+        const content = line.slice(indent)
+        const style = { 'padding-left': `${indent}ch` }
+        return <span class="json-line" style={style}>{content}</span>
+      }}</For>
+    </div>
+  )
+}
+
 function renderEvidenceDetail(data: DecisionEvidence) {
   const inputRows = renderEvidence(data.input_snapshot)
   const policyRows = renderEvidence(data.policy_snapshot)
@@ -97,7 +115,7 @@ function renderEvidenceDetail(data: DecisionEvidence) {
                 <dt>{row.key}</dt>
                 <dd>
                   <Show when={row.isJson} fallback={row.value}>
-                    <pre class="brain-evidence-json">{row.value}</pre>
+                    <JsonBlock source={row.value} />
                   </Show>
                 </dd>
               </div>
@@ -116,7 +134,7 @@ function renderEvidenceDetail(data: DecisionEvidence) {
                 <dt>{row.key}</dt>
                 <dd>
                   <Show when={row.isJson} fallback={row.value}>
-                    <pre class="brain-evidence-json">{row.value}</pre>
+                    <JsonBlock source={row.value} />
                   </Show>
                 </dd>
               </div>

@@ -1116,12 +1116,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .brain-evidence-row-json{flex-direction:column;gap:var(--space-1);align-items:stretch;min-width:0}
 .brain-evidence-row-json dt{flex:none}
 .brain-evidence-row-json dd{width:100%;min-width:0}
-/* A code snippet, so it is set like one: 2-space indent, monospace, and a left
-   rule marking it as verbatim. `white-space: pre-wrap` makes wrapped
-   continuation lines start at the left edge and destroys nested indentation,
-   so we keep `pre` and scroll horizontally. Force LTR left alignment so a
-   locale, parent, or browser quirk cannot flip the code block right-to-left. */
-.brain-evidence-json{margin:0;padding:var(--space-3);background:var(--surface-1);border:1px solid var(--border-subtle);border-left:2px solid var(--border-accent);border-radius:var(--radius-sm);font-family:var(--font-mono,monospace);font-size:var(--text-xs);line-height:1.6;white-space:pre;word-break:normal;overflow:auto;color:var(--text-secondary);max-height:400px;text-align:left;direction:ltr}
+/* A code snippet, so it is set like one: monospace, a left rule, and hanging
+   indentation. Each formatted JSON line is a wrapper with `padding-left`
+   matching its original leading spaces. `white-space: pre-wrap` keeps internal
+   spacing and wraps long values; the padding forces wrapped continuation lines
+   to start at the same visual indent as the first line. */
+.brain-evidence-json{display:block;margin:0;padding:var(--space-3);background:var(--surface-1);border:1px solid var(--border-subtle);border-left:2px solid var(--border-accent);border-radius:var(--radius-sm);font-family:var(--font-mono,monospace);font-size:var(--text-xs);line-height:1.6;color:var(--text-secondary);max-height:400px;overflow:auto;text-align:left;direction:ltr}
+.json-line{display:block;white-space:pre-wrap;word-break:normal;overflow-wrap:anywhere}
 
 /* === Learning Loop Panel === */
 .learning-loop-panel{background:var(--surface-2);border:1px solid var(--border-default);border-radius:var(--radius-lg);padding:var(--space-6);margin-bottom:var(--space-4)}
