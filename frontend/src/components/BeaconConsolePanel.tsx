@@ -25,6 +25,7 @@ const STATE_TONE: Record<string, 'good' | 'warn' | 'bad' | 'muted'> = {
   invited: 'warn',
   paused: 'muted',
   revoked: 'bad',
+  unverified: 'muted',
 }
 
 const EMPTY_FORM = {
@@ -263,6 +264,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
           />
           <select value={statusFilter()} onChange={event => setStatusFilter(event.currentTarget.value)}>
             <option value="all">All states</option>
+            <option value="unverified">Unverified</option>
             <option value="active">Active</option>
             <option value="invited">Invited</option>
             <option value="paused">Paused</option>
@@ -322,7 +324,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
                     </Show>
                   </div>
                   <div class="beacon-row-actions">
-                    <Show when={profile.status !== 'paused' && profile.status !== 'revoked'}>
+                    <Show when={profile.status !== 'unverified' && profile.status !== 'paused' && profile.status !== 'revoked'}>
                       <button class="ghost" disabled={busy() !== null}
                               onClick={() => setState(profile.beaconId, 'paused')}>
                         Pause
@@ -334,7 +336,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
                         Resume
                       </button>
                     </Show>
-                    <Show when={profile.status !== 'revoked'}>
+                    <Show when={profile.status !== 'unverified' && profile.status !== 'revoked'}>
                       <button class="ghost danger-ghost" disabled={busy() !== null}
                               onClick={() => setState(profile.beaconId, 'revoked')}>
                         Revoke
