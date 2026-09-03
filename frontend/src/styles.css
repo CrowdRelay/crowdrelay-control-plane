@@ -2380,11 +2380,6 @@ table tbody tr:hover{background:rgba(255,255,255,.025)}
 .form-actions{margin-top:18px;padding-top:16px;border-top:1px solid var(--border-subtle);align-items:center}
 .form-actions.right{padding-top:16px}
 
-/* Each JSON line is its own block so a wrapped line can hang-indent under
-   itself. `text-indent` only pulls back the first line of a block, so applied
-   to the whole <pre> it would have shifted every hard newline right and left
-   the closing brace misaligned with the opening one. Per line, the negative
-   indent cancels the padding for the line's own start and the padding is what
-   the wrapped remainder lands on — one tab in, matching the 4-space body. */
-.brain-evidence-json-line{display:block;padding-left:4ch;text-indent:-4ch}
-.brain-evidence-json-line:empty{min-height:1em}
+/* JSON evidence is rendered as a plain <pre> with white-space:pre-wrap.
+   The 4-space indent from JSON.stringify(value, null, 4) is preserved
+   naturally — no per-line span padding/text-indent tricks needed. */
