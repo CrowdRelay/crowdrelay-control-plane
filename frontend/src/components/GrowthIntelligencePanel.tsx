@@ -323,9 +323,9 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
       {/* Autonomy controls — growth_intelligence policy */}
       <div class="agent-section">
         <div class="agent-section-head">
-          <h3>Autonomy Controls</h3>
+          <h3>Autonomy controls</h3>
         </div>
-        <p class="agent-section-intro">Set how much freedom the intelligence has to act on growth intelligence findings. "Require approval" queues every action for your sign-off; "Bounded auto" lets it execute within daily limits.</p>
+        <p class="agent-section-intro">How much freedom the intelligence has to act on what it finds. <strong>Observe</strong> only records the decision, <strong>recommend</strong> puts it on the opportunity board, <strong>require approval</strong> queues every action for your sign-off, <strong>bounded auto</strong> executes without asking. <strong>Min confidence</strong> is the floor an action has to clear before any of that happens, and <strong>Max / 24h</strong> caps how many run in a rolling day. Apply saves the row; the next cycle uses it.</p>
         <Show when={growthPolicy()} fallback={
           <Show when={overview.loading} fallback={
             <Show when={overview()} fallback={
@@ -350,7 +350,7 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
       {/* Brain-dispatched worker runs */}
       <div class="agent-section">
         <div class="agent-section-head">
-          <h3>Worker Runs</h3>
+          <h3>Worker runs</h3>
           <Show when={overview()}>
             <span class="agent-connection-summary">
               <span class="agent-connection-dot ok" />
@@ -393,7 +393,7 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
       >
         <>
             <div class="agent-result-header">
-              <h3>Workflow Detail</h3>
+              <h3>Workflow detail</h3>
               <button class="link" onClick={() => setViewingWorkflow(null)}>Close</button>
             </div>
             <div class="agent-result-meta">

@@ -176,7 +176,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     <Show when={funnel() && Object.keys(funnel()!.worker_runs).length > 0}>
       <div class="agent-section">
         <div class="agent-section-head">
-          <h3>Worker Run Breakdown</h3>
+          <h3>Worker run breakdown</h3>
         </div>
         <p class="agent-section-intro">Per-template worker run statistics. The intelligence dispatches these workers to gather intelligence and draft content.</p>
         <div class="funnel-worker-table">
@@ -210,7 +210,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     <Show when={funnel() && funnel()!.recent_worker_runs.length > 0}>
       <div class="agent-section">
         <div class="agent-section-head">
-          <h3>Recent Worker Runs</h3>
+          <h3>Recent worker runs</h3>
           <span class="muted">last {funnel()!.recent_worker_runs.length}</span>
         </div>
         <p class="agent-section-intro">The most recent worker runs dispatched by the intelligence, with their outcomes.</p>

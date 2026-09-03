@@ -125,7 +125,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
 
   return <div class="agent-section">
     <div class="agent-section-head">
-      <h3>Growth Metrics</h3>
+      <h3>Growth metrics</h3>
       <Show when={coverage() && hasFeeds()}>
         <span class="muted">{liveSeries()} active series</span>
       </Show>

@@ -116,7 +116,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
 
   return <div class="agent-section">
     <div class="agent-section-head">
-      <h3>Release Campaigns</h3>
+      <h3>Release campaigns</h3>
       <div class="agent-section-head-actions">
         <Show when={campaigns()}>
           <span class="muted">{campaigns()!.campaigns.length} campaigns · {campaigns()!.pool.contactable_latarnicy} contactable</span>

@@ -77,7 +77,7 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
 
   return <div class="agent-section">
     <div class="agent-section-head">
-      <h3>Growth Objectives</h3>
+      <h3>Growth objectives</h3>
       <Show when={objectives() && objectives()!.length > 0}>
         <span class="muted">{objectives()!.length} objectives</span>
       </Show>

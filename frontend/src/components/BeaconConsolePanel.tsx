@@ -19,6 +19,17 @@ import { SkeletonPanel } from './Skeleton'
 // it does not get done.
 
 const KINDS = ['venue', 'promoter', 'shop', 'radio', 'zine', 'collective', 'other'] as const
+// The picker printed the stored enum values, so the operator chose between
+// seven lowercase words with no hint at what each one covers.
+const KIND_LABEL: Record<(typeof KINDS)[number], string> = {
+  venue: 'Venue — a room that books shows',
+  promoter: 'Promoter — books or puts on the show',
+  shop: 'Shop — record store, merch counter',
+  radio: 'Radio — station, show or DJ',
+  zine: 'Zine — blog, magazine, reviewer',
+  collective: 'Collective — crew, label, scene group',
+  other: 'Other',
+}
 
 const STATE_TONE: Record<string, 'good' | 'warn' | 'bad' | 'muted'> = {
   active: 'good',
@@ -230,10 +241,10 @@ export function BeaconConsolePanel(props: { slug: string }) {
                    onInput={e => setForm({ ...form(), displayName: e.currentTarget.value })} />
           </label>
           <label>
-            Kind
+            Kind <small>what they are to the band, not their job title</small>
             <select value={form().beaconKind}
                     onChange={e => setForm({ ...form(), beaconKind: e.currentTarget.value })}>
-              <For each={KINDS}>{kind => <option value={kind}>{kind}</option>}</For>
+              <For each={KINDS}>{kind => <option value={kind}>{KIND_LABEL[kind]}</option>}</For>
             </select>
           </label>
           <label>

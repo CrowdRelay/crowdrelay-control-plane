@@ -16,6 +16,21 @@ import { OperationsPanel } from '../components/OperationsPanel'
 import { SkeletonTenantPage } from '../components/Skeleton'
 
 const paletteFields: Array<keyof Palette> = ['primary','primaryContrast','accent','surface','surfaceElevated','text','textMuted','success','warning','danger']
+// The editor showed the raw struct field names — `primaryContrast`,
+// `surfaceElevated` — so picking a colour meant knowing the CrowdRelay theming
+// contract by heart. Name the slot, then say what it paints.
+const paletteLabels: Record<keyof Palette, { label: string; role: string }> = {
+  primary: { label: 'Primary', role: 'Buttons, links and the active state' },
+  primaryContrast: { label: 'On primary', role: 'Text drawn on top of the primary colour' },
+  accent: { label: 'Accent', role: 'Highlights, badges and charts' },
+  surface: { label: 'Surface', role: 'Page background' },
+  surfaceElevated: { label: 'Raised surface', role: 'Cards and sheets above the page' },
+  text: { label: 'Text', role: 'Body copy and headings' },
+  textMuted: { label: 'Muted text', role: 'Captions, hints and secondary labels' },
+  success: { label: 'Success', role: 'Confirmations and healthy states' },
+  warning: { label: 'Warning', role: 'Soft failures and things needing attention' },
+  danger: { label: 'Danger', role: 'Errors and destructive actions' },
+}
 const defaultPalette: Palette = { primary:'#8b5cf6', primaryContrast:'#ffffff', accent:'#22d3ee', surface:'#0b0c0f', surfaceElevated:'#15171c', text:'#f7f7f8', textMuted:'#9ca3af', success:'#22c55e', warning:'#f59e0b', danger:'#ef4444' }
 const provisionTone = (status: ProvisioningJob['status']) => status === 'succeeded' ? 'good' : status === 'failed' ? 'bad' : status === 'cancelled' ? 'muted' : 'warn'
 const provisionFailures: Record<string, { title: string; guidance: string; retryable: boolean }> = {
@@ -132,7 +147,7 @@ export function TenantPage() {
         </article>
       </div>
       <RegionalProfilePanel tenant={t} />
-      <article class="panel"><div class="section-title"><div><span class="eyebrow">BRANDING</span><h2>CrowdRelay + Signal palette</h2></div>{t.brandingPalette ? <button class="ghost" onClick={() => branding.mutate(null)}>Reset to product defaults</button> : <StatusBadge status="Inherits current product defaults" />}</div><Show when={t.brandingPalette || editingPalette()} fallback={<div class="inherit-card"><p>No palette is stored for this tenant. CrowdRelay and Signal therefore keep their own current default colors with zero theming lookup required.</p><button class="ghost" onClick={() => setEditingPalette(true)}>Create custom palette</button></div>}><div class="palette-grid"><For each={paletteFields}>{field => <label>{field}<div class="color-input"><input type="color" value={palette()[field]} onInput={(e) => setPalette(current => ({ ...current, [field]: e.currentTarget.value }))}/><code>{palette()[field]}</code></div></label>}</For></div><button onClick={() => branding.mutate(palette())} disabled={branding.isPending}>Save custom palette</button></Show></article>
+      <article class="panel"><div class="section-title"><div><span class="eyebrow">BRANDING</span><h2>CrowdRelay + Signal palette</h2></div>{t.brandingPalette ? <button class="ghost" onClick={() => branding.mutate(null)}>Reset to product defaults</button> : <StatusBadge status="Inherits current product defaults" />}</div><Show when={t.brandingPalette || editingPalette()} fallback={<div class="inherit-card"><p>No palette is stored for this tenant. CrowdRelay and Signal therefore keep their own current default colors with zero theming lookup required.</p><button class="ghost" onClick={() => setEditingPalette(true)}>Create custom palette</button></div>}><p>Ten colours, sent to this tenant's CrowdRelay and Signal builds. Nothing changes for fans until you save; resetting removes the override and both apps fall back to the product defaults.</p><div class="palette-grid"><For each={paletteFields}>{field => <label><span class="palette-field-name">{paletteLabels[field].label}</span><span class="palette-field-role">{paletteLabels[field].role}</span><div class="color-input"><input type="color" aria-label={paletteLabels[field].label} value={palette()[field]} onInput={(e) => setPalette(current => ({ ...current, [field]: e.currentTarget.value }))}/><code>{palette()[field]}</code></div></label>}</For></div><button onClick={() => branding.mutate(palette())} disabled={branding.isPending}>{branding.isPending ? 'Saving…' : 'Save custom palette'}</button></Show></article>
 
       <Show when={t.signalEnabled || t.synesthesiaEnabled}>
         <article class="panel mobile-app-setup-panel">
