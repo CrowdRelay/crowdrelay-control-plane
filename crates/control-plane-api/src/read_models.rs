@@ -90,6 +90,7 @@ async fn overview(
                 "canSuspend": !externally_owned,
                 "canProvision": !externally_owned,
                 "canRemove": !externally_owned,
+                "canOptOut": !externally_owned,
             },
         },
     })))
