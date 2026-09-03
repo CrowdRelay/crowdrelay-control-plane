@@ -311,14 +311,17 @@ REMOTE_CHECK
 
 if [[ "$blue_green_eligible" == "eligible" ]]; then
   printf '\n==> Blue-green deploy (zero-downtime Caddy cutover)\n'
-  # Ship the blue-green script and receipt helper to the remote and execute.
-  # Each copy is checked: a silently dropped scp leaves the remote running a
-  # stale script or missing the receipt helper, and the failure then surfaces
-  # deep inside the deploy as a confusing "no such file" instead of here.
+  # Ship the blue-green script, compose overlay, and receipt helper to the
+  # remote and execute. Each copy is checked: a silently dropped scp leaves
+  # the remote running a stale script, a stale compose overlay (missing env
+  # vars like CONTROL_PLANE_NOTIFY_EMAIL_RELAY_URL), or missing the receipt
+  # helper — and the failure then surfaces deep inside the deploy as a
+  # confusing "no such file" or a silently dropped env var instead of here.
   for pair in \
     "$BLUEGREEN:/tmp/cp-deploy-bluegreen.sh" \
     "$ROOT_DIR/scripts/release_receipt.py:/tmp/release_receipt.py" \
-    "$ROOT_DIR/deploy/virya-area-tunnel.Caddyfile:/tmp/cp-virya-area-tunnel.Caddyfile"
+    "$ROOT_DIR/deploy/virya-area-tunnel.Caddyfile:/tmp/cp-virya-area-tunnel.Caddyfile" \
+    "$ROOT_DIR/deploy/compose.bluegreen.yml:/tmp/cp-compose-bluegreen.yml"
   do
     scp -q "${pair%:*}" "$REMOTE:${pair##*:}" \
       || fail "could not copy ${pair%:*} to $REMOTE:${pair##*:}"
@@ -328,7 +331,7 @@ if [[ "$blue_green_eligible" == "eligible" ]]; then
     "$REMOTE_DIR" "${AGENT_SERVICE_IMAGE_TAG:-}" "${AGENT_SERVICE_IMAGE_DIGEST:-}"
   deploy_status=$?
   set -e
-  ssh -T "$REMOTE" "rm -f /tmp/cp-deploy-bluegreen.sh /tmp/release_receipt.py" 2>/dev/null || true
+  ssh -T "$REMOTE" "rm -f /tmp/cp-deploy-bluegreen.sh /tmp/release_receipt.py /tmp/cp-compose-bluegreen.yml" 2>/dev/null || true
   trap - INT TERM HUP
 else
   printf '\n==> Bootstrap/recovery deploy (force-recreate — no blue/green container running)\n'
