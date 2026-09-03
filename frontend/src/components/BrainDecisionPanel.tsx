@@ -6,6 +6,7 @@ import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './EmptyState'
 import { errorMessage } from '../lib/format'
 import { SkeletonRows } from './Skeleton'
+import { CONTEXT_LABELS, SUBJECT_KIND_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
 
 // The flagship decision surface. Shows the single most important current
 // decision (opportunity board position #1) in a structured narrative:
@@ -58,7 +59,7 @@ const renderEvidence = (snapshot: Record<string, unknown>): Array<{ key: string;
   for (const [key, value] of Object.entries(snapshot)) {
     if (value == null) continue
     const isJson = typeof value === 'object'
-    // Two, not four: the evidence panel is narrow, and wrapping `pre-wrap`
+    // Two spaces: the evidence panel is narrow, and wrapping `pre-wrap`
     // lines lose their hanging indent. A compact indent keeps the structure
     // readable without forcing horizontal scroll for shallow objects.
     const display = isJson
@@ -233,9 +234,9 @@ export function BrainDecisionPanel(props: {
         <div class="brain-decision-body">
         {/* WHAT — the decision itself */}
         <div class="brain-decision-what">
-          <strong class="brain-decision-action">{e.recommended_action}</strong>
+          <strong class="brain-decision-action">{opportunityTitle(e)}</strong>
           <small class="brain-decision-context">
-            {e.context.replaceAll('_', ' ')} · {e.decision_kind.replaceAll('_', ' ')} · {e.subject_kind}
+            {labelOr(CONTEXT_LABELS, e.context)} · {labelOr(SUBJECT_KIND_LABELS, e.subject_kind)}
           </small>
         </div>
 
