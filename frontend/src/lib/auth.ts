@@ -1,5 +1,6 @@
 import { createSignal } from 'solid-js'
 import { api, setUnauthorizedHandler } from './api'
+import { queryClient } from './queryClient'
 import type { Profile } from './types'
 
 // The operator identity lives only in memory and is hydrated from the
@@ -29,12 +30,19 @@ export const authState = {
     }
   },
   async login(username: string, password: string) {
+    // A previous user's cached queries (e.g. a tenant operator's filtered
+    // tenants list) must not bleed into the new session. Clear everything
+    // before setting the new profile so the first query fires fresh.
+    queryClient.clear()
+    sessionStorage.removeItem('cp-default-tenant')
     setProfile(await api.login(username, password))
   },
   async logout() {
     try {
       await api.logout()
     } finally {
+      queryClient.clear()
+      sessionStorage.removeItem('cp-default-tenant')
       setProfile(null)
     }
   },

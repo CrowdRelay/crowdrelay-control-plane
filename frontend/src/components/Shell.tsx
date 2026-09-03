@@ -256,16 +256,19 @@ export const Shell: Component = () => {
     setMobileNavOpen(false)
   })
 
-  // Admin lands on the platform Overview at `/` after login. Virya is the
-  // first tenant and the one the crew works on — select it by default so the
-  // tenant-scoped nav is immediately available. Only redirects once per
-  // session, and only from the bare `/` path (not from other global pages).
+  // After login, redirect the operator to their default tenant so the
+  // tenant-scoped nav is immediately available. Admins land on Virya (the
+  // first tenant and the one the crew works on); tenant operators land on
+  // their own tenant. Only redirects once per session (the flag is cleared
+  // on login/logout by auth.ts) and only from the bare `/` path.
   createEffect(() => {
-    if (!authState.profile() || !isAdmin()) return
+    if (!authState.profile()) return
     if (pathname() !== '/') return
-    if (sessionStorage.getItem('admin-default-tenant')) return
-    sessionStorage.setItem('admin-default-tenant', '1')
-    navigate({ to: '/tenants/virya' as any })
+    if (sessionStorage.getItem('cp-default-tenant')) return
+    const targetSlug = isAdmin() ? 'virya' : profile()?.tenantSlug
+    if (!targetSlug) return
+    sessionStorage.setItem('cp-default-tenant', '1')
+    navigate({ to: `/tenants/${targetSlug}` as any })
   })
 
   onMount(() => {
