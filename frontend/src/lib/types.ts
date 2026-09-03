@@ -528,6 +528,7 @@ export type TenantOverviewReadModel = {
     capabilities: {
       canSuspend: boolean
       canProvision: boolean
+      canRemove: boolean
     }
   }
 }

@@ -27,7 +27,7 @@ pub fn admin_router() -> Router<AppState> {
     Router::new()
         .route("/overview", get(overview))
         .route("/tenants", get(list_tenants).post(create_tenant))
-        .route("/tenants/{slug}", get(get_tenant))
+        .route("/tenants/{slug}", get(get_tenant).delete(remove_tenant))
         .route(
             "/tenants/{slug}/branding",
             axum::routing::patch(update_branding),
@@ -139,6 +139,43 @@ async fn get_tenant(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
     Ok(Json(json!(tenant)))
+}
+
+/// Unregisters a tenant from the control plane.
+///
+/// Platform admins only, and explicitly not `resolve_scoped_tenant`: that guard
+/// lets a tenant operator act on their own tenant, which is exactly the caller
+/// who must never reach this. Removal is a platform decision about a tenant,
+/// not a tenant's decision about itself.
+///
+/// The body has to repeat the slug. That is not ceremony — the tenant list
+/// holds live production systems next to each other, so the operator names the
+/// one they mean instead of confirming whatever row the click landed on.
+async fn remove_tenant(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
+    headers: HeaderMap,
+    Json(body): Json<RemoveTenantRequest>,
+) -> Result<StatusCode, ApiError> {
+    identity.require_platform_admin()?;
+    let slug = validation::slug(&raw_slug)?;
+    state
+        .store
+        .delete_tenant(
+            &slug,
+            body.confirm_slug.trim(),
+            state.admin_actor.as_ref(),
+            request_id(&headers),
+        )
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RemoveTenantRequest {
+    confirm_slug: String,
 }
 
 /// Shared guard for tenant-scoped reads and operator-allowed mutations:

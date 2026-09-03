@@ -1515,6 +1515,74 @@ impl Store {
         Ok(true)
     }
 
+    /// Removes a tenant from the control plane.
+    ///
+    /// This unregisters the tenant here; it does not delete the tenant's own
+    /// data. Those rows live in that tenant's CrowdRelay workspace, reached
+    /// through `workspace_id`, and nothing in this transaction touches them.
+    /// Worth stating plainly — "remove tenant" reads like it means more.
+    ///
+    /// `caller_confirmation` must repeat the slug. A tenant is removed from a
+    /// list where the neighbouring row is a different production system, so the
+    /// operator names the one they mean rather than confirming whatever the
+    /// click landed on.
+    ///
+    /// Virya is refused here and refused again by the `BEFORE DELETE` trigger
+    /// from migration 0012. This check exists so the operator gets a reason
+    /// rather than a database error; the trigger exists because this check is
+    /// the kind of thing a future route forgets.
+    pub async fn delete_tenant(
+        &self,
+        slug: &str,
+        caller_confirmation: &str,
+        actor: &str,
+        request_id: Option<&str>,
+    ) -> Result<(), ApiError> {
+        if tenant_lifecycle_is_externally_owned(slug) {
+            return Err(ApiError::Forbidden(
+                "the virya tenant cannot be removed".to_owned(),
+            ));
+        }
+        if caller_confirmation != slug {
+            return Err(ApiError::InvalidInput(
+                "confirmation must repeat the tenant slug".to_owned(),
+            ));
+        }
+        let tenant = self.tenant_by_slug(slug).await?;
+        let mut tx = self.pool.begin().await?;
+        // Audited before the delete: the audit row's `tenant_id` is
+        // `ON DELETE SET NULL`, so writing it afterwards would leave a record
+        // that cannot say which tenant it was about. `target_id` carries the
+        // slug, so the trail outlives the row it describes.
+        self.audit_tx(
+            &mut tx,
+            AuditRecord {
+                tenant_id: Some(tenant.tenant.id),
+                actor,
+                action: "tenant.removed",
+                target_kind: "tenant",
+                target_id: slug.to_owned(),
+                request_id,
+                detail: json!({
+                    "display_name": tenant.tenant.display_name,
+                    "workspace_id": tenant.tenant.workspace_id,
+                    "status_before_removal": tenant.tenant.status,
+                }),
+            },
+        )
+        .await?;
+        let removed = sqlx::query("DELETE FROM control_plane_tenants WHERE id = $1 AND slug = $2")
+            .bind(tenant.tenant.id)
+            .bind(slug)
+            .execute(&mut *tx)
+            .await?;
+        if removed.rows_affected() == 0 {
+            return Err(ApiError::NotFound);
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
     /// Authentication lookup including the password hash — never serialized
     /// to responses.
     pub async fn find_active_account_with_secret(

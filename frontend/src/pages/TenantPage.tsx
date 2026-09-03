@@ -1,6 +1,6 @@
 import { For, Show, Suspense, createEffect, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
-import { Link, useParams } from '@tanstack/solid-router'
+import { Link, useNavigate, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { refreshTick } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
@@ -84,6 +84,17 @@ export function TenantPage() {
   const plan = useMutation(() => ({ mutationFn: () => api.planProvisioning(params().slug, desiredVersion() || platform()?.provisionerDefaultImageTag || undefined), onSuccess: (job) => setPreview(job) }))
   const deploy = useMutation(() => ({ mutationFn: () => api.deployTenant(params().slug, desiredVersion()), onSuccess: async () => { setPreview(null); await refreshTenant() } }))
   const cancel = useMutation(() => ({ mutationFn: () => api.cancelProvisioning(params().slug), onSuccess: refreshTenant }))
+  // Removal is the one action here that cannot be undone from this screen, so
+  // the confirmation is the slug typed out rather than a second button.
+  const [removalConfirm, setRemovalConfirm] = createSignal('')
+  const navigate = useNavigate()
+  const remove = useMutation(() => ({
+    mutationFn: () => api.removeTenant(params().slug),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['tenants'] })
+      navigate({ to: '/tenants' })
+    },
+  }))
   const latestJob = () => provisioning.data?.items[0]
   const deploymentBusy = () => ['planned', 'approved', 'running'].includes(latestJob()?.status ?? '')
   const requestedVersion = () => desiredVersion().trim() || platform()?.provisionerDefaultImageTag || ''
@@ -218,6 +229,45 @@ export function TenantPage() {
       <ReleaseConvergencePanel releaseLedger={model.data?.releaseLedger ?? null} />
       <TenantAuditPanel items={model.data?.audit.items ?? []} />
       <TenantOperatorsPanel slug={t.slug} />
+
+      {/* Rendered from the server's capability flag, never from the slug. And
+          `=== true` rather than `!== false`: for a destructive action an
+          absent or still-loading capability must read as "not allowed",
+          which is the opposite default from the reads above. */}
+      <Show when={capabilities()?.canRemove === true}>
+        <article class="panel tenant-danger-zone">
+          <div class="section-title"><div><span class="eyebrow">DANGER ZONE</span><h2>Remove tenant</h2></div></div>
+          <p>
+            Unregisters <strong>{t.displayName}</strong> from the control plane: its operators,
+            runtime status and provisioning history here are deleted and cannot be restored from
+            this screen. The tenant's own CrowdRelay data is not touched — that workspace keeps
+            running until it is shut down separately. The audit trail survives this removal.
+          </p>
+          <Show when={remove.isError}>
+            <div class="error-card" role="alert">{errorMessage(remove.error, 'Tenant removal failed')}</div>
+          </Show>
+          <div class="form-grid">
+            <label>
+              <span>Type <code>{t.slug}</code> to confirm</span>
+              <input
+                value={removalConfirm()}
+                placeholder={t.slug}
+                autocomplete="off"
+                onInput={(e) => setRemovalConfirm(e.currentTarget.value)}
+              />
+            </label>
+          </div>
+          <div class="form-actions">
+            <button
+              class="danger-ghost"
+              disabled={removalConfirm().trim() !== t.slug || remove.isPending}
+              onClick={() => remove.mutate()}
+            >
+              {remove.isPending ? 'Removing…' : 'Remove this tenant'}
+            </button>
+          </div>
+        </article>
+      </Show>
     </>
   }}</Show></Suspense></section>
 }
