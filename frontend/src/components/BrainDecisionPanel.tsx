@@ -95,11 +95,7 @@ function renderEvidenceDetail(data: DecisionEvidence) {
                 <dt>{row.key}</dt>
                 <dd>
                   <Show when={row.isJson} fallback={row.value}>
-                    <pre class="brain-evidence-json">
-                      <For each={row.value.split('\n')}>
-                        {line => <span class="brain-evidence-json-line">{line}</span>}
-                      </For>
-                    </pre>
+                    <pre class="brain-evidence-json">{row.value}</pre>
                   </Show>
                 </dd>
               </div>
@@ -118,11 +114,7 @@ function renderEvidenceDetail(data: DecisionEvidence) {
                 <dt>{row.key}</dt>
                 <dd>
                   <Show when={row.isJson} fallback={row.value}>
-                    <pre class="brain-evidence-json">
-                      <For each={row.value.split('\n')}>
-                        {line => <span class="brain-evidence-json-line">{line}</span>}
-                      </For>
-                    </pre>
+                    <pre class="brain-evidence-json">{row.value}</pre>
                   </Show>
                 </dd>
               </div>
