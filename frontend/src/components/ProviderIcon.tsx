@@ -429,6 +429,7 @@ const FANBASE_ICONS: Record<string, (props: IconProps) => JSX.Element> = {
   facebook: FacebookIcon,
   instagram: InstagramIcon,
   soundcloud: SoundcloudIcon,
+  x: XaiIcon,
 }
 
 export function LlmProviderIcon(props: { providerId: string; size?: number; class?: string }) {

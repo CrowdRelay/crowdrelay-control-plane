@@ -37,6 +37,7 @@ const OAUTH_PLATFORMS = [
   { value: 'facebook', label: 'Facebook', icon: 'facebook' },
   { value: 'instagram', label: 'Instagram', icon: 'instagram' },
   { value: 'soundcloud', label: 'SoundCloud', icon: 'soundcloud' },
+  { value: 'x', label: 'X (Twitter)', icon: 'x' },
 ]
 
 const EMPTY_INGEST = ''
