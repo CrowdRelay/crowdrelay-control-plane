@@ -132,7 +132,27 @@ export function TenantWizardPage() {
     && (desiredVersion().trim().length > 0 || Boolean(overview.data?.provisionerDefaultImageTag))
   )
 
+  const deployBlocker = () => {
+    if (!deployNow()) return null
+    if (overview.data?.provisionerConfigured !== true) return 'No provisioner token is configured, so this control plane cannot deploy. Untick the deploy box to create the tenant only.'
+    if (!crowdrelayBaseUrl().startsWith('https://')) return 'CrowdRelay API base URL must be an https:// address.'
+    if (signalEnabled() && !signalBaseUrl().startsWith('https://')) return 'Signal is enabled, so its public site URL is required.'
+    if (!desiredVersion().trim() && !overview.data?.provisionerDefaultImageTag) return 'No server default release is set — paste the release SHA to deploy.'
+    return null
+  }
+
   const step1Ready = () => slug().length >= 2 && name().length >= 2 && regionalReady()
+  // Named in field order so the message tracks where the operator is looking.
+  const step1Blocker = () => {
+    if (slug().length < 2) return 'Give the tenant a slug to continue.'
+    if (name().length < 2) return 'Add a display name to continue.'
+    if (profile().countryCode.length !== 2) return 'Country needs a two-letter code.'
+    if (profile().locale.trim().length < 4) return 'Locale needs a BCP-47 tag, e.g. de-DE.'
+    if (!profile().timezone.includes('/')) return 'Timezone needs an IANA name, e.g. Europe/Berlin.'
+    if (profile().currency.length !== 3) return 'Currency needs a three-letter code.'
+    if (!operatorFieldsReady()) return 'Operator username must be 3–32 lowercase characters and the password at least 12 — or clear both to skip.'
+    return null
+  }
   const step2Ready = () => true
   const step3Ready = () => true
   const step4Ready = () => true
@@ -192,25 +212,35 @@ export function TenantWizardPage() {
     <Show when={step() === 1}>
       <div class="wizard-card">
         <div class="form-section-head"><div><span class="eyebrow">STEP 1</span><h2>Identity + region</h2></div><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></div>
+        <p class="wizard-intro">Identity is permanent once the tenant exists; the regional block is what the runtime reads instead of guessing from a browser or an IP address.</p>
         <div class="form-grid">
-          <label>Slug<input value={slug()} onInput={(e) => setSlug(e.currentTarget.value.toLowerCase())} placeholder="future-metal" autocomplete="off" /></label>
-          <label>Display name<input value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="Future Metal" /></label>
-          <label>Regional preset<select onChange={e=>applyPreset(e.currentTarget.value as Preset)}><option value="PL">Poland</option><option value="DE">Germany</option><option value="CZ">Czechia</option><option value="US">United States</option></select><small>Preset fills persisted fields; runtime never infers from it.</small></label>
-          <label>Country<input maxlength="2" value={profile().countryCode} onInput={e=>setRegional('countryCode',e.currentTarget.value.toUpperCase())}/></label>
-          <label>Locale<input value={profile().locale} onInput={e=>setRegional('locale',e.currentTarget.value)} placeholder="de-DE"/></label>
+          <label><span>Slug</span><input value={slug()} onInput={(e) => setSlug(e.currentTarget.value.toLowerCase())} placeholder="future-metal" autocomplete="off" /><small>Lowercase, used in URLs, container names and API paths. It cannot be changed later.</small></label>
+          <label><span>Display name</span><input value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="Future Metal" /><small>The band or label as people write it. Shown across the console and in operator-facing alerts.</small></label>
+          <label>Regional preset<select onChange={e=>applyPreset(e.currentTarget.value as Preset)}><option value="PL">Poland</option><option value="DE">Germany</option><option value="CZ">Czechia</option><option value="US">United States</option></select><small>Fills the six fields below in one go. Nothing is inferred from it afterwards — edit any of them freely.</small></label>
+          <label><span>Country</span><input maxlength="2" value={profile().countryCode} onInput={e=>setRegional('countryCode',e.currentTarget.value.toUpperCase())}/><small>Two-letter ISO code, e.g. PL. The tenant's home market, not where the servers are.</small></label>
+          <label><span>Locale</span><input value={profile().locale} onInput={e=>setRegional('locale',e.currentTarget.value)} placeholder="de-DE"/><small>BCP-47 tag. Decides the language and formatting of fan-facing copy.</small></label>
           <label>Timezone<input value={profile().timezone} onInput={e=>setRegional('timezone',e.currentTarget.value)} placeholder={profile().countryCode === 'US' ? 'America/Chicago (choose explicitly)' : 'Europe/Berlin'}/><small>{profile().countryCode === 'US' ? 'Required: US preset intentionally has no hidden timezone default.' : 'Explicit IANA timezone.'}</small></label>
-          <label>Currency<input maxlength="3" value={profile().currency} onInput={e=>setRegional('currency',e.currentTarget.value.toUpperCase())}/></label>
-          <label>Market region<select value={profile().region} onChange={e=>setRegional('region',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></select></label>
+          <label><span>Currency</span><input maxlength="3" value={profile().currency} onInput={e=>setRegional('currency',e.currentTarget.value.toUpperCase())}/><small>Three-letter ISO code, e.g. PLN. Ticket and merch amounts are stored and shown in it.</small></label>
+          <label><span>Market region</span><select value={profile().region} onChange={e=>setRegional('region',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></select><small>Which market the growth strategy plays in. Separate from data residency below.</small></label>
           <label>Data residency<select value={profile().dataRegion} onChange={e=>setRegional('dataRegion',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></select><small>Persisted and enforced by the regional provisioner pool.</small></label>
-          <label>Date format<select value={profile().dateFormat} onChange={e=>setRegional('dateFormat',e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></select></label>
-          <label>Number format<select value={profile().numberFormat} onChange={e=>setRegional('numberFormat',e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></select></label>
+          <label><span>Date format</span><select value={profile().dateFormat} onChange={e=>setRegional('dateFormat',e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></select><small>How dates are printed to fans and operators of this tenant.</small></label>
+          <label><span>Number format</span><select value={profile().numberFormat} onChange={e=>setRegional('numberFormat',e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></select><small>Thousands and decimal separators for counts and prices.</small></label>
         </div>
         <div class="form-section-head"><div><span class="eyebrow">TENANT OPERATOR</span><h2>First account for the team</h2></div></div>
+        <p class="wizard-intro">Optional. Creates one login scoped to this tenant so the band or their manager can work without a platform admin. You can add more later from the tenant page.</p>
         <div class="form-grid">
           <label>Operator username<input value={opUsername()} onInput={(e) => setOpUsername(e.currentTarget.value.toLowerCase())} placeholder="future-metal-op" autocomplete="off" /><small>Optional. Sees only this tenant; leave blank to skip.</small></label>
           <label>Operator password<input type="password" value={opPassword()} onInput={(e) => setOpPassword(e.currentTarget.value)} placeholder="min 12 characters" autocomplete="new-password" /><small>Handed to the team once — hashed with argon2id, never shown again.</small></label>
         </div>
-        <div class="form-actions right">
+        {/* The Next button just went grey. Say which field is still holding
+            it, in the order the form asks for them. */}
+        <div class="form-actions">
+          <div class="form-readiness" aria-live="polite">
+            <span class="readiness-message">
+              <span class="auth-dot" classList={{ ok: step1Ready() && operatorFieldsReady() }} />
+              {step1Blocker() ?? 'Identity and region are complete.'}
+            </span>
+          </div>
           <button class="ghost" onClick={() => navigate({ to: '/tenants' })}>Cancel</button>
           <button onClick={nextStep} disabled={!step1Ready() || !operatorFieldsReady()}>Next: Products →</button>
         </div>
@@ -350,7 +380,13 @@ export function TenantWizardPage() {
         </Show>
 
         <Show when={createTenant.error}><div class="error-card" role="alert">{createTenant.error instanceof Error ? createTenant.error.message : 'Tenant creation failed'}</div></Show>
-        <div class="form-actions right">
+        <div class="form-actions">
+          <div class="form-readiness" aria-live="polite">
+            <span class="readiness-message">
+              <span class="auth-dot" classList={{ ok: deployFieldsReady() }} />
+              {deployBlocker() ?? (deployNow() ? 'Ready to create the tenant and queue its deployment.' : 'Ready to create the tenant. Nothing is deployed yet.')}
+            </span>
+          </div>
           <button class="ghost" onClick={prevStep}>← Back</button>
           <button onClick={() => createTenant.mutate()} disabled={createTenant.isPending || !deployFieldsReady()}>
             {createTenant.isPending ? 'Creating…' : deployNow() ? 'Create & deploy' : 'Create tenant'}

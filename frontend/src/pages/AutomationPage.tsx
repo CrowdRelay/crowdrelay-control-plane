@@ -85,7 +85,7 @@ export function AutomationPage() {
 
     <Suspense fallback={<SkeletonRows count={5} />}>
     <Show when={showConfigs()}>
-      <div class="section-title"><h2>Workflow routing</h2></div>
+      <div class="section-title"><div><h2>Workflow routing</h2><p>One row per n8n workflow, deciding what its events do when they arrive. <strong>Category</strong> sorts the event — only <em>real work</em> is worth waking someone for. <strong>Discord</strong> forwards it to the crew channel. <strong>Muted</strong> keeps the events recorded but stops them counting as new. Changes save as you make them.</p></div></div>
       <Show when={configs.error}><div class="error-card">{configs.error?.message}</div></Show>
       <Show when={configs.data} fallback={!configs.error ? <SkeletonRows count={3} /> : null}>
         <div class="automation-config-list">

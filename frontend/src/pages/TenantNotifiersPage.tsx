@@ -77,6 +77,18 @@ export function TenantNotifiersPage() {
   const toggleEvent = (e: NotifierEvent) => setEvents(c => c.includes(e) ? c.filter(i => i !== e) : [...c, e])
   const targetLabel = () => kind() === 'email_relay' ? 'Recipient email' : 'Webhook URL'
   const targetPh = () => kind() === 'discord' ? 'https://discord.com/api/webhooks/…' : kind() === 'webhook' ? 'https://ops.example.com/hooks/crowdrelay' : 'alerts@future-metal.example'
+  // A three-option select and an empty URL field say nothing about where the
+  // value comes from. Each option carries what it delivers and where to get it.
+  const typeHint = () => kind() === 'discord'
+    ? 'Posts a formatted message into one Discord channel. Fastest to set up and the usual choice for a crew channel.'
+    : kind() === 'webhook'
+      ? 'POSTs a JSON body to any HTTPS endpoint you control — your own on-call tooling, a Slack workflow, an n8n trigger.'
+      : 'Sends mail through the platform relay. No mail server of your own required, but delivery is slower than a webhook.'
+  const targetHint = () => kind() === 'discord'
+    ? 'Discord → Server settings → Integrations → Webhooks → New webhook → Copy webhook URL. It stays secret: anyone holding it can post to that channel.'
+    : kind() === 'webhook'
+      ? 'Must be HTTPS and reachable from the internet. Delivery is best-effort with bounded retries, so the endpoint should tolerate a repeat of the same event.'
+      : 'One mailbox. Distribution lists work, but each address you want reached separately needs its own channel.'
   const formReady = () => label().trim().length >= 2 && (kind() === 'email_relay' ? /^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(target().trim()) : target().trim().startsWith('https://'))
 
   const create = useMutation(() => ({ mutationFn: () => api.createNotifier(slug(), { kind: kind(), label: label().trim(), url: kind() === 'email_relay' ? undefined : target().trim(), events: events(), enabled: true }), onSuccess: async () => { await refresh(); toast.success(`${label().trim()} added.`); setLabel(''); setTarget(''); setEvents([]) } }))
@@ -197,14 +209,28 @@ export function TenantNotifiersPage() {
     {/* ── Create form ────────────────────────────────────────────── */}
     <form class="tenant-create-form" onSubmit={(e) => { e.preventDefault(); create.mutate() }}>
       <div class="form-section-head"><div><span class="eyebrow">NEW CHANNEL</span><h2>Add a destination</h2></div></div>
+      <p class="agent-section-intro">Adds one place this tenant's alerts are delivered to. Send a test straight after saving — a wrong URL is accepted here and only fails at delivery time.</p>
       <div class="form-grid">
-        <label>Type<select value={kind()} onChange={(e) => { setKind(e.currentTarget.value as NotifierChannel['kind']); setTarget('') }}><option value="discord">Discord app</option><option value="webhook">Generic webhook</option><option value="email_relay">Email via platform relay</option></select></label>
-        <label>Label<input value={label()} onInput={(e) => setLabel(e.currentTarget.value)} placeholder="Ops Discord" /></label>
-        <label style={{ 'grid-column': '1 / -1' }}>{targetLabel()}<input value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPh()} /></label>
+        <label>
+          <span>Type</span>
+          <select value={kind()} onChange={(e) => { setKind(e.currentTarget.value as NotifierChannel['kind']); setTarget('') }}><option value="discord">Discord app</option><option value="webhook">Generic webhook</option><option value="email_relay">Email via platform relay</option></select>
+          <small>{typeHint()}</small>
+        </label>
+        <label>
+          <span>Label</span>
+          <input value={label()} onInput={(e) => setLabel(e.currentTarget.value)} placeholder="Ops Discord" />
+          <small>Your name for this destination — it is what the rows above and the delivery log show.</small>
+        </label>
+        <label style={{ 'grid-column': '1 / -1' }}>
+          <span>{targetLabel()}</span>
+          <input value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPh()} />
+          <small>{targetHint()}</small>
+        </label>
       </div>
       <div class="check-row-group" role="group" aria-label="Subscribed events">
+        <p class="check-row-lead">Which events reach this destination. Leave every box clear to receive all of them — that is the default, and new event kinds are included automatically.</p>
         <For each={[...NOTIFIER_EVENTS]}>{ev => <label class="check-row"><input type="checkbox" checked={events().includes(ev)} onChange={() => toggleEvent(ev)} /><span><strong>{evLabel(ev)}</strong></span></label>}</For>
-        <Show when={!events().length}><small class="check-row-hint">No selection = all events</small></Show>
+        <Show when={!events().length}><small class="check-row-hint">Nothing selected — this channel receives every event.</small></Show>
       </div>
       <Show when={create.error}><div class="error-card" role="alert">{errorMessage(create.error, 'Channel creation failed')}</div></Show>
       <div class="form-actions right"><button type="submit" disabled={create.isPending || !formReady()}>{create.isPending ? 'Adding…' : 'Add channel'}</button></div>

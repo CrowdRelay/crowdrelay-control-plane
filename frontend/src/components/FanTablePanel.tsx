@@ -58,7 +58,7 @@ export function FanTablePanel(props: {
 
   return <div class="agent-section">
     <div class="agent-section-head">
-      <h3>Fan List</h3>
+      <h3>Fan list</h3>
       <span class="muted">{filtered().length} fans</span>
     </div>
     <div class="fan-search-bar">

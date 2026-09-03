@@ -338,6 +338,20 @@ export function OperationsPanel(props: {
             <div><strong>{data().failed_24h}</strong><span>failed 24h</span></div>
             <div><strong>{data().executor_failed_24h}</strong><span>executor fail</span></div>
           </div>
+          {/* Four controls named after the fields behind them and nothing
+              else: an operator could set an authority level without knowing
+              which of them lets the autopilot act unattended. */}
+          <p class="policy-legend">
+            One row per kind of work the autopilot does.{' '}
+            <strong>Mode</strong> is how far it may go on its own —{' '}
+            <em>observe</em> records what it would do,{' '}
+            <em>recommend</em> surfaces it on the opportunity board,{' '}
+            <em>require approval</em> prepares the action and waits for you,{' '}
+            <em>bounded auto</em> executes without asking.{' '}
+            <strong>Min confidence</strong> is the score an action must reach before that mode applies; below it nothing happens.{' '}
+            <strong>Max / 24h</strong> caps executions per rolling day, so a bad run stops itself.{' '}
+            Changes take effect on the next cycle — <em>Apply</em> saves one row.
+          </p>
           <div class="autopilot-policy-list">
             <For each={data().policies}>{policy => <PolicyEditor
               policy={policy}

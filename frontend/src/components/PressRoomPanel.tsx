@@ -68,7 +68,7 @@ export function PressRoomPanel(props: { slug: string }) {
 
   return <div class="agent-section">
     <div class="agent-section-head">
-      <h3>Press Room</h3>
+      <h3>Press room</h3>
       <div class="tab-group">
         <button classList={{ tab: true, active: tab() === 'requests' }} onClick={() => setTab('requests')}>
           Requests ({requests()?.requests.length ?? 0})

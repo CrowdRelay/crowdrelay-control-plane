@@ -394,7 +394,7 @@ export function FanSourcesPanel(props: {
     {/* Platform connections — OAuth-based fanbase sources */}
     <div class="agent-section">
       <div class="agent-section-head">
-        <h3>Platform Connections</h3>
+        <h3>Platform connections</h3>
         <Show when={connections() && connections()!.length > 0}>
           <span class="agent-connection-summary">
             <span class="agent-connection-dot ok" />
@@ -651,18 +651,33 @@ export function FanSourcesPanel(props: {
     </div>
 
     <Show when={creating}>
-      <div class="form-grid" style={{ 'margin-top': '20px' }}>
-        <label>Name<input value={name()} onInput={e => setName(e.currentTarget.value)} placeholder="e.g. Meta Lead Ads — Warsaw" /></label>
-        <label>Source kind
+      <p class="agent-section-intro" style={{ 'margin-top': '20px' }}>A source is one place fans arrive from. Naming it well matters — the name is what every ingestion row, attribution report and audit entry refers back to.</p>
+      <div class="form-grid">
+        <label>
+          <span>Name</span>
+          <input value={name()} onInput={e => setName(e.currentTarget.value)} placeholder="e.g. Meta Lead Ads — Warsaw" />
+          <small>Yours to choose. Include the platform and the campaign or city, so two similar feeds stay tellable apart later.</small>
+        </label>
+        <label>
+          <span>Source kind</span>
           <select value={sourceKind()} onChange={e => setSourceKind(e.currentTarget.value)}>
             <For each={SOURCE_KINDS}>{k => <option value={k.value}>{k.label}</option>}</For>
           </select>
+          <small>How fans reach the graph: a URL polled on a schedule, a batch you paste in, or a platform this tenant is connected to.</small>
         </label>
         <Show when={sourceKind() === 'http_json_pull'}>
-          <label>Fetch URL<input value={fetchUrl()} onInput={e => setFetchUrl(e.currentTarget.value)} placeholder="https://…/candidates.json" /></label>
+          <label>
+            <span>Fetch URL</span>
+            <input value={fetchUrl()} onInput={e => setFetchUrl(e.currentTarget.value)} placeholder="https://…/candidates.json" />
+            <small>HTTPS endpoint returning the candidate list as JSON. Polled on the ingestion schedule; it must stay reachable, so avoid a signed URL that expires.</small>
+          </label>
         </Show>
         <Show when={needsAttestation()}>
-          <label>Consent attested by<input value={attestedBy()} onInput={e => setAttestedBy(e.currentTarget.value)} placeholder="operator@label" /></label>
+          <label>
+            <span>Consent attested by</span>
+            <input value={attestedBy()} onInput={e => setAttestedBy(e.currentTarget.value)} placeholder="operator@label" />
+            <small>This kind carries personal data, so a named operator has to attest that the fans consented. The name is stored with every batch it ingests.</small>
+          </label>
         </Show>
       </div>
       <div class="form-actions">

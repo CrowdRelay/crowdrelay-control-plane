@@ -87,9 +87,21 @@ export function PortfolioPanel(props: {
     </div>}</Show>
 
     <div><span class="eyebrow">EDGES</span><h3>Amplification edges</h3></div>
+    {/* These two fields gate the buttons in the table below — until they are
+        filled the row actions stay disabled, which read as broken rather than
+        as waiting for an approver's name and a reason. */}
+    <p class="agent-section-intro">Fill these two before deciding on a row: every decision is written to the audit trail with the name you give here, and a revocation has to carry a reason.</p>
     <div class="form-grid">
-      <label>Approving operator<input value={actor()} onInput={e => setActor(e.currentTarget.value)} placeholder="operator@label" /></label>
-      <label>Revoke reason<input value={revokeReason()} onInput={e => setRevokeReason(e.currentTarget.value)} placeholder="required before Revoke / Decline fires" /></label>
+      <label>
+        <span>Approving operator</span>
+        <input value={actor()} onInput={e => setActor(e.currentTarget.value)} placeholder="operator@label" />
+        <small>Who is signing off. Required before <strong>Approve</strong> becomes clickable; recorded against the edge.</small>
+      </label>
+      <label>
+        <span>Revoke reason</span>
+        <input value={revokeReason()} onInput={e => setRevokeReason(e.currentTarget.value)} placeholder="duplicate edge / artist withdrew consent" />
+        <small>Required before <strong>Revoke</strong> or <strong>Decline</strong> fires. Stored with the decision so the next operator sees why.</small>
+      </label>
     </div>
     <Show when={edges().length}>
       <table class="data-table">

@@ -2394,3 +2394,192 @@ table tbody tr:hover{background:rgba(255,255,255,.025)}
 /* JSON evidence is rendered as a plain <pre> with white-space:pre-wrap.
    The 4-space indent from JSON.stringify(value, null, 4) is preserved
    naturally — no per-line span padding/text-indent tricks needed. */
+
+/* ── Polish pass: the outliers ───────────────────────────────────────────
+   Everything below is a surface that never got a rule, or that predates the
+   token system and still carries its own hand-picked greys. They read as
+   half-finished next to the panels around them, which is exactly how an
+   operator decides a screen is not to be trusted. */
+
+/* A tenant removal and a brand-colour edit were the same box. The one action
+   on this page that cannot be undone should not look like the rest of it. */
+.tenant-danger-zone{border-color:rgba(255,101,101,.28);background:linear-gradient(180deg,rgba(43,19,19,.30),var(--surface-2) 200px)}
+.tenant-danger-zone .eyebrow{color:#ff9d9d}
+.tenant-danger-zone .section-title{margin-top:0;padding-bottom:12px;border-bottom:1px solid rgba(255,101,101,.18)}
+.tenant-danger-zone>p{color:var(--text-secondary);max-width:72ch}
+.tenant-opt-out{border-color:rgba(245,185,66,.22)}
+.tenant-opt-out .eyebrow{color:#f5c468}
+.tenant-opt-out .section-title{margin-top:0;padding-bottom:12px;border-bottom:1px solid rgba(245,185,66,.16)}
+.tenant-opt-out>p{color:var(--text-secondary);max-width:72ch}
+/* The confirmation is typing the slug, so the field is one column wide and
+   monospaced — it is compared character by character, not read. */
+.tenant-danger-zone .form-grid,.tenant-opt-out .form-grid{grid-template-columns:minmax(0,360px)}
+.tenant-danger-zone .form-grid input,.tenant-opt-out .form-grid input{font-family:var(--font-mono);letter-spacing:.02em}
+.tenant-danger-zone .form-grid input:focus{border-color:var(--bad);box-shadow:0 0 0 3px rgba(255,101,101,.15)}
+.tenant-danger-zone code,.tenant-opt-out code{padding:1px 6px;border-radius:5px;background:var(--surface-3);color:var(--text-primary)}
+.tenant-danger-zone .form-actions,.tenant-opt-out .form-actions{border-top-color:var(--border-subtle)}
+
+/* Audit rows were a bare stack of divs: the panel drew a border-bottom per row
+   and nothing else, so ten deploys read as one grey paragraph. */
+.audit-list{display:grid;margin-top:4px}
+.audit-row{gap:16px;padding:11px 12px;border-radius:var(--radius-sm);border-bottom:1px solid var(--border-subtle);transition:background var(--t-fast)}
+.audit-row:hover{background:var(--surface-1)}
+.audit-row strong{font-size:var(--text-base);font-weight:600}
+.audit-row code{font-size:var(--text-xs);padding:2px 7px;border-radius:5px;background:var(--surface-3);color:var(--text-secondary);white-space:nowrap}
+
+/* Three hooks the components ask for by name and the stylesheet never had:
+   the readiness line under a form, the source/owner pair beside a notifier,
+   and the "this is last-known, not live" note on the runtime panel. */
+.form-readiness{min-width:0}
+.provenance-badge{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:5px;background:var(--surface-3);border:1px solid var(--border-subtle);white-space:nowrap}
+.inline-stale-note{display:flex;align-items:center;gap:8px;margin:10px 0;padding:9px 12px;border:1px solid rgba(245,185,66,.22);border-left:3px solid var(--warn);border-radius:var(--radius-sm);background:rgba(41,32,15,.45);color:#f5c468;font-size:var(--text-sm);line-height:1.5}
+.inline-stale-note::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--warn);flex:0 0 auto}
+
+/* Ticket purchases sat directly against the tags block above them with no
+   heading treatment, so the drawer read as one run of text. */
+.fan-drawer-section{margin-top:16px;padding-top:14px;border-top:1px solid var(--border-subtle)}
+.fan-drawer-section h4{margin:0 0 8px;font-size:var(--text-xs);letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);font-weight:700}
+
+/* A component the release ledger expected and did not find is a gap, not a
+   row like the ones above it. */
+.release-component-missing{border-style:dashed;border-color:rgba(245,185,66,.28);background:rgba(41,32,15,.28)}
+.release-component-missing strong{color:#f5c468}
+
+/* Policy editors stacked with no gap — one long form, not four decisions. */
+.autopilot-policy-list{display:grid;gap:10px;margin:14px 0}
+.confidence-field{gap:8px}
+
+/* ── Legacy greys ────────────────────────────────────────────────────────
+   These rules were written before the tokens existed and pinned their own
+   near-identical hexes. Same intent, one source. */
+.provision-row input{background:var(--surface-1);border-color:var(--border-default);border-radius:var(--radius-sm);transition:border-color var(--t-fast),box-shadow var(--t-fast)}
+.provision-row input:hover:not(:focus){border-color:var(--border-strong)}
+.compact-field select,.compact-field input[type=number]{background:var(--surface-1);border-color:var(--border-default)}
+.deployment-target-grid>div{background:var(--surface-1);border-color:var(--border-subtle);border-radius:var(--radius-md)}
+.tenant-row{background:var(--surface-2);border-bottom-color:var(--border-subtle)}
+.tenant-row:hover{background:var(--surface-3)}
+.badge{border-color:var(--border-strong);background:var(--surface-3);color:var(--text-secondary)}
+.segment-card:hover{border-color:var(--border-accent)}
+.chat-input:focus{border-color:var(--accent)}
+
+/* A route note is guidance about what to do next, not body copy in a grey
+   box — it had no edge and no label of any kind. */
+.route-note{border:1px solid var(--border-subtle);border-left:3px solid var(--border-accent);border-radius:var(--radius-sm);background:var(--surface-1);color:var(--text-secondary);line-height:1.6}
+
+/* The second `.data-table` definition re-pinned #9ca3af/#2a2d36/#181a20 and
+   won on order, so every table below a panel lost the token colours and the
+   uppercase header the first definition gave it. */
+.data-table th{color:var(--text-muted);border-bottom-color:var(--border-default);font-size:var(--text-xs);letter-spacing:.1em;text-transform:uppercase;font-weight:700;padding:9px 12px}
+.data-table td{border-bottom-color:var(--border-subtle);padding:10px 12px}
+.data-table tr:hover{background:var(--surface-1)}
+.data-table td code{font-size:var(--text-xs);color:var(--text-secondary)}
+/* Counts and versions line up column-wise or they are not comparable. */
+.data-table td{font-variant-numeric:tabular-nums}
+
+/* ── AI surfaces ─────────────────────────────────────────────────────────
+   The agent panels arrived with their own palette: #14161c cards, 4px radii,
+   flat #252830 buttons, indigo focus. Next to a 16px token panel with a
+   purple accent they read as an embedded third-party widget rather than part
+   of the console. Same components, house materials. */
+.agent-section{background:var(--surface-2);border:1px solid var(--border-default);border-radius:var(--radius-lg);padding:var(--space-5);box-shadow:var(--shadow-md);margin-bottom:var(--space-4)}
+.agent-section h3{color:var(--text-primary);font-size:var(--text-md);font-weight:700;letter-spacing:-.01em}
+.agent-section h4{color:var(--text-secondary)}
+.agent-template-card,.agent-provider-card,.agent-suggestion-card{background:var(--surface-1);border:1px solid var(--border-default);border-radius:var(--radius-md);transition:border-color var(--t-fast),background var(--t-fast)}
+.agent-template-card{padding:var(--space-4)}
+.agent-template-card:hover,.agent-provider-card:hover,.agent-suggestion-card:hover{border-color:var(--border-accent);background:rgba(155,135,245,.05)}
+.agent-template-card.selected{border-color:var(--accent);background:rgba(155,135,245,.10);box-shadow:inset 0 0 0 1px rgba(155,135,245,.18)}
+.agent-template-name,.agent-suggestion-title,.agent-provider-name{color:var(--text-primary)}
+.agent-template-desc,.agent-suggestion-desc,.agent-provider-desc,.agent-field span,.agent-section-intro{color:var(--text-muted)}
+.agent-model-tag{background:var(--surface-3);border:1px solid var(--border-subtle);color:var(--text-secondary);border-radius:5px;padding:2px 7px}
+.agent-suggestions{background:var(--surface-1);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--space-4)}
+.agent-suggestion-card{margin-bottom:8px;padding:12px 14px}
+.agent-suggestion-reason{color:var(--text-muted)}
+.agent-field select,.agent-field textarea,.agent-key-input{background:var(--surface-1);border:1px solid var(--border-default);border-radius:var(--radius-sm);color:var(--text-primary);padding:10px 12px;transition:border-color var(--t-fast),box-shadow var(--t-fast)}
+.agent-field select:hover:not(:focus),.agent-field textarea:hover:not(:focus),.agent-key-input:hover:not(:focus){border-color:var(--border-strong)}
+.agent-field select:focus,.agent-field textarea:focus,.agent-key-input:focus{border-color:var(--accent);box-shadow:var(--shadow-focus)}
+.agent-btn,.agent-result-actions button{background:var(--surface-3);border:1px solid var(--border-default);border-radius:var(--radius-md);color:var(--text-secondary);padding:.5rem .9rem;font-weight:600;transition:border-color var(--t-fast),background var(--t-fast)}
+.agent-btn:hover,.agent-result-actions button:hover:not(:disabled){background:var(--surface-4);border-color:var(--border-strong)}
+.agent-btn-danger{border-radius:var(--radius-md);border-color:rgba(90,40,40,.5);color:#ff9d9d;padding:.4rem .8rem}
+.agent-btn-danger:hover{background:rgba(56,32,31,.85);border-color:rgba(122,52,52,.6)}
+.agent-actions .primary{border-radius:var(--radius-md);padding:.6rem 1.2rem;font-weight:600;box-shadow:var(--shadow-sm)}
+.agent-error{color:#ffb3b3}
+.agent-task-table th{color:var(--text-muted);font-size:var(--text-xs);letter-spacing:.1em;text-transform:uppercase;font-weight:700;border-bottom-color:var(--border-default);padding:9px 10px}
+.agent-task-table td{border-bottom-color:var(--border-subtle);padding:10px;font-variant-numeric:tabular-nums}
+.agent-task-table tbody tr{transition:background var(--t-fast)}
+.agent-task-table tbody tr:hover{background:var(--surface-1)}
+.agent-result-modal{background:var(--surface-2);border-color:var(--border-default);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg)}
+.agent-result-header,.agent-result-meta,.agent-result-actions{border-color:var(--border-subtle)}
+.agent-result-meta{color:var(--text-muted)}
+.agent-result-content{color:var(--text-secondary)}
+
+/* The palette editor named its slots after the struct fields and stopped
+   there. Now each swatch says what it paints, which needs room the five-across
+   grid did not have. */
+.palette-grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.palette-grid label{display:grid;gap:2px;padding:12px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface-1)}
+.palette-field-name{color:var(--text-primary);font-size:var(--text-base);font-weight:600}
+.palette-field-role{color:var(--text-muted);font-size:var(--text-xs);line-height:1.45}
+.color-input input{width:34px;height:32px;border-radius:6px;cursor:pointer}
+.color-input code{color:var(--text-secondary)}
+
+/* A grid of tick boxes with no sentence above it: the operator had to infer
+   that selecting nothing is the permissive default, not the empty one. */
+.check-row-lead{grid-column:1/-1;margin:0 0 2px;color:var(--text-secondary);font-size:var(--text-sm);line-height:1.55}
+.check-row-hint{color:var(--text-muted)}
+
+/* Hints under an agent field — same weight as the ones the form grid gets. */
+.agent-field-hint{display:block;margin:2px 0 0;color:var(--text-muted);font-size:var(--text-sm);line-height:1.5}
+
+/* Legend above the authority policy rows. It carries the vocabulary for four
+   controls, so it reads as a key — indented off an accent rule, not as another
+   paragraph of body copy. */
+.policy-legend{margin:0 0 12px;padding:12px 14px;border:1px solid var(--border-subtle);border-left:3px solid var(--border-accent);border-radius:var(--radius-sm);background:var(--surface-1);color:var(--text-secondary);font-size:var(--text-sm);line-height:1.65}
+.policy-legend strong{color:var(--text-primary);font-weight:600}
+.policy-legend em{font-style:normal;color:var(--accent-hover)}
+
+/* Field radii had drifted to 4px, 5px, 8px, 9px and 10px across the panels
+   that each rolled their own input. Buttons sit at 12px, so a field beside a
+   button was visibly a different shape. One radius for anything you type into
+   or pick from. */
+.form-grid input,.form-grid select,.form-grid textarea,
+.provision-row input,.compact-field select,.compact-field input[type=number],
+.area-create-card input,.area-create-card select,
+.area-form-grid input,.area-form-grid select,.area-form-grid textarea,
+.area-custom-city input,
+select,.filter-row select,.automation-config-controls select,
+.agent-field select,.agent-field textarea,.agent-key-input,
+.premium-key-input,.chat-input,.ingest-editor textarea{border-radius:var(--radius-md)}
+.grafana-refresh .refresh-interval-select select{border-radius:var(--radius-md)}
+
+/* The AREA editor's fields got the same treatment the tenant forms already
+   had: a label you can read, a hint under it, and an input that sits on the
+   card rather than punched through it. */
+.area-create-card label,.area-form-grid label,.area-custom-city label{color:var(--text-secondary);gap:5px}
+.area-create-card label small,.area-form-grid label small,.area-custom-city label small{color:var(--text-muted);font-size:var(--text-xs);line-height:1.5;font-weight:400}
+.area-create-card input,.area-create-card select,
+.area-form-grid input,.area-form-grid select,.area-form-grid textarea,
+.area-custom-city input{background:var(--surface-1)}
+.area-create-card input:hover:not(:focus),.area-create-card select:hover:not(:focus),
+.area-form-grid input:hover:not(:focus),.area-form-grid select:hover:not(:focus),
+.area-form-grid textarea:hover:not(:focus),.area-custom-city input:hover:not(:focus){border-color:var(--border-strong)}
+/* Readiness line sits to the left of the actions it explains. */
+.form-actions .form-readiness{margin-right:auto}
+
+/* The assistant's own bubble was #6366f1 — indigo, the one accent in the app
+   that is not the accent. Beside a purple send button in the same panel. */
+.chat-msg-user .chat-msg-content{background:var(--accent);color:#fff}
+.chat-input-area{background:var(--surface-2);border-top-color:var(--border-default)}
+.chat-input{background:var(--surface-1);border-color:var(--border-default);color:var(--text-primary)}
+.chat-input::placeholder{color:var(--text-muted)}
+.chat-header-title{color:var(--text-primary)}
+.chat-header-sub{color:var(--text-muted)}
+.chat-close{color:var(--text-muted);border-radius:var(--radius-sm)}
+.chat-close:hover{background:var(--surface-4);color:var(--text-primary)}
+.chat-welcome h3{color:var(--text-primary)}
+.chat-welcome p{color:var(--text-muted)}
+.chat-messages::-webkit-scrollbar-thumb{background:var(--border-strong)}
+.chat-error{background:rgba(43,19,19,.85);color:#ffb3b3;border-top-color:var(--border-subtle)}
+.chat-stop{background:var(--surface-3);border-color:rgba(255,101,101,.5);color:#ff9d9d;border-radius:var(--radius-md)}
+.chat-send{border-radius:var(--radius-md)}
+.chat-action-btn{border-radius:var(--radius-sm)}
+.chat-cursor{background:var(--accent)}

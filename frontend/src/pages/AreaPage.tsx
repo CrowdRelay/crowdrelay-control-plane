@@ -172,10 +172,13 @@ export function AreaPage() {
     <article class="panel">
       <div class="section-title"><div><span class="eyebrow">LOCATIONS</span><h2>Published state + drafts</h2></div><button disabled={!overview.data?.entitled} onClick={() => setCreating(v=>!v)}>+ New location</button></div>
       <Show when={creating()}><div class="area-create-card">
-        <label>Search city<input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></label>
-        <label>Canonical city<select value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></select></label>
-        <label>Drop number<input inputmode="numeric" maxlength="3" value={newNumber()} onInput={e=>setNewNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></label>
-        <div class="form-actions"><button class="ghost" onClick={()=>setCreateCityOpen(v=>!v)}>Create custom city</button><button disabled={createDrop.isPending || !newCityId()} onClick={()=>createDrop.mutate()}>Create draft</button></div>
+        <label>Search city<small>Type to filter the canonical list.</small><input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></label>
+        <label>Canonical city<small>Where the drop lives. Missing city? Create one below.</small><select value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></select></label>
+        <label>Drop number<small>1–3 digits, required. Padded to three for the id: 7 in Wrocław becomes <code>wro-007</code>.</small><input inputmode="numeric" maxlength="3" value={newNumber()} onInput={e=>setNewNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></label>
+        {/* The button was enabled without a drop number and the mutation threw
+            "Drop number must contain 1–3 digits" only after the click. Same
+            rule, checked where the operator can still act on it. */}
+        <div class="form-actions"><button class="ghost" onClick={()=>setCreateCityOpen(v=>!v)}>Create custom city</button><button disabled={createDrop.isPending || !newCityId() || !/^\d{1,3}$/.test(newNumber().trim())} onClick={()=>createDrop.mutate()}>Create draft</button></div>
         <Show when={createCityOpen()}><div class="area-custom-city">
           <label>Name<input required value={newCity().name} onInput={e=>setNewCity(v=>({...v,name:e.currentTarget.value}))}/></label>
           <label>Slug<input required value={newCity().slug} onInput={e=>setNewCity(v=>({...v,slug:e.currentTarget.value}))}/></label>
@@ -200,24 +203,26 @@ export function AreaPage() {
       <Show when={detail.data && draft()} fallback={<SkeletonRows count={4} />}>{_ready => <>
         <div class="area-step-tabs"><For each={['city','location','content','schedule','review'] as const}>{step=><button class={editorStep()===step?'active ghost':'ghost'} onClick={()=>setEditorStep(step)}>{step}</button>}</For></div>
 
-        <Show when={editorStep()==='city'}><div class="area-form-grid">
-          <label>Search canonical city<input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder={detail.data!.summary.city}/></label>
+        <Show when={editorStep()==='city'}><p class="agent-section-intro">Which city this drop belongs to and where it sits in the list fans see. Nothing here is secret — the exact spot is set on the next step.</p>
+        <div class="area-form-grid">
+          <label>Search canonical city<small>Filters the list below. Cities are shared across tenants; add one only if it is genuinely missing.</small><input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder={detail.data!.summary.city}/></label>
           <label>Canonical city<select value={draft()!.cityId} onChange={e=>{const id=e.currentTarget.value;const city=cities.data?.items.find(c=>c.id===id);setDraft(d=>d?({...d,cityId:id,approximateLat:city?.latitude ?? d.approximateLat,approximateLng:city?.longitude ?? d.approximateLng}):d)}}><Show when={!(cities.data?.items ?? []).some(city=>city.id===draft()!.cityId)}><option value={draft()!.cityId}>{detail.data!.summary.city} · current</option></Show><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name} · {city.countryCode}</option>}</For></select></label>
-          <label>Drop number<input maxlength="3" value={draft()!.number} onInput={e=>mutateDraft({number:e.currentTarget.value.replace(/\D/g,'').slice(0,3)})}/></label>
-          <label>Sort order<input type="number" value={draft()!.sortOrder} onInput={e=>mutateDraft({sortOrder:finiteInput(e.currentTarget.value,draft()!.sortOrder)})}/></label>
-          <label>Illustration X (advanced)<input type="number" min="0" max="100" value={draft()!.mapX} onInput={e=>mutateDraft({mapX:finiteInput(e.currentTarget.value,draft()!.mapX)})}/></label>
-          <label>Illustration Y (advanced)<input type="number" min="0" max="100" value={draft()!.mapY} onInput={e=>mutateDraft({mapY:finiteInput(e.currentTarget.value,draft()!.mapY)})}/></label>
+          <label>Drop number<small>Up to three digits. Fans see it as the drop's identity in the game, so it should not be reused within a city.</small><input maxlength="3" value={draft()!.number} onInput={e=>mutateDraft({number:e.currentTarget.value.replace(/\D/g,'').slice(0,3)})}/></label>
+          <label>Sort order<small>Position in the list. Lower comes first; ties fall back to the drop number.</small><input type="number" value={draft()!.sortOrder} onInput={e=>mutateDraft({sortOrder:finiteInput(e.currentTarget.value,draft()!.sortOrder)})}/></label>
+          <label>Illustration X (advanced)<small>Where the pin sits on the illustrated map, 0–100 left to right. Not a coordinate — it moves artwork, not the drop.</small><input type="number" min="0" max="100" value={draft()!.mapX} onInput={e=>mutateDraft({mapX:finiteInput(e.currentTarget.value,draft()!.mapX)})}/></label>
+          <label>Illustration Y (advanced)<small>Same, 0–100 top to bottom.</small><input type="number" min="0" max="100" value={draft()!.mapY} onInput={e=>mutateDraft({mapY:finiteInput(e.currentTarget.value,draft()!.mapY)})}/></label>
         </div></Show>
 
         <Show when={editorStep()==='location'}><div class="area-location-editor">
           <div class="warning-card"><strong>Secret location.</strong> The canvas below is rendered locally. It does not load map tiles or transmit exact coordinates to an external mapping provider.</div>
           <LocationCanvas publicLat={draft()!.approximateLat} publicLng={draft()!.approximateLng} exactLat={draft()!.exactLat} exactLng={draft()!.exactLng} radiusMeters={draft()!.radiusMeters} onPick={(lat,lng)=>mutateDraft({exactLat:lat,exactLng:lng})}/>
+          <p class="agent-section-intro">Two coordinates, two audiences. The <strong>public</strong> pair is what the app shows everyone — keep it at neighbourhood level. The <strong>exact</strong> pair never leaves this editor; it is only used server-side to decide whether a fan standing there is close enough to claim. Click the canvas to set it.</p>
           <div class="area-form-grid">
-            <label>Public latitude<input required type="number" step="0.000001" value={draft()!.approximateLat} onInput={e=>mutateDraft({approximateLat:finiteInput(e.currentTarget.value,draft()!.approximateLat)})}/></label>
-            <label>Public longitude<input required type="number" step="0.000001" value={draft()!.approximateLng} onInput={e=>mutateDraft({approximateLng:finiteInput(e.currentTarget.value,draft()!.approximateLng)})}/></label>
-            <label>Exact latitude<input type="number" step="0.000001" value={draft()!.exactLat ?? ''} onInput={e=>mutateDraft({exactLat:nullableInput(e.currentTarget.value,draft()!.exactLat)})}/></label>
-            <label>Exact longitude<input type="number" step="0.000001" value={draft()!.exactLng ?? ''} onInput={e=>mutateDraft({exactLng:nullableInput(e.currentTarget.value,draft()!.exactLng)})}/></label>
-            <label>Claim radius (m)<input type="number" min="25" max="500" value={draft()!.radiusMeters} onInput={e=>mutateDraft({radiusMeters:finiteInput(e.currentTarget.value,draft()!.radiusMeters)})}/></label>
+            <label>Public latitude<small>Shown to fans. Round it — this is the hint, not the spot.</small><input required type="number" step="0.000001" value={draft()!.approximateLat} onInput={e=>mutateDraft({approximateLat:finiteInput(e.currentTarget.value,draft()!.approximateLat)})}/></label>
+            <label>Public longitude<small>Shown to fans, same rounding.</small><input required type="number" step="0.000001" value={draft()!.approximateLng} onInput={e=>mutateDraft({approximateLng:finiteInput(e.currentTarget.value,draft()!.approximateLng)})}/></label>
+            <label>Exact latitude<small>Never published. Leave blank and the drop cannot be claimed.</small><input type="number" step="0.000001" value={draft()!.exactLat ?? ''} onInput={e=>mutateDraft({exactLat:nullableInput(e.currentTarget.value,draft()!.exactLat)})}/></label>
+            <label>Exact longitude<small>Never published, set together with the latitude.</small><input type="number" step="0.000001" value={draft()!.exactLng ?? ''} onInput={e=>mutateDraft({exactLng:nullableInput(e.currentTarget.value,draft()!.exactLng)})}/></label>
+            <label>Claim radius (m)<small>How close a fan must be to the exact point, 25–500 m. Tight is harder in a dense city; wide forgives GPS drift indoors.</small><input type="number" min="25" max="500" value={draft()!.radiusMeters} onInput={e=>mutateDraft({radiusMeters:finiteInput(e.currentTarget.value,draft()!.radiusMeters)})}/></label>
           </div>
         </div></Show>
 

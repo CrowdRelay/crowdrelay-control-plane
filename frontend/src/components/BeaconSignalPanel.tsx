@@ -45,7 +45,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
 
   return <div class="agent-section">
     <div class="agent-section-head">
-      <h3>Beacon Signal Network</h3>
+      <h3>Beacon signal network</h3>
       <Show when={dashboard()}>
         <span class="muted">{dashboard()!.total} beacons · {dashboard()!.active} active</span>
       </Show>

@@ -67,7 +67,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
 
   return <div class="agent-section">
     <div class="agent-section-head">
-      <h3>Outreach Pipeline</h3>
+      <h3>Outreach pipeline</h3>
       <div class="tab-group">
         <button classList={{ tab: true, active: tab() === 'outreach' }} onClick={() => setTab('outreach')}>
           Outreach ({outreach()?.length ?? 0})

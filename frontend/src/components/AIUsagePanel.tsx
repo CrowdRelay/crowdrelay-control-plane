@@ -158,7 +158,7 @@ export function AIUsagePanel(props: { slug: string }) {
     <Show when={modelAnalytics().length > 0}>
       <div class="agent-section">
         <div class="agent-section-head">
-          <h3>Model Performance</h3>
+          <h3>Model performance</h3>
           <span class="muted">last 30 days</span>
         </div>
         <p class="agent-section-intro">Per-model success rate, latency, and cost. Helps you see if the intelligence is routing tasks to the right models. Color-coded success rate: green ≥90%, yellow ≥75%, red below 75%.</p>
@@ -191,7 +191,7 @@ export function AIUsagePanel(props: { slug: string }) {
     <Show when={dailySpend().length > 0}>
       <div class="agent-section">
         <div class="agent-section-head">
-          <h3>Daily Spend Trend</h3>
+          <h3>Daily spend trend</h3>
           <span class="muted">last 30 days</span>
         </div>
         <p class="agent-section-intro">Daily AI spend, free vs paid stacked. The bar height shows total requests; color shows paid cost. A flat line at $0 means the intelligence is routing to free models — that's the goal.</p>
@@ -238,7 +238,7 @@ export function AIUsagePanel(props: { slug: string }) {
     <Show when={data() && (data()!.available_models.length > 0 || modelAnalytics().length > 0)}>
       <div class="agent-section">
         <div class="agent-section-head">
-          <h3>Model Routing Preview</h3>
+          <h3>Model routing preview</h3>
           <span class="muted">intelligence fallback chain</span>
         </div>
         <p class="agent-section-intro">The intelligence routes tasks to models using a fallback chain: free models first, then paid models if connected. This shows which models are available and whether they're being used.</p>

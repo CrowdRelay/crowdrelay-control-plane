@@ -568,7 +568,7 @@ export function PremiumAIPanel(props: {
         {/* ─── Recent Premium Tasks ──────────────────────────────── */}
         <section class="premium-section">
           <div class="premium-section-head">
-            <h3>Recent Premium Tasks</h3>
+            <h3>Recent premium tasks</h3>
             <span class="premium-count-chip">{usage()!.tasks.length}</span>
           </div>
           <Show

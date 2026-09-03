@@ -303,8 +303,10 @@ export function AgentPanel(props: { slug: string }) {
       {/* Task templates and execution */}
       <div class="agent-section">
         <div class="agent-section-head">
-          <h3>Agent Tasks</h3>
+          <h3>Agent tasks</h3>
+          <Show when={templates()}><span class="muted">{templates()!.length} templates</span></Show>
         </div>
+        <p class="agent-section-intro">A template is a pre-written job — research, drafting, analysis — with the prompt scaffolding already in place. Pick one, choose a model, describe the specific work in your own words, and run it. Results appear under Recent tasks, usually within a minute.</p>
         <Show when={templates()} fallback={<SkeletonGrid count={4} minCardHeight='120px' />}>
           <div class="agent-template-grid">
             <For each={templates()}>
@@ -333,7 +335,11 @@ export function AgentPanel(props: { slug: string }) {
 
       <Show when={selectedTemplate()}>
         <div class="agent-section">
-          <h3>Task</h3>
+          <div class="agent-section-head">
+            <h3>Run: {templates()?.find(t => t.id === selectedTemplate())?.name ?? 'task'}</h3>
+            <button class="agent-btn" onClick={() => setSelectedTemplate(null)}>Choose another template</button>
+          </div>
+          <p class="agent-section-intro">Free models cost nothing and are always available; paid models bill against the AI budget on the Usage tab. The prompt is the only thing the template does not already know — name the show, the city, the audience, the deadline.</p>
           <label class="agent-field">
             <span>Model</span>
             <select value={selectedModel()} onChange={(e) => setSelectedModel(e.currentTarget.value)}>
@@ -387,7 +393,11 @@ export function AgentPanel(props: { slug: string }) {
             <label class="agent-field">
               <span>Interval (minutes)</span>
               <input type="number" min="60" max="10080" value={scheduleInterval()} onInput={(e) => setScheduleInterval(parseInt(e.currentTarget.value, 10) || 1440)} />
+              <small class="agent-field-hint">Between 60 (hourly) and 10080 (weekly). 1440 is once a day.</small>
             </label>
+            <Show when={!selectedTemplate() || !prompt().trim()}>
+              <p class="agent-field-hint">A schedule repeats the task above, so pick a template and write its prompt first — this form only adds the interval.</p>
+            </Show>
             <div class="agent-actions">
               <button class="primary" disabled={submitting() || !selectedTemplate() || !prompt().trim()} onClick={createSchedule}>
                 {submitting() ? 'Creating…' : 'Create schedule'}
@@ -425,7 +435,11 @@ export function AgentPanel(props: { slug: string }) {
       </div>
 
       <div class="agent-section">
-        <h3>Recent Tasks</h3>
+        <div class="agent-section-head">
+          <h3>Recent tasks</h3>
+          <Show when={tasks() && tasks()!.length > 0}><span class="muted">last {Math.min(tasks()!.length, 10)}</span></Show>
+        </div>
+        <p class="agent-section-intro">Every run, whether started here or by a schedule. <strong>Queued</strong> and <strong>running</strong> refresh on their own; <strong>completed</strong> opens the full output with a copy button. A failed run charges nothing — hover it for the reason.</p>
         <Show when={tasks()} fallback={
           <Show when={tasks.loading} fallback={<EmptyState label="No tasks yet" hint="Tasks are individual worker runs. They appear here once the intelligence or a schedule dispatches them." />}>
             <SkeletonRows count={4} />

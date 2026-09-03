@@ -66,7 +66,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
 
   return <div class="agent-section">
     <div class="agent-section-head">
-      <h3>Play Ledger</h3>
+      <h3>Play ledger</h3>
       <Show when={ledger()}>
         <span class="muted">{ledger()!.plays.length} plays · {ledger()!.standings.length} kinds</span>
       </Show>
