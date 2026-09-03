@@ -256,6 +256,18 @@ export const Shell: Component = () => {
     setMobileNavOpen(false)
   })
 
+  // Admin lands on the platform Overview at `/` after login. Virya is the
+  // first tenant and the one the crew works on — select it by default so the
+  // tenant-scoped nav is immediately available. Only redirects once per
+  // session, and only from the bare `/` path (not from other global pages).
+  createEffect(() => {
+    if (!authState.profile() || !isAdmin()) return
+    if (pathname() !== '/') return
+    if (sessionStorage.getItem('admin-default-tenant')) return
+    sessionStorage.setItem('admin-default-tenant', '1')
+    navigate({ to: '/tenants/virya' as any })
+  })
+
   onMount(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
@@ -322,10 +334,6 @@ export const Shell: Component = () => {
               <NavIcon name="portfolio" />
               <Show when={!collapsed()}><span>Tenants</span></Show>
             </Link>
-            <Link to="/flow" activeProps={{ class: 'active' }} title="Process map">
-              <NavIcon name="flow" />
-              <Show when={!collapsed()}><span>Process map</span></Show>
-            </Link>
             <Link to="/attention" activeProps={{ class: 'active' }} title="Attention">
               <NavIcon name="attention" />
               <Show when={!collapsed()}><span>Attention</span></Show>
@@ -335,6 +343,10 @@ export const Shell: Component = () => {
               <Show when={!collapsed()}><span>Automation</span></Show>
             </Link>
           </Show>
+          <Link to="/flow" activeProps={{ class: 'active' }} title="Process map">
+            <NavIcon name="flow" />
+            <Show when={!collapsed()}><span>Process map</span></Show>
+          </Link>
         </nav>
 
         {/* Tenant switcher + grouped tenant nav */}

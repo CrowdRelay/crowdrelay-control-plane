@@ -35,7 +35,8 @@ type NorthStar =
   | 'discogs_in_collection'
   | 'bluesky_followers'
   | 'bandcamp_supporters'
-type FanbaseSource = 'discord' | 'facebook_group' | 'youtube' | 'forum' | 'reddit'
+  | 'x_followers'
+type FanbaseSource = 'discord' | 'facebook_group' | 'youtube' | 'forum' | 'reddit' | 'x'
 
 const northStars: { value: NorthStar; label: string; description: string; requiresSignal?: boolean }[] = [
   { value: 'total_audience', label: 'Total audience', description: 'Optimize the whole connected portfolio — every platform summed. The right choice when reach is spread across accounts rather than concentrated in one.' },
@@ -54,6 +55,7 @@ const northStars: { value: NorthStar; label: string; description: string; requir
   { value: 'deezer_fans', label: 'Deezer fans', description: 'Optimize Deezer artist fan count.' },
   { value: 'bluesky_followers', label: 'Bluesky followers', description: 'Optimize Bluesky follower growth.' },
   { value: 'discogs_in_collection', label: 'Discogs collectors', description: 'Optimize the number of collectors who own a release. A strong signal for physical-format acts.' },
+  { value: 'x_followers', label: 'X followers', description: 'Optimize X (Twitter) follower growth. The brain prioritizes X content and engagement.' },
 ]
 
 const fanbaseSources: { value: FanbaseSource; label: string; description: string }[] = [
@@ -62,6 +64,7 @@ const fanbaseSources: { value: FanbaseSource; label: string; description: string
   { value: 'youtube', label: 'YouTube channels', description: 'Discover YouTube channels via Data API v3.' },
   { value: 'forum', label: 'Forums', description: 'Discover music forums via web search.' },
   { value: 'reddit', label: 'Reddit (post-only)', description: 'Reddit discovery is already integrated. Posting only — scraping is broken.' },
+  { value: 'x', label: 'X (Twitter)', description: 'Discover X curators and music communities via browser-scraped search.' },
 ]
 
 export function TenantWizardPage() {

@@ -96,11 +96,19 @@ pub const NORTH_STAR_METRICS: &[&str] = &[
     "spotify_followers",
     "telegram_subscribers",
     "tiktok_followers",
+    "x_followers",
     "youtube_subscribers",
 ];
 
 /// Discovery platforms the onboarding wizard offers.
-pub const FANBASE_SOURCES: &[&str] = &["discord", "facebook_group", "youtube", "forum", "reddit"];
+pub const FANBASE_SOURCES: &[&str] = &[
+    "discord",
+    "facebook_group",
+    "youtube",
+    "forum",
+    "reddit",
+    "x",
+];
 
 /// Validates the growth goal and reconciles it with the Signal opt-in.
 ///

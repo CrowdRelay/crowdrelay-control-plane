@@ -1,6 +1,7 @@
-import { For, Show, Suspense, createMemo, createSignal } from 'solid-js'
+import { Show, Suspense, createMemo } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { ProcessMap } from '../components/ProcessMap'
 import { SkeletonPageHead, SkeletonBlock } from '../components/Skeleton'
 
@@ -10,12 +11,15 @@ export function FlowPage() {
     queryFn: () => api.tenants(),
     reconcile: 'id',
   }))
-  const [selected, setSelected] = createSignal('')
 
+  // The map itself is generic — the same architecture diagram for every
+  // tenant. The slug is only needed so node clicks navigate to the right
+  // tenant-scoped page. Tenant operators see only their own tenant from the
+  // API; admins get the first from the list.
   const slug = createMemo(() => {
-    const items = tenants.data?.items ?? []
-    const chosen = items.find((tenant) => tenant.slug === selected())
-    return (chosen ?? items[0])?.slug ?? ''
+    const profileSlug = authState.profile()?.tenantSlug
+    if (profileSlug) return profileSlug
+    return tenants.data?.items[0]?.slug ?? ''
   })
 
   return (
@@ -32,20 +36,6 @@ export function FlowPage() {
             the next decision. Click any block to jump to its page.
           </p>
         </div>
-        <Show when={tenants.data?.items.length}>
-          <label class="field">
-            <span>Tenant</span>
-            <select value={slug()} onChange={(e) => setSelected(e.currentTarget.value)}>
-              <For each={tenants.data?.items ?? []}>
-                {(tenant) => (
-                  <option value={tenant.slug} selected={tenant.slug === slug()}>
-                    {tenant.displayName}
-                  </option>
-                )}
-              </For>
-            </select>
-          </label>
-        </Show>
       </div>
 
       <Suspense fallback={<><SkeletonPageHead /><SkeletonBlock height="300px" radius="var(--radius-lg)" /></>}>
