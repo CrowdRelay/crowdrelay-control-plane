@@ -58,8 +58,10 @@ const renderEvidence = (snapshot: Record<string, unknown>): Array<{ key: string;
   for (const [key, value] of Object.entries(snapshot)) {
     if (value == null) continue
     const isJson = typeof value === 'object'
+    // Four, not two: this is read as a code snippet by an operator deciding
+    // whether to approve, and nesting has to be obvious at a glance.
     const display = isJson
-      ? JSON.stringify(value, null, 2)
+      ? JSON.stringify(value, null, 4)
       : String(value)
     if (display.trim().length === 0) continue
     rows.push({ key: key.replaceAll('_', ' '), value: display, isJson })
@@ -93,7 +95,11 @@ function renderEvidenceDetail(data: DecisionEvidence) {
                 <dt>{row.key}</dt>
                 <dd>
                   <Show when={row.isJson} fallback={row.value}>
-                    <pre class="brain-evidence-json">{row.value}</pre>
+                    <pre class="brain-evidence-json">
+                      <For each={row.value.split('\n')}>
+                        {line => <span class="brain-evidence-json-line">{line}</span>}
+                      </For>
+                    </pre>
                   </Show>
                 </dd>
               </div>
@@ -112,7 +118,11 @@ function renderEvidenceDetail(data: DecisionEvidence) {
                 <dt>{row.key}</dt>
                 <dd>
                   <Show when={row.isJson} fallback={row.value}>
-                    <pre class="brain-evidence-json">{row.value}</pre>
+                    <pre class="brain-evidence-json">
+                      <For each={row.value.split('\n')}>
+                        {line => <span class="brain-evidence-json-line">{line}</span>}
+                      </For>
+                    </pre>
                   </Show>
                 </dd>
               </div>

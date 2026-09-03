@@ -25,9 +25,11 @@ export function FlowPage() {
           <span class="eyebrow">BIG PICTURE</span>
           <h1>Process map</h1>
           <p>
-            Sources feed the intelligence (deterministic Rust autopilot). Intelligence dispatches LLM workers
-            that gather intelligence and draft content. Outcomes feed back into the causal model.
-            Click any block to jump to its page.
+            Sources feed the deterministic Rust autopilot, which decides. What that decision is allowed
+            to do is the fork: some actions queue immediately, some wait for a person and expire after
+            72 hours if nobody answers, and some are recorded and never executed. Delivery is
+            at-least-once, so only what comes back with a receipt updates the causal model and shapes
+            the next decision. Click any block to jump to its page.
           </p>
         </div>
         <Show when={tenants.data?.items.length}>
@@ -54,7 +56,8 @@ export function FlowPage() {
         <div class="process-map-legend">
           <span><i class="legend-swatch legend-inputs" />Sources</span>
           <span><i class="legend-swatch legend-intel" />Intelligence</span>
-          <span><i class="legend-swatch legend-worker" />Workers</span>
+          <span><i class="legend-swatch legend-auth" />Authority</span>
+          <span><i class="legend-swatch legend-worker" />Execution</span>
           <span><i class="legend-swatch legend-outcome" />Outcomes</span>
           <span><i class="legend-swatch legend-learning" />Learning loop</span>
         </div>
