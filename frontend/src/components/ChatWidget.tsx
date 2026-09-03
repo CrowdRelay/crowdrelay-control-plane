@@ -521,18 +521,20 @@ export function ChatWidget(props: { slug: string }) {
   )
 }
 
-// Only http(s) may reach an href. The reply text is model output seeded with
-// tenant data that itself came from outside (Reddit threads, press mail, fan
-// display names), so a link target here is untrusted input, not our own
-// string: `javascript:` and `data:` URLs must never survive this filter.
+// Only relative in-app paths may reach an href. The reply text is model
+// output seeded with tenant data that itself came from outside (Reddit
+// threads, press mail, fan display names), so a link target here is
+// untrusted input, not our own string. The model also hallucinates absolute
+// URLs with wrong domains (crowdrelay.music, control.virya.music) and
+// non-existent tenants — those must never become clickable links. Only
+// paths starting with a single `/` (no `//protocol-relative`) are allowed;
+// everything else is rendered as plain text.
 function safeHref(url: string): string | null {
   const trimmed = url.trim()
-  try {
-    const parsed = new URL(trimmed, window.location.origin)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : null
-  } catch {
-    return null
-  }
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//')) return null
+  // Reject anything that looks like it has a scheme after the slash
+  if (/^\/[^/]*:/.test(trimmed)) return null
+  return trimmed
 }
 
 // Escaping `<`, `>` and `&` is not enough for a value interpolated inside an
@@ -562,7 +564,7 @@ function renderMarkdown(text: string): string {
       // it before parsing so query strings round-trip intact.
       const href = safeHref(url.replace(/&amp;/g, '&'))
       if (!href) return whole
-      return `<a href="${escapeAttribute(href)}" target="_blank" rel="noopener noreferrer">${label}</a>`
+      return `<a href="${escapeAttribute(href)}">${label}</a>`
     })
     .replace(/\n/g, '<br>')
 }
