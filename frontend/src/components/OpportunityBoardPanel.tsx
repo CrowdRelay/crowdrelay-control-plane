@@ -61,6 +61,112 @@ const VALUE_TIER_LABELS: Record<string, string> = {
   downstream: 'downstream',
 }
 
+// Human-readable labels for the machine enums the backend sends. The fallback
+// humanizes snake_case so an unknown value is still readable, not raw enum.
+const CONTEXT_LABELS: Record<string, string> = {
+  ticket_yield: 'Ticket Yield',
+  fan_lifecycle: 'Fan Lifecycle',
+  campaign_lifecycle: 'Campaign Lifecycle',
+  merchandising: 'Merchandising',
+  merch_pricing: 'Merch Pricing',
+  merch_bundle: 'Merch Bundle',
+  booking_opportunity: 'Booking',
+  outreach: 'Outreach',
+  content_supply: 'Content Supply',
+  promotion_budget: 'Promotion Budget',
+  experimentation: 'Experimentation',
+  show_operations: 'Show Operations',
+  release: 'Release',
+  live_opportunity: 'Live Opportunity',
+  funding: 'Funding',
+  beacon: 'Beacon',
+  show_growth: 'Show Growth',
+  growth_metrics: 'Growth Metrics',
+  growth_debt: 'Growth Debt',
+  outreach_supply: 'Outreach Supply',
+  growth_intelligence: 'Growth Intelligence',
+  plays: 'Plays',
+}
+
+const DECISION_KIND_LABELS: Record<string, string> = {
+  'ticket.price.change': 'Change Ticket Price',
+  'ticket.capacity.change': 'Change Ticket Capacity',
+  'fan.lifecycle.message.request': 'Send Fan Message',
+  'merch.reorder.request': 'Reorder Merch',
+  'merch.price.change': 'Change Merch Price',
+  'booking.outreach.request': 'Booking Outreach',
+  'audience.campaign.request': 'Audience Campaign',
+  'merch.bundle.request': 'Create Merch Bundle',
+  'outreach.request': 'Outreach Request',
+  'beacon.discovery.request': 'Discover Beacons',
+  'booking.target_discovery.request': 'Discover Booking Targets',
+  'beacon.invite_batch.request': 'Request Beacon Invites',
+  'outreach.discovery.request': 'Discover Outreach Targets',
+  'beacon.outreach.request': 'Beacon Outreach',
+  'show.growth.request': 'Show Growth Action',
+  'content.artifact.request': 'Content Artifact',
+  'experiment.allocation.change': 'Adjust Experiment',
+  'experiment.complete': 'Complete Experiment',
+  'show.task.complete': 'Complete Show Task',
+  'show.task.escalate': 'Escalate Show Task',
+  'promotion.budget_change.request': 'Change Promotion Budget',
+  'release.milestone.execute': 'Execute Release Milestone',
+  'opportunity.live.apply': 'Apply Live Opportunity',
+  'playlist.placement.verify': 'Verify Playlist Placement',
+  'release.editorial_pitch.escalate': 'Escalate Editorial Pitch',
+  'opportunity.terms.counter': 'Counter Live Opportunity Terms',
+  'opportunity.terms.accept': 'Accept Live Opportunity Terms',
+  'funding.package.prepare': 'Prepare Funding Package',
+  'funding.application.submit': 'Submit Funding Application',
+  'growth.opportunity.raise': 'Growth Opportunity Detected',
+  'growth.debt.raise': 'Growth Debt Raised',
+  'referral.code.issue': 'Issue Referral Code',
+  'play.step.run': 'Run Play Step',
+  'team.assignment.email': 'Team Assignment Email',
+  'agent.content.request': 'Agent Content Request',
+  'agent.run.request': 'Agent Run',
+  'community.engage.request': 'Community Engagement',
+  'signal.push.request': 'Signal Push',
+}
+
+const SUBJECT_KIND_LABELS: Record<string, string> = {
+  ticket_type: 'Ticket Type',
+  fan: 'Fan',
+  merch_variant: 'Merch Variant',
+  merch_product: 'Merch Product',
+  city: 'City',
+  event: 'Event',
+  outreach_opportunity: 'Outreach Opportunity',
+  content_source: 'Content Source',
+  experiment: 'Experiment',
+  promotion_campaign: 'Promotion Campaign',
+  release_plan: 'Release Plan',
+  team_opportunity: 'Team Opportunity',
+  beacon: 'Beacon',
+  growth_metric_series: 'Growth Metric',
+  booking_target: 'Booking Target',
+  outreach_target: 'Outreach Target',
+  target_community: 'Community',
+  workspace: 'Workspace',
+}
+
+const humanize = (value: string) =>
+  value.split('_').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')
+
+const labelOr = (map: Record<string, string>, value: string) =>
+  map[value] ?? humanize(value)
+
+// The primary title: prefer the backend briefing summary (rich, contextual),
+// fall back to a human-readable decision kind label, then to the raw
+// recommended_action or decision_kind humanized.
+const entryTitle = (entry: OpportunityBoardEntry): string => {
+  if (entry.briefing?.summary) return entry.briefing.summary
+  const labeled = DECISION_KIND_LABELS[entry.decision_kind]
+  if (labeled) return labeled
+  if (entry.recommended_action) return humanize(entry.recommended_action)
+  return humanize(entry.decision_kind)
+}
+
 const confidencePercent = (basisPoints: number) => `${Math.round(basisPoints / 100)}%`
 
 // Basis points are the queue's only magnitude; percent is what a human reads.
@@ -146,21 +252,18 @@ export function OpportunityBoardPanel(props: {
         </details>
       </Show>
       <Show when={data().length > 0}>
-        <div class="flag-list opportunity-list">
+        <div class="opportunity-list">
           <For each={showAll() ? data() : data().slice(0, MAX_VISIBLE)}>{entry => (
-            <div class="flag-row release-component-row opportunity-row">
+            <div class="opportunity-row">
               <div class="opportunity-body">
-                <strong>
+                <div class="opportunity-head">
                   <span class="opportunity-rank">#{entry.position}</span>
-                  {' '}{entry.recommended_action}
-                </strong>
-                <small>{entry.context.replaceAll('_', ' ')} · {entry.decision_kind.replaceAll('_', ' ')} · {entry.subject_kind}</small>
-                <small class="opportunity-reason">{entry.reason}</small>
-                <Show when={formatDue(entry.due_at)}>
-                  {due => <small class="opportunity-deadline">deadline {due()}</small>}
-                </Show>
-                <small class="opportunity-consequence">if ignored: {entry.consequence}</small>
+                  <strong>{entryTitle(entry)}</strong>
+                </div>
+                <p class="opportunity-reason">{entry.reason}</p>
                 <div class="row-health opportunity-facts">
+                  <span class="badge">{labelOr(CONTEXT_LABELS, entry.context)}</span>
+                  <span class="badge">{labelOr(SUBJECT_KIND_LABELS, entry.subject_kind)}</span>
                   <StatusBadge status={authorityLabel(entry)} tone={authorityTone(entry)} />
                   <Show when={entry.decision_kind?.startsWith('agent.')}>
                     <span class="badge llm-badge">LLM</span>
@@ -174,6 +277,35 @@ export function OpportunityBoardPanel(props: {
                     {label => <span class="badge">{label()}</span>}
                   </Show>
                 </div>
+                <Show when={formatDue(entry.due_at)}>
+                  {due => <small class="opportunity-deadline">deadline {due()}</small>}
+                </Show>
+                <small class="opportunity-consequence">if ignored: {entry.consequence}</small>
+                <Show when={entry.briefing}>
+                  {briefing => (
+                    <details class="opportunity-briefing">
+                      <summary>Details</summary>
+                      <p class="opportunity-briefing-why">{briefing().why_it_matters}</p>
+                      <Show when={briefing().steps.length > 0}>
+                        <ol class="opportunity-briefing-steps">
+                          <For each={briefing().steps}>{step => (
+                            <li><strong>{step.what_to_do}</strong> — {step.why_it_matters}</li>
+                          )}</For>
+                        </ol>
+                      </Show>
+                      <Show when={briefing().content.length > 0}>
+                        <dl class="opportunity-briefing-content">
+                          <For each={briefing().content}>{field => (
+                            <div class="brain-evidence-row">
+                              <dt>{field.label}</dt>
+                              <dd>{field.value}</dd>
+                            </div>
+                          )}</For>
+                        </dl>
+                      </Show>
+                    </details>
+                  )}
+                </Show>
               </div>
               <div class="opportunity-actions">
                 <Show
