@@ -166,13 +166,17 @@ function TenantSwitcher(props: {
 
 // Global nav, declared once so the topbar breadcrumb can name the current
 // page instead of repeating the tenant name the page heading already shows.
+// Ordered the way the work is read: what is happening, who it is for, what is
+// running, what needs a person, then the map that explains the rest.
+// `New tenant` stays beside Tenants — it is that page's action, not a sixth
+// destination.
 const GLOBAL_NAV: NavItem[] = [
   { path: '/', label: 'Overview', exact: true, icon: 'overview' },
   { path: '/tenants', label: 'Tenants', exact: true, icon: 'portfolio' },
   { path: '/tenants/new', label: 'New tenant', exact: true, icon: 'portfolio' },
-  { path: '/flow', label: 'Process map', exact: false, icon: 'flow' },
-  { path: '/attention', label: 'Attention', exact: false, icon: 'attention' },
   { path: '/automation', label: 'Automation', exact: false, icon: 'automation' },
+  { path: '/attention', label: 'Attention', exact: false, icon: 'attention' },
+  { path: '/flow', label: 'Process map', exact: false, icon: 'flow' },
 ]
 
 // Longest tenant suffix wins so `/operations` never matches before a deeper
