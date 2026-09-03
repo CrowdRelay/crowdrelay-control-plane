@@ -142,9 +142,9 @@ export function CommunityIntelligencePage() {
                       {item.name}
                     </a>
                     <div class="community-card-sub">
-                      <span class="community-platform">{item.platform}</span>
+                      <span class="community-platform" data-platform={item.platform}>{item.platform}</span>
                       <Show when={item.memberCount}>
-                        <span>· {item.memberCount!.toLocaleString()} members</span>
+                        <span><span class="community-card-members">{item.memberCount!.toLocaleString()}</span> members</span>
                       </Show>
                       <Show when={item.countryCode}><span>· {item.countryCode}</span></Show>
                     </div>
@@ -165,8 +165,10 @@ export function CommunityIntelligencePage() {
                 </Show>
 
                 <footer class="community-card-actions">
-                  <a class="ghost" href={item.url} target="_blank" rel="noreferrer noopener">Open</a>
-                  <button class="ghost" onClick={() => loadDraft(item.placeId)}>Draft intro</button>
+                  <a class="ghost" href={item.url} target="_blank" rel="noreferrer noopener">
+                    Open<span class="external-mark" aria-hidden="true">↗</span>
+                  </a>
+                  <button class="ghost draft-intro" onClick={() => loadDraft(item.placeId)}>Draft intro</button>
                   <select
                     class="community-state-select"
                     value={item.membershipState}
