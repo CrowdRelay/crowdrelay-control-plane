@@ -1,6 +1,7 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/solid-query'
+import { QueryClientProvider } from '@tanstack/solid-query'
 import { RouterProvider, createRootRoute, createRoute, createRouter, lazyRouteComponent } from '@tanstack/solid-router'
 import { Shell } from './components/Shell'
+import { queryClient } from './lib/queryClient'
 import './styles.css'
 
 const FlowPage = lazyRouteComponent(() => import('./pages/FlowPage'), 'FlowPage')
@@ -47,8 +48,6 @@ const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute,
 const router = createRouter({ routeTree, defaultPreload: 'intent', defaultPreloadStaleTime: 10_000, scrollRestoration: true })
 
 declare module '@tanstack/solid-router' { interface Register { router: typeof router } }
-
-const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 10_000, gcTime: 5 * 60_000, retry: 1, refetchOnWindowFocus: false, refetchIntervalInBackground: false, placeholderData: (prev: unknown) => prev } } })
 
 export default function AuthenticatedApp() {
   return <QueryClientProvider client={queryClient}><RouterProvider router={router} /></QueryClientProvider>
