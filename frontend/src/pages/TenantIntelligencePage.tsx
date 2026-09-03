@@ -76,7 +76,7 @@ export function TenantIntelligencePage() {
           <text x="660" y="55" text-anchor="middle" class="intel-loop-label">Outcomes</text>
           <text x="660" y="72" text-anchor="middle" class="intel-loop-sub">fans · engagement</text>
           <path d="M 660 90 Q 400 115, 100 90" fill="none" stroke="#7dffb2" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#intel-arrow)" />
-          <text x="380" y="115" text-anchor="middle" class="intel-loop-feedback">learning loop</text>
+          <text x="380" y="115" text-anchor="middle" class="intel-loop-feedback">Learning loop</text>
         </svg>
       </div>
 
