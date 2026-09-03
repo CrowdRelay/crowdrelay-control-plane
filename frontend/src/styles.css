@@ -1116,13 +1116,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .brain-evidence-row-json{flex-direction:column;gap:var(--space-1);align-items:stretch}
 .brain-evidence-row-json dt{flex:none}
 .brain-evidence-row-json dd{width:100%}
-/* A code snippet, so it is set like one: 4-space tabs, monospace, and a left
-   rule marking it as verbatim. `word-break:break-all` used to shatter words
-   mid-character — "prohibiting hall / ucinated subreddits" — which is wrong
-   for anything a person has to read. Wrap on spaces instead and let
-   `overflow-wrap:anywhere` handle only the tokens that genuinely cannot fit,
-   such as a long URL or an id. */
-.brain-evidence-json{margin:0;padding:var(--space-3);background:var(--surface-1);border:1px solid var(--border-subtle);border-left:2px solid var(--border-accent);border-radius:var(--radius-sm);font-family:var(--font-mono,monospace);font-size:var(--text-xs);line-height:1.6;tab-size:4;-moz-tab-size:4;white-space:pre-wrap;word-break:normal;overflow-wrap:anywhere;color:var(--text-secondary);max-height:400px;overflow:auto}
+/* A code snippet, so it is set like one: 2-space indent, monospace, and a left
+   rule marking it as verbatim. `white-space: pre-wrap` makes wrapped
+   continuation lines start at the left edge and destroys nested indentation,
+   so we keep `pre` and scroll horizontally. Long URLs/ids are readable by
+   scrolling or selecting. */
+.brain-evidence-json{margin:0;padding:var(--space-3);background:var(--surface-1);border:1px solid var(--border-subtle);border-left:2px solid var(--border-accent);border-radius:var(--radius-sm);font-family:var(--font-mono,monospace);font-size:var(--text-xs);line-height:1.6;white-space:pre;word-break:normal;overflow:auto;color:var(--text-secondary);max-height:400px}
 
 /* === Learning Loop Panel === */
 .learning-loop-panel{background:var(--surface-2);border:1px solid var(--border-default);border-radius:var(--radius-lg);padding:var(--space-6);margin-bottom:var(--space-4)}

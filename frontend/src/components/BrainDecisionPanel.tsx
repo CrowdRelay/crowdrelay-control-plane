@@ -58,10 +58,11 @@ const renderEvidence = (snapshot: Record<string, unknown>): Array<{ key: string;
   for (const [key, value] of Object.entries(snapshot)) {
     if (value == null) continue
     const isJson = typeof value === 'object'
-    // Four, not two: this is read as a code snippet by an operator deciding
-    // whether to approve, and nesting has to be obvious at a glance.
+    // Two, not four: the evidence panel is narrow, and wrapping `pre-wrap`
+    // lines lose their hanging indent. A compact indent keeps the structure
+    // readable without forcing horizontal scroll for shallow objects.
     const display = isJson
-      ? JSON.stringify(value, null, 4)
+      ? JSON.stringify(value, null, 2)
       : String(value)
     if (display.trim().length === 0) continue
     rows.push({ key: key.replaceAll('_', ' '), value: display, isJson })
