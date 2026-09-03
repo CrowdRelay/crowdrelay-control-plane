@@ -153,6 +153,11 @@ export const api = {
     request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/mobile-apps`, { method: 'PATCH', body: JSON.stringify(input) }),
   suspend: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/suspend`, { method: 'POST', body: '{}' }),
   resume: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/resume`, { method: 'POST', body: '{}' }),
+  // Unregisters the tenant from the control plane. The slug is repeated in the
+  // body because the server requires the caller to name the tenant they mean;
+  // the tenant's own CrowdRelay data is not touched by this.
+  removeTenant: (slug: string) =>
+    request<void>(`/tenants/${encodeURIComponent(slug)}`, { method: 'DELETE', body: JSON.stringify({ confirmSlug: slug }) }),
   planProvisioning: (slug: string, desiredVersion?: string) =>
     request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/plan`, { method: 'POST', body: JSON.stringify({ desiredVersion: desiredVersion || undefined }) }),
   deployTenant: (slug: string, desiredVersion?: string) =>

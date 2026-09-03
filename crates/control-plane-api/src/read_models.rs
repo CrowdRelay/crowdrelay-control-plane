@@ -89,6 +89,7 @@ async fn overview(
             "capabilities": {
                 "canSuspend": !externally_owned,
                 "canProvision": !externally_owned,
+                "canRemove": !externally_owned,
             },
         },
     })))
