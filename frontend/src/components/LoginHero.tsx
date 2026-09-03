@@ -76,7 +76,7 @@ const FlowDiagram: Component = () => {
       class="flow-learning"
       marker-end="url(#cr-arrow-green)"
     />
-    <text x="660" y="58" text-anchor="middle" class="flow-loop-label">learning loop</text>
+    <text x="660" y="58" text-anchor="middle" class="flow-loop-label">Learning loop</text>
 
     {/* Brain glow — subtle, breathing */}
     <circle cx="390" cy="250" r="110" fill="url(#cr-brain-glow)" class="flow-brain-glow" />
