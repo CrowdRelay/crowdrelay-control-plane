@@ -540,6 +540,20 @@ export const api = {
       body: JSON.stringify({ action: 'import_researched' }),
     }),
 
+  // SubmitHub Activity CSV export → unverified beacons. The CSV carries
+  // curator names and actions but no contact routes — the operator
+  // enriches those from the SubmitHub chat before approving. Only
+  // curators who approved or shared are imported.
+  importSubmithubCsv: (slug: string, csvText: string) =>
+    request<BeaconImportResult>(`/tenants/${encodeURIComponent(slug)}/operations/beacons/import-submithub`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'text/csv',
+        'idempotency-key': crypto.randomUUID(),
+      },
+      body: csvText,
+    }),
+
   // --- Beacon management ---
   // Six read endpoints existed before these; not one write. The roster was
   // observable and unchangeable. Payloads are snake_case: the tenant's write

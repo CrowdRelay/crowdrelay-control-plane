@@ -347,6 +347,10 @@ pub fn router() -> Router<AppState> {
         // ── Beacon management ─────────────────────────────────────────
         .route("/tenants/{slug}/operations/beacons", post(upsert_beacon))
         .route(
+            "/tenants/{slug}/operations/beacons/import-submithub",
+            post(import_submithub_csv),
+        )
+        .route(
             "/tenants/{slug}/operations/beacons/signal-invites/batch",
             post(batch_invite_beacons),
         )
@@ -2745,6 +2749,105 @@ async fn upsert_beacon(
     )
     .await;
     object_no_store(value, "beacon upsert")
+}
+
+/// Import SubmitHub Activity CSV as unverified beacons.
+///
+/// The operator exports the CSV from `submithub.com/activity`, uploads it
+/// here, and we parse it into structured rows and proxy to CrowdRelay's
+/// `import_submithub` action. Only curators who approved or shared are
+/// sent — the filtering happens here so CrowdRelay receives a clean set.
+async fn import_submithub_csv(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    body: String,
+) -> Result<Response, ApiError> {
+    // Parse the CSV by header name, not column position — SubmitHub may
+    // add or reorder columns without notice.
+    let mut reader = csv::Reader::from_reader(body.as_bytes());
+    let csv_headers = reader
+        .headers()
+        .map_err(|_| ApiError::InvalidInput("malformed CSV header".into()))?
+        .iter()
+        .map(|h| h.trim().to_lowercase())
+        .collect::<Vec<_>>();
+    let col = |name: &str| csv_headers.iter().position(|h| h == name);
+
+    let outlet_idx = col("outlet");
+    let outlet_type_idx = col("outlet type");
+    let action_idx = col("action");
+    let song_idx = col("song");
+    let country_idx = col("outlet country");
+    let feedback_idx = col("feedback");
+    let timestamp_idx = col("action timestamp");
+
+    // Outlet and action are the minimum we need. Everything else is
+    // provenance — nice to have, not required for the import to work.
+    if outlet_idx.is_none() || action_idx.is_none() {
+        return Err(ApiError::InvalidInput(
+            "CSV must have 'Outlet' and 'Action' columns".into(),
+        ));
+    }
+
+    let mut csv_rows = Vec::new();
+    for record in reader.records() {
+        let record = record.map_err(|_| ApiError::InvalidInput("malformed CSV row".into()))?;
+        let get = |idx: Option<usize>| -> String {
+            idx.and_then(|i| record.get(i))
+                .unwrap_or_default()
+                .to_owned()
+        };
+        let action = get(action_idx).trim().to_lowercase();
+        // Only warm contacts: approved or shared. Declined curators are
+        // real people but have not signalled interest.
+        if action != "approved" && action != "shared" {
+            continue;
+        }
+        csv_rows.push(serde_json::json!({
+            "outlet": get(outlet_idx),
+            "outletType": get(outlet_type_idx),
+            "action": action,
+            "song": get(song_idx),
+            "country": get(country_idx),
+            "feedback": get(feedback_idx),
+            "actionTimestamp": get(timestamp_idx),
+        }));
+    }
+
+    if csv_rows.is_empty() {
+        return Err(ApiError::InvalidInput(
+            "no approved or shared curators found in CSV".into(),
+        ));
+    }
+
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let proxy_body = serde_json::json!({
+        "action": "import_submithub",
+        "csvRows": csv_rows,
+    });
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/autopilot/beacon-network",
+        Some(&proxy_body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.beacon_network.import_submithub",
+        "beacon_network",
+        "import_submithub",
+        &headers,
+        &result,
+    )
+    .await;
+    object_no_store(value, "submithub import")
 }
 
 /// Runs a beacon-network action: import researched contacts, approve a
