@@ -192,9 +192,7 @@ async fn opt_out_tenant(
 ) -> Result<StatusCode, ApiError> {
     let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
     if crate::store::tenant_lifecycle_is_externally_owned(&tenant.tenant.slug) {
-        return Err(ApiError::Forbidden(
-            "this tenant cannot opt out".to_owned(),
-        ));
+        return Err(ApiError::Forbidden("this tenant cannot opt out".to_owned()));
     }
     state
         .store
