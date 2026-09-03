@@ -168,10 +168,10 @@ export function PremiumAIPanel(props: {
   // Free models show a "no key needed" badge; paid models get API key connect.
   const allProviders = createMemo(() => providers())
   const freeProviders = createMemo(() =>
-    allProviders().filter((p: AgentProvider) => p.freeTier || p.authMethod === 'none')
+    allProviders().filter((p: AgentProvider) => p.authMethod === 'none')
   )
   const apiKeyProviders = createMemo(() =>
-    allProviders().filter((p: AgentProvider) => p.authMethod === 'api_key' && !p.freeTier)
+    allProviders().filter((p: AgentProvider) => p.authMethod === 'api_key')
   )
 
   const connectedCount = createMemo(() =>
