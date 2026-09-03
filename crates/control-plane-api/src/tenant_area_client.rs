@@ -336,6 +336,20 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/v1/control-plane/community-intelligence/communities/",
                     "/entities",
                 )
+                // `Draft intro` on the Communities page. The route existed on
+                // both sides — `community_intro_draft` here and
+                // `community_intelligence_routes.rs` upstream — but this
+                // allowlist only carried the two sibling paths, so every draft
+                // was refused before it left the control plane and the whole
+                // page rendered its failure boundary with "invalid tenant
+                // operations request". A proxy allowlist is a third place a
+                // route has to be added, and nothing fails until someone
+                // presses the button.
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/community-intelligence/communities/",
+                    "/intro-draft",
+                )
                 || timeline_segment(path)
                 || trace_segment(path)
         }
@@ -953,6 +967,25 @@ mod tests {
         assert!(valid_operations_request(
             "GET",
             "/v1/control-plane/autopilot/cycle/preview"
+        ));
+        // Every per-community read the Communities page makes. `intro-draft`
+        // was missing here while its route existed on both sides, so the page
+        // failed to render the moment anyone pressed Draft intro.
+        for suffix in ["observations", "entities", "intro-draft"] {
+            assert!(
+                valid_operations_request(
+                    "GET",
+                    &format!(
+                        "/v1/control-plane/community-intelligence/communities/\
+                         0198c2a4-1d3b-7c2e-9f11-2b7d5e8a4c60/{suffix}"
+                    ),
+                ),
+                "{suffix} must reach the tenant"
+            );
+        }
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/community-intelligence/communities/not-a-uuid/intro-draft"
         ));
     }
 
