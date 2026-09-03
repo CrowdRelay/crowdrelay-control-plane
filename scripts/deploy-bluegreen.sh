@@ -33,6 +33,10 @@ BLUE_APP="crowdrelay-control-plane-app-1"
 GREEN_ALIAS="control-plane-green"
 BLUE_ALIAS="control-plane"
 RELEASE_STATE_DIR="/var/lib/crowdrelay-control-plane/releases"
+# The blue-green compose overlay is synced by deploy.sh to /tmp/ to avoid
+# using a stale copy from the server's repo dir. Fall back to the repo copy
+# if the synced version is not present (e.g. manual invocation).
+BLUEGREEN_COMPOSE="/tmp/cp-compose-bluegreen.yml"
 CADDY_BACKUP=""
 NEW_STARTED=false
 CADDY_SWITCHED=false
@@ -67,9 +71,9 @@ rollback() {
     printf 'ROLLBACK=STOPPING_NEW\n' >&2
     cd "$REPO_DIR"
     if [[ "$DEPLOY_COLOR" == "green" ]]; then
-      docker compose -f compose.production.yml -f compose.area.yml -f deploy/compose.bluegreen.yml \
+      docker compose -f compose.production.yml -f compose.area.yml -f "$BLUEGREEN_COMPOSE" \
         stop app-green >/dev/null 2>&1 || true
-      docker compose -f compose.production.yml -f compose.area.yml -f deploy/compose.bluegreen.yml \
+      docker compose -f compose.production.yml -f compose.area.yml -f "$BLUEGREEN_COMPOSE" \
         rm -f app-green >/dev/null 2>&1 || true
     else
       docker compose -f compose.production.yml -f compose.area.yml \
@@ -106,7 +110,11 @@ flock -n 9 || fail 'another Control Plane deployment is already running'
 [[ "$(stat -c '%a' .env)" == "600" ]] || fail '.env must have mode 600'
 [[ -f compose.production.yml ]] || fail "missing compose.production.yml"
 [[ -f compose.area.yml ]] || fail "missing compose.area.yml"
-[[ -f deploy/compose.bluegreen.yml ]] || fail "missing deploy/compose.bluegreen.yml"
+# Use the synced compose overlay if available; fall back to the repo copy.
+if [[ ! -f "$BLUEGREEN_COMPOSE" ]]; then
+  BLUEGREEN_COMPOSE="$REPO_DIR/deploy/compose.bluegreen.yml"
+fi
+[[ -f "$BLUEGREEN_COMPOSE" ]] || fail "missing compose.bluegreen.yml (checked /tmp/ and repo)"
 [[ -f "$EDGE_CADDYFILE" ]] || fail "missing edge Caddyfile"
 
 # Verify edge Caddyfile uses static blue-green upstreams, not dynamic DNS
@@ -305,7 +313,7 @@ NEW_STARTED=true
 
 if [[ "$DEPLOY_COLOR" == "green" ]]; then
   export CONTROL_PLANE_GREEN_TAG="sha-${TARGET}"
-  docker compose -f compose.production.yml -f compose.area.yml -f deploy/compose.bluegreen.yml \
+  docker compose -f compose.production.yml -f compose.area.yml -f "$BLUEGREEN_COMPOSE" \
     up -d --no-deps --wait --wait-timeout 120 app-green
 else
   # Deploy blue: override the image tag without modifying .env
