@@ -28,6 +28,7 @@ CROWDRELAY = ROOT.parent / "crowdrelay"
 DOMAIN = CROWDRELAY / "crates/crowdrelay-domain/src/growth_metrics.rs"
 WIZARD = ROOT / "frontend/src/pages/TenantWizardPage.tsx"
 VALIDATION = ROOT / "crates/control-plane-api/src/validation.rs"
+MIGRATIONS = ROOT / "migrations"
 
 
 def rust_north_stars() -> set[str]:
@@ -68,6 +69,28 @@ def validator_list() -> set[str]:
     source = VALIDATION.read_text()
     block = source.split("pub const NORTH_STAR_METRICS", 1)[1].split("];", 1)[0]
     return set(re.findall(r'"([a-z0-9_]+)"', block))
+
+
+def database_check_list() -> set[str]:
+    """The vocabulary `control_plane_tenant_north_star_ck` allows.
+
+    Read from the latest migration that defines the constraint, so a later
+    migration widening it is what this test sees.
+    """
+    definitions = [
+        path
+        for path in sorted(MIGRATIONS.glob("*.sql"))
+        if "ADD CONSTRAINT control_plane_tenant_north_star_ck" in path.read_text()
+    ]
+    if not definitions:
+        raise AssertionError("no migration defines the north-star CHECK")
+    source = definitions[-1].read_text()
+    start = source.index("ADD CONSTRAINT control_plane_tenant_north_star_ck")
+    body = source[start : source.index(";", start)]
+    values = set(re.findall(r"'([a-z_]+)'", body))
+    if not values:
+        raise AssertionError("the north-star CHECK has no values; the parser is wrong")
+    return values
 
 
 def wizard_union() -> set[str]:
@@ -134,6 +157,31 @@ class NorthStarVocabularyParity(unittest.TestCase):
             [],
             "the validator accepts north stars the tenant runtime cannot "
             "parse, which silently fall back to signal_installs",
+        )
+
+    def test_the_database_accepts_every_north_star_the_validator_does(self) -> None:
+        """The CHECK constraint is the fourth copy, and it fell behind too.
+
+        The validator's own doc comment records this failure once already — the
+        wizard offering goals the validator rejected. Adding the parity test
+        fixed three copies and left the database out, so the same break moved
+        one layer down: `total_audience`, the wizard's default, passed
+        validation and then violated
+        `control_plane_tenant_north_star_ck`. The operator saw "internal
+        error", because a constraint violation is a `sqlx` database error and
+        the response withholds the detail.
+        """
+        validator, database = validator_list(), database_check_list()
+        self.assertEqual(
+            sorted(validator - database),
+            [],
+            "the tenants table rejects north stars the validator accepts; "
+            "choosing one of these fails at INSERT, after every check passed",
+        )
+        self.assertEqual(
+            sorted(database - validator),
+            [],
+            "the tenants table permits north stars nothing can produce",
         )
 
     def test_the_signal_off_fallback_is_not_platform_specific(self) -> None:
