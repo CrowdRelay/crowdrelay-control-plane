@@ -487,6 +487,19 @@ export type GrowthOverview = {
   campaigns: GrowthCampaignProgress[]
 }
 
+// A human-readable briefing for a pending autopilot action, generated from
+// the action payload by the backend. Provides what to do, why it matters,
+// concrete steps, and the content being approved.
+export type BriefingStep = { what_to_do: string; why_it_matters: string }
+export type BriefingField = { label: string; value: string }
+export type ActionBriefing = {
+  summary: string
+  why_it_matters: string
+  steps: BriefingStep[]
+  content: BriefingField[]
+  deadline_note: string
+}
+
 // One ranked opportunity-board finding from CrowdRelay's next-best-action
 // queue. The ids are what the two buttons act on: "do it" approves
 // `action_id` through the existing approval path, "done ourselves" records
@@ -508,6 +521,7 @@ export type OpportunityBoardEntry = {
   due_at: string | null
   value_tier: 'vanity' | 'intermediate' | 'downstream' | null
   deviation_basis_points: number | null
+  briefing: ActionBriefing | null
 }
 
 // Per-subpage read models. Each Control Plane tenant subpage loads exactly one
