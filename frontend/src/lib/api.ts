@@ -158,6 +158,11 @@ export const api = {
   // the tenant's own CrowdRelay data is not touched by this.
   removeTenant: (slug: string) =>
     request<void>(`/tenants/${encodeURIComponent(slug)}`, { method: 'DELETE', body: JSON.stringify({ confirmSlug: slug }) }),
+  // Tenant-initiated opt-out request. Records the intent in the audit trail
+  // so the crew knows to act on it. Does NOT remove the tenant — removal
+  // stays admin-only. Not available for externally-owned tenants (Virya).
+  optOut: (slug: string) =>
+    request<void>(`/tenants/${encodeURIComponent(slug)}/opt-out`, { method: 'POST', body: '{}' }),
   planProvisioning: (slug: string, desiredVersion?: string) =>
     request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/plan`, { method: 'POST', body: JSON.stringify({ desiredVersion: desiredVersion || undefined }) }),
   deployTenant: (slug: string, desiredVersion?: string) =>

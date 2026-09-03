@@ -529,6 +529,7 @@ export type TenantOverviewReadModel = {
       canSuspend: boolean
       canProvision: boolean
       canRemove: boolean
+      canOptOut: boolean
     }
   }
 }

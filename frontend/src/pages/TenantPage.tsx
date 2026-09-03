@@ -2,6 +2,7 @@ import { For, Show, Suspense, createEffect, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link, useNavigate, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { refreshTick } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import type { Palette, ProvisioningJob } from '../lib/types'
@@ -99,6 +100,13 @@ export function TenantPage() {
   const deploymentBusy = () => ['planned', 'approved', 'running'].includes(latestJob()?.status ?? '')
   const requestedVersion = () => desiredVersion().trim() || platform()?.provisionerDefaultImageTag || ''
   const releaseReady = () => /^sha-[0-9a-f]{40}$/.test(requestedVersion())
+  const isAdmin = () => authState.profile()?.role === 'platform_admin'
+  const [optOutConfirm, setOptOutConfirm] = createSignal('')
+  const [optOutDone, setOptOutDone] = createSignal(false)
+  const optOut = useMutation(() => ({
+    mutationFn: () => api.optOut(params().slug),
+    onSuccess: () => setOptOutDone(true),
+  }))
 
   return <section class="page">
     <Show when={tenant.error}><div class="error-card" role="alert">{errorMessage(tenant.error, 'Tenant could not be loaded')}</div></Show>
@@ -230,11 +238,63 @@ export function TenantPage() {
       <TenantAuditPanel items={model.data?.audit.items ?? []} />
       <TenantOperatorsPanel slug={t.slug} />
 
-      {/* Rendered from the server's capability flag, never from the slug. And
-          `=== true` rather than `!== false`: for a destructive action an
-          absent or still-loading capability must read as "not allowed",
-          which is the opposite default from the reads above. */}
-      <Show when={capabilities()?.canRemove === true}>
+      {/* Tenant-initiated opt-out. Available to tenant operators on
+          non-Virya tenants. Records the request in the audit trail — the
+          crew then uses the admin-side Remove button to complete it. */}
+      <Show when={!isAdmin() && capabilities()?.canOptOut === true}>
+        <article class="panel tenant-opt-out">
+          <div class="section-title"><div><span class="eyebrow">LEAVING</span><h2>Opt out of the platform</h2></div></div>
+          <Show when={optOutDone()} fallback={
+            <>
+              <p>
+                If you want to leave the platform, request an opt-out here. Your request is
+                recorded and sent to the crew. They will contact you at the email on file to
+                confirm, then remove your tenant, operators, and all control-plane data.
+                Your CrowdRelay workspace keeps running until it is shut down separately.
+              </p>
+              <p class="route-note">
+                To expedite, also email <a href="mailto:virya.crew@gmail.com?subject=Opt%20out%3A%20{encodeURIComponent(t.displayName)}&body=Tenant%3A%20{encodeURIComponent(t.slug)}%0A%0AI%20want%20to%20opt%20out%20of%20the%20CrowdRelay%20platform.%20Please%20remove%20my%20tenant%20data.">virya.crew@gmail.com</a>.
+              </p>
+              <Show when={optOut.isError}>
+                <div class="error-card" role="alert">{errorMessage(optOut.error, 'Opt-out request failed')}</div>
+              </Show>
+              <div class="form-grid">
+                <label>
+                  <span>Type <code>{t.slug}</code> to confirm</span>
+                  <input
+                    value={optOutConfirm()}
+                    placeholder={t.slug}
+                    autocomplete="off"
+                    onInput={(e) => setOptOutConfirm(e.currentTarget.value)}
+                  />
+                </label>
+              </div>
+              <div class="form-actions">
+                <button
+                  class="danger-ghost"
+                  disabled={optOutConfirm().trim() !== t.slug || optOut.isPending}
+                  onClick={() => optOut.mutate()}
+                >
+                  {optOut.isPending ? 'Sending request…' : 'Request opt-out'}
+                </button>
+              </div>
+            </>
+          }>
+            <div class="notice-card">
+              <strong>Opt-out request received.</strong> The crew has been notified and will
+              contact you to confirm before removing your data. No further action is needed
+              from your side.
+            </div>
+          </Show>
+        </article>
+      </Show>
+
+      {/* Admin-only removal. Rendered from the server's capability flag, never
+          from the slug. And `=== true` rather than `!== false`: for a
+          destructive action an absent or still-loading capability must read
+          as "not allowed", which is the opposite default from the reads
+          above. Tenant operators never see this — they use Opt out instead. */}
+      <Show when={isAdmin() && capabilities()?.canRemove === true}>
         <article class="panel tenant-danger-zone">
           <div class="section-title"><div><span class="eyebrow">DANGER ZONE</span><h2>Remove tenant</h2></div></div>
           <p>

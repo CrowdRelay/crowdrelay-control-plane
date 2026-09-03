@@ -42,6 +42,7 @@ pub fn admin_router() -> Router<AppState> {
         )
         .route("/tenants/{slug}/suspend", post(suspend_tenant))
         .route("/tenants/{slug}/resume", post(resume_tenant))
+        .route("/tenants/{slug}/opt-out", post(opt_out_tenant))
         .route("/tenants/{slug}/provisioning/plan", post(plan_provisioning))
         .route("/tenants/{slug}/provisioning/deploy", post(deploy_tenant))
         .route("/tenants/{slug}/provisioning", get(provisioning_jobs))
@@ -176,6 +177,38 @@ async fn remove_tenant(
 #[serde(rename_all = "camelCase")]
 struct RemoveTenantRequest {
     confirm_slug: String,
+}
+
+/// A tenant operator can request to opt out of the platform. This does NOT
+/// remove the tenant — it records the request in the audit trail so the crew
+/// knows to act on it. The actual removal stays admin-only.
+///
+/// Virya is excluded: that tenant is externally owned and cannot opt out.
+async fn opt_out_tenant(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
+    headers: HeaderMap,
+) -> Result<StatusCode, ApiError> {
+    let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
+    if crate::store::tenant_lifecycle_is_externally_owned(&tenant.tenant.slug) {
+        return Err(ApiError::Forbidden(
+            "this tenant cannot opt out".to_owned(),
+        ));
+    }
+    state
+        .store
+        .audit_control_command(crate::store::ControlCommandAudit {
+            tenant_id: tenant.tenant.id,
+            actor: &identity.audit_actor(),
+            action: "tenant.opt_out_requested",
+            target_kind: "tenant",
+            target_id: tenant.tenant.slug.clone(),
+            request_id: request_id(&headers),
+            outcome: "requested",
+        })
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// Shared guard for tenant-scoped reads and operator-allowed mutations:
