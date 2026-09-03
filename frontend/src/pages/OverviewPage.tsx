@@ -2,6 +2,7 @@ import { For, Match, Show, Switch, Suspense } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { refreshTick } from '../lib/refresh'
 import type { PlatformHealthEntry, RuntimeHealth, TenantSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
@@ -109,7 +110,7 @@ export function OverviewPage() {
     {/* Fleet health ring + Tenant pulse — the fleet at a glance */}
     <div class="section-title">
       <h2>Tenant pulse</h2>
-      <Link to="/tenants" class="section-link">Manage tenants →</Link>
+      <Show when={authState.profile()?.role === 'platform_admin'}><Link to="/tenants" class="section-link">Manage tenants →</Link></Show>
     </div>
     <Show when={items().length > 0}>
       <div class="fleet-health-row">

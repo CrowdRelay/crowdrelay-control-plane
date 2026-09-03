@@ -2,6 +2,7 @@ import { For, Show, Suspense, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { SkeletonRows } from '../components/Skeleton'
 import type { RegionalProfile } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
@@ -20,6 +21,7 @@ export function TenantsPage() {
   const queryClient = useQueryClient()
   const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, reconcile: 'id' }))
   const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview, reconcile: 'id' }))
+  const isAdmin = () => authState.profile()?.role === 'platform_admin'
   const [creating, setCreating] = createSignal(false)
   const [slug, setSlug] = createSignal('')
   const [name, setName] = createSignal('')
@@ -85,15 +87,17 @@ export function TenantsPage() {
     <div class="page-head">
       <div>
         <span class="eyebrow">TENANT REGISTRY</span>
-        <h1>Teams on the platform</h1>
-        <p>Create an isolated CrowdRelay + Signal tenant with an explicit regional profile. Browser locale/IP never silently decides currency, timezone or data residency.</p>
+        <h1>{isAdmin() ? 'Teams on the platform' : 'Your tenant'}</h1>
+        <p>{isAdmin()
+          ? 'Create an isolated CrowdRelay + Signal tenant with an explicit regional profile. Browser locale/IP never silently decides currency, timezone or data residency.'
+          : 'Your tenant on the platform. Regional profile, runtime health and deployment state.'}</p>
       </div>
-      <Link to="/tenants/new"><button>+ New tenant</button></Link>
+      <Show when={isAdmin()}><Link to="/tenants/new"><button>+ New tenant</button></Link></Show>
     </div>
 
     <Show when={notice()}>{message => <div class="notice-card">{message()}</div>}</Show>
     <Show when={tenants.error || overview.error}><div class="error-card" role="alert">{tenants.error instanceof Error ? tenants.error.message : overview.error instanceof Error ? overview.error.message : 'Control Plane data could not be loaded'}</div></Show>
-    <Show when={creating()}>
+    <Show when={isAdmin() && creating()}>
       <form class="tenant-create-form" onSubmit={(event) => { event.preventDefault(); createTenant.mutate() }}>
         <div class="form-section-head"><div><span class="eyebrow">NEW TENANT</span><h2>Identity + region</h2></div><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></div>
         <div class="form-grid">
