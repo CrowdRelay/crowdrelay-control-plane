@@ -45,6 +45,31 @@ function stripActions(raw: string): string {
   return idx === -1 ? raw : raw.slice(0, idx).trimEnd()
 }
 
+/**
+ * Turns a model-supplied navigate target into a path we are willing to follow.
+ *
+ * A path from a language model is untrusted input, and this one was being
+ * handed straight to the router. Two things go wrong with that.
+ *
+ * The one that bit: the prompt documents routes as `/tenants/{slug}/...`, and
+ * the model copied the placeholder through literally, so the app navigated to
+ * `/tenants/%7Bslug%7D/intelligence` and the API answered "slug must be 2-63
+ * lowercase letters, digits or internal hyphens". Substituting it here fixes
+ * that for every phrasing the model might produce, rather than hoping the
+ * prompt is followed.
+ *
+ * The one that had not bit yet: nothing checked the target was in-app. A model
+ * that emitted an absolute URL would have been followed off-site. Anything not
+ * starting with a single `/` is refused.
+ */
+export function resolveNavigatePath(raw: unknown, slug: string): string | null {
+  if (typeof raw !== 'string') return null
+  const path = raw.trim().replace(/\{slug\}|:slug|\{SLUG\}|%7Bslug%7D/gi, slug)
+  // `//host` is protocol-relative and leaves the app, so one leading slash only.
+  if (!path.startsWith('/') || path.startsWith('//')) return null
+  return path
+}
+
 export function ChatWidget(props: { slug: string }) {
   const [open, setOpen] = createSignal(false)
   const [messages, setMessages] = createSignal<ChatMessage[]>([])
@@ -77,17 +102,21 @@ export function ChatWidget(props: { slug: string }) {
   })
 
   const pageContext = () => {
+    // The slug is stated outright. Without it the model has no way to build a
+    // real path, which is exactly how it started emitting a literal "{slug}"
+    // and navigating to /tenants/%7Bslug%7D/intelligence.
+    const where = (page: string) => `${page} for tenant "${props.slug}"`
     const path = location().pathname
-    if (path.includes('/operations')) return 'Operations page'
-    if (path.includes('/attention')) return 'Attention page'
-    if (path.includes('/portfolio')) return 'Portfolio page'
-    if (path.includes('/area')) return 'AREA page'
-    if (path.includes('/integrations')) return 'AI Integrations page'
-    if (path.includes('/notifiers')) return 'Notifiers page'
-    if (path.includes('/automation')) return 'Automation page'
-    if (path.includes('/tenants/') && !path.includes('/operations')) return 'Tenant detail page'
-    if (path === '/tenants') return 'Tenants registry page'
-    if (path === '/') return 'Overview page'
+    if (path.includes('/operations')) return where('Operations page')
+    if (path.includes('/attention')) return where('Attention page')
+    if (path.includes('/portfolio')) return where('Portfolio page')
+    if (path.includes('/area')) return where('AREA page')
+    if (path.includes('/integrations')) return where('AI Integrations page')
+    if (path.includes('/notifiers')) return where('Notifiers page')
+    if (path.includes('/automation')) return where('Automation page')
+    if (path.includes('/tenants/') && !path.includes('/operations')) return where('Tenant detail page')
+    if (path === '/tenants') return where('Tenants registry page')
+    if (path === '/') return where('Overview page')
     return path
   }
 
@@ -232,7 +261,7 @@ export function ChatWidget(props: { slug: string }) {
     try {
       switch (action.type) {
         case 'navigate': {
-          const path = action.params.path as string
+          const path = resolveNavigatePath(action.params.path, props.slug)
           if (path) navigate({ to: path })
           setOpen(false)
           break
