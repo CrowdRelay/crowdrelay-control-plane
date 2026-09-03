@@ -116,6 +116,22 @@ export function BeaconConsolePanel(props: { slug: string }) {
     )
   }
 
+  const importSubmithub = (event: Event) => {
+    const input = event.currentTarget as HTMLInputElement
+    const file = input.files?.[0]
+    if (!file) return
+    void act(
+      'submithub',
+      async () => {
+        const text = await file.text()
+        const result = await api.importSubmithubCsv(props.slug, text)
+        await refetchNetwork()
+        return result
+      },
+      `Imported SubmitHub curators. They are unverified — enrich contact info from the chats, then approve.`,
+    ).then(() => { input.value = '' })
+  }
+
   const inviteSelected = () => {
     const ids = [...selected()]
     if (ids.length === 0) return
@@ -180,6 +196,20 @@ export function BeaconConsolePanel(props: { slug: string }) {
                 : `Import ${network()!.researchedAvailable} researched`}
             </button>
           </Show>
+          <label
+            class="ghost"
+            classList={{ disabled: busy() !== null }}
+            title="Upload a SubmitHub Activity CSV. Curators who approved or shared become unverified beacons — enrich contact info from the chats, then approve."
+          >
+            {busy() === 'submithub' ? 'Importing…' : 'Import SubmitHub CSV'}
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              style={{ display: 'none' }}
+              disabled={busy() !== null}
+              onChange={importSubmithub}
+            />
+          </label>
           <button class="ghost" onClick={() => setAdding(value => !value)}>
             {adding() ? 'Cancel' : 'Add beacon'}
           </button>
