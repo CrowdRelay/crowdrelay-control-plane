@@ -126,7 +126,7 @@ function TenantSwitcher(props: {
       </Show>
       <Show when={!props.collapsed}>
         <span class="tenant-switcher-label">{current()?.displayName ?? 'Select tenant'}</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="tenant-switcher-chevron" classList={{ rotated: props.open }}><path d="M6 9l6 6 6-6"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="tenant-switcher-chevron" classList={{ rotated: props.open }} aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
       </Show>
     </button>
     <Show when={props.open && !props.collapsed}>
@@ -305,6 +305,7 @@ export const Shell: Component = () => {
   })
 
   return <>
+    <a href="#main-content" class="skip-link">Skip to content</a>
     <div class="app-shell" classList={{ collapsed: collapsed() }}>
       <Show when={mobileNavOpen()}>
         <div class="nav-backdrop" onClick={() => setMobileNavOpen(false)} aria-hidden="true" />
@@ -320,8 +321,7 @@ export const Shell: Component = () => {
             </Show>
           </div>
           <button type="button" class="sidebar-toggle" onClick={toggleCollapsed} title={collapsed() ? 'Expand sidebar' : 'Collapse sidebar'} aria-label="Toggle sidebar">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" classList={{ rotated: collapsed() }}>
-              <path d="M15 18l-6-6 6-6"/>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" classList={{ rotated: collapsed() }} aria-hidden="true">              <path d="M15 18l-6-6 6-6"/>
             </svg>
           </button>
         </div>
@@ -406,7 +406,7 @@ export const Shell: Component = () => {
         </div>
       </aside>
 
-      <main class="content">
+      <main class="content" id="main-content">
         <header class="topbar">
           <button
             type="button"
