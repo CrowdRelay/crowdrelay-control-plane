@@ -376,9 +376,7 @@ body {
 
 /* Node cards */
 .flow-node {
-  transform-box: fill-box;
-  transform-origin: center;
-  transition: transform .3s cubic-bezier(.22,1,.36,1);
+  transition: transform .2s ease;
 }
 .flow-node rect {
   fill: rgba(10,12,16,0.85);
@@ -387,7 +385,7 @@ body {
 }
 
 .flow-node:hover {
-  transform: scale(1.06);
+  transform: translateY(-6px);
 }
 .flow-node:hover rect {
   stroke: rgba(155,135,245,0.35);
