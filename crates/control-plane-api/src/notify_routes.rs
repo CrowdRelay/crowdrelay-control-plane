@@ -152,6 +152,7 @@ async fn update_channel(
     State(state): State<AppState>,
     Path((slug, channel_id)): Path<(String, Uuid)>,
     Extension(identity): Extension<Arc<Identity>>,
+    headers: HeaderMap,
     Json(input): Json<UpdateChannelRequest>,
 ) -> Result<Response, ApiError> {
     let slug = validation::slug(&slug)?;
@@ -171,6 +172,19 @@ async fn update_channel(
         .store
         .update_notifier_channel(tenant.tenant.id, channel_id, label, events, input.enabled)
         .await?;
+    state
+        .store
+        .audit_control_command(crate::store::ControlCommandAudit {
+            tenant_id: tenant.tenant.id,
+            actor: &identity.audit_actor(),
+            action: "tenant.notifier.updated",
+            target_kind: "notifier_channel",
+            target_id: channel.id.to_string(),
+            request_id: headers.get("x-request-id").and_then(|v| v.to_str().ok()),
+            outcome: "succeeded",
+        })
+        .await
+        .ok();
     Ok(axum::Json(mask(&channel)).into_response())
 }
 
@@ -178,10 +192,24 @@ async fn delete_channel(
     State(state): State<AppState>,
     Path((slug, channel_id)): Path<(String, Uuid)>,
     Extension(identity): Extension<Arc<Identity>>,
+    headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let slug = validation::slug(&slug)?;
     let tenant = state.store.tenant_by_slug(&slug).await?;
     identity.ensure_tenant(tenant.tenant.id)?;
+    state
+        .store
+        .audit_control_command(crate::store::ControlCommandAudit {
+            tenant_id: tenant.tenant.id,
+            actor: &identity.audit_actor(),
+            action: "tenant.notifier.deleted",
+            target_kind: "notifier_channel",
+            target_id: channel_id.to_string(),
+            request_id: headers.get("x-request-id").and_then(|v| v.to_str().ok()),
+            outcome: "succeeded",
+        })
+        .await
+        .ok();
     state
         .store
         .delete_notifier_channel(tenant.tenant.id, channel_id)
@@ -195,6 +223,7 @@ async fn test_channel(
     State(state): State<AppState>,
     Path((slug, channel_id)): Path<(String, Uuid)>,
     Extension(identity): Extension<Arc<Identity>>,
+    headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let slug = validation::slug(&slug)?;
     let tenant = state.store.tenant_by_slug(&slug).await?;
@@ -231,7 +260,7 @@ async fn test_channel(
             action: "tenant.notifier.tested",
             target_kind: "notifier_channel",
             target_id: channel.id.to_string(),
-            request_id: None,
+            request_id: headers.get("x-request-id").and_then(|v| v.to_str().ok()),
             outcome: if outcome.is_ok() {
                 "succeeded"
             } else {

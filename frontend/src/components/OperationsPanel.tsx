@@ -2,6 +2,7 @@ import { For, Show, createEffect, createSignal } from 'solid-js'
 import { api } from '../lib/api'
 import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, FeatureFlag, OperationsSummary } from '../lib/types'
 import { errorMessage, formatAge, oldestQueueAge } from '../lib/format'
+import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonFlagList, SkeletonAutopilotKpis } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
@@ -195,7 +196,19 @@ export function OperationsPanel(props: {
     () => api.autopilotBulk(props.slug, enabled),
     () => flags.refetch(),
   )
-  const redeploy = () => mutate('redeploy', () => api.deployTenant(props.slug), () => flags.refetch())
+  const redeploy = async () => {
+    setMutationError(null)
+    setPendingMutation('redeploy')
+    try {
+      await api.deployTenant(props.slug)
+      toast.success('Deploy triggered — check GitHub Actions for progress')
+      await flags.refetch()
+    } catch (error) {
+      setMutationError(errorMessage(error, 'Deploy trigger failed'))
+    } finally {
+      setPendingMutation(null)
+    }
+  }
   const replayDead = () => mutate('replay-dead', () => api.clearDeadDeliveries(props.slug), () => flags.refetch())
 
   const confirmCopy = (): { title: string; body: string; action: string } | null => {

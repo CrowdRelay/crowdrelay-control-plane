@@ -52,7 +52,7 @@ export function TenantOperatorsPanel(props: { slug: string }) {
         <small>At least 12 characters. Hand it to the operator once — it is hashed with argon2id and never shown again. Losing it means creating a new account.</small>
       </label>
     </div>
-    <div class="form-actions"><button disabled={create.isPending || !/^[a-z0-9][a-z0-9-_.]{2,31}$/.test(username().trim()) || password().length < 12} onClick={() => create.mutate()}>{create.isPending && <Spinner />} {create.isPending ? 'Creating…' : 'Create operator'}</button></div>
+    <div class="form-actions operator-create-actions"><button disabled={create.isPending || !/^[a-z0-9][a-z0-9-_.]{2,31}$/.test(username().trim()) || password().length < 12} onClick={() => create.mutate()}>{create.isPending && <Spinner />} {create.isPending ? 'Creating…' : 'Create operator'}</button></div>
     <Show when={create.error}><div class="error-card" role="alert">{errorMessage(create.error, 'Operator creation failed')}</div></Show>
     <Show when={remove.error}><div class="error-card" role="alert">{errorMessage(remove.error, 'Operator removal failed')}</div></Show>
     <Show when={(accounts.data?.items.length ?? 0) === 0 && !accounts.isPending}>

@@ -128,6 +128,7 @@ async fn main() -> anyhow::Result<()> {
     let http_client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
         .redirect(reqwest::redirect::Policy::none())
+        .user_agent("crowdrelay-control-plane")
         .build()?;
     let state = AppState {
         store,
