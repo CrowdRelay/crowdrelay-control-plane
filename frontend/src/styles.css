@@ -447,6 +447,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .agent-result-actions button:hover:not(:disabled){background:#2d313a;border-color:var(--border-strong)}
 .agent-result-actions button:hover{background:var(--border-default)}
 .agent-section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
+@media(max-width:900px){.agent-section-head{flex-direction:column;align-items:flex-start;gap:.5rem}.tab-group{margin-left:0}}
 .agent-section-intro{font-size:var(--text-sm);color:var(--text-muted);line-height:1.5;margin:0 0 .85rem}
 .agent-connection-summary{display:flex;align-items:center;gap:.4rem;font-size:var(--text-sm);color:var(--text-muted)}
 .agent-connection-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
@@ -803,7 +804,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 /* ── Phase 2: Outreach pipeline, beacon, press, release, play ledger ── */
 
-.tab-group{display:flex;gap:.25rem;margin-left:auto}
+.tab-group{display:flex;gap:.25rem;margin-left:auto;flex-wrap:wrap}
 .tab{padding:.25rem .6rem;font-size:var(--text-sm);border:1px solid var(--border-default);background:var(--surface-2);border-radius:var(--radius-sm);color:var(--text-muted);cursor:pointer}
 .tab.active{color:#fff}
 
