@@ -39,6 +39,7 @@ body {
   --login-accent-2: #6d5bb8;
   --login-glow: rgba(155, 135, 245, 0.15);
   --login-cyan: #55d6e9;
+  --login-accent-light: #c4b5fd;
 }
 
 /* === Animated background orbs === */
@@ -374,12 +375,20 @@ body {
 }
 
 /* Node cards */
+.flow-node {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform .3s cubic-bezier(.22,1,.36,1);
+}
 .flow-node rect {
   fill: rgba(10,12,16,0.85);
   stroke: rgba(30,34,43,0.9);
   transition: stroke .25s ease, fill .25s ease, filter .25s ease;
 }
 
+.flow-node:hover {
+  transform: scale(1.06);
+}
 .flow-node:hover rect {
   stroke: rgba(155,135,245,0.35);
   fill: rgba(16,19,25,0.9);
@@ -450,7 +459,7 @@ body {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
   margin: 0 auto;
-  width: min(100%, 640px);
+  width: min(100%, 920px);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 12px;
   background: var(--login-panel);
@@ -1084,7 +1093,7 @@ body {
   }
 
   .hero-stats {
-    width: min(100%, 800px);
+    width: min(100%, 960px);
   }
 
   .hero-stat {
