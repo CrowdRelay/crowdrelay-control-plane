@@ -17,6 +17,23 @@ import { SectionIcon } from './SectionIcon'
 
 const confidencePercent = (basisPoints: number) => `${Math.round(basisPoints / 100)}%`
 
+// Confidence level → CSS class for color-coded confidence display.
+// High (≥80%) = green, medium (≥50%) = accent, low = muted.
+const confidenceClass = (basisPoints: number) => {
+  const pct = basisPoints / 100
+  if (pct >= 80) return 'learning-loop-conf-high'
+  if (pct >= 50) return 'learning-loop-conf-medium'
+  return 'learning-loop-conf-low'
+}
+
+// Action status → tone class for colored status badge.
+const actionStatusClass = (status: string) => {
+  if (status === 'succeeded') return 'learning-loop-status-succeeded'
+  if (status === 'failed') return 'learning-loop-status-failed'
+  if (status === 'pending' || status === 'in_progress') return 'learning-loop-status-pending'
+  return 'learning-loop-status-neutral'
+}
+
 const dispositionLabel = (disposition: string) =>
   disposition.replaceAll('_', ' ')
 
@@ -120,12 +137,12 @@ export function LearningLoopPanel(props: { slug: string }) {
           <For each={entries().slice(0, 10)}>{(entry) => (
             <div class="learning-loop-entry">
               {/* DECISION */}
-              <div class="learning-loop-stage-card">
+              <div class="learning-loop-stage-card learning-loop-stage-decision">
                 <span class="learning-loop-stage-label">Decision</span>
                 <div class="learning-loop-stage-rows">
                   <div><span class="muted">Kind</span><strong>{entry.decision_kind.replaceAll('_', ' ')}</strong></div>
                   <div><span class="muted">Disposition</span><strong>{dispositionLabel(entry.disposition)}</strong></div>
-                  <div><span class="muted">Confidence</span><strong>{confidencePercent(entry.confidence_basis_points)}</strong></div>
+                  <div><span class="muted">Confidence</span><strong class={confidenceClass(entry.confidence_basis_points)}>{confidencePercent(entry.confidence_basis_points)}</strong></div>
                   <div><span class="muted">Evaluated</span><span>{timeAgo(entry.evaluated_at)}</span></div>
                 </div>
                 <Show when={entry.reason}>
@@ -136,7 +153,7 @@ export function LearningLoopPanel(props: { slug: string }) {
               <div class="learning-loop-arrow">→</div>
 
               {/* ACTION */}
-              <div class="learning-loop-stage-card">
+              <div class="learning-loop-stage-card learning-loop-stage-action">
                 <span class="learning-loop-stage-label">Action</span>
                 <Show when={entry.action} fallback={
                   <Show when={entry.data_integrity?.action} fallback={
@@ -148,7 +165,7 @@ export function LearningLoopPanel(props: { slug: string }) {
                   {action => (
                     <div class="learning-loop-stage-rows">
                       <div><span class="muted">Kind</span><strong>{action().action_kind.replaceAll('_', ' ')}</strong></div>
-                      <div><span class="muted">Status</span><strong>{action().status.replaceAll('_', ' ')}</strong></div>
+                      <div><span class="muted">Status</span><strong class={actionStatusClass(action().status)}>{action().status.replaceAll('_', ' ')}</strong></div>
                       <Show when={action().finished_at}>
                         <div><span class="muted">Finished</span><span>{timeAgo(action().finished_at!)}</span></div>
                       </Show>
@@ -160,7 +177,7 @@ export function LearningLoopPanel(props: { slug: string }) {
               <div class="learning-loop-arrow">→</div>
 
               {/* OUTCOME */}
-              <div class="learning-loop-stage-card">
+              <div class="learning-loop-stage-card learning-loop-stage-outcome">
                 <span class="learning-loop-stage-label">Outcome</span>
                 <Show when={entry.outcome} fallback={
                   <Show when={entry.data_integrity?.outcome} fallback={
@@ -182,7 +199,7 @@ export function LearningLoopPanel(props: { slug: string }) {
               {/* LEARNING — derived from outcome, not fabricated */}
               <Show when={entry.outcome}>
                 <div class="learning-loop-arrow">→</div>
-                <div class="learning-loop-stage-card">
+                <div class="learning-loop-stage-card learning-loop-stage-learned">
                   <span class="learning-loop-stage-label">Learned</span>
                   <p class={outcomeClass(entry.outcome!.effect_assessment)}>
                     <Show when={entry.outcome!.effect_assessment === 'improved'} fallback={
