@@ -369,6 +369,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || one_safe_segment(path, "/v1/control-plane/ecosystem/flags/")
                 || one_safe_segment(path, "/v1/control-plane/autopilot/policies/")
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/actions/", "/approve")
+                || uuid_segment_between(path, "/v1/control-plane/autopilot/actions/", "/cancel")
                 || uuid_segment_between(
                     path,
                     "/v1/control-plane/autopilot/decisions/",
