@@ -311,16 +311,26 @@ export function OperationsPanel(props: {
             <div><span class="eyebrow">AUTOPILOT</span><h3><SectionIcon name="shield" />Authority policies</h3></div>
             <div class="row-health">
               <StatusBadge status={autopilot.data?.runtime_enabled ? 'runtime on' : 'runtime off'} tone={autopilot.data?.runtime_enabled ? 'good' : 'muted'} />
-              {/* Killswitch / full-enable: one switch, one confirmation. */}
+              {/* Killswitch / full-enable: one switch, one confirmation.
+                  When all policies are off, show a prominent "Full Auto"
+                  button so the operator sees how to re-enable everything.
+                  When any are on, show the danger kill switch. */}
               <Show when={autopilot.data && autopilot.data.policies.length > 0}>
-                <button
-                  class={`ghost ${confirming()?.startsWith('autopilot') ? '' : 'danger-ghost'}`}
-                  disabled={pendingMutation() !== null}
-                  aria-label={confirming() === 'autopilot-disable' ? 'Cancel bulk action' : 'Toggle all Autopilot policies'}
-                  onClick={(e) => { e.preventDefault(); setConfirming(confirming()?.startsWith('autopilot') ? null : (autopilot.data!.policies.some(policy => policy.enabled) ? 'autopilot-disable' : 'autopilot-enable')) }}
-                >{confirming()?.startsWith('autopilot')
-                  ? 'Cancel'
-                  : autopilot.data!.policies.some(policy => policy.enabled) ? 'Kill switch: disable all' : 'Enable all'}</button>
+                <Show when={autopilot.data!.policies.some(policy => policy.enabled)} fallback={
+                  <button
+                    class="full-auto-btn"
+                    disabled={pendingMutation() !== null}
+                    aria-label="Enable all Autopilot policies"
+                    onClick={(e) => { e.preventDefault(); setConfirming('autopilot-enable') }}
+                  >{confirming() === 'autopilot-enable' ? 'Cancel' : 'Full Auto'}</button>
+                }>
+                  <button
+                    class={`ghost ${confirming() === 'autopilot-disable' ? '' : 'danger-ghost'}`}
+                    disabled={pendingMutation() !== null}
+                    aria-label={confirming() === 'autopilot-disable' ? 'Cancel bulk action' : 'Disable all Autopilot policies'}
+                    onClick={(e) => { e.preventDefault(); setConfirming(confirming()?.startsWith('autopilot') ? null : 'autopilot-disable') }}
+                  >{confirming() === 'autopilot-disable' ? 'Cancel' : 'Kill switch: disable all'}</button>
+                </Show>
               </Show>
             </div>
           </summary>
