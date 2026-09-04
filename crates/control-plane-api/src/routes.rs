@@ -19,7 +19,7 @@ use crate::{
         ProvisioningSuccessRequest, RuntimeHealth, RuntimeReportRequest, TenantDeploymentSpec,
         UpdateBrandingRequest, UpdateMobileAppsRequest, UpdateRegionalProfileRequest,
     },
-    store::ProvisioningCompletion,
+    store::{self, ProvisioningCompletion},
     validation,
 };
 
@@ -475,6 +475,16 @@ async fn deploy_tenant(
     // operator may re-deploy their own app; the provisioner still owns every
     // Docker step behind its leased job.
     let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
+
+    // Virya (and any externally-owned tenant) is not provisioned by the
+    // tenant agent — it runs on the pre-existing production deployment.
+    // Trigger the ecosystem-deploy GitHub Actions workflow instead of the
+    // provisioner path. The workflow SSHes to the production host and runs
+    // the blue-green deploy with rollback.
+    if store::tenant_lifecycle_is_externally_owned(&tenant.tenant.slug) {
+        return trigger_ecosystem_deploy(&state, &identity, &tenant.tenant.slug).await;
+    }
+
     if state.provisioner_token_hash.is_none() {
         return Err(ApiError::Unavailable(
             "tenant provisioner is not configured".to_owned(),
@@ -503,6 +513,74 @@ async fn deploy_tenant(
             StatusCode::OK
         },
         Json(json!(job)),
+    ))
+}
+
+/// Triggers the `ecosystem-deploy.yml` GitHub Actions workflow for
+/// externally-owned tenants. Returns a synthetic job-like response so the
+/// frontend's existing deploy flow (which expects a ProvisioningJob shape)
+/// doesn't need a separate code path.
+async fn trigger_ecosystem_deploy(
+    state: &AppState,
+    identity: &Identity,
+    slug: &str,
+) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
+    let (token, repo) = match (
+        state.github_deploy_token.as_deref(),
+        state.github_deploy_repo.as_deref(),
+    ) {
+        (Some(t), Some(r)) => (t, r),
+        _ => {
+            return Err(ApiError::Unavailable(
+                "GitHub deploy trigger is not configured — set CONTROL_PLANE_GITHUB_DEPLOY_TOKEN and CONTROL_PLANE_GITHUB_DEPLOY_REPO".to_owned(),
+            ));
+        }
+    };
+
+    let url = format!(
+        "https://api.github.com/repos/{repo}/actions/workflows/ecosystem-deploy.yml/dispatches"
+    );
+    let body = json!({
+        "ref": "main",
+        "inputs": {
+            "target_sha": "",
+        },
+    });
+    let response = state
+        .http_client
+        .post(&url)
+        .header("authorization", format!("Bearer {token}"))
+        .header("accept", "application/vnd.github+json")
+        .header("x-github-api-version", "2022-11-28")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| {
+            tracing::error!(%e, slug, "GitHub workflow dispatch request failed");
+            ApiError::Unavailable("failed to trigger ecosystem deploy".to_owned())
+        })?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let text = response.text().await.unwrap_or_default();
+        tracing::error!(%status, text, slug, "GitHub workflow dispatch rejected");
+        return Err(ApiError::Unavailable(format!(
+            "GitHub workflow dispatch failed: {status}"
+        )));
+    }
+
+    let actor = identity.audit_actor();
+    tracing::info!(slug, actor = %actor, "ecosystem-deploy workflow dispatched via GitHub API");
+
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(json!({
+            "id": format!("github-dispatch-{}", chrono::Utc::now().timestamp_millis()),
+            "tenant_slug": slug,
+            "status": "dispatched",
+            "message": "Ecosystem deploy workflow triggered on GitHub Actions. Check the Actions tab for progress.",
+            "created_at": chrono::Utc::now().to_rfc3339(),
+        })),
     ))
 }
 

@@ -212,7 +212,7 @@ export function OperationsPanel(props: {
       }
       case 'redeploy': return {
         title: 'Redeploy this app now?',
-        body: 'Queues a fresh deployment job for the pinned release. The provisioner agent runs it; the current stack keeps serving until switchover.',
+        body: 'Triggers a fresh production deploy. The current stack keeps serving until the blue-green switchover completes.',
         action: 'Queue redeploy',
       }
       case 'replay-dead': return {
