@@ -382,7 +382,11 @@ async fn ready(
 /// One bounded delivery pass: claim, send, record. Errors never propagate —
 /// the outbox row's backoff is the retry policy.
 async fn dispatch_pending_notifications(state: &AppState) -> anyhow::Result<()> {
-    for notification in state.store.claim_due_notifications(8).await? {
+    let notifications = state.store.claim_due_notifications(8).await?;
+    if !notifications.is_empty() {
+        tracing::debug!(count = notifications.len(), "notifier dispatch pass");
+    }
+    for notification in notifications {
         let outcome = state
             .notifier
             .deliver(
@@ -471,6 +475,15 @@ async fn poll_platform_health(state: &AppState, client: &reqwest::Client) -> any
         })
         .collect();
     let results = join_all(futures).await;
+    let healthy_count = results.iter().filter(|(_, h, _, _)| *h).count();
+    let total = results.len();
+    if total > 0 {
+        tracing::debug!(
+            healthy = healthy_count,
+            total,
+            "platform health poll complete"
+        );
+    }
     for (service, healthy, status, latency_ms) in results {
         state
             .store

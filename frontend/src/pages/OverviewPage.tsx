@@ -39,6 +39,11 @@ export function OverviewPage() {
     return Math.round((count('healthy') / reporting) * 100)
   }
   const fleetTone = () => reportingCount() === 0 ? 'muted' as const : undefined
+  const lastRefresh = () => {
+    const ts = Math.max(tenants.dataUpdatedAt, overview.dataUpdatedAt)
+    if (ts === 0) return null
+    return new Date(ts).toLocaleTimeString()
+  }
 
   return <section class="page">
     <div class="page-head">
@@ -47,6 +52,7 @@ export function OverviewPage() {
         <h1>Operations dashboard</h1>
         <p>Tenant provisioning, runtime health, deployment state and platform audit — separated from band operations.</p>
       </div>
+      <Show when={lastRefresh()}><span class="muted page-head-meta">Last refresh {lastRefresh()}</span></Show>
     </div>
 
     {/* KPI strip — the first thing an operator sees. */}
