@@ -3,6 +3,7 @@ import { Link } from '@tanstack/solid-router'
 import type { PendingActionSummary } from '../lib/types'
 import { EmptyState } from './EmptyState'
 import { SectionIcon } from './SectionIcon'
+import { CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 
 // The attention inbox — converts the operator-attention experience from an
 // informational banner into a real action-oriented surface.
@@ -74,8 +75,11 @@ export function AttentionInbox(props: {
       list.push({
         id: `approval-${action.id}`,
         tier: 'review',
-        title: `Approve ${action.action_kind.replaceAll('_', ' ')}`,
-        detail: `${action.context.replaceAll('_', ' ')} · ${action.subject_kind}`,
+        // Underscore-stripping is not naming: `agent.run.request` came through
+        // untouched and `outreach_supply` as two lowercase words. Same
+        // vocabulary the board and the scorecard read from.
+        title: `Approve ${labelOr(DECISION_KIND_LABELS, action.action_kind)}`,
+        detail: `${labelOr(CONTEXT_LABELS, action.context)} · ${labelOr(SUBJECT_KIND_LABELS, action.subject_kind)}`,
         consequence: action.approval_expires_at
           ? `Approval expires ${new Date(action.approval_expires_at).toLocaleDateString()}`
           : undefined,

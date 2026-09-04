@@ -268,13 +268,18 @@ export function BeaconConsolePanel(props: { slug: string }) {
 
       <Show when={roster()}>
         <div class="beacon-toolbar">
+          {/* Placeholder text disappears the moment you type, so it is not a
+              name: the field announced itself as "edit text" to a screen
+              reader. Same for the filter beside it. */}
           <input
             class="beacon-search"
+            type="search"
+            aria-label="Search beacons"
             placeholder="Search name, city, email or kind…"
             value={query()}
             onInput={event => setQuery(event.currentTarget.value)}
           />
-          <select value={statusFilter()} onChange={event => setStatusFilter(event.currentTarget.value)}>
+          <select aria-label="Filter beacons by state" value={statusFilter()} onChange={event => setStatusFilter(event.currentTarget.value)}>
             <option value="all">All states</option>
             <option value="unverified">Unverified</option>
             <option value="active">Active</option>

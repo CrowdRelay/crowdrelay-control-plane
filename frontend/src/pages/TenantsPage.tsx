@@ -93,7 +93,10 @@ export function TenantsPage() {
           ? 'Create an isolated CrowdRelay + Signal tenant with an explicit regional profile. Browser locale/IP never silently decides currency, timezone or data residency.'
           : 'Your tenant on the platform. Regional profile, runtime health and deployment state.'}</p>
       </div>
-      <Show when={isAdmin()}><Link to="/tenants/new"><button>+ New tenant</button></Link></Show>
+      {/* A <button> inside an <a> nests one interactive control in another:
+          screen readers announce both, and the anchor is what actually
+          navigates. The link carries the button treatment instead. */}
+      <Show when={isAdmin()}><Link class="button-link" to="/tenants/new">+ New tenant</Link></Show>
     </div>
 
     <Show when={notice()}>{message => <div class="notice-card">{message()}</div>}</Show>
