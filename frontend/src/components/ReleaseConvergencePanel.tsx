@@ -23,7 +23,7 @@ const MISSING_RELEASE_CAUSE: Record<string, string> = {
   'crowdrelay-worker': 'crowdrelayctl deploy has not reported a receipt.',
   'virya-www': 'virya build.yml has not published a production receipt since the last deploy.',
   synesthesia: 'synesthesia deploy-web.yml has not published a production receipt since the last deploy.',
-  'virya-signal': 'virya-signal mobile-release.yml has not published a production receipt since the last release.',
+  'virya-signal': 'virya-signal android-play.yml has not reported a release receipt yet.',
   n8n: 'scripts/publish-n8n-heartbeat.sh has not run against production yet.',
 }
 
