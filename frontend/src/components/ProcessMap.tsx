@@ -150,7 +150,7 @@ export function ProcessMap(props: { slug: () => string }) {
 
   return (
     <div class="process-map-wrap">
-      <svg viewBox="0 0 1610 500" xmlns="http://www.w3.org/2000/svg" class="process-map">
+      <svg viewBox="0 0 1610 500" xmlns="http://www.w3.org/2000/svg" class="process-map" role="group" aria-label="Intelligence process map">
         {/* zone backgrounds */}
         <rect class="pm-zone" x="15" y="70" width="260" height="400" rx="14" />
         <text class="pm-zt" x="28" y="95">SOURCES</text>
@@ -176,7 +176,7 @@ export function ProcessMap(props: { slug: () => string }) {
         {/* nodes */}
         <For each={NODES}>
           {(node) => (
-            <g class="pm-node-group" onClick={() => open(node)}>
+            <g class="pm-node-group" role="button" tabindex="0" aria-label={node.title} onClick={() => open(node)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(node) } }}>
               <rect
                 class="pm-node"
                 x={node.x}

@@ -89,7 +89,7 @@ export const ProgressRing: Component<{
 
   return (
     <div class="progress-ring" style={{ width: `${size()}px`, height: `${size()}px`, position: 'relative' }}>
-      <svg width={size()} height={size()} viewBox={`0 0 ${size()} ${size()}`}>
+      <svg width={size()} height={size()} viewBox={`0 0 ${size()} ${size()}`} role="img" aria-label={`${Math.round(props.value)}%`}>
         <circle
           cx={size() / 2}
           cy={size() / 2}

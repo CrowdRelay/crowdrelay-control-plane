@@ -156,7 +156,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string }) {
                       <Show when={decision.tasks.length > 0}>
                         <span class="badge">{decision.tasks.length} workers</span>
                       </Show>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" classList={{ rotated: expanded() === decision.id }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" classList={{ rotated: expanded() === decision.id }} aria-hidden="true">
                         <path d="M6 9l6 6 6-6" />
                       </svg>
                     </div>

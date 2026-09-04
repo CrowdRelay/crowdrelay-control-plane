@@ -72,7 +72,7 @@ export const FunnelChart: Component<{
   const gid = `funnel-${Math.random().toString(36).slice(2, 8)}`
 
   return (
-    <svg width={W()} height={H() + 24} viewBox={`0 0 ${W()} ${H() + 24}`} fill="none" style={{ width: '100%', 'max-width': `${W()}px` }}>
+    <svg width={W()} height={H() + 24} viewBox={`0 0 ${W()} ${H() + 24}`} fill="none" style={{ width: '100%', 'max-width': `${W()}px` }} role="img" aria-label="Growth funnel chart">
       <defs>
         <linearGradient id={gid} x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.25" />
