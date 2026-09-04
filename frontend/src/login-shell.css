@@ -311,7 +311,9 @@ body {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
+  transition: transform .3s ease, filter .3s ease;
 }
+.brand-logo:hover { transform: scale(1.06); filter: drop-shadow(0 0 6px rgba(155,135,245,0.3)); }
 
 .brand-logo img {
   display: block;
@@ -469,8 +471,10 @@ body {
   padding: 10px 8px;
   text-align: center;
   border-right: 1px solid var(--login-line);
+  transition: background .25s ease, transform .25s ease;
 }
 .hero-stat:last-child { border-right: 0; }
+.hero-stat:hover { background: rgba(155,135,245,0.06); transform: translateY(-1px); }
 
 .hero-stat span {
   display: block;
@@ -655,7 +659,9 @@ body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.25);
   position: relative;
   flex-shrink: 0;
+  transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease;
 }
+.hero-contact:hover { border-color: rgba(155,135,245,0.2); box-shadow: 0 4px 14px rgba(0,0,0,0.3); transform: translateY(-1px); }
 
 /* Links row spans full width below the copy */
 .hero-contact > .hero-links-row {
