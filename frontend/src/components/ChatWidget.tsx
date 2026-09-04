@@ -64,9 +64,14 @@ function stripActions(raw: string): string {
  */
 export function resolveNavigatePath(raw: unknown, slug: string): string | null {
   if (typeof raw !== 'string') return null
-  const path = raw.trim().replace(/\{slug\}|:slug|\{SLUG\}|%7Bslug%7D/gi, slug)
+  let path = raw.trim().replace(/\{slug\}|:slug|\{SLUG\}|%7Bslug%7D/gi, slug)
   // `//host` is protocol-relative and leaves the app, so one leading slash only.
   if (!path.startsWith('/') || path.startsWith('//')) return null
+  // The model frequently hallucinates a wrong tenant slug (e.g. "kumo"
+  // instead of "virya"). Force-replace the slug segment in any
+  // /tenants/<slug>/... path so navigation always stays inside the
+  // tenant the operator is actually viewing.
+  path = path.replace(/^\/tenants\/[^/]+(\/|$)/, `/tenants/${slug}$1`)
   return path
 }
 
@@ -440,7 +445,7 @@ export function ChatWidget(props: { slug: string }) {
                 <div class={`chat-msg chat-msg-${msg.role}`}>
                   <Show
                     when={isStreamingMsg()}
-                    fallback={<div class="chat-msg-content" innerHTML={renderMarkdown(msg.content)} />}
+                    fallback={<div class="chat-msg-content" innerHTML={renderMarkdown(msg.content, props.slug)} />}
                   >
                     {/* During streaming, render as a text node so the text
                         grows smoothly without DOM rebuilds / blinking.
@@ -529,12 +534,13 @@ export function ChatWidget(props: { slug: string }) {
 // non-existent tenants — those must never become clickable links. Only
 // paths starting with a single `/` (no `//protocol-relative`) are allowed;
 // everything else is rendered as plain text.
-function safeHref(url: string): string | null {
+function safeHref(url: string, slug: string): string | null {
   const trimmed = url.trim()
   if (!trimmed.startsWith('/') || trimmed.startsWith('//')) return null
   // Reject anything that looks like it has a scheme after the slash
   if (/^\/[^/]*:/.test(trimmed)) return null
-  return trimmed
+  // Force the correct tenant slug — the model hallucinates wrong ones.
+  return trimmed.replace(/^\/tenants\/[^/]+(\/|$)/, `/tenants/${slug}$1`)
 }
 
 // Escaping `<`, `>` and `&` is not enough for a value interpolated inside an
@@ -550,7 +556,8 @@ function escapeAttribute(value: string): string {
 }
 
 // Minimal markdown → HTML (bold, italic, code, links, line breaks)
-function renderMarkdown(text: string): string {
+// The slug is needed to force-correct hallucinated tenant slugs in links.
+function renderMarkdown(text: string, slug: string): string {
   const esc = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -562,7 +569,7 @@ function renderMarkdown(text: string): string {
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (whole, label: string, url: string) => {
       // The URL group still carries the `&amp;` escaping applied above; undo
       // it before parsing so query strings round-trip intact.
-      const href = safeHref(url.replace(/&amp;/g, '&'))
+      const href = safeHref(url.replace(/&amp;/g, '&'), slug)
       if (!href) return whole
       return `<a href="${escapeAttribute(href)}">${label}</a>`
     })
