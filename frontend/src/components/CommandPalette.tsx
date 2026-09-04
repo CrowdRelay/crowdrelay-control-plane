@@ -1,4 +1,5 @@
 import { useNavigate } from '@tanstack/solid-router'
+import { useQuery } from '@tanstack/solid-query'
 import { createEffect, createMemo, createSignal, For, Show, onMount, onCleanup } from 'solid-js'
 import type { Component } from 'solid-js'
 import { api } from '../lib/api'
@@ -67,8 +68,6 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
 // palette without this component being in the entry bundle.
 import { commandPaletteOpen, setCommandPaletteOpen, toggleCommandPalette } from './command-palette-state'
 
-let tenantsCache: { at: number; data: TenantSummary[] } | null = null
-
 export const CommandPalette: Component = () => {
   const open = commandPaletteOpen
   const setOpen = setCommandPaletteOpen
@@ -84,23 +83,26 @@ export const CommandPalette: Component = () => {
   const [armed, setArmed] = createSignal<string | null>(null)
   const [busy, setBusy] = createSignal<string | null>(null)
   const [message, setMessage] = createSignal('')
-  const [tenants, setTenants] = createSignal<TenantSummary[]>([])
   let inputRef: HTMLInputElement | undefined
+
+  // Share the same ['tenants'] cache as Shell and OverviewPage — no
+  // duplicated module-level cache. The query is enabled only for admins
+  // (non-admins see only their own tenant, derived from the profile) and
+  // only while the palette is open, so it does not fetch on boot.
+  const tenantsQuery = useQuery(() => ({
+    queryKey: ['tenants'],
+    queryFn: api.tenants,
+    enabled: isAdmin() && open(),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    reconcile: 'id',
+  }))
+  const tenants = () => tenantsQuery.data?.items ?? []
 
   createEffect(() => {
     if (!open()) return
     setQuery(''); setIndex(0); setArmed(null); setMessage('')
     queueMicrotask(() => inputRef?.focus())
-    // Tenants change rarely; a short cache keeps ⌘K instant while staying fresh.
-    const now = Date.now()
-    if (isAdmin() && (!tenantsCache || now - tenantsCache.at > 30_000)) {
-      api.tenants().then(r => {
-        tenantsCache = { at: Date.now(), data: r.items }
-        setTenants(r.items)
-      }).catch(() => setTenants(tenantsCache?.data ?? []))
-    } else {
-      setTenants(tenantsCache?.data ?? [])
-    }
   })
 
   const scopedTenants = createMemo(() => {
