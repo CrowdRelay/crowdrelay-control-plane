@@ -335,6 +335,14 @@ async fn security_headers(
         headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     } else if html_response {
         headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+    } else {
+        // All API responses (JSON, 204, etc.) are private and never cached.
+        // Without this, a browser back-navigation may serve a stale API
+        // response from its bfcache, showing outdated state after a mutation.
+        headers.insert(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("private, no-store"),
+        );
     }
     for (name, value) in [
         (

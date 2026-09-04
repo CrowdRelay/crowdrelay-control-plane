@@ -1,8 +1,25 @@
 // Small formatting helpers shared by operator surfaces. Kept dependency-free
 // so both page read models and panels can use them without cycles.
 
-export const errorMessage = (value: unknown, fallback: string) =>
-  value instanceof Error ? value.message : fallback
+export const errorMessage = (value: unknown, fallback: string) => {
+  if (value instanceof Error) {
+    // ApiError carries a code that maps to a better heading than the raw
+    // detail. Import lazily to avoid a circular dependency.
+    const code = (value as { code?: string }).code
+    if (code) {
+      switch (code) {
+        case 'unauthorized': return 'Session expired — please log in again.'
+        case 'forbidden': return "You don't have permission to do that."
+        case 'not_found': return 'That item no longer exists.'
+        case 'conflict': return 'That name or value is already taken.'
+        case 'invalid_input': return 'Check the entered values and try again.'
+        case 'unavailable': return 'That service is temporarily unavailable.'
+      }
+    }
+    return value.message
+  }
+  return fallback
+}
 
 /// Whether the operator has asked the OS to reduce motion.
 ///
