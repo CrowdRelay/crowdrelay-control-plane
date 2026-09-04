@@ -85,7 +85,8 @@ export function LearningLoopPanel(props: { slug: string }) {
           hint="The learning loop appears once the brain has evaluated signals and made decisions."
         />
       }>
-        {/* Summary line — computed from real data */}
+        {/* Summary line — computed from real data. The positive outcome
+            rate is the headline metric, so it gets visual emphasis. */}
         <div class="learning-loop-summary">
           <div class="learning-loop-stat">
             <span>Decisions</span>
@@ -107,7 +108,7 @@ export function LearningLoopPanel(props: { slug: string }) {
             <span>Positive outcomes</span>
             <strong>{positiveOutcomes()}</strong>
           </div>
-          <div class="learning-loop-stat">
+          <div class="learning-loop-stat learning-loop-stat-highlight">
             <span>Positive outcome rate</span>
             <strong>{positiveOutcomeRate() != null ? `${positiveOutcomeRate()}%` : '—'}</strong>
           </div>
@@ -118,76 +119,62 @@ export function LearningLoopPanel(props: { slug: string }) {
           <For each={entries().slice(0, 10)}>{(entry) => (
             <div class="learning-loop-entry">
               {/* DECISION */}
-              <div class="learning-loop-stage">
+              <div class="learning-loop-stage-card">
                 <span class="learning-loop-stage-label">Decision</span>
-                <span class="learning-loop-stage-content">
-                  <strong>{entry.decision_kind.replaceAll('_', ' ')}</strong>
-                  {' · '}
-                  {dispositionLabel(entry.disposition)}
-                  {' · '}
-                  confidence {confidencePercent(entry.confidence_basis_points)}
-                  {' · '}
-                  {timeAgo(entry.evaluated_at)}
-                </span>
+                <div class="learning-loop-stage-rows">
+                  <div><span class="muted">Kind</span><strong>{entry.decision_kind.replaceAll('_', ' ')}</strong></div>
+                  <div><span class="muted">Disposition</span><strong>{dispositionLabel(entry.disposition)}</strong></div>
+                  <div><span class="muted">Confidence</span><strong>{confidencePercent(entry.confidence_basis_points)}</strong></div>
+                  <div><span class="muted">Evaluated</span><span>{timeAgo(entry.evaluated_at)}</span></div>
+                </div>
               </div>
               <Show when={entry.reason}>
-                <div class="learning-loop-stage">
+                <div class="learning-loop-stage-card learning-loop-stage-reason">
                   <span class="learning-loop-stage-label">Reason</span>
-                  <span class="learning-loop-stage-content">{entry.reason}</span>
+                  <p>{entry.reason}</p>
                 </div>
               </Show>
 
               {/* ACTION */}
               <div class="learning-loop-arrow">↓</div>
-              <div class="learning-loop-stage">
+              <div class="learning-loop-stage-card">
                 <span class="learning-loop-stage-label">Action</span>
                 <Show when={entry.action} fallback={
                   <Show when={entry.data_integrity?.action} fallback={
-                    <span class="learning-loop-stage-content learning-loop-pending">
-                      No action — {dispositionLabel(entry.disposition)} decision
-                    </span>
+                    <p class="learning-loop-pending">No action — {dispositionLabel(entry.disposition)} decision</p>
                   }>
-                    <span class="learning-loop-stage-content learning-loop-integrity-issue">
-                      Data integrity issue
-                    </span>
+                    <p class="learning-loop-integrity-issue" title="A stage that should exist but has a broken reference in the data.">Data integrity issue</p>
                   </Show>
                 }>
                   {action => (
-                    <span class="learning-loop-stage-content">
-                      <strong>{action().action_kind.replaceAll('_', ' ')}</strong>
-                      {' · '}
-                      {action().status.replaceAll('_', ' ')}
+                    <div class="learning-loop-stage-rows">
+                      <div><span class="muted">Kind</span><strong>{action().action_kind.replaceAll('_', ' ')}</strong></div>
+                      <div><span class="muted">Status</span><strong>{action().status.replaceAll('_', ' ')}</strong></div>
                       <Show when={action().finished_at}>
-                        {' · '}{timeAgo(action().finished_at!)}
+                        <div><span class="muted">Finished</span><span>{timeAgo(action().finished_at!)}</span></div>
                       </Show>
-                    </span>
+                    </div>
                   )}
                 </Show>
               </div>
 
               {/* OUTCOME */}
               <div class="learning-loop-arrow">↓</div>
-              <div class="learning-loop-stage">
+              <div class="learning-loop-stage-card">
                 <span class="learning-loop-stage-label">Outcome</span>
                 <Show when={entry.outcome} fallback={
                   <Show when={entry.data_integrity?.outcome} fallback={
-                    <span class="learning-loop-stage-content learning-loop-pending">
-                      Not yet measured
-                    </span>
+                    <p class="learning-loop-pending">Not yet measured</p>
                   }>
-                    <span class="learning-loop-stage-content learning-loop-integrity-issue">
-                      Data integrity issue
-                    </span>
+                    <p class="learning-loop-integrity-issue" title="A stage that should exist but has a broken reference in the data.">Data integrity issue</p>
                   </Show>
                 }>
                   {outcome => (
-                    <span class={`learning-loop-stage-content ${outcomeClass(outcome().effect_assessment)}`}>
-                      <strong>{outcomeLabel(outcome().effect_assessment)}</strong>
-                      {' · '}
-                      {outcome().metric_key.replaceAll('_', ' ')}
-                      {' · '}
-                      {outcome().delta_basis_points > 0 ? '+' : ''}{(outcome().delta_basis_points / 100).toFixed(1)}%
-                    </span>
+                    <div class="learning-loop-stage-rows">
+                      <div><span class="muted">Assessment</span><strong class={outcomeClass(outcome().effect_assessment)}>{outcomeLabel(outcome().effect_assessment)}</strong></div>
+                      <div><span class="muted">Metric</span><span>{outcome().metric_key.replaceAll('_', ' ')}</span></div>
+                      <div><span class="muted">Delta</span><strong class={outcomeClass(outcome().effect_assessment)}>{outcome().delta_basis_points > 0 ? '+' : ''}{(outcome().delta_basis_points / 100).toFixed(1)}%</strong></div>
+                    </div>
                   )}
                 </Show>
               </div>
@@ -195,9 +182,9 @@ export function LearningLoopPanel(props: { slug: string }) {
               {/* LEARNING — derived from outcome, not fabricated */}
               <Show when={entry.outcome}>
                 <div class="learning-loop-arrow">↓</div>
-                <div class="learning-loop-stage">
+                <div class="learning-loop-stage-card">
                   <span class="learning-loop-stage-label">Learned</span>
-                  <span class={`learning-loop-stage-content ${outcomeClass(entry.outcome!.effect_assessment)}`}>
+                  <p class={outcomeClass(entry.outcome!.effect_assessment)}>
                     <Show when={entry.outcome!.effect_assessment === 'improved'} fallback={
                       <Show when={entry.outcome!.effect_assessment === 'worsened'} fallback={
                         <>No change detected on {entry.outcome!.metric_key.replaceAll('_', ' ')}</>
@@ -207,7 +194,7 @@ export function LearningLoopPanel(props: { slug: string }) {
                     }>
                       <>Positive effect confirmed on {entry.outcome!.metric_key.replaceAll('_', ' ')}</>
                     </Show>
-                  </span>
+                  </p>
                 </div>
               </Show>
             </div>

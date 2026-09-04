@@ -4,6 +4,7 @@ import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, FeatureFlag, Op
 import { errorMessage, formatAge, oldestQueueAge } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonFlagList, SkeletonAutopilotKpis } from './Skeleton'
+import { SectionIcon } from './SectionIcon'
 
 const flagLabel = (key: string) => key
   .replace(/_enabled$/, '')
@@ -225,7 +226,7 @@ export function OperationsPanel(props: {
   return <article class="panel operations-panel">
     <Show when={showHealth()}>
     <div class="section-title operations-title">
-      <div><span class="eyebrow">OPERATIONS</span><h2>Health & controls</h2><p>Live CrowdRelay telemetry and bounded runtime controls. Changes are tenant-scoped and audited.</p></div>
+      <div><span class="eyebrow">OPERATIONS</span><h2><SectionIcon name="activity" />Health & controls</h2><p>Live CrowdRelay telemetry and bounded runtime controls. Changes are tenant-scoped and audited.</p></div>
       <div class="row-health">
         <Show when={confirming() === 'redeploy'}><button class="ghost" onClick={() => setConfirming(null)}>Cancel</button></Show>
         <button disabled={pendingMutation() !== null} onClick={() => setConfirming('redeploy')}>{confirming() === 'redeploy' ? 'Confirm below ↓' : 'Redeploy app'}</button>
@@ -341,17 +342,20 @@ export function OperationsPanel(props: {
           {/* Four controls named after the fields behind them and nothing
               else: an operator could set an authority level without knowing
               which of them lets the autopilot act unattended. */}
-          <p class="policy-legend">
-            One row per kind of work the autopilot does.{' '}
-            <strong>Mode</strong> is how far it may go on its own —{' '}
-            <em>observe</em> records what it would do,{' '}
-            <em>recommend</em> surfaces it on the opportunity board,{' '}
-            <em>require approval</em> prepares the action and waits for you,{' '}
-            <em>bounded auto</em> executes without asking.{' '}
-            <strong>Min confidence</strong> is the score an action must reach before that mode applies; below it nothing happens.{' '}
-            <strong>Max / 24h</strong> caps executions per rolling day, so a bad run stops itself.{' '}
-            Changes take effect on the next cycle — <em>Apply</em> saves one row.
-          </p>
+          <details class="policy-legend-collapse">
+            <summary>How authority policies work</summary>
+            <p class="policy-legend">
+              One row per kind of work the autopilot does.{' '}
+              <strong>Mode</strong> is how far it may go on its own —{' '}
+              <em>observe</em> records what it would do,{' '}
+              <em>recommend</em> surfaces it on the opportunity board,{' '}
+              <em>require approval</em> prepares the action and waits for you,{' '}
+              <em>bounded auto</em> executes without asking.{' '}
+              <strong>Min confidence</strong> is the score an action must reach before that mode applies; below it nothing happens.{' '}
+              <strong>Max / 24h</strong> caps executions per rolling day, so a bad run stops itself.{' '}
+              Changes take effect on the next cycle — <em>Apply</em> saves one row.
+            </p>
+          </details>
           <div class="autopilot-policy-list">
             <For each={data().policies}>{policy => <PolicyEditor
               policy={policy}

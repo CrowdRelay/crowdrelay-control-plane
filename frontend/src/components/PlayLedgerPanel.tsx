@@ -13,8 +13,26 @@ const kindLabel = (kind: string): string => {
     case 'follow_ask_ladder': return 'Follow Ladder'
     case 'dormant_revival': return 'Dormant Revival'
     case 'release_runway': return 'Release Runway'
-    default: return kind
+    default: return kind.replaceAll('_', ' ')
   }
+}
+
+// Translate the raw internal vocabulary in claim rows so an operator reads
+// "Effect +5.2% on Spotify followers" instead of "improved · basis_points ·
+// spotify / followers". The keys come straight from the decision row.
+const claimLabel = (means: string): string => {
+  switch (means) {
+    case 'basis_points': return 'Effect'
+    case 'absolute': return 'Change'
+    case 'count': return 'Count'
+    default: return means.replaceAll('_', ' ')
+  }
+}
+
+const metricLabel = (platform: string, key: string): string => {
+  const p = platform.replaceAll('_', ' ')
+  const k = key.replaceAll('_', ' ')
+  return `${p} · ${k}`
 }
 
 const stateTone = (state: string): 'good' | 'warn' | 'bad' | 'muted' => {
@@ -78,7 +96,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
         <h4 class="subsection">Kind Standings</h4>
         <div class="standings-grid">
           <For each={ledger()!.standings}>{(s) => (
-            <div class="standing-card">
+            <div class={`standing-card standing-card-${standingTone(s)}`}>
               <div class="standing-head">
                 <strong>{kindLabel(s.kind)}</strong>
                 <span class={`badge tone-${standingTone(s)}`}>{s.standing.standing}</span>
@@ -93,7 +111,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
                 <span class="muted">?{s.record.insufficient}</span>
               </div>
               <div class="standing-meta">
-                <span>Max recipients/step: {s.effective_max_recipients_per_step}</span>
+                <span>Recipient cap per step: {s.effective_max_recipients_per_step}</span>
               </div>
             </div>
           )}</For>
@@ -104,7 +122,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
         <h4 class="subsection">Plays</h4>
         <div class="play-list">
           <For each={ledger()!.plays}>{(p) => (
-            <div class="play-card">
+            <div class={`play-card play-card-${stateTone(p.state)}`}>
               <div class="play-card-head">
                 <strong>{kindLabel(p.kind)}</strong>
                 <span class={`badge tone-${stateTone(p.state)}`}>{p.state}</span>
@@ -123,8 +141,8 @@ export function PlayLedgerPanel(props: { slug: string }) {
                   <For each={p.claims}>{(c) => (
                     <div class="claim-row">
                       <span class={`badge tone-${effectTone(c.effect)}`}>{c.effect ?? c.status}</span>
-                      <span class="muted">{c.claim_means}</span>
-                      <span>{c.success_metric_platform}/{c.success_metric_key}</span>
+                      <span class="muted">{claimLabel(c.claim_means)}</span>
+                      <span>{metricLabel(c.success_metric_platform, c.success_metric_key)}</span>
                       <Show when={c.delta_basis_points != null}>
                         {(() => { const delta = c.delta_basis_points!; return (
                         <span class={delta > 0 ? 'tone-good' : 'tone-bad'}>

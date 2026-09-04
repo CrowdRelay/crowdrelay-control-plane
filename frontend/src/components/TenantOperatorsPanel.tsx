@@ -5,6 +5,7 @@ import { authState } from '../lib/auth'
 import { errorMessage } from '../lib/format'
 import { confirmAction } from './Dialog'
 import { EmptyState } from './EmptyState'
+import { SectionIcon } from './SectionIcon'
 
 // Platform-admin-only management of a tenant's scoped operator accounts.
 // Tenant operators never see this panel: the API rejects them anyway, and
@@ -36,7 +37,7 @@ export function TenantOperatorsPanel(props: { slug: string }) {
   }))
 
   return <Show when={isAdmin()}><article class="panel">
-    <div class="section-title"><div><span class="eyebrow">TEAM ACCESS</span><h2>Operator accounts</h2></div><small>{accounts.data?.items.length ?? 0} account(s)</small></div>
+    <div class="section-title"><div><span class="eyebrow">TEAM ACCESS</span><h2><SectionIcon name="users" />Operator accounts</h2></div><small>{accounts.data?.items.length ?? 0} account(s)</small></div>
     <p class="route-note">These operators sign in with username + password and see only <strong>{props.slug}</strong>. The platform admin keeps full access via its separate credential.</p>
     <div class="form-grid">
       <label>

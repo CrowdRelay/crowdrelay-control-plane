@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { RegionalProfile, TenantSummary } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
+import { SectionIcon } from './SectionIcon'
 
 type Props = { tenant: TenantSummary }
 
@@ -34,7 +35,7 @@ export function RegionalProfilePanel(props: Props) {
 
   return <article class="panel regional-profile-panel">
     <div class="section-title">
-      <div><span class="eyebrow">REGIONALIZATION</span><h2>Explicit tenant profile</h2></div>
+      <div><span class="eyebrow">REGIONALIZATION</span><h2><SectionIcon name="globe" />Explicit tenant profile</h2></div>
       <StatusBadge
         status={props.tenant.regionalProfile ? `${props.tenant.regionalProfile.dataRegion.toUpperCase()} classified` : 'legacy / unclassified'}
         tone={props.tenant.regionalProfile ? 'good' : 'warn'}

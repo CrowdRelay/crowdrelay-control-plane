@@ -2,6 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { formatTimestamp } from '../lib/format'
 import { ActivityHeatmap } from './ActivityHeatmap'
 import { EmptyState } from './EmptyState'
+import { SectionIcon } from './SectionIcon'
 import type { AuditEntry } from '../lib/types'
 
 // Audit is a section of the tenant Overview read model, not its own request.
@@ -15,7 +16,7 @@ export function TenantAuditPanel(props: { items: AuditEntry[] }) {
 
   return <article class="panel">
     <div class="section-title">
-      <div><span class="eyebrow">AUDIT</span><h2>Recent platform changes</h2></div>
+      <div><span class="eyebrow">AUDIT</span><h2><SectionIcon name="history" />Recent platform changes</h2></div>
       <Show when={hasMore()}>
         <button type="button" class="ghost" onClick={() => setExpanded(e => !e)}>
           {expanded() ? 'Show less' : `Show all (${props.items.length})`}

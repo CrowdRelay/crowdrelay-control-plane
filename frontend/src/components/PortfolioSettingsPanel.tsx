@@ -91,15 +91,16 @@ export function PortfolioSettingsPanel(props: {
 
   return <article class="panel">
     <div class="section-title">
-      <div><span class="eyebrow">BRAND</span><h2>Brand settings</h2><p>Where this tenant's fan-facing links point. Each field is live as soon as it is saved — the apps read these values, they are not a copy of something set elsewhere. A field left empty runs the shipped default; <em class="override-badge">override</em> marks the ones this tenant has replaced. Edit a field and its Save button appears below.</p></div>
+      <div><span class="eyebrow">BRAND</span><h2>Brand settings</h2><p>Where this tenant's fan-facing links point. Each field is live as soon as it is saved — the apps read these values directly.</p></div>
     </div>
+    <p class="agent-section-intro">A field left empty runs the shipped default; <span class="badge tone-warn override-pill">override</span> marks the ones this tenant has replaced. Edit a field and its Save button appears beside it.</p>
     <div class="form-grid">
       <For each={keys()}>{key => (
         <label>
           <span>
             {LABELS[key] ?? key}
             <Show when={props.model?.overridden.includes(key)}>
-              {' '}<em class="override-badge">override</em>
+              {' '}<span class="badge tone-warn override-pill">override</span>
             </Show>
           </span>
           <Show
@@ -135,24 +136,21 @@ export function PortfolioSettingsPanel(props: {
             </select>
           </Show>
           <Show when={HINTS[key]}>{h => <small>{h().hint}<Show when={!BOOLEAN_KEYS.has(key) && key !== 'north_star_metric'}> Example: <code>{h().example}</code></Show></small>}</Show>
+          <Show when={dirty(key)} fallback={
+            <Show when={savedKey() === key}><small class="muted">Saved ✓</small></Show>
+          }>
+            <div class="portfolio-field-save">
+              <button
+                disabled={pendingKey() !== null}
+                onClick={() => save.mutate(key)}
+              >
+                {pendingKey() === key ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </Show>
         </label>
       )}</For>
     </div>
-      <div class="form-actions">
-        <For each={keys()}>{key => (
-          <Show when={dirty(key)}>
-            <button
-              disabled={pendingKey() !== null}
-              onClick={() => save.mutate(key)}
-            >
-              {pendingKey() === key ? 'Saving…' : `Save ${LABELS[key] ?? key}`}
-            </button>
-          </Show>
-        )}</For>
-        <Show when={savedKey()}>
-          <span class="muted">Saved {LABELS[savedKey()!] ?? savedKey()}</span>
-        </Show>
-      </div>
     <Show when={errorText()}>
       <div class="error-card" role="alert">{errorText()}</div>
     </Show>

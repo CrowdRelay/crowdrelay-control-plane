@@ -143,21 +143,31 @@ export function OpportunityBoardPanel(props: {
                 </div>
                 <p class="opportunity-reason">{entry.reason}</p>
                 <div class="row-health opportunity-facts">
-                  <span class="badge">{labelOr(CONTEXT_LABELS, entry.context)}</span>
-                  <span class="badge">{labelOr(SUBJECT_KIND_LABELS, entry.subject_kind)}</span>
                   <StatusBadge status={authorityLabel(entry)} tone={authorityTone(entry)} />
+                  <span class="badge">confidence {confidencePercent(entry.confidence)}</span>
+                  <Show when={formatDue(entry.due_at)}>
+                    {due => <span class="badge opportunity-deadline-badge">deadline {due()}</span>}
+                  </Show>
                   <Show when={entry.decision_kind?.startsWith('agent.')}>
                     <span class="badge llm-badge">LLM</span>
                   </Show>
-                  <span class="badge">{RANK_FACTOR_LABELS[entry.ranked_by] ?? entry.ranked_by}</span>
-                  <span class="badge">confidence {confidencePercent(entry.confidence)}</span>
-                  <Show when={entry.value_tier}>
-                    {tier => <span class="badge">{VALUE_TIER_LABELS[tier()] ?? tier()} value</span>}
-                  </Show>
-                  <Show when={deviationLabel(entry)}>
-                    {label => <span class="badge">{label()}</span>}
-                  </Show>
                 </div>
+                {/* Secondary facts — collapsed into the Details section to
+                    reduce badge soup on the main row. */}
+                <details class="opportunity-secondary-facts">
+                  <summary>More</summary>
+                  <div class="row-health opportunity-facts-secondary">
+                    <span class="badge">{labelOr(CONTEXT_LABELS, entry.context)}</span>
+                    <span class="badge">{labelOr(SUBJECT_KIND_LABELS, entry.subject_kind)}</span>
+                    <span class="badge">{RANK_FACTOR_LABELS[entry.ranked_by] ?? entry.ranked_by}</span>
+                    <Show when={entry.value_tier}>
+                      {tier => <span class="badge">{VALUE_TIER_LABELS[tier()] ?? tier()} value</span>}
+                    </Show>
+                    <Show when={deviationLabel(entry)}>
+                      {label => <span class="badge">{label()}</span>}
+                    </Show>
+                  </div>
+                </details>
                 <Show when={formatDue(entry.due_at)}>
                   {due => <small class="opportunity-deadline">deadline {due()}</small>}
                 </Show>

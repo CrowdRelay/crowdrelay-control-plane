@@ -1,6 +1,7 @@
 import { For, Show } from 'solid-js'
 import type { ReleaseLedgerOverview } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
+import { SectionIcon } from './SectionIcon'
 
 const staleReleaseComponents = (ledger: ReleaseLedgerOverview | null) =>
   ledger?.components.filter((component) => component.stale) ?? []
@@ -42,7 +43,7 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
     <div class="section-title">
       <div>
         <span class="eyebrow">ECOSYSTEM RELEASE</span>
-        <h2>Production convergence</h2>
+        <h2><SectionIcon name="git-branch" />Production convergence</h2>
         <p>Every expected production component reports its own release receipt. Missing or stale receipts stay visible until the ecosystem converges.</p>
       </div>
       <StatusBadge status={releaseLabel(ledger())} tone={releaseTone(ledger())} />
