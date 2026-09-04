@@ -39,11 +39,17 @@ export const MobileTabBar: Component = () => {
   const goCycle = (event: Event) => {
     event.preventDefault()
     navigate({ to: cyclePath() as any })
-    // Scroll to the Run Brain Cycle panel after navigation settles.
-    setTimeout(() => {
-      const panel = document.querySelector('.run-brain-cycle-panel, [class*="run-cycle"], [class*="brain-cycle"]')
-      if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 300)
+    // Scroll to the Run Brain Cycle panel after navigation settles. The
+    // route is lazy-loaded, so a fixed setTimeout(300) races against chunk
+    // loading on slow networks. Poll for the panel up to 2s instead.
+    const selector = '.run-brain-cycle-panel, [class*="run-cycle"], [class*="brain-cycle"]'
+    const deadline = Date.now() + 2000
+    const tryScroll = () => {
+      const panel = document.querySelector(selector)
+      if (panel) { panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); return }
+      if (Date.now() < deadline) requestAnimationFrame(tryScroll)
+    }
+    requestAnimationFrame(tryScroll)
   }
 
   return (
