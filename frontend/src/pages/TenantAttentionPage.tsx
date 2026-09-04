@@ -126,6 +126,8 @@ export function TenantAttentionPage() {
   const [deliveryDetails, setDeliveryDetails] = createSignal<DeliveryDetails | null>(null)
   const [timelineInput, setTimelineInput] = createSignal('')
   const [timeline, setTimeline] = createSignal<Awaited<ReturnType<typeof api.operationTimeline>> | null>(null)
+  const [revealedId, setRevealedId] = createSignal<string | null>(null)
+  const toggleRevealedId = (key: string) => setRevealedId(prev => prev === key ? null : key)
 
   const refreshMaintenance = async () => {
     await attention.refetch()
@@ -330,8 +332,23 @@ export function TenantAttentionPage() {
       <div><span class="eyebrow">DEAD OUTBOX</span><h3><SectionIcon name="alert-triangle" />Failed events</h3><p>Retry is idempotent.</p></div>
     </div>
     <Show when={deadOutbox.error}><div class="error-card">Dead outbox unavailable</div></Show>
-    <For each={expandOutbox() ? (deadOutbox.data ?? []) : (deadOutbox.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card">
-      <div class="section-title"><div><strong>{item.event_type}</strong><small class="mono">{item.id}</small><p>{item.last_error_kind ?? 'unknown error'} · attempts {item.attempts}/{item.max_attempts} · dead {observed(item.dead_at)}</p></div><button class="ghost" disabled={!!busy()} onClick={() => void retryOutbox(item.id)}>{busy() === `outbox:${item.id}` ? 'Retrying…' : 'Retry'}</button></div>
+    <For each={expandOutbox() ? (deadOutbox.data ?? []) : (deadOutbox.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
+      <div class="dead-event-head">
+        <div class="dead-event-info">
+          <div class="dead-event-title">
+            <span class="badge tone-warn mono-badge">{item.event_type}</span>
+            <span class="badge tone-muted">outbox</span>
+          </div>
+          <p>{item.last_error_kind ?? 'unknown error'} · attempts {item.attempts}/{item.max_attempts} · dead {observed(item.dead_at)}</p>
+        </div>
+        <div class="dead-event-actions">
+          <button class="ghost dead-toggle-id" onClick={() => toggleRevealedId(`outbox:${item.id}`)}>{revealedId() === `outbox:${item.id}` ? 'Hide ID' : 'Details'}</button>
+          <button class="ghost" disabled={!!busy()} onClick={() => void retryOutbox(item.id)}>{busy() === `outbox:${item.id}` ? 'Retrying…' : 'Retry'}</button>
+        </div>
+      </div>
+      <Show when={revealedId() === `outbox:${item.id}`}>
+        <small class="mono dead-event-id">Event ID · <span class="mono">{item.id}</span></small>
+      </Show>
     </div>}</For>
     <Show when={(deadOutbox.data?.length ?? 0) > DEAD_PREVIEW}>
       <button class="ghost dead-expand-btn" onClick={() => setExpandOutbox(!expandOutbox())}>
@@ -345,8 +362,24 @@ export function TenantAttentionPage() {
       <button type="button" class={confirming() ? 'danger-ghost' : 'ghost'} disabled={(summary.data?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</button>
     </div>
     <Show when={deadDeliveries.error}><div class="error-card">Dead deliveries unavailable</div></Show>
-    <For each={expandDeliveries() ? (deadDeliveries.data ?? []) : (deadDeliveries.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card">
-      <div class="section-title"><div><strong>{item.endpoint_name} · {item.event_type}</strong><small class="mono">{item.id}</small><p>{item.last_error_kind ?? 'unknown error'} · HTTP {item.last_response_status ?? '—'} · attempts {item.attempt_count}/{item.max_attempts}</p></div><div><button class="ghost" disabled={!!busy()} onClick={() => void loadDeliveryDetails(item.id)}>Details</button> <button class="ghost" disabled={!!busy()} onClick={() => void retryDelivery(item.id)}>{busy() === `delivery:${item.id}` ? 'Retrying…' : 'Retry'}</button></div></div>
+    <For each={expandDeliveries() ? (deadDeliveries.data ?? []) : (deadDeliveries.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
+      <div class="dead-event-head">
+        <div class="dead-event-info">
+          <div class="dead-event-title">
+            <span class="badge tone-warn mono-badge">{item.event_type}</span>
+            <span class="badge tone-muted">{item.endpoint_name}</span>
+          </div>
+          <p>{item.last_error_kind ?? 'unknown error'} · HTTP {item.last_response_status ?? '—'} · attempts {item.attempt_count}/{item.max_attempts}</p>
+        </div>
+        <div class="dead-event-actions">
+          <button class="ghost dead-toggle-id" onClick={() => toggleRevealedId(`delivery:${item.id}`)}>{revealedId() === `delivery:${item.id}` ? 'Hide ID' : 'Details'}</button>
+          <button class="ghost" disabled={!!busy()} onClick={() => void loadDeliveryDetails(item.id)}>Attempts</button>
+          <button class="ghost" disabled={!!busy()} onClick={() => void retryDelivery(item.id)}>{busy() === `delivery:${item.id}` ? 'Retrying…' : 'Retry'}</button>
+        </div>
+      </div>
+      <Show when={revealedId() === `delivery:${item.id}`}>
+        <small class="mono dead-event-id">Delivery ID · <span class="mono">{item.id}</span></small>
+      </Show>
     </div>}</For>
     <Show when={(deadDeliveries.data?.length ?? 0) > DEAD_PREVIEW}>
       <button class="ghost dead-expand-btn" onClick={() => setExpandDeliveries(!expandDeliveries())}>
@@ -356,7 +389,7 @@ export function TenantAttentionPage() {
     <Show when={!deadDeliveries.isLoading && (deadDeliveries.data?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead webhook deliveries" hint="Dead webhooks are deliveries that failed after all retries. A clean list means webhooks are reaching their destinations." /></div></Show>
 
     <Show when={deliveryDetails()}>{details => <div class="panel">
-      <div class="section-title"><div><span class="eyebrow">DELIVERY DETAILS</span><h3><SectionIcon name="mail" />{details().delivery.endpoint_name}</h3><small class="mono">{details().delivery.id}</small></div><button class="ghost" onClick={() => setDeliveryDetails(null)}>Close</button></div>
+      <div class="section-title"><div><span class="eyebrow">DELIVERY DETAILS</span><h3><SectionIcon name="mail" />{details().delivery.endpoint_name}</h3><div class="dead-event-title"><span class="badge tone-warn mono-badge">{details().delivery.event_type}</span><span class="badge tone-muted">delivery</span></div></div><button class="ghost" onClick={() => setDeliveryDetails(null)}>Close</button></div>
       <For each={details().attempts}>{attempt => <div class="warning-card"><strong>Attempt {attempt.attempt_number} · {attempt.outcome}</strong><p>HTTP {attempt.response_status ?? '—'} · {attempt.error_kind ?? 'no error kind'} · {attempt.duration_ms} ms · {observed(attempt.finished_at)}</p></div>}</For>
       <Show when={details().attempts.length === 0}><EmptyState label="No delivery attempts" hint="Delivery attempts are logged here once the outbox starts processing messages." /></Show>
     </div>}</Show>
@@ -366,15 +399,28 @@ export function TenantAttentionPage() {
       <StatusBadge status={(summary.data?.push.dead ?? 0) > 0 ? 'dead' : 'clean'} tone={(summary.data?.push.dead ?? 0) > 0 ? 'bad' : 'good'} />
     </div>
     <Show when={deadPush.error}><div class="error-card">Dead push unavailable</div></Show>
-    <For each={expandPush() ? (deadPush.data ?? []) : (deadPush.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card">
-      <div class="section-title"><div><strong>{item.title}</strong><small class="mono">{item.id}</small><p>{pushFailureReason(item.error_code)} · attempts {item.attempt_count} · {item.source_kind}</p></div>
-        <Show
-          when={pushIsRetryable(item.error_code)}
-          fallback={<span class="muted push-no-retry">nothing to retry</span>}
-        >
-          <button class="ghost" disabled={!!busy()} onClick={() => void retryPush(item.id)}>{busy() === `push:${item.id}` ? 'Retrying…' : 'Retry'}</button>
-        </Show>
+    <For each={expandPush() ? (deadPush.data ?? []) : (deadPush.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
+      <div class="dead-event-head">
+        <div class="dead-event-info">
+          <div class="dead-event-title">
+            <span class="badge tone-warn mono-badge">{item.source_kind}</span>
+            <span class="badge tone-muted">push</span>
+          </div>
+          <p><strong>{item.title}</strong> — {pushFailureReason(item.error_code)} · attempts {item.attempt_count}</p>
+        </div>
+        <div class="dead-event-actions">
+          <button class="ghost dead-toggle-id" onClick={() => toggleRevealedId(`push:${item.id}`)}>{revealedId() === `push:${item.id}` ? 'Hide ID' : 'Details'}</button>
+          <Show
+            when={pushIsRetryable(item.error_code)}
+            fallback={<span class="muted push-no-retry">nothing to retry</span>}
+          >
+            <button class="ghost" disabled={!!busy()} onClick={() => void retryPush(item.id)}>{busy() === `push:${item.id}` ? 'Retrying…' : 'Retry'}</button>
+          </Show>
+        </div>
       </div>
+      <Show when={revealedId() === `push:${item.id}`}>
+        <small class="mono dead-event-id">Push ID · <span class="mono">{item.id}</span></small>
+      </Show>
     </div>}</For>
     <Show when={(deadPush.data?.length ?? 0) > DEAD_PREVIEW}>
       <button class="ghost dead-expand-btn" onClick={() => setExpandPush(!expandPush())}>
@@ -388,7 +434,7 @@ export function TenantAttentionPage() {
       <input class="mono" value={timelineInput()} onInput={(event) => setTimelineInput(event.currentTarget.value)} placeholder="Request or correlation ID" aria-label="Request or correlation ID" />
       <button class="ghost" disabled={!timelineInput().trim() || !!busy()} onClick={() => void lookupTimeline()}>{busy() === 'timeline' ? 'Tracing…' : 'Trace request'}</button>
     </div>
-    <Show when={timeline()}>{result => <div class="panel"><div class="section-title"><div><strong>{result().events.length} timeline event(s)</strong><small class="mono">{result().request_id}</small></div><button class="ghost" onClick={() => setTimeline(null)}>Close</button></div><For each={result().events}>{event => <div class="warning-card"><strong>{event.source} · {event.kind}</strong><p>{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'} · <span class="mono">{event.target_id ?? '—'}</span></p></div>}</For></div>}</Show>
+    <Show when={timeline()}>{result => <div class="panel"><div class="section-title"><div><span class="eyebrow">REQUEST TIMELINE</span><h3><SectionIcon name="history" />{result().events.length} timeline event(s)</h3><button class="ghost dead-toggle-id" onClick={() => toggleRevealedId('timeline')}>{revealedId() === 'timeline' ? 'Hide ID' : 'Details'}</button><Show when={revealedId() === 'timeline'}><small class="mono dead-event-id">Request ID · <span class="mono">{result().request_id}</span></small></Show></div><button class="ghost" onClick={() => setTimeline(null)}>Close</button></div><For each={result().events}>{event => <div class="warning-card"><div class="dead-event-title"><span class="badge tone-muted mono-badge">{event.source}</span><span class="badge tone-muted">{event.kind}</span></div><p>{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'}</p></div>}</For></div>}</Show>
     </Suspense>
   </section>
 }

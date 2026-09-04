@@ -310,11 +310,18 @@ export function BrainDecisionPanel(props: {
             <small class="brain-decision-consequence">if ignored: {e.consequence}</small>
           </Show>
 
-          {/* Approve / Reject — only when the brain is awaiting approval,
-              there is an executable action, and we haven't already acted
-              on this decision (local guard against refresh lag). */}
-          <Show when={e.authority === 'awaiting_approval' && e.action_id && !actedOn().has(e.decision_id)}>
-            <div class="brain-decision-buttons">
+          {/* Approve / Reject / Inspect — all in one row. Approve on the
+              left, Reject on the right, "Why this decision?" between them
+              so the operator sees the evidence link alongside the actions. */}
+          <div class="brain-decision-actions-row">
+            <Show when={e.authority === 'awaiting_approval' && e.action_id && !actedOn().has(e.decision_id)}>
+              <button
+                type="button"
+                disabled={pendingMutation() !== null}
+                onClick={() => approve(e)}
+              >
+                {pendingMutation() === `approve:${e.decision_id}` ? 'Approving…' : confirming() === `approve:${e.decision_id}` ? 'Confirm approval' : 'Approve'}
+              </button>
               <button
                 type="button"
                 classList={{ 'confirm-danger': confirming() === `reject:${e.decision_id}` }}
@@ -323,22 +330,12 @@ export function BrainDecisionPanel(props: {
               >
                 {pendingMutation() === `reject:${e.decision_id}` ? 'Rejecting…' : confirming() === `reject:${e.decision_id}` ? 'Confirm reject' : 'Reject'}
               </button>
-              <button
-                type="button"
-                disabled={pendingMutation() !== null}
-                onClick={() => approve(e)}
-              >
-                {pendingMutation() === `approve:${e.decision_id}` ? 'Approving…' : confirming() === `approve:${e.decision_id}` ? 'Confirm approval' : 'Approve'}
-              </button>
-            </div>
-          </Show>
+            </Show>
+            <button class="brain-decision-inspect" onClick={() => toggleEvidence()}>
+              {showEvidence() ? 'Hide evidence' : 'Why this decision?'}
+            </button>
+          </div>
         </div>
-
-        {/* Inspect — expandable full evidence. Primary-styled so it reads
-            as the panel's key affordance, not a footer link. */}
-        <button class="brain-decision-inspect" onClick={() => toggleEvidence()}>
-          {showEvidence() ? 'Hide evidence' : 'Why this decision?'}
-        </button>
 
         <Show when={showEvidence()}>
           <>

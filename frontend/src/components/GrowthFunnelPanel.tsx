@@ -162,7 +162,8 @@ export function GrowthFunnelPanel(props: { slug: string }) {
         <Show when={bottleneck()}>{(b) => (
           <div class="warning-card">
             <strong>Funnel bottleneck: {b().stage.label}</strong>
-            <span>Only {b().rate}% progressed to {b().nextStage.label}. {b().stage.value} → {b().nextStage.value}. Consider dispatching more {b().stage.label.toLowerCase()} runs or reviewing the intelligence's growth intelligence policy.</span>
+            <span>Only {b().rate}% progressed to {b().nextStage.label}. {b().stage.value} → {b().nextStage.value}. Consider dispatching more {b().stage.label.toLowerCase()} or reviewing the intelligence's growth intelligence policy.</span>
+
           </div>
         )}</Show>
 
