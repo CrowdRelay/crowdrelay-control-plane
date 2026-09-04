@@ -1856,7 +1856,7 @@ impl Store {
     ) -> Result<(), ApiError> {
         match error {
             None => {
-                sqlx::query("UPDATE control_plane_notification_outbox SET status = 'sent', last_error = NULL, updated_at = now() WHERE id = $1")
+                sqlx::query("UPDATE control_plane_notification_outbox SET status = 'sent', last_error = NULL, updated_at = now() WHERE id = $1 AND status = 'pending'")
                     .bind(id)
                     .execute(&self.pool)
                     .await?;

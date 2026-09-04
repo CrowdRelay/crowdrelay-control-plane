@@ -112,6 +112,7 @@ export function AutomationPage() {
               <div class="automation-config-controls">
                 <select
                   value={cfg.category}
+                  disabled={busyId() !== null}
                   onChange={(e) => handleConfigUpdate(cfg.workflowId, { category: e.currentTarget.value })}
                 >
                   <option value="status">Status</option>
@@ -121,6 +122,7 @@ export function AutomationPage() {
                 <label class="toggle-row">
                   <input
                     type="checkbox"
+                    disabled={busyId() !== null}
                     checked={cfg.discordEnabled}
                     onChange={(e) => handleConfigUpdate(cfg.workflowId, { discordEnabled: e.currentTarget.checked })}
                   />
@@ -129,6 +131,7 @@ export function AutomationPage() {
                 <label class="toggle-row">
                   <input
                     type="checkbox"
+                    disabled={busyId() !== null}
                     checked={cfg.muted}
                     onChange={(e) => handleConfigUpdate(cfg.workflowId, { muted: e.currentTarget.checked })}
                   />

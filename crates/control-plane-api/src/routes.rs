@@ -578,7 +578,8 @@ async fn trigger_ecosystem_deploy(
             "id": format!("github-dispatch-{}", chrono::Utc::now().timestamp_millis()),
             "tenant_slug": slug,
             "status": "dispatched",
-            "message": "Ecosystem deploy workflow triggered on GitHub Actions. Check the Actions tab for progress.",
+            "message": "Ecosystem deploy workflow triggered on GitHub Actions.",
+            "workflow_url": format!("https://github.com/{repo}/actions/workflows/ecosystem-deploy.yml"),
             "created_at": chrono::Utc::now().to_rfc3339(),
         })),
     ))

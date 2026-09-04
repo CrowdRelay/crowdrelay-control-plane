@@ -2483,6 +2483,7 @@ table tbody tr:hover{background:rgba(255,255,255,.025)}
 .tenant-danger-zone .form-grid input:focus{border-color:var(--bad);box-shadow:0 0 0 3px rgba(255,101,101,.15)}
 .tenant-danger-zone code,.tenant-opt-out code{padding:1px 6px;border-radius:var(--radius-sm);background:var(--surface-3);color:var(--text-primary)}
 .tenant-danger-zone .form-actions,.tenant-opt-out .form-actions{border-top-color:var(--border-subtle)}
+.operator-create-actions{margin-bottom:24px}
 
 /* Audit rows were a bare stack of divs: the panel drew a border-bottom per row
    and nothing else, so ten deploys read as one grey paragraph. */
