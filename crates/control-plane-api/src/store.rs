@@ -1645,6 +1645,17 @@ impl Store {
         Ok(())
     }
 
+    /// Delete expired sessions. Called hourly by the retention worker so the
+    /// sessions table does not grow without bound. `resolve_session` already
+    /// filters on `expires_at > now()`, so expired rows are dead weight.
+    pub async fn sweep_expired_sessions(&self) -> Result<u64, ApiError> {
+        let result =
+            sqlx::query("DELETE FROM control_plane_operator_sessions WHERE expires_at < now()")
+                .execute(&self.pool)
+                .await?;
+        Ok(result.rows_affected())
+    }
+
     // --- Notifier channels --------------------------------------------------
 
     pub async fn create_notifier_channel(
