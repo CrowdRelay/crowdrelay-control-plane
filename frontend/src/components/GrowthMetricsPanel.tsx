@@ -169,8 +169,8 @@ export function GrowthMetricsPanel(props: { slug: string }) {
 
       <Show when={trends() && trends()!.length > 0} fallback={
         <Show when={trends.loading} fallback={
-          <Show when={hasLive()} fallback={<p class="muted">No live feeds yet — trends appear once data starts flowing.</p>}>
-            <p class="muted">No growth metric trends available.</p>
+          <Show when={hasLive()} fallback={<EmptyState label="No live feeds yet" hint="Trends appear once data starts flowing." />}>
+            <EmptyState label="No growth metric trends available" />
           </Show>
         }>
           <div class="growth-metrics-grid">

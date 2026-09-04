@@ -15,6 +15,7 @@ import { TenantAuditPanel } from '../components/TenantAuditPanel'
 import { TenantOperatorsPanel } from '../components/TenantOperatorsPanel'
 import { OperationsPanel } from '../components/OperationsPanel'
 import { SkeletonTenantPage } from '../components/Skeleton'
+import { Spinner } from '../components/Spinner'
 
 const paletteFields: Array<keyof Palette> = ['primary','primaryContrast','accent','surface','surfaceElevated','text','textMuted','success','warning','danger']
 // The editor showed the raw struct field names — `primaryContrast`,
@@ -148,7 +149,7 @@ export function TenantPage() {
         </article>
       </div>
       <RegionalProfilePanel tenant={t} />
-      <article class="panel"><div class="section-title"><div><span class="eyebrow">BRANDING</span><h2><SectionIcon name="palette" />CrowdRelay + Signal palette</h2></div>{t.brandingPalette ? <button class="ghost" onClick={() => branding.mutate(null)}>Reset to product defaults</button> : <StatusBadge status="Inherits current product defaults" />}</div><Show when={t.brandingPalette || editingPalette()} fallback={<div class="inherit-card"><p>No palette is stored for this tenant. CrowdRelay and Signal therefore keep their own current default colors with zero theming lookup required.</p><button class="ghost" onClick={() => setEditingPalette(true)}>Create custom palette</button></div>}><p>Ten colours, sent to this tenant's CrowdRelay and Signal builds. Nothing changes for fans until you save; resetting removes the override and both apps fall back to the product defaults.</p><div class="palette-grid"><For each={paletteFields}>{field => <label><span class="palette-field-name">{paletteLabels[field].label}</span><span class="palette-field-role">{paletteLabels[field].role}</span><div class="color-input"><input type="color" aria-label={paletteLabels[field].label} value={palette()[field]} onInput={(e) => setPalette(current => ({ ...current, [field]: e.currentTarget.value }))}/><code>{palette()[field]}</code></div></label>}</For></div><button onClick={() => branding.mutate(palette())} disabled={branding.isPending}>{branding.isPending ? 'Saving…' : 'Save custom palette'}</button></Show></article>
+      <article class="panel"><div class="section-title"><div><span class="eyebrow">BRANDING</span><h2><SectionIcon name="palette" />CrowdRelay + Signal palette</h2></div>{t.brandingPalette ? <button class="ghost" onClick={() => branding.mutate(null)}>Reset to product defaults</button> : <StatusBadge status="Inherits current product defaults" />}</div><Show when={t.brandingPalette || editingPalette()} fallback={<div class="inherit-card"><p>No palette is stored for this tenant. CrowdRelay and Signal therefore keep their own current default colors with zero theming lookup required.</p><button class="ghost" onClick={() => setEditingPalette(true)}>Create custom palette</button></div>}><p>Ten colours, sent to this tenant's CrowdRelay and Signal builds. Nothing changes for fans until you save; resetting removes the override and both apps fall back to the product defaults.</p><div class="palette-grid"><For each={paletteFields}>{field => <label><span class="palette-field-name">{paletteLabels[field].label}</span><span class="palette-field-role">{paletteLabels[field].role}</span><div class="color-input"><input type="color" aria-label={paletteLabels[field].label} value={palette()[field]} onInput={(e) => setPalette(current => ({ ...current, [field]: e.currentTarget.value }))}/><code>{palette()[field]}</code></div></label>}</For></div><button onClick={() => branding.mutate(palette())} disabled={branding.isPending}>{branding.isPending && <Spinner />} {branding.isPending ? 'Saving…' : 'Save custom palette'}</button></Show></article>
 
       <Show when={t.signalEnabled || t.synesthesiaEnabled}>
         <article class="panel mobile-app-setup-panel">
@@ -194,7 +195,7 @@ export function TenantPage() {
             <Show when={mobileApps.error}><div class="error-card" role="alert">{mobileApps.error instanceof Error ? mobileApps.error.message : 'Failed to update Play Store URLs'}</div></Show>
             <div class="form-actions right">
               <button class="ghost" onClick={() => setEditingMobileApps(false)}>Cancel</button>
-              <button onClick={() => mobileApps.mutate({ signalPlayStoreUrl: signalPlayUrl().trim() || null, synesthesiaPlayStoreUrl: synesthesiaPlayUrl().trim() || null })} disabled={mobileApps.isPending}>{mobileApps.isPending ? 'Saving…' : 'Save URLs'}</button>
+              <button onClick={() => mobileApps.mutate({ signalPlayStoreUrl: signalPlayUrl().trim() || null, synesthesiaPlayStoreUrl: synesthesiaPlayUrl().trim() || null })} disabled={mobileApps.isPending}>{mobileApps.isPending && <Spinner />} {mobileApps.isPending ? 'Saving…' : 'Save URLs'}</button>
             </div>
           </div>
         </div>
@@ -291,7 +292,7 @@ export function TenantPage() {
                   disabled={optOutConfirm().trim() !== t.slug || optOut.isPending}
                   onClick={() => optOut.mutate()}
                 >
-                  {optOut.isPending ? 'Sending request…' : 'Request opt-out'}
+                  {optOut.isPending && <Spinner />} {optOut.isPending ? 'Sending request…' : 'Request opt-out'}
                 </button>
               </div>
             </>
@@ -339,7 +340,7 @@ export function TenantPage() {
               disabled={removalConfirm().trim() !== t.slug || remove.isPending}
               onClick={() => remove.mutate()}
             >
-              {remove.isPending ? 'Removing…' : 'Remove this tenant'}
+              {remove.isPending && <Spinner />} {remove.isPending ? 'Removing…' : 'Remove this tenant'}
             </button>
           </div>
         </article>

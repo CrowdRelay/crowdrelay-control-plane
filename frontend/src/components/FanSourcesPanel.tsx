@@ -6,6 +6,7 @@ import { StatusBadge } from './StatusBadge'
 import { FanbaseIcon } from './ProviderIcon'
 import { SkeletonRows } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
+import { Spinner } from './Spinner'
 
 const SOURCE_KINDS = [
   { value: 'http_json_pull', label: 'HTTP JSON (pull)' },
@@ -494,7 +495,7 @@ export function FanSourcesPanel(props: {
         <div class="form-actions">
           <button disabled={!discordInviteCode().trim() || connectDiscord.isPending}
             onClick={() => connectDiscord.mutate()}>
-            {connectDiscord.isPending ? 'Connecting…' : 'Connect Discord'}
+            {connectDiscord.isPending && <Spinner />} {connectDiscord.isPending ? 'Connecting…' : 'Connect Discord'}
           </button>
           <button class="ghost" onClick={() => setConnectingPlatform(null)}>Cancel</button>
         </div>
@@ -508,7 +509,7 @@ export function FanSourcesPanel(props: {
         <div class="form-actions">
           <button disabled={!telegramChannel().trim() || !telegramBotToken().trim() || connectTelegram.isPending}
             onClick={() => connectTelegram.mutate()}>
-            {connectTelegram.isPending ? 'Connecting…' : 'Connect Telegram'}
+            {connectTelegram.isPending && <Spinner />} {connectTelegram.isPending ? 'Connecting…' : 'Connect Telegram'}
           </button>
           <button class="ghost" onClick={() => setConnectingPlatform(null)}>Cancel</button>
         </div>
@@ -521,7 +522,7 @@ export function FanSourcesPanel(props: {
         <div class="form-actions">
           <button disabled={!lastfmArtist().trim() || connectLastfm.isPending}
             onClick={() => connectLastfm.mutate()}>
-            {connectLastfm.isPending ? 'Connecting…' : 'Connect Last.fm'}
+            {connectLastfm.isPending && <Spinner />} {connectLastfm.isPending ? 'Connecting…' : 'Connect Last.fm'}
           </button>
           <button class="ghost" onClick={() => setConnectingPlatform(null)}>Cancel</button>
         </div>
@@ -534,7 +535,7 @@ export function FanSourcesPanel(props: {
         <div class="form-actions">
           <button disabled={!deezerArtistId().trim() || connectDeezer.isPending}
             onClick={() => connectDeezer.mutate()}>
-            {connectDeezer.isPending ? 'Connecting…' : 'Connect Deezer'}
+            {connectDeezer.isPending && <Spinner />} {connectDeezer.isPending ? 'Connecting…' : 'Connect Deezer'}
           </button>
           <button class="ghost" onClick={() => setConnectingPlatform(null)}>Cancel</button>
         </div>
@@ -547,7 +548,7 @@ export function FanSourcesPanel(props: {
         <div class="form-actions">
           <button disabled={!discogsArtistId().trim() || connectDiscogs.isPending}
             onClick={() => connectDiscogs.mutate()}>
-            {connectDiscogs.isPending ? 'Connecting…' : 'Connect Discogs'}
+            {connectDiscogs.isPending && <Spinner />} {connectDiscogs.isPending ? 'Connecting…' : 'Connect Discogs'}
           </button>
           <button class="ghost" onClick={() => setConnectingPlatform(null)}>Cancel</button>
         </div>
@@ -560,7 +561,7 @@ export function FanSourcesPanel(props: {
         <div class="form-actions">
           <button disabled={!blueskyHandle().trim() || connectBluesky.isPending}
             onClick={() => connectBluesky.mutate()}>
-            {connectBluesky.isPending ? 'Connecting…' : 'Connect Bluesky'}
+            {connectBluesky.isPending && <Spinner />} {connectBluesky.isPending ? 'Connecting…' : 'Connect Bluesky'}
           </button>
           <button class="ghost" onClick={() => setConnectingPlatform(null)}>Cancel</button>
         </div>
@@ -573,7 +574,7 @@ export function FanSourcesPanel(props: {
         <div class="form-actions">
           <button disabled={!bandcampSubdomain().trim() || connectBandcamp.isPending}
             onClick={() => connectBandcamp.mutate()}>
-            {connectBandcamp.isPending ? 'Connecting…' : 'Connect Bandcamp'}
+            {connectBandcamp.isPending && <Spinner />} {connectBandcamp.isPending ? 'Connecting…' : 'Connect Bandcamp'}
           </button>
           <button class="ghost" onClick={() => setConnectingPlatform(null)}>Cancel</button>
         </div>
@@ -586,7 +587,7 @@ export function FanSourcesPanel(props: {
         <div class="form-actions">
           <button disabled={!youtubeChannelId().trim() || connectYoutube.isPending}
             onClick={() => connectYoutube.mutate()}>
-            {connectYoutube.isPending ? 'Connecting…' : 'Connect YouTube'}
+            {connectYoutube.isPending && <Spinner />} {connectYoutube.isPending ? 'Connecting…' : 'Connect YouTube'}
           </button>
           <button class="ghost" onClick={() => { setConnectingPlatform(null); setVerificationNotice(null) }}>Cancel</button>
         </div>
@@ -600,7 +601,7 @@ export function FanSourcesPanel(props: {
         <div class="form-actions">
           <button disabled={!facebookPageId().trim() || connectFacebook.isPending}
             onClick={() => connectFacebook.mutate()}>
-            {connectFacebook.isPending ? 'Connecting…' : 'Connect Facebook'}
+            {connectFacebook.isPending && <Spinner />} {connectFacebook.isPending ? 'Connecting…' : 'Connect Facebook'}
           </button>
           <button class="ghost" onClick={() => { setConnectingPlatform(null); setVerificationNotice(null) }}>Cancel</button>
         </div>
@@ -614,7 +615,7 @@ export function FanSourcesPanel(props: {
         <div class="form-actions">
           <button disabled={!instagramIgUserId().trim() || connectInstagram.isPending}
             onClick={() => connectInstagram.mutate()}>
-            {connectInstagram.isPending ? 'Connecting…' : 'Connect Instagram'}
+            {connectInstagram.isPending && <Spinner />} {connectInstagram.isPending ? 'Connecting…' : 'Connect Instagram'}
           </button>
           <button class="ghost" onClick={() => { setConnectingPlatform(null); setVerificationNotice(null) }}>Cancel</button>
         </div>
@@ -628,7 +629,7 @@ export function FanSourcesPanel(props: {
         <div class="form-actions">
           <button disabled={!soundcloudPermalink().trim() || connectSoundcloud.isPending}
             onClick={() => connectSoundcloud.mutate()}>
-            {connectSoundcloud.isPending ? 'Connecting…' : 'Connect SoundCloud'}
+            {connectSoundcloud.isPending && <Spinner />} {connectSoundcloud.isPending ? 'Connecting…' : 'Connect SoundCloud'}
           </button>
           <button class="ghost" onClick={() => { setConnectingPlatform(null); setVerificationNotice(null) }}>Cancel</button>
         </div>
@@ -642,7 +643,7 @@ export function FanSourcesPanel(props: {
         <div class="form-actions">
           <button disabled={!redditSubreddit().trim() || connectReddit.isPending}
             onClick={() => connectReddit.mutate()}>
-            {connectReddit.isPending ? 'Connecting…' : 'Connect Reddit'}
+            {connectReddit.isPending && <Spinner />} {connectReddit.isPending ? 'Connecting…' : 'Connect Reddit'}
           </button>
           <button class="ghost" onClick={() => { setConnectingPlatform(null); setVerificationNotice(null) }}>Cancel</button>
         </div>
@@ -759,7 +760,7 @@ export function FanSourcesPanel(props: {
                   <div class="row-health">
                     <button class="danger-ghost" disabled={remove.isPending}
                       onClick={() => remove.mutate(fb.id)}>
-                      {remove.isPending ? 'Deleting…' : 'Confirm'}
+                      {remove.isPending && <Spinner />} {remove.isPending ? 'Deleting…' : 'Confirm'}
                     </button>
                     <button class="ghost" onClick={() => setConfirmingDelete(null)}>Cancel</button>
                   </div>
