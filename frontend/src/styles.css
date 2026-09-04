@@ -1223,6 +1223,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .attention-item-review{border-left:3px solid var(--warn);background:rgba(41,32,15,0.2)}
 .attention-item-review:hover{border-left-color:var(--warn);background:rgba(41,32,15,0.35)}
 .attention-item-informational{border-left:3px solid var(--border-default)}
+.attention-item-highlighted{outline:2px solid var(--accent);outline-offset:2px;animation:pulse 2s infinite}
 .attention-item-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
 .attention-item-body strong{font-size:var(--text-sm);font-weight:600;color:var(--text-primary)}
 .attention-item-body small{font-size:var(--text-xs);color:var(--text-muted);line-height:1.4}
