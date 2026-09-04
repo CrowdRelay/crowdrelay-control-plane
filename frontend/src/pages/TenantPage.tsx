@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link, useNavigate, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { refreshTick } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import type { Palette, ProvisioningJob } from '../lib/types'
 import { ReleaseConvergencePanel } from '../components/ReleaseConvergencePanel'
@@ -59,7 +58,7 @@ export function TenantPage() {
   const params = useParams({ from: '/tenants/$slug' })
   const queryClient = useQueryClient()
   const model = useQuery(() => ({
-    queryKey: ['tenant-overview', params().slug, refreshTick()],
+    queryKey: ['tenant-overview', params().slug],
     queryFn: async () => {
       const [overview, operations] = await Promise.all([
         api.tenantOverview(params().slug),

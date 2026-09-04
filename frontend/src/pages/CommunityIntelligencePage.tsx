@@ -4,7 +4,6 @@ import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import type { CommunityItem, CommunityObservationItem, CommunityEntityItem } from '../lib/types'
 import { SkeletonRows } from '../components/Skeleton'
-import { refreshTick } from '../lib/refresh'
 import { toast } from '../lib/toast'
 import { errorMessage } from '../lib/format'
 
@@ -56,7 +55,7 @@ export function CommunityIntelligencePage() {
   }
 
   const communities = useQuery(() => ({
-    queryKey: ['community-intelligence', params().slug, refreshTick()],
+    queryKey: ['community-intelligence', params().slug],
     queryFn: () => api.communityIntelligenceCommunities(params().slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
@@ -64,7 +63,7 @@ export function CommunityIntelligencePage() {
   }))
 
   const observations = useQuery(() => ({
-    queryKey: ['community-observations', params().slug, selectedPlaceId(), refreshTick()],
+    queryKey: ['community-observations', params().slug, selectedPlaceId()],
     queryFn: () => api.communityIntelligenceObservations(params().slug, selectedPlaceId()!),
     enabled: !!selectedPlaceId(),
     reconcile: 'id',
@@ -73,7 +72,7 @@ export function CommunityIntelligencePage() {
   }))
 
   const entities = useQuery(() => ({
-    queryKey: ['community-entities', params().slug, selectedPlaceId(), refreshTick()],
+    queryKey: ['community-entities', params().slug, selectedPlaceId()],
     queryFn: () => api.communityIntelligenceEntities(params().slug, selectedPlaceId()!),
     enabled: !!selectedPlaceId(),
     reconcile: 'id',

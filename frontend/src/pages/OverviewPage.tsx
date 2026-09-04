@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { refreshTick } from '../lib/refresh'
 import type { PlatformHealthEntry, RuntimeHealth, TenantSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { CountUp } from '../components/CountUp'
@@ -20,8 +19,8 @@ const formatLatency = (ms: number | null | undefined) => {
 }
 
 export function OverviewPage() {
-  const tenants = useQuery(() => ({ queryKey: ['tenants', refreshTick()], queryFn: api.tenants, refetchOnWindowFocus: false, reconcile: 'id' }))
-  const overview = useQuery(() => ({ queryKey: ['overview', refreshTick()], queryFn: api.overview, refetchOnWindowFocus: false, reconcile: 'id' }))
+  const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, refetchOnWindowFocus: false, reconcile: 'id' }))
+  const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview, refetchOnWindowFocus: false, reconcile: 'id' }))
 
   const items = () => tenants.data?.items ?? []
   const count = (health: RuntimeHealth) => items().filter(t => t.runtimeHealth === health).length

@@ -1,7 +1,6 @@
 import { For, Show, Suspense, createSignal, createMemo } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { refreshTick } from '../lib/refresh'
 import { toast } from '../lib/toast'
 import type { AutomationEvent, AutomationWorkflowConfig } from '../lib/types'
 import { EmptyState } from '../components/EmptyState'
@@ -29,7 +28,7 @@ export function AutomationPage() {
   const [showConfigs, setShowConfigs] = createSignal(false)
 
   const events = useQuery(() => ({
-    queryKey: ['automation-events', statusFilter(), refreshTick()],
+    queryKey: ['automation-events', statusFilter()],
     queryFn: () => api.automationEvents({ limit: 100, status: statusFilter() || undefined }),
     reconcile: 'id',
   }))

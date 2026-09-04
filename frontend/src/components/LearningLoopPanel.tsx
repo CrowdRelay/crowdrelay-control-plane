@@ -1,7 +1,6 @@
 import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { refreshTick } from '../lib/refresh'
 import { EmptyState } from './EmptyState'
 import type { LearningLoopEntry } from '../lib/types'
 import { SkeletonLearningLoop } from './Skeleton'
@@ -58,7 +57,7 @@ const outcomeLabel = (assessment: string): string =>
 
 export function LearningLoopPanel(props: { slug: string }) {
   const model = useQuery(() => ({
-    queryKey: ['learning-loop', props.slug, refreshTick()],
+    queryKey: ['learning-loop', props.slug],
     queryFn: () => api.learningLoop(props.slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,

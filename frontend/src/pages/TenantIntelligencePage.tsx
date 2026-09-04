@@ -11,7 +11,6 @@ import { ScorecardPanel } from '../components/ScorecardPanel'
 import { StatusBadge } from '../components/StatusBadge'
 import { SkeletonIntelligencePage } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
-import { refreshTick } from '../lib/refresh'
 import { SectionIcon } from '../components/SectionIcon'
 
 /**
@@ -24,7 +23,7 @@ export function TenantIntelligencePage() {
   const params = useParams({ from: '/tenants/$slug/intelligence' })
   const { activeTab, switchTab, isVisited } = useTabPanels('overview')
   const model = useQuery(() => ({
-    queryKey: ['tenant-operations', params().slug, refreshTick()],
+    queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,

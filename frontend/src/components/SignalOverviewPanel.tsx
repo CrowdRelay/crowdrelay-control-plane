@@ -1,13 +1,12 @@
 import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { refreshTick } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
 
 export function SignalOverviewPanel(props: { slug: string }) {
   const signal = useQuery(() => ({
-    queryKey: ['tenant-signal-overview', props.slug, refreshTick()],
+    queryKey: ['tenant-signal-overview', props.slug],
     queryFn: () => api.signalOverview(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 30_000,

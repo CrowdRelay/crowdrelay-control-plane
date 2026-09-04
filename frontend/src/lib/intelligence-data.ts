@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/solid-query'
 import { api } from './api'
-import { refreshTick } from './refresh'
 import type {
   AgentScorecard,
   AutopilotOverview,
@@ -57,7 +56,7 @@ export interface IntelligenceData {
 
 export function useIntelligenceData(slug: string): IntelligenceData {
   const operations = useQuery(() => ({
-    queryKey: ['tenant-operations', slug, refreshTick()],
+    queryKey: ['tenant-operations', slug],
     queryFn: () => api.tenantOperations(slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
@@ -65,7 +64,7 @@ export function useIntelligenceData(slug: string): IntelligenceData {
   }))
 
   const scorecard = useQuery(() => ({
-    queryKey: ['agent-scorecard', slug, refreshTick()],
+    queryKey: ['agent-scorecard', slug],
     queryFn: () => api.agentScorecard(slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
@@ -73,7 +72,7 @@ export function useIntelligenceData(slug: string): IntelligenceData {
   }))
 
   const decisions = useQuery(() => ({
-    queryKey: ['intelligence-decisions', slug, refreshTick()],
+    queryKey: ['intelligence-decisions', slug],
     queryFn: () => api.intelligenceDecisions(slug, 10, 7),
     reconcile: 'id',
     refetchOnWindowFocus: false,
@@ -81,7 +80,7 @@ export function useIntelligenceData(slug: string): IntelligenceData {
   }))
 
   const objectivesQuery = useQuery(() => ({
-    queryKey: ['growth-objectives', slug, refreshTick()],
+    queryKey: ['growth-objectives', slug],
     queryFn: () => api.growthObjectives(slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,

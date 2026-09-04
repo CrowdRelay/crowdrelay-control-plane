@@ -7,7 +7,6 @@ import { PortfolioSettingsPanel } from '../components/PortfolioSettingsPanel'
 import { FanSourcesPanel } from '../components/FanSourcesPanel'
 import { CommunitiesPanel } from '../components/CommunitiesPanel'
 import { SkeletonPageHead, SkeletonSection } from '../components/Skeleton'
-import { refreshTick } from '../lib/refresh'
 import type { TenantPortfolioSection } from '../lib/types'
 
 const SECTION_LABEL: Record<TenantPortfolioSection, string> = {
@@ -39,7 +38,7 @@ export function PortfolioPage() {
   // request, one refetch every 15 seconds that patches the store in place
   // (`reconcile: 'id'`), so panels don't flash or lose form state mid-cycle.
   const model = useQuery(() => ({
-    queryKey: ['tenant-portfolio', params().slug, refreshTick()],
+    queryKey: ['tenant-portfolio', params().slug],
     queryFn: () => api.tenantPortfolio(params().slug),
     reconcile: 'id' as const,
     refetchOnWindowFocus: false,

@@ -13,7 +13,6 @@ import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { SkeletonOperationsPage, SkeletonSection } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
 import { StatusBadge } from '../components/StatusBadge'
-import { refreshTick } from '../lib/refresh'
 import type { TenantOperationsReadModel } from '../lib/types'
 
 const metric = (value: number | undefined | null, suffix = '') =>
@@ -23,7 +22,7 @@ export function TenantOperationsPage() {
   const params = useParams({ from: '/tenants/$slug/operations' })
   const { activeTab, switchTab, isVisited } = useTabPanels('opportunities')
   const model = useQuery(() => ({
-    queryKey: ['tenant-operations', params().slug, refreshTick()],
+    queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,

@@ -1,7 +1,6 @@
 import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { refreshTick } from '../lib/refresh'
 import { formatTimestamp } from '../lib/format'
 import type { AgentScorecard } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
@@ -80,7 +79,7 @@ const actionLabel = (kind: string) =>
 
 export function ScorecardPanel(props: { slug: string }) {
   const model = useQuery(() => ({
-    queryKey: ['agent-scorecard', props.slug, refreshTick()],
+    queryKey: ['agent-scorecard', props.slug],
     queryFn: () => api.agentScorecard(props.slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
