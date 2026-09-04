@@ -6,7 +6,6 @@ import { AudienceOverviewPanel } from '../components/AudienceOverviewPanel'
 import { FanTablePanel } from '../components/FanTablePanel'
 import { SegmentPanel } from '../components/SegmentPanel'
 import { SkeletonPageHead, SkeletonSection } from '../components/Skeleton'
-import { refreshTick } from '../lib/refresh'
 
 const SECTION_LABEL: Record<string, string> = {
   overview: 'Audience KPIs',
@@ -29,7 +28,7 @@ function DegradedSections(props: { degraded: string[] }) {
 export function AudiencePage() {
   const params = useParams({ from: '/tenants/$slug/audience' })
   const model = useQuery(() => ({
-    queryKey: ['tenant-audience', params().slug, refreshTick()],
+    queryKey: ['tenant-audience', params().slug],
     queryFn: () => api.audienceModel(params().slug),
     reconcile: 'id' as const,
     refetchOnWindowFocus: false,

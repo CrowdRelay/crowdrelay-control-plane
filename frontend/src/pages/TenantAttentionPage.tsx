@@ -14,7 +14,6 @@ import { SignalOverviewPanel } from '../components/SignalOverviewPanel'
 import { SkeletonAttentionPage } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
 import { Spinner } from '../components/Spinner'
-import { refreshTick } from '../lib/refresh'
 
 const totalDead = (summary: OperationsSummary) => summary.outbox.dead + summary.deliveries.dead + summary.push.dead
 const staleAreaReservations = (summary: OperationsSummary) => summary.area.stale_voucher_reservations + summary.area.stale_ticket_reward_reservations
@@ -62,7 +61,7 @@ const pushIsRetryable = (code: string | null | undefined) =>
 export function TenantAttentionPage() {
   const params = useParams({ from: '/tenants/$slug/attention' })
   const attention = useQuery(() => ({
-    queryKey: ['tenant-operator-attention-snapshot', params().slug, refreshTick()],
+    queryKey: ['tenant-operator-attention-snapshot', params().slug],
     queryFn: () => fetchOperationsAttention(params().slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,

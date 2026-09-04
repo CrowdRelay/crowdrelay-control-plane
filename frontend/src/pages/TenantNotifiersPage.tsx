@@ -2,7 +2,6 @@ import { For, Show, Suspense, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
-import { refreshTick } from '../lib/refresh'
 import { toast } from '../lib/toast'
 import type { NotifierChannel, NotifierEvent, DiscoveredEndpoint, PlatformConfigItem, AutomationRoutingItem, NotifiersOverview } from '../lib/types'
 import { NOTIFIER_EVENTS, NOTIFIER_EVENT_LABELS } from '../lib/types'
@@ -55,7 +54,7 @@ export function TenantNotifiersPage() {
   // each with its own loading and error state, so the page assembled itself
   // in front of the operator and any one failure left a hole in a picture
   // that only means anything whole.
-  const overview = useQuery(() => ({ queryKey: ['notifiers-overview', slug(), refreshTick()], queryFn: () => api.notifiersOverview(slug()), refetchOnWindowFocus: false, staleTime: 20_000 }))
+  const overview = useQuery(() => ({ queryKey: ['notifiers-overview', slug()], queryFn: () => api.notifiersOverview(slug()), refetchOnWindowFocus: false, staleTime: 20_000 }))
 
   // The panels below still read four names; each now projects one section of
   // the single response, including that section's own error.

@@ -1,11 +1,22 @@
 import { createSignal, createEffect, createRoot } from 'solid-js'
+import { queryClient } from './queryClient'
 
 // Global refresh control — Grafana-style. One interval selector in the topbar
 // drives every query on the page. 0 = manual only (no auto-refresh).
 //
-// A single timer here fires `triggerRefresh()` on the chosen interval. Every
-// query depends on `refreshTick` as part of its query key, so one tick refetches
-// all queries in lockstep — no per-query timer drift, no independent polling.
+// A single timer here fires `triggerRefresh()` on the chosen interval. The
+// tick increments the `refreshTick` signal (used as a source by SolidJS
+// `createResource` calls) and invalidates all TanStack Query caches, which
+// refetches every mounted query in lockstep — no per-query timer drift, no
+// independent polling.
+//
+// The tick is deliberately NOT part of any TanStack Query cache key. Embedding
+// a monotonic counter in a query key created a new cache entry on every tick,
+// and the 5-minute gcTime let them pile up: at 30s refresh over an hour that
+// is 120 orphaned entries per query. It also split the cache by key identity
+// — `['tenants', refreshTick()]` in OverviewPage was a different query from
+// `['tenants']` in Shell, so a mutation that invalidated one left the other
+// stale. Stable keys + global invalidation fixes both.
 
 export const REFRESH_INTERVALS: readonly { label: string; ms: number }[] = [
   { label: 'Off', ms: 0 },
@@ -45,12 +56,18 @@ export const setRefreshInterval = (ms: number) => {
 export const refreshInterval = intervalMs
 
 /** Monotonic tick — increment on every interval fire and on manual refresh.
- * Include in query keys so a tick change triggers refetch. */
+ * Used as the source signal for SolidJS `createResource` calls, which have no
+ * cache and therefore no growth problem. Never embed this in a TanStack Query
+ * cache key — use `triggerRefresh()` or `queryClient.invalidateQueries()` to
+ * refetch those. */
 export const refreshTick = tick
 
-/** Trigger a global refetch — increments the tick signal. */
+/** Trigger a global refetch — increments the tick signal (for `createResource`
+ * consumers) and invalidates all TanStack Query caches (for `useQuery`
+ * consumers). Both happen in lockstep so the whole page stays consistent. */
 export function triggerRefresh() {
   setTick(t => t + 1)
+  queryClient.invalidateQueries()
 }
 
 // Single global timer. Started once, lives for app lifetime. When interval is

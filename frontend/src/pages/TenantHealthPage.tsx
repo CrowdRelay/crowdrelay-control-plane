@@ -6,13 +6,12 @@ import { OperationsPanel } from '../components/OperationsPanel'
 import { SystemHealthPanel } from '../components/SystemHealthPanel'
 import { SkeletonPageHead, SkeletonBlock } from '../components/Skeleton'
 import { StatusBadge } from '../components/StatusBadge'
-import { refreshTick } from '../lib/refresh'
 import type { TenantOperationsReadModel } from '../lib/types'
 
 export function TenantHealthPage() {
   const params = useParams({ from: '/tenants/$slug/health' })
   const model = useQuery(() => ({
-    queryKey: ['tenant-operations', params().slug, refreshTick()],
+    queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
