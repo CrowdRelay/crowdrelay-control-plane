@@ -5,6 +5,7 @@ import { errorMessage, formatAge, oldestQueueAge } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonFlagList, SkeletonAutopilotKpis } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
+import { Spinner } from './Spinner'
 
 const flagLabel = (key: string) => key
   .replace(/_enabled$/, '')
@@ -229,7 +230,7 @@ export function OperationsPanel(props: {
       <div><span class="eyebrow">OPERATIONS</span><h2><SectionIcon name="activity" />Health & controls</h2><p>Live CrowdRelay telemetry and bounded runtime controls. Changes are tenant-scoped and audited.</p></div>
       <div class="row-health">
         <Show when={confirming() === 'redeploy'}><button class="ghost" onClick={() => setConfirming(null)}>Cancel</button></Show>
-        <button disabled={pendingMutation() !== null} onClick={() => setConfirming('redeploy')}>{confirming() === 'redeploy' ? 'Confirm below ↓' : 'Redeploy app'}</button>
+        <button disabled={pendingMutation() !== null} onClick={() => setConfirming('redeploy')}>{pendingMutation() === 'redeploy' && <Spinner />} {confirming() === 'redeploy' ? 'Confirm below ↓' : 'Redeploy app'}</button>
         <StatusBadge status={operationalLabel(summary.data)} tone={operationalTone(summary.data)} />
       </div>
     </div>
@@ -248,7 +249,8 @@ export function OperationsPanel(props: {
               else if (which === 'autopilot-enable') void bulkAutopilot(true)
               else if (which === 'redeploy') void redeploy()
               else if (which === 'replay-dead') void replayDead()
-            }}>{copy.action}</button>
+            }}
+          >{pendingMutation() !== null && <Spinner />} {copy.action}</button>
         </div>
       </div>
     }</Show>
@@ -274,7 +276,7 @@ export function OperationsPanel(props: {
       <div class="operations-attention">
         <div><strong>Operator attention required</strong><br /><span>{deadJobs()} dead queue item(s) · {summary.data?.watchdog.critical_alerts ?? 0} critical watchdog alert(s)</span></div>
         <Show when={confirming() === 'replay-dead'}>
-          <div class="row-health"><button class="ghost" onClick={() => setConfirming(null)}>Cancel</button><button disabled={pendingMutation() !== null} onClick={() => { setConfirming(null); void replayDead() }}>Confirm replay</button></div>
+          <div class="row-health"><button class="ghost" onClick={() => setConfirming(null)}>Cancel</button><button disabled={pendingMutation() !== null} onClick={() => { setConfirming(null); void replayDead() }}>{pendingMutation() === 'replay-dead' && <Spinner />} Confirm replay</button></div>
         </Show>
         <Show when={confirming() !== 'replay-dead' && summary.data && summary.data.deliveries.dead > 0}>
           <button class="ghost" disabled={pendingMutation() !== null} onClick={() => setConfirming('replay-dead')}>Replay dead deliveries</button>
@@ -322,14 +324,14 @@ export function OperationsPanel(props: {
                     disabled={pendingMutation() !== null}
                     aria-label="Enable all Autopilot policies"
                     onClick={(e) => { e.preventDefault(); setConfirming('autopilot-enable') }}
-                  >{confirming() === 'autopilot-enable' ? 'Cancel' : 'Full Auto'}</button>
+                  >{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirming() === 'autopilot-enable' ? 'Cancel' : 'Full Auto'}</button>
                 }>
                   <button
                     class={`ghost ${confirming() === 'autopilot-disable' ? '' : 'danger-ghost'}`}
                     disabled={pendingMutation() !== null}
                     aria-label={confirming() === 'autopilot-disable' ? 'Cancel bulk action' : 'Disable all Autopilot policies'}
                     onClick={(e) => { e.preventDefault(); setConfirming(confirming()?.startsWith('autopilot') ? null : 'autopilot-disable') }}
-                  >{confirming() === 'autopilot-disable' ? 'Cancel' : 'Kill switch: disable all'}</button>
+                  >{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirming() === 'autopilot-disable' ? 'Cancel' : 'Kill switch: disable all'}</button>
                 </Show>
               </Show>
             </div>
@@ -339,7 +341,7 @@ export function OperationsPanel(props: {
           <span>{confirmCopy()!.body}</span>
           <div class="row-health">
             <button class="ghost" onClick={() => setConfirming(null)}>Cancel</button>
-            <button class={confirming() === 'autopilot-disable' ? 'danger-ghost' : ''} disabled={pendingMutation() !== null} onClick={() => { const enable = confirming() === 'autopilot-enable'; setConfirming(null); void bulkAutopilot(enable) }}>{confirmCopy()!.action}</button>
+            <button class={confirming() === 'autopilot-disable' ? 'danger-ghost' : ''} disabled={pendingMutation() !== null} onClick={() => { const enable = confirming() === 'autopilot-enable'; setConfirming(null); void bulkAutopilot(enable) }}>{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirmCopy()!.action}</button>
           </div>
         </div></Show>
         <Show when={autopilot.data} fallback={autopilot.error ? null : <SkeletonAutopilotKpis />}>{data => <>

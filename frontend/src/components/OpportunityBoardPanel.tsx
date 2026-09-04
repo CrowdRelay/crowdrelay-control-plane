@@ -6,6 +6,7 @@ import { errorMessage } from '../lib/format'
 import { SkeletonOpportunityBoard } from './Skeleton'
 import { CONTEXT_LABELS, SUBJECT_KIND_LABELS, RANK_FACTOR_LABELS, VALUE_TIER_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
 import { SectionIcon } from './SectionIcon'
+import { Spinner } from './Spinner'
 
 // Phase 18 — find, then "do it". CrowdRelay parks what its agent found; this
 // board is where a human decides. "Do it" approves through CrowdRelay's own
@@ -214,7 +215,7 @@ export function OpportunityBoardPanel(props: {
                     disabled={pendingMutation() !== null}
                     onClick={() => doIt(entry)}
                   >
-                    {pendingMutation() === `do:${entry.decision_id}` ? 'Approving…' : confirming() === `do:${entry.decision_id}` ? 'Confirm approval' : 'Do it'}
+                    {pendingMutation() === `do:${entry.decision_id}` && <Spinner />} {pendingMutation() === `do:${entry.decision_id}` ? 'Approving…' : confirming() === `do:${entry.decision_id}` ? 'Confirm approval' : 'Do it'}
                   </button>
                 </Show>
                 <button
@@ -223,7 +224,7 @@ export function OpportunityBoardPanel(props: {
                   disabled={pendingMutation() !== null}
                   onClick={() => doneOurselves(entry)}
                 >
-                  {pendingMutation() === `done:${entry.decision_id}` ? 'Recording…' : confirming() === `done:${entry.decision_id}` ? 'Confirm done' : 'Done ourselves'}
+                  {pendingMutation() === `done:${entry.decision_id}` && <Spinner />} {pendingMutation() === `done:${entry.decision_id}` ? 'Recording…' : confirming() === `done:${entry.decision_id}` ? 'Confirm done' : 'Done ourselves'}
                 </button>
               </div>
             </div>

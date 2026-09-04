@@ -115,7 +115,7 @@ export function LearningLoopPanel(props: { slug: string }) {
           </div>
         </div>
 
-        {/* Decision chain entries */}
+        {/* Decision chain entries — left → right flow */}
         <div class="learning-loop-list">
           <For each={entries().slice(0, 10)}>{(entry) => (
             <div class="learning-loop-entry">
@@ -128,16 +128,14 @@ export function LearningLoopPanel(props: { slug: string }) {
                   <div><span class="muted">Confidence</span><strong>{confidencePercent(entry.confidence_basis_points)}</strong></div>
                   <div><span class="muted">Evaluated</span><span>{timeAgo(entry.evaluated_at)}</span></div>
                 </div>
+                <Show when={entry.reason}>
+                  <p class="learning-loop-reason">{entry.reason}</p>
+                </Show>
               </div>
-              <Show when={entry.reason}>
-                <div class="learning-loop-stage-card learning-loop-stage-reason">
-                  <span class="learning-loop-stage-label">Reason</span>
-                  <p>{entry.reason}</p>
-                </div>
-              </Show>
+
+              <div class="learning-loop-arrow">→</div>
 
               {/* ACTION */}
-              <div class="learning-loop-arrow">↓</div>
               <div class="learning-loop-stage-card">
                 <span class="learning-loop-stage-label">Action</span>
                 <Show when={entry.action} fallback={
@@ -159,8 +157,9 @@ export function LearningLoopPanel(props: { slug: string }) {
                 </Show>
               </div>
 
+              <div class="learning-loop-arrow">→</div>
+
               {/* OUTCOME */}
-              <div class="learning-loop-arrow">↓</div>
               <div class="learning-loop-stage-card">
                 <span class="learning-loop-stage-label">Outcome</span>
                 <Show when={entry.outcome} fallback={
@@ -182,7 +181,7 @@ export function LearningLoopPanel(props: { slug: string }) {
 
               {/* LEARNING — derived from outcome, not fabricated */}
               <Show when={entry.outcome}>
-                <div class="learning-loop-arrow">↓</div>
+                <div class="learning-loop-arrow">→</div>
                 <div class="learning-loop-stage-card">
                   <span class="learning-loop-stage-label">Learned</span>
                   <p class={outcomeClass(entry.outcome!.effect_assessment)}>

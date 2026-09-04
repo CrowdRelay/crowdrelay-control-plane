@@ -4,6 +4,7 @@ import { errorMessage, formatTimestamp } from '../lib/format'
 import { triggerRefresh } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonPanel } from './Skeleton'
+import { Spinner } from './Spinner'
 
 // The beacon roster, and everything you can do to it.
 //
@@ -203,7 +204,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
               onClick={importResearched}
               title="Adds researched contacts to the roster as unverified. Approve them before inviting."
             >
-              {busy() === 'import'
+              {busy() === 'import' && <Spinner />} {busy() === 'import'
                 ? 'Importing…'
                 : `Import ${network()!.researchedAvailable} researched`}
             </button>
@@ -213,7 +214,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
             classList={{ disabled: busy() !== null }}
             title="Upload a SubmitHub Activity CSV. Curators who approved or shared become unverified beacons — enrich contact info from the chats, then approve."
           >
-            {busy() === 'submithub' ? 'Importing…' : 'Import SubmitHub CSV'}
+            {busy() === 'submithub' && <Spinner />} {busy() === 'submithub' ? 'Importing…' : 'Import SubmitHub CSV'}
             <input
               type="file"
               accept=".csv,text/csv"
@@ -259,7 +260,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
           </label>
           <div class="form-actions right">
             <button class="primary" type="submit" disabled={busy() !== null || !form().displayName.trim()}>
-              {busy() === 'add' ? 'Adding…' : 'Add beacon'}
+              {busy() === 'add' && <Spinner />} {busy() === 'add' ? 'Adding…' : 'Add beacon'}
             </button>
           </div>
         </form>
@@ -291,7 +292,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
             disabled={selected().size === 0 || busy() !== null}
             onClick={inviteSelected}
           >
-            {busy() === 'invite' ? 'Inviting…' : `Invite ${selected().size} to Signal`}
+            {busy() === 'invite' && <Spinner />} {busy() === 'invite' ? 'Inviting…' : `Invite ${selected().size} to Signal`}
           </button>
         </div>
 
@@ -338,19 +339,19 @@ export function BeaconConsolePanel(props: { slug: string }) {
                     <Show when={profile.status !== 'unverified' && profile.status !== 'paused' && profile.status !== 'revoked'}>
                       <button class="ghost" disabled={busy() !== null}
                               onClick={() => setState(profile.beaconId, 'paused')}>
-                        Pause
+                        {busy() === `state:${profile.beaconId}` && <Spinner />} Pause
                       </button>
                     </Show>
                     <Show when={profile.status === 'paused'}>
                       <button class="ghost" disabled={busy() !== null}
                               onClick={() => setState(profile.beaconId, 'active')}>
-                        Resume
+                        {busy() === `state:${profile.beaconId}` && <Spinner />} Resume
                       </button>
                     </Show>
                     <Show when={profile.status !== 'unverified' && profile.status !== 'revoked'}>
                       <button class="ghost danger-ghost" disabled={busy() !== null}
                               onClick={() => setState(profile.beaconId, 'revoked')}>
-                        Revoke
+                        {busy() === `state:${profile.beaconId}` && <Spinner />} Revoke
                       </button>
                     </Show>
                   </div>

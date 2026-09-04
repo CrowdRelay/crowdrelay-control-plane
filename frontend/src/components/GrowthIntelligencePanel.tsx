@@ -6,6 +6,7 @@ import { StatusBadge } from './StatusBadge'
 import { Dialog } from './Dialog'
 import { EmptyState } from './EmptyState'
 import { SkeletonGrid, SkeletonRows, SkeletonPanel } from './Skeleton'
+import { Spinner } from './Spinner'
 import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, PendingAutopilotAction, AgentWorkflow, AgentWorkflowTask } from '../lib/types'
 
 // --- Intelligence icon (deterministic Rust autopilot) ---
@@ -141,7 +142,7 @@ function PolicyEditor(props: {
         minimum_confidence: confidenceBasisPoints(),
         max_actions_24h: maxActions(),
       })}
-    >{props.pending ? 'Saving…' : 'Apply'}</button>
+    >{props.pending && <Spinner />} {props.pending ? 'Saving…' : 'Apply'}</button>
   </div>
 }
 
@@ -302,13 +303,13 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
                         </>
                       }>
                         <button class="confirm-danger" disabled={pendingMutation()} onClick={() => cancelAction(action)}>
-                          {pendingMutation() ? 'Rejecting…' : 'Confirm rejection'}
+                          {pendingMutation() && <Spinner />} {pendingMutation() ? 'Rejecting…' : 'Confirm rejection'}
                         </button>
                         <button class="ghost" disabled={pendingMutation()} onClick={() => setConfirming(null)}>Back</button>
                       </Show>
                     }>
                       <button class="confirm-danger" disabled={pendingMutation()} onClick={() => approveAction(action)}>
-                        {pendingMutation() ? 'Approving…' : 'Confirm approval'}
+                        {pendingMutation() && <Spinner />} {pendingMutation() ? 'Approving…' : 'Confirm approval'}
                       </button>
                       <button class="ghost" disabled={pendingMutation()} onClick={() => setConfirming(null)}>Cancel</button>
                     </Show>

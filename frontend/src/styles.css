@@ -412,6 +412,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .spin{animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* Inline button spinner — sits next to "Doing…" text so the button
+   shows progress instead of just blinking disabled. */
+.btn-spinner{display:inline-block;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;flex-shrink:0}
+
 /* Tenant switcher search */
 .tenant-switcher-search{width:100%;padding:8px 10px;border-radius:8px;background:#0a0c10;border:1px solid #2a2d36;color:#d9dde6;font-size:var(--text-base);outline:none;margin-bottom:4px;transition:border-color .15s ease}
 .tenant-switcher-search:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent)22}
@@ -1157,21 +1161,22 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .learning-loop-stat-highlight{margin-left:auto;padding-left:var(--space-4);border-left:2px solid var(--good)}
 .learning-loop-stat-highlight strong{font-size:var(--text-lg);color:var(--good)}
 .learning-loop-list{display:flex;flex-direction:column;gap:var(--space-3)}
-.learning-loop-entry{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3);border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-1)}
-.learning-loop-stage-card{padding:10px 14px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--surface-2)}
+.learning-loop-entry{display:flex;flex-direction:row;align-items:stretch;gap:var(--space-2);padding:var(--space-3);border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-1)}
+.learning-loop-stage-card{flex:1 1 0;min-width:0;padding:10px 14px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--surface-2)}
 .learning-loop-stage-label{display:block;font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin-bottom:6px}
-.learning-loop-stage-rows{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px 12px}
+.learning-loop-stage-rows{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px 12px}
 .learning-loop-stage-rows>div{display:flex;flex-direction:column;gap:1px}
 .learning-loop-stage-rows .muted{font-size:var(--text-xs);color:var(--text-muted)}
 .learning-loop-stage-rows strong{font-size:var(--text-sm);color:var(--text-primary)}
 .learning-loop-stage-rows span:not(.muted){font-size:var(--text-sm);color:var(--text-secondary)}
-.learning-loop-stage-reason p{margin:0;font-size:var(--text-sm);color:var(--text-secondary);line-height:1.5}
-.learning-loop-arrow{color:var(--text-muted);font-size:var(--text-xs);margin-left:8px}
+.learning-loop-reason{margin:6px 0 0;font-size:var(--text-sm);color:var(--text-secondary);line-height:1.5}
+.learning-loop-arrow{display:flex;align-items:center;color:var(--text-muted);font-size:var(--text-base);flex:0 0 auto}
+.learning-loop-pending{margin:0;font-size:var(--text-sm);color:var(--text-muted);font-style:italic}
+.learning-loop-integrity-issue{margin:0;font-size:var(--text-sm);color:var(--bad);font-style:italic}
 .learning-loop-outcome-improved{color:var(--good)}
 .learning-loop-outcome-worsened{color:var(--bad)}
-.learning-loop-outcome-neutral{color:var(--text-muted)}
-.learning-loop-pending{color:var(--text-muted);font-style:italic}
-.learning-loop-integrity-issue{color:var(--bad);font-weight:600;font-size:var(--text-xs);text-transform:uppercase;letter-spacing:0.08em}
+.learning-loop-outcome-neutral{color:var(--text-secondary)}
+@media(max-width:900px){.learning-loop-entry{flex-direction:column}.learning-loop-arrow{justify-content:center;transform:rotate(90deg)}}
 
 /* === Attention Inbox === */
 .attention-inbox{margin-bottom:var(--space-6)}
@@ -1921,6 +1926,7 @@ table td,table th,.mono,code,
   letter-spacing:-.035em;
   line-height:1.06
 }
+.page-head > div:first-child{flex:1 1 auto;min-width:0}
 .page-head p{font-size:var(--text-body);line-height:1.6;color:var(--text-secondary);max-width:none}
 .eyebrow{font-size:var(--text-xs);letter-spacing:.14em;font-weight:700;color:var(--text-muted)}
 .section-title{margin:var(--space-8) 0 var(--space-4)}
