@@ -5,6 +5,7 @@ import { formatTimestamp } from '../lib/format'
 import type { PlayLedger, PlayKindStanding } from '../lib/types'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock } from './Skeleton'
+import { SectionIcon } from './SectionIcon'
 
 const kindLabel = (kind: string): string => {
   switch (kind) {
@@ -93,7 +94,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
 
     <Show when={ledger()} fallback={<SkeletonBlock height="120px" radius="10px" />}>
       <Show when={ledger()!.standings.length > 0}>
-        <h4 class="subsection">Kind Standings</h4>
+        <h4 class="subsection"><SectionIcon name="list-checks" />Kind Standings</h4>
         <div class="standings-grid">
           <For each={ledger()!.standings}>{(s) => (
             <div class={`standing-card standing-card-${standingTone(s)}`}>
@@ -119,7 +120,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
       </Show>
 
       <Show when={ledger()!.plays.length > 0} fallback={<EmptyState label="No plays recorded" hint="The play ledger tracks every action the intelligence has executed. Plays appear here once the autopilot starts dispatching." />}>
-        <h4 class="subsection">Plays</h4>
+        <h4 class="subsection"><SectionIcon name="play" />Plays</h4>
         <div class="play-list">
           <For each={ledger()!.plays}>{(p) => (
             <div class={`play-card play-card-${stateTone(p.state)}`}>

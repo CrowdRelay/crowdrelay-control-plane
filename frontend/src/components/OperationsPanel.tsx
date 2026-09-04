@@ -287,7 +287,7 @@ export function OperationsPanel(props: {
     <div class="operations-split">
       <section class="operations-section">
         <details open>
-          <summary class="operations-section-head"><div><span class="eyebrow">FEATURES</span><h3>Runtime switches</h3></div><small>{flags.data?.length ?? 0} declared</small></summary>
+          <summary class="operations-section-head"><div><span class="eyebrow">FEATURES</span><h3><SectionIcon name="settings" />Runtime switches</h3></div><small>{flags.data?.length ?? 0} declared</small></summary>
         <Show when={flags.data} fallback={flags.error ? null : <SkeletonFlagList />}>{items => <div class="flag-list">
           <For each={items()}>{flag => <div class="flag-row">
             <div><strong>{flagLabel(flag.key)}</strong><small>{flag.reason || `v${flag.version} · no reason provided`}</small></div>
@@ -308,7 +308,7 @@ export function OperationsPanel(props: {
       <section class="operations-section autopilot-section">
         <details open>
           <summary class="operations-section-head">
-            <div><span class="eyebrow">AUTOPILOT</span><h3>Authority policies</h3></div>
+            <div><span class="eyebrow">AUTOPILOT</span><h3><SectionIcon name="shield" />Authority policies</h3></div>
             <div class="row-health">
               <StatusBadge status={autopilot.data?.runtime_enabled ? 'runtime on' : 'runtime off'} tone={autopilot.data?.runtime_enabled ? 'good' : 'muted'} />
               {/* Killswitch / full-enable: one switch, one confirmation. */}

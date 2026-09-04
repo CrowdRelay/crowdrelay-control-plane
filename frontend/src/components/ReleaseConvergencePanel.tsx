@@ -30,6 +30,25 @@ const MISSING_RELEASE_CAUSE: Record<string, string> = {
 const missingReleaseCause = (key: string) =>
   MISSING_RELEASE_CAUSE[key] ?? 'No production release receipt reported yet.'
 
+// Extract the workflow/pipeline name from the cause text for a chip label.
+// e.g. "virya-signal mobile-release.yml has not published…" → "mobile-release.yml"
+const missingReleaseWorkflow = (key: string) => {
+  const cause = MISSING_RELEASE_CAUSE[key]
+  if (!cause) return null
+  const match = cause.match(/(\S+\.yml|\S+\.sh|crowdrelayctl deploy)/)
+  return match ? match[1] : null
+}
+
+// Categorize the missing component for a status chip.
+const missingReleaseCategory = (key: string): string => {
+  if (key.startsWith('crowdrelay')) return 'backend'
+  if (key.startsWith('virya-signal')) return 'mobile'
+  if (key.startsWith('virya')) return 'web'
+  if (key === 'synesthesia') return 'web'
+  if (key === 'n8n') return 'automation'
+  return 'component'
+}
+
 const releaseObserved = (value: string) => {
   const parsed = new Date(value)
   return Number.isNaN(parsed.getTime()) ? 'unknown time' : parsed.toLocaleString()
@@ -72,10 +91,18 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
 
         <div class="flag-list release-component-list">
           <For each={current().components}>{component => <div class="flag-row release-component-row">
-            <div>
-              <strong>{component.component_key}</strong>
-              <small>{component.environment} · {component.source_sha.slice(0, 12)} · {releaseObserved(component.observed_at)}</small>
-              <Show when={component.deploy_ref || component.version}><small>{component.version ?? 'unversioned'}{component.deploy_ref ? ` · ${component.deploy_ref}` : ''}</small></Show>
+            <div class="release-component-info">
+              <div class="release-component-head">
+                <strong>{component.component_key}</strong>
+                <div class="release-component-chips">
+                  <span class="badge tone-muted">{component.environment}</span>
+                  <Show when={component.version && component.version !== 'unversioned'}>
+                    {v => <span class="badge tone-muted mono-badge">{v()}</span>}
+                  </Show>
+                </div>
+              </div>
+              <small>{component.source_sha.slice(0, 12)} · {releaseObserved(component.observed_at)}</small>
+              <Show when={component.deploy_ref}><small class="muted">{component.deploy_ref}</small></Show>
             </div>
             <div class="row-health">
               <Show when={component.artifact_digest}><code title={component.artifact_digest ?? undefined}>{component.artifact_digest?.slice(0, 20)}…</code></Show>
@@ -83,11 +110,19 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
             </div>
           </div>}</For>
           <For each={current().missing_components}>{componentKey => <div class="flag-row release-component-row release-component-missing">
-            <div>
-              <strong>{componentKey}</strong>
-              <small>{missingReleaseCause(componentKey)}</small>
+            <div class="release-missing-info">
+              <div class="release-missing-head">
+                <strong>{componentKey}</strong>
+                <div class="release-missing-chips">
+                  <span class="badge tone-warn">missing</span>
+                  <span class="badge tone-muted">{missingReleaseCategory(componentKey)}</span>
+                  <Show when={missingReleaseWorkflow(componentKey)}>
+                    {wf => <span class="badge tone-muted mono-badge">{wf()}</span>}
+                  </Show>
+                </div>
+              </div>
+              <small class="release-missing-cause">{missingReleaseCause(componentKey)}</small>
             </div>
-            <div class="row-health"><StatusBadge status="missing" tone="warn" /></div>
           </div>}</For>
         </div>
 

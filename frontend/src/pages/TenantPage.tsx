@@ -185,7 +185,7 @@ export function TenantPage() {
       <Show when={editingMobileApps()}>
         <div class="dialog-overlay" onClick={() => setEditingMobileApps(false)}>
           <div class="dialog-panel" onClick={(e) => e.stopPropagation()}>
-            <div class="section-title"><div><span class="eyebrow">MOBILE APPS</span><h2>Google Play Store URLs</h2></div></div>
+            <div class="section-title"><div><span class="eyebrow">MOBILE APPS</span><h2><SectionIcon name="play" />Google Play Store URLs</h2></div></div>
             <p class="wizard-intro">Set the Google Play Store URL for each tenant mobile app. Leave blank if the app is not yet published.</p>
             <div class="form-grid">
               <label>Signal Play Store URL<input value={signalPlayUrl()} onInput={(e) => setSignalPlayUrl(e.currentTarget.value)} placeholder="https://play.google.com/store/apps/details?id=music.{t.slug}.signal" /></label>
@@ -259,7 +259,7 @@ export function TenantPage() {
           crew then uses the admin-side Remove button to complete it. */}
       <Show when={!isAdmin() && capabilities()?.canOptOut === true}>
         <article class="panel tenant-opt-out">
-          <div class="section-title"><div><span class="eyebrow">LEAVING</span><h2>Opt out of the platform</h2></div></div>
+          <div class="section-title"><div><span class="eyebrow">LEAVING</span><h2><SectionIcon name="alert-triangle" />Opt out of the platform</h2></div></div>
           <Show when={optOutDone()} fallback={
             <>
               <p>
@@ -312,7 +312,7 @@ export function TenantPage() {
           above. Tenant operators never see this — they use Opt out instead. */}
       <Show when={isAdmin() && capabilities()?.canRemove === true}>
         <article class="panel tenant-danger-zone">
-          <div class="section-title"><div><span class="eyebrow">DANGER ZONE</span><h2>Remove tenant</h2></div></div>
+          <div class="section-title"><div><span class="eyebrow">DANGER ZONE</span><h2><SectionIcon name="alert-triangle" />Remove tenant</h2></div></div>
           <p>
             Unregisters <strong>{t.displayName}</strong> from the control plane: its operators,
             runtime status and provisioning history here are deleted and cannot be restored from

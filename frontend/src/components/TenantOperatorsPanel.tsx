@@ -60,7 +60,7 @@ export function TenantOperatorsPanel(props: { slug: string }) {
     <div class="notifier-list"><For each={accounts.data?.items ?? []}>{account =>
       <div class="notifier-row">
         <div class="notifier-meta"><strong>{account.username}</strong><small>{account.active ? 'active' : 'disabled'} · tenant_operator</small></div>
-        <button type="button" class="danger-ghost" onClick={async () => {
+        <button type="button" class="danger-ghost" disabled={remove.isPending} onClick={async () => {
           const ok = await confirmAction({
             title: `Remove operator “${account.username}”?`,
             body: 'Their sessions stop working immediately.',

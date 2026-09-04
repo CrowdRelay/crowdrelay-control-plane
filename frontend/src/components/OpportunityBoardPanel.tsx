@@ -5,6 +5,7 @@ import { StatusBadge } from './StatusBadge'
 import { errorMessage } from '../lib/format'
 import { SkeletonOpportunityBoard } from './Skeleton'
 import { CONTEXT_LABELS, SUBJECT_KIND_LABELS, RANK_FACTOR_LABELS, VALUE_TIER_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
+import { SectionIcon } from './SectionIcon'
 
 // Phase 18 — find, then "do it". CrowdRelay parks what its agent found; this
 // board is where a human decides. "Do it" approves through CrowdRelay's own
@@ -104,7 +105,7 @@ export function OpportunityBoardPanel(props: {
     <div class="section-title operations-title">
       <div>
         <span class="eyebrow">OPPORTUNITY BOARD</span>
-        <h2>Found for you — decide</h2>
+        <h2><SectionIcon name="target" />Found for you — decide</h2>
         <p>Everything the agent found and parked: gigs with computed economics, pitches, waves and deadlines. “Do it” approves the parked action through CrowdRelay’s existing approval path; “done ourselves” records that a human handled it outside the system, which is a success — not a dismissal.</p>
       </div>
       <StatusBadge status={board.data ? `${board.data.length} queued` : 'loading'} tone={board.error ? 'bad' : 'muted'} />

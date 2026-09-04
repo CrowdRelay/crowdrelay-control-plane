@@ -6,6 +6,7 @@ import { toast } from '../lib/toast'
 import type { AutomationEvent, AutomationWorkflowConfig } from '../lib/types'
 import { EmptyState } from '../components/EmptyState'
 import { SkeletonRows } from '../components/Skeleton'
+import { SectionIcon } from '../components/SectionIcon'
 
 const severityTone = (s: string) => s === 'error' ? 'bad' : s === 'warn' ? 'warn' : 'muted'
 const statusTone = (s: string) => s === 'new' ? 'bad' : s === 'acknowledged' ? 'warn' : s === 'retried' ? 'warn' : 'muted'
@@ -85,7 +86,7 @@ export function AutomationPage() {
 
     <Suspense fallback={<SkeletonRows count={5} />}>
     <Show when={showConfigs()}>
-      <div class="section-title"><div><h2>Workflow routing</h2><p>One row per n8n workflow, deciding what its events do when they arrive. <strong>Category</strong> sorts the event — only <em>real work</em> is worth waking someone for. <strong>Discord</strong> forwards it to the crew channel. <strong>Muted</strong> keeps the events recorded but stops them counting as new. Changes save as you make them.</p></div></div>
+      <div class="section-title"><div><span class="eyebrow">AUTOMATION</span><h2><SectionIcon name="workflow" />Workflow routing</h2><p>One row per n8n workflow, deciding what its events do when they arrive. <strong>Category</strong> sorts the event — only <em>real work</em> is worth waking someone for. <strong>Discord</strong> forwards it to the crew channel. <strong>Muted</strong> keeps the events recorded but stops them counting as new. Changes save as you make them.</p></div></div>
       <Show when={configs.error}><div class="error-card">{configs.error?.message}</div></Show>
       <Show when={configs.data} fallback={!configs.error ? <SkeletonRows count={3} /> : null}>
         <div class="automation-config-list">
@@ -150,7 +151,7 @@ export function AutomationPage() {
       </div>
 
       <div class="section-title">
-        <h2>Recent events</h2>
+        <div><span class="eyebrow">EVENTS</span><h2><SectionIcon name="history" />Recent events</h2></div>
         <div class="filter-row">
           <select value={statusFilter()} onChange={(e) => setStatusFilter(e.currentTarget.value)}>
             <option value="">All statuses</option>

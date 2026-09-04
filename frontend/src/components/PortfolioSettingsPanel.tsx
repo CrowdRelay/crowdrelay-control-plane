@@ -2,6 +2,7 @@ import { For, Show, createMemo, createResource, createSignal } from 'solid-js'
 import { useMutation } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { PortfolioSettingsReadModel } from '../lib/types'
+import { SectionIcon } from './SectionIcon'
 
 const LABELS: Record<string, string> = {
   member_site_base_url: 'Member site base URL',
@@ -91,7 +92,7 @@ export function PortfolioSettingsPanel(props: {
 
   return <article class="panel">
     <div class="section-title">
-      <div><span class="eyebrow">BRAND</span><h2>Brand settings</h2><p>Where this tenant's fan-facing links point. Each field is live as soon as it is saved — the apps read these values directly.</p></div>
+      <div><span class="eyebrow">BRAND</span><h2><SectionIcon name="settings" />Brand settings</h2><p>Where this tenant's fan-facing links point. Each field is live as soon as it is saved — the apps read these values directly.</p></div>
     </div>
     <p class="agent-section-intro">A field left empty runs the shipped default; <span class="badge tone-warn override-pill">override</span> marks the ones this tenant has replaced. Edit a field and its Save button appears beside it.</p>
     <div class="form-grid">

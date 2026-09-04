@@ -9,6 +9,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { CountUp } from '../components/CountUp'
 import { ProgressRing } from '../components/ProgressRing'
 import { EmptyState } from '../components/EmptyState'
+import { SectionIcon } from '../components/SectionIcon'
 
 const healthTone = (health: RuntimeHealth) => health === 'healthy' ? 'good' : health === 'degraded' ? 'bad' : health === 'stale' ? 'warn' : 'muted'
 
@@ -89,7 +90,7 @@ export function OverviewPage() {
 
     {/* Fleet health ring + Tenant pulse — the fleet at a glance, first */}
     <div class="section-title">
-      <h2>Tenant pulse</h2>
+      <div><span class="eyebrow">PULSE</span><h2><SectionIcon name="heartbeat" />Tenant pulse</h2></div>
       <Show when={authState.profile()?.role === 'platform_admin'}><Link to="/tenants" class="section-link">Manage tenants →</Link></Show>
     </div>
     <Show when={items().length > 0}>
@@ -131,7 +132,7 @@ export function OverviewPage() {
     {/* Platform services — reference, moved below the fleet so the operator's
         own tenants are the first thing they see. */}
     <Show when={overview.data?.platformHealth && overview.data.platformHealth.length > 0}>
-      <div class="section-title"><h2>Platform services</h2></div>
+      <div class="section-title"><div><span class="eyebrow">SERVICES</span><h2><SectionIcon name="server" />Platform services</h2></div></div>
       <div class="service-grid">
         <For each={overview.data!.platformHealth}>{(svc: PlatformHealthEntry) => (
           <div class="service-card" classList={{ healthy: svc.healthy, unhealthy: !svc.healthy }}>

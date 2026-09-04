@@ -5,6 +5,7 @@ import type { FanbaseBlock, FanbaseConnection } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { FanbaseIcon } from './ProviderIcon'
 import { SkeletonRows } from './Skeleton'
+import { SectionIcon } from './SectionIcon'
 
 const SOURCE_KINDS = [
   { value: 'http_json_pull', label: 'HTTP JSON (pull)' },
@@ -377,7 +378,7 @@ export function FanSourcesPanel(props: {
 
   return <article class="panel">
     <div class="section-title">
-      <div><span class="eyebrow">FAN SOURCES</span><h2>Fanbases</h2><p>First-class audience blocks with a swappable acquisition origin. Every ingest lands candidates as pending double opt-in — active fans are never downgraded and opt-outs are never resurrected.</p></div>
+      <div><span class="eyebrow">FAN SOURCES</span><h2><SectionIcon name="globe" />Fanbases</h2><p>First-class audience blocks with a swappable acquisition origin. Every ingest lands candidates as pending double opt-in — active fans are never downgraded and opt-outs are never resurrected.</p></div>
       <div class="row-health">
         <Show when={!creating}>
           <button onClick={() => { setCreating(true); setNotice(null) }}>+ New fanbase</button>
@@ -695,7 +696,7 @@ export function FanSourcesPanel(props: {
     </Show>
 
     <Show when={blocks().length}>
-      <table class="data-table">
+      <table class="data-table" aria-label="Fanbases">
         <thead><tr><th>Name</th><th>Origin</th><th>Members</th><th>Last ingestion</th><th>Ingest</th><th></th></tr></thead>
         <tbody>
           <For each={blocks()}>{fb => (

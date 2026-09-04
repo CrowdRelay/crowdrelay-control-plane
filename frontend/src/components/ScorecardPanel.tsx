@@ -8,6 +8,7 @@ import { StatusBadge } from './StatusBadge'
 import { CountUp } from './CountUp'
 import { ProgressRing } from './ProgressRing'
 import { SkeletonScorecard } from './Skeleton'
+import { SectionIcon } from './SectionIcon'
 
 const count = (value: number | undefined | null) =>
   value == null ? '—' : value.toLocaleString()
@@ -92,7 +93,7 @@ export function ScorecardPanel(props: { slug: string }) {
     <div class="section-title operations-title">
       <div>
         <span class="eyebrow">AGENT SCORECARD</span>
-        <h2>Is it working?</h2>
+        <h2><SectionIcon name="activity" />Is it working?</h2>
         <p>Autopilot status, weekly activity, and recent completions — results, not logs.</p>
       </div>
       <StatusBadge status={statusLabel(data())} tone={statusTone(data())} />
@@ -135,7 +136,7 @@ export function ScorecardPanel(props: { slug: string }) {
       {/* Week summary */}
       <section class="operations-section">
         <div class="operations-section-head">
-          <div><span class="eyebrow">THIS WEEK</span><h3>Actions</h3></div>
+          <div><span class="eyebrow">THIS WEEK</span><h3><SectionIcon name="zap" />Actions</h3></div>
         </div>
         <div class="operations-metrics">
           <div><span>Executed</span><CountUp value={d().week.executed} /><small>{count(d().week.succeeded)} succeeded · {count(d().week.failed)} failed</small></div>
@@ -153,7 +154,7 @@ export function ScorecardPanel(props: { slug: string }) {
       {/* Track record */}
       <section class="operations-section">
         <div class="operations-section-head">
-          <div><span class="eyebrow">TRACK RECORD</span><h3>Did it work?</h3></div>
+          <div><span class="eyebrow">TRACK RECORD</span><h3><SectionIcon name="history" />Did it work?</h3></div>
         </div>
         <div class="operations-metrics">
           <div><span>Improved</span><strong>{count(d().track_record.improved)}</strong><small class="tone-good">measured wins</small></div>
@@ -200,7 +201,7 @@ export function ScorecardPanel(props: { slug: string }) {
       <Show when={d().by_context.length > 0}>
         <section class="operations-section">
           <div class="operations-section-head">
-            <div><span class="eyebrow">BY CONTEXT</span><h3>Which parts are producing</h3></div>
+            <div><span class="eyebrow">BY CONTEXT</span><h3><SectionIcon name="target" />Which parts are producing</h3></div>
           </div>
           <div class="scorecard-grid-3">
             <For each={d().by_context}>{ctx => <div class="scorecard-context-card">
@@ -215,7 +216,7 @@ export function ScorecardPanel(props: { slug: string }) {
       {/* Recent results */}
       <section class="operations-section">
         <div class="operations-section-head">
-          <div><span class="eyebrow">RECENT RESULTS</span><h3>Last 10 completed actions</h3></div>
+          <div><span class="eyebrow">RECENT RESULTS</span><h3><SectionIcon name="list-checks" />Last 10 completed actions</h3></div>
         </div>
         <Show when={d().recent_results.length > 0} fallback={<div class="inherit-card"><p>The agent has not completed any actions yet.</p></div>}>
           <div class="scorecard-grid-2">
