@@ -198,8 +198,8 @@ async fn main() -> anyhow::Result<()> {
             }
         });
     }
-    // Automation event retention sweep: delete resolved/retried/muted events
-    // older than 30 days. Runs hourly; the partial index keeps it cheap.
+    // Hourly retention sweeps: automation events older than 30 days, and
+    // expired operator sessions. Both are cheap DELETEs on indexed columns.
     {
         let worker_state = state.clone();
         tokio::spawn(async move {
@@ -213,6 +213,13 @@ async fn main() -> anyhow::Result<()> {
                     }
                     Ok(_) => {}
                     Err(error) => tracing::warn!(%error, "automation event retention sweep failed"),
+                }
+                match worker_state.store.sweep_expired_sessions().await {
+                    Ok(deleted) if deleted > 0 => {
+                        tracing::info!(deleted, "expired session sweep");
+                    }
+                    Ok(_) => {}
+                    Err(error) => tracing::warn!(%error, "expired session sweep failed"),
                 }
             }
         });
@@ -409,6 +416,11 @@ async fn dispatch_pending_notifications(state: &AppState) -> anyhow::Result<()> 
 /// probe is a single GET with a 5s timeout; failures are recorded as
 /// unhealthy with the status text, never propagated. Probes run concurrently
 /// to avoid serial latency when one service is slow.
+///
+/// A 200 response is healthy only if the body is valid JSON with a
+/// `"status": "ok"` field — a bare substring match would let "not ok" or
+/// broken HTML register as healthy. Failures are classified so the operator
+/// can tell a timeout from a transport error from a malformed response.
 async fn poll_platform_health(state: &AppState, client: &reqwest::Client) -> anyhow::Result<()> {
     use futures_util::future::join_all;
     let services = state.store.list_platform_health().await?;
@@ -425,28 +437,34 @@ async fn poll_platform_health(state: &AppState, client: &reqwest::Client) -> any
                         let code = response.status().as_u16();
                         if response.status().is_success() {
                             let body = response.text().await.unwrap_or_default();
-                            // n8n /healthz returns {"status":"ok"}. Match the JSON
-                            // field, not a bare substring — "not ok" or "broken"
-                            // must not register as healthy.
-                            let ok = body.contains("\"status\":\"ok\"")
-                                || body.contains("\"status\": \"ok\"");
-                            let status_text = if body.len() <= 120 {
-                                body.clone()
-                            } else {
-                                // Truncate at a char boundary to avoid splitting
-                                // multi-byte UTF-8.
-                                let mut end = 120;
-                                while end > 0 && !body.is_char_boundary(end) {
-                                    end -= 1;
-                                }
-                                body[..end].to_owned()
-                            };
-                            (ok, format!("200:{status_text}"))
+                            // Parse the body as JSON and check the status field.
+                            // A non-JSON body (e.g. HTML error page from a
+                            // misconfigured proxy) is malformed, not healthy.
+                            let ok = serde_json::from_str::<serde_json::Value>(&body)
+                                .ok()
+                                .and_then(|v| {
+                                    v.get("status").and_then(|s| s.as_str()).map(|s| s == "ok")
+                                })
+                                .unwrap_or(false);
+                            let label = if ok { "healthy" } else { "malformed_response" };
+                            let status_text = truncate_at_char_boundary(&body, 120);
+                            (ok, format!("200:{label}:{status_text}"))
                         } else {
-                            (false, format!("{code}"))
+                            (false, format!("{code}:http_unhealthy"))
                         }
                     }
-                    Err(error) => (false, format!("error:{}", error)),
+                    Err(error) => {
+                        // Classify the transport error: timeout vs connection
+                        // vs other. reqwest exposes is_timeout() and is_connect().
+                        let kind = if error.is_timeout() {
+                            "timeout"
+                        } else if error.is_connect() {
+                            "connect_failed"
+                        } else {
+                            "transport_error"
+                        };
+                        (false, format!("{kind}:{}", error))
+                    }
                 };
                 (service.service, healthy, status, latency_ms)
             }
@@ -460,4 +478,16 @@ async fn poll_platform_health(state: &AppState, client: &reqwest::Client) -> any
             .await?;
     }
     Ok(())
+}
+
+/// Truncate at a char boundary to avoid splitting multi-byte UTF-8.
+fn truncate_at_char_boundary(s: &str, max: usize) -> &str {
+    if s.len() <= max {
+        return s;
+    }
+    let mut end = max;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    &s[..end]
 }
