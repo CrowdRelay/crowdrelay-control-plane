@@ -5,6 +5,7 @@ import { errorMessage } from '../lib/format'
 import { triggerRefresh } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonPanel } from './Skeleton'
+import { Spinner } from './Spinner'
 
 const CycleIcon = (props: { size?: number }) => (
   <svg width={props.size ?? 18} height={props.size ?? 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -147,16 +148,22 @@ export function RunBrainCyclePanel(props: { slug: string }) {
             </Show>
 
             <div class="template-priority">
-              <span class="stat-label">Template order</span>
-              <ol>
+              <span class="stat-label">Worker pipeline — brain dispatches in this order</span>
+              <div class="template-flow">
                 <For each={data().templatePriority}>
                   {(template, index) => (
-                    <li>
-                      <StatusBadge tone={index() === 0 ? 'good' : 'muted'} status={template} />
-                    </li>
+                    <>
+                      <Show when={index() > 0}>
+                        <span class="template-flow-arrow" aria-hidden="true">→</span>
+                      </Show>
+                      <div class="template-flow-chip" classList={{ 'template-flow-chip-first': index() === 0 }}>
+                        <span class="template-flow-index">{index() + 1}</span>
+                        <span class="template-flow-name">{template.replaceAll('-', ' ')}</span>
+                      </div>
+                    </>
                   )}
                 </For>
-              </ol>
+              </div>
             </div>
 
             <footer class="panel-footer">
@@ -165,7 +172,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                 onClick={() => void runCycle()}
                 disabled={running() || !data().hasAnyConnectedPlatform}
               >
-                {running() ? 'Requesting…' : 'Run cycle now'}
+                {running() && <Spinner />} {running() ? 'Requesting…' : 'Run cycle now'}
               </button>
               <span class="muted">
                 Dispatches real outreach. Subject to the same autonomy policy and 24-hour action

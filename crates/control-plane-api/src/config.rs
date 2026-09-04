@@ -58,6 +58,14 @@ pub struct Config {
     /// targets (e.g. "https://control.virya.music"). If unset, the redirect_uri
     /// origin must match the request's Host header.
     pub allowed_redirect_origins: Vec<String>,
+    /// GitHub PAT (or fine-grained token) with `actions:write` on the deploy
+    /// repo. Used to trigger the ecosystem-deploy workflow for externally-owned
+    /// tenants (Virya) whose lifecycle is not provisioned by the tenant agent.
+    /// Without it, the "Redeploy app" button returns a clear error for Virya.
+    pub github_deploy_token: Option<String>,
+    /// Repository in `owner/name` form that hosts the ecosystem-deploy workflow
+    /// (e.g. "CrowdRelay/crowdrelay"). Paired with github_deploy_token.
+    pub github_deploy_repo: Option<String>,
 }
 
 impl Config {
@@ -281,12 +289,32 @@ impl Config {
                         .collect()
                 })
                 .unwrap_or_default(),
+            github_deploy_token: optional_secret("CONTROL_PLANE_GITHUB_DEPLOY_TOKEN")?,
+            github_deploy_repo: match optional_env("CONTROL_PLANE_GITHUB_DEPLOY_REPO")? {
+                Some(repo) => {
+                    anyhow::ensure!(
+                        repo.contains('/')
+                            && !repo.starts_with('/')
+                            && !repo.ends_with('/')
+                            && repo.split('/').count() == 2,
+                        "CONTROL_PLANE_GITHUB_DEPLOY_REPO must be owner/name"
+                    );
+                    Some(repo)
+                }
+                None => None,
+            },
         };
         // Both or neither: half-configured bootstrap is a deployment typo,
         // not a feature.
         anyhow::ensure!(
             config.bootstrap_admin_password.is_some() == config.bootstrap_admin_username.is_some(),
             "CONTROL_PLANE_BOOTSTRAP_ADMIN_PASSWORD and CONTROL_PLANE_BOOTSTRAP_ADMIN_USERNAME must be set together"
+        );
+        // GitHub deploy trigger: both or neither. A token without a repo (or
+        // vice versa) is a configuration typo, not a feature.
+        anyhow::ensure!(
+            config.github_deploy_token.is_some() == config.github_deploy_repo.is_some(),
+            "CONTROL_PLANE_GITHUB_DEPLOY_TOKEN and CONTROL_PLANE_GITHUB_DEPLOY_REPO must be set together"
         );
         if let Some(password) = config.bootstrap_admin_password.as_deref() {
             anyhow::ensure!(

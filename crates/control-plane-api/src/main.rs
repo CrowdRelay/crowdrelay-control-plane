@@ -65,6 +65,11 @@ pub struct AppState {
     /// Comma-separated allow-list of origins permitted as OAuth redirect_uri
     /// targets. If empty, the redirect_uri origin must match the request Host.
     allowed_redirect_origins: Arc<[String]>,
+    /// GitHub PAT with actions:write on the deploy repo. Used to trigger
+    /// ecosystem-deploy for externally-owned tenants (Virya).
+    github_deploy_token: Option<Arc<str>>,
+    /// Repository in owner/name form hosting the ecosystem-deploy workflow.
+    github_deploy_repo: Option<Arc<str>>,
 }
 
 #[tokio::main]
@@ -154,6 +159,8 @@ async fn main() -> anyhow::Result<()> {
         notify_email_relay_url: config.notify_email_relay_url.map(Arc::from),
         http_client,
         allowed_redirect_origins: Arc::from(config.allowed_redirect_origins.as_slice()),
+        github_deploy_token: config.github_deploy_token.map(Arc::from),
+        github_deploy_repo: config.github_deploy_repo.map(Arc::from),
     };
     // Bounded best-effort notifier delivery. Nothing in the request path
     // depends on this loop; a dead channel dies in its outbox row, not here.
