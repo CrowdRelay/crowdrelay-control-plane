@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import type { RegionalProfile, TenantSummary } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
+import { Spinner } from './Spinner'
 
 type Props = { tenant: TenantSummary }
 
@@ -59,7 +60,7 @@ export function RegionalProfilePanel(props: Props) {
       <div class="form-readiness" aria-live="polite">
         <Show when={!ready()} fallback={<span class="readiness-message"><span class="auth-dot ok"/>Profile is complete and ready to save.</span>}><span class="readiness-message"><span class="auth-dot"/>Complete country, locale, timezone and currency to continue.</span></Show>
       </div>
-      <button type="button" onClick={()=>update.mutate()} disabled={update.isPending || !ready()}>{update.isPending ? 'Saving…' : props.tenant.regionalProfile ? 'Save regional profile' : 'Classify tenant'}</button>
+      <button type="button" onClick={()=>update.mutate()} disabled={update.isPending || !ready()}>{update.isPending && <Spinner />} {update.isPending ? 'Saving…' : props.tenant.regionalProfile ? 'Save regional profile' : 'Classify tenant'}</button>
     </div>
   </article>
 }

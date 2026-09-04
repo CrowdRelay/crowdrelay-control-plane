@@ -4,6 +4,7 @@ import { useNavigate } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import type { RegionalProfile } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
+import { Spinner } from '../components/Spinner'
 
 type Preset = 'PL' | 'DE' | 'CZ' | 'US'
 const presets: Record<Preset, RegionalProfile> = {
@@ -389,7 +390,7 @@ export function TenantWizardPage() {
           </div>
           <button class="ghost" onClick={prevStep}>← Back</button>
           <button onClick={() => createTenant.mutate()} disabled={createTenant.isPending || !deployFieldsReady()}>
-            {createTenant.isPending ? 'Creating…' : deployNow() ? 'Create & deploy' : 'Create tenant'}
+            {createTenant.isPending && <Spinner />} {createTenant.isPending ? 'Creating…' : deployNow() ? 'Create & deploy' : 'Create tenant'}
           </button>
         </div>
       </div>

@@ -12,6 +12,7 @@ import { NotifierIcon } from '../components/ProviderIcon'
 import { EmptyState } from '../components/EmptyState'
 import { SkeletonNotifiersPage, SkeletonSection } from '../components/Skeleton'
 import { confirmAction } from '../components/Dialog'
+import { Spinner } from '../components/Spinner'
 
 const kindLabel = (k: NotifierChannel['kind']) => k === 'discord' ? 'Discord app' : k === 'webhook' ? 'Webhook' : 'Email (relay)'
 const evLabel = (e: string) => NOTIFIER_EVENT_LABELS[e as NotifierEvent] ?? e.replaceAll('.', ' ')
@@ -148,7 +149,7 @@ export function TenantNotifiersPage() {
         <Show when={!events().length}><small class="check-row-hint">Nothing selected — this channel receives every event.</small></Show>
       </div>
       <Show when={create.error}><div class="error-card" role="alert">{errorMessage(create.error, 'Channel creation failed')}</div></Show>
-      <div class="form-actions right"><button type="submit" disabled={create.isPending || !formReady()}>{create.isPending ? 'Adding…' : 'Add channel'}</button></div>
+      <div class="form-actions right"><button type="submit" disabled={create.isPending || !formReady()}>{create.isPending && <Spinner />} {create.isPending ? 'Adding…' : 'Add channel'}</button></div>
     </form>
 
     <Show when={channels.data} fallback={!channels.error ? null : undefined}>
@@ -208,7 +209,7 @@ export function TenantNotifiersPage() {
     <Show when={automationRouting.data}>
       <article class="panel">
         <details>
-          <summary class="section-title section-title-summary"><div><span class="eyebrow">AUTOMATION / N8N</span><h2><SectionIcon name="workflow" /> Workflow routing configs</h2></div><div class="row-health"><Show when={routingItems().length > 0}><small class="muted">{routingItems().length} workflows</small></Show><button type="button" class="ghost" disabled={syncRouting.isPending} onClick={(e) => { e.preventDefault(); syncRouting.mutate() }}>{syncRouting.isPending ? 'Syncing…' : 'Sync from n8n'}</button></div></summary>
+          <summary class="section-title section-title-summary"><div><span class="eyebrow">AUTOMATION / N8N</span><h2><SectionIcon name="workflow" /> Workflow routing configs</h2></div><div class="row-health"><Show when={routingItems().length > 0}><small class="muted">{routingItems().length} workflows</small></Show><button type="button" class="ghost" disabled={syncRouting.isPending} onClick={(e) => { e.preventDefault(); syncRouting.mutate() }}>{syncRouting.isPending && <Spinner />} {syncRouting.isPending ? 'Syncing…' : 'Sync from n8n'}</button></div></summary>
         <p class="agent-section-intro">n8n workflow routing with Discord forwarding and mute controls. <strong>source:</strong> database · <strong>owner:</strong> automation · <strong>path:</strong> workflow</p>
         <Show when={routingItems().length === 0}>
           <div class="inherit-card">
