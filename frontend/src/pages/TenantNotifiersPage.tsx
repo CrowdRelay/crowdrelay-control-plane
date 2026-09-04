@@ -123,7 +123,7 @@ export function TenantNotifiersPage() {
 
     {/* ── Create form — first, so adding a channel is the first action ── */}
     <form class="tenant-create-form" onSubmit={(e) => { e.preventDefault(); create.mutate() }}>
-      <div class="form-section-head"><div><span class="eyebrow">NEW CHANNEL</span><h2><SectionIcon name="bell" />Add a destination</h2></div></div>
+      <div class="form-section-head"><div><span class="eyebrow">NEW CHANNEL</span><h2><SectionIcon name="bell" /> Add a destination</h2></div></div>
       <p class="agent-section-intro">Adds one place this tenant's alerts are delivered to. Send a test straight after saving — a wrong URL is accepted here and only fails at delivery time.</p>
       <div class="form-grid">
         <label>
@@ -153,7 +153,7 @@ export function TenantNotifiersPage() {
 
     <Show when={channels.data} fallback={!channels.error ? null : undefined}>
       <article class="panel">
-        <div class="section-title"><div><span class="eyebrow">TENANT / {slug().toUpperCase()}</span><h2><SectionIcon name="bell" />Active destinations</h2></div><Show when={items().length > 0}><small class="muted">{items().length} configured</small></Show></div>
+        <div class="section-title"><div><span class="eyebrow">TENANT / {slug().toUpperCase()}</span><h2><SectionIcon name="bell" /> Active destinations</h2></div><Show when={items().length > 0}><small class="muted">{items().length} configured</small></Show></div>
         <p class="agent-section-intro">Per-tenant notifier channels. <strong>source:</strong> database · <strong>owner:</strong> tenant · <strong>path:</strong> direct or relay</p>
         <Show when={items().length === 0} fallback={<div class="notifier-list"><For each={items()}>{ch => <div class="notifier-row">
           <div class="notifier-meta notifier-meta-with-icon"><NotifierIcon kind={ch.kind} size={20} class="provider-icon" /><div><strong>{ch.label}</strong><small>{kindLabel(ch.kind)} · {ch.config.to ?? ch.config.urlHost ?? 'endpoint'} · {ch.events.length ? ch.events.map(evLabel).join(', ') : 'all events'}</small><Show when={testResult()[ch.id]}><small class={testResult()[ch.id]?.includes('failed') ? 'notifier-test-bad' : 'notifier-test-ok'}>{testResult()[ch.id]}</small></Show></div></div>
@@ -176,7 +176,7 @@ export function TenantNotifiersPage() {
     <Show when={platformConfig.data}>
       <article class="panel">
         <details>
-          <summary class="section-title section-title-summary"><div><span class="eyebrow">PLATFORM / CONTROL PLANE</span><h2><SectionIcon name="server" />Platform notification config</h2></div></summary>
+          <summary class="section-title section-title-summary"><div><span class="eyebrow">PLATFORM / CONTROL PLANE</span><h2><SectionIcon name="server" /> Platform notification config</h2></div></summary>
         <p class="agent-section-intro">Environment-level notification routing. <strong>source:</strong> environment · <strong>owner:</strong> platform · <strong>path:</strong> direct, relay, or workflow</p>
         <p class="agent-section-intro muted">These are separate from any Discord or n8n you have configured elsewhere — each is read from its own variable in the control plane's deployment environment, and an unset one shows the variable to set.</p>
         <table class="data-table">
@@ -208,7 +208,7 @@ export function TenantNotifiersPage() {
     <Show when={automationRouting.data}>
       <article class="panel">
         <details>
-          <summary class="section-title section-title-summary"><div><span class="eyebrow">AUTOMATION / N8N</span><h2><SectionIcon name="workflow" />Workflow routing configs</h2></div><div class="row-health"><Show when={routingItems().length > 0}><small class="muted">{routingItems().length} workflows</small></Show><button type="button" class="ghost" disabled={syncRouting.isPending} onClick={(e) => { e.preventDefault(); syncRouting.mutate() }}>{syncRouting.isPending ? 'Syncing…' : 'Sync from n8n'}</button></div></summary>
+          <summary class="section-title section-title-summary"><div><span class="eyebrow">AUTOMATION / N8N</span><h2><SectionIcon name="workflow" /> Workflow routing configs</h2></div><div class="row-health"><Show when={routingItems().length > 0}><small class="muted">{routingItems().length} workflows</small></Show><button type="button" class="ghost" disabled={syncRouting.isPending} onClick={(e) => { e.preventDefault(); syncRouting.mutate() }}>{syncRouting.isPending ? 'Syncing…' : 'Sync from n8n'}</button></div></summary>
         <p class="agent-section-intro">n8n workflow routing with Discord forwarding and mute controls. <strong>source:</strong> database · <strong>owner:</strong> automation · <strong>path:</strong> workflow</p>
         <Show when={routingItems().length === 0}>
           <div class="inherit-card">
@@ -240,7 +240,7 @@ export function TenantNotifiersPage() {
     {/* ── Discovered webhook endpoints ───────────────────────────── */}
     <Show when={discovered.error}><article class="panel"><div class="section-title"><div><span class="eyebrow">CROWDRELAY</span><h2>Discovered webhook endpoints</h2></div></div><div class="inherit-card"><p>CrowdRelay webhook endpoints unavailable: {errorMessage(discovered.error, 'read failed')}</p></div></article></Show>
     <Show when={!discovered.error && discovered.isPending}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
-    <Show when={discovered.data && discovered.data.endpoints.length > 0}><article class="panel"><div class="section-title"><div><span class="eyebrow">CROWDRELAY</span><h2><SectionIcon name="link" />Discovered webhook endpoints</h2><p>Outbound webhook delivery targets already configured in this tenant's CrowdRelay instance.</p></div></div><table class="data-table"><thead><tr><th>Name</th><th>Target</th><th>Active</th></tr></thead><tbody><For each={discovered.data?.endpoints ?? []}>{(ep: DiscoveredEndpoint) => <tr><td>{ep.name}</td><td><code>{ep.urlHost}</code></td><td><span class={`status-badge ${ep.active ? 'good' : 'muted'}`}>{ep.active ? 'active' : 'inactive'}</span></td></tr>}</For></tbody></table></article></Show>
+    <Show when={discovered.data && discovered.data.endpoints.length > 0}><article class="panel"><div class="section-title"><div><span class="eyebrow">CROWDRELAY</span><h2><SectionIcon name="link" /> Discovered webhook endpoints</h2><p>Outbound webhook delivery targets already configured in this tenant's CrowdRelay instance.</p></div></div><table class="data-table"><thead><tr><th>Name</th><th>Target</th><th>Active</th></tr></thead><tbody><For each={discovered.data?.endpoints ?? []}>{(ep: DiscoveredEndpoint) => <tr><td>{ep.name}</td><td><code>{ep.urlHost}</code></td><td><span class={`status-badge ${ep.active ? 'good' : 'muted'}`}>{ep.active ? 'active' : 'inactive'}</span></td></tr>}</For></tbody></table></article></Show>
     </Suspense>
   </section>
 }

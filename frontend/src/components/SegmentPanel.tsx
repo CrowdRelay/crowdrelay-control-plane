@@ -27,7 +27,8 @@ export function SegmentPanel(props: {
       const result = await api.audienceSegmentPreview(props.slug, slug)
       setPreviewCount(result.total)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load segment preview')
+      const msg = err instanceof Error ? err.message : 'Failed to load segment preview'
+      setError(msg.includes('unavailable') || msg.includes('503') ? 'Segment preview is not available — the audience backend may not support this segment.' : msg)
     } finally {
       setLoading(false)
     }

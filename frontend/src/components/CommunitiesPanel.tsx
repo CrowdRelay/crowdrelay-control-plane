@@ -159,15 +159,23 @@ export function CommunitiesPanel(props: { slug: string }) {
               <p class="muted">
                 {data().places.length} registered — {byKind().map(([k, n]) => `${n} ${k.replaceAll('_', ' ')}`).join(', ')}.
               </p>
-              <div class="stat-row">
+              <div class="communities-panel-list">
                 <For each={data().places.slice(0, 12)}>
                   {place => (
-                    <div class="stat">
-                      <span class="stat-label">{place.placeKind.replaceAll('_', ' ')}</span>
-                      <a class="stat-value community-link" href={place.url} target="_blank" rel="noreferrer noopener">
-                        {place.name}
-                      </a>
-                      <span class="stat-note">{number(place.memberCount)} members</span>
+                    <div class="community-panel-card">
+                      <div class="community-panel-card-head">
+                        <div>
+                          <a class="community-panel-card-name" href={place.url} target="_blank" rel="noreferrer noopener">
+                            {place.name}
+                          </a>
+                          <div class="community-panel-card-sub">
+                            <span class="community-platform" data-platform={place.platform}>{place.placeKind.replaceAll('_', ' ')}</span>
+                            <Show when={place.memberCount != null}>
+                              <span><span class="community-panel-card-members">{number(place.memberCount)}</span> members</span>
+                            </Show>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </For>
