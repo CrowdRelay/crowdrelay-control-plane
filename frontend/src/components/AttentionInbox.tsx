@@ -1,4 +1,4 @@
-import { For, Show } from 'solid-js'
+import { For, Show, onMount } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
 import type { PendingActionSummary } from '../lib/types'
 import { EmptyState } from './EmptyState'
@@ -111,6 +111,22 @@ export function AttentionInbox(props: {
   const review = () => items().filter(i => i.tier === 'review')
   const informational = () => items().filter(i => i.tier === 'informational')
 
+  // Deep-link from team emails: the URL hash may contain
+  // `#needs-you&action={id}`. On mount, parse the action ID and scroll to
+  // the matching inbox item, highlighting it briefly so the operator can
+  // see which action the email was about.
+  onMount(() => {
+    const hash = window.location.hash
+    const match = hash.match(/action=([0-9a-f-]+)/i)
+    if (!match) return
+    const actionId = match[1]
+    const el = document.getElementById(`attention-item-approval-${actionId}`)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.add('attention-item-highlighted')
+    setTimeout(() => el.classList.remove('attention-item-highlighted'), 4000)
+  })
+
   return <div class="attention-inbox">
     <div class="attention-inbox-head">
       <div>
@@ -161,7 +177,7 @@ export function AttentionInbox(props: {
 
 function AttentionItemRow(props: { item: AttentionItem }) {
   const tierClass = () => `attention-action-${props.item.tier}`
-  return <div class={`attention-item attention-item-${props.item.tier}`}>
+  return <div id={`attention-item-${props.item.id}`} class={`attention-item attention-item-${props.item.tier}`}>
     <div class="attention-item-body">
       <strong>{props.item.title}</strong>
       <small>{props.item.detail}</small>
