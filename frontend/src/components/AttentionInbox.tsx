@@ -2,6 +2,7 @@ import { For, Show } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
 import type { PendingActionSummary } from '../lib/types'
 import { EmptyState } from './EmptyState'
+import { SectionIcon } from './SectionIcon'
 
 // The attention inbox — converts the operator-attention experience from an
 // informational banner into a real action-oriented surface.
@@ -115,6 +116,7 @@ export function AttentionInbox(props: {
       <div>
         <span class="eyebrow">ATTENTION</span>
         <div class="attention-inbox-count">
+          <SectionIcon name="inbox" />
           <span class="attention-inbox-count-badge">{total()}</span>
           <span>item{total() !== 1 ? 's' : ''} need{total() === 1 ? 's' : ''} your attention</span>
         </div>

@@ -9,6 +9,7 @@ import { LocationCanvas } from '../components/area/LocationCanvas'
 import { EmptyState } from '../components/EmptyState'
 import { SkeletonRows } from '../components/Skeleton'
 import { confirmAction } from '../components/Dialog'
+import { SectionIcon } from '../components/SectionIcon'
 
 const statusTone = (status: AreaStatus) => status === 'LIVE' ? 'good' : status === 'SCHEDULED' || status === 'DRAFT' ? 'warn' : status === 'ARCHIVED' ? 'muted' : status === 'PAUSED' ? 'bad' : 'muted'
 const formatDate = (value: string) => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString() }
@@ -166,11 +167,11 @@ export function AreaPage() {
         <div class="metric"><span>Drafts</span><strong>{o().drafts}</strong></div>
         <div class="metric"><span>Paused / ended</span><strong>{o().paused + o().ended}</strong></div>
       </div>
-      <article class="panel area-entitlement-panel"><div><span class="eyebrow">ENTITLEMENT</span><h2>Tenant AREA</h2><p>Disabling AREA hides the public game but preserves drops, claims and audit history.</p></div><button class={o().entitled ? 'ghost danger-ghost' : ''} disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Disable AREA' : 'Enable AREA'}</button></article>
+      <article class="panel area-entitlement-panel"><div><span class="eyebrow">ENTITLEMENT</span><h2><SectionIcon name="map-pin" />Tenant AREA</h2><p>Disabling AREA hides the public game but preserves drops, claims and audit history.</p></div><button class={o().entitled ? 'ghost danger-ghost' : ''} disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Disable AREA' : 'Enable AREA'}</button></article>
     </>}</Show>
 
     <article class="panel">
-      <div class="section-title"><div><span class="eyebrow">LOCATIONS</span><h2>Published state + drafts</h2></div><button disabled={!overview.data?.entitled} onClick={() => setCreating(v=>!v)}>+ New location</button></div>
+      <div class="section-title"><div><span class="eyebrow">LOCATIONS</span><h2><SectionIcon name="map-pin" />Published state + drafts</h2></div><button disabled={!overview.data?.entitled} onClick={() => setCreating(v=>!v)}>+ New location</button></div>
       <Show when={creating()}><div class="area-create-card">
         <label>Search city<small>Type to filter the canonical list.</small><input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></label>
         <label>Canonical city<small>Where the drop lives. Missing city? Create one below.</small><select value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></select></label>

@@ -12,6 +12,7 @@ import { AttentionInbox } from '../components/AttentionInbox'
 import { EmptyState } from '../components/EmptyState'
 import { SignalOverviewPanel } from '../components/SignalOverviewPanel'
 import { SkeletonAttentionPage } from '../components/Skeleton'
+import { SectionIcon } from '../components/SectionIcon'
 import { refreshTick } from '../lib/refresh'
 
 const totalDead = (summary: OperationsSummary) => summary.outbox.dead + summary.deliveries.dead + summary.push.dead
@@ -286,7 +287,7 @@ export function TenantAttentionPage() {
       <div class="section-title" id="reconciliation-findings">
         <div>
           <span class="eyebrow">RECONCILIATION</span>
-          <h3>Ecosystem reconciliation</h3>
+          <h3><SectionIcon name="refresh-cw" />Ecosystem reconciliation</h3>
           <p>Consistency pass across feature flags, Bandsintown sync, and open findings. Run it first, then work through what it finds.</p>
         </div>
         <button class={confirmingReconcile() ? 'reconciliation-confirm' : 'ghost'} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Confirm reconciliation' : 'Run reconciliation'}</button>
@@ -304,8 +305,8 @@ export function TenantAttentionPage() {
       {/* Runtime health — collapsed by default. These are reference metrics
           an operator checks when investigating, not primary actions. */}
       <details>
-        <summary class="section-title section-title-summary"><div><span class="eyebrow">RUNTIME</span><h3>Database & AREA health</h3></div></summary>
-        <div class="section-title"><div><span class="eyebrow">POSTGRES RUNTIME</span><h4>Database health</h4></div><StatusBadge status={data().database.async_io_active ? 'async I/O active' : 'check I/O'} tone={data().database.async_io_active ? 'good' : 'warn'} /></div>
+        <summary class="section-title section-title-summary"><div><span class="eyebrow">RUNTIME</span><h3><SectionIcon name="database" />Database & AREA health</h3></div></summary>
+        <div class="section-title"><div><span class="eyebrow">POSTGRES RUNTIME</span><h4><SectionIcon name="database" />Database health</h4></div><StatusBadge status={data().database.async_io_active ? 'async I/O active' : 'check I/O'} tone={data().database.async_io_active ? 'good' : 'warn'} /></div>
         <div class="operations-metrics">
           <div><span>Pool</span><strong>{data().database.pool_size}/{data().database.pool_max}</strong><small>{data().database.pool_idle} idle</small></div>
           <div><span>Postgres</span><strong>{data().database.server_version_num}</strong><small>{data().database.io_method ?? 'I/O method unknown'}</small></div>
@@ -313,7 +314,7 @@ export function TenantAttentionPage() {
           <div><span>Maintenance I/O</span><strong>{data().database.maintenance_io_concurrency ?? '—'}</strong><small>max concurrency {data().database.io_max_concurrency ?? '—'}</small></div>
         </div>
 
-        <div class="section-title"><div><span class="eyebrow">AREA RUNTIME</span><h4>Reservation maintenance</h4></div><StatusBadge status={staleAreaReservations(data()) > 0 ? `${staleAreaReservations(data())} stale` : 'clean'} tone={staleAreaReservations(data()) > 0 ? 'bad' : 'good'} /></div>
+        <div class="section-title"><div><span class="eyebrow">AREA RUNTIME</span><h4><SectionIcon name="map-pin" />Reservation maintenance</h4></div><StatusBadge status={staleAreaReservations(data()) > 0 ? `${staleAreaReservations(data())} stale` : 'clean'} tone={staleAreaReservations(data()) > 0 ? 'bad' : 'good'} /></div>
         <div class="operations-metrics">
           <div><span>Stale vouchers</span><strong>{data().area.stale_voucher_reservations}</strong><small>{data().area.vouchers_issued} issued</small></div>
           <div><span>Stale ticket rewards</span><strong>{data().area.stale_ticket_reward_reservations}</strong><small>{data().area.ticket_rewards_issued} issued</small></div>
@@ -326,7 +327,7 @@ export function TenantAttentionPage() {
     <SignalOverviewPanel slug={params().slug} />
 
     <div class="section-title" id="dead-outbox">
-      <div><span class="eyebrow">DEAD OUTBOX</span><h3>Failed events</h3><p>Retry is idempotent.</p></div>
+      <div><span class="eyebrow">DEAD OUTBOX</span><h3><SectionIcon name="alert-triangle" />Failed events</h3><p>Retry is idempotent.</p></div>
     </div>
     <Show when={deadOutbox.error}><div class="error-card">Dead outbox unavailable</div></Show>
     <For each={expandOutbox() ? (deadOutbox.data ?? []) : (deadOutbox.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card">
@@ -340,7 +341,7 @@ export function TenantAttentionPage() {
     <Show when={!deadOutbox.isLoading && (deadOutbox.data?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead outbox events" hint="Dead outbox events are messages that failed delivery after all retries. A clean queue means everything is flowing." /></div></Show>
 
     <div class="section-title" id="dead-deliveries">
-      <div><span class="eyebrow">DEAD WEBHOOK DELIVERIES</span><h3>Delivery failures</h3><p>Inspect attempt history before retrying.</p></div>
+      <div><span class="eyebrow">DEAD WEBHOOK DELIVERIES</span><h3><SectionIcon name="alert-triangle" />Delivery failures</h3><p>Inspect attempt history before retrying.</p></div>
       <button type="button" class={confirming() ? 'danger-ghost' : 'ghost'} disabled={(summary.data?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</button>
     </div>
     <Show when={deadDeliveries.error}><div class="error-card">Dead deliveries unavailable</div></Show>
@@ -355,13 +356,13 @@ export function TenantAttentionPage() {
     <Show when={!deadDeliveries.isLoading && (deadDeliveries.data?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead webhook deliveries" hint="Dead webhooks are deliveries that failed after all retries. A clean list means webhooks are reaching their destinations." /></div></Show>
 
     <Show when={deliveryDetails()}>{details => <div class="panel">
-      <div class="section-title"><div><span class="eyebrow">DELIVERY DETAILS</span><h3>{details().delivery.endpoint_name}</h3><small class="mono">{details().delivery.id}</small></div><button class="ghost" onClick={() => setDeliveryDetails(null)}>Close</button></div>
+      <div class="section-title"><div><span class="eyebrow">DELIVERY DETAILS</span><h3><SectionIcon name="mail" />{details().delivery.endpoint_name}</h3><small class="mono">{details().delivery.id}</small></div><button class="ghost" onClick={() => setDeliveryDetails(null)}>Close</button></div>
       <For each={details().attempts}>{attempt => <div class="warning-card"><strong>Attempt {attempt.attempt_number} · {attempt.outcome}</strong><p>HTTP {attempt.response_status ?? '—'} · {attempt.error_kind ?? 'no error kind'} · {attempt.duration_ms} ms · {observed(attempt.finished_at)}</p></div>}</For>
       <Show when={details().attempts.length === 0}><EmptyState label="No delivery attempts" hint="Delivery attempts are logged here once the outbox starts processing messages." /></Show>
     </div>}</Show>
 
     <div class="section-title" id="dead-push">
-      <div><span class="eyebrow">DEAD PUSH</span><h3>Failed push deliveries</h3><p>{pushFailureSummary()}</p></div>
+      <div><span class="eyebrow">DEAD PUSH</span><h3><SectionIcon name="alert-triangle" />Failed push deliveries</h3><p>{pushFailureSummary()}</p></div>
       <StatusBadge status={(summary.data?.push.dead ?? 0) > 0 ? 'dead' : 'clean'} tone={(summary.data?.push.dead ?? 0) > 0 ? 'bad' : 'good'} />
     </div>
     <Show when={deadPush.error}><div class="error-card">Dead push unavailable</div></Show>
@@ -382,7 +383,7 @@ export function TenantAttentionPage() {
     </Show>
     <Show when={!deadPush.isLoading && (deadPush.data?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead push deliveries" hint="Dead push notifications are deliveries that failed after all retries. A clean list means pushes are reaching devices." /></div></Show>
 
-    <div class="section-title"><div><span class="eyebrow">REQUEST TIMELINE</span><h3>Correlation trace</h3><p>Metadata-only trace across audit, outbox, delivery and operator actions.</p></div></div>
+    <div class="section-title"><div><span class="eyebrow">REQUEST TIMELINE</span><h3><SectionIcon name="history" />Correlation trace</h3><p>Metadata-only trace across audit, outbox, delivery and operator actions.</p></div></div>
     <div class="provision-row">
       <input class="mono" value={timelineInput()} onInput={(event) => setTimelineInput(event.currentTarget.value)} placeholder="Request or correlation ID" aria-label="Request or correlation ID" />
       <button class="ghost" disabled={!timelineInput().trim() || !!busy()} onClick={() => void lookupTimeline()}>{busy() === 'timeline' ? 'Tracing…' : 'Trace request'}</button>

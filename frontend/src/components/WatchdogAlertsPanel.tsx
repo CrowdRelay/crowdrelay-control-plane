@@ -3,6 +3,7 @@ import { Link } from '@tanstack/solid-router'
 import type { OpsAlert } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './EmptyState'
+import { SectionIcon } from './SectionIcon'
 
 // What each watchdog condition actually observes, and where an operator can act
 // on it. The upstream row carries a one-line summary and raw evidence; the
@@ -77,7 +78,7 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
     <div class="section-title">
       <div>
         <span class="eyebrow">WATCHDOG</span>
-        <h3>Open alerts</h3>
+        <h3><SectionIcon name="alert-triangle" />Open alerts</h3>
         {/* The counts on this page and on Operations come from these rows, so
             state the cadence: an operator who fixed the cause should not read a
             still-open alert as a second incident. */}

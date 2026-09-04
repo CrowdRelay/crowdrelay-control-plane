@@ -12,6 +12,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { SkeletonIntelligencePage } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
 import { refreshTick } from '../lib/refresh'
+import { SectionIcon } from '../components/SectionIcon'
 
 /**
  * Intelligence subpage — tabbed view for the deterministic Rust autopilot.
@@ -97,7 +98,7 @@ export function TenantIntelligencePage() {
         <div class="brain-group">
           <div class="brain-group-head">
             <span class="eyebrow">WHAT IT KNOWS</span>
-            <h3>Scorecard & objectives</h3>
+            <h3><SectionIcon name="brain" />Scorecard & objectives</h3>
           </div>
           <ScorecardPanel slug={params().slug} />
           <GrowthObjectivesPanel slug={params().slug} />
@@ -109,7 +110,7 @@ export function TenantIntelligencePage() {
         <div class="brain-group">
           <div class="brain-group-head">
             <span class="eyebrow">WHAT IT BELIEVES</span>
-            <h3>Growth intelligence</h3>
+            <h3><SectionIcon name="trending-up" />Growth intelligence</h3>
           </div>
           <RunBrainCyclePanel slug={params().slug} />
           <GrowthIntelligencePanel slug={params().slug} />
@@ -121,7 +122,7 @@ export function TenantIntelligencePage() {
         <div class="brain-group">
           <div class="brain-group-head">
             <span class="eyebrow">WHAT IT DECIDED</span>
-            <h3>Decision timeline</h3>
+            <h3><SectionIcon name="history" />Decision timeline</h3>
           </div>
           <IntelligenceTransparencyPanel slug={params().slug} />
         </div>
@@ -132,7 +133,7 @@ export function TenantIntelligencePage() {
         <div class="brain-group">
           <div class="brain-group-head">
             <span class="eyebrow">WHAT IT LEARNED</span>
-            <h3>Decision → Action → Outcome → Learning</h3>
+            <h3><SectionIcon name="refresh-cw" />Decision → Action → Outcome → Learning</h3>
           </div>
           <LearningLoopPanel slug={params().slug} />
         </div>

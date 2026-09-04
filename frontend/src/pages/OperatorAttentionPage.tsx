@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { StatusBadge } from '../components/StatusBadge'
 import { EmptyState } from '../components/EmptyState'
 import { SkeletonRows } from '../components/Skeleton'
+import { SectionIcon } from '../components/SectionIcon'
 import type { RuntimeHealth, TenantSummary } from '../lib/types'
 
 const healthTone = (health: RuntimeHealth) => health === 'healthy' ? 'good' : health === 'degraded' ? 'bad' : health === 'stale' ? 'warn' : 'muted'
@@ -65,7 +66,7 @@ export function OperatorAttentionPage() {
         </article>
       </div>
 
-      <div class="section-title"><h2>Tenant registry</h2></div>
+      <div class="section-title"><div><span class="eyebrow">REGISTRY</span><h2><SectionIcon name="users" />Tenant registry</h2></div></div>
       <div class="tenant-list compact">
         <For each={items()}>{(tenant: TenantSummary) => (
           <Link to="/tenants/$slug/attention" params={{ slug: tenant.slug }} class="tenant-row">

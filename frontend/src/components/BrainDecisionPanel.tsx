@@ -7,6 +7,7 @@ import { EmptyState } from './EmptyState'
 import { errorMessage } from '../lib/format'
 import { SkeletonRows } from './Skeleton'
 import { CONTEXT_LABELS, SUBJECT_KIND_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
+import { SectionIcon } from './SectionIcon'
 
 // The flagship decision surface. Shows the single most important current
 // decision (opportunity board position #1) in a structured narrative:
@@ -221,7 +222,7 @@ export function BrainDecisionPanel(props: {
     <div class="brain-decision-head">
       <div>
         <span class="eyebrow">BRAIN DECISION</span>
-        <h2>What the system decided</h2>
+        <h2><SectionIcon name="brain" />What the system decided</h2>
       </div>
       <Show when={hasDecision()} fallback={
         <StatusBadge status="idle" tone="muted" />

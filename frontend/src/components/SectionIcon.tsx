@@ -15,6 +15,24 @@ type IconName =
   | 'git-branch'
   | 'history'
   | 'users'
+  | 'alert-triangle'
+  | 'refresh-cw'
+  | 'database'
+  | 'map-pin'
+  | 'bell'
+  | 'link'
+  | 'book-open'
+  | 'brain'
+  | 'megaphone'
+  | 'settings'
+  | 'zap'
+  | 'workflow'
+  | 'mail'
+  | 'inbox'
+  | 'target'
+  | 'trending-up'
+  | 'list-checks'
+  | 'flask-conical'
 
 const Svg = (props: { children: JSX.Element }) => (
   <svg
@@ -110,6 +128,143 @@ const ICONS: Record<IconName, JSX.Element> = {
       <circle cx="9" cy="7" r="4" />
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </Svg>
+  ),
+  // alert-triangle — for attention / watchdog / dead queues
+  'alert-triangle': (
+    <Svg>
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </Svg>
+  ),
+  // refresh-cw — for reconciliation
+  'refresh-cw': (
+    <Svg>
+      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+      <path d="M8 16H3v5" />
+    </Svg>
+  ),
+  // database — for postgres
+  database: (
+    <Svg>
+      <ellipse cx="12" cy="5" rx="9" ry="3" />
+      <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+      <path d="M3 12A9 3 0 0 0 21 12" />
+    </Svg>
+  ),
+  // map-pin — for AREA
+  'map-pin': (
+    <Svg>
+      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0" />
+      <circle cx="12" cy="10" r="3" />
+    </Svg>
+  ),
+  // bell — for notifiers
+  bell: (
+    <Svg>
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+    </Svg>
+  ),
+  // link — for edges / connections
+  link: (
+    <Svg>
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </Svg>
+  ),
+  // book-open — for learning loop
+  'book-open': (
+    <Svg>
+      <path d="M12 7v14" />
+      <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+    </Svg>
+  ),
+  // brain — for intelligence / decisions
+  brain: (
+    <Svg>
+      <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" />
+      <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" />
+    </Svg>
+  ),
+  // megaphone — for portfolio / amplification
+  megaphone: (
+    <Svg>
+      <path d="m3 11 18-5v12L3 14v-3z" />
+      <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+    </Svg>
+  ),
+  // settings — for brand/settings
+  settings: (
+    <Svg>
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
+    </Svg>
+  ),
+  // zap — for automation
+  zap: (
+    <Svg>
+      <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
+    </Svg>
+  ),
+  // workflow — for routing
+  workflow: (
+    <Svg>
+      <rect width="8" height="8" x="3" y="3" rx="2" />
+      <path d="M7 11v4a2 2 0 0 0 2 2h4" />
+      <rect width="8" height="8" x="13" y="13" rx="2" />
+    </Svg>
+  ),
+  // mail — for email
+  mail: (
+    <Svg>
+      <path d="m22 7-8.99 5.01a.5.5 0 0 1-.5 0L2 7" />
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+    </Svg>
+  ),
+  // inbox — for attention inbox
+  inbox: (
+    <Svg>
+      <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+    </Svg>
+  ),
+  // target — for growth objectives / north star
+  target: (
+    <Svg>
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="6" />
+      <circle cx="12" cy="12" r="2" />
+    </Svg>
+  ),
+  // trending-up — for growth intelligence
+  'trending-up': (
+    <Svg>
+      <path d="M16 7h6v6" />
+      <path d="m22 7-8.5 8.5-5-5L2 17" />
+    </Svg>
+  ),
+  // list-checks — for scorecard / play ledger
+  'list-checks': (
+    <Svg>
+      <path d="m3 17 2 2 4-4" />
+      <path d="m3 7 2 2 4-4" />
+      <path d="M13 6h8" />
+      <path d="M13 12h8" />
+      <path d="M13 18h8" />
+    </Svg>
+  ),
+  // flask-conical — for run brain cycle / experiments
+  'flask-conical': (
+    <Svg>
+      <path d="M10 2v7.31" />
+      <path d="M14 9.3V1.99" />
+      <path d="M8.5 2h7" />
+      <path d="M14 9.3a6.5 6.5 0 1 1-4 0" />
+      <path d="M5.52 16h12.96" />
     </Svg>
   ),
 }

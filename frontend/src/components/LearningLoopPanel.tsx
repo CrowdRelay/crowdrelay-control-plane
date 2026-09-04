@@ -5,6 +5,7 @@ import { refreshTick } from '../lib/refresh'
 import { EmptyState } from './EmptyState'
 import type { LearningLoopEntry } from '../lib/types'
 import { SkeletonLearningLoop } from './Skeleton'
+import { SectionIcon } from './SectionIcon'
 
 // The learning loop panel — shows the real decision → action → outcome chain.
 // Uses the learning-loop endpoint which joins viryaos_autopilot_decisions,
@@ -64,7 +65,7 @@ export function LearningLoopPanel(props: { slug: string }) {
     <div class="learning-loop-head">
       <div>
         <span class="eyebrow">LEARNING LOOP</span>
-        <h2>Decision → Action → Outcome → Learning</h2>
+        <h2><SectionIcon name="book-open" />Decision → Action → Outcome → Learning</h2>
       </div>
     </div>
 

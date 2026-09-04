@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { PortfolioConsent, PortfolioConsentStatus, PortfolioOverview } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
+import { SectionIcon } from './SectionIcon'
 
 const STATUS_TONE: Record<PortfolioConsentStatus, 'good' | 'warn' | 'bad' | 'muted'> = {
   proposed: 'warn',
@@ -95,7 +96,7 @@ export function PortfolioPanel(props: {
 
   return <article class="panel">
     <div class="section-title">
-      <div><span class="eyebrow">PORTFOLIO</span><h2>Roster & amplification</h2><p>One artist's release or show routed in front of another artist's consenting fans. Approvals are per edge, tenant-scoped and audited; fans never leave their home workspace.</p></div>
+      <div><span class="eyebrow">PORTFOLIO</span><h2><SectionIcon name="megaphone" />Roster & amplification</h2><p>One artist's release or show routed in front of another artist's consenting fans. Approvals are per edge, tenant-scoped and audited; fans never leave their home workspace.</p></div>
       <div class="row-health">
         <StatusBadge status={boardLabel()} tone={boardTone()} />
       </div>
@@ -109,9 +110,9 @@ export function PortfolioPanel(props: {
       <div class="kpi"><span class="kpi-value">{metric(overview.deliveriesLast30d)}</span><span class="kpi-label">Amplified · 30d</span></div>
     </div>}</Show>
 
-    <div><span class="eyebrow">EDGES</span><h3>Amplification edges</h3></div>
+    <div><span class="eyebrow">EDGES</span><h3><SectionIcon name="link" />Amplification edges</h3></div>
     <Show when={sortedEdges().length}>
-      <table class="data-table">
+      <table class="data-table" aria-label="Amplification edges">
         <thead><tr>
           <th>Purpose</th><th>Audience owner</th><th>Beneficiary</th><th>Status</th>
           <th>Campaigns / month</th><th>Cooldown</th><th>Actions</th>

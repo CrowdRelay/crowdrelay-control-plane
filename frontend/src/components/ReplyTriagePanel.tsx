@@ -7,6 +7,7 @@ import { EmptyState } from './EmptyState'
 import type { ReplyTriageEntry } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonReplyTriage } from './Skeleton'
+import { SectionIcon } from './SectionIcon'
 
 const timeAgo = (value: string | null | undefined) => {
   if (!value) return 'never'
@@ -63,7 +64,7 @@ export function ReplyTriagePanel() {
     <div class="section-title operations-title">
       <div>
         <span class="eyebrow">REPLY TRIAGE</span>
-        <h2>Replies needing a human</h2>
+        <h2><SectionIcon name="inbox" />Replies needing a human</h2>
         <p>Inbound replies the classifier could not resolve automatically. Read the text, then decide.</p>
       </div>
       <Show when={data()}>
@@ -116,7 +117,7 @@ export function ReplyTriagePanel() {
       {/* Needs human */}
       <section class="operations-section">
         <div class="operations-section-head">
-          <div><span class="eyebrow">NEEDS HUMAN</span><h3>Read these</h3></div>
+          <div><span class="eyebrow">NEEDS HUMAN</span><h3><SectionIcon name="mail" />Read these</h3></div>
         </div>
         <Show
           when={d().needs_human.length > 0}
@@ -132,7 +133,7 @@ export function ReplyTriagePanel() {
       <Show when={d().recent_auto.length > 0}>
         <section class="operations-section">
           <div class="operations-section-head">
-            <div><span class="eyebrow">RECENT AUTO</span><h3>Classified without a human</h3></div>
+            <div><span class="eyebrow">RECENT AUTO</span><h3><SectionIcon name="zap" />Classified without a human</h3></div>
           </div>
           <div class="flag-list">
             <For each={d().recent_auto}>{entry => <ReplyRow entry={entry} />}</For>
