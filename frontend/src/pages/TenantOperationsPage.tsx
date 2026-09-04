@@ -52,6 +52,13 @@ export function TenantOperationsPage() {
     return t === 'good' ? 'healthy' : t === 'warn' ? 'attention' : t === 'bad' ? 'degraded' : 'loading'
   }
 
+  const autopilotTone = (): 'good' | 'warn' | 'bad' | undefined => {
+    const a = autopilot()
+    if (!a) return undefined
+    if (a.failed_24h === 0) return a.succeeded_24h > 0 ? 'good' : undefined
+    return a.failed_24h >= a.succeeded_24h ? 'bad' : 'warn'
+  }
+
   const needsYouCount = () => autopilot()?.needs_you.length ?? 0
   const awaitingApproval = () => d()?.opportunities?.filter(o => o.authority === 'awaiting_approval').length ?? 0
   const hasAttention = () => needsYouCount() > 0 || awaitingApproval() > 0 || deadJobs() > 0
@@ -118,9 +125,13 @@ export function TenantOperationsPage() {
           value={metric(growth()?.outreach.active_opportunities)}
           sub={`${metric(growth()?.outreach.awaiting_reply)} awaiting reply`}
         />
+        {/* Ten failures against zero successes rendered as a neutral card with
+            a red footnote. If nothing landed and the failures outnumber the
+            successes, that is the state of the card, not a caption on it. */}
         <KpiCard
           compact
           label="Autopilot 24h"
+          tone={autopilotTone()}
           value={metric(autopilot()?.succeeded_24h)}
           sub={autopilot() ? `${autopilot()!.failed_24h} failed` : '—'}
           subClass={autopilot() && autopilot()!.failed_24h > 0 ? 'tone-bad' : undefined}

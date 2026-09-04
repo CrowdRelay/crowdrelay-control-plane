@@ -8,6 +8,7 @@ import { EmptyState } from './EmptyState'
 import { SkeletonGrid, SkeletonRows, SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
 import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, PendingAutopilotAction, AgentWorkflow, AgentWorkflowTask } from '../lib/types'
+import { CONTEXT_LABELS, DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 
 // --- Intelligence icon (deterministic Rust autopilot) ---
 const IntelligenceIcon = (props: { size?: number }) => (
@@ -17,27 +18,17 @@ const IntelligenceIcon = (props: { size?: number }) => (
   </svg>
 )
 
-const contextLabel = (context: string) => {
-  const labels: Record<string, string> = {
-    growth_intelligence: 'Growth Intelligence',
-    fan_lifecycle: 'Fan Lifecycle',
-    ticket_yield: 'Ticket Yield',
-    merchandising: 'Merchandising',
-    merch_pricing: 'Merch Pricing',
-    booking_opportunity: 'Booking',
-    promotion_budget: 'Promotion',
-    growth_debt: 'Growth Debt',
-  }
-  return labels[context] ?? context.split('_').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')
-}
+// One vocabulary for the machine enums, shared with the opportunity board and
+// the scorecard — three private copies had already drifted in both coverage
+// and casing, so the same context read differently on each page.
+const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
 
 const workflowStatusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
   status === 'completed' ? 'good' :
   status === 'running' || status === 'dispatching' || status === 'planning' ? 'warn' :
   status === 'failed' ? 'bad' : 'muted'
 
-const actionKindLabel = (kind: string) =>
-  kind.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+const actionKindLabel = (kind: string) => labelOr(DECISION_KIND_LABELS, kind)
 
 /// Extracts a human-readable summary from a pending action payload.
 /// For community engagement requests, shows the subreddit and post title.

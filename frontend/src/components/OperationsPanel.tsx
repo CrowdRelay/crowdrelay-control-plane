@@ -7,6 +7,7 @@ import { StatusBadge } from './StatusBadge'
 import { SkeletonFlagList, SkeletonAutopilotKpis } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
+import { CONTEXT_LABELS, labelOr } from '../lib/opportunity-labels'
 
 const flagLabel = (key: string) => key
   .replace(/_enabled$/, '')
@@ -14,10 +15,15 @@ const flagLabel = (key: string) => key
   .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
   .join(' ')
 
-const contextLabel = (context: string) => context
-  .split('_')
-  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-  .join(' ')
+// Every switch on the page read "lazy default" underneath it — the store's
+// word for a flag nobody has ever set, printed raw. Say that instead.
+const flagReason = (flag: FeatureFlag) => flag.reason === 'lazy default'
+  ? `Never changed · shipped default · v${flag.version}`
+  : flag.reason || `v${flag.version} · no reason recorded`
+
+// Title-casing the storage key gave "Growth Intelligence" here and "Growth
+// intelligence" on the scorecard for the same policy. Shared vocabulary.
+const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
 
 const seconds = (value: number) => value <= 0 ? '—' : formatAge(value)
 
@@ -305,7 +311,7 @@ export function OperationsPanel(props: {
           <summary class="operations-section-head"><div><span class="eyebrow">FEATURES</span><h3><SectionIcon name="settings" />Runtime switches</h3></div><small>{flags.data?.length ?? 0} declared</small></summary>
         <Show when={flags.data} fallback={flags.error ? null : <SkeletonFlagList />}>{items => <div class="flag-list">
           <For each={items()}>{flag => <div class="flag-row">
-            <div><strong>{flagLabel(flag.key)}</strong><small>{flag.reason || `v${flag.version} · no reason provided`}</small></div>
+            <div><strong>{flagLabel(flag.key)}</strong><small>{flagReason(flag)}</small></div>
             <button
               type="button"
               class={`switch-control ${flag.enabled ? 'on' : ''}`}
@@ -381,6 +387,16 @@ export function OperationsPanel(props: {
               Changes take effect on the next cycle — <em>Apply</em> saves one row.
             </p>
           </details>
+          {/* Twenty-two identical rows and no way to read the shape of them.
+              The question an operator has before scrolling is how much of this
+              runs unattended. */}
+          <div class="policy-summary">
+            <span><strong>{data().policies.length}</strong> policies</span>
+            <span><strong>{data().policies.filter(p => p.enabled).length}</strong> enabled</span>
+            <span class="policy-summary-auto"><strong>{data().policies.filter(p => p.enabled && p.autonomy_level === 'bounded_auto').length}</strong> act without asking</span>
+            <span><strong>{data().policies.filter(p => p.enabled && p.autonomy_level === 'require_approval').length}</strong> wait for you</span>
+            <span><strong>{data().policies.filter(p => p.enabled && (p.autonomy_level === 'observe' || p.autonomy_level === 'recommend')).length}</strong> only watching</span>
+          </div>
           <div class="autopilot-policy-list">
             <For each={data().policies}>{policy => <PolicyEditor
               policy={policy}

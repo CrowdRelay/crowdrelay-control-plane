@@ -238,4 +238,9 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci --prefer-offline --no-audit --no-fund
+      # The stylesheet grew by appending a fix layer each time something looked
+      # wrong, until 343 declarations were being thrown away by the cascade.
+      # This fails the build if dead declarations come back.
+      - run: python3 scripts/dedupe-css.py src/styles.css --check --fail-on-dead
+        shell: bash
       - run: npm run build

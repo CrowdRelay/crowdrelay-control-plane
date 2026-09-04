@@ -29,6 +29,12 @@ export function OperatorAttentionPage() {
   const attentionCount = () => activeItems().filter(needsAttention).length
   const healthyCount = () => activeItems().filter((t: TenantSummary) => t.runtimeHealth === 'healthy').length
   const suspendedCount = () => items().filter((t: TenantSummary) => t.status === 'suspended').length
+  // One active tenant, zero healthy, zero needing attention, zero suspended:
+  // the strip added up to nothing because a tenant that has never reported a
+  // heartbeat is in none of those buckets. It is its own state, and a green
+  // "0 healthy" was the wrong thing to say about it.
+  const unreportedCount = () => activeItems().filter((t: TenantSummary) => t.runtimeHealth !== 'healthy' && !needsAttention(t)).length
+  const healthyTone = () => activeItems().length > 0 && healthyCount() === activeItems().length
 
   return <section class="page">
     <div class="page-head">
@@ -49,16 +55,17 @@ export function OperatorAttentionPage() {
           <strong class="kpi-value">{activeItems().length}</strong>
           <span class="kpi-sub">of {items().length} total</span>
         </article>
-        <article class="kpi-card kpi-good">
+        <article class="kpi-card" classList={{ 'kpi-good': healthyTone() }}>
           <span class="kpi-label">Healthy</span>
           <strong class="kpi-value">{healthyCount()}</strong>
-          <span class="kpi-sub">runtime healthy</span>
+          <span class="kpi-sub">{unreportedCount() > 0 ? `${unreportedCount()} not reporting yet` : 'runtime healthy'}</span>
         </article>
-        <Link class="kpi-card" to="/attention" classList={{ 'kpi-warn': attentionCount() > 0, 'kpi-good': attentionCount() === 0 }}>
+        {/* This card used to link to the page it is already on. */}
+        <article class="kpi-card" classList={{ 'kpi-warn': attentionCount() > 0, 'kpi-good': attentionCount() === 0 && activeItems().length > 0 }}>
           <span class="kpi-label">Needs attention</span>
           <strong class="kpi-value">{attentionCount()}</strong>
           <span class="kpi-sub">degraded or stale</span>
-        </Link>
+        </article>
         <article class="kpi-card" classList={{ 'kpi-bad': suspendedCount() > 0 }}>
           <span class="kpi-label">Suspended</span>
           <strong class="kpi-value">{suspendedCount()}</strong>

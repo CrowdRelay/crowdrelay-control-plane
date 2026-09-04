@@ -17,6 +17,16 @@ const feedStateTone = (state: string): 'good' | 'warn' | 'bad' =>
 const PLATFORM_CONFIG: Record<string, { label: string; color: string }> = {
   spotify:      { label: 'Spotify',      color: '#1db954' },
   you_tube:     { label: 'YouTube',      color: '#ff0000' },
+  // The coverage feed sends the unsnaked spellings — `youtube`, `soundcloud`,
+  // `x` — which missed every entry below and printed the raw key in lowercase
+  // next to properly named platforms.
+  youtube:      { label: 'YouTube',      color: '#ff0000' },
+  soundcloud:   { label: 'SoundCloud',   color: '#ff5500' },
+  x:            { label: 'X',            color: '#e7e9ea' },
+  twitter:      { label: 'X',            color: '#e7e9ea' },
+  last_fm:      { label: 'Last.fm',      color: '#d51007' },
+  apple_music:  { label: 'Apple Music',  color: '#fa2d48' },
+  applemusic:   { label: 'Apple Music',  color: '#fa2d48' },
   bandsintown:  { label: 'Bandsintown',  color: '#e6b04c' },
   social:       { label: 'Social',       color: '#ff4500' },
   meta:         { label: 'Meta',         color: '#0866ff' },
@@ -37,7 +47,10 @@ const PLATFORM_CONFIG: Record<string, { label: string; color: string }> = {
   merch:        { label: 'Merch',        color: '#f5b942' },
 }
 
-const platformLabel = (key: string) => PLATFORM_CONFIG[key]?.label ?? key.replace(/_/g, ' ')
+// An unknown key is still a name, so it is capitalised rather than printed as
+// the storage token.
+const platformLabel = (key: string) => PLATFORM_CONFIG[key]?.label
+  ?? key.split('_').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
 const platformColor = (key: string) => PLATFORM_CONFIG[key]?.color ?? '#9b87f5'
 
 // ── Horizontal bar — scaled relative to the max value in the group ──

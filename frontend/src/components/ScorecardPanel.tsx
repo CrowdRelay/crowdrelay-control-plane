@@ -8,6 +8,7 @@ import { CountUp } from './CountUp'
 import { ProgressRing } from './ProgressRing'
 import { SkeletonScorecard } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
+import { CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 
 const count = (value: number | undefined | null) =>
   value == null ? '—' : value.toLocaleString()
@@ -61,21 +62,13 @@ const deltaLabel = (delta: number | null) => {
   return `${sign}${(delta / 100).toFixed(1)}%`
 }
 
-const contextLabel = (context: string) => {
-  const labels: Record<string, string> = {
-    fan_lifecycle: 'Fan lifecycle',
-    ticket_yield: 'Ticket yield',
-    merchandising: 'Merchandising',
-    merch_pricing: 'Merch pricing',
-    booking_opportunity: 'Booking',
-    promotion_budget: 'Promotion',
-    growth_debt: 'Growth debt',
-  }
-  return labels[context] ?? context
-}
-
-const actionLabel = (kind: string) =>
-  kind.replace(/_/g, ' ')
+// The panel used to carry its own seven-entry context map with a raw-key
+// fallback, so `growth_intelligence` and `outreach_supply` — two of the three
+// contexts this tenant actually runs — rendered as their storage keys. The
+// shared vocabulary already covers all 22 and humanises what it does not know.
+const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
+const actionLabel = (kind: string) => labelOr(DECISION_KIND_LABELS, kind)
+const subjectLabel = (kind: string) => labelOr(SUBJECT_KIND_LABELS, kind)
 
 export function ScorecardPanel(props: { slug: string }) {
   const model = useQuery(() => ({
@@ -224,7 +217,7 @@ export function ScorecardPanel(props: { slug: string }) {
                 <strong>{actionLabel(result.action_kind)}</strong>
                 <StatusBadge status={outcomeLabel(result.outcome)} tone={outcomeTone(result.outcome)} />
               </div>
-              <small>{contextLabel(result.context)} · {result.subject_kind}</small>
+              <small>{contextLabel(result.context)} · {subjectLabel(result.subject_kind)}</small>
               <Show when={result.metric_key}><small class="muted">metric: {result.metric_key}</small></Show>
               <small class="muted">{timeAgo(result.completed_at)}<Show when={result.executor_id}>{` · ${result.executor_id}`}</Show></small>
             </div>}</For>

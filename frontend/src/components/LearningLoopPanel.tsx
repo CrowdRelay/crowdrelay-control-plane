@@ -5,6 +5,7 @@ import { EmptyState } from './EmptyState'
 import type { LearningLoopEntry } from '../lib/types'
 import { SkeletonLearningLoop } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
+import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 
 // The learning loop panel — shows the real decision → action → outcome chain.
 // Uses the learning-loop endpoint which joins viryaos_autopilot_decisions,
@@ -163,7 +164,7 @@ export function LearningLoopPanel(props: { slug: string }) {
                 }>
                   {action => (
                     <div class="learning-loop-stage-rows">
-                      <div><span class="muted">Kind</span><strong>{action().action_kind.replaceAll('_', ' ')}</strong></div>
+                      <div><span class="muted">Kind</span><strong>{labelOr(DECISION_KIND_LABELS, action().action_kind)}</strong></div>
                       <div><span class="muted">Status</span><strong class={actionStatusClass(action().status)}>{action().status.replaceAll('_', ' ')}</strong></div>
                       <Show when={action().finished_at}>
                         <div><span class="muted">Finished</span><span>{timeAgo(action().finished_at!)}</span></div>

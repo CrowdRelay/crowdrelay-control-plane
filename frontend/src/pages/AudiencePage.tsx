@@ -52,7 +52,7 @@ export function AudiencePage() {
     <Show when={model.data} keyed>{(data) => <>
       <DegradedSections degraded={data.degraded} />
       <Show when={!data.degraded.includes('overview')}>
-        <AudienceOverviewPanel overview={data.overview ?? undefined} />
+        <AudienceOverviewPanel slug={params().slug} overview={data.overview ?? undefined} />
       </Show>
       <Show when={!data.degraded.includes('fans')}>
         <FanTablePanel slug={params().slug} fans={data.fans ?? []} />
