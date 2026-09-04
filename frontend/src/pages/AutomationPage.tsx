@@ -52,21 +52,35 @@ export function AutomationPage() {
     queryClient.invalidateQueries({ queryKey: ['automation-workflow-configs'] })
   }
 
+  const [busyId, setBusyId] = createSignal<string | null>(null)
+
   const handleAck = async (id: string) => {
+    if (busyId()) return
+    setBusyId(id)
     try { await api.ackAutomationEvent(id); invalidate() }
     catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to acknowledge') }
+    finally { setBusyId(null) }
   }
   const handleResolve = async (id: string) => {
+    if (busyId()) return
+    setBusyId(id)
     try { await api.resolveAutomationEvent(id); invalidate() }
     catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to resolve') }
+    finally { setBusyId(null) }
   }
   const handleRetry = async (id: string) => {
+    if (busyId()) return
+    setBusyId(id)
     try { await api.retryAutomationEvent(id); invalidate() }
     catch (e) { toast.error(e instanceof Error ? e.message : 'Retry failed') }
+    finally { setBusyId(null) }
   }
   const handleConfigUpdate = async (workflowId: string, input: { category?: string; discordEnabled?: boolean; muted?: boolean }) => {
+    if (busyId()) return
+    setBusyId(`cfg:${workflowId}`)
     try { await api.updateAutomationWorkflowConfig(workflowId, input); invalidate() }
     catch (e) { toast.error(e instanceof Error ? e.message : 'Update failed') }
+    finally { setBusyId(null) }
   }
 
   return <section class="page">
@@ -185,13 +199,13 @@ export function AutomationPage() {
                   <span class={`status-badge ${statusTone(ev.status)}`}>{ev.status}</span>
                   <Show when={ev.retryCount > 0}><span class="muted">retried {ev.retryCount}×</span></Show>
                   <Show when={ev.status === 'new'}>
-                    <button class="ghost alert-action" onClick={() => handleAck(ev.id)}>Ack</button>
+                    <button class="ghost alert-action" disabled={busyId() === ev.id} onClick={() => handleAck(ev.id)}>Ack</button>
                   </Show>
                   <Show when={ev.executionId && ev.status !== 'retried'}>
-                    <button class="ghost alert-action" onClick={() => handleRetry(ev.id)}>Retry</button>
+                    <button class="ghost alert-action" disabled={busyId() === ev.id} onClick={() => handleRetry(ev.id)}>Retry</button>
                   </Show>
                   <Show when={ev.status !== 'resolved'}>
-                    <button class="ghost alert-action" onClick={() => handleResolve(ev.id)}>Resolve</button>
+                    <button class="ghost alert-action" disabled={busyId() === ev.id} onClick={() => handleResolve(ev.id)}>Resolve</button>
                   </Show>
                 </div>
               </div>

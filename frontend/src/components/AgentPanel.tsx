@@ -171,6 +171,7 @@ export function AgentPanel(props: { slug: string }) {
 
   const [creatingSchedule, setCreatingSchedule] = createSignal(false)
   const [scheduleInterval, setScheduleInterval] = createSignal(1440)
+  const [scheduleBusy, setScheduleBusy] = createSignal<string | null>(null)
 
   const createSchedule = async () => {
     const templateId = selectedTemplate()
@@ -195,20 +196,28 @@ export function AgentPanel(props: { slug: string }) {
   }
 
   const toggleSchedule = async (id: string, enabled: boolean) => {
+    if (scheduleBusy()) return
+    setScheduleBusy(id)
     try {
       await api.agentToggleSchedule(props.slug, id, enabled)
       refetchSchedules()
     } catch (err) {
       setError(errorMessage(err, 'Failed to toggle schedule'))
+    } finally {
+      setScheduleBusy(null)
     }
   }
 
   const deleteSchedule = async (id: string) => {
+    if (scheduleBusy()) return
+    setScheduleBusy(id)
     try {
       await api.agentDeleteSchedule(props.slug, id)
       refetchSchedules()
     } catch (err) {
       setError(errorMessage(err, 'Failed to delete schedule'))
+    } finally {
+      setScheduleBusy(null)
     }
   }
 
@@ -416,13 +425,13 @@ export function AgentPanel(props: { slug: string }) {
                     <td>{sched.template_id}</td>
                     <td>{sched.interval_minutes}m</td>
                     <td>
-                      <button class="link" onClick={() => toggleSchedule(sched.id, !sched.enabled)}>
-                        {sched.enabled ? '✓ enabled' : 'disabled'}
+                      <button class="link" disabled={scheduleBusy() === sched.id} onClick={() => toggleSchedule(sched.id, !sched.enabled)}>
+                        {scheduleBusy() === sched.id ? '…' : sched.enabled ? '✓ enabled' : 'disabled'}
                       </button>
                     </td>
                     <td class="muted">{sched.last_run_at ? formatIsoAge(sched.last_run_at) : 'never'}</td>
                     <td class="muted">{sched.next_run_at ? formatIsoAge(sched.next_run_at) : '—'}</td>
-                    <td><button class="agent-btn-danger" onClick={() => deleteSchedule(sched.id)}>Delete</button></td>
+                    <td><button class="agent-btn-danger" disabled={scheduleBusy() === sched.id} onClick={() => deleteSchedule(sched.id)}>Delete</button></td>
                   </tr>
                 )}
               </For>
