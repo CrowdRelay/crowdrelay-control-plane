@@ -1783,8 +1783,12 @@ impl Store {
 
     /// Claim due notifications under SKIP LOCKED so repeated workers or a
     /// restart cannot double-deliver concurrently. The claiming transaction
-    /// bumps `attempts`; the worker then reports success/failure via
-    /// [`Self::complete_notification`].
+    /// bumps `attempts` and pushes `next_attempt_at` forward by a lease
+    /// interval so the row is not re-claimable while delivery is in flight.
+    /// The worker then reports success/failure via
+    /// [`Self::complete_notification`], which resets `next_attempt_at` on
+    /// failure or closes the row on success. If the worker crashes, the lease
+    /// expires and the row becomes re-claimable after 60 seconds.
     pub async fn claim_due_notifications(
         &self,
         limit: i64,
@@ -1813,10 +1817,21 @@ impl Store {
         .bind(&ids)
         .fetch_all(&mut *tx)
         .await?;
-        sqlx::query("UPDATE control_plane_notification_outbox SET attempts = attempts + 1, updated_at = now() WHERE id = ANY($1)")
-            .bind(&ids)
-            .execute(&mut *tx)
-            .await?;
+        // Bump attempts and push next_attempt_at forward by 60 seconds so a
+        // second worker tick (5s later) cannot re-claim the same row while
+        // delivery is still in flight. complete_notification overwrites
+        // next_attempt_at on failure; success closes the row. A worker crash
+        // leaves the row re-claimable after the 60s lease expires.
+        sqlx::query(
+            r#"UPDATE control_plane_notification_outbox
+               SET attempts = attempts + 1,
+                   next_attempt_at = now() + INTERVAL '60 seconds',
+                   updated_at = now()
+               WHERE id = ANY($1)"#,
+        )
+        .bind(&ids)
+        .execute(&mut *tx)
+        .await?;
         tx.commit().await?;
         Ok(claimed)
     }
