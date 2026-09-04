@@ -105,7 +105,7 @@ export function ChatWidget(props: { slug: string }) {
     // The slug is stated outright. Without it the model has no way to build a
     // real path, which is exactly how it started emitting a literal "{slug}"
     // and navigating to /tenants/%7Bslug%7D/intelligence.
-    const where = (page: string) => `${page} for tenant "${props.slug}"`
+    const where = (page: string) => `${page} (slug: ${props.slug})`
     const path = location().pathname
     if (path.includes('/operations')) return where('Operations page')
     if (path.includes('/attention')) return where('Attention page')
@@ -114,8 +114,8 @@ export function ChatWidget(props: { slug: string }) {
     if (path.includes('/integrations')) return where('AI Integrations page')
     if (path.includes('/notifiers')) return where('Notifiers page')
     if (path.includes('/automation')) return where('Automation page')
-    if (path.includes('/tenants/') && !path.includes('/operations')) return where('Tenant detail page')
-    if (path === '/tenants') return where('Tenants registry page')
+    if (path.includes('/tenants/') && !path.includes('/operations')) return where('Overview page')
+    if (path === '/tenants') return where('Overview page')
     if (path === '/') return where('Overview page')
     return path
   }
@@ -421,7 +421,7 @@ export function ChatWidget(props: { slug: string }) {
               <div class="chat-welcome">
                 <div class="chat-welcome-icon"><SparkIcon /></div>
                 <h3>AI Assistant</h3>
-                <p>Ask about tenants, operations, growth metrics, or platform health. Try one of these to start:</p>
+                <p>Ask about operations, growth metrics, autopilot, or platform health. Try one of these to start:</p>
                 <div class="chat-suggestions">
                   <For each={SUGGESTIONS}>
                     {(s) => (
@@ -480,7 +480,7 @@ export function ChatWidget(props: { slug: string }) {
             <textarea
               ref={inputRef}
               class="chat-input"
-              placeholder="Ask about tenants, operations, or growth…"
+              placeholder="Ask about operations, growth, or autopilot…"
               value={input()}
               onInput={(e) => setInput(e.currentTarget.value)}
               onKeyDown={(e) => {

@@ -17,47 +17,57 @@ type AlertGuide = {
 
 const GUIDE: Record<string, AlertGuide> = {
   'outbox.dead': {
-    title: 'Domain events stopped retrying',
-    cause: 'Outbox events reached max_attempts and were parked as dead. Nothing downstream will see them until an operator retries.',
-    action: { label: 'Show dead events', anchor: 'dead-outbox' },
+    title: 'Messages stopped reaching their destinations',
+    cause: 'Some events (like notifications or data updates) failed too many times and were set aside. They will not be retried automatically until you review them.',
+    action: { label: 'Show failed messages', anchor: 'dead-outbox' },
   },
   'outbox.stalled': {
-    title: 'Outbox queue is not draining',
-    cause: 'The oldest pending event is past its stall threshold, so the CrowdRelay worker is either down, saturated or stuck on one event.',
-    action: { label: 'Open runtime health', operations: true },
+    title: 'Message queue is backing up',
+    cause: 'New events are waiting longer than they should. The worker that processes them may be down, overwhelmed, or stuck on a single problematic message.',
+    action: { label: 'Check system health', operations: true },
   },
   'webhook.dead': {
-    title: 'Webhook deliveries stopped retrying',
-    cause: 'A subscriber answered with a permanent failure (typically 4xx) or exhausted its attempts, so the delivery is parked as dead.',
-    action: { label: 'Show dead deliveries', anchor: 'dead-deliveries' },
+    title: 'Webhook deliveries permanently failing',
+    cause: 'A service that should receive webhooks rejected them (usually a 4xx error) or exhausted all retry attempts. These deliveries are parked and will not be sent again until you intervene.',
+    action: { label: 'Show failed deliveries', anchor: 'dead-deliveries' },
   },
   'webhook.stalled': {
-    title: 'Webhook queue is not draining',
-    cause: 'Pending deliveries are older than the stall threshold: the delivery worker is behind, or one endpoint is timing out on every attempt.',
-    action: { label: 'Open runtime health', operations: true },
+    title: 'Webhook deliveries running late',
+    cause: 'Pending webhook deliveries are older than they should be. The delivery worker is either behind, or one endpoint is timing out on every attempt.',
+    action: { label: 'Check system health', operations: true },
   },
   'proof.dead_or_stalled': {
-    title: 'Proof anchoring needs attention',
-    cause: 'External proof batches are dead or queued past their threshold. The Rekor anchor worker is the component to check on the host.',
+    title: 'Tamper-proof receipts are not being filed',
+    cause: 'The system periodically files cryptographic proof that its actions happened. Those proof batches are stuck or dead. Check the Rekor anchor worker on the host.',
   },
   'executor.offline': {
-    title: 'No live ViryaOS executor',
-    cause: 'Executors are registered but every lease has expired, so emitted Autopilot actions have nobody to run them.',
-    action: { label: 'Open runtime health', operations: true },
+    title: 'No worker available to carry out actions',
+    cause: 'The system decided on actions but has nobody to execute them — all executors have gone offline. Actions will queue up until an executor comes back.',
+    action: { label: 'Check system health', operations: true },
   },
   'executor.report_lag': {
-    title: 'Executor receipts are missing',
-    cause: 'Actions were emitted and accepted but no execution report came back inside the window. The executor took work and went quiet.',
-    action: { label: 'Open runtime health', operations: true },
+    title: 'Actions sent but no confirmation received',
+    cause: 'The system dispatched actions to a worker, but the worker never reported back whether they succeeded or failed. The worker may have crashed mid-task or lost connectivity.',
+    action: { label: 'Check system health', operations: true },
+  },
+  'execution.unknown_outcome': {
+    title: 'Actions completed but result is unknown',
+    cause: 'Some actions were dispatched but the system cannot tell whether they succeeded or failed. The confirmation receipts are missing or could not be reconciled. You need to check the provider manually and file the correct outcome.',
+    action: { label: 'Check system health', operations: true },
+  },
+  'execution.contradicted_outcome': {
+    title: 'Action result disagrees with what the worker reported',
+    cause: 'The system recorded an action as successful, but the worker later reported it as failed (or vice versa). The system refused to silently pick one side. You need to investigate which source is correct and update the action status manually.',
+    action: { label: 'Check system health', operations: true },
   },
   'autopilot.failure_burst': {
-    title: 'Autopilot is failing repeatedly',
-    cause: 'Failed Autopilot actions crossed the burst threshold inside a 15 minute window, which usually means one action kind is broken rather than one action.',
+    title: 'Automated actions keep failing',
+    cause: 'Multiple actions failed within a short window. This usually means something systematic is broken — a broken integration, a bad template, or a configuration change — rather than a one-off glitch.',
     action: { label: 'Open Autopilot controls', operations: true },
   },
   'reconciliation.critical': {
-    title: 'Unresolved critical findings',
-    cause: 'The ecosystem reconciliation pass left critical findings open. They stay open until the underlying state is fixed and a new pass runs.',
+    title: 'System state does not match expectations',
+    cause: 'A routine check found that part of the system is in a state that should not exist — a mismatch between what the records say and what the services report. These findings stay open until the underlying issue is fixed.',
     action: { label: 'Show findings', anchor: 'reconciliation-findings' },
   },
 }
@@ -96,8 +106,7 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
         <div class="section-title">
           <div>
             <strong>{guide()?.title ?? alert.summary}</strong>
-            <small class="mono alert-key">{alert.alert_key}</small>
-            <p>{alert.summary}. {guide()?.cause}</p>
+            <p>{guide()?.cause ?? alert.summary}</p>
           </div>
           <StatusBadge status={alert.severity} tone={alert.severity === 'critical' ? 'bad' : 'warn'} />
         </div>
@@ -126,7 +135,10 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
     <Show when={recovered().length > 0}>
       <div class="inherit-card watchdog-recovered">
         <p><strong>Recovered in the last 24 hours</strong></p>
-        <For each={recovered()}>{alert => <p><span class="mono">{alert.alert_key}</span> · {alert.summary} · recovered {formatTime(alert.recovered_at)}</p>}</For>
+        <For each={recovered()}>{alert => {
+          const guide = GUIDE[alert.alert_key]
+          return <p><strong>{guide?.title ?? alert.summary}</strong> · recovered {formatTime(alert.recovered_at)}</p>
+        }}</For>
       </div>
     </Show>
   </>
