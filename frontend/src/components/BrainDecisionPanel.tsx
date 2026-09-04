@@ -333,8 +333,9 @@ export function BrainDecisionPanel(props: {
           </Show>
         </div>
 
-        {/* Inspect — expandable full evidence */}
-        <button class="ghost brain-decision-inspect" onClick={() => toggleEvidence()}>
+        {/* Inspect — expandable full evidence. Primary-styled so it reads
+            as the panel's key affordance, not a footer link. */}
+        <button class="brain-decision-inspect" onClick={() => toggleEvidence()}>
           {showEvidence() ? 'Hide evidence' : 'Why this decision?'}
         </button>
 

@@ -87,27 +87,7 @@ export function OverviewPage() {
       </Match>
     </Switch>
 
-    {/* Platform services — compact health table */}
-    <Show when={overview.data?.platformHealth && overview.data.platformHealth.length > 0}>
-      <div class="section-title"><h2>Platform services</h2></div>
-      <div class="service-grid">
-        <For each={overview.data!.platformHealth}>{(svc: PlatformHealthEntry) => (
-          <div class="service-card" classList={{ healthy: svc.healthy, unhealthy: !svc.healthy }}>
-            <div class="service-card-head">
-              <span class={`service-dot ${svc.healthy ? 'good' : 'bad'}`} />
-              <strong>{svc.label}</strong>
-            </div>
-            <div class="service-card-meta">
-              <Show when={formatLatency(svc.latencyMs)}>{lat => <span>{lat()}</span>}</Show>
-              <Show when={!svc.healthy && svc.lastStatus}><span class="muted">{svc.lastStatus}</span></Show>
-              <span class="muted">{svc.url.replace(/^https?:\/\//, '')}</span>
-            </div>
-          </div>
-        )}</For>
-      </div>
-    </Show>
-
-    {/* Fleet health ring + Tenant pulse — the fleet at a glance */}
+    {/* Fleet health ring + Tenant pulse — the fleet at a glance, first */}
     <div class="section-title">
       <h2>Tenant pulse</h2>
       <Show when={authState.profile()?.role === 'platform_admin'}><Link to="/tenants" class="section-link">Manage tenants →</Link></Show>
@@ -147,6 +127,27 @@ export function OverviewPage() {
         <EmptyState label="No tenants provisioned" hint="Create your first tenant to start managing fan growth operations." />
       </Show>
     </div>
+
+    {/* Platform services — reference, moved below the fleet so the operator's
+        own tenants are the first thing they see. */}
+    <Show when={overview.data?.platformHealth && overview.data.platformHealth.length > 0}>
+      <div class="section-title"><h2>Platform services</h2></div>
+      <div class="service-grid">
+        <For each={overview.data!.platformHealth}>{(svc: PlatformHealthEntry) => (
+          <div class="service-card" classList={{ healthy: svc.healthy, unhealthy: !svc.healthy }}>
+            <div class="service-card-head">
+              <span class={`service-dot ${svc.healthy ? 'good' : 'bad'}`} />
+              <strong>{svc.label}</strong>
+            </div>
+            <div class="service-card-meta">
+              <Show when={formatLatency(svc.latencyMs)}>{lat => <span>{lat()}</span>}</Show>
+              <Show when={!svc.healthy && svc.lastStatus}><span class="muted">{svc.lastStatus}</span></Show>
+              <span class="muted">{svc.url.replace(/^https?:\/\//, '')}</span>
+            </div>
+          </div>
+        )}</For>
+      </div>
+    </Show>
     </Suspense>
   </section>
 }

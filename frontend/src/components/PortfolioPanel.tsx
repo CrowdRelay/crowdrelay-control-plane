@@ -35,24 +35,30 @@ export function PortfolioPanel(props: {
   onChanged: () => void
 }) {
   const queryClient = useQueryClient()
-  const [actor, setActor] = createSignal('')
-  const [revokeReason, setRevokeReason] = createSignal('')
   const [pendingId, setPendingId] = createSignal<string | null>(null)
   const [errorText, setErrorText] = createSignal<string | null>(null)
+  // The row currently showing its inline form. Clicking Approve/Decline/Revoke
+  // expands a small form below that row instead of requiring global fields.
+  const [expandedRow, setExpandedRow] = createSignal<string | null>(null)
+  const [rowActor, setRowActor] = createSignal('')
+  const [rowReason, setRowReason] = createSignal('')
 
   const decide = useMutation(() => ({
-    mutationFn: async (input: { id: string; action: 'approve'|'pause'|'resume'|'revoke' }) => {
+    mutationFn: async (input: { id: string; action: 'approve'|'pause'|'resume'|'revoke'; actor?: string; reason?: string }) => {
       setPendingId(input.id)
       setErrorText(null)
       return api.decidePortfolioEdge(props.slug, input.id, input.action, {
-        actor: actor() || undefined,
-        revokeReason: revokeReason() || undefined,
+        actor: input.actor || undefined,
+        revokeReason: input.reason || undefined,
       })
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
       props.onChanged()
       setPendingId(null)
+      setExpandedRow(null)
+      setRowActor('')
+      setRowReason('')
     },
     onError: (error) => {
       setPendingId(null)
@@ -69,6 +75,23 @@ export function PortfolioPanel(props: {
   const boardLabel = () => proposedCount() > 0
     ? `${proposedCount()} to review`
     : activeCount() > 0 ? `${activeCount()} live` : 'no live edges'
+
+  // Sort edges: proposed first (actionable), then active, paused, revoked.
+  const STATUS_ORDER: Record<PortfolioConsentStatus, number> = { proposed: 0, active: 1, paused: 2, revoked: 3 }
+  const sortedEdges = () => edges().slice().sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status])
+
+  const needsActor = (action: 'approve'|'pause'|'resume'|'revoke') => action === 'approve'
+  const needsReason = (action: 'approve'|'pause'|'resume'|'revoke') => action === 'revoke'
+  const canSubmit = (action: 'approve'|'pause'|'resume'|'revoke') =>
+    (!needsActor(action) || rowActor().trim().length > 0) &&
+    (!needsReason(action) || rowReason().trim().length > 0)
+
+  const expand = (edgeId: string) => {
+    if (expandedRow() === edgeId) { setExpandedRow(null); return }
+    setExpandedRow(edgeId)
+    setRowActor('')
+    setRowReason('')
+  }
 
   return <article class="panel">
     <div class="section-title">
@@ -87,30 +110,15 @@ export function PortfolioPanel(props: {
     </div>}</Show>
 
     <div><span class="eyebrow">EDGES</span><h3>Amplification edges</h3></div>
-    {/* These two fields gate the buttons in the table below — until they are
-        filled the row actions stay disabled, which read as broken rather than
-        as waiting for an approver's name and a reason. */}
-    <p class="agent-section-intro">Fill these two before deciding on a row: every decision is written to the audit trail with the name you give here, and a revocation has to carry a reason.</p>
-    <div class="form-grid">
-      <label>
-        <span>Approving operator</span>
-        <input value={actor()} onInput={e => setActor(e.currentTarget.value)} placeholder="operator@label" />
-        <small>Who is signing off. Required before <strong>Approve</strong> becomes clickable; recorded against the edge.</small>
-      </label>
-      <label>
-        <span>Revoke reason</span>
-        <input value={revokeReason()} onInput={e => setRevokeReason(e.currentTarget.value)} placeholder="duplicate edge / artist withdrew consent" />
-        <small>Required before <strong>Revoke</strong> or <strong>Decline</strong> fires. Stored with the decision so the next operator sees why.</small>
-      </label>
-    </div>
-    <Show when={edges().length}>
+    <Show when={sortedEdges().length}>
       <table class="data-table">
         <thead><tr>
           <th>Purpose</th><th>Audience owner</th><th>Beneficiary</th><th>Status</th>
-          <th>Campaigns / month</th><th>Cooldown</th><th>Decisions</th>
+          <th>Campaigns / month</th><th>Cooldown</th><th>Actions</th>
         </tr></thead>
         <tbody>
-          <For each={edges()}>{(edge: PortfolioConsent) => (
+          <For each={sortedEdges()}>{(edge: PortfolioConsent) => (
+            <>
             <tr>
               <td>{PURPOSE_LABEL[edge.purpose]}</td>
               <td title={edge.from_workspace_id}>{shortWs(edge.from_workspace_id)}…</td>
@@ -126,28 +134,64 @@ export function PortfolioPanel(props: {
               <td>{edge.cooldown_days}d</td>
               <td class="actions">
                 <Show when={edge.status === 'proposed'}>
-                  <button disabled={pendingId() !== null || !actor().trim()}
-                    title="Upstream requires a named approver before an activation"
-                    onClick={() => decide.mutate({ id: edge.id, action: 'approve' })}>Approve</button>
-                  <button disabled={pendingId() !== null || !revokeReason()} class="danger"
-                    title="Declining records a revocation, so the reason field above is required"
-                    onClick={() => decide.mutate({ id: edge.id, action: 'revoke' })}>Decline</button>
+                  <button disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Approve</button>
+                  <button disabled={pendingId() !== null} class="danger" onClick={() => expand(edge.id)}>Decline</button>
                 </Show>
                 <Show when={edge.status === 'active'}>
-                  <button disabled={pendingId() !== null}
-                    onClick={() => decide.mutate({ id: edge.id, action: 'pause' })}>Pause</button>
-                  <button disabled={pendingId() !== null || !revokeReason()} class="danger" title="A revocation needs the reason written above"
-                    onClick={() => decide.mutate({ id: edge.id, action: 'revoke' })}>Revoke</button>
+                  <button disabled={pendingId() !== null} onClick={() => decide.mutate({ id: edge.id, action: 'pause' })}>Pause</button>
+                  <button disabled={pendingId() !== null} class="danger" onClick={() => expand(edge.id)}>Revoke</button>
                 </Show>
                 <Show when={edge.status === 'paused'}>
-                  <button disabled={pendingId() !== null}
-                    onClick={() => decide.mutate({ id: edge.id, action: 'resume' })}>Resume</button>
-                  <button disabled={pendingId() !== null || !revokeReason()} class="danger" title="A revocation needs the reason written above"
-                    onClick={() => decide.mutate({ id: edge.id, action: 'revoke' })}>Revoke</button>
+                  <button disabled={pendingId() !== null} onClick={() => decide.mutate({ id: edge.id, action: 'resume' })}>Resume</button>
+                  <button disabled={pendingId() !== null} class="danger" onClick={() => expand(edge.id)}>Revoke</button>
                 </Show>
                 <Show when={edge.status === 'revoked'}><span class="muted">closed</span></Show>
               </td>
             </tr>
+            {/* Inline form — expands below the row when Approve/Decline/Revoke
+                is clicked. Replaces the global operator/reason fields. */}
+            <Show when={expandedRow() === edge.id}>
+              <tr class="edge-inline-form-row">
+                <td colspan="7">
+                  <div class="edge-inline-form">
+                    <Show when={edge.status === 'proposed'}>
+                      <label>
+                        <span>Approving operator</span>
+                        <input value={rowActor()} onInput={e => setRowActor(e.currentTarget.value)} placeholder="operator@label" />
+                        <small>Recorded against the edge in the audit trail.</small>
+                      </label>
+                    </Show>
+                    <Show when={edge.status === 'proposed' || edge.status === 'active' || edge.status === 'paused'}>
+                      <label>
+                        <span>Reason</span>
+                        <input value={rowReason()} onInput={e => setRowReason(e.currentTarget.value)} placeholder="duplicate edge / artist withdrew consent" />
+                        <small>Required for revocation. Stored with the decision.</small>
+                      </label>
+                    </Show>
+                    <div class="edge-inline-actions">
+                      <Show when={edge.status === 'proposed'}>
+                        <button disabled={pendingId() !== null || !canSubmit('approve')}
+                          onClick={() => decide.mutate({ id: edge.id, action: 'approve', actor: rowActor(), reason: rowReason() })}>
+                          {pendingId() === edge.id ? 'Approving…' : 'Confirm approve'}
+                        </button>
+                        <button class="danger" disabled={pendingId() !== null || !canSubmit('revoke')}
+                          onClick={() => decide.mutate({ id: edge.id, action: 'revoke', actor: rowActor(), reason: rowReason() })}>
+                          {pendingId() === edge.id ? 'Declining…' : 'Confirm decline'}
+                        </button>
+                      </Show>
+                      <Show when={edge.status === 'active' || edge.status === 'paused'}>
+                        <button class="danger" disabled={pendingId() !== null || !canSubmit('revoke')}
+                          onClick={() => decide.mutate({ id: edge.id, action: 'revoke', actor: rowActor(), reason: rowReason() })}>
+                          {pendingId() === edge.id ? 'Revoking…' : 'Confirm revoke'}
+                        </button>
+                      </Show>
+                      <button class="ghost" onClick={() => setExpandedRow(null)}>Cancel</button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </Show>
+            </>
           )}</For>
         </tbody>
       </table>

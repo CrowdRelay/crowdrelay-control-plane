@@ -693,6 +693,15 @@ export const NOTIFIER_EVENTS = [
   'runtime.recovered',
 ] as const
 export type NotifierEvent = (typeof NOTIFIER_EVENTS)[number]
+// Human-readable labels for each event — the dotted internals read as
+// accusations ("provisioning failed") rather than categories. Used in the
+// notifier create-form checkboxes and the active-destination event list.
+export const NOTIFIER_EVENT_LABELS: Record<NotifierEvent, string> = {
+  'provisioning.failed': 'Provisioning failures',
+  'runtime.degraded': 'Runtime degraded',
+  'runtime.stale': 'Runtime stale',
+  'runtime.recovered': 'Runtime recovered',
+}
 
 export type DiscoveredEndpoint = {
   id: string

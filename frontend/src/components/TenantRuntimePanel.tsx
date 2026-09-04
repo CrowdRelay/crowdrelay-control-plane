@@ -5,6 +5,7 @@ import { formatTimestamp } from '../lib/format'
 import { refreshTick } from '../lib/refresh'
 import type { RuntimeHealth, TenantRuntimeSnapshot } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
+import { SectionIcon } from './SectionIcon'
 
 const runtimeTone = (health: RuntimeHealth) => health === 'healthy' ? 'good' : health === 'degraded' ? 'bad' : health === 'stale' ? 'warn' : 'muted'
 
@@ -33,7 +34,7 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
       {/* Named for its source. Plain "Health" read as a contradiction next to
           the Operations page, which reports CrowdRelay's own HTTP health from
           a different feed: this one is the heartbeat the tenant pushes here. */}
-      <div><span class="eyebrow">RUNTIME</span><h2>Heartbeat</h2></div>
+      <div><span class="eyebrow">RUNTIME</span><h2><SectionIcon name="heartbeat" />Heartbeat</h2></div>
       <StatusBadge status={snapshot().runtimeHealth} tone={runtimeTone(snapshot().runtimeHealth)} />
     </div>
     <Show when={runtime.error}><div class="inline-stale-note" role="status">Live refresh failed. Showing the last known runtime snapshot.</div></Show>

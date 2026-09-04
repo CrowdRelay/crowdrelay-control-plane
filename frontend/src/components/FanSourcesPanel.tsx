@@ -685,6 +685,13 @@ export function FanSourcesPanel(props: {
           onClick={() => create.mutate()}>Create</button>
         <button class="ghost" onClick={() => setCreating(false)}>Cancel</button>
       </div>
+      <Show when={!name() || (needsAttestation() && !attestedBy())}>
+        <small class="muted form-disabled-hint">
+          {needsAttestation() && !attestedBy()
+            ? 'Enter a name and consent attestation to enable Create.'
+            : 'Enter a name to enable Create.'}
+        </small>
+      </Show>
     </Show>
 
     <Show when={blocks().length}>
@@ -717,6 +724,19 @@ export function FanSourcesPanel(props: {
                     <textarea rows="4" placeholder='{"entries":[{"external_id":"x1","email":"a@b.c"}]}'
                       aria-label="Fan batch JSON"
                       value={ingestJson()} onInput={e => setIngestJson(e.currentTarget.value)} />
+                    <div class="ingest-validation">
+                      <Show when={ingestJson().trim().length > 0} fallback={
+                        <details class="ingest-format-help">
+                          <summary>Format help</summary>
+                          <pre><code>{'{"entries":[{"external_id":"fan-001","email":"a@b.c","display_name":"Alex","locale":"en"}]}'}</code></pre>
+                          <small>Each entry needs <code>external_id</code> (required). Optional: <code>email</code>, <code>display_name</code>, <code>locale</code>.</small>
+                        </details>
+                      }>
+                        <Show when={parseEntries()} fallback={<small class="notifier-test-bad">Invalid JSON — check the format and try again.</small>}>
+                          <small class="notifier-test-ok">✓ Valid — {parseEntries()!.entries.length} entr{parseEntries()!.entries.length === 1 ? 'y' : 'ies'} ready</small>
+                        </Show>
+                      </Show>
+                    </div>
                     <div class="form-actions">
                       <button disabled={!parseEntries()}
                         onClick={() => {
