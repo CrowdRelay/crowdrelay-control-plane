@@ -13,6 +13,7 @@ import { EmptyState } from '../components/EmptyState'
 import { SignalOverviewPanel } from '../components/SignalOverviewPanel'
 import { SkeletonAttentionPage } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
+import { Spinner } from '../components/Spinner'
 import { refreshTick } from '../lib/refresh'
 
 const totalDead = (summary: OperationsSummary) => summary.outbox.dead + summary.deliveries.dead + summary.push.dead
@@ -292,7 +293,7 @@ export function TenantAttentionPage() {
           <h3><SectionIcon name="refresh-cw" />Ecosystem reconciliation</h3>
           <p>Consistency pass across feature flags, Bandsintown sync, and open findings. Run it first, then work through what it finds.</p>
         </div>
-        <button class={confirmingReconcile() ? 'reconciliation-confirm' : 'ghost'} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Confirm reconciliation' : 'Run reconciliation'}</button>
+        <button class={confirmingReconcile() ? 'reconciliation-confirm' : 'ghost'} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' && <Spinner />} {busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Confirm reconciliation' : 'Run reconciliation'}</button>
       </div>
       <Show when={ecosystem.data}><div class="operations-metrics">
         <div><span>Open findings</span><strong>{ecosystem.data!.open_findings}</strong><small>reported by canonical overview</small></div>
@@ -343,7 +344,7 @@ export function TenantAttentionPage() {
         </div>
         <div class="dead-event-actions">
           <button class="ghost dead-toggle-id" onClick={() => toggleRevealedId(`outbox:${item.id}`)}>{revealedId() === `outbox:${item.id}` ? 'Hide ID' : 'Details'}</button>
-          <button class="ghost" disabled={!!busy()} onClick={() => void retryOutbox(item.id)}>{busy() === `outbox:${item.id}` ? 'Retrying…' : 'Retry'}</button>
+          <button class="ghost" disabled={!!busy()} onClick={() => void retryOutbox(item.id)}>{busy() === `outbox:${item.id}` && <Spinner />} {busy() === `outbox:${item.id}` ? 'Retrying…' : 'Retry'}</button>
         </div>
       </div>
       <Show when={revealedId() === `outbox:${item.id}`}>
@@ -359,7 +360,7 @@ export function TenantAttentionPage() {
 
     <div class="section-title" id="dead-deliveries">
       <div><span class="eyebrow">DEAD WEBHOOK DELIVERIES</span><h3><SectionIcon name="alert-triangle" />Delivery failures</h3><p>Inspect attempt history before retrying.</p></div>
-      <button type="button" class={confirming() ? 'danger-ghost' : 'ghost'} disabled={(summary.data?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</button>
+      <button type="button" class={confirming() ? 'danger-ghost' : 'ghost'} disabled={(summary.data?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' && <Spinner />} {busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</button>
     </div>
     <Show when={deadDeliveries.error}><div class="error-card">Dead deliveries unavailable</div></Show>
     <For each={expandDeliveries() ? (deadDeliveries.data ?? []) : (deadDeliveries.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
@@ -374,7 +375,7 @@ export function TenantAttentionPage() {
         <div class="dead-event-actions">
           <button class="ghost dead-toggle-id" onClick={() => toggleRevealedId(`delivery:${item.id}`)}>{revealedId() === `delivery:${item.id}` ? 'Hide ID' : 'Details'}</button>
           <button class="ghost" disabled={!!busy()} onClick={() => void loadDeliveryDetails(item.id)}>Attempts</button>
-          <button class="ghost" disabled={!!busy()} onClick={() => void retryDelivery(item.id)}>{busy() === `delivery:${item.id}` ? 'Retrying…' : 'Retry'}</button>
+          <button class="ghost" disabled={!!busy()} onClick={() => void retryDelivery(item.id)}>{busy() === `delivery:${item.id}` && <Spinner />} {busy() === `delivery:${item.id}` ? 'Retrying…' : 'Retry'}</button>
         </div>
       </div>
       <Show when={revealedId() === `delivery:${item.id}`}>
@@ -414,7 +415,7 @@ export function TenantAttentionPage() {
             when={pushIsRetryable(item.error_code)}
             fallback={<span class="muted push-no-retry">nothing to retry</span>}
           >
-            <button class="ghost" disabled={!!busy()} onClick={() => void retryPush(item.id)}>{busy() === `push:${item.id}` ? 'Retrying…' : 'Retry'}</button>
+            <button class="ghost" disabled={!!busy()} onClick={() => void retryPush(item.id)}>{busy() === `push:${item.id}` && <Spinner />} {busy() === `push:${item.id}` ? 'Retrying…' : 'Retry'}</button>
           </Show>
         </div>
       </div>

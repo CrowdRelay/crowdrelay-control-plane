@@ -8,6 +8,7 @@ import { errorMessage } from '../lib/format'
 import { SkeletonRows } from './Skeleton'
 import { CONTEXT_LABELS, SUBJECT_KIND_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
 import { SectionIcon } from './SectionIcon'
+import { Spinner } from './Spinner'
 
 // The flagship decision surface. Shows the single most important current
 // decision (opportunity board position #1) in a structured narrative:
@@ -320,7 +321,7 @@ export function BrainDecisionPanel(props: {
                 disabled={pendingMutation() !== null}
                 onClick={() => approve(e)}
               >
-                {pendingMutation() === `approve:${e.decision_id}` ? 'Approving…' : confirming() === `approve:${e.decision_id}` ? 'Confirm approval' : 'Approve'}
+                {pendingMutation() === `approve:${e.decision_id}` && <Spinner />} {pendingMutation() === `approve:${e.decision_id}` ? 'Approving…' : confirming() === `approve:${e.decision_id}` ? 'Confirm approval' : 'Approve'}
               </button>
               <button
                 type="button"
@@ -328,7 +329,7 @@ export function BrainDecisionPanel(props: {
                 disabled={pendingMutation() !== null}
                 onClick={() => reject(e)}
               >
-                {pendingMutation() === `reject:${e.decision_id}` ? 'Rejecting…' : confirming() === `reject:${e.decision_id}` ? 'Confirm reject' : 'Reject'}
+                {pendingMutation() === `reject:${e.decision_id}` && <Spinner />} {pendingMutation() === `reject:${e.decision_id}` ? 'Rejecting…' : confirming() === `reject:${e.decision_id}` ? 'Confirm reject' : 'Reject'}
               </button>
             </Show>
             <button class="brain-decision-inspect" onClick={() => toggleEvidence()}>
