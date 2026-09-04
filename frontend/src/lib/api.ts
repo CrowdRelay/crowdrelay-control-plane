@@ -1,7 +1,25 @@
 import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AuditEntry, AgentScorecard, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentOutcome, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationRoutingItem, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, ChatAction, CommunityItem, CommunityObservationItem, CommunityEntityItem, CommunityIntroDraft, ConnectionCreationResult, DeliveryDetails, DeliveryItem, DiscoveredEndpoint, FanbaseConnection, FeatureFlag, GrowthFunnelData, GrowthOverview, NotifierChannel, OperationTimeline, OperationsSummary, OperatorAccount, OutboxItem, Palette, PlatformConfigItem, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, AudienceOverview, FanCard, FanDetail, FanJourneyEntry, AudienceSegment, SegmentPreview, AudienceReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectiveView, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TourEconomicsSummary, AutopilotChiefOfStaff, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, BeaconImportResult, NotifiersOverview, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput, BeaconUpsertInput } from './types'
 
 export class ApiError extends Error {
-  constructor(public readonly status: number, message: string) { super(message) }
+  constructor(public readonly status: number, message: string, public readonly code?: string) { super(message) }
+}
+
+/** Map a backend error code to an operator-friendly heading. Falls back to
+ *  the raw `detail` when no code-specific mapping applies. */
+export function errorHeading(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) {
+    switch (error.code) {
+      case 'unauthorized': return 'Session expired — please log in again.'
+      case 'forbidden': return "You don't have permission to do that."
+      case 'not_found': return 'That item no longer exists.'
+      case 'conflict': return 'That name or value is already taken.'
+      case 'invalid_input': return 'Check the entered values and try again.'
+      case 'rate_limited': return 'Too many requests — wait a moment and retry.'
+      case 'unavailable': return 'That service is temporarily unavailable.'
+    }
+    return error.message || fallback
+  }
+  return error instanceof Error ? error.message : fallback
 }
 
 // Registered by lib/auth.ts so a 401 anywhere drops the in-memory profile.
@@ -24,8 +42,8 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     // The session cookie is HttpOnly, so a 401 is the only signal the SPA can
     // get that its session died; drop the cached profile everywhere.
     if (response.status === 401 && !path.startsWith('/auth/session') && unauthorizedHandler) unauthorizedHandler()
-    const body = await response.json().catch(() => ({ detail: response.statusText })) as { detail?: string }
-    throw new ApiError(response.status, body.detail ?? `HTTP ${response.status}`)
+    const body = await response.json().catch(() => ({ detail: response.statusText })) as { detail?: string; error?: string }
+    throw new ApiError(response.status, body.detail ?? `HTTP ${response.status}`, body.error)
   }
   if (response.status === 204) return undefined as T
   return response.json() as Promise<T>

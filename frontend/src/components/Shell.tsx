@@ -238,6 +238,8 @@ export const Shell: Component = () => {
     refetchOnWindowFocus: false,
     reconcile: 'id',
   }))
+  const attentionCount = () =>
+    (tenants.data?.items ?? []).filter(t => t.runtimeHealth === 'degraded' || t.runtimeHealth === 'stale').length
 
   const selectTenant = (newSlug: string) => {
     const current = slug()
@@ -340,6 +342,7 @@ export const Shell: Component = () => {
             <Link to="/attention" activeProps={{ class: 'active' }} title="Attention">
               <NavIcon name="attention" />
               <Show when={!collapsed()}><span>Attention</span></Show>
+              <Show when={attentionCount() > 0}><span class="nav-badge" aria-label={`${attentionCount()} tenants need attention`}>{attentionCount()}</span></Show>
             </Link>
             <Link to="/automation" activeProps={{ class: 'active' }} title="Automation">
               <NavIcon name="automation" />
