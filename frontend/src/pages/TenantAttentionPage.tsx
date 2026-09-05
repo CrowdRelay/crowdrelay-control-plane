@@ -270,6 +270,7 @@ export function TenantAttentionPage() {
         staleReservations={summary.data ? staleAreaReservations(summary.data) : 0}
         activeAlerts={summary.data?.watchdog.active_alerts ?? 0}
         awaitingApproval={attention.data?.awaiting_approval ?? 0}
+        notReported={attention.data?.not_reported ?? []}
       />
     </Show>
 

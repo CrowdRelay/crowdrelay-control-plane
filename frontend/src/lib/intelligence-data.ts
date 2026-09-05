@@ -8,6 +8,7 @@ import type {
   GrowthOverview,
   OperationsSummary,
   OpportunityBoardEntry,
+  SectionVerdicts,
   TenantOperationsReadModel,
 } from './types'
 
@@ -44,6 +45,8 @@ export interface IntelligenceData {
   growth: GrowthOverview | null
   opportunities: OpportunityBoardEntry[]
   degraded: string[]
+  sections: SectionVerdicts
+  fetchedAt: string | null
 
   // Derived intelligence state
   topOpportunity: OpportunityBoardEntry | null
@@ -93,6 +96,8 @@ export function useIntelligenceData(slug: string): IntelligenceData {
   const growth = () => ops()?.growth ?? null
   const opportunities = () => ops()?.opportunities ?? []
   const degraded = () => ops()?.degraded ?? []
+  const sections = () => ops()?.sections ?? {}
+  const fetchedAt = () => ops()?.fetchedAt ?? null
 
   const deadJobs = () => {
     const s = summary()
@@ -164,6 +169,8 @@ export function useIntelligenceData(slug: string): IntelligenceData {
     growth: growth(),
     opportunities: opportunities(),
     degraded: degraded(),
+    sections: sections(),
+    fetchedAt: fetchedAt(),
 
     topOpportunity: topOpportunity(),
     needsOperator: needsOperator(),

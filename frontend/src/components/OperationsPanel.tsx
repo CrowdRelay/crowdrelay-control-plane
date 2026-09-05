@@ -1,6 +1,6 @@
 import { For, Show, createEffect, createSignal } from 'solid-js'
 import { api } from '../lib/api'
-import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, FeatureFlag, OperationsSummary } from '../lib/types'
+import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, FeatureFlag, OperationsSummary, SectionState, SectionVerdicts } from '../lib/types'
 import { errorMessage, formatAge, oldestQueueAge } from '../lib/format'
 import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
@@ -26,6 +26,26 @@ const flagReason = (flag: FeatureFlag) => flag.reason === 'lazy default'
 const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
 
 const seconds = (value: number) => value <= 0 ? '—' : formatAge(value)
+
+// The badge used to say "controls will recover automatically" for every kind
+// of gap. That is only true for a timeout or an unreachable tenant. A refused
+// credential and a shape this contract no longer accepts do not recover on
+// their own, and one of them means the numbers on this page cannot be trusted
+// at all — so each class gets its own sentence.
+const SECTION_STATE_COPY: Record<SectionState, string> = {
+  ok: 'served',
+  timeout: 'timed out — retrying may clear it',
+  unreachable: 'tenant did not answer — check the runtime and its tunnel',
+  upstream_error: 'tenant returned an error of its own — check its logs',
+  unauthorized: 'tenant refused the Control Plane credential — re-run the management bootstrap',
+  absent: 'not served by this tenant build',
+  rejected: 'tenant rejected the request — Control Plane bug',
+  contract_mismatch: 'answered in an unrecognised shape — treat these numbers as unknown',
+}
+
+// contract_mismatch is the one class that means "stop trusting this page",
+// so it is called out rather than blended into the list.
+const UNTRUSTWORTHY: readonly SectionState[] = ['contract_mismatch']
 
 const metric = (value: number | undefined, suffix = '') => value == null ? '—' : `${value.toLocaleString()}${suffix}`
 
@@ -138,6 +158,9 @@ export function OperationsPanel(props: {
   flags: FeatureFlag[] | null | undefined
   autopilot: AutopilotOverview | null | undefined
   degraded: readonly string[]
+  // Per-section verdicts from the read model. Optional so a cached payload
+  // from before this field existed still renders rather than crashing.
+  sections?: SectionVerdicts
   refresh: () => Promise<unknown>
   mode?: 'full' | 'health' | 'controls'
 }) {
@@ -189,6 +212,13 @@ export function OperationsPanel(props: {
   )
 
   const unavailable = () => summary.error || flags.error || autopilot.error
+  // Name each missing section and why. Falls back to the old wording only
+  // when the server did not send verdicts.
+  const degradedReasons = () => props.degraded.map((name) => {
+    const state = props.sections?.[name]?.state
+    return { name, state, copy: state ? SECTION_STATE_COPY[state] : 'unavailable' }
+  })
+  const untrusted = () => degradedReasons().some((entry) => entry.state !== undefined && UNTRUSTWORTHY.includes(entry.state))
   const deadJobs = () => summary.data ? summary.data.outbox.dead + summary.data.deliveries.dead + summary.data.push.dead : 0
   const showHealth = () => !props.mode || props.mode === 'full' || props.mode === 'health'
   const showControls = () => !props.mode || props.mode === 'full' || props.mode === 'controls'
@@ -274,10 +304,19 @@ export function OperationsPanel(props: {
       </div>
     }</Show>
 
-    <Show when={unavailable()}>
-      <div class="ops-degraded-badge" role="status">
+    <Show when={unavailable() || props.degraded.length > 0}>
+      <div class="ops-degraded-badge" role={untrusted() ? 'alert' : 'status'}>
         <span class="ops-degraded-dot" />
-        Operational channel partially unavailable — controls will recover automatically
+        <span>
+          <Show
+            when={degradedReasons().length > 0}
+            fallback="Operational channel partially unavailable"
+          >
+            <For each={degradedReasons()}>{entry =>
+              <span class="ops-degraded-reason"><strong>{entry.name}</strong>: {entry.copy}</span>
+            }</For>
+          </Show>
+        </span>
       </div>
     </Show>
     <Show when={mutationError()}>{message => <div class="error-card operations-error" role="alert">{message()}</div>}</Show>
