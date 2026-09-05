@@ -105,11 +105,23 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     // Optional on purpose: a CrowdRelay that predates the watchdog alert list
     // still serves a valid snapshot, and an operator plane must not fail closed
     // on a section the tenant simply does not publish yet.
-    let alerts = snapshot.get("alerts").cloned().unwrap_or_else(|| json!([]));
-    let dead_push = snapshot
-        .get("dead_push")
-        .cloned()
-        .unwrap_or_else(|| json!([]));
+    //
+    // The defaults keep the shape stable for the browser, but a default is
+    // not an observation: "this tenant reports nothing awaiting approval" and
+    // "this tenant does not report approvals at all" are different facts, and
+    // rendering the second as `0` is the panel telling the operator nothing
+    // needs them when it does not know. Every substituted section is named in
+    // `not_reported` so the page can print "not reported" instead of a zero
+    // nobody measured.
+    let mut not_reported: Vec<&'static str> = Vec::new();
+    let alerts = snapshot.get("alerts").cloned().unwrap_or_else(|| {
+        not_reported.push("alerts");
+        json!([])
+    });
+    let dead_push = snapshot.get("dead_push").cloned().unwrap_or_else(|| {
+        not_reported.push("dead_push");
+        json!([])
+    });
     let dead_outbox = section(snapshot, "dead_outbox")?;
     let dead_deliveries = section(snapshot, "dead_deliveries")?;
     let ecosystem = section(snapshot, "ecosystem")?;
@@ -117,14 +129,17 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     // Optional: a CrowdRelay that predates needs_you/awaiting_approval in
     // the attention snapshot still serves a valid response. An older
     // upstream simply does not publish these fields yet.
-    let needs_you = snapshot
-        .get("needs_you")
-        .cloned()
-        .unwrap_or_else(|| json!([]));
+    let needs_you = snapshot.get("needs_you").cloned().unwrap_or_else(|| {
+        not_reported.push("needs_you");
+        json!([])
+    });
     let awaiting_approval = snapshot
         .get("awaiting_approval")
         .cloned()
-        .unwrap_or_else(|| json!(0));
+        .unwrap_or_else(|| {
+            not_reported.push("awaiting_approval");
+            json!(0)
+        });
 
     expect_object(summary, "summary")?;
     expect_array(&alerts, "alerts")?;
@@ -148,6 +163,8 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
         "findings": findings,
         "needs_you": needs_you,
         "awaiting_approval": awaiting_approval,
+        // Sections whose value above is a placeholder, not a measurement.
+        "not_reported": not_reported,
     }))
 }
 
@@ -158,6 +175,7 @@ mod tests {
     fn expected_projection() -> Value {
         let mut expected = snapshot();
         expected["id"] = json!("virya");
+        expected["not_reported"] = json!([]);
         expected
     }
 
@@ -215,6 +233,7 @@ mod tests {
         older.as_object_mut().expect("object").remove("alerts");
         let projected = project("virya", &older).expect("a snapshot without alerts still projects");
         assert_eq!(projected["alerts"], json!([]));
+        assert_eq!(projected["not_reported"], json!(["alerts"]));
     }
 
     #[test]
@@ -224,6 +243,26 @@ mod tests {
         let projected =
             project("virya", &older).expect("a snapshot without dead_push still projects");
         assert_eq!(projected["dead_push"], json!([]));
+        assert_eq!(projected["not_reported"], json!(["dead_push"]));
+    }
+
+    #[test]
+    fn a_section_the_tenant_does_not_publish_is_named_not_measured_as_zero() {
+        // `awaiting_approval` is the count the Attention page turns into
+        // "what needs me". Substituting 0 for "this build does not report it"
+        // is the panel answering a question it cannot answer.
+        let mut older = snapshot();
+        let object = older.as_object_mut().expect("object");
+        object.remove("awaiting_approval");
+        object.remove("needs_you");
+        let projected = project("virya", &older).expect("an older snapshot still projects");
+        assert_eq!(projected["awaiting_approval"], json!(0));
+        assert_eq!(projected["needs_you"], json!([]));
+        assert_eq!(
+            projected["not_reported"],
+            json!(["needs_you", "awaiting_approval"]),
+            "the placeholders must be distinguishable from measurements"
+        );
     }
 
     #[test]

@@ -104,11 +104,17 @@ async fn create_session(
     // Local dev convenience: the Vite proxy injects the admin bearer, which
     // already proves authority without any password. No cookie is issued —
     // every proxied request carries the bearer itself.
-    if auth::resolve_identity(&state, &headers)
-        .await
-        .map(|identity| identity.is_platform_admin())
-        .unwrap_or_default()
-    {
+    //
+    // Only the bearer. `is_platform_admin()` is also true for a *session* held
+    // by a platform_admin account, and that made this endpoint answer 201
+    // "signed in as platform-admin" to any credentials at all whenever such a
+    // session cookie was present — a password prompt that does not check the
+    // password. Matching the variant keeps the shortcut to the authority the
+    // comment above actually describes.
+    if matches!(
+        auth::resolve_identity(&state, &headers).await,
+        Ok(Identity::PlatformAdmin)
+    ) {
         return Ok((
             StatusCode::CREATED,
             Json(
@@ -259,6 +265,15 @@ async fn reauth_session(
         ));
     };
     let username = validation::username(username)?;
+    // Re-auth is a password prompt like any other, so it carries the same
+    // lockout. Without it a stolen phone with a live session had an
+    // unthrottled oracle against the owner's password, which is the exact
+    // credential this step exists to demand.
+    if throttled(&username) {
+        return Err(ApiError::Unavailable(
+            "too many failed sign-in attempts; try again later".to_owned(),
+        ));
+    }
     let account = state
         .store
         .find_active_account_with_secret(&username)
@@ -268,6 +283,7 @@ async fn reauth_session(
         .is_some_and(|account| auth::verify_password(&input.password, &account.password_hash));
     if !verified {
         reject_with_pad(&input.password);
+        record_failure(&username);
         return Err(ApiError::Unauthorized);
     }
     Ok(axum::Json(json!({"status": "ok"})))
