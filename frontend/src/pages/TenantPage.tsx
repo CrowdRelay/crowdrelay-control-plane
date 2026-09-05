@@ -245,6 +245,7 @@ export function TenantPage() {
           flags={ops()?.flags ?? null}
           autopilot={ops()?.autopilot ?? null}
           degraded={ops()?.degraded ?? []}
+          sections={ops()?.sections}
           refresh={async () => { await queryClient.invalidateQueries({ queryKey: ['tenant-overview', params().slug] }) }}
           mode="health"
         />}

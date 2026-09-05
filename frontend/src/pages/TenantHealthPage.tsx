@@ -85,6 +85,7 @@ export function TenantHealthPage() {
         flags={d()?.flags ?? null}
         autopilot={d()?.autopilot ?? null}
         degraded={d()?.degraded ?? []}
+        sections={d()?.sections}
         refresh={refresh}
         mode="controls"
       />

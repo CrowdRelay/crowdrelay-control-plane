@@ -1301,6 +1301,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 /* Compact degraded badge for OperationsPanel */
 .ops-degraded-badge{display:flex;align-items:center;gap:8px;margin-top:12px;padding:8px 14px;border:1px solid #3a3520;border-radius:var(--radius-sm);background:rgba(41,32,15,0.85);color:#d4c878;font-size:var(--text-sm)}
 .ops-degraded-dot{width:8px;height:8px;border-radius:50%;background:#c9b95e;flex-shrink:0;animation:pulse 2s infinite}
+.ops-degraded-badge>span:last-child{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ops-degraded-reason{overflow-wrap:anywhere}
+.ops-degraded-badge[role="alert"]{border-color:#5a2a20;background:rgba(58,26,18,0.85);color:#e0a08c}
 
 /* Opportunity board — collapsible guide + show-all + truncation */
 .opportunity-guide-collapse{margin-bottom:14px}

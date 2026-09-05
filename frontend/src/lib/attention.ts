@@ -19,6 +19,12 @@ export type TenantAttentionReadModel = {
   needs_you?: PendingActionSummary[]
   /// Count of opportunities awaiting approval. Optional for the same reason.
   awaiting_approval?: number
+  /// Sections whose value above is a placeholder the Control Plane
+  /// substituted, not something the tenant measured. An empty list next to a
+  /// zero means the tenant really has nothing waiting; `awaiting_approval`
+  /// listed here means it does not report approvals at all, and the zero
+  /// beside it must not be shown as one.
+  not_reported?: string[]
 }
 
 export type OperationsAttentionSnapshot = TenantAttentionReadModel

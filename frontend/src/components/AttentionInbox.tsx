@@ -32,7 +32,12 @@ export function AttentionInbox(props: {
   staleReservations: number
   activeAlerts: number
   awaitingApproval: number
+  /// Sections the tenant does not report. A counter named here is unknown,
+  /// not zero, so the inbox says so instead of staying quiet — "nothing needs
+  /// you" and "this build cannot tell you" are different answers.
+  notReported?: readonly string[]
 }) {
+  const unreported = (name: string) => (props.notReported ?? []).includes(name)
   const opsPath = () => `/tenants/${props.slug}/operations`
 
   const items = (): AttentionItem[] => {
@@ -86,7 +91,16 @@ export function AttentionInbox(props: {
         action: { label: 'Review', to: opsPath() },
       })
     }
-    if (props.awaitingApproval > 0) {
+    if (unreported('awaiting_approval') || unreported('needs_you')) {
+      list.push({
+        id: 'approvals-not-reported',
+        tier: 'review',
+        title: 'Pending approvals are not reported by this tenant',
+        detail: 'This CrowdRelay build does not publish the approval queue, so the Control Plane cannot tell you whether anything is waiting.',
+        consequence: 'Work may be parked awaiting your decision without appearing here.',
+        action: { label: 'Open operations', to: opsPath() },
+      })
+    } else if (props.awaitingApproval > 0) {
       list.push({
         id: 'awaiting-approval',
         tier: 'review',

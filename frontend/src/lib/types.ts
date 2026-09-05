@@ -550,6 +550,28 @@ export type TenantOverviewReadModel = {
 
 export type TenantOperationsSection = 'summary' | 'flags' | 'autopilot' | 'growth' | 'opportunities'
 
+// Why a read-model section is missing. The Control Plane classifies each
+// failure at the tunnel instead of collapsing them all into "degraded", so a
+// panel can say whether to retry, look at the tenant, or stop trusting the
+// numbers entirely. Mirrors `SectionState` in `read_models.rs`.
+export type SectionState =
+  | 'ok'
+  | 'timeout'
+  | 'unreachable'
+  | 'upstream_error'
+  | 'unauthorized'
+  | 'absent'
+  | 'rejected'
+  | 'contract_mismatch'
+
+export type SectionVerdict = {
+  state: SectionState
+  // Server-authored next step. Null only when the section is 'ok'.
+  remediation: string | null
+}
+
+export type SectionVerdicts = Record<string, SectionVerdict | undefined>
+
 export type TenantOperationsReadModel = {
   id: string
   summary: OperationsSummary | null
@@ -560,6 +582,11 @@ export type TenantOperationsReadModel = {
   // Sections the tenant channel could not serve. They render as locally
   // degraded instead of failing the whole subpage.
   degraded: TenantOperationsSection[]
+  // Per-section verdict, including the ones that succeeded.
+  sections: SectionVerdicts
+  // When the server assembled this fan-out. The only freshness claim it can
+  // honestly make about a live upstream read.
+  fetchedAt: string
 }
 
 export type PortfolioConsentStatus = 'proposed' | 'active' | 'paused' | 'revoked'
@@ -785,6 +812,8 @@ export type TenantPortfolioReadModel = {
   // Sections the tenant channel could not serve. They render as locally
   // degraded instead of failing the whole subpage.
   degraded: TenantPortfolioSection[]
+  sections: SectionVerdicts
+  fetchedAt: string
 }
 
 
@@ -1175,6 +1204,8 @@ export type AudienceReadModel = {
   fans: FanCard[] | null
   segments: AudienceSegment[] | null
   degraded: string[]
+  sections: SectionVerdicts
+  fetchedAt: string
 }
 
 // --- Growth Metrics types ---
