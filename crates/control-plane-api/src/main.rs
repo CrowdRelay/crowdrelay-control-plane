@@ -125,6 +125,18 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!(username, "bootstrap platform admin ensured");
     }
 
+    if config.allowed_redirect_origins.is_empty() && config.agent_service_url.is_some() {
+        // Without an allow-list, an OAuth `redirect_uri` is checked against
+        // the request's own Host header — which the caller supplies. That is
+        // the weaker of the two modes and it used to be entirely silent, so a
+        // deployment that never set the variable could not tell which check
+        // was running.
+        tracing::warn!(
+            "CONTROL_PLANE_ALLOWED_REDIRECT_ORIGINS is unset; OAuth redirect_uri is validated \
+             against the request Host header instead of a fixed allow-list"
+        );
+    }
+
     let http_client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
         .redirect(reqwest::redirect::Policy::none())
@@ -242,7 +254,8 @@ async fn main() -> anyhow::Result<()> {
             auth::require_tenant_access,
         ));
     let admin_api = routes::admin_router()
-        .merge(routes::operator_admin_router())
+        .merge(scoped(routes::tenant_admin_router()))
+        .merge(scoped(routes::operator_admin_router()))
         .merge(scoped(runtime_routes::router()))
         .merge(superadmin_area)
         .merge(scoped(attention_routes::router()))

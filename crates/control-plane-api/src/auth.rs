@@ -382,6 +382,56 @@ pub async fn require_automation(
 mod tests {
     use super::tenant_slug_from_path;
 
+    /// The guard resolves the slug from the path, canonicalises it through
+    /// `validation::slug`, and looks the tenant up. These are the shapes a
+    /// caller can bend a path into; each has to end up as either the same
+    /// tenant the router matched, or a rejection. What must never happen is
+    /// the guard reading one tenant while the handler reads another.
+    #[test]
+    fn path_tricks_resolve_to_the_same_tenant_or_are_refused() {
+        // Empty segments are filtered, so a doubled or trailing slash names
+        // the same tenant the router matched.
+        for path in [
+            "/tenants/virya/audit",
+            "//tenants//virya//audit",
+            "/tenants/virya/",
+            "/api/v1/tenants/virya",
+            "/api//v1//tenants//virya//operations//summary",
+        ] {
+            assert_eq!(
+                tenant_slug_from_path(path).and_then(|slug| crate::validation::slug(slug).ok()),
+                Some("virya".to_owned()),
+                "{path}"
+            );
+        }
+
+        // Percent-encoding, unicode look-alikes and traversal never survive
+        // canonicalisation, so the guard fails closed instead of resolving a
+        // different tenant than the one the handler will.
+        for path in [
+            "/tenants/%76irya/audit",
+            "/tenants/vіrya/audit", // Cyrillic і
+            "/tenants/VIRYA%00/audit",
+            "/tenants/../virya/audit",
+            "/tenants/virya%2Fother/audit",
+        ] {
+            assert_eq!(
+                tenant_slug_from_path(path).and_then(|slug| crate::validation::slug(slug).ok()),
+                None,
+                "{path} must not canonicalise to a tenant"
+            );
+        }
+
+        // Upper case is the one form that normalises rather than failing, and
+        // it normalises to the same tenant axum's `{slug}` capture hands the
+        // handler, which also runs `validation::slug`.
+        assert_eq!(
+            tenant_slug_from_path("/tenants/VIRYA/audit")
+                .and_then(|slug| crate::validation::slug(slug).ok()),
+            Some("virya".to_owned())
+        );
+    }
+
     #[test]
     fn slug_is_found_with_and_without_the_nested_api_prefix() {
         // Nested routers see the stripped path; the deploy incident proved the

@@ -88,16 +88,26 @@ impl RuntimeHealth {
         let Some(runtime) = runtime else {
             return Self::Unknown;
         };
-        // Prefer the server-controlled receipt timestamp. A reporter clock must not
-        // be able to keep a dead tenant fresh by sending a future heartbeat.
-        let Some(observed_at) = runtime
-            .checked_at
-            .as_ref()
-            .or(runtime.last_heartbeat_at.as_ref())
-        else {
+        // Freshness is the *older* of the two clocks, never the newer one.
+        //
+        // `checked_at` is the server-controlled receipt: a reporter clock must
+        // not keep a dead tenant fresh by sending a future heartbeat.
+        // `last_heartbeat_at` is the reporter's own observation: a reporter
+        // that keeps calling while the tenant it watches has not been seen for
+        // hours must not launder its own liveness into the tenant's. Taking
+        // the minimum makes a fresh request against stale upstream state read
+        // as stale, which is the honest answer.
+        //
+        // Without a server receipt there is nothing to bound the reporter's
+        // clock with, so freshness cannot be vouched for at all.
+        let Some(checked_at) = runtime.checked_at else {
             return Self::Unknown;
         };
-        if observed_at < &(now - Duration::seconds(stale_after_seconds.max(1))) {
+        let observed_at = match runtime.last_heartbeat_at {
+            Some(heartbeat) => checked_at.min(heartbeat),
+            None => checked_at,
+        };
+        if observed_at < now - Duration::seconds(stale_after_seconds.max(1)) {
             return Self::Stale;
         }
         match (runtime.api_healthy, runtime.worker_healthy) {
@@ -510,6 +520,40 @@ mod tests {
             RuntimeHealth::classify(Some(&skewed), now, 180),
             RuntimeHealth::Stale,
             "server receipt time must be authoritative over reporter clock skew"
+        );
+    }
+
+    #[test]
+    fn a_fresh_report_about_a_long_unseen_tenant_is_stale_not_healthy() {
+        // The runtime observer keeps calling every 30s. If it reports a
+        // heartbeat it observed hours ago, the *tenant* has not been seen
+        // since — the observer's own liveness must not launder into the
+        // tenant's. Before this, `checked_at=now()` alone decided freshness
+        // and the panel rendered `healthy` for a tenant nobody had heard from.
+        let now = Utc::now();
+        let mut lagging = status(Some(true), Some(true), now);
+        lagging.last_heartbeat_at = Some(now - Duration::hours(2));
+        assert_eq!(
+            RuntimeHealth::classify(Some(&lagging), now, 180),
+            RuntimeHealth::Stale
+        );
+
+        // A report with no heartbeat at all still leans on the receipt: the
+        // reporter observed the tenant now and simply had no heartbeat field.
+        let mut receipt_only = status(Some(true), Some(true), now);
+        receipt_only.last_heartbeat_at = None;
+        assert_eq!(
+            RuntimeHealth::classify(Some(&receipt_only), now, 180),
+            RuntimeHealth::Healthy
+        );
+
+        // No server receipt means no bound on the reporter's clock, so the
+        // row cannot vouch for its own freshness.
+        let mut unreceipted = status(Some(true), Some(true), now);
+        unreceipted.checked_at = None;
+        assert_eq!(
+            RuntimeHealth::classify(Some(&unreceipted), now, 180),
+            RuntimeHealth::Unknown
         );
     }
 }

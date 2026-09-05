@@ -5,7 +5,7 @@ use axum::{
     routing::{get, post},
 };
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{Value, json};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -23,10 +23,25 @@ use crate::{
     validation,
 };
 
+/// Platform-wide surface: no tenant in the path, so scope is enforced inside
+/// each handler by filtering the result set to the caller's tenant.
 pub fn admin_router() -> Router<AppState> {
     Router::new()
         .route("/overview", get(overview))
         .route("/tenants", get(list_tenants).post(create_tenant))
+}
+
+/// Tenant-scoped admin surface.
+///
+/// Split out from [`admin_router`] so it can carry
+/// [`auth::require_tenant_access`] path-wide. Every handler below still states
+/// its own authority — `require_platform_admin` where the action belongs to
+/// the platform, `resolve_scoped_tenant` where a tenant operator may act on
+/// their own tenant — but the boundary no longer depends on remembering to.
+/// Before this, one new `/tenants/{slug}/…` route added here without a guard
+/// was a cross-tenant read, and nothing failed until someone noticed.
+pub fn tenant_admin_router() -> Router<AppState> {
+    Router::new()
         .route("/tenants/{slug}", get(get_tenant).delete(remove_tenant))
         .route(
             "/tenants/{slug}/branding",
@@ -482,7 +497,14 @@ async fn deploy_tenant(
     // provisioner path. The workflow SSHes to the production host and runs
     // the blue-green deploy with rollback.
     if store::tenant_lifecycle_is_externally_owned(&tenant.tenant.slug) {
-        return trigger_ecosystem_deploy(&state, &identity, &tenant.tenant.slug).await;
+        return trigger_ecosystem_deploy(
+            &state,
+            &identity,
+            &tenant,
+            input.desired_version.as_deref(),
+            request_id(&headers),
+        )
+        .await;
     }
 
     if state.provisioner_token_hash.is_none() {
@@ -516,15 +538,51 @@ async fn deploy_tenant(
     ))
 }
 
+/// The revision an external deploy targets.
+///
+/// `ecosystem-deploy.yml` takes a bare 40-character commit SHA and treats the
+/// empty string as "whatever `main` points at now". The operator's requested
+/// revision used to be dropped on the floor here: the panel let them pick a
+/// version, this function sent `target_sha: ""`, and the deploy that actually
+/// ran was a different commit than the one on screen. Either the request names
+/// a revision this can pass through verbatim, or it says so.
+fn external_deploy_target(desired_version: Option<&str>) -> Result<String, ApiError> {
+    let Some(raw) = desired_version.map(str::trim).filter(|v| !v.is_empty()) else {
+        return Ok(String::new());
+    };
+    let sha = raw.strip_prefix("sha-").unwrap_or(raw);
+    if sha.len() != 40
+        || !sha
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    {
+        return Err(ApiError::InvalidInput(
+            "desiredVersion must be a 40 lowercase hex commit SHA for an externally-owned tenant"
+                .to_owned(),
+        ));
+    }
+    Ok(sha.to_owned())
+}
+
 /// Triggers the `ecosystem-deploy.yml` GitHub Actions workflow for
 /// externally-owned tenants. Returns a synthetic job-like response so the
 /// frontend's existing deploy flow (which expects a ProvisioningJob shape)
 /// doesn't need a separate code path.
+///
+/// This mutates a production host through a third party, so both the attempt
+/// and its outcome are audited against the tenant with the caller's actor and
+/// request id. Without that, the single most consequential control in the
+/// panel left nothing behind but a log line.
 async fn trigger_ecosystem_deploy(
     state: &AppState,
     identity: &Identity,
-    slug: &str,
+    tenant: &crate::model::TenantSummary,
+    desired_version: Option<&str>,
+    request_id: Option<&str>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
+    let slug = tenant.tenant.slug.as_str();
+    let actor = identity.audit_actor();
+    let target_sha = external_deploy_target(desired_version)?;
     let (token, repo) = match (
         state.github_deploy_token.as_deref(),
         state.github_deploy_repo.as_deref(),
@@ -543,9 +601,32 @@ async fn trigger_ecosystem_deploy(
     let body = json!({
         "ref": "main",
         "inputs": {
-            "target_sha": "",
+            "target_sha": target_sha,
         },
     });
+    // What the operator asked for is recorded before the call leaves, so a
+    // dispatch that succeeds upstream while this process dies still has a
+    // record of who asked for what.
+    let requested = json!({
+        "repo": repo,
+        "workflow": "ecosystem-deploy.yml",
+        "ref": "main",
+        // Empty means the workflow resolves `main` itself; name that
+        // explicitly rather than logging a blank field.
+        "targetSha": if target_sha.is_empty() { Value::Null } else { Value::String(target_sha.clone()) },
+    });
+    state
+        .store
+        .audit_external_deploy(
+            tenant.tenant.id,
+            slug,
+            &actor,
+            request_id,
+            "requested",
+            requested.clone(),
+        )
+        .await?;
+
     let response = state
         .http_client
         .post(&url)
@@ -554,23 +635,64 @@ async fn trigger_ecosystem_deploy(
         .header("x-github-api-version", "2022-11-28")
         .json(&body)
         .send()
-        .await
-        .map_err(|e| {
-            tracing::error!(%e, slug, "GitHub workflow dispatch request failed");
-            ApiError::Unavailable("failed to trigger ecosystem deploy".to_owned())
-        })?;
+        .await;
+    let response = match response {
+        Ok(response) => response,
+        Err(e) => {
+            tracing::error!(%e, slug, actor = %actor, "GitHub workflow dispatch request failed");
+            state
+                .store
+                .audit_external_deploy(
+                    tenant.tenant.id,
+                    slug,
+                    &actor,
+                    request_id,
+                    "transport_failed",
+                    requested,
+                )
+                .await?;
+            return Err(ApiError::Unavailable(
+                "failed to trigger ecosystem deploy".to_owned(),
+            ));
+        }
+    };
 
     let status = response.status();
     if !status.is_success() {
         let text = response.text().await.unwrap_or_default();
-        tracing::error!(%status, text, slug, "GitHub workflow dispatch rejected");
+        tracing::error!(%status, text, slug, actor = %actor, "GitHub workflow dispatch rejected");
+        let mut rejected = requested;
+        if let Some(object) = rejected.as_object_mut() {
+            object.insert("httpStatus".to_owned(), json!(status.as_u16()));
+        }
+        state
+            .store
+            .audit_external_deploy(
+                tenant.tenant.id,
+                slug,
+                &actor,
+                request_id,
+                "rejected",
+                rejected,
+            )
+            .await?;
         return Err(ApiError::Unavailable(format!(
             "GitHub workflow dispatch failed: {status}"
         )));
     }
 
-    let actor = identity.audit_actor();
-    tracing::info!(slug, actor = %actor, "ecosystem-deploy workflow dispatched via GitHub API");
+    tracing::info!(slug, actor = %actor, target_sha = %target_sha, "ecosystem-deploy workflow dispatched via GitHub API");
+    state
+        .store
+        .audit_external_deploy(
+            tenant.tenant.id,
+            slug,
+            &actor,
+            request_id,
+            "dispatched",
+            requested,
+        )
+        .await?;
 
     Ok((
         StatusCode::ACCEPTED,
@@ -578,11 +700,43 @@ async fn trigger_ecosystem_deploy(
             "id": format!("github-dispatch-{}", chrono::Utc::now().timestamp_millis()),
             "tenant_slug": slug,
             "status": "dispatched",
+            // Say which revision actually left, not which one the form held.
+            "targetSha": if target_sha.is_empty() { Value::Null } else { Value::String(target_sha) },
             "message": "Ecosystem deploy workflow triggered on GitHub Actions.",
             "workflow_url": format!("https://github.com/{repo}/actions/workflows/ecosystem-deploy.yml"),
             "created_at": chrono::Utc::now().to_rfc3339(),
         })),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::external_deploy_target;
+
+    #[test]
+    fn external_deploy_passes_the_requested_revision_or_refuses_it() {
+        let sha = "0123456789abcdef0123456789abcdef01234567";
+        assert_eq!(external_deploy_target(Some(sha)).unwrap(), sha);
+        // The panel and the provisioner both speak `sha-<40 hex>`; the
+        // workflow input is the bare commit.
+        assert_eq!(
+            external_deploy_target(Some(&format!("sha-{sha}"))).unwrap(),
+            sha
+        );
+        // Absent means "resolve main", which is the workflow's own default.
+        assert_eq!(external_deploy_target(None).unwrap(), "");
+        assert_eq!(external_deploy_target(Some("  ")).unwrap(), "");
+        // Anything else is refused instead of silently deploying main under
+        // the label the operator picked.
+        for bad in [
+            "latest",
+            "main",
+            "0123456789ABCDEF0123456789abcdef01234567",
+            "abc",
+        ] {
+            assert!(external_deploy_target(Some(bad)).is_err(), "{bad}");
+        }
+    }
 }
 
 async fn provisioning_jobs(

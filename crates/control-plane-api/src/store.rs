@@ -1027,13 +1027,22 @@ impl Store {
             ),
             other => ApiError::Database(other),
         })?;
+        // A successful provisioning job proves *what was deployed*, not that
+        // the deployment is alive: nothing here probed the new build. Writing
+        // `api_healthy=true` with a `now()` heartbeat — which this did — made
+        // the panel report a healthy, freshly-seen tenant for the whole stale
+        // window after a deploy that could have crash-looped on boot.
+        //
+        // So the provisioner writes deployment identity and explicitly
+        // *unknows* every column that belongs to the telemetry authority. The
+        // runtime reads `unknown` until an actual observation arrives.
         sqlx::query(
             r#"INSERT INTO control_plane_runtime_status
                (tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha, outbox_pending, queue_lag, last_heartbeat_at, checked_at)
-               VALUES ($1,true,true,$2,$3,0,0,now(),now())
+               VALUES ($1,NULL,NULL,$2,$3,NULL,NULL,NULL,NULL)
                ON CONFLICT (tenant_id) DO UPDATE SET
-                 api_healthy=true, worker_healthy=true, schema_version=EXCLUDED.schema_version,
-                 deployed_sha=EXCLUDED.deployed_sha, last_heartbeat_at=now(), checked_at=now()"#,
+                 api_healthy=NULL, worker_healthy=NULL, outbox_pending=NULL, queue_lag=NULL,
+                 schema_version=EXCLUDED.schema_version, deployed_sha=EXCLUDED.deployed_sha"#,
         )
         .bind(job.tenant_id)
         .bind(schema_version)
@@ -1338,6 +1347,44 @@ impl Store {
                 target_id: drop_id.unwrap_or("area").to_owned(),
                 request_id,
                 detail: json!({"outcome": outcome}),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// Audit for a deploy the Control Plane hands to an external system
+    /// (currently the `ecosystem-deploy` GitHub Actions workflow used by
+    /// externally-owned tenants). This path mutates a production host through
+    /// a third party, so it carries the same actor/request correlation as an
+    /// in-house provisioning job plus the identity of what was dispatched —
+    /// otherwise the only trace of the most consequential button in the panel
+    /// is a log line.
+    pub async fn audit_external_deploy(
+        &self,
+        tenant_id: Uuid,
+        slug: &str,
+        actor: &str,
+        request_id: Option<&str>,
+        outcome: &str,
+        detail: Value,
+    ) -> Result<(), ApiError> {
+        let mut tx = self.pool.begin().await?;
+        let mut detail = detail;
+        if let Some(object) = detail.as_object_mut() {
+            object.insert("outcome".to_owned(), Value::String(outcome.to_owned()));
+        }
+        self.audit_tx(
+            &mut tx,
+            AuditRecord {
+                tenant_id: Some(tenant_id),
+                actor,
+                action: "tenant.deploy.dispatched",
+                target_kind: "external_deploy",
+                target_id: slug.to_owned(),
+                request_id,
+                detail,
             },
         )
         .await?;

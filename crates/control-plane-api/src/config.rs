@@ -279,16 +279,9 @@ impl Config {
                 }
                 None => None,
             },
-            allowed_redirect_origins: optional_env("CONTROL_PLANE_ALLOWED_REDIRECT_ORIGINS")?
-                .map(|value| {
-                    value
-                        .split(',')
-                        .map(str::trim)
-                        .filter(|s| !s.is_empty())
-                        .map(|s| s.trim_end_matches('/').to_owned())
-                        .collect()
-                })
-                .unwrap_or_default(),
+            allowed_redirect_origins: parse_redirect_origins(optional_env(
+                "CONTROL_PLANE_ALLOWED_REDIRECT_ORIGINS",
+            )?)?,
             github_deploy_token: optional_secret("CONTROL_PLANE_GITHUB_DEPLOY_TOKEN")?,
             github_deploy_repo: match optional_env("CONTROL_PLANE_GITHUB_DEPLOY_REPO")? {
                 Some(repo) => {
@@ -379,6 +372,50 @@ fn validate_optional_secret(name: &str, value: Option<String>) -> Result<Option<
         .transpose()
 }
 
+/// Parse the OAuth redirect allow-list into canonical origins.
+///
+/// The entries are compared against an origin the request builds with the
+/// `url` crate — which lower-cases the host, punycodes a unicode one and drops
+/// a default port. A hand-written entry that differs in any of those (a
+/// trailing slash, `HTTPS://`, an explicit `:443`, a path) silently matched
+/// nothing and dropped the request onto the weaker Host-header fallback. So
+/// each entry is parsed by the same crate and canonicalised here, and anything
+/// that is not a bare origin fails the boot instead of failing quietly at the
+/// first OAuth connect.
+fn parse_redirect_origins(raw: Option<String>) -> Result<Vec<String>> {
+    let Some(raw) = raw else {
+        return Ok(Vec::new());
+    };
+    let mut origins = Vec::new();
+    for entry in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+        let parsed = url::Url::parse(entry).with_context(|| {
+            format!("CONTROL_PLANE_ALLOWED_REDIRECT_ORIGINS entry is not a URL: {entry}")
+        })?;
+        anyhow::ensure!(
+            matches!(parsed.scheme(), "http" | "https")
+                && parsed.username().is_empty()
+                && parsed.password().is_none()
+                && parsed.query().is_none()
+                && parsed.fragment().is_none()
+                && matches!(parsed.path(), "" | "/"),
+            "CONTROL_PLANE_ALLOWED_REDIRECT_ORIGINS entry must be a bare scheme://host[:port] origin: {entry}"
+        );
+        let host = parsed
+            .host_str()
+            .with_context(|| format!("redirect origin has no host: {entry}"))?;
+        // `Url::port()` is None for the scheme's default port, which is
+        // exactly how the request side builds its origin.
+        let origin = match parsed.port() {
+            Some(port) => format!("{}://{host}:{port}", parsed.scheme()),
+            None => format!("{}://{host}", parsed.scheme()),
+        };
+        if !origins.contains(&origin) {
+            origins.push(origin);
+        }
+    }
+    Ok(origins)
+}
+
 fn validate_image_tag(value: &str) -> Result<String> {
     let value = value.trim();
     let sha = value.strip_prefix("sha-").unwrap_or(value);
@@ -426,6 +463,40 @@ mod tests {
         assert!(normalize_optional("TEST", " value".to_owned()).is_err());
         assert!(normalize_optional("TEST", "value ".to_owned()).is_err());
         assert!(normalize_optional("TEST", "value\nnext".to_owned()).is_err());
+    }
+
+    #[test]
+    fn redirect_origins_are_canonicalised_not_string_matched() {
+        // Every one of these is the same origin the request side computes.
+        let parsed = parse_redirect_origins(Some(
+            "https://control.virya.music/, HTTPS://Control.Virya.Music:443, http://localhost:5173"
+                .to_owned(),
+        ))
+        .expect("canonical origins");
+        assert_eq!(
+            parsed,
+            vec![
+                "https://control.virya.music".to_owned(),
+                "http://localhost:5173".to_owned(),
+            ]
+        );
+        assert_eq!(parse_redirect_origins(None).unwrap(), Vec::<String>::new());
+
+        // A path, credentials, or a non-http scheme is a configuration
+        // mistake, and an entry that never matches is worse than no entry at
+        // all: it looks configured while the weaker fallback does the work.
+        for bad in [
+            "https://control.virya.music/callback",
+            "https://user:pw@control.virya.music",
+            "control.virya.music",
+            "ftp://control.virya.music",
+            "https://control.virya.music?x=1",
+        ] {
+            assert!(
+                parse_redirect_origins(Some(bad.to_owned())).is_err(),
+                "{bad}"
+            );
+        }
     }
 
     #[test]
