@@ -2,7 +2,9 @@ import { Show, Suspense } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
+import { ChiefOfStaffPanel } from '../components/ChiefOfStaffPanel'
 import { OperationsPanel } from '../components/OperationsPanel'
+import { QueueInspectorPanel } from '../components/QueueInspectorPanel'
 import { SystemHealthPanel } from '../components/SystemHealthPanel'
 import { SkeletonPageHead, SkeletonBlock } from '../components/Skeleton'
 import { StatusBadge } from '../components/StatusBadge'
@@ -71,6 +73,12 @@ export function TenantHealthPage() {
         summary={d()?.summary ?? undefined}
         onChanged={refresh}
       />
+      {/* The autopilot's own account of the last day, which the API has
+          served all along and no screen rendered. */}
+      <ChiefOfStaffPanel slug={params().slug} />
+      {/* The dead-letter remediation above says "open Deliveries and read one
+          failure". This is Deliveries. */}
+      <QueueInspectorPanel slug={params().slug} />
       <OperationsPanel
         slug={params().slug}
         summary={d()?.summary ?? null}

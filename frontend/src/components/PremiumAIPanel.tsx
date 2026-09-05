@@ -115,6 +115,7 @@ export function PremiumAIPanel(props: {
   const triggerLocalRefresh = () => setLocalRefresh((v) => v + 1)
   const [error, setError] = createSignal<string | null>(null)
   const [connectingProvider, setConnectingProvider] = createSignal<string | null>(null)
+  const [testingProvider, setTestingProvider] = createSignal<string | null>(null)
   const [apiKeyInput, setApiKeyInput] = createSignal('')
   const [orgIdInput, setOrgIdInput] = createSignal('')
   const [showKeyInputFor, setShowKeyInputFor] = createSignal<string | null>(null)
@@ -213,10 +214,31 @@ export function PremiumAIPanel(props: {
         ...(needsOrgId ? { provider_account: orgId } : {}),
       })
       const provider = apiKeyProviders().find(p => p.id === providerId)
-      toast.success(`Connected to ${provider?.name ?? providerId} — ${provider?.modelCount ?? 0} models unlocked`)
-      setApiKeyInput('')
-      setOrgIdInput('')
-      setShowKeyInputFor(null)
+      // The key was stored and the card said "connected" without anyone
+      // asking the provider whether it works, so a typo looked identical to a
+      // live key until a task failed hours later. The validate endpoint has
+      // been there the whole time.
+      let verified = true
+      try {
+        await api.agentValidateCredential(props.slug, providerId)
+      } catch (validationError) {
+        verified = false
+        const detail = errorMessage(validationError, 'the provider rejected it')
+        // A validator that is itself unavailable is not a bad key.
+        if (/unavailable|unreachable|503/i.test(detail)) {
+          verified = true
+          toast.info(`Saved the ${provider?.name ?? providerId} key. It could not be checked right now — the agent service is unavailable.`)
+        } else {
+          setError(`${provider?.name ?? providerId} rejected that key: ${detail}`)
+          toast.error(`${provider?.name ?? providerId} rejected that key`)
+        }
+      }
+      if (verified) {
+        toast.success(`Connected to ${provider?.name ?? providerId} — ${provider?.modelCount ?? 0} models unlocked`)
+        setApiKeyInput('')
+        setOrgIdInput('')
+        setShowKeyInputFor(null)
+      }
       refetchCreds()
       triggerLocalRefresh()
     } catch (e) {
@@ -225,6 +247,25 @@ export function PremiumAIPanel(props: {
       toast.error(msg)
     } finally {
       setConnectingProvider(null)
+    }
+  }
+
+  // A stored key can stop working without anything in the console changing:
+  // revoked, rotated, out of quota. This asks.
+  const handleTestCredential = async (providerId: string) => {
+    setTestingProvider(providerId)
+    setError(null)
+    const provider = apiKeyProviders().find(p => p.id === providerId)
+    try {
+      await api.agentValidateCredential(props.slug, providerId)
+      toast.success(`${provider?.name ?? providerId} accepted the stored key.`)
+    } catch (e) {
+      const msg = errorMessage(e, 'the provider rejected it')
+      setError(`${provider?.name ?? providerId}: ${msg}`)
+      toast.error(`${provider?.name ?? providerId} rejected the stored key`)
+    } finally {
+      setTestingProvider(null)
+      refetchCreds()
     }
   }
 
@@ -513,6 +554,13 @@ export function PremiumAIPanel(props: {
 
                       {/* Disconnect when connected */}
                       <Show when={isConnected()}>
+                        <button
+                          class="agent-btn"
+                          disabled={testingProvider() === provider.id}
+                          onClick={() => handleTestCredential(provider.id)}
+                        >
+                          {testingProvider() === provider.id ? 'Checking…' : 'Test key'}
+                        </button>
                         <button class="agent-btn-danger" onClick={() => handleDisconnect(provider.id)}>
                           Disconnect
                         </button>

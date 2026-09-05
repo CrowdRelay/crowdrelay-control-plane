@@ -15,10 +15,21 @@ const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
   }
 }
 
+// `BeaconReplyDisposition` in crowdrelay-domain. Ordered by how much the
+// answer is worth, with the two that end the relationship last.
+const REPLY_DISPOSITIONS = [
+  { value: 'received', label: 'Replied' },
+  { value: 'interested', label: 'Interested' },
+  { value: 'partner', label: 'Partnered' },
+  { value: 'declined', label: 'Declined' },
+  { value: 'do_not_contact', label: 'Do not contact' },
+] as const
+
 export function PressRoomPanel(props: { slug: string }) {
   const [tab, setTab] = createSignal<'requests' | 'assets' | 'engagements' | 'coverage'>('requests')
   const [error, setError] = createSignal<string | null>(null)
   const [resolving, setResolving] = createSignal<string | null>(null)
+  const [replying, setReplying] = createSignal<string | null>(null)
   const refreshSource = () => refreshTick()
 
   const [requests] = createResource(refreshSource, async () => {
@@ -52,6 +63,23 @@ export function PressRoomPanel(props: { slug: string }) {
       return null
     }
   })
+
+  const recordReply = async (beaconId: string, eventId: string, disposition: string) => {
+    setReplying(`${beaconId}:${eventId}`)
+    setError(null)
+    try {
+      await api.recordBeaconReply(props.slug, beaconId, {
+        eventId,
+        disposition,
+        occurredAt: new Date().toISOString(),
+      })
+      triggerRefresh()
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to record the reply'))
+    } finally {
+      setReplying(null)
+    }
+  }
 
   const resolveRequest = async (requestId: string) => {
     setResolving(requestId)
@@ -178,6 +206,7 @@ export function PressRoomPanel(props: { slug: string }) {
                   <th>Notifications</th>
                   <th>Coverage</th>
                   <th>Updated</th>
+                  <th>Reply</th>
                 </tr>
               </thead>
               <tbody>
@@ -190,6 +219,29 @@ export function PressRoomPanel(props: { slug: string }) {
                     <td>{e.notificationCount}</td>
                     <td>{e.coverageCount}</td>
                     <td>{formatTimestamp(e.updatedAt)}</td>
+                    {/* The write endpoint existed and nothing called it, so a
+                        beacon who declined twice looked the same as one who
+                        had never been asked. This row has both ids the reply
+                        needs, so it is where the answer gets written down. */}
+                    <td>
+                      <label class="engagement-reply">
+                        <span class="visually-hidden">Reply from {e.displayName} about {e.eventTitle}</span>
+                        <select
+                          disabled={replying() === `${e.beaconId}:${e.eventId}`}
+                          value=""
+                          onChange={(event) => {
+                            const disposition = event.currentTarget.value
+                            event.currentTarget.value = ''
+                            if (disposition) void recordReply(e.beaconId, e.eventId, disposition)
+                          }}
+                        >
+                          <option value="">Record…</option>
+                          <For each={REPLY_DISPOSITIONS}>{option =>
+                            <option value={option.value}>{option.label}</option>
+                          }</For>
+                        </select>
+                      </label>
+                    </td>
                   </tr>
                 )}</For>
               </tbody>
