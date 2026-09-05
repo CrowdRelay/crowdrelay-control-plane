@@ -19,7 +19,10 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   await page.getByLabel('Username').fill(username)
   await page.getByLabel('Password').fill(password)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('heading', { name: 'Operations dashboard' })).toBeVisible()
+  // After login, the shell redirects to the operator's default tenant
+  // (/tenants/virya) so the tenant-scoped nav is immediately available.
+  // The test verifies the tenant landing, then navigates to the tenants list.
+  await expect(page.getByRole('heading', { name: 'Virya' })).toBeVisible()
 
   await page.getByRole('link', { name: 'Tenants' }).first().click()
   await expect(page.getByRole('heading', { name: 'Teams on the platform' })).toBeVisible()
