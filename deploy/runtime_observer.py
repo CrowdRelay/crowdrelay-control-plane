@@ -1,4 +1,18 @@
 #!/usr/bin/env python3
+"""CrowdRelay runtime telemetry observer.
+
+Runs as a systemd service on the CrowdRelay host. Every interval it:
+  1. Probes the CrowdRelay API (/v1/health/ready + /v1/meta + /metrics)
+  2. Inspects the worker container health
+  3. PUTs a runtime receipt to the Control Plane
+
+The Control Plane marks a tenant stale 180s after the last receipt, so a
+30s default interval gives 6x headroom. On consecutive send failures the
+observer backs off (up to 5 min) so it doesn't spam logs when the control
+plane is temporarily unreachable — but it always probes the runtime at
+the normal interval so a recovered control plane gets a fresh receipt
+immediately on the next attempt.
+"""
 from __future__ import annotations
 
 import argparse
@@ -14,6 +28,9 @@ from typing import Any
 
 SHA = re.compile(r"^[0-9a-f]{40}$")
 MAX_RESPONSE_BYTES = 64 * 1024
+# Backoff schedule on consecutive send failures (seconds).
+# Capped at 5 min so a recovered control plane gets a report within one cycle.
+BACKOFF_SCHEDULE = [30.0, 60.0, 120.0, 300.0]
 
 
 class Config:
@@ -38,6 +55,13 @@ class Config:
             raise SystemExit("CONTROL_PLANE_RUNTIME_DOCKER_BIN must be one executable path")
 
 
+def _truncate_url(url: str, max_len: int = 120) -> str:
+    """Truncate long URLs for log lines, keeping the path visible."""
+    if len(url) <= max_len:
+        return url
+    return url[:max_len - 3] + "..."
+
+
 def get_json(url: str) -> dict[str, Any]:
     request = urllib.request.Request(url, headers={"Accept": "application/json"})
     with urllib.request.urlopen(request, timeout=5) as response:
@@ -50,6 +74,18 @@ def get_json(url: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise RuntimeError(f"GET {url} did not return an object")
     return value
+
+
+def get_text(url: str) -> str:
+    """Fetch a text endpoint (e.g. Prometheus /metrics) with a size cap."""
+    request = urllib.request.Request(url, headers={"Accept": "text/plain"})
+    with urllib.request.urlopen(request, timeout=5) as response:
+        if response.status != 200:
+            raise RuntimeError(f"GET {url} returned {response.status}")
+        body = response.read(MAX_RESPONSE_BYTES + 1)
+        if len(body) > MAX_RESPONSE_BYTES:
+            raise RuntimeError(f"GET {url} exceeded response limit")
+    return body.decode("utf-8", errors="replace")
 
 
 def worker_healthy(config: Config) -> bool:
@@ -76,10 +112,27 @@ def worker_healthy(config: Config) -> bool:
     return healthy >= 1
 
 
+def parse_outbox_pending(metrics_text: str) -> int | None:
+    """Extract crowdrelay_outbox_pending from a Prometheus /metrics payload."""
+    for line in metrics_text.splitlines():
+        # Skip comments and empty lines
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split()
+        if len(parts) >= 2 and parts[0] == "crowdrelay_outbox_pending":
+            try:
+                return int(parts[1])
+            except ValueError:
+                return None
+    return None
+
+
 def build_report(config: Config) -> dict[str, Any]:
     api_healthy = False
     schema_version: int | None = None
     deployed_sha: str | None = None
+    outbox_pending: int | None = None
+
     try:
         get_json(f"{config.runtime_url}/v1/health/ready")
         meta = get_json(f"{config.runtime_url}/v1/meta")
@@ -90,7 +143,20 @@ def build_report(config: Config) -> dict[str, Any]:
             schema_version = schema
         if isinstance(sha, str) and SHA.fullmatch(sha):
             deployed_sha = sha
-    except (OSError, RuntimeError, json.JSONDecodeError, urllib.error.URLError):
+    except (OSError, RuntimeError, json.JSONDecodeError, urllib.error.URLError) as error:
+        # Probe failure — the report still sends with api_healthy=false so the
+        # control plane shows degraded, not stale.
+        print(
+            f"RUNTIME_OBSERVER=PROBE_FAIL url={_truncate_url(config.runtime_url)} "
+            f"type={type(error).__name__}",
+            flush=True,
+        )
+
+    # Collect outbox pending from /metrics (best-effort, doesn't affect api_healthy)
+    try:
+        metrics_text = get_text(f"{config.runtime_url}/metrics")
+        outbox_pending = parse_outbox_pending(metrics_text)
+    except (OSError, RuntimeError, urllib.error.URLError):
         pass
 
     report: dict[str, Any] = {
@@ -102,6 +168,8 @@ def build_report(config: Config) -> dict[str, Any]:
         report["schemaVersion"] = schema_version
     if deployed_sha is not None:
         report["deployedSha"] = deployed_sha
+    if outbox_pending is not None:
+        report["outboxPending"] = outbox_pending
     return report
 
 
@@ -116,7 +184,7 @@ def send_report(config: Config, report: dict[str, Any]) -> None:
             "Content-Type": "application/json",
         },
     )
-    with urllib.request.urlopen(request, timeout=5) as response:
+    with urllib.request.urlopen(request, timeout=10) as response:
         if response.status != 200:
             raise RuntimeError(f"PUT {url} returned {response.status}")
         if len(response.read(MAX_RESPONSE_BYTES + 1)) > MAX_RESPONSE_BYTES:
@@ -129,29 +197,74 @@ def observe_once(config: Config) -> dict[str, Any]:
     return report
 
 
+def _format_error(error: Exception, context_url: str) -> str:
+    """Format an error with enough context to debug without leaking secrets."""
+    error_type = type(error).__name__
+    url = _truncate_url(context_url)
+    if isinstance(error, urllib.error.URLError):
+        reason = getattr(error, "reason", str(error))
+        return f"type={error_type} url={url} reason={reason}"
+    if isinstance(error, urllib.error.HTTPError):
+        return f"type={error_type} url={url} status={error.code}"
+    return f"type={error_type} url={url} msg={error}"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
     config = Config()
+
+    # Log the configured endpoints on startup so misconfigurations are
+    # immediately visible in journalctl — the previous version failed
+    # silently with type=URLError for days because the URL was wrong.
+    print(
+        f"RUNTIME_OBSERVER=START "
+        f"control_plane={_truncate_url(config.control_plane_url)} "
+        f"runtime={_truncate_url(config.runtime_url)} "
+        f"tenant={config.tenant_slug} interval={config.interval_seconds:.0f}s",
+        flush=True,
+    )
+
+    consecutive_send_failures = 0
     while True:
         started = time.monotonic()
         try:
             report = observe_once(config)
+            consecutive_send_failures = 0
             print(
                 "RUNTIME_OBSERVER=PASS "
                 f"tenant={config.tenant_slug} api={report['apiHealthy']} "
-                f"worker={report['workerHealthy']} sha={report.get('deployedSha', 'unknown')}",
+                f"worker={report['workerHealthy']} sha={report.get('deployedSha', 'unknown')} "
+                f"outbox={report.get('outboxPending', 'n/a')}",
                 flush=True,
             )
         except Exception as error:
-            print(f"RUNTIME_OBSERVER=ERROR type={type(error).__name__}", flush=True)
+            # Distinguish where the failure happened:
+            # - send_report fails → control plane unreachable (backoff)
+            # - build_report fails → runtime probe failed (report still sends
+            #   with api_healthy=false, so this only fires if send also fails)
+            send_url = f"{config.control_plane_url}/tenants/{config.tenant_slug}/runtime"
+            print(
+                f"RUNTIME_OBSERVER=ERROR {_format_error(error, send_url)}",
+                flush=True,
+            )
             if args.once:
                 return 1
+            consecutive_send_failures += 1
+
         if args.once:
             return 0
+
         elapsed = time.monotonic() - started
-        time.sleep(max(1.0, config.interval_seconds - elapsed))
+        # Normal sleep is interval - elapsed. On consecutive send failures,
+        # back off so we don't spam the control plane or the journal.
+        if consecutive_send_failures > 0:
+            backoff_idx = min(consecutive_send_failures - 1, len(BACKOFF_SCHEDULE) - 1)
+            sleep_seconds = BACKOFF_SCHEDULE[backoff_idx]
+        else:
+            sleep_seconds = max(1.0, config.interval_seconds - elapsed)
+        time.sleep(sleep_seconds)
 
 
 if __name__ == "__main__":
