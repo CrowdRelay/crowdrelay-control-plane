@@ -2600,7 +2600,7 @@ table tbody tr:hover{background:rgba(255,255,255,.025)}
 .section-title-summary::-webkit-details-marker{display:none}
 .section-title-summary::after{content:'▾';color:var(--text-muted);font-size:var(--text-sm);margin-left:auto;transition:transform var(--t-fast);flex-shrink:0}
 details[open]>.section-title-summary::after{transform:rotate(180deg)}
-.section-title-summary h2{display:inline-flex;align-items:center;gap:8px;margin:0}
+.section-title-summary h2{display:flex;align-items:center;gap:8px;margin:0}
 details[open]>.section-title-summary{margin-bottom:var(--space-5)}
 details[open]>.section-title-summary~*{margin-top:var(--space-3)}
 /* Amplification edges — per-row inline form */
