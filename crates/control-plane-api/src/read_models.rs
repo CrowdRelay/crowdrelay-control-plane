@@ -448,12 +448,20 @@ async fn overview(
 
     let externally_owned = crate::store::tenant_lifecycle_is_externally_owned(&tenant.tenant.slug);
 
+    // Map each provisioning row through `job_with_phase` so the frontend
+    // `ProvisioningJob` contract (which requires `phase`) holds on this
+    // surface too — not just on the dedicated provisioning endpoints.
+    let provisioning_with_phase: Vec<serde_json::Value> = provisioning
+        .iter()
+        .map(crate::routes::job_with_phase)
+        .collect::<Result<_, _>>()?;
+
     Ok(no_store(json!({
         // Stable identity so the browser can patch this model in place on a
         // refresh instead of replacing the whole subpage.
         "id": tenant.tenant.slug,
         "tenant": tenant,
-        "provisioning": {"items": provisioning},
+        "provisioning": {"items": provisioning_with_phase},
         "audit": {"items": audit},
         "platform": {
             "runtimeStaleAfterSeconds": state.runtime_stale_after_seconds,

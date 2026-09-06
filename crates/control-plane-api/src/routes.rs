@@ -751,20 +751,33 @@ async fn trigger_ecosystem_deploy(
     Ok((
         StatusCode::ACCEPTED,
         Json(json!({
+            // Shape matches the frontend ProvisioningJob contract so the
+            // typed `request<ProvisioningJob>` call doesn't receive fields
+            // it can't map. The synthetic id, status, and phase convey
+            // that GitHub accepted the dispatch but the deploy has not
+            // been observed as completed.
             "id": format!("github-dispatch-{}", chrono::Utc::now().timestamp_millis()),
-            "tenant_slug": slug,
-            "status": "dispatched",
-            // The semantic phase: GitHub accepted the dispatch, but the
-            // deploy has not been observed as completed. The UI must not
-            // read this as "deployment happened" — only as "we asked".
+            "tenantId": slug,
+            "status": "planned",
             "phase": "accepted",
-            // What the operator typed, preserved for causal tracing.
-            "expectedVersion": desired_version.map(|v| Value::String(v.to_owned())).unwrap_or(Value::Null),
-            // Say which revision actually left, not which one the form held.
-            "targetSha": if target_sha.is_empty() { Value::Null } else { Value::String(target_sha) },
-            "message": "Ecosystem deploy workflow triggered on GitHub Actions.",
-            "workflow_url": format!("https://github.com/{repo}/actions/workflows/ecosystem-deploy.yml"),
-            "created_at": chrono::Utc::now().to_rfc3339(),
+            "desiredVersion": desired_version.map(|v| Value::String(v.to_owned())).unwrap_or(Value::Null),
+            "plan": {
+                "kind": "ecosystem_deploy",
+                "targetSha": if target_sha.is_empty() { Value::Null } else { Value::String(target_sha) },
+                "message": "Ecosystem deploy workflow triggered on GitHub Actions.",
+                "workflowUrl": format!("https://github.com/{repo}/actions/workflows/ecosystem-deploy.yml"),
+            },
+            "createdBy": actor,
+            "attemptCount": 0,
+            "claimedBy": Value::Null,
+            "leaseExpiresAt": Value::Null,
+            "startedAt": Value::Null,
+            "finishedAt": Value::Null,
+            "result": Value::Null,
+            "errorCode": Value::Null,
+            "errorDetail": Value::Null,
+            "createdAt": chrono::Utc::now().to_rfc3339(),
+            "updatedAt": chrono::Utc::now().to_rfc3339(),
         })),
     ))
 }
@@ -972,7 +985,9 @@ async fn fail_provisioning(
 /// provisioner-facing — uses this so the `phase` field is always present and
 /// the frontend type contract holds. Serialization failures propagate as
 /// `ApiError::Serialization` rather than silently returning `null`.
-fn job_with_phase(job: &crate::model::ProvisioningJobRow) -> Result<serde_json::Value, ApiError> {
+pub(crate) fn job_with_phase(
+    job: &crate::model::ProvisioningJobRow,
+) -> Result<serde_json::Value, ApiError> {
     let mut value = serde_json::to_value(job).map_err(ApiError::Serialization)?;
     if let Some(obj) = value.as_object_mut() {
         obj.insert(
