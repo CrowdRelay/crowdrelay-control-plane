@@ -31,12 +31,12 @@ export function TabBar(props: {
   </div>
 }
 
-/// Keep-mounted tab panel: lazy-mounts on first visit (so API requests
-/// only fire when the tab is opened), then stays in the DOM with
-/// `display:none` so re-entering is instant — no refetch, no blink.
-/// This replaces the old `TabContent` which unmounted/remounted on
-/// every switch, causing a full loading cycle + fade-in animation each
-/// time.
+/// Keep-mounted tab panel: mounts when `visited` is true (either on
+/// first open with lazy mounting, or immediately with eager mounting),
+/// then stays in the DOM with `display:none` so re-entering is instant
+/// — no refetch, no blink. This replaces the old `TabContent` which
+/// unmounted/remounted on every switch, causing a full loading cycle
+/// + fade-in animation each time.
 export function TabPanel(props: {
   active: string
   id: string
@@ -53,12 +53,20 @@ export function TabPanel(props: {
   </Show>
 }
 
-/// Tab state manager with lazy-mount tracking. The initial tab is
-/// marked visited so its panel mounts immediately; subsequent tabs
-/// mount on first open.
-export function useTabPanels(initial: string) {
+/// Tab state manager with mount tracking.
+///
+/// By default, tabs lazy-mount on first visit (so API requests only fire
+/// when the tab is opened). Pass `allTabs` to eager-mount every panel
+/// immediately — all queries fire on page load and tab switches are
+/// instant because every panel is already in the DOM with its data
+/// loaded or loading. Use eager mounting when the tabs share the same
+/// route URL and the user expects content to appear without a loading
+/// flash on first switch.
+export function useTabPanels(initial: string, allTabs?: string[]) {
   const [activeTab, setActiveTab] = createSignal(initial)
-  const [visited, setVisited] = createSignal<Set<string>>(new Set([initial]))
+  const [visited, setVisited] = createSignal<Set<string>>(
+    new Set(allTabs ?? [initial]),
+  )
   const switchTab = (id: string) => {
     setActiveTab(id)
     setVisited(prev => prev.has(id) ? prev : new Set([...prev, id]))

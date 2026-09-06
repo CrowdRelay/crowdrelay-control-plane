@@ -369,6 +369,14 @@ export const api = {
     request<void>(`/tenants/${encodeURIComponent(slug)}/agents/credentials/${encodeURIComponent(provider)}`, { method: 'DELETE' }),
   agentValidateCredential: (slug: string, provider: string) =>
     request<{ valid: boolean; error?: string }>(`/tenants/${encodeURIComponent(slug)}/agents/credentials/${encodeURIComponent(provider)}/validate`, { method: 'POST', body: '{}' }),
+  redditCookieStatus: (slug: string) =>
+    request<{ status: 'active' | 'expired' | 'failed' | 'missing'; expires_at: string | null; reddit_username: string | null }>(`/tenants/${encodeURIComponent(slug)}/agents/reddit/cookies`),
+  redditCookieUpload: (slug: string, input: { cookies_text: string; reddit_username?: string }) =>
+    request<{ status: string; cookie_count: number; expires_at: string; reddit_username: string | null }>(`/tenants/${encodeURIComponent(slug)}/agents/reddit/cookies/upload`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify(input),
+    }),
   agentModels: (slug: string) =>
     request<{ models: AgentModel[]; connectedProviders: string[] }>(`/tenants/${encodeURIComponent(slug)}/agents/models`),
   agentSuggestions: (slug: string) =>

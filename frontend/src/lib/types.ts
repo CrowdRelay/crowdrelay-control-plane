@@ -583,12 +583,13 @@ export type SectionVerdict = {
 export type SectionVerdicts = Record<string, SectionVerdict | undefined>
 
 // Per-section fact freshness. `observedAt` is propagated from upstream
-// timestamps where present (never invented by the Control Plane).
+// timestamps where present, or set to the fetch time when no upstream
+// timestamp is available (the section was just fetched, so it is live).
 // `classification` is:
-//   live     — upstream timestamp within stale threshold
+//   live     — upstream timestamp within stale threshold, or no upstream
+//              timestamp but the section was successfully fetched just now
 //   stale    — upstream timestamp older than stale threshold
-//   unknown  — no upstream timestamp; the Control Plane assembled this now
-//              but cannot vouch for the fact's recency
+//   unknown  — the section failed to fetch; no freshness claim is possible
 //   assembled — the section came from the Control Plane database, not a
 //               live fan-out; fetchedAt is the honest freshness signal
 export type FreshnessClassification = 'live' | 'stale' | 'unknown' | 'assembled'

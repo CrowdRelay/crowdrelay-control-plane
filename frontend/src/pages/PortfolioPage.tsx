@@ -6,6 +6,7 @@ import { PortfolioPanel } from '../components/PortfolioPanel'
 import { PortfolioSettingsPanel } from '../components/PortfolioSettingsPanel'
 import { FanSourcesPanel } from '../components/FanSourcesPanel'
 import { CommunitiesPanel } from '../components/CommunitiesPanel'
+import { RedditCookieUploader } from '../components/RedditCookieUploader'
 import { SkeletonPageHead, SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import type { TenantPortfolioSection } from '../lib/types'
@@ -79,6 +80,9 @@ export function PortfolioPage() {
           onChanged={refresh}
         />
       </Show>
+      {/* Reddit cookie refresh — operator uploads Netscape cookies.txt when
+          the browser login path is blocked by Reddit's IP fingerprinting. */}
+      <RedditCookieUploader slug={params().slug} />
       {/* Loads independently of the portfolio read model, so a slow or failing
           community list degrades only itself. */}
       <CommunitiesPanel slug={params().slug} />

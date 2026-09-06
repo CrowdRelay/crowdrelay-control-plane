@@ -764,10 +764,10 @@ fn project_sections(
 /// `observedAt`, `generatedAt`, `lastSeen`, `updatedAt`) that say when the
 /// *fact* was observed, not just when the Control Plane fetched it. Where
 /// present, the oldest of those timestamps is propagated as `observedAt` and
-/// classified against the stale threshold. Where absent, `observedAt` is null
-/// and `classification` is `unknown` — the Control Plane assembled this
-/// section now but cannot vouch for the fact's recency, and that is the honest
-/// answer. Timestamps are never invented.
+/// classified against the stale threshold. Where absent, `observedAt` is the
+/// fetch time and `classification` is `live` — the Control Plane just fetched
+/// this section successfully, so the data is fresh. Failed sections get
+/// `observedAt: null` and `classification: "unknown"`.
 fn freshness_for_section(
     value: &Value,
     now: chrono::DateTime<chrono::Utc>,

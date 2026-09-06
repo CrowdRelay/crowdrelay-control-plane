@@ -95,6 +95,16 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/agents/credentials/{provider}/validate",
             post(validate_credential),
         )
+        // Reddit cookie management — operator can upload Netscape cookies.txt
+        // when the browser login path is blocked by Reddit's IP fingerprinting.
+        .route(
+            "/tenants/{slug}/agents/reddit/cookies",
+            get(reddit_cookie_status),
+        )
+        .route(
+            "/tenants/{slug}/agents/reddit/cookies/upload",
+            post(reddit_cookie_upload),
+        )
         .route("/tenants/{slug}/agents/models", get(list_models))
         .route(
             "/tenants/{slug}/agents/oauth/{provider}/start",
@@ -507,6 +517,33 @@ async fn validate_credential(
         &slug,
         &path,
         serde_json::json!({}),
+        AgentCapability::Credentials,
+    )
+    .await
+}
+
+/// GET /tenants/{slug}/agents/reddit/cookies — Reddit cookie status (no raw cookies).
+async fn reddit_cookie_status(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    proxy_get(&state, &slug, "/reddit/cookies", AgentCapability::Read).await
+}
+
+/// POST /tenants/{slug}/agents/reddit/cookies/upload — upload Netscape cookies.txt.
+/// Requires `credentials` capability. Only Reddit-domain cookies are stored.
+async fn reddit_cookie_upload(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    proxy_post(
+        &state,
+        &slug,
+        "/reddit/cookies/upload",
+        body,
         AgentCapability::Credentials,
     )
     .await
