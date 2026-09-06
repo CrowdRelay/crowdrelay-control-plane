@@ -50,5 +50,44 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    // Mobile viewport projects — the Control Plane must be usable on real
+    // phones, not just desktop. Each project covers a common CSS breakpoint
+    // so a layout regression at one width is caught before it ships.
+    {
+      name: 'mobile-320',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 320, height: 568 },
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
+    {
+      name: 'mobile-375',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 375, height: 667 },
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
+    {
+      name: 'mobile-390',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
+    {
+      name: 'tablet-768',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 768, height: 1024 },
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
   ],
 })

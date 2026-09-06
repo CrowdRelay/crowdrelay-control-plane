@@ -1,7 +1,7 @@
 import { For, Show, createEffect, createSignal } from 'solid-js'
 import { api } from '../lib/api'
-import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, FeatureFlag, OperationsSummary, SectionState, SectionVerdicts } from '../lib/types'
-import { errorMessage, formatAge, oldestQueueAge } from '../lib/format'
+import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, FeatureFlag, FreshnessClassification, OperationsSummary, SectionFreshnessMap, SectionState, SectionVerdicts } from '../lib/types'
+import { errorMessage, formatAge, formatTimestamp, oldestQueueAge } from '../lib/format'
 import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonFlagList, SkeletonAutopilotKpis } from './Skeleton'
@@ -46,6 +46,31 @@ const SECTION_STATE_COPY: Record<SectionState, string> = {
 // contract_mismatch is the one class that means "stop trusting this page",
 // so it is called out rather than blended into the list.
 const UNTRUSTWORTHY: readonly SectionState[] = ['contract_mismatch']
+
+// Freshness classification → operator-facing label and tone. The Control
+// Plane distinguishes "live" (upstream timestamp within stale threshold)
+// from "stale" (upstream timestamp older than threshold) from "unknown"
+// (no upstream timestamp — the Control Plane assembled this now but cannot
+// vouch for the fact's recency) from "assembled" (came from the Control
+// Plane database, not a live fan-out). The UI must not call a response
+// "fresh" merely because the HTTP request just completed.
+const FRESHNESS_LABEL: Record<FreshnessClassification, string> = {
+  live: 'live',
+  stale: 'stale',
+  unknown: 'recency unknown',
+  assembled: 'assembled',
+}
+const FRESHNESS_TONE: Record<FreshnessClassification, 'good' | 'warn' | 'muted'> = {
+  live: 'good',
+  stale: 'warn',
+  unknown: 'warn',
+  assembled: 'muted',
+}
+const freshnessAge = (observedAt: string | null): string => {
+  if (!observedAt) return ''
+  const age = (Date.now() - new Date(observedAt).getTime()) / 1000
+  return ` · observed ${formatAge(age)}`
+}
 
 const metric = (value: number | undefined, suffix = '') => value == null ? '—' : `${value.toLocaleString()}${suffix}`
 
@@ -161,6 +186,12 @@ export function OperationsPanel(props: {
   // Per-section verdicts from the read model. Optional so a cached payload
   // from before this field existed still renders rather than crashing.
   sections?: SectionVerdicts
+  // Per-section fact freshness. Optional for the same backward-compat reason.
+  // When present, the panel renders a freshness badge so the operator can
+  // distinguish "live" from "stale" from "recency unknown" — the HTTP
+  // request completing does not mean the underlying facts are current.
+  freshness?: SectionFreshnessMap
+  fetchedAt?: string
   refresh: () => Promise<unknown>
   mode?: 'full' | 'health' | 'controls'
 }) {
@@ -219,6 +250,28 @@ export function OperationsPanel(props: {
     return { name, state, copy: state ? SECTION_STATE_COPY[state] : 'unavailable' }
   })
   const untrusted = () => degradedReasons().some((entry) => entry.state !== undefined && UNTRUSTWORTHY.includes(entry.state))
+  // The worst freshness across all sections — drives the summary badge. If
+  // any section is stale or unknown, the operator needs to see that without
+  // inspecting each section individually. "live" and "assembled" are the
+  // default and don't need a visible badge.
+  const worstFreshness = (): FreshnessClassification | null => {
+    const map = props.freshness
+    if (!map) return null
+    let worst: FreshnessClassification | null = null
+    const rank: Record<FreshnessClassification, number> = { live: 0, assembled: 0, unknown: 1, stale: 2 }
+    for (const key of Object.keys(map)) {
+      const f = map[key]
+      if (!f) continue
+      if (worst === null || rank[f.classification] > rank[worst]) worst = f.classification
+    }
+    return worst
+  }
+  const staleSections = () => {
+    const map = props.freshness
+    if (!map) return []
+    return Object.entries(map).filter(([, f]) => f && (f.classification === 'stale' || f.classification === 'unknown'))
+      .map(([name, f]) => ({ name, classification: f!.classification, observedAt: f!.observedAt }))
+  }
   const deadJobs = () => summary.data ? summary.data.outbox.dead + summary.data.deliveries.dead + summary.data.push.dead : 0
   const showHealth = () => !props.mode || props.mode === 'full' || props.mode === 'health'
   const showControls = () => !props.mode || props.mode === 'full' || props.mode === 'controls'
@@ -320,6 +373,30 @@ export function OperationsPanel(props: {
       </div>
     </Show>
     <Show when={mutationError()}>{message => <div class="error-card operations-error" role="alert">{message()}</div>}</Show>
+
+    {/* Freshness — the Control Plane distinguishes "live" (upstream timestamp
+        within stale threshold) from "stale" from "unknown" (no upstream
+        timestamp). The UI must not call a response "fresh" merely because
+        the HTTP request just completed. Only show the badge when at least
+        one section is stale or unknown; "live" and "assembled" are the
+        default and don't need a visible badge. */}
+    <Show when={worstFreshness() && worstFreshness() !== 'live' && worstFreshness() !== 'assembled'}>
+      <div class={`ops-freshness-badge tone-${FRESHNESS_TONE[worstFreshness()!]}`} role="status">
+        <span class="ops-freshness-dot" />
+        <span>
+          <Show when={staleSections().length > 0} fallback={`Data ${FRESHNESS_LABEL[worstFreshness()!]}`}>
+            <For each={staleSections()}>{entry =>
+              <span class="ops-freshness-reason">
+                <strong>{entry.name}</strong>: {FRESHNESS_LABEL[entry.classification]}{freshnessAge(entry.observedAt)}
+              </span>
+            }</For>
+          </Show>
+        </span>
+        <Show when={props.fetchedAt}>
+          {ts => <small class="ops-freshness-fetched">assembled {formatTimestamp(ts())}</small>}
+        </Show>
+      </div>
+    </Show>
 
     <div class="operations-metrics">
       <div><span>HTTP p95</span><strong>{metric(summary.data?.http.p95_ms, ' ms')}</strong><small>p50 {metric(summary.data?.http.p50_ms, ' ms')}</small></div>

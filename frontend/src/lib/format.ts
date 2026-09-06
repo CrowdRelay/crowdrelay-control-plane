@@ -14,6 +14,13 @@ export const errorMessage = (value: unknown, fallback: string) => {
         case 'conflict': return 'That name or value is already taken.'
         case 'invalid_input': return 'Check the entered values and try again.'
         case 'unavailable': return 'That service is temporarily unavailable.'
+        // Typed upstream error variants — preserve the semantic distinction
+        // instead of collapsing to generic "unavailable".
+        case 'all_sections_failed': return 'Every section of this channel failed — see the per-section diagnosis below.'
+        case 'upstream_timeout': return 'The tenant did not respond in time — retry may clear it.'
+        case 'upstream_unreachable': return 'The tenant could not be reached — check the runtime and its tunnel.'
+        case 'upstream_error': return 'The tenant returned an error — check its logs.'
+        case 'contract_mismatch': return 'The tenant answered in an unrecognised shape — treat these numbers as unknown.'
       }
     }
     return value.message

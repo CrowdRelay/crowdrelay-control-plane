@@ -348,7 +348,7 @@ export function ChatWidget(props: { slug: string }) {
             method: 'POST',
             body: JSON.stringify({}),
           })
-          setMessages(m => [...m, { role: 'assistant', content: 'Deployment started! You can monitor progress on the tenant detail page.' }])
+          setMessages(m => [...m, { role: 'assistant', content: 'Deploy requested — accepted by GitHub. Watch the Actions tab for completion.' }])
           break
         }
         case 'retry_dead_deliveries': {

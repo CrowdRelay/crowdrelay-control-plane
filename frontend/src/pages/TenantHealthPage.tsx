@@ -8,6 +8,7 @@ import { QueueInspectorPanel } from '../components/QueueInspectorPanel'
 import { SystemHealthPanel } from '../components/SystemHealthPanel'
 import { SkeletonPageHead, SkeletonBlock } from '../components/Skeleton'
 import { StatusBadge } from '../components/StatusBadge'
+import { SectionFailureCard } from '../components/SectionFailureCard'
 import type { TenantOperationsReadModel } from '../lib/types'
 
 export function TenantHealthPage() {
@@ -55,7 +56,7 @@ export function TenantHealthPage() {
     </div>
 
     <Show when={model.error}>
-      <div class="error-card" role="alert">{model.error instanceof Error ? model.error.message : 'Tenant operations channel unavailable'}</div>
+      <SectionFailureCard error={model.error} fallback="Tenant operations channel unavailable" />
     </Show>
 
     <Show when={!model.error && model.isPending}>
@@ -86,6 +87,8 @@ export function TenantHealthPage() {
         autopilot={d()?.autopilot ?? null}
         degraded={d()?.degraded ?? []}
         sections={d()?.sections}
+        freshness={d()?.freshness}
+        fetchedAt={d()?.fetchedAt}
         refresh={refresh}
         mode="controls"
       />

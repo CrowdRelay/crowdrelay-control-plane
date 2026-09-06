@@ -139,6 +139,23 @@ async function checkLayoutIssues(page: Page, pageName: string): Promise<LayoutIs
   return issues
 }
 
+// Bounded overflow containers that are allowed to scroll horizontally.
+// These are intentional — their content is wider than the viewport by
+// design, and they have `overflow-x: auto` so the page itself doesn't
+// scroll. Anything outside this list that causes document.scrollWidth >
+// window.innerWidth is a layout regression.
+const BOUNDED_OVERFLOW_SELECTORS = [
+  '.process-map-wrap',
+  '.panel pre',
+  'pre',
+  '.queue-row',
+  '.heatmap-grid',
+  '.ops-queue-row',
+  '.area-drop-table',
+  '.area-drop-head',
+  '.area-drop-row',
+]
+
 const SUBPAGES = [
   { path: '/', name: 'overview' },
   { path: '/flow', name: 'flow' },
@@ -170,6 +187,79 @@ test.describe('CSS Layout Audit @e2e', () => {
         }
       }
       expect(issues).toEqual([])
+    })
+  }
+
+  // The document.scrollWidth invariant — the page itself must never scroll
+  // horizontally. Only explicitly bounded overflow containers (process map,
+  // code blocks, queue rows, heatmap) may scroll internally. This catches
+  // the most common mobile RWD regression: a fixed-width element forcing
+  // the whole document wider than the viewport.
+  for (const sub of SUBPAGES) {
+    test(`${sub.name} — document.scrollWidth does not exceed viewport @e2e @css @rwd`, async ({ page }) => {
+      await page.goto(sub.path)
+      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+      await page.waitForTimeout(1500)
+
+      const result = await page.evaluate((boundedSelectors) => {
+        const docWidth = document.documentElement.scrollWidth
+        const bodyWidth = document.body.scrollWidth
+        const viewport = window.innerWidth
+        const overflow = Math.max(docWidth, bodyWidth) - viewport
+
+        // If there's no overflow, we're done.
+        if (overflow <= 2) return { overflow: 0, culprits: [] }
+
+        // There is overflow — find which elements are sticking out.
+        const culprits: { selector: string; rect: string; bounded: boolean }[] = []
+        const allEls = document.querySelectorAll<HTMLElement>('*')
+        for (const el of allEls) {
+          const rect = el.getBoundingClientRect()
+          if (rect.right > viewport + 2 && rect.width > 2) {
+            // Check if this element (or an ancestor) is a bounded overflow
+            // container that is allowed to scroll.
+            let bounded = false
+            let node: HTMLElement | null = el
+            while (node) {
+              const sel = node.tagName.toLowerCase()
+              const classes = node.className.split(' ').filter(Boolean)
+              const classSel = classes.map((c) => `.${c}`).join('')
+              const fullSel = `${sel}${classSel}`
+              for (const boundedSel of boundedSelectors) {
+                if (node.matches(boundedSel) || fullSel.includes(boundedSel.replace('.', ''))) {
+                  const style = getComputedStyle(node)
+                  if (style.overflowX === 'auto' || style.overflowX === 'scroll' || style.overflowX === 'hidden') {
+                    bounded = true
+                    break
+                  }
+                }
+              }
+              if (bounded) break
+              node = node.parentElement
+            }
+            if (!bounded) {
+              const tag = el.tagName.toLowerCase()
+              const cls = el.className.split(' ')[0] ?? ''
+              culprits.push({
+                selector: cls ? `${tag}.${cls}` : tag,
+                rect: `right=${rect.right.toFixed(0)} width=${rect.width.toFixed(0)}`,
+                bounded: false,
+              })
+            }
+          }
+        }
+        return { overflow, culprits: culprits.slice(0, 10) }
+      }, BOUNDED_OVERFLOW_SELECTORS)
+
+      if (result.overflow > 2 && result.culprits.length > 0) {
+        console.log(`\n  document.scrollWidth overflow on ${sub.name}: +${result.overflow}px`)
+        for (const c of result.culprits) {
+          console.log(`    [unbounded-overflow] ${c.selector}: ${c.rect}`)
+        }
+      }
+      // The invariant: no unbounded overflow. Bounded containers that scroll
+      // internally are fine — the document itself must not scroll.
+      expect(result.culprits, `document.scrollWidth exceeded viewport by ${result.overflow}px with unbounded culprits`).toEqual([])
     })
   }
 })

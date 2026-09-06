@@ -51,6 +51,13 @@ pub(crate) struct ControlCommandAudit<'a> {
     pub target_id: String,
     pub request_id: Option<&'a str>,
     pub outcome: &'a str,
+    /// The optimistic-concurrency version the caller sent to CrowdRelay.
+    /// When CrowdRelay returns 409 (conflict), the audit row carries the
+    /// version that was expected so the operator can see "failed because
+    /// expected_version was X but current is Y" instead of just "failed".
+    /// None for mutations that don't carry expected_version (notifier
+    /// channel config, which is last-write-wins by design).
+    pub expected_version: Option<u64>,
 }
 
 pub(crate) struct ProvisioningCompletion<'a> {
@@ -1440,6 +1447,12 @@ impl Store {
         &self,
         command: ControlCommandAudit<'_>,
     ) -> Result<(), ApiError> {
+        let mut detail = json!({"outcome": command.outcome});
+        if let Some(version) = command.expected_version {
+            if let Some(obj) = detail.as_object_mut() {
+                obj.insert("expectedVersion".to_owned(), json!(version));
+            }
+        }
         let mut tx = self.pool.begin().await?;
         self.audit_tx(
             &mut tx,
@@ -1450,7 +1463,7 @@ impl Store {
                 target_kind: command.target_kind,
                 target_id: command.target_id.clone(),
                 request_id: command.request_id,
-                detail: json!({"outcome": command.outcome}),
+                detail,
             },
         )
         .await?;

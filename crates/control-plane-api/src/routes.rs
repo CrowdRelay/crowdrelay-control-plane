@@ -219,6 +219,7 @@ async fn opt_out_tenant(
             target_id: tenant.tenant.slug.clone(),
             request_id: request_id(&headers),
             outcome: "requested",
+            expected_version: None,
         })
         .await?;
     Ok(StatusCode::NO_CONTENT)

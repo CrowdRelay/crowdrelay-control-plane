@@ -13,6 +13,7 @@ import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { SkeletonOperationsPage, SkeletonSection } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
 import { StatusBadge } from '../components/StatusBadge'
+import { SectionFailureCard } from '../components/SectionFailureCard'
 import type { TenantOperationsReadModel } from '../lib/types'
 
 const metric = (value: number | undefined | null, suffix = '') =>
@@ -84,7 +85,7 @@ export function TenantOperationsPage() {
     </div>
 
     <Show when={model.error}>
-      <div class="error-card" role="alert">{model.error instanceof Error ? model.error.message : 'Tenant operations channel unavailable'}</div>
+      <SectionFailureCard error={model.error} fallback="Tenant operations channel unavailable" />
     </Show>
 
     <Suspense fallback={<SkeletonOperationsPage />}>

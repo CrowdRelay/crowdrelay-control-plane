@@ -143,6 +143,7 @@ async fn create_channel(
             target_id: channel.id.to_string(),
             request_id: headers.get("x-request-id").and_then(|v| v.to_str().ok()),
             outcome: "completed",
+            expected_version: None,
         })
         .await
         .ok();
@@ -188,6 +189,7 @@ async fn update_channel(
             target_id: channel.id.to_string(),
             request_id: headers.get("x-request-id").and_then(|v| v.to_str().ok()),
             outcome: "completed",
+            expected_version: None,
         })
         .await
         .ok();
@@ -213,6 +215,7 @@ async fn delete_channel(
             target_id: channel_id.to_string(),
             request_id: headers.get("x-request-id").and_then(|v| v.to_str().ok()),
             outcome: "completed",
+            expected_version: None,
         })
         .await
         .ok();
@@ -272,6 +275,7 @@ async fn test_channel(
             } else {
                 "failed"
             },
+            expected_version: None,
         })
         .await
         .ok();

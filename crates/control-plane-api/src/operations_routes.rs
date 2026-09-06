@@ -494,6 +494,7 @@ async fn call(
     Ok((tenant, value))
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn audit_result(
     state: &AppState,
     tenant_id: uuid::Uuid,
@@ -502,6 +503,7 @@ async fn audit_result(
     target_id: &str,
     headers: &HeaderMap,
     result: &Result<Value, ApiError>,
+    expected_version: Option<u64>,
 ) {
     // Proxied mutations cross a process/network boundary to CrowdRelay.
     // A 200 from CrowdRelay means it *accepted* the request, not that the
@@ -509,6 +511,11 @@ async fn audit_result(
     // has been observed. The audit outcome is "accepted" (not "succeeded")
     // so the audit trail never claims the Control Plane observed a
     // completion it did not.
+    //
+    // `expected_version` is the optimistic-concurrency version the caller
+    // sent to CrowdRelay. When CrowdRelay returns 409, the audit row carries
+    // the version that was expected so the operator can see "failed because
+    // expected_version was X but current is Y" instead of just "failed".
     if let Err(error) = state
         .store
         .audit_control_command(ControlCommandAudit {
@@ -519,6 +526,7 @@ async fn audit_result(
             target_id: target_id.to_owned(),
             request_id: correlation(headers),
             outcome: if result.is_ok() { "accepted" } else { "failed" },
+            expected_version,
         })
         .await
     {
@@ -633,6 +641,7 @@ async fn retry_outbox(
         &event_id,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(result?, "outbox retry")
@@ -668,6 +677,7 @@ async fn retry_delivery(
         &delivery_id,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(result?, "delivery retry")
@@ -702,6 +712,7 @@ async fn clear_dead_deliveries(
         "dead",
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(result?, "dead delivery clear")
@@ -737,6 +748,7 @@ async fn run_reconciliation(
         "manual",
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(result?, "ecosystem reconciliation")
@@ -820,6 +832,7 @@ async fn update_flag(
         &key,
         &headers,
         &result,
+        u64::try_from(input.expected_version).ok(),
     )
     .await;
     object_no_store(result?, "flag mutation")
@@ -943,6 +956,7 @@ async fn autopilot_cycle_run(
         &slug,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(result?, "autopilot cycle run")
@@ -1093,6 +1107,7 @@ async fn update_autopilot(
         &context,
         &headers,
         &result,
+        u64::try_from(input.expected_version).ok(),
     )
     .await;
     object_no_store(result?, "autopilot mutation")
@@ -1188,6 +1203,7 @@ async fn bulk_autopilot(
         "bulk",
         &headers,
         &Ok::<Value, ApiError>(json!({"enabled": input.enabled, "count": results.len()})),
+        None,
     )
     .await;
     object_no_store(
@@ -1234,6 +1250,7 @@ async fn approve_opportunity(
         &action_id,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(result?, "opportunity approval")
@@ -1271,6 +1288,7 @@ async fn cancel_opportunity(
         &action_id,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(result?, "opportunity cancellation")
@@ -1310,6 +1328,7 @@ async fn handle_opportunity_externally(
         &decision_id,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(result?, "opportunity handled externally")
@@ -1350,6 +1369,7 @@ async fn decide_portfolio_amplification(
         &consent_id,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "portfolio edge decision")
@@ -1404,6 +1424,7 @@ async fn update_portfolio_setting(
         trimmed,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "portfolio setting update")
@@ -1491,6 +1512,7 @@ async fn upsert_audience_place(
         body.get("url").and_then(Value::as_str).unwrap_or("unknown"),
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "audience graph place upsert")
@@ -1530,6 +1552,7 @@ async fn import_audience_places(
         &count.to_string(),
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "audience graph place import")
@@ -1564,6 +1587,7 @@ async fn create_portfolio_fanbase(
             .unwrap_or("unknown"),
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "portfolio fanbase create")
@@ -1606,6 +1630,7 @@ async fn ingest_portfolio_fanbase(
         &fanbase_id,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "portfolio fanbase ingest")
@@ -1721,6 +1746,7 @@ async fn retry_push(
         &delivery_id,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(result?, "push retry")
@@ -1757,6 +1783,7 @@ async fn delete_portfolio_fanbase(
         &fanbase_id,
         &headers,
         &result,
+        None,
     )
     .await;
     // upstream returns 204 No Content on success
@@ -2263,6 +2290,7 @@ async fn declare_growth_objective(
         value.get("id").and_then(Value::as_str).unwrap_or("unknown"),
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "growth objective declare")
@@ -2295,6 +2323,7 @@ async fn retire_growth_objective(
         &objective_id,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "growth objective retire")
@@ -2349,6 +2378,7 @@ async fn set_growth_posture(
         "posture",
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "growth posture update")
@@ -2470,6 +2500,7 @@ async fn confirm_outreach_candidate(
         &candidate_id,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "outreach candidate confirm")
@@ -2517,6 +2548,7 @@ async fn confirm_booking_candidate(
         &candidate_id,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "booking candidate confirm")
@@ -2610,6 +2642,7 @@ async fn resolve_beacon_press_request(
         &press_request_id,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "beacon press request resolve")
@@ -2748,6 +2781,7 @@ async fn upsert_beacon(
             .unwrap_or("unknown"),
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "beacon upsert")
@@ -2847,6 +2881,7 @@ async fn import_submithub_csv(
         "import_submithub",
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "submithub import")
@@ -2890,6 +2925,7 @@ async fn beacon_network_action(
         &action,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "beacon network action")
@@ -2929,6 +2965,7 @@ async fn batch_invite_beacons(
         &count.to_string(),
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "beacon batch invite")
@@ -2962,6 +2999,7 @@ async fn invite_beacon(
         &beacon_id,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "beacon invite")
@@ -2996,6 +3034,7 @@ async fn set_beacon_state(
         &beacon_id,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "beacon state")
@@ -3033,6 +3072,7 @@ async fn record_beacon_reply(
         &beacon_id,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "beacon reply")
@@ -3066,6 +3106,7 @@ async fn create_beacon_release_campaign(
             .unwrap_or("unknown"),
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "beacon release campaign create")
@@ -3098,6 +3139,7 @@ async fn launch_beacon_release_campaign(
         &campaign_id,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "beacon release campaign launch")
@@ -3130,6 +3172,7 @@ async fn close_beacon_release_campaign(
         &campaign_id,
         &headers,
         &result,
+        None,
     )
     .await;
     object_no_store(value, "beacon release campaign close")

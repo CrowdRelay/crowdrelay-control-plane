@@ -7,6 +7,7 @@ import { PortfolioSettingsPanel } from '../components/PortfolioSettingsPanel'
 import { FanSourcesPanel } from '../components/FanSourcesPanel'
 import { CommunitiesPanel } from '../components/CommunitiesPanel'
 import { SkeletonPageHead, SkeletonSection } from '../components/Skeleton'
+import { SectionFailureCard } from '../components/SectionFailureCard'
 import type { TenantPortfolioSection } from '../lib/types'
 
 const SECTION_LABEL: Record<TenantPortfolioSection, string> = {
@@ -56,7 +57,7 @@ export function PortfolioPage() {
       </div>
     </div>
     <Show when={model.error}>
-      <div class="error-card" role="alert">{model.error instanceof Error ? model.error.message : 'Portfolio channel unavailable'}</div>
+      <SectionFailureCard error={model.error} fallback="Portfolio channel unavailable" />
     </Show>
     {/* Skeleton only before the first response; background refreshes keep the
         rendered page exactly like the Operations subpage does. */}

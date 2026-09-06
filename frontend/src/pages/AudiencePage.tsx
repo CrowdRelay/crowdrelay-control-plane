@@ -6,6 +6,7 @@ import { AudienceOverviewPanel } from '../components/AudienceOverviewPanel'
 import { FanTablePanel } from '../components/FanTablePanel'
 import { SegmentPanel } from '../components/SegmentPanel'
 import { SkeletonPageHead, SkeletonSection } from '../components/Skeleton'
+import { SectionFailureCard } from '../components/SectionFailureCard'
 
 const SECTION_LABEL: Record<string, string> = {
   overview: 'Audience KPIs',
@@ -45,7 +46,7 @@ export function AudiencePage() {
       </div>
     </div>
     <Show when={model.error}>
-      <div class="error-card" role="alert">{model.error instanceof Error ? model.error.message : 'Audience channel unavailable'}</div>
+      <SectionFailureCard error={model.error} fallback="Audience channel unavailable" />
     </Show>
     <Show when={!model.error && model.isPending}><SkeletonPageHead /><SkeletonSection titleWidth="160px" lines={4} minHeight="140px" /><SkeletonSection titleWidth="200px" lines={6} minHeight="200px" /><SkeletonSection titleWidth="140px" lines={3} minHeight="120px" /></Show>
     <Suspense fallback={<><SkeletonPageHead /><SkeletonSection titleWidth="160px" lines={4} minHeight="140px" /><SkeletonSection titleWidth="200px" lines={6} minHeight="200px" /><SkeletonSection titleWidth="140px" lines={3} minHeight="120px" /></>}>

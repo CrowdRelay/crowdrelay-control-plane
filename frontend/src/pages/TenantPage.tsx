@@ -34,6 +34,12 @@ const paletteLabels: Record<keyof Palette, { label: string; role: string }> = {
 }
 const defaultPalette: Palette = { primary:'#8b5cf6', primaryContrast:'#ffffff', accent:'#22d3ee', surface:'#0b0c0f', surfaceElevated:'#15171c', text:'#f7f7f8', textMuted:'#9ca3af', success:'#22c55e', warning:'#f59e0b', danger:'#ef4444' }
 const provisionTone = (status: ProvisioningJob['status']) => status === 'succeeded' ? 'good' : status === 'failed' ? 'bad' : status === 'cancelled' ? 'muted' : 'warn'
+// Semantic phase tone — the phase distinguishes "we asked" (accepted) from
+// "it happened" (completed). The domain status (planned/approved/running/
+// succeeded/failed/cancelled) stays for backward compat; the phase is the
+// universal semantic layer that prevents mistaking a trigger for a result.
+const phaseTone = (phase: ProvisioningJob['phase']): 'good' | 'warn' | 'bad' | 'muted' =>
+  phase === 'completed' ? 'good' : phase === 'failed' ? 'bad' : phase === 'unknown' ? 'muted' : 'warn'
 const provisionFailures: Record<string, { title: string; guidance: string; retryable: boolean }> = {
   image_revision_mismatch: { title: 'Image was built from a different commit', guidance: 'The published image does not carry the git SHA this release asked for. The tag was rebuilt or overwritten. Do not retry until the release is republished from the intended commit.', retryable: false },
   image_revision_missing: { title: 'Image is missing its provenance label', guidance: 'The image does not publish org.opencontainers.image.revision, so its origin cannot be verified. Republish it from CrowdRelay CI.', retryable: false },
@@ -221,7 +227,7 @@ export function TenantPage() {
           <Show when={deploy.error}><div class="error-card">{deploy.error instanceof Error ? deploy.error.message : 'Deployment request failed'}</div></Show>
           <Show when={preview()}>{job => <div class="plan-preview"><span class="eyebrow">PLAN PREVIEW</span><pre>{JSON.stringify(job().plan, null, 2)}</pre></div>}</Show>
           <Show when={latestJob()}>{job => <div class="provision-job">
-            <div class="provision-job-head"><div><strong>{job().desiredVersion ?? 'default release'}</strong><small>attempt {job().attemptCount} · created {new Date(job().createdAt).toLocaleString()}</small></div><StatusBadge status={job().status} tone={provisionTone(job().status)} /></div>
+            <div class="provision-job-head"><div><strong>{job().desiredVersion ?? 'default release'}</strong><small>attempt {job().attemptCount} · created {new Date(job().createdAt).toLocaleString()}</small></div><div class="provision-job-badges"><StatusBadge status={job().status} tone={provisionTone(job().status)} /><StatusBadge status={`phase: ${job().phase}`} tone={phaseTone(job().phase)} /></div></div>
             <Show when={job().status === 'approved'}><p>Queued for the provisioner agent. No Docker mutation happens in the HTTP request.</p></Show>
             <Show when={job().status === 'running'}><p>Claimed by <code>{job().claimedBy ?? 'provisioner'}</code>. Lease expires {formatTimestamp(job().leaseExpiresAt)}.</p></Show>
             <Show when={job().status === 'succeeded'}><div class="deployment-result"><dl><dt>Local API</dt><dd><code>{job().result?.localApiUrl ?? '—'}</code></dd><dt>Host port</dt><dd>{job().result?.apiPort ?? '—'}</dd><dt>Workspace</dt><dd class="mono">{job().result?.workspaceId ?? t.workspaceId ?? '—'}</dd><dt>Schema</dt><dd>{job().result?.schemaVersion ?? '—'}</dd><dt>Provisioner</dt><dd><code>{job().result?.provisionerWorkerId ?? job().claimedBy ?? '—'}</code></dd></dl><p class="route-note">The instance is healthy locally. Route <code>{t.crowdrelayBaseUrl}</code> at the edge to this host port to expose it publicly.</p></div></Show>
@@ -246,6 +252,8 @@ export function TenantPage() {
           autopilot={ops()?.autopilot ?? null}
           degraded={ops()?.degraded ?? []}
           sections={ops()?.sections}
+          freshness={ops()?.freshness}
+          fetchedAt={ops()?.fetchedAt}
           refresh={async () => { await queryClient.invalidateQueries({ queryKey: ['tenant-overview', params().slug] }) }}
           mode="health"
         />}
