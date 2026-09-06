@@ -66,6 +66,11 @@ pub struct Config {
     /// Repository in `owner/name` form that hosts the ecosystem-deploy workflow
     /// (e.g. "CrowdRelay/crowdrelay"). Paired with github_deploy_token.
     pub github_deploy_repo: Option<String>,
+    /// Cooldown window (seconds) for external deploy dispatch dedup. GitHub's
+    /// `workflow_dispatch` is not idempotent — a duplicate click within this
+    /// window is refused to prevent a second workflow run for the same target.
+    /// Default 60s. 0 disables the cooldown.
+    pub github_deploy_cooldown_seconds: i64,
 }
 
 impl Config {
@@ -296,6 +301,12 @@ impl Config {
                 }
                 None => None,
             },
+            github_deploy_cooldown_seconds: optional_env(
+                "CONTROL_PLANE_GITHUB_DEPLOY_COOLDOWN_SECONDS",
+            )?
+            .map(|s| s.parse::<i64>())
+            .transpose()?
+            .unwrap_or(60),
         };
         // Both or neither: half-configured bootstrap is a deployment typo,
         // not a feature.

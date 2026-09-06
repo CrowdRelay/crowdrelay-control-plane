@@ -70,6 +70,8 @@ pub struct AppState {
     github_deploy_token: Option<Arc<str>>,
     /// Repository in owner/name form hosting the ecosystem-deploy workflow.
     github_deploy_repo: Option<Arc<str>>,
+    /// Cooldown window (seconds) for external deploy dispatch dedup.
+    github_deploy_cooldown_seconds: i64,
 }
 
 #[tokio::main]
@@ -174,6 +176,7 @@ async fn main() -> anyhow::Result<()> {
         allowed_redirect_origins: Arc::from(config.allowed_redirect_origins.as_slice()),
         github_deploy_token: config.github_deploy_token.map(Arc::from),
         github_deploy_repo: config.github_deploy_repo.map(Arc::from),
+        github_deploy_cooldown_seconds: config.github_deploy_cooldown_seconds,
     };
     // Bounded best-effort notifier delivery. Nothing in the request path
     // depends on this loop; a dead channel dies in its outbox row, not here.

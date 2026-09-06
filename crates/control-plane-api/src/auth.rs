@@ -414,11 +414,46 @@ mod tests {
             "/tenants/VIRYA%00/audit",
             "/tenants/../virya/audit",
             "/tenants/virya%2Fother/audit",
+            // Encoded dot-segment: %2E is '.', so %2E%2E is '..' — must not
+            // resolve as a traversal that escapes the tenant segment.
+            "/tenants/%2E%2E/other/audit",
+            "/tenants/virya%2E/audit",
+            // Backslash is not a path separator in axum's router, but a
+            // confused proxy might treat it as one. The slug validator
+            // rejects it.
+            "/tenants/virya\\other/audit",
+            // Encoded slash in the slug segment itself: %2F is '/', so this
+            // would be "virya/other" as a single segment — the slug validator
+            // rejects '/'.
+            "/tenants/virya%2Fother/audit",
+            // Double-encoded slash: %252F decodes to %2F which decodes to '/'.
+            // The slug validator must reject this before any double-decode
+            // happens.
+            "/tenants/virya%252Fother/audit",
         ] {
             assert_eq!(
                 tenant_slug_from_path(path).and_then(|slug| crate::validation::slug(slug).ok()),
                 None,
                 "{path} must not canonicalise to a tenant"
+            );
+        }
+
+        // Query-string, fragment, and nested-prefix confusion: the slug
+        // extractor reads the first `tenants/{slug}` segment from the path,
+        // not the query string, fragment, or any later `tenants/` segment.
+        // These resolve to the SAME tenant (virya), not a different one —
+        // that's the invariant. A confused proxy that adds ?slug=other or
+        // a second /tenants/other/ segment must not override the real tenant.
+        for path in [
+            "/tenants/virya/audit?slug=other",
+            "/tenants/virya/audit#other",
+            "/tenants/virya/audit?slug=other#fragment",
+            "/tenants/virya/tenants/other/audit",
+        ] {
+            assert_eq!(
+                tenant_slug_from_path(path).and_then(|slug| crate::validation::slug(slug).ok()),
+                Some("virya".to_owned()),
+                "{path} must resolve to virya, not be confused by query/fragment/nesting"
             );
         }
 

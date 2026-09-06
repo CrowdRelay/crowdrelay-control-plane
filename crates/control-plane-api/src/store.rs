@@ -101,6 +101,25 @@ pub struct PendingNotification {
     pub config: Value,
 }
 
+/// A notification outbox entry joined with its channel, for the operator-
+/// facing outbox read model. Delivery is at-least-once: `status = 'sent'`
+/// means the provider accepted the POST, not that the recipient received it.
+/// `attempts` is the delivery attempt count (incremented on each claim).
+/// `last_error` is the most recent delivery error, if any.
+#[derive(Debug, serde::Serialize, sqlx::FromRow)]
+pub struct NotifierOutboxRow {
+    pub id: Uuid,
+    pub event: String,
+    pub status: String,
+    pub attempts: i32,
+    pub last_error: Option<String>,
+    pub channel_id: Uuid,
+    pub channel_label: String,
+    pub channel_kind: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
 impl Store {
     pub fn new(pool: PgPool, runtime_stale_after_seconds: i64) -> Self {
         Self {
@@ -1354,6 +1373,31 @@ impl Store {
         Ok(())
     }
 
+    /// Check whether an external deploy dispatch for this tenant was recorded
+    /// within the cooldown window. GitHub's `workflow_dispatch` endpoint is not
+    /// idempotent, so a duplicate click within the cooldown would trigger a
+    /// second workflow run for the same target. Returns the timestamp of the
+    /// most recent accepted/unknown dispatch if one exists within the window.
+    pub async fn recent_external_deploy(
+        &self,
+        tenant_id: Uuid,
+        cooldown_seconds: i64,
+    ) -> Result<Option<chrono::DateTime<chrono::Utc>>, ApiError> {
+        let row = sqlx::query_scalar::<_, Option<chrono::DateTime<chrono::Utc>>>(
+            "SELECT MAX(created_at) FROM control_plane_audit_log
+             WHERE tenant_id = $1
+               AND action = 'tenant.deploy.dispatched'
+               AND target_kind = 'external_deploy'
+               AND (detail->>'outcome') IN ('accepted', 'unknown')
+               AND created_at > now() - ($2 || ' seconds')::interval",
+        )
+        .bind(tenant_id)
+        .bind(cooldown_seconds.to_string())
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
     /// Audit for a deploy the Control Plane hands to an external system
     /// (currently the `ecosystem-deploy` GitHub Actions workflow used by
     /// externally-owned tenants). This path mutates a production host through
@@ -1837,6 +1881,34 @@ impl Store {
         .execute(&mut **tx)
         .await?;
         Ok(())
+    }
+
+    /// List recent outbox entries for a tenant, joined with the channel label
+    /// so the operator can see which notifications were sent, to which channel,
+    /// and what their delivery status is. Delivery is at-least-once: a `sent`
+    /// status means the provider accepted the POST, not that the recipient
+    /// received it. `attempts` is the delivery attempt count; `dead` means all
+    /// retries were exhausted.
+    pub async fn notifier_outbox(
+        &self,
+        tenant_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<NotifierOutboxRow>, ApiError> {
+        let rows = sqlx::query_as::<_, NotifierOutboxRow>(
+            r#"SELECT o.id, o.event, o.status, o.attempts, o.last_error,
+                      o.channel_id, c.label AS channel_label, c.kind AS channel_kind,
+                      o.created_at, o.updated_at
+               FROM control_plane_notification_outbox o
+               JOIN control_plane_notifier_channels c ON c.id = o.channel_id
+               WHERE c.tenant_id = $1
+               ORDER BY o.created_at DESC
+               LIMIT $2"#,
+        )
+        .bind(tenant_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
     }
 
     /// Claim due notifications under SKIP LOCKED so repeated workers or a

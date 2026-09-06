@@ -475,7 +475,7 @@ async fn plan_provisioning(
         } else {
             StatusCode::OK
         },
-        Json(json!(job)),
+        Json(job_with_phase(&job)?),
     ))
 }
 
@@ -489,6 +489,19 @@ async fn deploy_tenant(
     // This is the operator-facing "redeploy" primitive: a scoped tenant
     // operator may re-deploy their own app; the provisioner still owns every
     // Docker step behind its leased job.
+    //
+    // Rollback story:
+    // - Externally-owned tenants (Virya): the ecosystem-deploy GitHub Actions
+    //   workflow performs a blue-green deploy with automatic rollback on
+    //   health-check failure. The Control Plane triggers the workflow; the
+    //   workflow itself handles rollback. There is no separate "rollback"
+    //   endpoint — the workflow is the rollback primitive.
+    // - Provisioner-managed tenants: there is no explicit "rollback to
+    //   previous version" endpoint. Rollback is achieved by requesting a new
+    //   deployment with the previous SHA (which the operator can read from
+    //   the runtime status or the audit log). The provisioner will provision
+    //   the previous version as a new deployment, which is the honest
+    //   semantic — the Control Plane does not pretend to "undo" a deploy.
     let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
 
     // Virya (and any externally-owned tenant) is not provisioned by the
@@ -534,7 +547,7 @@ async fn deploy_tenant(
         } else {
             StatusCode::OK
         },
-        Json(json!(job)),
+        Json(job_with_phase(&job)?),
     ))
 }
 
@@ -583,6 +596,24 @@ async fn trigger_ecosystem_deploy(
     let slug = tenant.tenant.slug.as_str();
     let actor = identity.audit_actor();
     let target_sha = external_deploy_target(desired_version)?;
+
+    // Dispatch dedup: GitHub's workflow_dispatch is not idempotent. A duplicate
+    // click within the cooldown window would trigger a second workflow run for
+    // the same target. Refuse with 409 so the operator sees "you just did
+    // this" rather than silently double-dispatching.
+    if state.github_deploy_cooldown_seconds > 0 {
+        if let Some(last) = state
+            .store
+            .recent_external_deploy(tenant.tenant.id, state.github_deploy_cooldown_seconds)
+            .await?
+        {
+            return Err(ApiError::Conflict(format!(
+                "a deploy dispatch was accepted {}s ago — wait for it to land or check GitHub Actions before dispatching again",
+                (chrono::Utc::now() - last).num_seconds()
+            )));
+        }
+    }
+
     let (token, repo) = match (
         state.github_deploy_token.as_deref(),
         state.github_deploy_repo.as_deref(),
@@ -606,11 +637,15 @@ async fn trigger_ecosystem_deploy(
     });
     // What the operator asked for is recorded before the call leaves, so a
     // dispatch that succeeds upstream while this process dies still has a
-    // record of who asked for what.
+    // record of who asked for what. `expectedVersion` is the raw input (what
+    // the operator typed), `targetSha` is the resolved commit (what will
+    // actually deploy). They differ when the operator left the field blank
+    // (resolve main) or used the `sha-<hex>` panel convention.
     let requested = json!({
         "repo": repo,
         "workflow": "ecosystem-deploy.yml",
         "ref": "main",
+        "expectedVersion": desired_version.map(|v| Value::String(v.to_owned())).unwrap_or(Value::Null),
         // Empty means the workflow resolves `main` itself; name that
         // explicitly rather than logging a blank field.
         "targetSha": if target_sha.is_empty() { Value::Null } else { Value::String(target_sha.clone()) },
@@ -639,7 +674,21 @@ async fn trigger_ecosystem_deploy(
     let response = match response {
         Ok(response) => response,
         Err(e) => {
-            tracing::error!(%e, slug, actor = %actor, "GitHub workflow dispatch request failed");
+            // A timeout is ambiguous: GitHub may have accepted the dispatch
+            // even though we did not receive the response. The honest audit
+            // outcome is "unknown" (not "transport_failed"), and the error
+            // variant is Timeout (not Unavailable) so the UI can distinguish
+            // "we don't know if the deploy was triggered" from "the trigger
+            // definitely failed". Connection failures (DNS, refused, network
+            // unreachable) are deterministic — GitHub did not accept the
+            // dispatch — so they stay "transport_failed" / Unreachable.
+            let is_timeout = e.is_timeout();
+            let outcome = if is_timeout {
+                "unknown"
+            } else {
+                "transport_failed"
+            };
+            tracing::error!(%e, slug, actor = %actor, is_timeout, "GitHub workflow dispatch request failed");
             state
                 .store
                 .audit_external_deploy(
@@ -647,13 +696,15 @@ async fn trigger_ecosystem_deploy(
                     slug,
                     &actor,
                     request_id,
-                    "transport_failed",
+                    outcome,
                     requested,
                 )
                 .await?;
-            return Err(ApiError::Unavailable(
-                "failed to trigger ecosystem deploy".to_owned(),
-            ));
+            return Err(if is_timeout {
+                ApiError::Timeout
+            } else {
+                ApiError::Unreachable
+            });
         }
     };
 
@@ -676,9 +727,7 @@ async fn trigger_ecosystem_deploy(
                 rejected,
             )
             .await?;
-        return Err(ApiError::Unavailable(format!(
-            "GitHub workflow dispatch failed: {status}"
-        )));
+        return Err(ApiError::UpstreamError(status.as_u16()));
     }
 
     tracing::info!(slug, actor = %actor, target_sha = %target_sha, "ecosystem-deploy workflow dispatched via GitHub API");
@@ -689,7 +738,11 @@ async fn trigger_ecosystem_deploy(
             slug,
             &actor,
             request_id,
-            "dispatched",
+            // The audit outcome is "accepted" — GitHub accepted the workflow
+            // dispatch. The deploy itself is async and at-least-once; the
+            // Control Plane has not observed its completion. The runtime
+            // observer will report the new SHA when the deploy lands.
+            "accepted",
             requested,
         )
         .await?;
@@ -700,6 +753,12 @@ async fn trigger_ecosystem_deploy(
             "id": format!("github-dispatch-{}", chrono::Utc::now().timestamp_millis()),
             "tenant_slug": slug,
             "status": "dispatched",
+            // The semantic phase: GitHub accepted the dispatch, but the
+            // deploy has not been observed as completed. The UI must not
+            // read this as "deployment happened" — only as "we asked".
+            "phase": "accepted",
+            // What the operator typed, preserved for causal tracing.
+            "expectedVersion": desired_version.map(|v| Value::String(v.to_owned())).unwrap_or(Value::Null),
             // Say which revision actually left, not which one the form held.
             "targetSha": if target_sha.is_empty() { Value::Null } else { Value::String(target_sha) },
             "message": "Ecosystem deploy workflow triggered on GitHub Actions.",
@@ -737,6 +796,43 @@ mod tests {
             assert!(external_deploy_target(Some(bad)).is_err(), "{bad}");
         }
     }
+
+    /// An LLM worker cannot inject a non-SHA revision into the deploy path.
+    /// The validator accepts only a bare 40-character lowercase hex SHA (or
+    /// the `sha-` prefixed form the panel uses), or empty (resolve main).
+    /// Everything an LLM might hallucinate — a branch name, a tag, a PR URL,
+    /// a short SHA, a version string, a docker image reference — is refused.
+    #[test]
+    fn llm_supplied_revisions_are_refused_by_the_deploy_validator() {
+        for bad in [
+            "v1.2.3",
+            "release-2024-01",
+            "pull/42/head",
+            "https://github.com/CrowdRelay/crowdrelay/pull/42",
+            "ghcr.io/crowdrelay/crowdrelay-api:latest",
+            "0123456",                                    // short SHA
+            "0123456789abcdef0123456789abcdef012345678",  // 39 hex (too short)
+            "0123456789abcdef0123456789abcdef0123456789", // 41 hex (too long)
+            "g0123456789abcdef0123456789abcdef01234567",  // 40 chars, non-hex
+            "HEAD",
+            "origin/main",
+            "@malicious",
+        ] {
+            assert!(
+                external_deploy_target(Some(bad)).is_err(),
+                "LLM revision {bad:?} must be refused"
+            );
+        }
+        // Empty and whitespace-only resolve to "resolve main" — they are not
+        // errors, they are the explicit default.
+        for ok in ["", "  ", "\t\n  "] {
+            assert_eq!(
+                external_deploy_target(Some(ok)).unwrap(),
+                "",
+                "{ok:?} must resolve to empty (resolve main)"
+            );
+        }
+    }
 }
 
 async fn provisioning_jobs(
@@ -745,9 +841,12 @@ async fn provisioning_jobs(
     Extension(identity): Extension<Arc<Identity>>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
-    Ok(Json(
-        json!({"items": state.store.provisioning_jobs(&tenant.tenant.slug, 20).await?}),
-    ))
+    let jobs = state
+        .store
+        .provisioning_jobs(&tenant.tenant.slug, 20)
+        .await?;
+    let items: Vec<Value> = jobs.iter().map(job_with_phase).collect::<Result<_, _>>()?;
+    Ok(Json(json!({"items": items})))
 }
 
 async fn cancel_provisioning(
@@ -758,12 +857,11 @@ async fn cancel_provisioning(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
     let actor = identity.audit_actor();
-    Ok(Json(json!(
-        state
-            .store
-            .cancel_provisioning(&tenant.tenant.slug, &actor, request_id(&headers))
-            .await?
-    )))
+    let job = state
+        .store
+        .cancel_provisioning(&tenant.tenant.slug, &actor, request_id(&headers))
+        .await?;
+    Ok(Json(job_with_phase(&job)?))
 }
 
 async fn claim_provisioning(
@@ -781,7 +879,23 @@ async fn claim_provisioning(
             state.provisioner_actor.as_ref(),
         )
         .await?;
-    Ok(Json(json!({"claim": claim})))
+    Ok(Json({
+        // Compute the phased job value first, before `claim` is consumed by
+        // `to_value`, so we can use the same `job_with_phase` helper as every
+        // other provisioning endpoint. `claim` is `Option<ProvisioningClaim>`:
+        // `None` means no job was available to claim.
+        match claim {
+            Some(claim) => {
+                let job_value = job_with_phase(&claim.job)?;
+                let mut value = serde_json::to_value(&claim).map_err(ApiError::Serialization)?;
+                if let Some(claim_obj) = value.as_object_mut() {
+                    claim_obj.insert("job".to_owned(), job_value);
+                }
+                value
+            }
+            None => serde_json::Value::Null,
+        }
+    }))
 }
 
 async fn renew_provisioning_lease(
@@ -791,17 +905,16 @@ async fn renew_provisioning_lease(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let worker_id = validation::worker_id(&input.worker_id)?;
     let claim_token = validation::claim_token(&input.claim_token)?;
-    Ok(Json(json!(
-        state
-            .store
-            .renew_provisioning_lease(
-                job_id,
-                &worker_id,
-                claim_token,
-                state.provisioner_lease_seconds
-            )
-            .await?
-    )))
+    let job = state
+        .store
+        .renew_provisioning_lease(
+            job_id,
+            &worker_id,
+            claim_token,
+            state.provisioner_lease_seconds,
+        )
+        .await?;
+    Ok(Json(job_with_phase(&job)?))
 }
 
 async fn complete_provisioning(
@@ -812,23 +925,22 @@ async fn complete_provisioning(
     let worker_id = validation::worker_id(&input.worker_id)?;
     let claim_token = validation::claim_token(&input.claim_token)?;
     validation::provision_success(input.api_port, input.schema_version, &input.deployed_sha)?;
-    Ok(Json(json!(
-        state
-            .store
-            .complete_provisioning(
-                job_id,
-                &worker_id,
-                claim_token,
-                ProvisioningCompletion {
-                    api_port: input.api_port,
-                    workspace_id: input.workspace_id,
-                    schema_version: input.schema_version,
-                    deployed_sha: &input.deployed_sha,
-                },
-                state.provisioner_actor.as_ref(),
-            )
-            .await?
-    )))
+    let job = state
+        .store
+        .complete_provisioning(
+            job_id,
+            &worker_id,
+            claim_token,
+            ProvisioningCompletion {
+                api_port: input.api_port,
+                workspace_id: input.workspace_id,
+                schema_version: input.schema_version,
+                deployed_sha: &input.deployed_sha,
+            },
+            state.provisioner_actor.as_ref(),
+        )
+        .await?;
+    Ok(Json(job_with_phase(&job)?))
 }
 
 async fn fail_provisioning(
@@ -840,19 +952,34 @@ async fn fail_provisioning(
     let claim_token = validation::claim_token(&input.claim_token)?;
     let (error_code, error_detail) =
         validation::provision_failure(&input.error_code, input.error_detail.as_deref())?;
-    Ok(Json(json!(
-        state
-            .store
-            .fail_provisioning(
-                job_id,
-                &worker_id,
-                claim_token,
-                &error_code,
-                error_detail.as_deref(),
-                state.provisioner_actor.as_ref(),
-            )
-            .await?
-    )))
+    let job = state
+        .store
+        .fail_provisioning(
+            job_id,
+            &worker_id,
+            claim_token,
+            &error_code,
+            error_detail.as_deref(),
+            state.provisioner_actor.as_ref(),
+        )
+        .await?;
+    Ok(Json(job_with_phase(&job)?))
+}
+
+/// Serialize a provisioning job with the derived `phase` field injected.
+/// Every endpoint that returns a `ProvisioningJobRow` — operator-facing or
+/// provisioner-facing — uses this so the `phase` field is always present and
+/// the frontend type contract holds. Serialization failures propagate as
+/// `ApiError::Serialization` rather than silently returning `null`.
+fn job_with_phase(job: &crate::model::ProvisioningJobRow) -> Result<serde_json::Value, ApiError> {
+    let mut value = serde_json::to_value(job).map_err(ApiError::Serialization)?;
+    if let Some(obj) = value.as_object_mut() {
+        obj.insert(
+            "phase".to_owned(),
+            json!(crate::model::provisioning_phase(&job.status)),
+        );
+    }
+    Ok(value)
 }
 
 async fn report_runtime(

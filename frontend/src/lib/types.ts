@@ -82,10 +82,20 @@ export type ProvisioningResult = {
   completedAt?: string
 }
 
+// The semantic phase of an external operation. Distinguishes "we asked"
+// (accepted) from "it happened" (completed). The existing domain-specific
+// `status` field stays for backward compat; `phase` is the universal
+// semantic layer the UI reads to avoid mistaking a trigger for a result.
+export type OperationPhase = 'accepted' | 'running' | 'completed' | 'failed' | 'unknown'
+
 export type ProvisioningJob = {
   id: string
   tenantId: string
   status: 'planned' | 'approved' | 'running' | 'succeeded' | 'failed' | 'cancelled'
+  // Semantic phase: accepted (planned/approved), running, completed (succeeded),
+  // failed (failed/cancelled). The UI reads this to distinguish "we asked"
+  // from "it happened".
+  phase: OperationPhase
   desiredVersion: string | null
   plan: Record<string, unknown>
   createdBy: string
@@ -572,6 +582,24 @@ export type SectionVerdict = {
 
 export type SectionVerdicts = Record<string, SectionVerdict | undefined>
 
+// Per-section fact freshness. `observedAt` is propagated from upstream
+// timestamps where present (never invented by the Control Plane).
+// `classification` is:
+//   live     — upstream timestamp within stale threshold
+//   stale    — upstream timestamp older than stale threshold
+//   unknown  — no upstream timestamp; the Control Plane assembled this now
+//              but cannot vouch for the fact's recency
+//   assembled — the section came from the Control Plane database, not a
+//               live fan-out; fetchedAt is the honest freshness signal
+export type FreshnessClassification = 'live' | 'stale' | 'unknown' | 'assembled'
+
+export type SectionFreshness = {
+  observedAt: string | null
+  classification: FreshnessClassification
+}
+
+export type SectionFreshnessMap = Record<string, SectionFreshness | undefined>
+
 export type TenantOperationsReadModel = {
   id: string
   summary: OperationsSummary | null
@@ -584,6 +612,9 @@ export type TenantOperationsReadModel = {
   degraded: TenantOperationsSection[]
   // Per-section verdict, including the ones that succeeded.
   sections: SectionVerdicts
+  // Per-section fact freshness. observedAt is propagated from upstream
+  // timestamps where present; classification is live/stale/unknown.
+  freshness: SectionFreshnessMap
   // When the server assembled this fan-out. The only freshness claim it can
   // honestly make about a live upstream read.
   fetchedAt: string
@@ -813,6 +844,7 @@ export type TenantPortfolioReadModel = {
   // degraded instead of failing the whole subpage.
   degraded: TenantPortfolioSection[]
   sections: SectionVerdicts
+  freshness: SectionFreshnessMap
   fetchedAt: string
 }
 
@@ -1214,6 +1246,7 @@ export type AudienceReadModel = {
   segments: AudienceSegment[] | null
   degraded: string[]
   sections: SectionVerdicts
+  freshness: SectionFreshnessMap
   fetchedAt: string
 }
 

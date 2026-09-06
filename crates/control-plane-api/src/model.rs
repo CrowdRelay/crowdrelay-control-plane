@@ -357,6 +357,47 @@ pub struct ProvisioningJobRow {
     pub updated_at: DateTime<Utc>,
 }
 
+/// Map a provisioning job's domain-specific `status` to the universal
+/// semantic `phase` the UI reads to distinguish "we asked" from "it
+/// happened". The existing `status` field stays for backward compat;
+/// `phase` is the semantic layer that makes the accepted-vs-completed
+/// distinction explicit.
+///
+/// - `planned`/`approved` → `accepted`: the Control Plane recorded the
+///   intent; the provisioner has not started executing yet.
+/// - `running` → `running`: the provisioner claimed the job and is
+///   executing it.
+/// - `succeeded` → `completed`: the provisioner reported a terminal
+///   success result. This is the only phase that means "it happened".
+/// - `failed`/`cancelled` → `failed`: the job reached a terminal
+///   non-success state.
+pub fn provisioning_phase(status: &str) -> &'static str {
+    match status {
+        "planned" | "approved" => "accepted",
+        "running" => "running",
+        "succeeded" => "completed",
+        "failed" | "cancelled" => "failed",
+        _ => "unknown",
+    }
+}
+
+/// Map a notifier outbox `status` to the universal semantic `phase`.
+///
+/// - `pending` → `accepted`: the notification is queued for delivery; the
+///   provider has not been contacted yet.
+/// - `sent` → `accepted`: the provider accepted the POST. This does NOT
+///   mean the recipient received the notification — it means the provider
+///   took responsibility for delivery. The phase is "accepted" (not
+///   "completed") to make this distinction explicit.
+/// - `dead` → `failed`: delivery exhausted all retries without success.
+pub fn notifier_phase(status: &str) -> &'static str {
+    match status {
+        "pending" | "sent" => "accepted",
+        "dead" => "failed",
+        _ => "unknown",
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DeployTenantRequest {
@@ -555,5 +596,92 @@ mod tests {
             RuntimeHealth::classify(Some(&unreceipted), now, 180),
             RuntimeHealth::Unknown
         );
+    }
+
+    /// The stale threshold is the boundary between "live" and "stale". The
+    /// boundary is inclusive on the live side: a heartbeat exactly at the
+    /// threshold (180s ago) is still healthy; one second past (181s) is stale.
+    /// This test pins the boundary so a refactor of the classification
+    /// can't silently shift it.
+    #[test]
+    fn stale_threshold_boundary_is_respected() {
+        let now = Utc::now();
+        // Heartbeat exactly at the threshold (180s ago) → healthy (inclusive).
+        let mut at_boundary = status(Some(true), Some(true), now);
+        at_boundary.last_heartbeat_at = Some(now - Duration::seconds(180));
+        assert_eq!(
+            RuntimeHealth::classify(Some(&at_boundary), now, 180),
+            RuntimeHealth::Healthy,
+            "heartbeat at the threshold boundary must be healthy (inclusive)"
+        );
+        // Heartbeat one second inside (179s ago) → healthy.
+        let mut inside = status(Some(true), Some(true), now);
+        inside.last_heartbeat_at = Some(now - Duration::seconds(179));
+        assert_eq!(
+            RuntimeHealth::classify(Some(&inside), now, 180),
+            RuntimeHealth::Healthy,
+            "heartbeat one second inside the threshold must be healthy"
+        );
+        // Heartbeat one second past (181s ago) → stale.
+        let mut past = status(Some(true), Some(true), now);
+        past.last_heartbeat_at = Some(now - Duration::seconds(181));
+        assert_eq!(
+            RuntimeHealth::classify(Some(&past), now, 180),
+            RuntimeHealth::Stale,
+            "heartbeat one second past the threshold must be stale"
+        );
+    }
+
+    // ── External operation phase mapping (#4) ────────────────────────────
+    // The phase field distinguishes "we asked" from "it happened". The
+    // existing status field stays for backward compat; phase is the
+    // semantic layer the UI reads.
+
+    #[test]
+    fn provisioning_phase_distinguishes_accepted_from_completed() {
+        // planned/approved: the Control Plane recorded the intent; the
+        // provisioner has not started executing yet.
+        assert_eq!(provisioning_phase("planned"), "accepted");
+        assert_eq!(provisioning_phase("approved"), "accepted");
+        // running: the provisioner claimed the job and is executing it.
+        assert_eq!(provisioning_phase("running"), "running");
+        // succeeded: the provisioner reported a terminal success result.
+        // This is the only phase that means "it happened".
+        assert_eq!(provisioning_phase("succeeded"), "completed");
+        // failed/cancelled: terminal non-success state.
+        assert_eq!(provisioning_phase("failed"), "failed");
+        assert_eq!(provisioning_phase("cancelled"), "failed");
+        // unknown status must not be fabricated as any other phase.
+        assert_eq!(provisioning_phase("garbage"), "unknown");
+    }
+
+    #[test]
+    fn notifier_phase_distinguishes_accepted_from_completed() {
+        // pending: queued for delivery; provider not contacted yet.
+        assert_eq!(notifier_phase("pending"), "accepted");
+        // sent: provider accepted the POST. This does NOT mean the
+        // recipient received the notification — it means the provider
+        // took responsibility. Phase is "accepted", not "completed".
+        assert_eq!(notifier_phase("sent"), "accepted");
+        // dead: delivery exhausted all retries.
+        assert_eq!(notifier_phase("dead"), "failed");
+        // unknown status must not be fabricated as any other phase.
+        assert_eq!(notifier_phase("garbage"), "unknown");
+    }
+
+    #[test]
+    fn phase_is_never_completed_for_async_external_operations() {
+        // The core invariant: any operation that crosses a process/network
+        // boundary and does not synchronously observe the side effect must
+        // not be "completed". Provisioning "succeeded" is the exception —
+        // it is a terminal report from the provisioner, not a provider
+        // acceptance. Notifier "sent" is NOT "completed" — the provider
+        // accepted, but the recipient may not have received.
+        assert_ne!(notifier_phase("sent"), "completed");
+        assert_ne!(provisioning_phase("planned"), "completed");
+        assert_ne!(provisioning_phase("approved"), "completed");
+        assert_ne!(provisioning_phase("running"), "completed");
+        // Only "succeeded" maps to "completed".
+        assert_eq!(provisioning_phase("succeeded"), "completed");
     }
 }

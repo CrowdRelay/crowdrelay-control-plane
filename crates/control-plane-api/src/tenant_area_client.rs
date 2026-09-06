@@ -479,8 +479,8 @@ async fn request_authorized(
     let address = format_host_port(host, port);
     let mut stream = timeout(CONNECT_TIMEOUT, TcpStream::connect(&address))
         .await
-        .map_err(|_| ApiError::Unavailable("upstream connect timeout".to_owned()))?
-        .map_err(|_| ApiError::Unavailable("upstream target unavailable".to_owned()))?;
+        .map_err(|_| ApiError::Timeout)?
+        .map_err(|_| ApiError::Unreachable)?;
 
     let body_text = body.map(Value::to_string).unwrap_or_default();
     let host_header = host_header(host, target.port(), port);
@@ -512,7 +512,7 @@ async fn request_authorized(
         stream
             .write_all(request.as_bytes())
             .await
-            .map_err(|_| ApiError::Unavailable("upstream write failed".to_owned()))?;
+            .map_err(|_| ApiError::Unreachable)?;
 
         // Keep the write side open while the peer produces its response.
         // The HTTP request is already self-framed (Content-Length when a body is present)
@@ -524,13 +524,13 @@ async fn request_authorized(
             let read = stream
                 .read(&mut chunk)
                 .await
-                .map_err(|_| ApiError::Unavailable("upstream read failed".to_owned()))?;
+                .map_err(|_| ApiError::Unreachable)?;
             if read == 0 {
                 break;
             }
             if response.len().saturating_add(read) > MAX_RESPONSE_BYTES {
-                return Err(ApiError::Unavailable(
-                    "upstream response exceeded limit".to_owned(),
+                return Err(ApiError::ContractMismatch(
+                    "upstream response exceeded limit",
                 ));
             }
             response.extend_from_slice(&chunk[..read]);
@@ -540,7 +540,7 @@ async fn request_authorized(
 
     timeout(REQUEST_TIMEOUT, exchange)
         .await
-        .map_err(|_| ApiError::Unavailable("upstream request timeout".to_owned()))?
+        .map_err(|_| ApiError::Timeout)?
 }
 
 fn validate_management_target(value: &str) -> Result<Url, ApiError> {
@@ -622,31 +622,25 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
         .windows(marker.len())
         .position(|window| window == marker)
     else {
-        return Err(ApiError::Unavailable(
-            "malformed upstream response".to_owned(),
-        ));
+        return Err(ApiError::ContractMismatch("malformed upstream response"));
     };
     let head = std::str::from_utf8(&raw[..split])
-        .map_err(|_| ApiError::Unavailable("malformed upstream headers".to_owned()))?;
+        .map_err(|_| ApiError::ContractMismatch("malformed upstream headers"))?;
     let mut lines = head.split("\r\n");
     let status = lines
         .next()
         .and_then(|line| line.split_whitespace().nth(1))
         .and_then(|status| status.parse::<u16>().ok())
-        .ok_or_else(|| ApiError::Unavailable("missing upstream status".to_owned()))?;
+        .ok_or_else(|| ApiError::ContractMismatch("missing upstream status"))?;
     if (300..400).contains(&status) {
-        return Err(ApiError::Unavailable(
-            "upstream redirect refused".to_owned(),
-        ));
+        return Err(ApiError::ContractMismatch("upstream redirect refused"));
     }
 
     let mut transfer_chunked = false;
     let mut content_length = None;
     for line in lines {
         let Some((name, value)) = line.split_once(':') else {
-            return Err(ApiError::Unavailable(
-                "malformed upstream header".to_owned(),
-            ));
+            return Err(ApiError::ContractMismatch("malformed upstream header"));
         };
         let name = name.trim();
         let value = value.trim();
@@ -657,25 +651,25 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
                 .filter(|encoding| !encoding.is_empty())
                 .collect::<Vec<_>>();
             if encodings.len() != 1 || !encodings[0].eq_ignore_ascii_case("chunked") {
-                return Err(ApiError::Unavailable(
-                    "unsupported upstream transfer encoding".to_owned(),
+                return Err(ApiError::ContractMismatch(
+                    "unsupported upstream transfer encoding",
                 ));
             }
             transfer_chunked = true;
         } else if name.eq_ignore_ascii_case("content-length") {
             let parsed = value
                 .parse::<usize>()
-                .map_err(|_| ApiError::Unavailable("invalid upstream content length".to_owned()))?;
+                .map_err(|_| ApiError::ContractMismatch("invalid upstream content length"))?;
             if content_length.replace(parsed).is_some() {
-                return Err(ApiError::Unavailable(
-                    "duplicate upstream content length".to_owned(),
+                return Err(ApiError::ContractMismatch(
+                    "duplicate upstream content length",
                 ));
             }
         }
     }
     if transfer_chunked && content_length.is_some() {
-        return Err(ApiError::Unavailable(
-            "ambiguous upstream response framing".to_owned(),
+        return Err(ApiError::ContractMismatch(
+            "ambiguous upstream response framing",
         ));
     }
 
@@ -687,16 +681,14 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
     } else {
         if let Some(expected) = content_length {
             if expected != wire_body.len() {
-                return Err(ApiError::Unavailable(
-                    "truncated upstream response".to_owned(),
-                ));
+                return Err(ApiError::ContractMismatch("truncated upstream response"));
             }
         }
         wire_body
     };
     if body.len() > MAX_RESPONSE_BYTES {
-        return Err(ApiError::Unavailable(
-            "upstream response exceeded limit".to_owned(),
+        return Err(ApiError::ContractMismatch(
+            "upstream response exceeded limit",
         ));
     }
 
@@ -704,14 +696,14 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
         if body.is_empty() {
             return Ok(Value::Null);
         }
-        return Err(ApiError::Unavailable(
-            "upstream returned a body for HTTP 204".to_owned(),
+        return Err(ApiError::ContractMismatch(
+            "upstream returned a body for HTTP 204",
         ));
     }
 
     if (200..300).contains(&status) && body.is_empty() {
-        return Err(ApiError::Unavailable(
-            "upstream returned an empty success body".to_owned(),
+        return Err(ApiError::ContractMismatch(
+            "upstream returned an empty success body",
         ));
     }
 
@@ -719,7 +711,7 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
         Value::Null
     } else {
         serde_json::from_slice(body)
-            .map_err(|_| ApiError::Unavailable("invalid upstream JSON".to_owned()))?
+            .map_err(|_| ApiError::ContractMismatch("invalid upstream JSON"))?
     };
     if (200..300).contains(&status) {
         Ok(value)
@@ -739,9 +731,7 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
             error_code(&value).unwrap_or("AREA_INVALID").to_owned(),
         ))
     } else {
-        Err(ApiError::Unavailable(format!(
-            "upstream returned HTTP {status}"
-        )))
+        Err(ApiError::UpstreamError(status))
     }
 }
 
@@ -749,15 +739,15 @@ fn decode_chunked(mut input: &[u8]) -> Result<Vec<u8>, ApiError> {
     let mut output = Vec::new();
     loop {
         let Some(line_end) = input.windows(2).position(|window| window == b"\r\n") else {
-            return Err(ApiError::Unavailable(
-                "malformed chunked upstream response".to_owned(),
+            return Err(ApiError::ContractMismatch(
+                "malformed chunked upstream response",
             ));
         };
         let size_line = std::str::from_utf8(&input[..line_end])
-            .map_err(|_| ApiError::Unavailable("malformed upstream chunk size".to_owned()))?;
+            .map_err(|_| ApiError::ContractMismatch("malformed upstream chunk size"))?;
         let size_hex = size_line.split(';').next().unwrap_or_default().trim();
         let size = usize::from_str_radix(size_hex, 16)
-            .map_err(|_| ApiError::Unavailable("invalid upstream chunk size".to_owned()))?;
+            .map_err(|_| ApiError::ContractMismatch("invalid upstream chunk size"))?;
         input = &input[line_end + 2..];
         if size == 0 {
             return Ok(output);
@@ -766,9 +756,7 @@ fn decode_chunked(mut input: &[u8]) -> Result<Vec<u8>, ApiError> {
             || input.len() < size.saturating_add(2)
             || &input[size..size + 2] != b"\r\n"
         {
-            return Err(ApiError::Unavailable(
-                "invalid upstream chunk framing".to_owned(),
-            ));
+            return Err(ApiError::ContractMismatch("invalid upstream chunk framing"));
         }
         output.extend_from_slice(&input[..size]);
         input = &input[size + 2..];
@@ -1001,8 +989,7 @@ mod tests {
         let raw = b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
         assert!(matches!(
             parse_response(raw),
-            Err(ApiError::Unavailable(message))
-                if message == "upstream returned an empty success body"
+            Err(ApiError::ContractMismatch(_))
         ));
     }
 
@@ -1017,8 +1004,7 @@ mod tests {
         let raw = b"HTTP/1.1 204 No Content\r\nContent-Length: 2\r\n\r\n{}";
         assert!(matches!(
             parse_response(raw),
-            Err(ApiError::Unavailable(message))
-                if message == "upstream returned a body for HTTP 204"
+            Err(ApiError::ContractMismatch(_))
         ));
     }
 

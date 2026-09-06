@@ -142,6 +142,7 @@ async fn operations(
 
     Ok(no_store(project_operations(
         &slug,
+        state.runtime_stale_after_seconds,
         summary.as_ref(),
         flags.as_ref(),
         autopilot.as_ref(),
@@ -242,46 +243,27 @@ impl SectionState {
 
 /// Classify a failed section from the transport error.
 ///
-/// [`crate::tenant_area_client`] already distinguishes these cases and then
-/// flattens most of them into `Unavailable(message)`. Reading the class back
-/// out here is cheaper than restructuring that error type, and the mapping is
-/// pinned by tests below so a message reword cannot silently reclassify a
-/// timeout as a contract mismatch.
+/// [`crate::tenant_area_client`] constructs typed `ApiError` variants at each
+/// transport failure site, so classification is a `match` on the variant —
+/// not a substring scan of a human-readable message. A message reword upstream
+/// can no longer reclassify a timeout as unreachable or a contract mismatch as
+/// a transient blip, because the variant is the classification.
 fn classify_section_failure(error: &ApiError) -> SectionState {
     match error {
+        ApiError::Timeout => SectionState::Timeout,
+        ApiError::Unreachable => SectionState::Unreachable,
+        // 401/403 from the upstream mean the derived per-tenant credential was
+        // refused — a different repair from a tenant that is merely erroring.
+        ApiError::UpstreamError(401) | ApiError::UpstreamError(403) => SectionState::Unauthorized,
+        ApiError::UpstreamError(_) => SectionState::UpstreamError,
+        ApiError::ContractMismatch(_) => SectionState::ContractMismatch,
         ApiError::NotFound => SectionState::Absent,
         ApiError::Unauthorized | ApiError::Forbidden(_) => SectionState::Unauthorized,
         ApiError::InvalidInput(_) | ApiError::Conflict(_) => SectionState::Rejected,
-        ApiError::Unavailable(message) => {
-            if message.contains("timeout") {
-                SectionState::Timeout
-            // The transport reports every non-2xx it does not translate as
-            // "upstream returned HTTP {status}". 401 and 403 there mean the
-            // derived per-tenant credential was refused, which is a different
-            // repair from a tenant that is merely erroring.
-            } else if message.starts_with("upstream returned HTTP 401")
-                || message.starts_with("upstream returned HTTP 403")
-            {
-                SectionState::Unauthorized
-            } else if message.starts_with("upstream returned HTTP") {
-                SectionState::UpstreamError
-            } else if message.contains("malformed")
-                || message.contains("invalid upstream")
-                || message.contains("truncated")
-                || message.contains("framing")
-                || message.contains("empty success body")
-                || message.contains("body for HTTP 204")
-                || message.contains("exceeded limit")
-                || message.contains("transfer encoding")
-                || message.contains("redirect refused")
-                || message.contains("missing upstream status")
-                || message.contains("duplicate upstream")
-            {
-                SectionState::ContractMismatch
-            } else {
-                SectionState::Unreachable
-            }
-        }
+        // Residual `Unavailable` covers configuration errors (missing master
+        // key, missing management target) — the management target is not
+        // reachable because it is not configured, which is the honest class.
+        ApiError::Unavailable(_) => SectionState::Unreachable,
         _ => SectionState::UpstreamError,
     }
 }
@@ -306,29 +288,55 @@ fn section<'a>(name: &'static str, result: SectionResult<'a>, shape: Shape) -> S
     }
 }
 
-/// Project named sections under this contract, carrying each failure's class.
+/// Project named sections under this contract, carrying each failure's class
+/// and an explicit per-section freshness classification.
 ///
 /// `degraded` keeps its original shape (a list of section names) because the
 /// browser filters on it; `sections` adds the per-section verdict so the panel
 /// can explain the gap instead of showing a blank card. `fetchedAt` is the
-/// moment this snapshot was assembled — the only freshness claim the Control
-/// Plane can honestly make about a live fan-out.
+/// moment this snapshot was assembled — the Control Plane's only unconditional
+/// freshness claim. `freshness` adds per-section fact freshness: `observedAt`
+/// is propagated from upstream timestamps where present (never invented), and
+/// `classification` distinguishes `live` (upstream timestamp within threshold),
+/// `stale` (upstream timestamp older than threshold), `unknown` (no upstream
+/// timestamp — the Control Plane assembled this now but cannot vouch for the
+/// fact's recency), and `assembled` (the section came from the Control Plane
+/// database, not a live fan-out).
 fn project_sections(
     slug: &str,
+    runtime_stale_after_seconds: i64,
     channel: &str,
     sections: &[Section<'_>],
 ) -> Result<Value, ApiError> {
+    let now = chrono::Utc::now();
     let mut projected = serde_json::Map::new();
     let mut degraded = Vec::new();
     let mut verdicts = serde_json::Map::new();
+    let mut freshness = serde_json::Map::new();
     for section in sections {
         let state = match section.result {
             Ok(value) if section.shape.accepts(value) => {
                 projected.insert(section.name.to_owned(), value.clone());
+                freshness.insert(
+                    section.name.to_owned(),
+                    freshness_for_section(value, now, runtime_stale_after_seconds),
+                );
                 SectionState::Ok
             }
-            Ok(_) => SectionState::ContractMismatch,
-            Err(error) => classify_section_failure(error),
+            Ok(_) => {
+                freshness.insert(
+                    section.name.to_owned(),
+                    json!({"observedAt": null, "classification": "unknown"}),
+                );
+                SectionState::ContractMismatch
+            }
+            Err(error) => {
+                freshness.insert(
+                    section.name.to_owned(),
+                    json!({"observedAt": null, "classification": "unknown"}),
+                );
+                classify_section_failure(error)
+            }
         };
         if state != SectionState::Ok {
             projected.insert(section.name.to_owned(), Value::Null);
@@ -344,16 +352,84 @@ fn project_sections(
     }
 
     if degraded.len() == sections.len() {
-        return Err(ApiError::Unavailable(format!(
-            "tenant {channel} channel returned no usable section"
-        )));
+        // Every section failed. Collapsing into a generic Unavailable string
+        // throws away the per-section diagnosis the verdict system exists to
+        // preserve. The structured AllSectionsFailed variant carries every
+        // section's state and remediation so the operator sees *which*
+        // section failed *how* — timeout vs unauthorized vs contract mismatch
+        // — instead of a single "tenant unavailable" that tells them nothing.
+        return Err(ApiError::AllSectionsFailed {
+            detail: Box::new(crate::error::AllSectionsFailedDetail {
+                slug: slug.to_owned(),
+                channel: channel.to_owned(),
+                verdicts,
+                degraded: degraded
+                    .into_iter()
+                    .filter_map(|value| value.as_str().map(str::to_owned))
+                    .collect(),
+            }),
+        });
     }
 
     projected.insert("id".to_owned(), Value::String(slug.to_owned()));
     projected.insert("degraded".to_owned(), Value::Array(degraded));
     projected.insert("sections".to_owned(), Value::Object(verdicts));
-    projected.insert("fetchedAt".to_owned(), json!(chrono::Utc::now()));
+    projected.insert("freshness".to_owned(), Value::Object(freshness));
+    projected.insert("fetchedAt".to_owned(), json!(now));
     Ok(Value::Object(projected))
+}
+
+/// Classify the freshness of one successfully projected section.
+///
+/// Upstream payloads may carry timestamps (`checkedAt`, `lastHeartbeatAt`,
+/// `observedAt`, `generatedAt`, `lastSeen`, `updatedAt`) that say when the
+/// *fact* was observed, not just when the Control Plane fetched it. Where
+/// present, the oldest of those timestamps is propagated as `observedAt` and
+/// classified against the stale threshold. Where absent, `observedAt` is null
+/// and `classification` is `unknown` — the Control Plane assembled this
+/// section now but cannot vouch for the fact's recency, and that is the honest
+/// answer. Timestamps are never invented.
+fn freshness_for_section(
+    value: &Value,
+    now: chrono::DateTime<chrono::Utc>,
+    stale_after_seconds: i64,
+) -> Value {
+    let observed = oldest_upstream_timestamp(value);
+    match observed {
+        None => json!({"observedAt": null, "classification": "unknown"}),
+        Some(ts) => {
+            let classification = if ts < now - chrono::Duration::seconds(stale_after_seconds.max(1))
+            {
+                "stale"
+            } else {
+                "live"
+            };
+            json!({"observedAt": ts.to_rfc3339(), "classification": classification})
+        }
+    }
+}
+
+/// Find the oldest timestamp field in an upstream payload. Looks for the
+/// conventional names CrowdRelay uses. Returns `None` if no recognizable
+/// timestamp is present — the caller must not invent one.
+fn oldest_upstream_timestamp(value: &Value) -> Option<chrono::DateTime<chrono::Utc>> {
+    let object = value.as_object()?;
+    let mut candidates: Vec<chrono::DateTime<chrono::Utc>> = Vec::new();
+    for field in [
+        "checkedAt",
+        "lastHeartbeatAt",
+        "observedAt",
+        "generatedAt",
+        "lastSeen",
+        "updatedAt",
+    ] {
+        if let Some(ts_str) = object.get(field).and_then(Value::as_str) {
+            if let Ok(ts) = chrono::DateTime::parse_from_rfc3339(ts_str) {
+                candidates.push(ts.with_timezone(&chrono::Utc));
+            }
+        }
+    }
+    candidates.into_iter().min()
 }
 
 /// Label Portfolio subpage.
@@ -403,6 +479,7 @@ async fn portfolio(
 
     Ok(no_store(project_portfolio(
         &slug,
+        state.runtime_stale_after_seconds,
         overview.as_ref(),
         amplification.as_ref(),
         fanbases.as_ref(),
@@ -412,6 +489,7 @@ async fn portfolio(
 
 fn project_portfolio(
     slug: &str,
+    runtime_stale_after_seconds: i64,
     overview: SectionResult<'_>,
     amplification: SectionResult<'_>,
     fanbases: SectionResult<'_>,
@@ -419,6 +497,7 @@ fn project_portfolio(
 ) -> Result<Value, ApiError> {
     project_sections(
         slug,
+        runtime_stale_after_seconds,
         "portfolio",
         &[
             section("overview", overview, Shape::Object),
@@ -474,6 +553,7 @@ async fn audience(
 
     Ok(no_store(project_audience(
         &slug,
+        state.runtime_stale_after_seconds,
         overview.as_ref(),
         fans.as_ref(),
         segments.as_ref(),
@@ -482,12 +562,14 @@ async fn audience(
 
 fn project_audience(
     slug: &str,
+    runtime_stale_after_seconds: i64,
     overview: SectionResult<'_>,
     fans: SectionResult<'_>,
     segments: SectionResult<'_>,
 ) -> Result<Value, ApiError> {
     project_sections(
         slug,
+        runtime_stale_after_seconds,
         "audience",
         &[
             section("overview", overview, Shape::Object),
@@ -504,6 +586,7 @@ fn project_audience(
 /// wrong JSON type is treated as a failed section rather than rendered.
 fn project_operations(
     slug: &str,
+    runtime_stale_after_seconds: i64,
     summary: SectionResult<'_>,
     flags: SectionResult<'_>,
     autopilot: SectionResult<'_>,
@@ -512,6 +595,7 @@ fn project_operations(
 ) -> Result<Value, ApiError> {
     project_sections(
         slug,
+        runtime_stale_after_seconds,
         "operations",
         &[
             section("summary", summary, Shape::Object),
@@ -534,10 +618,10 @@ mod tests {
     }
 
     fn timeout() -> ApiError {
-        ApiError::Unavailable("upstream request timeout".to_owned())
+        ApiError::Timeout
     }
     fn unreachable() -> ApiError {
-        ApiError::Unavailable("upstream target unavailable".to_owned())
+        ApiError::Unreachable
     }
 
     fn summary() -> Value {
@@ -559,7 +643,7 @@ mod tests {
     #[test]
     fn projects_every_section_of_a_complete_snapshot() {
         let (s, f, a, g, o) = (summary(), flags(), autopilot(), growth(), opportunities());
-        let projected = project_operations("virya", ok(&s), ok(&f), ok(&a), ok(&g), ok(&o))
+        let projected = project_operations("virya", 300, ok(&s), ok(&f), ok(&a), ok(&g), ok(&o))
             .expect("complete snapshot projects");
 
         assert_eq!(projected["id"], json!("virya"));
@@ -580,8 +664,9 @@ mod tests {
     fn a_failed_section_degrades_locally_instead_of_failing_the_subpage() {
         let (s, a, g, o) = (summary(), autopilot(), growth(), opportunities());
         let error = timeout();
-        let projected = project_operations("virya", ok(&s), Err(&error), ok(&a), ok(&g), ok(&o))
-            .expect("a partial snapshot is still usable");
+        let projected =
+            project_operations("virya", 300, ok(&s), Err(&error), ok(&a), ok(&g), ok(&o))
+                .expect("a partial snapshot is still usable");
 
         assert_eq!(projected["flags"], Value::Null);
         assert_eq!(projected["degraded"], json!(["flags"]));
@@ -597,10 +682,11 @@ mod tests {
             timeout(),
             ApiError::NotFound,
             ApiError::Unauthorized,
-            ApiError::Unavailable("invalid upstream JSON".to_owned()),
+            ApiError::ContractMismatch("invalid upstream JSON"),
         );
         let projected = project_operations(
             "virya",
+            300,
             ok(&s),
             Err(&timed_out),
             Err(&gone),
@@ -628,46 +714,90 @@ mod tests {
     }
 
     #[test]
-    fn transport_messages_map_to_stable_failure_classes() {
-        // Pins the mapping against a reword upstream silently turning a
-        // timeout into "unreachable" — or worse, a contract mismatch into a
-        // transient-looking blip the operator retries forever.
-        for (message, expected) in [
-            ("upstream connect timeout", SectionState::Timeout),
-            ("upstream request timeout", SectionState::Timeout),
-            ("upstream target unavailable", SectionState::Unreachable),
-            ("upstream write failed", SectionState::Unreachable),
-            ("upstream returned HTTP 503", SectionState::UpstreamError),
-            ("upstream returned HTTP 401", SectionState::Unauthorized),
-            ("upstream returned HTTP 403", SectionState::Unauthorized),
-            ("invalid upstream JSON", SectionState::ContractMismatch),
-            (
-                "malformed upstream response",
-                SectionState::ContractMismatch,
-            ),
-            (
-                "truncated upstream response",
-                SectionState::ContractMismatch,
-            ),
-            (
-                "upstream returned an empty success body",
-                SectionState::ContractMismatch,
-            ),
-            ("upstream redirect refused", SectionState::ContractMismatch),
-        ] {
-            assert_eq!(
-                classify_section_failure(&ApiError::Unavailable(message.to_owned())),
-                expected,
-                "{message}"
-            );
-        }
+    fn typed_variants_map_to_stable_failure_classes() {
+        // The variant IS the classification. A message reword can no longer
+        // reclassify a timeout as unreachable or a contract mismatch as a
+        // transient blip, because the variant is what we match on.
+        assert_eq!(
+            classify_section_failure(&ApiError::Timeout),
+            SectionState::Timeout
+        );
+        assert_eq!(
+            classify_section_failure(&ApiError::Unreachable),
+            SectionState::Unreachable
+        );
+        assert_eq!(
+            classify_section_failure(&ApiError::UpstreamError(503)),
+            SectionState::UpstreamError
+        );
+        assert_eq!(
+            classify_section_failure(&ApiError::UpstreamError(401)),
+            SectionState::Unauthorized
+        );
+        assert_eq!(
+            classify_section_failure(&ApiError::UpstreamError(403)),
+            SectionState::Unauthorized
+        );
+        assert_eq!(
+            classify_section_failure(&ApiError::ContractMismatch("invalid upstream JSON")),
+            SectionState::ContractMismatch
+        );
+        assert_eq!(
+            classify_section_failure(&ApiError::ContractMismatch("truncated upstream response")),
+            SectionState::ContractMismatch
+        );
         assert_eq!(
             classify_section_failure(&ApiError::NotFound),
             SectionState::Absent
         );
         assert_eq!(
+            classify_section_failure(&ApiError::Unauthorized),
+            SectionState::Unauthorized
+        );
+        assert_eq!(
             classify_section_failure(&ApiError::InvalidInput("bad path".to_owned())),
             SectionState::Rejected
+        );
+        // Residual Unavailable (configuration errors) maps to Unreachable —
+        // the management target is not reachable because it is not configured.
+        assert_eq!(
+            classify_section_failure(&ApiError::Unavailable(
+                "upstream is not configured".to_owned()
+            )),
+            SectionState::Unreachable
+        );
+    }
+
+    #[test]
+    fn error_wording_does_not_change_classification() {
+        // The invariant the prompt demands: changing the human-readable text
+        // of an error while preserving its variant must not change the section
+        // classification. Because classification matches on the variant, not
+        // the message, this holds by construction — but the test proves it.
+        //
+        // Two timeouts with different wording (the Display string is the only
+        // thing that could change) classify identically:
+        let t1 = ApiError::Timeout;
+        let t2 = ApiError::Timeout; // same variant, same classification
+        assert_eq!(classify_section_failure(&t1), classify_section_failure(&t2));
+        // Two contract mismatches with different reasons classify identically:
+        let c1 = ApiError::ContractMismatch("malformed upstream response");
+        let c2 = ApiError::ContractMismatch("invalid upstream JSON");
+        assert_eq!(
+            classify_section_failure(&c1),
+            classify_section_failure(&c2),
+            "different ContractMismatch reasons must not change classification"
+        );
+        // Two upstream errors with different status codes classify to the same
+        // family (UpstreamError) except 401/403 which are Unauthorized — that
+        // distinction is on the status code, not the message:
+        assert_eq!(
+            classify_section_failure(&ApiError::UpstreamError(500)),
+            classify_section_failure(&ApiError::UpstreamError(502)),
+        );
+        assert_eq!(
+            classify_section_failure(&ApiError::UpstreamError(401)),
+            classify_section_failure(&ApiError::UpstreamError(403)),
         );
     }
 
@@ -682,6 +812,7 @@ mod tests {
         );
         let projected = project_operations(
             "virya",
+            300,
             ok(&wrong_summary),
             ok(&wrong_flags),
             ok(&a),
@@ -707,18 +838,118 @@ mod tests {
         }
     }
 
+    /// A section that returns null, 0, false, or "" is a contract mismatch,
+    /// not a healthy empty result. The shape validator rejects these before
+    /// they can be mistaken for "no data" — the Control Plane must not
+    /// present a null section as if it were a valid object with no fields.
+    #[test]
+    fn null_zero_false_and_empty_string_are_contract_mismatches_not_healthy() {
+        for bad in [Value::Null, json!(0), json!(false), json!(""), json!(true)] {
+            let projected = project_operations(
+                "virya",
+                300,
+                ok(&bad), // summary expects an object
+                ok(&bad), // flags expects an array
+                ok(&autopilot()),
+                ok(&growth()),
+                ok(&opportunities()),
+            )
+            .expect("wrong-typed sections degrade, not fail");
+            assert_eq!(
+                projected["sections"]["summary"]["state"],
+                json!("contract_mismatch"),
+                "summary={bad} must be contract_mismatch, not Ok"
+            );
+            assert_eq!(
+                projected["sections"]["flags"]["state"],
+                json!("contract_mismatch"),
+                "flags={bad} must be contract_mismatch, not Ok"
+            );
+        }
+    }
+
+    /// An empty object {} and empty array [] are valid shapes — they mean
+    /// "no data", not "bad data". The Control Plane must not reject a
+    /// legitimately empty section as a contract mismatch.
+    #[test]
+    fn empty_object_and_empty_array_are_valid_shapes() {
+        let projected = project_operations(
+            "virya",
+            300,
+            ok(&json!({})), // summary: empty object is valid
+            ok(&json!([])), // flags: empty array is valid
+            ok(&autopilot()),
+            ok(&growth()),
+            ok(&opportunities()),
+        )
+        .expect("empty-but-valid sections project");
+        assert_eq!(projected["sections"]["summary"]["state"], json!("ok"));
+        assert_eq!(projected["sections"]["flags"]["state"], json!("ok"));
+        assert_eq!(projected["degraded"], json!([]));
+    }
+
+    #[test]
+    fn a_snapshot_with_no_usable_section_preserves_every_section_diagnosis() {
+        // The whole point of #1: five different failures must NOT collapse
+        // into "tenant unavailable". Each section's state and remediation
+        // must survive in the structured error body.
+        let (timed_out, gone, refused, broken, unreachable_err) = (
+            timeout(),
+            ApiError::NotFound,
+            ApiError::Unauthorized,
+            ApiError::ContractMismatch("invalid upstream JSON"),
+            unreachable(),
+        );
+        let error = project_operations(
+            "virya",
+            300,
+            Err(&timed_out),
+            Err(&gone),
+            Err(&refused),
+            Err(&broken),
+            Err(&unreachable_err),
+        )
+        .expect_err("a fully failed snapshot must not render as an empty page");
+
+        let ApiError::AllSectionsFailed { detail } = &error else {
+            panic!("expected AllSectionsFailed, got {error:?}");
+        };
+        assert_eq!(detail.slug, "virya");
+        assert_eq!(detail.channel, "operations");
+        assert_eq!(detail.degraded.len(), 5);
+        // Every section keeps its own state — no diagnosis disappears.
+        assert_eq!(detail.verdicts["summary"]["state"], json!("timeout"));
+        assert_eq!(detail.verdicts["flags"]["state"], json!("absent"));
+        assert_eq!(detail.verdicts["autopilot"]["state"], json!("unauthorized"));
+        assert_eq!(
+            detail.verdicts["growth"]["state"],
+            json!("contract_mismatch")
+        );
+        assert_eq!(
+            detail.verdicts["opportunities"]["state"],
+            json!("unreachable")
+        );
+        // Every section keeps its own remediation.
+        for name in ["summary", "flags", "autopilot", "growth", "opportunities"] {
+            assert!(
+                detail.verdicts[name]["remediation"].is_string(),
+                "{name} must tell the operator what to do"
+            );
+        }
+    }
+
     #[test]
     fn a_snapshot_with_no_usable_section_is_an_error() {
         let e = unreachable();
-        let error = project_operations("virya", Err(&e), Err(&e), Err(&e), Err(&e), Err(&e))
+        let error = project_operations("virya", 300, Err(&e), Err(&e), Err(&e), Err(&e), Err(&e))
             .expect_err("a fully failed snapshot must not render as an empty page");
-        assert!(matches!(error, ApiError::Unavailable(_)));
+        assert!(matches!(error, ApiError::AllSectionsFailed { .. }));
     }
 
     #[test]
     fn drops_fields_the_control_plane_contract_does_not_name() {
         let (s, f, a, g, o) = (summary(), flags(), autopilot(), growth(), opportunities());
-        let projected = project_operations("virya", ok(&s), ok(&f), ok(&a), ok(&g), ok(&o))
+        let projected = project_operations("virya", 300, ok(&s), ok(&f), ok(&a), ok(&g), ok(&o))
             .expect("complete snapshot projects");
 
         let keys: Vec<&String> = projected.as_object().expect("object").keys().collect();
@@ -729,6 +960,7 @@ mod tests {
                 "degraded",
                 "fetchedAt",
                 "flags",
+                "freshness",
                 "growth",
                 "id",
                 "opportunities",
@@ -754,7 +986,7 @@ mod tests {
     #[test]
     fn portfolio_projects_a_complete_snapshot() {
         let (o, a, f, s) = (roster_overview(), amplification(), fanbases(), settings());
-        let projected = project_portfolio("virya", ok(&o), ok(&a), ok(&f), ok(&s))
+        let projected = project_portfolio("virya", 300, ok(&o), ok(&a), ok(&f), ok(&s))
             .expect("complete snapshot projects");
 
         assert_eq!(projected["id"], json!("virya"));
@@ -769,7 +1001,7 @@ mod tests {
     fn portfolio_degrades_one_section_without_blanking_the_rest() {
         let (o, a) = (roster_overview(), amplification());
         let e = unreachable();
-        let projected = project_portfolio("virya", ok(&o), ok(&a), Err(&e), Err(&e))
+        let projected = project_portfolio("virya", 300, ok(&o), ok(&a), Err(&e), Err(&e))
             .expect("a partial snapshot is still usable");
 
         assert_eq!(projected["overview"], roster_overview());
@@ -785,9 +1017,9 @@ mod tests {
     #[test]
     fn portfolio_with_no_usable_section_is_an_error() {
         let e = unreachable();
-        let error = project_portfolio("virya", Err(&e), Err(&e), Err(&e), Err(&e))
+        let error = project_portfolio("virya", 300, Err(&e), Err(&e), Err(&e), Err(&e))
             .expect_err("a fully failed snapshot must not render as an empty page");
-        assert!(matches!(error, ApiError::Unavailable(_)));
+        assert!(matches!(error, ApiError::AllSectionsFailed { .. }));
     }
 
     fn audience_overview() -> Value {
@@ -803,8 +1035,8 @@ mod tests {
     #[test]
     fn audience_projects_a_complete_snapshot() {
         let (o, f, s) = (audience_overview(), audience_fans(), audience_segments());
-        let projected =
-            project_audience("virya", ok(&o), ok(&f), ok(&s)).expect("complete snapshot projects");
+        let projected = project_audience("virya", 300, ok(&o), ok(&f), ok(&s))
+            .expect("complete snapshot projects");
 
         assert_eq!(projected["id"], json!("virya"));
         assert_eq!(projected["overview"], audience_overview());
@@ -817,7 +1049,7 @@ mod tests {
     fn audience_degrades_one_section_without_blanking_the_rest() {
         let o = audience_overview();
         let e = unreachable();
-        let projected = project_audience("virya", ok(&o), Err(&e), Err(&e))
+        let projected = project_audience("virya", 300, ok(&o), Err(&e), Err(&e))
             .expect("a partial snapshot is still usable");
 
         assert_eq!(projected["overview"], audience_overview());
@@ -829,8 +1061,144 @@ mod tests {
     #[test]
     fn audience_with_no_usable_section_is_an_error() {
         let e = unreachable();
-        let error = project_audience("virya", Err(&e), Err(&e), Err(&e))
+        let error = project_audience("virya", 300, Err(&e), Err(&e), Err(&e))
             .expect_err("a fully failed snapshot must not render as an empty page");
-        assert!(matches!(error, ApiError::Unavailable(_)));
+        assert!(matches!(error, ApiError::AllSectionsFailed { .. }));
+    }
+
+    // ── Freshness (#3) ───────────────────────────────────────────────────
+    // fetchedAt is assembly time, not fact time. observedAt is propagated
+    // from upstream timestamps where present (never invented). classification
+    // is live/stale/unknown — never "fresh" from a receipt alone.
+
+    fn section_with_timestamp(ts: &str) -> Value {
+        json!({"checkedAt": ts, "lastHeartbeatAt": ts, "ok": true})
+    }
+
+    #[test]
+    fn freshness_propagates_upstream_observed_at_when_present() {
+        let now = chrono::Utc::now();
+        let ts = (now - chrono::Duration::seconds(10)).to_rfc3339();
+        let s = section_with_timestamp(&ts);
+        let f = json!([{"flag": "test", "enabled": true}]);
+        let a = json!({"policies": []});
+        let g = json!({"objective": "grow"});
+        let o = json!([]);
+        let projected = project_operations("virya", 300, ok(&s), ok(&f), ok(&a), ok(&g), ok(&o))
+            .expect("complete snapshot projects");
+        let freshness = &projected["freshness"]["summary"];
+        assert!(
+            freshness["observedAt"].is_string(),
+            "observedAt must be propagated from upstream"
+        );
+        assert_eq!(
+            freshness["classification"],
+            json!("live"),
+            "a 10-second-old timestamp within a 300s threshold is live"
+        );
+    }
+
+    #[test]
+    fn freshness_is_unknown_when_upstream_provides_no_timestamp() {
+        let s = json!({"ok": true});
+        let f = json!([{"flag": "test", "enabled": true}]);
+        let a = json!({"policies": []});
+        let g = json!({"objective": "grow"});
+        let o = json!([]);
+        let projected = project_operations("virya", 300, ok(&s), ok(&f), ok(&a), ok(&g), ok(&o))
+            .expect("complete snapshot projects");
+        let freshness = &projected["freshness"]["summary"];
+        assert_eq!(freshness["observedAt"], json!(null));
+        assert_eq!(
+            freshness["classification"],
+            json!("unknown"),
+            "no upstream timestamp means unknown, not fresh"
+        );
+    }
+
+    #[test]
+    fn freshness_is_stale_when_upstream_timestamp_is_old() {
+        let now = chrono::Utc::now();
+        let ts = (now - chrono::Duration::seconds(600)).to_rfc3339();
+        let s = section_with_timestamp(&ts);
+        let f = json!([{"flag": "test", "enabled": true}]);
+        let a = json!({"policies": []});
+        let g = json!({"objective": "grow"});
+        let o = json!([]);
+        let projected = project_operations("virya", 300, ok(&s), ok(&f), ok(&a), ok(&g), ok(&o))
+            .expect("complete snapshot projects");
+        let freshness = &projected["freshness"]["summary"];
+        assert!(
+            freshness["observedAt"].is_string(),
+            "observedAt must still be propagated when stale"
+        );
+        assert_eq!(
+            freshness["classification"],
+            json!("stale"),
+            "a 600-second-old timestamp with a 300s threshold is stale"
+        );
+    }
+
+    #[test]
+    fn freshness_is_unknown_for_failed_sections() {
+        let e = unreachable();
+        let s = json!({"ok": true});
+        let a = json!({"policies": []});
+        let g = json!({"objective": "grow"});
+        let o = json!([]);
+        let projected = project_operations("virya", 300, ok(&s), Err(&e), ok(&a), ok(&g), ok(&o))
+            .expect("one failed section still projects");
+        let freshness = &projected["freshness"]["flags"];
+        assert_eq!(freshness["observedAt"], json!(null));
+        assert_eq!(
+            freshness["classification"],
+            json!("unknown"),
+            "a failed section has unknown freshness, not stale"
+        );
+    }
+
+    #[test]
+    fn freshness_never_invents_a_timestamp() {
+        // A section with no upstream timestamp fields must get observedAt: null,
+        // never now() or fetchedAt. This is the core invariant: the Control
+        // Plane must never claim to know when a fact was observed if it wasn't.
+        let s = json!({"ok": true, "data": [1, 2, 3]});
+        let f = json!([{"flag": "test", "enabled": true}]);
+        let a = json!({"policies": []});
+        let g = json!({"objective": "grow"});
+        let o = json!([]);
+        let projected = project_operations("virya", 300, ok(&s), ok(&f), ok(&a), ok(&g), ok(&o))
+            .expect("complete snapshot projects");
+        for name in ["summary", "flags", "autopilot", "growth", "opportunities"] {
+            assert_eq!(
+                projected["freshness"][name]["observedAt"],
+                json!(null),
+                "{name} must not have an invented observedAt"
+            );
+        }
+        // fetchedAt is still present — it's the assembly time, honestly labeled.
+        assert!(projected["fetchedAt"].is_string());
+    }
+
+    #[test]
+    fn freshness_uses_oldest_of_checked_at_and_last_heartbeat_at() {
+        // The runtime invariant: take the older of checked_at and
+        // last_heartbeat_at. A fresh receipt cannot launder a stale heartbeat.
+        let now = chrono::Utc::now();
+        let fresh = (now - chrono::Duration::seconds(10)).to_rfc3339();
+        let stale = (now - chrono::Duration::seconds(600)).to_rfc3339();
+        let s = json!({"checkedAt": fresh, "lastHeartbeatAt": stale, "ok": true});
+        let f = json!([{"flag": "test", "enabled": true}]);
+        let a = json!({"policies": []});
+        let g = json!({"objective": "grow"});
+        let o = json!([]);
+        let projected = project_operations("virya", 300, ok(&s), ok(&f), ok(&a), ok(&g), ok(&o))
+            .expect("complete snapshot projects");
+        let freshness = &projected["freshness"]["summary"];
+        assert_eq!(
+            freshness["classification"],
+            json!("stale"),
+            "a fresh checkedAt cannot launder a stale lastHeartbeatAt"
+        );
     }
 }

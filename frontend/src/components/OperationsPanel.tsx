@@ -237,7 +237,7 @@ export function OperationsPanel(props: {
     setPendingMutation('redeploy')
     try {
       await api.deployTenant(props.slug)
-      toast.success('Deploy triggered — check GitHub Actions for progress')
+      toast.success('Deploy requested — accepted by GitHub. Watch the Actions tab for completion.')
       await flags.refetch()
     } catch (error) {
       setMutationError(errorMessage(error, 'Deploy trigger failed'))

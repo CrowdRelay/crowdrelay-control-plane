@@ -503,6 +503,12 @@ async fn audit_result(
     headers: &HeaderMap,
     result: &Result<Value, ApiError>,
 ) {
+    // Proxied mutations cross a process/network boundary to CrowdRelay.
+    // A 200 from CrowdRelay means it *accepted* the request, not that the
+    // external side effect (sending a notification, posting to Reddit, etc.)
+    // has been observed. The audit outcome is "accepted" (not "succeeded")
+    // so the audit trail never claims the Control Plane observed a
+    // completion it did not.
     if let Err(error) = state
         .store
         .audit_control_command(ControlCommandAudit {
@@ -512,11 +518,7 @@ async fn audit_result(
             target_kind,
             target_id: target_id.to_owned(),
             request_id: correlation(headers),
-            outcome: if result.is_ok() {
-                "succeeded"
-            } else {
-                "failed"
-            },
+            outcome: if result.is_ok() { "accepted" } else { "failed" },
         })
         .await
     {

@@ -48,6 +48,7 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/notifiers/automation-routing/sync",
             post(sync_automation_routing),
         )
+        .route("/tenants/{slug}/notifiers/outbox", get(notifier_outbox))
         .layer(axum::extract::DefaultBodyLimit::max(
             MAX_NOTIFIER_BODY_BYTES,
         ))
@@ -141,13 +142,18 @@ async fn create_channel(
             target_kind: "notifier_channel",
             target_id: channel.id.to_string(),
             request_id: headers.get("x-request-id").and_then(|v| v.to_str().ok()),
-            outcome: "succeeded",
+            outcome: "completed",
         })
         .await
         .ok();
     Ok((axum::Json(mask(&channel))).into_response())
 }
 
+/// Update a notifier channel. This is a local DB mutation (the Control Plane
+/// owns notifier channel configuration). Last-write-wins: no
+/// `expected_version` check because notifier channels are operator-facing
+/// configuration, not concurrent collaborative state. A stale tab overwrites
+/// with whatever the operator sees, which is the intended semantic.
 async fn update_channel(
     State(state): State<AppState>,
     Path((slug, channel_id)): Path<(String, Uuid)>,
@@ -181,7 +187,7 @@ async fn update_channel(
             target_kind: "notifier_channel",
             target_id: channel.id.to_string(),
             request_id: headers.get("x-request-id").and_then(|v| v.to_str().ok()),
-            outcome: "succeeded",
+            outcome: "completed",
         })
         .await
         .ok();
@@ -206,7 +212,7 @@ async fn delete_channel(
             target_kind: "notifier_channel",
             target_id: channel_id.to_string(),
             request_id: headers.get("x-request-id").and_then(|v| v.to_str().ok()),
-            outcome: "succeeded",
+            outcome: "completed",
         })
         .await
         .ok();
@@ -262,7 +268,7 @@ async fn test_channel(
             target_id: channel.id.to_string(),
             request_id: headers.get("x-request-id").and_then(|v| v.to_str().ok()),
             outcome: if outcome.is_ok() {
-                "succeeded"
+                "completed"
             } else {
                 "failed"
             },
@@ -270,10 +276,15 @@ async fn test_channel(
         .await
         .ok();
     match outcome {
-        Ok(()) => Ok((axum::Json(json!({"ok": true}))).into_response()),
+        // The test channel is a synchronous round-trip: the Control Plane
+        // observed the provider's response (200 or error) right here, so
+        // phase is "completed" (not "accepted"). This is the one external
+        // operation where accepted == completed, because there is no async
+        // gap between dispatch and observation.
+        Ok(()) => Ok((axum::Json(json!({"ok": true, "phase": "completed"}))).into_response()),
         Err(error) => Ok((
             axum::http::StatusCode::BAD_GATEWAY,
-            axum::Json(json!({"ok": false, "error": error})),
+            axum::Json(json!({"ok": false, "phase": "failed", "error": error})),
         )
             .into_response()),
     }
@@ -308,6 +319,46 @@ fn url_host(url_str: &str) -> String {
 /// only meaningful whole.
 ///
 /// The individual routes stay: they are the write-and-refresh path for the
+/// Recent notification delivery history for the operator panel.
+///
+/// Delivery is at-least-once: `status = 'sent'` means the provider accepted
+/// the POST, not that the recipient received it. `attempts` is the delivery
+/// attempt count. `phase` is the semantic layer: `accepted` (queued or
+/// provider-accepted), `failed` (all retries exhausted), `unknown` (anything
+/// else). The `last_error` field shows the most recent delivery error.
+async fn notifier_outbox(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
+    _headers: HeaderMap,
+) -> Result<axum::Json<serde_json::Value>, ApiError> {
+    let slug = validation::slug(&slug)?;
+    let tenant = state.store.tenant_by_slug(&slug).await?;
+    identity.ensure_tenant(tenant.tenant.id)?;
+    let rows = state.store.notifier_outbox(tenant.tenant.id, 50).await?;
+    let items: Vec<serde_json::Value> = rows
+        .iter()
+        .map(|row| {
+            json!({
+                "id": row.id,
+                "event": row.event,
+                "status": row.status,
+                "phase": crate::model::notifier_phase(&row.status),
+                "attempts": row.attempts,
+                "lastError": row.last_error,
+                "channel": {
+                    "id": row.channel_id,
+                    "label": row.channel_label,
+                    "kind": row.channel_kind,
+                },
+                "createdAt": row.created_at.to_rfc3339(),
+                "updatedAt": row.updated_at.to_rfc3339(),
+            })
+        })
+        .collect();
+    Ok(axum::Json(json!({"items": items})))
+}
+
 /// panels, and other callers use them.
 ///
 /// A section that cannot be read reports its error inline instead of failing

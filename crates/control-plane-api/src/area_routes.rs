@@ -175,17 +175,15 @@ async fn audit_result(
     headers: &HeaderMap,
     result: &Result<Value, ApiError>,
 ) {
+    // AREA mutations are proxied to CrowdRelay. A 200 means CrowdRelay
+    // accepted the request, not that the external side effect was observed.
     audit_outcome(
         state,
         tenant_id,
         action,
         drop_id,
         headers,
-        if result.is_ok() {
-            "succeeded"
-        } else {
-            "failed"
-        },
+        if result.is_ok() { "accepted" } else { "failed" },
     )
     .await;
 }
@@ -296,7 +294,11 @@ async fn settings(
         "tenant.area.settings.updated",
         None,
         &headers,
-        "succeeded",
+        // The settings handler proxies to CrowdRelay (external) and then
+        // updates the local DB. The external proxy means the operation is
+        // "accepted" by CrowdRelay, not "completed" from the Control Plane's
+        // perspective — the external side effect is not observed here.
+        "accepted",
     )
     .await;
     Ok(json_no_store(json!({
@@ -599,6 +601,13 @@ struct AuditTag<'a> {
     drop_id: Option<&'a str>,
 }
 
+/// Proxy a mutation to the CrowdRelay AREA management surface.
+///
+/// The Control Plane does not own AREA state — CrowdRelay does. Optimistic
+/// concurrency (`expected_version`) for AREA mutations is enforced by
+/// CrowdRelay, not here. The Control Plane's job is authentication, audit,
+/// and the entitlement gate. A stale-tab conflict surfaces as a 409 from
+/// CrowdRelay, which this proxy passes through unchanged.
 async fn mutation(
     state: &AppState,
     slug: &str,
