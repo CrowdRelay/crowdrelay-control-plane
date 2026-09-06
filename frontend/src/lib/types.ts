@@ -834,6 +834,15 @@ export type AgentScorecard = {
     failed: number
     parked: number
     awaiting_approval: number
+    /// Actions whose outcome could not be established. Excluded from
+    /// `executed`, so excluded from the rate below. Optional: an older tenant
+    /// will not send it.
+    unknown?: number
+    /// Of the actions that reached a terminal state, how many are recorded as
+    /// succeeded. Not "how often the agent works": the denominator omits
+    /// `unknown`, and the numerator counts believed success — an externally
+    /// executed action is marked succeeded at dispatch and corrected later if
+    /// the provider contradicts it.
     success_rate_basis_points: number | null
   }
   track_record: {

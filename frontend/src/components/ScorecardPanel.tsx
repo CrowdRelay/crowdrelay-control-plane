@@ -136,8 +136,11 @@ export function ScorecardPanel(props: { slug: string }) {
             <Show when={d().week.success_rate_basis_points != null} fallback={<strong>—</strong>}>
               <ProgressRing value={Math.round((d().week.success_rate_basis_points as number) / 100)} size={44} strokeWidth={4} showValue />
             </Show>
-            <small>of executed actions</small>
+            <small>of actions that resolved</small>
           </div>
+          <Show when={(d().week.unknown ?? 0) > 0}>
+            <div><span>Unknown</span><CountUp value={d().week.unknown ?? 0} /><small>outcome not established — excluded from the rate</small></div>
+          </Show>
           <div><span>Parked</span><CountUp value={d().week.parked} /><small>no executor available</small></div>
           <div><span>Awaiting approval</span><CountUp value={d().week.awaiting_approval} /><small>requires operator review</small></div>
         </div>
