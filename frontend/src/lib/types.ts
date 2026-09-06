@@ -2260,7 +2260,6 @@ export type CommandCenterTenantSummary = {
   learning: CommandCenterTenantLearning
   outcomes: CommandCenterTenantOutcomes
   brain: CommandCenterTenantAttention['brain']
-  releaseConvergence: unknown | null
 }
 
 /// The global command-center read model — the first screen an operator sees.
@@ -2299,8 +2298,6 @@ export type CommandCenterReadModel = {
   }
   system: {
     platformServices: PlatformHealthEntry[]
-    releaseConvergence: unknown
-    controlPlaneRevision: string
   }
   learning: {
     totalOutcomes: number

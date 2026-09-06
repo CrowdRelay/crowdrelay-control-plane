@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { triggerRefresh } from '../lib/refresh'
+import { refreshQueries } from '../lib/refresh'
 import { errorMessage } from '../lib/format'
 import { compactNumber } from '../lib/charts'
 import { EmptyState } from './EmptyState'
@@ -71,7 +71,7 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
     setError(null)
     try {
       await api.retireGrowthObjective(props.slug, objective.objective_id)
-      triggerRefresh()
+      refreshQueries(['growth-objectives', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to retire objective'))
     } finally {

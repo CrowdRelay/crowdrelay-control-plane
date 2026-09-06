@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { triggerRefresh } from '../lib/refresh'
+import { refreshQueries } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import type { AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse } from '../lib/types'
 import { EmptyState } from './EmptyState'
@@ -79,7 +79,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
     setError(null)
     try {
       await api.launchBeaconReleaseCampaign(props.slug, campaignId)
-      triggerRefresh()
+      refreshQueries(['release-campaigns', props.slug], ['release-recipients', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to launch campaign'))
     } finally {
@@ -92,7 +92,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
     setError(null)
     try {
       await api.closeBeaconReleaseCampaign(props.slug, campaignId)
-      triggerRefresh()
+      refreshQueries(['release-campaigns', props.slug], ['release-recipients', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to close campaign'))
     } finally {
@@ -117,7 +117,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
       })
       setForm({ slug: '', title: '', sku: '', claimDeadline: '' })
       setCreating(false)
-      triggerRefresh()
+      refreshQueries(['release-campaigns', props.slug])
     } catch (caught) {
       setError(errorMessage(caught, 'Could not create the campaign'))
     } finally {

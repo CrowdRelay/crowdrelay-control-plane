@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { triggerRefresh } from '../lib/refresh'
+import { refreshQueries } from '../lib/refresh'
 import { errorMessage } from '../lib/format'
 import type { OutreachCandidateView, BookingCandidateView } from '../lib/types'
 import { EmptyState } from './EmptyState'
@@ -42,7 +42,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
     setError(null)
     try {
       await api.confirmOutreachCandidate(props.slug, candidate.id)
-      triggerRefresh()
+      refreshQueries(['outreach-candidates', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to confirm outreach candidate'))
     } finally {
@@ -55,7 +55,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
     setError(null)
     try {
       await api.confirmBookingCandidate(props.slug, candidate.candidate_id)
-      triggerRefresh()
+      refreshQueries(['booking-candidates', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to confirm booking candidate'))
     } finally {

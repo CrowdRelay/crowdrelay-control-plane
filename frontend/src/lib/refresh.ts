@@ -4,19 +4,13 @@ import { queryClient } from './queryClient'
 // Global refresh control — Grafana-style. One interval selector in the topbar
 // drives every query on the page. 0 = manual only (no auto-refresh).
 //
-// A single timer here fires `triggerRefresh()` on the chosen interval. The
-// tick increments the `refreshTick` signal (used as a source by SolidJS
-// `createResource` calls) and invalidates all TanStack Query caches, which
-// refetches every mounted query in lockstep — no per-query timer drift, no
-// independent polling.
+// A single timer here fires `triggerRefresh()` on the chosen interval, which
+// invalidates every TanStack Query cache so all mounted queries refetch in
+// lockstep — no per-query timer drift, no independent polling. Refetched data
+// is merged structurally (see lib/stable-merge.ts), so an unchanged payload
+// touches no DOM.
 //
-// The tick is deliberately NOT part of any TanStack Query cache key. Embedding
-// a monotonic counter in a query key created a new cache entry on every tick,
-// and the 5-minute gcTime let them pile up: at 30s refresh over an hour that
-// is 120 orphaned entries per query. It also split the cache by key identity
-// — `['tenants', refreshTick()]` in OverviewPage was a different query from
-// `['tenants']` in Shell, so a mutation that invalidated one left the other
-// stale. Stable keys + global invalidation fixes both.
+// Writes should not use the global tick — see `refreshQueries()` below.
 
 export const REFRESH_INTERVALS: readonly { label: string; ms: number }[] = [
   { label: 'Off', ms: 0 },
@@ -46,7 +40,6 @@ const storedInterval = (): number => {
 }
 
 const [intervalMs, setIntervalMs] = createSignal(storedInterval())
-const [tick, setTick] = createSignal(0)
 
 export const setRefreshInterval = (ms: number) => {
   setIntervalMs(ms)
@@ -55,19 +48,35 @@ export const setRefreshInterval = (ms: number) => {
 
 export const refreshInterval = intervalMs
 
-/** Monotonic tick — increment on every interval fire and on manual refresh.
- * Used as the source signal for SolidJS `createResource` calls, which have no
- * cache and therefore no growth problem. Never embed this in a TanStack Query
- * cache key — use `triggerRefresh()` or `queryClient.invalidateQueries()` to
- * refetch those. */
-export const refreshTick = tick
-
-/** Trigger a global refetch — increments the tick signal (for `createResource`
- * consumers) and invalidates all TanStack Query caches (for `useQuery`
- * consumers). Both happen in lockstep so the whole page stays consistent. */
+/** Refetch every mounted query — the operator's explicit "refresh everything"
+ * gesture and the interval timer's tick. After a write, prefer
+ * `refreshQueries()`: a mutation knows which read models it changed.
+ *
+ * Never put a counter in a query key to force this. Doing so created a new
+ * cache entry per tick (120 orphans per query per hour at 30s under the
+ * 5-minute gcTime) and split the cache by key identity, so
+ * `['tenants', tick]` in one component was a different query from
+ * `['tenants']` in another and a mutation invalidating one left the other
+ * stale. Stable keys plus invalidation avoid both. */
 export function triggerRefresh() {
-  setTick(t => t + 1)
-  queryClient.invalidateQueries()
+  void queryClient.invalidateQueries()
+}
+
+/** Invalidate only the queries a write actually affects.
+ *
+ * `triggerRefresh()` is the operator's "refresh everything" gesture and belongs
+ * on the topbar control and the interval timer. Calling it after a mutation
+ * refetched every mounted query on the page — confirming one outreach candidate
+ * re-read the press room, the release campaigns and the beacon network over the
+ * tenant tunnel — so a write now names the read models it invalidates.
+ *
+ * A prefix is enough: `['press-requests', slug]` also matches longer keys that
+ * start with it, so a paged or filtered variant of the same read model is
+ * covered without listing every permutation. */
+export function refreshQueries(...queryKeys: readonly unknown[][]) {
+  for (const queryKey of queryKeys) {
+    void queryClient.invalidateQueries({ queryKey })
+  }
 }
 
 // Single global timer. Started once, lives for app lifetime. When interval is

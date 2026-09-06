@@ -2,7 +2,7 @@ import { For, Show, createEffect, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
-import { triggerRefresh } from '../lib/refresh'
+import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { Dialog } from './Dialog'
 import { EmptyState } from './EmptyState'
@@ -180,7 +180,7 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
     setError(null)
     try {
       await api.setAutopilotPolicy(props.slug, policy, input)
-      triggerRefresh()
+      refreshQueries(['growth-intelligence-overview', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to update policy'))
     } finally {
@@ -194,7 +194,7 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
     try {
       await api.approveOpportunityAction(props.slug, action.id)
       setConfirming(null)
-      triggerRefresh()
+      refreshQueries(['growth-intelligence-overview', props.slug], ['growth-intelligence-workflows', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to approve action'))
     } finally {
@@ -208,7 +208,7 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
     try {
       await api.cancelOpportunityAction(props.slug, action.id)
       setConfirming(null)
-      triggerRefresh()
+      refreshQueries(['growth-intelligence-overview', props.slug], ['growth-intelligence-workflows', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to reject action'))
     } finally {

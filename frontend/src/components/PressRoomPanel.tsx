@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { triggerRefresh } from '../lib/refresh'
+import { refreshQueries } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import type { BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse } from '../lib/types'
 import { EmptyState } from './EmptyState'
@@ -92,7 +92,8 @@ export function PressRoomPanel(props: { slug: string }) {
         disposition,
         occurredAt: new Date().toISOString(),
       })
-      triggerRefresh()
+      // A recorded reply changes the engagement and the coverage it rolls up into.
+      refreshQueries(['press-engagements', props.slug], ['press-coverage', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to record the reply'))
     } finally {
@@ -105,7 +106,7 @@ export function PressRoomPanel(props: { slug: string }) {
     setError(null)
     try {
       await api.resolveBeaconPressRequest(props.slug, requestId, { status: 'resolved' })
-      triggerRefresh()
+      refreshQueries(['press-requests', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to resolve press request'))
     } finally {

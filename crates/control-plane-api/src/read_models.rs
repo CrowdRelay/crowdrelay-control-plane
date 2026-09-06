@@ -192,8 +192,6 @@ async fn command_center(
         },
         "system": {
             "platformServices": platform_health,
-            "releaseConvergence": null,
-            "controlPlaneRevision": "",
         },
         "learning": {
             "totalOutcomes": learning_total,
@@ -390,7 +388,6 @@ fn build_per_tenant_summary(
         "learning": learning,
         "outcomes": outcomes,
         "brain": brain,
-        "releaseConvergence": null,
     })
 }
 
@@ -1732,5 +1729,24 @@ mod tests {
         assert_eq!(RuntimeHealth::Degraded.as_str(), "degraded");
         assert_eq!(RuntimeHealth::Stale.as_str(), "stale");
         assert_eq!(RuntimeHealth::Unknown.as_str(), "unknown");
+    }
+
+    /// The command-center response must not emit `releaseConvergence` or
+    /// `controlPlaneRevision` — there is no authoritative source for either
+    /// field in the running container. Emitting `null`/`""` was a placeholder
+    /// that looked like real system state. Both fields are removed until an
+    /// authoritative source exists.
+    #[test]
+    fn command_center_omits_release_convergence_and_control_plane_revision() {
+        let data = TenantCommandData::default();
+        let projected = build_per_tenant_summary(&mock_tenant(), &data);
+        assert!(
+            projected.get("releaseConvergence").is_none(),
+            "per-tenant summary must not include releaseConvergence"
+        );
+        assert!(
+            projected.get("controlPlaneRevision").is_none(),
+            "per-tenant summary must not include controlPlaneRevision"
+        );
     }
 }

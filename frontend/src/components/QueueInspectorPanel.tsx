@@ -60,6 +60,10 @@ export function QueueInspectorPanel(props: { slug: string }) {
     },
     refetchOnWindowFocus: false,
     staleTime: 10_000,
+    // Patch rows in place. Without this the store value is replaced wholesale
+    // on every refresh, so `<For>` sees new item references and tears down and
+    // rebuilds every row even when the payload is byte-identical.
+    reconcile: 'id',
   }))
 
   const isDelivery = (item: OutboxItem | DeliveryItem): item is DeliveryItem =>

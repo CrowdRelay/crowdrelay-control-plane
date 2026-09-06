@@ -2,7 +2,7 @@ import { For, Show, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage, formatTimestamp } from '../lib/format'
-import { triggerRefresh } from '../lib/refresh'
+import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
@@ -112,7 +112,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
       await run()
       setNotice({ tone: 'good', message: done })
       await roster.refetch()
-      triggerRefresh()
+      refreshQueries(['beacon-console-network', props.slug])
     } catch (error) {
       setNotice({ tone: 'bad', message: errorMessage(error, 'That did not work') })
     } finally {

@@ -3,7 +3,7 @@ import { For } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
-import { triggerRefresh } from '../lib/refresh'
+import { triggerRefresh, refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
@@ -52,7 +52,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
     try {
       await api.updatePortfolioSetting(props.slug, 'north_star_metric', value)
       setNotice({ tone: 'good', message: 'Goal updated. The next cycle will optimise for it.' })
-      triggerRefresh()
+      refreshQueries(['north-star-options', props.slug])
       await preview.refetch()
     } catch (error) {
       setNotice({ tone: 'bad', message: errorMessage(error, 'Could not change the goal') })
@@ -70,6 +70,9 @@ export function RunBrainCyclePanel(props: { slug: string }) {
         tone: 'good',
         message: result.detail ?? 'Cycle requested.',
       })
+      // The one legitimate global refresh: a brain cycle re-plans decisions,
+      // dispatches workers and writes outcomes, so there is no small set of
+      // read models it leaves untouched.
       triggerRefresh()
       await preview.refetch()
     } catch (error) {

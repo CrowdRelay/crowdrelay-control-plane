@@ -2,7 +2,6 @@ import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
-import { triggerRefresh } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonRows } from './Skeleton'
 import { EmptyState } from './EmptyState'
@@ -83,7 +82,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string }) {
           <option value={365}>All time</option>
         </select>
       </label>
-      <button class="ghost" onClick={() => triggerRefresh()}>Refresh</button>
+      <button class="ghost" onClick={() => void data.refetch()} disabled={data.isFetching}>{data.isFetching ? 'Refreshing…' : 'Refresh'}</button>
     </div>
 
     {/* Summary KPIs */}

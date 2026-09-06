@@ -2,7 +2,6 @@ import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
-import { triggerRefresh } from '../lib/refresh'
 import { ModelIcon } from './ProviderIcon'
 import { Sparkline } from './Sparkline'
 import type { UsageAnalyticsData, TemplateRoi, ModelAnalytics } from '../lib/types'
@@ -91,7 +90,7 @@ export function AIUsagePanel(props: { slug: string }) {
       <div class="agent-section">
         <div class="agent-section-head">
           <h3><CrownIcon size={16} /> AI Budget</h3>
-          <button class="ghost" onClick={() => triggerRefresh()}>Refresh</button>
+          <button class="ghost" onClick={() => void data.refetch()} disabled={data.isFetching}>{data.isFetching ? 'Refreshing…' : 'Refresh'}</button>
         </div>
         <div class="usage-budget-bar">
           <div class="usage-budget-head">

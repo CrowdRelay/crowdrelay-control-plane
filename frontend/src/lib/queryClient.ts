@@ -1,4 +1,5 @@
 import { QueryClient } from '@tanstack/solid-query'
+import { stableMerge } from './stable-merge'
 
 // Singleton QueryClient shared across the authenticated application. Kept in
 // its own module so lib/auth.ts can clear the cache on login/logout without a
@@ -15,6 +16,15 @@ export const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       refetchIntervalInBackground: false,
       placeholderData: (prev: unknown) => prev,
-    },
+      // Default every query to a structural merge, so a refetch that returns
+      // the same data touches no DOM at all. Queries that opt into
+      // `reconcile: 'id'` override this and additionally handle reordering.
+      //
+      // `reconcile` is a solid-query extension to the observer options; the
+      // core `QueryObserverOptions` type used by `defaultOptions` does not
+      // declare it, but solid-query reads it from the merged options
+      // (`observer().options.reconcile`), so a default here does apply.
+      reconcile: stableMerge,
+    } as never,
   },
 })

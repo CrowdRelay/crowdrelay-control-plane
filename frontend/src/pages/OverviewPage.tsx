@@ -167,9 +167,6 @@ export function OverviewPage() {
                 <Show when={items().length > 0}>
                   <span>{count('healthy')} healthy · {needsAttention()} need attention<Show when={unknownCount() > 0}> · {unknownCount()} not reporting</Show></span>
                 </Show>
-                <Show when={cc()?.system.releaseConvergence && typeof cc()!.system.releaseConvergence === 'object' && (cc()!.system.releaseConvergence as Record<string, unknown>).available !== false}>
-                  <span class="muted">Release convergence available</span>
-                </Show>
               </div>
             </div>
           </Link>
