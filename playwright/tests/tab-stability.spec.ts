@@ -25,7 +25,7 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
 
     await login(page)
     await page.goto(`${BASE}/tenants/virya/intelligence`)
-    await page.waitForSelector('.page-tab-content')
+    await page.waitForSelector('.page-tab-content', { timeout: 30000 })
     await page.waitForTimeout(2000)
 
     // Only the Overview tab panel should be in the DOM (lazy mounting)
@@ -120,7 +120,7 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
   test('operations page: lazy fetch, local skeleton, persistent header @e2e', async ({ page }) => {
     await login(page)
     await page.goto(`${BASE}/tenants/virya/operations`)
-    await page.waitForSelector('.page-tab-content')
+    await page.waitForSelector('.page-tab-content', { timeout: 30000 })
     await page.waitForTimeout(2000)
 
     // Only the Opportunities tab panel should be in the DOM

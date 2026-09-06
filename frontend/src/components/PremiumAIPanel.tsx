@@ -6,6 +6,7 @@ import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
 import { LlmProviderIconWithTier, ModelIcon } from './ProviderIcon'
 import { EmptyState } from './EmptyState'
+import { Sparkline } from './Sparkline'
 import type { AgentProvider, AgentCredential, AgentModel } from '../lib/types'
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -214,6 +215,31 @@ export function PremiumAIPanel(props: {
     return budgetPct(u.monthly_spend_micro_usd, u.budget_micro_usd)
   })
 
+  // Build a daily cost series from the task list for the hero sparkline.
+  // Each task has a created_at (ISO) and cost_micro_usd. We bucket by day
+  // (last 14 days) and sum the cost, so the sparkline shows spend history
+  // with peaks where expensive tasks ran.
+  const dailyCostSeries = createMemo(() => {
+    const u = usage.data
+    if (!u || u.tasks.length === 0) return []
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const days: number[] = []
+    const labels: string[] = []
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(today)
+      d.setDate(d.getDate() - i)
+      days.push(0)
+      labels.push(d.toISOString().slice(0, 10))
+    }
+    for (const task of u.tasks) {
+      const dayStr = task.created_at.slice(0, 10)
+      const idx = labels.indexOf(dayStr)
+      if (idx >= 0) days[idx]! += task.cost_micro_usd
+    }
+    return days
+  })
+
   // ─── Connect / disconnect handlers ──────────────────────────────────
 
   const handleConnectApiKey = async (providerId: string) => {
@@ -396,6 +422,16 @@ export function PremiumAIPanel(props: {
             </div>
           </div>
           <div class="premium-hero-right">
+            <Show when={dailyCostSeries().some(v => v > 0)}>
+              <div class="premium-hero-spark" title="Daily AI spend — last 14 days">
+                <Sparkline
+                  data={dailyCostSeries()}
+                  width={120}
+                  height={40}
+                  color={budgetPctValue() > 80 ? 'var(--warn)' : 'var(--accent)'}
+                />
+              </div>
+            </Show>
             <div class="premium-stat">
               <span class="premium-stat-value">{connectedCount()}</span>
               <span class="premium-stat-label">Connected</span>
