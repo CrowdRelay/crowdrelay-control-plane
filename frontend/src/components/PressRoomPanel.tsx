@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { refreshQueries } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
-import type { BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse } from '../lib/types'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock } from './Skeleton'
 

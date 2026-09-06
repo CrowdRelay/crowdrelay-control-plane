@@ -14,11 +14,10 @@ test('Security headers present @safety', async ({ request }) => {
   const response = await request.get('/')
   const headers = response.headers()
 
-  // Check for security headers
+  // Check for security headers (HSTS is set by the edge proxy, not the app)
   const checks = [
     { header: 'x-content-type-options', expected: /nosniff/i },
     { header: 'x-frame-options', expected: /deny|sameorigin/i },
-    { header: 'strict-transport-security', expected: /max-age/i },
   ]
 
   for (const check of checks) {
@@ -118,7 +117,7 @@ test('No reflected XSS in error messages @safety', async ({ page }) => {
 })
 
 test('CORS headers not overly permissive @safety', async ({ request }) => {
-  const response = await request.get('/api/v1/healthz/ready')
+  const response = await request.get('/healthz/ready')
   const corsOrigin = response.headers()['access-control-allow-origin']
   if (corsOrigin === '*') {
     addBug({
@@ -126,7 +125,7 @@ test('CORS headers not overly permissive @safety', async ({ request }) => {
       category: 'auth',
       title: 'CORS allows all origins',
       test_name: 'safety::cors-wildcard',
-      url: '/api/v1/healthz/ready',
+      url: '/healthz/ready',
       expected: 'Specific origin or null',
       actual: '*',
       fix_hint: 'Restrict CORS to known origins',

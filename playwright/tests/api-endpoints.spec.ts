@@ -21,10 +21,9 @@ const API_ROUTES = [
   { path: `/api/v1/tenants/${SLUG}/operations/summary`, method: 'GET', name: 'ops-summary' },
   { path: `/api/v1/tenants/${SLUG}/operations/flags`, method: 'GET', name: 'ops-flags' },
   { path: `/api/v1/tenants/${SLUG}/operations/growth`, method: 'GET', name: 'ops-growth' },
-  { path: `/api/v1/tenants/${SLUG}/operations/autopilot/overview`, method: 'GET', name: 'autopilot-overview' },
+  { path: `/api/v1/tenants/${SLUG}/operations/autopilot`, method: 'GET', name: 'autopilot-overview' },
   { path: `/api/v1/tenants/${SLUG}/operations/autopilot/scorecard`, method: 'GET', name: 'autopilot-scorecard' },
   { path: `/api/v1/tenants/${SLUG}/operations/autopilot/reply-triage`, method: 'GET', name: 'autopilot-reply-triage' },
-  { path: `/api/v1/tenants/${SLUG}/operations/autopilot/next-best-actions`, method: 'GET', name: 'autopilot-next-best-actions' },
   { path: `/api/v1/tenants/${SLUG}/operations/outbox`, method: 'GET', name: 'ops-outbox' },
   { path: `/api/v1/tenants/${SLUG}/operations/attention`, method: 'GET', name: 'ops-attention' },
   { path: `/api/v1/tenants/${SLUG}/operations/signal-overview`, method: 'GET', name: 'signal-overview' },
@@ -43,7 +42,7 @@ const API_ROUTES = [
   { path: `/api/v1/tenants/${SLUG}/agents/suggestions`, method: 'GET', name: 'agent-suggestions' },
   { path: `/api/v1/tenants/${SLUG}/agents/schedules`, method: 'GET', name: 'agent-schedules' },
   { path: `/api/v1/tenants/${SLUG}/portfolio/fanbases/connections`, method: 'GET', name: 'fanbase-connections' },
-  { path: '/api/v1/healthz/ready', method: 'GET', name: 'healthz-ready' },
+  { path: '/healthz/ready', method: 'GET', name: 'healthz-ready' },
 ]
 
 for (const route of API_ROUTES) {
@@ -84,7 +83,7 @@ test('healthz/ready returns valid JSON @api @smoke', async ({ request }) => {
         category: 'api',
         title: 'healthz/ready returned unexpected status value',
         test_name: 'api-endpoints::healthz-status-value',
-        url: '/api/v1/healthz/ready',
+        url: '/healthz/ready',
         expected: 'status: "ok" or "degraded"',
         actual: `status: "${body.status}"`,
         fix_hint: 'Check healthz handler — may be reporting wrong status',

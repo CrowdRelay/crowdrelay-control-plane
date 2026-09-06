@@ -31,16 +31,16 @@ const PAGES = [
   { path: '/tenants/virya/health', name: 'health' },
   { path: '/tenants/virya/notifiers', name: 'notifiers' },
   { path: '/tenants/virya/integrations', name: 'integrations' },
-  { path: '/tenants/virya/automation', name: 'automation' },
+  { path: '/automation', name: 'automation' },
 ]
 
 // Inject worst-case content: long strings that could cause overflow.
 async function injectWorstCaseContent(page: Page) {
   await page.evaluate(() => {
     // Long tenant names in any tenant row/card
-    const tenantNames = document.querySelectorAll<HTMLElement>('.tenant-name, .tenant-row strong, h1')
+    const tenantNames = document.querySelectorAll<HTMLElement>('.tenant-row strong, .tenant-row-info strong, .topbar strong, h1')
     for (const el of tenantNames) {
-      if (el.tagName === 'H1' && el.textContent && el.textContent.length < 80) {
+      if (el.textContent && el.textContent.length < 80) {
         el.textContent = el.textContent + ' — A Very Long Tenant Display Name That Could Cause Overflow Issues On Mobile Devices'
       }
     }
@@ -60,7 +60,7 @@ async function injectWorstCaseContent(page: Page) {
     }
 
     // Long chat messages
-    const chatMessages = document.querySelectorAll<HTMLElement>('.chat-message, .message-content')
+    const chatMessages = document.querySelectorAll<HTMLElement>('.chat-msg-content')
     for (const el of chatMessages) {
       el.textContent = 'This is a very long chat message that goes on and on and on, describing a complex operational scenario with many details about the tenant, the autopilot, the growth funnel, the outreach pipeline, and various other aspects of the control plane that could potentially cause horizontal overflow if the chat widget does not properly wrap text on narrow viewports.'
     }

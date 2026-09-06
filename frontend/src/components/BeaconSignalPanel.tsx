@@ -2,7 +2,6 @@ import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { formatTimestamp } from '../lib/format'
-import type { BeaconDashboardResponse, BeaconCandidatesResponse, BeaconNetworkResponse } from '../lib/types'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock } from './Skeleton'
 

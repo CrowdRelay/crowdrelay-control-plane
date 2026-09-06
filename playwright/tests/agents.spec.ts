@@ -119,28 +119,50 @@ test('Agent schedules API returns valid structure @agents', async ({ request }) 
   expect([200, 401, 403, 503]).toContain(status)
 })
 
-test('Agent OAuth start uses POST not GET @agents', async ({ request }) => {
-  // The OAuth start endpoint should accept POST with a JSON body
-  // (not GET with query params) — this was a bug we fixed
-  const response = await request.post(
-    `/api/v1/tenants/${SLUG}/agents/oauth/google/start`,
-    { data: { redirect_uri: 'https://control.virya.music/oauth/callback' } }
+test('Agent OAuth start responds to GET @agents', async ({ request }) => {
+  // The OAuth start endpoint is a GET that proxies to the agent service
+  // with redirect_uri as a query parameter
+  const response = await request.get(
+    `/api/v1/tenants/${SLUG}/agents/oauth/google/start?redirect_uri=${encodeURIComponent('https://control.virya.music/oauth/callback')}`
   )
   const status = response.status()
   // 401 is expected when unauthenticated
   // 200 or 302 would indicate the flow started
-  // 405 would indicate the route doesn't accept POST (bug)
+  // 405 would indicate the route doesn't accept GET (bug)
   if (status === 405) {
     addBug({
       severity: 'high',
       category: 'api',
-      title: 'Agent OAuth start does not accept POST',
-      test_name: 'agents::oauth-start-post',
+      title: 'Agent OAuth start does not accept GET',
+      test_name: 'agents::oauth-start-get',
       url: `/api/v1/tenants/${SLUG}/agents/oauth/google/start`,
-      expected: 'POST accepted (200, 302, 401)',
+      expected: 'GET accepted (200, 302, 401)',
       actual: '405 Method Not Allowed',
-      fix_hint: 'Check agent_routes.rs — OAuth start route should accept POST',
+      fix_hint: 'Check agent_routes.rs — OAuth start route should accept GET',
     })
   }
   expect([200, 302, 401, 403, 503]).toContain(status)
+})
+
+test('Agent OAuth callback returns HTML not JSON @agents', async ({ request }) => {
+  // The OAuth callback should return HTML (for the browser to show
+  // a success/failure page), not JSON
+  const response = await request.get(
+    `/api/v1/tenants/${SLUG}/agents/oauth/google/callback?code=test&state=test`
+  )
+  const status = response.status()
+  const contentType = response.headers()['content-type'] || ''
+  if (status === 200 && !contentType.includes('text/html')) {
+    addBug({
+      severity: 'medium',
+      category: 'api',
+      title: 'Agent OAuth callback returns non-HTML content',
+      test_name: 'agents::oauth-callback-html',
+      url: `/api/v1/tenants/${SLUG}/agents/oauth/google/callback`,
+      expected: 'text/html',
+      actual: contentType,
+      fix_hint: 'Check oauth_callback in agent_routes.rs — should return HTML',
+    })
+  }
+  expect([200, 401, 403, 503]).toContain(status)
 })

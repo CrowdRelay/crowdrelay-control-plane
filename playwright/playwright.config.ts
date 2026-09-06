@@ -27,6 +27,7 @@ export default defineConfig({
   forbidOnly: true,
   retries: 0,
   workers: 1,
+  timeout: 30000,
   reporter: [
     ['list'],
     ['json', { outputFile: 'test-results.json' }],
@@ -37,7 +38,6 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'off',
-    timeout: 30000,
     actionTimeout: 15000,
     navigationTimeout: 20000,
     acceptDownloads: false,

@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { ModelIcon } from './ProviderIcon'
 import { Sparkline } from './Sparkline'
-import type { UsageAnalyticsData, TemplateRoi, ModelAnalytics } from '../lib/types'
+import type { TemplateRoi, ModelAnalytics } from '../lib/types'
 import { EmptyState } from './EmptyState'
 import { SkeletonRows } from './Skeleton'
 

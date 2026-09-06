@@ -206,6 +206,7 @@ async fn forward_to_discord(state: &AppState, content: &str) -> Result<(), anyho
 struct ListEventsQuery {
     limit: Option<i64>,
     status: Option<String>,
+    #[serde(alias = "workflowId")]
     workflow_id: Option<String>,
 }
 

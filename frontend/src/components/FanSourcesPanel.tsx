@@ -1,7 +1,7 @@
 import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import type { FanbaseBlock, FanbaseConnection } from '../lib/types'
+import type { FanbaseBlock } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { FanbaseIcon } from './ProviderIcon'
 import { SkeletonRows } from './Skeleton'

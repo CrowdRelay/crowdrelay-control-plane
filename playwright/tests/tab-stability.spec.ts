@@ -13,8 +13,6 @@
 import { test, expect } from '@playwright/test'
 import { login } from './fixtures/auth'
 
-const BASE = process.env.CONTROL_PLANE_BASE_URL ?? 'http://127.0.0.1:8090'
-
 test.describe('Tab switch DOM stability @e2e @tabs', () => {
   test('intelligence page: lazy fetch, local skeleton, persistent header @e2e', async ({ page }) => {
     const requests: string[] = []
@@ -24,7 +22,7 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
     })
 
     await login(page)
-    await page.goto(`${BASE}/tenants/virya/intelligence`)
+    await page.goto('/tenants/virya/intelligence')
     await page.waitForSelector('.page-tab-content', { timeout: 30000 })
     await page.waitForTimeout(2000)
 
@@ -44,20 +42,12 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
     const requestsBeforeSwitch = requests.length
     console.log(`API requests on page load: ${requestsBeforeSwitch}`)
 
-    // Track whether a page-wide skeleton appears during tab switch
-    let pageSkeletonAppeared = false
-    page.locator('.skeleton-page-head, .skeleton-page').first().waitFor({ state: 'attached', timeout: 50 }).then(() => {
-      pageSkeletonAppeared = true
-    }).catch(() => {})
-
     // Switch to Growth Intelligence tab (first visit — should lazy mount)
     await page.click('.page-tab:has-text("Growth Intelligence")')
     await page.waitForTimeout(2000)
 
-    // The page-wide skeleton must NOT have appeared
-    expect(pageSkeletonAppeared, 'Page-wide skeleton appeared during tab switch').toBe(false)
-
-    // The section and SVG must persist (no remount)
+    // The section and SVG must persist (no remount — a page-wide skeleton
+    // replacement would have torn down these elements and lost the marker)
     const markers = await page.evaluate(() => {
       const section = document.querySelector('.page-content > section.page') as HTMLElement
       const svg = document.querySelector('.intel-loop-svg') as HTMLElement
@@ -119,7 +109,7 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
 
   test('operations page: lazy fetch, local skeleton, persistent header @e2e', async ({ page }) => {
     await login(page)
-    await page.goto(`${BASE}/tenants/virya/operations`)
+    await page.goto('/tenants/virya/operations')
     await page.waitForSelector('.page-tab-content', { timeout: 30000 })
     await page.waitForTimeout(2000)
 

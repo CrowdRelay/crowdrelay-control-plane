@@ -1520,25 +1520,25 @@ impl Store {
         tenant_id: Uuid,
         username: &str,
         password_hash: &str,
-    ) -> Result<(), ApiError> {
-        sqlx::query(
+    ) -> Result<OperatorAccountRow, ApiError> {
+        sqlx::query_as::<_, OperatorAccountRow>(
             r#"INSERT INTO control_plane_operator_accounts
                (id, username, password_hash, role, tenant_id)
-               VALUES ($1, $2, $3, 'tenant_operator', $4)"#,
+               VALUES ($1, $2, $3, 'tenant_operator', $4)
+               RETURNING id, username, role, tenant_id, active"#,
         )
         .bind(Uuid::new_v4())
         .bind(username)
         .bind(password_hash)
         .bind(tenant_id)
-        .execute(&mut **tx)
+        .fetch_one(&mut **tx)
         .await
         .map_err(|error| match error {
             sqlx::Error::Database(db) if db.is_unique_violation() => {
                 ApiError::Conflict("operator username is already taken".to_owned())
             }
             other => ApiError::Database(other),
-        })?;
-        Ok(())
+        })
     }
 
     pub async fn list_operator_accounts(
@@ -1564,9 +1564,10 @@ impl Store {
         password_hash: &str,
         actor: &str,
         request_id: Option<&str>,
-    ) -> Result<(), ApiError> {
+    ) -> Result<OperatorAccountRow, ApiError> {
         let mut tx = self.pool.begin().await?;
-        Self::create_operator_account(&mut tx, tenant_id, username, password_hash).await?;
+        let account =
+            Self::create_operator_account(&mut tx, tenant_id, username, password_hash).await?;
         self.audit_tx(
             &mut tx,
             AuditRecord {
@@ -1581,7 +1582,7 @@ impl Store {
         )
         .await?;
         tx.commit().await?;
-        Ok(())
+        Ok(account)
     }
 
     pub async fn delete_operator_account(

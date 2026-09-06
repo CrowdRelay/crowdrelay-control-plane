@@ -1051,7 +1051,7 @@ async fn create_operator(
     let username = validation::username(&input.username)?;
     // Hash before the transaction so the KDF never runs under row locks.
     let password_hash = auth::hash_password(&validation::password(&input.password)?)?;
-    state
+    let account = state
         .store
         .create_tenant_operator(
             tenant.tenant.id,
@@ -1061,10 +1061,7 @@ async fn create_operator(
             request_id(&headers),
         )
         .await?;
-    Ok((
-        StatusCode::CREATED,
-        Json(json!({"username": username, "role": "tenant_operator", "active": true})),
-    ))
+    Ok((StatusCode::CREATED, Json(json!(account))))
 }
 
 async fn delete_operator(

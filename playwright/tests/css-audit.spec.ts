@@ -117,9 +117,8 @@ async function checkLayoutIssues(page: Page, pageName: string): Promise<LayoutIs
   //    that might cause ::before pseudo-elements to overlap content
   const pseudoOverlap = await page.evaluate(() => {
     const results: { selector: string; issue: string; detail: string }[] = []
-    const els = document.querySelectorAll<HTMLElement>('.collapsible-section::before, .panel::before')
-    // Can't directly check pseudo-elements, but check if panel content
-    // is behind the ::before overlay
+    // Can't directly check pseudo-elements with querySelectorAll, but check
+    // if panel content is behind the ::before overlay via getComputedStyle
     const panels = document.querySelectorAll<HTMLElement>('.panel')
     for (const el of panels) {
       const before = getComputedStyle(el, '::before')
