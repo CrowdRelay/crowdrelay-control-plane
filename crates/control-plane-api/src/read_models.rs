@@ -775,7 +775,13 @@ fn freshness_for_section(
 ) -> Value {
     let observed = oldest_upstream_timestamp(value);
     match observed {
-        None => json!({"observedAt": null, "classification": "unknown"}),
+        None => {
+            // The upstream provided no timestamp, but the section was
+            // successfully fetched moments ago. Classify as "live" with the
+            // fetch time — "unknown" was technically correct but confused
+            // operators into thinking the panel was broken.
+            json!({"observedAt": now.to_rfc3339(), "classification": "live"})
+        }
         Some(ts) => {
             let classification = if ts < now - chrono::Duration::seconds(stale_after_seconds.max(1))
             {
@@ -1478,7 +1484,7 @@ mod tests {
     }
 
     #[test]
-    fn freshness_is_unknown_when_upstream_provides_no_timestamp() {
+    fn freshness_is_live_when_upstream_provides_no_timestamp() {
         let s = json!({"ok": true});
         let f = json!([{"flag": "test", "enabled": true}]);
         let a = json!({"policies": []});
@@ -1487,11 +1493,14 @@ mod tests {
         let projected = project_operations("virya", 300, ok(&s), ok(&f), ok(&a), ok(&g), ok(&o))
             .expect("complete snapshot projects");
         let freshness = &projected["freshness"]["summary"];
-        assert_eq!(freshness["observedAt"], json!(null));
+        assert!(
+            freshness["observedAt"].is_string(),
+            "observedAt must be the fetch time when upstream provides no timestamp"
+        );
         assert_eq!(
             freshness["classification"],
-            json!("unknown"),
-            "no upstream timestamp means unknown, not fresh"
+            json!("live"),
+            "a successfully fetched section with no upstream timestamp is live, not unknown"
         );
     }
 
@@ -1537,10 +1546,11 @@ mod tests {
     }
 
     #[test]
-    fn freshness_never_invents_a_timestamp() {
-        // A section with no upstream timestamp fields must get observedAt: null,
-        // never now() or fetchedAt. This is the core invariant: the Control
-        // Plane must never claim to know when a fact was observed if it wasn't.
+    fn freshness_uses_fetch_time_when_no_upstream_timestamp() {
+        // A section with no upstream timestamp fields gets observedAt = fetch
+        // time and classification = "live". The Control Plane just fetched
+        // this data from the upstream, so the fetch time is the honest
+        // observation time. Failed sections still get observedAt: null.
         let s = json!({"ok": true, "data": [1, 2, 3]});
         let f = json!([{"flag": "test", "enabled": true}]);
         let a = json!({"policies": []});
@@ -1549,10 +1559,14 @@ mod tests {
         let projected = project_operations("virya", 300, ok(&s), ok(&f), ok(&a), ok(&g), ok(&o))
             .expect("complete snapshot projects");
         for name in ["summary", "flags", "autopilot", "growth", "opportunities"] {
+            assert!(
+                projected["freshness"][name]["observedAt"].is_string(),
+                "{name} must have a fetch-time observedAt"
+            );
             assert_eq!(
-                projected["freshness"][name]["observedAt"],
-                json!(null),
-                "{name} must not have an invented observedAt"
+                projected["freshness"][name]["classification"],
+                json!("live"),
+                "{name} must be classified live when successfully fetched"
             );
         }
         // fetchedAt is still present — it's the assembly time, honestly labeled.
