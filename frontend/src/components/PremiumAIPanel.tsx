@@ -473,31 +473,32 @@ export function PremiumAIPanel(props: {
                       </div>
                     </Show>
 
-                    {/* Health badge — shows recent task success rate when connected */}
-                    <Show when={isConnected() && usage()}>
-                      <div class="premium-health-badge">
-                        <Show when={usage()!.tasks.filter((t: PremiumTask) => t.model_provider === provider.id).length > 0}
-                          fallback={<span class="badge tone-muted">no tasks yet</span>}>
-                          {(() => {
-                            const providerTasks = usage()!.tasks.filter((t: PremiumTask) => t.model_provider === provider.id)
-                            const completed = providerTasks.filter((t: PremiumTask) => t.status === 'completed').length
-                            const failed = providerTasks.filter((t: PremiumTask) => t.status === 'failed').length
-                            const total = providerTasks.length
-                            const successRate = total > 0 ? Math.round((completed / total) * 100) : null
-                            const tone = successRate == null ? 'muted' : successRate >= 90 ? 'good' : successRate >= 75 ? 'warn' : 'bad'
-                            return <span class={`badge tone-${tone}`}>{successRate ?? '—'}% success · {total} tasks</span>
-                          })()}
-                        </Show>
-                      </div>
-                    </Show>
-
-                    {/* Connection method badge — shows how the provider is connected */}
+                    {/* Health + method badges — wrapped for consistent middle height */}
                     <Show when={isConnected()}>
-                      <div class="premium-method-badge apikey">
-                        <span class="premium-method-icon" title="Connected via API key">API Key</span>
-                        <Show when={cred()?.provider_account}>
-                          <span class="premium-method-account">{cred()!.provider_account}</span>
+                      <div class="premium-connector-middle">
+                        <Show when={usage()}>
+                          <div class="premium-health-badge">
+                            <Show when={usage()!.tasks.filter((t: PremiumTask) => t.model_provider === provider.id).length > 0}
+                              fallback={<span class="badge tone-muted">no tasks yet</span>}>
+                              {(() => {
+                                const providerTasks = usage()!.tasks.filter((t: PremiumTask) => t.model_provider === provider.id)
+                                const completed = providerTasks.filter((t: PremiumTask) => t.status === 'completed').length
+                                const failed = providerTasks.filter((t: PremiumTask) => t.status === 'failed').length
+                                const total = providerTasks.length
+                                const successRate = total > 0 ? Math.round((completed / total) * 100) : null
+                                const tone = successRate == null ? 'muted' : successRate >= 90 ? 'good' : successRate >= 75 ? 'warn' : 'bad'
+                                return <span class={`badge tone-${tone}`}>{successRate ?? '—'}% success · {total} tasks</span>
+                              })()}
+                            </Show>
+                          </div>
                         </Show>
+
+                        <div class="premium-method-badge apikey">
+                          <span class="premium-method-icon" title="Connected via API key">API Key</span>
+                          <Show when={cred()?.provider_account}>
+                            <span class="premium-method-account">{cred()!.provider_account}</span>
+                          </Show>
+                        </div>
                       </div>
                     </Show>
 
