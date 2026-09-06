@@ -13,6 +13,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use uuid::Uuid;
 
+use crate::tenant_area_client::AgentCapability;
 use crate::{AppState, error::ApiError};
 
 /// Percent-encode a key=value pair for use in a query string.
@@ -143,14 +144,21 @@ pub fn router() -> Router<AppState> {
         .layer(axum::extract::DefaultBodyLimit::max(MAX_AGENT_BODY_BYTES))
 }
 
-async fn proxy_get(state: &AppState, slug: &str, path: &str) -> Result<Response, ApiError> {
+async fn proxy_get(
+    state: &AppState,
+    slug: &str,
+    path: &str,
+    capability: AgentCapability,
+) -> Result<Response, ApiError> {
     let (tenant, _) = crate::area_routes::target(state, slug).await?;
     let base = state
         .agent_service_url
         .as_deref()
         .ok_or_else(|| ApiError::Unavailable("agent service is not configured".to_owned()))?;
     let workspace_id = resolve_workspace_id(&tenant);
-    let token = state.area_client.derived_management_token(workspace_id)?;
+    let token = state
+        .area_client
+        .derived_management_token_with_capability(workspace_id, capability)?;
     let url = format!("{base}{path}");
     let response = state
         .http_client
@@ -180,6 +188,7 @@ async fn proxy_post(
     slug: &str,
     path: &str,
     body: Value,
+    capability: AgentCapability,
 ) -> Result<Response, ApiError> {
     let (tenant, _) = crate::area_routes::target(state, slug).await?;
     let base = state
@@ -187,7 +196,9 @@ async fn proxy_post(
         .as_deref()
         .ok_or_else(|| ApiError::Unavailable("agent service is not configured".to_owned()))?;
     let workspace_id = resolve_workspace_id(&tenant);
-    let token = state.area_client.derived_management_token(workspace_id)?;
+    let token = state
+        .area_client
+        .derived_management_token_with_capability(workspace_id, capability)?;
     let url = format!("{base}{path}");
     let response = state
         .http_client
@@ -214,14 +225,21 @@ async fn proxy_post(
         .into_response())
 }
 
-async fn proxy_delete(state: &AppState, slug: &str, path: &str) -> Result<Response, ApiError> {
+async fn proxy_delete(
+    state: &AppState,
+    slug: &str,
+    path: &str,
+    capability: AgentCapability,
+) -> Result<Response, ApiError> {
     let (tenant, _) = crate::area_routes::target(state, slug).await?;
     let base = state
         .agent_service_url
         .as_deref()
         .ok_or_else(|| ApiError::Unavailable("agent service is not configured".to_owned()))?;
     let workspace_id = resolve_workspace_id(&tenant);
-    let token = state.area_client.derived_management_token(workspace_id)?;
+    let token = state
+        .area_client
+        .derived_management_token_with_capability(workspace_id, capability)?;
     let url = format!("{base}{path}");
     let response = state
         .http_client
@@ -254,7 +272,7 @@ async fn list_templates(
     Path(slug): Path<String>,
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    proxy_get(&state, &slug, "/templates").await
+    proxy_get(&state, &slug, "/templates", AgentCapability::Read).await
 }
 
 async fn get_template(
@@ -266,7 +284,7 @@ async fn get_template(
         return Err(ApiError::InvalidInput("invalid template id".to_owned()));
     }
     let path = format!("/templates/{template_id}");
-    proxy_get(&state, &slug, &path).await
+    proxy_get(&state, &slug, &path, AgentCapability::Read).await
 }
 
 async fn list_tasks(
@@ -276,7 +294,7 @@ async fn list_tasks(
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     if query.is_empty() {
-        return proxy_get(&state, &slug, "/tasks").await;
+        return proxy_get(&state, &slug, "/tasks", AgentCapability::Read).await;
     }
     let qs: String = query
         .iter()
@@ -284,7 +302,7 @@ async fn list_tasks(
         .collect::<Vec<_>>()
         .join("&");
     let path = format!("/tasks?{qs}");
-    proxy_get(&state, &slug, &path).await
+    proxy_get(&state, &slug, &path, AgentCapability::Read).await
 }
 
 async fn create_task(
@@ -293,7 +311,7 @@ async fn create_task(
     _headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Response, ApiError> {
-    proxy_post(&state, &slug, "/tasks", body).await
+    proxy_post(&state, &slug, "/tasks", body, AgentCapability::Dispatch).await
 }
 
 async fn get_task(
@@ -305,7 +323,7 @@ async fn get_task(
     Uuid::parse_str(&task_id)
         .map_err(|_| ApiError::InvalidInput("valid task UUID is required".to_owned()))?;
     let path = format!("/tasks/{task_id}");
-    proxy_get(&state, &slug, &path).await
+    proxy_get(&state, &slug, &path, AgentCapability::Read).await
 }
 
 async fn get_task_result(
@@ -316,7 +334,7 @@ async fn get_task_result(
     Uuid::parse_str(&task_id)
         .map_err(|_| ApiError::InvalidInput("valid task UUID is required".to_owned()))?;
     let path = format!("/tasks/{task_id}/result");
-    proxy_get(&state, &slug, &path).await
+    proxy_get(&state, &slug, &path, AgentCapability::Read).await
 }
 
 async fn agent_health(
@@ -324,7 +342,7 @@ async fn agent_health(
     Path(slug): Path<String>,
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    proxy_get(&state, &slug, "/health/providers").await
+    proxy_get(&state, &slug, "/health/providers", AgentCapability::Read).await
 }
 
 async fn agent_suggestions(
@@ -332,7 +350,7 @@ async fn agent_suggestions(
     Path(slug): Path<String>,
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    proxy_get(&state, &slug, "/suggestions").await
+    proxy_get(&state, &slug, "/suggestions", AgentCapability::Read).await
 }
 
 /// List brain-dispatched worker workflows (read-only observation).
@@ -343,7 +361,7 @@ async fn list_workflows(
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     if query.is_empty() {
-        return proxy_get(&state, &slug, "/workflows").await;
+        return proxy_get(&state, &slug, "/workflows", AgentCapability::Read).await;
     }
     let qs: String = query
         .iter()
@@ -352,7 +370,7 @@ async fn list_workflows(
         .collect::<Vec<_>>()
         .join("&");
     let path = format!("/workflows?{qs}");
-    proxy_get(&state, &slug, &path).await
+    proxy_get(&state, &slug, &path, AgentCapability::Read).await
 }
 
 /// Get a single workflow with its sub-tasks.
@@ -364,7 +382,7 @@ async fn get_workflow(
     Uuid::parse_str(&workflow_id)
         .map_err(|_| ApiError::InvalidInput("valid workflow UUID is required".to_owned()))?;
     let path = format!("/workflows/{workflow_id}");
-    proxy_get(&state, &slug, &path).await
+    proxy_get(&state, &slug, &path, AgentCapability::Read).await
 }
 
 /// Sprint 6: Premium AI usage — monthly spend, budget, connected models, task history.
@@ -373,7 +391,7 @@ async fn premium_usage(
     Path(slug): Path<String>,
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    proxy_get(&state, &slug, "/premium/usage").await
+    proxy_get(&state, &slug, "/premium/usage", AgentCapability::Read).await
 }
 
 /// Growth funnel — community discovery + worker run funnel data.
@@ -384,7 +402,7 @@ async fn growth_funnel(
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     if query.is_empty() {
-        return proxy_get(&state, &slug, "/growth/funnel").await;
+        return proxy_get(&state, &slug, "/growth/funnel", AgentCapability::Read).await;
     }
     let qs: String = query
         .iter()
@@ -393,10 +411,10 @@ async fn growth_funnel(
         .collect::<Vec<_>>()
         .join("&");
     if qs.is_empty() {
-        return proxy_get(&state, &slug, "/growth/funnel").await;
+        return proxy_get(&state, &slug, "/growth/funnel", AgentCapability::Read).await;
     }
     let path = format!("/growth/funnel?{qs}");
-    proxy_get(&state, &slug, &path).await
+    proxy_get(&state, &slug, &path, AgentCapability::Read).await
 }
 
 /// Brain transparency — decision log showing why the brain dispatched each worker.
@@ -407,7 +425,7 @@ async fn brain_decisions(
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     if query.is_empty() {
-        return proxy_get(&state, &slug, "/brain/decisions").await;
+        return proxy_get(&state, &slug, "/brain/decisions", AgentCapability::Read).await;
     }
     let qs: String = query
         .iter()
@@ -416,10 +434,10 @@ async fn brain_decisions(
         .collect::<Vec<_>>()
         .join("&");
     if qs.is_empty() {
-        return proxy_get(&state, &slug, "/brain/decisions").await;
+        return proxy_get(&state, &slug, "/brain/decisions", AgentCapability::Read).await;
     }
     let path = format!("/brain/decisions?{qs}");
-    proxy_get(&state, &slug, &path).await
+    proxy_get(&state, &slug, &path, AgentCapability::Read).await
 }
 
 /// Usage analytics — cost-ROI per template + model routing + daily spend.
@@ -428,7 +446,7 @@ async fn usage_analytics(
     Path(slug): Path<String>,
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    proxy_get(&state, &slug, "/usage/analytics").await
+    proxy_get(&state, &slug, "/usage/analytics", AgentCapability::Read).await
 }
 
 async fn list_providers(
@@ -436,7 +454,7 @@ async fn list_providers(
     Path(slug): Path<String>,
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    proxy_get(&state, &slug, "/providers").await
+    proxy_get(&state, &slug, "/providers", AgentCapability::Read).await
 }
 
 async fn list_credentials(
@@ -444,7 +462,7 @@ async fn list_credentials(
     Path(slug): Path<String>,
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    proxy_get(&state, &slug, "/credentials").await
+    proxy_get(&state, &slug, "/credentials", AgentCapability::Read).await
 }
 
 async fn paste_credential(
@@ -453,7 +471,14 @@ async fn paste_credential(
     _headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Response, ApiError> {
-    proxy_post(&state, &slug, "/credentials", body).await
+    proxy_post(
+        &state,
+        &slug,
+        "/credentials",
+        body,
+        AgentCapability::Credentials,
+    )
+    .await
 }
 
 async fn delete_credential(
@@ -465,7 +490,7 @@ async fn delete_credential(
         return Err(ApiError::InvalidInput("invalid provider id".to_owned()));
     }
     let path = format!("/credentials/{provider}");
-    proxy_delete(&state, &slug, &path).await
+    proxy_delete(&state, &slug, &path, AgentCapability::Credentials).await
 }
 
 async fn validate_credential(
@@ -477,7 +502,14 @@ async fn validate_credential(
         return Err(ApiError::InvalidInput("invalid provider id".to_owned()));
     }
     let path = format!("/credentials/{provider}/validate");
-    proxy_post(&state, &slug, &path, serde_json::json!({})).await
+    proxy_post(
+        &state,
+        &slug,
+        &path,
+        serde_json::json!({}),
+        AgentCapability::Credentials,
+    )
+    .await
 }
 
 async fn list_models(
@@ -485,7 +517,7 @@ async fn list_models(
     Path(slug): Path<String>,
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    proxy_get(&state, &slug, "/models").await
+    proxy_get(&state, &slug, "/models", AgentCapability::Read).await
 }
 
 async fn oauth_start(
@@ -554,7 +586,7 @@ async fn oauth_start(
         }
         path.push_str(&format!("?redirect_uri={}", percent_encode(redirect_uri)));
     }
-    proxy_get(&state, &slug, &path).await
+    proxy_get(&state, &slug, &path, AgentCapability::Read).await
 }
 
 async fn oauth_callback(
@@ -582,7 +614,9 @@ async fn oauth_callback(
         .as_deref()
         .ok_or_else(|| ApiError::Unavailable("agent service is not configured".to_owned()))?;
     let workspace_id = resolve_workspace_id(&tenant);
-    let token = state.area_client.derived_management_token(workspace_id)?;
+    let token = state
+        .area_client
+        .derived_management_token_with_capability(workspace_id, AgentCapability::Read)?;
     let url = format!("{base}{path}");
     let response = state
         .http_client
@@ -673,7 +707,7 @@ async fn oauth_poll(
     } else {
         format!("/oauth/{provider}/poll?{qs}")
     };
-    proxy_get(&state, &slug, &path).await
+    proxy_get(&state, &slug, &path, AgentCapability::Read).await
 }
 
 async fn list_schedules(
@@ -681,7 +715,7 @@ async fn list_schedules(
     Path(slug): Path<String>,
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    proxy_get(&state, &slug, "/schedules").await
+    proxy_get(&state, &slug, "/schedules", AgentCapability::Read).await
 }
 
 async fn create_schedule(
@@ -690,7 +724,7 @@ async fn create_schedule(
     _headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Response, ApiError> {
-    proxy_post(&state, &slug, "/schedules", body).await
+    proxy_post(&state, &slug, "/schedules", body, AgentCapability::Dispatch).await
 }
 
 async fn delete_schedule(
@@ -701,7 +735,7 @@ async fn delete_schedule(
     Uuid::parse_str(&schedule_id)
         .map_err(|_| ApiError::InvalidInput("valid schedule UUID is required".to_owned()))?;
     let path = format!("/schedules/{schedule_id}");
-    proxy_delete(&state, &slug, &path).await
+    proxy_delete(&state, &slug, &path, AgentCapability::Dispatch).await
 }
 
 async fn toggle_schedule(
@@ -713,7 +747,7 @@ async fn toggle_schedule(
     Uuid::parse_str(&schedule_id)
         .map_err(|_| ApiError::InvalidInput("valid schedule UUID is required".to_owned()))?;
     let path = format!("/schedules/{schedule_id}/enabled");
-    proxy_post(&state, &slug, &path, body).await
+    proxy_post(&state, &slug, &path, body, AgentCapability::Dispatch).await
 }
 
 /// Chatbot endpoint — proxies to the agent service which calls the free Zen
@@ -731,7 +765,9 @@ async fn chat(
         .as_deref()
         .ok_or_else(|| ApiError::Unavailable("agent service is not configured".to_owned()))?;
     let workspace_id = resolve_workspace_id(&tenant);
-    let token = state.area_client.derived_management_token(workspace_id)?;
+    let token = state
+        .area_client
+        .derived_management_token_with_capability(workspace_id, AgentCapability::Dispatch)?;
     let url = format!("{base}/chat");
     let response = state
         .http_client
@@ -773,7 +809,9 @@ async fn chat_stream(
         .as_deref()
         .ok_or_else(|| ApiError::Unavailable("agent service is not configured".to_owned()))?;
     let workspace_id = resolve_workspace_id(&tenant);
-    let token = state.area_client.derived_management_token(workspace_id)?;
+    let token = state
+        .area_client
+        .derived_management_token_with_capability(workspace_id, AgentCapability::Dispatch)?;
     let url = format!("{base}/chat/stream");
     let upstream = state
         .http_client

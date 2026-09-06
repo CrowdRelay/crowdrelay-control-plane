@@ -25,6 +25,33 @@ use crate::error::ApiError;
 const AREA_NAMESPACE: &[u8] = b"crowdrelay-area-admin-v1:";
 const CONTROL_PLANE_NAMESPACE: &[u8] = b"crowdrelay-control-plane-v1:";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// Capability classes for scoped agent-service bearer tokens.
+///
+/// A token intended for read-only operations cannot write credentials,
+/// publish to Reddit, or dispatch paid tasks. Each capability is a separate
+/// HMAC token, so a leaked `read` token exposes metadata only.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AgentCapability {
+    Read,
+    Dispatch,
+    Credentials,
+    /// Used by the CrowdRelay worker, not the control plane. Kept here so
+    /// the capability vocabulary has one source of truth across services.
+    #[allow(dead_code)]
+    SocialPublish,
+}
+
+impl AgentCapability {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Read => "read",
+            Self::Dispatch => "dispatch",
+            Self::Credentials => "credentials",
+            Self::SocialPublish => "social_publish",
+        }
+    }
+}
 /// Must exceed CrowdRelay's per-query operation_timeout (5s) so the proxy
 /// does not race the upstream and return 503 while CrowdRelay is still
 /// working within its own budget.
@@ -80,6 +107,27 @@ impl TenantAreaClient {
             self.management_master_key.as_deref(),
             CONTROL_PLANE_NAMESPACE,
             tenant_id,
+            "tenant operations are not configured",
+        )
+    }
+
+    /// Derives a capability-scoped management token for the agent service.
+    ///
+    /// `token = hex(HMAC-SHA256(master_key, namespace + workspace_id + ":" + capability))`
+    ///
+    /// The agent service verifies the token against the required capability
+    /// for each route, so a token derived for `Read` cannot authorize a
+    /// `Credentials` or `SocialPublish` operation.
+    pub fn derived_management_token_with_capability(
+        &self,
+        tenant_id: Uuid,
+        capability: AgentCapability,
+    ) -> Result<String, ApiError> {
+        derived_token_with_capability(
+            self.management_master_key.as_deref(),
+            CONTROL_PLANE_NAMESPACE,
+            tenant_id,
+            capability,
             "tenant operations are not configured",
         )
     }
@@ -169,6 +217,25 @@ fn derived_token(
     let mut message = Vec::with_capacity(namespace.len() + 36);
     message.extend_from_slice(namespace);
     message.extend_from_slice(tenant_id.to_string().as_bytes());
+    Ok(hex(&hmac_sha256(master_key.as_bytes(), &message)))
+}
+
+/// Same as `derived_token` but appends `":" + capability` to the HMAC
+/// message, producing a capability-scoped token.
+fn derived_token_with_capability(
+    master_key: Option<&str>,
+    namespace: &[u8],
+    tenant_id: Uuid,
+    capability: AgentCapability,
+    missing_message: &'static str,
+) -> Result<String, ApiError> {
+    let master_key = master_key.ok_or_else(|| ApiError::Unavailable(missing_message.to_owned()))?;
+    let cap = capability.as_str();
+    let mut message = Vec::with_capacity(namespace.len() + 36 + 1 + cap.len());
+    message.extend_from_slice(namespace);
+    message.extend_from_slice(tenant_id.to_string().as_bytes());
+    message.push(b':');
+    message.extend_from_slice(cap.as_bytes());
     Ok(hex(&hmac_sha256(master_key.as_bytes(), &message)))
 }
 
