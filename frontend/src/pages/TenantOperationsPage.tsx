@@ -21,7 +21,7 @@ const metric = (value: number | undefined | null, suffix = '') =>
 
 export function TenantOperationsPage() {
   const params = useParams({ from: '/tenants/$slug/operations' })
-  const { activeTab, switchTab, isVisited } = useTabPanels('opportunities', ['opportunities', 'outreach', 'releases'])
+  const { activeTab, switchTab, isVisited } = useTabPanels('opportunities')
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),

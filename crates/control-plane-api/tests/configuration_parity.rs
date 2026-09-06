@@ -28,6 +28,7 @@ const IMAGE_TAG_VARIABLES: &[&str] = &[
     "CONTROL_PLANE_IMAGE_TAG",
     "CONTROL_PLANE_BLUE_TAG",
     "CONTROL_PLANE_GREEN_TAG",
+    "CONTROL_PLANE_POSTGRES_IMAGE",
 ];
 
 fn variables(source: &str) -> BTreeSet<String> {

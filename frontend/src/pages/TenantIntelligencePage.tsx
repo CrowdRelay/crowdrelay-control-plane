@@ -21,7 +21,7 @@ import { SectionIcon } from '../components/SectionIcon'
  */
 export function TenantIntelligencePage() {
   const params = useParams({ from: '/tenants/$slug/intelligence' })
-  const { activeTab, switchTab, isVisited } = useTabPanels('overview', ['overview', 'growth', 'decisions', 'learning'])
+  const { activeTab, switchTab, isVisited } = useTabPanels('overview')
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
