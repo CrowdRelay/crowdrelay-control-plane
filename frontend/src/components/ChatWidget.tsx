@@ -4,6 +4,13 @@ import { request, ApiError } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import type { ChatMessage, ChatAction } from '../lib/types'
 
+// Distinguishes a server-sent SSE error from a JSON parse failure on a
+// keepalive/heartbeat line. The catch block uses `instanceof StreamError`
+// to propagate real errors while silently ignoring unparseable non-JSON
+// lines. String-matching the message (the old approach) swallowed every
+// server error whose text happened to contain "JSON".
+class StreamError extends Error {}
+
 // --- Icons ---
 const ChatIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -212,15 +219,20 @@ export function ChatWidget(props: { slug: string }) {
             } else if (data.type === 'actions' && Array.isArray(data.actions)) {
               actions = data.actions as ChatAction[]
             } else if (data.type === 'error') {
-              throw new Error(typeof data.error === 'string' ? data.error : 'stream error')
+              throw new StreamError(typeof data.error === 'string' ? data.error : 'stream error')
             }
             // 'done' type — stream is complete, nothing extra to do.
           } catch (e) {
-            // If it's our own thrown error, propagate it
-            if (e instanceof Error && e.message !== 'Unexpected token' && !e.message.includes('JSON')) {
-              throw e
-            }
-            // Ignore JSON parse errors for keepalive/heartbeat lines
+            // Only the parse of a malformed line is ignorable — keepalive and
+            // heartbeat lines are not JSON. An error the server sent us is a
+            // real failure and has to reach the caller.
+            //
+            // This used to tell the two apart by string-matching the message
+            // ("does it mention JSON?"), which swallowed every server error
+            // whose text happened to contain the word — "model returned
+            // invalid JSON" and friends surfaced to the operator as the
+            // assistant replying "(no response)".
+            if (e instanceof StreamError) throw e
           }
         }
       }

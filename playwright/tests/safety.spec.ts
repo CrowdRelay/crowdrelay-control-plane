@@ -14,25 +14,31 @@ test('Security headers present @safety', async ({ request }) => {
   const response = await request.get('/')
   const headers = response.headers()
 
-  // Check for security headers (HSTS is set by the edge proxy, not the app)
+  // Check for security headers. HSTS is set by the edge proxy (Caddy),
+  // not the app server, so it is only present in production. When it IS
+  // present we validate it; when absent (local/dev) we skip silently
+  // rather than reporting a false bug.
   const checks = [
-    { header: 'x-content-type-options', expected: /nosniff/i },
-    { header: 'x-frame-options', expected: /deny|sameorigin/i },
+    { header: 'x-content-type-options', expected: /nosniff/i, required: true },
+    { header: 'x-frame-options', expected: /deny|sameorigin/i, required: true },
+    { header: 'strict-transport-security', expected: /max-age/i, required: false },
   ]
 
   for (const check of checks) {
     const value = headers[check.header]
     if (!value) {
-      addBug({
-        severity: 'medium',
-        category: 'auth',
-        title: `Missing security header: ${check.header}`,
-        test_name: 'safety::missing-header',
-        url: '/',
-        expected: `${check.header}: ${check.expected}`,
-        actual: 'Header not present',
-        fix_hint: `Add ${check.header} to the response headers in the edge proxy or middleware`,
-      })
+      if (check.required) {
+        addBug({
+          severity: 'medium',
+          category: 'auth',
+          title: `Missing security header: ${check.header}`,
+          test_name: 'safety::missing-header',
+          url: '/',
+          expected: `${check.header}: ${check.expected}`,
+          actual: 'Header not present',
+          fix_hint: `Add ${check.header} to the response headers in the edge proxy or middleware`,
+        })
+      }
     } else if (!check.expected.test(value)) {
       addBug({
         severity: 'low',
