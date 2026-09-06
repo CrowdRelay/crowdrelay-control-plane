@@ -264,7 +264,10 @@ fn classify_section_failure(error: &ApiError) -> SectionState {
         // key, missing management target) — the management target is not
         // reachable because it is not configured, which is the honest class.
         ApiError::Unavailable(_) => SectionState::Unreachable,
-        _ => SectionState::UpstreamError,
+        ApiError::AllSectionsFailed { .. } => SectionState::UpstreamError,
+        ApiError::Database(_) | ApiError::Migration(_) | ApiError::Serialization(_) => {
+            SectionState::UpstreamError
+        }
     }
 }
 

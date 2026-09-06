@@ -74,7 +74,3 @@ export function writeBugReport() {
   }
   return report
 }
-
-export function getBugReportPath() {
-  return REPORT_PATH
-}

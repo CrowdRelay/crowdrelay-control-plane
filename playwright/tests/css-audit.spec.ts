@@ -22,7 +22,7 @@ async function checkLayoutIssues(page: Page, pageName: string): Promise<LayoutIs
   const marginProblems = await page.evaluate(() => {
     const results: { selector: string; issue: string; detail: string }[] = []
     const visibleElements = document.querySelectorAll<HTMLElement>(
-      '.panel, .cockpit-section, .brain-section, .intel-section, .section-title, .page-head, .metric-grid, .ops-kpi-strip, .cockpit-primary, .inherit-card, .warning-card, .error-card, .ops-attention-banner'
+      '.panel, .cockpit-section, .intel-section, .section-title, .page-head, .metric-grid, .ops-kpi-strip, .cockpit-primary, .inherit-card, .warning-card, .error-card, .ops-attention-banner'
     )
 
     for (const el of visibleElements) {
@@ -149,8 +149,6 @@ const BOUNDED_OVERFLOW_SELECTORS = [
   '.panel pre',
   'pre',
   '.queue-row',
-  '.heatmap-grid',
-  '.ops-queue-row',
   '.area-drop-table',
   '.area-drop-head',
   '.area-drop-row',
