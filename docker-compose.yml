@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:18-alpine
+    image: ${CONTROL_PLANE_POSTGRES_IMAGE:-postgres:19beta3-alpine}
     environment:
       POSTGRES_DB: control_plane
       POSTGRES_USER: control_plane

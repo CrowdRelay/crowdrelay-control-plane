@@ -2,7 +2,7 @@ name: crowdrelay-control-plane
 
 services:
   postgres:
-    image: postgres:18-alpine
+    image: ${CONTROL_PLANE_POSTGRES_IMAGE:-postgres:19beta3-alpine}
     restart: unless-stopped
     environment:
       POSTGRES_DB: control_plane
