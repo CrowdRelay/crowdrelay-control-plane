@@ -203,7 +203,7 @@ jobs:
           name: control-plane-image-digest-${{ github.sha }}
           path: image-digest/
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 3
 
       # GHCR packages inherit the org's default visibility (private) on first
       # publish. The production host pulls anonymously, so the package must
