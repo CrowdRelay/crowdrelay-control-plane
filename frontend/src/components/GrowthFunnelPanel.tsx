@@ -1,7 +1,8 @@
-import { For, Show, createResource, createSignal } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
-import { refreshTick, triggerRefresh } from '../lib/refresh'
+import { triggerRefresh } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { CountUp } from './CountUp'
 import { FunnelChart } from './FunnelChart'
@@ -39,17 +40,20 @@ export function GrowthFunnelPanel(props: { slug: string }) {
   const [error, setError] = createSignal<string | null>(null)
   const [days, setDays] = createSignal(30)
 
-  const refreshSource = () => refreshTick() + days()
-
-  const [funnel] = createResource(refreshSource, async () => {
-    try {
-      setError(null)
-      return await api.growthFunnel(props.slug, days())
-    } catch (err) {
-      setError(errorMessage(err, 'Failed to load growth funnel'))
-      return null
-    }
-  })
+  const funnel = useQuery(() => ({
+    queryKey: ['growth-funnel', props.slug, days()],
+    queryFn: async () => {
+      try {
+        setError(null)
+        return await api.growthFunnel(props.slug, days())
+      } catch (err) {
+        setError(errorMessage(err, 'Failed to load growth funnel'))
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
   // Build funnel stages from the data we have.
   // The agent service provides: communities_discovered, worker_runs, brain_workflows.
@@ -57,7 +61,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
   // fetched separately via the operations read model — but for the agent-service
   // panel we show what we have here. The full funnel page combines both.
   const stages = () => {
-    const data = funnel()
+    const data = funnel.data
     if (!data) return []
     const wr = data.worker_runs
     const scannerRuns = wr['reddit-scanner']?.completed ?? 0
@@ -93,19 +97,19 @@ export function GrowthFunnelPanel(props: { slug: string }) {
   }
 
   const totalWorkerRuns = () => {
-    const data = funnel()
+    const data = funnel.data
     if (!data) return 0
     return Object.values(data.worker_runs).reduce((sum, r) => sum + r.total, 0)
   }
 
   const completedWorkerRuns = () => {
-    const data = funnel()
+    const data = funnel.data
     if (!data) return 0
     return Object.values(data.worker_runs).reduce((sum, r) => sum + r.completed, 0)
   }
 
   const failedWorkerRuns = () => {
-    const data = funnel()
+    const data = funnel.data
     if (!data) return 0
     return Object.values(data.worker_runs).reduce((sum, r) => sum + r.failed, 0)
   }
@@ -130,11 +134,11 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     </div>
 
     {/* KPI strip */}
-    <Show when={funnel()} fallback={<Show when={!error()}><SkeletonBlock height="100px" radius="10px" /></Show>}>
+    <Show when={funnel.data} fallback={<Show when={!error()}><SkeletonBlock height="100px" radius="10px" /></Show>}>
       <div class="kpi-strip">
         <article class="kpi-card">
           <span class="kpi-label">Communities</span>
-          <CountUp value={funnel()!.communities_discovered} />
+          <CountUp value={funnel.data!.communities_discovered} />
           <span class="kpi-sub">discovered</span>
         </article>
         <article class="kpi-card">
@@ -144,14 +148,14 @@ export function GrowthFunnelPanel(props: { slug: string }) {
         </article>
         <article class="kpi-card">
           <span class="kpi-label">Intelligence workflows</span>
-          <CountUp value={funnel()!.brain_workflows.total} />
-          <span class="kpi-sub">{funnel()!.brain_workflows.by_status.completed ?? 0} completed</span>
+          <CountUp value={funnel.data!.brain_workflows.total} />
+          <span class="kpi-sub">{funnel.data!.brain_workflows.by_status.completed ?? 0} completed</span>
         </article>
       </div>
     </Show>
 
     {/* Funnel visualization */}
-    <Show when={funnel()}>
+    <Show when={funnel.data}>
       <div class="agent-section">
         <div class="agent-section-head">
           <h3><FunnelIcon size={18} /> Growth Funnel</h3>
@@ -174,7 +178,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     </Show>
 
     {/* Worker run breakdown */}
-    <Show when={funnel() && Object.keys(funnel()!.worker_runs).length > 0}>
+    <Show when={funnel.data && Object.keys(funnel.data!.worker_runs).length > 0}>
       <div class="agent-section">
         <div class="agent-section-head">
           <h3>Worker run breakdown</h3>
@@ -184,7 +188,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
           <table class="agent-task-table">
             <thead><tr><th>Template</th><th>Total</th><th>Completed</th><th>Failed</th><th>Running</th><th>Queued</th><th>Success rate</th></tr></thead>
             <tbody>
-              <For each={Object.entries(funnel()!.worker_runs)}>{([tpl, stats]) => {
+              <For each={Object.entries(funnel.data!.worker_runs)}>{([tpl, stats]) => {
                 const successRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : null
                 const tone = successRate == null ? 'muted' : successRate >= 90 ? 'good' : successRate >= 75 ? 'warn' : 'bad'
                 return (
@@ -208,15 +212,15 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     </Show>
 
     {/* Recent worker runs */}
-    <Show when={funnel() && funnel()!.recent_worker_runs.length > 0}>
+    <Show when={funnel.data && funnel.data!.recent_worker_runs.length > 0}>
       <div class="agent-section">
         <div class="agent-section-head">
           <h3>Recent worker runs</h3>
-          <span class="muted">last {funnel()!.recent_worker_runs.length}</span>
+          <span class="muted">last {funnel.data!.recent_worker_runs.length}</span>
         </div>
         <p class="agent-section-intro">The most recent worker runs dispatched by the intelligence, with their outcomes.</p>
         <div class="funnel-recent-list">
-          <For each={funnel()!.recent_worker_runs}>{(run: FunnelRecentWorkerRun) => (
+          <For each={funnel.data!.recent_worker_runs}>{(run: FunnelRecentWorkerRun) => (
             <div class="funnel-recent-row">
               <div class="funnel-recent-head">
                 <strong>{templateLabel(run.template_id)}</strong>
@@ -238,7 +242,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     </Show>
 
     {/* Empty state */}
-    <Show when={funnel() && funnel()!.communities_discovered === 0 && totalWorkerRuns() === 0}>
+    <Show when={funnel.data && funnel.data!.communities_discovered === 0 && totalWorkerRuns() === 0}>
       <EmptyState
         icon={<FunnelIcon size={28} />}
         label="No growth activity in this period"

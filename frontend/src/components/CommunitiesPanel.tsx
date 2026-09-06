@@ -1,4 +1,5 @@
-import { For, Show, createResource, createSignal } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { SkeletonPanel } from './Skeleton'
@@ -52,7 +53,12 @@ const PLATFORM_FOR_KIND: Record<string, string> = {
 const number = (value: number | null | undefined) => (value == null ? '—' : value.toLocaleString())
 
 export function CommunitiesPanel(props: { slug: string }) {
-  const [places, { refetch }] = createResource(() => props.slug, s => api.audiencePlaces(s, { limit: 200 }))
+  const places = useQuery(() => ({
+    queryKey: ['communities-places', props.slug],
+    queryFn: () => api.audiencePlaces(props.slug, { limit: 200 }),
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
   const [adding, setAdding] = createSignal(false)
   const [importing, setImporting] = createSignal(false)
@@ -65,7 +71,7 @@ export function CommunitiesPanel(props: { slug: string }) {
 
   const byKind = () => {
     const counts = new Map<string, number>()
-    for (const place of places()?.places ?? []) {
+    for (const place of places.data?.places ?? []) {
       counts.set(place.placeKind, (counts.get(place.placeKind) ?? 0) + 1)
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1])
@@ -85,7 +91,7 @@ export function CommunitiesPanel(props: { slug: string }) {
       })
       setNotice({ tone: 'good', message: `Registered ${name().trim()}.` })
       setName(''); setUrl(''); setAdding(false)
-      await refetch()
+      await places.refetch()
     } catch (error) {
       setNotice({ tone: 'bad', message: errorMessage(error, 'Could not register the community') })
     } finally {
@@ -105,18 +111,18 @@ export function CommunitiesPanel(props: { slug: string }) {
       setNotice({ tone: 'bad', message: 'That is not valid JSON.' })
       return
     }
-    const places = Array.isArray(parsed) ? parsed : (parsed as { places?: unknown }).places
-    if (!Array.isArray(places) || places.length === 0) {
+    const importPlaces = Array.isArray(parsed) ? parsed : (parsed as { places?: unknown }).places
+    if (!Array.isArray(importPlaces) || importPlaces.length === 0) {
       setNotice({ tone: 'bad', message: 'Expected an array of places, or { "places": [...] }.' })
       return
     }
     setSaving(true)
     setNotice(null)
     try {
-      const result = await api.importAudiencePlaces(props.slug, places as never)
-      setNotice({ tone: 'good', message: `Imported ${result.imported ?? places.length}.` })
+      const result = await api.importAudiencePlaces(props.slug, importPlaces as never)
+      setNotice({ tone: 'good', message: `Imported ${result.imported ?? importPlaces.length}.` })
       setImportText(''); setImporting(false)
-      await refetch()
+      await places.refetch()
     } catch (error) {
       setNotice({ tone: 'bad', message: errorMessage(error, 'Import failed') })
     } finally {
@@ -138,13 +144,13 @@ export function CommunitiesPanel(props: { slug: string }) {
         </div>
       </header>
 
-      <Show when={places.loading}><SkeletonPanel /></Show>
+      <Show when={places.isFetching}><SkeletonPanel /></Show>
 
       <Show when={places.error}>
         <p class="notice bad">Could not load communities: {errorMessage(places.error, 'unknown error')}</p>
       </Show>
 
-      <Show when={places()}>
+      <Show when={places.data}>
         {data => (
           <>
             <Show

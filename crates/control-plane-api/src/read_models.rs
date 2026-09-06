@@ -13,6 +13,8 @@
 //!
 //! Mutations stay on their own routes; nothing here writes.
 
+use std::sync::Arc;
+
 use axum::{
     Json, Router,
     extract::{Path, State},
@@ -21,6 +23,7 @@ use axum::{
     routing::get,
 };
 use serde_json::{Value, json};
+use tokio::sync::Semaphore;
 
 use crate::{AppState, error::ApiError, tenant_area_client::ManagementRequest, validation};
 
@@ -32,6 +35,372 @@ pub fn router() -> Router<AppState> {
         .route("/tenants/{slug}/operations/overview", get(operations))
         .route("/tenants/{slug}/portfolio/model", get(portfolio))
         .route("/tenants/{slug}/audience/model", get(audience))
+}
+
+/// Global, cross-tenant read models. These are platform-admin surfaces that
+/// aggregate every tenant in one server-side fan-out, so the browser never
+/// orchestrates a multi-tenant sweep.
+pub fn global_router() -> Router<AppState> {
+    Router::new().route("/command-center", get(command_center))
+}
+
+/// Bound the per-tenant fan-out so a fleet of 50 tenants does not produce 50
+/// concurrent management-tunnel calls. Two is enough for the current fleet
+/// (Virya is the only live tenant) and keeps headroom for the platform-admin
+/// auth/middleware layer.
+const COMMAND_CENTER_MAX_CONCURRENT: usize = 4;
+
+/// Per-section timeout. Each tenant's fan-out must complete within this window
+/// or the section is reported as `timeout` — the command center never hangs
+/// waiting for a single slow tenant.
+const COMMAND_CENTER_SECTION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(8);
+
+/// `GET /command-center` — the operator's informational shell.
+///
+/// This is a true read model, not a dashboard: it aggregates every tenant's
+/// attention, autopilot, learning and outcomes state in one server-side
+/// fan-out, with bounded concurrency and a per-section timeout. Partial
+/// upstream failures are reported per-section per-tenant, never blanking the
+/// whole response.
+async fn command_center(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let tenants = state.store.list_tenants().await?;
+    let now = chrono::Utc::now();
+    let semaphore = Arc::new(Semaphore::new(COMMAND_CENTER_MAX_CONCURRENT));
+    let correlation_id = correlation(&headers);
+
+    let mut handles = Vec::with_capacity(tenants.len());
+    for tenant in tenants {
+        let state = state.clone();
+        let semaphore = semaphore.clone();
+        let correlation_id = correlation_id.map(|s| s.to_owned());
+        handles.push(tokio::spawn(async move {
+            let _permit = semaphore.acquire().await.ok()?;
+            let summary = fetch_tenant_command_summary(
+                &state,
+                &tenant,
+                correlation_id.as_deref(),
+                COMMAND_CENTER_SECTION_TIMEOUT,
+            )
+            .await;
+            Some((tenant, summary))
+        }));
+    }
+
+    let mut per_tenant = Vec::with_capacity(handles.len());
+    for handle in handles {
+        if let Ok(Some((tenant, summary))) = handle.await {
+            per_tenant.push(build_per_tenant_summary(&tenant, &summary));
+        }
+    }
+
+    // Aggregate global totals from per-tenant projections.
+    let mut needs_you = 0u64;
+    let mut awaiting_approval = 0u64;
+    let mut open_findings = 0u64;
+    let mut critical_alerts = 0u64;
+    let mut dead_deliveries = 0u64;
+    let mut unavailable_tenants = 0u64;
+    let mut queued_actions = 0u64;
+    let mut processing_actions = 0u64;
+    let mut succeeded_24h = 0u64;
+    let mut failed_24h = 0u64;
+    let mut unknown_actions = 0u64;
+    let mut outcomes_resolved = 0u64;
+    let mut outcomes_unknown = 0u64;
+    let mut outcomes_waiting = 0u64;
+    let mut learning_total = 0u64;
+    let mut learning_admitted = 0u64;
+    let mut learning_rejected = 0u64;
+    let mut brain_needs_attention = false;
+
+    let mut total = 0u64;
+    let mut active = 0u64;
+    let mut healthy = 0u64;
+    let mut degraded = 0u64;
+    let mut stale = 0u64;
+    let mut unknown = 0u64;
+
+    for t in &per_tenant {
+        total += 1;
+        if t["available"].as_bool() == Some(true) {
+            active += 1;
+        }
+        match t["runtimeHealth"].as_str() {
+            Some("healthy") => healthy += 1,
+            Some("degraded") => degraded += 1,
+            Some("stale") => stale += 1,
+            _ => unknown += 1,
+        }
+        if t["attention"]["available"].as_bool() != Some(true) {
+            unavailable_tenants += 1;
+        }
+        needs_you += t["attention"]["needsYou"].as_u64().unwrap_or(0);
+        awaiting_approval += t["attention"]["awaitingApproval"].as_u64().unwrap_or(0);
+        open_findings += t["attention"]["openFindings"].as_u64().unwrap_or(0);
+        critical_alerts += t["attention"]["criticalAlerts"].as_u64().unwrap_or(0);
+        dead_deliveries += t["attention"]["deadDeliveries"].as_u64().unwrap_or(0);
+        queued_actions += t["autopilot"]["queuedActions"].as_u64().unwrap_or(0);
+        processing_actions += t["autopilot"]["processingActions"].as_u64().unwrap_or(0);
+        succeeded_24h += t["autopilot"]["succeeded24h"].as_u64().unwrap_or(0);
+        failed_24h += t["autopilot"]["failed24h"].as_u64().unwrap_or(0);
+        unknown_actions += t["autopilot"]["unknownActions"].as_u64().unwrap_or(0);
+        outcomes_resolved += t["outcomes"]["resolved"].as_u64().unwrap_or(0);
+        outcomes_unknown += t["outcomes"]["unknown"].as_u64().unwrap_or(0);
+        outcomes_waiting += t["outcomes"]["waitingForObservation"].as_u64().unwrap_or(0);
+        learning_total += t["learning"]["totalOutcomes"].as_u64().unwrap_or(0);
+        learning_admitted += t["learning"]["admitted"].as_u64().unwrap_or(0);
+        learning_rejected += t["learning"]["rejected"].as_u64().unwrap_or(0);
+        if t["brain"]["needsAttention"].as_bool() == Some(true) {
+            brain_needs_attention = true;
+        }
+    }
+
+    let platform_health = state.store.list_platform_health().await?;
+
+    Ok(no_store(json!({
+        "fetchedAt": now,
+        "tenants": {
+            "total": total,
+            "active": active,
+            "healthy": healthy,
+            "degraded": degraded,
+            "stale": stale,
+            "unknown": unknown,
+        },
+        "attention": {
+            "needsYou": needs_you,
+            "awaitingApproval": awaiting_approval,
+            "openFindings": open_findings,
+            "criticalAlerts": critical_alerts,
+            "deadDeliveries": dead_deliveries,
+            "unavailableTenants": unavailable_tenants,
+        },
+        "autopilot": {
+            "queuedActions": queued_actions,
+            "processingActions": processing_actions,
+            "succeeded24h": succeeded_24h,
+            "failed24h": failed_24h,
+            "unknownActions": unknown_actions,
+        },
+        "outcomes": {
+            "resolved": outcomes_resolved,
+            "unknown": outcomes_unknown,
+            "waitingForObservation": outcomes_waiting,
+        },
+        "system": {
+            "platformServices": platform_health,
+            "releaseConvergence": null,
+            "controlPlaneRevision": "",
+        },
+        "learning": {
+            "totalOutcomes": learning_total,
+            "admitted": learning_admitted,
+            "rejected": learning_rejected,
+        },
+        "brainNeedsAttention": brain_needs_attention,
+        "perTenant": per_tenant,
+    })))
+}
+
+/// Fetch one tenant's command-center sections: attention, autopilot, learning
+/// and outcomes, each with its own degradation state. A single slow or dead
+/// tenant never blocks the global response.
+async fn fetch_tenant_command_summary(
+    state: &AppState,
+    tenant: &crate::model::TenantSummary,
+    correlation_id: Option<&str>,
+    per_section_timeout: std::time::Duration,
+) -> TenantCommandData {
+    let slug = &tenant.tenant.slug;
+    let target = match crate::area_routes::target(state, slug).await {
+        Ok((_tenant, target)) => target,
+        Err(_) => {
+            return TenantCommandData::default();
+        }
+    };
+
+    let tenant_id = tenant.tenant.id;
+    let section = |path: &'static str| {
+        let target = &target;
+        async move {
+            state
+                .area_client
+                .request_management(
+                    tenant_id,
+                    target,
+                    ManagementRequest {
+                        method: "GET",
+                        path,
+                        body: None,
+                        correlation_id,
+                        idempotency_key: None,
+                    },
+                )
+                .await
+        }
+    };
+
+    let (attention, autopilot, learning, outcomes) = tokio::join!(
+        tokio::time::timeout(
+            per_section_timeout,
+            section("/v1/control-plane/ops/attention")
+        ),
+        tokio::time::timeout(
+            per_section_timeout,
+            section("/v1/control-plane/autopilot/overview")
+        ),
+        tokio::time::timeout(
+            per_section_timeout,
+            section("/v1/control-plane/autopilot/learning-loop")
+        ),
+        tokio::time::timeout(
+            per_section_timeout,
+            section("/v1/control-plane/autopilot/growth")
+        ),
+    );
+
+    let attention = attention.map_err(|_| ApiError::Timeout).and_then(|r| r);
+    let autopilot = autopilot.map_err(|_| ApiError::Timeout).and_then(|r| r);
+    let learning = learning.map_err(|_| ApiError::Timeout).and_then(|r| r);
+    let outcomes = outcomes.map_err(|_| ApiError::Timeout).and_then(|r| r);
+
+    TenantCommandData {
+        attention: attention.as_ref().ok().and_then(|v| v.as_object()).cloned(),
+        autopilot: autopilot.as_ref().ok().and_then(|v| v.as_object()).cloned(),
+        learning: learning.as_ref().ok().and_then(|v| v.as_array()).cloned(),
+        outcomes: outcomes.as_ref().ok().and_then(|v| v.as_object()).cloned(),
+    }
+}
+
+/// Build the per-tenant summary object the frontend expects, extracting
+/// structured fields from the raw upstream responses.
+fn build_per_tenant_summary(
+    tenant: &crate::model::TenantSummary,
+    data: &TenantCommandData,
+) -> Value {
+    let slug = &tenant.tenant.slug;
+    let display_name = &tenant.tenant.display_name;
+    let runtime_health = tenant.runtime_health.as_str();
+    let available = data.attention.is_some()
+        || data.autopilot.is_some()
+        || data.learning.is_some()
+        || data.outcomes.is_some();
+
+    // ── attention ──
+    let att = data.attention.as_ref();
+    let attention = json!({
+        "available": att.is_some(),
+        "needsYou": att.and_then(|a| a.get("needs_you")).and_then(|v| v.as_array()).map(|a| a.len() as u64).unwrap_or(0),
+        "awaitingApproval": att.and_then(|a| a.get("awaiting_approval")).and_then(|v| v.as_u64()).unwrap_or(0),
+        "openFindings": att.and_then(|a| a.get("findings")).and_then(|v| v.as_array()).map(|a| a.len() as u64).unwrap_or(0),
+        "criticalAlerts": att.and_then(|a| a.get("alerts")).and_then(|v| v.as_array()).map(|a| {
+            a.iter().filter(|alert| {
+                alert.get("active").and_then(|v| v.as_bool()) == Some(true)
+                    && alert.get("severity").and_then(|v| v.as_str()) == Some("critical")
+            }).count() as u64
+        }).unwrap_or(0),
+        "deadDeliveries": att.and_then(|a| a.get("dead_deliveries")).and_then(|v| v.as_array()).map(|a| a.len() as u64).unwrap_or(0),
+        "brain": att.and_then(|a| a.get("ecosystem")).and_then(|v| v.get("brain")).cloned().unwrap_or(Value::Null),
+    });
+
+    // ── autopilot ──
+    let auto = data.autopilot.as_ref();
+    let autopilot = json!({
+        "available": auto.is_some(),
+        "queuedActions": auto.and_then(|a| a.get("queued_actions")).and_then(|v| v.as_u64()).unwrap_or(0),
+        "processingActions": auto.and_then(|a| a.get("processing_actions")).and_then(|v| v.as_u64()).unwrap_or(0),
+        "succeeded24h": auto.and_then(|a| a.get("succeeded_24h")).and_then(|v| v.as_u64()).unwrap_or(0),
+        "failed24h": auto.and_then(|a| a.get("failed_24h")).and_then(|v| v.as_u64()).unwrap_or(0),
+        "unknownActions": auto.and_then(|a| a.get("recent_actions")).and_then(|v| v.as_array()).map(|a| {
+            a.iter().filter(|action| {
+                action.get("outcome").and_then(|v| v.as_str()).is_none_or(|s| s == "unknown" || s == "pending")
+            }).count() as u64
+        }).unwrap_or(0),
+        "runtimeEnabled": auto.and_then(|a| a.get("runtime_enabled")).and_then(|v| v.as_bool()).unwrap_or(false),
+        "releaseLedger": auto.and_then(|a| a.get("release_ledger")).cloned().unwrap_or(Value::Null),
+    });
+
+    // ── learning ──
+    // The learning-loop endpoint returns an array of decisions. Each decision
+    // may have an `outcome` field: "accepted", "rejected", or null (pending).
+    let learn = data.learning.as_ref();
+    let (total_outcomes, admitted, rejected, total_decisions) = match learn {
+        Some(arr) => {
+            let total = arr.len() as u64;
+            let mut outcomes = 0u64;
+            let mut admitted = 0u64;
+            let mut rejected = 0u64;
+            for decision in arr {
+                if let Some(outcome) = decision.get("outcome").and_then(|v| v.as_str()) {
+                    outcomes += 1;
+                    if outcome == "accepted" || outcome == "succeeded" {
+                        admitted += 1;
+                    } else if outcome == "rejected" || outcome == "failed" {
+                        rejected += 1;
+                    }
+                }
+            }
+            (outcomes, admitted, rejected, total)
+        }
+        None => (0, 0, 0, 0),
+    };
+    let learning = json!({
+        "available": learn.is_some(),
+        "totalOutcomes": total_outcomes,
+        "admitted": admitted,
+        "rejected": rejected,
+        "totalDecisions": total_decisions,
+    });
+
+    // ── outcomes ──
+    // The growth endpoint returns campaign/delivery totals. We map:
+    // resolved = delivered + completed_campaigns + claimed
+    // unknown = failed (known but not resolved)
+    // waitingForObservation = pending + scheduled_campaigns + stalled_campaigns
+    let out = data.outcomes.as_ref();
+    let totals = out.and_then(|o| o.get("totals"));
+    let outcomes = json!({
+        "available": out.is_some(),
+        "resolved": totals.and_then(|t| t.get("delivered")).and_then(|v| v.as_u64()).unwrap_or(0)
+            + totals.and_then(|t| t.get("completed_campaigns")).and_then(|v| v.as_u64()).unwrap_or(0)
+            + totals.and_then(|t| t.get("claimed")).and_then(|v| v.as_u64()).unwrap_or(0),
+        "unknown": totals.and_then(|t| t.get("failed")).and_then(|v| v.as_u64()).unwrap_or(0),
+        "waitingForObservation": totals.and_then(|t| t.get("pending")).and_then(|v| v.as_u64()).unwrap_or(0)
+            + totals.and_then(|t| t.get("scheduled_campaigns")).and_then(|v| v.as_u64()).unwrap_or(0)
+            + totals.and_then(|t| t.get("stalled_campaigns")).and_then(|v| v.as_u64()).unwrap_or(0),
+    });
+
+    // ── brain ──
+    let brain = att
+        .and_then(|a| a.get("ecosystem"))
+        .and_then(|v| v.get("brain"))
+        .cloned()
+        .unwrap_or(Value::Null);
+
+    json!({
+        "slug": slug,
+        "displayName": display_name,
+        "runtimeHealth": runtime_health,
+        "available": available,
+        "attention": attention,
+        "autopilot": autopilot,
+        "learning": learning,
+        "outcomes": outcomes,
+        "brain": brain,
+        "releaseConvergence": null,
+    })
+}
+
+/// Raw upstream data for one tenant, before projection.
+#[derive(Default)]
+struct TenantCommandData {
+    attention: Option<serde_json::Map<String, Value>>,
+    autopilot: Option<serde_json::Map<String, Value>>,
+    learning: Option<Vec<Value>>,
+    outcomes: Option<serde_json::Map<String, Value>>,
 }
 
 fn correlation(headers: &HeaderMap) -> Option<&str> {
@@ -1203,5 +1572,165 @@ mod tests {
             json!("stale"),
             "a fresh checkedAt cannot launder a stale lastHeartbeatAt"
         );
+    }
+
+    // ---- command-center projection tests ----
+
+    fn mock_tenant() -> crate::model::TenantSummary {
+        crate::model::TenantSummary {
+            tenant: crate::model::TenantRow {
+                id: uuid::Uuid::nil(),
+                slug: "virya".to_owned(),
+                display_name: "Virya".to_owned(),
+                status: "active".to_owned(),
+                workspace_id: None,
+                crowdrelay_base_url: None,
+                signal_base_url: None,
+                default_country_code: "US".to_owned(),
+                regional_profile: None,
+                branding_palette: None,
+                synesthesia_enabled: false,
+                area_enabled: true,
+                signal_enabled: false,
+                north_star_metric: "fans".to_owned(),
+                fanbase_sources: vec![],
+                signal_play_store_url: None,
+                synesthesia_play_store_url: None,
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
+            },
+            runtime: None,
+            runtime_health: crate::model::RuntimeHealth::Unknown,
+        }
+    }
+
+    #[test]
+    fn command_center_extracts_attention_fields_from_upstream() {
+        let data = TenantCommandData {
+            attention: Some(json!({
+                "needs_you": [{"id": "a1"}, {"id": "a2"}],
+                "awaiting_approval": 3,
+                "findings": [{"id": "f1"}],
+                "alerts": [{"active": true, "severity": "critical"}, {"active": false, "severity": "critical"}],
+                "dead_deliveries": [{"id": "d1"}],
+                "ecosystem": {"brain": {"state": "ok"}},
+            }).as_object().unwrap().clone()),
+            autopilot: None,
+            learning: None,
+            outcomes: None,
+        };
+        let projected = build_per_tenant_summary(&mock_tenant(), &data);
+        assert_eq!(projected["attention"]["needsYou"], json!(2));
+        assert_eq!(projected["attention"]["awaitingApproval"], json!(3));
+        assert_eq!(projected["attention"]["openFindings"], json!(1));
+        assert_eq!(projected["attention"]["criticalAlerts"], json!(1));
+        assert_eq!(projected["attention"]["deadDeliveries"], json!(1));
+        assert_eq!(projected["attention"]["available"], json!(true));
+    }
+
+    #[test]
+    fn command_center_extracts_autopilot_fields_from_upstream() {
+        let data = TenantCommandData {
+            attention: None,
+            autopilot: Some(json!({
+                "queued_actions": 5,
+                "processing_actions": 2,
+                "succeeded_24h": 10,
+                "failed_24h": 1,
+                "runtime_enabled": true,
+                "release_ledger": {"version": 1},
+                "recent_actions": [{"outcome": "unknown"}, {"outcome": "succeeded"}, {"outcome": "pending"}],
+            }).as_object().unwrap().clone()),
+            learning: None,
+            outcomes: None,
+        };
+        let projected = build_per_tenant_summary(&mock_tenant(), &data);
+        assert_eq!(projected["autopilot"]["queuedActions"], json!(5));
+        assert_eq!(projected["autopilot"]["processingActions"], json!(2));
+        assert_eq!(projected["autopilot"]["succeeded24h"], json!(10));
+        assert_eq!(projected["autopilot"]["failed24h"], json!(1));
+        assert_eq!(projected["autopilot"]["unknownActions"], json!(2));
+        assert_eq!(projected["autopilot"]["runtimeEnabled"], json!(true));
+    }
+
+    #[test]
+    fn command_center_extracts_learning_from_decision_array() {
+        let data = TenantCommandData {
+            attention: None,
+            autopilot: None,
+            learning: Some(vec![
+                json!({"outcome": "accepted"}),
+                json!({"outcome": "rejected"}),
+                json!({"outcome": "accepted"}),
+                json!({"outcome": null}),
+            ]),
+            outcomes: None,
+        };
+        let projected = build_per_tenant_summary(&mock_tenant(), &data);
+        assert_eq!(projected["learning"]["totalOutcomes"], json!(3));
+        assert_eq!(projected["learning"]["admitted"], json!(2));
+        assert_eq!(projected["learning"]["rejected"], json!(1));
+        assert_eq!(projected["learning"]["totalDecisions"], json!(4));
+    }
+
+    #[test]
+    fn command_center_extracts_outcomes_from_growth_totals() {
+        let data = TenantCommandData {
+            attention: None,
+            autopilot: None,
+            learning: None,
+            outcomes: Some(
+                json!({
+                    "totals": {
+                        "delivered": 5,
+                        "completed_campaigns": 2,
+                        "claimed": 3,
+                        "failed": 1,
+                        "pending": 4,
+                        "scheduled_campaigns": 2,
+                        "stalled_campaigns": 1,
+                    }
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ),
+        };
+        let projected = build_per_tenant_summary(&mock_tenant(), &data);
+        assert_eq!(projected["outcomes"]["resolved"], json!(10));
+        assert_eq!(projected["outcomes"]["unknown"], json!(1));
+        assert_eq!(projected["outcomes"]["waitingForObservation"], json!(7));
+    }
+
+    #[test]
+    fn command_center_nulls_all_sections_when_upstream_is_unavailable() {
+        let data = TenantCommandData::default();
+        let projected = build_per_tenant_summary(&mock_tenant(), &data);
+        assert_eq!(projected["attention"]["available"], json!(false));
+        assert_eq!(projected["autopilot"]["available"], json!(false));
+        assert_eq!(projected["learning"]["available"], json!(false));
+        assert_eq!(projected["outcomes"]["available"], json!(false));
+        assert_eq!(projected["attention"]["needsYou"], json!(0));
+        assert_eq!(projected["autopilot"]["queuedActions"], json!(0));
+        assert_eq!(projected["learning"]["totalOutcomes"], json!(0));
+        assert_eq!(projected["outcomes"]["resolved"], json!(0));
+    }
+
+    #[test]
+    fn command_center_propagates_tenant_identity_and_health() {
+        let data = TenantCommandData::default();
+        let projected = build_per_tenant_summary(&mock_tenant(), &data);
+        assert_eq!(projected["slug"], json!("virya"));
+        assert_eq!(projected["displayName"], json!("Virya"));
+        assert_eq!(projected["runtimeHealth"], json!("unknown"));
+    }
+
+    #[test]
+    fn runtime_health_as_str_matches_serde_lowercase() {
+        use crate::model::RuntimeHealth;
+        assert_eq!(RuntimeHealth::Healthy.as_str(), "healthy");
+        assert_eq!(RuntimeHealth::Degraded.as_str(), "degraded");
+        assert_eq!(RuntimeHealth::Stale.as_str(), "stale");
+        assert_eq!(RuntimeHealth::Unknown.as_str(), "unknown");
     }
 }

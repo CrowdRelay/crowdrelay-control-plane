@@ -1,4 +1,4 @@
-import { For, Show, Suspense, createSignal } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -280,7 +280,6 @@ export function TenantAttentionPage() {
 
     <Show when={!summary.error && summary.isLoading}><SkeletonAttentionPage /></Show>
 
-    <Suspense fallback={<SkeletonAttentionPage />}>
     <Show when={summary.data}>{data => <>
       {/* The AttentionInbox above already renders the tiered attention
           banner — this duplicate was redundant and added visual noise. */}
@@ -436,6 +435,5 @@ export function TenantAttentionPage() {
       <button class="ghost" disabled={!timelineInput().trim() || !!busy()} onClick={() => void lookupTimeline()}>{busy() === 'timeline' ? 'Tracing…' : 'Trace request'}</button>
     </div>
     <Show when={timeline()}>{result => <div class="panel"><div class="section-title"><div><span class="eyebrow">REQUEST TIMELINE</span><h3><SectionIcon name="history" />{result().events.length} timeline event(s)</h3><button class="ghost dead-toggle-id" onClick={() => toggleRevealedId('timeline')}>{revealedId() === 'timeline' ? 'Hide ID' : 'Details'}</button><Show when={revealedId() === 'timeline'}><small class="mono dead-event-id">Request ID · <span class="mono">{result().request_id}</span></small></Show></div><button class="ghost" onClick={() => setTimeline(null)}>Close</button></div><For each={result().events}>{event => <div class="warning-card"><div class="dead-event-title"><span class="badge tone-muted mono-badge">{event.source}</span><span class="badge tone-muted">{event.kind}</span></div><p>{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'}</p></div>}</For></div>}</Show>
-    </Suspense>
   </section>
 }

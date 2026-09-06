@@ -1,7 +1,7 @@
-import { For, Show, createResource, createSignal } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage, formatTimestamp } from '../lib/format'
-import { refreshTick } from '../lib/refresh'
 import { toast } from '../lib/toast'
 import { Dialog } from './Dialog'
 import { EmptyState } from './EmptyState'
@@ -44,16 +44,23 @@ export function QueueInspectorPanel(props: { slug: string }) {
   const [status, setStatus] = createSignal<string>('dead')
   const [busy, setBusy] = createSignal<string | null>(null)
   const [detail, setDetail] = createSignal<DeliveryDetails | null>(null)
-  const [localRefresh, setLocalRefresh] = createSignal(0)
 
-  const source = () => ({ tab: tab(), status: status(), tick: refreshTick() + localRefresh(), slug: props.slug })
-
-  const [items, { refetch }] = createResource(source, async (key) => {
-    const params = { limit: 50, status: key.status || undefined }
-    return key.tab === 'outbox'
-      ? await api.listOutbox(key.slug, params) as (OutboxItem | DeliveryItem)[]
-      : await api.listDeliveries(key.slug, params) as (OutboxItem | DeliveryItem)[]
-  })
+  // useQuery (not createResource) so that tab/status changes show skeletons
+  // in place instead of throwing to the parent <Suspense> and replacing the
+  // whole page. TanStack Query keeps previous data during auto-refresh
+  // (triggerRefresh → invalidateQueries) and only resets on query-key change
+  // (tab/status swap), which is exactly when we want skeletons.
+  const model = useQuery(() => ({
+    queryKey: ['queue-inspector', props.slug, tab(), status()],
+    queryFn: async () => {
+      const params = { limit: 50, status: status() || undefined }
+      return tab() === 'outbox'
+        ? await api.listOutbox(props.slug, params) as (OutboxItem | DeliveryItem)[]
+        : await api.listDeliveries(props.slug, params) as (OutboxItem | DeliveryItem)[]
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
   const isDelivery = (item: OutboxItem | DeliveryItem): item is DeliveryItem =>
     'endpoint_name' in item
@@ -65,8 +72,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
         ? await api.retryDelivery(props.slug, item.id)
         : await api.retryOutbox(props.slug, item.id)
       toast.success(result.status === 'queued' ? 'Queued for another attempt.' : `Retry: ${result.status}`)
-      setLocalRefresh(v => v + 1)
-      await refetch()
+      await model.refetch()
     } catch (error) {
       toast.error(errorMessage(error, 'Retry failed'))
     } finally {
@@ -108,13 +114,16 @@ export function QueueInspectorPanel(props: { slug: string }) {
       </label>
     </div>
 
-    <Show when={items.error}>
-      <div class="error-card" role="alert">{errorMessage(items.error, 'The queue could not be read')}</div>
+    <Show when={model.error}>
+      <div class="error-card" role="alert">{errorMessage(model.error, 'The queue could not be read')}</div>
     </Show>
 
-    <Show when={items.loading && !items()}><SkeletonRows count={3} /></Show>
+    {/* Skeletons in place — isPending is true on first load and on tab/status
+        change (new query key). During auto-refresh, isPending is false and
+        previous data stays visible. No Suspense involvement, no scroll jump. */}
+    <Show when={model.isPending}><SkeletonRows count={3} /></Show>
 
-    <Show when={items()}>{rows => (
+    <Show when={model.data}>{rows => (
       <Show
         when={rows().length > 0}
         fallback={<EmptyState

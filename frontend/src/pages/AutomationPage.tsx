@@ -1,4 +1,4 @@
-import { For, Show, Suspense, createSignal, createMemo } from 'solid-js'
+import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
@@ -97,7 +97,6 @@ export function AutomationPage() {
       </div>
     </div>
 
-    <Suspense fallback={<SkeletonRows count={5} />}>
     <Show when={showConfigs()}>
       <div class="section-title"><div><span class="eyebrow">AUTOMATION</span><h2><SectionIcon name="workflow" />Workflow routing</h2><p>One row per n8n workflow, deciding what its events do when they arrive. <strong>Category</strong> sorts the event — only <em>real work</em> is worth waking someone for. <strong>Discord</strong> forwards it to the crew channel. <strong>Muted</strong> keeps the events recorded but stops them counting as new. Changes save as you make them.</p></div></div>
       <Show when={configs.error}><div class="error-card">{configs.error?.message}</div></Show>
@@ -220,6 +219,5 @@ export function AutomationPage() {
         </div>
       </Show>
     </Show>
-    </Suspense>
   </section>
 }

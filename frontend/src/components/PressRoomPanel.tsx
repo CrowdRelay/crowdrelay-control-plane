@@ -1,6 +1,7 @@
-import { For, Show, createResource, createSignal } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { refreshTick, triggerRefresh } from '../lib/refresh'
+import { triggerRefresh } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import type { BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse } from '../lib/types'
 import { EmptyState } from './EmptyState'
@@ -30,39 +31,57 @@ export function PressRoomPanel(props: { slug: string }) {
   const [error, setError] = createSignal<string | null>(null)
   const [resolving, setResolving] = createSignal<string | null>(null)
   const [replying, setReplying] = createSignal<string | null>(null)
-  const refreshSource = () => refreshTick()
+  const requests = useQuery(() => ({
+    queryKey: ['press-requests', props.slug],
+    queryFn: async () => {
+      try {
+        return await api.beaconPressRequests(props.slug)
+      } catch {
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
-  const [requests] = createResource(refreshSource, async () => {
-    try {
-      return await api.beaconPressRequests(props.slug)
-    } catch {
-      return null
-    }
-  })
+  const assets = useQuery(() => ({
+    queryKey: ['press-assets', props.slug],
+    queryFn: async () => {
+      try {
+        return await api.beaconPressAssets(props.slug)
+      } catch {
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
-  const [assets] = createResource(refreshSource, async () => {
-    try {
-      return await api.beaconPressAssets(props.slug)
-    } catch {
-      return null
-    }
-  })
+  const engagements = useQuery(() => ({
+    queryKey: ['press-engagements', props.slug],
+    queryFn: async () => {
+      try {
+        return await api.beaconSignalEngagements(props.slug)
+      } catch {
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
-  const [engagements] = createResource(refreshSource, async () => {
-    try {
-      return await api.beaconSignalEngagements(props.slug)
-    } catch {
-      return null
-    }
-  })
-
-  const [coverage] = createResource(refreshSource, async () => {
-    try {
-      return await api.beaconCoverage(props.slug)
-    } catch {
-      return null
-    }
-  })
+  const coverage = useQuery(() => ({
+    queryKey: ['press-coverage', props.slug],
+    queryFn: async () => {
+      try {
+        return await api.beaconCoverage(props.slug)
+      } catch {
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
   const recordReply = async (beaconId: string, eventId: string, disposition: string) => {
     setReplying(`${beaconId}:${eventId}`)
@@ -99,16 +118,16 @@ export function PressRoomPanel(props: { slug: string }) {
       <h3>Press room</h3>
       <div class="tab-group">
         <button classList={{ tab: true, active: tab() === 'requests' }} onClick={() => setTab('requests')}>
-          Requests ({requests()?.requests.length ?? 0})
+          Requests ({requests.data?.requests.length ?? 0})
         </button>
         <button classList={{ tab: true, active: tab() === 'assets' }} onClick={() => setTab('assets')}>
-          Assets ({assets()?.assets.length ?? 0})
+          Assets ({assets.data?.assets.length ?? 0})
         </button>
         <button classList={{ tab: true, active: tab() === 'engagements' }} onClick={() => setTab('engagements')}>
-          Engagements ({engagements()?.engagements.length ?? 0})
+          Engagements ({engagements.data?.engagements.length ?? 0})
         </button>
         <button classList={{ tab: true, active: tab() === 'coverage' }} onClick={() => setTab('coverage')}>
-          Coverage ({coverage()?.coverage.length ?? 0})
+          Coverage ({coverage.data?.coverage.length ?? 0})
         </button>
       </div>
     </div>
@@ -119,8 +138,8 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'requests'}>
-      <Show when={requests()} fallback={<SkeletonBlock height="100px" radius="10px" />}>
-        <Show when={requests()!.requests.length > 0} fallback={<EmptyState label="No press requests" hint="Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches." />}>
+      <Show when={requests.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
+        <Show when={requests.data!.requests.length > 0} fallback={<EmptyState label="No press requests" hint="Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -134,7 +153,7 @@ export function PressRoomPanel(props: { slug: string }) {
                 </tr>
               </thead>
               <tbody>
-                <For each={requests()!.requests}>{(r) => (
+                <For each={requests.data!.requests}>{(r) => (
                   <tr>
                     <td><strong>{r.displayName}</strong><br /><span class="muted">{r.beaconKind}</span></td>
                     <td>{r.requestKind}</td>
@@ -160,8 +179,8 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'assets'}>
-      <Show when={assets()} fallback={<SkeletonBlock height="100px" radius="10px" />}>
-        <Show when={assets()!.assets.length > 0} fallback={<EmptyState label="No press assets" hint="Press assets are media materials (photos, bios, EPKs) available for outreach. Upload them through the tenant content pipeline." />}>
+      <Show when={assets.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
+        <Show when={assets.data!.assets.length > 0} fallback={<EmptyState label="No press assets" hint="Press assets are media materials (photos, bios, EPKs) available for outreach. Upload them through the tenant content pipeline." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -175,7 +194,7 @@ export function PressRoomPanel(props: { slug: string }) {
                 </tr>
               </thead>
               <tbody>
-                <For each={assets()!.assets}>{(a) => (
+                <For each={assets.data!.assets}>{(a) => (
                   <tr>
                     <td><strong>{a.labelEn}</strong><br /><span class="muted">{a.labelPl}</span></td>
                     <td>{a.assetKind}</td>
@@ -193,8 +212,8 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'engagements'}>
-      <Show when={engagements()} fallback={<SkeletonBlock height="100px" radius="10px" />}>
-        <Show when={engagements()!.engagements.length > 0} fallback={<EmptyState label="No event engagements" hint="Event engagements track press interactions for specific shows and releases." />}>
+      <Show when={engagements.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
+        <Show when={engagements.data!.engagements.length > 0} fallback={<EmptyState label="No event engagements" hint="Event engagements track press interactions for specific shows and releases." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -210,7 +229,7 @@ export function PressRoomPanel(props: { slug: string }) {
                 </tr>
               </thead>
               <tbody>
-                <For each={engagements()!.engagements}>{(e) => (
+                <For each={engagements.data!.engagements}>{(e) => (
                   <tr>
                     <td><strong>{e.displayName}</strong><br /><span class="muted">{e.beaconKind}</span></td>
                     <td>{e.eventTitle}</td>
@@ -252,8 +271,8 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'coverage'}>
-      <Show when={coverage()} fallback={<SkeletonBlock height="100px" radius="10px" />}>
-        <Show when={coverage()!.coverage.length > 0} fallback={<EmptyState label="No earned media coverage" hint="Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage." />}>
+      <Show when={coverage.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
+        <Show when={coverage.data!.coverage.length > 0} fallback={<EmptyState label="No earned media coverage" hint="Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -267,7 +286,7 @@ export function PressRoomPanel(props: { slug: string }) {
                 </tr>
               </thead>
               <tbody>
-                <For each={coverage()!.coverage}>{(c) => (
+                <For each={coverage.data!.coverage}>{(c) => (
                   <tr>
                     <td><strong>{c.displayName}</strong></td>
                     <td>{c.eventTitle}</td>

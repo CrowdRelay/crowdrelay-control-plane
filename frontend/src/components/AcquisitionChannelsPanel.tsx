@@ -1,7 +1,6 @@
 import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { refreshTick } from '../lib/refresh'
 import { SectionIcon } from './SectionIcon'
 import { EmptyState } from './EmptyState'
 import { SkeletonSection } from './Skeleton'
@@ -28,7 +27,7 @@ const channelDetail = (channel: ChannelPerformance) => {
 
 export function AcquisitionChannelsPanel(props: { slug: string }) {
   const model = useQuery(() => ({
-    queryKey: ['acquisition-channels', props.slug, refreshTick()],
+    queryKey: ['acquisition-channels', props.slug],
     queryFn: () => api.acquisitionChannels(props.slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,

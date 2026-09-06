@@ -268,6 +268,24 @@ a.kpi-card:hover{border-color:var(--border-accent)}
 .kpi-card.kpi-warn{border-color:rgba(245,185,66,0.25);box-shadow:var(--shadow-md)}.kpi-card.kpi-warn .kpi-value{color:var(--warn-light)}
 .kpi-card.kpi-bad{border-color:rgba(255,101,101,0.25);box-shadow:var(--shadow-md)}.kpi-card.kpi-bad .kpi-value{color:var(--bad-light)}
 
+/* Command center — five operator blocks, each a drill-down link */
+.command-center-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:32px}
+.command-block{border:1px solid var(--border-default);border-radius:var(--radius-lg);background:var(--surface-2);box-shadow:var(--shadow-md);padding:20px;display:flex;flex-direction:column;gap:14px;color:inherit;text-decoration:none;transition:border-color var(--t-smooth),box-shadow var(--t-smooth),transform var(--t-smooth)}
+.command-block:hover{border-color:var(--border-accent);box-shadow:0 4px 16px #00000050;transform:translateY(-1px)}
+.command-block-warn{border-color:rgba(245,185,66,0.3)}
+.command-block-active{border-color:rgba(99,179,237,0.3)}
+.command-block-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.command-block-unavailable{font-size:var(--text-sm);color:var(--muted)}
+.command-block-body{display:flex;flex-direction:column;gap:8px}
+.command-block-metric{display:flex;align-items:baseline;gap:8px}
+.command-block-metric .kpi-value{font-size:2rem;font-weight:700;line-height:1}
+.command-block-label{font-size:var(--text-sm);color:var(--muted)}
+.command-block-detail{display:flex;flex-direction:column;gap:3px;font-size:var(--text-sm);color:var(--text-secondary)}
+.command-block-good{color:var(--good-light)}
+.command-block-critical{color:var(--bad-light)}
+@media(max-width:768px){.command-center-grid{grid-template-columns:1fr}}
+@media(min-width:769px) and (max-width:1100px){.command-center-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 /* Service cards — compact health tiles */
 .service-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-bottom:32px}
 .service-card{padding:16px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-2);transition:border-color var(--t-smooth),box-shadow var(--t-smooth)}
@@ -549,7 +567,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .premium-hero-right{justify-content:space-around;gap:1rem;width:100%}
   .premium-stat{min-width:50px}
   .premium-stat-value{font-size:1.1rem}
-  .premium-connector-grid{grid-template-columns:1fr}
 }
 
 /* Error banner */
@@ -574,6 +591,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 /* Connector grid */
 .premium-connector-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.75rem}
+/* Mobile override must come AFTER the base rule — equal-specificity selectors
+   resolve by source order, and a media query adds no specificity. Placing the
+   1fr collapse above the minmax(300px) base let the 300px floor win at 320px,
+   overflowing the panel by ~15px on iphone-se. */
+@media (max-width:640px){
+  .premium-connector-grid{grid-template-columns:1fr}
+}
 .premium-connector-card{display:flex;flex-direction:column;gap:.5rem;border-radius:var(--radius-md);padding:1rem;transition:border-color var(--t-smooth),box-shadow var(--t-smooth),transform var(--t-smooth);min-height:280px}
 .premium-connector-card:hover{border-color:rgba(155,135,245,0.3);box-shadow:0 4px 12px rgba(0,0,0,0.25);transform:translateY(-2px)}
 .premium-connector-card.connected:hover{border-color:rgba(61,220,132,0.4);box-shadow:0 4px 12px rgba(0,0,0,0.25),0 0 0 1px rgba(61,220,132,0.15)}

@@ -1,5 +1,4 @@
-import { For, Show, Suspense, createSignal, type Component, type JSX } from 'solid-js'
-import { SkeletonTabContent } from './Skeleton'
+import { For, Show, createSignal, type Component, type JSX } from 'solid-js'
 
 export type Tab = {
   id: string
@@ -49,9 +48,7 @@ export function TabPanel(props: {
       class="page-tab-content"
       classList={{ 'tab-hidden': props.active !== props.id }}
     >
-      <Suspense fallback={<SkeletonTabContent />}>
-        {props.children}
-      </Suspense>
+      {props.children}
     </div>
   </Show>
 }

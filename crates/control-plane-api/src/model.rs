@@ -116,6 +116,19 @@ impl RuntimeHealth {
             _ => Self::Unknown,
         }
     }
+
+    /// Lowercase wire form, matching the `#[serde(rename_all = "lowercase")]`
+    /// serialization. The command-center global read model uses this to emit
+    /// health as a string field alongside the typed enum, so the browser can
+    /// render a single health badge without mirroring the enum vocabulary.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Healthy => "healthy",
+            Self::Degraded => "degraded",
+            Self::Stale => "stale",
+            Self::Unknown => "unknown",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]

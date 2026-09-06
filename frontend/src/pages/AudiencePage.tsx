@@ -1,4 +1,4 @@
-import { For, Show, Suspense } from 'solid-js'
+import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -49,7 +49,6 @@ export function AudiencePage() {
       <SectionFailureCard error={model.error} fallback="Audience channel unavailable" />
     </Show>
     <Show when={!model.error && model.isPending}><SkeletonPageHead /><SkeletonSection titleWidth="160px" lines={4} minHeight="140px" /><SkeletonSection titleWidth="200px" lines={6} minHeight="200px" /><SkeletonSection titleWidth="140px" lines={3} minHeight="120px" /></Show>
-    <Suspense fallback={<><SkeletonPageHead /><SkeletonSection titleWidth="160px" lines={4} minHeight="140px" /><SkeletonSection titleWidth="200px" lines={6} minHeight="200px" /><SkeletonSection titleWidth="140px" lines={3} minHeight="120px" /></>}>
     <Show when={model.data} keyed>{(data) => <>
       <DegradedSections degraded={data.degraded} />
       <Show when={!data.degraded.includes('overview')}>
@@ -62,6 +61,5 @@ export function AudiencePage() {
         <SegmentPanel slug={params().slug} segments={data.segments ?? []} />
       </Show>
     </>}</Show>
-    </Suspense>
   </section>
 }

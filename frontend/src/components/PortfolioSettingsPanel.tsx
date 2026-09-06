@@ -1,5 +1,5 @@
-import { For, Show, createMemo, createResource, createSignal } from 'solid-js'
-import { useMutation } from '@tanstack/solid-query'
+import { For, Show, createMemo, createSignal } from 'solid-js'
+import { useMutation, useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { PortfolioSettingsReadModel } from '../lib/types'
 import { SectionIcon } from './SectionIcon'
@@ -63,7 +63,12 @@ export function PortfolioSettingsPanel(props: {
 
   // The north star vocabulary lives in the Rust domain, so the picker asks the
   // server for it rather than shipping a second copy that can drift.
-  const [goals] = createResource(() => props.slug, api.northStarOptions)
+  const goals = useQuery(() => ({
+    queryKey: ['portfolio-goals', props.slug],
+    queryFn: () => api.northStarOptions(props.slug),
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
   const keys = createMemo(() => props.model?.editable_keys ?? [])
   const dirty = (key: string) =>
@@ -108,7 +113,7 @@ export function PortfolioSettingsPanel(props: {
             when={BOOLEAN_KEYS.has(key)}
             fallback={
               <Show
-                when={key === 'north_star_metric' && (goals()?.options.length ?? 0) > 0}
+                when={key === 'north_star_metric' && (goals.data?.options.length ?? 0) > 0}
                 fallback={
                   <input
                     value={drafts()[key] ?? props.model?.settings[key] ?? ''}
@@ -121,7 +126,7 @@ export function PortfolioSettingsPanel(props: {
                   value={drafts()[key] ?? props.model?.settings[key] ?? ''}
                   onChange={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
                 >
-                  <For each={goals()!.options}>{option =>
+                  <For each={goals.data!.options}>{option =>
                     <option value={option.value}>{option.label}</option>
                   }</For>
                 </select>

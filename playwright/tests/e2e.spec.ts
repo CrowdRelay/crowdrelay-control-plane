@@ -266,4 +266,32 @@ test.describe('Control Plane E2E @e2e', () => {
     expect(sweepCollectors.networkFailures.length).toBe(0)
     expect(sweepCollectors.apiErrors.length).toBe(0)
   })
+
+  // Command center — the overview page must show the five operator blocks
+  // with drill-down links, not just the old KPI strip.
+  test('Command center renders five blocks with drill-downs @e2e', async ({ page }) => {
+    // The Shell redirects from / to /tenants/virya once per session after
+    // login. Ensure the redirect flag is set so / renders the OverviewPage.
+    await page.addInitScript(() => sessionStorage.setItem('cp-default-tenant', '1'))
+    await page.goto('/')
+    await page.waitForLoadState('networkidle', { timeout: 15000 })
+
+    // The five command blocks should be present. Match by eyebrow label
+    // (the first child of .command-block-head) to avoid text overlap between
+    // blocks (e.g. SYSTEM contains a drill-down link to /attention).
+    const blockEyebrows = ['ATTENTION', 'AUTOPILOT TODAY', 'OUTCOMES', 'SYSTEM', 'LEARNING']
+    for (const label of blockEyebrows) {
+      const block = page.locator('.command-block').filter({
+        has: page.locator('.eyebrow', { hasText: label }),
+      })
+      await expect(block).toBeVisible({ timeout: 10_000 })
+      // Each block is a link (drill-down)
+      const tagName = await block.evaluate((el) => el.tagName.toLowerCase())
+      expect(tagName).toBe('a')
+    }
+
+    // No red blocks (error-card) should be visible on the overview
+    const errorCards = await page.locator('.error-card').count()
+    expect(errorCards).toBe(0)
+  })
 })

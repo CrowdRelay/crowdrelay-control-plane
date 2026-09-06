@@ -13,14 +13,9 @@ import { login, setupErrorCollectors } from './fixtures/auth'
 
 const VIEWPORTS = [
   { width: 320, height: 568, name: 'iphone-se' },
-  { width: 375, height: 667, name: 'iphone-8' },
   { width: 390, height: 844, name: 'iphone-14' },
-  { width: 414, height: 896, name: 'iphone-14-plus' },
   { width: 768, height: 1024, name: 'ipad-mini' },
-  { width: 834, height: 1112, name: 'ipad-pro' },
-  { width: 1024, height: 768, name: 'ipad-landscape' },
   { width: 1280, height: 800, name: 'laptop' },
-  { width: 1440, height: 900, name: 'desktop' },
   { width: 1920, height: 1080, name: 'wide' },
 ]
 

@@ -1,5 +1,5 @@
-import { For, Show, createSignal, createMemo, createResource } from 'solid-js'
-import { useMutation, useQueryClient } from '@tanstack/solid-query'
+import { For, Show, createSignal, createMemo } from 'solid-js'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { FanbaseBlock, FanbaseConnection } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
@@ -183,21 +183,26 @@ export function FanSourcesPanel(props: {
   const blocks = () => props.fanbases ?? []
 
   // --- Fanbase OAuth connections ---
-  const [connections, { refetch: refetchConnections }] = createResource(async () => {
-    try {
-      const data = await api.fanbaseConnections(props.slug)
-      return data.connections
-    } catch {
-      return null
-    }
-  })
+  const connections = useQuery(() => ({
+    queryKey: ['fan-sources-connections', props.slug],
+    queryFn: async () => {
+      try {
+        const data = await api.fanbaseConnections(props.slug)
+        return data.connections
+      } catch {
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
   const disconnectConnection = async (id: string) => {
     setErrorText(null)
     setNotice(null)
     try {
       await api.deleteFanbaseConnection(props.slug, id)
-      refetchConnections()
+      connections.refetch()
     } catch (err) {
       setErrorText(err instanceof Error ? err.message : 'Disconnect failed')
     }
@@ -207,7 +212,7 @@ export function FanSourcesPanel(props: {
     mutationFn: () => api.createDiscordConnection(props.slug, discordInviteCode().trim()),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
-      refetchConnections()
+      connections.refetch()
       setConnectingPlatform(null)
       setDiscordInviteCode('')
       setErrorText(null)
@@ -220,7 +225,7 @@ export function FanSourcesPanel(props: {
     mutationFn: () => api.createTelegramConnection(props.slug, telegramChannel().trim(), telegramBotToken().trim()),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
-      refetchConnections()
+      connections.refetch()
       setConnectingPlatform(null)
       setTelegramChannel('')
       setTelegramBotToken('')
@@ -234,7 +239,7 @@ export function FanSourcesPanel(props: {
     mutationFn: () => api.createLastfmConnection(props.slug, lastfmArtist().trim()),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
-      refetchConnections()
+      connections.refetch()
       setConnectingPlatform(null)
       setLastfmArtist('')
       setErrorText(null)
@@ -247,7 +252,7 @@ export function FanSourcesPanel(props: {
     mutationFn: () => api.createDeezerConnection(props.slug, deezerArtistId().trim()),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
-      refetchConnections()
+      connections.refetch()
       setConnectingPlatform(null)
       setDeezerArtistId('')
       setErrorText(null)
@@ -260,7 +265,7 @@ export function FanSourcesPanel(props: {
     mutationFn: () => api.createDiscogsConnection(props.slug, discogsArtistId().trim()),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
-      refetchConnections()
+      connections.refetch()
       setConnectingPlatform(null)
       setDiscogsArtistId('')
       setErrorText(null)
@@ -273,7 +278,7 @@ export function FanSourcesPanel(props: {
     mutationFn: () => api.createBlueskyConnection(props.slug, blueskyHandle().trim()),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
-      refetchConnections()
+      connections.refetch()
       setConnectingPlatform(null)
       setBlueskyHandle('')
       setErrorText(null)
@@ -286,7 +291,7 @@ export function FanSourcesPanel(props: {
     mutationFn: () => api.createBandcampConnection(props.slug, bandcampSubdomain().trim()),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
-      refetchConnections()
+      connections.refetch()
       setConnectingPlatform(null)
       setBandcampSubdomain('')
       setErrorText(null)
@@ -299,7 +304,7 @@ export function FanSourcesPanel(props: {
     mutationFn: () => api.createYoutubeConnection(props.slug, youtubeChannelId().trim()),
     onSuccess: async (result: { verification?: string; displayName?: string; reason?: string; status?: string }) => {
       await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
-      refetchConnections()
+      connections.refetch()
       setConnectingPlatform(null)
       setYoutubeChannelId('')
       setErrorText(null)
@@ -313,7 +318,7 @@ export function FanSourcesPanel(props: {
     mutationFn: () => api.createFacebookConnection(props.slug, facebookPageId().trim()),
     onSuccess: async (result: { verification?: string; displayName?: string; reason?: string; status?: string }) => {
       await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
-      refetchConnections()
+      connections.refetch()
       setConnectingPlatform(null)
       setFacebookPageId('')
       setErrorText(null)
@@ -327,7 +332,7 @@ export function FanSourcesPanel(props: {
     mutationFn: () => api.createInstagramConnection(props.slug, instagramIgUserId().trim()),
     onSuccess: async (result: { verification?: string; displayName?: string; reason?: string; status?: string }) => {
       await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
-      refetchConnections()
+      connections.refetch()
       setConnectingPlatform(null)
       setInstagramIgUserId('')
       setErrorText(null)
@@ -341,7 +346,7 @@ export function FanSourcesPanel(props: {
     mutationFn: () => api.createSoundcloudConnection(props.slug, soundcloudPermalink().trim()),
     onSuccess: async (result: { verification?: string; displayName?: string; reason?: string; status?: string }) => {
       await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
-      refetchConnections()
+      connections.refetch()
       setConnectingPlatform(null)
       setSoundcloudPermalink('')
       setErrorText(null)
@@ -355,7 +360,7 @@ export function FanSourcesPanel(props: {
     mutationFn: () => api.createRedditConnection(props.slug, redditSubreddit().trim()),
     onSuccess: async (result: { verification?: string; displayName?: string; reason?: string; status?: string }) => {
       await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
-      refetchConnections()
+      connections.refetch()
       setConnectingPlatform(null)
       setRedditSubreddit('')
       setErrorText(null)
@@ -398,18 +403,18 @@ export function FanSourcesPanel(props: {
     <div class="agent-section">
       <div class="agent-section-head">
         <h3>Platform connections</h3>
-        <Show when={connections() && connections()!.length > 0}>
+        <Show when={connections.data && connections.data!.length > 0}>
           <span class="agent-connection-summary">
             <span class="agent-connection-dot ok" />
-            {connections()!.length} connected
+            {connections.data!.length} connected
           </span>
         </Show>
       </div>
       <p class="agent-section-intro">Connected ad and music platforms. Disconnect to revoke access.</p>
-      <Show when={!connections.loading} fallback={<SkeletonRows count={3} />}>
+      <Show when={!connections.isFetching} fallback={<SkeletonRows count={3} />}>
       <div class="agent-providers">
         <For each={OAUTH_PLATFORMS}>{(plat) => {
-          const conn = () => connections()?.find(c => c.platform === plat.value)
+          const conn = () => connections.data?.find(c => c.platform === plat.value)
           return (
             <div class="fanbase-connection-card" classList={{ connected: !!conn() }}>
               <div class="agent-provider-logo">
@@ -774,7 +779,7 @@ export function FanSourcesPanel(props: {
     </Show>
     <Show when={!blocks().length}>
       <div class="inherit-card portfolio-empty">
-        <p><strong>No fanbases created yet.</strong> {connections()?.length ? 'Your platform connections are ready — create a fanbase to start ingesting candidates from them.' : 'Connect a platform above or create a fanbase with a manual source to start collecting candidates.'}</p>
+        <p><strong>No fanbases created yet.</strong> {connections.data?.length ? 'Your platform connections are ready — create a fanbase to start ingesting candidates from them.' : 'Connect a platform above or create a fanbase with a manual source to start collecting candidates.'}</p>
         <p>Each fanbase is an audience block with a swappable acquisition origin. Every ingest lands candidates as pending double opt-in.</p>
       </div>
     </Show>

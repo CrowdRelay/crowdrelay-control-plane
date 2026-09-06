@@ -1,4 +1,5 @@
-import { Show, createSignal, For, createResource, createMemo } from 'solid-js'
+import { Show, createSignal, For, createMemo } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import type { OpportunityBoardEntry, DecisionEvidence } from '../lib/types'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
@@ -169,14 +170,20 @@ export function BrainDecisionPanel(props: {
   // and forcing the user to click through confirmation a second time.
   const [actedOn, setActedOn] = createSignal<Set<string>>(new Set())
 
-  const [evidence] = createResource(showEvidence, async (show) => {
-    if (!show || !props.opportunity?.decision_id) return null
-    try {
-      return await api.decisionEvidence(props.slug, props.opportunity.decision_id)
-    } catch {
-      return null
-    }
-  })
+  const evidence = useQuery(() => ({
+    queryKey: ['decision-evidence', props.slug, props.opportunity?.decision_id, showEvidence()],
+    queryFn: async () => {
+      if (!showEvidence() || !props.opportunity?.decision_id) return null
+      try {
+        return await api.decisionEvidence(props.slug, props.opportunity.decision_id)
+      } catch {
+        return null
+      }
+    },
+    enabled: showEvidence() && props.opportunity?.decision_id != null,
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+  }))
 
   const entry = () => props.opportunity
   const hasDecision = () => entry() != null
@@ -340,16 +347,16 @@ export function BrainDecisionPanel(props: {
 
         <Show when={showEvidence()}>
           <>
-            <Show when={evidence.loading}>
+            <Show when={evidence.isFetching}>
               <SkeletonRows count={3} />
             </Show>
-            <Show when={!evidence.loading && evidence() === null}>
+            <Show when={!evidence.isFetching && evidence.data === null}>
               <div class="warning-card" role="status">
                 Evidence not available for this decision. The decision row may
                 predate the evidence endpoint, or the channel is temporarily unavailable.
               </div>
             </Show>
-            <Show when={evidence()} keyed>{(data) => renderEvidenceDetail(data as DecisionEvidence)}</Show>
+            <Show when={evidence.data} keyed>{(data) => renderEvidenceDetail(data as DecisionEvidence)}</Show>
           </>
         </Show>
 

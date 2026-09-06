@@ -1,7 +1,8 @@
-import { For, Show, createResource, createSignal } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
-import { refreshTick, triggerRefresh } from '../lib/refresh'
+import { triggerRefresh } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonRows } from './Skeleton'
 import { EmptyState } from './EmptyState'
@@ -44,20 +45,23 @@ export function IntelligenceTransparencyPanel(props: { slug: string }) {
   const [expanded, setExpanded] = createSignal<string | null>(null)
   const [days, setDays] = createSignal(30)
 
-  const refreshSource = () => refreshTick() + days()
+  const data = useQuery(() => ({
+    queryKey: ['intelligence-transparency', props.slug, days()],
+    queryFn: async () => {
+      try {
+        setError(null)
+        return await api.intelligenceDecisions(props.slug, 30, days())
+      } catch (err) {
+        setError(errorMessage(err, 'Failed to load intelligence decisions'))
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
-  const [data] = createResource(refreshSource, async () => {
-    try {
-      setError(null)
-      return await api.intelligenceDecisions(props.slug, 30, days())
-    } catch (err) {
-      setError(errorMessage(err, 'Failed to load intelligence decisions'))
-      return null
-    }
-  })
-
-  const summary = () => data()?.summary
-  const decisions = () => data()?.decisions ?? []
+  const summary = () => data.data?.summary
+  const decisions = () => data.data?.decisions ?? []
 
   const toggleExpand = (id: string) => {
     setExpanded((curr) => (curr === id ? null : id))
@@ -127,9 +131,9 @@ export function IntelligenceTransparencyPanel(props: { slug: string }) {
       </div>
       <p class="agent-section-intro">The intelligence's decision log. Each entry shows what the intelligence decided to research, why (rationale), which workers it dispatched, and what they found. The intelligence is deterministic Rust — it never follows an LLM blindly.</p>
 
-      <Show when={data() && decisions().length === 0} fallback={
+      <Show when={data.data && decisions().length === 0} fallback={
         <Show when={error()} fallback={
-          <Show when={data()} fallback={
+          <Show when={data.data} fallback={
             <div class="intel-decision-list">
               {Array.from({ length: 3 }, () => (
                 <div class="intel-decision-card" style={{ opacity: '0.8' }}>

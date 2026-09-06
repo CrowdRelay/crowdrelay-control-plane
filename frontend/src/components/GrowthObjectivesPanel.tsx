@@ -1,6 +1,7 @@
-import { For, Show, createResource, createSignal } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { refreshTick, triggerRefresh } from '../lib/refresh'
+import { triggerRefresh } from '../lib/refresh'
 import { errorMessage } from '../lib/format'
 import { compactNumber } from '../lib/charts'
 import { EmptyState } from './EmptyState'
@@ -51,16 +52,19 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
   const [error, setError] = createSignal<string | null>(null)
   const [retiring, setRetiring] = createSignal<string | null>(null)
 
-  const refreshSource = () => refreshTick()
-
-  const [objectives] = createResource(refreshSource, async () => {
-    try {
-      const data = await api.growthObjectives(props.slug)
-      return data.objectives
-    } catch {
-      return null
-    }
-  })
+  const objectives = useQuery(() => ({
+    queryKey: ['growth-objectives', props.slug],
+    queryFn: async () => {
+      try {
+        const data = await api.growthObjectives(props.slug)
+        return data.objectives
+      } catch {
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
   const retireObjective = async (objective: GrowthObjectiveView) => {
     setRetiring(objective.objective_id)
@@ -78,8 +82,8 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
   return <div class="agent-section">
     <div class="agent-section-head">
       <h3>Growth objectives</h3>
-      <Show when={objectives() && objectives()!.length > 0}>
-        <span class="muted">{objectives()!.length} objectives</span>
+      <Show when={objectives.data && objectives.data!.length > 0}>
+        <span class="muted">{objectives.data!.length} objectives</span>
       </Show>
     </div>
     <p class="agent-section-intro">Declared growth targets with progress tracking. Each objective freezes a baseline and measures progress toward the target value by the deadline.</p>
@@ -88,15 +92,15 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
       <div class="error-card">{error()}</div>
     </Show>
 
-    <Show when={objectives() && objectives()!.length > 0} fallback={
-      <Show when={objectives.loading} fallback={
+    <Show when={objectives.data && objectives.data!.length > 0} fallback={
+      <Show when={objectives.isFetching} fallback={
         <EmptyState label="No growth objectives declared" hint="Declare a target metric and deadline to start tracking progress. The intelligence measures every action against active objectives." />
       }>
         <SkeletonRows count={3} />
       </Show>
     }>
       <div class="objective-list">
-        <For each={objectives()}>{(obj: GrowthObjectiveView) => {
+        <For each={objectives.data}>{(obj: GrowthObjectiveView) => {
           const observed = obj.observed_value ?? obj.baseline_value
           const pct = stateProgress(obj.state)
           const overTarget = observed > obj.target_value

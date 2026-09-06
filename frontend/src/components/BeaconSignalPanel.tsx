@@ -1,6 +1,6 @@
-import { For, Show, createResource } from 'solid-js'
+import { For, Show } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { refreshTick } from '../lib/refresh'
 import { formatTimestamp } from '../lib/format'
 import type { BeaconDashboardResponse, BeaconCandidatesResponse, BeaconNetworkResponse } from '../lib/types'
 import { EmptyState } from './EmptyState'
@@ -17,51 +17,64 @@ const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
 }
 
 export function BeaconSignalPanel(props: { slug: string }) {
-  const refreshSource = () => refreshTick()
+  const dashboard = useQuery(() => ({
+    queryKey: ['beacon-signal-dashboard', props.slug],
+    queryFn: async () => {
+      try {
+        return await api.beaconSignalDashboard(props.slug)
+      } catch {
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
-  const [dashboard] = createResource(refreshSource, async () => {
-    try {
-      return await api.beaconSignalDashboard(props.slug)
-    } catch {
-      return null
-    }
-  })
+  const candidates = useQuery(() => ({
+    queryKey: ['beacon-signal-candidates', props.slug],
+    queryFn: async () => {
+      try {
+        return await api.beaconSignalCandidates(props.slug)
+      } catch {
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
-  const [candidates] = createResource(refreshSource, async () => {
-    try {
-      return await api.beaconSignalCandidates(props.slug)
-    } catch {
-      return null
-    }
-  })
-
-  const [network] = createResource(refreshSource, async () => {
-    try {
-      return await api.beaconNetwork(props.slug)
-    } catch {
-      return null
-    }
-  })
+  const network = useQuery(() => ({
+    queryKey: ['beacon-signal-network', props.slug],
+    queryFn: async () => {
+      try {
+        return await api.beaconNetwork(props.slug)
+      } catch {
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
   return <div class="agent-section">
     <div class="agent-section-head">
       <h3>Beacon signal network</h3>
-      <Show when={dashboard()}>
-        <span class="muted">{dashboard()!.total} beacons · {dashboard()!.active} active</span>
+      <Show when={dashboard.data}>
+        <span class="muted">{dashboard.data!.total} beacons · {dashboard.data!.active} active</span>
       </Show>
     </div>
     <p class="agent-section-intro">Press and industry relationships. Beacons are the people the agent is talking to — journalists, promoters, superfans. The network shows discovery runs and invite jobs.</p>
 
-    <Show when={dashboard()} fallback={<SkeletonBlock height="60px" radius="10px" />}>
+    <Show when={dashboard.data} fallback={<SkeletonBlock height="60px" radius="10px" />}>
       <div class="kpi-strip">
-        <div class="kpi"><span class="kpi-value">{dashboard()!.total}</span><span class="kpi-label">Total</span></div>
-        <div class="kpi"><span class="kpi-value">{dashboard()!.active}</span><span class="kpi-label">Active</span></div>
-        <div class="kpi"><span class="kpi-value">{dashboard()!.invited}</span><span class="kpi-label">Invited</span></div>
-        <div class="kpi"><span class="kpi-value">{dashboard()!.paused}</span><span class="kpi-label">Paused</span></div>
-        <div class="kpi"><span class="kpi-value">{dashboard()!.revoked}</span><span class="kpi-label">Revoked</span></div>
+        <div class="kpi"><span class="kpi-value">{dashboard.data!.total}</span><span class="kpi-label">Total</span></div>
+        <div class="kpi"><span class="kpi-value">{dashboard.data!.active}</span><span class="kpi-label">Active</span></div>
+        <div class="kpi"><span class="kpi-value">{dashboard.data!.invited}</span><span class="kpi-label">Invited</span></div>
+        <div class="kpi"><span class="kpi-value">{dashboard.data!.paused}</span><span class="kpi-label">Paused</span></div>
+        <div class="kpi"><span class="kpi-value">{dashboard.data!.revoked}</span><span class="kpi-label">Revoked</span></div>
       </div>
 
-      <Show when={dashboard()!.profiles.length > 0} fallback={<EmptyState label="No beacon profiles" hint="Beacon profiles define how this tenant discovers and invites fans in physical venues." />}>
+      <Show when={dashboard.data!.profiles.length > 0} fallback={<EmptyState label="No beacon profiles" hint="Beacon profiles define how this tenant discovers and invites fans in physical venues." />}>
         <div class="table-wrap">
           <table class="data-table">
             <thead>
@@ -77,7 +90,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
               </tr>
             </thead>
             <tbody>
-              <For each={dashboard()!.profiles}>{(p) => (
+              <For each={dashboard.data!.profiles}>{(p) => (
                 <tr>
                   <td><strong>{p.displayName}</strong>{p.contactEmail ? <><br /><span class="muted">{p.contactEmail}</span></> : null}</td>
                   <td>{p.beaconKind}</td>
@@ -95,8 +108,8 @@ export function BeaconSignalPanel(props: { slug: string }) {
       </Show>
     </Show>
 
-    <Show when={candidates()} fallback={<SkeletonBlock height="120px" radius="10px" />}>
-      <Show when={candidates()!.candidates.length > 0}>
+    <Show when={candidates.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
+      <Show when={candidates.data!.candidates.length > 0}>
         <h4 class="subsection">Candidates</h4>
         <div class="table-wrap">
           <table class="data-table">
@@ -112,7 +125,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
               </tr>
             </thead>
             <tbody>
-              <For each={candidates()!.candidates}>{(c) => (
+              <For each={candidates.data!.candidates}>{(c) => (
                 <tr>
                   <td><strong>{c.displayName}</strong><br /><span class="muted">{c.contactEmail}</span></td>
                   <td>{c.beaconKind}</td>
@@ -129,9 +142,9 @@ export function BeaconSignalPanel(props: { slug: string }) {
       </Show>
     </Show>
 
-    <Show when={network()} fallback={<SkeletonBlock height="120px" radius="10px" />}>
+    <Show when={network.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
       <h4 class="subsection">Network Discovery</h4>
-      <Show when={network()!.discoveryRuns.length > 0} fallback={<EmptyState label="No discovery runs" hint="Discovery runs scan for nearby fans using beacon campaigns. Runs appear here once the intelligence dispatches them." />}>
+      <Show when={network.data!.discoveryRuns.length > 0} fallback={<EmptyState label="No discovery runs" hint="Discovery runs scan for nearby fans using beacon campaigns. Runs appear here once the intelligence dispatches them." />}>
         <div class="table-wrap">
           <table class="data-table">
             <thead>
@@ -145,7 +158,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
               </tr>
             </thead>
             <tbody>
-              <For each={network()!.discoveryRuns}>{(r) => (
+              <For each={network.data!.discoveryRuns}>{(r) => (
                 <tr>
                   <td>{r.countryCode}</td>
                   <td><span class={`badge tone-${r.status === 'completed' ? 'good' : r.status === 'failed' ? 'bad' : 'muted'}`}>{r.status}</span></td>
@@ -160,7 +173,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
         </div>
       </Show>
 
-      <Show when={network()!.inviteJobs.length > 0}>
+      <Show when={network.data!.inviteJobs.length > 0}>
         <h4 class="subsection">Invite Jobs</h4>
         <div class="table-wrap">
           <table class="data-table">
@@ -175,7 +188,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
               </tr>
             </thead>
             <tbody>
-              <For each={network()!.inviteJobs}>{(j) => (
+              <For each={network.data!.inviteJobs}>{(j) => (
                 <tr>
                   <td><span class={`badge tone-${j.status === 'reported' ? 'good' : 'muted'}`}>{j.status}</span></td>
                   <td>{j.beaconCount}</td>

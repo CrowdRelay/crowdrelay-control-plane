@@ -1,9 +1,8 @@
-import { Show, Suspense, createMemo } from 'solid-js'
+import { Show, createMemo } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { ProcessMap } from '../components/ProcessMap'
-import { SkeletonPageHead, SkeletonBlock } from '../components/Skeleton'
 
 export function FlowPage() {
   const tenants = useQuery(() => ({
@@ -38,7 +37,6 @@ export function FlowPage() {
         </div>
       </div>
 
-      <Suspense fallback={<><SkeletonPageHead /><SkeletonBlock height="300px" radius="var(--radius-lg)" /></>}>
       <Show
         when={slug()}
         fallback={<div class="error-card" role="alert">No active tenant — create one on the Tenants tab.</div>}
@@ -53,7 +51,6 @@ export function FlowPage() {
         </div>
         <ProcessMap slug={slug} />
       </Show>
-      </Suspense>
     </section>
   )
 }

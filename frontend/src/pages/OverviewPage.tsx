@@ -1,9 +1,9 @@
-import { For, Match, Show, Switch, Suspense } from 'solid-js'
+import { For, Match, Show, Switch, createMemo } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import type { PlatformHealthEntry, RuntimeHealth, TenantSummary } from '../lib/types'
+import type { CommandCenterReadModel, CommandCenterTenantSummary, PlatformHealthEntry, RuntimeHealth, TenantSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { CountUp } from '../components/CountUp'
 import { ProgressRing } from '../components/ProgressRing'
@@ -21,42 +21,187 @@ const formatLatency = (ms: number | null | undefined) => {
 export function OverviewPage() {
   const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, refetchOnWindowFocus: false, reconcile: 'id' }))
   const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview, refetchOnWindowFocus: false, reconcile: 'id' }))
+  const commandCenter = useQuery(() => ({ queryKey: ['command-center'], queryFn: api.commandCenter, refetchOnWindowFocus: false, staleTime: 10_000 }))
 
   const items = () => tenants.data?.items ?? []
   const count = (health: RuntimeHealth) => items().filter(t => t.runtimeHealth === health).length
   const activeCount = () => items().filter(t => t.status === 'active').length
   const needsAttention = () => count('degraded') + count('stale')
   const suspendedCount = () => items().filter(t => t.status === 'suspended').length
-  // `unknown` is a real fourth state — a tenant that has never reported. It
-  // used to be invisible: a fleet of one unknown tenant read as "0 healthy,
-  // 0 degraded, 0 stale" behind a red 0% ring, which looks like an outage.
   const unknownCount = () => count('unknown')
   const reportingCount = () => items().length - unknownCount()
   const healthyPct = () => {
-    // Percentage of tenants that actually report, so silence dilutes nothing.
     const reporting = reportingCount()
     if (reporting === 0) return 0
     return Math.round((count('healthy') / reporting) * 100)
   }
   const fleetTone = () => reportingCount() === 0 ? 'muted' as const : undefined
   const lastRefresh = () => {
-    const ts = Math.max(tenants.dataUpdatedAt, overview.dataUpdatedAt)
+    const ts = Math.max(tenants.dataUpdatedAt, overview.dataUpdatedAt, commandCenter.dataUpdatedAt)
     if (ts === 0) return null
     return new Date(ts).toLocaleTimeString()
   }
 
+  const cc = (): CommandCenterReadModel | undefined => commandCenter.data
+  const ccTenants = createMemo(() => cc()?.perTenant ?? [])
+
+  // The first tenant with attention needs — the natural drill-down target
+  // for the ATTENTION block when the operator wants to see the detail.
+  const firstNeedsYouTenant = createMemo(() => ccTenants().find(t => t.attention.available && t.attention.needsYou > 0))
+  const firstAutopilotTenant = createMemo(() => ccTenants().find(t => t.autopilot.available && (t.autopilot.queuedActions > 0 || t.autopilot.processingActions > 0)))
+  const firstOutcomesTenant = createMemo(() => ccTenants().find(t => t.outcomes.available && (t.outcomes.unknown > 0 || t.outcomes.waitingForObservation > 0)))
+  const firstLearningTenant = createMemo(() => ccTenants().find(t => t.learning.available && t.learning.totalOutcomes > 0))
+
   return <section class="page">
     <div class="page-head">
       <div>
-        <span class="eyebrow">PLATFORM STATUS</span>
-        <h1>Operations dashboard</h1>
-        <p>Tenant provisioning, runtime health, deployment state and platform audit — separated from band operations.</p>
+        <span class="eyebrow">COMMAND CENTER</span>
+        <h1>Operations command center</h1>
+        <p>The whole ecosystem at a glance — attention, autopilot, outcomes, system and learning signal across all tenants. Each block drills into the page that owns the detail.</p>
       </div>
       <Show when={lastRefresh()}><span class="muted page-head-meta">Last refresh {lastRefresh()}</span></Show>
     </div>
 
-    {/* KPI strip — the first thing an operator sees. */}
-    <Suspense fallback={<div class="skeleton-grid"><div/><div/><div/><div/></div>}>
+    {/* ── Command blocks ─────────────────────────────────────────── */}
+    <Switch>
+      <Match when={commandCenter.isError}>
+        <div class="error-card">{commandCenter.error?.message}</div>
+      </Match>
+      <Match when={cc()}>
+        <div class="command-center-grid">
+          {/* ATTENTION */}
+          <Link
+            class="command-block"
+            to={firstNeedsYouTenant() ? '/tenants/$slug/attention' : '/attention'}
+            params={firstNeedsYouTenant() ? { slug: firstNeedsYouTenant()!.slug } : {}}
+            classList={{ 'command-block-warn': (cc()!.attention.needsYou + cc()!.attention.awaitingApproval + cc()!.attention.criticalAlerts) > 0 }}
+          >
+            <div class="command-block-head">
+              <span class="eyebrow">ATTENTION</span>
+              <Show when={cc()!.attention.unavailableTenants > 0}>
+                <span class="command-block-unavailable">{cc()!.attention.unavailableTenants} unavailable</span>
+              </Show>
+            </div>
+            <div class="command-block-body">
+              <div class="command-block-metric">
+                <CountUp value={cc()!.attention.needsYou} />
+                <span class="command-block-label">need you</span>
+              </div>
+              <div class="command-block-detail">
+                <Show when={cc()!.attention.awaitingApproval > 0}><span>{cc()!.attention.awaitingApproval} awaiting approval</span></Show>
+                <Show when={cc()!.attention.criticalAlerts > 0}><span class="command-block-critical">{cc()!.attention.criticalAlerts} critical alerts</span></Show>
+                <Show when={cc()!.attention.openFindings > 0}><span>{cc()!.attention.openFindings} open findings</span></Show>
+                <Show when={cc()!.attention.deadDeliveries > 0}><span>{cc()!.attention.deadDeliveries} dead deliveries</span></Show>
+                <Show when={cc()!.brainNeedsAttention}><span class="command-block-critical">brain needs attention</span></Show>
+                <Show when={cc()!.attention.needsYou === 0 && cc()!.attention.awaitingApproval === 0 && cc()!.attention.criticalAlerts === 0}>
+                  <span class="muted">Nothing needs you right now</span>
+                </Show>
+              </div>
+            </div>
+          </Link>
+
+          {/* AUTOPILOT TODAY */}
+          <Link
+            class="command-block"
+            to={firstAutopilotTenant() ? '/tenants/$slug/intelligence' : '/attention'}
+            params={firstAutopilotTenant() ? { slug: firstAutopilotTenant()!.slug } : {}}
+            classList={{ 'command-block-active': (cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions) > 0 }}
+          >
+            <div class="command-block-head">
+              <span class="eyebrow">AUTOPILOT TODAY</span>
+            </div>
+            <div class="command-block-body">
+              <div class="command-block-metric">
+                <CountUp value={cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions} />
+                <span class="command-block-label">in flight</span>
+              </div>
+              <div class="command-block-detail">
+                <Show when={cc()!.autopilot.queuedActions > 0}><span>{cc()!.autopilot.queuedActions} queued</span></Show>
+                <Show when={cc()!.autopilot.processingActions > 0}><span>{cc()!.autopilot.processingActions} processing</span></Show>
+                <Show when={cc()!.autopilot.succeeded24h > 0}><span class="command-block-good">{cc()!.autopilot.succeeded24h} succeeded (24h)</span></Show>
+                <Show when={cc()!.autopilot.failed24h > 0}><span class="command-block-critical">{cc()!.autopilot.failed24h} failed (24h)</span></Show>
+                <Show when={cc()!.autopilot.unknownActions > 0}><span class="muted">{cc()!.autopilot.unknownActions} unknown</span></Show>
+                <Show when={cc()!.autopilot.queuedActions === 0 && cc()!.autopilot.processingActions === 0}>
+                  <span class="muted">No actions in flight</span>
+                </Show>
+              </div>
+            </div>
+          </Link>
+
+          {/* OUTCOMES */}
+          <Link
+            class="command-block"
+            to={firstOutcomesTenant() ? '/tenants/$slug/intelligence' : '/attention'}
+            params={firstOutcomesTenant() ? { slug: firstOutcomesTenant()!.slug } : {}}
+            classList={{ 'command-block-warn': cc()!.outcomes.unknown > 0 || cc()!.outcomes.waitingForObservation > 0 }}
+          >
+            <div class="command-block-head">
+              <span class="eyebrow">OUTCOMES</span>
+            </div>
+            <div class="command-block-body">
+              <div class="command-block-metric">
+                <CountUp value={cc()!.outcomes.resolved} />
+                <span class="command-block-label">resolved</span>
+              </div>
+              <div class="command-block-detail">
+                <Show when={cc()!.outcomes.waitingForObservation > 0}><span>{cc()!.outcomes.waitingForObservation} waiting for observation</span></Show>
+                <Show when={cc()!.outcomes.unknown > 0}><span class="muted">{cc()!.outcomes.unknown} unknown</span></Show>
+                <Show when={cc()!.outcomes.resolved === 0 && cc()!.outcomes.unknown === 0 && cc()!.outcomes.waitingForObservation === 0}>
+                  <span class="muted">No outcomes yet</span>
+                </Show>
+              </div>
+            </div>
+          </Link>
+
+          {/* SYSTEM */}
+          <Link class="command-block" to="/attention">
+            <div class="command-block-head">
+              <span class="eyebrow">SYSTEM</span>
+            </div>
+            <div class="command-block-body">
+              <div class="command-block-metric">
+                <CountUp value={overview.data?.platformHealth?.filter(s => s.healthy).length ?? 0} format={(n) => Math.round(n) === 0 && !overview.data?.platformHealth?.length ? '—' : String(Math.round(n))} />
+                <span class="command-block-label">of {overview.data?.platformHealth?.length ?? '—'} services healthy</span>
+              </div>
+              <div class="command-block-detail">
+                <Show when={items().length > 0}>
+                  <span>{count('healthy')} healthy · {needsAttention()} need attention<Show when={unknownCount() > 0}> · {unknownCount()} not reporting</Show></span>
+                </Show>
+                <Show when={cc()?.system.releaseConvergence && typeof cc()!.system.releaseConvergence === 'object' && (cc()!.system.releaseConvergence as Record<string, unknown>).available !== false}>
+                  <span class="muted">Release convergence available</span>
+                </Show>
+              </div>
+            </div>
+          </Link>
+
+          {/* LEARNING */}
+          <Link
+            class="command-block"
+            to={firstLearningTenant() ? '/tenants/$slug/intelligence' : '/attention'}
+            params={firstLearningTenant() ? { slug: firstLearningTenant()!.slug } : {}}
+          >
+            <div class="command-block-head">
+              <span class="eyebrow">LEARNING</span>
+            </div>
+            <div class="command-block-body">
+              <div class="command-block-metric">
+                <CountUp value={cc()!.learning.totalOutcomes} />
+                <span class="command-block-label">total outcomes</span>
+              </div>
+              <div class="command-block-detail">
+                <Show when={cc()!.learning.admitted > 0}><span class="command-block-good">{cc()!.learning.admitted} admitted</span></Show>
+                <Show when={cc()!.learning.rejected > 0}><span>{cc()!.learning.rejected} rejected</span></Show>
+                <Show when={cc()!.learning.totalOutcomes === 0}>
+                  <span class="muted">No learning outcomes yet</span>
+                </Show>
+              </div>
+            </div>
+          </Link>
+        </div>
+      </Match>
+    </Switch>
+
+    {/* ── KPI strip (fleet summary) ──────────────────────────────── */}
     <Switch>
       <Match when={tenants.isPending}><div class="skeleton-grid"><div/><div/><div/><div/></div></Match>
       <Match when={tenants.isError}><div class="error-card">{tenants.error?.message}</div></Match>
@@ -154,6 +299,5 @@ export function OverviewPage() {
         )}</For>
       </div>
     </Show>
-    </Suspense>
   </section>
 }

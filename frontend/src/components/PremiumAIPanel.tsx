@@ -1,7 +1,7 @@
-import { For, Show, createResource, createSignal, createMemo } from 'solid-js'
+import { For, Show, createSignal, createMemo } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import { api, request } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
-import { refreshTick } from '../lib/refresh'
 import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
 import { LlmProviderIconWithTier, ModelIcon } from './ProviderIcon'
@@ -105,14 +105,6 @@ export function PremiumAIPanel(props: {
   /** Shared models resource from parent (avoids duplicate /agents/models fetch). */
   models?: { models: AgentModel[]; connectedProviders: string[] } | null
 }) {
-  const [localRefresh, setLocalRefresh] = createSignal(0)
-  // When the tab is hidden, freeze the refresh source so createResource
-  // doesn't refetch on every global refreshTick. Local mutations still
-  // trigger a refetch via triggerLocalRefresh() — the source changes from
-  // -1 to localRefresh() which is > 0, causing a refetch.
-  const refreshSource = () =>
-    props.active === false ? -1 : refreshTick() + localRefresh()
-  const triggerLocalRefresh = () => setLocalRefresh((v) => v + 1)
   const [error, setError] = createSignal<string | null>(null)
   const [connectingProvider, setConnectingProvider] = createSignal<string | null>(null)
   const [testingProvider, setTestingProvider] = createSignal<string | null>(null)
@@ -124,46 +116,75 @@ export function PremiumAIPanel(props: {
   // Premium usage is unique to this panel — always fetch here.
   // The try/catch ensures the error signal is set even when the tab is
   // hidden, so the error card can render outside the usage() guard.
-  const [usage] = createResource(refreshSource, async () => {
-    try {
-      const data = await request<PremiumUsage>(`/tenants/${props.slug}/agents/premium/usage`)
-      return data
-    } catch (err) {
-      setError(errorMessage(err, 'Failed to load premium usage'))
-      throw err
-    }
-  })
+  const usage = useQuery(() => ({
+    queryKey: ['premium-ai-usage', props.slug],
+    queryFn: async () => {
+      try {
+        const data = await request<PremiumUsage>(`/tenants/${props.slug}/agents/premium/usage`)
+        return data
+      } catch (err) {
+        setError(errorMessage(err, 'Failed to load premium usage'))
+        throw err
+      }
+    },
+    enabled: props.active !== false,
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
   // Models can be passed from the parent AgentPanel (shared resource,
   // avoids duplicate /agents/models fetch) or fetched here as fallback.
   const hasParentModels = () => props.models !== undefined
-  const [fallbackModels] = createResource(refreshSource, async () => {
-    if (hasParentModels()) return null
-    const data = await api.agentModels(props.slug)
-    return data
-  })
-  const models = () => props.models ?? fallbackModels() ?? null
+  const fallbackModels = useQuery(() => ({
+    queryKey: ['premium-ai-models', props.slug],
+    queryFn: async () => {
+      if (hasParentModels()) return null
+      const data = await api.agentModels(props.slug)
+      return data
+    },
+    enabled: props.active !== false,
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
+  const models = () => props.models ?? fallbackModels.data ?? null
 
   // Providers and credentials can be passed from the parent AgentPanel
   // (shared resources, no re-fetch on tab switch) or fetched here as fallback
   // for standalone usage. When the parent provides them, the fallback
   // resources return null immediately (no network fetch).
-  const [fallbackProviders] = createResource(refreshSource, async () => {
-    if (props.providers !== undefined) return null
-    const data = await api.agentProviders(props.slug)
-    return data.providers
-  })
-  const [fallbackCreds, { refetch: refetchFallbackCreds }] = createResource(refreshSource, async () => {
-    if (props.credentials !== undefined) return null
-    const data = await api.agentCredentials(props.slug)
-    return data.credentials
-  })
+  const fallbackProviders = useQuery(() => ({
+    queryKey: ['premium-ai-providers', props.slug],
+    queryFn: async () => {
+      if (props.providers !== undefined) return null
+      const data = await api.agentProviders(props.slug)
+      return data.providers
+    },
+    enabled: props.active !== false,
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
+  const fallbackCreds = useQuery(() => ({
+    queryKey: ['premium-ai-creds', props.slug],
+    queryFn: async () => {
+      if (props.credentials !== undefined) return null
+      const data = await api.agentCredentials(props.slug)
+      return data.credentials
+    },
+    enabled: props.active !== false,
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
-  const providers = () => props.providers ?? fallbackProviders() ?? []
-  const credentials = () => props.credentials ?? fallbackCreds() ?? []
+  const providers = () => props.providers ?? fallbackProviders.data ?? []
+  const credentials = () => props.credentials ?? fallbackCreds.data ?? []
   const refetchCreds = () => {
     if (props.refetchCreds) props.refetchCreds()
-    else refetchFallbackCreds()
+    else fallbackCreds.refetch()
+  }
+  const triggerLocalRefresh = () => {
+    usage.refetch()
+    fallbackModels.refetch()
+    fallbackProviders.refetch()
   }
 
   // All providers — show every provider in one unified view.
@@ -188,7 +209,7 @@ export function PremiumAIPanel(props: {
 
   // Memoize budget percentage so it's computed once per render, not 5x.
   const budgetPctValue = createMemo(() => {
-    const u = usage()
+    const u = usage.data
     if (!u) return 0
     return budgetPct(u.monthly_spend_micro_usd, u.budget_micro_usd)
   })
@@ -312,7 +333,7 @@ export function PremiumAIPanel(props: {
 
   return (
     <Show
-      when={usage()}
+      when={usage.data}
       fallback={
         <div class="premium-panel">
           <Show when={isServiceDown()}>
@@ -359,8 +380,8 @@ export function PremiumAIPanel(props: {
               <span>Premium AI</span>
             </div>
             <div class="premium-budget-amount">
-              <span class="premium-budget-spent">{formatUsd(usage()!.monthly_spend_micro_usd)}</span>
-              <span class="premium-budget-limit">of {formatUsd(usage()!.budget_micro_usd)} / mo</span>
+              <span class="premium-budget-spent">{formatUsd(usage.data!.monthly_spend_micro_usd)}</span>
+              <span class="premium-budget-limit">of {formatUsd(usage.data!.budget_micro_usd)} / mo</span>
             </div>
             <div class="premium-budget-bar">
               <div
@@ -384,7 +405,7 @@ export function PremiumAIPanel(props: {
               <span class="premium-stat-label">Models</span>
             </div>
             <div class="premium-stat">
-              <span class="premium-stat-value">{usage()!.tasks.length}</span>
+              <span class="premium-stat-value">{usage.data!.tasks.length}</span>
               <span class="premium-stat-label">Tasks (30d)</span>
             </div>
           </div>
@@ -495,21 +516,19 @@ export function PremiumAIPanel(props: {
                     {/* Health + method badges — wrapped for consistent middle height */}
                     <Show when={isConnected()}>
                       <div class="premium-connector-middle">
-                        <Show when={usage()}>
-                          <div class="premium-health-badge">
-                            <Show when={usage()!.tasks.filter((t: PremiumTask) => t.model_provider === provider.id).length > 0}
-                              fallback={<span class="badge tone-muted">no tasks yet</span>}>
-                              {(() => {
-                                const providerTasks = usage()!.tasks.filter((t: PremiumTask) => t.model_provider === provider.id)
-                                const completed = providerTasks.filter((t: PremiumTask) => t.status === 'completed').length
-                                const failed = providerTasks.filter((t: PremiumTask) => t.status === 'failed').length
-                                const total = providerTasks.length
-                                const successRate = total > 0 ? Math.round((completed / total) * 100) : null
-                                const tone = successRate == null ? 'muted' : successRate >= 90 ? 'good' : successRate >= 75 ? 'warn' : 'bad'
-                                return <span class={`badge tone-${tone}`}>{successRate ?? '—'}% success · {total} tasks</span>
-                              })()}
-                            </Show>
-                          </div>
+                        <Show when={usage.data}>
+                          <Show when={usage.data!.tasks.filter((t: PremiumTask) => t.model_provider === provider.id).length > 0}
+                            fallback={<span class="badge tone-muted">no tasks yet</span>}>
+                            {(() => {
+                              const providerTasks = usage.data!.tasks.filter((t: PremiumTask) => t.model_provider === provider.id)
+                              const completed = providerTasks.filter((t: PremiumTask) => t.status === 'completed').length
+                              const failed = providerTasks.filter((t: PremiumTask) => t.status === 'failed').length
+                              const total = providerTasks.length
+                              const successRate = total > 0 ? Math.round((completed / total) * 100) : null
+                              const tone = successRate == null ? 'muted' : successRate >= 90 ? 'good' : successRate >= 75 ? 'warn' : 'bad'
+                              return <span class={`badge tone-${tone}`}>{successRate ?? '—'}% success · {total} tasks</span>
+                            })()}
+                          </Show>
                         </Show>
 
                         <div class="premium-method-badge apikey">
@@ -618,10 +637,10 @@ export function PremiumAIPanel(props: {
         <section class="premium-section">
           <div class="premium-section-head">
             <h3><SparkIcon size={16} /> Connected Premium Models</h3>
-            <span class="premium-count-chip">{usage()!.premium_models.length}</span>
+            <span class="premium-count-chip">{usage.data!.premium_models.length}</span>
           </div>
           <Show
-            when={usage()!.premium_models.length > 0}
+            when={usage.data!.premium_models.length > 0}
             fallback={
               <div class="premium-empty">
                 <EmptyState label="No premium models active" hint="Premium AI models provide higher quality output for critical worker tasks. Configure API keys to enable them." />
@@ -629,7 +648,7 @@ export function PremiumAIPanel(props: {
             }
           >
             <div class="premium-model-grid">
-              <For each={usage()!.premium_models}>
+              <For each={usage.data!.premium_models}>
                 {(model) => (
                   <div class="premium-model-card">
                     <div class="premium-model-header">
@@ -657,10 +676,10 @@ export function PremiumAIPanel(props: {
         <section class="premium-section">
           <div class="premium-section-head">
             <h3>Recent premium tasks</h3>
-            <span class="premium-count-chip">{usage()!.tasks.length}</span>
+            <span class="premium-count-chip">{usage.data!.tasks.length}</span>
           </div>
           <Show
-            when={usage()!.tasks.length > 0}
+            when={usage.data!.tasks.length > 0}
             fallback={
               <div class="premium-empty-sm">
                 No premium tasks yet. The intelligence routes complex tasks here automatically.
@@ -668,7 +687,7 @@ export function PremiumAIPanel(props: {
             }
           >
             <div class="premium-task-list">
-              <For each={usage()!.tasks.slice(0, 10)}>
+              <For each={usage.data!.tasks.slice(0, 10)}>
                 {(task) => (
                   <div class="premium-task-row">
                     <StatusBadge status={task.status} tone={taskStatusTone(task.status)} />

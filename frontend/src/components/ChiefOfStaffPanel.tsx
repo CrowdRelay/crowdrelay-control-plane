@@ -1,7 +1,6 @@
 import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { refreshTick } from '../lib/refresh'
 import { SectionIcon } from './SectionIcon'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './EmptyState'
@@ -71,7 +70,7 @@ function ActivityList(props: { items: ChiefOfStaffActivity[]; empty: string }) {
 
 export function ChiefOfStaffPanel(props: { slug: string }) {
   const model = useQuery(() => ({
-    queryKey: ['chief-of-staff', props.slug, refreshTick()],
+    queryKey: ['chief-of-staff', props.slug],
     queryFn: () => api.chiefOfStaff(props.slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,

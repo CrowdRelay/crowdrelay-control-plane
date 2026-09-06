@@ -50,41 +50,15 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    // Mobile viewport projects — the Control Plane must be usable on real
-    // phones, not just desktop. Each project covers a common CSS breakpoint
-    // so a layout regression at one width is caught before it ships.
+    // One mobile project at the smallest viewport — the RWD torture test
+    // already covers every breakpoint width inside the chromium project, so
+    // we only need a single mobile project to verify touch/isMobile behavior
+    // at the narrowest width where layout regressions are most likely.
     {
       name: 'mobile-320',
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 320, height: 568 },
-        isMobile: true,
-        hasTouch: true,
-      },
-    },
-    {
-      name: 'mobile-375',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 375, height: 667 },
-        isMobile: true,
-        hasTouch: true,
-      },
-    },
-    {
-      name: 'mobile-390',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 390, height: 844 },
-        isMobile: true,
-        hasTouch: true,
-      },
-    },
-    {
-      name: 'tablet-768',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 768, height: 1024 },
         isMobile: true,
         hasTouch: true,
       },

@@ -1,4 +1,4 @@
-import { For, Show, Suspense, createSignal } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -117,7 +117,6 @@ export function TenantNotifiersPage() {
     <div class="page-head"><div><span class="eyebrow">SYSTEM</span><h1>Notification topology</h1><p>Where this tenant's alerts land and how they get there. Three layers: tenant channels, platform config, and automation routing. Delivery is best-effort with bounded retries; endpoints belong to your own infrastructure.</p></div></div>
 
     {/* ── TENANT / VIRYA ─────────────────────────────────────────── */}
-    <Suspense fallback={<SkeletonNotifiersPage />}>
     <Show when={channels.error}><div class="error-card" role="alert">{errorMessage(channels.error, 'Channels could not be loaded')}</div></Show>
     <Show when={!channels.error && channels.isPending}><SkeletonNotifiersPage /></Show>
 
@@ -241,6 +240,5 @@ export function TenantNotifiersPage() {
     <Show when={discovered.error}><article class="panel"><div class="section-title"><div><span class="eyebrow">CROWDRELAY</span><h2>Discovered webhook endpoints</h2></div></div><div class="inherit-card"><p>CrowdRelay webhook endpoints unavailable: {errorMessage(discovered.error, 'read failed')}</p></div></article></Show>
     <Show when={!discovered.error && discovered.isPending}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={discovered.data && discovered.data.endpoints.length > 0}><article class="panel"><div class="section-title"><div><span class="eyebrow">CROWDRELAY</span><h2><SectionIcon name="link" /> Discovered webhook endpoints</h2><p>Outbound webhook delivery targets already configured in this tenant's CrowdRelay instance.</p></div></div><table class="data-table"><thead><tr><th>Name</th><th>Target</th><th>Active</th></tr></thead><tbody><For each={discovered.data?.endpoints ?? []}>{(ep: DiscoveredEndpoint) => <tr><td>{ep.name}</td><td><code>{ep.urlHost}</code></td><td><span class={`status-badge ${ep.active ? 'good' : 'muted'}`}>{ep.active ? 'active' : 'inactive'}</span></td></tr>}</For></tbody></table></article></Show>
-    </Suspense>
   </section>
 }

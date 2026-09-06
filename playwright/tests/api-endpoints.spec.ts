@@ -13,6 +13,7 @@ const SLUG = 'virya'
 // All API routes that should respond (even with 401) when unauthenticated
 const API_ROUTES = [
   { path: '/api/v1/overview', method: 'GET', name: 'overview' },
+  { path: '/api/v1/command-center', method: 'GET', name: 'command-center' },
   { path: '/api/v1/tenants', method: 'GET', name: 'tenants-list' },
   { path: `/api/v1/tenants/${SLUG}`, method: 'GET', name: 'tenant-detail' },
   { path: `/api/v1/tenants/${SLUG}/overview`, method: 'GET', name: 'tenant-overview' },

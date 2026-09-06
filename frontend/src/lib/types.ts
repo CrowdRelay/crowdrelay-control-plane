@@ -2202,3 +2202,111 @@ export type CommunityIntroDraft = {
   draft: string
   grounded: boolean
 }
+
+// ── Global command center read model ────────────────────────────────────
+
+/// Per-tenant attention projection in the command center.
+export type CommandCenterTenantAttention = {
+  available: boolean
+  needsYou: number
+  awaitingApproval: number
+  openFindings: number
+  criticalAlerts: number
+  deadDeliveries: number
+  brain: {
+    state?: string
+    needsAttention?: boolean
+    daysObserved?: number
+  } | null
+}
+
+/// Per-tenant autopilot projection in the command center.
+export type CommandCenterTenantAutopilot = {
+  available: boolean
+  queuedActions: number
+  processingActions: number
+  succeeded24h: number
+  failed24h: number
+  unknownActions: number
+  runtimeEnabled: boolean
+  releaseLedger: unknown | null
+}
+
+/// Per-tenant learning projection in the command center.
+export type CommandCenterTenantLearning = {
+  available: boolean
+  totalOutcomes: number
+  admitted: number
+  rejected: number
+  totalDecisions: number
+}
+
+/// Per-tenant outcomes projection in the command center.
+export type CommandCenterTenantOutcomes = {
+  available: boolean
+  resolved: number
+  unknown: number
+  waitingForObservation: number
+}
+
+/// One tenant's contribution to the command center.
+export type CommandCenterTenantSummary = {
+  slug: string
+  displayName: string
+  runtimeHealth: 'healthy' | 'degraded' | 'stale' | 'unknown'
+  available: boolean
+  attention: CommandCenterTenantAttention
+  autopilot: CommandCenterTenantAutopilot
+  learning: CommandCenterTenantLearning
+  outcomes: CommandCenterTenantOutcomes
+  brain: CommandCenterTenantAttention['brain']
+  releaseConvergence: unknown | null
+}
+
+/// The global command-center read model — the first screen an operator sees.
+/// Aggregates attention, autopilot, outcomes, system convergence and learning
+/// signal across all visible tenants. Each block drills into the existing
+/// tenant-scoped page owning the detail.
+export type CommandCenterReadModel = {
+  fetchedAt: string
+  tenants: {
+    total: number
+    active: number
+    healthy: number
+    degraded: number
+    stale: number
+    unknown: number
+  }
+  attention: {
+    needsYou: number
+    awaitingApproval: number
+    openFindings: number
+    criticalAlerts: number
+    deadDeliveries: number
+    unavailableTenants: number
+  }
+  autopilot: {
+    queuedActions: number
+    processingActions: number
+    succeeded24h: number
+    failed24h: number
+    unknownActions: number
+  }
+  outcomes: {
+    resolved: number
+    unknown: number
+    waitingForObservation: number
+  }
+  system: {
+    platformServices: PlatformHealthEntry[]
+    releaseConvergence: unknown
+    controlPlaneRevision: string
+  }
+  learning: {
+    totalOutcomes: number
+    admitted: number
+    rejected: number
+  }
+  brainNeedsAttention: boolean
+  perTenant: CommandCenterTenantSummary[]
+}

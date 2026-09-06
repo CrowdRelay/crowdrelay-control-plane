@@ -1,6 +1,7 @@
-import { For, Show, createResource, createSignal } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { refreshTick, triggerRefresh } from '../lib/refresh'
+import { triggerRefresh } from '../lib/refresh'
 import { errorMessage } from '../lib/format'
 import type { OutreachCandidateView, BookingCandidateView } from '../lib/types'
 import { EmptyState } from './EmptyState'
@@ -21,23 +22,20 @@ export function OutreachPipelinePanel(props: { slug: string }) {
   const [tab, setTab] = createSignal<'outreach' | 'booking'>('outreach')
   const [error, setError] = createSignal<string | null>(null)
   const [confirming, setConfirming] = createSignal<string | null>(null)
-  const refreshSource = () => refreshTick()
 
-  const [outreach] = createResource(refreshSource, async () => {
-    try {
-      return await api.outreachCandidates(props.slug)
-    } catch {
-      return null
-    }
-  })
+  const outreach = useQuery(() => ({
+    queryKey: ['outreach-candidates', props.slug],
+    queryFn: async () => { try { return await api.outreachCandidates(props.slug) } catch { return null } },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
-  const [booking] = createResource(refreshSource, async () => {
-    try {
-      return await api.bookingCandidates(props.slug)
-    } catch {
-      return null
-    }
-  })
+  const booking = useQuery(() => ({
+    queryKey: ['booking-candidates', props.slug],
+    queryFn: async () => { try { return await api.bookingCandidates(props.slug) } catch { return null } },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
   const confirmOutreach = async (candidate: OutreachCandidateView) => {
     setConfirming(candidate.id)
@@ -70,10 +68,10 @@ export function OutreachPipelinePanel(props: { slug: string }) {
       <h3>Outreach pipeline</h3>
       <div class="tab-group">
         <button classList={{ tab: true, active: tab() === 'outreach' }} onClick={() => setTab('outreach')}>
-          Outreach ({outreach()?.length ?? 0})
+          Outreach ({outreach.data?.length ?? 0})
         </button>
         <button classList={{ tab: true, active: tab() === 'booking' }} onClick={() => setTab('booking')}>
-          Booking ({booking()?.length ?? 0})
+          Booking ({booking.data?.length ?? 0})
         </button>
       </div>
     </div>
@@ -84,8 +82,8 @@ export function OutreachPipelinePanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'outreach'} fallback={
-      <Show when={booking()} fallback={<SkeletonBlock height="120px" radius="10px" />}>
-        <Show when={booking()!.length > 0} fallback={<EmptyState label="No booking candidates" hint="The intelligence scans for gig opportunities with computed economics. Candidates appear here when the detector finds viable shows." />}>
+      <Show when={booking.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
+        <Show when={booking.data!.length > 0} fallback={<EmptyState label="No booking candidates" hint="The intelligence scans for gig opportunities with computed economics. Candidates appear here when the detector finds viable shows." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -99,7 +97,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
                 </tr>
               </thead>
               <tbody>
-                <For each={booking()}>{(c: BookingCandidateView) => (
+                <For each={booking.data}>{(c: BookingCandidateView) => (
                   <tr>
                     <td><strong>{c.display_name}</strong><br /><span class="muted">{c.target_kind}</span></td>
                     <td>{c.city_slug ?? '—'}</td>
@@ -123,8 +121,8 @@ export function OutreachPipelinePanel(props: { slug: string }) {
         </Show>
       </Show>
     }>
-      <Show when={outreach()} fallback={<SkeletonBlock height="120px" radius="10px" />}>
-        <Show when={outreach()!.length > 0} fallback={<EmptyState label="No outreach candidates" hint="Outreach candidates are fans or contacts the intelligence identified for engagement. They appear here when detectors raise them." />}>
+      <Show when={outreach.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
+        <Show when={outreach.data!.length > 0} fallback={<EmptyState label="No outreach candidates" hint="Outreach candidates are fans or contacts the intelligence identified for engagement. They appear here when detectors raise them." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -139,7 +137,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
                 </tr>
               </thead>
               <tbody>
-                <For each={outreach()}>{(c: OutreachCandidateView) => (
+                <For each={outreach.data}>{(c: OutreachCandidateView) => (
                   <tr>
                     <td><strong>{c.display_name}</strong><br /><span class="muted">{c.target_kind}</span></td>
                     <td><span class="muted">{c.source}</span></td>

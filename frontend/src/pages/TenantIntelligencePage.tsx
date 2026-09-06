@@ -1,4 +1,4 @@
-import { Show, Suspense } from 'solid-js'
+import { Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -54,7 +54,6 @@ export function TenantIntelligencePage() {
       <div class="error-card" role="alert">{model.error instanceof Error ? model.error.message : 'Intelligence channel unavailable'}</div>
     </Show>
 
-    <Suspense fallback={<SkeletonIntelligencePage />}>
     <Show when={model.data}>{<>
       {/* Intelligence loop SVG — persistent across tabs */}
       <div class="intel-loop-wrap">
@@ -138,6 +137,5 @@ export function TenantIntelligencePage() {
         </div>
       </TabPanel>
     </>}</Show>
-    </Suspense>
   </section>
 }

@@ -1,7 +1,8 @@
-import { For, Show, createResource, createSignal } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
-import { refreshTick, triggerRefresh } from '../lib/refresh'
+import { triggerRefresh } from '../lib/refresh'
 import { ModelIcon } from './ProviderIcon'
 import { Sparkline } from './Sparkline'
 import type { UsageAnalyticsData, TemplateRoi, ModelAnalytics } from '../lib/types'
@@ -41,22 +42,25 @@ const successTone = (rate: number | null): 'good' | 'warn' | 'bad' | 'muted' =>
 export function AIUsagePanel(props: { slug: string }) {
   const [error, setError] = createSignal<string | null>(null)
 
-  const refreshSource = () => refreshTick()
+  const data = useQuery(() => ({
+    queryKey: ['ai-usage', props.slug],
+    queryFn: async () => {
+      try {
+        setError(null)
+        return await api.usageAnalytics(props.slug)
+      } catch (err) {
+        setError(errorMessage(err, 'Failed to load usage analytics'))
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
-  const [data] = createResource(refreshSource, async () => {
-    try {
-      setError(null)
-      return await api.usageAnalytics(props.slug)
-    } catch (err) {
-      setError(errorMessage(err, 'Failed to load usage analytics'))
-      return null
-    }
-  })
-
-  const budget = () => data()?.budget
-  const templateRoi = () => data()?.template_roi ?? []
-  const modelAnalytics = () => data()?.model_analytics ?? []
-  const dailySpend = () => data()?.daily_spend ?? []
+  const budget = () => data.data?.budget
+  const templateRoi = () => data.data?.template_roi ?? []
+  const modelAnalytics = () => data.data?.model_analytics ?? []
+  const dailySpend = () => data.data?.daily_spend ?? []
 
   const budgetPct = () => {
     const b = budget()
@@ -228,14 +232,14 @@ export function AIUsagePanel(props: { slug: string }) {
     </Show>
 
     {/* Empty state */}
-    <Show when={data() && templateRoi().length === 0 && modelAnalytics().length === 0}>
+    <Show when={data.data && templateRoi().length === 0 && modelAnalytics().length === 0}>
       <div class="inherit-card">
         <EmptyState label="No AI usage data" hint="AI usage tracks token consumption and costs for worker agents. Data appears here once the intelligence dispatches workers." />
       </div>
     </Show>
 
     {/* Model routing preview — shows the intelligence's fallback chain */}
-    <Show when={data() && (data()!.available_models.length > 0 || modelAnalytics().length > 0)}>
+    <Show when={data.data && (data.data!.available_models.length > 0 || modelAnalytics().length > 0)}>
       <div class="agent-section">
         <div class="agent-section-head">
           <h3>Model routing preview</h3>
@@ -243,7 +247,7 @@ export function AIUsagePanel(props: { slug: string }) {
         </div>
         <p class="agent-section-intro">The intelligence routes tasks to models using a fallback chain: free models first, then paid models if connected. This shows which models are available and whether they're being used.</p>
         <div class="routing-preview-grid">
-          <For each={data()?.available_models ?? []}>{(m) => {
+          <For each={data.data?.available_models ?? []}>{(m) => {
             const analytics = () => modelAnalytics().find(a => a.model_id === m.id)
             const tone = () => {
               const a = analytics()

@@ -1,6 +1,7 @@
-import { For, Show, createResource, createSignal } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { refreshTick, triggerRefresh } from '../lib/refresh'
+import { triggerRefresh } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import type { AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse } from '../lib/types'
 import { EmptyState } from './EmptyState'
@@ -44,24 +45,34 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
   const [creating, setCreating] = createSignal(false)
   const [form, setForm] = createSignal({ slug: '', title: '', sku: '', claimDeadline: '' })
   const [selectedCampaign, setSelectedCampaign] = createSignal<string | null>(null)
-  const refreshSource = () => refreshTick()
+  const campaigns = useQuery(() => ({
+    queryKey: ['release-campaigns', props.slug],
+    queryFn: async () => {
+      try {
+        return await api.beaconReleaseCampaigns(props.slug)
+      } catch {
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
-  const [campaigns] = createResource(refreshSource, async () => {
-    try {
-      return await api.beaconReleaseCampaigns(props.slug)
-    } catch {
-      return null
-    }
-  })
-
-  const [recipients] = createResource(selectedCampaign, async (campaignId) => {
-    if (!campaignId) return null
-    try {
-      return await api.beaconReleaseRecipients(props.slug, campaignId)
-    } catch {
-      return null
-    }
-  })
+  const recipients = useQuery(() => ({
+    queryKey: ['release-recipients', props.slug, selectedCampaign()],
+    queryFn: async () => {
+      const campaignId = selectedCampaign()
+      if (!campaignId) return null
+      try {
+        return await api.beaconReleaseRecipients(props.slug, campaignId)
+      } catch {
+        return null
+      }
+    },
+    enabled: selectedCampaign() !== null,
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
   const launchCampaign = async (campaignId: string) => {
     setActing(campaignId)
@@ -118,8 +129,8 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
     <div class="agent-section-head">
       <h3>Release campaigns</h3>
       <div class="agent-section-head-actions">
-        <Show when={campaigns()}>
-          <span class="muted">{campaigns()!.campaigns.length} campaigns · {campaigns()!.pool.contactable_latarnicy} contactable</span>
+        <Show when={campaigns.data}>
+          <span class="muted">{campaigns.data!.campaigns.length} campaigns · {campaigns.data!.pool.contactable_latarnicy} contactable</span>
         </Show>
         <button class="ghost" onClick={() => setCreating(v => !v)}>
           {creating() ? 'Cancel' : 'Add release campaign'}
@@ -162,18 +173,18 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
       </form>
     </Show>
 
-    <Show when={campaigns()} fallback={<SkeletonBlock height="120px" radius="10px" />}>
-      <Show when={campaigns()!.pool.active_release_latarnicy > 0 || campaigns()!.pool.missing_email > 0}>
+    <Show when={campaigns.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
+      <Show when={campaigns.data!.pool.active_release_latarnicy > 0 || campaigns.data!.pool.missing_email > 0}>
         <div class="kpi-strip">
-          <div class="kpi"><span class="kpi-value">{campaigns()!.pool.active_release_latarnicy}</span><span class="kpi-label">Active Latarnicy</span></div>
-          <div class="kpi"><span class="kpi-value">{campaigns()!.pool.contactable_latarnicy}</span><span class="kpi-label">Contactable</span></div>
-          <div class="kpi"><span class="kpi-value">{campaigns()!.pool.missing_email}</span><span class="kpi-label">Missing Email</span></div>
+          <div class="kpi"><span class="kpi-value">{campaigns.data!.pool.active_release_latarnicy}</span><span class="kpi-label">Active Latarnicy</span></div>
+          <div class="kpi"><span class="kpi-value">{campaigns.data!.pool.contactable_latarnicy}</span><span class="kpi-label">Contactable</span></div>
+          <div class="kpi"><span class="kpi-value">{campaigns.data!.pool.missing_email}</span><span class="kpi-label">Missing Email</span></div>
         </div>
       </Show>
 
-      <Show when={campaigns()!.campaigns.length > 0} fallback={<EmptyState label="No release campaigns" hint="Release campaigns coordinate outreach around a single or album launch. Create one from the release plan." />}>
+      <Show when={campaigns.data!.campaigns.length > 0} fallback={<EmptyState label="No release campaigns" hint="Release campaigns coordinate outreach around a single or album launch. Create one from the release plan." />}>
         <div class="campaign-list">
-          <For each={campaigns()!.campaigns}>{(c) => (
+          <For each={campaigns.data!.campaigns}>{(c) => (
             <div class="campaign-card" classList={{ selected: selectedCampaign() === c.id }}>
               <div class="campaign-card-head">
                 <strong>{c.title}</strong>
@@ -214,7 +225,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
               </div>
 
               <Show when={selectedCampaign() === c.id}>
-                <Show when={recipients()} fallback={<SkeletonBlock height="80px" radius="10px" />}>
+                <Show when={recipients.data} fallback={<SkeletonBlock height="80px" radius="10px" />}>
                   <div class="table-wrap">
                     <table class="data-table">
                       <thead>
@@ -228,7 +239,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
                         </tr>
                       </thead>
                       <tbody>
-                        <For each={recipients()!.recipients}>{(r) => (
+                        <For each={recipients.data!.recipients}>{(r) => (
                           <tr>
                             <td><strong>{r.displayName}</strong>{r.recipientName ? <><br /><span class="muted">{r.recipientName}</span></> : null}</td>
                             <td>{r.beaconKind}</td>

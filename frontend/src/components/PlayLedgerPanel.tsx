@@ -1,6 +1,6 @@
-import { For, Show, createResource } from 'solid-js'
+import { For, Show } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { refreshTick } from '../lib/refresh'
 import { formatTimestamp } from '../lib/format'
 import type { PlayLedger, PlayKindStanding } from '../lib/types'
 import { EmptyState } from './EmptyState'
@@ -73,30 +73,33 @@ const effectTone = (effect: string | null): 'good' | 'warn' | 'bad' | 'muted' =>
 }
 
 export function PlayLedgerPanel(props: { slug: string }) {
-  const refreshSource = () => refreshTick()
-
-  const [ledger] = createResource(refreshSource, async () => {
-    try {
-      return await api.playLedger(props.slug)
-    } catch {
-      return null
-    }
-  })
+  const ledger = useQuery(() => ({
+    queryKey: ['play-ledger', props.slug],
+    queryFn: async () => {
+      try {
+        return await api.playLedger(props.slug)
+      } catch {
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
   return <div class="agent-section">
     <div class="agent-section-head">
       <h3>Play ledger</h3>
-      <Show when={ledger()}>
-        <span class="muted">{ledger()!.plays.length} plays · {ledger()!.standings.length} kinds</span>
+      <Show when={ledger.data}>
+        <span class="muted">{ledger.data!.plays.length} plays · {ledger.data!.standings.length} kinds</span>
       </Show>
     </div>
     <p class="agent-section-intro">What the agent committed to, what it did, and what each number is allowed to prove. Each play is a structured experiment with claims, evidence, and effect assessment.</p>
 
-    <Show when={ledger()} fallback={<SkeletonBlock height="120px" radius="10px" />}>
-      <Show when={ledger()!.standings.length > 0}>
+    <Show when={ledger.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
+      <Show when={ledger.data!.standings.length > 0}>
         <h4 class="subsection"><SectionIcon name="list-checks" />Kind Standings</h4>
         <div class="standings-grid">
-          <For each={ledger()!.standings}>{(s) => (
+          <For each={ledger.data!.standings}>{(s) => (
             <div class={`standing-card standing-card-${standingTone(s)}`}>
               <div class="standing-head">
                 <strong>{kindLabel(s.kind)}</strong>
@@ -119,10 +122,10 @@ export function PlayLedgerPanel(props: { slug: string }) {
         </div>
       </Show>
 
-      <Show when={ledger()!.plays.length > 0} fallback={<EmptyState label="No plays recorded" hint="The play ledger tracks every action the intelligence has executed. Plays appear here once the autopilot starts dispatching." />}>
+      <Show when={ledger.data!.plays.length > 0} fallback={<EmptyState label="No plays recorded" hint="The play ledger tracks every action the intelligence has executed. Plays appear here once the autopilot starts dispatching." />}>
         <h4 class="subsection"><SectionIcon name="play" />Plays</h4>
         <div class="play-list">
-          <For each={ledger()!.plays}>{(p) => (
+          <For each={ledger.data!.plays}>{(p) => (
             <div class={`play-card play-card-${stateTone(p.state)}`}>
               <div class="play-card-head">
                 <strong>{kindLabel(p.kind)}</strong>

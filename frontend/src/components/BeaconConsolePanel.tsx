@@ -1,4 +1,5 @@
-import { For, Show, createMemo, createResource, createSignal } from 'solid-js'
+import { For, Show, createMemo, createSignal } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import { triggerRefresh } from '../lib/refresh'
@@ -49,13 +50,20 @@ const EMPTY_FORM = {
 }
 
 export function BeaconConsolePanel(props: { slug: string }) {
-  const [roster, { refetch }] = createResource(() => props.slug, api.beaconSignalDashboard)
+  const roster = useQuery(() => ({
+    queryKey: ['beacon-console-roster', props.slug],
+    queryFn: () => api.beaconSignalDashboard(props.slug),
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
   // Only for the researched-contact count. A button that cannot say how many
   // contacts it will bring over is a dare: press it and find out.
-  const [network, { refetch: refetchNetwork }] = createResource(
-    () => props.slug,
-    api.beaconNetwork,
-  )
+  const network = useQuery(() => ({
+    queryKey: ['beacon-console-network', props.slug],
+    queryFn: () => api.beaconNetwork(props.slug),
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
   const [query, setQuery] = createSignal('')
   const [statusFilter, setStatusFilter] = createSignal<string>('all')
@@ -65,7 +73,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
   const [adding, setAdding] = createSignal(false)
   const [form, setForm] = createSignal({ ...EMPTY_FORM })
 
-  const profiles = () => roster()?.profiles ?? []
+  const profiles = () => roster.data?.profiles ?? []
 
   const visible = createMemo(() => {
     const needle = query().trim().toLowerCase()
@@ -103,7 +111,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
     try {
       await run()
       setNotice({ tone: 'good', message: done })
-      await refetch()
+      await roster.refetch()
       triggerRefresh()
     } catch (error) {
       setNotice({ tone: 'bad', message: errorMessage(error, 'That did not work') })
@@ -116,13 +124,13 @@ export function BeaconConsolePanel(props: { slug: string }) {
   // rather than adding people who can be emailed. That is the whole reason it
   // is safe as a single button with no confirmation.
   const importResearched = () => {
-    const waiting = network()?.researchedAvailable ?? 0
+    const waiting = network.data?.researchedAvailable ?? 0
     if (waiting === 0) return
     void act(
       'import',
       async () => {
         const result = await api.importResearchedBeacons(props.slug)
-        await refetchNetwork()
+        await network.refetch()
         return result
       },
       `Imported researched contacts. They are unverified — approve them before inviting.`,
@@ -138,7 +146,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
       async () => {
         const text = await file.text()
         const result = await api.importSubmithubCsv(props.slug, text)
-        await refetchNetwork()
+        await network.refetch()
         return result
       },
       `Imported SubmitHub curators. They are unverified — enrich contact info from the chats, then approve.`,
@@ -192,12 +200,12 @@ export function BeaconConsolePanel(props: { slug: string }) {
       <header class="panel-header">
         <h2>Beacons</h2>
         <div class="panel-header-actions">
-          <Show when={roster()}>
+          <Show when={roster.data}>
             <span class="muted">
-              {roster()!.total} total · {roster()!.active} active · {roster()!.invited} invited
+              {roster.data!.total} total · {roster.data!.active} active · {roster.data!.invited} invited
             </span>
           </Show>
-          <Show when={(network()?.researchedAvailable ?? 0) > 0}>
+          <Show when={(network.data?.researchedAvailable ?? 0) > 0}>
             <button
               class="ghost"
               disabled={busy() !== null}
@@ -206,7 +214,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
             >
               {busy() === 'import' && <Spinner />} {busy() === 'import'
                 ? 'Importing…'
-                : `Import ${network()!.researchedAvailable} researched`}
+                : `Import ${network.data!.researchedAvailable} researched`}
             </button>
           </Show>
           <label
@@ -229,7 +237,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
         </div>
       </header>
 
-      <Show when={roster.loading}><SkeletonPanel /></Show>
+      <Show when={roster.isFetching}><SkeletonPanel /></Show>
       <Show when={roster.error}>
         <p class="notice bad">Could not load the roster: {errorMessage(roster.error, 'unknown error')}</p>
       </Show>
@@ -266,7 +274,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
         </form>
       </Show>
 
-      <Show when={roster()}>
+      <Show when={roster.data}>
         <div class="beacon-toolbar">
           {/* Placeholder text disappears the moment you type, so it is not a
               name: the field announced itself as "edit text" to a screen

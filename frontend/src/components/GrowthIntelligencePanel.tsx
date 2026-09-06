@@ -1,7 +1,8 @@
-import { For, Show, createEffect, createResource, createSignal } from 'solid-js'
+import { For, Show, createEffect, createSignal } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
-import { refreshTick, triggerRefresh } from '../lib/refresh'
+import { triggerRefresh } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { Dialog } from './Dialog'
 import { EmptyState } from './EmptyState'
@@ -144,27 +145,35 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
   const [viewingWorkflow, setViewingWorkflow] = createSignal<AgentWorkflow | null>(null)
   const [workflowTasks, setWorkflowTasks] = createSignal<AgentWorkflowTask[]>([])
 
-  const refreshSource = () => refreshTick()
+  const overview = useQuery(() => ({
+    queryKey: ['growth-intelligence-overview', props.slug],
+    queryFn: async () => {
+      try {
+        return await api.autopilotOverview(props.slug)
+      } catch {
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
-  const [overview] = createResource(refreshSource, async () => {
-    try {
-      return await api.autopilotOverview(props.slug)
-    } catch {
-      return null
-    }
-  })
+  const workflows = useQuery(() => ({
+    queryKey: ['growth-intelligence-workflows', props.slug],
+    queryFn: async () => {
+      try {
+        const data = await api.agentWorkflows(props.slug, 20)
+        return data.workflows
+      } catch {
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
-  const [workflows] = createResource(refreshSource, async () => {
-    try {
-      const data = await api.agentWorkflows(props.slug, 20)
-      return data.workflows
-    } catch {
-      return null
-    }
-  })
-
-  const growthPolicy = () => overview()?.policies.find(p => p.context === 'growth_intelligence') ?? null
-  const pendingGrowthActions = () => (overview()?.needs_you ?? []).filter(a => a.context === 'growth_intelligence')
+  const growthPolicy = () => overview.data?.policies.find(p => p.context === 'growth_intelligence') ?? null
+  const pendingGrowthActions = () => (overview.data?.needs_you ?? []).filter(a => a.context === 'growth_intelligence')
 
   const updatePolicy = async (policy: AutopilotPolicy, input: Pick<AutopilotPolicy, 'enabled'|'autonomy_level'|'minimum_confidence'|'max_actions_24h'>) => {
     setPendingMutation(true)
@@ -236,8 +245,8 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
         </div>
         <p class="agent-section-intro">Actions the intelligence has queued for your approval. Community posts, press pitches, and other growth actions appear here with rich detail before they're executed.</p>
         <Show when={pendingGrowthActions().length > 0} fallback={
-          <Show when={overview.loading} fallback={
-            <Show when={overview()} fallback={
+          <Show when={overview.isFetching} fallback={
+            <Show when={overview.data} fallback={
               <EmptyState label="Intelligence unavailable" hint="The autopilot overview could not be loaded. This may be a temporary issue." />
             }>
               <EmptyState label="No actions awaiting approval" hint="When the intelligence proposes actions that require human approval, they appear here." />
@@ -319,8 +328,8 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
         </div>
         <p class="agent-section-intro">How much freedom the intelligence has to act on what it finds. <strong>Observe</strong> only records the decision, <strong>recommend</strong> puts it on the opportunity board, <strong>require approval</strong> queues every action for your sign-off, <strong>bounded auto</strong> executes without asking. <strong>Min confidence</strong> is the floor an action has to clear before any of that happens, and <strong>Max / 24h</strong> caps how many run in a rolling day. Apply saves the row; the next cycle uses it.</p>
         <Show when={growthPolicy()} fallback={
-          <Show when={overview.loading} fallback={
-            <Show when={overview()} fallback={
+          <Show when={overview.isFetching} fallback={
+            <Show when={overview.data} fallback={
               <EmptyState label="Policy unavailable" hint="The autopilot overview could not be loaded. This may be a temporary issue." />
             }>
               <EmptyState label="No growth intelligence policy" hint="The growth intelligence policy was not found in the autopilot overview. Ensure the autopilot is configured for this tenant." />
@@ -343,21 +352,21 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
       <div class="agent-section">
         <div class="agent-section-head">
           <h3>Worker runs</h3>
-          <Show when={overview()}>
+          <Show when={overview.data}>
             <span class="agent-connection-summary">
               <span class="agent-connection-dot ok" />
-              {overview()!.succeeded_24h} succeeded · {overview()!.failed_24h} failed (24h)
+              {overview.data!.succeeded_24h} succeeded · {overview.data!.failed_24h} failed (24h)
             </span>
           </Show>
         </div>
         <p class="agent-section-intro">Worker runs dispatched by the intelligence. Each workflow is a growth plan: the intelligence decides what to research, draft, or analyse, then dispatches LLM workers to execute.</p>
-        <Show when={workflows() && workflows()!.length > 0} fallback={
-          <Show when={workflows()} fallback={<SkeletonGrid count={3} minCardHeight='100px' />}>
+        <Show when={workflows.data && workflows.data!.length > 0} fallback={
+          <Show when={workflows.data} fallback={<SkeletonGrid count={3} minCardHeight='100px' />}>
             <EmptyState label="No worker runs" hint="Worker runs are LLM agent executions dispatched by the intelligence. They appear here once the autopilot starts dispatching." />
           </Show>
         }>
           <div class="growth-workflow-list">
-            <For each={workflows()}>{(wf) => (
+            <For each={workflows.data}>{(wf) => (
               <button class="growth-workflow-card" onClick={() => viewWorkflowDetail(wf)}>
                 <div class="growth-workflow-head">
                   <strong>{wf.brain_template}</strong>

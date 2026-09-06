@@ -265,6 +265,10 @@ async fn main() -> anyhow::Result<()> {
         .merge(scoped(operations_routes::router()))
         .merge(scoped(agent_routes::router()))
         .merge(scoped(read_models::router()))
+        .merge(
+            read_models::global_router()
+                .route_layer(middleware::from_fn(auth::require_platform_admin)),
+        )
         .merge(scoped(notify_routes::router()))
         .merge(
             automation_routes::operator_router()

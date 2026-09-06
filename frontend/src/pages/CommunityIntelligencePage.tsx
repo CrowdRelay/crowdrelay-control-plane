@@ -1,4 +1,4 @@
-import { For, Show, Suspense, createSignal, createResource } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -38,9 +38,13 @@ export function CommunityIntelligencePage() {
   // The draft is fetched on demand, not for every card: it reads the
   // community's observations and there is no reason to do that 66 times for a
   // page the operator scans.
-  const [draft] = createResource(draftFor, (placeId: string) =>
-    api.communityIntroDraft(params().slug, placeId),
-  )
+  const draft = useQuery(() => ({
+    queryKey: ['community-intro-draft', params().slug, draftFor()],
+    queryFn: () => api.communityIntroDraft(params().slug, draftFor()!),
+    enabled: draftFor() !== null,
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+  }))
   const loadDraft = (placeId: string) =>
     setDraftFor((current) => (current === placeId ? null : placeId))
 
@@ -111,7 +115,6 @@ export function CommunityIntelligencePage() {
         <SkeletonRows />
       </Show>
 
-      <Suspense fallback={<SkeletonRows />}>
       <Show when={communities.data}>
         <div class="community-queue-summary">
           <For each={MEMBERSHIP_ORDER}>
@@ -182,20 +185,20 @@ export function CommunityIntelligencePage() {
 
                 <Show when={draftFor() === item.placeId}>
                   <div class="community-draft">
-                    <Show when={draft.loading}><p class="muted">Reading what was observed here…</p></Show>
-                    <Show when={draft()}>
-                      <Show when={!draft()!.grounded}>
+                    <Show when={draft.isFetching && !draft.data}><p class="muted">Reading what was observed here…</p></Show>
+                    <Show when={draft.data}>
+                      <Show when={!draft.data!.grounded}>
                         <p class="notice warn">
                           Nothing observed here yet, so this is a blank rather than a draft.
                         </p>
                       </Show>
-                      <Show when={draft()!.sharedGenres.length > 0}>
+                      <Show when={draft.data!.sharedGenres.length > 0}>
                         <p class="muted">
-                          Overlaps on {draft()!.sharedGenres.join(', ')}.
+                          Overlaps on {draft.data!.sharedGenres.join(', ')}.
                         </p>
                       </Show>
-                      <textarea class="community-draft-text" rows={10} readonly>{draft()!.draft}</textarea>
-                      <button class="ghost" onClick={() => navigator.clipboard?.writeText(draft()!.draft)}>
+                      <textarea class="community-draft-text" rows={10} readonly>{draft.data!.draft}</textarea>
+                      <button class="ghost" onClick={() => navigator.clipboard?.writeText(draft.data!.draft)}>
                         Copy
                       </button>
                     </Show>
@@ -274,7 +277,6 @@ export function CommunityIntelligencePage() {
           </div>
         </div>
       </Show>
-      </Suspense>
     </section>
   )
 }

@@ -1,6 +1,6 @@
-import { For, Show, createMemo, createResource, type Component } from 'solid-js'
+import { For, Show, createMemo, type Component } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { refreshTick } from '../lib/refresh'
 import { compactNumber, trendArrow, trendDirection } from '../lib/charts'
 import { Sparkline } from './Sparkline'
 import { EmptyState } from './EmptyState'
@@ -64,27 +64,35 @@ const Bar: Component<{ value: number; max: number; color: string }> = (props) =>
 }
 
 export function GrowthMetricsPanel(props: { slug: string }) {
-  const refreshSource = () => refreshTick()
+  const coverage = useQuery(() => ({
+    queryKey: ['growth-metric-coverage', props.slug],
+    queryFn: async () => {
+      try {
+        return await api.growthMetricCoverage(props.slug)
+      } catch {
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
-  const [coverage] = createResource(refreshSource, async () => {
-    try {
-      return await api.growthMetricCoverage(props.slug)
-    } catch {
-      return null
-    }
-  })
+  const trends = useQuery(() => ({
+    queryKey: ['growth-metric-trends', props.slug],
+    queryFn: async () => {
+      try {
+        const data = await api.growthMetricTrends(props.slug)
+        return data.series
+      } catch {
+        return null
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
-  const [trends] = createResource(refreshSource, async () => {
-    try {
-      const data = await api.growthMetricTrends(props.slug)
-      return data.series
-    } catch {
-      return null
-    }
-  })
-
-  const totalSeries = () => (coverage()?.platforms ?? []).reduce((sum, p) => sum + p.series, 0)
-  const liveSeries = () => (coverage()?.platforms ?? []).reduce((sum, p) => sum + p.live_series, 0)
+  const totalSeries = () => (coverage.data?.platforms ?? []).reduce((sum, p) => sum + p.series, 0)
+  const liveSeries = () => (coverage.data?.platforms ?? []).reduce((sum, p) => sum + p.live_series, 0)
   const hasFeeds = () => totalSeries() > 0
   const hasLive = () => liveSeries() > 0
 
@@ -93,7 +101,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
   // connections can produce duplicate bars with identical display names.
   // We keep the one with the most recent latest_at.
   const grouped = createMemo(() => {
-    const all = trends() ?? []
+    const all = trends.data ?? []
     // Deduplicate: group by (platform, display_name), keep most recent
     const dedup: Record<string, GrowthMetricTrendView> = {}
     for (const t of all) {
@@ -139,16 +147,16 @@ export function GrowthMetricsPanel(props: { slug: string }) {
   return <div class="agent-section">
     <div class="agent-section-head">
       <h3>Growth metrics</h3>
-      <Show when={coverage() && hasFeeds()}>
+      <Show when={coverage.data && hasFeeds()}>
         <span class="muted">{liveSeries()} active series</span>
       </Show>
     </div>
 
     <Show
-      when={coverage() && hasFeeds()}
+      when={coverage.data && hasFeeds()}
       fallback={
-        <Show when={coverage.loading} fallback={
-          <Show when={coverage()} fallback={
+        <Show when={coverage.isFetching} fallback={
+          <Show when={coverage.data} fallback={
             <EmptyState
               icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 14l4-4 4 4 6-6" /></svg>}
               label="No metric feeds connected"
@@ -170,7 +178,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
           <strong>{liveSeries()} / {totalSeries()} series live</strong>
         </div>
         <div class="feed-coverage-list">
-          <For each={coverage()!.platforms}>{(platform: FeedCoverage) => (
+          <For each={coverage.data!.platforms}>{(platform: FeedCoverage) => (
             <div class="feed-coverage-row" classList={{ 'feed-coverage-row--missing': platform.state === 'missing' }}>
               <span class="feed-platform-name">{platformLabel(platform.platform)}</span>
               <span class={`badge tone-${feedStateTone(platform.state)}`}>{feedStateLabel(platform.state)}</span>
@@ -180,8 +188,8 @@ export function GrowthMetricsPanel(props: { slug: string }) {
         </div>
       </div>
 
-      <Show when={trends() && trends()!.length > 0} fallback={
-        <Show when={trends.loading} fallback={
+      <Show when={trends.data && trends.data!.length > 0} fallback={
+        <Show when={trends.isFetching} fallback={
           <Show when={hasLive()} fallback={<EmptyState label="No live feeds yet" hint="Trends appear once data starts flowing." />}>
             <EmptyState label="No growth metric trends available" />
           </Show>

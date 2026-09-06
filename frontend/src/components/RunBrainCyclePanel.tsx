@@ -1,5 +1,6 @@
-import { Show, createResource, createSignal } from 'solid-js'
+import { Show, createSignal } from 'solid-js'
 import { For } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { triggerRefresh } from '../lib/refresh'
@@ -25,24 +26,34 @@ const number = (value: number) => value.toLocaleString()
 /// operator should be able to see what the brain currently believes before
 /// authorising it to act on that belief.
 export function RunBrainCyclePanel(props: { slug: string }) {
-  const [preview, { refetch }] = createResource(() => props.slug, api.autopilotCyclePreview)
+  const preview = useQuery(() => ({
+    queryKey: ['autopilot-cycle-preview', props.slug],
+    queryFn: () => api.autopilotCyclePreview(props.slug),
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
   const [running, setRunning] = createSignal(false)
   const [notice, setNotice] = createSignal<{ tone: 'good' | 'bad'; message: string } | null>(null)
 
   // The goal is loaded lazily: it is only needed once the operator opens the
   // picker, and the panel's own preview is the thing worth waiting for.
-  const [goals] = createResource(() => props.slug, api.northStarOptions)
+  const goals = useQuery(() => ({
+    queryKey: ['north-star-options', props.slug],
+    queryFn: () => api.northStarOptions(props.slug),
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
   const [savingGoal, setSavingGoal] = createSignal(false)
 
   const changeGoal = async (value: string) => {
-    if (!value || value === preview()?.northStar) return
+    if (!value || value === preview.data?.northStar) return
     setSavingGoal(true)
     setNotice(null)
     try {
       await api.updatePortfolioSetting(props.slug, 'north_star_metric', value)
       setNotice({ tone: 'good', message: 'Goal updated. The next cycle will optimise for it.' })
       triggerRefresh()
-      await refetch()
+      await preview.refetch()
     } catch (error) {
       setNotice({ tone: 'bad', message: errorMessage(error, 'Could not change the goal') })
     } finally {
@@ -60,7 +71,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
         message: result.detail ?? 'Cycle requested.',
       })
       triggerRefresh()
-      await refetch()
+      await preview.refetch()
     } catch (error) {
       setNotice({ tone: 'bad', message: errorMessage(error, 'Could not request a cycle') })
     } finally {
@@ -72,18 +83,18 @@ export function RunBrainCyclePanel(props: { slug: string }) {
     <section class="panel">
       <header class="panel-header">
         <h2><CycleIcon /> Run a growth cycle</h2>
-        <button class="ghost" onClick={() => void refetch()} disabled={preview.loading}>
+        <button class="ghost" onClick={() => void preview.refetch()} disabled={preview.isFetching}>
           Refresh preview
         </button>
       </header>
 
-      <Show when={preview.loading}><SkeletonPanel /></Show>
+      <Show when={preview.isFetching}><SkeletonPanel /></Show>
 
       <Show when={preview.error}>
         <p class="notice bad">Could not read what the brain believes: {errorMessage(preview.error, 'unknown error')}</p>
       </Show>
 
-      <Show when={preview()}>
+      <Show when={preview.data}>
         {data => (
           <>
             <p class="muted">
@@ -111,13 +122,13 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                   id="north-star-select"
                   class="stat-select"
                   value={data().northStar}
-                  disabled={savingGoal() || goals.loading}
+                  disabled={savingGoal() || goals.isFetching}
                   onChange={event => void changeGoal(event.currentTarget.value)}
                 >
                   <Show when={goals.error}>
                     <option value={data().northStar}>{strategyLabel(data().northStar)}</option>
                   </Show>
-                  <For each={goals()?.options ?? []}>
+                  <For each={goals.data?.options ?? []}>
                     {option => <option value={option.value}>{option.label}</option>}
                   </For>
                 </select>
