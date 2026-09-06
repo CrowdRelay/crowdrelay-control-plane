@@ -190,9 +190,7 @@ async fn command_center(
             "unknown": outcomes_unknown,
             "waitingForObservation": outcomes_waiting,
         },
-        "system": {
-            "platformServices": platform_health,
-        },
+        "system": system_block(&platform_health),
         "learning": {
             "totalOutcomes": learning_total,
             "admitted": learning_admitted,
@@ -201,6 +199,18 @@ async fn command_center(
         "brainNeedsAttention": brain_needs_attention,
         "perTenant": per_tenant,
     })))
+}
+
+/// The command center's `system` block.
+///
+/// Every key here must have an authoritative source in the running container.
+/// This block previously also carried `releaseConvergence: null` and
+/// `controlPlaneRevision: ""` — nothing computed either, so an operator read a
+/// permanently empty field as if it were system state. The block is a named
+/// function so that contract is testable and a future addition has to justify
+/// itself against a test rather than being appended to an inline literal.
+fn system_block(platform_health: &[crate::model::PlatformHealthRow]) -> Value {
+    json!({ "platformServices": platform_health })
 }
 
 /// Fetch one tenant's command-center sections: attention, autopilot, learning
@@ -1747,6 +1757,31 @@ mod tests {
         assert!(
             projected.get("controlPlaneRevision").is_none(),
             "per-tenant summary must not include controlPlaneRevision"
+        );
+    }
+
+    /// The same rule, applied where the reported placeholders actually lived:
+    /// the top-level `system` block. The per-tenant guard above would not have
+    /// caught `system.releaseConvergence` coming back.
+    ///
+    /// `platformServices` is the only key with a source — the platform health
+    /// table the runtime observer writes. Any key added here must be backed by
+    /// something the container can actually compute; an empty string or a null
+    /// standing in for "we never implemented this" reads to an operator as
+    /// authoritative system state.
+    #[test]
+    fn command_center_system_block_exposes_only_sourced_fields() {
+        let block = system_block(&[]);
+        let object = block.as_object().expect("system block is an object");
+        let keys: Vec<&str> = object.keys().map(String::as_str).collect();
+        assert_eq!(
+            keys,
+            vec!["platformServices"],
+            "system block must expose only fields with an authoritative source"
+        );
+        assert!(
+            object["platformServices"].is_array(),
+            "platformServices must be the platform health list, not a placeholder"
         );
     }
 }

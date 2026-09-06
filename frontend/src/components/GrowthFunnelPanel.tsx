@@ -132,6 +132,12 @@ export function GrowthFunnelPanel(props: { slug: string }) {
       <button class="ghost" onClick={() => void funnel.refetch()} disabled={funnel.isFetching}>{funnel.isFetching ? 'Refreshing…' : 'Refresh'}</button>
     </div>
 
+    {/* Changing the time range swaps the query key. The previous result stays
+        on screen (global `placeholderData`) so nothing collapses or jumps; this
+        marks it as describing the old range until the new one lands. The
+        controls sit outside the region and stay usable. */}
+    <div data-refreshing={funnel.isFetching && !funnel.isPending} aria-busy={funnel.isFetching}>
+
     {/* KPI strip */}
     <Show when={funnel.data} fallback={<Show when={!error()}><SkeletonBlock height="100px" radius="10px" /></Show>}>
       <div class="kpi-strip">
@@ -248,5 +254,6 @@ export function GrowthFunnelPanel(props: { slug: string }) {
         hint="The autopilot hasn't dispatched any workers and no communities have been discovered. Make sure the autopilot is enabled and the growth intelligence policy is set to bounded auto or require approval."
       />
     </Show>
+    </div>
   </div>
 }

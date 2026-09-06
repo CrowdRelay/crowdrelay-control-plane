@@ -20,7 +20,6 @@ const formatLatency = (ms: number | null | undefined) => {
 
 export function OverviewPage() {
   const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, refetchOnWindowFocus: false, reconcile: 'id' }))
-  const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview, refetchOnWindowFocus: false, reconcile: 'id' }))
   const commandCenter = useQuery(() => ({ queryKey: ['command-center'], queryFn: api.commandCenter, refetchOnWindowFocus: false, staleTime: 10_000 }))
 
   const items = () => tenants.data?.items ?? []
@@ -37,12 +36,18 @@ export function OverviewPage() {
   }
   const fleetTone = () => reportingCount() === 0 ? 'muted' as const : undefined
   const lastRefresh = () => {
-    const ts = Math.max(tenants.dataUpdatedAt, overview.dataUpdatedAt, commandCenter.dataUpdatedAt)
+    const ts = Math.max(tenants.dataUpdatedAt, commandCenter.dataUpdatedAt)
     if (ts === 0) return null
     return new Date(ts).toLocaleTimeString()
   }
 
   const cc = (): CommandCenterReadModel | undefined => commandCenter.data
+  // Platform health has one source on this page. It used to be read from
+  // `/overview` while `/command-center` carried the same list in
+  // `system.platformServices`, so the page paid for two requests and the two
+  // copies could disagree for the width of a refresh.
+  const platformServices = createMemo<PlatformHealthEntry[]>(() => cc()?.system.platformServices ?? [])
+  const healthyServices = createMemo(() => platformServices().filter(service => service.healthy).length)
   const ccTenants = createMemo(() => cc()?.perTenant ?? [])
 
   // The first tenant with attention needs — the natural drill-down target
@@ -160,8 +165,8 @@ export function OverviewPage() {
             </div>
             <div class="command-block-body">
               <div class="command-block-metric">
-                <CountUp value={overview.data?.platformHealth?.filter(s => s.healthy).length ?? 0} format={(n) => Math.round(n) === 0 && !overview.data?.platformHealth?.length ? '—' : String(Math.round(n))} />
-                <span class="command-block-label">of {overview.data?.platformHealth?.length ?? '—'} services healthy</span>
+                <CountUp value={healthyServices()} format={(n) => platformServices().length === 0 ? '—' : String(Math.round(n))} />
+                <span class="command-block-label">of {platformServices().length || '—'} services healthy</span>
               </div>
               <div class="command-block-detail">
                 <Show when={items().length > 0}>
@@ -228,8 +233,8 @@ export function OverviewPage() {
           </Link>
           <article class="kpi-card">
             <span class="kpi-label">Platform services</span>
-            <CountUp value={overview.data?.platformHealth?.filter(s => s.healthy).length ?? 0} format={(n) => Math.round(n) === 0 && !overview.data?.platformHealth?.length ? '—' : String(Math.round(n))} />
-            <span class="kpi-sub">of {overview.data?.platformHealth?.length ?? '—'} monitored</span>
+            <CountUp value={healthyServices()} format={(n) => platformServices().length === 0 ? '—' : String(Math.round(n))} />
+            <span class="kpi-sub">of {platformServices().length || '—'} monitored</span>
           </article>
         </div>
       </Match>
@@ -278,10 +283,10 @@ export function OverviewPage() {
 
     {/* Platform services — reference, moved below the fleet so the operator's
         own tenants are the first thing they see. */}
-    <Show when={overview.data?.platformHealth && overview.data.platformHealth.length > 0}>
+    <Show when={platformServices().length > 0}>
       <div class="section-title"><div><span class="eyebrow">SERVICES</span><h2><SectionIcon name="server" />Platform services</h2></div></div>
       <div class="service-grid">
-        <For each={overview.data!.platformHealth}>{(svc: PlatformHealthEntry) => (
+        <For each={platformServices()}>{(svc: PlatformHealthEntry) => (
           <div class="service-card" classList={{ healthy: svc.healthy, unhealthy: !svc.healthy }}>
             <div class="service-card-head">
               <span class={`service-dot ${svc.healthy ? 'good' : 'bad'}`} />

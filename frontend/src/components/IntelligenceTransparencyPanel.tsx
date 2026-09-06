@@ -85,6 +85,10 @@ export function IntelligenceTransparencyPanel(props: { slug: string }) {
       <button class="ghost" onClick={() => void data.refetch()} disabled={data.isFetching}>{data.isFetching ? 'Refreshing…' : 'Refresh'}</button>
     </div>
 
+    {/* Same as the funnel: the range selector changes the query key, the old
+        result stays put, and this says so without moving anything. */}
+    <div data-refreshing={data.isFetching && !data.isPending} aria-busy={data.isFetching}>
+
     {/* Summary KPIs */}
     <Show when={summary()} fallback={
       <Show when={!error()} fallback={
@@ -279,6 +283,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string }) {
           <EmptyState label="No intelligence decisions" hint="The intelligence dispatches growth plans on a deterministic schedule. Decisions appear here once the autopilot starts running." />
         </div>
       </Show>
+    </div>
     </div>
   </div>
 }

@@ -122,12 +122,14 @@ export function QueueInspectorPanel(props: { slug: string }) {
       <div class="error-card" role="alert">{errorMessage(model.error, 'The queue could not be read')}</div>
     </Show>
 
-    {/* Skeletons in place — isPending is true on first load and on tab/status
-        change (new query key). During auto-refresh, isPending is false and
-        previous data stays visible. No Suspense involvement, no scroll jump. */}
+    {/* Skeletons only before the first result. A tab or status change swaps the
+        query key, but the global `placeholderData` keeps the previous rows on
+        screen, so the list is marked as refreshing instead of collapsing into a
+        skeleton — same height, no scroll jump. */}
     <Show when={model.isPending}><SkeletonRows count={3} /></Show>
 
     <Show when={model.data}>{rows => (
+      <div data-refreshing={model.isFetching && !model.isPending} aria-busy={model.isFetching}>
       <Show
         when={rows().length > 0}
         fallback={<EmptyState
@@ -167,6 +169,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
           )}</For>
         </div>
       </Show>
+      </div>
     )}</Show>
 
     <Dialog open={detail() !== null} onClose={() => setDetail(null)} label="Delivery attempts" class="dialog-panel queue-detail-dialog">
