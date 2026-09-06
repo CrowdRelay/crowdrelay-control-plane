@@ -169,12 +169,24 @@ export function FanSourcesPanel(props: {
     try {
       const parsed = JSON.parse(ingestJson()) as { entries?: unknown }
       if (!parsed.entries || !Array.isArray(parsed.entries) || parsed.entries.length === 0) return null
-      // Validate every entry is an object with a string external_id
-      const entries = parsed.entries as unknown[]
-      if (!entries.every(e => typeof e === 'object' && e !== null && typeof (e as Record<string, unknown>).external_id === 'string')) {
-        return null
+      // Validate every entry is an object with a string external_id, then
+      // build a typed array with only string-valued fields.
+      const rawEntries = parsed.entries as unknown[]
+      const typed: Record<string, string>[] = []
+      for (const raw of rawEntries) {
+        if (typeof raw !== 'object' || raw === null) return null
+        const e = raw as Record<string, unknown>
+        if (typeof e.external_id !== 'string') return null
+        const entry: Record<string, string> = { external_id: e.external_id }
+        for (const [k, v] of Object.entries(e)) {
+          if (k === 'external_id') continue
+          if (v == null) continue
+          if (typeof v !== 'string') return null
+          entry[k] = v
+        }
+        typed.push(entry)
       }
-      return { entries: entries as Record<string, string>[] }
+      return { entries: typed }
     } catch {
       return null
     }

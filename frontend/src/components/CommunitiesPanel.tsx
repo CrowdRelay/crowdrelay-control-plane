@@ -111,7 +111,15 @@ export function CommunitiesPanel(props: { slug: string }) {
       setNotice({ tone: 'bad', message: 'That is not valid JSON.' })
       return
     }
-    const importPlaces = Array.isArray(parsed) ? parsed : (parsed as { places?: unknown }).places
+    let importPlaces: unknown
+    if (Array.isArray(parsed)) {
+      importPlaces = parsed
+    } else if (typeof parsed === 'object' && parsed !== null && Array.isArray((parsed as Record<string, unknown>).places)) {
+      importPlaces = (parsed as Record<string, unknown>).places
+    } else {
+      setNotice({ tone: 'bad', message: 'Expected an array of places, or { "places": [...] }.' })
+      return
+    }
     if (!Array.isArray(importPlaces) || importPlaces.length === 0) {
       setNotice({ tone: 'bad', message: 'Expected an array of places, or { "places": [...] }.' })
       return

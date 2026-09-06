@@ -197,18 +197,22 @@ export function ChatWidget(props: { slug: string }) {
           if (!line.startsWith('data: ')) continue
           const payload = line.slice(6)
           try {
-            const data = JSON.parse(payload) as { type: string; text?: string; actions?: ChatAction[]; error?: string }
-            if (data.type === 'token' && data.text) {
+            const raw = JSON.parse(payload)
+            if (typeof raw !== 'object' || raw === null || typeof (raw as Record<string, unknown>).type !== 'string') {
+              continue
+            }
+            const data = raw as { type: string; text?: unknown; actions?: unknown; error?: unknown }
+            if (data.type === 'token' && typeof data.text === 'string') {
               accumulated += data.text
               // Update a dedicated signal — NOT the messages array.
               // This lets the streaming text grow as a smooth text node
               // instead of re-setting innerHTML on every token (which
               // causes the browser to rebuild the DOM and blink).
               setStreamingContent(accumulated)
-            } else if (data.type === 'actions' && data.actions) {
-              actions = data.actions
+            } else if (data.type === 'actions' && Array.isArray(data.actions)) {
+              actions = data.actions as ChatAction[]
             } else if (data.type === 'error') {
-              throw new Error(data.error ?? 'stream error')
+              throw new Error(typeof data.error === 'string' ? data.error : 'stream error')
             }
             // 'done' type — stream is complete, nothing extra to do.
           } catch (e) {
