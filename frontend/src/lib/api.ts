@@ -367,7 +367,7 @@ export const api = {
   agentDeleteCredential: (slug: string, provider: string) =>
     request<void>(`/tenants/${encodeURIComponent(slug)}/agents/credentials/${encodeURIComponent(provider)}`, { method: 'DELETE' }),
   agentValidateCredential: (slug: string, provider: string) =>
-    request<void>(`/tenants/${encodeURIComponent(slug)}/agents/credentials/${encodeURIComponent(provider)}/validate`, { method: 'POST', body: '{}' }),
+    request<{ valid: boolean; error?: string }>(`/tenants/${encodeURIComponent(slug)}/agents/credentials/${encodeURIComponent(provider)}/validate`, { method: 'POST', body: '{}' }),
   agentModels: (slug: string) =>
     request<{ models: AgentModel[]; connectedProviders: string[] }>(`/tenants/${encodeURIComponent(slug)}/agents/models`),
   agentSuggestions: (slug: string) =>

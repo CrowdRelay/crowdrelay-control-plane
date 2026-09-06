@@ -194,6 +194,7 @@ export function FanSourcesPanel(props: {
 
   const disconnectConnection = async (id: string) => {
     setErrorText(null)
+    setNotice(null)
     try {
       await api.deleteFanbaseConnection(props.slug, id)
       refetchConnections()

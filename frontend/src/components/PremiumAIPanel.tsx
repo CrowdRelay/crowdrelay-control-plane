@@ -116,6 +116,7 @@ export function PremiumAIPanel(props: {
   const [error, setError] = createSignal<string | null>(null)
   const [connectingProvider, setConnectingProvider] = createSignal<string | null>(null)
   const [testingProvider, setTestingProvider] = createSignal<string | null>(null)
+  const [testResult, setTestResult] = createSignal<Record<string, { ok: boolean; message: string } | null>>({})
   const [apiKeyInput, setApiKeyInput] = createSignal('')
   const [orgIdInput, setOrgIdInput] = createSignal('')
   const [showKeyInputFor, setShowKeyInputFor] = createSignal<string | null>(null)
@@ -220,7 +221,13 @@ export function PremiumAIPanel(props: {
       // been there the whole time.
       let verified = true
       try {
-        await api.agentValidateCredential(props.slug, providerId)
+        const result = await api.agentValidateCredential(props.slug, providerId)
+        if (!result.valid) {
+          verified = false
+          const detail = result.error ?? 'the provider rejected it'
+          setError(`${provider?.name ?? providerId} rejected that key: ${detail}`)
+          toast.error(`${provider?.name ?? providerId} rejected that key`)
+        }
       } catch (validationError) {
         verified = false
         const detail = errorMessage(validationError, 'the provider rejected it')
@@ -251,26 +258,38 @@ export function PremiumAIPanel(props: {
   }
 
   // A stored key can stop working without anything in the console changing:
-  // revoked, rotated, out of quota. This asks.
+  // revoked, rotated, out of quota. This asks. The result is shown inline on
+  // the provider card — no shared error signal, no unconditional refetch that
+  // would flip the card and look like a page refresh.
   const handleTestCredential = async (providerId: string) => {
     setTestingProvider(providerId)
-    setError(null)
     const provider = apiKeyProviders().find(p => p.id === providerId)
+    const name = provider?.name ?? providerId
     try {
-      await api.agentValidateCredential(props.slug, providerId)
-      toast.success(`${provider?.name ?? providerId} accepted the stored key.`)
+      const result = await api.agentValidateCredential(props.slug, providerId)
+      if (result.valid) {
+        setTestResult(prev => ({ ...prev, [providerId]: { ok: true, message: 'Key valid ✓' } }))
+        toast.success(`${name} accepted the stored key.`)
+      } else {
+        const detail = result.error ?? 'the provider rejected it'
+        setTestResult(prev => ({ ...prev, [providerId]: { ok: false, message: `Rejected: ${detail}` } }))
+        toast.error(`${name} rejected the stored key`)
+        // Status changed to "invalid" upstream — refetch so the card reflects it.
+        refetchCreds()
+      }
     } catch (e) {
       const msg = errorMessage(e, 'the provider rejected it')
-      setError(`${provider?.name ?? providerId}: ${msg}`)
-      toast.error(`${provider?.name ?? providerId} rejected the stored key`)
+      setTestResult(prev => ({ ...prev, [providerId]: { ok: false, message: msg } }))
+      toast.error(`${name} rejected the stored key`)
+      // 503/unavailable means the validator itself is down, not a bad key —
+      // don't refetch, the credential status hasn't changed.
+      if (!/unavailable|unreachable|503/i.test(msg)) refetchCreds()
     } finally {
       setTestingProvider(null)
-      refetchCreds()
     }
   }
 
   const handleDisconnect = async (providerId: string) => {
-    setError(null)
     try {
       await api.agentDeleteCredential(props.slug, providerId)
       const provider = apiKeyProviders().find(p => p.id === providerId)
@@ -556,17 +575,37 @@ export function PremiumAIPanel(props: {
                       {/* Disconnect when connected */}
                       <Show when={isConnected()}>
                         <button
+                          type="button"
                           class="agent-btn"
                           disabled={testingProvider() === provider.id}
                           onClick={() => handleTestCredential(provider.id)}
                         >
                           {testingProvider() === provider.id ? 'Checking…' : 'Test key'}
                         </button>
-                        <button class="agent-btn-danger" onClick={() => handleDisconnect(provider.id)}>
+                        <button type="button" class="agent-btn-danger" onClick={() => handleDisconnect(provider.id)}>
                           Disconnect
                         </button>
                       </Show>
                     </div>
+                    {/* Inline test result — per-provider, no shared error signal.
+                        Shows the result of the last "Test key" click, or the
+                        credential's last_validated_at from the server when no
+                        test has been run this session. */}
+                    <Show when={isConnected()}>
+                      <Show when={testResult()[provider.id]}>
+                        {(result) => (
+                          <div class={`premium-test-result ${result().ok ? 'ok' : 'bad'}`}>
+                            {result().message}
+                          </div>
+                        )}
+                      </Show>
+                      <Show when={!testResult()[provider.id] && cred()?.last_validated_at}>
+                        <div class="premium-test-result muted">
+                          Last checked {formatIsoAge(cred()!.last_validated_at!)}
+                          <Show when={cred()?.last_validation_error}>: {cred()!.last_validation_error}</Show>
+                        </div>
+                      </Show>
+                    </Show>
                   </div>
                 )
               }}

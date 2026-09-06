@@ -106,6 +106,17 @@ export function ChatWidget(props: { slug: string }) {
     }
   })
 
+  // Lock body scroll while the chat is open so touch scrolling on mobile
+  // does not chain through to the page underneath. The cleanup restores
+  // the original overflow when the chat closes or the component unmounts.
+  createEffect(() => {
+    if (open()) {
+      const previous = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      onCleanup(() => { document.body.style.overflow = previous })
+    }
+  })
+
   const pageContext = () => {
     // The slug is stated outright. Without it the model has no way to build a
     // real path, which is exactly how it started emitting a literal "{slug}"
@@ -407,6 +418,7 @@ export function ChatWidget(props: { slug: string }) {
 
       {/* Chat panel */}
       <Show when={open()}>
+        <div class="chat-backdrop" onClick={() => setOpen(false)} />
         <div class="chat-panel">
           <div class="chat-header">
             <div class="chat-header-info">
