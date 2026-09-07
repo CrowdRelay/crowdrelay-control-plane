@@ -49,7 +49,7 @@ const TENANT_NAV_GROUPS: NavGroup[] = [
     label: 'Control',
     items: [
       { path: '/tenants/$slug/actions', label: 'Actions', exact: false, icon: 'target' },
-      { path: '/tenants/$slug', label: 'Overview', exact: true, icon: 'overview' },
+      { path: '/tenants/$slug', label: 'Overview', exact: true, icon: 'health' },
       { path: '/tenants/$slug/attention', label: 'Attention', exact: false, icon: 'attention' },
     ],
   },
@@ -57,7 +57,7 @@ const TENANT_NAV_GROUPS: NavGroup[] = [
     label: 'Brain',
     items: [
       { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
-      { path: '/tenants/$slug/health', label: 'Autopilot', exact: false, icon: 'health' },
+      { path: '/tenants/$slug/health', label: 'Autopilot', exact: false, icon: 'sliders' },
     ],
   },
   {
@@ -100,7 +100,8 @@ function NavIcon(props: { name: string }) {
     growth: <><path d="M3 17l5-5 3 3 4-6 3 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 7h4v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></>,
     beacons: <><path d="M9.5 21h5l-.9-10h-3.2zM9.9 11h4.2l-.5-3h-3.2zM8 6.5 5 5M16 6.5 19 5M8 9 5 9.5M16 9l3 .5M7.5 21h9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></>,
     health: <><path d="M3 12h4l2-5 4 10 2-5h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="20" cy="6" r="1.5" fill="currentColor"/></>,
-    target: <><path d="M5 3l5.5 14.5 1.8-5.8 5.8-1.8L5 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></>,
+    sliders: <><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12M18 18h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="8" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="16" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/></>,
+    target: <><path d="M6 4l5 13 1.7-5.3 5.3-1.7L6 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></>,
   }
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="nav-icon" aria-hidden="true">{icons[props.name] ?? icons.overview}</svg>
 }
