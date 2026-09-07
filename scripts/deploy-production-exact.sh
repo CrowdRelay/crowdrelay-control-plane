@@ -325,6 +325,17 @@ rm -f /tmp/control-plane-management-e2e-body
 unset admin
 printf 'MANAGEMENT_E2E=PASS area=200 summary=200 flags=200 autopilot=200 attention=200\n'
 
+# Cross-service connectivity: verify the control plane can actually reach
+# the CrowdRelay API at crowdrelay-api-1:8080 via crowdrelay-shared.
+# This catches the 503 AllSectionsFailed issue where the API container
+# is healthy but not on the crowdrelay-shared network.
+cp_api_sha="$(docker exec crowdrelay-control-plane-app-1 \
+  wget -qO- --timeout=5 http://crowdrelay-api-1:8080/v1/meta 2>/dev/null \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin).get("gitSha",""))' 2>/dev/null || true)"
+[[ -n "$cp_api_sha" ]] || \
+  fail "control plane cannot reach CrowdRelay API at crowdrelay-api-1:8080 — API may not be on crowdrelay-shared network"
+printf 'CROSS_SERVICE=PASS control_plane_reaches_api=true api_sha=%s\n' "$cp_api_sha"
+
 rm -rf -- "$backup_dir"
 backup_dir=""
 rm -f -- "$area_source"
