@@ -260,7 +260,9 @@ export const LoginHero: Component = () => (
     <div class="hero-aurora" aria-hidden="true" />
 
     <header class="hero-brand" style={{ position: 'relative', 'z-index': '1' }}>
-      <BrandMark size={114} />
+      <a href="https://crowdrelay.music" target="_blank" rel="noreferrer noopener" aria-label="CrowdRelay landing page">
+        <BrandMark size={114} />
+      </a>
       <div>
         <strong>CrowdRelay</strong>
         <span>Fan growth engine for autonomous artists</span>
