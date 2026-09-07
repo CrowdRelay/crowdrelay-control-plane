@@ -51,6 +51,11 @@ edge-route host port:
     ssh {{env_var_or_default("CONTROL_PLANE_DEPLOY_HOST", "virya-crowdrelay")}} \
         'sudo bash -s -- {{host}} {{port}}' < scripts/add-tenant-edge-route.sh
 
+# Prove a provisioned tenant works before the customer hears their URL.
+verify-tenant slug host="":
+    ssh {{env_var_or_default("CONTROL_PLANE_DEPLOY_HOST", "virya-crowdrelay")}} \
+        'sudo bash -s -- {{slug}} {{host}}' < scripts/verify-tenant.sh
+
 deploy:
     bash scripts/deploy.sh
 
