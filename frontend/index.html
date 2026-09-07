@@ -2,7 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- `viewport-fit=cover` so `env(safe-area-inset-*)` reports real values on
+         a notched phone, and `interactive-widget=resizes-content` so Android
+         Chrome shrinks the layout viewport when the soft keyboard opens
+         instead of sliding a fixed-position chat panel out from under it. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#0b0c0f" />
     <meta name="description" content="CrowdRelay Control Plane — operator console for tenants, deployments, and ecosystem health." />

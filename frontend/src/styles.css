@@ -751,10 +751,27 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @keyframes chatCursorBlink{0%,50%{opacity:1}51%,100%{opacity:0}}
 
 @media (max-width:480px){
-  .chat-panel{width:100vw;height:100vh;max-height:100vh;border-radius:0;bottom:0;right:0}
+  /* Anchored to the top, not the bottom. Anchored to the bottom with a
+     `100vh` height, Android Chrome pushed the header — and the close button —
+     off the top of the visible area whenever the URL bar was showing. `dvh`
+     tracks the toolbar; the widget also sets an exact pixel height from
+     `visualViewport` for the keyboard case, which no unit covers. */
+  .chat-panel{
+    width:100vw;max-width:none;left:0;right:0;top:0;bottom:auto;
+    height:100vh;height:100dvh;max-height:none;
+    border-radius:0
+  }
   .chat-backdrop{background:var(--surface-0)}
   .chat-fab-label{display:none}
   .chat-fab{padding:.7rem;border-radius:50%}
+  /* Cut-out at the top, gesture bar at the bottom. */
+  .chat-header{padding-top:calc(.85rem + env(safe-area-inset-top))}
+  .chat-input-area{padding-bottom:calc(.7rem + env(safe-area-inset-bottom))}
+  /* The launcher sat on top of the bottom tab bar's last item — a 38px circle
+     at bottom:24px against a 60px bar — so it covered "Run Cycle" and a tap
+     meant for the tab opened the chat. Lift it clear of the bar and the
+     gesture area under it. */
+  .chat-fab{bottom:calc(60px + var(--space-3) + env(safe-area-inset-bottom))}
 }
 
 /* ── Audience Intelligence ──────────────────────────────────────── */
@@ -3110,4 +3127,23 @@ button,
 .badge-bad{
   background:var(--bad-bg,rgba(240,80,80,.15));
   color:var(--bad,var(--bad))
+}
+
+/* The only way out of the full-screen chat is this button — the backdrop is
+   behind the panel on a phone — and it was an 18px glyph in a 26px box. */
+.chat-close{min-width:44px;min-height:44px;justify-content:center;flex:0 0 auto}
+/* Scrolling the transcript must not chain into the page behind it. */
+.chat-messages{overscroll-behavior:contain}
+
+/* `viewport-fit=cover` puts the page under the system bars, which is what makes
+   `env(safe-area-inset-*)` report anything at all. Everything pinned to an edge
+   has to pay it back, or the top bar sits under the status bar and a landscape
+   notch eats the first characters of every line. */
+@media(max-width:900px){
+  .topbar{padding-top:calc(12px + env(safe-area-inset-top))}
+  .sidebar{padding-top:calc(14px + env(safe-area-inset-top))}
+  .page{
+    padding-left:calc(18px + env(safe-area-inset-left));
+    padding-right:calc(18px + env(safe-area-inset-right))
+  }
 }

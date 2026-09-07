@@ -96,6 +96,7 @@ export function ChatWidget(props: { slug: string }) {
 
   let scrollRef: HTMLDivElement | undefined
   let inputRef: HTMLTextAreaElement | undefined
+  let panelRef: HTMLDivElement | undefined
   let abortController: AbortController | null = null
 
   // Auto-scroll to bottom on new messages or streaming text
@@ -122,6 +123,53 @@ export function ChatWidget(props: { slug: string }) {
       document.body.style.overflow = 'hidden'
       onCleanup(() => { document.body.style.overflow = previous })
     }
+  })
+
+  // Android Chrome sizes `100vh` (and a fixed element's containing block) to
+  // the *large* viewport — the one you get with the URL bar retracted. A
+  // full-screen panel anchored to the bottom therefore starts above the top of
+  // what you can actually see, taking its header, and with it the close
+  // button, off screen: on a Pixel the chat could be opened and not shut. The
+  // visual viewport is the only thing that knows the real visible box, and it
+  // is also what shrinks when the soft keyboard comes up, so the panel follows
+  // it directly instead of trusting a viewport unit.
+  createEffect(() => {
+    if (!open()) return
+    const viewport = window.visualViewport
+    if (!viewport) return
+
+    const fullScreen = window.matchMedia('(max-width: 480px)')
+
+    const fit = () => {
+      if (!panelRef) return
+      // Only the full-screen layout is pinned this way; the desktop panel is a
+      // floating card and keeps its own size. The media query is the same one
+      // the stylesheet switches on, so the two cannot disagree.
+      // A backgrounded or hidden tab reports a zero-height visual viewport;
+      // writing that back would collapse the panel to nothing, so leave the
+      // CSS height in place until there is a real measurement again.
+      if (!fullScreen.matches || viewport.height <= 0) {
+        panelRef.style.removeProperty('height')
+        panelRef.style.removeProperty('transform')
+        return
+      }
+      panelRef.style.height = `${viewport.height}px`
+      // offsetTop is non-zero while the page is pinch-zoomed or the keyboard
+      // has pushed the visual viewport down.
+      panelRef.style.transform = viewport.offsetTop > 0 ? `translateY(${viewport.offsetTop}px)` : ''
+    }
+
+    fit()
+    viewport.addEventListener('resize', fit)
+    viewport.addEventListener('scroll', fit)
+    window.addEventListener('orientationchange', fit)
+    fullScreen.addEventListener('change', fit)
+    onCleanup(() => {
+      viewport.removeEventListener('resize', fit)
+      viewport.removeEventListener('scroll', fit)
+      window.removeEventListener('orientationchange', fit)
+      fullScreen.removeEventListener('change', fit)
+    })
   })
 
   const pageContext = () => {
@@ -435,7 +483,7 @@ export function ChatWidget(props: { slug: string }) {
       {/* Chat panel */}
       <Show when={open()}>
         <div class="chat-backdrop" onClick={() => setOpen(false)} />
-        <div class="chat-panel">
+        <div class="chat-panel" ref={panelRef} role="dialog" aria-modal="true" aria-label="AI assistant">
           <div class="chat-header">
             <div class="chat-header-info">
               <SparkIcon />
