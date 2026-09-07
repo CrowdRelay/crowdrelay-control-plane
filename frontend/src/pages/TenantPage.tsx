@@ -13,7 +13,8 @@ import { SectionIcon } from '../components/SectionIcon'
 import { TenantAuditPanel } from '../components/TenantAuditPanel'
 import { TenantOperatorsPanel } from '../components/TenantOperatorsPanel'
 import { OperationsPanel } from '../components/OperationsPanel'
-import { SkeletonTenantPage } from '../components/Skeleton'
+import { SkeletonTenantPage, SkeletonSection } from '../components/Skeleton'
+import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
 import { Spinner } from '../components/Spinner'
 
 const paletteFields: Array<keyof Palette> = ['primary','primaryContrast','accent','surface','surfaceElevated','text','textMuted','success','warning','danger']
@@ -63,15 +64,15 @@ const provisionFailures: Record<string, { title: string; guidance: string; retry
 export function TenantPage() {
   const params = useParams({ from: '/tenants/$slug' })
   const queryClient = useQueryClient()
+  const { activeTab, switchTab, isVisited } = useTabPanels('profile')
+
+  // Base read model — tenant identity, provisioning, audit, platform caps.
+  // This is all the Profile and Access tabs need. The Deployment tab has
+  // its own lazy query below so opening Settings doesn't pay for the
+  // operations read model unless the operator actually visits it.
   const model = useQuery(() => ({
     queryKey: ['tenant-overview', params().slug],
-    queryFn: async () => {
-      const [overview, operations] = await Promise.all([
-        api.tenantOverview(params().slug),
-        api.tenantOperations(params().slug).catch(() => null),
-      ])
-      return { ...overview, operations, releaseLedger: operations?.autopilot?.release_ledger ?? null }
-    },
+    queryFn: () => api.tenantOverview(params().slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
   }))
@@ -79,6 +80,18 @@ export function TenantPage() {
   const platform = () => model.data?.platform
   const capabilities = () => model.data?.platform?.capabilities
   const provisioning = { get data() { return model.data?.provisioning } }
+
+  // Operations read model — lazy-loaded only when the Deployment tab is
+  // opened. `enabled` gates the query so it never fires for operators who
+  // only visit Profile or Access.
+  const operations = useQuery(() => ({
+    queryKey: ['tenant-operations', params().slug],
+    queryFn: () => api.tenantOperations(params().slug),
+    enabled: isVisited('deployment'),
+    reconcile: 'id',
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
   const [palette, setPalette] = createSignal<Palette>(defaultPalette)
   const [editingPalette, setEditingPalette] = createSignal(false)
   const [desiredVersion, setDesiredVersion] = createSignal('')
@@ -98,6 +111,7 @@ export function TenantPage() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['tenant-overview', params().slug] }),
       queryClient.invalidateQueries({ queryKey: ['tenant-runtime', params().slug] }),
+      queryClient.invalidateQueries({ queryKey: ['tenant-operations', params().slug] }),
       queryClient.invalidateQueries({ queryKey: ['tenants'] }),
     ])
   }
@@ -149,216 +163,238 @@ export function TenantPage() {
           <strong>Tenant is parked.</strong> The autopilot brain is stopped — no new tasks, no decisions, no outreach. Pending deliveries still drain. Click <em>Resume</em> to restore operations instantly.
         </div>
       </Show>
-      <div class="detail-grid">
-        <TenantRuntimePanel slug={t.slug} initial={{ runtime: t.runtime, runtimeHealth: t.runtimeHealth }} />
-        <article class="panel products-panel">
-          <div class="section-title"><div><span class="eyebrow">PRODUCTS</span><h2><SectionIcon name="shield" />Entitlements</h2></div><button class="ghost" onClick={() => setEditingMobileApps(true)}>Edit Play Store URLs</button></div>
-          <div class="product-row product-entitlement-row"><strong>CrowdRelay</strong><div class="product-action-slot" aria-hidden="true"/><div class="product-status-slot"><StatusBadge status="enabled" tone="good" /></div></div>
-          <div class="product-row product-entitlement-row"><strong>Signal</strong><div class="product-action-slot"><Show when={t.signalEnabled && t.signalPlayStoreUrl}><a href={t.signalPlayStoreUrl!} target="_blank" rel="noopener noreferrer" class="play-store-link"><img src="/icons/google-play-badge.svg" alt="Get it on Google Play" width="100" height="30" /></a></Show></div><div class="product-status-slot"><StatusBadge status={t.signalEnabled ? 'enabled' : 'disabled'} tone={t.signalEnabled ? 'good' : 'muted'} /></div></div>
-          <div class="product-row product-entitlement-row"><strong>AREA</strong><div class="product-action-slot"><Link class="ghost area-link-button" to="/tenants/$slug/area" params={{slug:t.slug}}>Manage</Link></div><div class="product-status-slot"><StatusBadge status={t.areaEnabled ? 'enabled' : 'disabled'} tone={t.areaEnabled ? 'good' : 'muted'} /></div></div>
-          <div class="product-row product-entitlement-row"><strong>Synesthesia</strong><div class="product-action-slot"><Show when={t.synesthesiaEnabled && t.synesthesiaPlayStoreUrl}><a href={t.synesthesiaPlayStoreUrl!} target="_blank" rel="noopener noreferrer" class="play-store-link"><img src="/icons/google-play-badge.svg" alt="Get it on Google Play" width="100" height="30" /></a></Show></div><div class="product-status-slot"><StatusBadge status={t.synesthesiaEnabled ? 'enabled' : 'disabled'} tone={t.synesthesiaEnabled ? 'good' : 'muted'} /></div></div>
-        </article>
-      </div>
-      <RegionalProfilePanel tenant={t} />
-      <article class="panel"><div class="section-title"><div><span class="eyebrow">BRANDING</span><h2><SectionIcon name="palette" />CrowdRelay + Signal palette</h2></div>{t.brandingPalette ? <button class="ghost" disabled={branding.isPending} onClick={() => branding.mutate(null)}>{branding.isPending && <Spinner />} Reset to product defaults</button> : <StatusBadge status="Inherits current product defaults" />}</div><Show when={t.brandingPalette || editingPalette()} fallback={<div class="inherit-card"><p>No palette is stored for this tenant. CrowdRelay and Signal therefore keep their own current default colors with zero theming lookup required.</p><button class="ghost" onClick={() => setEditingPalette(true)}>Create custom palette</button></div>}><p>Ten colours, sent to this tenant's CrowdRelay and Signal builds. Nothing changes for fans until you save; resetting removes the override and both apps fall back to the product defaults.</p><div class="palette-grid"><For each={paletteFields}>{field => <label><span class="palette-field-name">{paletteLabels[field].label}</span><span class="palette-field-role">{paletteLabels[field].role}</span><div class="color-input"><input type="color" aria-label={paletteLabels[field].label} value={palette()[field]} onInput={(e) => setPalette(current => ({ ...current, [field]: e.currentTarget.value }))}/><code>{palette()[field]}</code></div></label>}</For></div><button onClick={() => branding.mutate(palette())} disabled={branding.isPending}>{branding.isPending && <Spinner />} {branding.isPending ? 'Saving…' : 'Save custom palette'}</button></Show></article>
+      <TabBar
+        active={activeTab()}
+        onChange={switchTab}
+        tabs={[
+          { id: 'profile', label: 'Profile' },
+          { id: 'deployment', label: 'Deployment' },
+          { id: 'access', label: 'Access' },
+        ]}
+      />
 
-      <Show when={t.signalEnabled || t.synesthesiaEnabled}>
-        <article class="panel mobile-app-setup-panel">
-          <div class="section-title"><div><span class="eyebrow">MOBILE APPS</span><h2><SectionIcon name="play" />Google Play setup</h2></div></div>
-          <p class="wizard-intro">Onboard this tenant's mobile apps for Google Play. Each step is automated by the onboarding script in the virya-signal repo.</p>
-          <div class="setup-checklist">
-            <div class="setup-step" classList={{ done: Boolean(t.brandingPalette), pending: !t.brandingPalette }}>
-              <span class="setup-step-icon">{t.brandingPalette ? '✓' : '○'}</span>
-              <div><strong>Branding palette</strong><small>{t.brandingPalette ? 'Custom palette configured' : 'Using product defaults — set a palette for custom app icons'}</small></div>
-            </div>
-            <Show when={t.signalEnabled}>
-              <div class="setup-step" classList={{ done: Boolean(t.signalPlayStoreUrl), pending: !t.signalPlayStoreUrl }}>
-                <span class="setup-step-icon">{t.signalPlayStoreUrl ? '✓' : '○'}</span>
-                <div><strong>Signal app published</strong><small>{t.signalPlayStoreUrl ? <a href={t.signalPlayStoreUrl!} target="_blank" rel="noopener noreferrer">{t.signalPlayStoreUrl}</a> : `Package: music.${t.slug}.signal — run the onboarding script to build and publish`}</small></div>
-              </div>
-            </Show>
-            <Show when={t.synesthesiaEnabled}>
-              <div class="setup-step" classList={{ done: Boolean(t.synesthesiaPlayStoreUrl), pending: !t.synesthesiaPlayStoreUrl }}>
-                <span class="setup-step-icon">{t.synesthesiaPlayStoreUrl ? '✓' : '○'}</span>
-                <div><strong>Synesthesia app published</strong><small>{t.synesthesiaPlayStoreUrl ? <a href={t.synesthesiaPlayStoreUrl!} target="_blank" rel="noopener noreferrer">{t.synesthesiaPlayStoreUrl}</a> : `Package: music.${t.slug}.synesthesia — run the onboarding script in the synesthesia repo`}</small></div>
-              </div>
-            </Show>
-          </div>
-          <Show when={!t.signalPlayStoreUrl && t.signalEnabled}>
-            <div class="onboard-command-card">
-              <span class="eyebrow">QUICK START</span>
-              <p>Run this in the virya-signal repo to onboard the Signal app end-to-end:</p>
-              <pre><code>bash scripts/onboard-tenant-app.sh \<br/>  --tenant {t.slug} \<br/>  --control-plane-url {window.location.origin.replace(/:\d+$/, '')} \<br/>  --token $CONTROL_PLANE_ADMIN_TOKEN \<br/>  --version 0.1.0 --version-code 1</code></pre>
-            </div>
-          </Show>
-        </article>
-      </Show>
-
-      <Show when={editingMobileApps()}>
-        <div class="dialog-overlay" onClick={() => setEditingMobileApps(false)}>
-          <div class="dialog-panel" onClick={(e) => e.stopPropagation()}>
-            <div class="section-title"><div><span class="eyebrow">MOBILE APPS</span><h2><SectionIcon name="play" />Google Play Store URLs</h2></div></div>
-            <p class="wizard-intro">Set the Google Play Store URL for each tenant mobile app. Leave blank if the app is not yet published.</p>
-            <div class="form-grid">
-              <label>Signal Play Store URL<input value={signalPlayUrl()} onInput={(e) => setSignalPlayUrl(e.currentTarget.value)} placeholder="https://play.google.com/store/apps/details?id=music.{t.slug}.signal" /></label>
-              <label>Synesthesia Play Store URL<input value={synesthesiaPlayUrl()} onInput={(e) => setSynesthesiaPlayUrl(e.currentTarget.value)} placeholder="https://play.google.com/store/apps/details?id=music.{t.slug}.synesthesia" /></label>
-            </div>
-            <Show when={mobileApps.error}><div class="error-card" role="alert">{mobileApps.error instanceof Error ? mobileApps.error.message : 'Failed to update Play Store URLs'}</div></Show>
-            <div class="form-actions right">
-              <button class="ghost" onClick={() => setEditingMobileApps(false)}>Cancel</button>
-              <button onClick={() => mobileApps.mutate({ signalPlayStoreUrl: signalPlayUrl().trim() || null, synesthesiaPlayStoreUrl: synesthesiaPlayUrl().trim() || null })} disabled={mobileApps.isPending}>{mobileApps.isPending && <Spinner />} {mobileApps.isPending ? 'Saving…' : 'Save URLs'}</button>
-            </div>
-          </div>
+      {/* ── Profile tab — identity, runtime, branding, mobile apps ── */}
+      <TabPanel active={activeTab()} id="profile" visited={isVisited('profile')}>
+        <div class="detail-grid">
+          <TenantRuntimePanel slug={t.slug} initial={{ runtime: t.runtime, runtimeHealth: t.runtimeHealth }} />
+          <article class="panel products-panel">
+            <div class="section-title"><div><span class="eyebrow">PRODUCTS</span><h2><SectionIcon name="shield" />Entitlements</h2></div><button class="ghost" onClick={() => setEditingMobileApps(true)}>Edit Play Store URLs</button></div>
+            <div class="product-row product-entitlement-row"><strong>CrowdRelay</strong><div class="product-action-slot" aria-hidden="true"/><div class="product-status-slot"><StatusBadge status="enabled" tone="good" /></div></div>
+            <div class="product-row product-entitlement-row"><strong>Signal</strong><div class="product-action-slot"><Show when={t.signalEnabled && t.signalPlayStoreUrl}><a href={t.signalPlayStoreUrl!} target="_blank" rel="noopener noreferrer" class="play-store-link"><img src="/icons/google-play-badge.svg" alt="Get it on Google Play" width="100" height="30" /></a></Show></div><div class="product-status-slot"><StatusBadge status={t.signalEnabled ? 'enabled' : 'disabled'} tone={t.signalEnabled ? 'good' : 'muted'} /></div></div>
+            <div class="product-row product-entitlement-row"><strong>AREA</strong><div class="product-action-slot"><Link class="ghost area-link-button" to="/tenants/$slug/area" params={{slug:t.slug}}>Manage</Link></div><div class="product-status-slot"><StatusBadge status={t.areaEnabled ? 'enabled' : 'disabled'} tone={t.areaEnabled ? 'good' : 'muted'} /></div></div>
+            <div class="product-row product-entitlement-row"><strong>Synesthesia</strong><div class="product-action-slot"><Show when={t.synesthesiaEnabled && t.synesthesiaPlayStoreUrl}><a href={t.synesthesiaPlayStoreUrl!} target="_blank" rel="noopener noreferrer" class="play-store-link"><img src="/icons/google-play-badge.svg" alt="Get it on Google Play" width="100" height="30" /></a></Show></div><div class="product-status-slot"><StatusBadge status={t.synesthesiaEnabled ? 'enabled' : 'disabled'} tone={t.synesthesiaEnabled ? 'good' : 'muted'} /></div></div>
+          </article>
         </div>
-      </Show>
+        <RegionalProfilePanel tenant={t} />
+        <article class="panel"><div class="section-title"><div><span class="eyebrow">BRANDING</span><h2><SectionIcon name="palette" />CrowdRelay + Signal palette</h2></div>{t.brandingPalette ? <button class="ghost" disabled={branding.isPending} onClick={() => branding.mutate(null)}>{branding.isPending && <Spinner />} Reset to product defaults</button> : <StatusBadge status="Inherits current product defaults" />}</div><Show when={t.brandingPalette || editingPalette()} fallback={<div class="inherit-card"><p>No palette is stored for this tenant. CrowdRelay and Signal therefore keep their own current default colors with zero theming lookup required.</p><button class="ghost" onClick={() => setEditingPalette(true)}>Create custom palette</button></div>}><p>Ten colours, sent to this tenant's CrowdRelay and Signal builds. Nothing changes for fans until you save; resetting removes the override and both apps fall back to the product defaults.</p><div class="palette-grid"><For each={paletteFields}>{field => <label><span class="palette-field-name">{paletteLabels[field].label}</span><span class="palette-field-role">{paletteLabels[field].role}</span><div class="color-input"><input type="color" aria-label={paletteLabels[field].label} value={palette()[field]} onInput={(e) => setPalette(current => ({ ...current, [field]: e.currentTarget.value }))}/><code>{palette()[field]}</code></div></label>}</For></div><button onClick={() => branding.mutate(palette())} disabled={branding.isPending}>{branding.isPending && <Spinner />} {branding.isPending ? 'Saving…' : 'Save custom palette'}</button></Show></article>
 
-      <article class="panel provisioning-panel">
-        <div class="section-title">
-          <div><span class="eyebrow">PROVISIONING</span><h2><SectionIcon name="server" />CrowdRelay instance</h2></div>
-          <Show when={latestJob()}>{job => <StatusBadge status={job().status} tone={provisionTone(job().status)} />}</Show>
-        </div>
-        <Show when={capabilities()?.canProvision !== false} fallback={<div class="inherit-card"><p>This tenant stays on its existing production CrowdRelay deployment. The tenant provisioner intentionally refuses to create a second stack for it.</p></div>}>
-          <p>The browser only requests desired state. A separately authenticated host agent claims the job and runs a fixed Docker Compose recipe; the Control Plane API never receives Docker access.</p>
-          <div class="deployment-target-grid">
-            <div><span>Public API</span><strong>{t.crowdrelayBaseUrl ?? 'not configured'}</strong></div>
-            <div><span>Signal / site</span><strong>{t.signalBaseUrl ?? 'not configured'}</strong></div>
-            <div><span>Provisioner</span><strong>{platform()?.provisionerConfigured ? 'configured' : 'not configured'}</strong></div>
-            <div><span>Default release</span><strong class="mono">{platform()?.provisionerDefaultImageTag?.slice(0, 16) ?? 'not configured'}</strong></div>
-          </div>
-          <div class="provision-row">
-            <input class={!releaseReady() && desiredVersion().trim() ? 'input-invalid mono' : 'mono'} value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={platform()?.provisionerDefaultImageTag ?? 'sha-<40-char commit>'} aria-label="Desired release version" aria-invalid={!releaseReady() && Boolean(desiredVersion().trim())} />
-            <button class="ghost" onClick={() => plan.mutate()} disabled={plan.isPending || deploymentBusy() || !releaseReady()}>Preview</button>
-            <button onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || !releaseReady() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl}>{latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</button>
-          </div>
-          <Show when={deploy.error}><div class="error-card">{deploy.error instanceof Error ? deploy.error.message : 'Deployment request failed'}</div></Show>
-          <Show when={preview()}>{job => <div class="plan-preview"><span class="eyebrow">PLAN PREVIEW</span><pre>{JSON.stringify(job().plan, null, 2)}</pre></div>}</Show>
-          <Show when={latestJob()}>{job => <div class="provision-job">
-            <div class="provision-job-head"><div><strong>{job().desiredVersion ?? 'default release'}</strong><small>attempt {job().attemptCount} · created {new Date(job().createdAt).toLocaleString()}</small></div><div class="provision-job-badges"><StatusBadge status={job().status} tone={provisionTone(job().status)} /><StatusBadge status={`phase: ${job().phase}`} tone={phaseTone(job().phase)} /></div></div>
-            <Show when={job().status === 'approved'}><p>Queued for the provisioner agent. No Docker mutation happens in the HTTP request.</p></Show>
-            <Show when={job().status === 'running'}><p>Claimed by <code>{job().claimedBy ?? 'provisioner'}</code>. Lease expires {formatTimestamp(job().leaseExpiresAt)}.</p></Show>
-            <Show when={job().status === 'succeeded'}><div class="deployment-result"><dl><dt>Local API</dt><dd><code>{job().result?.localApiUrl ?? '—'}</code></dd><dt>Host port</dt><dd>{job().result?.apiPort ?? '—'}</dd><dt>Workspace</dt><dd class="mono">{job().result?.workspaceId ?? t.workspaceId ?? '—'}</dd><dt>Schema</dt><dd>{job().result?.schemaVersion ?? '—'}</dd><dt>Provisioner</dt><dd><code>{job().result?.provisionerWorkerId ?? job().claimedBy ?? '—'}</code></dd></dl><p class="route-note">The instance is healthy locally. Route <code>{t.crowdrelayBaseUrl}</code> at the edge to this host port to expose it publicly.</p></div></Show>
-            <Show when={job().status === 'failed' ? (job().errorCode ?? 'provisioning_failed') : undefined}>{code => <div class="error-card">
-              <strong>{provisionFailures[code()]?.title ?? code()}</strong>
-              <Show when={provisionFailures[code()]}>{failure => <>
-                <p>{failure().guidance}</p>
-                <Show when={!failure().retryable}><p class="route-note">Retrying will not help until the underlying cause is fixed.</p></Show>
-              </>}</Show>
-              <small class="mono">{code()}{job().errorDetail ? ` · ${job().errorDetail}` : ''}</small>
-            </div>}</Show>
-            <Show when={['planned','approved'].includes(job().status)}><button class="ghost danger-ghost" onClick={() => cancel.mutate()} disabled={cancel.isPending}>Cancel queued deployment</button></Show>
-          </div>}</Show>
-        </Show>
-      </article>
-
-      <Show when={model.data?.operations}>
-        {ops => <OperationsPanel
-          slug={t.slug}
-          summary={ops()?.summary ?? null}
-          flags={ops()?.flags ?? null}
-          autopilot={ops()?.autopilot ?? null}
-          degraded={ops()?.degraded ?? []}
-          sections={ops()?.sections}
-          freshness={ops()?.freshness}
-          fetchedAt={ops()?.fetchedAt}
-          refresh={async () => { await queryClient.invalidateQueries({ queryKey: ['tenant-overview', params().slug] }) }}
-          mode="health"
-        />}
-      </Show>
-
-      <ReleaseConvergencePanel releaseLedger={model.data?.releaseLedger ?? null} />
-      <TenantAuditPanel items={model.data?.audit.items ?? []} />
-      <TenantOperatorsPanel slug={t.slug} />
-
-      {/* Tenant-initiated opt-out. Available to tenant operators on
-          non-Virya tenants. Records the request in the audit trail — the
-          crew then uses the admin-side Remove button to complete it. */}
-      <Show when={!isAdmin() && capabilities()?.canOptOut === true}>
-        <article class="panel tenant-opt-out">
-          <div class="section-title"><div><span class="eyebrow">LEAVING</span><h2><SectionIcon name="alert-triangle" />Opt out of the platform</h2></div></div>
-          <Show when={optOutDone()} fallback={
-            <>
-              <p>
-                If you want to leave the platform, request an opt-out here. Your request is
-                recorded and sent to the crew. They will contact you at the email on file to
-                confirm, then remove your tenant, operators, and all control-plane data.
-                Your CrowdRelay workspace keeps running until it is shut down separately.
-              </p>
-              <p class="route-note">
-                To expedite, also email <a href="mailto:virya.crew@gmail.com?subject=Opt%20out%3A%20{encodeURIComponent(t.displayName)}&body=Tenant%3A%20{encodeURIComponent(t.slug)}%0A%0AI%20want%20to%20opt%20out%20of%20the%20CrowdRelay%20platform.%20Please%20remove%20my%20tenant%20data.">virya.crew@gmail.com</a>.
-              </p>
-              <Show when={optOut.isError}>
-                <div class="error-card" role="alert">{errorMessage(optOut.error, 'Opt-out request failed')}</div>
+        <Show when={t.signalEnabled || t.synesthesiaEnabled}>
+          <article class="panel mobile-app-setup-panel">
+            <div class="section-title"><div><span class="eyebrow">MOBILE APPS</span><h2><SectionIcon name="play" />Google Play setup</h2></div></div>
+            <p class="wizard-intro">Onboard this tenant's mobile apps for Google Play. Each step is automated by the onboarding script in the virya-signal repo.</p>
+            <div class="setup-checklist">
+              <div class="setup-step" classList={{ done: Boolean(t.brandingPalette), pending: !t.brandingPalette }}>
+                <span class="setup-step-icon">{t.brandingPalette ? '✓' : '○'}</span>
+                <div><strong>Branding palette</strong><small>{t.brandingPalette ? 'Custom palette configured' : 'Using product defaults — set a palette for custom app icons'}</small></div>
+              </div>
+              <Show when={t.signalEnabled}>
+                <div class="setup-step" classList={{ done: Boolean(t.signalPlayStoreUrl), pending: !t.signalPlayStoreUrl }}>
+                  <span class="setup-step-icon">{t.signalPlayStoreUrl ? '✓' : '○'}</span>
+                  <div><strong>Signal app published</strong><small>{t.signalPlayStoreUrl ? <a href={t.signalPlayStoreUrl!} target="_blank" rel="noopener noreferrer">{t.signalPlayStoreUrl}</a> : `Package: music.${t.slug}.signal — run the onboarding script to build and publish`}</small></div>
+                </div>
               </Show>
-              <div class="form-grid">
-                <label>
-                  <span>Type <code>{t.slug}</code> to confirm</span>
-                  <input
-                    value={optOutConfirm()}
-                    placeholder={t.slug}
-                    autocomplete="off"
-                    onInput={(e) => setOptOutConfirm(e.currentTarget.value)}
-                  />
-                </label>
-              </div>
-              <div class="form-actions">
-                <button
-                  class="danger-ghost"
-                  disabled={optOutConfirm().trim() !== t.slug || optOut.isPending}
-                  onClick={() => optOut.mutate()}
-                >
-                  {optOut.isPending && <Spinner />} {optOut.isPending ? 'Sending request…' : 'Request opt-out'}
-                </button>
-              </div>
-            </>
-          }>
-            <div class="notice-card">
-              <strong>Opt-out request received.</strong> The crew has been notified and will
-              contact you to confirm before removing your data. No further action is needed
-              from your side.
+              <Show when={t.synesthesiaEnabled}>
+                <div class="setup-step" classList={{ done: Boolean(t.synesthesiaPlayStoreUrl), pending: !t.synesthesiaPlayStoreUrl }}>
+                  <span class="setup-step-icon">{t.synesthesiaPlayStoreUrl ? '✓' : '○'}</span>
+                  <div><strong>Synesthesia app published</strong><small>{t.synesthesiaPlayStoreUrl ? <a href={t.synesthesiaPlayStoreUrl!} target="_blank" rel="noopener noreferrer">{t.synesthesiaPlayStoreUrl}</a> : `Package: music.${t.slug}.synesthesia — run the onboarding script in the synesthesia repo`}</small></div>
+                </div>
+              </Show>
             </div>
-          </Show>
-        </article>
-      </Show>
+            <Show when={!t.signalPlayStoreUrl && t.signalEnabled}>
+              <div class="onboard-command-card">
+                <span class="eyebrow">QUICK START</span>
+                <p>Run this in the virya-signal repo to onboard the Signal app end-to-end:</p>
+                <pre><code>bash scripts/onboard-tenant-app.sh \<br/>  --tenant {t.slug} \<br/>  --control-plane-url {window.location.origin.replace(/:\d+$/, '')} \<br/>  --token $CONTROL_PLANE_ADMIN_TOKEN \<br/>  --version 0.1.0 --version-code 1</code></pre>
+              </div>
+            </Show>
+          </article>
+        </Show>
 
-      {/* Admin-only removal. Rendered from the server's capability flag, never
-          from the slug. And `=== true` rather than `!== false`: for a
-          destructive action an absent or still-loading capability must read
-          as "not allowed", which is the opposite default from the reads
-          above. Tenant operators never see this — they use Opt out instead. */}
-      <Show when={isAdmin() && capabilities()?.canRemove === true}>
-        <article class="panel tenant-danger-zone">
-          <div class="section-title"><div><span class="eyebrow">DANGER ZONE</span><h2><SectionIcon name="alert-triangle" />Remove tenant</h2></div></div>
-          <p>
-            Unregisters <strong>{t.displayName}</strong> from the control plane: its operators,
-            runtime status and provisioning history here are deleted and cannot be restored from
-            this screen. The tenant's own CrowdRelay data is not touched — that workspace keeps
-            running until it is shut down separately. The audit trail survives this removal.
-          </p>
-          <Show when={remove.isError}>
-            <div class="error-card" role="alert">{errorMessage(remove.error, 'Tenant removal failed')}</div>
+        <Show when={editingMobileApps()}>
+          <div class="dialog-overlay" onClick={() => setEditingMobileApps(false)}>
+            <div class="dialog-panel" onClick={(e) => e.stopPropagation()}>
+              <div class="section-title"><div><span class="eyebrow">MOBILE APPS</span><h2><SectionIcon name="play" />Google Play Store URLs</h2></div></div>
+              <p class="wizard-intro">Set the Google Play Store URL for each tenant mobile app. Leave blank if the app is not yet published.</p>
+              <div class="form-grid">
+                <label>Signal Play Store URL<input value={signalPlayUrl()} onInput={(e) => setSignalPlayUrl(e.currentTarget.value)} placeholder="https://play.google.com/store/apps/details?id=music.{t.slug}.signal" /></label>
+                <label>Synesthesia Play Store URL<input value={synesthesiaPlayUrl()} onInput={(e) => setSynesthesiaPlayUrl(e.currentTarget.value)} placeholder="https://play.google.com/store/apps/details?id=music.{t.slug}.synesthesia" /></label>
+              </div>
+              <Show when={mobileApps.error}><div class="error-card" role="alert">{mobileApps.error instanceof Error ? mobileApps.error.message : 'Failed to update Play Store URLs'}</div></Show>
+              <div class="form-actions right">
+                <button class="ghost" onClick={() => setEditingMobileApps(false)}>Cancel</button>
+                <button onClick={() => mobileApps.mutate({ signalPlayStoreUrl: signalPlayUrl().trim() || null, synesthesiaPlayStoreUrl: synesthesiaPlayUrl().trim() || null })} disabled={mobileApps.isPending}>{mobileApps.isPending && <Spinner />} {mobileApps.isPending ? 'Saving…' : 'Save URLs'}</button>
+              </div>
+            </div>
+          </div>
+        </Show>
+      </TabPanel>
+
+      {/* ── Deployment tab — provisioning, operations, release ledger ── */}
+      <TabPanel active={activeTab()} id="deployment" visited={isVisited('deployment')}>
+        <Show when={operations.isPending}><SkeletonSection titleWidth="180px" lines={4} minHeight="180px" /></Show>
+        <Show when={operations.error}><div class="error-card" role="alert">{errorMessage(operations.error, 'Operations read model unavailable')}</div></Show>
+        <article class="panel provisioning-panel">
+          <div class="section-title">
+            <div><span class="eyebrow">PROVISIONING</span><h2><SectionIcon name="server" />CrowdRelay instance</h2></div>
+            <Show when={latestJob()}>{job => <StatusBadge status={job().status} tone={provisionTone(job().status)} />}</Show>
+          </div>
+          <Show when={capabilities()?.canProvision !== false} fallback={<div class="inherit-card"><p>This tenant stays on its existing production CrowdRelay deployment. The tenant provisioner intentionally refuses to create a second stack for it.</p></div>}>
+            <p>The browser only requests desired state. A separately authenticated host agent claims the job and runs a fixed Docker Compose recipe; the Control Plane API never receives Docker access.</p>
+            <div class="deployment-target-grid">
+              <div><span>Public API</span><strong>{t.crowdrelayBaseUrl ?? 'not configured'}</strong></div>
+              <div><span>Signal / site</span><strong>{t.signalBaseUrl ?? 'not configured'}</strong></div>
+              <div><span>Provisioner</span><strong>{platform()?.provisionerConfigured ? 'configured' : 'not configured'}</strong></div>
+              <div><span>Default release</span><strong class="mono">{platform()?.provisionerDefaultImageTag?.slice(0, 16) ?? 'not configured'}</strong></div>
+            </div>
+            <div class="provision-row">
+              <input class={!releaseReady() && desiredVersion().trim() ? 'input-invalid mono' : 'mono'} value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={platform()?.provisionerDefaultImageTag ?? 'sha-<40-char commit>'} aria-label="Desired release version" aria-invalid={!releaseReady() && Boolean(desiredVersion().trim())} />
+              <button class="ghost" onClick={() => plan.mutate()} disabled={plan.isPending || deploymentBusy() || !releaseReady()}>Preview</button>
+              <button onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || !releaseReady() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl}>{latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</button>
+            </div>
+            <Show when={deploy.error}><div class="error-card">{deploy.error instanceof Error ? deploy.error.message : 'Deployment request failed'}</div></Show>
+            <Show when={preview()}>{job => <div class="plan-preview"><span class="eyebrow">PLAN PREVIEW</span><pre>{JSON.stringify(job().plan, null, 2)}</pre></div>}</Show>
+            <Show when={latestJob()}>{job => <div class="provision-job">
+              <div class="provision-job-head"><div><strong>{job().desiredVersion ?? 'default release'}</strong><small>attempt {job().attemptCount} · created {new Date(job().createdAt).toLocaleString()}</small></div><div class="provision-job-badges"><StatusBadge status={job().status} tone={provisionTone(job().status)} /><StatusBadge status={`phase: ${job().phase}`} tone={phaseTone(job().phase)} /></div></div>
+              <Show when={job().status === 'approved'}><p>Queued for the provisioner agent. No Docker mutation happens in the HTTP request.</p></Show>
+              <Show when={job().status === 'running'}><p>Claimed by <code>{job().claimedBy ?? 'provisioner'}</code>. Lease expires {formatTimestamp(job().leaseExpiresAt)}.</p></Show>
+              <Show when={job().status === 'succeeded'}><div class="deployment-result"><dl><dt>Local API</dt><dd><code>{job().result?.localApiUrl ?? '—'}</code></dd><dt>Host port</dt><dd>{job().result?.apiPort ?? '—'}</dd><dt>Workspace</dt><dd class="mono">{job().result?.workspaceId ?? t.workspaceId ?? '—'}</dd><dt>Schema</dt><dd>{job().result?.schemaVersion ?? '—'}</dd><dt>Provisioner</dt><dd><code>{job().result?.provisionerWorkerId ?? job().claimedBy ?? '—'}</code></dd></dl><p class="route-note">The instance is healthy locally. Route <code>{t.crowdrelayBaseUrl}</code> at the edge to this host port to expose it publicly.</p></div></Show>
+              <Show when={job().status === 'failed' ? (job().errorCode ?? 'provisioning_failed') : undefined}>{code => <div class="error-card">
+                <strong>{provisionFailures[code()]?.title ?? code()}</strong>
+                <Show when={provisionFailures[code()]}>{failure => <>
+                  <p>{failure().guidance}</p>
+                  <Show when={!failure().retryable}><p class="route-note">Retrying will not help until the underlying cause is fixed.</p></Show>
+                </>}</Show>
+                <small class="mono">{code()}{job().errorDetail ? ` · ${job().errorDetail}` : ''}</small>
+              </div>}</Show>
+              <Show when={['planned','approved'].includes(job().status)}><button class="ghost danger-ghost" onClick={() => cancel.mutate()} disabled={cancel.isPending}>Cancel queued deployment</button></Show>
+            </div>}</Show>
           </Show>
-          <div class="form-grid">
-            <label>
-              <span>Type <code>{t.slug}</code> to confirm</span>
-              <input
-                value={removalConfirm()}
-                placeholder={t.slug}
-                autocomplete="off"
-                onInput={(e) => setRemovalConfirm(e.currentTarget.value)}
-              />
-            </label>
-          </div>
-          <div class="form-actions">
-            <button
-              class="danger-ghost"
-              disabled={removalConfirm().trim() !== t.slug || remove.isPending}
-              onClick={() => remove.mutate()}
-            >
-              {remove.isPending && <Spinner />} {remove.isPending ? 'Removing…' : 'Remove this tenant'}
-            </button>
-          </div>
         </article>
-      </Show>
+
+        <Show when={operations.data}>
+          {ops => <OperationsPanel
+            slug={t.slug}
+            summary={ops()?.summary ?? null}
+            flags={ops()?.flags ?? null}
+            autopilot={ops()?.autopilot ?? null}
+            degraded={ops()?.degraded ?? []}
+            sections={ops()?.sections}
+            freshness={ops()?.freshness}
+            fetchedAt={ops()?.fetchedAt}
+            refresh={async () => { await queryClient.invalidateQueries({ queryKey: ['tenant-operations', params().slug] }) }}
+            mode="health"
+          />}
+        </Show>
+
+        <ReleaseConvergencePanel releaseLedger={operations.data?.autopilot?.release_ledger ?? null} />
+      </TabPanel>
+
+      {/* ── Access tab — operators, audit, opt-out, danger zone ── */}
+      <TabPanel active={activeTab()} id="access" visited={isVisited('access')}>
+        <TenantOperatorsPanel slug={t.slug} />
+        <TenantAuditPanel items={model.data?.audit.items ?? []} />
+
+        {/* Tenant-initiated opt-out. Available to tenant operators on
+            non-Virya tenants. Records the request in the audit trail — the
+            crew then uses the admin-side Remove button to complete it. */}
+        <Show when={!isAdmin() && capabilities()?.canOptOut === true}>
+          <article class="panel tenant-opt-out">
+            <div class="section-title"><div><span class="eyebrow">LEAVING</span><h2><SectionIcon name="alert-triangle" />Opt out of the platform</h2></div></div>
+            <Show when={optOutDone()} fallback={
+              <>
+                <p>
+                  If you want to leave the platform, request an opt-out here. Your request is
+                  recorded and sent to the crew. They will contact you at the email on file to
+                  confirm, then remove your tenant, operators, and all control-plane data.
+                  Your CrowdRelay workspace keeps running until it is shut down separately.
+                </p>
+                <p class="route-note">
+                  To expedite, also email <a href="mailto:virya.crew@gmail.com?subject=Opt%20out%3A%20{encodeURIComponent(t.displayName)}&body=Tenant%3A%20{encodeURIComponent(t.slug)}%0A%0AI%20want%20to%20opt%20out%20of%20the%20CrowdRelay%20platform.%20Please%20remove%20my%20tenant%20data.">virya.crew@gmail.com</a>.
+                </p>
+                <Show when={optOut.isError}>
+                  <div class="error-card" role="alert">{errorMessage(optOut.error, 'Opt-out request failed')}</div>
+                </Show>
+                <div class="form-grid">
+                  <label>
+                    <span>Type <code>{t.slug}</code> to confirm</span>
+                    <input
+                      value={optOutConfirm()}
+                      placeholder={t.slug}
+                      autocomplete="off"
+                      onInput={(e) => setOptOutConfirm(e.currentTarget.value)}
+                    />
+                  </label>
+                </div>
+                <div class="form-actions">
+                  <button
+                    class="danger-ghost"
+                    disabled={optOutConfirm().trim() !== t.slug || optOut.isPending}
+                    onClick={() => optOut.mutate()}
+                  >
+                    {optOut.isPending && <Spinner />} {optOut.isPending ? 'Sending request…' : 'Request opt-out'}
+                  </button>
+                </div>
+              </>
+            }>
+              <div class="notice-card">
+                <strong>Opt-out request received.</strong> The crew has been notified and will
+                contact you to confirm before removing your data. No further action is needed
+                from your side.
+              </div>
+            </Show>
+          </article>
+        </Show>
+
+        {/* Admin-only removal. Rendered from the server's capability flag, never
+            from the slug. And `=== true` rather than `!== false`: for a
+            destructive action an absent or still-loading capability must read
+            as "not allowed", which is the opposite default from the reads
+            above. Tenant operators never see this — they use Opt out instead. */}
+        <Show when={isAdmin() && capabilities()?.canRemove === true}>
+          <article class="panel tenant-danger-zone">
+            <div class="section-title"><div><span class="eyebrow">DANGER ZONE</span><h2><SectionIcon name="alert-triangle" />Remove tenant</h2></div></div>
+            <p>
+              Unregisters <strong>{t.displayName}</strong> from the control plane: its operators,
+              runtime status and provisioning history here are deleted and cannot be restored from
+              this screen. The tenant's own CrowdRelay data is not touched — that workspace keeps
+              running until it is shut down separately. The audit trail survives this removal.
+            </p>
+            <Show when={remove.isError}>
+              <div class="error-card" role="alert">{errorMessage(remove.error, 'Tenant removal failed')}</div>
+            </Show>
+            <div class="form-grid">
+              <label>
+                <span>Type <code>{t.slug}</code> to confirm</span>
+                <input
+                  value={removalConfirm()}
+                  placeholder={t.slug}
+                  autocomplete="off"
+                  onInput={(e) => setRemovalConfirm(e.currentTarget.value)}
+                />
+              </label>
+            </div>
+            <div class="form-actions">
+              <button
+                class="danger-ghost"
+                disabled={removalConfirm().trim() !== t.slug || remove.isPending}
+                onClick={() => remove.mutate()}
+              >
+                {remove.isPending && <Spinner />} {remove.isPending ? 'Removing…' : 'Remove this tenant'}
+              </button>
+            </div>
+          </article>
+        </Show>
+      </TabPanel>
     </>
   }}</Show></section>
 }
