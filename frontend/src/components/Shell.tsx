@@ -317,9 +317,9 @@ export const Shell: Component = () => {
       <aside class="sidebar" classList={{ collapsed: collapsed(), 'mobile-open': mobileNavOpen() }}>
         <div class="sidebar-head">
           <div class="brand">
-            <span class="brand-mark-wrap">
+            <a href="https://crowdrelay.music" target="_blank" rel="noreferrer noopener" class="brand-mark-wrap" aria-label="CrowdRelay landing page">
               <img class="brand-mark" src="/crowdrelay-brand-mark.png" alt="" width="36" height="36" />
-            </span>
+            </a>
             <Show when={!collapsed()}>
               <div><strong>CrowdRelay</strong><small>Control Plane</small><a href="https://virya.music" target="_blank" rel="noreferrer noopener" class="brand-landing-link">virya.music ↗</a></div>
             </Show>

@@ -170,7 +170,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent)26;out
 .sidebar-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:20px}
 .sidebar.collapsed .sidebar-head{flex-direction:column;gap:10px}
 .brand{display:flex;gap:12px;align-items:center;margin:0}
-.brand-mark-wrap{width:36px;height:36px;overflow:hidden;display:block;flex-shrink:0;border-radius:var(--radius-md)}
+.brand-mark-wrap{width:36px;height:36px;overflow:hidden;display:block;flex-shrink:0;border-radius:var(--radius-md);cursor:pointer;transition:opacity var(--t-fast)}.brand-mark-wrap:hover{opacity:.8}
 .brand-mark{width:44px;height:44px;max-width:none;margin:-4px}
 .sidebar-toggle{flex-shrink:0;width:28px;height:28px;padding:0;border-radius:var(--radius-sm);background:var(--surface-1);border:1px solid var(--border-default);color:var(--text-secondary);display:grid;place-items:center;cursor:pointer;transition:background var(--t-fast),color var(--t-fast),transform var(--t-smooth),border-color var(--t-fast)}
 .sidebar-toggle:hover{background:rgba(155,135,245,0.08);color:white;border-color:var(--border-strong)}
