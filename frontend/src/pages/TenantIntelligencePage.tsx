@@ -13,7 +13,7 @@ import { GrowthMetricsPanel } from '../components/GrowthMetricsPanel'
 import { AcquisitionChannelsPanel } from '../components/AcquisitionChannelsPanel'
 import { GrowthFunnelPanel } from '../components/GrowthFunnelPanel'
 import { StatusBadge } from '../components/StatusBadge'
-import { SkeletonIntelligencePage } from '../components/Skeleton'
+import { SkeletonBrainGroup, SkeletonSection } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
 import { SectionIcon } from '../components/SectionIcon'
 
@@ -58,43 +58,50 @@ export function TenantIntelligencePage() {
       <div class="error-card" role="alert">{model.error instanceof Error ? model.error.message : 'Intelligence channel unavailable'}</div>
     </Show>
 
-    <Show when={model.data}>{<>
-      {/* Intelligence loop SVG — persistent across tabs */}
-      <div class="intel-loop-wrap">
-        <svg viewBox="0 0 800 120" xmlns="http://www.w3.org/2000/svg" class="intel-loop-svg" aria-hidden="true">
-          <defs>
-            <marker id="intel-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-              <path d="M0 0 L8 4 L0 8 z" fill="#9b87f5" />
-            </marker>
-          </defs>
-          <rect x="20" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-core" />
-          <text x="100" y="55" text-anchor="middle" class="intel-loop-label">Intelligence</text>
-          <text x="100" y="72" text-anchor="middle" class="intel-loop-sub">Rust autopilot</text>
-          <line x1="180" y1="60" x2="290" y2="60" stroke="#9b87f5" stroke-width="1.5" marker-end="url(#intel-arrow)" />
-          <rect x="300" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-worker" />
-          <text x="380" y="55" text-anchor="middle" class="intel-loop-label">Workers</text>
-          <text x="380" y="72" text-anchor="middle" class="intel-loop-sub">LLM agents</text>
-          <line x1="460" y1="60" x2="570" y2="60" stroke="#9b87f5" stroke-width="1.5" marker-end="url(#intel-arrow)" />
-          <rect x="580" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-outcome" />
-          <text x="660" y="55" text-anchor="middle" class="intel-loop-label">Outcomes</text>
-          <text x="660" y="72" text-anchor="middle" class="intel-loop-sub">fans · engagement</text>
-          <path d="M 660 90 Q 400 115, 100 90" fill="none" stroke="#7dffb2" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#intel-arrow)" />
-          <text x="380" y="115" text-anchor="middle" class="intel-loop-feedback">Learning loop</text>
-        </svg>
-      </div>
+    {/* Intelligence loop SVG — static, renders immediately */}
+    <div class="intel-loop-wrap">
+      <svg viewBox="0 0 800 120" xmlns="http://www.w3.org/2000/svg" class="intel-loop-svg" aria-hidden="true">
+        <defs>
+          <marker id="intel-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+            <path d="M0 0 L8 4 L0 8 z" fill="#9b87f5" />
+          </marker>
+        </defs>
+        <rect x="20" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-core" />
+        <text x="100" y="55" text-anchor="middle" class="intel-loop-label">Intelligence</text>
+        <text x="100" y="72" text-anchor="middle" class="intel-loop-sub">Rust autopilot</text>
+        <line x1="180" y1="60" x2="290" y2="60" stroke="#9b87f5" stroke-width="1.5" marker-end="url(#intel-arrow)" />
+        <rect x="300" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-worker" />
+        <text x="380" y="55" text-anchor="middle" class="intel-loop-label">Workers</text>
+        <text x="380" y="72" text-anchor="middle" class="intel-loop-sub">LLM agents</text>
+        <line x1="460" y1="60" x2="570" y2="60" stroke="#9b87f5" stroke-width="1.5" marker-end="url(#intel-arrow)" />
+        <rect x="580" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-outcome" />
+        <text x="660" y="55" text-anchor="middle" class="intel-loop-label">Outcomes</text>
+        <text x="660" y="72" text-anchor="middle" class="intel-loop-sub">fans · engagement</text>
+        <path d="M 660 90 Q 400 115, 100 90" fill="none" stroke="#7dffb2" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#intel-arrow)" />
+        <text x="380" y="115" text-anchor="middle" class="intel-loop-feedback">Learning loop</text>
+      </svg>
+    </div>
 
-      {/* Tab bar */}
-      <TabBar
-        active={activeTab()}
-        onChange={switchTab}
-        tabs={[
-          { id: 'overview', label: 'Overview' },
-          { id: 'growth', label: 'Growth Intelligence' },
-          { id: 'funnel', label: 'Growth Funnel' },
-          { id: 'decisions', label: 'Decisions' },
-          { id: 'learning', label: 'Learning' },
-        ]}
-      />
+    {/* Tab bar — static, renders immediately */}
+    <TabBar
+      active={activeTab()}
+      onChange={switchTab}
+      tabs={[
+        { id: 'overview', label: 'Overview' },
+        { id: 'growth', label: 'Growth Intelligence' },
+        { id: 'funnel', label: 'Growth Funnel' },
+        { id: 'decisions', label: 'Decisions' },
+        { id: 'learning', label: 'Learning' },
+      ]}
+    />
+
+    {/* Tab content skeleton — shows while the main query is pending */}
+    <Show when={!model.error && model.isPending}>
+      <SkeletonBrainGroup />
+      <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
+    </Show>
+
+    <Show when={model.data}>{<>
 
       {/* ── Overview tab — what it knows ── */}
       <TabPanel active={activeTab()} id="overview" visited={isVisited('overview')}>

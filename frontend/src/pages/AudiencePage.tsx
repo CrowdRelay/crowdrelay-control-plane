@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 import { AudienceOverviewPanel } from '../components/AudienceOverviewPanel'
 import { FanTablePanel } from '../components/FanTablePanel'
 import { SegmentPanel } from '../components/SegmentPanel'
-import { SkeletonPageHead, SkeletonSection } from '../components/Skeleton'
+import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
 import { CommunityIntelligenceContent } from './CommunityIntelligenceContent'
@@ -64,7 +64,13 @@ export function AudiencePage() {
       <Show when={model.error}>
         <SectionFailureCard error={model.error} fallback="Audience channel unavailable" />
       </Show>
-      <Show when={!model.error && model.isPending}><SkeletonPageHead /><SkeletonSection titleWidth="160px" lines={4} minHeight="140px" /><SkeletonSection titleWidth="200px" lines={6} minHeight="200px" /><SkeletonSection titleWidth="140px" lines={3} minHeight="120px" /></Show>
+      {/* Per-panel skeletons — page head and tab bar are static and already
+          rendered above. Only the panel area is skeletoned. */}
+      <Show when={!model.error && model.isPending}>
+        <SkeletonSection titleWidth="160px" lines={4} minHeight="140px" />
+        <SkeletonSection titleWidth="200px" lines={6} minHeight="200px" />
+        <SkeletonSection titleWidth="140px" lines={3} minHeight="120px" />
+      </Show>
       <Show when={model.data} keyed>{(data) => <>
         <DegradedSections degraded={data.degraded} />
         <Show when={!data.degraded.includes('overview')}>

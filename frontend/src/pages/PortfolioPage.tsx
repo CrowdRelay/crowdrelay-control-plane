@@ -7,7 +7,7 @@ import { PortfolioSettingsPanel } from '../components/PortfolioSettingsPanel'
 import { FanSourcesPanel } from '../components/FanSourcesPanel'
 import { CommunitiesPanel } from '../components/CommunitiesPanel'
 import { RedditCookieUploader } from '../components/RedditCookieUploader'
-import { SkeletonPageHead, SkeletonSection } from '../components/Skeleton'
+import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import type { TenantPortfolioSection } from '../lib/types'
 
@@ -57,12 +57,18 @@ export function PortfolioPage() {
         <p>Roster-wide audience totals, the amplification edges routing one artist's release in front of another artist's consenting fans, and the fan sources feeding both. Fans never leave their home workspace.</p>
       </div>
     </div>
+
+    {/* Main portfolio read model — per-panel skeletons while pending, not a
+        page-wide block. Independent components (Reddit cookies, communities)
+        mount immediately and fetch in parallel, so a slow main query or a
+        failing agent service never delays them. */}
     <Show when={model.error}>
       <SectionFailureCard error={model.error} fallback="Portfolio channel unavailable" />
     </Show>
-    {/* Skeleton only before the first response; background refreshes keep the
-        rendered page exactly like the Operations subpage does. */}
-    <Show when={!model.error && model.isPending}><SkeletonPageHead /><SkeletonSection titleWidth="180px" lines={5} minHeight="180px" /><SkeletonSection titleWidth="200px" lines={4} minHeight="160px" /><SkeletonSection titleWidth="140px" lines={3} minHeight="120px" /></Show>
+    <Show when={!model.error && model.isPending}>
+      <SkeletonSection titleWidth="180px" lines={5} minHeight="180px" />
+      <SkeletonSection titleWidth="200px" lines={4} minHeight="160px" />
+    </Show>
     <Show when={model.data} keyed>{(data) => <>
       <DegradedSections degraded={data.degraded} />
       <Show when={!data.degraded.includes('overview') || !data.degraded.includes('amplification')}>
@@ -80,12 +86,21 @@ export function PortfolioPage() {
           onChanged={refresh}
         />
       </Show>
-      {/* Reddit cookie refresh — operator uploads Netscape cookies.txt when
-          the browser login path is blocked by Reddit's IP fingerprinting. */}
-      <RedditCookieUploader slug={params().slug} />
-      {/* Loads independently of the portfolio read model, so a slow or failing
-          community list degrades only itself. */}
-      <CommunitiesPanel slug={params().slug} />
+    </>}</Show>
+
+    {/* Reddit cookie refresh — mounts immediately, has its own query.
+        Agent-service failures degrade only this section. */}
+    <RedditCookieUploader slug={params().slug} />
+
+    {/* Communities — mounts immediately, has its own query. A slow or failing
+        community list degrades only itself. */}
+    <CommunitiesPanel slug={params().slug} />
+
+    {/* Settings — waits for the main read model like the portfolio panels. */}
+    <Show when={!model.error && model.isPending}>
+      <SkeletonSection titleWidth="140px" lines={3} minHeight="120px" />
+    </Show>
+    <Show when={model.data} keyed>{(data) =>
       <Show when={!data.degraded.includes('settings')}>
         <PortfolioSettingsPanel
           slug={params().slug}
@@ -93,6 +108,6 @@ export function PortfolioPage() {
           onChanged={refresh}
         />
       </Show>
-    </>}</Show>
+    }</Show>
   </section>
 }

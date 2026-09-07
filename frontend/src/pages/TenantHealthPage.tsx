@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 import { ChiefOfStaffPanel } from '../components/ChiefOfStaffPanel'
 import { QueueInspectorPanel } from '../components/QueueInspectorPanel'
 import { SystemHealthPanel } from '../components/SystemHealthPanel'
-import { SkeletonPageHead, SkeletonBlock } from '../components/Skeleton'
+import { SkeletonSection } from '../components/Skeleton'
 import { StatusBadge } from '../components/StatusBadge'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import type { TenantOperationsReadModel } from '../lib/types'
@@ -58,9 +58,8 @@ export function TenantHealthPage() {
     </Show>
 
     <Show when={!model.error && model.isPending}>
-      <SkeletonPageHead />
-      <SkeletonBlock height="200px" radius="var(--radius-lg)" />
-      <SkeletonBlock height="160px" radius="var(--radius-lg)" />
+      <SkeletonSection titleWidth="180px" lines={4} minHeight="200px" />
+      <SkeletonSection titleWidth="160px" lines={3} minHeight="160px" />
     </Show>
 
     <Show when={model.data}>

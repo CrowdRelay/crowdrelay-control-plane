@@ -11,7 +11,7 @@ import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
 import { AttentionInbox } from '../components/AttentionInbox'
 import { EmptyState } from '../components/EmptyState'
 import { SignalOverviewPanel } from '../components/SignalOverviewPanel'
-import { SkeletonAttentionPage } from '../components/Skeleton'
+import { SkeletonSection, SkeletonKpiStrip } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
 import { Spinner } from '../components/Spinner'
 
@@ -278,7 +278,11 @@ export function TenantAttentionPage() {
       <div class="error-card" role="alert">{summary.error instanceof Error ? summary.error.message : 'Operations attention snapshot unavailable'}</div>
     </Show>
 
-    <Show when={!summary.error && summary.isLoading}><SkeletonAttentionPage /></Show>
+    <Show when={!summary.error && summary.isLoading}>
+      <SkeletonKpiStrip count={4} />
+      <SkeletonSection titleWidth="200px" lines={3} minHeight="120px" />
+      <SkeletonSection titleWidth="180px" lines={4} minHeight="140px" />
+    </Show>
 
     <Show when={summary.data}>{data => <>
       {/* The AttentionInbox above already renders the tiered attention

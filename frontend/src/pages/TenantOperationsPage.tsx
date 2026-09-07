@@ -10,7 +10,7 @@ import { OutreachPipelinePanel } from '../components/OutreachPipelinePanel'
 import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
-import { SkeletonOperationsPage, SkeletonSection } from '../components/Skeleton'
+import { SkeletonKpiStrip, SkeletonSection } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
 import { StatusBadge } from '../components/StatusBadge'
 import { SectionFailureCard } from '../components/SectionFailureCard'
@@ -88,6 +88,31 @@ export function TenantOperationsPage() {
       <SectionFailureCard error={model.error} fallback="Tenant operations channel unavailable" />
     </Show>
 
+    {/* KPI strip skeleton — shown only while the main query is pending.
+        The page head and tab bar above are static and render immediately. */}
+    <Show when={!model.error && model.isPending}>
+      <SkeletonKpiStrip count={7} />
+    </Show>
+
+    {/* Tab bar — static, renders immediately. Count callbacks return 0
+        while data is pending, which is the correct placeholder. */}
+    <TabBar
+      active={activeTab()}
+      onChange={switchTab}
+      tabs={[
+        { id: 'opportunities', label: 'Opportunities', count: () => opCount() },
+        { id: 'outreach', label: 'Outreach' },
+        { id: 'releases', label: 'Releases' },
+      ]}
+    />
+
+    {/* Tab content skeleton — shows while the main query is pending.
+        Matches the active tab's panel layout so the swap is seamless. */}
+    <Show when={!model.error && model.isPending}>
+      <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
+      <SkeletonSection titleWidth="200px" lines={3} minHeight="140px" />
+    </Show>
+
     <Show when={model.data}>{<>
       {/* KPI strip — persistent across all tabs */}
       <div class="ops-kpi-strip">
@@ -158,17 +183,6 @@ export function TenantOperationsPage() {
           </div>
         </div>
       </Show>
-
-      {/* Tab bar */}
-      <TabBar
-        active={activeTab()}
-        onChange={switchTab}
-        tabs={[
-          { id: 'opportunities', label: 'Opportunities', count: () => opCount() },
-          { id: 'outreach', label: 'Outreach' },
-          { id: 'releases', label: 'Releases' },
-        ]}
-      />
 
       {/* ── Opportunities tab ── */}
       <TabPanel active={activeTab()} id="opportunities" visited={isVisited('opportunities')}>
