@@ -38,7 +38,7 @@ const templateLabel = (id: string): string => {
 const successTone = (rate: number | null): 'good' | 'warn' | 'bad' | 'muted' =>
   rate == null ? 'muted' : rate >= 90 ? 'good' : rate >= 75 ? 'warn' : 'bad'
 
-export function AIUsagePanel(props: { slug: string }) {
+export function AIUsagePanel(props: { slug: string; active?: boolean }) {
   const [error, setError] = createSignal<string | null>(null)
 
   const data = useQuery(() => ({
@@ -52,6 +52,7 @@ export function AIUsagePanel(props: { slug: string }) {
         return null
       }
     },
+    enabled: props.active !== false,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))

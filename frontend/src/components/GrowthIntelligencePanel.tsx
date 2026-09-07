@@ -138,7 +138,7 @@ function PolicyEditor(props: {
   </div>
 }
 
-export function GrowthIntelligencePanel(props: { slug: string }) {
+export function GrowthIntelligencePanel(props: { slug: string; active?: boolean }) {
   const [error, setError] = createSignal<string | null>(null)
   const [pendingMutation, setPendingMutation] = createSignal(false)
   const [confirming, setConfirming] = createSignal<string | null>(null)
@@ -154,6 +154,7 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
         return null
       }
     },
+    enabled: props.active !== false,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -168,6 +169,7 @@ export function GrowthIntelligencePanel(props: { slug: string }) {
         return null
       }
     },
+    enabled: props.active !== false,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))

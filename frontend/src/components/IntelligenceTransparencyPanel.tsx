@@ -39,7 +39,7 @@ const taskStatusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
   status === 'running' || status === 'queued' ? 'warn' :
   status === 'failed' ? 'bad' : 'muted'
 
-export function IntelligenceTransparencyPanel(props: { slug: string }) {
+export function IntelligenceTransparencyPanel(props: { slug: string; active?: boolean }) {
   const [error, setError] = createSignal<string | null>(null)
   const [expanded, setExpanded] = createSignal<string | null>(null)
   const [days, setDays] = createSignal(30)

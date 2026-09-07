@@ -5,6 +5,7 @@ import { errorMessage, formatIsoAge } from '../lib/format'
 import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
 import { Dialog } from './Dialog'
+import { TabBar, TabPanel, useTabPanels } from './TabBar'
 import { GrowthIntelligencePanel } from './GrowthIntelligencePanel'
 import { PremiumAIPanel } from './PremiumAIPanel'
 import { AIUsagePanel } from './AIUsagePanel'
@@ -46,18 +47,8 @@ const priorityTone = (p: string): 'good' | 'warn' | 'muted' =>
   p === 'high' ? 'good' : p === 'medium' ? 'warn' : 'muted'
 
 export function AgentPanel(props: { slug: string }) {
-  const [activeTab, setActiveTab] = createSignal<'providers' | 'tasks' | 'growth' | 'usage' | 'intel'>('providers')
-  // Track which tabs have been visited — only mount a tab's panel after
-  // it's been visited for the first time. This prevents all 5 panels from
-  // firing their API requests simultaneously on page load. Once visited,
-  // the panel stays mounted (CSS toggles visibility) so re-entering doesn't
-  // re-fetch.
-  const [visitedTabs, setVisitedTabs] = createSignal<Set<string>>(new Set(['providers']))
-  const switchTab = (tab: 'providers' | 'tasks' | 'growth' | 'usage' | 'intel') => {
-    setActiveTab(tab)
-    setVisitedTabs(prev => prev.has(tab) ? prev : new Set([...prev, tab]))
-  }
-  const tabVisited = (tab: string) => visitedTabs().has(tab)
+  const { activeTab, switchTab, isVisited } = useTabPanels('providers')
+  const tab = () => activeTab() as 'providers' | 'tasks' | 'growth' | 'usage' | 'intel'
 
   const [selectedTemplate, setSelectedTemplate] = createSignal<string | null>(null)
   const [selectedModel, setSelectedModel] = createSignal<string>('laguna-s-2.1-free')
@@ -73,6 +64,7 @@ export function AgentPanel(props: { slug: string }) {
       const data = await request<{ templates: AgentTemplate[] }>(`/tenants/${props.slug}/agents/templates`)
       return data.templates
     },
+    enabled: tab() === 'tasks',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -83,6 +75,7 @@ export function AgentPanel(props: { slug: string }) {
       const data = await request<{ tasks: AgentTask[] }>(`/tenants/${props.slug}/agents/tasks`)
       return data.tasks
     },
+    enabled: tab() === 'tasks',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -93,6 +86,7 @@ export function AgentPanel(props: { slug: string }) {
       const data = await request<{ providers: AgentProvider[] }>(`/tenants/${props.slug}/agents/providers`)
       return data.providers
     },
+    enabled: tab() === 'providers',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -103,6 +97,7 @@ export function AgentPanel(props: { slug: string }) {
       const data = await request<{ credentials: AgentCredential[] }>(`/tenants/${props.slug}/agents/credentials`)
       return data.credentials
     },
+    enabled: tab() === 'providers',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -113,6 +108,7 @@ export function AgentPanel(props: { slug: string }) {
       const data = await request<{ models: AgentModel[]; connectedProviders: string[] }>(`/tenants/${props.slug}/agents/models`)
       return data
     },
+    enabled: tab() === 'providers' || tab() === 'tasks',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -139,6 +135,7 @@ export function AgentPanel(props: { slug: string }) {
         return null
       }
     },
+    enabled: tab() === 'tasks',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -196,6 +193,7 @@ export function AgentPanel(props: { slug: string }) {
         return null
       }
     },
+    enabled: tab() === 'tasks',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -277,45 +275,40 @@ export function AgentPanel(props: { slug: string }) {
       </Show>
 
       {/* Tab navigation */}
-      <div class="area-step-tabs agent-tabs">
-        <For each={[{id: 'providers', label: 'AI Providers'}, {id: 'tasks', label: 'Tasks'}, {id: 'growth', label: 'Growth Intelligence'}, {id: 'usage', label: 'AI Usage'}, {id: 'intel', label: 'Intelligence'}] as const}>
-          {(tab) => (
-            <button
-              class={activeTab() === tab.id ? 'active ghost' : 'ghost'}
-              onClick={() => switchTab(tab.id)}
-            >{tab.label}</button>
-          )}
-        </For>
-      </div>
+      <TabBar
+        active={activeTab()}
+        onChange={switchTab}
+        tabs={[
+          { id: 'providers', label: 'AI Providers' },
+          { id: 'tasks', label: 'Tasks' },
+          { id: 'growth', label: 'Growth Intelligence' },
+          { id: 'usage', label: 'AI Usage' },
+          { id: 'intel', label: 'Intelligence' },
+        ]}
+      />
 
-      {/* Tab panels — lazy-mounted on first visit, then kept mounted.
-          CSS toggles visibility so re-entering doesn't re-fetch. */}
-      <Show when={tabVisited('growth')}>
-        <div class={activeTab() === 'growth' ? '' : 'tab-hidden'}>
-          <GrowthIntelligencePanel slug={props.slug} />
-        </div>
-      </Show>
+      {/* Tab panels — lazy-mounted on first visit via TabPanel, then kept
+          mounted with display:none. Each TabPanel has its own <Suspense>
+          boundary so the first open shows a local skeleton, not a
+          page-wide skeleton. Queries are gated by `enabled: tab() === ...`
+          so hidden tabs don't refetch on the global refresh tick. */}
+      <TabPanel active={activeTab()} id="providers" visited={isVisited('providers')}>
+        <PremiumAIPanel slug={props.slug} providers={providers.data} credentials={credentials.data} refetchCreds={credentials.refetch} active={activeTab() === 'providers'} models={models.data} />
+      </TabPanel>
 
-      <Show when={tabVisited('providers')}>
-        <div class={activeTab() === 'providers' ? '' : 'tab-hidden'}>
-          <PremiumAIPanel slug={props.slug} providers={providers.data} credentials={credentials.data} refetchCreds={credentials.refetch} active={activeTab() === 'providers'} models={models.data} />
-        </div>
-      </Show>
+      <TabPanel active={activeTab()} id="growth" visited={isVisited('growth')}>
+        <GrowthIntelligencePanel slug={props.slug} active={activeTab() === 'growth'} />
+      </TabPanel>
 
-      <Show when={tabVisited('usage')}>
-        <div class={activeTab() === 'usage' ? '' : 'tab-hidden'}>
-          <AIUsagePanel slug={props.slug} />
-        </div>
-      </Show>
+      <TabPanel active={activeTab()} id="usage" visited={isVisited('usage')}>
+        <AIUsagePanel slug={props.slug} active={activeTab() === 'usage'} />
+      </TabPanel>
 
-      <Show when={tabVisited('intel')}>
-        <div class={activeTab() === 'intel' ? '' : 'tab-hidden'}>
-          <IntelligenceTransparencyPanel slug={props.slug} />
-        </div>
-      </Show>
+      <TabPanel active={activeTab()} id="intel" visited={isVisited('intel')}>
+        <IntelligenceTransparencyPanel slug={props.slug} active={activeTab() === 'intel'} />
+      </TabPanel>
 
-      <Show when={tabVisited('tasks')}>
-      <div class={activeTab() === 'tasks' ? '' : 'tab-hidden'}>
+      <TabPanel active={activeTab()} id="tasks" visited={isVisited('tasks')}>
       {/* Autopilot intelligence → agent suggestions — the bridge between operations data and LLM execution */}
       <Show when={suggestions.data && suggestions.data!.length > 0}>
         <div class="agent-section">
@@ -516,8 +509,7 @@ export function AgentPanel(props: { slug: string }) {
           </table>
         </Show>
       </div>
-      </div>
-      </Show>
+      </TabPanel>
 
       <Dialog
         open={viewingResult() !== null}
