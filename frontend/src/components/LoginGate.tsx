@@ -31,9 +31,7 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
     }
   }
 
-  return <Show when={authState.hydrated()} fallback={
-    <main class="login-shell"><section class="login-card" aria-busy="true"><p>Restoring session…</p></section></main>
-  }><Show when={authState.profile()} fallback={
+  return <Show when={authState.profile()} fallback={
     <main class="login-shell">
       <LoginHero />
       <section class="login-card" aria-labelledby="control-plane-login-title">
@@ -52,5 +50,5 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
         <div class="login-security"><span class="auth-dot ok"/><span>Session lives in an HttpOnly cookie — credentials never touch browser storage.</span></div>
       </section>
     </main>
-  }>{props.children}</Show></Show>
+  }>{props.children}</Show>
 }
