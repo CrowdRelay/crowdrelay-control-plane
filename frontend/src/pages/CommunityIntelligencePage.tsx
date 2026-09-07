@@ -32,6 +32,10 @@ const countBy = (items: CommunityItem[], state: string) =>
 
 export function CommunityIntelligencePage() {
   const params = useParams({ from: '/tenants/$slug/communities' })
+  return <CommunityIntelligenceContent slug={params().slug} />
+}
+
+export function CommunityIntelligenceContent(props: { slug: string }) {
   const [selectedPlaceId, setSelectedPlaceId] = createSignal<string | null>(null)
   const [draftFor, setDraftFor] = createSignal<string | null>(null)
 
@@ -39,8 +43,8 @@ export function CommunityIntelligencePage() {
   // community's observations and there is no reason to do that 66 times for a
   // page the operator scans.
   const draft = useQuery(() => ({
-    queryKey: ['community-intro-draft', params().slug, draftFor()],
-    queryFn: () => api.communityIntroDraft(params().slug, draftFor()!),
+    queryKey: ['community-intro-draft', props.slug, draftFor()],
+    queryFn: () => api.communityIntroDraft(props.slug, draftFor()!),
     enabled: draftFor() !== null,
     refetchOnWindowFocus: false,
     staleTime: 30_000,
@@ -50,7 +54,7 @@ export function CommunityIntelligencePage() {
 
   const setMembership = async (placeId: string, state: string) => {
     try {
-      await api.setCommunityMembership(params().slug, placeId, state)
+      await api.setCommunityMembership(props.slug, placeId, state)
       toast.success(`Marked ${MEMBERSHIP_LABEL[state] ?? state}.`)
       await communities.refetch()
     } catch (error) {
@@ -59,16 +63,16 @@ export function CommunityIntelligencePage() {
   }
 
   const communities = useQuery(() => ({
-    queryKey: ['community-intelligence', params().slug],
-    queryFn: () => api.communityIntelligenceCommunities(params().slug),
+    queryKey: ['community-intelligence', props.slug],
+    queryFn: () => api.communityIntelligenceCommunities(props.slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 30_000,
   }))
 
   const observations = useQuery(() => ({
-    queryKey: ['community-observations', params().slug, selectedPlaceId()],
-    queryFn: () => api.communityIntelligenceObservations(params().slug, selectedPlaceId()!),
+    queryKey: ['community-observations', props.slug, selectedPlaceId()],
+    queryFn: () => api.communityIntelligenceObservations(props.slug, selectedPlaceId()!),
     enabled: !!selectedPlaceId(),
     reconcile: 'id',
     refetchOnWindowFocus: false,
@@ -76,8 +80,8 @@ export function CommunityIntelligencePage() {
   }))
 
   const entities = useQuery(() => ({
-    queryKey: ['community-entities', params().slug, selectedPlaceId()],
-    queryFn: () => api.communityIntelligenceEntities(params().slug, selectedPlaceId()!),
+    queryKey: ['community-entities', props.slug, selectedPlaceId()],
+    queryFn: () => api.communityIntelligenceEntities(props.slug, selectedPlaceId()!),
     enabled: !!selectedPlaceId(),
     reconcile: 'id',
     refetchOnWindowFocus: false,

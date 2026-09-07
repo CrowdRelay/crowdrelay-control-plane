@@ -8,6 +8,10 @@ import { RunBrainCyclePanel } from '../components/RunBrainCyclePanel'
 import { GrowthObjectivesPanel } from '../components/GrowthObjectivesPanel'
 import { LearningLoopPanel } from '../components/LearningLoopPanel'
 import { ScorecardPanel } from '../components/ScorecardPanel'
+import { GrowthPosturePanel } from '../components/GrowthPosturePanel'
+import { GrowthMetricsPanel } from '../components/GrowthMetricsPanel'
+import { AcquisitionChannelsPanel } from '../components/AcquisitionChannelsPanel'
+import { GrowthFunnelPanel } from '../components/GrowthFunnelPanel'
 import { StatusBadge } from '../components/StatusBadge'
 import { SkeletonIntelligencePage } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
@@ -86,6 +90,7 @@ export function TenantIntelligencePage() {
         tabs={[
           { id: 'overview', label: 'Overview' },
           { id: 'growth', label: 'Growth Intelligence' },
+          { id: 'funnel', label: 'Growth Funnel' },
           { id: 'decisions', label: 'Decisions' },
           { id: 'learning', label: 'Learning' },
         ]}
@@ -110,8 +115,22 @@ export function TenantIntelligencePage() {
             <span class="eyebrow">WHAT IT BELIEVES</span>
             <h3><SectionIcon name="trending-up" />Growth intelligence</h3>
           </div>
+          <GrowthPosturePanel slug={params().slug} />
           <RunBrainCyclePanel slug={params().slug} />
           <GrowthIntelligencePanel slug={params().slug} />
+        </div>
+      </TabPanel>
+
+      {/* ── Growth Funnel tab — where the audience is and how it converts ── */}
+      <TabPanel active={activeTab()} id="funnel" visited={isVisited('funnel')}>
+        <div class="brain-group">
+          <div class="brain-group-head">
+            <span class="eyebrow">FUNNEL</span>
+            <h3><SectionIcon name="trending-up" />Growth metrics & funnel</h3>
+          </div>
+          <GrowthMetricsPanel slug={params().slug} />
+          <AcquisitionChannelsPanel slug={params().slug} />
+          <GrowthFunnelPanel slug={params().slug} />
         </div>
       </TabPanel>
 

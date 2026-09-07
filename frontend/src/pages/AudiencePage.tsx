@@ -7,6 +7,8 @@ import { FanTablePanel } from '../components/FanTablePanel'
 import { SegmentPanel } from '../components/SegmentPanel'
 import { SkeletonPageHead, SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
+import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
+import { CommunityIntelligenceContent } from './CommunityIntelligencePage'
 
 const SECTION_LABEL: Record<string, string> = {
   overview: 'Audience KPIs',
@@ -28,6 +30,7 @@ function DegradedSections(props: { degraded: string[] }) {
 
 export function AudiencePage() {
   const params = useParams({ from: '/tenants/$slug/audience' })
+  const { activeTab, switchTab, isVisited } = useTabPanels('fans')
   const model = useQuery(() => ({
     queryKey: ['tenant-audience', params().slug],
     queryFn: () => api.audienceModel(params().slug),
@@ -41,25 +44,44 @@ export function AudiencePage() {
     <div class="page-head">
       <div>
         <span class="eyebrow">AUDIENCE</span>
-        <h1>Fan Intelligence</h1>
-        <p>Every fan aggregated from all sides of the internet — Reddit, Meta, Spotify, Bandsintown, forums, press, live shows — in one view. Search, segment, and understand who your fans are and how they found you.</p>
+        <h1>Audience</h1>
+        <p>Every fan aggregated from all sides of the internet — Reddit, Meta, Spotify, Bandsintown, forums, press, live shows — in one view. Plus the communities where they already gather.</p>
       </div>
     </div>
-    <Show when={model.error}>
-      <SectionFailureCard error={model.error} fallback="Audience channel unavailable" />
-    </Show>
-    <Show when={!model.error && model.isPending}><SkeletonPageHead /><SkeletonSection titleWidth="160px" lines={4} minHeight="140px" /><SkeletonSection titleWidth="200px" lines={6} minHeight="200px" /><SkeletonSection titleWidth="140px" lines={3} minHeight="120px" /></Show>
-    <Show when={model.data} keyed>{(data) => <>
-      <DegradedSections degraded={data.degraded} />
-      <Show when={!data.degraded.includes('overview')}>
-        <AudienceOverviewPanel slug={params().slug} overview={data.overview ?? undefined} />
+
+    {/* Tab bar */}
+    <TabBar
+      active={activeTab()}
+      onChange={switchTab}
+      tabs={[
+        { id: 'fans', label: 'Fans' },
+        { id: 'communities', label: 'Communities' },
+      ]}
+    />
+
+    {/* ── Fans tab — KPIs, fan list, segments ── */}
+    <TabPanel active={activeTab()} id="fans" visited={isVisited('fans')}>
+      <Show when={model.error}>
+        <SectionFailureCard error={model.error} fallback="Audience channel unavailable" />
       </Show>
-      <Show when={!data.degraded.includes('fans')}>
-        <FanTablePanel slug={params().slug} fans={data.fans ?? []} />
-      </Show>
-      <Show when={!data.degraded.includes('segments')}>
-        <SegmentPanel slug={params().slug} segments={data.segments ?? []} />
-      </Show>
-    </>}</Show>
+      <Show when={!model.error && model.isPending}><SkeletonPageHead /><SkeletonSection titleWidth="160px" lines={4} minHeight="140px" /><SkeletonSection titleWidth="200px" lines={6} minHeight="200px" /><SkeletonSection titleWidth="140px" lines={3} minHeight="120px" /></Show>
+      <Show when={model.data} keyed>{(data) => <>
+        <DegradedSections degraded={data.degraded} />
+        <Show when={!data.degraded.includes('overview')}>
+          <AudienceOverviewPanel slug={params().slug} overview={data.overview ?? undefined} />
+        </Show>
+        <Show when={!data.degraded.includes('fans')}>
+          <FanTablePanel slug={params().slug} fans={data.fans ?? []} />
+        </Show>
+        <Show when={!data.degraded.includes('segments')}>
+          <SegmentPanel slug={params().slug} segments={data.segments ?? []} />
+        </Show>
+      </>}</Show>
+    </TabPanel>
+
+    {/* ── Communities tab — observation layer ── */}
+    <TabPanel active={activeTab()} id="communities" visited={isVisited('communities')}>
+      <CommunityIntelligenceContent slug={params().slug} />
+    </TabPanel>
   </section>
 }

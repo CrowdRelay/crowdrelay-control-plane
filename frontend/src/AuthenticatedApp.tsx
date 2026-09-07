@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/solid-query'
-import { RouterProvider, createRootRoute, createRoute, createRouter, lazyRouteComponent } from '@tanstack/solid-router'
+import { RouterProvider, createRootRoute, createRoute, createRouter, lazyRouteComponent, redirect } from '@tanstack/solid-router'
 import { Shell } from './components/Shell'
 import { queryClient } from './lib/queryClient'
 import './styles.css'
@@ -12,16 +12,13 @@ const TenantPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'Tenan
 const AreaPage = lazyRouteComponent(() => import('./pages/AreaPage'), 'AreaPage')
 const TenantAttentionPage = lazyRouteComponent(() => import('./pages/TenantAttentionPage'), 'TenantAttentionPage')
 const TenantOperationsPage = lazyRouteComponent(() => import('./pages/TenantOperationsPage'), 'TenantOperationsPage')
-const TenantActionsPage = lazyRouteComponent(() => import('./pages/TenantActionsPage'), 'TenantActionsPage')
 const TenantHealthPage = lazyRouteComponent(() => import('./pages/TenantHealthPage'), 'TenantHealthPage')
 const TenantIntelligencePage = lazyRouteComponent(() => import('./pages/TenantIntelligencePage'), 'TenantIntelligencePage')
 const TenantIntegrationsPage = lazyRouteComponent(() => import('./pages/TenantIntegrationsPage'), 'TenantIntegrationsPage')
 const PortfolioPage = lazyRouteComponent(() => import('./pages/PortfolioPage'), 'PortfolioPage')
 const AudiencePage = lazyRouteComponent(() => import('./pages/AudiencePage'), 'AudiencePage')
-const GrowthFunnelPage = lazyRouteComponent(() => import('./pages/GrowthFunnelPage'), 'GrowthFunnelPage')
 const BeaconsPage = lazyRouteComponent(() => import('./pages/BeaconsPage'), 'BeaconsPage')
 const TenantNotifiersPage = lazyRouteComponent(() => import('./pages/TenantNotifiersPage'), 'TenantNotifiersPage')
-const CommunityIntelligencePage = lazyRouteComponent(() => import('./pages/CommunityIntelligencePage'), 'CommunityIntelligencePage')
 const OperatorAttentionPage = lazyRouteComponent(() => import('./pages/OperatorAttentionPage'), 'OperatorAttentionPage')
 const AutomationPage = lazyRouteComponent(() => import('./pages/AutomationPage'), 'AutomationPage')
 
@@ -33,20 +30,23 @@ const tenantWizardRoute = createRoute({ getParentRoute: () => rootRoute, path: '
 const tenantRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug', component: TenantPage })
 const portfolioRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/portfolio', component: PortfolioPage })
 const audienceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/audience', component: AudiencePage })
-const funnelRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/funnel', component: GrowthFunnelPage })
 const beaconsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/beacons', component: BeaconsPage })
 const areaRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/area', component: AreaPage })
 const tenantAttentionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/attention', component: TenantAttentionPage })
 const tenantOperationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/operations', component: TenantOperationsPage })
-const tenantActionsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/actions', component: TenantActionsPage })
 const tenantHealthRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/health', component: TenantHealthPage })
 const tenantIntelligenceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/intelligence', component: TenantIntelligencePage })
 const tenantIntegrationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/integrations', component: TenantIntegrationsPage })
 const tenantNotifiersRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/notifiers', component: TenantNotifiersPage })
-const communityIntelligenceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/communities', component: CommunityIntelligencePage })
 const operatorAttentionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/attention', component: OperatorAttentionPage })
 const automationRoute = createRoute({ getParentRoute: () => rootRoute, path: '/automation', component: AutomationPage })
-const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute, tenantWizardRoute, operatorAttentionRoute, automationRoute, tenantRoute, tenantActionsRoute, tenantAttentionRoute, tenantOperationsRoute, tenantHealthRoute, tenantIntelligenceRoute, tenantIntegrationsRoute, tenantNotifiersRoute, communityIntelligenceRoute, portfolioRoute, audienceRoute, funnelRoute, beaconsRoute, areaRoute])
+
+// Legacy redirects — old routes that were consolidated into other pages
+const tenantActionsRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/actions', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/operations` }) } })
+const funnelRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/funnel', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/intelligence` }) } })
+const communityRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/communities', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/audience` }) } })
+
+const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute, tenantWizardRoute, operatorAttentionRoute, automationRoute, tenantRoute, tenantActionsRedirect, tenantAttentionRoute, tenantOperationsRoute, tenantHealthRoute, tenantIntelligenceRoute, tenantIntegrationsRoute, tenantNotifiersRoute, communityRedirect, portfolioRoute, audienceRoute, funnelRedirect, beaconsRoute, areaRoute])
 const router = createRouter({ routeTree, defaultPreload: 'intent', defaultPreloadStaleTime: 10_000, scrollRestoration: true })
 
 declare module '@tanstack/solid-router' { interface Register { router: typeof router } }

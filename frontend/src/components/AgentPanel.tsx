@@ -6,7 +6,6 @@ import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
 import { Dialog } from './Dialog'
 import { TabBar, TabPanel, useTabPanels } from './TabBar'
-import { GrowthIntelligencePanel } from './GrowthIntelligencePanel'
 import { PremiumAIPanel } from './PremiumAIPanel'
 import { AIUsagePanel } from './AIUsagePanel'
 import { IntelligenceTransparencyPanel } from './IntelligenceTransparencyPanel'
@@ -281,7 +280,6 @@ export function AgentPanel(props: { slug: string }) {
         tabs={[
           { id: 'providers', label: 'AI Providers' },
           { id: 'tasks', label: 'Tasks' },
-          { id: 'growth', label: 'Growth Intelligence' },
           { id: 'usage', label: 'AI Usage' },
           { id: 'intel', label: 'Intelligence' },
         ]}
@@ -294,10 +292,6 @@ export function AgentPanel(props: { slug: string }) {
           so hidden tabs don't refetch on the global refresh tick. */}
       <TabPanel active={activeTab()} id="providers" visited={isVisited('providers')}>
         <PremiumAIPanel slug={props.slug} providers={providers.data} credentials={credentials.data} refetchCreds={credentials.refetch} active={activeTab() === 'providers'} models={models.data} />
-      </TabPanel>
-
-      <TabPanel active={activeTab()} id="growth" visited={isVisited('growth')}>
-        <GrowthIntelligencePanel slug={props.slug} active={activeTab() === 'growth'} />
       </TabPanel>
 
       <TabPanel active={activeTab()} id="usage" visited={isVisited('usage')}>

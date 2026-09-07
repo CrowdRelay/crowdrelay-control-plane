@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { ChiefOfStaffPanel } from '../components/ChiefOfStaffPanel'
-import { OperationsPanel } from '../components/OperationsPanel'
 import { QueueInspectorPanel } from '../components/QueueInspectorPanel'
 import { SystemHealthPanel } from '../components/SystemHealthPanel'
 import { SkeletonPageHead, SkeletonBlock } from '../components/Skeleton'
@@ -79,18 +78,6 @@ export function TenantHealthPage() {
       {/* The dead-letter remediation above says "open Deliveries and read one
           failure". This is Deliveries. */}
       <QueueInspectorPanel slug={params().slug} />
-      <OperationsPanel
-        slug={params().slug}
-        summary={d()?.summary ?? null}
-        flags={d()?.flags ?? null}
-        autopilot={d()?.autopilot ?? null}
-        degraded={d()?.degraded ?? []}
-        sections={d()?.sections}
-        freshness={d()?.freshness}
-        fetchedAt={d()?.fetchedAt}
-        refresh={refresh}
-        mode="controls"
-      />
     </Show>
   </section>
 }
