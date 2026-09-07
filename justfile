@@ -34,10 +34,22 @@ script-test:
     python3 scripts/test_north_star_vocabulary_parity.py
     python3 scripts/test_mobile_apps_contract.py
     python3 scripts/test_tunnel_route_contract.py
-    for script in scripts/*.sh; do bash -n "$script"; done
+    for script in scripts/*.sh deploy/*.sh; do bash -n "$script"; done
 
 # Everything CI runs for a merge decision.
 ci: rust-fmt rust-clippy rust-test script-test web-install web-css web-build
+
+# Is this host ready to take another tenant, and if not, what is missing.
+# Read-only; run it before an onboarding call, not during one.
+preflight host="":
+    ssh {{env_var_or_default("CONTROL_PLANE_DEPLOY_HOST", "virya-crowdrelay")}} \
+        'sudo bash -s -- {{host}}' < scripts/preflight-onboarding.sh
+
+# Publish a provisioned tenant at its public hostname. The provisioner binds
+# the tenant API to 127.0.0.1 on purpose; this is the edge half.
+edge-route host port:
+    ssh {{env_var_or_default("CONTROL_PLANE_DEPLOY_HOST", "virya-crowdrelay")}} \
+        'sudo bash -s -- {{host}} {{port}}' < scripts/add-tenant-edge-route.sh
 
 deploy:
     bash scripts/deploy.sh
