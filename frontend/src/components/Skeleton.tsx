@@ -43,8 +43,9 @@ export const SkeletonPanel: Component<{ lines?: number }> = (props) => (
 // These mirror the actual page layout shapes so the browser paints
 // the full layout immediately and data populates into place.
 
-/** Page header skeleton — eyebrow + h1 + paragraph */
-export const SkeletonPageHead: Component = () => (
+/** Page header skeleton — eyebrow + h1 + paragraph.
+ *  Internal helper used by composite page skeletons. */
+const SkeletonPageHead: Component = () => (
   <div class="page-head">
     <div>
       <div class="skeleton-block" style={{ height: '12px', width: '120px', 'border-radius': '6px', 'margin-bottom': '10px' }} />
@@ -83,8 +84,9 @@ export const SkeletonSection: Component<{ titleWidth?: string; lines?: number; m
   </article>
 )
 
-/** Two-column grid skeleton — for detail-grid layouts */
-export const SkeletonDetailGrid: Component<{ leftHeight?: string; rightHeight?: string }> = (props) => (
+/** Two-column grid skeleton — for detail-grid layouts.
+ *  Internal helper used by SkeletonTenantPage. */
+const SkeletonDetailGrid: Component<{ leftHeight?: string; rightHeight?: string }> = (props) => (
   <div class="detail-grid">
     <div class="skeleton-block" style={{ height: props.leftHeight ?? '200px', 'border-radius': 'var(--radius-lg)' }} />
     <div class="skeleton-block" style={{ height: props.rightHeight ?? '200px', 'border-radius': 'var(--radius-lg)' }} />
@@ -100,63 +102,6 @@ export const SkeletonBrainGroup: Component<{ label?: string }> = (props) => (
     </div>
     <div class="skeleton-block" style={{ height: '120px', 'border-radius': 'var(--radius-lg)', 'margin-top': '14px' }} />
   </div>
-)
-
-/** Full operations page skeleton — KPI strips + panels */
-export const SkeletonOperationsPage: Component = () => (
-  <>
-    <SkeletonPageHead />
-    <SkeletonKpiStrip count={3} />
-    <SkeletonKpiStrip count={3} />
-    <SkeletonKpiStrip count={1} />
-    <div class="skeleton-block" style={{ height: '180px', 'border-radius': 'var(--radius-lg)', 'margin-top': '16px' }} />
-    <div class="cockpit-primary" style={{ 'margin-top': '16px' }}>
-      <div class="skeleton-block" style={{ height: '280px', 'border-radius': 'var(--radius-lg)' }} />
-      <div class="skeleton-block" style={{ height: '280px', 'border-radius': 'var(--radius-lg)' }} />
-    </div>
-    <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
-  </>
-)
-
-/** Full intelligence page skeleton — brain groups + subsystem grid */
-export const SkeletonIntelligencePage: Component = () => (
-  <>
-    <SkeletonPageHead />
-    <div class="skeleton-block" style={{ height: '80px', 'border-radius': '12px', 'margin-top': '16px' }} />
-    <SkeletonBrainGroup />
-    <SkeletonBrainGroup />
-    <SkeletonBrainGroup />
-    <SkeletonBrainGroup />
-    <div class="intel-section" style={{ 'margin-top': '20px' }}>
-      <div class="skeleton-block" style={{ height: '18px', width: '140px', 'border-radius': '6px', 'margin-bottom': '14px' }} />
-      <div class="intel-subsystem-grid">
-        {Array.from({ length: 5 }, () => (
-          <div class="skeleton-block" style={{ height: '160px', 'border-radius': 'var(--radius-lg)' }} />
-        ))}
-      </div>
-    </div>
-  </>
-)
-
-/** Full attention page skeleton — sections + metric rows */
-export const SkeletonAttentionPage: Component = () => (
-  <>
-    <SkeletonPageHead />
-    <div class="skeleton-block" style={{ height: '80px', 'border-radius': '12px', 'margin-top': '16px' }} />
-    <SkeletonSection titleWidth="200px" lines={3} minHeight="120px" />
-    <div class="operations-metrics" style={{ 'margin-top': '16px' }}>
-      {Array.from({ length: 4 }, () => (
-        <div class="skeleton-block" style={{ height: '80px', 'border-radius': '10px' }} />
-      ))}
-    </div>
-    <SkeletonSection titleWidth="180px" lines={4} minHeight="140px" />
-    <div class="operations-metrics" style={{ 'margin-top': '16px' }}>
-      {Array.from({ length: 4 }, () => (
-        <div class="skeleton-block" style={{ height: '80px', 'border-radius': '10px' }} />
-      ))}
-    </div>
-    <SkeletonSection titleWidth="160px" lines={3} minHeight="120px" />
-  </>
 )
 
 /** Full tenant detail page skeleton — header + detail grid + panels */
@@ -324,29 +269,6 @@ export const SkeletonAutopilotKpis: Component = () => (
         <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px' }} />
       </div>
     ))}
-  </div>
-)
-
-/** Skeleton for BrainDecisionPanel — decision narrative layout */
-export const SkeletonBrainDecision: Component = () => (
-  <div class="brain-decision-body">
-    <div class="brain-decision-what">
-      <div class="skeleton-block" style={{ height: '20px', width: '50%', 'border-radius': '6px', 'margin-bottom': '8px' }} />
-      <div class="skeleton-block" style={{ height: '12px', width: '40%', 'border-radius': '5px' }} />
-    </div>
-    <div class="brain-decision-why">
-      <div class="skeleton-block" style={{ height: '11px', width: '40px', 'border-radius': '5px', 'margin-bottom': '8px' }} />
-      <div class="skeleton-block" style={{ height: '14px', width: '100%', 'border-radius': '6px', 'margin-bottom': '6px' }} />
-      <div class="skeleton-block" style={{ height: '14px', width: '90%', 'border-radius': '6px' }} />
-    </div>
-    <div class="brain-decision-factors">
-      {Array.from({ length: 3 }, () => (
-        <div class="brain-decision-factor">
-          <div class="skeleton-block" style={{ height: '11px', width: '50px', 'border-radius': '5px', 'margin-bottom': '6px' }} />
-          <div class="skeleton-block" style={{ height: '16px', width: '40px', 'border-radius': '5px' }} />
-        </div>
-      ))}
-    </div>
   </div>
 )
 
