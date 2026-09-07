@@ -33,7 +33,7 @@ type Cmd = {
 }
 
 const SUBPAGES: Array<{ suffix: string; label: string }> = [
-  { suffix: '', label: 'Overview' },
+  { suffix: '', label: 'Settings' },
   { suffix: '/attention', label: 'Attention' },
   { suffix: '/intelligence', label: 'Intelligence' },
   { suffix: '/health', label: 'Autopilot' },
@@ -41,10 +41,8 @@ const SUBPAGES: Array<{ suffix: string; label: string }> = [
   { suffix: '/integrations', label: 'AI Integrations' },
   { suffix: '/notifiers', label: 'Notifiers' },
   { suffix: '/portfolio', label: 'Portfolio' },
-  { suffix: '/audience', label: 'Fan Intelligence' },
-  { suffix: '/communities', label: 'Communities' },
+  { suffix: '/audience', label: 'Audience' },
   { suffix: '/beacons', label: 'Beacons' },
-  { suffix: '/funnel', label: 'Growth Funnel' },
   { suffix: '/area', label: 'AREA' },
 ]
 
@@ -59,7 +57,7 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
   { id: 'q-goal', label: 'Change the brain goal (north star)', keywords: 'brain goal north star metric target objective intelligence', suffix: '/intelligence' },
   { id: 'q-failed', label: 'Open failed deliveries', keywords: 'failed deliveries dead outbox webhook push show', suffix: '/attention' },
   { id: 'q-beacons', label: 'Open Beacon signals', keywords: 'beacon signals operations outreach', suffix: '/operations' },
-  { id: 'q-growth', label: 'Open the growth funnel', keywords: 'growth drop decline metrics funnel explain why', suffix: '/funnel' },
+  { id: 'q-growth', label: 'Open growth intelligence', keywords: 'growth drop decline metrics funnel explain why', suffix: '/intelligence' },
   { id: 'q-learning', label: 'Open the learning loop', keywords: 'learning loop outcome decision action intelligence what the brain learned', suffix: '/intelligence' },
   { id: 'q-opportunities', label: 'Open the opportunity board', keywords: 'opportunities board decision operations show current', suffix: '/operations' },
 ]

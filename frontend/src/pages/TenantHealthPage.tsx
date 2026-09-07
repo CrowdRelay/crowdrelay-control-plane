@@ -22,7 +22,6 @@ export function TenantHealthPage() {
   const refresh = () => model.refetch()
   const d = (): TenantOperationsReadModel | undefined => model.data
   const summary = () => d()?.summary
-  const autopilot = () => d()?.autopilot
   const deadJobs = () => {
     const s = summary()
     if (!s) return 0
@@ -45,7 +44,7 @@ export function TenantHealthPage() {
       <div>
         <span class="eyebrow">SYSTEM</span>
         <h1>Autopilot</h1>
-        <p>Live telemetry, delivery queues, watchdog alerts, runtime switches and Autopilot authority policies.</p>
+        <p>System health, chief of staff summary, and delivery queue inspector.</p>
       </div>
       <Show when={model.data}>
         <div class="page-head-status">

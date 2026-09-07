@@ -22,10 +22,12 @@ export const REFRESH_INTERVALS: readonly { label: string; ms: number }[] = [
   { label: '5m', ms: 300_000 },
 ] as const
 
-// An operations console that never refreshes shows yesterday's incident. The
-// default is a slow tick rather than Off; the choice is remembered so an
-// operator who deliberately parks on Off keeps it across reloads.
-const DEFAULT_MS = 30_000
+// Auto-refresh is Off by default. The operator can opt in from the topbar
+// dropdown. The choice is remembered so an operator who deliberately picks
+// an interval keeps it across reloads. Users who were on the old 30s default
+// are reset to Off — only explicit non-default choices survive.
+const DEFAULT_MS = 0
+const OLD_DEFAULT = 30_000
 const STORAGE_KEY = 'refresh-interval-ms'
 
 const storedInterval = (): number => {
@@ -33,6 +35,10 @@ const storedInterval = (): number => {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw === null) return DEFAULT_MS
     const parsed = Number(raw)
+    if (parsed === OLD_DEFAULT) {
+      localStorage.removeItem(STORAGE_KEY)
+      return DEFAULT_MS
+    }
     return REFRESH_INTERVALS.some(option => option.ms === parsed) ? parsed : DEFAULT_MS
   } catch {
     return DEFAULT_MS
