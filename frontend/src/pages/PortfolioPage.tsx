@@ -5,7 +5,6 @@ import { api } from '../lib/api'
 import { PortfolioPanel } from '../components/PortfolioPanel'
 import { PortfolioSettingsPanel } from '../components/PortfolioSettingsPanel'
 import { FanSourcesPanel } from '../components/FanSourcesPanel'
-import { CommunitiesPanel } from '../components/CommunitiesPanel'
 import { RedditCookieUploader } from '../components/RedditCookieUploader'
 import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
@@ -91,10 +90,6 @@ export function PortfolioPage() {
     {/* Reddit cookie refresh — mounts immediately, has its own query.
         Agent-service failures degrade only this section. */}
     <RedditCookieUploader slug={params().slug} />
-
-    {/* Communities — mounts immediately, has its own query. A slow or failing
-        community list degrades only itself. */}
-    <CommunitiesPanel slug={params().slug} />
 
     {/* Settings — waits for the main read model like the portfolio panels. */}
     <Show when={!model.error && model.isPending}>

@@ -1,18 +1,21 @@
-import { For, Show, createSignal } from 'solid-js'
+import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import type { CommunityItem, CommunityObservationItem, CommunityEntityItem } from '../lib/types'
+import type { CommunityItem, CommunityObservationItem, CommunityEntityItem, AudiencePlaceInput } from '../lib/types'
 import { SkeletonRows } from '../components/Skeleton'
 import { toast } from '../lib/toast'
 import { errorMessage } from '../lib/format'
 
 /**
- * Community Intelligence content — observation layer for community surfaces.
+ * Community Intelligence content — the Communities tab inside the Audience page.
  *
- * Rendered as the Communities tab inside the Audience page. Shows tracked
- * communities with their latest observations, and allows drilling into
- * observation time series and extracted entities.
- * No sentiment, no affinity — just structured facts the Brain can reason over.
+ * Combines:
+ * - CRUD: add a community, import a list (previously only in Portfolio)
+ * - Intelligence: observations, entities, membership tracking, draft intros
+ *
+ * Communities are grouped by platform with collapsible sections and
+ * per-group "show more" pagination, so a long roster does not become
+ * an endless scroll.
  */
 
 /// Ordered so the queue reads as work: what to do, then what is in flight,
@@ -27,12 +30,81 @@ const MEMBERSHIP_LABEL: Record<string, string> = {
   not_a_fit: 'Not a fit',
 }
 
+const PLACE_KINDS = [
+  'subreddit',
+  'discord',
+  'telegram',
+  'lemmy',
+  'forum',
+  'facebook_group',
+  'instagram',
+  'tiktok',
+  'youtube',
+  'playlist',
+  'zine',
+  'festival',
+  'other',
+] as const
+
+const PLATFORM_FOR_KIND: Record<string, string> = {
+  subreddit: 'reddit',
+  discord: 'discord',
+  telegram: 'telegram',
+  lemmy: 'lemmy',
+  forum: 'forum',
+  facebook_group: 'facebook',
+  instagram: 'instagram',
+  tiktok: 'tiktok',
+  youtube: 'youtube',
+  playlist: 'spotify',
+  zine: 'web',
+  festival: 'web',
+  other: 'web',
+}
+
+/// Platforms are sorted by community count descending, then alphabetically.
+/// Unknown platforms sort after known ones.
+const PLATFORM_ORDER = [
+  'reddit', 'discord', 'telegram', 'facebook', 'instagram',
+  'tiktok', 'youtube', 'spotify', 'lemmy', 'forum', 'web',
+]
+
+const PLATFORM_LABEL: Record<string, string> = {
+  reddit: 'Reddit',
+  discord: 'Discord',
+  telegram: 'Telegram',
+  facebook: 'Facebook',
+  instagram: 'Instagram',
+  tiktok: 'TikTok',
+  youtube: 'YouTube',
+  spotify: 'Spotify',
+  lemmy: 'Lemmy',
+  forum: 'Forums',
+  web: 'Web / Other',
+}
+
+const GROUP_PAGE_SIZE = 6
+
 const countBy = (items: CommunityItem[], state: string) =>
   items.filter((i) => i.membershipState === state).length
+
+const number = (value: number | null | undefined) => (value == null ? '—' : value.toLocaleString())
 
 export function CommunityIntelligenceContent(props: { slug: string }) {
   const [selectedPlaceId, setSelectedPlaceId] = createSignal<string | null>(null)
   const [draftFor, setDraftFor] = createSignal<string | null>(null)
+  const [collapsed, setCollapsed] = createSignal<Set<string>>(new Set())
+  const [groupPageSize, setGroupPageSize] = createSignal<Record<string, number>>({})
+
+  // ── Add / Import state ──
+  const [adding, setAdding] = createSignal(false)
+  const [importing, setImporting] = createSignal(false)
+  const [importText, setImportText] = createSignal('')
+  const [saving, setSaving] = createSignal(false)
+  const [notice, setNotice] = createSignal<{ tone: 'good' | 'bad'; message: string } | null>(null)
+  const [kind, setKind] = createSignal<string>('subreddit')
+  const [name, setName] = createSignal('')
+  const [url, setUrl] = createSignal('')
 
   // The draft is fetched on demand, not for every card: it reads the
   // community's observations and there is no reason to do that 66 times for a
@@ -83,6 +155,104 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
     staleTime: 30_000,
   }))
 
+  // ── Add / Import handlers (ported from CommunitiesPanel) ──
+  const submit = async (event: Event) => {
+    event.preventDefault()
+    if (saving()) return
+    setSaving(true)
+    setNotice(null)
+    try {
+      await api.upsertAudiencePlace(props.slug, {
+        placeKind: kind(),
+        platform: PLATFORM_FOR_KIND[kind()] ?? 'web',
+        name: name().trim(),
+        url: url().trim(),
+      })
+      setNotice({ tone: 'good', message: `Registered ${name().trim()}.` })
+      setName(''); setUrl(''); setAdding(false)
+      await communities.refetch()
+    } catch (error) {
+      setNotice({ tone: 'bad', message: errorMessage(error, 'Could not register the community') })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const runImport = async (event: Event) => {
+    event.preventDefault()
+    if (saving()) return
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(importText())
+    } catch {
+      setNotice({ tone: 'bad', message: 'That is not valid JSON.' })
+      return
+    }
+    let importPlaces: unknown
+    if (Array.isArray(parsed)) {
+      importPlaces = parsed
+    } else if (typeof parsed === 'object' && parsed !== null && Array.isArray((parsed as Record<string, unknown>).places)) {
+      importPlaces = (parsed as Record<string, unknown>).places
+    } else {
+      setNotice({ tone: 'bad', message: 'Expected an array of places, or { "places": [...] }.' })
+      return
+    }
+    if (!Array.isArray(importPlaces) || importPlaces.length === 0) {
+      setNotice({ tone: 'bad', message: 'Expected an array of places, or { "places": [...] }.' })
+      return
+    }
+    setSaving(true)
+    setNotice(null)
+    try {
+      const result = await api.importAudiencePlaces(props.slug, importPlaces as AudiencePlaceInput[])
+      setNotice({ tone: 'good', message: `Imported ${result.imported ?? importPlaces.length}.` })
+      setImportText(''); setImporting(false)
+      await communities.refetch()
+    } catch (error) {
+      setNotice({ tone: 'bad', message: errorMessage(error, 'Import failed') })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // ── Platform grouping ──
+  const groupedByPlatform = createMemo(() => {
+    const items = communities.data?.items ?? []
+    const groups = new Map<string, CommunityItem[]>()
+    for (const item of items) {
+      const platform = item.platform || 'web'
+      if (!groups.has(platform)) groups.set(platform, [])
+      groups.get(platform)!.push(item)
+    }
+    // Sort platforms: known order first, then by count desc, then alpha
+    return [...groups.entries()].sort((a, b) => {
+      const ai = PLATFORM_ORDER.indexOf(a[0])
+      const bi = PLATFORM_ORDER.indexOf(b[0])
+      if (ai !== -1 && bi !== -1) return ai - bi
+      if (ai !== -1) return -1
+      if (bi !== -1) return 1
+      if (b[1].length !== a[1].length) return b[1].length - a[1].length
+      return a[0].localeCompare(b[0])
+    })
+  })
+
+  const toggleCollapse = (platform: string) => {
+    setCollapsed((current) => {
+      const next = new Set(current)
+      if (next.has(platform)) next.delete(platform)
+      else next.add(platform)
+      return next
+    })
+  }
+
+  const groupLimit = (platform: string) => groupPageSize()[platform] ?? GROUP_PAGE_SIZE
+  const showMore = (platform: string) => {
+    setGroupPageSize((current) => ({
+      ...current,
+      [platform]: (current[platform] ?? GROUP_PAGE_SIZE) + GROUP_PAGE_SIZE,
+    }))
+  }
+
   return (
     <section class="page">
       <div class="page-head">
@@ -94,16 +264,74 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
             brain observes them; joining them is a person's job, and this page is the queue
             for it.
           </p>
-          <p class="muted">
-            Work it top down: each card says how big the community is and what it actually
-            discusses. Open it, read the rules and the last week of posts, then join under the
-            band's own name. <strong>Draft intro</strong> writes a starting point from what was
-            observed there — edit it into your own words. Mark the outcome so the next person
-            does not repeat the work.
-          </p>
+        </div>
+        <div class="panel-header-actions">
+          <button class="ghost" onClick={() => { setImporting(false); setAdding(value => !value) }}>
+            {adding() ? 'Cancel' : 'Add a community'}
+          </button>
+          <button class="ghost" onClick={() => { setAdding(false); setImporting(value => !value) }}>
+            {importing() ? 'Cancel' : 'Import a list'}
+          </button>
         </div>
       </div>
 
+      {/* ── Add form ── */}
+      <Show when={adding()}>
+        <form class="form-grid" onSubmit={submit}>
+          <label>
+            Kind
+            <select value={kind()} onChange={event => setKind(event.currentTarget.value)}>
+              <For each={PLACE_KINDS}>{value => <option value={value}>{value.replaceAll('_', ' ')}</option>}</For>
+            </select>
+          </label>
+          <label>
+            Name <small>as people refer to it, e.g. r/progmetal</small>
+            <input value={name()} onInput={event => setName(event.currentTarget.value)} required maxlength={200} />
+          </label>
+          <label>
+            URL <small>identity is the platform and URL together</small>
+            <input value={url()} onInput={event => setUrl(event.currentTarget.value)} required type="url" maxlength={512} />
+          </label>
+          <div class="form-actions right">
+            <button class="primary" type="submit" disabled={saving() || !name().trim() || !url().trim()}>
+              {saving() ? 'Registering…' : 'Register'}
+            </button>
+          </div>
+        </form>
+      </Show>
+
+      {/* ── Import form ── */}
+      <Show when={importing()}>
+        <form onSubmit={runImport}>
+          <label class="import-label">
+            Paste a scan
+            <small>
+              A JSON array of {'{ placeKind, platform, name, url }'} — genres, memberCount, notes and
+              country optional. Re-importing the same platform and URL refreshes it rather than
+              duplicating it.
+            </small>
+            <textarea
+              class="import-area"
+              rows={8}
+              spellcheck={false}
+              value={importText()}
+              onInput={event => setImportText(event.currentTarget.value)}
+              placeholder='[{"placeKind":"subreddit","platform":"reddit","name":"r/progmetal","url":"https://reddit.com/r/progmetal"}]'
+            />
+          </label>
+          <div class="form-actions right">
+            <button class="primary" type="submit" disabled={saving() || !importText().trim()}>
+              {saving() ? 'Importing…' : 'Import'}
+            </button>
+          </div>
+        </form>
+      </Show>
+
+      <Show when={notice()}>
+        {value => <p class={`notice ${value().tone}`}>{value().message}</p>}
+      </Show>
+
+      {/* ── Community intelligence ── */}
       <Show when={communities.error}>
         <div class="error-card" role="alert">
           {communities.error instanceof Error ? communities.error.message : 'Community intelligence channel unavailable'}
@@ -127,86 +355,130 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
           </For>
         </div>
 
-        <div class="community-card-grid">
-          <Show when={(communities.data?.items ?? []).length === 0}>
-            <p class="empty-state">
-              Nothing tracked yet. The reddit-scanner and audience-research agents add
-              communities as they find them; give them a cycle.
-            </p>
-          </Show>
-          <For each={communities.data?.items ?? []}>
-            {(item: CommunityItem) => (
-              <article class="community-card" data-state={item.membershipState}>
-                <header class="community-card-head">
-                  <div>
-                    <a class="community-card-name" href={item.url} target="_blank" rel="noreferrer noopener">
-                      {item.name}
-                    </a>
-                    <div class="community-card-sub">
-                      <span class="community-platform" data-platform={item.platform}>{item.platform}</span>
-                      <Show when={item.memberCount}>
-                        <span><span class="community-card-members">{item.memberCount!.toLocaleString()}</span> members</span>
-                      </Show>
-                      <Show when={item.countryCode}><span>· {item.countryCode}</span></Show>
-                    </div>
-                  </div>
-                  <span class="community-state-badge" data-state={item.membershipState}>
-                    {MEMBERSHIP_LABEL[item.membershipState] ?? item.membershipState}
+        <Show when={(communities.data?.items ?? []).length === 0}>
+          <p class="empty-state">
+            Nothing tracked yet. The reddit-scanner and audience-research agents add
+            communities as they find them; give them a cycle. Or use <strong>Add a community</strong>
+            above to register one manually.
+          </p>
+        </Show>
+
+        {/* ── Platform-grouped community cards ── */}
+        <For each={groupedByPlatform()}>
+          {([platform, items]) => {
+            const isCollapsed = () => collapsed().has(platform)
+            const visible = () => items.slice(0, groupLimit(platform))
+            const hasMore = () => items.length > visible().length
+
+            return (
+              <div class="community-platform-group" data-platform={platform}>
+                <button
+                  class="community-platform-group-header"
+                  onClick={() => toggleCollapse(platform)}
+                  aria-expanded={!isCollapsed()}
+                >
+                  <span class="community-platform-group-chevron" aria-hidden="true">
+                    {isCollapsed() ? '▸' : '▾'}
                   </span>
-                </header>
+                  <span class="community-platform-badge" data-platform={platform}>
+                    {PLATFORM_LABEL[platform] ?? platform}
+                  </span>
+                  <span class="community-platform-group-count">
+                    {items.length} {items.length === 1 ? 'community' : 'communities'}
+                  </span>
+                  <Show when={countBy(items, 'not_joined') > 0}>
+                    <span class="community-platform-group-pending">
+                      {countBy(items, 'not_joined')} to join
+                    </span>
+                  </Show>
+                </button>
 
-                <Show when={item.genres.length > 0}>
-                  <div class="community-genres">
-                    <For each={item.genres.slice(0, 5)}>{(g) => <span class="genre-tag">{g}</span>}</For>
-                  </div>
-                </Show>
+                <Show when={!isCollapsed()}>
+                  <div class="community-card-grid">
+                    <For each={visible()}>
+                      {(item: CommunityItem) => (
+                        <article class="community-card" data-state={item.membershipState}>
+                          <header class="community-card-head">
+                            <div>
+                              <a class="community-card-name" href={item.url} target="_blank" rel="noreferrer noopener">
+                                {item.name}
+                              </a>
+                              <div class="community-card-sub">
+                                <span class="community-platform" data-platform={item.platform}>{item.placeKind.replaceAll('_', ' ')}</span>
+                                <Show when={item.memberCount}>
+                                  <span><span class="community-card-members">{item.memberCount!.toLocaleString()}</span> members</span>
+                                </Show>
+                                <Show when={item.countryCode}><span>· {item.countryCode}</span></Show>
+                              </div>
+                            </div>
+                            <span class="community-state-badge" data-state={item.membershipState}>
+                              {MEMBERSHIP_LABEL[item.membershipState] ?? item.membershipState}
+                            </span>
+                          </header>
 
-                <Show when={item.membershipNote}>
-                  <p class="community-card-note">{item.membershipNote}</p>
-                </Show>
+                          <Show when={item.genres.length > 0}>
+                            <div class="community-genres">
+                              <For each={item.genres.slice(0, 5)}>{(g) => <span class="genre-tag">{g}</span>}</For>
+                            </div>
+                          </Show>
 
-                <footer class="community-card-actions">
-                  <a class="ghost" href={item.url} target="_blank" rel="noreferrer noopener">
-                    Open<span class="external-mark" aria-hidden="true">↗</span>
-                  </a>
-                  <button class="ghost draft-intro" onClick={() => loadDraft(item.placeId)}>Draft intro</button>
-                  <select
-                    class="community-state-select"
-                    value={item.membershipState}
-                    onChange={(e) => setMembership(item.placeId, e.currentTarget.value)}
-                  >
-                    <For each={MEMBERSHIP_ORDER}>
-                      {(s) => <option value={s}>{MEMBERSHIP_LABEL[s]}</option>}
+                          <Show when={item.membershipNote}>
+                            <p class="community-card-note">{item.membershipNote}</p>
+                          </Show>
+
+                          <footer class="community-card-actions">
+                            <a class="ghost" href={item.url} target="_blank" rel="noreferrer noopener">
+                              Open<span class="external-mark" aria-hidden="true">↗</span>
+                            </a>
+                            <button class="ghost draft-intro" onClick={() => loadDraft(item.placeId)}>Draft intro</button>
+                            <select
+                              class="community-state-select"
+                              value={item.membershipState}
+                              onChange={(e) => setMembership(item.placeId, e.currentTarget.value)}
+                            >
+                              <For each={MEMBERSHIP_ORDER}>
+                                {(s) => <option value={s}>{MEMBERSHIP_LABEL[s]}</option>}
+                              </For>
+                            </select>
+                            <button class="ghost" onClick={() => setSelectedPlaceId(item.placeId)}>Observations</button>
+                          </footer>
+
+                          <Show when={draftFor() === item.placeId}>
+                            <div class="community-draft">
+                              <Show when={draft.isFetching && !draft.data}><p class="muted">Reading what was observed here…</p></Show>
+                              <Show when={draft.data}>
+                                <Show when={!draft.data!.grounded}>
+                                  <p class="notice warn">
+                                    Nothing observed here yet, so this is a blank rather than a draft.
+                                  </p>
+                                </Show>
+                                <Show when={draft.data!.sharedGenres.length > 0}>
+                                  <p class="muted">
+                                    Overlaps on {draft.data!.sharedGenres.join(', ')}.
+                                  </p>
+                                </Show>
+                                <textarea class="community-draft-text" rows={10} readonly>{draft.data!.draft}</textarea>
+                                <button class="ghost" onClick={() => navigator.clipboard?.writeText(draft.data!.draft)}>
+                                  Copy
+                                </button>
+                              </Show>
+                            </div>
+                          </Show>
+                        </article>
+                      )}
                     </For>
-                  </select>
-                  <button class="ghost" onClick={() => setSelectedPlaceId(item.placeId)}>Observations</button>
-                </footer>
-
-                <Show when={draftFor() === item.placeId}>
-                  <div class="community-draft">
-                    <Show when={draft.isFetching && !draft.data}><p class="muted">Reading what was observed here…</p></Show>
-                    <Show when={draft.data}>
-                      <Show when={!draft.data!.grounded}>
-                        <p class="notice warn">
-                          Nothing observed here yet, so this is a blank rather than a draft.
-                        </p>
-                      </Show>
-                      <Show when={draft.data!.sharedGenres.length > 0}>
-                        <p class="muted">
-                          Overlaps on {draft.data!.sharedGenres.join(', ')}.
-                        </p>
-                      </Show>
-                      <textarea class="community-draft-text" rows={10} readonly>{draft.data!.draft}</textarea>
-                      <button class="ghost" onClick={() => navigator.clipboard?.writeText(draft.data!.draft)}>
-                        Copy
-                      </button>
-                    </Show>
                   </div>
+
+                  <Show when={hasMore()}>
+                    <button class="community-show-more" onClick={() => showMore(platform)}>
+                      Show {Math.min(GROUP_PAGE_SIZE, items.length - visible().length)} more
+                    </button>
+                  </Show>
                 </Show>
-              </article>
-            )}
-          </For>
-        </div>
+              </div>
+            )
+          }}
+        </For>
 
         <div class="community-intel-grid">
           {/* Detail panel */}
