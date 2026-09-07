@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-const baseURL = process.env.CONTROL_PLANE_BASE_URL ?? 'https://control.virya.music'
+const baseURL = process.env.CONTROL_PLANE_BASE_URL ?? 'https://control.crowdrelay.music'
 // The app login credentials are distinct from the edge Basic Auth credentials.
 // CONTROL_PLANE_SMOKE_LOGIN is the app-level operator account (username:password).
 // Fall back to CONTROL_PLANE_SMOKE_BASIC_AUTH for backward compatibility.

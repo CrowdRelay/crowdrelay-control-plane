@@ -55,7 +55,7 @@ pub struct Config {
     /// surface.
     pub discord_automation_webhook_url: Option<String>,
     /// Comma-separated allow-list of origins permitted as OAuth redirect_uri
-    /// targets (e.g. "https://control.virya.music"). If unset, the redirect_uri
+    /// targets (e.g. "https://control.crowdrelay.music"). If unset, the redirect_uri
     /// origin must match the request's Host header.
     pub allowed_redirect_origins: Vec<String>,
     /// GitHub PAT (or fine-grained token) with `actions:write` on the deploy
@@ -480,14 +480,14 @@ mod tests {
     fn redirect_origins_are_canonicalised_not_string_matched() {
         // Every one of these is the same origin the request side computes.
         let parsed = parse_redirect_origins(Some(
-            "https://control.virya.music/, HTTPS://Control.Virya.Music:443, http://localhost:5173"
+            "https://control.crowdrelay.music/, HTTPS://Control.CrowdRelay.Music:443, http://localhost:5173"
                 .to_owned(),
         ))
         .expect("canonical origins");
         assert_eq!(
             parsed,
             vec![
-                "https://control.virya.music".to_owned(),
+                "https://control.crowdrelay.music".to_owned(),
                 "http://localhost:5173".to_owned(),
             ]
         );
@@ -497,11 +497,11 @@ mod tests {
         // mistake, and an entry that never matches is worse than no entry at
         // all: it looks configured while the weaker fallback does the work.
         for bad in [
-            "https://control.virya.music/callback",
-            "https://user:pw@control.virya.music",
-            "control.virya.music",
-            "ftp://control.virya.music",
-            "https://control.virya.music?x=1",
+            "https://control.crowdrelay.music/callback",
+            "https://user:pw@control.crowdrelay.music",
+            "control.crowdrelay.music",
+            "ftp://control.crowdrelay.music",
+            "https://control.crowdrelay.music?x=1",
         ] {
             assert!(
                 parse_redirect_origins(Some(bad.to_owned())).is_err(),

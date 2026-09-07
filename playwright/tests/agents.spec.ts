@@ -123,7 +123,7 @@ test('Agent OAuth start responds to GET @agents', async ({ request }) => {
   // The OAuth start endpoint is a GET that proxies to the agent service
   // with redirect_uri as a query parameter
   const response = await request.get(
-    `/api/v1/tenants/${SLUG}/agents/oauth/google/start?redirect_uri=${encodeURIComponent('https://control.virya.music/oauth/callback')}`
+    `/api/v1/tenants/${SLUG}/agents/oauth/google/start?redirect_uri=${encodeURIComponent('https://control.crowdrelay.music/oauth/callback')}`
   )
   const status = response.status()
   // 401 is expected when unauthenticated

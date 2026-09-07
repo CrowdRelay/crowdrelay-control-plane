@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
-      CONTROL_PLANE_BASE_URL: ${{ vars.CONTROL_PLANE_PRODUCTION_BASE_URL || 'https://control.virya.music' }}
+      CONTROL_PLANE_BASE_URL: ${{ vars.CONTROL_PLANE_PRODUCTION_BASE_URL || 'https://control.crowdrelay.music' }}
       CONTROL_PLANE_SMOKE_BASIC_AUTH: ${{ secrets.CONTROL_PLANE_SMOKE_BASIC_AUTH }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

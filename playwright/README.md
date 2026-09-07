@@ -1,6 +1,6 @@
-# Playwright Tests for control.virya.music
+# Playwright Tests for control.crowdrelay.music
 
-Comprehensive test suite for the CrowdRelay Control Plane at https://control.virya.music.
+Comprehensive test suite for the CrowdRelay Control Plane at https://control.crowdrelay.music.
 
 ## Quick Start
 

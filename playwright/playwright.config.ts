@@ -5,7 +5,7 @@ import { defineConfig, devices } from '@playwright/test'
  *
  * Tests run against either:
  *   - local dev stack (default): http://127.0.0.1:8090
- *   - production:                 https://control.virya.music
+ *   - production:                 https://control.crowdrelay.music
  *
  * Override with CONTROL_PLANE_BASE_URL env var.
  *

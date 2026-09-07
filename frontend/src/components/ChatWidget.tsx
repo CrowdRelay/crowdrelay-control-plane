@@ -606,7 +606,7 @@ export function ChatWidget(props: { slug: string }) {
 // output seeded with tenant data that itself came from outside (Reddit
 // threads, press mail, fan display names), so a link target here is
 // untrusted input, not our own string. The model also hallucinates absolute
-// URLs with wrong domains (crowdrelay.music, control.virya.music) and
+// URLs with wrong domains (crowdrelay.music, control.crowdrelay.music) and
 // non-existent tenants — those must never become clickable links. Only
 // paths starting with a single `/` (no `//protocol-relative`) are allowed;
 // everything else is rendered as plain text.

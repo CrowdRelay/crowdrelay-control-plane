@@ -10,9 +10,9 @@
 
 ## Application
 
-- [CrowdRelay Control Plane](https://control.virya.music/)
-- [Tenant operations](https://control.virya.music/tenants)
-- [Operator attention](https://control.virya.music/attention)
+- [CrowdRelay Control Plane](https://control.crowdrelay.music/)
+- [Tenant operations](https://control.crowdrelay.music/tenants)
+- [Operator attention](https://control.crowdrelay.music/attention)
 
 ## Public context
 

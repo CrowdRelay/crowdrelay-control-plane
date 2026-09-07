@@ -1,4 +1,4 @@
-# Canonical shape of the managed control.virya.music site block served by the
+# Canonical shape of the managed control.crowdrelay.music site block served by the
 # public edge (container virya-edge-caddy, compose project `edge` under
 # /opt/crowdrelay/ops/edge on virya-crowdrelay). The edge is NOT deployed by
 # scripts/deploy*.sh — they only manage the app and area tunnel. Sync this
@@ -7,7 +7,7 @@
 #
 # Host-state prerequisites and the credential rotation runbook live in
 # docs/EDGE-OPERATIONS.md.
-control.virya.music {
+control.crowdrelay.music {
     encode zstd gzip
 
     log {
