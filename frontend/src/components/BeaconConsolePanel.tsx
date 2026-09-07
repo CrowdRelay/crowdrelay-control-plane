@@ -72,6 +72,11 @@ export function BeaconConsolePanel(props: { slug: string }) {
   const [notice, setNotice] = createSignal<{ tone: 'good' | 'bad'; message: string } | null>(null)
   const [adding, setAdding] = createSignal(false)
   const [form, setForm] = createSignal({ ...EMPTY_FORM })
+  // Pagination — only controls what is rendered, not what is selected.
+  // "Select all N shown" selects the full filtered set so bulk invite still
+  // reaches every matching beacon, even those not yet rendered.
+  const PAGE_SIZE = 50
+  const [pageSize, setPageSize] = createSignal(PAGE_SIZE)
 
   const profiles = () => roster.data?.profiles ?? []
 
@@ -88,6 +93,15 @@ export function BeaconConsolePanel(props: { slug: string }) {
         .includes(needle)
     })
   })
+
+  // Reset pagination when search or filter changes — a new filter should
+  // start from the top, not from page 3 of the previous filter.
+  const onSearch = (value: string) => { setQuery(value); setPageSize(PAGE_SIZE) }
+  const onFilter = (value: string) => { setStatusFilter(value); setPageSize(PAGE_SIZE) }
+
+  // Only the first `pageSize()` rows are rendered. The full `visible()` set
+  // is used for selection and the "show more" count.
+  const rendered = createMemo(() => visible().slice(0, pageSize()))
 
   const toggle = (beaconId: string) => {
     const next = new Set(selected())
@@ -285,9 +299,9 @@ export function BeaconConsolePanel(props: { slug: string }) {
             aria-label="Search beacons"
             placeholder="Search name, city, email or kind…"
             value={query()}
-            onInput={event => setQuery(event.currentTarget.value)}
+            onInput={event => onSearch(event.currentTarget.value)}
           />
-          <select aria-label="Filter beacons by state" value={statusFilter()} onChange={event => setStatusFilter(event.currentTarget.value)}>
+          <select aria-label="Filter beacons by state" value={statusFilter()} onChange={event => onFilter(event.currentTarget.value)}>
             <option value="all">All states</option>
             <option value="unverified">Unverified</option>
             <option value="active">Active</option>
@@ -298,7 +312,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
           <button class="ghost" onClick={selectAllVisible} disabled={visible().length === 0}>
             {visible().every(p => selected().has(p.beaconId)) && visible().length > 0
               ? 'Clear selection'
-              : `Select ${visible().length} shown`}
+              : `Select all ${visible().length} filtered`}
           </button>
           <button
             class="primary"
@@ -320,7 +334,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
           }
         >
           <div class="beacon-list">
-            <For each={visible()}>
+            <For each={rendered()}>
               {profile => (
                 <div class="beacon-row" classList={{ selected: selected().has(profile.beaconId) }}>
                   <label class="beacon-pick">
@@ -372,6 +386,11 @@ export function BeaconConsolePanel(props: { slug: string }) {
               )}
             </For>
           </div>
+          <Show when={visible().length > rendered().length}>
+            <button class="ghost dead-expand-btn" onClick={() => setPageSize(pageSize() + PAGE_SIZE)}>
+              Show {Math.min(PAGE_SIZE, visible().length - rendered().length)} more · {rendered().length} of {visible().length} shown
+            </button>
+          </Show>
         </Show>
       </Show>
 

@@ -1,6 +1,7 @@
 import { useParams } from '@tanstack/solid-router'
 import { BeaconConsolePanel } from '../components/BeaconConsolePanel'
 import { BeaconSignalPanel } from '../components/BeaconSignalPanel'
+import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
 
 /// Beacons are an audience surface, not an operations one.
 ///
@@ -9,11 +10,16 @@ import { BeaconSignalPanel } from '../components/BeaconSignalPanel'
 /// an audience the band does not own, which makes the roster a question about
 /// who the audience is, alongside Audience and Intelligence.
 ///
-/// The console is the roster and every action on it. The Signal panel below is
-/// the same population seen as a funnel: it answers "how is the invite pipeline
+/// The console is the roster and every action on it. The Signal panel is the
+/// same population seen as a funnel: it answers "how is the invite pipeline
 /// converting", which a roster cannot.
+///
+/// Page tabs separate the two views so the operator works the roster without
+/// scrolling past the funnel tables, and checks the funnel without scrolling
+/// past the roster.
 export function BeaconsPage() {
   const params = useParams({ from: '/tenants/$slug/beacons' })
+  const { activeTab, switchTab, isVisited } = useTabPanels('roster')
 
   return <section class="page">
     <div class="page-head">
@@ -27,7 +33,19 @@ export function BeaconsPage() {
         </p>
       </div>
     </div>
-    <BeaconConsolePanel slug={params().slug} />
-    <BeaconSignalPanel slug={params().slug} />
+    <TabBar
+      active={activeTab()}
+      onChange={switchTab}
+      tabs={[
+        { id: 'roster', label: 'Roster' },
+        { id: 'signal', label: 'Signal' },
+      ]}
+    />
+    <TabPanel active={activeTab()} id="roster" visited={isVisited('roster')}>
+      <BeaconConsolePanel slug={params().slug} />
+    </TabPanel>
+    <TabPanel active={activeTab()} id="signal" visited={isVisited('signal')}>
+      <BeaconSignalPanel slug={params().slug} />
+    </TabPanel>
   </section>
 }

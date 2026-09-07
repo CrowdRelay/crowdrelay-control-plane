@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { formatTimestamp } from '../lib/format'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock } from './Skeleton'
+import { TabBar, TabPanel, useTabPanels } from './TabBar'
 
 const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (status) {
@@ -16,6 +17,7 @@ const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
 }
 
 export function BeaconSignalPanel(props: { slug: string }) {
+  const { activeTab, switchTab, isVisited } = useTabPanels('profiles')
   const dashboard = useQuery(() => ({
     queryKey: ['beacon-signal-dashboard', props.slug],
     queryFn: async () => {
@@ -73,134 +75,151 @@ export function BeaconSignalPanel(props: { slug: string }) {
         <div class="kpi"><span class="kpi-value">{dashboard.data!.revoked}</span><span class="kpi-label">Revoked</span></div>
       </div>
 
-      <Show when={dashboard.data!.profiles.length > 0} fallback={<EmptyState label="No beacon profiles" hint="Beacon profiles define how this tenant discovers and invites fans in physical venues." />}>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Kind</th>
-                <th>City</th>
-                <th>Status</th>
-                <th>Invites</th>
-                <th>Press</th>
-                <th>Coverage</th>
-                <th>Last seen</th>
-              </tr>
-            </thead>
-            <tbody>
-              <For each={dashboard.data!.profiles}>{(p) => (
-                <tr>
-                  <td><strong>{p.displayName}</strong>{p.contactEmail ? <><br /><span class="muted">{p.contactEmail}</span></> : null}</td>
-                  <td>{p.beaconKind}</td>
-                  <td>{p.city ?? '—'}</td>
-                  <td><span class={`badge tone-${statusTone(p.status)}`}>{p.status}</span></td>
-                  <td>{p.inviteCount}</td>
-                  <td>{p.openPressRequests}</td>
-                  <td>{p.coverageCount}</td>
-                  <td>{formatTimestamp(p.lastSeenAt)}</td>
-                </tr>
-              )}</For>
-            </tbody>
-          </table>
-        </div>
-      </Show>
-    </Show>
+      <TabBar
+        active={activeTab()}
+        onChange={switchTab}
+        tabs={[
+          { id: 'profiles', label: 'Profiles', count: () => dashboard.data?.profiles.length ?? 0 },
+          { id: 'candidates', label: 'Candidates', count: () => candidates.data?.candidates.length ?? 0 },
+          { id: 'discovery', label: 'Discovery' },
+        ]}
+      />
 
-    <Show when={candidates.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
-      <Show when={candidates.data!.candidates.length > 0}>
-        <h4 class="subsection">Candidates</h4>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Kind</th>
-                <th>City</th>
-                <th>Relevance</th>
-                <th>Relationship</th>
-                <th>Signal</th>
-                <th>Invites</th>
-              </tr>
-            </thead>
-            <tbody>
-              <For each={candidates.data!.candidates}>{(c) => (
+      {/* ── Profiles tab ── */}
+      <TabPanel active={activeTab()} id="profiles" visited={isVisited('profiles')}>
+        <Show when={dashboard.data!.profiles.length > 0} fallback={<EmptyState label="No beacon profiles" hint="Beacon profiles define how this tenant discovers and invites fans in physical venues." />}>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
                 <tr>
-                  <td><strong>{c.displayName}</strong><br /><span class="muted">{c.contactEmail}</span></td>
-                  <td>{c.beaconKind}</td>
-                  <td>{c.city ?? '—'}</td>
-                  <td>{Math.round(c.relevanceBasisPoints / 100)}%</td>
-                  <td>{Math.round(c.relationshipScore / 100)}%</td>
-                  <td>{c.signalStatus ?? '—'}</td>
-                  <td>{c.inviteCount}</td>
+                  <th>Name</th>
+                  <th>Kind</th>
+                  <th>City</th>
+                  <th>Status</th>
+                  <th>Invites</th>
+                  <th>Press</th>
+                  <th>Coverage</th>
+                  <th>Last seen</th>
                 </tr>
-              )}</For>
-            </tbody>
-          </table>
-        </div>
-      </Show>
-    </Show>
+              </thead>
+              <tbody>
+                <For each={dashboard.data!.profiles}>{(p) => (
+                  <tr>
+                    <td><strong>{p.displayName}</strong>{p.contactEmail ? <><br /><span class="muted">{p.contactEmail}</span></> : null}</td>
+                    <td>{p.beaconKind}</td>
+                    <td>{p.city ?? '—'}</td>
+                    <td><span class={`badge tone-${statusTone(p.status)}`}>{p.status}</span></td>
+                    <td>{p.inviteCount}</td>
+                    <td>{p.openPressRequests}</td>
+                    <td>{p.coverageCount}</td>
+                    <td>{formatTimestamp(p.lastSeenAt)}</td>
+                  </tr>
+                )}</For>
+              </tbody>
+            </table>
+          </div>
+        </Show>
+      </TabPanel>
 
-    <Show when={network.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
-      <h4 class="subsection">Network Discovery</h4>
-      <Show when={network.data!.discoveryRuns.length > 0} fallback={<EmptyState label="No discovery runs" hint="Discovery runs scan for nearby fans using beacon campaigns. Runs appear here once the intelligence dispatches them." />}>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Country</th>
-                <th>Status</th>
-                <th>Discovered</th>
-                <th>Target</th>
-                <th>Requested</th>
-                <th>Completed</th>
-              </tr>
-            </thead>
-            <tbody>
-              <For each={network.data!.discoveryRuns}>{(r) => (
-                <tr>
-                  <td>{r.countryCode}</td>
-                  <td><span class={`badge tone-${r.status === 'completed' ? 'good' : r.status === 'failed' ? 'bad' : 'muted'}`}>{r.status}</span></td>
-                  <td>{r.discoveredCount}</td>
-                  <td>{r.targetCount}</td>
-                  <td>{formatTimestamp(r.requestedAt)}</td>
-                  <td>{formatTimestamp(r.completedAt)}</td>
-                </tr>
-              )}</For>
-            </tbody>
-          </table>
-        </div>
-      </Show>
+      {/* ── Candidates tab ── */}
+      <TabPanel active={activeTab()} id="candidates" visited={isVisited('candidates')}>
+        <Show when={candidates.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
+          <Show when={candidates.data!.candidates.length > 0} fallback={<EmptyState label="No candidates" hint="Candidates are discovered beacons that have not been added to the roster yet." />}>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Kind</th>
+                    <th>City</th>
+                    <th>Relevance</th>
+                    <th>Relationship</th>
+                    <th>Signal</th>
+                    <th>Invites</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <For each={candidates.data!.candidates}>{(c) => (
+                    <tr>
+                      <td><strong>{c.displayName}</strong><br /><span class="muted">{c.contactEmail}</span></td>
+                      <td>{c.beaconKind}</td>
+                      <td>{c.city ?? '—'}</td>
+                      <td>{Math.round(c.relevanceBasisPoints / 100)}%</td>
+                      <td>{Math.round(c.relationshipScore / 100)}%</td>
+                      <td>{c.signalStatus ?? '—'}</td>
+                      <td>{c.inviteCount}</td>
+                    </tr>
+                  )}</For>
+                </tbody>
+              </table>
+            </div>
+          </Show>
+        </Show>
+      </TabPanel>
 
-      <Show when={network.data!.inviteJobs.length > 0}>
-        <h4 class="subsection">Invite Jobs</h4>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Status</th>
-                <th>Beacons</th>
-                <th>Radius</th>
-                <th>Exchanged</th>
-                <th>Active</th>
-                <th>Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              <For each={network.data!.inviteJobs}>{(j) => (
-                <tr>
-                  <td><span class={`badge tone-${j.status === 'reported' ? 'good' : 'muted'}`}>{j.status}</span></td>
-                  <td>{j.beaconCount}</td>
-                  <td>{j.radiusKm}km</td>
-                  <td>{j.exchangedCount}</td>
-                  <td>{j.activeCount}</td>
-                  <td>{formatTimestamp(j.createdAt)}</td>
-                </tr>
-              )}</For>
-            </tbody>
-          </table>
-        </div>
-      </Show>
+      {/* ── Discovery tab ── */}
+      <TabPanel active={activeTab()} id="discovery" visited={isVisited('discovery')}>
+        <Show when={network.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
+          <Show when={network.data!.discoveryRuns.length > 0} fallback={<EmptyState label="No discovery runs" hint="Discovery runs scan for nearby fans using beacon campaigns. Runs appear here once the intelligence dispatches them." />}>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Country</th>
+                    <th>Status</th>
+                    <th>Discovered</th>
+                    <th>Target</th>
+                    <th>Requested</th>
+                    <th>Completed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <For each={network.data!.discoveryRuns}>{(r) => (
+                    <tr>
+                      <td>{r.countryCode}</td>
+                      <td><span class={`badge tone-${r.status === 'completed' ? 'good' : r.status === 'failed' ? 'bad' : 'muted'}`}>{r.status}</span></td>
+                      <td>{r.discoveredCount}</td>
+                      <td>{r.targetCount}</td>
+                      <td>{formatTimestamp(r.requestedAt)}</td>
+                      <td>{formatTimestamp(r.completedAt)}</td>
+                    </tr>
+                  )}</For>
+                </tbody>
+              </table>
+            </div>
+          </Show>
+
+          <Show when={network.data!.inviteJobs.length > 0}>
+            <h4 class="subsection">Invite Jobs</h4>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Beacons</th>
+                    <th>Radius</th>
+                    <th>Exchanged</th>
+                    <th>Active</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <For each={network.data!.inviteJobs}>{(j) => (
+                    <tr>
+                      <td><span class={`badge tone-${j.status === 'reported' ? 'good' : 'muted'}`}>{j.status}</span></td>
+                      <td>{j.beaconCount}</td>
+                      <td>{j.radiusKm}km</td>
+                      <td>{j.exchangedCount}</td>
+                      <td>{j.activeCount}</td>
+                      <td>{formatTimestamp(j.createdAt)}</td>
+                    </tr>
+                  )}</For>
+                </tbody>
+              </table>
+            </div>
+          </Show>
+        </Show>
+      </TabPanel>
     </Show>
   </div>
 }
