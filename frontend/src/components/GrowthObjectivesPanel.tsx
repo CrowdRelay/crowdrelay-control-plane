@@ -51,6 +51,8 @@ const stateProgress = (state: ObjectiveState): number => {
 export function GrowthObjectivesPanel(props: { slug: string }) {
   const [error, setError] = createSignal<string | null>(null)
   const [retiring, setRetiring] = createSignal<string | null>(null)
+  const [showAll, setShowAll] = createSignal(false)
+  const MAX_VISIBLE = 6
 
   const objectives = useQuery(() => ({
     queryKey: ['growth-objectives', props.slug],
@@ -100,7 +102,7 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
       </Show>
     }>
       <div class="objective-list">
-        <For each={objectives.data}>{(obj: GrowthObjectiveView) => {
+        <For each={showAll() ? objectives.data : objectives.data!.slice(0, MAX_VISIBLE)}>{(obj: GrowthObjectiveView) => {
           const observed = obj.observed_value ?? obj.baseline_value
           const pct = stateProgress(obj.state)
           const overTarget = observed > obj.target_value
@@ -131,6 +133,11 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
           )
         }}</For>
       </div>
+      <Show when={objectives.data!.length > MAX_VISIBLE}>
+        <button class="ghost" onClick={() => setShowAll(s => !s)}>
+          {showAll() ? 'Show less' : `Show all (${objectives.data!.length})`}
+        </button>
+      </Show>
     </Show>
   </div>
 }

@@ -38,6 +38,10 @@ const runStatusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
 export function GrowthFunnelPanel(props: { slug: string }) {
   const [error, setError] = createSignal<string | null>(null)
   const [days, setDays] = createSignal(30)
+  const [showAllWorkerStats, setShowAllWorkerStats] = createSignal(false)
+  const MAX_VISIBLE_WORKER_STATS = 10
+  const [showAllRecentRuns, setShowAllRecentRuns] = createSignal(false)
+  const MAX_VISIBLE_RECENT_RUNS = 10
 
   const funnel = useQuery(() => ({
     queryKey: ['growth-funnel', props.slug, days()],
@@ -193,7 +197,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
           <table class="agent-task-table">
             <thead><tr><th>Template</th><th>Total</th><th>Completed</th><th>Failed</th><th>Running</th><th>Queued</th><th>Success rate</th></tr></thead>
             <tbody>
-              <For each={Object.entries(funnel.data!.worker_runs)}>{([tpl, stats]) => {
+              <For each={showAllWorkerStats() ? Object.entries(funnel.data!.worker_runs) : Object.entries(funnel.data!.worker_runs).slice(0, MAX_VISIBLE_WORKER_STATS)}>{([tpl, stats]) => {
                 const successRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : null
                 const tone = successRate == null ? 'muted' : successRate >= 90 ? 'good' : successRate >= 75 ? 'warn' : 'bad'
                 return (
@@ -213,6 +217,11 @@ export function GrowthFunnelPanel(props: { slug: string }) {
             </tbody>
           </table>
         </div>
+        <Show when={Object.keys(funnel.data!.worker_runs).length > MAX_VISIBLE_WORKER_STATS}>
+          <button class="ghost" onClick={() => setShowAllWorkerStats(s => !s)}>
+            {showAllWorkerStats() ? 'Show less' : `Show all (${Object.keys(funnel.data!.worker_runs).length})`}
+          </button>
+        </Show>
       </div>
     </Show>
 
@@ -225,7 +234,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
         </div>
         <p class="agent-section-intro">The most recent worker runs dispatched by the intelligence, with their outcomes.</p>
         <div class="funnel-recent-list">
-          <For each={funnel.data!.recent_worker_runs}>{(run: FunnelRecentWorkerRun) => (
+          <For each={showAllRecentRuns() ? funnel.data!.recent_worker_runs : funnel.data!.recent_worker_runs.slice(0, MAX_VISIBLE_RECENT_RUNS)}>{(run: FunnelRecentWorkerRun) => (
             <div class="funnel-recent-row">
               <div class="funnel-recent-head">
                 <strong>{templateLabel(run.template_id)}</strong>
@@ -243,6 +252,11 @@ export function GrowthFunnelPanel(props: { slug: string }) {
             </div>
           )}</For>
         </div>
+        <Show when={funnel.data!.recent_worker_runs.length > MAX_VISIBLE_RECENT_RUNS}>
+          <button class="ghost" onClick={() => setShowAllRecentRuns(s => !s)}>
+            {showAllRecentRuns() ? 'Show less' : `Show all (${funnel.data!.recent_worker_runs.length})`}
+          </button>
+        </Show>
       </div>
     </Show>
 

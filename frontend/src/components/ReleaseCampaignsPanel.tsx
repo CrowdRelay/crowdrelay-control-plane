@@ -44,6 +44,8 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
   const [creating, setCreating] = createSignal(false)
   const [form, setForm] = createSignal({ slug: '', title: '', sku: '', claimDeadline: '' })
   const [selectedCampaign, setSelectedCampaign] = createSignal<string | null>(null)
+  const [showAllCampaigns, setShowAllCampaigns] = createSignal(false)
+  const MAX_VISIBLE = 6
   const campaigns = useQuery(() => ({
     queryKey: ['release-campaigns', props.slug],
     queryFn: async () => {
@@ -183,7 +185,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
 
       <Show when={campaigns.data!.campaigns.length > 0} fallback={<EmptyState label="No release campaigns" hint="Release campaigns coordinate outreach around a single or album launch. Create one from the release plan." />}>
         <div class="campaign-list">
-          <For each={campaigns.data!.campaigns}>{(c) => (
+          <For each={showAllCampaigns() ? campaigns.data!.campaigns : campaigns.data!.campaigns.slice(0, MAX_VISIBLE)}>{(c) => (
             <div class="campaign-card" classList={{ selected: selectedCampaign() === c.id }}>
               <div class="campaign-card-head">
                 <strong>{c.title}</strong>
@@ -256,6 +258,11 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
             </div>
           )}</For>
         </div>
+        <Show when={campaigns.data!.campaigns.length > MAX_VISIBLE}>
+          <button class="ghost" onClick={() => setShowAllCampaigns(s => !s)}>
+            {showAllCampaigns() ? 'Show less' : `Show all (${campaigns.data!.campaigns.length})`}
+          </button>
+        </Show>
       </Show>
     </Show>
   </div>

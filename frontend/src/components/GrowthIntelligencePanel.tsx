@@ -144,6 +144,14 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
   const [confirming, setConfirming] = createSignal<string | null>(null)
   const [viewingWorkflow, setViewingWorkflow] = createSignal<AgentWorkflow | null>(null)
   const [workflowTasks, setWorkflowTasks] = createSignal<AgentWorkflowTask[]>([])
+  const [showAllApprovals, setShowAllApprovals] = createSignal(false)
+  const MAX_VISIBLE_APPROVALS = 6
+  const [showAllWorkflows, setShowAllWorkflows] = createSignal(false)
+  const MAX_VISIBLE_WORKFLOWS = 10
+  const [showAllPlan, setShowAllPlan] = createSignal(false)
+  const MAX_VISIBLE_PLAN = 10
+  const [showAllSubTasks, setShowAllSubTasks] = createSignal(false)
+  const MAX_VISIBLE_SUB_TASKS = 10
 
   const overview = useQuery(() => ({
     queryKey: ['growth-intelligence-overview', props.slug],
@@ -258,7 +266,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           </Show>
         }>
           <div class="growth-approval-list">
-            <For each={pendingGrowthActions()}>{(action) => {
+            <For each={showAllApprovals() ? pendingGrowthActions() : pendingGrowthActions().slice(0, MAX_VISIBLE_APPROVALS)}>{(action) => {
               const summary = payloadSummary(action)
               const approveKey = `approve:${action.id}`
               const rejectKey = `reject:${action.id}`
@@ -320,6 +328,11 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
               )
             }}</For>
           </div>
+          <Show when={pendingGrowthActions().length > MAX_VISIBLE_APPROVALS}>
+            <button class="ghost" onClick={() => setShowAllApprovals(s => !s)}>
+              {showAllApprovals() ? 'Show less' : `Show all (${pendingGrowthActions().length})`}
+            </button>
+          </Show>
         </Show>
       </div>
 
@@ -368,7 +381,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           </Show>
         }>
           <div class="growth-workflow-list">
-            <For each={workflows.data}>{(wf) => (
+            <For each={showAllWorkflows() ? workflows.data : workflows.data!.slice(0, MAX_VISIBLE_WORKFLOWS)}>{(wf) => (
               <button class="growth-workflow-card" onClick={() => viewWorkflowDetail(wf)}>
                 <div class="growth-workflow-head">
                   <strong>{wf.brain_template}</strong>
@@ -383,6 +396,11 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
               </button>
             )}</For>
           </div>
+          <Show when={workflows.data!.length > MAX_VISIBLE_WORKFLOWS}>
+            <button class="ghost" onClick={() => setShowAllWorkflows(s => !s)}>
+              {showAllWorkflows() ? 'Show less' : `Show all (${workflows.data!.length})`}
+            </button>
+          </Show>
         </Show>
       </div>
 
@@ -409,7 +427,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
             <Show when={viewingWorkflow()?.plan && viewingWorkflow()!.plan!.length > 0}>
               <div class="agent-outcomes">
                 <h4>Growth Plan</h4>
-                <For each={viewingWorkflow()!.plan}>{(item, i) => (
+                <For each={showAllPlan() ? viewingWorkflow()!.plan : viewingWorkflow()!.plan!.slice(0, MAX_VISIBLE_PLAN)}>{(item, i) => (
                   <div class="agent-outcome-card">
                     <div class="agent-outcome-head">
                       <span class="badge">#{i() + 1} · {item.template}</span>
@@ -420,6 +438,11 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
                   </div>
                 )}</For>
               </div>
+              <Show when={viewingWorkflow()!.plan!.length > MAX_VISIBLE_PLAN}>
+                <button class="ghost" onClick={() => setShowAllPlan(s => !s)}>
+                  {showAllPlan() ? 'Show less' : `Show all (${viewingWorkflow()!.plan!.length})`}
+                </button>
+              </Show>
             </Show>
             <Show when={workflowTasks().length > 0}>
               <div class="agent-outcomes">
@@ -427,7 +450,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
                 <table class="agent-task-table">
                   <thead><tr><th>Slot</th><th>Role</th><th>Template</th><th>Status</th><th></th></tr></thead>
                   <tbody>
-                    <For each={workflowTasks()}>{(t) => (
+                    <For each={showAllSubTasks() ? workflowTasks() : workflowTasks().slice(0, MAX_VISIBLE_SUB_TASKS)}>{(t) => (
                       <tr>
                         <td>{t.slot}</td>
                         <td><span class={`badge ${t.role === 'brain' ? 'free-chip' : 'paid-chip'}`}>{t.role}</span></td>
@@ -438,6 +461,11 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
                     )}</For>
                   </tbody>
                 </table>
+                <Show when={workflowTasks().length > MAX_VISIBLE_SUB_TASKS}>
+                  <button class="ghost" onClick={() => setShowAllSubTasks(s => !s)}>
+                    {showAllSubTasks() ? 'Show less' : `Show all (${workflowTasks().length})`}
+                  </button>
+                </Show>
               </div>
             </Show>
         </>

@@ -1,4 +1,4 @@
-import { For, Show } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { SectionIcon } from './SectionIcon'
@@ -35,6 +35,10 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
   }))
 
   const d = () => model.data
+  const [showAllChannels, setShowAllChannels] = createSignal(false)
+  const MAX_VISIBLE_CHANNELS = 10
+  const [showAllUnattributed, setShowAllUnattributed] = createSignal(false)
+  const MAX_VISIBLE_UNATTRIBUTED = 10
   const best = () => {
     const channels = d()?.channels ?? []
     if (channels.length === 0) return 0
@@ -73,7 +77,7 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
         />}
       >
         <ul class="acq-list">
-          <For each={data().channels}>{channel => (
+          <For each={showAllChannels() ? data().channels : data().channels.slice(0, MAX_VISIBLE_CHANNELS)}>{channel => (
             <li class="acq-row" classList={{ 'acq-row-unattributed': channel.attribution.evidence !== 'attributed' }}>
               <div class="acq-row-name">
                 <strong>{channelName(channel)}</strong>
@@ -93,6 +97,11 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
             </li>
           )}</For>
         </ul>
+        <Show when={data().channels.length > MAX_VISIBLE_CHANNELS}>
+          <button class="ghost" onClick={() => setShowAllChannels(s => !s)}>
+            {showAllChannels() ? 'Show less' : `Show all (${data().channels.length})`}
+          </button>
+        </Show>
       </Show>
 
       <Show when={data().unattributed.length > 0}>
@@ -100,7 +109,7 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
           <h3>Signups the system could not attribute</h3>
           <p class="acq-block-intro">Each row says what to instrument so the next batch lands in a channel above.</p>
           <ul class="cos-risk-list">
-            <For each={data().unattributed}>{item => (
+            <For each={showAllUnattributed() ? data().unattributed : data().unattributed.slice(0, MAX_VISIBLE_UNATTRIBUTED)}>{item => (
               <li>
                 <div>
                   <strong>{item.reason.replace(/_/g, ' ')}</strong>
@@ -113,6 +122,11 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
               </li>
             )}</For>
           </ul>
+          <Show when={data().unattributed.length > MAX_VISIBLE_UNATTRIBUTED}>
+            <button class="ghost" onClick={() => setShowAllUnattributed(s => !s)}>
+              {showAllUnattributed() ? 'Show less' : `Show all (${data().unattributed.length})`}
+            </button>
+          </Show>
         </section>
       </Show>
     </>}</Show>

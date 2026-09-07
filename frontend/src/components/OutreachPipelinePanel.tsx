@@ -22,6 +22,9 @@ export function OutreachPipelinePanel(props: { slug: string }) {
   const [tab, setTab] = createSignal<'outreach' | 'booking'>('outreach')
   const [error, setError] = createSignal<string | null>(null)
   const [confirming, setConfirming] = createSignal<string | null>(null)
+  const [showAllOutreach, setShowAllOutreach] = createSignal(false)
+  const [showAllBooking, setShowAllBooking] = createSignal(false)
+  const MAX_VISIBLE = 10
 
   const outreach = useQuery(() => ({
     queryKey: ['outreach-candidates', props.slug],
@@ -97,7 +100,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
                 </tr>
               </thead>
               <tbody>
-                <For each={booking.data}>{(c: BookingCandidateView) => (
+                <For each={showAllBooking() ? booking.data : booking.data!.slice(0, MAX_VISIBLE)}>{(c: BookingCandidateView) => (
                   <tr>
                     <td><strong>{c.display_name}</strong><br /><span class="muted">{c.target_kind}</span></td>
                     <td>{c.city_slug ?? '—'}</td>
@@ -118,6 +121,11 @@ export function OutreachPipelinePanel(props: { slug: string }) {
               </tbody>
             </table>
           </div>
+          <Show when={booking.data!.length > MAX_VISIBLE}>
+            <button class="ghost" onClick={() => setShowAllBooking(s => !s)}>
+              {showAllBooking() ? 'Show less' : `Show all (${booking.data!.length})`}
+            </button>
+          </Show>
         </Show>
       </Show>
     }>
@@ -137,7 +145,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
                 </tr>
               </thead>
               <tbody>
-                <For each={outreach.data}>{(c: OutreachCandidateView) => (
+                <For each={showAllOutreach() ? outreach.data : outreach.data!.slice(0, MAX_VISIBLE)}>{(c: OutreachCandidateView) => (
                   <tr>
                     <td><strong>{c.display_name}</strong><br /><span class="muted">{c.target_kind}</span></td>
                     <td><span class="muted">{c.source}</span></td>
@@ -159,6 +167,11 @@ export function OutreachPipelinePanel(props: { slug: string }) {
               </tbody>
             </table>
           </div>
+          <Show when={outreach.data!.length > MAX_VISIBLE}>
+            <button class="ghost" onClick={() => setShowAllOutreach(s => !s)}>
+              {showAllOutreach() ? 'Show less' : `Show all (${outreach.data!.length})`}
+            </button>
+          </Show>
         </Show>
       </Show>
     </Show>

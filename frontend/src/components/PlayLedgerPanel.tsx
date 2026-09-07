@@ -1,4 +1,4 @@
-import { For, Show } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { formatTimestamp } from '../lib/format'
@@ -86,6 +86,21 @@ export function PlayLedgerPanel(props: { slug: string }) {
     staleTime: 10_000,
   }))
 
+  const [showAllStandings, setShowAllStandings] = createSignal(false)
+  const [showAllPlays, setShowAllPlays] = createSignal(false)
+  const [expandedClaims, setExpandedClaims] = createSignal<Set<string>>(new Set())
+  const MAX_VISIBLE_STANDINGS = 6
+  const MAX_VISIBLE_PLAYS = 10
+  const MAX_VISIBLE_CLAIMS = 5
+
+  const toggleClaims = (playId: string) =>
+    setExpandedClaims(prev => {
+      const next = new Set(prev)
+      if (next.has(playId)) next.delete(playId)
+      else next.add(playId)
+      return next
+    })
+
   return <div class="agent-section">
     <div class="agent-section-head">
       <h3>Play ledger</h3>
@@ -99,7 +114,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
       <Show when={ledger.data!.standings.length > 0}>
         <h4 class="subsection"><SectionIcon name="list-checks" />Kind Standings</h4>
         <div class="standings-grid">
-          <For each={ledger.data!.standings}>{(s) => (
+          <For each={showAllStandings() ? ledger.data!.standings : ledger.data!.standings.slice(0, MAX_VISIBLE_STANDINGS)}>{(s) => (
             <div class={`standing-card standing-card-${standingTone(s)}`}>
               <div class="standing-head">
                 <strong>{kindLabel(s.kind)}</strong>
@@ -120,12 +135,17 @@ export function PlayLedgerPanel(props: { slug: string }) {
             </div>
           )}</For>
         </div>
+        <Show when={ledger.data!.standings.length > MAX_VISIBLE_STANDINGS}>
+          <button class="ghost" onClick={() => setShowAllStandings(s => !s)}>
+            {showAllStandings() ? 'Show less' : `Show all (${ledger.data!.standings.length})`}
+          </button>
+        </Show>
       </Show>
 
       <Show when={ledger.data!.plays.length > 0} fallback={<EmptyState label="No plays recorded" hint="The play ledger tracks every action the intelligence has executed. Plays appear here once the autopilot starts dispatching." />}>
         <h4 class="subsection"><SectionIcon name="play" />Plays</h4>
         <div class="play-list">
-          <For each={ledger.data!.plays}>{(p) => (
+          <For each={showAllPlays() ? ledger.data!.plays : ledger.data!.plays.slice(0, MAX_VISIBLE_PLAYS)}>{(p) => (
             <div class={`play-card play-card-${stateTone(p.state)}`}>
               <div class="play-card-head">
                 <strong>{kindLabel(p.kind)}</strong>
@@ -142,7 +162,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
               </Show>
               <Show when={p.claims.length > 0}>
                 <div class="claims-list">
-                  <For each={p.claims}>{(c) => (
+                  <For each={expandedClaims().has(p.play_id) ? p.claims : p.claims.slice(0, MAX_VISIBLE_CLAIMS)}>{(c) => (
                     <div class="claim-row">
                       <span class={`badge tone-${effectTone(c.effect)}`}>{c.effect ?? c.status}</span>
                       <span class="muted">{claimLabel(c.claim_means)}</span>
@@ -157,10 +177,20 @@ export function PlayLedgerPanel(props: { slug: string }) {
                     </div>
                   )}</For>
                 </div>
+                <Show when={p.claims.length > MAX_VISIBLE_CLAIMS}>
+                  <button class="ghost" onClick={() => toggleClaims(p.play_id)}>
+                    {expandedClaims().has(p.play_id) ? 'Show less' : `Show all (${p.claims.length})`}
+                  </button>
+                </Show>
               </Show>
             </div>
           )}</For>
         </div>
+        <Show when={ledger.data!.plays.length > MAX_VISIBLE_PLAYS}>
+          <button class="ghost" onClick={() => setShowAllPlays(s => !s)}>
+            {showAllPlays() ? 'Show less' : `Show all (${ledger.data!.plays.length})`}
+          </button>
+        </Show>
       </Show>
     </Show>
   </div>

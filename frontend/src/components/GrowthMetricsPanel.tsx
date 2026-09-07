@@ -1,4 +1,4 @@
-import { For, Show, createMemo, type Component } from 'solid-js'
+import { For, Show, createMemo, createSignal, type Component } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { compactNumber, trendArrow, trendDirection } from '../lib/charts'
@@ -64,6 +64,22 @@ const Bar: Component<{ value: number; max: number; color: string }> = (props) =>
 }
 
 export function GrowthMetricsPanel(props: { slug: string }) {
+  const [showAllCoverage, setShowAllCoverage] = createSignal(false)
+  const MAX_VISIBLE_COVERAGE = 10
+  const [expandedPlatforms, setExpandedPlatforms] = createSignal<Set<string>>(new Set())
+  const MAX_VISIBLE_PLATFORM_BARS = 10
+  const [showAllDownstream, setShowAllDownstream] = createSignal(false)
+  const MAX_VISIBLE_DOWNSTREAM = 6
+
+  const togglePlatform = (platform: string) => {
+    setExpandedPlatforms((curr) => {
+      const next = new Set(curr)
+      if (next.has(platform)) next.delete(platform)
+      else next.add(platform)
+      return next
+    })
+  }
+
   const coverage = useQuery(() => ({
     queryKey: ['growth-metric-coverage', props.slug],
     queryFn: async () => {
@@ -178,7 +194,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
           <strong>{liveSeries()} / {totalSeries()} series live</strong>
         </div>
         <div class="feed-coverage-list">
-          <For each={coverage.data!.platforms}>{(platform: FeedCoverage) => (
+          <For each={showAllCoverage() ? coverage.data!.platforms : coverage.data!.platforms.slice(0, MAX_VISIBLE_COVERAGE)}>{(platform: FeedCoverage) => (
             <div class="feed-coverage-row" classList={{ 'feed-coverage-row--missing': platform.state === 'missing' }}>
               <span class="feed-platform-name">{platformLabel(platform.platform)}</span>
               <span class={`badge tone-${feedStateTone(platform.state)}`}>{feedStateLabel(platform.state)}</span>
@@ -186,6 +202,11 @@ export function GrowthMetricsPanel(props: { slug: string }) {
             </div>
           )}</For>
         </div>
+        <Show when={coverage.data!.platforms.length > MAX_VISIBLE_COVERAGE}>
+          <button class="ghost" onClick={() => setShowAllCoverage(s => !s)}>
+            {showAllCoverage() ? 'Show less' : `Show all (${coverage.data!.platforms.length})`}
+          </button>
+        </Show>
       </div>
 
       <Show when={trends.data && trends.data!.length > 0} fallback={
@@ -214,7 +235,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                   <span class="muted">{items.length} series</span>
                 </div>
                 <div class="gm-bar-list">
-                  <For each={items}>{(trend: GrowthMetricTrendView) => {
+                  <For each={expandedPlatforms().has(platform) ? items : items.slice(0, MAX_VISIBLE_PLATFORM_BARS)}>{(trend: GrowthMetricTrendView) => {
                     const delta = trend.delta_7d ?? trend.delta_24h ?? trend.delta_28d
                     const dir = trendDirection(delta)
                     return (
@@ -229,6 +250,11 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                     )
                   }}</For>
                 </div>
+                <Show when={items.length > MAX_VISIBLE_PLATFORM_BARS}>
+                  <button class="ghost" onClick={() => togglePlatform(platform)}>
+                    {expandedPlatforms().has(platform) ? 'Show less' : `Show all (${items.length})`}
+                  </button>
+                </Show>
               </div>
             )
           }}
@@ -242,7 +268,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
               <span class="muted">{grouped().downstream.length} metrics</span>
             </div>
             <div class="growth-metrics-grid">
-              <For each={grouped().downstream}>{(trend: GrowthMetricTrendView) => {
+              <For each={showAllDownstream() ? grouped().downstream : grouped().downstream.slice(0, MAX_VISIBLE_DOWNSTREAM)}>{(trend: GrowthMetricTrendView) => {
                 const delta = trend.delta_7d ?? trend.delta_24h ?? trend.delta_28d
                 const dir = trendDirection(delta)
                 const sparkData = () => {
@@ -274,6 +300,11 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                 )
               }}</For>
             </div>
+            <Show when={grouped().downstream.length > MAX_VISIBLE_DOWNSTREAM}>
+              <button class="ghost" onClick={() => setShowAllDownstream(s => !s)}>
+                {showAllDownstream() ? 'Show less' : `Show all (${grouped().downstream.length})`}
+              </button>
+            </Show>
           </div>
         </Show>
       </Show>

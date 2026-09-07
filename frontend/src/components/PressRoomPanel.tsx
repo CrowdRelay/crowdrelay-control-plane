@@ -30,6 +30,11 @@ export function PressRoomPanel(props: { slug: string }) {
   const [error, setError] = createSignal<string | null>(null)
   const [resolving, setResolving] = createSignal<string | null>(null)
   const [replying, setReplying] = createSignal<string | null>(null)
+  const [showAllRequests, setShowAllRequests] = createSignal(false)
+  const [showAllAssets, setShowAllAssets] = createSignal(false)
+  const [showAllEngagements, setShowAllEngagements] = createSignal(false)
+  const [showAllCoverage, setShowAllCoverage] = createSignal(false)
+  const MAX_VISIBLE = 10
   const requests = useQuery(() => ({
     queryKey: ['press-requests', props.slug],
     queryFn: async () => {
@@ -153,7 +158,7 @@ export function PressRoomPanel(props: { slug: string }) {
                 </tr>
               </thead>
               <tbody>
-                <For each={requests.data!.requests}>{(r) => (
+                <For each={showAllRequests() ? requests.data!.requests : requests.data!.requests.slice(0, MAX_VISIBLE)}>{(r) => (
                   <tr>
                     <td><strong>{r.displayName}</strong><br /><span class="muted">{r.beaconKind}</span></td>
                     <td>{r.requestKind}</td>
@@ -174,6 +179,11 @@ export function PressRoomPanel(props: { slug: string }) {
               </tbody>
             </table>
           </div>
+          <Show when={requests.data!.requests.length > MAX_VISIBLE}>
+            <button class="ghost" onClick={() => setShowAllRequests(s => !s)}>
+              {showAllRequests() ? 'Show less' : `Show all (${requests.data!.requests.length})`}
+            </button>
+          </Show>
         </Show>
       </Show>
     </Show>
@@ -194,7 +204,7 @@ export function PressRoomPanel(props: { slug: string }) {
                 </tr>
               </thead>
               <tbody>
-                <For each={assets.data!.assets}>{(a) => (
+                <For each={showAllAssets() ? assets.data!.assets : assets.data!.assets.slice(0, MAX_VISIBLE)}>{(a) => (
                   <tr>
                     <td><strong>{a.labelEn}</strong><br /><span class="muted">{a.labelPl}</span></td>
                     <td>{a.assetKind}</td>
@@ -207,6 +217,11 @@ export function PressRoomPanel(props: { slug: string }) {
               </tbody>
             </table>
           </div>
+          <Show when={assets.data!.assets.length > MAX_VISIBLE}>
+            <button class="ghost" onClick={() => setShowAllAssets(s => !s)}>
+              {showAllAssets() ? 'Show less' : `Show all (${assets.data!.assets.length})`}
+            </button>
+          </Show>
         </Show>
       </Show>
     </Show>
@@ -229,7 +244,7 @@ export function PressRoomPanel(props: { slug: string }) {
                 </tr>
               </thead>
               <tbody>
-                <For each={engagements.data!.engagements}>{(e) => (
+                <For each={showAllEngagements() ? engagements.data!.engagements : engagements.data!.engagements.slice(0, MAX_VISIBLE)}>{(e) => (
                   <tr>
                     <td><strong>{e.displayName}</strong><br /><span class="muted">{e.beaconKind}</span></td>
                     <td>{e.eventTitle}</td>
@@ -266,6 +281,11 @@ export function PressRoomPanel(props: { slug: string }) {
               </tbody>
             </table>
           </div>
+          <Show when={engagements.data!.engagements.length > MAX_VISIBLE}>
+            <button class="ghost" onClick={() => setShowAllEngagements(s => !s)}>
+              {showAllEngagements() ? 'Show less' : `Show all (${engagements.data!.engagements.length})`}
+            </button>
+          </Show>
         </Show>
       </Show>
     </Show>
@@ -286,7 +306,7 @@ export function PressRoomPanel(props: { slug: string }) {
                 </tr>
               </thead>
               <tbody>
-                <For each={coverage.data!.coverage}>{(c) => (
+                <For each={showAllCoverage() ? coverage.data!.coverage : coverage.data!.coverage.slice(0, MAX_VISIBLE)}>{(c) => (
                   <tr>
                     <td><strong>{c.displayName}</strong></td>
                     <td>{c.eventTitle}</td>
@@ -299,6 +319,11 @@ export function PressRoomPanel(props: { slug: string }) {
               </tbody>
             </table>
           </div>
+          <Show when={coverage.data!.coverage.length > MAX_VISIBLE}>
+            <button class="ghost" onClick={() => setShowAllCoverage(s => !s)}>
+              {showAllCoverage() ? 'Show less' : `Show all (${coverage.data!.coverage.length})`}
+            </button>
+          </Show>
         </Show>
       </Show>
     </Show>

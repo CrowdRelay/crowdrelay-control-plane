@@ -1,4 +1,4 @@
-import { For, Show } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -58,6 +58,10 @@ export function ReplyTriagePanel() {
   }))
 
   const data = () => model.data
+
+  const [showAllNeedsHuman, setShowAllNeedsHuman] = createSignal(false)
+  const [showAllRecentAuto, setShowAllRecentAuto] = createSignal(false)
+  const MAX_VISIBLE = 10
 
   return <article class="panel operations-panel">
     <div class="section-title operations-title">
@@ -123,8 +127,13 @@ export function ReplyTriagePanel() {
           fallback={<EmptyState label="No replies need human review" hint="The agent handles routine replies automatically. Items that need a human touch appear here." />}
         >
           <div class="flag-list">
-            <For each={d().needs_human}>{entry => <ReplyRow entry={entry} />}</For>
+            <For each={showAllNeedsHuman() ? d().needs_human : d().needs_human.slice(0, MAX_VISIBLE)}>{entry => <ReplyRow entry={entry} />}</For>
           </div>
+          <Show when={d().needs_human.length > MAX_VISIBLE}>
+            <button class="ghost" onClick={() => setShowAllNeedsHuman(s => !s)}>
+              {showAllNeedsHuman() ? 'Show less' : `Show all (${d().needs_human.length})`}
+            </button>
+          </Show>
         </Show>
       </section>
 
@@ -135,8 +144,13 @@ export function ReplyTriagePanel() {
             <div><span class="eyebrow">RECENT AUTO</span><h3><SectionIcon name="zap" />Classified without a human</h3></div>
           </div>
           <div class="flag-list">
-            <For each={d().recent_auto}>{entry => <ReplyRow entry={entry} />}</For>
+            <For each={showAllRecentAuto() ? d().recent_auto : d().recent_auto.slice(0, MAX_VISIBLE)}>{entry => <ReplyRow entry={entry} />}</For>
           </div>
+          <Show when={d().recent_auto.length > MAX_VISIBLE}>
+            <button class="ghost" onClick={() => setShowAllRecentAuto(s => !s)}>
+              {showAllRecentAuto() ? 'Show less' : `Show all (${d().recent_auto.length})`}
+            </button>
+          </Show>
         </section>
       </Show>
     </>}</Show>

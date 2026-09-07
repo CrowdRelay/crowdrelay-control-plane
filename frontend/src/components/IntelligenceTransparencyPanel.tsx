@@ -43,6 +43,30 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
   const [error, setError] = createSignal<string | null>(null)
   const [expanded, setExpanded] = createSignal<string | null>(null)
   const [days, setDays] = createSignal(30)
+  const [showAllDecisions, setShowAllDecisions] = createSignal(false)
+  const MAX_VISIBLE_DECISIONS = 10
+  const [expandedPlans, setExpandedPlans] = createSignal<Set<string>>(new Set())
+  const MAX_VISIBLE_PLAN = 10
+  const [expandedTasks, setExpandedTasks] = createSignal<Set<string>>(new Set())
+  const MAX_VISIBLE_TASKS = 10
+
+  const togglePlan = (id: string) => {
+    setExpandedPlans((curr) => {
+      const next = new Set(curr)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleTasks = (id: string) => {
+    setExpandedTasks((curr) => {
+      const next = new Set(curr)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   const data = useQuery(() => ({
     queryKey: ['intelligence-transparency', props.slug, days()],
@@ -148,7 +172,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
             </div>
           }>
             <div class="intel-decision-list">
-              <For each={decisions()}>{(decision: IntelligenceDecision) => (
+              <For each={showAllDecisions() ? decisions() : decisions().slice(0, MAX_VISIBLE_DECISIONS)}>{(decision: IntelligenceDecision) => (
                 <div class="intel-decision-card">
                   <button class="intel-decision-header" onClick={() => toggleExpand(decision.id)}>
                     <div class="intel-decision-meta">
@@ -188,7 +212,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                         <div class="intel-plan-section">
                           <h4>Growth Plan</h4>
                           <p class="muted intel-plan-intro">The intelligence's deterministic plan. Each item shows the template to dispatch, the priority, and the rationale (why the intelligence decided to do this).</p>
-                          <For each={decision.plan}>{(item, i) => (
+                          <For each={expandedPlans().has(decision.id) ? decision.plan : decision.plan.slice(0, MAX_VISIBLE_PLAN)}>{(item, i) => (
                             <div class="intel-plan-item">
                               <div class="intel-plan-head">
                                 <span class="badge">#{i() + 1} · {templateLabel(item.template)}</span>
@@ -199,6 +223,11 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                             </div>
                           )}</For>
                         </div>
+                        <Show when={decision.plan.length > MAX_VISIBLE_PLAN}>
+                          <button class="ghost" onClick={() => togglePlan(decision.id)}>
+                            {expandedPlans().has(decision.id) ? 'Show less' : `Show all (${decision.plan.length})`}
+                          </button>
+                        </Show>
                       </Show>
 
                       {/* Dispatched worker tasks */}
@@ -209,7 +238,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                           <table class="agent-task-table">
                             <thead><tr><th>Slot</th><th>Role</th><th>Template</th><th>Status</th><th>Outcome</th><th>Tokens</th><th></th></tr></thead>
                             <tbody>
-                              <For each={decision.tasks}>{(task: IntelligenceDecisionTask) => (
+                              <For each={expandedTasks().has(decision.id) ? decision.tasks : decision.tasks.slice(0, MAX_VISIBLE_TASKS)}>{(task: IntelligenceDecisionTask) => (
                                 <tr>
                                   <td>{task.slot}</td>
                                   <td><span class={`badge ${task.role === 'brain' ? 'free-chip' : 'paid-chip'}`}>{task.role}</span></td>
@@ -226,6 +255,11 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                               )}</For>
                             </tbody>
                           </table>
+                          <Show when={decision.tasks.length > MAX_VISIBLE_TASKS}>
+                            <button class="ghost" onClick={() => toggleTasks(decision.id)}>
+                              {expandedTasks().has(decision.id) ? 'Show less' : `Show all (${decision.tasks.length})`}
+                            </button>
+                          </Show>
                         </div>
                       </Show>
 
@@ -274,6 +308,11 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                 </div>
               )}</For>
             </div>
+            <Show when={decisions().length > MAX_VISIBLE_DECISIONS}>
+              <button class="ghost" onClick={() => setShowAllDecisions(s => !s)}>
+                {showAllDecisions() ? 'Show less' : `Show all (${decisions().length})`}
+              </button>
+            </Show>
           </Show>
         }>
           <div class="inherit-card"><EmptyState label="Intelligence data unavailable" hint={error()!} /></div>

@@ -1,4 +1,4 @@
-import { For, Show } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { formatTimestamp } from '../lib/format'
@@ -80,6 +80,11 @@ export function ScorecardPanel(props: { slug: string }) {
   }))
 
   const data = () => model.data
+
+  const [showAllByContext, setShowAllByContext] = createSignal(false)
+  const MAX_VISIBLE_BY_CONTEXT = 6
+  const [showAllRecent, setShowAllRecent] = createSignal(false)
+  const MAX_VISIBLE_RECENT = 10
 
   return <article class="panel operations-panel">
     <div class="section-title operations-title">
@@ -199,12 +204,17 @@ export function ScorecardPanel(props: { slug: string }) {
             <div><span class="eyebrow">BY CONTEXT</span><h3><SectionIcon name="target" />Which parts are producing</h3></div>
           </div>
           <div class="scorecard-grid-3">
-            <For each={d().by_context}>{ctx => <div class="scorecard-context-card">
+            <For each={showAllByContext() ? d().by_context : d().by_context.slice(0, MAX_VISIBLE_BY_CONTEXT)}>{ctx => <div class="scorecard-context-card">
               <strong>{contextLabel(ctx.context)}</strong>
               <small>{count(ctx.executed)} executed · {count(ctx.succeeded)} succeeded · {count(ctx.failed)} failed</small>
               <Show when={ctx.parked > 0}><small class="muted">{count(ctx.parked)} parked</small></Show>
             </div>}</For>
           </div>
+          <Show when={d().by_context.length > MAX_VISIBLE_BY_CONTEXT}>
+            <button class="ghost" onClick={() => setShowAllByContext(s => !s)}>
+              {showAllByContext() ? 'Show less' : `Show all (${d().by_context.length})`}
+            </button>
+          </Show>
         </section>
       </Show>
 
@@ -215,7 +225,7 @@ export function ScorecardPanel(props: { slug: string }) {
         </div>
         <Show when={d().recent_results.length > 0} fallback={<div class="inherit-card"><p>The agent has not completed any actions yet.</p></div>}>
           <div class="scorecard-grid-2">
-            <For each={d().recent_results}>{result => <div class="scorecard-result-card">
+            <For each={showAllRecent() ? d().recent_results : d().recent_results.slice(0, MAX_VISIBLE_RECENT)}>{result => <div class="scorecard-result-card">
               <div class="scorecard-result-head">
                 <strong>{actionLabel(result.action_kind)}</strong>
                 <StatusBadge status={outcomeLabel(result.outcome)} tone={outcomeTone(result.outcome)} />
@@ -225,6 +235,11 @@ export function ScorecardPanel(props: { slug: string }) {
               <small class="muted">{timeAgo(result.completed_at)}<Show when={result.executor_id}>{` · ${result.executor_id}`}</Show></small>
             </div>}</For>
           </div>
+          <Show when={d().recent_results.length > MAX_VISIBLE_RECENT}>
+            <button class="ghost" onClick={() => setShowAllRecent(s => !s)}>
+              {showAllRecent() ? 'Show less' : `Show all (${d().recent_results.length})`}
+            </button>
+          </Show>
         </Show>
       </section>
     </>}</Show>
