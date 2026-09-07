@@ -23,7 +23,7 @@ export function AudienceOverviewPanel(props: { slug: string; overview?: Audience
           <p>Fans arrive from connected platforms, from the communities the brain scans, and from the people carrying a release into a new city. Start one of those and the counters below fill on the next ingestion.</p>
           <div class="audience-start-links">
             <Link class="ghost" to="/tenants/$slug/portfolio" params={{ slug: props.slug }}>Connect a fan source</Link>
-            <Link class="ghost" to="/tenants/$slug/communities" params={{ slug: props.slug }}>Work the communities queue</Link>
+            <Link class="ghost" to="/tenants/$slug/audience" params={{ slug: props.slug }}>Work the communities queue</Link>
             <Link class="ghost" to="/tenants/$slug/beacons" params={{ slug: props.slug }}>Add beacons</Link>
           </div>
         </div>

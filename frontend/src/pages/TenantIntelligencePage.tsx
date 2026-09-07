@@ -20,7 +20,7 @@ import { SectionIcon } from '../components/SectionIcon'
 /**
  * Intelligence subpage — tabbed view for the deterministic Rust autopilot.
  *
- * Tabs: Overview | Growth Intelligence | Decisions | Learning
+ * Tabs: Overview | Growth Intelligence | Growth Funnel | Decisions | Learning
  * Each tab groups related panels thematically.
  */
 export function TenantIntelligencePage() {

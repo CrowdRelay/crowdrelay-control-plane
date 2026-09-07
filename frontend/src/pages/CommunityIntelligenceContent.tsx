@@ -1,6 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
-import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import type { CommunityItem, CommunityObservationItem, CommunityEntityItem } from '../lib/types'
 import { SkeletonRows } from '../components/Skeleton'
@@ -8,10 +7,11 @@ import { toast } from '../lib/toast'
 import { errorMessage } from '../lib/format'
 
 /**
- * Community Intelligence page — observation layer for community surfaces.
+ * Community Intelligence content — observation layer for community surfaces.
  *
- * Shows tracked communities with their latest observations, and allows
- * drilling into observation time series and extracted entities.
+ * Rendered as the Communities tab inside the Audience page. Shows tracked
+ * communities with their latest observations, and allows drilling into
+ * observation time series and extracted entities.
  * No sentiment, no affinity — just structured facts the Brain can reason over.
  */
 
@@ -29,11 +29,6 @@ const MEMBERSHIP_LABEL: Record<string, string> = {
 
 const countBy = (items: CommunityItem[], state: string) =>
   items.filter((i) => i.membershipState === state).length
-
-export function CommunityIntelligencePage() {
-  const params = useParams({ from: '/tenants/$slug/communities' })
-  return <CommunityIntelligenceContent slug={params().slug} />
-}
 
 export function CommunityIntelligenceContent(props: { slug: string }) {
   const [selectedPlaceId, setSelectedPlaceId] = createSignal<string | null>(null)

@@ -7,7 +7,7 @@ import { BeaconSignalPanel } from '../components/BeaconSignalPanel'
 /// They lived as a tab under Operations, next to outreach and releases — the
 /// things you *do*. But a beacon is a person in a city who carries a release to
 /// an audience the band does not own, which makes the roster a question about
-/// who the audience is, alongside Fan Intelligence and Growth.
+/// who the audience is, alongside Audience and Intelligence.
 ///
 /// The console is the roster and every action on it. The Signal panel below is
 /// the same population seen as a funnel: it answers "how is the invite pipeline

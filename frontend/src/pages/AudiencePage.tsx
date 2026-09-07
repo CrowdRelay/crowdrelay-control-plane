@@ -8,7 +8,7 @@ import { SegmentPanel } from '../components/SegmentPanel'
 import { SkeletonPageHead, SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
-import { CommunityIntelligenceContent } from './CommunityIntelligencePage'
+import { CommunityIntelligenceContent } from './CommunityIntelligenceContent'
 
 const SECTION_LABEL: Record<string, string> = {
   overview: 'Audience KPIs',
