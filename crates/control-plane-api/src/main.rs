@@ -459,6 +459,8 @@ async fn dispatch_pending_notifications(state: &AppState) -> anyhow::Result<()> 
 /// `"status": "ok"` field — a bare substring match would let "not ok" or
 /// broken HTML register as healthy. Failures are classified so the operator
 /// can tell a timeout from a transport error from a malformed response.
+/// Accepts both `"status":"ok"` (n8n) and `"status":"ready"` (CrowdRelay API)
+/// as healthy — they use different health endpoint vocabularies.
 async fn poll_platform_health(state: &AppState, client: &reqwest::Client) -> anyhow::Result<()> {
     use futures_util::future::join_all;
     let services = state.store.list_platform_health().await?;
@@ -478,10 +480,14 @@ async fn poll_platform_health(state: &AppState, client: &reqwest::Client) -> any
                             // Parse the body as JSON and check the status field.
                             // A non-JSON body (e.g. HTML error page from a
                             // misconfigured proxy) is malformed, not healthy.
+                            // Accept both "ok" (n8n) and "ready" (CrowdRelay API)
+                            // as healthy — they use different health endpoint vocabularies.
                             let ok = serde_json::from_str::<serde_json::Value>(&body)
                                 .ok()
                                 .and_then(|v| {
-                                    v.get("status").and_then(|s| s.as_str()).map(|s| s == "ok")
+                                    v.get("status")
+                                        .and_then(|s| s.as_str())
+                                        .map(|s| s == "ok" || s == "ready")
                                 })
                                 .unwrap_or(false);
                             let label = if ok { "healthy" } else { "malformed_response" };

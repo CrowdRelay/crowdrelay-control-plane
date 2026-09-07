@@ -1,3 +1,10 @@
+# Area management overlay for Control Plane production deploy.
+#
+# Adds the management master keys and the area-management network so the
+# control plane app can reach the CrowdRelay API directly on crowdrelay-shared.
+# The virya-area-tunnel Caddy container was removed: it was a pure pass-through
+# proxy that duplicated the path allowlist already enforced in
+# tenant_area_client.rs. The app now calls crowdrelay-api-1:8080 directly.
 services:
   app:
     environment:
@@ -6,49 +13,13 @@ services:
       CONTROL_PLANE_VIRYA_MANAGEMENT_URL: "${CONTROL_PLANE_VIRYA_MANAGEMENT_URL:?CONTROL_PLANE_VIRYA_MANAGEMENT_URL required}"
     networks:
       internal: {}
-      # Shared with the CrowdRelay compose project on the same host. The edge
-      # reaches the plane by this alias, and the area tunnel reaches the
-      # management proxy over it. Both used to cross an overlay network.
-      area-management:
+      crowdrelay-shared: {}
+      virya-edge:
         aliases: [control-plane]
 
-  virya-area-tunnel:
-    image: caddy@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
-    restart: unless-stopped
-    depends_on:
-      app:
-        condition: service_healthy
-    environment:
-      VIRYA_AREA_UPSTREAM: ${VIRYA_AREA_UPSTREAM:?VIRYA_AREA_UPSTREAM required}
-    volumes:
-      - ./deploy/virya-area-tunnel.Caddyfile:/etc/caddy/Caddyfile:ro
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -T 3 -O /dev/null http://127.0.0.1:18080/healthz/ready"]
-      interval: 5s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    read_only: true
-    tmpfs:
-      - /data
-      - /config
-      - /tmp
-    cap_drop:
-      - ALL
-    cap_add:
-      - NET_BIND_SERVICE
-    pids_limit: 64
-    mem_limit: 64m
-    cpus: 0.10
-    # Standalone networks — not network_mode: service:app. The tunnel listens
-    # on 0.0.0.0:18080 and the app reaches it at http://virya-area-tunnel:18080.
-    # This decouples the tunnel from the app container's lifecycle: recreating
-    # the app no longer breaks the tunnel's network namespace.
-    networks:
-      internal: {}
-      area-management: {}
-
 networks:
-  area-management:
+  virya-edge:
     external: true
-    name: ${VIRYA_EDGE_NETWORK:-virya-edge}
+  crowdrelay-shared:
+    external: true
+    name: crowdrelay-shared

@@ -101,14 +101,14 @@ wait_for_ci() {
 }
 
 repair_live_release_unit() {
-  printf '==> Repairing Control Plane app+tunnel release unit\n' >&2
+  printf '==> Repairing Control Plane app release unit\n' >&2
   ssh -T "$REMOTE" sudo bash -s -- "$REMOTE_DIR" <<'REMOTE_REPAIR'
 set -Eeuo pipefail
 root="$1"
 cd "$root"
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 for command in docker python3; do command -v "$command" >/dev/null 2>&1 || fail "missing recovery command: $command"; done
-for file in .env compose.production.yml compose.area.yml deploy/virya-area-tunnel.Caddyfile; do
+for file in .env compose.production.yml compose.area.yml; do
   [[ -f "$file" && ! -L "$file" ]] || fail "missing or unsafe recovery input: $file"
 done
 [[ "$(stat -c '%a' .env)" == "600" ]] || fail '.env must have mode 600 before recovery'
@@ -129,48 +129,30 @@ if not isinstance(operations,str) or not operations:
     raise SystemExit("recovery refused: effective operations management master is missing; run just bootstrap-management")
 if area == operations:
     raise SystemExit("recovery refused: management masters must be distinct")
-if url != "http://virya-area-tunnel:18080":
+if url != "http://crowdrelay-api-1:8080":
     raise SystemExit("recovery refused: management URL is not canonical")
 print("CONTROL_PLANE_RECOVERY_PREFLIGHT=PASS management_wiring=complete")
 ' || fail 'release unit recovery preflight failed before mutation'
-compose up -d --no-deps --force-recreate app virya-area-tunnel
+compose up -d --no-deps --force-recreate app
 for _ in $(seq 1 60); do
   app_state="$(docker inspect crowdrelay-control-plane-app-1 --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
-  tunnel_state="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
-  if [[ ( "$app_state" == "healthy" || "$app_state" == "running" ) && ( "$tunnel_state" == "healthy" || "$tunnel_state" == "running" ) ]]; then
-    printf 'CONTROL_PLANE_RELEASE_UNIT_REPAIR=PASS app=%s tunnel=%s preflight=complete\n' "$app_state" "$tunnel_state"
+  if [[ "$app_state" == "healthy" || "$app_state" == "running" ]]; then
+    printf 'CONTROL_PLANE_RELEASE_UNIT_REPAIR=PASS app=%s preflight=complete\n' "$app_state"
     exit 0
   fi
   sleep 1
 done
-fail "release unit did not recover: app=$app_state tunnel=$tunnel_state"
+fail "release unit did not recover: app=$app_state"
 REMOTE_REPAIR
 }
 
-verify_live_tunnel() {
+verify_live_app() {
   ssh -T "$REMOTE" sudo bash -s <<'REMOTE_GATE'
 set -Eeuo pipefail
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
-for command in docker curl python3 grep; do command -v "$command" >/dev/null 2>&1 || fail "missing tunnel gate command: $command"; done
+for command in docker curl python3; do command -v "$command" >/dev/null 2>&1 || fail "missing app gate command: $command"; done
 app="crowdrelay-control-plane-app-1"
-tunnel="crowdrelay-control-plane-virya-area-tunnel-1"
 [[ "$(docker inspect "$app" --format '{{.State.Status}}' 2>/dev/null || true)" == "running" ]] || fail 'Control Plane app is not running'
-tunnel_state="$(docker inspect "$tunnel" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
-[[ "$tunnel_state" == "healthy" || "$tunnel_state" == "running" ]] || fail "Control Plane tunnel is not ready: $tunnel_state"
-app_id="$(docker inspect "$app" --format '{{.Id}}')"
-# The tunnel no longer uses network_mode: service:app — it has its own
-# networks (internal + virya-edge/area-management). Verify it's on the
-# internal network instead of checking the namespace binding.
-tunnel_networks="$(docker inspect "$tunnel" --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}')"
-[[ "$tunnel_networks" == *"internal"* ]] || fail "Control Plane tunnel is not on the internal network: $tunnel_networks"
-docker exec "$tunnel" caddy validate --config /etc/caddy/Caddyfile >/dev/null || fail 'live tunnel Caddyfile is invalid'
-runtime_caddy="$(docker exec "$tunnel" cat /etc/caddy/Caddyfile)" || fail 'cannot read live tunnel Caddyfile'
-# /healthz/ready is the readiness probe the tunnel healthcheck uses. A tunnel
-# serving the older route set answers it with 404, so the bridge looks up
-# while every operations call through it fails. Gate on it explicitly.
-for route in '/healthz/ready' '/v1/control-plane/area' '/v1/control-plane/ops/summary' '/v1/control-plane/ops/attention' '/v1/control-plane/ops/outbox/*' '/v1/control-plane/ecosystem/flags' '/v1/control-plane/autopilot/overview' '/v1/control-plane/autopilot/growth'; do
-  grep -Fq "$route" <<<"$runtime_caddy" || fail "live tunnel is missing route: $route"
-done
 runtime_env="$(docker inspect "$app" --format '{{range .Config.Env}}{{println .}}{{end}}')"
 area_master="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY=//p')"
 management_master="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_MANAGEMENT_MASTER_KEY=//p')"
@@ -178,7 +160,7 @@ management_url="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_VIRYA_
 [[ -n "$area_master" ]] || fail 'Control Plane AREA management master is missing from runtime'
 [[ -n "$management_master" ]] || fail 'Control Plane operations management master is missing from runtime'
 [[ "$area_master" != "$management_master" ]] || fail 'Control Plane management masters are not distinct'
-[[ "$management_url" == "http://virya-area-tunnel:18080" ]] || fail "Control Plane management URL drifted: $management_url"
+[[ "$management_url" == "http://crowdrelay-api-1:8080" ]] || fail "Control Plane management URL drifted: $management_url"
 unset runtime_env area_master management_master management_url
 published="$(docker port "$app" 8090/tcp | head -n1)"
 [[ -n "$published" ]] || fail 'Control Plane app has no published endpoint'
@@ -186,42 +168,42 @@ admin="$(docker inspect "$app" --format '{{range .Config.Env}}{{println .}}{{end
 [[ -n "$admin" ]] || fail 'Control Plane admin token missing from runtime'
 summary=""
 for attempt in $(seq 1 30); do
-  if summary="$(curl -fsS --connect-timeout 3 --max-time 10 -H "Authorization: Bearer $admin" "http://${published}/api/v1/tenants/virya/operations/summary" 2>/tmp/control-plane-tunnel-gate-error)"; then
-    printf 'CONTROL_PLANE_TUNNEL_READINESS=PASS attempt=%s\n' "$attempt"
+  if summary="$(curl -fsS --connect-timeout 3 --max-time 10 -H "Authorization: Bearer $admin" "http://${published}/api/v1/tenants/virya/operations/summary" 2>/tmp/control-plane-app-gate-error)"; then
+    printf 'CONTROL_PLANE_APP_READINESS=PASS attempt=%s\n' "$attempt"
     break
   fi
   if [[ "$attempt" == "30" ]]; then
-    detail="$(cat /tmp/control-plane-tunnel-gate-error 2>/dev/null || true)"
-    rm -f /tmp/control-plane-tunnel-gate-error
+    detail="$(cat /tmp/control-plane-app-gate-error 2>/dev/null || true)"
+    rm -f /tmp/control-plane-app-gate-error
     fail "operations management path did not become ready after bounded retry: $detail"
   fi
   sleep 1
 done
-rm -f /tmp/control-plane-tunnel-gate-error
+rm -f /tmp/control-plane-app-gate-error
 unset admin
 printf '%s' "$summary" | python3 -c '
 import json
 import sys
 json.load(sys.stdin)
-print("CONTROL_PLANE_TUNNEL_GATE=PASS e2e=true json=true")
+print("CONTROL_PLANE_APP_GATE=PASS e2e=true json=true")
 '
 REMOTE_GATE
 }
 
-ensure_live_tunnel() {
-  if verify_live_tunnel; then
-    printf 'CONTROL_PLANE_TUNNEL_RECOVERY=NOOP healthy=true\n'
+ensure_live_app() {
+  if verify_live_app; then
+    printf 'CONTROL_PLANE_APP_RECOVERY=NOOP healthy=true\n'
     return 0
   fi
-  printf 'CONTROL_PLANE_TUNNEL_RECOVERY=REPAIR reason=gate-failed\n' >&2
+  printf 'CONTROL_PLANE_APP_RECOVERY=REPAIR reason=gate-failed\n' >&2
   repair_live_release_unit || return 1
-  verify_live_tunnel
+  verify_live_app
 }
 
 on_interrupt() {
   trap - INT TERM HUP
-  printf '\nINTERRUPT=RECEIVED ensuring app+tunnel release unit is healthy\n' >&2
-  ensure_live_tunnel || true
+  printf '\nINTERRUPT=RECEIVED ensuring app release unit is healthy\n' >&2
+  ensure_live_app || true
   exit 130
 }
 
@@ -320,7 +302,6 @@ if [[ "$blue_green_eligible" == "eligible" ]]; then
   for pair in \
     "$BLUEGREEN:/tmp/cp-deploy-bluegreen.sh" \
     "$ROOT_DIR/scripts/release_receipt.py:/tmp/release_receipt.py" \
-    "$ROOT_DIR/deploy/virya-area-tunnel.Caddyfile:/tmp/cp-virya-area-tunnel.Caddyfile" \
     "$ROOT_DIR/deploy/compose.bluegreen.yml:/tmp/cp-compose-bluegreen.yml"
   do
     scp -q "${pair%:*}" "$REMOTE:${pair##*:}" \
@@ -342,10 +323,10 @@ else
   trap - INT TERM HUP
 
   if (( deploy_status != 0 )); then
-    ensure_live_tunnel || fail 'Control Plane deploy failed and app+tunnel recovery failed'
+    ensure_live_app || fail 'Control Plane deploy failed and app recovery failed'
   else
-    verify_live_tunnel || fail 'Control Plane deploy left the tunnel unhealthy'
+    verify_live_app || fail 'Control Plane deploy left the app unhealthy'
   fi
 fi
 (( deploy_status == 0 )) || exit "$deploy_status"
-printf 'MAKE_DEPLOY=PASS repo=crowdrelay-control-plane sha=%s digest=%s tunnel=healthy credentials=matched\n' "$TARGET" "${CONTROL_PLANE_IMAGE_DIGEST:-}"
+printf 'MAKE_DEPLOY=PASS repo=crowdrelay-control-plane sha=%s digest=%s app=healthy credentials=matched\n' "$TARGET" "${CONTROL_PLANE_IMAGE_DIGEST:-}"

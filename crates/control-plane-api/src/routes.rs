@@ -546,13 +546,33 @@ async fn park_tenant(
         .get("version")
         .and_then(Value::as_i64)
         .unwrap_or(0);
+    let weekly_owned = envelope_value
+        .get("weeklyOwnedAudienceTouches")
+        .and_then(Value::as_u64)
+        .unwrap_or(200) as i32;
+    let weekly_third_party = envelope_value
+        .get("weeklyThirdPartyTouches")
+        .and_then(Value::as_u64)
+        .unwrap_or(10) as i32;
+    let cooldown_hours = envelope_value
+        .get("subjectCooldownHours")
+        .and_then(Value::as_u64)
+        .unwrap_or(168) as i32;
+    let max_recipients = envelope_value
+        .get("maxRecipientsPerStep")
+        .and_then(Value::as_u64)
+        .unwrap_or(250) as i32;
     let posture = posture_value
         .get("posture")
         .and_then(Value::as_str)
         .unwrap_or("grounded")
         .to_owned();
+    let posture_version = posture_value
+        .get("expected_version")
+        .and_then(Value::as_i64)
+        .unwrap_or(1);
 
-    // 2. Save the snapshot.
+    // 2. Save the snapshot with the full envelope state.
     state
         .store
         .save_park_snapshot(
@@ -562,20 +582,26 @@ async fn park_tenant(
             dry_run,
             &posture,
             envelope_version,
+            weekly_owned,
+            weekly_third_party,
+            cooldown_hours,
+            max_recipients,
+            posture_version,
             reason.as_deref(),
         )
         .await?;
 
     // 3. Stop the brain: set agent_enabled=false and parked=true.
+    // CrowdRelay's GrowthEnvelopeRequest uses snake_case with deny_unknown_fields.
     let park_body = json!({
-        "agentEnabled": false,
-        "dryRun": dry_run,
-        "weeklyOwnedAudienceTouches": envelope_value.get("weeklyOwnedAudienceTouches").and_then(Value::as_u64).unwrap_or(200),
-        "weeklyThirdPartyTouches": envelope_value.get("weeklyThirdPartyTouches").and_then(Value::as_u64).unwrap_or(10),
-        "subjectCooldownHours": envelope_value.get("subjectCooldownHours").and_then(Value::as_u64).unwrap_or(168),
-        "maxRecipientsPerStep": envelope_value.get("maxRecipientsPerStep").and_then(Value::as_u64).unwrap_or(250),
+        "agent_enabled": false,
+        "dry_run": dry_run,
+        "weekly_owned_audience_touches": weekly_owned,
+        "weekly_third_party_touches": weekly_third_party,
+        "subject_cooldown_hours": cooldown_hours,
+        "max_recipients_per_step": max_recipients,
         "parked": true,
-        "expectedVersion": envelope_version,
+        "expected_version": envelope_version,
     });
     let idempotency = format!("park-{}", Uuid::new_v4());
     state
@@ -641,16 +667,17 @@ async fn unpark_tenant(
     // Resolve the management target (tenant is now active).
     let (_, target_url) = crate::area_routes::target(&state, &slug).await?;
 
-    // Restore the envelope: agent_enabled from snapshot, parked=false.
+    // Restore the envelope from the snapshot. CrowdRelay's
+    // GrowthEnvelopeRequest uses snake_case with deny_unknown_fields.
     let restore_body = json!({
-        "agentEnabled": snapshot.agent_enabled,
-        "dryRun": snapshot.dry_run,
-        "weeklyOwnedAudienceTouches": 200,
-        "weeklyThirdPartyTouches": 10,
-        "subjectCooldownHours": 168,
-        "maxRecipientsPerStep": 250,
+        "agent_enabled": snapshot.agent_enabled,
+        "dry_run": snapshot.dry_run,
+        "weekly_owned_audience_touches": snapshot.weekly_owned_audience_touches,
+        "weekly_third_party_touches": snapshot.weekly_third_party_touches,
+        "subject_cooldown_hours": snapshot.subject_cooldown_hours,
+        "max_recipients_per_step": snapshot.max_recipients_per_step,
         "parked": false,
-        "expectedVersion": snapshot.envelope_version + 1,
+        "expected_version": snapshot.envelope_version + 1,
     });
     let idempotency = format!("unpark-{}", Uuid::new_v4());
     state
@@ -667,12 +694,25 @@ async fn unpark_tenant(
             },
         )
         .await
-        .map_err(|e| ApiError::Unavailable(format!("failed to restore growth envelope: {e}")))?;
+        .map_err(|e| {
+            // Restore failed — roll back the CP status to parked so the
+            // snapshot is not lost and the operator can retry.
+            let slug_clone = slug.clone();
+            let actor_clone = actor.to_owned();
+            let store = state.store.clone();
+            tokio::spawn(async move {
+                let _ = store
+                    .set_status(&slug_clone, "parked", &actor_clone, None)
+                    .await;
+            });
+            ApiError::Unavailable(format!("failed to restore growth envelope: {e}"))
+        })?;
 
-    // Restore the posture.
+    // Restore the posture. The posture was not changed by parking, so this
+    // is a belt-and-suspenders restore. Use the captured posture_version.
     let posture_body = json!({
         "posture": snapshot.posture,
-        "expectedVersion": 0,
+        "expected_version": snapshot.posture_version,
     });
     let posture_idempotency = format!("unpark-posture-{}", Uuid::new_v4());
     let _ = state
@@ -690,7 +730,7 @@ async fn unpark_tenant(
         )
         .await;
 
-    // Consume the snapshot.
+    // Consume the snapshot only after a successful envelope restore.
     state.store.consume_park_snapshot(tenant_id, actor).await?;
 
     let result = state.store.tenant_by_slug(&slug).await?;
@@ -708,8 +748,9 @@ struct BillingWebhookRequest {
 /// when payment is received. Authenticated via a shared secret header
 /// (`X-Billing-Webhook-Secret`), not the platform admin token.
 ///
-/// Idempotent: if the tenant is already active, returns 200 without doing
-/// anything.
+/// Idempotent: if the tenant is already active, returns 204 without doing
+/// anything. If the CrowdRelay restore fails, returns 503 and rolls back
+/// the CP status so the snapshot is preserved for retry.
 async fn billing_webhook(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -735,8 +776,6 @@ async fn billing_webhook(
     if tenant.tenant.status != "parked" {
         return Ok(StatusCode::NO_CONTENT);
     }
-    // Reuse the unpark logic by setting status to active and restoring the
-    // envelope from the snapshot.
     let tenant_id = tenant.tenant.id;
     let actor = "billing-webhook";
     let snapshot = state
@@ -750,17 +789,17 @@ async fn billing_webhook(
         .await?;
     let (_, target_url) = crate::area_routes::target(&state, &slug).await?;
     let restore_body = json!({
-        "agentEnabled": snapshot.agent_enabled,
-        "dryRun": snapshot.dry_run,
-        "weeklyOwnedAudienceTouches": 200,
-        "weeklyThirdPartyTouches": 10,
-        "subjectCooldownHours": 168,
-        "maxRecipientsPerStep": 250,
+        "agent_enabled": snapshot.agent_enabled,
+        "dry_run": snapshot.dry_run,
+        "weekly_owned_audience_touches": snapshot.weekly_owned_audience_touches,
+        "weekly_third_party_touches": snapshot.weekly_third_party_touches,
+        "subject_cooldown_hours": snapshot.subject_cooldown_hours,
+        "max_recipients_per_step": snapshot.max_recipients_per_step,
         "parked": false,
-        "expectedVersion": snapshot.envelope_version + 1,
+        "expected_version": snapshot.envelope_version + 1,
     });
     let idempotency = format!("billing-unpark-{}", Uuid::new_v4());
-    let _ = state
+    let envelope_result = state
         .area_client
         .request_management(
             tenant_id,
@@ -774,9 +813,23 @@ async fn billing_webhook(
             },
         )
         .await;
+    if let Err(e) = envelope_result {
+        // Restore failed — roll back to parked so the snapshot survives.
+        let slug_clone = slug.clone();
+        let store = state.store.clone();
+        tokio::spawn(async move {
+            let _ = store
+                .set_status(&slug_clone, "parked", "billing-webhook", None)
+                .await;
+        });
+        return Err(ApiError::Unavailable(format!(
+            "failed to restore growth envelope: {e}"
+        )));
+    }
+    // Restore the posture (belt-and-suspenders; parking does not change it).
     let posture_body = json!({
         "posture": snapshot.posture,
-        "expectedVersion": 0,
+        "expected_version": snapshot.posture_version,
     });
     let posture_idempotency = format!("billing-unpark-posture-{}", Uuid::new_v4());
     let _ = state
@@ -793,6 +846,7 @@ async fn billing_webhook(
             },
         )
         .await;
+    // Consume the snapshot only after a successful envelope restore.
     state.store.consume_park_snapshot(tenant_id, actor).await?;
     Ok(StatusCode::OK)
 }

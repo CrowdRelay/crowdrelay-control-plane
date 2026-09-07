@@ -9,7 +9,6 @@ REGISTRY_IMAGE="${CONTROL_PLANE_REGISTRY_IMAGE:-ghcr.io/crowdrelay/crowdrelay-co
 REMOTE="${CONTROL_PLANE_DEPLOY_HOST:-virya-crowdrelay}"
 REMOTE_DIR="${CONTROL_PLANE_DEPLOY_REMOTE_DIR:-/srv/crowdrelay-control-plane}"
 REMOTE_AREA=""
-REMOTE_CADDY=""
 
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
@@ -21,20 +20,14 @@ require() {
 }
 
 cleanup() {
-  remote_files=""
-  for file in "$REMOTE_AREA" "$REMOTE_CADDY"; do
-    [[ -z "$file" ]] || remote_files+=" '$file'"
-  done
-  if [[ -n "$remote_files" ]]; then
-    ssh -T "$REMOTE" "rm -f $remote_files" >/dev/null 2>&1 || true
-  fi
+  [[ -z "$REMOTE_AREA" ]] || ssh -T "$REMOTE" "rm -f '$REMOTE_AREA'" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
 for command in git ssh scp; do require "$command"; done
 cd "$ROOT_DIR"
 
-for file in deploy/compose.area.production.yml deploy/virya-area-tunnel.Caddyfile; do
+for file in deploy/compose.area.production.yml; do
   [[ -f "$file" && ! -L "$file" ]] || fail "missing canonical deploy file: $file"
 done
 
@@ -53,16 +46,14 @@ REMOTE_MAIN="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
 printf '==> 1/4 — Immutable CI release identity\n'
 printf 'CI_RELEASE=PASS sha=%s digest=%s image=%s\n' "$TARGET" "$IMAGE_DIGEST" "$REGISTRY_IMAGE"
 
-printf '\n==> 2/4 — Transfer canonical tunnel config\n'
+printf '\n==> 2/4 — Transfer canonical area config\n'
 REMOTE_AREA="/tmp/crowdrelay-control-plane-area-${TARGET}.yml"
-REMOTE_CADDY="/tmp/crowdrelay-control-plane-caddy-${TARGET}.Caddyfile"
 scp -q deploy/compose.area.production.yml "$REMOTE:$REMOTE_AREA"
-scp -q deploy/virya-area-tunnel.Caddyfile "$REMOTE:$REMOTE_CADDY"
 printf 'DEPLOY_INPUTS_TRANSFER=PASS host=%s image-transfer=registry\n' "$REMOTE"
 
-printf '\n==> 3/4 — Atomic app+tunnel deploy with rollback\n'
+printf '\n==> 3/4 — Atomic app deploy with rollback\n'
 ssh -T "$REMOTE" sudo bash -s -- \
-  "$REMOTE_DIR" "$TARGET" "$IMAGE_DIGEST" "$REGISTRY_IMAGE" "$REMOTE_AREA" "$REMOTE_CADDY" <<'REMOTE_DEPLOY'
+  "$REMOTE_DIR" "$TARGET" "$IMAGE_DIGEST" "$REGISTRY_IMAGE" "$REMOTE_AREA" <<'REMOTE_DEPLOY'
 set -Eeuo pipefail
 umask 077
 
@@ -71,7 +62,6 @@ target="$2"
 image_digest="$3"
 registry_image="$4"
 area_source="$5"
-caddy_source="$6"
 cd "$root"
 
 mutated=false
@@ -85,7 +75,7 @@ fail() {
     rollback 1
   fi
   [[ -z "$backup_dir" ]] || rm -rf -- "$backup_dir"
-  rm -f -- "$area_source" "$caddy_source"
+  rm -f -- "$area_source"
   exit 1
 }
 
@@ -115,20 +105,6 @@ wait_for_app() {
   return 1
 }
 
-wait_for_tunnel() {
-  local health=""
-  for _ in $(seq 1 60); do
-    health="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
-    if [[ "$health" == "healthy" ]]; then
-      printf '%s\n' "$health"
-      return 0
-    fi
-    sleep 1
-  done
-  printf '%s\n' "$health"
-  return 1
-}
-
 wait_for_agent_service() {
   local health=""
   for _ in $(seq 1 60); do
@@ -145,7 +121,6 @@ wait_for_agent_service() {
 
 install_canonical_infra() {
   install -m 0644 "$area_source" compose.area.yml
-  install -m 0644 "$caddy_source" deploy/virya-area-tunnel.Caddyfile
 }
 
 restore_release_state() {
@@ -155,61 +130,35 @@ restore_release_state() {
   install_canonical_infra
 }
 
-verify_tunnel_contract() {
-  local app_id tunnel_networks mount_source runtime_caddy route tunnel_health
-  tunnel_health="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
-  [[ "$tunnel_health" == "healthy" ]] || return 1
-  # The tunnel no longer uses network_mode: service:app — it has its own
-  # networks. Verify it's on the internal network.
-  tunnel_networks="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' 2>/dev/null || true)"
-  [[ "$tunnel_networks" == *"internal"* ]] || return 1
-  mount_source="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{range .Mounts}}{{if eq .Destination "/etc/caddy/Caddyfile"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || true)"
-  [[ "$mount_source" == "$root/deploy/virya-area-tunnel.Caddyfile" ]] || return 1
-  docker exec crowdrelay-control-plane-virya-area-tunnel-1 caddy validate --config /etc/caddy/Caddyfile >/dev/null || return 1
-  cmp -s <(docker exec crowdrelay-control-plane-virya-area-tunnel-1 cat /etc/caddy/Caddyfile) "$caddy_source" || return 1
-  runtime_caddy="$(docker exec crowdrelay-control-plane-virya-area-tunnel-1 cat /etc/caddy/Caddyfile)" || return 1
-  for route in \
-    '/healthz/ready' \
-    '/v1/control-plane/area' \
-    '/v1/control-plane/ops/summary' \
-    '/v1/control-plane/ecosystem/flags' \
-    '/v1/control-plane/autopilot/overview'; do
-    grep -Fq "$route" <<<"$runtime_caddy" || return 1
-  done
-}
-
 rollback() {
-  local status="${1:-1}" rollback_health restored_image published tunnel_health
+  local status="${1:-1}" rollback_health restored_image published
   trap - ERR
   if [[ "$mutated" == true ]]; then
     printf '\nROLLBACK=START old_tag=%s failed_tag=%s\n' "$old_tag" "$new_tag" >&2
     if restore_release_state && compose config --quiet; then
-      compose up -d --no-deps --force-recreate app virya-area-tunnel agent-service || true
+      compose up -d --no-deps --force-recreate app agent-service || true
     fi
     rollback_health="$(wait_for_app || true)"
-    tunnel_health="$(wait_for_tunnel || true)"
     agent_health="$(wait_for_agent_service || true)"
     restored_image="$(docker inspect crowdrelay-control-plane-app-1 --format '{{.Config.Image}}' 2>/dev/null || true)"
     published="$(docker port crowdrelay-control-plane-app-1 8090/tcp 2>/dev/null | head -n1 || true)"
     if [[ "$restored_image" == "crowdrelay-control-plane:${old_tag}" \
       && ( "$rollback_health" == "healthy" || "$rollback_health" == "running" ) \
-      && "$tunnel_health" == "healthy" \
       && -n "$published" ]] \
-      && verify_tunnel_contract \
       && curl -fsS --connect-timeout 3 --max-time 10 "http://${published}/healthz/ready" >/dev/null; then
-      printf 'ROLLBACK=PASS restored_tag=%s app=%s tunnel=%s canonical_infra=true\n' "$old_tag" "$rollback_health" "$tunnel_health" >&2
+      printf 'ROLLBACK=PASS restored_tag=%s app=%s canonical_infra=true\n' "$old_tag" "$rollback_health" >&2
     else
-      printf 'ROLLBACK=DEGRADED expected_tag=%s image=%s app=%s tunnel=%s canonical_infra=unknown\n' "$old_tag" "$restored_image" "$rollback_health" "$tunnel_health" >&2
+      printf 'ROLLBACK=DEGRADED expected_tag=%s image=%s app=%s canonical_infra=unknown\n' "$old_tag" "$restored_image" "$rollback_health" >&2
     fi
   fi
   [[ -z "$backup_dir" ]] || rm -rf -- "$backup_dir"
-  rm -f -- "$area_source" "$caddy_source"
+  rm -f -- "$area_source"
   exit "$status"
 }
 
 trap 'rollback $?' ERR
 
-for file in .env compose.production.yml compose.area.yml deploy/virya-area-tunnel.Caddyfile "$area_source" "$caddy_source"; do
+for file in .env compose.production.yml compose.area.yml "$area_source"; do
   [[ -f "$file" && ! -L "$file" ]] || fail "missing or unsafe deploy file: $file"
 done
 [[ "$(stat -c '%a' .env)" == "600" ]] || fail '.env must have mode 600'
@@ -231,36 +180,10 @@ if not isinstance(master, str) or not master:
     raise SystemExit("effective app config is missing CONTROL_PLANE_MANAGEMENT_MASTER_KEY")
 if area_master == master:
     raise SystemExit("effective management masters must be distinct")
-if url != "http://virya-area-tunnel:18080":
+if url != "http://crowdrelay-api-1:8080":
     raise SystemExit("effective app config has invalid CONTROL_PLANE_VIRYA_MANAGEMENT_URL")
 ' || fail 'effective compose management wiring is invalid'
 printf 'MANAGEMENT_WIRING=PASS semantic=true\n'
-
-caddy_image="$(python3 - "$area_source" <<'PY'
-from pathlib import Path
-import re
-import sys
-text = Path(sys.argv[1]).read_text()
-matches = re.findall(r'^\s*image:\s*["\x27]?(caddy@sha256:[0-9a-f]{64})["\x27]?\s*$', text, flags=re.MULTILINE)
-if len(matches) != 1:
-    raise SystemExit(f"expected exactly one pinned Caddy image, found={len(matches)}")
-print(matches[0])
-PY
-)" || fail 'canonical overlay does not contain exactly one pinned Caddy digest'
-if ! docker image inspect "$caddy_image" >/dev/null 2>&1; then
-  timeout 90s docker pull "$caddy_image" >/dev/null \
-    || fail "unable to pull pinned Caddy image: $caddy_image"
-fi
-docker run --rm --read-only \
-  --security-opt no-new-privileges:true \
-  --cap-drop ALL \
-  --cap-add NET_BIND_SERVICE \
-  --tmpfs /data --tmpfs /config --tmpfs /tmp \
-  -v "$caddy_source:/etc/caddy/Caddyfile:ro" \
-  --entrypoint caddy \
-  "$caddy_image" validate --config /etc/caddy/Caddyfile >/dev/null \
-  || fail 'canonical tunnel Caddyfile validation failed'
-printf 'CADDY_PREFLIGHT=PASS source=canonical image=pinned\n'
 
 old_tag="$(sed -n 's/^CONTROL_PLANE_IMAGE_TAG=//p' .env | tail -n1)"
 [[ "$old_tag" =~ ^sha-[0-9a-f]{40}$ ]] || fail "invalid current CONTROL_PLANE_IMAGE_TAG: $old_tag"
@@ -337,12 +260,10 @@ PY
 chmod 600 .env
 
 compose config --quiet
-compose up -d --no-deps --force-recreate app virya-area-tunnel agent-service
+compose up -d --no-deps --force-recreate app agent-service
 
 health="$(wait_for_app)"
 [[ "$health" == "healthy" || "$health" == "running" ]] || fail "app failed to become healthy: $health"
-tunnel_health="$(wait_for_tunnel)"
-[[ "$tunnel_health" == "healthy" ]] || fail "management tunnel failed to become healthy: $tunnel_health"
 agent_health="$(wait_for_agent_service)"
 [[ "$agent_health" == "healthy" || "$agent_health" == "running" ]] || fail "agent service failed to become healthy: $agent_health"
 
@@ -351,7 +272,6 @@ runtime_image="$(docker inspect crowdrelay-control-plane-app-1 --format '{{.Conf
 runtime_revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$(docker inspect crowdrelay-control-plane-app-1 --format '{{.Image}}')")"
 [[ "$runtime_revision" == "$target" ]] || fail "runtime OCI revision mismatch: $runtime_revision"
 
-verify_tunnel_contract || fail 'live tunnel contract verification failed'
 runtime_area_sha="$(sha256sum compose.area.yml | awk '{print $1}')"
 source_area_sha="$(sha256sum "$area_source" | awk '{print $1}')"
 [[ "$runtime_area_sha" == "$source_area_sha" ]] || fail 'runtime area compose differs from canonical source'
@@ -363,7 +283,7 @@ management_url="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_VIRYA_
 [[ -n "$area_master" ]] || fail 'runtime AREA management master is missing'
 [[ -n "$management_master" ]] || fail 'runtime operations management master is missing'
 [[ "$area_master" != "$management_master" ]] || fail 'runtime management masters are not distinct'
-[[ "$management_url" == "http://virya-area-tunnel:18080" ]] || fail "unexpected management URL: $management_url"
+[[ "$management_url" == "http://crowdrelay-api-1:8080" ]] || fail "unexpected management URL: $management_url"
 unset runtime_env area_master management_master management_url
 
 published="$(docker port crowdrelay-control-plane-app-1 8090/tcp | head -n1)"
@@ -374,7 +294,7 @@ curl -fsS --connect-timeout 3 --max-time 10 "$base_url/healthz/ready" >/dev/null
 admin="$(docker inspect crowdrelay-control-plane-app-1 --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^CONTROL_PLANE_ADMIN_TOKEN=//p')"
 [[ -n "$admin" ]] || fail 'CONTROL_PLANE_ADMIN_TOKEN missing from runtime'
 summary="$(curl -fsS --connect-timeout 3 --max-time 10 -H "Authorization: Bearer $admin" "$base_url/api/v1/tenants/virya/operations/summary")" \
-  || fail 'operations management path is not ready after healthy tunnel gate'
+  || fail 'operations management path is not ready after healthy app gate'
 printf '%s' "$summary" | python3 -c '
 import json
 import sys
@@ -407,13 +327,12 @@ printf 'MANAGEMENT_E2E=PASS area=200 summary=200 flags=200 autopilot=200 attenti
 
 rm -rf -- "$backup_dir"
 backup_dir=""
-rm -f -- "$area_source" "$caddy_source"
+rm -f -- "$area_source"
 mutated=false
 trap - ERR
-printf 'REMOTE_DEPLOY=PASS sha=%s digest=%s app_tunnel_agent_unit=true readiness=healthy rollback=armed e2e=pass\n' "$target" "$image_digest"
+printf 'REMOTE_DEPLOY=PASS sha=%s digest=%s app_agent_unit=true readiness=healthy rollback=armed e2e=pass\n' "$target" "$image_digest"
 REMOTE_DEPLOY
 
 REMOTE_AREA=""
-REMOTE_CADDY=""
 printf '\n==> 4/4 — Final receipt\n'
 printf 'CONTROL_PLANE_DEPLOY=PASS sha=%s digest=%s host=%s exact=true source=validated-ci-registry\n' "$TARGET" "$IMAGE_DIGEST" "$REMOTE"

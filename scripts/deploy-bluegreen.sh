@@ -166,37 +166,6 @@ docker exec "$EDGE_CONTAINER" wget -qO- http://127.0.0.1:2019/config/ >/dev/null
   || fail 'edge Caddy admin endpoint is unavailable'
 printf 'EDGE_PREFLIGHT=PASS config=synchronized cutover=graceful-reload\n'
 
-# --- Sync the AREA tunnel Caddyfile if the repo copy changed ---------------
-# The tunnel is a separate container with its own bind-mounted Caddyfile.
-# The blue-green app cutover does not touch it, so a stale allowlist silently
-# 404s new control-plane routes the app just learned about. Sync before the
-# app cutover so the new routes are reachable the moment the edge switches.
-# deploy.sh scp's the current Caddyfile to /tmp; fall back to the repo copy
-# if the scp artifact is missing (e.g. direct invocation on the remote).
-TUNNEL_CONTAINER="crowdrelay-control-plane-virya-area-tunnel-1"
-TUNNEL_CADDYFILE="/tmp/cp-virya-area-tunnel.Caddyfile"
-[[ -f "$TUNNEL_CADDYFILE" ]] || TUNNEL_CADDYFILE="${REPO_DIR}/deploy/virya-area-tunnel.Caddyfile"
-[[ -f "$TUNNEL_CADDYFILE" ]] || fail "missing tunnel Caddyfile: $TUNNEL_CADDYFILE"
-if ! cmp -s "$TUNNEL_CADDYFILE" <(docker exec "$TUNNEL_CONTAINER" cat /etc/caddy/Caddyfile 2>/dev/null); then
-  # The tunnel Caddyfile is bind-mounted read-only with admin off, so we
-  # update the source on the host and restart the container to pick it up.
-  cp "$TUNNEL_CADDYFILE" "${REPO_DIR}/deploy/virya-area-tunnel.Caddyfile"
-  docker exec "$TUNNEL_CONTAINER" caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1 || true
-  docker restart "$TUNNEL_CONTAINER" >/dev/null \
-    || fail 'tunnel container restart failed after Caddyfile sync'
-  # Wait for the tunnel to come back up.
-  for _ in $(seq 1 15); do
-    tunnel_state="$(docker inspect "$TUNNEL_CONTAINER" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
-    [[ "$tunnel_state" == "healthy" || "$tunnel_state" == "running" ]] && break
-    sleep 1
-  done
-  [[ "$tunnel_state" == "healthy" || "$tunnel_state" == "running" ]] \
-    || fail "tunnel did not recover after Caddyfile sync: $tunnel_state"
-  printf 'TUNNEL_CADDYFILE=SYNCED restart=true\n'
-else
-  printf 'TUNNEL_CADDYFILE=NOOP unchanged=true\n'
-fi
-
 # compose.agents.yml is optional — the agent-service is only recreated if it exists
 [[ -f compose.agents.yml ]] && printf 'AGENT_OVERLAY=PASS\n' || printf 'AGENT_OVERLAY=SKIP reason=no-agents-overlay\n'
 
@@ -421,10 +390,6 @@ python3 "$RECEIPT_HELPER" phase --state-dir "$RELEASE_STATE_DIR" \
 
 printf '\n==> 4/5 — Verify cross-system E2E and soak\n'
 
-# Verify the tunnel is still healthy (it should be — we didn't touch it)
-tunnel_health="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
-[[ "$tunnel_health" == "healthy" || "$tunnel_health" == "running" ]] || fail "tunnel is not healthy after cutover: $tunnel_health"
-
 # E2E: operations summary through the public edge (verifies traffic routing)
 admin_token="$(docker inspect "$NEW_APP" --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^CONTROL_PLANE_ADMIN_TOKEN=//p')"
 if [[ -n "$admin_token" ]]; then
@@ -445,8 +410,7 @@ print('CROSS_GATE=PASS')
 fi
 
 # Soak candidate for 30 seconds with old app available as fallback.
-# The tunnel route contract test catches config drift; the soak catches
-# runtime issues that only surface under real traffic.
+# The soak catches runtime issues that only surface under real traffic.
 # Error-rate rollback: fail when 5xx exceeds 2% with at least 50 requests
 # and an absolute floor of 3 failures.
 printf '\n==> Soak candidate for 30 seconds with old app available as fallback\n'

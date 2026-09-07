@@ -87,6 +87,11 @@ pub struct ParkSnapshotRow {
     pub dry_run: bool,
     pub posture: String,
     pub envelope_version: i64,
+    pub weekly_owned_audience_touches: i32,
+    pub weekly_third_party_touches: i32,
+    pub subject_cooldown_hours: i32,
+    pub max_recipients_per_step: i32,
+    pub posture_version: i64,
     pub reason: Option<String>,
     pub unparked_at: Option<chrono::DateTime<Utc>>,
     pub unparked_by: Option<String>,
@@ -591,12 +596,19 @@ impl Store {
         dry_run: bool,
         posture: &str,
         envelope_version: i64,
+        weekly_owned_audience_touches: i32,
+        weekly_third_party_touches: i32,
+        subject_cooldown_hours: i32,
+        max_recipients_per_step: i32,
+        posture_version: i64,
         reason: Option<&str>,
     ) -> Result<(), ApiError> {
         sqlx::query(
             r#"INSERT INTO control_plane_tenant_park_snapshot
-               (tenant_id, parked_by, agent_enabled, dry_run, posture, envelope_version, reason)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)
+               (tenant_id, parked_by, agent_enabled, dry_run, posture, envelope_version,
+                weekly_owned_audience_touches, weekly_third_party_touches,
+                subject_cooldown_hours, max_recipients_per_step, posture_version, reason)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                ON CONFLICT (tenant_id) DO UPDATE
                SET parked_at = now(),
                    parked_by = EXCLUDED.parked_by,
@@ -604,6 +616,11 @@ impl Store {
                    dry_run = EXCLUDED.dry_run,
                    posture = EXCLUDED.posture,
                    envelope_version = EXCLUDED.envelope_version,
+                   weekly_owned_audience_touches = EXCLUDED.weekly_owned_audience_touches,
+                   weekly_third_party_touches = EXCLUDED.weekly_third_party_touches,
+                   subject_cooldown_hours = EXCLUDED.subject_cooldown_hours,
+                   max_recipients_per_step = EXCLUDED.max_recipients_per_step,
+                   posture_version = EXCLUDED.posture_version,
                    reason = EXCLUDED.reason,
                    unparked_at = NULL,
                    unparked_by = NULL"#,
@@ -614,6 +631,11 @@ impl Store {
         .bind(dry_run)
         .bind(posture)
         .bind(envelope_version)
+        .bind(weekly_owned_audience_touches)
+        .bind(weekly_third_party_touches)
+        .bind(subject_cooldown_hours)
+        .bind(max_recipients_per_step)
+        .bind(posture_version)
         .bind(reason)
         .execute(&self.pool)
         .await?;
@@ -628,7 +650,10 @@ impl Store {
     ) -> Result<Option<ParkSnapshotRow>, ApiError> {
         let row = sqlx::query_as::<_, ParkSnapshotRow>(
             r#"SELECT tenant_id, parked_at, parked_by, agent_enabled, dry_run,
-                      posture, envelope_version, reason, unparked_at, unparked_by
+                      posture, envelope_version, weekly_owned_audience_touches,
+                      weekly_third_party_touches, subject_cooldown_hours,
+                      max_recipients_per_step, posture_version, reason,
+                      unparked_at, unparked_by
                FROM control_plane_tenant_park_snapshot
                WHERE tenant_id = $1 AND unparked_at IS NULL"#,
         )

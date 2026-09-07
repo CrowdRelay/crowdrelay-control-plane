@@ -218,7 +218,7 @@ impl Config {
                 .transpose()
                 .context("invalid CONTROL_PLANE_VIRYA_WORKSPACE_ID")?,
             virya_crowdrelay_url: env::var("CONTROL_PLANE_VIRYA_CROWDRELAY_URL")
-                .unwrap_or_else(|_| "https://signal-api.virya.music".to_owned()),
+                .unwrap_or_else(|_| "http://crowdrelay-api:8080".to_owned()),
             virya_signal_url: env::var("CONTROL_PLANE_VIRYA_SIGNAL_URL")
                 .unwrap_or_else(|_| "https://signal.virya.music".to_owned()),
             virya_management_url,

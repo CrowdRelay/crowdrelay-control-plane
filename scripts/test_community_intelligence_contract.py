@@ -29,7 +29,6 @@ CROWDRELAY = ROOT.parent / "crowdrelay"
 
 OPERATIONS_ROUTES = ROOT / "crates/control-plane-api/src/operations_routes.rs"
 AREA_CLIENT = ROOT / "crates/control-plane-api/src/tenant_area_client.rs"
-TUNNEL = ROOT / "deploy/virya-area-tunnel.Caddyfile"
 
 BASE = "/v1/control-plane/community-intelligence/communities"
 LEGACY = "/v1/admin/community-intelligence/"
@@ -53,17 +52,8 @@ class ControlPlaneSide(unittest.TestCase):
         self.assertIn('"/observations"', source)
         self.assertIn('"/entities"', source)
 
-    def test_tunnel_allowlists_the_paths(self) -> None:
-        source = read(TUNNEL)
-        self.assertIn(f"{BASE} \\", source, "tunnel would answer 404 (respond 404 fallback)")
-        self.assertIn(f"{BASE}/*", source)
-
-    def test_tunnel_still_fails_closed(self) -> None:
-        """The default-deny must survive; an allowlist without it allows all."""
-        self.assertIn("respond 404", read(TUNNEL))
-
     def test_legacy_admin_spelling_is_gone(self) -> None:
-        for path in (OPERATIONS_ROUTES, AREA_CLIENT, TUNNEL):
+        for path in (OPERATIONS_ROUTES, AREA_CLIENT):
             self.assertNotIn(
                 LEGACY,
                 read(path),

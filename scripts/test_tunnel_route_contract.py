@@ -1,29 +1,24 @@
 #!/usr/bin/env python3
-"""Keep the four sources of truth for tunnel routes in sync.
+"""Keep the two sources of truth for management routes in sync.
 
-The control plane proxies management calls to CrowdRelay through the
-area tunnel. Four things must agree on which routes are allowed:
+The control plane proxies management calls to CrowdRelay directly via
+tenant_area_client.rs — no intermediate Caddy proxy. Two things must agree
+on which routes are allowed:
 
   1. CrowdRelay's router (`control_plane.rs`) — defines the actual routes.
-  2. CrowdRelay's `area-management.Caddyfile` — the Caddy proxy that
-     CrowdRelay runs on its side of the tunnel.
-  3. The control plane's `virya-area-tunnel.Caddyfile` — the Caddy proxy
-     on the control plane side.
-  4. The control plane's `valid_operations_request` in
+  2. The control plane's `valid_operations_request` in
      `tenant_area_client.rs` — the Rust allowlist that gates which
      paths the control plane will even attempt to proxy.
 
-When any one of these drifts, the symptom is a 404 on a feature that
-should work — the call is rejected at a layer the operator can't see.
-This test checks that:
+When these drift, the symptom is a 404 on a feature that should work —
+the call is rejected at a layer the operator can't see. This test checks
+that:
 
-  - Every concrete path in `valid_operations_request` is covered by the
-    tunnel Caddyfile.
   - Every `/v1/control-plane/` path the backend calls (in
     `operations_routes.rs`) is present in `valid_operations_request`
     for the correct HTTP method.
-  - Every path in the tunnel Caddyfile is covered by the area-management
-    Caddyfile (if the CrowdRelay checkout is present).
+  - Every concrete path in `valid_operations_request` is a real route
+    in CrowdRelay's router (if the CrowdRelay checkout is present).
 """
 from __future__ import annotations
 
@@ -35,38 +30,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CROWDRELAY_ROOT = ROOT.parent / "crowdrelay"
 
-TUNNEL_CADDYFILE = ROOT / "deploy" / "virya-area-tunnel.Caddyfile"
 TENANT_AREA_CLIENT = ROOT / "crates" / "control-plane-api" / "src" / "tenant_area_client.rs"
 OPERATIONS_ROUTES = ROOT / "crates" / "control-plane-api" / "src" / "operations_routes.rs"
 
-AREA_MANAGEMENT_CADDYFILE = CROWDRELAY_ROOT / "deploy" / "area-management.Caddyfile"
 CROWDRELAY_ROUTER = CROWDRELAY_ROOT / "crates" / "crowdrelay-api" / "src" / "control_plane.rs"
-
-
-def extract_caddy_paths(text: str) -> set[str]:
-    """Extract /v1/control-plane/ paths from a Caddyfile path matcher.
-
-    Captures both concrete paths and wildcard paths (ending in /*).
-    """
-    return set(re.findall(r"/v1/control-plane/[a-z0-9/_*-]+", text))
-
-
-def caddy_covers(tunnel_paths: set[str], path: str) -> bool:
-    """Check if a concrete path is covered by the Caddy path set.
-
-    A path is covered if it appears verbatim, or if a wildcard entry
-    (ending in /*) covers it as a prefix.
-    """
-    if path in tunnel_paths:
-        return True
-    # Strip query string
-    base = path.split("?", 1)[0]
-    if base in tunnel_paths:
-        return True
-    return any(
-        candidate.endswith("/*") and base.startswith(candidate[:-1])
-        for candidate in tunnel_paths
-    )
 
 
 def extract_rust_allowlist(text: str) -> dict[str, set[str]]:
@@ -111,33 +78,43 @@ def extract_backend_calls(text: str) -> set[tuple[str, str]]:
     return calls
 
 
-class TunnelRouteContract(unittest.TestCase):
-    def test_tunnel_caddyfile_exists(self) -> None:
-        self.assertTrue(TUNNEL_CADDYFILE.exists(), f"missing {TUNNEL_CADDYFILE}")
+def extract_router_paths(text: str) -> set[str]:
+    """Extract /v1/control-plane/ paths from the CrowdRelay router source."""
+    return set(re.findall(r'"/(v1/control-plane/[a-z0-9/_{}*-]+)"', text))
 
+
+def router_covers(router_paths: set[str], path: str) -> bool:
+    """Check if a concrete path is covered by the router path set.
+
+    router_paths entries don't have a leading / (the regex strips it).
+    Routes may use {param} placeholders (e.g. `audience/fans/{fan_id}`).
+    The Rust allowlist uses trailing `/` to mean "any sub-path under
+    this prefix" — we check if any router path starts with that prefix.
+    """
+    # Strip query string and leading /
+    base = path.split("?", 1)[0].lstrip("/")
+    if base in router_paths:
+        return True
+    # Trailing / means "any sub-path" — check if any route starts with this prefix
+    if base.endswith("/"):
+        prefix = base.rstrip("/")
+        for candidate in router_paths:
+            if candidate.startswith(prefix + "/") or candidate == prefix:
+                return True
+        return False
+    # Check wildcard coverage
+    for candidate in router_paths:
+        if candidate.endswith("/*") and base.startswith(candidate[:-1]):
+            return True
+    return False
+
+
+class ManagementRouteContract(unittest.TestCase):
     def test_tenant_area_client_exists(self) -> None:
         self.assertTrue(TENANT_AREA_CLIENT.exists(), f"missing {TENANT_AREA_CLIENT}")
 
     def test_operations_routes_exists(self) -> None:
         self.assertTrue(OPERATIONS_ROUTES.exists(), f"missing {OPERATIONS_ROUTES}")
-
-    def test_rust_allowlist_paths_are_in_tunnel_caddyfile(self) -> None:
-        """Every concrete path in valid_operations_request must be in the tunnel Caddyfile."""
-        text = TENANT_AREA_CLIENT.read_text()
-        allowlist = extract_rust_allowlist(text)
-        tunnel_paths = extract_caddy_paths(TUNNEL_CADDYFILE.read_text())
-        self.assertTrue(tunnel_paths, "no paths found in tunnel Caddyfile")
-
-        missing: list[str] = []
-        for method, paths in allowlist.items():
-            for path in paths:
-                if not caddy_covers(tunnel_paths, path):
-                    missing.append(f"{method} {path}")
-        self.assertEqual(
-            missing,
-            [],
-            f"Rust allowlist has paths not in tunnel Caddyfile (will 404 at Caddy): {missing}",
-        )
 
     def test_backend_calls_are_in_rust_allowlist(self) -> None:
         """Every backend call() to /v1/control-plane/ must be in the Rust allowlist."""
@@ -156,24 +133,34 @@ class TunnelRouteContract(unittest.TestCase):
             f"Backend calls not in Rust allowlist (will be rejected by valid_operations_request): {missing}",
         )
 
-    def test_tunnel_caddyfile_paths_are_in_area_management(self) -> None:
-        """Every path in the tunnel Caddyfile must be in the area-management Caddyfile.
+    def test_rust_allowlist_paths_are_in_crowdrelay_router(self) -> None:
+        """Every concrete path in valid_operations_request must be a real CrowdRelay route.
 
-        Only checked if the CrowdRelay checkout is present.
+        Only checked if the CrowdRelay checkout is present. The CrowdRelay
+        router registers routes across nine files merged into routing.rs, so
+        we scan the full crates/crowdrelay-api/src tree for path strings.
         """
-        if not AREA_MANAGEMENT_CADDYFILE.exists():
+        if not CROWDRELAY_ROUTER.exists():
             self.skipTest("CrowdRelay checkout not present")
-        tunnel_paths = extract_caddy_paths(TUNNEL_CADDYFILE.read_text())
-        area_paths = extract_caddy_paths(AREA_MANAGEMENT_CADDYFILE.read_text())
-        self.assertTrue(area_paths, "no paths found in area-management Caddyfile")
+        text = TENANT_AREA_CLIENT.read_text()
+        allowlist = extract_rust_allowlist(text)
+        # Gather all route strings from the CrowdRelay API source tree.
+        api_src = CROWDRELAY_ROOT / "crates" / "crowdrelay-api" / "src"
+        all_source = ""
+        for rs in api_src.rglob("*.rs"):
+            all_source += rs.read_text(encoding="utf-8")
+        router_paths = extract_router_paths(all_source)
+        self.assertTrue(router_paths, "no paths found in CrowdRelay API source")
 
-        missing = sorted(tunnel_paths - area_paths)
-        # Some paths may be covered by wildcards in the area-management Caddyfile
-        truly_missing = [p for p in missing if not caddy_covers(area_paths, p)]
+        missing: list[str] = []
+        for method, paths in allowlist.items():
+            for path in paths:
+                if not router_covers(router_paths, path):
+                    missing.append(f"{method} {path}")
         self.assertEqual(
-            truly_missing,
+            missing,
             [],
-            f"Tunnel Caddyfile has paths not in area-management Caddyfile (will 404 at CrowdRelay): {truly_missing}",
+            f"Rust allowlist has paths not in CrowdRelay router (will 404 at API): {missing}",
         )
 
 

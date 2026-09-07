@@ -39,12 +39,11 @@ root="$1"
 cd "$root"
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 for command in docker curl python3 sha256sum; do command -v "$command" >/dev/null 2>&1 || fail "missing Home command: $command"; done
-for file in .env compose.production.yml compose.area.yml deploy/virya-area-tunnel.Caddyfile; do
+for file in .env compose.production.yml compose.area.yml; do
   [[ -f "$file" && ! -L "$file" ]] || fail "missing or unsafe Home file: $file"
 done
 [[ "$(stat -c '%a' .env)" == "600" ]] || fail '.env must have mode 600'
 app="crowdrelay-control-plane-app-1"
-tunnel="crowdrelay-control-plane-virya-area-tunnel-1"
 # A host that has never run the control plane has nothing to verify yet, and
 # failing here deadlocks the first deploy: the gate demands a running app, and
 # the deploy that would start it never runs. Absent is a bootstrap state.
@@ -54,7 +53,6 @@ if ! docker inspect "$app" >/dev/null 2>&1; then
   exit 0
 fi
 [[ "$(docker inspect "$app" --format '{{.State.Status}}' 2>/dev/null || true)" == "running" ]] || fail 'Control Plane app is not running'
-[[ "$(docker inspect "$tunnel" --format '{{.State.Status}}' 2>/dev/null || true)" == "running" ]] || fail 'Control Plane tunnel is not running'
 runtime_env="$(docker inspect "$app" --format '{{range .Config.Env}}{{println .}}{{end}}')"
 admin="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_ADMIN_TOKEN=//p')"
 area_master="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY=//p')"
@@ -64,7 +62,7 @@ management_url="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_VIRYA_
 [[ -n "$area_master" ]] || fail 'Control Plane AREA management master missing from runtime; run just bootstrap-management'
 [[ -n "$management_master" ]] || fail 'Control Plane operations management master missing from runtime; run just bootstrap-management'
 [[ "$area_master" != "$management_master" ]] || fail 'Control Plane management masters must be distinct'
-[[ "$management_url" == "http://virya-area-tunnel:18080" ]] || fail 'Control Plane management URL is not canonical'
+[[ "$management_url" == "http://crowdrelay-api-1:8080" ]] || fail 'Control Plane management URL is not canonical'
 published="$(docker port "$app" 8090/tcp | head -n1)"
 [[ -n "$published" ]] || fail 'Control Plane app has no published endpoint'
 base="http://${published}"
@@ -92,8 +90,8 @@ for path in \
   fi
 done
 rm -f /tmp/control-plane-management-check-body
-fingerprint="$(docker inspect "$tunnel" --format '{{.Id}}|{{.State.StartedAt}}|{{.RestartCount}}|{{.State.Status}}')"
-printf 'TENANT_ID=%s\nAREA_DERIVED_SHA256=%s\nMANAGEMENT_DERIVED_SHA256=%s\nTUNNEL_FINGERPRINT=%s\n' "$tenant_id" "$area_hash" "$management_hash" "$fingerprint"
+fingerprint="$(docker inspect "$app" --format '{{.Id}}|{{.State.StartedAt}}|{{.RestartCount}}|{{.State.Status}}')"
+printf 'TENANT_ID=%s\nAREA_DERIVED_SHA256=%s\nMANAGEMENT_DERIVED_SHA256=%s\nAPP_FINGERPRINT=%s\n' "$tenant_id" "$area_hash" "$management_hash" "$fingerprint"
 HOME_CHECK
 }
 
@@ -140,7 +138,7 @@ if [[ "$MODE" == "--check" ]]; then
   [[ -n "$area_expected" && -n "$management_expected" ]] || fail 'Home did not return credential fingerprints'
   [[ "$runtime_area" == "$area_expected" && "$persisted_area" == "$area_expected" ]] || fail 'AREA management credential drift between Home and Oracle; run just bootstrap-management'
   [[ "$runtime_management" == "$management_expected" && "$persisted_management" == "$management_expected" ]] || fail 'operations management credential drift between Home and Oracle; run just bootstrap-management'
-  printf '%s\n' "$HOME_REPORT" | grep '^TUNNEL_FINGERPRINT='
+  printf '%s\n' "$HOME_REPORT" | grep '^APP_FINGERPRINT='
   printf 'MANAGEMENT_CREDENTIALS=PASS home=runtime oracle=runtime,persisted area=matched operations=matched e2e=pass\n'
   exit 0
 fi
@@ -185,7 +183,7 @@ if not management or management in reserved or management == area:
     management=fresh(reserved | {area})
 text=upsert(text,'CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY',area)
 text=upsert(text,'CONTROL_PLANE_MANAGEMENT_MASTER_KEY',management)
-text=upsert(text,'CONTROL_PLANE_VIRYA_MANAGEMENT_URL','http://virya-area-tunnel:18080')
+text=upsert(text,'CONTROL_PLANE_VIRYA_MANAGEMENT_URL','http://crowdrelay-api-1:8080')
 tmp=path.with_name('.env.management-bootstrap.tmp')
 tmp.write_text(text)
 os.chmod(tmp,0o600); os.chown(tmp,st.st_uid,st.st_gid); os.replace(tmp,path)
@@ -294,7 +292,7 @@ printf 'ORACLE_CREDENTIAL_RELOAD=PASS release_unchanged=true api_sha=%s worker=u
 ORACLE_APPLY
 REMOTE_PAYLOAD=""
 
-printf '==> Reloading current Control Plane app+tunnel release unit\n'
+printf '==> Reloading current Control Plane app release unit\n'
 ssh -T "$HOME_HOST" sudo bash -s -- "$HOME_DIR" <<'HOME_RELOAD'
 set -Eeuo pipefail
 root="$1"
@@ -303,18 +301,16 @@ fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 compose() { docker compose -f compose.production.yml -f compose.area.yml "$@"; }
 compose config --quiet || fail 'Home effective compose invalid before reload'
 old_image="$(docker inspect crowdrelay-control-plane-app-1 --format '{{.Config.Image}}')"
-compose up -d --no-deps --force-recreate app virya-area-tunnel
+compose up -d --no-deps --force-recreate app
 for _ in $(seq 1 60); do
   app_state="$(docker inspect crowdrelay-control-plane-app-1 --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"
-  tunnel_state="$(docker inspect crowdrelay-control-plane-virya-area-tunnel-1 --format '{{.State.Status}}' 2>/dev/null || true)"
-  if [[ ( "$app_state" == "healthy" || "$app_state" == "running" ) && "$tunnel_state" == "running" ]]; then break; fi
+  if [[ "$app_state" == "healthy" || "$app_state" == "running" ]]; then break; fi
   sleep 1
 done
 [[ "$app_state" == "healthy" || "$app_state" == "running" ]] || fail "Control Plane app did not recover: $app_state"
-[[ "$tunnel_state" == "running" ]] || fail "Control Plane tunnel did not recover: $tunnel_state"
 new_image="$(docker inspect crowdrelay-control-plane-app-1 --format '{{.Config.Image}}')"
 [[ "$new_image" == "$old_image" ]] || fail "credential reload changed Control Plane release: before=$old_image after=$new_image"
-printf 'HOME_CREDENTIAL_RELOAD=PASS release_unchanged=true app=%s tunnel=%s\n' "$app_state" "$tunnel_state"
+printf 'HOME_CREDENTIAL_RELOAD=PASS release_unchanged=true app=%s\n' "$app_state"
 HOME_RELOAD
 
 HOME_REPORT="$(home_check)" || fail 'post-bootstrap Home management E2E failed'
@@ -327,5 +323,5 @@ persisted_area="$(printf '%s\n' "$ORACLE_REPORT" | sed -n 's/^ORACLE_PERSISTED_A
 persisted_management="$(printf '%s\n' "$ORACLE_REPORT" | sed -n 's/^ORACLE_PERSISTED_MANAGEMENT_SHA256=//p')"
 [[ "$runtime_area" == "$area_expected" && "$persisted_area" == "$area_expected" ]] || fail 'AREA credential mismatch after bootstrap'
 [[ "$runtime_management" == "$management_expected" && "$persisted_management" == "$management_expected" ]] || fail 'operations credential mismatch after bootstrap'
-printf '%s\n' "$HOME_REPORT" | grep '^TUNNEL_FINGERPRINT='
+printf '%s\n' "$HOME_REPORT" | grep '^APP_FINGERPRINT='
 printf 'MANAGEMENT_BOOTSTRAP=PASS home=runtime,persisted oracle=runtime,persisted release_versions=unchanged e2e=area,summary,flags,autopilot\n'
