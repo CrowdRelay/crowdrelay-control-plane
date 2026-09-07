@@ -48,6 +48,7 @@ const TENANT_NAV_GROUPS: NavGroup[] = [
   {
     label: 'Control',
     items: [
+      { path: '/tenants/$slug/actions', label: 'Actions', exact: false, icon: 'target' },
       { path: '/tenants/$slug', label: 'Overview', exact: true, icon: 'overview' },
       { path: '/tenants/$slug/attention', label: 'Attention', exact: false, icon: 'attention' },
     ],

@@ -31,9 +31,9 @@ export const MobileTabBar: Component = () => {
     return current === path || current.startsWith(path + '/') || current.startsWith(path)
   }
 
-  // The operations and cycle tabs are tenant-scoped. If no tenant is
+  // The actions and cycle tabs are tenant-scoped. If no tenant is
   // selected, they navigate to the tenant list so the operator can pick one.
-  const operationsPath = () => slug() ? `/tenants/${slug()}/operations` : '/tenants'
+  const actionsPath = () => slug() ? `/tenants/${slug()}/actions` : '/tenants'
   const cyclePath = () => slug() ? `/tenants/${slug()}/operations` : '/tenants'
 
   const goCycle = (event: Event) => {
@@ -74,12 +74,12 @@ export const MobileTabBar: Component = () => {
           <span>Attention</span>
         </Link>
         <Link
-          to={operationsPath() as any}
+          to={actionsPath() as any}
           class="mobile-tab"
-          classList={{ active: pathname().includes('/operations') }}
+          classList={{ active: pathname().includes('/actions') }}
         >
           <TabIcon name="operations" />
-          <span>Operations</span>
+          <span>Actions</span>
         </Link>
         <a
           href={cyclePath()}
