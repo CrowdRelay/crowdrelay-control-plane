@@ -88,8 +88,6 @@ const GROUP_PAGE_SIZE = 6
 const countBy = (items: CommunityItem[], state: string) =>
   items.filter((i) => i.membershipState === state).length
 
-const number = (value: number | null | undefined) => (value == null ? '—' : value.toLocaleString())
-
 export function CommunityIntelligenceContent(props: { slug: string }) {
   const [selectedPlaceId, setSelectedPlaceId] = createSignal<string | null>(null)
   const [draftFor, setDraftFor] = createSignal<string | null>(null)

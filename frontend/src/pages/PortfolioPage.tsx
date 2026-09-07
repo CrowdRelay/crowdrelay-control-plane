@@ -58,9 +58,9 @@ export function PortfolioPage() {
     </div>
 
     {/* Main portfolio read model — per-panel skeletons while pending, not a
-        page-wide block. Independent components (Reddit cookies, communities)
-        mount immediately and fetch in parallel, so a slow main query or a
-        failing agent service never delays them. */}
+        page-wide block. Independent components (Reddit cookies) mount
+        immediately and fetch in parallel, so a slow main query or a failing
+        agent service never delays them. */}
     <Show when={model.error}>
       <SectionFailureCard error={model.error} fallback="Portfolio channel unavailable" />
     </Show>
