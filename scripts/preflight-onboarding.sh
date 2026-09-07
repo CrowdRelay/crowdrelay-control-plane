@@ -143,8 +143,20 @@ for pair in "control plane:$CONTROL_PLANE_BACKUPS" "tenant database:$TENANT_DB_B
 done
 
 # Both backup sets living on the same disk as the databases is not a backup.
-if grep -rqiE 'rclone|restic|aws s3|b2 |scp ' "$CONTROL_PLANE_ROOT/deploy/backup-control-plane.sh" 2>/dev/null; then
-  pass "control-plane backup copies off the host"
+# Configured is not the same as working: the unit can name a target the script
+# never reaches. What proves it is a dump of today's size sitting on the far
+# side, which is what the freshness check above cannot see from here.
+offsite_target="$(systemctl show crowdrelay-control-plane-backup.service -p Environment --value 2>/dev/null | tr ' ' '\n' | sed -n 's/^CONTROL_PLANE_BACKUP_OFFSITE_SSH=//p')"
+if [[ -n "$offsite_target" ]]; then
+  pass "control-plane backup pushes off the host to ${offsite_target%%:*}"
+  last_log="$(journalctl -u crowdrelay-control-plane-backup.service -n 40 --no-pager 2>/dev/null | grep -o 'offsite=[a-z]*' | tail -n1)"
+  case "$last_log" in
+    offsite=ok) pass "the last run confirmed the offsite copy" ;;
+    offsite=skipped) warn "the last run skipped the offsite copy — the unit has the target but the script did not use it" ;;
+    *) warn "the last run did not report an offsite result" ;;
+  esac
+elif grep -rqiE 'rclone|restic|aws s3|b2 ' "$CONTROL_PLANE_ROOT/deploy/backup-control-plane.sh" 2>/dev/null; then
+  warn "the backup script can copy off the host but no target is configured on the unit"
 else
   warn "backups never leave this host — one disk failure loses the product and its backups together"
 fi

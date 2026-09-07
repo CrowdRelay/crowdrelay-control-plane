@@ -104,6 +104,8 @@ export function TenantPage() {
   const branding = useMutation(() => ({ mutationFn: (value: Palette | null) => api.branding(params().slug, value), onSuccess: refreshTenant }))
   const mobileApps = useMutation(() => ({ mutationFn: (input: { signalPlayStoreUrl?: string | null; synesthesiaPlayStoreUrl?: string | null }) => api.mobileApps(params().slug, input), onSuccess: async () => { setEditingMobileApps(false); await refreshTenant() } }))
   const status = useMutation(() => ({ mutationFn: (action: 'suspend'|'resume') => action === 'suspend' ? api.suspend(params().slug) : api.resume(params().slug), onSuccess: refreshTenant }))
+  const park = useMutation(() => ({ mutationFn: (reason?: string) => api.park(params().slug, reason), onSuccess: refreshTenant }))
+  const unpark = useMutation(() => ({ mutationFn: () => api.unpark(params().slug), onSuccess: refreshTenant }))
   const plan = useMutation(() => ({ mutationFn: () => api.planProvisioning(params().slug, desiredVersion() || platform()?.provisionerDefaultImageTag || undefined), onSuccess: (job) => setPreview(job) }))
   const deploy = useMutation(() => ({ mutationFn: () => api.deployTenant(params().slug, desiredVersion()), onSuccess: async () => { setPreview(null); await refreshTenant() } }))
   const cancel = useMutation(() => ({ mutationFn: () => api.cancelProvisioning(params().slug), onSuccess: refreshTenant }))
@@ -137,10 +139,15 @@ export function TenantPage() {
     return <>
       <div class="page-head">
         <div><span class="eyebrow">CONTROL</span><h1>{t.displayName}</h1><p>{t.workspaceId ?? 'Workspace mapping pending'} · {t.defaultCountryCode}</p></div>
-        <div class="row-health"><StatusBadge status={t.status} tone={t.status === 'active' ? 'good' : t.status === 'suspended' ? 'bad' : 'warn'} /><Show when={capabilities()?.canSuspend !== false}><button class="ghost" disabled={status.isPending} onClick={() => status.mutate(t.status === 'suspended' ? 'resume' : 'suspend')}>{status.isPending && <Spinner />} {status.isPending ? '…' : t.status === 'suspended' ? 'Resume' : 'Suspend'}</button></Show></div>
+        <div class="row-health"><StatusBadge status={t.status} tone={t.status === 'active' ? 'good' : t.status === 'suspended' ? 'bad' : t.status === 'parked' ? 'warn' : 'warn'} /><Show when={capabilities()?.canPark}><button class="ghost" disabled={park.isPending} onClick={() => park.mutate('non-payment')}>{park.isPending && <Spinner />} {park.isPending ? '…' : 'Park'}</button></Show><Show when={capabilities()?.canUnpark}><button class="primary" disabled={unpark.isPending} onClick={() => unpark.mutate()}>{unpark.isPending && <Spinner />} {unpark.isPending ? '…' : 'Resume'}</button></Show><Show when={capabilities()?.canSuspend !== false && t.status !== 'parked'}><button class="ghost" disabled={status.isPending} onClick={() => status.mutate(t.status === 'suspended' ? 'resume' : 'suspend')}>{status.isPending && <Spinner />} {status.isPending ? '…' : t.status === 'suspended' ? 'Resume' : 'Suspend'}</button></Show></div>
       </div>
-      <Show when={status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error}>
-        <div class="error-card" role="alert">{errorMessage(status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error, 'Control Plane operation failed')}</div>
+      <Show when={status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error}>
+        <div class="error-card" role="alert">{errorMessage(status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error, 'Control Plane operation failed')}</div>
+      </Show>
+      <Show when={t.status === 'parked'}>
+        <div class="parked-banner" role="status">
+          <strong>Tenant is parked.</strong> The autopilot brain is stopped — no new tasks, no decisions, no outreach. Pending deliveries still drain. Click <em>Resume</em> to restore operations instantly.
+        </div>
       </Show>
       <div class="detail-grid">
         <TenantRuntimePanel slug={t.slug} initial={{ runtime: t.runtime, runtimeHealth: t.runtimeHealth }} />

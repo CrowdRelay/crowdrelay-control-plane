@@ -27,6 +27,7 @@ export function OverviewPage() {
   const activeCount = () => items().filter(t => t.status === 'active').length
   const needsAttention = () => count('degraded') + count('stale')
   const suspendedCount = () => items().filter(t => t.status === 'suspended').length
+  const parkedCount = () => items().filter(t => t.status === 'parked').length
   const unknownCount = () => count('unknown')
   const reportingCount = () => items().length - unknownCount()
   const healthyPct = () => {
@@ -212,7 +213,7 @@ export function OverviewPage() {
           <article class="kpi-card">
             <span class="kpi-label">Tenants</span>
             <CountUp value={items().length} />
-            <span class="kpi-sub">{activeCount()} active<Show when={suspendedCount() > 0}> · {suspendedCount()} suspended</Show></span>
+            <span class="kpi-sub">{activeCount()} active<Show when={parkedCount() > 0}> · {parkedCount()} parked</Show><Show when={suspendedCount() > 0}> · {suspendedCount()} suspended</Show></span>
           </article>
           <article class="kpi-card" classList={{ 'kpi-good': count('healthy') > 0 }}>
             <span class="kpi-label">Healthy</span>
@@ -272,7 +273,7 @@ export function OverviewPage() {
           </div>
           <div class="tenant-pulse-row-right">
             <StatusBadge status={tenant.runtimeHealth} tone={healthTone(tenant.runtimeHealth)} />
-            <StatusBadge status={tenant.status} tone={tenant.status === 'active' ? 'good' : tenant.status === 'suspended' ? 'bad' : 'warn'} />
+            <StatusBadge status={tenant.status} tone={tenant.status === 'active' ? 'good' : tenant.status === 'suspended' ? 'bad' : tenant.status === 'parked' ? 'warn' : 'warn'} />
           </div>
         </Link>
       )}</For>

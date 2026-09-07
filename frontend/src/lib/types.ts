@@ -38,7 +38,7 @@ export type Tenant = {
   id: string
   slug: string
   displayName: string
-  status: 'provisioning' | 'active' | 'suspended'
+  status: 'provisioning' | 'active' | 'suspended' | 'parked'
   workspaceId: string | null
   crowdrelayBaseUrl: string | null
   signalBaseUrl: string | null
@@ -557,6 +557,8 @@ export type TenantOverviewReadModel = {
       canProvision: boolean
       canRemove: boolean
       canOptOut: boolean
+      canPark: boolean
+      canUnpark: boolean
     }
   }
 }

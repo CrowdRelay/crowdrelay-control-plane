@@ -2400,6 +2400,11 @@ table tbody tr:hover{background:rgba(255,255,255,.025)}
 .error-card{background:rgba(43,19,19,0.55);border-color:rgba(255,101,101,0.25);border-left-color:var(--bad);color:var(--bad-light)}
 .warning-card{background:rgba(41,32,15,0.55);border-color:rgba(101,80,38,0.3);border-left-color:var(--warn);color:var(--warn-light)}
 .notice-card{background:rgba(16,37,26,0.55);border-color:rgba(40,90,64,0.3);border-left-color:var(--good);color:var(--good-light)}
+.parked-banner{padding:14px 16px;margin:12px 0;border:1px solid rgba(101,80,38,0.3);border-left:3px solid var(--warn);border-radius:var(--radius-md);background:rgba(41,32,15,0.55);color:var(--warn-light);line-height:1.55}
+.parked-banner strong{display:block;margin-bottom:2px}
+.parked-banner em{font-style:normal;color:var(--warn-light);text-decoration:underline}
+.brand-landing-link{display:block;margin-top:2px;font-size:11px;color:var(--text-muted);text-decoration:none}
+.brand-landing-link:hover{color:var(--accent)}
 
 /* Structured per-section failure diagnosis — rendered when the backend
    returns `all_sections_failed` with per-section verdicts. Replaces the

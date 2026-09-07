@@ -20,6 +20,7 @@ use crate::{
         UpdateBrandingRequest, UpdateMobileAppsRequest, UpdateRegionalProfileRequest,
     },
     store::{self, ProvisioningCompletion},
+    tenant_area_client::ManagementRequest,
     validation,
 };
 
@@ -57,6 +58,8 @@ pub fn tenant_admin_router() -> Router<AppState> {
         )
         .route("/tenants/{slug}/suspend", post(suspend_tenant))
         .route("/tenants/{slug}/resume", post(resume_tenant))
+        .route("/tenants/{slug}/park", post(park_tenant))
+        .route("/tenants/{slug}/unpark", post(unpark_tenant))
         .route("/tenants/{slug}/opt-out", post(opt_out_tenant))
         .route("/tenants/{slug}/provisioning/plan", post(plan_provisioning))
         .route("/tenants/{slug}/provisioning/deploy", post(deploy_tenant))
@@ -89,6 +92,13 @@ pub fn telemetry_router() -> Router<AppState> {
         "/tenants/{slug}/runtime",
         axum::routing::put(report_runtime),
     )
+}
+
+/// Billing webhook router — authenticated via a shared secret header, not
+/// the platform admin token. This lets a payment provider (or a billing
+/// script) auto-unpark a tenant without holding admin credentials.
+pub fn billing_router() -> Router<AppState> {
+    Router::new().route("/billing/webhook", post(billing_webhook))
 }
 
 pub fn provisioner_router() -> Router<AppState> {
@@ -446,6 +456,345 @@ async fn resume_tenant(
             )
             .await?
     )))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ParkTenantRequest {
+    reason: Option<String>,
+}
+
+/// Parks a tenant: stops the autopilot brain from producing new tasks while
+/// preserving all data and configuration. The current envelope and posture
+/// are snapshotted so resume restores the exact operating state.
+///
+/// Virya is exempt (externally owned). The tenant must be `active` to park.
+async fn park_tenant(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
+    headers: HeaderMap,
+    Json(input): Json<ParkTenantRequest>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    identity.require_platform_admin()?;
+    let slug = validation::slug(&raw_slug)?;
+    let tenant = state.store.tenant_by_slug(&slug).await?;
+    if store::tenant_lifecycle_is_externally_owned(&tenant.tenant.slug) {
+        return Err(ApiError::Forbidden(
+            "this tenant is externally owned and cannot be parked".to_owned(),
+        ));
+    }
+    if tenant.tenant.status != "active" {
+        return Err(ApiError::Conflict(
+            "tenant must be active to park".to_owned(),
+        ));
+    }
+    // Resolve the CrowdRelay management target while the tenant is still
+    // active — `target` rejects parked/suspended tenants.
+    let (tenant, target_url) = crate::area_routes::target(&state, &slug).await?;
+    let tenant_id = tenant.tenant.id;
+    let actor = state.admin_actor.as_ref();
+    let reason = input
+        .reason
+        .as_deref()
+        .map(str::trim)
+        .filter(|r| !r.is_empty())
+        .map(str::to_owned);
+
+    // 1. Read the current envelope and posture from CrowdRelay.
+    let envelope_value = state
+        .area_client
+        .request_management(
+            tenant_id,
+            &target_url,
+            ManagementRequest {
+                method: "GET",
+                path: "/v1/control-plane/autopilot/growth-envelope",
+                body: None,
+                correlation_id: request_id(&headers),
+                idempotency_key: None,
+            },
+        )
+        .await
+        .map_err(|e| ApiError::Unavailable(format!("failed to read growth envelope: {e}")))?;
+
+    let posture_value = state
+        .area_client
+        .request_management(
+            tenant_id,
+            &target_url,
+            ManagementRequest {
+                method: "GET",
+                path: "/v1/control-plane/autopilot/posture",
+                body: None,
+                correlation_id: request_id(&headers),
+                idempotency_key: None,
+            },
+        )
+        .await
+        .map_err(|e| ApiError::Unavailable(format!("failed to read posture: {e}")))?;
+
+    let agent_enabled = envelope_value
+        .get("agentEnabled")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let dry_run = envelope_value
+        .get("dryRun")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
+    let envelope_version = envelope_value
+        .get("version")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
+    let posture = posture_value
+        .get("posture")
+        .and_then(Value::as_str)
+        .unwrap_or("grounded")
+        .to_owned();
+
+    // 2. Save the snapshot.
+    state
+        .store
+        .save_park_snapshot(
+            tenant_id,
+            actor,
+            agent_enabled,
+            dry_run,
+            &posture,
+            envelope_version,
+            reason.as_deref(),
+        )
+        .await?;
+
+    // 3. Stop the brain: set agent_enabled=false and parked=true.
+    let park_body = json!({
+        "agentEnabled": false,
+        "dryRun": dry_run,
+        "weeklyOwnedAudienceTouches": envelope_value.get("weeklyOwnedAudienceTouches").and_then(Value::as_u64).unwrap_or(200),
+        "weeklyThirdPartyTouches": envelope_value.get("weeklyThirdPartyTouches").and_then(Value::as_u64).unwrap_or(10),
+        "subjectCooldownHours": envelope_value.get("subjectCooldownHours").and_then(Value::as_u64).unwrap_or(168),
+        "maxRecipientsPerStep": envelope_value.get("maxRecipientsPerStep").and_then(Value::as_u64).unwrap_or(250),
+        "parked": true,
+        "expectedVersion": envelope_version,
+    });
+    let idempotency = format!("park-{}", Uuid::new_v4());
+    state
+        .area_client
+        .request_management(
+            tenant_id,
+            &target_url,
+            ManagementRequest {
+                method: "POST",
+                path: "/v1/control-plane/autopilot/growth-envelope",
+                body: Some(&park_body),
+                correlation_id: request_id(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await
+        .map_err(|e| ApiError::Unavailable(format!("failed to park growth envelope: {e}")))?;
+
+    // 4. Set status to parked.
+    let result = state
+        .store
+        .set_status(&slug, "parked", actor, request_id(&headers))
+        .await?;
+    Ok(Json(json!(result)))
+}
+
+/// Unparks a tenant: restores the autopilot envelope and posture from the
+/// snapshot and sets status back to active. A single button — no
+/// confirmation, no extra steps.
+async fn unpark_tenant(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    identity.require_platform_admin()?;
+    let slug = validation::slug(&raw_slug)?;
+    let tenant = state.store.tenant_by_slug(&slug).await?;
+    if store::tenant_lifecycle_is_externally_owned(&tenant.tenant.slug) {
+        return Err(ApiError::Forbidden(
+            "this tenant is externally owned and cannot be unparked".to_owned(),
+        ));
+    }
+    if tenant.tenant.status != "parked" {
+        return Err(ApiError::Conflict("tenant is not parked".to_owned()));
+    }
+    let tenant_id = tenant.tenant.id;
+    let actor = state.admin_actor.as_ref();
+
+    // Load the snapshot before changing status.
+    let snapshot = state
+        .store
+        .load_park_snapshot(tenant_id)
+        .await?
+        .ok_or_else(|| ApiError::Conflict("no park snapshot found".to_owned()))?;
+
+    // Set status to active first so `target` resolves.
+    state
+        .store
+        .set_status(&slug, "active", actor, request_id(&headers))
+        .await?;
+
+    // Resolve the management target (tenant is now active).
+    let (_, target_url) = crate::area_routes::target(&state, &slug).await?;
+
+    // Restore the envelope: agent_enabled from snapshot, parked=false.
+    let restore_body = json!({
+        "agentEnabled": snapshot.agent_enabled,
+        "dryRun": snapshot.dry_run,
+        "weeklyOwnedAudienceTouches": 200,
+        "weeklyThirdPartyTouches": 10,
+        "subjectCooldownHours": 168,
+        "maxRecipientsPerStep": 250,
+        "parked": false,
+        "expectedVersion": snapshot.envelope_version + 1,
+    });
+    let idempotency = format!("unpark-{}", Uuid::new_v4());
+    state
+        .area_client
+        .request_management(
+            tenant_id,
+            &target_url,
+            ManagementRequest {
+                method: "POST",
+                path: "/v1/control-plane/autopilot/growth-envelope",
+                body: Some(&restore_body),
+                correlation_id: request_id(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await
+        .map_err(|e| ApiError::Unavailable(format!("failed to restore growth envelope: {e}")))?;
+
+    // Restore the posture.
+    let posture_body = json!({
+        "posture": snapshot.posture,
+        "expectedVersion": 0,
+    });
+    let posture_idempotency = format!("unpark-posture-{}", Uuid::new_v4());
+    let _ = state
+        .area_client
+        .request_management(
+            tenant_id,
+            &target_url,
+            ManagementRequest {
+                method: "POST",
+                path: "/v1/control-plane/autopilot/posture",
+                body: Some(&posture_body),
+                correlation_id: request_id(&headers),
+                idempotency_key: Some(&posture_idempotency),
+            },
+        )
+        .await;
+
+    // Consume the snapshot.
+    state.store.consume_park_snapshot(tenant_id, actor).await?;
+
+    let result = state.store.tenant_by_slug(&slug).await?;
+    Ok(Json(json!(result)))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BillingWebhookRequest {
+    tenant_slug: String,
+    event: String,
+}
+
+/// Billing webhook: a payment provider calls this to auto-unpark a tenant
+/// when payment is received. Authenticated via a shared secret header
+/// (`X-Billing-Webhook-Secret`), not the platform admin token.
+///
+/// Idempotent: if the tenant is already active, returns 200 without doing
+/// anything.
+async fn billing_webhook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<BillingWebhookRequest>,
+) -> Result<StatusCode, ApiError> {
+    let secret = state
+        .billing_webhook_secret
+        .as_deref()
+        .ok_or_else(|| ApiError::Unavailable("billing webhook is not configured".to_owned()))?;
+    let provided = headers
+        .get("x-billing-webhook-secret")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if provided != secret {
+        return Err(ApiError::Unauthorized);
+    }
+    if input.event != "payment_succeeded" {
+        return Ok(StatusCode::NO_CONTENT);
+    }
+    let slug = validation::slug(&input.tenant_slug)?;
+    let tenant = state.store.tenant_by_slug(&slug).await?;
+    // Idempotent: already active is a no-op.
+    if tenant.tenant.status != "parked" {
+        return Ok(StatusCode::NO_CONTENT);
+    }
+    // Reuse the unpark logic by setting status to active and restoring the
+    // envelope from the snapshot.
+    let tenant_id = tenant.tenant.id;
+    let actor = "billing-webhook";
+    let snapshot = state
+        .store
+        .load_park_snapshot(tenant_id)
+        .await?
+        .ok_or_else(|| ApiError::Conflict("no park snapshot found".to_owned()))?;
+    state
+        .store
+        .set_status(&slug, "active", actor, request_id(&headers))
+        .await?;
+    let (_, target_url) = crate::area_routes::target(&state, &slug).await?;
+    let restore_body = json!({
+        "agentEnabled": snapshot.agent_enabled,
+        "dryRun": snapshot.dry_run,
+        "weeklyOwnedAudienceTouches": 200,
+        "weeklyThirdPartyTouches": 10,
+        "subjectCooldownHours": 168,
+        "maxRecipientsPerStep": 250,
+        "parked": false,
+        "expectedVersion": snapshot.envelope_version + 1,
+    });
+    let idempotency = format!("billing-unpark-{}", Uuid::new_v4());
+    let _ = state
+        .area_client
+        .request_management(
+            tenant_id,
+            &target_url,
+            ManagementRequest {
+                method: "POST",
+                path: "/v1/control-plane/autopilot/growth-envelope",
+                body: Some(&restore_body),
+                correlation_id: request_id(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    let posture_body = json!({
+        "posture": snapshot.posture,
+        "expectedVersion": 0,
+    });
+    let posture_idempotency = format!("billing-unpark-posture-{}", Uuid::new_v4());
+    let _ = state
+        .area_client
+        .request_management(
+            tenant_id,
+            &target_url,
+            ManagementRequest {
+                method: "POST",
+                path: "/v1/control-plane/autopilot/posture",
+                body: Some(&posture_body),
+                correlation_id: request_id(&headers),
+                idempotency_key: Some(&posture_idempotency),
+            },
+        )
+        .await;
+    state.store.consume_park_snapshot(tenant_id, actor).await?;
+    Ok(StatusCode::OK)
 }
 
 async fn plan_provisioning(

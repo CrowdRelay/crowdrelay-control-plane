@@ -77,6 +77,21 @@ pub struct OperatorAccountRow {
     pub active: bool,
 }
 
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ParkSnapshotRow {
+    pub tenant_id: Uuid,
+    pub parked_at: chrono::DateTime<Utc>,
+    pub parked_by: String,
+    pub agent_enabled: bool,
+    pub dry_run: bool,
+    pub posture: String,
+    pub envelope_version: i64,
+    pub reason: Option<String>,
+    pub unparked_at: Option<chrono::DateTime<Utc>>,
+    pub unparked_by: Option<String>,
+}
+
 #[derive(Debug, sqlx::FromRow)]
 pub struct OperatorAuthRow {
     pub id: Uuid,
@@ -528,9 +543,12 @@ impl Store {
         request_id: Option<&str>,
     ) -> Result<TenantSummary, ApiError> {
         let tenant = self.tenant_by_slug(slug).await?;
-        if tenant_lifecycle_is_externally_owned(&tenant.tenant.slug) && status == "suspended" {
+        if tenant_lifecycle_is_externally_owned(&tenant.tenant.slug)
+            && (status == "suspended" || status == "parked")
+        {
             return Err(ApiError::Conflict(
-                "Virya cannot be suspended from Control Plane".to_owned(),
+                "Virya lifecycle is externally owned and cannot be changed from Control Plane"
+                    .to_owned(),
             ));
         }
         let mut tx = self.pool.begin().await?;
@@ -556,6 +574,86 @@ impl Store {
         .await?;
         tx.commit().await?;
         self.tenant_by_slug(slug).await
+    }
+
+    /// Captures the autopilot envelope snapshot at park time.
+    ///
+    /// Called by the park route handler after it has read the current envelope
+    /// and posture from CrowdRelay. The snapshot is the state restore on
+    /// resume — without it, unpark would have to guess what the tenant was
+    /// doing before it was parked.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn save_park_snapshot(
+        &self,
+        tenant_id: Uuid,
+        actor: &str,
+        agent_enabled: bool,
+        dry_run: bool,
+        posture: &str,
+        envelope_version: i64,
+        reason: Option<&str>,
+    ) -> Result<(), ApiError> {
+        sqlx::query(
+            r#"INSERT INTO control_plane_tenant_park_snapshot
+               (tenant_id, parked_by, agent_enabled, dry_run, posture, envelope_version, reason)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
+               ON CONFLICT (tenant_id) DO UPDATE
+               SET parked_at = now(),
+                   parked_by = EXCLUDED.parked_by,
+                   agent_enabled = EXCLUDED.agent_enabled,
+                   dry_run = EXCLUDED.dry_run,
+                   posture = EXCLUDED.posture,
+                   envelope_version = EXCLUDED.envelope_version,
+                   reason = EXCLUDED.reason,
+                   unparked_at = NULL,
+                   unparked_by = NULL"#,
+        )
+        .bind(tenant_id)
+        .bind(actor)
+        .bind(agent_enabled)
+        .bind(dry_run)
+        .bind(posture)
+        .bind(envelope_version)
+        .bind(reason)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Reads the park snapshot for a tenant. Returns `None` if the tenant
+    /// was never parked or the snapshot was already consumed.
+    pub async fn load_park_snapshot(
+        &self,
+        tenant_id: Uuid,
+    ) -> Result<Option<ParkSnapshotRow>, ApiError> {
+        let row = sqlx::query_as::<_, ParkSnapshotRow>(
+            r#"SELECT tenant_id, parked_at, parked_by, agent_enabled, dry_run,
+                      posture, envelope_version, reason, unparked_at, unparked_by
+               FROM control_plane_tenant_park_snapshot
+               WHERE tenant_id = $1 AND unparked_at IS NULL"#,
+        )
+        .bind(tenant_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    /// Marks the park snapshot as consumed (unparked).
+    pub async fn consume_park_snapshot(
+        &self,
+        tenant_id: Uuid,
+        actor: &str,
+    ) -> Result<(), ApiError> {
+        sqlx::query(
+            r#"UPDATE control_plane_tenant_park_snapshot
+               SET unparked_at = now(), unparked_by = $2
+               WHERE tenant_id = $1 AND unparked_at IS NULL"#,
+        )
+        .bind(tenant_id)
+        .bind(actor)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     pub async fn plan_provisioning(
@@ -654,6 +752,11 @@ impl Store {
         if tenant.tenant.status == "suspended" {
             return Err(ApiError::Conflict(
                 "resume the tenant before requesting a deployment".to_owned(),
+            ));
+        }
+        if tenant.tenant.status == "parked" {
+            return Err(ApiError::Conflict(
+                "unpark the tenant before requesting a deployment".to_owned(),
             ));
         }
         let deployment = TenantDeploymentSpec {
@@ -1035,11 +1138,11 @@ impl Store {
         .await?;
         // The workspace mapping is a fact about the completed deployment and
         // is always recorded. The status, however, belongs to the operator:
-        // a tenant suspended while its deployment ran stays suspended —
-        // finishing a deploy must never silently undo that decision.
+        // a tenant suspended or parked while its deployment ran stays in that
+        // state — finishing a deploy must never silently undo that decision.
         sqlx::query(
             r#"UPDATE control_plane_tenants
-               SET status = CASE WHEN status = 'suspended' THEN status ELSE 'active' END,
+               SET status = CASE WHEN status IN ('suspended', 'parked') THEN status ELSE 'active' END,
                    workspace_id=$2, updated_at=now()
                WHERE id=$1"#,
         )

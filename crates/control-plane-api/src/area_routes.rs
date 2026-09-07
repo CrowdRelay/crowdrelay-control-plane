@@ -64,6 +64,9 @@ pub(crate) async fn target(
     if tenant.tenant.status == "suspended" {
         return Err(ApiError::Conflict("tenant is suspended".to_owned()));
     }
+    if tenant.tenant.status == "parked" {
+        return Err(ApiError::Conflict("tenant is parked".to_owned()));
+    }
     let target = if slug == "virya" {
         state
             .virya_management_url

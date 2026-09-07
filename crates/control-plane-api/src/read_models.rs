@@ -475,6 +475,8 @@ async fn overview(
                 "canProvision": !externally_owned,
                 "canRemove": !externally_owned,
                 "canOptOut": !externally_owned,
+                "canPark": !externally_owned && tenant.tenant.status == "active",
+                "canUnpark": !externally_owned && tenant.tenant.status == "parked",
             },
         },
     })))

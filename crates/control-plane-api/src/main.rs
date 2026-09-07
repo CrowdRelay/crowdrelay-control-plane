@@ -72,6 +72,9 @@ pub struct AppState {
     github_deploy_repo: Option<Arc<str>>,
     /// Cooldown window (seconds) for external deploy dispatch dedup.
     github_deploy_cooldown_seconds: i64,
+    /// Secret for the billing webhook endpoint. When set, payment
+    /// notifications can auto-unpark a tenant.
+    billing_webhook_secret: Option<Arc<str>>,
 }
 
 #[tokio::main]
@@ -177,6 +180,7 @@ async fn main() -> anyhow::Result<()> {
         github_deploy_token: config.github_deploy_token.map(Arc::from),
         github_deploy_repo: config.github_deploy_repo.map(Arc::from),
         github_deploy_cooldown_seconds: config.github_deploy_cooldown_seconds,
+        billing_webhook_secret: config.billing_webhook_secret.map(Arc::from),
     };
     // Bounded best-effort notifier delivery. Nothing in the request path
     // depends on this loop; a dead channel dies in its outbox row, not here.
@@ -294,7 +298,8 @@ async fn main() -> anyhow::Result<()> {
         .merge(admin_api)
         .merge(telemetry_api)
         .merge(provisioner_api)
-        .merge(automation_api);
+        .merge(automation_api)
+        .merge(routes::billing_router());
 
     let index = config.frontend_dist.join("index.html");
     let static_files = ServeDir::new(&config.frontend_dist).fallback(ServeFile::new(index));

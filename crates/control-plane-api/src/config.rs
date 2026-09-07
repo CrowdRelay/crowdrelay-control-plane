@@ -71,6 +71,10 @@ pub struct Config {
     /// window is refused to prevent a second workflow run for the same target.
     /// Default 60s. 0 disables the cooldown.
     pub github_deploy_cooldown_seconds: i64,
+    /// Secret for the billing webhook endpoint (`POST /billing/webhook`).
+    /// When set, a payment notification can auto-unpark a tenant. Without
+    /// it, the webhook endpoint refuses all requests.
+    pub billing_webhook_secret: Option<String>,
 }
 
 impl Config {
@@ -307,6 +311,7 @@ impl Config {
             .map(|s| s.parse::<i64>())
             .transpose()?
             .unwrap_or(60),
+            billing_webhook_secret: optional_secret("CONTROL_PLANE_BILLING_WEBHOOK_SECRET")?,
         };
         // Both or neither: half-configured bootstrap is a deployment typo,
         // not a feature.

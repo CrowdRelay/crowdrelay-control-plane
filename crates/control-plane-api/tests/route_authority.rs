@@ -237,9 +237,10 @@ fn the_operator_surface_is_authenticated_as_one_router() {
         "admin_api must carry auth::authenticate:\n{statement}"
     );
 
-    // Only these five routers may be merged directly into the public `api`,
+    // Only these routers may be merged directly into the public `api`,
     // and each is either public by design or carries a machine-authority
-    // guard of its own.
+    // guard of its own. The billing router authenticates via its own
+    // shared-secret header check, not the platform admin token.
     let api = MAIN
         .split_once("let api = Router::new()")
         .expect("main.rs builds the api router")
@@ -259,7 +260,8 @@ fn the_operator_surface_is_authenticated_as_one_router() {
             "admin_api",
             "telemetry_api",
             "provisioner_api",
-            "automation_api"
+            "automation_api",
+            "routes::billing_router("
         ],
         "a router merged into `api` bypasses auth::authenticate unless it \
          carries its own machine-authority guard"

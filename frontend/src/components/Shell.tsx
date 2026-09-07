@@ -20,6 +20,7 @@ const CommandPalette = lazy(() => import('./CommandPalette').then(m => ({ defaul
 
 const healthDot = (tenant: TenantSummary) => {
   if (tenant.status === 'suspended') return 'bad'
+  if (tenant.status === 'parked') return 'warn'
   if (tenant.runtimeHealth === 'healthy') return 'good'
   if (tenant.runtimeHealth === 'degraded') return 'warn'
   if (tenant.runtimeHealth === 'stale') return 'warn'
@@ -28,6 +29,7 @@ const healthDot = (tenant: TenantSummary) => {
 
 const healthLabel = (tenant: TenantSummary) => {
   if (tenant.status === 'suspended') return 'suspended'
+  if (tenant.status === 'parked') return 'parked'
   if (tenant.runtimeHealth === 'healthy') return 'healthy'
   if (tenant.runtimeHealth === 'degraded') return 'degraded'
   if (tenant.runtimeHealth === 'stale') return 'stale'
@@ -319,7 +321,7 @@ export const Shell: Component = () => {
               <img class="brand-mark" src="/crowdrelay-brand-mark.png" alt="" width="36" height="36" />
             </span>
             <Show when={!collapsed()}>
-              <div><strong>CrowdRelay</strong><small>Control Plane</small></div>
+              <div><strong>CrowdRelay</strong><small>Control Plane</small><a href="https://virya.music" target="_blank" rel="noreferrer noopener" class="brand-landing-link">virya.music ↗</a></div>
             </Show>
           </div>
           <button type="button" class="sidebar-toggle" onClick={toggleCollapsed} title={collapsed() ? 'Expand sidebar' : 'Collapse sidebar'} aria-label="Toggle sidebar">

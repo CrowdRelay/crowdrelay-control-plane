@@ -345,6 +345,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/growth-metrics/trends"
                     | "/v1/control-plane/autopilot/objectives"
                     | "/v1/control-plane/autopilot/posture"
+                    | "/v1/control-plane/autopilot/growth-envelope"
                     | "/v1/control-plane/autopilot/acquisition-channels"
                     | "/v1/control-plane/autopilot/tour-economics"
                     | "/v1/control-plane/autopilot/show-economics"

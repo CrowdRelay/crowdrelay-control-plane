@@ -26,8 +26,19 @@ ENV_FILE="$ROOT/control-plane.env"
 COMPOSE_FILE="$ROOT/compose.production.yml"
 BACKUP_DIR="${CONTROL_PLANE_BACKUP_DIR:-$ROOT/backups}"
 RETAIN_DAYS="${CONTROL_PLANE_BACKUP_RETAIN_DAYS:-14}"
-# Set to an rclone remote (`remote:path`) to copy each dump off this host.
-# Without it the backups sit on the same disk as the database they protect.
+# Where a verified dump is copied so it does not share a disk with the database
+# it protects. Two forms, checked in this order:
+#
+#   CONTROL_PLANE_BACKUP_OFFSITE_SSH   user@host:path — rsync over SSH
+#   CONTROL_PLANE_BACKUP_OFFSITE_REMOTE  remote:path  — rclone
+#
+# The SSH form is what this deployment uses: virya-home over WireGuard, with a
+# key whose authorized_keys entry forces `rrsync -wo`, so the credential on this
+# host can write a backup and can do nothing else — not read one back, not open
+# a shell. A push key that can also read is a key that exports every tenant's
+# database the moment this host is compromised.
+OFFSITE_SSH="${CONTROL_PLANE_BACKUP_OFFSITE_SSH:-}"
+OFFSITE_SSH_KEY="${CONTROL_PLANE_BACKUP_OFFSITE_SSH_KEY:-/root/.ssh/crowdrelay-backup}"
 OFFSITE_REMOTE="${CONTROL_PLANE_BACKUP_OFFSITE_REMOTE:-}"
 
 [[ "$(id -u)" -eq 0 ]] || { echo "Run with sudo/root" >&2; exit 1; }
@@ -61,7 +72,21 @@ trap - EXIT
 chmod 0640 "$OUT"
 
 offsite=skipped
-if [[ -n "$OFFSITE_REMOTE" ]]; then
+if [[ -n "$OFFSITE_SSH" ]]; then
+  [[ -r "$OFFSITE_SSH_KEY" ]] || {
+    echo "CONTROL_PLANE_BACKUP=FAIL reason=offsite_key_unreadable key=$OFFSITE_SSH_KEY" >&2
+    exit 1
+  }
+  if rsync --quiet \
+       -e "ssh -i $OFFSITE_SSH_KEY -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10" \
+       "$OUT" "$OFFSITE_SSH"; then
+    offsite=ok
+  else
+    # A dump that exists in one place only is the failure this job is for.
+    echo "CONTROL_PLANE_BACKUP=FAIL reason=offsite_push_failed target=$OFFSITE_SSH" >&2
+    exit 1
+  fi
+elif [[ -n "$OFFSITE_REMOTE" ]]; then
   if command -v rclone >/dev/null 2>&1; then
     rclone copy --quiet "$OUT" "$OFFSITE_REMOTE" && offsite=ok || {
       echo "CONTROL_PLANE_BACKUP=FAIL reason=offsite_copy_failed remote=$OFFSITE_REMOTE" >&2
