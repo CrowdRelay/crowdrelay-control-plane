@@ -188,6 +188,12 @@ export function QueueInspectorPanel(props: { slug: string }) {
                 <div>
                   <strong>#{attempt.attempt_number} · {attempt.outcome}</strong>
                   <small>{formatTimestamp(attempt.started_at)} · {attempt.duration_ms}ms · {errorLabel(attempt.error_kind)}</small>
+                  {/* The status code alone cannot tell you whether the
+                      receiver disliked the payload, the signature or the
+                      event type. This is what it actually said. */}
+                  <Show when={attempt.response_excerpt}>
+                    <code class="queue-attempt-response">{attempt.response_excerpt}</code>
+                  </Show>
                 </div>
                 <Show when={attempt.response_status != null}>
                   <span class="badge">HTTP {attempt.response_status}</span>

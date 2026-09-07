@@ -3147,3 +3147,6 @@ button,
     padding-right:calc(18px + env(safe-area-inset-right))
   }
 }
+/* The receiver's own words on a failed attempt — a short JSON error object,
+   shown as data rather than folded into the sentence above it. */
+.queue-attempt-response{display:block;margin-top:6px;padding:7px 9px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--surface-0);color:var(--text-secondary);font-size:var(--text-xs);line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:9em;overflow:auto}

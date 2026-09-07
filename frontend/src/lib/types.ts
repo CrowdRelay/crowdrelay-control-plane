@@ -237,6 +237,9 @@ export type DeliveryAttempt = {
   response_status: number | null
   error_kind: string | null
   duration_ms: number
+  /// What the receiver replied when it refused. Absent on older attempts,
+  /// which were recorded before the worker kept the body.
+  response_excerpt?: string | null
 }
 
 export type DeliveryDetails = { delivery: DeliveryItem; attempts: DeliveryAttempt[] }
