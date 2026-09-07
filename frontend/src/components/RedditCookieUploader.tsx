@@ -20,6 +20,7 @@ export function RedditCookieUploader(props: { slug: string }) {
   const [uploadResult, setUploadResult] = createSignal<{ cookie_count: number; expires_at: string } | null>(null)
   const [dragOver, setDragOver] = createSignal(false)
   const [username, setUsername] = createSignal('')
+  const [validateResult, setValidateResult] = createSignal<{ valid: boolean; reddit_username?: string; error?: string } | null>(null)
 
   const status = useQuery(() => ({
     queryKey: ['reddit-cookie-status', props.slug],
@@ -37,12 +38,30 @@ export function RedditCookieUploader(props: { slug: string }) {
     onSuccess: (data) => {
       setUploadResult({ cookie_count: data.cookie_count, expires_at: data.expires_at })
       setFileError(null)
+      setValidateResult(null)
       toast.success(`Reddit cookies refreshed — ${data.cookie_count} cookies stored`)
       status.refetch()
     },
     onError: (error) => {
       setFileError(errorMessage(error, 'Upload failed'))
       toast.error('Reddit cookie upload failed')
+    },
+  }))
+
+  const validate = useMutation(() => ({
+    mutationFn: () => api.redditCookieValidate(props.slug),
+    onSuccess: (data) => {
+      setValidateResult(data)
+      if (data.valid) {
+        toast.success(`Cookies valid — logged in as u/${data.reddit_username}`)
+      } else {
+        toast.error('Reddit rejected the cookies')
+        status.refetch()
+      }
+    },
+    onError: (error) => {
+      setValidateResult({ valid: false, error: errorMessage(error, 'Validation request failed') })
+      toast.error('Could not validate cookies')
     },
   }))
 
@@ -130,10 +149,35 @@ export function RedditCookieUploader(props: { slug: string }) {
         </div>
       </Show>
 
+      <Show when={status.data?.status === 'failed'}>
+        <div class="notice bad">
+          Reddit rejected the cookies (403). The account may be shadow-blocked or the datacenter IP is flagged.
+          Upload fresh cookies from a residential IP, then test them.
+        </div>
+      </Show>
+
       <Show when={status.data?.status === 'missing'}>
         <div class="notice">
           No Reddit cookies stored. Reddit feeds will fail until cookies are uploaded or the browser login succeeds.
         </div>
+      </Show>
+
+      <Show when={validateResult()}>
+        <div class={`notice ${validateResult()!.valid ? 'good' : 'bad'}`}>
+          <Show when={validateResult()!.valid} fallback={<span>{validateResult()!.error}</span>}>
+            Cookies valid — logged in as <strong>u/{validateResult()!.reddit_username}</strong>
+          </Show>
+        </div>
+      </Show>
+
+      <Show when={status.data?.status === 'active' || status.data?.status === 'failed'}>
+        <button
+          class="btn btn-secondary"
+          onClick={() => validate.mutate()}
+          disabled={validate.isPending}
+        >
+          {validate.isPending ? 'Testing…' : 'Test cookies'}
+        </button>
       </Show>
 
       <div

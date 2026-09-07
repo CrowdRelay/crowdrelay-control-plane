@@ -380,6 +380,12 @@ export const api = {
       headers: { 'idempotency-key': crypto.randomUUID() },
       body: JSON.stringify(input),
     }),
+  redditCookieValidate: (slug: string) =>
+    request<{ valid: boolean; reddit_username?: string; error?: string }>(`/tenants/${encodeURIComponent(slug)}/agents/reddit/cookies/validate`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: '{}',
+    }),
   agentModels: (slug: string) =>
     request<{ models: AgentModel[]; connectedProviders: string[] }>(`/tenants/${encodeURIComponent(slug)}/agents/models`),
   agentSuggestions: (slug: string) =>

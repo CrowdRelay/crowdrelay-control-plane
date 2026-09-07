@@ -35,6 +35,9 @@ fn percent_encode(s: &str) -> String {
 
 const PRIVATE_NO_STORE: &str = "private, no-store";
 const MAX_AGENT_BODY_BYTES: usize = 16 * 1024;
+/// Cookie upload payloads can be larger — Netscape cookies.txt files with
+/// many Reddit domains routinely exceed the default 16KB agent body limit.
+const MAX_COOKIE_UPLOAD_BYTES: usize = 512 * 1024;
 
 /// Validates that a path segment is safe to interpolate into a proxy URL.
 /// Rejects path traversal (`..`, `/`, `%2E`, etc.) and non-ASCII characters.
@@ -102,8 +105,8 @@ pub fn router() -> Router<AppState> {
             get(reddit_cookie_status),
         )
         .route(
-            "/tenants/{slug}/agents/reddit/cookies/upload",
-            post(reddit_cookie_upload),
+            "/tenants/{slug}/agents/reddit/cookies/validate",
+            post(reddit_cookie_validate),
         )
         .route("/tenants/{slug}/agents/models", get(list_models))
         .route(
@@ -152,6 +155,18 @@ pub fn router() -> Router<AppState> {
             get(usage_analytics),
         )
         .layer(axum::extract::DefaultBodyLimit::max(MAX_AGENT_BODY_BYTES))
+        // Cookie upload allows a larger body — Netscape cookies.txt files
+        // routinely exceed the 16KB default agent body limit.
+        .merge(
+            Router::new()
+                .route(
+                    "/tenants/{slug}/agents/reddit/cookies/upload",
+                    post(reddit_cookie_upload),
+                )
+                .layer(axum::extract::DefaultBodyLimit::max(
+                    MAX_COOKIE_UPLOAD_BYTES,
+                )),
+        )
 }
 
 async fn proxy_get(
@@ -544,6 +559,24 @@ async fn reddit_cookie_upload(
         &slug,
         "/reddit/cookies/upload",
         body,
+        AgentCapability::Credentials,
+    )
+    .await
+}
+
+/// POST /tenants/{slug}/agents/reddit/cookies/validate — probe Reddit with
+/// stored cookies to check if they are still accepted. Returns the Reddit
+/// username if valid, or a descriptive error if rejected.
+async fn reddit_cookie_validate(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    proxy_post(
+        &state,
+        &slug,
+        "/reddit/cookies/validate",
+        serde_json::json!({}),
         AgentCapability::Credentials,
     )
     .await
