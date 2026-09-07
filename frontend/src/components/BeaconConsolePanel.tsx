@@ -251,7 +251,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
         </div>
       </header>
 
-      <Show when={roster.isFetching}><SkeletonPanel /></Show>
+      <Show when={roster.isPending}><SkeletonPanel /></Show>
       <Show when={roster.error}>
         <p class="notice bad">Could not load the roster: {errorMessage(roster.error, 'unknown error')}</p>
       </Show>

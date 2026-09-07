@@ -77,8 +77,3 @@ export function useTabPanels(initial: string) {
   }
   return { activeTab, switchTab, visited, isVisited: (id: string) => visited().has(id) }
 }
-
-export function useTabs(initial: string) {
-  const [activeTab, setActiveTab] = createSignal(initial)
-  return { activeTab, setActiveTab }
-}

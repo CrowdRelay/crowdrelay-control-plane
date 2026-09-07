@@ -20,39 +20,21 @@ export function BeaconSignalPanel(props: { slug: string }) {
   const { activeTab, switchTab, isVisited } = useTabPanels('profiles')
   const dashboard = useQuery(() => ({
     queryKey: ['beacon-signal-dashboard', props.slug],
-    queryFn: async () => {
-      try {
-        return await api.beaconSignalDashboard(props.slug)
-      } catch {
-        return null
-      }
-    },
+    queryFn: () => api.beaconSignalDashboard(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
 
   const candidates = useQuery(() => ({
     queryKey: ['beacon-signal-candidates', props.slug],
-    queryFn: async () => {
-      try {
-        return await api.beaconSignalCandidates(props.slug)
-      } catch {
-        return null
-      }
-    },
+    queryFn: () => api.beaconSignalCandidates(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
 
   const network = useQuery(() => ({
     queryKey: ['beacon-signal-network', props.slug],
-    queryFn: async () => {
-      try {
-        return await api.beaconNetwork(props.slug)
-      } catch {
-        return null
-      }
-    },
+    queryFn: () => api.beaconNetwork(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -66,7 +48,13 @@ export function BeaconSignalPanel(props: { slug: string }) {
     </div>
     <p class="agent-section-intro">Press and industry relationships. Beacons are the people the agent is talking to — journalists, promoters, superfans. The network shows discovery runs and invite jobs.</p>
 
-    <Show when={dashboard.data} fallback={<SkeletonBlock height="60px" radius="10px" />}>
+    <Show when={dashboard.error}>
+      <div class="error-card" role="alert">Beacon signal dashboard unavailable</div>
+    </Show>
+    <Show when={dashboard.isPending && !dashboard.error}>
+      <SkeletonBlock height="60px" radius="10px" />
+    </Show>
+    <Show when={dashboard.data}>
       <div class="kpi-strip">
         <div class="kpi"><span class="kpi-value">{dashboard.data!.total}</span><span class="kpi-label">Total</span></div>
         <div class="kpi"><span class="kpi-value">{dashboard.data!.active}</span><span class="kpi-label">Active</span></div>
@@ -123,7 +111,13 @@ export function BeaconSignalPanel(props: { slug: string }) {
 
       {/* ── Candidates tab ── */}
       <TabPanel active={activeTab()} id="candidates" visited={isVisited('candidates')}>
-        <Show when={candidates.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
+        <Show when={candidates.error}>
+          <div class="error-card" role="alert">Candidates unavailable</div>
+        </Show>
+        <Show when={candidates.isPending && !candidates.error}>
+          <SkeletonBlock height="120px" radius="10px" />
+        </Show>
+        <Show when={candidates.data}>
           <Show when={candidates.data!.candidates.length > 0} fallback={<EmptyState label="No candidates" hint="Candidates are discovered beacons that have not been added to the roster yet." />}>
             <div class="table-wrap">
               <table class="data-table">
@@ -159,7 +153,13 @@ export function BeaconSignalPanel(props: { slug: string }) {
 
       {/* ── Discovery tab ── */}
       <TabPanel active={activeTab()} id="discovery" visited={isVisited('discovery')}>
-        <Show when={network.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
+        <Show when={network.error}>
+          <div class="error-card" role="alert">Network discovery unavailable</div>
+        </Show>
+        <Show when={network.isPending && !network.error}>
+          <SkeletonBlock height="120px" radius="10px" />
+        </Show>
+        <Show when={network.data}>
           <Show when={network.data!.discoveryRuns.length > 0} fallback={<EmptyState label="No discovery runs" hint="Discovery runs scan for nearby fans using beacon campaigns. Runs appear here once the intelligence dispatches them." />}>
             <div class="table-wrap">
               <table class="data-table">
