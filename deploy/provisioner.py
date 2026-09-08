@@ -120,13 +120,19 @@ class Config:
         # When enabled, the provisioner completes the last manual steps of
         # onboarding automatically after the tenant is healthy.
         self.auto_dns = os.environ.get("CONTROL_PLANE_AUTO_DNS", "").strip().lower() in {"1", "true", "yes"}
-        self.cloudflare_api_token = os.environ.get("CONTROL_PLANE_CLOUDFLARE_API_TOKEN", "").strip()
-        self.cloudflare_zone_id = os.environ.get("CONTROL_PLANE_CLOUDFLARE_ZONE_ID", "").strip()
-        if self.auto_dns and not self.cloudflare_api_token:
-            raise SystemExit("CONTROL_PLANE_AUTO_DNS requires CONTROL_PLANE_CLOUDFLARE_API_TOKEN")
+        self.netlify_api_token = os.environ.get("CONTROL_PLANE_NETLIFY_API_TOKEN", "").strip()
+        self.netlify_dns_zone = os.environ.get("CONTROL_PLANE_NETLIFY_DNS_ZONE", "").strip()
+        if self.auto_dns and not self.netlify_api_token:
+            raise SystemExit("CONTROL_PLANE_AUTO_DNS requires CONTROL_PLANE_NETLIFY_API_TOKEN")
+        if self.auto_dns and not self.netlify_dns_zone:
+            raise SystemExit("CONTROL_PLANE_AUTO_DNS requires CONTROL_PLANE_NETLIFY_DNS_ZONE (e.g. crowdrelay.music)")
         self.auto_edge = os.environ.get("CONTROL_PLANE_AUTO_EDGE", "").strip().lower() in {"1", "true", "yes"}
         self.edge_caddyfile = os.environ.get("CONTROL_PLANE_EDGE_CADDYFILE", "/opt/crowdrelay/ops/edge/Caddyfile").strip()
         self.edge_container = os.environ.get("CONTROL_PLANE_EDGE_CONTAINER", "virya-edge-caddy").strip()
+        self.edge_script = os.environ.get(
+            "CONTROL_PLANE_EDGE_SCRIPT",
+            "/srv/crowdrelay-control-plane/src/scripts/add-tenant-edge-route.sh",
+        ).strip()
         self.auto_verify = os.environ.get("CONTROL_PLANE_AUTO_VERIFY", "").strip().lower() in {"1", "true", "yes"}
 
 
@@ -153,7 +159,7 @@ def api_with_token(
             raw = response.read(MAX_HTTP_BYTES + 1)
             if len(raw) > MAX_HTTP_BYTES:
                 raise ProvisionError("control_plane_response_too_large", "Control Plane response exceeded 2 MiB")
-            return json.loads(raw or b"{}")
+            return json.loads(raw or b"{}") or {}
     except urllib.error.HTTPError as exc:
         raw = exc.read(4096)
         try:
@@ -1105,58 +1111,63 @@ def extract_hostname(url: str) -> str:
 
 
 def auto_configure_dns(config: Config, hostname: str, instance_ip: str) -> None:
-    """Configure DNS A record via Cloudflare API if auto_dns is enabled."""
+    """Configure DNS A record via Netlify API if auto_dns is enabled."""
     if not config.auto_dns:
         return
-    print(f"DNS_AUTO hostname={hostname}")
-    # Auto-detect zone ID if not provided
-    zone_id = config.cloudflare_zone_id
-    if not zone_id:
-        # Extract zone name: last 2 labels of the hostname
-        parts = hostname.split(".")
-        zone_name = ".".join(parts[-2:]) if len(parts) >= 2 else hostname
-        req = urllib.request.Request(
-            f"https://api.cloudflare.com/client/v4/zones?name={zone_name}",
-            headers={"Authorization": f"Bearer {config.cloudflare_api_token}"},
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        if not data.get("result"):
-            raise ProvisionError("dns_zone_not_found", f"Cloudflare zone not found for {zone_name}")
-        zone_id = data["result"][0]["id"]
-    # Check if record already exists
-    req = urllib.request.Request(
-        f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records?name={hostname}",
-        headers={"Authorization": f"Bearer {config.cloudflare_api_token}"},
-    )
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-    existing = data.get("result", [])
-    payload = json.dumps({
-        "type": "A", "name": hostname, "content": instance_ip,
-        "ttl": 300, "proxied": False,
-    }).encode("utf-8")
+    print(f"DNS_AUTO hostname={hostname} zone={config.netlify_dns_zone}")
+    base = "https://api.netlify.com/api/v1"
     headers = {
-        "Authorization": f"Bearer {config.cloudflare_api_token}",
+        "Authorization": f"Bearer {config.netlify_api_token}",
         "Content-Type": "application/json",
     }
+    # Find the DNS zone ID for the configured zone name
+    req = urllib.request.Request(f"{base}/dns_zones?name={config.netlify_dns_zone}", headers=headers)
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = json.loads(resp.read().decode("utf-8") or "[]")
+    zones = data if isinstance(data, list) else data.get("dns_zones", [])
+    if not zones:
+        raise ProvisionError("dns_zone_not_found", f"Netlify DNS zone not found: {config.netlify_dns_zone}")
+    zone_id = zones[0].get("id") or zones[0].get("zone_id")
+    if not zone_id:
+        raise ProvisionError("dns_zone_not_found", f"Netlify DNS zone returned no ID for {config.netlify_dns_zone}")
+
+    # Check if record already exists
+    req = urllib.request.Request(f"{base}/dns_zones/{zone_id}/dns_records", headers=headers)
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = json.loads(resp.read().decode("utf-8") or "[]")
+    records = data if isinstance(data, list) else data.get("dns_records", [])
+    existing = [r for r in records if r.get("hostname") == hostname and r.get("type") == "A"]
+
+    payload = json.dumps({
+        "type": "A", "hostname": hostname, "value": instance_ip, "ttl": 300,
+    }).encode("utf-8")
+
     if existing:
-        record_id = existing[0]["id"]
-        req = urllib.request.Request(
-            f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{record_id}",
-            method="PUT", data=payload, headers=headers,
-        )
-    else:
-        req = urllib.request.Request(
-            f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records",
+        # Netlify has no PUT for DNS records — delete and recreate
+        record_id = existing[0].get("id")
+        if record_id:
+            del_req = urllib.request.Request(
+                f"{base}/dns_zones/{zone_id}/dns_records/{record_id}",
+                method="DELETE", headers=headers,
+            )
+            urllib.request.urlopen(del_req, timeout=10).read()
+            print(f"DNS_AUTO deleted stale record for {hostname}")
+        # Create new record
+        create_req = urllib.request.Request(
+            f"{base}/dns_zones/{zone_id}/dns_records",
             method="POST", data=payload, headers=headers,
         )
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-    if not data.get("success"):
-        raise ProvisionError("dns_api_failed", f"Cloudflare API error: {data.get('errors', 'unknown')}")
-    # Wait for propagation (up to 60s)
-    for _ in range(12):
+        urllib.request.urlopen(create_req, timeout=10).read()
+    else:
+        create_req = urllib.request.Request(
+            f"{base}/dns_zones/{zone_id}/dns_records",
+            method="POST", data=payload, headers=headers,
+        )
+        urllib.request.urlopen(create_req, timeout=10).read()
+    print(f"DNS_AUTO created A record: {hostname} → {instance_ip}")
+
+    # Wait for propagation (up to 90s — Netlify DNS can take longer than Cloudflare)
+    for _ in range(18):
         time.sleep(5)
         try:
             resolved = socket.gethostbyname(hostname)
@@ -1173,12 +1184,11 @@ def auto_publish_edge_route(config: Config, hostname: str, port: int) -> None:
     if not config.auto_edge:
         return
     print(f"EDGE_AUTO hostname={hostname} port={port}")
-    edge_script = "/opt/crowdrelay-control-plane/scripts/add-tenant-edge-route.sh"
-    if not Path(edge_script).exists():
-        print(f"EDGE_AUTO=SKIP script not found: {edge_script}", file=sys.stderr)
+    if not Path(config.edge_script).exists():
+        print(f"EDGE_AUTO=SKIP script not found: {config.edge_script}", file=sys.stderr)
         return
     result = subprocess.run(
-        ["sudo", "bash", edge_script, hostname, str(port)],
+        ["bash", config.edge_script, hostname, str(port)],
         capture_output=True, text=True, timeout=60,
     )
     if result.returncode != 0:
@@ -1330,6 +1340,8 @@ def claim_once(config: Config) -> bool:
     if agent_region is not None:
         payload["dataRegion"] = agent_region
     response = api(config, "POST", "/provisioner/jobs/claim", payload)
+    if not isinstance(response, dict):
+        return False
     claim = response.get("claim")
     if claim is None:
         return False
