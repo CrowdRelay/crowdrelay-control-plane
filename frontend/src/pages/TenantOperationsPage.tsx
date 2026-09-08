@@ -22,7 +22,7 @@ const metric = (value: number | undefined | null, suffix = '') =>
 
 export function TenantOperationsPage() {
   const params = useParams({ from: '/tenants/$slug/operations' })
-  const { activeTab, switchTab, isVisited } = useTabPanels('opportunities')
+  const { activeTab, switchTab, isVisited } = useTabPanels('autopilot')
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
@@ -73,7 +73,7 @@ export function TenantOperationsPage() {
       <div>
         <span class="eyebrow">EXECUTION</span>
         <h1>Operations</h1>
-        <p>The opportunity board, growth delivery, outreach pipeline and release campaigns.</p>
+        <p>Autopilot authority policies, opportunity board, outreach pipeline and release campaigns.</p>
       </div>
       <Show when={model.data}>
         <div class="page-head-status">
@@ -98,26 +98,7 @@ export function TenantOperationsPage() {
       <SkeletonKpiStrip count={7} />
     </Show>
 
-    {/* Tab bar — static, renders immediately. Count callbacks return 0
-        while data is pending, which is the correct placeholder. */}
-    <TabBar
-      active={activeTab()}
-      onChange={switchTab}
-      tabs={[
-        { id: 'opportunities', label: 'Opportunities', count: () => opCount() },
-        { id: 'outreach', label: 'Outreach' },
-        { id: 'releases', label: 'Releases' },
-      ]}
-    />
-
-    {/* Tab content skeleton — shows whenever the read model is absent.
-        Matches the active tab's panel layout so the swap is seamless. */}
-    <Show when={!model.error && !model.data}>
-      <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
-      <SkeletonSection titleWidth="200px" lines={3} minHeight="140px" />
-    </Show>
-
-    <Show when={model.data}>{<>
+    <Show when={model.data}>
       {/* KPI strip — persistent across all tabs */}
       <div class="ops-kpi-strip">
         <KpiCard
@@ -187,26 +168,50 @@ export function TenantOperationsPage() {
           </div>
         </div>
       </Show>
+    </Show>
 
-      {/* Autopilot authority policies — switches, confidence sliders,
-          mode dropdowns, kill switch, Full Auto. The controls belong
-          on the Operations page where the operator is already working,
-          not hidden on a separate Health/Autopilot page. */}
-      <OperationsPanel
-        slug={params().slug}
-        summary={d()?.summary ?? null}
-        flags={d()?.flags ?? null}
-        autopilot={d()?.autopilot ?? null}
-        degraded={d()?.degraded ?? []}
-        sections={d()?.sections}
-        freshness={d()?.freshness}
-        fetchedAt={d()?.fetchedAt}
-        refresh={refresh}
-        mode="controls"
-      />
+    {/* Tab bar — static, renders immediately. Count callbacks return 0
+        while data is pending, which is the correct placeholder. */}
+    <TabBar
+      active={activeTab()}
+      onChange={switchTab}
+      tabs={[
+        { id: 'autopilot', label: 'Autopilot' },
+        { id: 'opportunities', label: 'Opportunities', count: () => opCount() },
+        { id: 'outreach', label: 'Outreach' },
+        { id: 'releases', label: 'Releases' },
+      ]}
+    />
 
-      {/* ── Opportunities tab ── */}
-      <TabPanel active={activeTab()} id="opportunities" visited={isVisited('opportunities')}>
+    {/* Tab content skeleton — shows whenever the read model is absent
+        and the tab has been visited. Each tab also has its own Suspense
+        boundary inside TabPanel for lazy-mounted children. */}
+    <Show when={!model.error && !model.data && isVisited(activeTab())}>
+      <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
+      <SkeletonSection titleWidth="200px" lines={3} minHeight="140px" />
+    </Show>
+
+    {/* ── Autopilot tab — authority policies, switches, sliders ── */}
+    <TabPanel active={activeTab()} id="autopilot" visited={isVisited('autopilot')}>
+      <Show when={d()} fallback={<SkeletonSection titleWidth="180px" lines={6} minHeight="240px" />}>
+        <OperationsPanel
+          slug={params().slug}
+          summary={d()?.summary ?? null}
+          flags={d()?.flags ?? null}
+          autopilot={d()?.autopilot ?? null}
+          degraded={d()?.degraded ?? []}
+          sections={d()?.sections}
+          freshness={d()?.freshness}
+          fetchedAt={d()?.fetchedAt}
+          refresh={refresh}
+          mode="controls"
+        />
+      </Show>
+    </TabPanel>
+
+    {/* ── Opportunities tab ── */}
+    <TabPanel active={activeTab()} id="opportunities" visited={isVisited('opportunities')}>
+      <Show when={d()} fallback={<SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />}>
         <BrainDecisionPanel
           slug={params().slug}
           opportunity={topOpportunity()}
@@ -220,27 +225,31 @@ export function TenantOperationsPage() {
           degraded={d()?.degraded.includes('opportunities') ?? false}
           refresh={refresh}
         />
-      </TabPanel>
+      </Show>
+    </TabPanel>
 
+    {/* ── Outreach tab ── */}
+    {/* These panels have their own useQuery calls, so they load
+        independently of the overview read model. The Suspense
+        boundary in TabPanel handles their initial load skeleton. */}
+    <TabPanel active={activeTab()} id="outreach" visited={isVisited('outreach')}>
+      {/* Replies are worked here, next to the pipeline that produced them.
+          They used to sit under a Growth tab that duplicated the Growth
+          page's panels wholesale. */}
+      <ReplyTriagePanel />
+      <OutreachPipelinePanel slug={params().slug} />
+      <PressRoomPanel slug={params().slug} />
+    </TabPanel>
 
-      {/* ── Outreach tab ── */}
-      <TabPanel active={activeTab()} id="outreach" visited={isVisited('outreach')}>
-        {/* Replies are worked here, next to the pipeline that produced them.
-            They used to sit under a Growth tab that duplicated the Growth
-            page's panels wholesale. */}
-        <ReplyTriagePanel />
-        <OutreachPipelinePanel slug={params().slug} />
-        <PressRoomPanel slug={params().slug} />
-      </TabPanel>
+    {/* Beacons moved to Audience in the left nav — a beacon is part of who
+        the audience is, not an operation you run. See pages/BeaconsPage.tsx. */}
 
-      {/* Beacons moved to Audience in the left nav — a beacon is part of who
-          the audience is, not an operation you run. See pages/BeaconsPage.tsx. */}
-
-      {/* ── Releases tab ── */}
-      <TabPanel active={activeTab()} id="releases" visited={isVisited('releases')}>
-        <ReleaseCampaignsPanel slug={params().slug} />
-        <PlayLedgerPanel slug={params().slug} />
-      </TabPanel>
-    </>}</Show>
+    {/* ── Releases tab ── */}
+    {/* ReleaseCampaignsPanel and PlayLedgerPanel have their own useQuery
+        calls, so they load independently of the overview read model. */}
+    <TabPanel active={activeTab()} id="releases" visited={isVisited('releases')}>
+      <ReleaseCampaignsPanel slug={params().slug} />
+      <PlayLedgerPanel slug={params().slug} />
+    </TabPanel>
   </section>
 }
