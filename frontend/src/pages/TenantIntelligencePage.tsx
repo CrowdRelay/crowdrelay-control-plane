@@ -16,6 +16,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { SkeletonBrainGroup, SkeletonSection } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
 import { SectionIcon } from '../components/SectionIcon'
+import { SectionFailureCard } from '../components/SectionFailureCard'
 
 /**
  * Intelligence subpage — tabbed view for the deterministic Rust autopilot.
@@ -55,7 +56,7 @@ export function TenantIntelligencePage() {
     </div>
 
     <Show when={model.error}>
-      <div class="error-card" role="alert">{model.error instanceof Error ? model.error.message : 'Intelligence channel unavailable'}</div>
+      <SectionFailureCard error={model.error} fallback="Intelligence channel unavailable" onRetry={() => void model.refetch()} />
     </Show>
 
     {/* Intelligence loop SVG — static, renders immediately */}

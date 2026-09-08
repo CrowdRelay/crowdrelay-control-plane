@@ -205,7 +205,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
       <Show when={trends.data && trends.data!.length > 0} fallback={
         <Show when={trends.isFetching} fallback={
           <Show when={hasLive()} fallback={<EmptyState label="No live feeds yet" hint="Trends appear once data starts flowing." />}>
-            <EmptyState label="No growth metric trends available" />
+            <EmptyState label="No growth metric trends available" hint="Trends require at least one live data feed. Connect a source (Reddit, Spotify, Meta) to start collecting metric series." />
           </Show>
         }>
           <div class="growth-metrics-grid">

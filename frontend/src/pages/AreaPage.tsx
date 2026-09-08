@@ -1,7 +1,8 @@
 import { For, Show, createEffect, createMemo, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
-import { ApiError, api } from '../lib/api'
+import { api } from '../lib/api'
+import { errorMessage } from '../lib/format'
 import type { AreaCity, AreaDropDraft, AreaStatus, AreaValidationResult } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { LocationCanvas } from '../components/area/LocationCanvas'
@@ -15,7 +16,6 @@ const formatDate = (value: string) => { const d = new Date(value); return Number
 const toLocalInput = (value: string) => { const d = new Date(value); if (Number.isNaN(d.getTime())) return ''; const offset = d.getTimezoneOffset() * 60_000; return new Date(d.getTime() - offset).toISOString().slice(0,16) }
 const fromLocalInput = (value: string, fallback: string) => { const d = new Date(value); return value && !Number.isNaN(d.getTime()) ? d.toISOString() : fallback }
 const cloneDraft = (draft: AreaDropDraft): AreaDropDraft => JSON.parse(JSON.stringify(draft)) as AreaDropDraft
-const errorText = (error: unknown) => error instanceof ApiError ? `${error.message} (HTTP ${error.status})` : error instanceof Error ? error.message : 'Unexpected error'
 const slugPrefix = (slug: string) => (slug.normalize('NFKD').replace(/[^a-zA-Z]/g,'').toLowerCase().slice(0,3) || 'are').padEnd(3,'x')
 const finiteInput = (value: string, fallback: number) => { const parsed = Number(value); return value.trim() !== '' && Number.isFinite(parsed) ? parsed : fallback }
 const nullableInput = (value: string, fallback: number | null) => value.trim() === '' ? null : finiteInput(value, fallback ?? 0)
@@ -150,10 +150,10 @@ export function AreaPage() {
     </div>
 
     <Show when={flash()}><div class="notice-card">{flash()}</div></Show>
-    <Show when={mutationError()}><div class="error-card">{errorText(mutationError())}</div></Show>
+    <Show when={mutationError()}><div class="error-card" role="alert">{errorMessage(mutationError(), 'AREA operation failed')}</div></Show>
 
     <Show when={overview.data} fallback={
-      <Show when={overview.isPending} fallback={<div class="error-card">AREA management is unavailable. This is not an empty game state. <button class="ghost" onClick={()=>overview.refetch()}>Retry</button></div>}>
+      <Show when={overview.isPending} fallback={<div class="error-card" role="alert">{errorMessage(overview.error, 'AREA management is unavailable. This is not an empty game state.')} <button class="ghost" onClick={()=>overview.refetch()}>Retry</button></div>}>
         <SkeletonRows count={4} />
       </Show>
     }>{o => <>

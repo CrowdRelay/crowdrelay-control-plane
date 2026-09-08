@@ -85,7 +85,7 @@ export function TenantOperationsPage() {
     </div>
 
     <Show when={model.error}>
-      <SectionFailureCard error={model.error} fallback="Tenant operations channel unavailable" />
+      <SectionFailureCard error={model.error} fallback="Tenant operations channel unavailable" onRetry={() => void refresh()} />
     </Show>
 
     {/* KPI strip skeleton — shown whenever the read model is absent.

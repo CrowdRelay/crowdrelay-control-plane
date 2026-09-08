@@ -4,7 +4,7 @@ import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
 import { fetchOperationsAttention } from '../lib/attention'
-import { formatTimestamp as observed } from '../lib/format'
+import { errorMessage, formatTimestamp as observed } from '../lib/format'
 import type { DeliveryDetails, OperationsSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
@@ -275,7 +275,7 @@ export function TenantAttentionPage() {
     </Show>
 
     <Show when={summary.error}>
-      <div class="error-card" role="alert">{summary.error instanceof Error ? summary.error.message : 'Operations attention snapshot unavailable'}</div>
+      <div class="error-card" role="alert">{errorMessage(summary.error, 'Operations attention snapshot unavailable')}</div>
     </Show>
 
     <Show when={!summary.error && !summary.data}>
@@ -335,7 +335,7 @@ export function TenantAttentionPage() {
     <div class="section-title" id="dead-outbox">
       <div><span class="eyebrow">DEAD OUTBOX</span><h3><SectionIcon name="alert-triangle" />Failed events</h3><p>Retry is idempotent.</p></div>
     </div>
-    <Show when={deadOutbox.error}><div class="error-card">Dead outbox unavailable</div></Show>
+    <Show when={deadOutbox.error}><div class="error-card" role="alert">{errorMessage(deadOutbox.error, 'Dead outbox unavailable')}</div></Show>
     <For each={expandOutbox() ? (deadOutbox.data ?? []) : (deadOutbox.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
       <div class="dead-event-head">
         <div class="dead-event-info">
@@ -365,7 +365,7 @@ export function TenantAttentionPage() {
       <div><span class="eyebrow">DEAD WEBHOOK DELIVERIES</span><h3><SectionIcon name="alert-triangle" />Delivery failures</h3><p>Inspect attempt history before retrying.</p></div>
       <button type="button" class={confirming() ? 'danger-ghost' : 'ghost'} disabled={(summary.data?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' && <Spinner />} {busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</button>
     </div>
-    <Show when={deadDeliveries.error}><div class="error-card">Dead deliveries unavailable</div></Show>
+    <Show when={deadDeliveries.error}><div class="error-card" role="alert">{errorMessage(deadDeliveries.error, 'Dead deliveries unavailable')}</div></Show>
     <For each={expandDeliveries() ? (deadDeliveries.data ?? []) : (deadDeliveries.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
       <div class="dead-event-head">
         <div class="dead-event-info">
@@ -402,7 +402,7 @@ export function TenantAttentionPage() {
       <div><span class="eyebrow">DEAD PUSH</span><h3><SectionIcon name="alert-triangle" />Failed push deliveries</h3><p>{pushFailureSummary()}</p></div>
       <StatusBadge status={(summary.data?.push.dead ?? 0) > 0 ? 'dead' : 'clean'} tone={(summary.data?.push.dead ?? 0) > 0 ? 'bad' : 'good'} />
     </div>
-    <Show when={deadPush.error}><div class="error-card">Dead push unavailable</div></Show>
+    <Show when={deadPush.error}><div class="error-card" role="alert">{errorMessage(deadPush.error, 'Dead push unavailable')}</div></Show>
     <For each={expandPush() ? (deadPush.data ?? []) : (deadPush.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
       <div class="dead-event-head">
         <div class="dead-event-info">

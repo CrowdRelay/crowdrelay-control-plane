@@ -31,7 +31,7 @@ const stateTone = (state: string): 'bad' | 'warn' | 'muted' => {
   return 'bad'
 }
 
-export function SectionFailureCard(props: { error: unknown; fallback: string }) {
+export function SectionFailureCard(props: { error: unknown; fallback: string; onRetry?: () => void }) {
   const error = () => props.error
   const isAllSectionsFailed = () =>
     error() instanceof ApiError && (error() as ApiError).code === 'all_sections_failed'
@@ -54,7 +54,10 @@ export function SectionFailureCard(props: { error: unknown; fallback: string }) 
   // old `<div class="error-card">{error.message}</div>` pattern.
   return <Show when={error()}>
     <Show when={isAllSectionsFailed()} fallback={
-      <div class="error-card" role="alert">{errorHeading(error(), props.fallback)}</div>
+      <div class="error-card" role="alert">
+        {errorHeading(error(), props.fallback)}
+        <Show when={props.onRetry}><button class="ghost error-retry" onClick={() => props.onRetry!()}>Retry</button></Show>
+      </div>
     }>
       <div class="error-card section-failure-card" role="alert">
         <strong>{errorHeading(error(), props.fallback)}</strong>
@@ -74,6 +77,7 @@ export function SectionFailureCard(props: { error: unknown; fallback: string }) 
             )}
           </For>
         </ul>
+        <Show when={props.onRetry}><button class="ghost error-retry" onClick={() => props.onRetry!()}>Retry</button></Show>
       </div>
     </Show>
   </Show>

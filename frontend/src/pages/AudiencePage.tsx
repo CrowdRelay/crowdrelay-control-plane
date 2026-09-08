@@ -62,7 +62,7 @@ export function AudiencePage() {
     {/* ── Fans tab — KPIs, fan list, segments ── */}
     <TabPanel active={activeTab()} id="fans" visited={isVisited('fans')}>
       <Show when={model.error}>
-        <SectionFailureCard error={model.error} fallback="Audience channel unavailable" />
+        <SectionFailureCard error={model.error} fallback="Audience channel unavailable" onRetry={() => void refresh()} />
       </Show>
       {/* Per-panel skeletons — page head and tab bar are static and already
           rendered above. Only the panel area is skeletoned. Shows whenever

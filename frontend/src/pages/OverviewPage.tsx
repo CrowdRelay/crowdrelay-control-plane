@@ -2,6 +2,7 @@ import { For, Match, Show, Switch, createMemo } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
+import { errorMessage } from '../lib/format'
 import { authState } from '../lib/auth'
 import type { CommandCenterReadModel, CommandCenterTenantSummary, PlatformHealthEntry, RuntimeHealth, TenantSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
@@ -71,7 +72,7 @@ export function OverviewPage() {
     {/* ── Command blocks ─────────────────────────────────────────── */}
     <Switch>
       <Match when={commandCenter.isError}>
-        <div class="error-card">{commandCenter.error?.message}</div>
+        <div class="error-card" role="alert">{errorMessage(commandCenter.error, 'Command center unavailable')}</div>
       </Match>
       <Match when={!cc()}>
         <div class="command-center-grid">
@@ -214,7 +215,7 @@ export function OverviewPage() {
     {/* ── KPI strip (fleet summary) ──────────────────────────────── */}
     <Switch>
       <Match when={!tenants.data && !tenants.isError}><div class="skeleton-grid"><div/><div/><div/><div/></div></Match>
-      <Match when={tenants.isError}><div class="error-card">{tenants.error?.message}</div></Match>
+      <Match when={tenants.isError}><div class="error-card" role="alert">{errorMessage(tenants.error, 'Tenant registry unavailable')}</div></Match>
       <Match when={tenants.data}>
         <div class="kpi-strip">
           <article class="kpi-card">

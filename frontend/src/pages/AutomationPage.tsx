@@ -1,6 +1,7 @@
 import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { errorMessage } from '../lib/format'
 import { toast } from '../lib/toast'
 import type { AutomationEvent, AutomationWorkflowConfig } from '../lib/types'
 import { EmptyState } from '../components/EmptyState'
@@ -101,7 +102,7 @@ export function AutomationPage() {
 
     <Show when={showConfigs()}>
       <div class="section-title"><div><span class="eyebrow">AUTOMATION</span><h2><SectionIcon name="workflow" />Workflow routing</h2><p>One row per n8n workflow, deciding what its events do when they arrive. <strong>Category</strong> sorts the event — only <em>real work</em> is worth waking someone for. <strong>Discord</strong> forwards it to the crew channel. <strong>Muted</strong> keeps the events recorded but stops them counting as new. Changes save as you make them.</p></div></div>
-      <Show when={configs.error}><div class="error-card">{configs.error?.message}</div></Show>
+      <Show when={configs.error}><div class="error-card" role="alert">{errorMessage(configs.error, 'Automation routing could not be loaded')}</div></Show>
       <Show when={configs.data} fallback={!configs.error ? <SkeletonRows count={3} /> : null}>
         <div class="automation-config-list">
           <For each={configs.data!.items}>{(cfg: AutomationWorkflowConfig) => (
@@ -180,7 +181,7 @@ export function AutomationPage() {
         </div>
       </div>
 
-      <Show when={events.error}><div class="error-card">{events.error?.message}</div></Show>
+      <Show when={events.error}><div class="error-card" role="alert">{errorMessage(events.error, 'Automation events could not be loaded')}</div></Show>
       <Show when={events.data} fallback={!events.error ? <SkeletonRows count={5} /> : null}>
         <div class="automation-event-list">
           <For each={events.data!.items}>{(ev: AutomationEvent) => {

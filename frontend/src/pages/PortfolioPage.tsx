@@ -62,7 +62,7 @@ export function PortfolioPage() {
         cookies) mount immediately and fetch in parallel, so a slow main
         query or a failing agent service never delays them. */}
     <Show when={model.error}>
-      <SectionFailureCard error={model.error} fallback="Portfolio channel unavailable" />
+      <SectionFailureCard error={model.error} fallback="Portfolio channel unavailable" onRetry={() => void refresh()} />
     </Show>
     <Show when={!model.error && !model.data}>
       <SkeletonPortfolio />

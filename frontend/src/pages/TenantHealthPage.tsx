@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { ChiefOfStaffPanel } from '../components/ChiefOfStaffPanel'
 import { QueueInspectorPanel } from '../components/QueueInspectorPanel'
 import { SystemHealthPanel } from '../components/SystemHealthPanel'
+import { OperationsPanel } from '../components/OperationsPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { StatusBadge } from '../components/StatusBadge'
 import { SectionFailureCard } from '../components/SectionFailureCard'
@@ -44,7 +45,7 @@ export function TenantHealthPage() {
       <div>
         <span class="eyebrow">SYSTEM</span>
         <h1>Autopilot</h1>
-        <p>System health, chief of staff summary, and delivery queue inspector.</p>
+        <p>Authority policies, system health, chief of staff summary, and delivery queue inspector.</p>
       </div>
       <Show when={model.data}>
         <div class="page-head-status">
@@ -54,12 +55,13 @@ export function TenantHealthPage() {
     </div>
 
     <Show when={model.error}>
-      <SectionFailureCard error={model.error} fallback="Tenant operations channel unavailable" />
+      <SectionFailureCard error={model.error} fallback="Tenant operations channel unavailable" onRetry={() => void refresh()} />
     </Show>
 
     <Show when={!model.error && !model.data}>
       <SkeletonSection titleWidth="180px" lines={4} minHeight="200px" />
       <SkeletonSection titleWidth="160px" lines={3} minHeight="160px" />
+      <SkeletonSection titleWidth="200px" lines={4} minHeight="180px" />
     </Show>
 
     <Show when={model.data}>
@@ -69,6 +71,22 @@ export function TenantHealthPage() {
         slug={params().slug}
         summary={d()?.summary ?? undefined}
         onChanged={refresh}
+      />
+      {/* The autopilot controls — authority policies, confidence sliders,
+          mode dropdowns, kill switch, Full Auto. These were hidden because
+          OperationsPanel was only rendered in mode="health" on the Settings
+          page, which suppresses the controls section. */}
+      <OperationsPanel
+        slug={params().slug}
+        summary={d()?.summary ?? null}
+        flags={d()?.flags ?? null}
+        autopilot={d()?.autopilot ?? null}
+        degraded={d()?.degraded ?? []}
+        sections={d()?.sections}
+        freshness={d()?.freshness}
+        fetchedAt={d()?.fetchedAt}
+        refresh={refresh}
+        mode="controls"
       />
       {/* The autopilot's own account of the last day, which the API has
           served all along and no screen rendered. */}

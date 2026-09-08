@@ -1,9 +1,15 @@
 import { Show, createMemo, For, type JSX } from 'solid-js'
+import { useQueryClient } from '@tanstack/solid-query'
 import { REFRESH_INTERVALS, refreshInterval, setRefreshInterval, triggerRefresh } from '../lib/refresh'
 
 // Grafana-style refresh control: an interval dropdown + a manual refresh button.
 // Sits in the topbar so every page inherits it. The interval drives
 // `refetchInterval` on all queries via the `refreshInterval()` signal.
+//
+// The spinner reflects real query fetching state from the QueryClient, so the
+// operator sees when data is actually being loaded — not just when a button
+// was clicked. The `loading` prop is kept as an override for pages that want
+// to force the spinner for non-query work (e.g. a mutation in flight).
 
 const relativeTime = (timestamp: number | undefined): string => {
   if (!timestamp) return '—'
@@ -20,11 +26,17 @@ export function RefreshControl(props: {
   updatedAt?: number
   loading?: boolean
 }): JSX.Element {
+  const queryClient = useQueryClient()
   const currentLabel = createMemo(() => {
     const ms = refreshInterval()
     const found = REFRESH_INTERVALS.find(r => r.ms === ms)
     return found?.label ?? 'Off'
   })
+  // Show the spinner when any query is fetching, or when the page explicitly
+  // passes loading=true (e.g. for a mutation). This gives the operator real
+  // feedback that data is being loaded, not just that a button was pressed.
+  const isFetching = () => queryClient.isFetching() > 0
+  const loading = () => props.loading || isFetching()
 
   return <div class="refresh-control grafana-refresh">
     <Show when={props.updatedAt != null}>
@@ -46,11 +58,11 @@ export function RefreshControl(props: {
       type="button"
       class="ghost refresh-btn"
       onClick={() => triggerRefresh()}
-      disabled={props.loading}
+      disabled={loading()}
       title="Refresh now"
       aria-label="Refresh"
     >
-      <Show when={!props.loading} fallback={
+      <Show when={!loading()} fallback={
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="spin" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
       }>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
