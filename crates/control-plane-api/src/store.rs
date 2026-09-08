@@ -685,13 +685,14 @@ impl Store {
         &self,
         slug: &str,
         desired_version: Option<String>,
+        provider_keys: Option<&serde_json::Value>,
         actor: &str,
         request_id: Option<&str>,
     ) -> Result<(ProvisioningJobRow, bool), ApiError> {
         let tenant = self.tenant_by_slug(slug).await?;
         let job_id = Uuid::new_v4();
         let project = format!("crowdrelay-{}", tenant.tenant.slug);
-        let plan = json!({
+        let mut plan = json!({
             "schema": 2,
             "mode": "workspace_isolated_deployment",
             "composeProject": project,
@@ -703,6 +704,19 @@ impl Store {
             "synesthesiaEnabled": tenant.tenant.synesthesia_enabled,
             "execution": "requires explicit deploy approval and the narrow provisioner agent"
         });
+        if let Some(keys) = provider_keys {
+            if let Some(obj) = keys.as_object() {
+                // Only include non-empty string values — don't write empty keys to tenant.env
+                let filtered: serde_json::Map<String, serde_json::Value> = obj
+                    .iter()
+                    .filter(|(_, v)| v.as_str().is_some_and(|s| !s.is_empty()))
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
+                if !filtered.is_empty() {
+                    plan["providerKeys"] = Value::Object(filtered);
+                }
+            }
+        }
         let mut tx = self.pool.begin().await?;
         let inserted = sqlx::query_as::<_, ProvisioningJobRow>(
             r#"INSERT INTO control_plane_provisioning_jobs
@@ -788,6 +802,7 @@ impl Store {
             desired_version,
             api_image: api_image.to_owned(),
             worker_image: worker_image.to_owned(),
+            provider_keys: None,
         };
         let job_id = Uuid::new_v4();
         let plan = deployment_plan(&tenant.tenant, &deployment)?;
@@ -2462,7 +2477,7 @@ fn deployment_plan(
             )
         })?)
         .map_err(|_| ApiError::Conflict("stored regionalProfile is invalid".to_owned()))?;
-    Ok(json!({
+    let mut plan = json!({
         "schema": 4,
         "mode": "local_docker_compose",
         "composeProject": format!("crowdrelay-{}", tenant.slug),
@@ -2486,7 +2501,22 @@ fn deployment_plan(
             "dockerCapability": "provisioner-only",
             "browserReceivesSecrets": false
         }
-    }))
+    });
+    // Include provider API keys in the plan if provided.
+    // The provisioner writes them to tenant.env.
+    if let Some(keys) = &deployment.provider_keys {
+        if let Some(obj) = keys.as_object() {
+            let filtered: serde_json::Map<String, serde_json::Value> = obj
+                .iter()
+                .filter(|(_, v)| v.as_str().is_some_and(|s| !s.is_empty()))
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            if !filtered.is_empty() {
+                plan["providerKeys"] = Value::Object(filtered);
+            }
+        }
+    }
+    Ok(plan)
 }
 
 struct ProvisioningClaimState {

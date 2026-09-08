@@ -325,6 +325,7 @@ async fn create_tenant(
             )?,
             api_image: state.provisioner_api_image.to_string(),
             worker_image: state.provisioner_worker_image.to_string(),
+            provider_keys: input.provider_keys.take(),
         })
     } else {
         input.desired_version = None;
@@ -869,6 +870,7 @@ async fn plan_provisioning(
         .plan_provisioning(
             &tenant.tenant.slug,
             Some(desired_version),
+            input.provider_keys.as_ref(),
             &actor,
             request_id(&headers),
         )

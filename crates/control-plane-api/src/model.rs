@@ -296,6 +296,11 @@ pub struct CreateTenantRequest {
     /// Google Play Store URL for this tenant's Synesthesia app. NULL until published.
     #[serde(default)]
     pub synesthesia_play_store_url: Option<String>,
+    /// Optional provider API keys (Bandsintown, YouTube, Spotify, etc.)
+    /// written to tenant.env by the provisioner. Only included in the
+    /// provisioning plan when deployCrowdrelay=true.
+    #[serde(default)]
+    pub provider_keys: Option<serde_json::Value>,
 }
 
 const fn default_true() -> bool {
@@ -322,6 +327,8 @@ pub struct TenantDeploymentSpec {
     pub desired_version: String,
     pub api_image: String,
     pub worker_image: String,
+    /// Optional provider API keys to write to tenant.env.
+    pub provider_keys: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -347,6 +354,9 @@ pub struct UpdateMobileAppsRequest {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PlanProvisioningRequest {
     pub desired_version: Option<String>,
+    /// Optional provider API keys (Bandsintown, YouTube, Spotify, etc.)
+    /// written to tenant.env by the provisioner.
+    pub provider_keys: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, FromRow)]

@@ -97,6 +97,30 @@ export function TenantWizardPage() {
   // Step 4: Fanbase sources
   const [selectedSources, setSelectedSources] = createSignal<FanbaseSource[]>([])
 
+  // Step 5: Provider API keys (optional, collapsible)
+  const [bandsintownKey, setBandsintownKey] = createSignal('')
+  const [youtubeKey, setYoutubeKey] = createSignal('')
+  const [spotifyClientId, setSpotifyClientId] = createSignal('')
+  const [spotifyClientSecret, setSpotifyClientSecret] = createSignal('')
+  const [facebookPageToken, setFacebookPageToken] = createSignal('')
+  const [tiktokClientKey, setTiktokClientKey] = createSignal('')
+  const [tiktokClientSecret, setTiktokClientSecret] = createSignal('')
+  const [lastfmKey, setLastfmKey] = createSignal('')
+  const [showProviderKeys, setShowProviderKeys] = createSignal(false)
+
+  const providerKeys = createMemo(() => {
+    const keys: Record<string, string> = {}
+    if (bandsintownKey().trim()) keys.bandsintown = bandsintownKey().trim()
+    if (youtubeKey().trim()) keys.youtube = youtubeKey().trim()
+    if (spotifyClientId().trim()) keys.spotifyClientId = spotifyClientId().trim()
+    if (spotifyClientSecret().trim()) keys.spotifyClientSecret = spotifyClientSecret().trim()
+    if (facebookPageToken().trim()) keys.facebookPageToken = facebookPageToken().trim()
+    if (tiktokClientKey().trim()) keys.tiktokClientKey = tiktokClientKey().trim()
+    if (tiktokClientSecret().trim()) keys.tiktokClientSecret = tiktokClientSecret().trim()
+    if (lastfmKey().trim()) keys.lastfm = lastfmKey().trim()
+    return Object.keys(keys).length > 0 ? keys : undefined
+  })
+
   const applyPreset = (preset: Preset) => setProfile({ ...presets[preset] })
   const setRegional = <K extends keyof RegionalProfile>(key: K, value: RegionalProfile[K]) =>
     setProfile(current => ({ ...current, [key]: value }))
@@ -175,6 +199,7 @@ export function TenantWizardPage() {
       fanbaseSources: selectedSources(),
       signalPlayStoreUrl: signalPlayStoreUrl().trim() || undefined,
       synesthesiaPlayStoreUrl: synesthesiaPlayStoreUrl().trim() || undefined,
+      providerKeys: providerKeys(),
     }),
     onSuccess: async () => {
       await Promise.all([
@@ -377,6 +402,24 @@ export function TenantWizardPage() {
             </Show>
             <label>Release SHA <small>optional if server default is configured</small><input value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={overview.data?.provisionerDefaultImageTag ?? 'sha-<40-char CrowdRelay commit>'} /></label>
           </div>
+
+          {/* Optional provider API keys — collapsible, only shown when deploying */}
+          <button class="ghost provider-keys-toggle" onClick={() => setShowProviderKeys(!showProviderKeys())}>
+            {showProviderKeys() ? '▾' : '▸'} Optional: Provider API keys
+          </button>
+          <Show when={showProviderKeys()}>
+            <div class="form-grid provider-keys-section">
+              <label>Bandsintown API key<input value={bandsintownKey()} onInput={(e) => setBandsintownKey(e.currentTarget.value)} placeholder="Optional" /></label>
+              <label>YouTube API key<input value={youtubeKey()} onInput={(e) => setYoutubeKey(e.currentTarget.value)} placeholder="Optional" /></label>
+              <label>Spotify client ID<input value={spotifyClientId()} onInput={(e) => setSpotifyClientId(e.currentTarget.value)} placeholder="Optional" /></label>
+              <label>Spotify client secret<input value={spotifyClientSecret()} onInput={(e) => setSpotifyClientSecret(e.currentTarget.value)} placeholder="Optional" type="password" /></label>
+              <label>Facebook page token<input value={facebookPageToken()} onInput={(e) => setFacebookPageToken(e.currentTarget.value)} placeholder="Optional" type="password" /></label>
+              <label>TikTok client key<input value={tiktokClientKey()} onInput={(e) => setTiktokClientKey(e.currentTarget.value)} placeholder="Optional" /></label>
+              <label>TikTok client secret<input value={tiktokClientSecret()} onInput={(e) => setTiktokClientSecret(e.currentTarget.value)} placeholder="Optional" type="password" /></label>
+              <label>Last.fm API key<input value={lastfmKey()} onInput={(e) => setLastfmKey(e.currentTarget.value)} placeholder="Optional" /></label>
+            </div>
+          </Show>
+
           <label class="check-row"><input type="checkbox" checked={deployNow()} onChange={(e) => setDeployNow(e.currentTarget.checked)} /><span><strong>Deploy isolated CrowdRelay instance now</strong><small>Only an agent for the selected data region may claim this schema-v4 job.</small></span></label>
         </Show>
 

@@ -86,6 +86,7 @@ type CreateTenantInput = {
   fanbaseSources?: string[]
   signalPlayStoreUrl?: string
   synesthesiaPlayStoreUrl?: string
+  providerKeys?: Record<string, string>
 }
 
 export const api = {
