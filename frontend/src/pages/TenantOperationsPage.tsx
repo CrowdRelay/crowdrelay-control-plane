@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { KpiCard } from '../components/primitives'
+import { OperationsPanel } from '../components/OperationsPanel'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { BrainDecisionPanel } from '../components/BrainDecisionPanel'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
@@ -186,6 +187,23 @@ export function TenantOperationsPage() {
           </div>
         </div>
       </Show>
+
+      {/* Autopilot authority policies — switches, confidence sliders,
+          mode dropdowns, kill switch, Full Auto. The controls belong
+          on the Operations page where the operator is already working,
+          not hidden on a separate Health/Autopilot page. */}
+      <OperationsPanel
+        slug={params().slug}
+        summary={d()?.summary ?? null}
+        flags={d()?.flags ?? null}
+        autopilot={d()?.autopilot ?? null}
+        degraded={d()?.degraded ?? []}
+        sections={d()?.sections}
+        freshness={d()?.freshness}
+        fetchedAt={d()?.fetchedAt}
+        refresh={refresh}
+        mode="controls"
+      />
 
       {/* ── Opportunities tab ── */}
       <TabPanel active={activeTab()} id="opportunities" visited={isVisited('opportunities')}>
