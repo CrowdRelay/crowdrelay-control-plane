@@ -142,6 +142,25 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
+/* === Circuit-energize hero reveal ===
+   The text is always present (no layout shift). A clip-path wipe reveals it
+   left-to-right in 200ms, like a circuit energizing. A subtle opacity lift
+   accompanies the wipe — the text "powers up" as it's uncovered. This is
+   mechanical and deliberate, the opposite of a typewriter/streaming effect,
+   which carries AI-chatbot baggage that contradicts the deterministic-brain
+   positioning. The lead paragraph follows 80ms behind so the two feel
+   sequential but still finish in under 300ms total. */
+@keyframes hero-energize {
+  from {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0.35;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
 /* === Feature card glow on hover === */
 .hero-features li {
   position: relative;
@@ -210,7 +229,8 @@ body {
 /* === Reduced motion === */
 @media (prefers-reduced-motion: reduce) {
   .hero-orb, .hero-aurora::before,
-  .flow-brain-glow, .flow-learning {
+  .flow-brain-glow, .flow-learning,
+  .login-hero h2, .hero-lead {
     animation: none !important;
   }
 }
@@ -252,10 +272,9 @@ body {
   scrollbar-color: var(--login-line) transparent;
 }
 
-/* Lead paragraph — no clamping, let it wrap naturally */
-.hero-lead {
-  overflow: hidden;
-}
+/* Lead paragraph — no clamping, let it wrap naturally.
+   overflow: hidden removed — it would clip the circuit-energize reveal.
+   The clip-path animation handles its own masking. */
 
 /* Subtle animated grid background */
 .login-hero::before {
@@ -473,6 +492,7 @@ body {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+  animation: hero-energize 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .hero-lead {
@@ -481,6 +501,7 @@ body {
   color: #aeb3c0;
   line-height: 1.45;
   font-size: 1.155rem;
+  animation: hero-energize 200ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
 }
 
 /* Brain callout — the heart and brain of the system */
