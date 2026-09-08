@@ -649,9 +649,9 @@ export const api = {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
       body: JSON.stringify({
-        beacon_ids: beaconIds,
-        ...(options?.ttlDays ? { ttl_days: options.ttlDays } : {}),
-        ...(options?.radiusKm ? { radius_km: options.radiusKm } : {}),
+        beaconIds: beaconIds,
+        ...(options?.ttlDays ? { ttlDays: options.ttlDays } : {}),
+        ...(options?.radiusKm ? { radiusKm: options.radiusKm } : {}),
         ...(options?.locale ? { locale: options.locale } : {}),
       }),
     }),
