@@ -35,33 +35,21 @@ export function PressRoomPanel(props: { slug: string }) {
   const [showAllEngagements, setShowAllEngagements] = createSignal(false)
   const [showAllCoverage, setShowAllCoverage] = createSignal(false)
   const MAX_VISIBLE = 10
-  const requests = useQuery(() => ({
-    queryKey: ['press-requests', props.slug],
-    queryFn: () => api.beaconPressRequests(props.slug),
+
+  // One consolidated read model replaces four separate proxy round-trips.
+  // The backend fans out to the four beacon endpoints concurrently and
+  // projects them with per-section degradation metadata.
+  const model = useQuery(() => ({
+    queryKey: ['press-overview', props.slug],
+    queryFn: () => api.pressOverview(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
 
-  const assets = useQuery(() => ({
-    queryKey: ['press-assets', props.slug],
-    queryFn: () => api.beaconPressAssets(props.slug),
-    refetchOnWindowFocus: false,
-    staleTime: 10_000,
-  }))
-
-  const engagements = useQuery(() => ({
-    queryKey: ['press-engagements', props.slug],
-    queryFn: () => api.beaconSignalEngagements(props.slug),
-    refetchOnWindowFocus: false,
-    staleTime: 10_000,
-  }))
-
-  const coverage = useQuery(() => ({
-    queryKey: ['press-coverage', props.slug],
-    queryFn: () => api.beaconCoverage(props.slug),
-    refetchOnWindowFocus: false,
-    staleTime: 10_000,
-  }))
+  const requests = () => model.data?.requests?.requests ?? []
+  const assets = () => model.data?.assets?.assets ?? []
+  const engagements = () => model.data?.engagements?.engagements ?? []
+  const coverage = () => model.data?.coverage?.coverage ?? []
 
   const recordReply = async (beaconId: string, eventId: string, disposition: string) => {
     setReplying(`${beaconId}:${eventId}`)
@@ -73,7 +61,7 @@ export function PressRoomPanel(props: { slug: string }) {
         occurredAt: new Date().toISOString(),
       })
       // A recorded reply changes the engagement and the coverage it rolls up into.
-      refreshQueries(['press-engagements', props.slug], ['press-coverage', props.slug])
+      refreshQueries(['press-overview', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to record the reply'))
     } finally {
@@ -86,7 +74,7 @@ export function PressRoomPanel(props: { slug: string }) {
     setError(null)
     try {
       await api.resolveBeaconPressRequest(props.slug, requestId, { status: 'resolved' })
-      refreshQueries(['press-requests', props.slug])
+      refreshQueries(['press-overview', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to resolve press request'))
     } finally {
@@ -99,16 +87,16 @@ export function PressRoomPanel(props: { slug: string }) {
       <h3>Press room</h3>
       <div class="tab-group">
         <button classList={{ tab: true, active: tab() === 'requests' }} onClick={() => setTab('requests')}>
-          Requests ({requests.data?.requests.length ?? 0})
+          Requests ({requests().length})
         </button>
         <button classList={{ tab: true, active: tab() === 'assets' }} onClick={() => setTab('assets')}>
-          Assets ({assets.data?.assets.length ?? 0})
+          Assets ({assets().length})
         </button>
         <button classList={{ tab: true, active: tab() === 'engagements' }} onClick={() => setTab('engagements')}>
-          Engagements ({engagements.data?.engagements.length ?? 0})
+          Engagements ({engagements().length})
         </button>
         <button classList={{ tab: true, active: tab() === 'coverage' }} onClick={() => setTab('coverage')}>
-          Coverage ({coverage.data?.coverage.length ?? 0})
+          Coverage ({coverage().length})
         </button>
       </div>
     </div>
@@ -119,9 +107,9 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'requests'}>
-      <Show when={requests.error}><div class="error-card">Press requests unavailable: {errorMessage(requests.error, 'Service unreachable')}</div></Show>
-      <Show when={requests.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
-        <Show when={requests.data!.requests.length > 0} fallback={<EmptyState label="No press requests" hint="Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches." />}>
+      <Show when={model.error}><div class="error-card">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
+      <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
+        <Show when={requests().length > 0} fallback={<EmptyState label="No press requests" hint="Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -135,7 +123,7 @@ export function PressRoomPanel(props: { slug: string }) {
                 </tr>
               </thead>
               <tbody>
-                <For each={showAllRequests() ? requests.data!.requests : requests.data!.requests.slice(0, MAX_VISIBLE)}>{(r) => (
+                <For each={showAllRequests() ? requests() : requests().slice(0, MAX_VISIBLE)}>{(r) => (
                   <tr>
                     <td><strong>{r.displayName}</strong><br /><span class="muted">{r.beaconKind}</span></td>
                     <td>{r.requestKind}</td>
@@ -156,9 +144,9 @@ export function PressRoomPanel(props: { slug: string }) {
               </tbody>
             </table>
           </div>
-          <Show when={requests.data!.requests.length > MAX_VISIBLE}>
+          <Show when={requests().length > MAX_VISIBLE}>
             <button class="ghost" onClick={() => setShowAllRequests(s => !s)}>
-              {showAllRequests() ? 'Show less' : `Show all (${requests.data!.requests.length})`}
+              {showAllRequests() ? 'Show less' : `Show all (${requests().length})`}
             </button>
           </Show>
         </Show>
@@ -166,9 +154,9 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'assets'}>
-      <Show when={assets.error}><div class="error-card">Press assets unavailable: {errorMessage(assets.error, 'Service unreachable')}</div></Show>
-      <Show when={assets.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
-        <Show when={assets.data!.assets.length > 0} fallback={<EmptyState label="No press assets" hint="Press assets are media materials (photos, bios, EPKs) available for outreach. Upload them through the tenant content pipeline." />}>
+      <Show when={model.error}><div class="error-card">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
+      <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
+        <Show when={assets().length > 0} fallback={<EmptyState label="No press assets" hint="Press assets are media materials (photos, bios, EPKs) available for outreach. Upload them through the tenant content pipeline." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -182,7 +170,7 @@ export function PressRoomPanel(props: { slug: string }) {
                 </tr>
               </thead>
               <tbody>
-                <For each={showAllAssets() ? assets.data!.assets : assets.data!.assets.slice(0, MAX_VISIBLE)}>{(a) => (
+                <For each={showAllAssets() ? assets() : assets().slice(0, MAX_VISIBLE)}>{(a) => (
                   <tr>
                     <td><strong>{a.labelEn}</strong><br /><span class="muted">{a.labelPl}</span></td>
                     <td>{a.assetKind}</td>
@@ -195,9 +183,9 @@ export function PressRoomPanel(props: { slug: string }) {
               </tbody>
             </table>
           </div>
-          <Show when={assets.data!.assets.length > MAX_VISIBLE}>
+          <Show when={assets().length > MAX_VISIBLE}>
             <button class="ghost" onClick={() => setShowAllAssets(s => !s)}>
-              {showAllAssets() ? 'Show less' : `Show all (${assets.data!.assets.length})`}
+              {showAllAssets() ? 'Show less' : `Show all (${assets().length})`}
             </button>
           </Show>
         </Show>
@@ -205,9 +193,9 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'engagements'}>
-      <Show when={engagements.error}><div class="error-card">Press engagements unavailable: {errorMessage(engagements.error, 'Service unreachable')}</div></Show>
-      <Show when={engagements.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
-        <Show when={engagements.data!.engagements.length > 0} fallback={<EmptyState label="No event engagements" hint="Event engagements track press interactions for specific shows and releases." />}>
+      <Show when={model.error}><div class="error-card">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
+      <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
+        <Show when={engagements().length > 0} fallback={<EmptyState label="No event engagements" hint="Event engagements track press interactions for specific shows and releases." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -223,7 +211,7 @@ export function PressRoomPanel(props: { slug: string }) {
                 </tr>
               </thead>
               <tbody>
-                <For each={showAllEngagements() ? engagements.data!.engagements : engagements.data!.engagements.slice(0, MAX_VISIBLE)}>{(e) => (
+                <For each={showAllEngagements() ? engagements() : engagements().slice(0, MAX_VISIBLE)}>{(e) => (
                   <tr>
                     <td><strong>{e.displayName}</strong><br /><span class="muted">{e.beaconKind}</span></td>
                     <td>{e.eventTitle}</td>
@@ -260,9 +248,9 @@ export function PressRoomPanel(props: { slug: string }) {
               </tbody>
             </table>
           </div>
-          <Show when={engagements.data!.engagements.length > MAX_VISIBLE}>
+          <Show when={engagements().length > MAX_VISIBLE}>
             <button class="ghost" onClick={() => setShowAllEngagements(s => !s)}>
-              {showAllEngagements() ? 'Show less' : `Show all (${engagements.data!.engagements.length})`}
+              {showAllEngagements() ? 'Show less' : `Show all (${engagements().length})`}
             </button>
           </Show>
         </Show>
@@ -270,9 +258,9 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'coverage'}>
-      <Show when={coverage.error}><div class="error-card">Press coverage unavailable: {errorMessage(coverage.error, 'Service unreachable')}</div></Show>
-      <Show when={coverage.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
-        <Show when={coverage.data!.coverage.length > 0} fallback={<EmptyState label="No earned media coverage" hint="Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage." />}>
+      <Show when={model.error}><div class="error-card">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
+      <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
+        <Show when={coverage().length > 0} fallback={<EmptyState label="No earned media coverage" hint="Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage." />}>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -286,7 +274,7 @@ export function PressRoomPanel(props: { slug: string }) {
                 </tr>
               </thead>
               <tbody>
-                <For each={showAllCoverage() ? coverage.data!.coverage : coverage.data!.coverage.slice(0, MAX_VISIBLE)}>{(c) => (
+                <For each={showAllCoverage() ? coverage() : coverage().slice(0, MAX_VISIBLE)}>{(c) => (
                   <tr>
                     <td><strong>{c.displayName}</strong></td>
                     <td>{c.eventTitle}</td>
@@ -299,9 +287,9 @@ export function PressRoomPanel(props: { slug: string }) {
               </tbody>
             </table>
           </div>
-          <Show when={coverage.data!.coverage.length > MAX_VISIBLE}>
+          <Show when={coverage().length > MAX_VISIBLE}>
             <button class="ghost" onClick={() => setShowAllCoverage(s => !s)}>
-              {showAllCoverage() ? 'Show less' : `Show all (${coverage.data!.coverage.length})`}
+              {showAllCoverage() ? 'Show less' : `Show all (${coverage().length})`}
             </button>
           </Show>
         </Show>

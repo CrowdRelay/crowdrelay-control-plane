@@ -75,6 +75,10 @@ pub struct AppState {
     /// Secret for the billing webhook endpoint. When set, payment
     /// notifications can auto-unpark a tenant.
     billing_webhook_secret: Option<Arc<str>>,
+    /// Short-lived TTL cache for read model responses. Reduces upstream
+    /// fan-out load when multiple operators view the same tenant or when
+    /// an auto-refresh cycle re-fetches the same model.
+    read_model_cache: read_models::ReadModelCache,
 }
 
 #[tokio::main]
@@ -181,6 +185,7 @@ async fn main() -> anyhow::Result<()> {
         github_deploy_repo: config.github_deploy_repo.map(Arc::from),
         github_deploy_cooldown_seconds: config.github_deploy_cooldown_seconds,
         billing_webhook_secret: config.billing_webhook_secret.map(Arc::from),
+        read_model_cache: read_models::new_read_model_cache(),
     };
     // Bounded best-effort notifier delivery. Nothing in the request path
     // depends on this loop; a dead channel dies in its outbox row, not here.

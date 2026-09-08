@@ -357,6 +357,7 @@ dependencies = [
  "axum",
  "chrono",
  "csv",
+ "flate2",
  "futures-util",
  "rand_core 0.6.4",
  "reqwest",

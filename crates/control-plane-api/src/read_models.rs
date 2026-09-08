@@ -13,7 +13,11 @@
 //!
 //! Mutations stay on their own routes; nothing here writes.
 
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use axum::{
     Json, Router,
@@ -23,11 +27,48 @@ use axum::{
     routing::get,
 };
 use serde_json::{Value, json};
-use tokio::sync::Semaphore;
+use tokio::sync::{Mutex, Semaphore};
 
 use crate::{AppState, error::ApiError, tenant_area_client::ManagementRequest, validation};
 
 const PRIVATE_NO_STORE: &str = "private, no-store";
+
+/// How long a cached read model response is served before the next request
+/// re-fans-out to the upstream. Short enough that a mutation's effect is
+/// visible within the same operator session, long enough that two operators
+/// viewing the same tenant or an auto-refresh cycle do not each trigger a
+/// full upstream fan-out.
+const READ_MODEL_CACHE_TTL: Duration = Duration::from_secs(5);
+
+/// In-process TTL cache for read model responses. Keyed by a string that
+/// combines the tenant slug and the model name (e.g. `"virya:operations"`).
+/// Only successful responses are cached; errors are never stored.
+pub type ReadModelCache = Arc<Mutex<HashMap<String, (Instant, Value)>>>;
+
+/// Create a fresh, empty cache. Called once at boot and shared via
+/// [`AppState`].
+#[must_use]
+pub fn new_read_model_cache() -> ReadModelCache {
+    Arc::new(Mutex::new(HashMap::new()))
+}
+
+/// Return a cached value if it exists and is younger than [`READ_MODEL_CACHE_TTL`].
+async fn cache_get(cache: &ReadModelCache, key: &str) -> Option<Value> {
+    let entries = cache.lock().await;
+    if let Some((stored_at, value)) = entries.get(key) {
+        if Instant::now().duration_since(*stored_at) < READ_MODEL_CACHE_TTL {
+            return Some(value.clone());
+        }
+    }
+    None
+}
+
+/// Store a successful response in the cache. Called only after the fan-out
+/// and projection succeed — errors are never cached.
+async fn cache_set(cache: &ReadModelCache, key: String, value: Value) {
+    let mut entries = cache.lock().await;
+    entries.insert(key, (Instant::now(), value));
+}
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -35,6 +76,10 @@ pub fn router() -> Router<AppState> {
         .route("/tenants/{slug}/operations/overview", get(operations))
         .route("/tenants/{slug}/portfolio/model", get(portfolio))
         .route("/tenants/{slug}/audience/model", get(audience))
+        .route(
+            "/tenants/{slug}/operations/press-overview",
+            get(press_overview),
+        )
 }
 
 /// Global, cross-tenant read models. These are platform-admin surfaces that
@@ -66,6 +111,10 @@ async fn command_center(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
+    const CACHE_KEY: &str = "command-center";
+    if let Some(cached) = cache_get(&state.read_model_cache, CACHE_KEY).await {
+        return Ok(no_store(cached));
+    }
     let tenants = state.store.list_tenants().await?;
     let now = chrono::Utc::now();
     let semaphore = Arc::new(Semaphore::new(COMMAND_CENTER_MAX_CONCURRENT));
@@ -91,8 +140,23 @@ async fn command_center(
 
     let mut per_tenant = Vec::with_capacity(handles.len());
     for handle in handles {
-        if let Ok(Some((tenant, summary))) = handle.await {
-            per_tenant.push(build_per_tenant_summary(&tenant, &summary));
+        match handle.await {
+            Ok(Some((tenant, summary))) => {
+                per_tenant.push(build_per_tenant_summary(&tenant, &summary));
+            }
+            Ok(None) => {
+                // The semaphore was closed — the tenant summary is skipped.
+                // This should not happen in normal operation.
+            }
+            Err(join_error) => {
+                // A task panic or cancellation. Log it so the operator has
+                // a visible signal that a tenant was skipped due to an
+                // internal error, not because it returned no data.
+                tracing::warn!(
+                    error = %join_error,
+                    "command-center tenant task panicked or was cancelled",
+                );
+            }
         }
     }
 
@@ -160,7 +224,7 @@ async fn command_center(
 
     let platform_health = state.store.list_platform_health().await?;
 
-    Ok(no_store(json!({
+    let projected = json!({
         "fetchedAt": now,
         "tenants": {
             "total": total,
@@ -198,7 +262,14 @@ async fn command_center(
         },
         "brainNeedsAttention": brain_needs_attention,
         "perTenant": per_tenant,
-    })))
+    });
+    cache_set(
+        &state.read_model_cache,
+        CACHE_KEY.to_owned(),
+        projected.clone(),
+    )
+    .await;
+    Ok(no_store(projected))
 }
 
 /// The command center's `system` block.
@@ -438,6 +509,10 @@ async fn overview(
     Path(raw_slug): Path<String>,
 ) -> Result<Response, ApiError> {
     let slug = validation::slug(&raw_slug)?;
+    let cache_key = format!("{slug}:overview");
+    if let Some(cached) = cache_get(&state.read_model_cache, &cache_key).await {
+        return Ok(no_store(cached));
+    }
     let tenant = state.store.tenant_by_slug(&slug).await?;
     // Both list reads take the already-resolved tenant id: one lookup per
     // request, not three.
@@ -456,7 +531,7 @@ async fn overview(
         .map(crate::routes::job_with_phase)
         .collect::<Result<_, _>>()?;
 
-    Ok(no_store(json!({
+    let projected = json!({
         // Stable identity so the browser can patch this model in place on a
         // refresh instead of replacing the whole subpage.
         "id": tenant.tenant.slug,
@@ -479,7 +554,9 @@ async fn overview(
                 "canUnpark": !externally_owned && tenant.tenant.status == "parked",
             },
         },
-    })))
+    });
+    cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
+    Ok(no_store(projected))
 }
 
 /// Operations/Autopilot subpage.
@@ -494,6 +571,10 @@ async fn operations(
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let slug = validation::slug(&raw_slug)?;
+    let cache_key = format!("{slug}:operations");
+    if let Some(cached) = cache_get(&state.read_model_cache, &cache_key).await {
+        return Ok(no_store(cached));
+    }
     let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
     let section = |path: &'static str| {
         let state = &state;
@@ -526,7 +607,7 @@ async fn operations(
         section("/v1/control-plane/autopilot/next-best-actions"),
     );
 
-    Ok(no_store(project_operations(
+    let projected = project_operations(
         &slug,
         state.runtime_stale_after_seconds,
         summary.as_ref(),
@@ -534,7 +615,9 @@ async fn operations(
         autopilot.as_ref(),
         growth.as_ref(),
         opportunities.as_ref(),
-    )?))
+    )?;
+    cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
+    Ok(no_store(projected))
 }
 
 #[derive(Clone, Copy)]
@@ -805,26 +888,52 @@ fn freshness_for_section(
 }
 
 /// Find the oldest timestamp field in an upstream payload. Looks for the
-/// conventional names CrowdRelay uses. Returns `None` if no recognizable
-/// timestamp is present — the caller must not invent one.
+/// conventional names CrowdRelay uses, recursively scanning nested objects up
+/// to a depth of 3 levels — upstream payloads often nest timestamps inside
+/// sub-objects (e.g. `summary.outbox.checkedAt`, `autopilot.last_cycle.generatedAt`).
+/// Returns `None` if no recognizable timestamp is present — the caller must
+/// not invent one.
 fn oldest_upstream_timestamp(value: &Value) -> Option<chrono::DateTime<chrono::Utc>> {
-    let object = value.as_object()?;
     let mut candidates: Vec<chrono::DateTime<chrono::Utc>> = Vec::new();
-    for field in [
-        "checkedAt",
-        "lastHeartbeatAt",
-        "observedAt",
-        "generatedAt",
-        "lastSeen",
-        "updatedAt",
-    ] {
+    collect_timestamps(value, 0, &mut candidates);
+    candidates.into_iter().min()
+}
+
+/// Maximum nesting depth to scan for timestamp fields. Prevents unbounded
+/// recursion on pathological payloads.
+const TIMESTAMP_SCAN_MAX_DEPTH: usize = 3;
+
+const TIMESTAMP_FIELD_NAMES: &[&str] = &[
+    "checkedAt",
+    "lastHeartbeatAt",
+    "observedAt",
+    "generatedAt",
+    "lastSeen",
+    "updatedAt",
+];
+
+fn collect_timestamps(
+    value: &Value,
+    depth: usize,
+    candidates: &mut Vec<chrono::DateTime<chrono::Utc>>,
+) {
+    let Some(object) = value.as_object() else {
+        return;
+    };
+    for &field in TIMESTAMP_FIELD_NAMES {
         if let Some(ts_str) = object.get(field).and_then(Value::as_str) {
             if let Ok(ts) = chrono::DateTime::parse_from_rfc3339(ts_str) {
                 candidates.push(ts.with_timezone(&chrono::Utc));
             }
         }
     }
-    candidates.into_iter().min()
+    if depth < TIMESTAMP_SCAN_MAX_DEPTH {
+        for (_, child) in object {
+            if child.is_object() {
+                collect_timestamps(child, depth + 1, candidates);
+            }
+        }
+    }
 }
 
 /// Label Portfolio subpage.
@@ -841,6 +950,10 @@ async fn portfolio(
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let slug = validation::slug(&raw_slug)?;
+    let cache_key = format!("{slug}:portfolio");
+    if let Some(cached) = cache_get(&state.read_model_cache, &cache_key).await {
+        return Ok(no_store(cached));
+    }
     let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
     let section = |path: &'static str| {
         let state = &state;
@@ -872,14 +985,16 @@ async fn portfolio(
         section("/v1/control-plane/tenant-settings"),
     );
 
-    Ok(no_store(project_portfolio(
+    let projected = project_portfolio(
         &slug,
         state.runtime_stale_after_seconds,
         overview.as_ref(),
         amplification.as_ref(),
         fanbases.as_ref(),
         settings.as_ref(),
-    )?))
+    )?;
+    cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
+    Ok(no_store(projected))
 }
 
 fn project_portfolio(
@@ -916,6 +1031,10 @@ async fn audience(
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let slug = validation::slug(&raw_slug)?;
+    let cache_key = format!("{slug}:audience");
+    if let Some(cached) = cache_get(&state.read_model_cache, &cache_key).await {
+        return Ok(no_store(cached));
+    }
     let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
     let section = |path: &'static str| {
         let state = &state;
@@ -946,13 +1065,77 @@ async fn audience(
         section("/v1/control-plane/audience/segments"),
     );
 
-    Ok(no_store(project_audience(
+    let projected = project_audience(
         &slug,
         state.runtime_stale_after_seconds,
         overview.as_ref(),
         fans.as_ref(),
         segments.as_ref(),
-    )?))
+    )?;
+    cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
+    Ok(no_store(projected))
+}
+
+/// Press Room subpage read model.
+///
+/// Consolidates the four beacon press/engagement/coverage endpoints into one
+/// server-side fan-out, so the browser loads the press room in one round-trip
+/// instead of four. Each section degrades independently — a broken coverage
+/// endpoint cannot blank the press requests list next to it.
+async fn press_overview(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let slug = validation::slug(&raw_slug)?;
+    let cache_key = format!("{slug}:press-overview");
+    if let Some(cached) = cache_get(&state.read_model_cache, &cache_key).await {
+        return Ok(no_store(cached));
+    }
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let fetch = |path: &'static str| {
+        let state = &state;
+        let target = &target;
+        let tenant_id = tenant.tenant.id;
+        let correlation_id = correlation(&headers);
+        async move {
+            state
+                .area_client
+                .request_management(
+                    tenant_id,
+                    target,
+                    ManagementRequest {
+                        method: "GET",
+                        path,
+                        body: None,
+                        correlation_id,
+                        idempotency_key: None,
+                    },
+                )
+                .await
+        }
+    };
+
+    let (requests, assets, engagements, coverage) = tokio::join!(
+        fetch("/v1/control-plane/autopilot/beacon-press-requests"),
+        fetch("/v1/control-plane/autopilot/beacon-press-assets"),
+        fetch("/v1/control-plane/autopilot/beacon-signal-engagements"),
+        fetch("/v1/control-plane/autopilot/beacon-coverage"),
+    );
+
+    let projected = project_sections(
+        &slug,
+        state.runtime_stale_after_seconds,
+        "press-overview",
+        &[
+            section("requests", requests.as_ref(), Shape::Object),
+            section("assets", assets.as_ref(), Shape::Object),
+            section("engagements", engagements.as_ref(), Shape::Object),
+            section("coverage", coverage.as_ref(), Shape::Object),
+        ],
+    )?;
+    cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
+    Ok(no_store(projected))
 }
 
 fn project_audience(
@@ -1602,6 +1785,32 @@ mod tests {
             freshness["classification"],
             json!("stale"),
             "a fresh checkedAt cannot launder a stale lastHeartbeatAt"
+        );
+    }
+
+    #[test]
+    fn freshness_finds_nested_timestamps() {
+        // Upstream payloads often nest timestamps inside sub-objects
+        // (e.g. summary.outbox.checkedAt). The scanner must descend into
+        // nested objects to find them, not just check top-level fields.
+        let now = chrono::Utc::now();
+        let fresh = (now - chrono::Duration::seconds(10)).to_rfc3339();
+        let stale = (now - chrono::Duration::seconds(600)).to_rfc3339();
+        // No top-level timestamp — the only timestamp is nested inside
+        // `outbox.checkedAt`. Without recursive scanning this section
+        // would be classified as "live" (fetch time) instead of "stale".
+        let s = json!({"ok": true, "outbox": {"checkedAt": stale, "pending": 3}});
+        let f = json!([{"flag": "test", "enabled": true, "checkedAt": fresh}]);
+        let a = json!({"policies": []});
+        let g = json!({"objective": "grow"});
+        let o = json!([]);
+        let projected = project_operations("virya", 300, ok(&s), ok(&f), ok(&a), ok(&g), ok(&o))
+            .expect("complete snapshot projects");
+        let freshness = &projected["freshness"]["summary"];
+        assert_eq!(
+            freshness["classification"],
+            json!("stale"),
+            "a nested checkedAt must be found and used for freshness classification"
         );
     }
 

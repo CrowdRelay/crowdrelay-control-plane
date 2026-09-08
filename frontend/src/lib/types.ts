@@ -1256,6 +1256,20 @@ export type AudienceReadModel = {
   fetchedAt: string
 }
 
+export type PressOverviewSection = 'requests' | 'assets' | 'engagements' | 'coverage'
+
+export type PressOverviewReadModel = {
+  id: string
+  requests: BeaconPressRequestsResponse | null
+  assets: BeaconPressAssetsResponse | null
+  engagements: BeaconEngagementsResponse | null
+  coverage: BeaconCoverageResponse | null
+  degraded: PressOverviewSection[]
+  sections: SectionVerdicts
+  freshness: SectionFreshnessMap
+  fetchedAt: string
+}
+
 // --- Growth Metrics types ---
 
 export type FeedState = 'missing' | 'stale' | 'live'

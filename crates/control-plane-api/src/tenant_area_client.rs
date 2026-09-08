@@ -5,6 +5,7 @@
 //! bounded before JSON parsing.
 
 use std::{
+    collections::HashMap,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
     sync::Arc,
     time::Duration,
@@ -15,6 +16,7 @@ use sha2::{Digest, Sha256};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
+    sync::Mutex,
     time::timeout,
 };
 use url::{Host, Url};
@@ -25,6 +27,16 @@ use crate::error::ApiError;
 const AREA_NAMESPACE: &[u8] = b"crowdrelay-area-admin-v1:";
 const CONTROL_PLANE_NAMESPACE: &[u8] = b"crowdrelay-control-plane-v1:";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// Maximum idle connections kept per upstream target (host:port). Matches the
+/// command center's concurrency semaphore — enough for the worst-case fan-out
+/// without holding idle file descriptors open indefinitely.
+const POOL_MAX_PER_TARGET: usize = 4;
+
+/// A connection idle longer than this is closed when next encountered. Sweeping
+/// on access avoids a background task and naturally reclaims connections after
+/// a burst of traffic subsides.
+const POOL_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Capability classes for scoped agent-service bearer tokens.
 ///
@@ -58,10 +70,16 @@ impl AgentCapability {
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(8);
 const MAX_RESPONSE_BYTES: usize = 1024 * 1024;
 
+/// Keep-alive connection pool for upstream tenant calls. Keyed by
+/// `host:port`; each entry is a stream and the instant it was last used.
+/// Connections older than [`POOL_IDLE_TIMEOUT`] are dropped on access.
+type ConnectionPool = Arc<Mutex<HashMap<String, Vec<(std::time::Instant, TcpStream)>>>>;
+
 #[derive(Clone)]
 pub struct TenantAreaClient {
     master_key: Option<Arc<str>>,
     management_master_key: Option<Arc<str>>,
+    pool: ConnectionPool,
 }
 
 pub(crate) struct ManagementRequest<'a> {
@@ -79,6 +97,7 @@ impl TenantAreaClient {
         Self {
             master_key: master_key.map(Arc::from),
             management_master_key: None,
+            pool: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -90,6 +109,7 @@ impl TenantAreaClient {
         Self {
             master_key: master_key.map(Arc::from),
             management_master_key: management_master_key.map(Arc::from),
+            pool: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -156,6 +176,7 @@ impl TenantAreaClient {
         }
         let token = self.derived_token(tenant_id)?;
         request_authorized(
+            &self.pool,
             base_url,
             method,
             path_and_query,
@@ -195,6 +216,7 @@ impl TenantAreaClient {
         }
         let token = self.derived_management_token(tenant_id)?;
         request_authorized(
+            &self.pool,
             base_url,
             request.method,
             request.path,
@@ -527,7 +549,9 @@ fn valid_idempotency_key(value: &str) -> bool {
     (8..=128).contains(&value.len()) && value.bytes().all(|byte| (b'!'..=b'~').contains(&byte))
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn request_authorized(
+    pool: &ConnectionPool,
     base_url: &str,
     method: &str,
     path_and_query: &str,
@@ -545,15 +569,19 @@ async fn request_authorized(
         .ok_or_else(|| ApiError::InvalidInput("management target has no port".to_owned()))?;
 
     let address = format_host_port(host, port);
-    let mut stream = timeout(CONNECT_TIMEOUT, TcpStream::connect(&address))
-        .await
-        .map_err(|_| ApiError::Timeout)?
-        .map_err(|_| ApiError::Unreachable)?;
+
+    // Try to reuse a pooled keep-alive connection. If none is available (or
+    // all are stale), open a fresh one. A pooled stream that fails to send
+    // is dropped and a new connection is attempted once.
+    let mut stream = match take_pooled_stream(pool, &address).await {
+        Some(s) => s,
+        None => connect(&address).await?,
+    };
 
     let body_text = body.map(Value::to_string).unwrap_or_default();
     let host_header = host_header(host, target.port(), port);
     let mut request = format!(
-        "{method} {path_and_query} HTTP/1.1\r\nHost: {host_header}\r\nAuthorization: Bearer {token}\r\nAccept: application/json\r\nAccept-Encoding: identity\r\nConnection: close\r\n"
+        "{method} {path_and_query} HTTP/1.1\r\nHost: {host_header}\r\nAuthorization: Bearer {token}\r\nAccept: application/json\r\nAccept-Encoding: gzip, deflate\r\nConnection: keep-alive\r\n"
     );
     if let Some(id) = correlation_id.filter(|id| valid_correlation_id(id)) {
         request.push_str("X-CrowdRelay-Correlation-Id: ");
@@ -577,17 +605,110 @@ async fn request_authorized(
     request.push_str(&body_text);
 
     let exchange = async {
-        stream
-            .write_all(request.as_bytes())
+        // If the write fails the pooled stream is stale — drop it and retry
+        // once with a fresh connection so a dead keep-alive socket does not
+        // surface as an Unreachable to the operator.
+        if stream.write_all(request.as_bytes()).await.is_err() {
+            stream = connect(&address).await?;
+            stream
+                .write_all(request.as_bytes())
+                .await
+                .map_err(|_| ApiError::Unreachable)?;
+        }
+
+        let (response, can_reuse) = read_framed_response(&mut stream).await?;
+        if can_reuse {
+            return_pooled_stream(pool, &address, stream).await;
+        }
+        parse_response(&response)
+    };
+
+    timeout(REQUEST_TIMEOUT, exchange)
+        .await
+        .map_err(|_| ApiError::Timeout)?
+}
+
+/// Open a new TCP connection to the upstream, with the standard connect
+/// timeout and error mapping.
+async fn connect(address: &str) -> Result<TcpStream, ApiError> {
+    timeout(CONNECT_TIMEOUT, TcpStream::connect(address))
+        .await
+        .map_err(|_| ApiError::Timeout)?
+        .map_err(|_| ApiError::Unreachable)
+}
+
+/// Pop an idle stream from the pool, dropping any that have been idle longer
+/// than [`POOL_IDLE_TIMEOUT`]. Returns `None` if the pool is empty or all
+/// entries are stale.
+async fn take_pooled_stream(pool: &ConnectionPool, address: &str) -> Option<TcpStream> {
+    let mut entries = pool.lock().await;
+    let bucket = entries.get_mut(address)?;
+    let now = std::time::Instant::now();
+    // Drop stale connections from the front (oldest first).
+    while let Some((idle_since, _)) = bucket.first() {
+        if now.duration_since(*idle_since) > POOL_IDLE_TIMEOUT {
+            bucket.remove(0);
+        } else {
+            break;
+        }
+    }
+    // Pop from the back (most recently used) for cache locality.
+    bucket.pop().map(|(_, stream)| stream)
+}
+
+/// Return a reusable stream to the pool. If the pool for this target is at
+/// capacity, the stream is dropped — the upstream will close it on its own
+/// keep-alive timeout.
+async fn return_pooled_stream(pool: &ConnectionPool, address: &str, stream: TcpStream) {
+    let mut entries = pool.lock().await;
+    let bucket = entries.entry(address.to_owned()).or_default();
+    if bucket.len() < POOL_MAX_PER_TARGET {
+        bucket.push((std::time::Instant::now(), stream));
+    }
+    // If at capacity, the stream is dropped — the Drop closes the TCP socket.
+}
+
+/// Read a complete HTTP/1.1 response from a keep-alive stream, using
+/// `Content-Length` or `Transfer-Encoding: chunked` to determine the body
+/// boundary. Returns the raw response bytes and whether the stream can be
+/// reused for a subsequent request.
+///
+/// If the upstream sends `Connection: close`, or the framing is ambiguous
+/// (no Content-Length and no chunked encoding), the stream is read until
+/// the peer closes it and `can_reuse` is `false`.
+async fn read_framed_response(stream: &mut TcpStream) -> Result<(Vec<u8>, bool), ApiError> {
+    let mut buf = Vec::with_capacity(8192);
+    let mut chunk = [0_u8; 8192];
+
+    // Phase 1: read until we have the complete header block.
+    let header_end = loop {
+        if let Some(pos) = find_header_terminator(&buf) {
+            break pos;
+        }
+        let read = stream
+            .read(&mut chunk)
             .await
             .map_err(|_| ApiError::Unreachable)?;
+        if read == 0 {
+            return Err(ApiError::ContractMismatch(
+                "upstream closed before sending complete headers",
+            ));
+        }
+        if buf.len().saturating_add(read) > MAX_RESPONSE_BYTES {
+            return Err(ApiError::ContractMismatch(
+                "upstream response exceeded limit",
+            ));
+        }
+        buf.extend_from_slice(&chunk[..read]);
+    };
 
-        // Keep the write side open while the peer produces its response.
-        // The HTTP request is already self-framed (Content-Length when a body is present)
-        // and carries `Connection: close`; half-closing the socket here can be interpreted
-        // by an intermediary as a disconnected client and yield a header-only 2xx.
-        let mut response = Vec::new();
-        let mut chunk = [0_u8; 8192];
+    // Phase 2: parse the framing from the headers we have.
+    let (content_length, transfer_chunked, connection_close) =
+        parse_response_framing(&buf[..header_end])?;
+
+    if connection_close {
+        // The upstream will close the connection after the body — read
+        // until EOF, same as the old `Connection: close` behaviour.
         loop {
             let read = stream
                 .read(&mut chunk)
@@ -596,19 +717,173 @@ async fn request_authorized(
             if read == 0 {
                 break;
             }
-            if response.len().saturating_add(read) > MAX_RESPONSE_BYTES {
+            if buf.len().saturating_add(read) > MAX_RESPONSE_BYTES {
                 return Err(ApiError::ContractMismatch(
                     "upstream response exceeded limit",
                 ));
             }
-            response.extend_from_slice(&chunk[..read]);
+            buf.extend_from_slice(&chunk[..read]);
         }
-        parse_response(&response)
-    };
+        return Ok((buf, false));
+    }
 
-    timeout(REQUEST_TIMEOUT, exchange)
-        .await
-        .map_err(|_| ApiError::Timeout)?
+    if transfer_chunked {
+        // Read until we see the chunked terminator `0\r\n\r\n`.
+        let terminator = b"0\r\n\r\n";
+        loop {
+            // The terminator may span multiple reads, so check the tail.
+            if buf.len() >= terminator.len() && &buf[buf.len() - terminator.len()..] == terminator {
+                return Ok((buf, true));
+            }
+            // Also check if the terminator appeared somewhere in the
+            // latest data (it might be followed by trailer headers).
+            if find_subsequence(&buf[header_end..], terminator).is_some() {
+                // Read a little more to capture any trailers after the
+                // terminator, up to a small limit.
+                let target = buf.len() + 256;
+                while buf.len() < target {
+                    let read = stream
+                        .read(&mut chunk)
+                        .await
+                        .map_err(|_| ApiError::Unreachable)?;
+                    if read == 0 {
+                        break;
+                    }
+                    if buf.len().saturating_add(read) > MAX_RESPONSE_BYTES {
+                        return Err(ApiError::ContractMismatch(
+                            "upstream response exceeded limit",
+                        ));
+                    }
+                    buf.extend_from_slice(&chunk[..read]);
+                    // Check for the final \r\n after trailers.
+                    if buf.ends_with(b"\r\n\r\n") {
+                        break;
+                    }
+                }
+                return Ok((buf, true));
+            }
+            let read = stream
+                .read(&mut chunk)
+                .await
+                .map_err(|_| ApiError::Unreachable)?;
+            if read == 0 {
+                // Upstream closed before the chunked terminator — the
+                // response is incomplete.
+                return Ok((buf, false));
+            }
+            if buf.len().saturating_add(read) > MAX_RESPONSE_BYTES {
+                return Err(ApiError::ContractMismatch(
+                    "upstream response exceeded limit",
+                ));
+            }
+            buf.extend_from_slice(&chunk[..read]);
+        }
+    }
+
+    if let Some(cl) = content_length {
+        // Read until we have header_end + 4 + content_length bytes.
+        let needed = header_end + 4 + cl;
+        while buf.len() < needed {
+            let read = stream
+                .read(&mut chunk)
+                .await
+                .map_err(|_| ApiError::Unreachable)?;
+            if read == 0 {
+                return Err(ApiError::ContractMismatch("truncated upstream response"));
+            }
+            if buf.len().saturating_add(read) > MAX_RESPONSE_BYTES {
+                return Err(ApiError::ContractMismatch(
+                    "upstream response exceeded limit",
+                ));
+            }
+            buf.extend_from_slice(&chunk[..read]);
+        }
+        return Ok((buf, true));
+    }
+
+    // No Content-Length, no chunked, no Connection: close. This is
+    // ambiguous with keep-alive — read until EOF as a fallback and do
+    // not reuse the stream.
+    loop {
+        let read = stream
+            .read(&mut chunk)
+            .await
+            .map_err(|_| ApiError::Unreachable)?;
+        if read == 0 {
+            break;
+        }
+        if buf.len().saturating_add(read) > MAX_RESPONSE_BYTES {
+            return Err(ApiError::ContractMismatch(
+                "upstream response exceeded limit",
+            ));
+        }
+        buf.extend_from_slice(&chunk[..read]);
+    }
+    Ok((buf, false))
+}
+
+/// Find the position of the `\r\n\r\n` header terminator in a buffer.
+fn find_header_terminator(buf: &[u8]) -> Option<usize> {
+    find_subsequence(buf, b"\r\n\r\n")
+}
+
+/// Find the first occurrence of `needle` in `haystack`.
+fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
+}
+
+/// Parse `Content-Length`, `Transfer-Encoding`, and `Connection` from the
+/// response header block (everything before `\r\n\r\n`).
+fn parse_response_framing(header_bytes: &[u8]) -> Result<(Option<usize>, bool, bool), ApiError> {
+    let head = std::str::from_utf8(header_bytes)
+        .map_err(|_| ApiError::ContractMismatch("malformed upstream headers"))?;
+    let mut content_length: Option<usize> = None;
+    let mut transfer_chunked = false;
+    let mut connection_close = false;
+    // Skip the status line; iterate header lines.
+    for line in head.split("\r\n").skip(1) {
+        let Some((name, value)) = line.split_once(':') else {
+            return Err(ApiError::ContractMismatch("malformed upstream header"));
+        };
+        let name = name.trim();
+        let value = value.trim();
+        if name.eq_ignore_ascii_case("content-length") {
+            let parsed = value
+                .parse::<usize>()
+                .map_err(|_| ApiError::ContractMismatch("invalid upstream content length"))?;
+            if content_length.replace(parsed).is_some() {
+                return Err(ApiError::ContractMismatch(
+                    "duplicate upstream content length",
+                ));
+            }
+        } else if name.eq_ignore_ascii_case("transfer-encoding") {
+            let encodings: Vec<&str> = value
+                .split(',')
+                .map(str::trim)
+                .filter(|e| !e.is_empty())
+                .collect();
+            if encodings.len() != 1 || !encodings[0].eq_ignore_ascii_case("chunked") {
+                return Err(ApiError::ContractMismatch(
+                    "unsupported upstream transfer encoding",
+                ));
+            }
+            transfer_chunked = true;
+        } else if name.eq_ignore_ascii_case("connection") {
+            // `Connection: close` means the stream cannot be reused.
+            // Any other value (keep-alive, or absent in HTTP/1.1) allows reuse.
+            if value.eq_ignore_ascii_case("close") {
+                connection_close = true;
+            }
+        }
+    }
+    if transfer_chunked && content_length.is_some() {
+        return Err(ApiError::ContractMismatch(
+            "ambiguous upstream response framing",
+        ));
+    }
+    Ok((content_length, transfer_chunked, connection_close))
 }
 
 fn validate_management_target(value: &str) -> Result<Url, ApiError> {
@@ -706,6 +981,7 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
 
     let mut transfer_chunked = false;
     let mut content_length = None;
+    let mut content_encoding: Option<&str> = None;
     for line in lines {
         let Some((name, value)) = line.split_once(':') else {
             return Err(ApiError::ContractMismatch("malformed upstream header"));
@@ -733,6 +1009,12 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
                     "duplicate upstream content length",
                 ));
             }
+        } else if name.eq_ignore_ascii_case("content-encoding")
+            && content_encoding.replace(value).is_some()
+        {
+            return Err(ApiError::ContractMismatch(
+                "duplicate upstream content encoding",
+            ));
         }
     }
     if transfer_chunked && content_length.is_some() {
@@ -742,10 +1024,10 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
     }
 
     let wire_body = &raw[split + marker.len()..];
-    let decoded;
+    let chunk_decoded;
     let body = if transfer_chunked {
-        decoded = decode_chunked(wire_body)?;
-        decoded.as_slice()
+        chunk_decoded = decode_chunked(wire_body)?;
+        chunk_decoded.as_slice()
     } else {
         if let Some(expected) = content_length {
             if expected != wire_body.len() {
@@ -753,6 +1035,27 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
             }
         }
         wire_body
+    };
+
+    // Decompress if the upstream honoured our `Accept-Encoding: gzip, deflate`.
+    // The limit applies to the decompressed body — a small compressed payload
+    // must not bypass the 1 MiB ceiling via a decompression bomb.
+    let decompressed;
+    let body: &[u8] = match content_encoding {
+        None => body,
+        Some("gzip") => {
+            decompressed = decompress_gzip(body)?;
+            decompressed.as_slice()
+        }
+        Some("deflate") => {
+            decompressed = decompress_deflate(body)?;
+            decompressed.as_slice()
+        }
+        Some(_) => {
+            return Err(ApiError::ContractMismatch(
+                "unsupported upstream content encoding",
+            ));
+        }
     };
     if body.len() > MAX_RESPONSE_BYTES {
         return Err(ApiError::ContractMismatch(
@@ -801,6 +1104,64 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
     } else {
         Err(ApiError::UpstreamError(status))
     }
+}
+
+/// Decompress a gzip-encoded response body, bounded by
+/// [`MAX_RESPONSE_BYTES`] on the decompressed output.
+fn decompress_gzip(input: &[u8]) -> Result<Vec<u8>, ApiError> {
+    use flate2::read::GzDecoder;
+    use std::io::Read;
+    let mut decoder = GzDecoder::new(input);
+    let mut output = Vec::with_capacity(input.len() * 2);
+    let mut buf = [0u8; 8192];
+    loop {
+        match decoder.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => {
+                output.extend_from_slice(&buf[..n]);
+                if output.len() > MAX_RESPONSE_BYTES {
+                    return Err(ApiError::ContractMismatch(
+                        "decompressed upstream response exceeded limit",
+                    ));
+                }
+            }
+            Err(_) => {
+                return Err(ApiError::ContractMismatch(
+                    "malformed gzip upstream response",
+                ));
+            }
+        }
+    }
+    Ok(output)
+}
+
+/// Decompress a deflate-encoded response body, bounded by
+/// [`MAX_RESPONSE_BYTES`] on the decompressed output.
+fn decompress_deflate(input: &[u8]) -> Result<Vec<u8>, ApiError> {
+    use flate2::read::ZlibDecoder;
+    use std::io::Read;
+    let mut decoder = ZlibDecoder::new(input);
+    let mut output = Vec::with_capacity(input.len() * 2);
+    let mut buf = [0u8; 8192];
+    loop {
+        match decoder.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => {
+                output.extend_from_slice(&buf[..n]);
+                if output.len() > MAX_RESPONSE_BYTES {
+                    return Err(ApiError::ContractMismatch(
+                        "decompressed upstream response exceeded limit",
+                    ));
+                }
+            }
+            Err(_) => {
+                return Err(ApiError::ContractMismatch(
+                    "malformed deflate upstream response",
+                ));
+            }
+        }
+    }
+    Ok(output)
 }
 
 fn decode_chunked(mut input: &[u8]) -> Result<Vec<u8>, ApiError> {
