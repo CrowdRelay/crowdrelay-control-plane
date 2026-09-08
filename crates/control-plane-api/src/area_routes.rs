@@ -10,7 +10,7 @@ use axum::{
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::{AppState, error::ApiError};
+use crate::{AppState, error::ApiError, tenant_area_client::valid_idempotency_key};
 
 const PRIVATE_NO_STORE: &str = "private, no-store";
 const MAX_AREA_BODY_BYTES: usize = 16 * 1024;
@@ -141,6 +141,7 @@ async fn call(
             path,
             body,
             correlation(headers),
+            None,
         )
         .await?;
     Ok((tenant, value))
@@ -227,6 +228,7 @@ async fn settings(
         .ok_or_else(|| ApiError::InvalidInput("enabled boolean is required".to_owned()))?;
     let (tenant, target) = target(&state, &slug).await?;
     let previous = tenant.tenant.area_enabled;
+    let settings_idempotency = format!("area-settings-{}", uuid::Uuid::new_v4());
     let upstream = state
         .area_client
         .request(
@@ -236,6 +238,7 @@ async fn settings(
             "/v1/control-plane/area/settings",
             Some(&json!({"enabled": enabled})),
             correlation(&headers),
+            Some(&settings_idempotency),
         )
         .await;
     if let Err(error) = upstream {
@@ -261,6 +264,7 @@ async fn settings(
             // Cross-database atomicity is impossible. Compensate the remote
             // runtime flag if the local entitlement commit fails, and report
             // the command as failed even if compensation itself is unavailable.
+            let rollback_idempotency = format!("area-settings-rollback-{}", uuid::Uuid::new_v4());
             let rollback = state
                 .area_client
                 .request(
@@ -270,6 +274,7 @@ async fn settings(
                     "/v1/control-plane/area/settings",
                     Some(&json!({"enabled": previous})),
                     correlation(&headers),
+                    Some(&rollback_idempotency),
                 )
                 .await;
             if let Err(rollback_error) = rollback {
@@ -626,6 +631,20 @@ async fn mutation(
             "AREA entitlement is disabled for this tenant".to_owned(),
         ));
     }
+    // Generate an idempotency key for mutations so retries (keep-alive
+    // reconnect, gateway timeout) don't duplicate AREA drops, publishes,
+    // or archives. Prefer an incoming Idempotency-Key header; fall back
+    // to a fresh UUID.
+    let fallback_key = uuid::Uuid::new_v4().to_string();
+    let idempotency_key = if method == "GET" {
+        None
+    } else {
+        let incoming = headers
+            .get("idempotency-key")
+            .and_then(|v| v.to_str().ok())
+            .filter(|k| valid_idempotency_key(k));
+        Some(incoming.unwrap_or(&fallback_key))
+    };
     let result = state
         .area_client
         .request(
@@ -635,6 +654,7 @@ async fn mutation(
             path,
             body.as_ref(),
             correlation(headers),
+            idempotency_key,
         )
         .await;
     audit_result(

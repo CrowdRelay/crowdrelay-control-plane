@@ -91,6 +91,13 @@ impl NotifierClient {
     }
 
     async fn post_json(&self, url: &str, body: &Value) -> Result<(), String> {
+        // Defense-in-depth SSRF guard: re-check the host at send time. The
+        // validation step already rejects private/metadata hosts, but DNS
+        // rebinding between validation and send could redirect a webhook to
+        // an internal address. Resolve and reject blocked IPs here. If DNS
+        // resolution fails (transient), allow the request — we don't want to
+        // block legitimate webhooks on a temporary DNS hiccup.
+        guard_webhook_url(url).await?;
         let response = self
             .http
             .post(url)
@@ -107,6 +114,40 @@ impl NotifierClient {
             ))
         }
     }
+}
+
+/// Resolve the webhook host and reject blocked egress ranges. Catches DNS
+/// rebinding between validation and send. Returns `Err` with an operator-safe
+/// reason if the resolved address is blocked or the URL is malformed.
+async fn guard_webhook_url(url: &str) -> Result<(), String> {
+    let parsed = url::Url::parse(url).map_err(|_| "invalid webhook URL".to_owned())?;
+    // Fast path: if the host is already an IP literal, check without DNS.
+    if crate::net_guard::is_blocked_host(&parsed) {
+        return Err("webhook target points to a blocked address".to_owned());
+    }
+    // Resolve DNS names (non-IP hosts) and check each resolved address.
+    // Metadata hostnames are caught by is_blocked_host above.
+    if let Some(host) = parsed.host_str() {
+        if host.parse::<std::net::IpAddr>().is_err() {
+            // It's a DNS name, not an IP literal — resolve it.
+            match tokio::net::lookup_host(format!("{}:443", host)).await {
+                Ok(addrs) => {
+                    for addr in addrs {
+                        if crate::net_guard::is_blocked_ip(addr.ip()) {
+                            return Err(format!(
+                                "webhook target {host} resolves to a blocked address"
+                            ));
+                        }
+                    }
+                }
+                Err(_) => {
+                    // Transient DNS failure — allow the request. reqwest will
+                    // fail with its own error if the host truly doesn't resolve.
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 fn summarize(payload: &Value) -> String {

@@ -497,7 +497,7 @@ export function ChatWidget(props: { slug: string }) {
             </button>
           </div>
 
-          <div class="chat-messages" ref={scrollRef}>
+          <div class="chat-messages" ref={scrollRef} role="log" aria-live="polite" aria-label="Chat conversation">
             <Show when={messages().length === 0}>
               <div class="chat-welcome">
                 <div class="chat-welcome-icon"><SparkIcon /></div>

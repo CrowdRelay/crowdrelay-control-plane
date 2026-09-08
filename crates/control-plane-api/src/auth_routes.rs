@@ -142,7 +142,10 @@ async fn create_session(
         record_failure(&username);
         return Err(ApiError::Unauthorized);
     }
-    let account = account.expect("verified implies present");
+    let account = account.ok_or_else(|| {
+        tracing::error!("account verified but disappeared between find and use");
+        ApiError::Unauthorized
+    })?;
 
     let is_mobile = auth::is_mobile_user_agent(&headers);
     let ttl = if is_mobile {

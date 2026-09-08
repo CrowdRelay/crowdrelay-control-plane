@@ -1,9 +1,8 @@
 import { Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
-import { useParams } from '@tanstack/solid-router'
+import { Link, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { KpiCard } from '../components/primitives'
-import { OperationsPanel } from '../components/OperationsPanel'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { BrainDecisionPanel } from '../components/BrainDecisionPanel'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
@@ -22,7 +21,7 @@ const metric = (value: number | undefined | null, suffix = '') =>
 
 export function TenantOperationsPage() {
   const params = useParams({ from: '/tenants/$slug/operations' })
-  const { activeTab, switchTab, isVisited } = useTabPanels('autopilot')
+  const { activeTab, switchTab, isVisited } = useTabPanels('opportunities')
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
@@ -32,7 +31,7 @@ export function TenantOperationsPage() {
   }))
   const refresh = () => model.refetch()
 
-  const d = (): TenantOperationsReadModel | undefined => model.data
+  const d = (): TenantOperationsReadModel | undefined => model.error ? undefined : model.data
   const opCount = () => d()?.opportunities?.length ?? 0
   const growth = () => d()?.growth
   const autopilot = () => d()?.autopilot
@@ -73,9 +72,9 @@ export function TenantOperationsPage() {
       <div>
         <span class="eyebrow">EXECUTION</span>
         <h1>Operations</h1>
-        <p>Autopilot authority policies, opportunity board, outreach pipeline and release campaigns.</p>
+        <p>Opportunity board, outreach pipeline and release campaigns. Autopilot authority policies live on the Autopilot page.</p>
       </div>
-      <Show when={model.data}>
+      <Show when={model.data && !model.error}>
         <div class="page-head-status">
           <StatusBadge status={healthLabel()} tone={healthTone()} />
           <Show when={autopilot()?.runtime_enabled}>
@@ -98,16 +97,20 @@ export function TenantOperationsPage() {
       <SkeletonKpiStrip count={7} />
     </Show>
 
-    <Show when={model.data}>
+    <Show when={model.data && !model.error}>
       {/* KPI strip — persistent across all tabs */}
       <div class="ops-kpi-strip">
-        <KpiCard
-          compact
-          label="Autopilot"
-          tone={autopilot()?.runtime_enabled ? 'good' : 'muted'}
-          value={autopilot()?.runtime_enabled ? 'on' : 'off'}
-          sub={`${autopilot()?.queued_actions ?? 0} queued`}
-        />
+        {/* Autopilot status is read-only here. Authority policies, switches,
+            and sliders live on the Autopilot page only — this card links there. */}
+        <Link to="/tenants/$slug/health" params={{ slug: params().slug }} class="ops-kpi-link">
+          <KpiCard
+            compact
+            label="Autopilot"
+            tone={autopilot()?.runtime_enabled ? 'good' : 'muted'}
+            value={autopilot()?.runtime_enabled ? 'on' : 'off'}
+            sub={`${autopilot()?.queued_actions ?? 0} queued · manage →`}
+          />
+        </Link>
         <KpiCard
           compact
           label="Needs you"
@@ -176,7 +179,6 @@ export function TenantOperationsPage() {
       active={activeTab()}
       onChange={switchTab}
       tabs={[
-        { id: 'autopilot', label: 'Autopilot' },
         { id: 'opportunities', label: 'Opportunities', count: () => opCount() },
         { id: 'outreach', label: 'Outreach' },
         { id: 'releases', label: 'Releases' },
@@ -190,24 +192,6 @@ export function TenantOperationsPage() {
       <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
       <SkeletonSection titleWidth="200px" lines={3} minHeight="140px" />
     </Show>
-
-    {/* ── Autopilot tab — authority policies, switches, sliders ── */}
-    <TabPanel active={activeTab()} id="autopilot" visited={isVisited('autopilot')}>
-      <Show when={d()} fallback={<SkeletonSection titleWidth="180px" lines={6} minHeight="240px" />}>
-        <OperationsPanel
-          slug={params().slug}
-          summary={d()?.summary ?? null}
-          flags={d()?.flags ?? null}
-          autopilot={d()?.autopilot ?? null}
-          degraded={d()?.degraded ?? []}
-          sections={d()?.sections}
-          freshness={d()?.freshness}
-          fetchedAt={d()?.fetchedAt}
-          refresh={refresh}
-          mode="controls"
-        />
-      </Show>
-    </TabPanel>
 
     {/* ── Opportunities tab ── */}
     <TabPanel active={activeTab()} id="opportunities" visited={isVisited('opportunities')}>

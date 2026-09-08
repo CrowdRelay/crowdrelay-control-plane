@@ -19,6 +19,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use chrono::Utc;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -49,6 +50,13 @@ const DUPLICATE_SUPPRESSION_WINDOW: Duration = Duration::from_secs(10 * 60);
 const MAX_FORWARDS_PER_MINUTE: usize = 20;
 
 /// Forwarding state: last-send time per message, plus recent send timestamps.
+///
+/// **Per-instance limitation:** This throttle lives in process memory. When
+/// the Control Plane runs as a single replica (current deployment) this is
+/// sufficient. If horizontal scaling is introduced, move this to a shared
+/// store (Redis or a `control_plane` table) so the rate limit and duplicate
+/// suppression apply across all replicas. A rolling restart resets the
+/// bucket, which is acceptable for a single-replica deployment.
 struct DiscordThrottle {
     recent_messages: HashMap<String, Instant>,
     recent_sends: Vec<Instant>,
@@ -252,6 +260,17 @@ async fn retry_event(
             "event has no executionId — cannot retry via n8n API".to_owned(),
         ));
     };
+    // Idempotency guard: if this event was retried within the last 30 seconds,
+    // reject the duplicate. This prevents double-clicks and n8n webhook
+    // retries from triggering duplicate workflow runs.
+    if let Some(last) = event.last_retried_at {
+        if Utc::now().signed_duration_since(last).num_seconds() < 30 {
+            return Err(ApiError::Conflict(
+                "this event was retried recently — wait 30 seconds before retrying again"
+                    .to_owned(),
+            ));
+        }
+    }
     let (base_url, api_key) = match (state.n8n_base_url.as_deref(), state.n8n_api_key.as_deref()) {
         (Some(url), Some(key)) => (url, key),
         _ => {

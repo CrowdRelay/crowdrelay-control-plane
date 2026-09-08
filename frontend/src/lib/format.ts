@@ -14,6 +14,7 @@ export const errorMessage = (value: unknown, fallback: string) => {
         case 'conflict': return 'That name or value is already taken.'
         case 'invalid_input': return 'Check the entered values and try again.'
         case 'unavailable': return 'That service is temporarily unavailable.'
+        case 'internal_error': return 'Internal error — check server logs for details.'
         // Typed upstream error variants — preserve the semantic distinction
         // instead of collapsing to generic "unavailable".
         case 'all_sections_failed': return 'Every section of this channel failed — see the per-section diagnosis below.'

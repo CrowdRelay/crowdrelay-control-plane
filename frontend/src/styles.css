@@ -95,6 +95,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent)26;out
 .ingest-editor textarea{width:100%;min-height:90px;resize:vertical;background:var(--surface-0);border:1px solid var(--border-default);color:var(--text);padding:11px 12px;border-radius:var(--radius-md);outline:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--text-base)}
 .ingest-editor textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent)26}
 .ingest-validation{display:flex;flex-direction:column;gap:4px}
+.row-pending{opacity:.5;pointer-events:none;transition:opacity var(--t-fast)}
 .ingest-format-help>summary{cursor:pointer;color:var(--text-muted);font-size:var(--text-xs);font-weight:600;list-style:none}
 .ingest-format-help>summary::-webkit-details-marker{display:none}
 .ingest-format-help pre{margin:6px 0 2px;padding:10px 12px;background:var(--surface-0);border:1px solid var(--border-default);border-radius:var(--radius-sm);overflow-x:auto;font-size:var(--text-xs)}
@@ -400,6 +401,14 @@ button{border-radius:var(--radius-md);padding:.6rem 1rem;background:var(--accent
 .skel-grid-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
 .skel-grid-wide{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;margin-top:16px}
 .skel-grid-settings{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+
+/* Skeleton dimension utilities — used by Skeleton.tsx components to set
+   width/height without inline styles. Compose with .skel-label, .skel-value,
+   .skel-small, .skeleton-block classes. */
+.skel-w40{width:40px}.skel-w50{width:50px}.skel-w60{width:60px}.skel-w70{width:70px}.skel-w80{width:80px}.skel-w90{width:90px}.skel-w100{width:100px}.skel-w120{width:120px}.skel-w140{width:140px}.skel-w160{width:160px}.skel-w180{width:180px}.skel-w200{width:200px}.skel-w280{width:280px}.skel-w420{width:420px}.skel-w60pct{width:60%}.skel-w80pct{width:80%}.skel-w100pct{width:100%}
+.skel-h11{height:11px}.skel-h12{height:12px}.skel-h14{height:14px}.skel-h16{height:16px}.skel-h18{height:18px}.skel-h20{height:20px}.skel-h24{height:24px}.skel-h28{height:28px}.skel-h32{height:32px}.skel-h48{height:48px}.skel-h64{height:64px}.skel-h72{height:72px}.skel-h80{height:80px}.skel-h120{height:120px}.skel-h140{height:140px}.skel-h160{height:160px}.skel-h220{height:220px}
+.skel-r5{border-radius:5px}.skel-r6{border-radius:6px}.skel-r8{border-radius:8px}.skel-r10{border-radius:10px}.skel-r12{border-radius:12px}.skel-r-full{border-radius:999px}
+.skel-mb6{margin-bottom:6px}.skel-mb10{margin-bottom:10px}.skel-mb16{margin-bottom:16px}.skel-mt16{margin-top:16px}
 
 /* Provision job / deployment cards */
 .provision-job{border-radius:var(--radius-md);box-shadow:0 1px 3px #00000020}
@@ -1879,20 +1888,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .cockpit-aside{display:flex;flex-direction:column;gap:var(--space-4);min-width:0}
 .cockpit-aside .panel{flex:1}
 
-.cockpit-needs-you{background:var(--surface-2);border:1px solid var(--border-default);border-radius:var(--radius-lg);overflow:hidden}
-.cockpit-needs-you-head{padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--border-subtle)}
-.cockpit-needs-you-head .eyebrow{display:block;font-size:var(--text-xs);letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
-.cockpit-needs-you-head h3{margin:4px 0 0;font-size:var(--text-md);font-weight:600;color:var(--text-primary)}
-.cockpit-needs-you-list{display:flex;flex-direction:column}
-.cockpit-needs-you-row{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);padding:var(--space-2) var(--space-4);border-bottom:1px solid var(--border-subtle)}
-.cockpit-needs-you-row:last-child{border-bottom:0}
-.cockpit-needs-you-row strong{font-size:var(--text-sm);color:var(--text-primary)}
-.cockpit-needs-you-row small{font-size:var(--text-xs);color:var(--text-muted)}
-
-.cockpit-section{margin-top:var(--space-6);margin-bottom:var(--space-4)}
-.cockpit-section-head{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-3)}
-.cockpit-section-head .eyebrow{font-size:var(--text-xs);letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
-.cockpit-section-head h3{margin:0;font-size:var(--text-md);font-weight:600;color:var(--text-primary)}
 .cockpit-growth-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--space-4)}
 
 @media(max-width:1100px){
@@ -2034,6 +2029,8 @@ code,.mono{overflow-wrap:anywhere;word-break:break-word;max-width:100%}
 .ops-kpi-card strong{font-size:1.45rem;letter-spacing:-.03em}
 a.kpi-card,.kpi-card,.ops-kpi-card,.service-card{transition:transform var(--t-fast),border-color var(--t-fast),box-shadow var(--t-fast)}
 a.kpi-card:hover,.service-card:hover{transform:translateY(-2px);border-color:var(--border-strong)}
+a.ops-kpi-link{text-decoration:none;color:inherit;display:block}
+a.ops-kpi-link:hover .ops-kpi-card{transform:translateY(-2px);border-color:var(--border-strong)}
 
 /* ── Controls ──────────────────────────────────────────────────────────
    Touch-comfortable heights and one radius, so a row of mixed buttons
@@ -3214,3 +3211,32 @@ button,
 /* The receiver's own words on a failed attempt — a short JSON error object,
    shown as data rather than folded into the sentence above it. */
 .queue-attempt-response{display:block;margin-top:6px;padding:7px 9px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--surface-0);color:var(--text-secondary);font-size:var(--text-xs);line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:9em;overflow:auto}
+
+/* ─── Global reduced-motion guard ─────────────────────────────────────────
+   Disable all infinite/looping animations and entrance transitions when the
+   user has requested reduced motion. One-shot entrance animations are
+   shortened to instant. This is a catch-all for animations that don't have
+   their own per-rule guard above. */
+@media(prefers-reduced-motion:reduce){
+  .skeleton-block,.skeleton-grid div,.mini-skeleton,
+  .premium-skeleton-hero,.premium-skeleton-card,
+  .spin,.btn-spinner,.premium-spinner,
+  .chat-cursor,
+  .ops-degraded-dot,.ops-freshness-dot,
+  .attention-item-highlighted,
+  .kpi-value.kpi-flash,
+  .premium-connector-card.connected,
+  .premium-connected-badge{
+    animation:none!important
+  }
+  .cmdk-backdrop,.cmdk,
+  .chat-backdrop,.chat-panel,
+  .toast,.fan-drawer,
+  .tenant-switcher-menu,
+  .chat-msg{
+    animation:none!important
+  }
+  .page-tab.active{
+    animation:none!important
+  }
+}

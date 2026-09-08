@@ -162,6 +162,10 @@ export function FanSourcesPanel(props: {
     },
   }))
 
+  // Track which fanbase is being deleted so the UI can show immediate
+  // feedback (faded row + disabled controls) while the mutation is in flight.
+  const isDeleting = (id: string) => remove.isPending && remove.variables === id
+
   const resetForm = () => {
     setName(''); setSourceKind('http_json_pull'); setFetchUrl(''); setAttestedBy('')
   }
@@ -717,7 +721,7 @@ export function FanSourcesPanel(props: {
         <thead><tr><th>Name</th><th>Origin</th><th>Members</th><th>Last ingestion</th><th>Ingest</th><th></th></tr></thead>
         <tbody>
           <For each={blocks()}>{fb => (
-            <tr>
+            <tr classList={{ 'row-pending': isDeleting(fb.id) }}>
               <td>{fb.name}{fb.enabled ? '' : ' (off)'}</td>
               <td><span class="fanbase-origin"><FanbaseIcon sourceKind={fb.source_kind} size={16} class="provider-icon" /> {SOURCE_LABEL[fb.source_kind] ?? fb.source_kind}</span></td>
               <td>{metric(fb.members)}</td>

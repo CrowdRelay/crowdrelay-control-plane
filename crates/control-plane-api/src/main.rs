@@ -7,6 +7,7 @@ mod automation_routes;
 mod config;
 mod error;
 mod model;
+mod net_guard;
 mod notifier_client;
 mod notify_routes;
 mod operations_routes;
@@ -20,6 +21,7 @@ mod validation;
 use std::{sync::Arc, time::Duration};
 
 use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use axum::{Json, Router, middleware, routing::get};
 use config::Config;
 use serde_json::json;
@@ -79,6 +81,8 @@ pub struct AppState {
     /// fan-out load when multiple operators view the same tenant or when
     /// an auto-refresh cycle re-fetches the same model.
     read_model_cache: read_models::ReadModelCache,
+    /// Process start time for uptime metrics.
+    start_time: std::time::Instant,
 }
 
 #[tokio::main]
@@ -186,6 +190,7 @@ async fn main() -> anyhow::Result<()> {
         github_deploy_cooldown_seconds: config.github_deploy_cooldown_seconds,
         billing_webhook_secret: config.billing_webhook_secret.map(Arc::from),
         read_model_cache: read_models::new_read_model_cache(),
+        start_time: std::time::Instant::now(),
     };
     // Bounded best-effort notifier delivery. Nothing in the request path
     // depends on this loop; a dead channel dies in its outbox row, not here.
@@ -196,9 +201,12 @@ async fn main() -> anyhow::Result<()> {
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
                 interval.tick().await;
-                if let Err(error) = dispatch_pending_notifications(&worker_state).await {
-                    tracing::warn!(%error, "notifier dispatch pass failed");
-                }
+                panic_safe("notifier dispatch", || async {
+                    if let Err(error) = dispatch_pending_notifications(&worker_state).await {
+                        tracing::warn!(%error, "notifier dispatch pass failed");
+                    }
+                })
+                .await;
             }
         });
     }
@@ -217,9 +225,12 @@ async fn main() -> anyhow::Result<()> {
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
                 interval.tick().await;
-                if let Err(error) = poll_platform_health(&worker_state, &client).await {
-                    tracing::warn!(%error, "platform health poll failed");
-                }
+                panic_safe("platform health poll", || async {
+                    if let Err(error) = poll_platform_health(&worker_state, &client).await {
+                        tracing::warn!(%error, "platform health poll failed");
+                    }
+                })
+                .await;
             }
         });
     }
@@ -232,20 +243,25 @@ async fn main() -> anyhow::Result<()> {
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
                 interval.tick().await;
-                match worker_state.store.sweep_automation_events().await {
-                    Ok(deleted) if deleted > 0 => {
-                        tracing::info!(deleted, "automation event retention sweep");
+                panic_safe("retention sweep", || async {
+                    match worker_state.store.sweep_automation_events().await {
+                        Ok(deleted) if deleted > 0 => {
+                            tracing::info!(deleted, "automation event retention sweep");
+                        }
+                        Ok(_) => {}
+                        Err(error) => {
+                            tracing::warn!(%error, "automation event retention sweep failed")
+                        }
                     }
-                    Ok(_) => {}
-                    Err(error) => tracing::warn!(%error, "automation event retention sweep failed"),
-                }
-                match worker_state.store.sweep_expired_sessions().await {
-                    Ok(deleted) if deleted > 0 => {
-                        tracing::info!(deleted, "expired session sweep");
+                    match worker_state.store.sweep_expired_sessions().await {
+                        Ok(deleted) if deleted > 0 => {
+                            tracing::info!(deleted, "expired session sweep");
+                        }
+                        Ok(_) => {}
+                        Err(error) => tracing::warn!(%error, "expired session sweep failed"),
                     }
-                    Ok(_) => {}
-                    Err(error) => tracing::warn!(%error, "expired session sweep failed"),
-                }
+                })
+                .await;
             }
         });
     }
@@ -260,7 +276,10 @@ async fn main() -> anyhow::Result<()> {
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
                 interval.tick().await;
-                read_models::prune_cache(&cache).await;
+                panic_safe("cache prune", || async {
+                    read_models::prune_cache(&cache).await;
+                })
+                .await;
             }
         });
     }
@@ -274,7 +293,10 @@ async fn main() -> anyhow::Result<()> {
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
                 interval.tick().await;
-                area_client.sweep_pool().await;
+                panic_safe("pool sweep", || async {
+                    area_client.sweep_pool().await;
+                })
+                .await;
             }
         });
     }
@@ -351,6 +373,8 @@ async fn main() -> anyhow::Result<()> {
             get(|| async { Json(json!({"status":"ok"})) }),
         )
         .route("/healthz/ready", get(ready))
+        .route("/healthz/deps", get(deps_health))
+        .route("/metrics", get(metrics))
         .nest("/api/v1", api)
         .nest_service(
             "/assets",
@@ -424,6 +448,31 @@ async fn security_headers(
     response
 }
 
+/// Wraps an async block in `catch_unwind` so a panic in a background sweeper
+/// loop body logs an error and continues to the next iteration instead of
+/// killing the task silently. Without this, a single `unwrap()` on `None`
+/// in any background loop permanently disables that sweeper.
+async fn panic_safe<F, Fut>(label: &'static str, f: F)
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    use futures_util::FutureExt;
+    use std::panic::AssertUnwindSafe;
+    if let Err(payload) = AssertUnwindSafe(f()).catch_unwind().await {
+        let msg = payload
+            .downcast_ref::<&str>()
+            .copied()
+            .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
+            .unwrap_or("unknown panic");
+        tracing::error!(
+            task = label,
+            panic = msg,
+            "background task panicked, continuing next iteration"
+        );
+    }
+}
+
 async fn shutdown_signal() {
     let ctrl_c = async {
         let _ = tokio::signal::ctrl_c().await;
@@ -445,6 +494,128 @@ async fn ready(
 ) -> Result<Json<serde_json::Value>, error::ApiError> {
     state.store.ping().await?;
     Ok(Json(json!({"status":"ready"})))
+}
+
+/// Soft dependency health: checks each external dependency independently and
+/// reports status without failing the whole probe. Returns 200 if all deps
+/// are reachable, 503 if any are down. The body is a JSON object with per-dep
+/// status and latency, so an operator can see exactly which dependency is
+/// degraded without reading logs.
+async fn deps_health(
+    axum::extract::State(state): axum::extract::State<AppState>,
+) -> axum::response::Response {
+    use std::time::Instant;
+    let mut deps = serde_json::Map::new();
+    let mut all_ok = true;
+
+    // Postgres — hard dependency
+    let start = Instant::now();
+    let pg_ok = state.store.ping().await.is_ok();
+    let pg_latency = start.elapsed().as_millis();
+    deps.insert(
+        "postgres".to_owned(),
+        json!({
+            "status": if pg_ok { "ok" } else { "down" },
+            "latency_ms": pg_latency,
+        }),
+    );
+    if !pg_ok {
+        all_ok = false;
+    }
+
+    // n8n — soft dependency (automation events). Not configured is not
+    // "down": report "not_configured" so the operator knows it's optional.
+    if let Some(base_url) = state.n8n_base_url.as_deref() {
+        let start = Instant::now();
+        let n8n_ok = state
+            .http_client
+            .get(format!("{}/healthz", base_url.trim_end_matches('/')))
+            .timeout(std::time::Duration::from_secs(3))
+            .send()
+            .await
+            .is_ok_and(|r| r.status().is_success());
+        let n8n_latency = start.elapsed().as_millis();
+        deps.insert(
+            "n8n".to_owned(),
+            json!({
+                "status": if n8n_ok { "ok" } else { "down" },
+                "latency_ms": n8n_latency,
+            }),
+        );
+        if !n8n_ok {
+            all_ok = false;
+        }
+    } else {
+        deps.insert("n8n".to_owned(), json!({"status": "not_configured"}));
+    }
+
+    let status = if all_ok {
+        axum::http::StatusCode::OK
+    } else {
+        axum::http::StatusCode::SERVICE_UNAVAILABLE
+    };
+    (status, Json(json!({"all_ok": all_ok, "deps": deps}))).into_response()
+}
+
+/// Prometheus-format metrics endpoint. Exposes basic process and runtime
+/// metrics for scraping by Prometheus/VictoriaMetrics. No auth — the edge
+/// (Caddy) controls access to this path in production.
+async fn metrics(
+    axum::extract::State(state): axum::extract::State<AppState>,
+) -> axum::response::Response {
+    let mut lines = Vec::new();
+
+    // Process metrics
+    lines.push("# HELP control_plane_uptime_seconds Time since the process started.".to_owned());
+    lines.push("# TYPE control_plane_uptime_seconds counter".to_owned());
+    let uptime = state.start_time.elapsed().as_secs();
+    lines.push(format!("control_plane_uptime_seconds {uptime}"));
+
+    // Tenant count
+    lines.push("# HELP control_plane_tenants Total number of tenants.".to_owned());
+    lines.push("# TYPE control_plane_tenants gauge".to_owned());
+    let tenant_count = state.store.tenant_count().await.unwrap_or(0);
+    lines.push(format!("control_plane_tenants {tenant_count}"));
+
+    // Notification queue depth
+    lines.push(
+        "# HELP control_plane_notification_queue_depth Pending notifications in the outbox."
+            .to_owned(),
+    );
+    lines.push("# TYPE control_plane_notification_queue_depth gauge".to_owned());
+    let pending = state.store.pending_notification_count().await.unwrap_or(0);
+    lines.push(format!("control_plane_notification_queue_depth {pending}"));
+
+    // Platform health services
+    lines.push(
+        "# HELP control_plane_platform_services_total Total configured platform services."
+            .to_owned(),
+    );
+    lines.push("# TYPE control_plane_platform_services_total gauge".to_owned());
+    let services = state
+        .store
+        .platform_health_summary()
+        .await
+        .unwrap_or_default();
+    let healthy = services.iter().filter(|(_, h, _)| *h).count();
+    lines.push(format!(
+        "control_plane_platform_services_total {}",
+        services.len()
+    ));
+    lines.push(
+        "# HELP control_plane_platform_services_healthy Healthy platform services.".to_owned(),
+    );
+    lines.push("# TYPE control_plane_platform_services_healthy gauge".to_owned());
+    lines.push(format!("control_plane_platform_services_healthy {healthy}"));
+
+    (
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; version=0.0.4",
+        )],
+        lines.join("\n") + "\n",
+    )
+        .into_response()
 }
 
 /// One bounded delivery pass: claim, send, record. Errors never propagate —
@@ -510,23 +681,43 @@ async fn poll_platform_health(state: &AppState, client: &reqwest::Client) -> any
                     Ok(response) => {
                         let code = response.status().as_u16();
                         if response.status().is_success() {
-                            let body = response.text().await.unwrap_or_default();
-                            // Parse the body as JSON and check the status field.
-                            // A non-JSON body (e.g. HTML error page from a
-                            // misconfigured proxy) is malformed, not healthy.
-                            // Accept both "ok" (n8n) and "ready" (CrowdRelay API)
-                            // as healthy — they use different health endpoint vocabularies.
-                            let ok = serde_json::from_str::<serde_json::Value>(&body)
-                                .ok()
-                                .and_then(|v| {
-                                    v.get("status")
-                                        .and_then(|s| s.as_str())
-                                        .map(|s| s == "ok" || s == "ready")
-                                })
-                                .unwrap_or(false);
-                            let label = if ok { "healthy" } else { "malformed_response" };
-                            let status_text = truncate_at_char_boundary(&body, 120);
-                            (ok, format!("200:{label}:{status_text}"))
+                            // Cap the body at 64 KiB to bound memory and parse
+                            // time. A health endpoint should return a small JSON
+                            // object; a 64 KiB body is already a red flag.
+                            // Check Content-Length first to avoid buffering a
+                            // multi-megabyte response into memory.
+                            const MAX_HEALTH_BODY: usize = 64 * 1024;
+                            let content_length = response
+                                .headers()
+                                .get(reqwest::header::CONTENT_LENGTH)
+                                .and_then(|v| v.to_str().ok())
+                                .and_then(|s| s.parse::<usize>().ok());
+                            if content_length.is_some_and(|len| len > MAX_HEALTH_BODY) {
+                                (false, format!("{code}:oversized_response"))
+                            } else {
+                                let bytes = response.bytes().await.unwrap_or_default();
+                                let body = if bytes.len() <= MAX_HEALTH_BODY {
+                                    String::from_utf8_lossy(&bytes).into_owned()
+                                } else {
+                                    String::from_utf8_lossy(&bytes[..MAX_HEALTH_BODY]).into_owned()
+                                };
+                                // Parse the body as JSON and check the status field.
+                                // A non-JSON body (e.g. HTML error page from a
+                                // misconfigured proxy) is malformed, not healthy.
+                                // Accept both "ok" (n8n) and "ready" (CrowdRelay API)
+                                // as healthy — they use different health endpoint vocabularies.
+                                let ok = serde_json::from_str::<serde_json::Value>(&body)
+                                    .ok()
+                                    .and_then(|v| {
+                                        v.get("status")
+                                            .and_then(|s| s.as_str())
+                                            .map(|s| s == "ok" || s == "ready")
+                                    })
+                                    .unwrap_or(false);
+                                let label = if ok { "healthy" } else { "malformed_response" };
+                                let status_text = truncate_at_char_boundary(&body, 120);
+                                (ok, format!("200:{label}:{status_text}"))
+                            }
                         } else {
                             (false, format!("{code}:http_unhealthy"))
                         }
@@ -559,10 +750,16 @@ async fn poll_platform_health(state: &AppState, client: &reqwest::Client) -> any
         );
     }
     for (service, healthy, status, latency_ms) in results {
-        state
+        // Each health row is persisted independently — one service's DB
+        // upsert failure must not prevent later services from recording
+        // their state. A failed upsert is logged, not propagated.
+        if let Err(error) = state
             .store
             .upsert_platform_health(&service, healthy, &status, Some(latency_ms))
-            .await?;
+            .await
+        {
+            tracing::warn!(%service, error = %error, "platform health upsert failed");
+        }
     }
     Ok(())
 }

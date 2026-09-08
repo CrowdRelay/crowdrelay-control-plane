@@ -1040,11 +1040,11 @@ async fn chat_stream(
         }
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(StatusCode::OK)
         .header("content-type", "text/event-stream")
         .header("cache-control", "no-cache, no-transform")
         .header("x-accel-buffering", "no")
         .body(axum::body::Body::from_stream(stream))
-        .unwrap())
+        .map_err(|_| ApiError::Unavailable("failed to build SSE response".to_owned()))
 }

@@ -207,6 +207,13 @@ export const CommandPalette: Component = () => {
       const cmd = active()
       if (cmd) { event.preventDefault(); void execute(cmd) }
     }
+    // Focus trap: Tab and Shift+Tab cycle within the dialog. The input is
+    // the only focusable element; Tab wraps back to it so focus never
+    // escapes to the page behind the modal backdrop.
+    else if (event.key === 'Tab') {
+      event.preventDefault()
+      inputRef?.focus()
+    }
   }
 
   // The palette is Show-gated: mounted only while open. Bind and unbind the
@@ -224,15 +231,22 @@ export const CommandPalette: Component = () => {
           class="cmdk-input"
           placeholder="Type a page, tenant or action…"
           aria-label="Command palette search"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls="cmdk-listbox"
+          aria-activedescendant={active() ? `cmdk-item-${index()}` : undefined}
           value={query()}
           onInput={event => { setQuery(event.currentTarget.value); setArmed(null) }}
           spellcheck={false}
         />
-        <div class="cmdk-list">
+        <div class="cmdk-list" id="cmdk-listbox" role="listbox" aria-label="Command results">
           <For each={filtered()} fallback={<div class="cmdk-empty">Nothing matches “{query()}”.</div>}>
             {(cmd, i) => (
               <button
                 type="button"
+                id={`cmdk-item-${i()}`}
+                role="option"
+                aria-selected={i() === index()}
                 classList={{
                   'cmdk-item': true,
                   active: i() === index(),

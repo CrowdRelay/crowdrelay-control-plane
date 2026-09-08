@@ -249,7 +249,7 @@ export function TenantAttentionPage() {
         <h1>Operator Attention</h1>
         <p>Incidents, observability and bounded maintenance. One snapshot, on-demand details.</p>
       </div>
-      <Show when={summary.data} fallback={<StatusBadge status={summary.error ? 'unavailable' : 'loading'} tone={summary.error ? 'bad' : 'muted'} />}>
+      <Show when={!summary.error && summary.data} fallback={<StatusBadge status={summary.error ? 'unavailable' : 'loading'} tone={summary.error ? 'bad' : 'muted'} />}>
         {data => <StatusBadge
           status={totalDead(data()) > 0 || data().watchdog.critical_alerts > 0 || staleAreaReservations(data()) > 0 ? 'attention required' : data().watchdog.active_alerts > 0 ? 'watch' : 'healthy'}
           tone={totalDead(data()) > 0 || data().watchdog.critical_alerts > 0 || staleAreaReservations(data()) > 0 ? 'bad' : data().watchdog.active_alerts > 0 ? 'warn' : 'good'}
@@ -261,7 +261,7 @@ export function TenantAttentionPage() {
     <WatchdogAlertsPanel alerts={attention.data?.alerts ?? []} slug={params().slug} />
 
     {/* ─── Attention Inbox — tiered action center ──────────────────── */}
-    <Show when={summary.data}>
+    <Show when={!summary.error && summary.data}>
       <AttentionInbox
         slug={params().slug}
         needsYou={attention.data?.needs_you ?? []}
@@ -284,7 +284,7 @@ export function TenantAttentionPage() {
       <SkeletonSection titleWidth="180px" lines={4} minHeight="140px" />
     </Show>
 
-    <Show when={summary.data}>{data => <>
+    <Show when={!summary.error && summary.data}>{data => <>
       {/* The AttentionInbox above already renders the tiered attention
           banner — this duplicate was redundant and added visual noise. */}
 

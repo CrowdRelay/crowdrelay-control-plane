@@ -5,14 +5,17 @@ import { api } from '../lib/api'
 import { ChiefOfStaffPanel } from '../components/ChiefOfStaffPanel'
 import { QueueInspectorPanel } from '../components/QueueInspectorPanel'
 import { SystemHealthPanel } from '../components/SystemHealthPanel'
-import { OperationsPanel } from '../components/OperationsPanel'
+import { RuntimeSwitchesPanel } from '../components/RuntimeSwitchesPanel'
+import { AuthorityPoliciesPanel } from '../components/AuthorityPoliciesPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { StatusBadge } from '../components/StatusBadge'
 import { SectionFailureCard } from '../components/SectionFailureCard'
+import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
 import type { TenantOperationsReadModel } from '../lib/types'
 
 export function TenantHealthPage() {
   const params = useParams({ from: '/tenants/$slug/health' })
+  const { activeTab, switchTab, isVisited } = useTabPanels('policies')
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
@@ -47,7 +50,7 @@ export function TenantHealthPage() {
         <h1>Autopilot</h1>
         <p>Authority policies, system health, chief of staff summary, and delivery queue inspector.</p>
       </div>
-      <Show when={model.data}>
+      <Show when={model.data && !model.error}>
         <div class="page-head-status">
           <StatusBadge status={healthLabel()} tone={healthTone()} />
         </div>
@@ -64,7 +67,7 @@ export function TenantHealthPage() {
       <SkeletonSection titleWidth="200px" lines={4} minHeight="180px" />
     </Show>
 
-    <Show when={model.data}>
+    <Show when={model.data && !model.error}>
       {/* Above the numbers on purpose: the numbers assume you already know
           which ones are bad. This says what to do. */}
       <SystemHealthPanel
@@ -72,28 +75,44 @@ export function TenantHealthPage() {
         summary={d()?.summary ?? undefined}
         onChanged={refresh}
       />
-      {/* The autopilot controls — authority policies, confidence sliders,
-          mode dropdowns, kill switch, Full Auto. These were hidden because
-          OperationsPanel was only rendered in mode="health" on the Settings
-          page, which suppresses the controls section. */}
-      <OperationsPanel
-        slug={params().slug}
-        summary={d()?.summary ?? null}
-        flags={d()?.flags ?? null}
-        autopilot={d()?.autopilot ?? null}
-        degraded={d()?.degraded ?? []}
-        sections={d()?.sections}
-        freshness={d()?.freshness}
-        fetchedAt={d()?.fetchedAt}
-        refresh={refresh}
-        mode="controls"
-      />
       {/* The autopilot's own account of the last day, which the API has
           served all along and no screen rendered. */}
       <ChiefOfStaffPanel slug={params().slug} />
       {/* The dead-letter remediation above says "open Deliveries and read one
           failure". This is Deliveries. */}
       <QueueInspectorPanel slug={params().slug} />
+
+      {/* Autopilot controls — split into Runtime and Policies tabs so each
+          loads independently and the page does not become one long scroll.
+          This is the ONLY place autopilot authority switches and sliders
+          live. Operations shows read-only autopilot status and links here. */}
+      <TabBar
+        active={activeTab()}
+        onChange={switchTab}
+        tabs={[
+          { id: 'policies', label: 'Policies' },
+          { id: 'runtime', label: 'Runtime' },
+        ]}
+      />
+
+      <TabPanel active={activeTab()} id="policies" visited={isVisited('policies')}>
+        <AuthorityPoliciesPanel
+          slug={params().slug}
+          degraded={d()?.degraded ?? []}
+          sections={d()?.sections}
+          freshness={d()?.freshness}
+          fetchedAt={d()?.fetchedAt}
+          refresh={refresh}
+        />
+      </TabPanel>
+
+      <TabPanel active={activeTab()} id="runtime" visited={isVisited('runtime')}>
+        <RuntimeSwitchesPanel
+          slug={params().slug}
+          summary={d()?.summary ?? null}
+          refresh={refresh}
+        />
+      </TabPanel>
     </Show>
   </section>
 }

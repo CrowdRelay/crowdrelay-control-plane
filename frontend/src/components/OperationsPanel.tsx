@@ -1,29 +1,11 @@
-import { For, Show, createEffect, createSignal } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
 import { api } from '../lib/api'
-import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, FeatureFlag, FreshnessClassification, OperationsSummary, SectionFreshnessMap, SectionState, SectionVerdicts } from '../lib/types'
+import type { AutopilotOverview, FeatureFlag, FreshnessClassification, OperationsSummary, SectionFreshnessMap, SectionState, SectionVerdicts } from '../lib/types'
 import { errorMessage, formatAge, formatTimestamp, oldestQueueAge } from '../lib/format'
 import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
-import { SkeletonFlagList, SkeletonAutopilotKpis } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
-import { CONTEXT_LABELS, labelOr } from '../lib/opportunity-labels'
-
-const flagLabel = (key: string) => key
-  .replace(/_enabled$/, '')
-  .split('_')
-  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-  .join(' ')
-
-// Every switch on the page read "lazy default" underneath it — the store's
-// word for a flag nobody has ever set, printed raw. Say that instead.
-const flagReason = (flag: FeatureFlag) => flag.reason === 'lazy default'
-  ? `Never changed · shipped default · v${flag.version}`
-  : flag.reason || `v${flag.version} · no reason recorded`
-
-// Title-casing the storage key gave "Growth Intelligence" here and "Growth
-// intelligence" on the scorecard for the same policy. Shared vocabulary.
-const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
 
 const seconds = (value: number) => value <= 0 ? '—' : formatAge(value)
 
@@ -87,96 +69,6 @@ const operationalLabel = (summary: OperationsSummary | undefined) => {
   return tone === 'good' ? 'healthy' : tone === 'warn' ? 'attention' : tone === 'bad' ? 'degraded' : 'loading'
 }
 
-function PolicyEditor(props: {
-  policy: AutopilotPolicy
-  pending: boolean
-  onSave: (input: Pick<AutopilotPolicy, 'enabled'|'autonomy_level'|'minimum_confidence'|'max_actions_24h'>) => Promise<void>
-}) {
-  const [enabled, setEnabled] = createSignal(props.policy.enabled)
-  const [level, setLevel] = createSignal<AutonomyLevel>(props.policy.autonomy_level)
-  const [confidence, setConfidence] = createSignal(props.policy.minimum_confidence / 100)
-  const [maxActions, setMaxActions] = createSignal(props.policy.max_actions_24h)
-
-  createEffect(() => {
-    const policy = props.policy
-    setEnabled(policy.enabled)
-    setLevel(policy.autonomy_level)
-    setConfidence(policy.minimum_confidence / 100)
-    setMaxActions(policy.max_actions_24h)
-  })
-
-  const confidenceBasisPoints = () => Math.round(Math.max(0, Math.min(100, confidence())) * 100)
-  const valid = () => Number.isFinite(confidence()) && confidence() >= 0 && confidence() <= 100 && Number.isInteger(maxActions()) && maxActions() >= 1 && maxActions() <= 1000
-  const dirty = () => enabled() !== props.policy.enabled
-    || level() !== props.policy.autonomy_level
-    || confidenceBasisPoints() !== props.policy.minimum_confidence
-    || maxActions() !== props.policy.max_actions_24h
-  const guarded = () => props.policy.guarded_until && new Date(props.policy.guarded_until).getTime() > Date.now()
-
-  return <div class="autopilot-policy-row">
-    <div class="policy-name">
-      <div class="row-health">
-        <strong>{contextLabel(props.policy.context)}</strong>
-        <Show when={guarded()}><StatusBadge status="guarded" tone="warn" /></Show>
-      </div>
-      <small>v{props.policy.version}{props.policy.guardrail_reason ? ` · ${props.policy.guardrail_reason}` : ''}</small>
-    </div>
-    <label class="compact-field policy-enabled">
-      <span>Enabled</span>
-      <button
-        type="button"
-        class={`switch-control ${enabled() ? 'on' : ''}`}
-        role="switch"
-        aria-checked={enabled()}
-        aria-label={`${contextLabel(props.policy.context)} enabled`}
-        disabled={props.pending}
-        onClick={() => setEnabled((current) => !current)}
-      ><span /></button>
-    </label>
-    <label class="compact-field">
-      <span>Mode</span>
-      <select disabled={props.pending} value={level()} onChange={(event) => setLevel(event.currentTarget.value as AutonomyLevel)}>
-        <option value="observe">Observe</option>
-        <option value="recommend">Recommend</option>
-        <option value="require_approval">Require approval</option>
-        <option value="bounded_auto">Bounded auto</option>
-      </select>
-    </label>
-    <label class="compact-field confidence-field">
-      <div class="confidence-field-head">
-        <span>Min confidence</span>
-        <strong>{Math.round(confidence())}%</strong>
-      </div>
-
-      <input
-        class="confidence-slider"
-        disabled={props.pending}
-        type="range"
-        min="0"
-        max="100"
-        step="1"
-        value={confidence()}
-        onInput={(event) => setConfidence(event.currentTarget.valueAsNumber)}
-        aria-label={`${contextLabel(props.policy.context)} minimum confidence`}
-      />
-    </label>
-    <label class="compact-field policy-number">
-      <span>Max / 24h</span>
-      <input disabled={props.pending} type="number" min="1" max="1000" step="1" value={maxActions()} onInput={(event) => setMaxActions(event.currentTarget.valueAsNumber)} />
-    </label>
-    <button
-      class="ghost policy-save"
-      disabled={!dirty() || !valid() || props.pending}
-      onClick={() => props.onSave({
-        enabled: enabled(),
-        autonomy_level: level(),
-        minimum_confidence: confidenceBasisPoints(),
-        max_actions_24h: maxActions(),
-      })}
-    >{props.pending ? 'Saving…' : 'Apply'}</button>
-  </div>
-}
-
 export function OperationsPanel(props: {
   slug: string
   summary: OperationsSummary | null | undefined
@@ -193,7 +85,7 @@ export function OperationsPanel(props: {
   freshness?: SectionFreshnessMap
   fetchedAt?: string
   refresh: () => Promise<unknown>
-  mode?: 'full' | 'health' | 'controls'
+  mode?: 'full' | 'health'
 }) {
   // The Operations subpage owns the one read-model request. This panel renders
   // its health metrics and control sections and keeps each section's degraded
@@ -216,12 +108,6 @@ export function OperationsPanel(props: {
   }
   const [pendingMutation, setPendingMutation] = createSignal<string | null>(null)
   const [mutationError, setMutationError] = createSignal<string | null>(null)
-  // Optimistic flag overrides — while a flag toggle mutation is in flight,
-  // the flipped value is stored here so the toggle reflects immediately
-  // without waiting for the read-model refetch. Cleared on success (the
-  // refetch confirms the server state) or on error (the refetch restores
-  // the previous state).
-  const [flagOverrides, setFlagOverrides] = createSignal<Record<string, boolean>>({})
 
   const mutate = async (key: string, operation: () => Promise<unknown>, refresh: () => Promise<unknown>) => {
     setMutationError(null)
@@ -235,36 +121,6 @@ export function OperationsPanel(props: {
       setPendingMutation(null)
     }
   }
-
-  const updateFlag = (flag: FeatureFlag) => {
-    // Optimistically flip the flag in the local override so the toggle
-    // reflects immediately. The override is cleared on success/error.
-    setFlagOverrides(prev => ({ ...prev, [flag.key]: !flag.enabled }))
-    mutate(
-      `flag:${flag.key}`,
-      () => api.setFeatureFlag(props.slug, flag, !flag.enabled),
-      () => flags.refetch(),
-    ).finally(() => {
-      setFlagOverrides(prev => {
-        const next = { ...prev }
-        delete next[flag.key]
-        return next
-      })
-    })
-  }
-
-  // Resolve a flag's effective enabled state: local override while a
-  // mutation is in flight, otherwise the prop value.
-  const flagEnabled = (flag: FeatureFlag): boolean => {
-    const override = flagOverrides()[flag.key]
-    return override !== undefined ? override : flag.enabled
-  }
-
-  const updatePolicy = (policy: AutopilotPolicy, input: Pick<AutopilotPolicy, 'enabled'|'autonomy_level'|'minimum_confidence'|'max_actions_24h'>) => mutate(
-    `policy:${policy.context}`,
-    () => api.setAutopilotPolicy(props.slug, policy, input),
-    () => autopilot.refetch(),
-  )
 
   const unavailable = () => summary.error || flags.error || autopilot.error
   // Name each missing section and why. Falls back to the old wording only
@@ -298,7 +154,6 @@ export function OperationsPanel(props: {
   }
   const deadJobs = () => summary.data ? summary.data.outbox.dead + summary.data.deliveries.dead + summary.data.push.dead : 0
   const showHealth = () => !props.mode || props.mode === 'full' || props.mode === 'health'
-  const showControls = () => !props.mode || props.mode === 'full' || props.mode === 'controls'
 
   // Destructive/blast-radius actions share one inline confirmation so a
   // mis-click never flips every policy or redeploys an app by accident.
@@ -442,117 +297,6 @@ export function OperationsPanel(props: {
         </Show>
       </div>
     </Show>
-    </Show>
-
-    <Show when={showControls()}>
-    <div class="operations-split">
-      <section class="operations-section">
-        <details open>
-          <summary class="operations-section-head"><div><span class="eyebrow">FEATURES</span><h3><SectionIcon name="settings" />Runtime switches</h3></div><small>{flags.data?.length ?? 0} declared</small></summary>
-        <Show when={flags.data} fallback={flags.error ? null : <SkeletonFlagList />}>{items => <div class="flag-list">
-          <For each={items()}>{flag => <div class="flag-row">
-            <div><strong>{flagLabel(flag.key)}</strong><small>{flagReason(flag)}</small></div>
-            <button
-              type="button"
-              class={`switch-control ${flagEnabled(flag) ? 'on' : ''}`}
-              role="switch"
-              aria-checked={flagEnabled(flag)}
-              aria-label={`${flagLabel(flag.key)} ${flagEnabled(flag) ? 'enabled' : 'disabled'}`}
-              disabled={pendingMutation() !== null}
-              onClick={() => updateFlag(flag)}
-            ><span /></button>
-          </div>}</For>
-        </div>}</Show>
-        </details>
-      </section>
-
-      <section class="operations-section autopilot-section">
-        <details open>
-          <summary class="operations-section-head">
-            <div><span class="eyebrow">AUTOPILOT</span><h3><SectionIcon name="shield" />Authority policies</h3></div>
-            <div class="row-health">
-              <StatusBadge status={autopilot.data?.runtime_enabled ? 'runtime on' : 'runtime off'} tone={autopilot.data?.runtime_enabled ? 'good' : 'muted'} />
-              {/* Killswitch / full-enable: one switch, one confirmation.
-                  When all policies are off, show a prominent "Full Auto"
-                  button so the operator sees how to re-enable everything.
-                  When any are on, show the danger kill switch. */}
-              <Show when={autopilot.data && autopilot.data.policies.length > 0}>
-                <Show when={autopilot.data!.policies.some(policy => policy.enabled)} fallback={
-                  <button
-                    class="full-auto-btn"
-                    disabled={pendingMutation() !== null}
-                    aria-label="Enable all Autopilot policies"
-                    onClick={(e) => { e.preventDefault(); setConfirming('autopilot-enable') }}
-                  >{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirming() === 'autopilot-enable' ? 'Cancel' : 'Full Auto'}</button>
-                }>
-                  <button
-                    class={`ghost ${confirming() === 'autopilot-disable' ? '' : 'danger-ghost'}`}
-                    disabled={pendingMutation() !== null}
-                    aria-label={confirming() === 'autopilot-disable' ? 'Cancel bulk action' : 'Disable all Autopilot policies'}
-                    onClick={(e) => { e.preventDefault(); setConfirming(confirming()?.startsWith('autopilot') ? null : 'autopilot-disable') }}
-                  >{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirming() === 'autopilot-disable' ? 'Cancel' : 'Kill switch: disable all'}</button>
-                </Show>
-              </Show>
-            </div>
-          </summary>
-        <Show when={confirming()?.startsWith('autopilot')}><div class="warning-card confirm-card" role="alertdialog" aria-label="Bulk Autopilot change">
-          <strong>{confirmCopy()!.title}</strong>
-          <span>{confirmCopy()!.body}</span>
-          <div class="row-health">
-            <button class="ghost" onClick={() => setConfirming(null)}>Cancel</button>
-            <button class={confirming() === 'autopilot-disable' ? 'danger-ghost' : ''} disabled={pendingMutation() !== null} onClick={() => { const enable = confirming() === 'autopilot-enable'; setConfirming(null); void bulkAutopilot(enable) }}>{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirmCopy()!.action}</button>
-          </div>
-        </div></Show>
-        <Show when={autopilot.data} fallback={autopilot.error ? null : <SkeletonAutopilotKpis />}>{data => <>
-          <div class="autopilot-kpis">
-            <div><strong>{data().needs_you.length}</strong><span>needs you</span></div>
-            <div><strong>{data().queued_actions}</strong><span>queued</span></div>
-            <div><strong>{data().failed_24h}</strong><span>failed 24h</span></div>
-            <div><strong>{data().executor_failed_24h}</strong><span>executor fail</span></div>
-          </div>
-          {/* Four controls named after the fields behind them and nothing
-              else: an operator could set an authority level without knowing
-              which of them lets the autopilot act unattended. */}
-          <details class="policy-legend-collapse">
-            <summary>How authority policies work</summary>
-            <p class="policy-legend">
-              One row per kind of work the autopilot does.{' '}
-              <strong>Mode</strong> is how far it may go on its own —{' '}
-              <em>observe</em> records what it would do,{' '}
-              <em>recommend</em> surfaces it on the opportunity board,{' '}
-              <em>require approval</em> prepares the action and waits for you,{' '}
-              <em>bounded auto</em> executes without asking.{' '}
-              <strong>Min confidence</strong> is the score an action must reach before that mode applies; below it nothing happens.{' '}
-              <strong>Max / 24h</strong> caps executions per rolling day, so a bad run stops itself.{' '}
-              Changes take effect on the next cycle — <em>Apply</em> saves one row.
-            </p>
-          </details>
-          {/* Twenty-two identical rows and no way to read the shape of them.
-              The question an operator has before scrolling is how much of this
-              runs unattended. */}
-          <div class="policy-summary">
-            <span><strong>{data().policies.length}</strong> policies</span>
-            <span><strong>{data().policies.filter(p => p.enabled).length}</strong> enabled</span>
-            <span class="policy-summary-auto"><strong>{data().policies.filter(p => p.enabled && p.autonomy_level === 'bounded_auto').length}</strong> act without asking</span>
-            <span><strong>{data().policies.filter(p => p.enabled && p.autonomy_level === 'require_approval').length}</strong> wait for you</span>
-            <span><strong>{data().policies.filter(p => p.enabled && (p.autonomy_level === 'observe' || p.autonomy_level === 'recommend')).length}</strong> only watching</span>
-          </div>
-          <div class="autopilot-policy-list">
-            <For each={data().policies}>{policy => <PolicyEditor
-              policy={policy}
-              pending={pendingMutation() !== null}
-              onSave={(input) => updatePolicy(policy, input) as Promise<void>}
-            />}</For>
-          </div>
-          <Show when={data().rum_metrics_24h.length > 0}>
-            <div class="rum-grid">
-              <For each={data().rum_metrics_24h.slice(0, 6)}>{rum => <div><strong>{contextLabel(rum.metric_key)}</strong><span>{rum.surface} · {rum.samples_24h} samples</span><small>p75 {rum.p75.toFixed(1)} · p95 {rum.p95.toFixed(1)}</small></div>}</For>
-            </div>
-          </Show>
-        </>}</Show>
-        </details>
-      </section>
-    </div>
     </Show>
   </article>
 }

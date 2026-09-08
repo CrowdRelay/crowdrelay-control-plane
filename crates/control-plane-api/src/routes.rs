@@ -681,7 +681,7 @@ async fn unpark_tenant(
         "expected_version": snapshot.envelope_version + 1,
     });
     let idempotency = format!("unpark-{}", Uuid::new_v4());
-    state
+    if let Err(e) = state
         .area_client
         .request_management(
             tenant_id,
@@ -695,19 +695,18 @@ async fn unpark_tenant(
             },
         )
         .await
-        .map_err(|e| {
-            // Restore failed — roll back the CP status to parked so the
-            // snapshot is not lost and the operator can retry.
-            let slug_clone = slug.clone();
-            let actor_clone = actor.to_owned();
-            let store = state.store.clone();
-            tokio::spawn(async move {
-                let _ = store
-                    .set_status(&slug_clone, "parked", &actor_clone, None)
-                    .await;
-            });
-            ApiError::Unavailable(format!("failed to restore growth envelope: {e}"))
-        })?;
+    {
+        // Restore failed — roll back the CP status to parked so the
+        // snapshot is not lost and the operator can retry. Await the
+        // rollback inline so the tenant is never left in an inconsistent
+        // state if the rollback itself fails.
+        if let Err(rb) = state.store.set_status(&slug, "parked", actor, None).await {
+            tracing::error!(error = %rb, slug = %slug, "failed to roll back to parked after restore failure");
+        }
+        return Err(ApiError::Unavailable(format!(
+            "failed to restore growth envelope: {e}"
+        )));
+    }
 
     // Restore the posture. The posture was not changed by parking, so this
     // is a belt-and-suspenders restore. Use the captured posture_version.
@@ -716,7 +715,7 @@ async fn unpark_tenant(
         "expected_version": snapshot.posture_version,
     });
     let posture_idempotency = format!("unpark-posture-{}", Uuid::new_v4());
-    let _ = state
+    let posture_result = state
         .area_client
         .request_management(
             tenant_id,
@@ -730,6 +729,9 @@ async fn unpark_tenant(
             },
         )
         .await;
+    if let Err(e) = &posture_result {
+        tracing::warn!(error = %e, slug = %slug, "posture restore failed during unpark — envelope was restored");
+    }
 
     // Consume the snapshot only after a successful envelope restore.
     state.store.consume_park_snapshot(tenant_id, actor).await?;
@@ -765,7 +767,15 @@ async fn billing_webhook(
         .get("x-billing-webhook-secret")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
-    if provided != secret {
+    // Constant-time comparison to prevent timing side-channels on the
+    // webhook secret. A plain `!=` short-circuits on the first differing
+    // byte, leaking the secret length and prefix over many requests.
+    use subtle::ConstantTimeEq;
+    let provided_bytes = provided.as_bytes();
+    let secret_bytes = secret.as_bytes();
+    let ok =
+        provided_bytes.len() == secret_bytes.len() && provided_bytes.ct_eq(secret_bytes).into();
+    if !ok {
         return Err(ApiError::Unauthorized);
     }
     if input.event != "payment_succeeded" {

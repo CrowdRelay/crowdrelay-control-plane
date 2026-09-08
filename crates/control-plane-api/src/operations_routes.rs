@@ -651,7 +651,9 @@ async fn retry_outbox(
         None,
     )
     .await;
-    object_no_store(result?, "outbox retry")
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "outbox retry")
 }
 
 async fn retry_delivery(
@@ -687,7 +689,9 @@ async fn retry_delivery(
         None,
     )
     .await;
-    object_no_store(result?, "delivery retry")
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "delivery retry")
 }
 
 async fn clear_dead_deliveries(
@@ -722,7 +726,9 @@ async fn clear_dead_deliveries(
         None,
     )
     .await;
-    object_no_store(result?, "dead delivery clear")
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "dead delivery clear")
 }
 
 async fn run_reconciliation(
@@ -758,7 +764,9 @@ async fn run_reconciliation(
         None,
     )
     .await;
-    object_no_store(result?, "ecosystem reconciliation")
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "ecosystem reconciliation")
 }
 
 async fn flags(
@@ -842,7 +850,9 @@ async fn update_flag(
         u64::try_from(input.expected_version).ok(),
     )
     .await;
-    object_no_store(result?, "flag mutation")
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "flag mutation")
 }
 
 async fn autopilot_overview(
@@ -966,7 +976,9 @@ async fn autopilot_cycle_run(
         None,
     )
     .await;
-    object_no_store(result?, "autopilot cycle run")
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "autopilot cycle run")
 }
 
 async fn autopilot_scorecard(
@@ -1117,7 +1129,9 @@ async fn update_autopilot(
         u64::try_from(input.expected_version).ok(),
     )
     .await;
-    object_no_store(result?, "autopilot mutation")
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "autopilot mutation")
 }
 
 /// Killswitch / full-enable for every Autopilot policy at once.
@@ -1150,7 +1164,19 @@ async fn bulk_autopilot(
         .unwrap_or_default();
 
     let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
-    let mut results = Vec::with_capacity(policies.len());
+    // Validate every policy up front so a missing context or version fails
+    // fast without consuming an upstream slot. Invalid policies are reported
+    // as failures in their original position; valid policies fan out
+    // concurrently over the management tunnel.
+    enum Pending {
+        Skip(Value),
+        Run {
+            context: String,
+            body: Value,
+            derived_key: String,
+        },
+    }
+    let mut pending: Vec<Pending> = Vec::with_capacity(policies.len());
     for policy in &policies {
         let context = policy
             .get("context")
@@ -1159,14 +1185,20 @@ async fn bulk_autopilot(
                 ApiError::Unavailable("autopilot policy is missing context".to_owned())
             })?;
         if !safe_segment(context) {
-            results.push(json!({"context": context, "ok": false, "error": "invalid context"}));
+            pending.push(Pending::Skip(json!({
+                "context": context,
+                "ok": false,
+                "error": "invalid context",
+            })));
             continue;
         }
         let expected_version = policy.get("version").and_then(Value::as_i64);
         let Some(expected_version) = expected_version.filter(|version| *version > 0) else {
-            results.push(
-                json!({"context": context, "ok": false, "error": "policy is missing version"}),
-            );
+            pending.push(Pending::Skip(json!({
+                "context": context,
+                "ok": false,
+                "error": "policy is missing version",
+            })));
             continue;
         };
         let body = json!({
@@ -1179,29 +1211,59 @@ async fn bulk_autopilot(
         // Distinct per-policy key: one operator intent fans out into several
         // upstream mutations, each of which must be individually retryable.
         let derived_key = format!("{base_idempotency}:{context}");
-        let result = state
-            .area_client
-            .request_management(
-                tenant.tenant.id,
-                &target,
-                ManagementRequest {
-                    method: "POST",
-                    path: &format!("/v1/control-plane/autopilot/policies/{context}"),
-                    body: Some(&body),
-                    correlation_id: correlation(&headers),
-                    idempotency_key: Some(derived_key.as_str()),
-                },
-            )
-            .await;
-        match result {
-            Ok(_) => results.push(json!({"context": context, "ok": true})),
-            Err(error) => results.push(json!({
-                "context": context,
-                "ok": false,
-                "error": error.to_string(),
-            })),
-        }
+        pending.push(Pending::Run {
+            context: context.to_owned(),
+            body,
+            derived_key,
+        });
     }
+    // Fan out the valid mutations concurrently. The connection pool supports
+    // multiple in-flight requests per target, so N policies no longer pay
+    // N sequential round-trips. Results land in the same order as `pending`.
+    use futures_util::future::join_all;
+    let futures: Vec<_> = pending
+        .iter()
+        .map(|item| async {
+            match item {
+                Pending::Skip(value) => value.clone(),
+                Pending::Run {
+                    context,
+                    body,
+                    derived_key,
+                } => {
+                    let result = state
+                        .area_client
+                        .request_management(
+                            tenant.tenant.id,
+                            &target,
+                            ManagementRequest {
+                                method: "POST",
+                                path: &format!("/v1/control-plane/autopilot/policies/{context}"),
+                                body: Some(body),
+                                correlation_id: correlation(&headers),
+                                idempotency_key: Some(derived_key.as_str()),
+                            },
+                        )
+                        .await;
+                    match result {
+                        Ok(_) => json!({"context": context, "ok": true}),
+                        Err(error) => json!({
+                            "context": context,
+                            "ok": false,
+                            "error": error.to_string(),
+                        }),
+                    }
+                }
+            }
+        })
+        .collect();
+    let results: Vec<Value> = join_all(futures).await;
+    let failed_count = results.iter().filter(|r| r["ok"] == json!(false)).count();
+    let outcome_label = if failed_count > 0 {
+        "partial"
+    } else {
+        "accepted"
+    };
     audit_result(
         &state,
         tenant.tenant.id,
@@ -1209,10 +1271,16 @@ async fn bulk_autopilot(
         "autopilot_policy",
         "bulk",
         &headers,
-        &Ok::<Value, ApiError>(json!({"enabled": input.enabled, "count": results.len()})),
+        &Ok::<Value, ApiError>(json!({
+            "enabled": input.enabled,
+            "count": results.len(),
+            "failed": failed_count,
+            "outcome": outcome_label,
+        })),
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(
         json!({
             "enabled": input.enabled,
@@ -1260,7 +1328,9 @@ async fn approve_opportunity(
         None,
     )
     .await;
-    object_no_store(result?, "opportunity approval")
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "opportunity approval")
 }
 
 /// Reject / cancel a pending autopilot action so it stops appearing in the
@@ -1298,7 +1368,9 @@ async fn cancel_opportunity(
         None,
     )
     .await;
-    object_no_store(result?, "opportunity cancellation")
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "opportunity cancellation")
 }
 
 /// "Done ourselves": record that a human handled the finding outside the
@@ -1338,7 +1410,9 @@ async fn handle_opportunity_externally(
         None,
     )
     .await;
-    object_no_store(result?, "opportunity handled externally")
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "opportunity handled externally")
 }
 
 /// Approve / pause / resume / revoke one edge. The upstream handler owns the
@@ -1379,6 +1453,7 @@ async fn decide_portfolio_amplification(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "portfolio edge decision")
 }
 
@@ -1434,6 +1509,7 @@ async fn update_portfolio_setting(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "portfolio setting update")
 }
 
@@ -1522,6 +1598,7 @@ async fn upsert_audience_place(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "audience graph place upsert")
 }
 
@@ -1562,6 +1639,7 @@ async fn import_audience_places(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "audience graph place import")
 }
 
@@ -1597,6 +1675,7 @@ async fn create_portfolio_fanbase(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "portfolio fanbase create")
 }
 
@@ -1640,6 +1719,7 @@ async fn ingest_portfolio_fanbase(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "portfolio fanbase ingest")
 }
 
@@ -1756,7 +1836,9 @@ async fn retry_push(
         None,
     )
     .await;
-    object_no_store(result?, "push retry")
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "push retry")
 }
 
 /// Delete a fanbase and its dependent rows. The upstream CASCADE handles
@@ -1795,6 +1877,7 @@ async fn delete_portfolio_fanbase(
     .await;
     // upstream returns 204 No Content on success
     result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     Ok(StatusCode::NO_CONTENT.into_response())
 }
 
@@ -1874,6 +1957,7 @@ async fn delete_fanbase_connection(
     uuid_segment(&connection_id)?;
     let path = format!("/v1/control-plane/fanbases/connections/{connection_id}");
     let _ = call(&state, &slug, "DELETE", &path, None, &headers, None).await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     Ok(StatusCode::NO_CONTENT.into_response())
 }
 
@@ -1894,6 +1978,7 @@ async fn create_discord_connection(
         Some(&idempotency),
     )
     .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "discord connection")
 }
 
@@ -1914,6 +1999,7 @@ async fn create_telegram_connection(
         Some(&idempotency),
     )
     .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "telegram connection")
 }
 
@@ -1934,6 +2020,7 @@ async fn create_lastfm_connection(
         Some(&idempotency),
     )
     .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "lastfm connection")
 }
 
@@ -1954,6 +2041,7 @@ async fn create_deezer_connection(
         Some(&idempotency),
     )
     .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "deezer connection")
 }
 
@@ -1974,6 +2062,7 @@ async fn create_discogs_connection(
         Some(&idempotency),
     )
     .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "discogs connection")
 }
 
@@ -1994,6 +2083,7 @@ async fn create_bluesky_connection(
         Some(&idempotency),
     )
     .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "bluesky connection")
 }
 
@@ -2014,6 +2104,7 @@ async fn create_bandcamp_connection(
         Some(&idempotency),
     )
     .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "bandcamp connection")
 }
 
@@ -2034,6 +2125,7 @@ async fn create_youtube_connection(
         Some(&idempotency),
     )
     .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "youtube connection")
 }
 
@@ -2054,6 +2146,7 @@ async fn create_facebook_connection(
         Some(&idempotency),
     )
     .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "facebook connection")
 }
 
@@ -2074,6 +2167,7 @@ async fn create_instagram_connection(
         Some(&idempotency),
     )
     .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "instagram connection")
 }
 
@@ -2094,6 +2188,7 @@ async fn create_soundcloud_connection(
         Some(&idempotency),
     )
     .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "soundcloud connection")
 }
 
@@ -2114,6 +2209,7 @@ async fn create_reddit_connection(
         Some(&idempotency),
     )
     .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "reddit connection")
 }
 
@@ -2300,6 +2396,7 @@ async fn declare_growth_objective(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "growth objective declare")
 }
 
@@ -2333,6 +2430,7 @@ async fn retire_growth_objective(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "growth objective retire")
 }
 
@@ -2388,6 +2486,7 @@ async fn set_growth_posture(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "growth posture update")
 }
 
@@ -2510,6 +2609,7 @@ async fn confirm_outreach_candidate(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "outreach candidate confirm")
 }
 
@@ -2558,6 +2658,7 @@ async fn confirm_booking_candidate(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "booking candidate confirm")
 }
 
@@ -2652,6 +2753,7 @@ async fn resolve_beacon_press_request(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "beacon press request resolve")
 }
 
@@ -2791,6 +2893,7 @@ async fn upsert_beacon(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "beacon upsert")
 }
 
@@ -2891,6 +2994,7 @@ async fn import_submithub_csv(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "submithub import")
 }
 
@@ -2935,6 +3039,7 @@ async fn beacon_network_action(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "beacon network action")
 }
 
@@ -2975,6 +3080,7 @@ async fn batch_invite_beacons(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "beacon batch invite")
 }
 
@@ -3009,6 +3115,7 @@ async fn invite_beacon(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "beacon invite")
 }
 
@@ -3044,6 +3151,7 @@ async fn set_beacon_state(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "beacon state")
 }
 
@@ -3082,6 +3190,7 @@ async fn record_beacon_reply(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "beacon reply")
 }
 
@@ -3116,6 +3225,7 @@ async fn create_beacon_release_campaign(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "beacon release campaign create")
 }
 
@@ -3149,6 +3259,7 @@ async fn launch_beacon_release_campaign(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "beacon release campaign launch")
 }
 
@@ -3182,6 +3293,7 @@ async fn close_beacon_release_campaign(
         None,
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "beacon release campaign close")
 }
 
@@ -3270,6 +3382,7 @@ async fn set_community_membership(
     let path =
         format!("/v1/control-plane/community-intelligence/communities/{place_id}/membership");
     let (_, value) = call(&state, &slug, "POST", &path, Some(&body), &headers, None).await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "community membership")
 }
 

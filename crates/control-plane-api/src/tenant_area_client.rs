@@ -4,12 +4,7 @@
 //! HTTP origins are accepted, redirects are refused, and response bodies are
 //! bounded before JSON parsing.
 
-use std::{
-    collections::HashMap,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr},
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, net::IpAddr, sync::Arc, time::Duration};
 
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -19,7 +14,7 @@ use tokio::{
     sync::Mutex,
     time::timeout,
 };
-use url::{Host, Url};
+use url::Url;
 use uuid::Uuid;
 
 use crate::error::ApiError;
@@ -152,6 +147,7 @@ impl TenantAreaClient {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn request(
         &self,
         tenant_id: Uuid,
@@ -160,6 +156,7 @@ impl TenantAreaClient {
         path_and_query: &str,
         body: Option<&Value>,
         correlation_id: Option<&str>,
+        idempotency_key: Option<&str>,
     ) -> Result<Value, ApiError> {
         let area_path = path_and_query
             .split_once('?')
@@ -174,6 +171,14 @@ impl TenantAreaClient {
         if !matches!(method, "GET" | "POST" | "PATCH" | "DELETE") {
             return Err(ApiError::InvalidInput("invalid upstream method".to_owned()));
         }
+        // Idempotency keys are required for mutations, optional for GETs.
+        if matches!(method, "POST" | "PATCH" | "DELETE")
+            && idempotency_key.is_some_and(|k| !valid_idempotency_key(k))
+        {
+            return Err(ApiError::InvalidInput(
+                "valid Idempotency-Key is required for AREA mutations".to_owned(),
+            ));
+        }
         let token = self.derived_token(tenant_id)?;
         request_authorized(
             &self.pool,
@@ -182,7 +187,7 @@ impl TenantAreaClient {
             path_and_query,
             body,
             correlation_id,
-            None,
+            idempotency_key,
             &token,
         )
         .await
@@ -559,7 +564,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
     }
 }
 
-fn valid_idempotency_key(value: &str) -> bool {
+pub(crate) fn valid_idempotency_key(value: &str) -> bool {
     (8..=128).contains(&value.len()) && value.bytes().all(|byte| (b'!'..=b'~').contains(&byte))
 }
 
@@ -644,11 +649,49 @@ async fn request_authorized(
 
 /// Open a new TCP connection to the upstream, with the standard connect
 /// timeout and error mapping.
+///
+/// For DNS names (not raw IP addresses), this resolves the host and verifies
+/// every resolved IP is private before connecting. This closes the DNS
+/// rebinding gap: a hostname that passed `is_private_target` at config time
+/// could be re-pointed at a public IP between config and request. The Host
+/// header continues to use the original hostname — only the TCP destination
+/// is the resolved IP.
 async fn connect(address: &str) -> Result<TcpStream, ApiError> {
-    timeout(CONNECT_TIMEOUT, TcpStream::connect(address))
+    // Try to parse as IP:port first — if it's already an IP address, it was
+    // validated by `validate_management_target` and needs no re-resolution.
+    if let Ok(socket_addr) = address.parse::<std::net::SocketAddr>() {
+        return timeout(CONNECT_TIMEOUT, TcpStream::connect(socket_addr))
+            .await
+            .map_err(|_| ApiError::Timeout)?
+            .map_err(|_| ApiError::Unreachable);
+    }
+    // DNS name: resolve and revalidate before connecting.
+    let addrs = timeout(CONNECT_TIMEOUT, tokio::net::lookup_host(address))
         .await
         .map_err(|_| ApiError::Timeout)?
-        .map_err(|_| ApiError::Unreachable)
+        .map_err(|_| ApiError::Unreachable)?;
+    let mut last_err = None;
+    for socket_addr in addrs {
+        if !crate::net_guard::is_private_ip(socket_addr.ip()) {
+            tracing::warn!(
+                address,
+                ip = %socket_addr.ip(),
+                "upstream DNS resolved to non-private address, refusing"
+            );
+            return Err(ApiError::InvalidInput(
+                "upstream target resolved to non-private address".to_owned(),
+            ));
+        }
+        match timeout(CONNECT_TIMEOUT, TcpStream::connect(&socket_addr)).await {
+            Ok(Ok(stream)) => return Ok(stream),
+            Ok(Err(e)) => last_err = Some(e),
+            Err(_) => last_err = None,
+        }
+    }
+    match last_err {
+        Some(_) => Err(ApiError::Unreachable),
+        None => Err(ApiError::Timeout),
+    }
 }
 
 /// Pop an idle stream from the pool, dropping any that have been idle longer
@@ -742,16 +785,26 @@ async fn read_framed_response(stream: &mut TcpStream) -> Result<(Vec<u8>, bool),
     }
 
     if transfer_chunked {
-        // Read until we see the chunked terminator `0\r\n\r\n`.
+        // Read until we see the chunked terminator. The zero-length chunk
+        // `0\r\n\r\n` must appear at a chunk boundary: either at the very
+        // start of the body (first chunk is zero) or preceded by the CRLF
+        // that ends the previous chunk's data (`\r\n0\r\n\r\n`). Searching
+        // for `0\r\n\r\n` anywhere in the buffer would false-match the same
+        // byte sequence inside chunk data (e.g. in binary or JSON content).
         let terminator = b"0\r\n\r\n";
+        let body_start = header_end + 4;
         loop {
-            // The terminator may span multiple reads, so check the tail.
+            // Check the tail for a boundary-correct terminator.
             if buf.len() >= terminator.len() && &buf[buf.len() - terminator.len()..] == terminator {
-                return Ok((buf, true));
+                // Accept only if it's at the body start or preceded by \r\n.
+                let pos = buf.len() - terminator.len();
+                if pos == body_start || (pos >= 2 && &buf[pos - 2..pos] == b"\r\n") {
+                    return Ok((buf, true));
+                }
             }
-            // Also check if the terminator appeared somewhere in the
+            // Also check if a boundary-correct terminator appeared in the
             // latest data (it might be followed by trailer headers).
-            if find_subsequence(&buf[header_end..], terminator).is_some() {
+            if find_chunk_terminator(&buf[body_start..]) {
                 // Read a little more to capture any trailers after the
                 // terminator, up to a small limit.
                 let target = buf.len() + 256;
@@ -848,6 +901,20 @@ fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         .position(|window| window == needle)
 }
 
+/// Check if the chunked terminator `0\r\n\r\n` appears at a valid chunk
+/// boundary in the body: either at the very start (first chunk is zero) or
+/// preceded by the CRLF that ends the previous chunk's data.
+fn find_chunk_terminator(body: &[u8]) -> bool {
+    const TERM: &[u8] = b"0\r\n\r\n";
+    if body.len() >= TERM.len() && &body[..TERM.len()] == TERM {
+        return true;
+    }
+    // Search for `\r\n0\r\n\r\n` — the CRLF ending the previous chunk,
+    // followed by the zero-length chunk size and the empty trailer block.
+    const BOUNDARY: &[u8] = b"\r\n0\r\n\r\n";
+    find_subsequence(body, BOUNDARY).is_some()
+}
+
 /// Parse `Content-Length`, `Transfer-Encoding`, and `Connection` from the
 /// response header block (everything before `\r\n\r\n`).
 fn parse_response_framing(header_bytes: &[u8]) -> Result<(Option<usize>, bool, bool), ApiError> {
@@ -914,40 +981,13 @@ fn validate_management_target(value: &str) -> Result<Url, ApiError> {
             "upstream target must be a bare private HTTP origin".to_owned(),
         ));
     }
-    let private = match parsed.host() {
-        Some(Host::Domain(name)) => is_private_dns_name(name),
-        Some(Host::Ipv4(ip)) => private_v4(ip),
-        Some(Host::Ipv6(ip)) => private_v6(ip),
-        None => false,
-    };
+    let private = crate::net_guard::is_private_target(&parsed);
     if !private {
         return Err(ApiError::InvalidInput(
             "upstream target must be loopback or private".to_owned(),
         ));
     }
     Ok(parsed)
-}
-
-fn private_v4(ip: Ipv4Addr) -> bool {
-    ip.is_loopback() || ip.is_private()
-}
-
-fn private_v6(ip: Ipv6Addr) -> bool {
-    ip.is_loopback() || (ip.segments()[0] & 0xfe00) == 0xfc00
-}
-
-/// Accept `localhost` plus Docker-internal hostnames that resolve to private
-/// addresses. Docker service names like `area-management-proxy` are inherently
-/// private — they only resolve inside a Docker network and never route to a
-/// public IP.
-fn is_private_dns_name(name: &str) -> bool {
-    name.eq_ignore_ascii_case("localhost")
-        || name.eq_ignore_ascii_case("host.docker.internal")
-        || name.contains('-')
-            && !name.contains('.')
-            && name
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }
 
 fn format_host_port(host: &str, port: u16) -> String {

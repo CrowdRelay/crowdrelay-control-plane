@@ -45,7 +45,7 @@ export function TenantIntelligencePage() {
         <h1>Intelligence</h1>
         <p>The deterministic autopilot's decision timeline, worker dispatch, and growth intelligence. The intelligence engine owns strategy — LLM workers gather and draft, but never decide.</p>
       </div>
-      <Show when={model.data}>
+      <Show when={!model.error && model.data}>
         <div class="page-head-status">
           <Show when={autopilot()?.runtime_enabled}>
             <StatusBadge status="autopilot on" tone="good" />
@@ -104,7 +104,7 @@ export function TenantIntelligencePage() {
       <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
     </Show>
 
-    <Show when={model.data}>{<>
+    <Show when={!model.error && model.data}>{<>
 
       {/* ── Overview tab — what it knows ── */}
       <TabPanel active={activeTab()} id="overview" visited={isVisited('overview')}>

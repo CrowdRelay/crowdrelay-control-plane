@@ -133,7 +133,7 @@ async fn create_channel(
             input.enabled,
         )
         .await?;
-    state
+    if let Err(e) = state
         .store
         .audit_control_command(crate::store::ControlCommandAudit {
             tenant_id: tenant.tenant.id,
@@ -146,7 +146,9 @@ async fn create_channel(
             expected_version: None,
         })
         .await
-        .ok();
+    {
+        tracing::warn!(error = %e, action = "tenant.notifier.created", tenant_id = %tenant.tenant.id, "audit write failed");
+    }
     Ok((axum::Json(mask(&channel))).into_response())
 }
 
@@ -179,7 +181,7 @@ async fn update_channel(
         .store
         .update_notifier_channel(tenant.tenant.id, channel_id, label, events, input.enabled)
         .await?;
-    state
+    if let Err(e) = state
         .store
         .audit_control_command(crate::store::ControlCommandAudit {
             tenant_id: tenant.tenant.id,
@@ -192,7 +194,9 @@ async fn update_channel(
             expected_version: None,
         })
         .await
-        .ok();
+    {
+        tracing::warn!(error = %e, action = "tenant.notifier.updated", tenant_id = %tenant.tenant.id, "audit write failed");
+    }
     Ok(axum::Json(mask(&channel)).into_response())
 }
 
@@ -207,6 +211,10 @@ async fn delete_channel(
     identity.ensure_tenant(tenant.tenant.id)?;
     state
         .store
+        .delete_notifier_channel(tenant.tenant.id, channel_id)
+        .await?;
+    if let Err(e) = state
+        .store
         .audit_control_command(crate::store::ControlCommandAudit {
             tenant_id: tenant.tenant.id,
             actor: &identity.audit_actor(),
@@ -218,11 +226,9 @@ async fn delete_channel(
             expected_version: None,
         })
         .await
-        .ok();
-    state
-        .store
-        .delete_notifier_channel(tenant.tenant.id, channel_id)
-        .await?;
+    {
+        tracing::warn!(error = %e, action = "tenant.notifier.deleted", tenant_id = %tenant.tenant.id, "audit write failed");
+    }
     Ok(StatusCode::NO_CONTENT.into_response())
 }
 
@@ -261,7 +267,7 @@ async fn test_channel(
             &payload,
         )
         .await;
-    state
+    if let Err(e) = state
         .store
         .audit_control_command(crate::store::ControlCommandAudit {
             tenant_id: tenant.tenant.id,
@@ -278,7 +284,9 @@ async fn test_channel(
             expected_version: None,
         })
         .await
-        .ok();
+    {
+        tracing::warn!(error = %e, action = "tenant.notifier.tested", tenant_id = %tenant.tenant.id, "audit write failed");
+    }
     match outcome {
         // The test channel is a synchronous round-trip: the Control Plane
         // observed the provider's response (200 or error) right here, so

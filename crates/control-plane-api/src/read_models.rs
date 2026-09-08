@@ -59,6 +59,11 @@ pub fn new_read_model_cache() -> ReadModelCache {
 /// Return a cached value if it exists and is younger than [`READ_MODEL_CACHE_TTL`].
 /// Expired entries are removed on access so the map does not retain stale
 /// values for tenants that are read infrequently.
+///
+/// The expiry check and removal happen under the same write lock to avoid a
+/// race where a concurrent `cache_set` inserts a fresh value in the gap
+/// between the read-lock expiry check and the write-lock removal — which
+/// would delete the fresh entry.
 async fn cache_get(cache: &ReadModelCache, key: &str) -> Option<Value> {
     let entries = cache.read().await;
     if let Some((stored_at, value)) = entries.get(key) {
@@ -67,9 +72,17 @@ async fn cache_get(cache: &ReadModelCache, key: &str) -> Option<Value> {
         }
     }
     drop(entries);
-    // Entry was absent or expired — remove it under a write lock so it does
-    // not linger for inactive tenants.
+    // Entry was absent or expired — remove it under a write lock. Re-check
+    // the entry under the write lock before removing, because a concurrent
+    // `cache_set` may have inserted a fresh value between the read lock
+    // release and the write lock acquisition.
     let mut entries = cache.write().await;
+    if let Some((stored_at, _)) = entries.get(key) {
+        if Instant::now().duration_since(*stored_at) < READ_MODEL_CACHE_TTL {
+            // A concurrent insert refreshed the entry — don't remove it.
+            return Some(entries[key].1.clone());
+        }
+    }
     entries.remove(key);
     None
 }
@@ -91,6 +104,16 @@ async fn cache_set(cache: &ReadModelCache, key: String, value: Value) {
 /// share the same in-process cache for consolidated read models.
 pub async fn cache_set_public(cache: &ReadModelCache, key: String, value: Value) {
     cache_set(cache, key, value).await
+}
+
+/// Invalidate all cached read models for a tenant. Called after a mutation
+/// (e.g. autopilot policy update, portfolio decision) so the next read
+/// fetches fresh data from upstream instead of serving the pre-mutation
+/// cached value for up to [`READ_MODEL_CACHE_TTL`].
+pub async fn invalidate_tenant(cache: &ReadModelCache, slug: &str) {
+    let prefix = format!("{slug}:");
+    let mut entries = cache.write().await;
+    entries.retain(|key, _| !key.starts_with(&prefix));
 }
 
 /// Remove all entries older than `READ_MODEL_CACHE_TTL * 2`. Called by a

@@ -23,8 +23,8 @@ export function errorHeading(error: unknown, fallback: string): string {
       case 'not_found': return 'That item no longer exists.'
       case 'conflict': return 'That name or value is already taken.'
       case 'invalid_input': return 'Check the entered values and try again.'
-      case 'rate_limited': return 'Too many requests — wait a moment and retry.'
       case 'unavailable': return 'That service is temporarily unavailable.'
+      case 'internal_error': return 'Internal error — check server logs for details.'
       // Typed upstream error variants — the backend distinguishes these so
       // the operator sees the actual failure mode, not a generic "unavailable".
       case 'all_sections_failed': return 'Every section of this channel failed — see the per-section diagnosis below.'
@@ -183,6 +183,7 @@ export const api = {
   autopilotCyclePreview: (slug: string) => request<CyclePreview>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/cycle/preview`),
   autopilotCycleRun: (slug: string) => request<CycleRunResult>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/cycle/run`, { method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() } }),
   autopilotOverview: (slug: string) => request<AutopilotOverview>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot`),
+  featureFlags: (slug: string) => request<FeatureFlag[]>(`/tenants/${encodeURIComponent(slug)}/operations/flags`),
   tenant: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}`),
   tenantRuntime: (slug: string) => request<TenantRuntimeSnapshot>(`/tenants/${encodeURIComponent(slug)}/runtime`),
   createTenant: (input: CreateTenantInput) =>
@@ -244,7 +245,7 @@ export const api = {
     headers: { 'idempotency-key': crypto.randomUUID() },
     body: JSON.stringify({ enabled, reason: 'Control Plane operator toggle', expected_version: flag.version }),
   }),
-  setAutopilotPolicy: (slug: string, policy: AutopilotPolicy, input: Pick<AutopilotPolicy, 'enabled'|'autonomy_level'|'minimum_confidence'|'max_actions_24h'>) => request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/${encodeURIComponent(policy.context)}`, {
+  setAutopilotPolicy: (slug: string, policy: AutopilotPolicy, input: Pick<AutopilotPolicy, 'enabled'|'autonomy_level'|'minimum_confidence'|'max_actions_24h'>) => request<void>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/${encodeURIComponent(policy.context)}`, {
     method: 'POST',
     headers: { 'idempotency-key': crypto.randomUUID() },
     body: JSON.stringify({

@@ -547,8 +547,11 @@ impl Store {
         actor: &str,
         request_id: Option<&str>,
     ) -> Result<TenantSummary, ApiError> {
-        let tenant = self.tenant_by_slug(slug).await?;
-        if tenant_lifecycle_is_externally_owned(&tenant.tenant.slug)
+        // The externally-owned guard only needs the slug, which we already
+        // have. Skip the full tenant_by_slug join here — the tenant_id for
+        // the audit comes from UPDATE ... RETURNING, and the final summary
+        // is fetched once at the end.
+        if tenant_lifecycle_is_externally_owned(slug)
             && (status == "suspended" || status == "parked")
         {
             return Err(ApiError::Conflict(
@@ -557,21 +560,23 @@ impl Store {
             ));
         }
         let mut tx = self.pool.begin().await?;
-        sqlx::query(
-            "UPDATE control_plane_tenants SET status = $2, updated_at = now() WHERE id = $1",
+        let tenant_id: Uuid = sqlx::query_scalar(
+            "UPDATE control_plane_tenants SET status = $2, updated_at = now() \
+             WHERE slug = $1 RETURNING id",
         )
-        .bind(tenant.tenant.id)
+        .bind(slug)
         .bind(status)
-        .execute(&mut *tx)
-        .await?;
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(ApiError::NotFound)?;
         self.audit_tx(
             &mut tx,
             AuditRecord {
-                tenant_id: Some(tenant.tenant.id),
+                tenant_id: Some(tenant_id),
                 actor,
                 action: "tenant.status.updated",
                 target_kind: "tenant",
-                target_id: tenant.tenant.id.to_string(),
+                target_id: tenant_id.to_string(),
                 request_id,
                 detail: json!({"status": status}),
             },
@@ -1316,6 +1321,34 @@ impl Store {
         Ok(())
     }
 
+    /// Total tenant count for metrics.
+    pub async fn tenant_count(&self) -> Result<i64, ApiError> {
+        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM tenants")
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(row.0)
+    }
+
+    /// Pending notification queue depth for metrics.
+    pub async fn pending_notification_count(&self) -> Result<i64, ApiError> {
+        let row: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM control_plane_notification_outbox WHERE status = 'pending'",
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.0)
+    }
+
+    /// Platform health summary: (service_name, healthy, status) tuples.
+    pub async fn platform_health_summary(&self) -> Result<Vec<(String, bool, String)>, ApiError> {
+        let rows = sqlx::query_as::<_, (String, bool, String)>(
+            "SELECT service, healthy, status FROM control_plane_platform_health ORDER BY service",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
     pub async fn report_runtime(
         &self,
         slug: &str,
@@ -1457,23 +1490,24 @@ impl Store {
         actor: &str,
         request_id: Option<&str>,
     ) -> Result<bool, ApiError> {
-        let tenant = self.tenant_by_slug(slug).await?;
         let mut tx = self.pool.begin().await?;
-        sqlx::query(
-            "UPDATE control_plane_tenants SET area_enabled=$2,updated_at=now() WHERE id=$1",
+        let tenant_id: Uuid = sqlx::query_scalar(
+            "UPDATE control_plane_tenants SET area_enabled=$2,updated_at=now() \
+             WHERE slug=$1 RETURNING id",
         )
-        .bind(tenant.tenant.id)
+        .bind(slug)
         .bind(enabled)
-        .execute(&mut *tx)
-        .await?;
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(ApiError::NotFound)?;
         self.audit_tx(
             &mut tx,
             AuditRecord {
-                tenant_id: Some(tenant.tenant.id),
+                tenant_id: Some(tenant_id),
                 actor,
                 action: "tenant.area.entitlement.updated",
                 target_kind: "tenant",
-                target_id: tenant.tenant.id.to_string(),
+                target_id: tenant_id.to_string(),
                 request_id,
                 detail: json!({"enabled": enabled}),
             },

@@ -260,6 +260,15 @@ pub fn notifier_target(kind: &str, value: Option<&str>) -> Result<serde_json::Va
                         .to_owned(),
                 ));
             }
+            // SSRF guard: reject loopback, private, link-local, multicast,
+            // CGNAT, and cloud-metadata targets. A tenant must not be able to
+            // point a webhook at internal infrastructure.
+            if crate::net_guard::is_blocked_host(&parsed) {
+                return Err(ApiError::InvalidInput(
+                    "webhook target must not point to a private, loopback, or metadata address"
+                        .to_owned(),
+                ));
+            }
             Ok(serde_json::json!({"url": parsed.as_str()}))
         }
         "email_relay" => {
