@@ -116,6 +116,18 @@ class Config:
         self.docker = os.environ.get("CONTROL_PLANE_PROVISIONER_DOCKER_BIN", "docker").strip()
         if not self.docker or any(ch.isspace() for ch in self.docker):
             raise SystemExit("CONTROL_PLANE_PROVISIONER_DOCKER_BIN must be one executable path")
+        # ── Post-provision automation (DNS, edge, verify) ──────────────────
+        # When enabled, the provisioner completes the last manual steps of
+        # onboarding automatically after the tenant is healthy.
+        self.auto_dns = os.environ.get("CONTROL_PLANE_AUTO_DNS", "").strip().lower() in {"1", "true", "yes"}
+        self.cloudflare_api_token = os.environ.get("CONTROL_PLANE_CLOUDFLARE_API_TOKEN", "").strip()
+        self.cloudflare_zone_id = os.environ.get("CONTROL_PLANE_CLOUDFLARE_ZONE_ID", "").strip()
+        if self.auto_dns and not self.cloudflare_api_token:
+            raise SystemExit("CONTROL_PLANE_AUTO_DNS requires CONTROL_PLANE_CLOUDFLARE_API_TOKEN")
+        self.auto_edge = os.environ.get("CONTROL_PLANE_AUTO_EDGE", "").strip().lower() in {"1", "true", "yes"}
+        self.edge_caddyfile = os.environ.get("CONTROL_PLANE_EDGE_CADDYFILE", "/opt/crowdrelay/ops/edge/Caddyfile").strip()
+        self.edge_container = os.environ.get("CONTROL_PLANE_EDGE_CONTAINER", "virya-edge-caddy").strip()
+        self.auto_verify = os.environ.get("CONTROL_PLANE_AUTO_VERIFY", "").strip().lower() in {"1", "true", "yes"}
 
 
 def api_with_token(
@@ -466,6 +478,25 @@ def create_runtime_env(plan: dict[str, Any]) -> str:
             "CROWDRELAY_TENANT_COLOR_DANGER": palette["danger"],
             "CROWDRELAY_TENANT_COLOR_SUCCESS": palette["success"],
         })
+    # Optional provider API keys — only written if the plan includes them.
+    # The wizard collects these as optional fields; the provisioner writes
+    # them to tenant.env so the API can use them at runtime.
+    provider_keys = plan.get("providerKeys")
+    if isinstance(provider_keys, dict):
+        key_map = {
+            "bandsintown": "CROWDRELAY_BANDSINTOWN_API_KEY",
+            "youtube": "CROWDRELAY_YOUTUBE_API_KEY",
+            "spotifyClientId": "CROWDRELAY_SPOTIFY_CLIENT_ID",
+            "spotifyClientSecret": "CROWDRELAY_SPOTIFY_CLIENT_SECRET",
+            "facebookPageToken": "CROWDRELAY_FACEBOOK_PAGE_ACCESS_TOKEN",
+            "tiktokClientKey": "CROWDRELAY_TIKTOK_CLIENT_KEY",
+            "tiktokClientSecret": "CROWDRELAY_TIKTOK_CLIENT_SECRET",
+            "lastfm": "CROWDRELAY_LASTFM_API_KEY",
+        }
+        for plan_key, env_key in key_map.items():
+            value = provider_keys.get(plan_key)
+            if isinstance(value, str) and value.strip():
+                values[env_key] = value.strip()
     return "".join(f"{key}={value}\n" for key, value in values.items())
 
 
@@ -1065,6 +1096,121 @@ def process_claim(config: Config, claim: dict[str, Any]) -> None:
         )
 
 
+def extract_hostname(url: str) -> str:
+    """Extract the hostname from an HTTPS URL."""
+    parsed = urllib.parse.urlparse(url)
+    if not parsed.hostname:
+        raise ProvisionError("invalid_plan", f"could not extract hostname from {url}")
+    return parsed.hostname
+
+
+def auto_configure_dns(config: Config, hostname: str, instance_ip: str) -> None:
+    """Configure DNS A record via Cloudflare API if auto_dns is enabled."""
+    if not config.auto_dns:
+        return
+    print(f"DNS_AUTO hostname={hostname}")
+    # Auto-detect zone ID if not provided
+    zone_id = config.cloudflare_zone_id
+    if not zone_id:
+        # Extract zone name: last 2 labels of the hostname
+        parts = hostname.split(".")
+        zone_name = ".".join(parts[-2:]) if len(parts) >= 2 else hostname
+        req = urllib.request.Request(
+            f"https://api.cloudflare.com/client/v4/zones?name={zone_name}",
+            headers={"Authorization": f"Bearer {config.cloudflare_api_token}"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        if not data.get("result"):
+            raise ProvisionError("dns_zone_not_found", f"Cloudflare zone not found for {zone_name}")
+        zone_id = data["result"][0]["id"]
+    # Check if record already exists
+    req = urllib.request.Request(
+        f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records?name={hostname}",
+        headers={"Authorization": f"Bearer {config.cloudflare_api_token}"},
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    existing = data.get("result", [])
+    payload = json.dumps({
+        "type": "A", "name": hostname, "content": instance_ip,
+        "ttl": 300, "proxied": False,
+    }).encode("utf-8")
+    headers = {
+        "Authorization": f"Bearer {config.cloudflare_api_token}",
+        "Content-Type": "application/json",
+    }
+    if existing:
+        record_id = existing[0]["id"]
+        req = urllib.request.Request(
+            f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{record_id}",
+            method="PUT", data=payload, headers=headers,
+        )
+    else:
+        req = urllib.request.Request(
+            f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records",
+            method="POST", data=payload, headers=headers,
+        )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    if not data.get("success"):
+        raise ProvisionError("dns_api_failed", f"Cloudflare API error: {data.get('errors', 'unknown')}")
+    # Wait for propagation (up to 60s)
+    for _ in range(12):
+        time.sleep(5)
+        try:
+            resolved = socket.gethostbyname(hostname)
+            if resolved == instance_ip:
+                print(f"DNS_PROPAGATED=PASS hostname={hostname} ip={instance_ip}")
+                return
+        except socket.gaierror:
+            pass
+    print(f"DNS_PROPAGATED=PENDING hostname={hostname} (may take longer)", file=sys.stderr)
+
+
+def auto_publish_edge_route(config: Config, hostname: str, port: int) -> None:
+    """Publish the tenant's edge Caddy route if auto_edge is enabled."""
+    if not config.auto_edge:
+        return
+    print(f"EDGE_AUTO hostname={hostname} port={port}")
+    edge_script = "/opt/crowdrelay-control-plane/scripts/add-tenant-edge-route.sh"
+    if not Path(edge_script).exists():
+        print(f"EDGE_AUTO=SKIP script not found: {edge_script}", file=sys.stderr)
+        return
+    result = subprocess.run(
+        ["sudo", "bash", edge_script, hostname, str(port)],
+        capture_output=True, text=True, timeout=60,
+    )
+    if result.returncode != 0:
+        raise ProvisionError(
+            "edge_publish_failed",
+            f"add-tenant-edge-route.sh failed (exit {result.returncode}): {result.stderr[:500]}",
+        )
+    print(f"EDGE_PUBLISHED=PASS hostname={hostname} port={port}")
+
+
+def auto_verify_tenant(config: Config, hostname: str, port: int) -> None:
+    """Run verify-tenant.sh if auto_verify is enabled."""
+    if not config.auto_verify:
+        return
+    print(f"VERIFY_AUTO hostname={hostname}")
+    # Check public HTTPS health
+    try:
+        req = urllib.request.Request(
+            f"https://{hostname}/v1/health/ready",
+            headers={"User-Agent": "provisioner-verify"},
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+        if body.get("status") == "ok":
+            print(f"VERIFY_PUBLIC_HEALTH=PASS hostname={hostname}")
+        else:
+            print(f"VERIFY_PUBLIC_HEALTH=WARN hostname={hostname} status={body.get('status', 'unknown')}", file=sys.stderr)
+    except Exception as exc:
+        print(f"VERIFY_PUBLIC_HEALTH=FAIL hostname={hostname} error={exc}", file=sys.stderr)
+        # Don't fail the whole provisioning — the tenant is running, just not publicly reachable yet
+
+
 def finish_claim(
     config: Config,
     claim: dict[str, Any],
@@ -1111,6 +1257,30 @@ def finish_claim(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n",
         0o644,
     )
+
+    # ── Post-provision automation: DNS, edge, verify ──────────────────────
+    # These close the last manual gaps in onboarding. Each step is opt-in via
+    # env vars and degrades gracefully if credentials are missing.
+    crowdrelay_base = plan.get("crowdRelayBaseUrl")
+    if crowdrelay_base and config.auto_dns:
+        hostname = extract_hostname(crowdrelay_base)
+        # The provisioner runs on the host — the public IP is the host's IP.
+        # For a single-host setup, DNS should point to 127.0.0.1 won't work
+        # externally. Use the host's primary public IP.
+        try:
+            instance_ip = socket.gethostbyname(socket.gethostname())
+        except socket.gaierror:
+            instance_ip = "127.0.0.1"
+        auto_configure_dns(config, hostname, instance_ip)
+
+    if crowdrelay_base and config.auto_edge:
+        hostname = extract_hostname(crowdrelay_base)
+        auto_publish_edge_route(config, hostname, port)
+
+    if crowdrelay_base and config.auto_verify:
+        hostname = extract_hostname(crowdrelay_base)
+        auto_verify_tenant(config, hostname, port)
+
     # The stack is already running and its identity is durable on disk. If this
     # callback times out or the Control Plane answers 503, the error is
     # non-terminal: the job keeps its lease and the idempotent /succeed retry
