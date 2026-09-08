@@ -65,8 +65,9 @@ export function AudiencePage() {
         <SectionFailureCard error={model.error} fallback="Audience channel unavailable" />
       </Show>
       {/* Per-panel skeletons — page head and tab bar are static and already
-          rendered above. Only the panel area is skeletoned. */}
-      <Show when={!model.error && model.isPending}>
+          rendered above. Only the panel area is skeletoned. Shows whenever
+          the read model is absent, not just on the very first fetch. */}
+      <Show when={!model.error && !model.data}>
         <SkeletonSection titleWidth="160px" lines={4} minHeight="140px" />
         <SkeletonSection titleWidth="200px" lines={6} minHeight="200px" />
         <SkeletonSection titleWidth="140px" lines={3} minHeight="120px" />

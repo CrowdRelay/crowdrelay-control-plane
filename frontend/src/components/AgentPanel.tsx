@@ -127,12 +127,8 @@ export function AgentPanel(props: { slug: string }) {
   const suggestions = useQuery(() => ({
     queryKey: ['agent-suggestions', props.slug],
     queryFn: async () => {
-      try {
-        const data = await request<{ suggestions: TaskSuggestion[] }>(`/tenants/${props.slug}/agents/suggestions`)
-        return data.suggestions
-      } catch {
-        return null
-      }
+      const data = await request<{ suggestions: TaskSuggestion[] }>(`/tenants/${props.slug}/agents/suggestions`)
+      return data.suggestions
     },
     enabled: tab() === 'tasks',
     refetchOnWindowFocus: false,
@@ -185,12 +181,8 @@ export function AgentPanel(props: { slug: string }) {
   const schedules = useQuery(() => ({
     queryKey: ['agent-schedules', props.slug],
     queryFn: async () => {
-      try {
-        const data = await request<{ schedules: AgentSchedule[] }>(`/tenants/${props.slug}/agents/schedules`)
-        return data.schedules
-      } catch {
-        return null
-      }
+      const data = await request<{ schedules: AgentSchedule[] }>(`/tenants/${props.slug}/agents/schedules`)
+      return data.schedules
     },
     enabled: tab() === 'tasks',
     refetchOnWindowFocus: false,
@@ -304,6 +296,7 @@ export function AgentPanel(props: { slug: string }) {
 
       <TabPanel active={activeTab()} id="tasks" visited={isVisited('tasks')}>
       {/* Autopilot intelligence → agent suggestions — the bridge between operations data and LLM execution */}
+      <Show when={suggestions.error}><div class="error-card">Agent suggestions unavailable: {errorMessage(suggestions.error, 'Service unreachable')}</div></Show>
       <Show when={suggestions.data && suggestions.data!.length > 0}>
         <div class="agent-section">
           <div class="agent-section-head">
@@ -433,6 +426,7 @@ export function AgentPanel(props: { slug: string }) {
             </div>
           </div>
         </Show>
+        <Show when={schedules.error}><div class="error-card">Agent schedules unavailable: {errorMessage(schedules.error, 'Service unreachable')}</div></Show>
         <Show when={schedules.data && schedules.data!.length > 0}>
           <table class="agent-task-table">
             <thead><tr><th>Template</th><th>Interval</th><th>Enabled</th><th>Last run</th><th>Next run</th><th></th></tr></thead>

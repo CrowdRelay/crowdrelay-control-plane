@@ -118,7 +118,7 @@ export function TenantNotifiersPage() {
 
     {/* ── TENANT / VIRYA ─────────────────────────────────────────── */}
     <Show when={channels.error}><div class="error-card" role="alert">{errorMessage(channels.error, 'Channels could not be loaded')}</div></Show>
-    <Show when={!channels.error && channels.isPending}><SkeletonNotifiersPage /></Show>
+    <Show when={!channels.error && !channels.data}><SkeletonNotifiersPage /></Show>
 
     {/* ── Create form — first, so adding a channel is the first action ── */}
     <form class="tenant-create-form" onSubmit={(e) => { e.preventDefault(); create.mutate() }}>
@@ -171,7 +171,7 @@ export function TenantNotifiersPage() {
 
     {/* ── PLATFORM / CONTROL PLANE — reference, collapsed by default ── */}
     <Show when={platformConfig.error}><article class="panel"><div class="error-card" role="alert">{errorMessage(platformConfig.error, 'Platform config could not be loaded')}</div></article></Show>
-    <Show when={!platformConfig.error && platformConfig.isPending}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
+    <Show when={!platformConfig.error && !platformConfig.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={platformConfig.data}>
       <article class="panel">
         <details>
@@ -203,7 +203,7 @@ export function TenantNotifiersPage() {
 
     {/* ── AUTOMATION / N8N — reference, collapsed by default ── */}
     <Show when={automationRouting.error}><article class="panel"><div class="error-card" role="alert">{errorMessage(automationRouting.error, 'Automation routing could not be loaded')}</div></article></Show>
-    <Show when={!automationRouting.error && automationRouting.isPending}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
+    <Show when={!automationRouting.error && !automationRouting.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={automationRouting.data}>
       <article class="panel">
         <details>
@@ -238,7 +238,7 @@ export function TenantNotifiersPage() {
 
     {/* ── Discovered webhook endpoints ───────────────────────────── */}
     <Show when={discovered.error}><article class="panel"><div class="section-title"><div><span class="eyebrow">CROWDRELAY</span><h2>Discovered webhook endpoints</h2></div></div><div class="inherit-card"><p>CrowdRelay webhook endpoints unavailable: {errorMessage(discovered.error, 'read failed')}</p></div></article></Show>
-    <Show when={!discovered.error && discovered.isPending}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
+    <Show when={!discovered.error && !discovered.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={discovered.data && discovered.data.endpoints.length > 0}><article class="panel"><div class="section-title"><div><span class="eyebrow">CROWDRELAY</span><h2><SectionIcon name="link" /> Discovered webhook endpoints</h2><p>Outbound webhook delivery targets already configured in this tenant's CrowdRelay instance.</p></div></div><table class="data-table"><thead><tr><th>Name</th><th>Target</th><th>Active</th></tr></thead><tbody><For each={discovered.data?.endpoints ?? []}>{(ep: DiscoveredEndpoint) => <tr><td>{ep.name}</td><td><code>{ep.urlHost}</code></td><td><span class={`status-badge ${ep.active ? 'good' : 'muted'}`}>{ep.active ? 'active' : 'inactive'}</span></td></tr>}</For></tbody></table></article></Show>
   </section>
 }

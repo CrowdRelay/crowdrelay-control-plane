@@ -57,12 +57,8 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
   const objectives = useQuery(() => ({
     queryKey: ['growth-objectives', props.slug],
     queryFn: async () => {
-      try {
-        const data = await api.growthObjectives(props.slug)
-        return data.objectives
-      } catch {
-        return null
-      }
+      const data = await api.growthObjectives(props.slug)
+      return data.objectives
     },
     refetchOnWindowFocus: false,
     staleTime: 10_000,
@@ -94,6 +90,7 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
       <div class="error-card">{error()}</div>
     </Show>
 
+    <Show when={objectives.error}><div class="error-card">Growth objectives unavailable: {errorMessage(objectives.error, 'Service unreachable')}</div></Show>
     <Show when={objectives.data && objectives.data!.length > 0} fallback={
       <Show when={objectives.isFetching} fallback={
         <EmptyState label="No growth objectives declared" hint="Declare a target metric and deadline to start tracking progress. The intelligence measures every action against active objectives." />

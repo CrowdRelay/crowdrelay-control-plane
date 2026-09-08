@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
+import { SkeletonSignalOverview } from './Skeleton'
 
 export function SignalOverviewPanel(props: { slug: string }) {
   const signal = useQuery(() => ({
@@ -12,7 +13,17 @@ export function SignalOverviewPanel(props: { slug: string }) {
     staleTime: 30_000,
   }))
 
-  return <Show when={signal.data}>{data => <>
+  return <>
+    <Show when={signal.isPending && !signal.data}>
+      <SkeletonSignalOverview />
+    </Show>
+    <Show when={signal.error}>
+      <div class="section-title" id="signal-overview">
+        <div><span class="eyebrow">SIGNAL OVERVIEW</span><h3><SectionIcon name="activity" />App audience health</h3></div>
+      </div>
+      <div class="warning-card"><p>Signal overview unavailable: {signal.error instanceof Error ? signal.error.message : 'channel error'}</p></div>
+    </Show>
+    <Show when={signal.data}>{data => <>
     <div class="section-title" id="signal-overview">
       <div><span class="eyebrow">SIGNAL OVERVIEW</span><h3><SectionIcon name="activity" />App audience health</h3><p>Aggregate-only view of Virya Signal fans, activity and top cities.</p></div>
       <StatusBadge status={data().unavailable_sources.length > 0 ? 'degraded' : 'healthy'} tone={data().unavailable_sources.length > 0 ? 'warn' : 'good'} />
@@ -35,4 +46,5 @@ export function SignalOverviewPanel(props: { slug: string }) {
     </Show>
     <Show when={data().unavailable_sources.length > 0}><div class="warning-card"><p>Unavailable sources: {data().unavailable_sources.join(', ')}</p></div></Show>
   </>}</Show>
+  </>
 }

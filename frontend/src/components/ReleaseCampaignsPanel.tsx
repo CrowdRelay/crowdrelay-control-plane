@@ -48,13 +48,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
   const MAX_VISIBLE = 6
   const campaigns = useQuery(() => ({
     queryKey: ['release-campaigns', props.slug],
-    queryFn: async () => {
-      try {
-        return await api.beaconReleaseCampaigns(props.slug)
-      } catch {
-        return null
-      }
-    },
+    queryFn: () => api.beaconReleaseCampaigns(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -64,11 +58,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
     queryFn: async () => {
       const campaignId = selectedCampaign()
       if (!campaignId) return null
-      try {
-        return await api.beaconReleaseRecipients(props.slug, campaignId)
-      } catch {
-        return null
-      }
+      return api.beaconReleaseRecipients(props.slug, campaignId)
     },
     enabled: selectedCampaign() !== null,
     refetchOnWindowFocus: false,
@@ -174,6 +164,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
       </form>
     </Show>
 
+    <Show when={campaigns.error}><div class="error-card">Release campaigns unavailable: {errorMessage(campaigns.error, 'Service unreachable')}</div></Show>
     <Show when={campaigns.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
       <Show when={campaigns.data!.pool.active_release_latarnicy > 0 || campaigns.data!.pool.missing_email > 0}>
         <div class="kpi-strip">
@@ -226,6 +217,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
               </div>
 
               <Show when={selectedCampaign() === c.id}>
+                <Show when={recipients.error}><div class="error-card">Campaign recipients unavailable: {errorMessage(recipients.error, 'Service unreachable')}</div></Show>
                 <Show when={recipients.data} fallback={<SkeletonBlock height="80px" radius="10px" />}>
                   <div class="table-wrap">
                     <table class="data-table">

@@ -57,7 +57,7 @@ export function TenantHealthPage() {
       <SectionFailureCard error={model.error} fallback="Tenant operations channel unavailable" />
     </Show>
 
-    <Show when={!model.error && model.isPending}>
+    <Show when={!model.error && !model.data}>
       <SkeletonSection titleWidth="180px" lines={4} minHeight="200px" />
       <SkeletonSection titleWidth="160px" lines={3} minHeight="160px" />
     </Show>

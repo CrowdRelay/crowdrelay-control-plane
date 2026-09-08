@@ -278,7 +278,7 @@ export function TenantAttentionPage() {
       <div class="error-card" role="alert">{summary.error instanceof Error ? summary.error.message : 'Operations attention snapshot unavailable'}</div>
     </Show>
 
-    <Show when={!summary.error && summary.isLoading}>
+    <Show when={!summary.error && !summary.data}>
       <SkeletonKpiStrip count={4} />
       <SkeletonSection titleWidth="200px" lines={3} minHeight="120px" />
       <SkeletonSection titleWidth="180px" lines={4} minHeight="140px" />

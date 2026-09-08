@@ -37,52 +37,28 @@ export function PressRoomPanel(props: { slug: string }) {
   const MAX_VISIBLE = 10
   const requests = useQuery(() => ({
     queryKey: ['press-requests', props.slug],
-    queryFn: async () => {
-      try {
-        return await api.beaconPressRequests(props.slug)
-      } catch {
-        return null
-      }
-    },
+    queryFn: () => api.beaconPressRequests(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
 
   const assets = useQuery(() => ({
     queryKey: ['press-assets', props.slug],
-    queryFn: async () => {
-      try {
-        return await api.beaconPressAssets(props.slug)
-      } catch {
-        return null
-      }
-    },
+    queryFn: () => api.beaconPressAssets(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
 
   const engagements = useQuery(() => ({
     queryKey: ['press-engagements', props.slug],
-    queryFn: async () => {
-      try {
-        return await api.beaconSignalEngagements(props.slug)
-      } catch {
-        return null
-      }
-    },
+    queryFn: () => api.beaconSignalEngagements(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
 
   const coverage = useQuery(() => ({
     queryKey: ['press-coverage', props.slug],
-    queryFn: async () => {
-      try {
-        return await api.beaconCoverage(props.slug)
-      } catch {
-        return null
-      }
-    },
+    queryFn: () => api.beaconCoverage(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -143,6 +119,7 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'requests'}>
+      <Show when={requests.error}><div class="error-card">Press requests unavailable: {errorMessage(requests.error, 'Service unreachable')}</div></Show>
       <Show when={requests.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
         <Show when={requests.data!.requests.length > 0} fallback={<EmptyState label="No press requests" hint="Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches." />}>
           <div class="table-wrap">
@@ -189,6 +166,7 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'assets'}>
+      <Show when={assets.error}><div class="error-card">Press assets unavailable: {errorMessage(assets.error, 'Service unreachable')}</div></Show>
       <Show when={assets.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
         <Show when={assets.data!.assets.length > 0} fallback={<EmptyState label="No press assets" hint="Press assets are media materials (photos, bios, EPKs) available for outreach. Upload them through the tenant content pipeline." />}>
           <div class="table-wrap">
@@ -227,6 +205,7 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'engagements'}>
+      <Show when={engagements.error}><div class="error-card">Press engagements unavailable: {errorMessage(engagements.error, 'Service unreachable')}</div></Show>
       <Show when={engagements.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
         <Show when={engagements.data!.engagements.length > 0} fallback={<EmptyState label="No event engagements" hint="Event engagements track press interactions for specific shows and releases." />}>
           <div class="table-wrap">
@@ -291,6 +270,7 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'coverage'}>
+      <Show when={coverage.error}><div class="error-card">Press coverage unavailable: {errorMessage(coverage.error, 'Service unreachable')}</div></Show>
       <Show when={coverage.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
         <Show when={coverage.data!.coverage.length > 0} fallback={<EmptyState label="No earned media coverage" hint="Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage." />}>
           <div class="table-wrap">

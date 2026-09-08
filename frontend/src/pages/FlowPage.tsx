@@ -3,12 +3,14 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { ProcessMap } from '../components/ProcessMap'
+import { SkeletonSection } from '../components/Skeleton'
 
 export function FlowPage() {
   const tenants = useQuery(() => ({
     queryKey: ['tenants'],
     queryFn: () => api.tenants(),
     reconcile: 'id',
+    refetchOnWindowFocus: false,
   }))
 
   // The map itself is generic — the same architecture diagram for every
@@ -39,7 +41,17 @@ export function FlowPage() {
 
       <Show
         when={slug()}
-        fallback={<div class="error-card" role="alert">No active tenant — create one on the Tenants tab.</div>}
+        fallback={<>
+          <Show when={tenants.error}>
+            <div class="error-card" role="alert">Could not load tenants: {String(tenants.error?.message ?? tenants.error)}</div>
+          </Show>
+          <Show when={!tenants.error && tenants.isPending && !tenants.data}>
+            <SkeletonSection titleWidth="160px" lines={3} minHeight="120px" />
+          </Show>
+          <Show when={!tenants.error && !tenants.isPending && !slug()}>
+            <div class="error-card" role="alert">No active tenant — create one on the Tenants tab.</div>
+          </Show>
+        </>}
       >
         <div class="process-map-legend">
           <span><i class="legend-swatch legend-inputs" />Sources</span>

@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { formatTimestamp } from '../lib/format'
+import { formatTimestamp, errorMessage } from '../lib/format'
 import type { PlayKindStanding } from '../lib/types'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock } from './Skeleton'
@@ -75,13 +75,7 @@ const effectTone = (effect: string | null): 'good' | 'warn' | 'bad' | 'muted' =>
 export function PlayLedgerPanel(props: { slug: string }) {
   const ledger = useQuery(() => ({
     queryKey: ['play-ledger', props.slug],
-    queryFn: async () => {
-      try {
-        return await api.playLedger(props.slug)
-      } catch {
-        return null
-      }
-    },
+    queryFn: () => api.playLedger(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -110,6 +104,9 @@ export function PlayLedgerPanel(props: { slug: string }) {
     </div>
     <p class="agent-section-intro">What the agent committed to, what it did, and what each number is allowed to prove. Each play is a structured experiment with claims, evidence, and effect assessment.</p>
 
+    <Show when={ledger.error}>
+      <div class="error-card">Play ledger unavailable: {errorMessage(ledger.error, 'Service unreachable')}</div>
+    </Show>
     <Show when={ledger.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
       <Show when={ledger.data!.standings.length > 0}>
         <h4 class="subsection"><SectionIcon name="list-checks" />Kind Standings</h4>

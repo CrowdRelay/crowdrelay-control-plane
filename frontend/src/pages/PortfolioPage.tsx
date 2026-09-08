@@ -6,7 +6,7 @@ import { PortfolioPanel } from '../components/PortfolioPanel'
 import { PortfolioSettingsPanel } from '../components/PortfolioSettingsPanel'
 import { FanSourcesPanel } from '../components/FanSourcesPanel'
 import { RedditCookieUploader } from '../components/RedditCookieUploader'
-import { SkeletonSection } from '../components/Skeleton'
+import { SkeletonPortfolio, SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import type { TenantPortfolioSection } from '../lib/types'
 
@@ -57,16 +57,15 @@ export function PortfolioPage() {
       </div>
     </div>
 
-    {/* Main portfolio read model — per-panel skeletons while pending, not a
-        page-wide block. Independent components (Reddit cookies) mount
-        immediately and fetch in parallel, so a slow main query or a failing
-        agent service never delays them. */}
+    {/* Main portfolio read model — per-panel skeletons while data is
+        absent, not a page-wide block. Independent components (Reddit
+        cookies) mount immediately and fetch in parallel, so a slow main
+        query or a failing agent service never delays them. */}
     <Show when={model.error}>
       <SectionFailureCard error={model.error} fallback="Portfolio channel unavailable" />
     </Show>
-    <Show when={!model.error && model.isPending}>
-      <SkeletonSection titleWidth="180px" lines={5} minHeight="180px" />
-      <SkeletonSection titleWidth="200px" lines={4} minHeight="160px" />
+    <Show when={!model.error && !model.data}>
+      <SkeletonPortfolio />
     </Show>
     <Show when={model.data} keyed>{(data) => <>
       <DegradedSections degraded={data.degraded} />
@@ -92,7 +91,7 @@ export function PortfolioPage() {
     <RedditCookieUploader slug={params().slug} />
 
     {/* Settings — waits for the main read model like the portfolio panels. */}
-    <Show when={!model.error && model.isPending}>
+    <Show when={!model.error && !model.data}>
       <SkeletonSection titleWidth="140px" lines={3} minHeight="120px" />
     </Show>
     <Show when={model.data} keyed>{(data) =>

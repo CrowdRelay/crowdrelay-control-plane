@@ -73,6 +73,13 @@ export function OverviewPage() {
       <Match when={commandCenter.isError}>
         <div class="error-card">{commandCenter.error?.message}</div>
       </Match>
+      <Match when={!cc()}>
+        <div class="command-center-grid">
+          {Array.from({ length: 5 }, () => (
+            <div class="command-block skeleton-block" style={{ 'min-height': '120px', 'border-radius': 'var(--radius-lg)' }} />
+          ))}
+        </div>
+      </Match>
       <Match when={cc()}>
         <div class="command-center-grid">
           {/* ATTENTION */}
@@ -206,7 +213,7 @@ export function OverviewPage() {
 
     {/* ── KPI strip (fleet summary) ──────────────────────────────── */}
     <Switch>
-      <Match when={tenants.isPending}><div class="skeleton-grid"><div/><div/><div/><div/></div></Match>
+      <Match when={!tenants.data && !tenants.isError}><div class="skeleton-grid"><div/><div/><div/><div/></div></Match>
       <Match when={tenants.isError}><div class="error-card">{tenants.error?.message}</div></Match>
       <Match when={tenants.data}>
         <div class="kpi-strip">

@@ -31,11 +31,13 @@ export function AutomationPage() {
     queryKey: ['automation-events', statusFilter()],
     queryFn: () => api.automationEvents({ limit: 100, status: statusFilter() || undefined }),
     reconcile: 'id',
+    refetchOnWindowFocus: false,
   }))
   const configs = useQuery(() => ({
     queryKey: ['automation-workflow-configs'],
     queryFn: api.automationWorkflowConfigs,
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
   }))
 
   const configMap = createMemo(() => {

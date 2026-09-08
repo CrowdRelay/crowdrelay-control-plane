@@ -18,6 +18,7 @@ export function TenantOperatorsPanel(props: { slug: string }) {
     queryFn: () => api.operators(props.slug),
     enabled: isAdmin(),
     reconcile: 'id',
+    refetchOnWindowFocus: false,
   }))
   const queryClient = useQueryClient()
   const [username, setUsername] = createSignal('')
@@ -55,7 +56,8 @@ export function TenantOperatorsPanel(props: { slug: string }) {
     <div class="form-actions operator-create-actions"><button disabled={create.isPending || !/^[a-z0-9][a-z0-9-_.]{2,31}$/.test(username().trim()) || password().length < 12} onClick={() => create.mutate()}>{create.isPending && <Spinner />} {create.isPending ? 'Creating…' : 'Create operator'}</button></div>
     <Show when={create.error}><div class="error-card" role="alert">{errorMessage(create.error, 'Operator creation failed')}</div></Show>
     <Show when={remove.error}><div class="error-card" role="alert">{errorMessage(remove.error, 'Operator removal failed')}</div></Show>
-    <Show when={(accounts.data?.items.length ?? 0) === 0 && !accounts.isPending}>
+    <Show when={accounts.error}><div class="error-card" role="alert">{errorMessage(accounts.error, 'Could not load operator accounts')}</div></Show>
+    <Show when={(accounts.data?.items.length ?? 0) === 0 && !accounts.isPending && !accounts.error}>
       <div class="inherit-card"><EmptyState label="No operator accounts yet" hint="Only the platform admin can reach this tenant right now. Create an account above to give the team its own scoped login." /></div>
     </Show>
     <div class="notifier-list"><For each={accounts.data?.items ?? []}>{account =>

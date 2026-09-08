@@ -38,18 +38,18 @@ export function AreaPage() {
   const queryClient = useQueryClient()
   const overview = useQuery(() => ({ queryKey: ['area-overview', slug()], queryFn: () => api.areaOverview(slug()), refetchOnWindowFocus: false, reconcile: 'id' }))
   const drops = useQuery(() => ({ queryKey: ['area-drops', slug()], queryFn: () => api.areaDrops(slug()), refetchOnWindowFocus: false, reconcile: 'id' }))
-  const tenant = useQuery(() => ({ queryKey: ['tenant', slug()], queryFn: () => api.tenant(slug()) }))
+  const tenant = useQuery(() => ({ queryKey: ['tenant', slug()], queryFn: () => api.tenant(slug()), refetchOnWindowFocus: false }))
   const [selectedId, setSelectedId] = createSignal<string | null>(null)
   const [creating, setCreating] = createSignal(false)
   const [citySearch, setCitySearch] = createSignal('')
   const [newNumber, setNewNumber] = createSignal('001')
   const [newCityId, setNewCityId] = createSignal('')
   const [createCityOpen, setCreateCityOpen] = createSignal(false)
-  const cities = useQuery(() => ({ queryKey: ['area-cities', slug(), citySearch()], queryFn: () => api.areaCities(slug(), citySearch(), 40), staleTime: 30_000, enabled: creating() || Boolean(selectedId()) || createCityOpen() }))
+  const cities = useQuery(() => ({ queryKey: ['area-cities', slug(), citySearch()], queryFn: () => api.areaCities(slug(), citySearch(), 40), staleTime: 30_000, enabled: creating() || Boolean(selectedId()) || createCityOpen(), refetchOnWindowFocus: false }))
   const detail = useQuery(() => ({
     queryKey: ['area-drop', slug(), selectedId()],
     queryFn: () => api.areaDrop(slug(), selectedId()!),
-    enabled: Boolean(selectedId()), staleTime: 0, gcTime: 0,
+    enabled: Boolean(selectedId()), staleTime: 0, gcTime: 0, refetchOnWindowFocus: false,
   }))
   const [draft, setDraft] = createSignal<AreaDropDraft | null>(null)
   const [validation, setValidation] = createSignal<AreaValidationResult | null>(null)
@@ -138,7 +138,7 @@ export function AreaPage() {
 
   const selectedCity = createMemo(() => { const d=draft(); return d ? cities.data?.items.find(city=>city.id===d.cityId) : undefined })
   const allPending = () => save.isPending || validate.isPending || publish.isPending || lifecycle.isPending || discard.isPending || duplicate.isPending
-  const mutationError = () => [overview.error,drops.error,tenant.error,settings.error,createDrop.error,createCity.error,save.error,validate.error,publish.error,lifecycle.error,discard.error,duplicate.error].find(Boolean)
+  const mutationError = () => [overview.error,drops.error,tenant.error,cities.error,detail.error,settings.error,createDrop.error,createCity.error,save.error,validate.error,publish.error,lifecycle.error,discard.error,duplicate.error].find(Boolean)
   const confirmationIssues = () => validation()?.issues.filter(issue => issue.confirmationRequired) ?? []
   const hardIssues = () => validation()?.issues.filter(issue => !issue.confirmationRequired) ?? []
   const toggleConfirmation = (code:string) => setConfirmations(current => current.includes(code) ? current.filter(item=>item!==code) : [...current,code])

@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal, type Component } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { errorMessage } from '../lib/format'
 import { compactNumber, trendArrow, trendDirection } from '../lib/charts'
 import { Sparkline } from './Sparkline'
 import { EmptyState } from './EmptyState'
@@ -82,13 +83,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
 
   const coverage = useQuery(() => ({
     queryKey: ['growth-metric-coverage', props.slug],
-    queryFn: async () => {
-      try {
-        return await api.growthMetricCoverage(props.slug)
-      } catch {
-        return null
-      }
-    },
+    queryFn: () => api.growthMetricCoverage(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -96,12 +91,8 @@ export function GrowthMetricsPanel(props: { slug: string }) {
   const trends = useQuery(() => ({
     queryKey: ['growth-metric-trends', props.slug],
     queryFn: async () => {
-      try {
-        const data = await api.growthMetricTrends(props.slug)
-        return data.series
-      } catch {
-        return null
-      }
+      const data = await api.growthMetricTrends(props.slug)
+      return data.series
     },
     refetchOnWindowFocus: false,
     staleTime: 10_000,
@@ -168,6 +159,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
       </Show>
     </div>
 
+    <Show when={coverage.error}><div class="error-card">Growth coverage unavailable: {errorMessage(coverage.error, 'Service unreachable')}</div></Show>
     <Show
       when={coverage.data && hasFeeds()}
       fallback={
@@ -209,6 +201,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
         </Show>
       </div>
 
+      <Show when={trends.error}><div class="error-card">Growth trends unavailable: {errorMessage(trends.error, 'Service unreachable')}</div></Show>
       <Show when={trends.data && trends.data!.length > 0} fallback={
         <Show when={trends.isFetching} fallback={
           <Show when={hasLive()} fallback={<EmptyState label="No live feeds yet" hint="Trends appear once data starts flowing." />}>

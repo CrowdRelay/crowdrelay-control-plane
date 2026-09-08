@@ -71,7 +71,7 @@ const fanbaseSources: { value: FanbaseSource; label: string; description: string
 export function TenantWizardPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview, reconcile: 'id' }))
+  const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview, reconcile: 'id', refetchOnWindowFocus: false }))
 
   const [step, setStep] = createSignal(1)
   const [slug, setSlug] = createSignal('')
@@ -212,7 +212,7 @@ export function TenantWizardPage() {
 
     <Show when={step() === 1}>
       <div class="wizard-card">
-        <div class="form-section-head"><div><span class="eyebrow">STEP 1</span><h2>Identity + region</h2></div><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></div>
+        <div class="form-section-head"><div><span class="eyebrow">STEP 1</span><h2>Identity + region</h2></div><Show when={overview.error}><StatusBadge status="Provisioner status unavailable" tone="bad" /></Show><Show when={!overview.error}><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></Show></div>
         <p class="wizard-intro">Identity is permanent once the tenant exists; the regional block is what the runtime reads instead of guessing from a browser or an IP address.</p>
         <div class="form-grid">
           <label><span>Slug</span><input value={slug()} onInput={(e) => setSlug(e.currentTarget.value.toLowerCase())} placeholder="future-metal" autocomplete="off" /><small>Lowercase, used in URLs, container names and API paths. It cannot be changed later.</small></label>

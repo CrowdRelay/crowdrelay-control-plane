@@ -95,8 +95,10 @@ export function TenantIntelligencePage() {
       ]}
     />
 
-    {/* Tab content skeleton — shows while the main query is pending */}
-    <Show when={!model.error && model.isPending}>
+    {/* Tab content skeleton — shows whenever the read model is absent.
+        Intelligence and Operations share the same query key, so isPending
+        is false when the data is already cached from a prior visit. */}
+    <Show when={!model.error && !model.data}>
       <SkeletonBrainGroup />
       <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
     </Show>

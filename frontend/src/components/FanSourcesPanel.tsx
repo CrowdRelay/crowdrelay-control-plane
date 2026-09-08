@@ -1,6 +1,7 @@
 import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { errorMessage } from '../lib/format'
 import type { FanbaseBlock } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { FanbaseIcon } from './ProviderIcon'
@@ -198,12 +199,8 @@ export function FanSourcesPanel(props: {
   const connections = useQuery(() => ({
     queryKey: ['fan-sources-connections', props.slug],
     queryFn: async () => {
-      try {
-        const data = await api.fanbaseConnections(props.slug)
-        return data.connections
-      } catch {
-        return null
-      }
+      const data = await api.fanbaseConnections(props.slug)
+      return data.connections
     },
     refetchOnWindowFocus: false,
     staleTime: 10_000,
@@ -423,6 +420,7 @@ export function FanSourcesPanel(props: {
         </Show>
       </div>
       <p class="agent-section-intro">Connected ad and music platforms. Disconnect to revoke access.</p>
+      <Show when={connections.error}><div class="error-card">Fan source connections unavailable: {errorMessage(connections.error, 'Service unreachable')}</div></Show>
       <Show when={!connections.isFetching} fallback={<SkeletonRows count={3} />}>
       <div class="agent-providers">
         <For each={OAUTH_PLATFORMS}>{(plat) => {

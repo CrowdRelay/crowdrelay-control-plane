@@ -288,3 +288,79 @@ export const SkeletonTabContent: Component = () => (
     </article>
   </>
 )
+
+/** Full portfolio page skeleton — mirrors the real page shape:
+ *  KPI grid + edges table + fan sources + settings panel.
+ *  Replaces the generic SkeletonSection pair that didn't match the layout. */
+export const SkeletonPortfolio: Component = () => (
+  <>
+    {/* Portfolio panel — KPI grid + edges table */}
+    <article class="panel">
+      <div class="section-title" style={{ 'margin-bottom': '16px' }}>
+        <div>
+          <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px', 'margin-bottom': '6px' }} />
+          <div class="skeleton-block" style={{ height: '18px', width: '200px', 'border-radius': '6px' }} />
+        </div>
+      </div>
+      <div class="kpi-grid" style={{ display: 'grid', 'grid-template-columns': 'repeat(auto-fill, minmax(120px, 1fr))', gap: '12px', 'margin-bottom': '20px' }}>
+        {Array.from({ length: 5 }, () => (
+          <div>
+            <div class="skeleton-block" style={{ height: '24px', width: '60px', 'border-radius': '6px', 'margin-bottom': '6px' }} />
+            <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px' }} />
+          </div>
+        ))}
+      </div>
+      <div class="skeleton-block" style={{ height: '160px', width: '100%', 'border-radius': '10px' }} />
+    </article>
+    {/* Fan sources panel */}
+    <article class="panel" style={{ 'margin-top': '16px' }}>
+      <div class="section-title" style={{ 'margin-bottom': '16px' }}>
+        <div>
+          <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px', 'margin-bottom': '6px' }} />
+          <div class="skeleton-block" style={{ height: '18px', width: '160px', 'border-radius': '6px' }} />
+        </div>
+      </div>
+      <div style={{ display: 'grid', 'grid-template-columns': 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+        {Array.from({ length: 3 }, () => (
+          <div class="skeleton-block" style={{ height: '80px', 'border-radius': '10px' }} />
+        ))}
+      </div>
+    </article>
+    {/* Settings panel */}
+    <article class="panel" style={{ 'margin-top': '16px' }}>
+      <div class="section-title" style={{ 'margin-bottom': '16px' }}>
+        <div>
+          <div class="skeleton-block" style={{ height: '11px', width: '60px', 'border-radius': '5px', 'margin-bottom': '6px' }} />
+          <div class="skeleton-block" style={{ height: '18px', width: '140px', 'border-radius': '6px' }} />
+        </div>
+      </div>
+      <div style={{ display: 'grid', 'grid-template-columns': 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+        {Array.from({ length: 4 }, () => (
+          <div class="skeleton-block" style={{ height: '60px', 'border-radius': '8px' }} />
+        ))}
+      </div>
+    </article>
+  </>
+)
+
+/** Signal overview skeleton — mirrors the SignalOverviewPanel shape:
+ *  section title + metrics row + cities row. */
+export const SkeletonSignalOverview: Component = () => (
+  <>
+    <div class="section-title" id="signal-overview">
+      <div>
+        <div class="skeleton-block" style={{ height: '11px', width: '120px', 'border-radius': '5px', 'margin-bottom': '6px' }} />
+        <div class="skeleton-block" style={{ height: '18px', width: '180px', 'border-radius': '6px' }} />
+      </div>
+    </div>
+    <div class="operations-metrics">
+      {Array.from({ length: 8 }, () => (
+        <div>
+          <div class="skeleton-block" style={{ height: '11px', width: '70px', 'border-radius': '5px', 'margin-bottom': '8px' }} />
+          <div class="skeleton-block" style={{ height: '22px', width: '50px', 'border-radius': '6px', 'margin-bottom': '6px' }} />
+          <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px' }} />
+        </div>
+      ))}
+    </div>
+  </>
+)

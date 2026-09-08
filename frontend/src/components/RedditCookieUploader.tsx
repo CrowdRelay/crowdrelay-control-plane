@@ -26,6 +26,7 @@ export function RedditCookieUploader(props: { slug: string }) {
     queryKey: ['reddit-cookie-status', props.slug],
     queryFn: () => api.redditCookieStatus(props.slug),
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
   }))
 
   const upload = useMutation(() => ({

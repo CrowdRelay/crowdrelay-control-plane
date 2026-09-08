@@ -28,14 +28,14 @@ export function OutreachPipelinePanel(props: { slug: string }) {
 
   const outreach = useQuery(() => ({
     queryKey: ['outreach-candidates', props.slug],
-    queryFn: async () => { try { return await api.outreachCandidates(props.slug) } catch { return null } },
+    queryFn: () => api.outreachCandidates(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
 
   const booking = useQuery(() => ({
     queryKey: ['booking-candidates', props.slug],
-    queryFn: async () => { try { return await api.bookingCandidates(props.slug) } catch { return null } },
+    queryFn: () => api.bookingCandidates(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -85,6 +85,8 @@ export function OutreachPipelinePanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'outreach'} fallback={
+      <>
+      <Show when={booking.error}><div class="error-card">Booking pipeline unavailable: {errorMessage(booking.error, 'Service unreachable')}</div></Show>
       <Show when={booking.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
         <Show when={booking.data!.length > 0} fallback={<EmptyState label="No booking candidates" hint="The intelligence scans for gig opportunities with computed economics. Candidates appear here when the detector finds viable shows." />}>
           <div class="table-wrap">
@@ -128,7 +130,10 @@ export function OutreachPipelinePanel(props: { slug: string }) {
           </Show>
         </Show>
       </Show>
+      </>
     }>
+      <>
+      <Show when={outreach.error}><div class="error-card">Outreach pipeline unavailable: {errorMessage(outreach.error, 'Service unreachable')}</div></Show>
       <Show when={outreach.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
         <Show when={outreach.data!.length > 0} fallback={<EmptyState label="No outreach candidates" hint="Outreach candidates are fans or contacts the intelligence identified for engagement. They appear here when detectors raise them." />}>
           <div class="table-wrap">
@@ -174,6 +179,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
           </Show>
         </Show>
       </Show>
+      </>
     </Show>
   </div>
 }

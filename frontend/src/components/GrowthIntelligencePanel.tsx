@@ -155,13 +155,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
 
   const overview = useQuery(() => ({
     queryKey: ['growth-intelligence-overview', props.slug],
-    queryFn: async () => {
-      try {
-        return await api.autopilotOverview(props.slug)
-      } catch {
-        return null
-      }
-    },
+    queryFn: () => api.autopilotOverview(props.slug),
     enabled: props.active !== false,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
@@ -170,12 +164,8 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
   const workflows = useQuery(() => ({
     queryKey: ['growth-intelligence-workflows', props.slug],
     queryFn: async () => {
-      try {
-        const data = await api.agentWorkflows(props.slug, 20)
-        return data.workflows
-      } catch {
-        return null
-      }
+      const data = await api.agentWorkflows(props.slug, 20)
+      return data.workflows
     },
     enabled: props.active !== false,
     refetchOnWindowFocus: false,
@@ -254,6 +244,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           </Show>
         </div>
         <p class="agent-section-intro">Actions the intelligence has queued for your approval. Community posts, press pitches, and other growth actions appear here with rich detail before they're executed.</p>
+        <Show when={overview.error}><div class="error-card">Growth intelligence overview unavailable: {errorMessage(overview.error, 'Service unreachable')}</div></Show>
         <Show when={pendingGrowthActions().length > 0} fallback={
           <Show when={overview.isFetching} fallback={
             <Show when={overview.data} fallback={
@@ -375,6 +366,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           </Show>
         </div>
         <p class="agent-section-intro">Worker runs dispatched by the intelligence. Each workflow is a growth plan: the intelligence decides what to research, draft, or analyse, then dispatches LLM workers to execute.</p>
+        <Show when={workflows.error}><div class="error-card">Growth workflows unavailable: {errorMessage(workflows.error, 'Service unreachable')}</div></Show>
         <Show when={workflows.data && workflows.data!.length > 0} fallback={
           <Show when={workflows.data} fallback={<SkeletonGrid count={3} minCardHeight='100px' />}>
             <EmptyState label="No worker runs" hint="Worker runs are LLM agent executions dispatched by the intelligence. They appear here once the autopilot starts dispatching." />

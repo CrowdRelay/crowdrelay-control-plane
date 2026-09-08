@@ -174,11 +174,7 @@ export function BrainDecisionPanel(props: {
     queryKey: ['decision-evidence', props.slug, props.opportunity?.decision_id, showEvidence()],
     queryFn: async () => {
       if (!showEvidence() || !props.opportunity?.decision_id) return null
-      try {
-        return await api.decisionEvidence(props.slug, props.opportunity.decision_id)
-      } catch {
-        return null
-      }
+      return api.decisionEvidence(props.slug, props.opportunity.decision_id)
     },
     enabled: showEvidence() && props.opportunity?.decision_id != null,
     refetchOnWindowFocus: false,
@@ -347,6 +343,7 @@ export function BrainDecisionPanel(props: {
 
         <Show when={showEvidence()}>
           <>
+            <Show when={evidence.error}><div class="error-card">Brain decision evidence unavailable: {errorMessage(evidence.error, 'Service unreachable')}</div></Show>
             <Show when={evidence.isFetching}>
               <SkeletonRows count={3} />
             </Show>

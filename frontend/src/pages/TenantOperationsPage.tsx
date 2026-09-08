@@ -88,9 +88,12 @@ export function TenantOperationsPage() {
       <SectionFailureCard error={model.error} fallback="Tenant operations channel unavailable" />
     </Show>
 
-    {/* KPI strip skeleton — shown only while the main query is pending.
-        The page head and tab bar above are static and render immediately. */}
-    <Show when={!model.error && model.isPending}>
+    {/* KPI strip skeleton — shown whenever the read model is absent.
+        Operations and Intelligence share the same query key, so isPending
+        is false when the data is already cached from a prior visit. The
+        skeleton must show whenever there is no data to render, not just on
+        the very first fetch. */}
+    <Show when={!model.error && !model.data}>
       <SkeletonKpiStrip count={7} />
     </Show>
 
@@ -106,9 +109,9 @@ export function TenantOperationsPage() {
       ]}
     />
 
-    {/* Tab content skeleton — shows while the main query is pending.
+    {/* Tab content skeleton — shows whenever the read model is absent.
         Matches the active tab's panel layout so the swap is seamless. */}
-    <Show when={!model.error && model.isPending}>
+    <Show when={!model.error && !model.data}>
       <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
       <SkeletonSection titleWidth="200px" lines={3} minHeight="140px" />
     </Show>
