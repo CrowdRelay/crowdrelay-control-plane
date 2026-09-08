@@ -108,6 +108,31 @@ def worker_healthy(config: Config) -> bool:
         except (OSError, subprocess.SubprocessError):
             continue
         if result.returncode == 0 and result.stdout.strip() in {"healthy", "running"}:
+            # Container is up, but it may be crash-looping: Docker keeps
+            # restarting it and the status briefly shows "running" between
+            # crashes. Check the restart count — a high count means the
+            # container has been restarting repeatedly. The threshold is
+            # deliberately high (20) to avoid false positives during a
+            # normal deploy/restart cycle.
+            try:
+                restart_result = subprocess.run(
+                    [config.docker, "inspect", container, "--format", "{{.RestartCount}}"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    check=False,
+                )
+                if restart_result.returncode == 0:
+                    restart_count = int(restart_result.stdout.strip())
+                    if restart_count >= 20:
+                        print(
+                            f"WORKER_CRASH_LOOP container={container} "
+                            f"restarts={restart_count}",
+                            flush=True,
+                        )
+                        continue  # skip this container — it's crash-looping
+            except (OSError, subprocess.SubprocessError, ValueError):
+                pass  # if we can't check, don't block the health report
             healthy += 1
     return healthy >= 1
 
