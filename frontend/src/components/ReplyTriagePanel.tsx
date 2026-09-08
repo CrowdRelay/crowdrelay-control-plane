@@ -2,6 +2,8 @@ import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
+import { errorMessage } from '../lib/format'
+import { refreshQueries } from '../lib/refresh'
 import { EmptyState } from './EmptyState'
 import type { ReplyTriageEntry } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
@@ -127,7 +129,7 @@ export function ReplyTriagePanel() {
           fallback={<EmptyState label="No replies need human review" hint="The agent handles routine replies automatically. Items that need a human touch appear here." />}
         >
           <div class="flag-list">
-            <For each={showAllNeedsHuman() ? d().needs_human : d().needs_human.slice(0, MAX_VISIBLE)}>{entry => <ReplyRow entry={entry} />}</For>
+            <For each={showAllNeedsHuman() ? d().needs_human : d().needs_human.slice(0, MAX_VISIBLE)}>{entry => <ReplyRow entry={entry} slug={params().slug} actionable />}</For>
           </div>
           <Show when={d().needs_human.length > MAX_VISIBLE}>
             <button class="ghost" onClick={() => setShowAllNeedsHuman(s => !s)}>
@@ -144,7 +146,7 @@ export function ReplyTriagePanel() {
             <div><span class="eyebrow">RECENT AUTO</span><h3><SectionIcon name="zap" />Classified without a human</h3></div>
           </div>
           <div class="flag-list">
-            <For each={showAllRecentAuto() ? d().recent_auto : d().recent_auto.slice(0, MAX_VISIBLE)}>{entry => <ReplyRow entry={entry} />}</For>
+            <For each={showAllRecentAuto() ? d().recent_auto : d().recent_auto.slice(0, MAX_VISIBLE)}>{entry => <ReplyRow entry={entry} slug={params().slug} />}</For>
           </div>
           <Show when={d().recent_auto.length > MAX_VISIBLE}>
             <button class="ghost" onClick={() => setShowAllRecentAuto(s => !s)}>
@@ -157,8 +159,29 @@ export function ReplyTriagePanel() {
   </article>
 }
 
-function ReplyRow(props: { entry: ReplyTriageEntry }) {
-  return <div class="flag-row release-component-row">
+function ReplyRow(props: { entry: ReplyTriageEntry; slug: string; actionable?: boolean }) {
+  const [busy, setBusy] = createSignal<string | null>(null)
+  const [error, setError] = createSignal<string | null>(null)
+
+  const resolve = async (disposition: string) => {
+    if (busy()) return
+    setBusy(disposition)
+    setError(null)
+    try {
+      await api.recordBeaconReply(props.slug, props.entry.target_id, {
+        eventId: props.entry.id,
+        disposition,
+        occurredAt: new Date().toISOString(),
+      })
+      refreshQueries(['reply-triage', props.slug])
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to record the disposition'))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return <div class="flag-row release-component-row reply-triage-row">
     <div>
       <strong>{targetKindLabel(props.entry.target_kind)}</strong>
       <small class="reply-text">{props.entry.reply_text}</small>
@@ -169,12 +192,35 @@ function ReplyRow(props: { entry: ReplyTriageEntry }) {
         <small>rules: {props.entry.matched_rules.join(', ')}</small>
       </Show>
       <small>{timeAgo(props.entry.classified_at)} · {confidencePercent(props.entry.confidence_basis_points)}</small>
+      <Show when={error()}><small class="agent-error">{error()}</small></Show>
     </div>
-    <div class="row-health">
+    <div class="row-health reply-triage-actions">
       <StatusBadge
         status={dispositionLabel(props.entry.classified_disposition)}
         tone={dispositionTone(props.entry.classified_disposition)}
       />
+      <Show when={props.actionable}>
+        <div class="reply-triage-buttons">
+          <button
+            class="ghost reply-btn reply-btn-good"
+            disabled={busy() !== null}
+            onClick={() => resolve('positive')}
+            title="Mark as positive — the contact is interested"
+          >{busy() === 'positive' ? '…' : 'Positive'}</button>
+          <button
+            class="ghost reply-btn reply-btn-warn"
+            disabled={busy() !== null}
+            onClick={() => resolve('declined')}
+            title="Mark as declined — the contact said no"
+          >{busy() === 'declined' ? '…' : 'Declined'}</button>
+          <button
+            class="ghost reply-btn reply-btn-bad"
+            disabled={busy() !== null}
+            onClick={() => resolve('do_not_contact')}
+            title="Do not contact — stop all outreach to this contact"
+          >{busy() === 'do_not_contact' ? '…' : 'DNC'}</button>
+        </div>
+      </Show>
     </div>
   </div>
 }

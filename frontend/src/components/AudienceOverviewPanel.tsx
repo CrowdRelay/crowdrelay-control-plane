@@ -3,6 +3,7 @@ import { Link } from '@tanstack/solid-router'
 import type { AudienceOverview } from '../lib/types'
 import { compactNumber } from '../lib/charts'
 import { EmptyState } from './EmptyState'
+import { KpiValue } from './KpiValue'
 
 const fmt = (value: number | undefined) => value == null ? '—' : compactNumber(value)
 
@@ -31,31 +32,31 @@ export function AudienceOverviewPanel(props: { slug: string; overview?: Audience
       <div class="kpi-strip">
         <div class="kpi-card">
           <span class="kpi-label">Active fans</span>
-          <strong class="kpi-value">{fmt(props.overview!.active_fans)}</strong>
+          <KpiValue value={fmt(props.overview!.active_fans)} />
         </div>
         <div class="kpi-card">
           <span class="kpi-label">Marketing consented</span>
-          <strong class="kpi-value">{fmt(props.overview!.marketing_consented_fans)}</strong>
+          <KpiValue value={fmt(props.overview!.marketing_consented_fans)} />
         </div>
         <div class="kpi-card">
           <span class="kpi-label">Ticket buyers</span>
-          <strong class="kpi-value">{fmt(props.overview!.ticket_buyers)}</strong>
+          <KpiValue value={fmt(props.overview!.ticket_buyers)} />
         </div>
         <div class="kpi-card">
           <span class="kpi-label">Attendees</span>
-          <strong class="kpi-value">{fmt(props.overview!.attendees)}</strong>
+          <KpiValue value={fmt(props.overview!.attendees)} />
         </div>
         <div class="kpi-card">
           <span class="kpi-label">Synesthesia participants</span>
-          <strong class="kpi-value">{fmt(props.overview!.synesthesia_participants)}</strong>
+          <KpiValue value={fmt(props.overview!.synesthesia_participants)} />
         </div>
         <div class="kpi-card">
           <span class="kpi-label">Qualified referrals</span>
-          <strong class="kpi-value">{fmt(props.overview!.qualified_referrals)}</strong>
+          <KpiValue value={fmt(props.overview!.qualified_referrals)} />
         </div>
         <div class="kpi-card accent">
           <span class="kpi-label">Paid ticket orders</span>
-          <strong class="kpi-value">{fmt(props.overview!.paid_ticket_orders)}</strong>
+          <KpiValue value={fmt(props.overview!.paid_ticket_orders)} />
         </div>
       </div>
     </Show>

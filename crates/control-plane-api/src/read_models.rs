@@ -27,7 +27,7 @@ use axum::{
     routing::get,
 };
 use serde_json::{Value, json};
-use tokio::sync::{Mutex, Semaphore};
+use tokio::sync::{RwLock, Semaphore};
 
 use crate::{AppState, error::ApiError, tenant_area_client::ManagementRequest, validation};
 
@@ -43,31 +43,65 @@ const READ_MODEL_CACHE_TTL: Duration = Duration::from_secs(5);
 /// In-process TTL cache for read model responses. Keyed by a string that
 /// combines the tenant slug and the model name (e.g. `"virya:operations"`).
 /// Only successful responses are cached; errors are never stored.
-pub type ReadModelCache = Arc<Mutex<HashMap<String, (Instant, Value)>>>;
+///
+/// Uses a `RwLock` so concurrent cache hits (the common case) do not
+/// serialise behind a single writer. Writes — cache misses and eviction —
+/// take the exclusive lock.
+pub type ReadModelCache = Arc<RwLock<HashMap<String, (Instant, Value)>>>;
 
 /// Create a fresh, empty cache. Called once at boot and shared via
 /// [`AppState`].
 #[must_use]
 pub fn new_read_model_cache() -> ReadModelCache {
-    Arc::new(Mutex::new(HashMap::new()))
+    Arc::new(RwLock::new(HashMap::new()))
 }
 
 /// Return a cached value if it exists and is younger than [`READ_MODEL_CACHE_TTL`].
+/// Expired entries are removed on access so the map does not retain stale
+/// values for tenants that are read infrequently.
 async fn cache_get(cache: &ReadModelCache, key: &str) -> Option<Value> {
-    let entries = cache.lock().await;
+    let entries = cache.read().await;
     if let Some((stored_at, value)) = entries.get(key) {
         if Instant::now().duration_since(*stored_at) < READ_MODEL_CACHE_TTL {
             return Some(value.clone());
         }
     }
+    drop(entries);
+    // Entry was absent or expired — remove it under a write lock so it does
+    // not linger for inactive tenants.
+    let mut entries = cache.write().await;
+    entries.remove(key);
     None
+}
+
+/// Public wrapper for [`cache_get`] so other modules (agent_routes) can
+/// share the same in-process cache for consolidated read models.
+pub async fn cache_get_public(cache: &ReadModelCache, key: &str) -> Option<Value> {
+    cache_get(cache, key).await
 }
 
 /// Store a successful response in the cache. Called only after the fan-out
 /// and projection succeed — errors are never cached.
 async fn cache_set(cache: &ReadModelCache, key: String, value: Value) {
-    let mut entries = cache.lock().await;
+    let mut entries = cache.write().await;
     entries.insert(key, (Instant::now(), value));
+}
+
+/// Public wrapper for [`cache_set`] so other modules (agent_routes) can
+/// share the same in-process cache for consolidated read models.
+pub async fn cache_set_public(cache: &ReadModelCache, key: String, value: Value) {
+    cache_set(cache, key, value).await
+}
+
+/// Remove all entries older than `READ_MODEL_CACHE_TTL * 2`. Called by a
+/// background sweeper so expired entries for inactive tenants do not
+/// accumulate indefinitely. The generous threshold avoids racing with an
+/// in-flight request that is about to check a slightly-past entry.
+pub async fn prune_cache(cache: &ReadModelCache) {
+    let now = Instant::now();
+    let threshold = READ_MODEL_CACHE_TTL * 2;
+    let mut entries = cache.write().await;
+    entries.retain(|_, (stored_at, _)| now.duration_since(*stored_at) < threshold);
 }
 
 pub fn router() -> Router<AppState> {
@@ -931,6 +965,16 @@ fn collect_timestamps(
         for (_, child) in object {
             if child.is_object() {
                 collect_timestamps(child, depth + 1, candidates);
+            } else if let Some(arr) = child.as_array() {
+                // Timestamps often live inside array elements (e.g.
+                // `policies[0].updatedAt`, `items[0].checkedAt`). Without
+                // descending into arrays, freshness classification misses
+                // them and falls back to fetch time — masking stale data.
+                for element in arr {
+                    if element.is_object() {
+                        collect_timestamps(element, depth + 1, candidates);
+                    }
+                }
             }
         }
     }
@@ -1811,6 +1855,31 @@ mod tests {
             freshness["classification"],
             json!("stale"),
             "a nested checkedAt must be found and used for freshness classification"
+        );
+    }
+
+    #[test]
+    fn freshness_finds_array_nested_timestamps() {
+        // Timestamps often live inside array elements (e.g.
+        // `policies[0].updatedAt`). The scanner must descend into arrays,
+        // not just objects, or freshness falls back to fetch time and
+        // masks stale data.
+        let now = chrono::Utc::now();
+        let stale = (now - chrono::Duration::seconds(600)).to_rfc3339();
+        // The autopilot section has no top-level or object-nested
+        // timestamp — the only timestamp is inside `policies[0].updatedAt`.
+        let s = json!({"ok": true, "outbox": {"pending": 3}});
+        let f = json!([{"flag": "test", "enabled": true}]);
+        let a = json!({"policies": [{"context": "outreach", "updatedAt": stale}]});
+        let g = json!({"objective": "grow"});
+        let o = json!([]);
+        let projected = project_operations("virya", 300, ok(&s), ok(&f), ok(&a), ok(&g), ok(&o))
+            .expect("complete snapshot projects");
+        let freshness = &projected["freshness"]["autopilot"];
+        assert_eq!(
+            freshness["classification"],
+            json!("stale"),
+            "an array-nested updatedAt must be found and used for freshness classification"
         );
     }
 

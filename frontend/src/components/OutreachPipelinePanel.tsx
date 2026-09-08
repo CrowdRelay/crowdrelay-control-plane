@@ -6,6 +6,7 @@ import { errorMessage } from '../lib/format'
 import type { OutreachCandidateView, BookingCandidateView } from '../lib/types'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock } from './Skeleton'
+import { TabBar } from './TabBar'
 
 const fitLabel = (bps: number) => `${Math.round(bps / 100)}%`
 
@@ -69,16 +70,16 @@ export function OutreachPipelinePanel(props: { slug: string }) {
   return <div class="agent-section">
     <div class="agent-section-head">
       <h3>Outreach pipeline</h3>
-      <div class="tab-group">
-        <button classList={{ tab: true, active: tab() === 'outreach' }} onClick={() => setTab('outreach')}>
-          Outreach ({outreach.data?.length ?? 0})
-        </button>
-        <button classList={{ tab: true, active: tab() === 'booking' }} onClick={() => setTab('booking')}>
-          Booking ({booking.data?.length ?? 0})
-        </button>
-      </div>
     </div>
     <p class="agent-section-intro">Candidate queues from the growth pipeline. The agent discovers communities and venues; you confirm which ones to pursue.</p>
+    <TabBar
+      active={tab()}
+      onChange={setTab}
+      tabs={[
+        { id: 'outreach', label: 'Outreach', count: () => outreach.data?.length ?? 0 },
+        { id: 'booking', label: 'Booking', count: () => booking.data?.length ?? 0 },
+      ]}
+    />
 
     <Show when={error()}>
       <div class="error-card">{error()}</div>

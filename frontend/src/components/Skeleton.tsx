@@ -15,15 +15,15 @@ export const SkeletonBlock: Component<{ height?: string; width?: string; radius?
 )
 
 export const SkeletonGrid: Component<{ count?: number; minCardHeight?: string }> = (props) => (
-  <div class="skeleton-grid" style={{ 'grid-template-columns': 'repeat(auto-fill, minmax(280px, 1fr))', display: 'grid', gap: '12px' }}>
+  <div class="skeleton-grid skel-grid-2">
     {Array.from({ length: props.count ?? 3 }, () => (
-      <div style={{ height: props.minCardHeight ?? '160px', 'border-radius': '12px' }} />
+      <div class="skeleton-block" style={{ height: props.minCardHeight ?? '160px', 'border-radius': '12px' }} />
     ))}
   </div>
 )
 
 export const SkeletonRows: Component<{ count?: number }> = (props) => (
-  <div style={{ display: 'flex', 'flex-direction': 'column', gap: '10px', 'margin-top': '16px' }}>
+  <div class="skel-rows">
     {Array.from({ length: props.count ?? 4 }, () => (
       <div class="skeleton-block" style={{ height: '48px', 'border-radius': '12px' }} />
     ))}
@@ -34,7 +34,7 @@ export const SkeletonPanel: Component<{ lines?: number }> = (props) => (
   <div class="panel" style={{ padding: '20px' }}>
     <div class="skeleton-block" style={{ height: '20px', width: '180px', 'border-radius': '8px', 'margin-bottom': '16px' }} />
     {Array.from({ length: props.lines ?? 3 }, () => (
-      <div class="skeleton-block" style={{ height: '14px', width: '100%', 'border-radius': '6px', 'margin-bottom': '10px' }} />
+      <div class="skeleton-block skel-text" style={{ width: '100%' }} />
     ))}
   </div>
 )
@@ -61,9 +61,9 @@ export const SkeletonKpiStrip: Component<{ count?: number }> = (props) => (
   <div class="ops-kpi-strip">
     {Array.from({ length: props.count ?? 3 }, () => (
       <div class="ops-kpi-card">
-        <div class="skeleton-block" style={{ height: '11px', width: '70px', 'border-radius': '5px' }} />
-        <div class="skeleton-block" style={{ height: '24px', width: '50px', 'border-radius': '6px', 'margin': '8px 0 6px' }} />
-        <div class="skeleton-block" style={{ height: '11px', width: '90px', 'border-radius': '5px' }} />
+        <div class="skeleton-block skel-label" style={{ width: '70px' }} />
+        <div class="skeleton-block skel-value" style={{ width: '50px' }} />
+        <div class="skeleton-block skel-small" style={{ width: '90px' }} />
       </div>
     ))}
   </div>
@@ -130,7 +130,7 @@ export const SkeletonPage: Component = () => (
   <section class="page">
     <SkeletonPageHead />
     <SkeletonKpiStrip count={4} />
-    <div class="panel-grid" style={{ display: 'grid', 'grid-template-columns': 'repeat(auto-fill, minmax(340px, 1fr))', gap: '16px', 'margin-top': '16px' }}>
+    <div class="panel-grid skel-grid-wide">
       <SkeletonSection titleWidth="160px" lines={4} minHeight="180px" />
       <SkeletonSection titleWidth="200px" lines={3} minHeight="180px" />
       <SkeletonSection titleWidth="140px" lines={5} minHeight="180px" />
@@ -150,38 +150,38 @@ export const SkeletonScorecard: Component = () => (
     <div class="operations-metrics">
       {Array.from({ length: 3 }, () => (
         <div>
-          <div class="skeleton-block" style={{ height: '11px', width: '70px', 'border-radius': '5px', 'margin-bottom': '8px' }} />
-          <div class="skeleton-block" style={{ height: '22px', width: '50px', 'border-radius': '6px', 'margin-bottom': '6px' }} />
-          <div class="skeleton-block" style={{ height: '11px', width: '90px', 'border-radius': '5px' }} />
+          <div class="skeleton-block skel-label" style={{ width: '70px' }} />
+          <div class="skeleton-block skel-value" style={{ width: '50px' }} />
+          <div class="skeleton-block skel-small" style={{ width: '90px' }} />
         </div>
       ))}
     </div>
     <section class="operations-section">
       <div class="operations-section-head">
-        <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px', 'margin-bottom': '6px' }} />
+        <div class="skeleton-block skel-small" style={{ width: '80px', 'margin-bottom': '6px' }} />
         <div class="skeleton-block" style={{ height: '18px', width: '120px', 'border-radius': '6px' }} />
       </div>
       <div class="operations-metrics">
         {Array.from({ length: 4 }, () => (
           <div>
-            <div class="skeleton-block" style={{ height: '11px', width: '60px', 'border-radius': '5px', 'margin-bottom': '8px' }} />
-            <div class="skeleton-block" style={{ height: '22px', width: '40px', 'border-radius': '6px', 'margin-bottom': '6px' }} />
-            <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px' }} />
+            <div class="skeleton-block skel-label" style={{ width: '60px' }} />
+            <div class="skeleton-block skel-value" style={{ width: '40px' }} />
+            <div class="skeleton-block skel-small" style={{ width: '80px' }} />
           </div>
         ))}
       </div>
     </section>
     <section class="operations-section">
       <div class="operations-section-head">
-        <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px', 'margin-bottom': '6px' }} />
+        <div class="skeleton-block skel-small" style={{ width: '80px', 'margin-bottom': '6px' }} />
         <div class="skeleton-block" style={{ height: '18px', width: '100px', 'border-radius': '6px' }} />
       </div>
       <div class="operations-metrics">
         {Array.from({ length: 4 }, () => (
           <div>
-            <div class="skeleton-block" style={{ height: '11px', width: '60px', 'border-radius': '5px', 'margin-bottom': '8px' }} />
-            <div class="skeleton-block" style={{ height: '22px', width: '40px', 'border-radius': '6px', 'margin-bottom': '6px' }} />
-            <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px' }} />
+            <div class="skeleton-block skel-label" style={{ width: '60px' }} />
+            <div class="skeleton-block skel-value" style={{ width: '40px' }} />
+            <div class="skeleton-block skel-small" style={{ width: '80px' }} />
           </div>
         ))}
       </div>
@@ -195,13 +195,13 @@ export const SkeletonReplyTriage: Component = () => (
     <div class="operations-metrics">
       {Array.from({ length: 3 }, () => (
         <div>
-          <div class="skeleton-block" style={{ height: '11px', width: '70px', 'border-radius': '5px', 'margin-bottom': '8px' }} />
-          <div class="skeleton-block" style={{ height: '22px', width: '40px', 'border-radius': '6px', 'margin-bottom': '6px' }} />
-          <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px' }} />
+          <div class="skeleton-block skel-label" style={{ width: '70px' }} />
+          <div class="skeleton-block skel-value" style={{ width: '40px' }} />
+          <div class="skeleton-block skel-small" style={{ width: '80px' }} />
         </div>
       ))}
     </div>
-    <div style={{ display: 'flex', 'flex-direction': 'column', gap: '10px', 'margin-top': '16px' }}>
+    <div class="skel-rows">
       {Array.from({ length: 3 }, () => (
         <div class="skeleton-block" style={{ height: '64px', width: '100%', 'border-radius': '10px' }} />
       ))}
@@ -215,12 +215,12 @@ export const SkeletonLearningLoop: Component = () => (
     <div class="learning-loop-summary">
       {Array.from({ length: 4 }, () => (
         <div class="learning-loop-stat">
-          <div class="skeleton-block" style={{ height: '11px', width: '60px', 'border-radius': '5px', 'margin-bottom': '6px' }} />
+          <div class="skeleton-block skel-small" style={{ width: '60px', 'margin-bottom': '6px' }} />
           <div class="skeleton-block" style={{ height: '20px', width: '40px', 'border-radius': '6px' }} />
         </div>
       ))}
     </div>
-    <div style={{ display: 'flex', 'flex-direction': 'column', gap: '10px', 'margin-top': '16px' }}>
+    <div class="skel-rows">
       {Array.from({ length: 4 }, () => (
         <div class="skeleton-block" style={{ height: '72px', width: '100%', 'border-radius': '10px' }} />
       ))}
@@ -264,9 +264,9 @@ export const SkeletonAutopilotKpis: Component = () => (
   <div class="autopilot-kpis">
     {Array.from({ length: 4 }, () => (
       <div>
-        <div class="skeleton-block" style={{ height: '11px', width: '60px', 'border-radius': '5px', 'margin-bottom': '8px' }} />
-        <div class="skeleton-block" style={{ height: '22px', width: '40px', 'border-radius': '6px', 'margin-bottom': '6px' }} />
-        <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px' }} />
+        <div class="skeleton-block skel-label" style={{ width: '60px' }} />
+        <div class="skeleton-block skel-value" style={{ width: '40px' }} />
+        <div class="skeleton-block skel-small" style={{ width: '80px' }} />
       </div>
     ))}
   </div>
@@ -298,15 +298,15 @@ export const SkeletonPortfolio: Component = () => (
     <article class="panel">
       <div class="section-title" style={{ 'margin-bottom': '16px' }}>
         <div>
-          <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px', 'margin-bottom': '6px' }} />
+          <div class="skeleton-block skel-small" style={{ width: '80px', 'margin-bottom': '6px' }} />
           <div class="skeleton-block" style={{ height: '18px', width: '200px', 'border-radius': '6px' }} />
         </div>
       </div>
-      <div class="kpi-grid" style={{ display: 'grid', 'grid-template-columns': 'repeat(auto-fill, minmax(120px, 1fr))', gap: '12px', 'margin-bottom': '20px' }}>
+      <div class="kpi-grid skel-grid-kpi">
         {Array.from({ length: 5 }, () => (
           <div>
             <div class="skeleton-block" style={{ height: '24px', width: '60px', 'border-radius': '6px', 'margin-bottom': '6px' }} />
-            <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px' }} />
+            <div class="skeleton-block skel-small" style={{ width: '80px' }} />
           </div>
         ))}
       </div>
@@ -316,11 +316,11 @@ export const SkeletonPortfolio: Component = () => (
     <article class="panel" style={{ 'margin-top': '16px' }}>
       <div class="section-title" style={{ 'margin-bottom': '16px' }}>
         <div>
-          <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px', 'margin-bottom': '6px' }} />
+          <div class="skeleton-block skel-small" style={{ width: '80px', 'margin-bottom': '6px' }} />
           <div class="skeleton-block" style={{ height: '18px', width: '160px', 'border-radius': '6px' }} />
         </div>
       </div>
-      <div style={{ display: 'grid', 'grid-template-columns': 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+      <div class="skel-grid-cards">
         {Array.from({ length: 3 }, () => (
           <div class="skeleton-block" style={{ height: '80px', 'border-radius': '10px' }} />
         ))}
@@ -330,11 +330,11 @@ export const SkeletonPortfolio: Component = () => (
     <article class="panel" style={{ 'margin-top': '16px' }}>
       <div class="section-title" style={{ 'margin-bottom': '16px' }}>
         <div>
-          <div class="skeleton-block" style={{ height: '11px', width: '60px', 'border-radius': '5px', 'margin-bottom': '6px' }} />
+          <div class="skeleton-block skel-small" style={{ width: '60px', 'margin-bottom': '6px' }} />
           <div class="skeleton-block" style={{ height: '18px', width: '140px', 'border-radius': '6px' }} />
         </div>
       </div>
-      <div style={{ display: 'grid', 'grid-template-columns': 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+      <div class="skel-grid-settings">
         {Array.from({ length: 4 }, () => (
           <div class="skeleton-block" style={{ height: '60px', 'border-radius': '8px' }} />
         ))}
@@ -349,16 +349,16 @@ export const SkeletonSignalOverview: Component = () => (
   <>
     <div class="section-title" id="signal-overview">
       <div>
-        <div class="skeleton-block" style={{ height: '11px', width: '120px', 'border-radius': '5px', 'margin-bottom': '6px' }} />
+        <div class="skeleton-block skel-small" style={{ width: '120px', 'margin-bottom': '6px' }} />
         <div class="skeleton-block" style={{ height: '18px', width: '180px', 'border-radius': '6px' }} />
       </div>
     </div>
     <div class="operations-metrics">
       {Array.from({ length: 8 }, () => (
         <div>
-          <div class="skeleton-block" style={{ height: '11px', width: '70px', 'border-radius': '5px', 'margin-bottom': '8px' }} />
-          <div class="skeleton-block" style={{ height: '22px', width: '50px', 'border-radius': '6px', 'margin-bottom': '6px' }} />
-          <div class="skeleton-block" style={{ height: '11px', width: '80px', 'border-radius': '5px' }} />
+          <div class="skeleton-block skel-label" style={{ width: '70px' }} />
+          <div class="skeleton-block skel-value" style={{ width: '50px' }} />
+          <div class="skeleton-block skel-small" style={{ width: '80px' }} />
         </div>
       ))}
     </div>

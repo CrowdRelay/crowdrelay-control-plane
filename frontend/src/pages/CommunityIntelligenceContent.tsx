@@ -135,23 +135,25 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
     staleTime: 30_000,
   }))
 
-  const observations = useQuery(() => ({
-    queryKey: ['community-observations', props.slug, selectedPlaceId()],
-    queryFn: () => api.communityIntelligenceObservations(props.slug, selectedPlaceId()!),
+  // Consolidated community detail — observations + entities in one
+  // round-trip. Each section degrades independently.
+  const detail = useQuery(() => ({
+    queryKey: ['community-detail', props.slug, selectedPlaceId()],
+    queryFn: () => api.communityDetail(props.slug, selectedPlaceId()!),
     enabled: !!selectedPlaceId(),
-    reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 30_000,
   }))
 
-  const entities = useQuery(() => ({
-    queryKey: ['community-entities', props.slug, selectedPlaceId()],
-    queryFn: () => api.communityIntelligenceEntities(props.slug, selectedPlaceId()!),
-    enabled: !!selectedPlaceId(),
-    reconcile: 'id',
-    refetchOnWindowFocus: false,
-    staleTime: 30_000,
-  }))
+  // Derive observations and entities from the consolidated response.
+  const observations = () => {
+    const d = detail.data?.observations
+    return d && !('__error' in d) ? d.items : []
+  }
+  const entities = () => {
+    const d = detail.data?.entities
+    return d && !('__error' in d) ? d.items : []
+  }
 
   // ── Add / Import handlers (ported from CommunitiesPanel) ──
   const submit = async (event: Event) => {
@@ -487,16 +489,16 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
 
             <Show when={selectedPlaceId()}>
               <h2>Observations</h2>
-              <Show when={observations.isPending}><SkeletonRows /></Show>
-              <Show when={observations.error}>
+              <Show when={detail.isPending}><SkeletonRows /></Show>
+              <Show when={detail.data?.observations && '__error' in detail.data!.observations}>
                 <div class="error-card" role="alert">Failed to load observations</div>
               </Show>
-              <Show when={observations.data}>
-                <Show when={(observations.data?.items ?? []).length === 0}>
+              <Show when={detail.data}>
+                <Show when={observations().length === 0}>
                   <p class="empty-state">No observations recorded yet. The worker will fetch on the next sweep.</p>
                 </Show>
                 <div class="observation-list">
-                  <For each={observations.data?.items ?? []}>
+                  <For each={observations()}>
                     {(obs: CommunityObservationItem) => (
                       <div class="observation-row">
                         <div class="observation-header">
@@ -519,16 +521,16 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
               </Show>
 
               <h2>Extracted Entities (Latest)</h2>
-              <Show when={entities.isPending}><SkeletonRows /></Show>
-              <Show when={entities.error}>
+              <Show when={detail.isPending}><SkeletonRows /></Show>
+              <Show when={detail.data?.entities && '__error' in detail.data!.entities}>
                 <div class="error-card" role="alert">Failed to load entities</div>
               </Show>
-              <Show when={entities.data}>
-                <Show when={(entities.data?.items ?? []).length === 0}>
+              <Show when={detail.data}>
+                <Show when={entities().length === 0}>
                   <p class="empty-state">No entities extracted from the latest observation.</p>
                 </Show>
                 <div class="entity-list">
-                  <For each={entities.data?.items ?? []}>
+                  <For each={entities()}>
                     {(entity: CommunityEntityItem) => (
                       <div class="entity-row">
                         <span class="entity-type">{entity.entityType}</span>

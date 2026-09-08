@@ -216,6 +216,12 @@ export function OperationsPanel(props: {
   }
   const [pendingMutation, setPendingMutation] = createSignal<string | null>(null)
   const [mutationError, setMutationError] = createSignal<string | null>(null)
+  // Optimistic flag overrides — while a flag toggle mutation is in flight,
+  // the flipped value is stored here so the toggle reflects immediately
+  // without waiting for the read-model refetch. Cleared on success (the
+  // refetch confirms the server state) or on error (the refetch restores
+  // the previous state).
+  const [flagOverrides, setFlagOverrides] = createSignal<Record<string, boolean>>({})
 
   const mutate = async (key: string, operation: () => Promise<unknown>, refresh: () => Promise<unknown>) => {
     setMutationError(null)
@@ -230,11 +236,29 @@ export function OperationsPanel(props: {
     }
   }
 
-  const updateFlag = (flag: FeatureFlag) => mutate(
-    `flag:${flag.key}`,
-    () => api.setFeatureFlag(props.slug, flag, !flag.enabled),
-    () => flags.refetch(),
-  )
+  const updateFlag = (flag: FeatureFlag) => {
+    // Optimistically flip the flag in the local override so the toggle
+    // reflects immediately. The override is cleared on success/error.
+    setFlagOverrides(prev => ({ ...prev, [flag.key]: !flag.enabled }))
+    mutate(
+      `flag:${flag.key}`,
+      () => api.setFeatureFlag(props.slug, flag, !flag.enabled),
+      () => flags.refetch(),
+    ).finally(() => {
+      setFlagOverrides(prev => {
+        const next = { ...prev }
+        delete next[flag.key]
+        return next
+      })
+    })
+  }
+
+  // Resolve a flag's effective enabled state: local override while a
+  // mutation is in flight, otherwise the prop value.
+  const flagEnabled = (flag: FeatureFlag): boolean => {
+    const override = flagOverrides()[flag.key]
+    return override !== undefined ? override : flag.enabled
+  }
 
   const updatePolicy = (policy: AutopilotPolicy, input: Pick<AutopilotPolicy, 'enabled'|'autonomy_level'|'minimum_confidence'|'max_actions_24h'>) => mutate(
     `policy:${policy.context}`,
@@ -430,10 +454,10 @@ export function OperationsPanel(props: {
             <div><strong>{flagLabel(flag.key)}</strong><small>{flagReason(flag)}</small></div>
             <button
               type="button"
-              class={`switch-control ${flag.enabled ? 'on' : ''}`}
+              class={`switch-control ${flagEnabled(flag) ? 'on' : ''}`}
               role="switch"
-              aria-checked={flag.enabled}
-              aria-label={`${flagLabel(flag.key)} ${flag.enabled ? 'enabled' : 'disabled'}`}
+              aria-checked={flagEnabled(flag)}
+              aria-label={`${flagLabel(flag.key)} ${flagEnabled(flag) ? 'enabled' : 'disabled'}`}
               disabled={pendingMutation() !== null}
               onClick={() => updateFlag(flag)}
             ><span /></button>

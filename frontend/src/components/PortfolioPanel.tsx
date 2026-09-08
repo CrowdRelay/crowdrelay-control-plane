@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import type { PortfolioConsent, PortfolioConsentStatus, PortfolioOverview } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
+import { KpiValue } from './KpiValue'
 
 const STATUS_TONE: Record<PortfolioConsentStatus, 'good' | 'warn' | 'bad' | 'muted'> = {
   proposed: 'warn',
@@ -103,11 +104,11 @@ export function PortfolioPanel(props: {
     </div>
 
     <Show when={props.overview} keyed>{overview => <div class="kpi-grid">
-      <div class="kpi"><span class="kpi-value">{metric(overview.workspaceCount)}</span><span class="kpi-label">Artists</span></div>
-      <div class="kpi"><span class="kpi-value">{metric(overview.activeFans)}</span><span class="kpi-label">Active fans</span></div>
-      <div class="kpi"><span class="kpi-value">+{metric(overview.fansLast30d)}</span><span class="kpi-label">New fans · 30d</span></div>
-      <div class="kpi"><span class="kpi-value">{metric(overview.activeEdges)}</span><span class="kpi-label">Live edges</span></div>
-      <div class="kpi"><span class="kpi-value">{metric(overview.deliveriesLast30d)}</span><span class="kpi-label">Amplified · 30d</span></div>
+      <div class="kpi"><KpiValue value={metric(overview.workspaceCount)} /><span class="kpi-label">Artists</span></div>
+      <div class="kpi"><KpiValue value={metric(overview.activeFans)} /><span class="kpi-label">Active fans</span></div>
+      <div class="kpi"><KpiValue value={`+${metric(overview.fansLast30d)}`} /><span class="kpi-label">New fans · 30d</span></div>
+      <div class="kpi"><KpiValue value={metric(overview.activeEdges)} /><span class="kpi-label">Live edges</span></div>
+      <div class="kpi"><KpiValue value={metric(overview.deliveriesLast30d)} /><span class="kpi-label">Amplified · 30d</span></div>
     </div>}</Show>
 
     <div><span class="eyebrow">EDGES</span><h3><SectionIcon name="link" />Amplification edges</h3></div>

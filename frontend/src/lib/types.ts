@@ -750,6 +750,14 @@ export interface CommunityEntityItem {
   strength: number
   observedAt: string
 }
+
+/// Consolidated community detail — observations + entities in one
+/// round-trip. Each section is either the upstream JSON or
+/// `{ __error: string }` when that section's endpoint failed.
+export interface CommunityDetail {
+  observations: { items: CommunityObservationItem[] } | { __error: string }
+  entities: { items: CommunityEntityItem[]; observationId: string } | { __error: string }
+}
 export const NOTIFIER_EVENTS = [
   'provisioning.failed',
   'runtime.degraded',
@@ -1071,6 +1079,24 @@ export interface TaskSuggestion {
   prefill_prompt: string
   priority: 'high' | 'medium' | 'low'
   reason: string
+}
+
+/// Consolidated Tasks-tab read model — one round-trip instead of five.
+/// Each section is either the upstream JSON or `{ __error: string }` when
+/// that section's agent-service endpoint failed.
+export interface AgentTasksOverview {
+  templates: { templates: AgentTemplate[] } | { __error: string }
+  tasks: { tasks: AgentTask[] } | { __error: string }
+  models: { models: AgentModel[]; connectedProviders: string[] } | { __error: string }
+  suggestions: { suggestions: TaskSuggestion[] } | { __error: string }
+  schedules: { schedules: AgentSchedule[] } | { __error: string }
+}
+
+/// Consolidated Providers-tab read model — one round-trip instead of three.
+export interface AgentProvidersOverview {
+  providers: { providers: AgentProvider[] } | { __error: string }
+  credentials: { credentials: AgentCredential[] } | { __error: string }
+  models: { models: AgentModel[]; connectedProviders: string[] } | { __error: string }
 }
 
 // --- Fanbase connection types ---

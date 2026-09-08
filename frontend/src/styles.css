@@ -267,11 +267,21 @@ a.kpi-card:hover{border-color:var(--border-accent)}
 .kpi-card.kpi-good{border-color:rgba(61,220,132,0.25);box-shadow:var(--shadow-md)}.kpi-card.kpi-good .kpi-value{color:var(--good-light)}
 .kpi-card.kpi-warn{border-color:rgba(245,185,66,0.25);box-shadow:var(--shadow-md)}.kpi-card.kpi-warn .kpi-value{color:var(--warn-light)}
 .kpi-card.kpi-bad{border-color:rgba(255,101,101,0.25);box-shadow:var(--shadow-md)}.kpi-card.kpi-bad .kpi-value{color:var(--bad-light)}
+/* KPI value flash — briefly highlights when the value changes, so the
+   operator's eye is drawn to fresh data on refresh. Respects reduced motion. */
+@media(prefers-reduced-motion:no-preference){
+  .kpi-value.kpi-flash{animation:kpi-flash 600ms ease-out}
+  @keyframes kpi-flash{
+    0%{color:var(--accent);transform:scale(1.06)}
+    100%{color:inherit;transform:scale(1)}
+  }
+}
 
 /* Command center — five operator blocks, each a drill-down link */
 .command-center-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:32px}
 .command-block{border:1px solid var(--border-default);border-radius:var(--radius-lg);background:var(--surface-2);box-shadow:var(--shadow-md);padding:20px;display:flex;flex-direction:column;gap:14px;color:inherit;text-decoration:none;transition:border-color var(--t-smooth),box-shadow var(--t-smooth),transform var(--t-smooth)}
-.command-block:hover{border-color:var(--border-accent);box-shadow:0 4px 16px #00000050;transform:translateY(-1px)}
+.command-block:hover{border-color:var(--border-accent);box-shadow:0 4px 16px #00000050,0 0 0 1px var(--border-accent);transform:translateY(-2px)}
+@media(prefers-reduced-motion:reduce){.command-block:hover{transform:none}}
 .command-block-warn{border-color:rgba(245,185,66,0.3)}
 .command-block-active{border-color:rgba(99,179,237,0.3)}
 .command-block-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -377,6 +387,19 @@ button{border-radius:var(--radius-md);padding:.6rem 1rem;background:var(--accent
 .skeleton-grid div,.skeleton-block{border-radius:var(--radius-lg);background:linear-gradient(100deg,rgba(26,30,39,0.8) 20%,rgba(40,46,60,0.9) 50%,rgba(26,30,39,0.8) 80%);background-size:200% 100%;border:1px solid var(--border-strong);animation:shimmer 1.8s infinite ease-in-out}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .mini-skeleton{border-radius:var(--radius-md);background:linear-gradient(100deg,#11141a 20%,var(--surface-3) 50%,#11141a 80%);background-size:200% 100%;animation:shimmer 1.8s infinite ease-in-out}
+/* Reusable skeleton building blocks — replaces repeated inline styles.
+   Width is set inline because it varies per usage; height/radius/margin
+   are constant within each pattern. */
+.skel-label{height:11px;border-radius:5px;margin-bottom:8px}
+.skel-value{height:22px;border-radius:6px;margin-bottom:6px}
+.skel-text{height:14px;border-radius:6px;margin-bottom:10px}
+.skel-small{height:11px;border-radius:5px}
+.skel-rows{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+.skel-grid-2{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.skel-grid-kpi{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;margin-bottom:20px}
+.skel-grid-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.skel-grid-wide{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;margin-top:16px}
+.skel-grid-settings{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
 
 /* Provision job / deployment cards */
 .provision-job{border-radius:var(--radius-md);box-shadow:0 1px 3px #00000020}
@@ -433,6 +456,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 /* Reply triage */
 .reply-text{display:block;max-width:42rem;color:var(--text-primary);font-style:italic;line-height:1.5;margin:2px 0}
+.reply-triage-row{align-items:flex-start;gap:12px}
+.reply-triage-actions{flex-direction:column;align-items:flex-end;gap:8px}
+.reply-triage-buttons{display:flex;gap:6px;flex-wrap:wrap}
+.reply-btn{padding:.35rem .65rem;font-size:var(--text-sm);font-weight:600;border-radius:var(--radius-sm);border:1px solid var(--border-default)}
+.reply-btn-good:hover:not(:disabled){border-color:var(--good);color:var(--good-light);background:rgba(61,220,132,0.08)}
+.reply-btn-warn:hover:not(:disabled){border-color:var(--warn);color:var(--warn-light);background:rgba(245,185,66,0.08)}
+.reply-btn-bad:hover:not(:disabled){border-color:var(--bad);color:var(--bad-light);background:rgba(255,101,101,0.08)}
 
 /* Agent panel */
 .agent-panel{display:flex;flex-direction:column;gap:1.5rem}
@@ -1739,11 +1769,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 /* Tenant pulse — full-row list on overview */
 .tenant-pulse-list{display:flex;flex-direction:column;gap:8px}
-.tenant-pulse-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-2);text-decoration:none;color:inherit;transition:border-color var(--t-smooth),background var(--t-smooth)}
-.tenant-pulse-row:hover{border-color:var(--border-accent);background:var(--surface-3)}
+.tenant-pulse-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-2);text-decoration:none;color:inherit;transition:border-color var(--t-smooth),background var(--t-smooth),box-shadow var(--t-smooth),transform var(--t-smooth)}
+.tenant-pulse-row:hover{border-color:var(--border-accent);background:var(--surface-3);box-shadow:0 2px 8px #00000030;transform:translateY(-1px)}
 .tenant-pulse-row-left{display:flex;align-items:center;gap:12px;min-width:0}
 .tenant-pulse-row-left strong{font-size:var(--text-body);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .tenant-pulse-row-left .muted{font-size:var(--text-sm);color:var(--text-muted);white-space:nowrap}
+@media(prefers-reduced-motion:reduce){.tenant-pulse-row:hover{transform:none}}
 .tenant-pulse-row-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
 @media(max-width:560px){.tenant-pulse-row{flex-direction:column;align-items:flex-start;gap:10px}}
 
@@ -2084,12 +2115,19 @@ input,select,textarea{border-radius:var(--radius-md);font-size:var(--text-base)}
   border:0;border-radius:var(--radius-sm);
   padding:7px 15px;background:transparent;color:var(--text-muted);
   font-size:var(--text-base);font-weight:600;white-space:nowrap;
-  transition:background var(--t-fast),color var(--t-fast)
+  transition:background var(--t-fast),color var(--t-fast),box-shadow var(--t-fast),transform var(--t-fast)
 }
 .page-tab:hover{background:var(--surface-3);color:var(--text-secondary)}
 .page-tab.active{
   background:var(--surface-4);color:var(--text-primary);
-  border-bottom-color:transparent;box-shadow:0 1px 2px rgba(0,0,0,.3)
+  border-bottom-color:transparent;box-shadow:0 1px 2px rgba(0,0,0,.3),0 0 0 1px var(--border-accent)
+}
+@media(prefers-reduced-motion:no-preference){
+  .page-tab.active{animation:tab-activate 250ms cubic-bezier(0.16,1,0.3,1)}
+  @keyframes tab-activate{
+    from{transform:scale(0.96);opacity:0.6}
+    to{transform:scale(1);opacity:1}
+  }
 }
 
 .runtime-unknown-note{

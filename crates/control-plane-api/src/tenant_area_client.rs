@@ -227,6 +227,20 @@ impl TenantAreaClient {
         )
         .await
     }
+
+    /// Drop all idle connections older than [`POOL_IDLE_TIMEOUT`] from every
+    /// target bucket. Called by a background sweeper so file descriptors for
+    /// inactive tenants do not linger indefinitely.
+    pub async fn sweep_pool(&self) {
+        let mut entries = self.pool.lock().await;
+        let now = std::time::Instant::now();
+        for bucket in entries.values_mut() {
+            bucket.retain(|(idle_since, _)| now.duration_since(*idle_since) <= POOL_IDLE_TIMEOUT);
+        }
+        // Drop empty buckets so the map does not grow with one entry per
+        // tenant target ever visited.
+        entries.retain(|_, bucket| !bucket.is_empty());
+    }
 }
 
 fn derived_token(

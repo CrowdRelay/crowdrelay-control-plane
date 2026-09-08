@@ -154,6 +154,12 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/agents/usage/analytics",
             get(usage_analytics),
         )
+        // Consolidated read models — one round-trip per tab instead of 5/3.
+        .route("/tenants/{slug}/agents/tasks-overview", get(tasks_overview))
+        .route(
+            "/tenants/{slug}/agents/providers-overview",
+            get(providers_overview),
+        )
         .layer(axum::extract::DefaultBodyLimit::max(MAX_AGENT_BODY_BYTES))
         // Cookie upload allows a larger body — Netscape cookies.txt files
         // routinely exceed the 16KB default agent body limit.
@@ -175,6 +181,25 @@ async fn proxy_get(
     path: &str,
     capability: AgentCapability,
 ) -> Result<Response, ApiError> {
+    let body = proxy_get_value(state, slug, path, capability).await?;
+    Ok((
+        StatusCode::OK,
+        [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
+        Json(body),
+    )
+        .into_response())
+}
+
+/// Same as [`proxy_get`] but returns the raw JSON value instead of an axum
+/// `Response`. Used by the consolidated read-model fan-outs so multiple
+/// agent-service endpoints can be fetched concurrently and assembled into
+/// one response.
+async fn proxy_get_value(
+    state: &AppState,
+    slug: &str,
+    path: &str,
+    capability: AgentCapability,
+) -> Result<Value, ApiError> {
     let (tenant, _) = crate::area_routes::target(state, slug).await?;
     let base = state
         .agent_service_url
@@ -200,12 +225,10 @@ async fn proxy_get(
         .json()
         .await
         .map_err(|e| ApiError::Unavailable(format!("agent service returned invalid JSON: {e}")))?;
-    Ok((
-        status,
-        [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
-        Json(body),
-    )
-        .into_response())
+    if !status.is_success() {
+        return Err(ApiError::UpstreamError(status.as_u16()));
+    }
+    Ok(body)
 }
 
 async fn proxy_post(
@@ -818,6 +841,108 @@ async fn toggle_schedule(
         .map_err(|_| ApiError::InvalidInput("valid schedule UUID is required".to_owned()))?;
     let path = format!("/schedules/{schedule_id}/enabled");
     proxy_post(&state, &slug, &path, body, AgentCapability::Dispatch).await
+}
+
+/// Consolidated Tasks-tab read model. Fans out to the five agent-service
+/// endpoints the Tasks tab needs (templates, tasks, models, suggestions,
+/// schedules) in one round-trip, so the browser loads the tab in a single
+/// request instead of five. Each section degrades independently — a broken
+/// suggestions endpoint cannot blank the task list next to it.
+async fn tasks_overview(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let cache_key = format!("{slug}:agent-tasks-overview");
+    if let Some(cached) =
+        crate::read_models::cache_get_public(&state.read_model_cache, &cache_key).await
+    {
+        return Ok((
+            StatusCode::OK,
+            [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
+            Json(cached),
+        )
+            .into_response());
+    }
+    let fetch = |path: &'static str| {
+        let state = &state;
+        let slug = &slug;
+        async move { proxy_get_value(state, slug, path, AgentCapability::Read).await }
+    };
+    let (templates, tasks, models, suggestions, schedules) = tokio::join!(
+        fetch("/templates"),
+        fetch("/tasks"),
+        fetch("/models"),
+        fetch("/suggestions"),
+        fetch("/schedules"),
+    );
+    // Each section is either the upstream JSON object or null + a
+    // `__error` field, so the frontend can show a per-section degraded
+    // state instead of a blank panel.
+    let section = |result: Result<Value, ApiError>| match result {
+        Ok(value) => value,
+        Err(error) => serde_json::json!({ "__error": error.to_string() }),
+    };
+    let projected = serde_json::json!({
+        "templates": section(templates),
+        "tasks": section(tasks),
+        "models": section(models),
+        "suggestions": section(suggestions),
+        "schedules": section(schedules),
+    });
+    crate::read_models::cache_set_public(&state.read_model_cache, cache_key, projected.clone())
+        .await;
+    Ok((
+        StatusCode::OK,
+        [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
+        Json(projected),
+    )
+        .into_response())
+}
+
+/// Consolidated Providers-tab read model. Fans out to the three
+/// agent-service endpoints the Providers tab needs (providers, credentials,
+/// models) in one round-trip. Each section degrades independently.
+async fn providers_overview(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let cache_key = format!("{slug}:agent-providers-overview");
+    if let Some(cached) =
+        crate::read_models::cache_get_public(&state.read_model_cache, &cache_key).await
+    {
+        return Ok((
+            StatusCode::OK,
+            [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
+            Json(cached),
+        )
+            .into_response());
+    }
+    let fetch = |path: &'static str| {
+        let state = &state;
+        let slug = &slug;
+        async move { proxy_get_value(state, slug, path, AgentCapability::Read).await }
+    };
+    let (providers, credentials, models) =
+        tokio::join!(fetch("/providers"), fetch("/credentials"), fetch("/models"),);
+    let section = |result: Result<Value, ApiError>| match result {
+        Ok(value) => value,
+        Err(error) => serde_json::json!({ "__error": error.to_string() }),
+    };
+    let projected = serde_json::json!({
+        "providers": section(providers),
+        "credentials": section(credentials),
+        "models": section(models),
+    });
+    crate::read_models::cache_set_public(&state.read_model_cache, cache_key, projected.clone())
+        .await;
+    Ok((
+        StatusCode::OK,
+        [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
+        Json(projected),
+    )
+        .into_response())
 }
 
 /// Chatbot endpoint — proxies to the agent service which calls the free Zen

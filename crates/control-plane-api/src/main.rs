@@ -249,6 +249,35 @@ async fn main() -> anyhow::Result<()> {
             }
         });
     }
+    // Read-model cache sweeper: prunes expired entries every 60s so the
+    // map does not retain stale values for tenants that are read
+    // infrequently. On-access eviction handles the hot path; this handles
+    // the cold tail.
+    {
+        let cache = state.read_model_cache.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(60));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                interval.tick().await;
+                read_models::prune_cache(&cache).await;
+            }
+        });
+    }
+    // Connection pool sweeper: drops idle connections older than the pool
+    // idle timeout every 60s. On-access eviction handles the hot path;
+    // this reclaims file descriptors for inactive tenants.
+    {
+        let area_client = state.area_client.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(60));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                interval.tick().await;
+                area_client.sweep_pool().await;
+            }
+        });
+    }
     // Session endpoints are public by design; everything below requires an
     // identity (admin bearer or operator session).
     let auth_api = auth_routes::router();

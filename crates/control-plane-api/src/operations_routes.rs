@@ -209,6 +209,13 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/portfolio/communities/{place_id}/entities",
             get(list_community_entities),
         )
+        // Consolidated community detail — observations + entities in one
+        // round-trip, so selecting a community loads both panels at once
+        // instead of two separate proxy calls.
+        .route(
+            "/tenants/{slug}/portfolio/communities/{place_id}/detail",
+            get(community_detail),
+        )
         .route(
             "/tenants/{slug}/notifiers/discovered",
             get(discovered_notifier_endpoints),
@@ -3288,4 +3295,53 @@ async fn list_community_entities(
     let path = format!("/v1/control-plane/community-intelligence/communities/{place_id}/entities");
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     object_no_store(value, "community intelligence entities")
+}
+
+/// Consolidated community detail — fans out to observations and entities
+/// concurrently so the browser loads both panels in one round-trip. Each
+/// section degrades independently: a broken entities endpoint cannot
+/// blank the observations list next to it.
+async fn community_detail(
+    State(state): State<AppState>,
+    Path((slug, place_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    uuid_segment(&place_id)?;
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let tenant_id = tenant.tenant.id;
+    let correlation_id = correlation(&headers);
+    let fetch = |section_path: String| {
+        let state = &state;
+        let target = &target;
+        async move {
+            state
+                .area_client
+                .request_management(
+                    tenant_id,
+                    target,
+                    ManagementRequest {
+                        method: "GET",
+                        path: &section_path,
+                        body: None,
+                        correlation_id,
+                        idempotency_key: None,
+                    },
+                )
+                .await
+        }
+    };
+    let observations_path =
+        format!("/v1/control-plane/community-intelligence/communities/{place_id}/observations");
+    let entities_path =
+        format!("/v1/control-plane/community-intelligence/communities/{place_id}/entities");
+    let (observations, entities) = tokio::join!(fetch(observations_path), fetch(entities_path));
+    let section = |result: Result<Value, ApiError>| match result {
+        Ok(value) => value,
+        Err(error) => serde_json::json!({ "__error": error.to_string() }),
+    };
+    let projected = serde_json::json!({
+        "observations": section(observations),
+        "entities": section(entities),
+    });
+    object_no_store(projected, "community detail")
 }

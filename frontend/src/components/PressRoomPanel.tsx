@@ -5,6 +5,7 @@ import { refreshQueries } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock } from './Skeleton'
+import { TabBar } from './TabBar'
 
 const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (status) {
@@ -85,22 +86,18 @@ export function PressRoomPanel(props: { slug: string }) {
   return <div class="agent-section">
     <div class="agent-section-head">
       <h3>Press room</h3>
-      <div class="tab-group">
-        <button classList={{ tab: true, active: tab() === 'requests' }} onClick={() => setTab('requests')}>
-          Requests ({requests().length})
-        </button>
-        <button classList={{ tab: true, active: tab() === 'assets' }} onClick={() => setTab('assets')}>
-          Assets ({assets().length})
-        </button>
-        <button classList={{ tab: true, active: tab() === 'engagements' }} onClick={() => setTab('engagements')}>
-          Engagements ({engagements().length})
-        </button>
-        <button classList={{ tab: true, active: tab() === 'coverage' }} onClick={() => setTab('coverage')}>
-          Coverage ({coverage().length})
-        </button>
-      </div>
     </div>
     <p class="agent-section-intro">Press requests from beacons, press assets for distribution, event engagements, and earned media coverage.</p>
+    <TabBar
+      active={tab()}
+      onChange={setTab}
+      tabs={[
+        { id: 'requests', label: 'Requests', count: () => requests().length },
+        { id: 'assets', label: 'Assets', count: () => assets().length },
+        { id: 'engagements', label: 'Engagements', count: () => engagements().length },
+        { id: 'coverage', label: 'Coverage', count: () => coverage().length },
+      ]}
+    />
 
     <Show when={error()}>
       <div class="error-card">{error()}</div>

@@ -1,8 +1,8 @@
-import { For, Show, createEffect, createSignal, createMemo } from 'solid-js'
+import { For, Show, createEffect, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api, request, ApiError } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
-import { toast } from '../lib/toast'
+import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { Dialog } from './Dialog'
 import { TabBar, TabPanel, useTabPanels } from './TabBar'
@@ -11,7 +11,7 @@ import { AIUsagePanel } from './AIUsagePanel'
 import { IntelligenceTransparencyPanel } from './IntelligenceTransparencyPanel'
 import { EmptyState } from './EmptyState'
 import { SkeletonGrid, SkeletonRows } from './Skeleton'
-import type { AgentTemplate, AgentTask, AgentTaskResult, AgentProvider, AgentCredential, AgentModel, TaskSuggestion, AgentSchedule, AgentOutcome } from '../lib/types'
+import type { AgentTaskResult, TaskSuggestion, AgentOutcome } from '../lib/types'
 
 // --- Ant icon (agent service mascot) ---
 const AntIcon = (props: { size?: number }) => (
@@ -55,68 +55,67 @@ export function AgentPanel(props: { slug: string }) {
   const [submitting, setSubmitting] = createSignal(false)
   const [error, setError] = createSignal<string | null>(null)
   const [viewingResult, setViewingResult] = createSignal<AgentTaskResult | null>(null)
-  const [localRefresh, setLocalRefresh] = createSignal(0)
 
-  const templates = useQuery(() => ({
-    queryKey: ['agent-templates', props.slug],
-    queryFn: async () => {
-      const data = await request<{ templates: AgentTemplate[] }>(`/tenants/${props.slug}/agents/templates`)
-      return data.templates
-    },
+  // Consolidated Tasks-tab read model — one round-trip replaces the five
+  // separate queries (templates, tasks, models, suggestions, schedules).
+  // Each section degrades independently: a broken suggestions endpoint
+  // cannot blank the task list next to it.
+  const tasksOverview = useQuery(() => ({
+    queryKey: ['agent-tasks-overview', props.slug],
+    queryFn: () => api.agentTasksOverview(props.slug),
     enabled: tab() === 'tasks',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
 
-  const tasks = useQuery(() => ({
-    queryKey: ['agent-tasks', props.slug, localRefresh()],
-    queryFn: async () => {
-      const data = await request<{ tasks: AgentTask[] }>(`/tenants/${props.slug}/agents/tasks`)
-      return data.tasks
-    },
-    enabled: tab() === 'tasks',
-    refetchOnWindowFocus: false,
-    staleTime: 10_000,
-  }))
-
-  const providers = useQuery(() => ({
-    queryKey: ['agent-providers', props.slug],
-    queryFn: async () => {
-      const data = await request<{ providers: AgentProvider[] }>(`/tenants/${props.slug}/agents/providers`)
-      return data.providers
-    },
+  // Consolidated Providers-tab read model — one round-trip replaces the
+  // three separate queries (providers, credentials, models).
+  const providersOverview = useQuery(() => ({
+    queryKey: ['agent-providers-overview', props.slug],
+    queryFn: () => api.agentProvidersOverview(props.slug),
     enabled: tab() === 'providers',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
 
-  const credentials = useQuery(() => ({
-    queryKey: ['agent-credentials', props.slug],
-    queryFn: async () => {
-      const data = await request<{ credentials: AgentCredential[] }>(`/tenants/${props.slug}/agents/credentials`)
-      return data.credentials
-    },
-    enabled: tab() === 'providers',
-    refetchOnWindowFocus: false,
-    staleTime: 10_000,
-  }))
-
-  const models = useQuery(() => ({
-    queryKey: ['agent-models', props.slug],
-    queryFn: async () => {
-      const data = await request<{ models: AgentModel[]; connectedProviders: string[] }>(`/tenants/${props.slug}/agents/models`)
-      return data
-    },
-    enabled: tab() === 'providers' || tab() === 'tasks',
-    refetchOnWindowFocus: false,
-    staleTime: 10_000,
-  }))
+  // Derive individual sections from the consolidated responses. Each
+  // section is either the upstream JSON object or `{ __error: string }`
+  // when that section's endpoint failed.
+  const templates = () => {
+    const d = tasksOverview.data?.templates
+    return d && !('__error' in d) ? d.templates : []
+  }
+  const tasks = () => {
+    const d = tasksOverview.data?.tasks
+    return d && !('__error' in d) ? d.tasks : []
+  }
+  const modelsData = () => tasksOverview.data?.models ?? providersOverview.data?.models
+  const models = () => {
+    const d = modelsData()
+    return d && !('__error' in d) ? d : null
+  }
+  const suggestions = () => {
+    const d = tasksOverview.data?.suggestions
+    return d && !('__error' in d) ? d.suggestions : []
+  }
+  const schedules = () => {
+    const d = tasksOverview.data?.schedules
+    return d && !('__error' in d) ? d.schedules : []
+  }
+  const providers = () => {
+    const d = providersOverview.data?.providers
+    return d && !('__error' in d) ? d.providers : []
+  }
+  const credentials = () => {
+    const d = providersOverview.data?.credentials
+    return d && !('__error' in d) ? d.credentials : []
+  }
 
   // When models load, ensure selectedModel is valid — if the current selection
   // isn't in the list (e.g. it was set by a suggestion using a model that no
   // longer exists), fall back to the first available model.
   createEffect(() => {
-    const m = models.data?.models
+    const m = models()?.models
     if (!m || m.length === 0) return
     const current = selectedModel()
     if (!m.some(model => model.id === current)) {
@@ -124,20 +123,8 @@ export function AgentPanel(props: { slug: string }) {
     }
   })
 
-  const suggestions = useQuery(() => ({
-    queryKey: ['agent-suggestions', props.slug],
-    queryFn: async () => {
-      const data = await request<{ suggestions: TaskSuggestion[] }>(`/tenants/${props.slug}/agents/suggestions`)
-      return data.suggestions
-    },
-    enabled: tab() === 'tasks',
-    refetchOnWindowFocus: false,
-    staleTime: 10_000,
-  }))
-
-  // Auto-refresh for running/queued tasks now driven by global refresh tick.
-  // When tasks are active, bump local refresh so the resource refetches on the
-  // next global tick. No independent timer — one clock for the whole page.
+  // Auto-refresh for running/queued tasks is driven by the global refresh
+  // tick — one clock for the whole page, no independent timer.
 
   const submit = async () => {
     const templateId = selectedTemplate()
@@ -154,7 +141,7 @@ export function AgentPanel(props: { slug: string }) {
         }),
       })
       setPrompt('')
-      setLocalRefresh(k => k + 1)
+      refreshQueries(['agent-tasks-overview', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to start task'))
     } finally {
@@ -177,18 +164,6 @@ export function AgentPanel(props: { slug: string }) {
     }
   }
 
-  // --- Schedules ---
-  const schedules = useQuery(() => ({
-    queryKey: ['agent-schedules', props.slug],
-    queryFn: async () => {
-      const data = await request<{ schedules: AgentSchedule[] }>(`/tenants/${props.slug}/agents/schedules`)
-      return data.schedules
-    },
-    enabled: tab() === 'tasks',
-    refetchOnWindowFocus: false,
-    staleTime: 10_000,
-  }))
-
   const [creatingSchedule, setCreatingSchedule] = createSignal(false)
   const [scheduleInterval, setScheduleInterval] = createSignal(1440)
   const [scheduleBusy, setScheduleBusy] = createSignal<string | null>(null)
@@ -207,7 +182,7 @@ export function AgentPanel(props: { slug: string }) {
       })
       setPrompt('')
       setCreatingSchedule(false)
-      schedules.refetch()
+      refreshQueries(['agent-tasks-overview', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to create schedule'))
     } finally {
@@ -220,7 +195,7 @@ export function AgentPanel(props: { slug: string }) {
     setScheduleBusy(id)
     try {
       await api.agentToggleSchedule(props.slug, id, enabled)
-      schedules.refetch()
+      refreshQueries(['agent-tasks-overview', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to toggle schedule'))
     } finally {
@@ -233,7 +208,7 @@ export function AgentPanel(props: { slug: string }) {
     setScheduleBusy(id)
     try {
       await api.agentDeleteSchedule(props.slug, id)
-      schedules.refetch()
+      refreshQueries(['agent-tasks-overview', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to delete schedule'))
     } finally {
@@ -241,9 +216,9 @@ export function AgentPanel(props: { slug: string }) {
     }
   }
 
-  // Detect agent-service unavailability across shared resources
+  // Detect agent-service unavailability across the consolidated read models
   const isServiceDown = () => {
-    const errs = [templates.error, providers.error, models.error, credentials.error]
+    const errs = [tasksOverview.error, providersOverview.error]
     return errs.some(e => {
       if (!e) return false
       if (e instanceof ApiError && e.status === 503) return true
@@ -283,7 +258,7 @@ export function AgentPanel(props: { slug: string }) {
           page-wide skeleton. Queries are gated by `enabled: tab() === ...`
           so hidden tabs don't refetch on the global refresh tick. */}
       <TabPanel active={activeTab()} id="providers" visited={isVisited('providers')}>
-        <PremiumAIPanel slug={props.slug} providers={providers.data} credentials={credentials.data} refetchCreds={credentials.refetch} active={activeTab() === 'providers'} models={models.data} />
+        <PremiumAIPanel slug={props.slug} providers={providers()} credentials={credentials()} refetchCreds={() => refreshQueries(['agent-providers-overview', props.slug])} active={activeTab() === 'providers'} models={models()} />
       </TabPanel>
 
       <TabPanel active={activeTab()} id="usage" visited={isVisited('usage')}>
@@ -296,15 +271,15 @@ export function AgentPanel(props: { slug: string }) {
 
       <TabPanel active={activeTab()} id="tasks" visited={isVisited('tasks')}>
       {/* Autopilot intelligence → agent suggestions — the bridge between operations data and LLM execution */}
-      <Show when={suggestions.error}><div class="error-card">Agent suggestions unavailable: {errorMessage(suggestions.error, 'Service unreachable')}</div></Show>
-      <Show when={suggestions.data && suggestions.data!.length > 0}>
+      <Show when={tasksOverview.data?.suggestions && '__error' in tasksOverview.data!.suggestions}><div class="error-card">Agent suggestions unavailable: {errorMessage(tasksOverview.error, 'Service unreachable')}</div></Show>
+      <Show when={suggestions().length > 0}>
         <div class="agent-section">
           <div class="agent-section-head">
             <h3><IntelligenceIcon size={18} /> From the Autopilot Intelligence</h3>
           </div>
           <p class="agent-section-intro">Data-driven task suggestions based on your events, fan growth, and campaign performance. Click to pre-fill and run.</p>
           <div class="agent-suggestions">
-            <For each={suggestions.data!.slice(0, 4)}>
+            <For each={suggestions().slice(0, 4)}>
               {(s) => (
                 <button class="agent-suggestion-card" onClick={() => runSuggestion(s)}>
                   <div class="agent-suggestion-head">
@@ -324,12 +299,12 @@ export function AgentPanel(props: { slug: string }) {
       <div class="agent-section">
         <div class="agent-section-head">
           <h3>Agent tasks</h3>
-          <Show when={templates.data}><span class="muted">{templates.data!.length} templates</span></Show>
+          <Show when={templates().length > 0}><span class="muted">{templates().length} templates</span></Show>
         </div>
         <p class="agent-section-intro">A template is a pre-written job — research, drafting, analysis — with the prompt scaffolding already in place. Pick one, choose a model, describe the specific work in your own words, and run it. Results appear under Recent tasks, usually within a minute.</p>
-        <Show when={templates.data} fallback={<SkeletonGrid count={4} minCardHeight='120px' />}>
+        <Show when={tasksOverview.data} fallback={<SkeletonGrid count={4} minCardHeight='120px' />}>
           <div class="agent-template-grid">
-            <For each={templates.data}>
+            <For each={templates()}>
               {(template) => (
                 <button
                   class={`agent-template-card ${selectedTemplate() === template.id ? 'selected' : ''}`}
@@ -356,14 +331,14 @@ export function AgentPanel(props: { slug: string }) {
       <Show when={selectedTemplate()}>
         <div class="agent-section">
           <div class="agent-section-head">
-            <h3>Run: {templates.data?.find(t => t.id === selectedTemplate())?.name ?? 'task'}</h3>
+            <h3>Run: {templates().find(t => t.id === selectedTemplate())?.name ?? 'task'}</h3>
             <button class="agent-btn" onClick={() => setSelectedTemplate(null)}>Choose another template</button>
           </div>
           <p class="agent-section-intro">Free models cost nothing and are always available; paid models bill against the AI budget on the Usage tab. The prompt is the only thing the template does not already know — name the show, the city, the audience, the deadline.</p>
           <label class="agent-field">
             <span>Model</span>
             <select value={selectedModel()} onChange={(e) => setSelectedModel(e.currentTarget.value)}>
-              <For each={models.data?.models ?? []}>
+              <For each={models()?.models ?? []}>
                 {(model) => (
                   <option value={model.id}>
                     {model.name} {model.paid ? '(paid)' : '(free)'} — {model.providerName}
@@ -426,12 +401,12 @@ export function AgentPanel(props: { slug: string }) {
             </div>
           </div>
         </Show>
-        <Show when={schedules.error}><div class="error-card">Agent schedules unavailable: {errorMessage(schedules.error, 'Service unreachable')}</div></Show>
-        <Show when={schedules.data && schedules.data!.length > 0}>
+        <Show when={tasksOverview.data?.schedules && '__error' in tasksOverview.data!.schedules}><div class="error-card">Agent schedules unavailable: {errorMessage(tasksOverview.error, 'Service unreachable')}</div></Show>
+        <Show when={schedules().length > 0}>
           <table class="agent-task-table">
             <thead><tr><th>Template</th><th>Interval</th><th>Enabled</th><th>Last run</th><th>Next run</th><th></th></tr></thead>
             <tbody>
-              <For each={schedules.data}>
+              <For each={schedules()}>
                 {(sched) => (
                   <tr>
                     <td>{sched.template_id}</td>
@@ -450,7 +425,7 @@ export function AgentPanel(props: { slug: string }) {
             </tbody>
           </table>
         </Show>
-        <Show when={!schedules.data || schedules.data!.length === 0}>
+        <Show when={schedules().length === 0}>
           <EmptyState label="No schedules configured" hint="Schedules define when the intelligence dispatches worker agents. Create a schedule to automate intelligence gathering." />
         </Show>
       </div>
@@ -458,11 +433,11 @@ export function AgentPanel(props: { slug: string }) {
       <div class="agent-section">
         <div class="agent-section-head">
           <h3>Recent tasks</h3>
-          <Show when={tasks.data && tasks.data!.length > 0}><span class="muted">last {Math.min(tasks.data!.length, 10)}</span></Show>
+          <Show when={tasks().length > 0}><span class="muted">last {Math.min(tasks().length, 10)}</span></Show>
         </div>
         <p class="agent-section-intro">Every run, whether started here or by a schedule. <strong>Queued</strong> and <strong>running</strong> refresh on their own; <strong>completed</strong> opens the full output with a copy button. A failed run charges nothing — hover it for the reason.</p>
-        <Show when={tasks.data} fallback={
-          <Show when={tasks.isFetching} fallback={<EmptyState label="No tasks yet" hint="Tasks are individual worker runs. They appear here once the intelligence or a schedule dispatches them." />}>
+        <Show when={tasksOverview.data} fallback={
+          <Show when={tasksOverview.isFetching} fallback={<EmptyState label="No tasks yet" hint="Tasks are individual worker runs. They appear here once the intelligence or a schedule dispatches them." />}>
             <SkeletonRows count={4} />
           </Show>
         }>
@@ -476,7 +451,7 @@ export function AgentPanel(props: { slug: string }) {
               </tr>
             </thead>
             <tbody>
-              <For each={tasks.data?.slice(0, 10)}>
+              <For each={tasks().slice(0, 10)}>
                 {(task) => (
                   <tr>
                     <td>{task.template_id}</td>
