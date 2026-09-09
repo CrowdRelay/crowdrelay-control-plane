@@ -93,17 +93,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cd "${DEPLOY_DIR}"
           # Record previous tag for rollback
-          PREV_TAG="$(grep '^CONTROL_PLANE_IMAGE_TAG=' "${ENV_FILE}" 2>/dev/null | cut -d= -f2 || echo "")"
+          PREV_TAG="$(sudo grep '^CONTROL_PLANE_IMAGE_TAG=' "${DEPLOY_DIR}/${ENV_FILE}" 2>/dev/null | cut -d= -f2 || echo "")"
           echo "PREV_TAG=${PREV_TAG}" >> "$GITHUB_ENV"
           # Update the image tag in the env file
-          sudo sed -i "s|^CONTROL_PLANE_IMAGE_TAG=.*|CONTROL_PLANE_IMAGE_TAG=${IMAGE_TAG}|" "${ENV_FILE}"
-          grep -q "CONTROL_PLANE_IMAGE_TAG=${IMAGE_TAG}" "${ENV_FILE}" || {
+          sudo sed -i "s|^CONTROL_PLANE_IMAGE_TAG=.*|CONTROL_PLANE_IMAGE_TAG=${IMAGE_TAG}|" "${DEPLOY_DIR}/${ENV_FILE}"
+          sudo grep -q "CONTROL_PLANE_IMAGE_TAG=${IMAGE_TAG}" "${DEPLOY_DIR}/${ENV_FILE}" || {
             echo "ERROR: failed to update CONTROL_PLANE_IMAGE_TAG" >&2; exit 1; }
           echo "ENV=PASS tag=${IMAGE_TAG}"
           # Recreate the app container with the new image
-          sudo docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d --no-deps app
+          sudo docker compose --env-file "${DEPLOY_DIR}/${ENV_FILE}" -f "${DEPLOY_DIR}/${COMPOSE_FILE}" up -d --no-deps app
           echo "COMPOSE_UP=PASS"
 
       - name: Health check — wait for readiness
@@ -122,9 +121,8 @@ jobs:
           # Rollback: restore previous image tag and restart
           if [[ -n "${PREV_TAG:-}" ]]; then
             echo "Rolling back to ${PREV_TAG}..."
-            cd "${DEPLOY_DIR}"
-            sudo sed -i "s|^CONTROL_PLANE_IMAGE_TAG=.*|CONTROL_PLANE_IMAGE_TAG=${PREV_TAG}|" "${ENV_FILE}"
-            sudo docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d --no-deps app
+            sudo sed -i "s|^CONTROL_PLANE_IMAGE_TAG=.*|CONTROL_PLANE_IMAGE_TAG=${PREV_TAG}|" "${DEPLOY_DIR}/${ENV_FILE}"
+            sudo docker compose --env-file "${DEPLOY_DIR}/${ENV_FILE}" -f "${DEPLOY_DIR}/${COMPOSE_FILE}" up -d --no-deps app
           fi
           exit 1
 
