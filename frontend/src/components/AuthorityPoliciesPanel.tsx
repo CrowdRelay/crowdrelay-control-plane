@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createSignal } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { AutopilotOverview, AutopilotPolicy } from '../lib/types'
@@ -9,6 +9,9 @@ import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { SectionFailureCard } from './SectionFailureCard'
 import { PolicyEditor } from './PolicyEditor'
+import { CONTEXT_LABELS, labelOr } from '../lib/opportunity-labels'
+
+const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
 
 // Authority Policies tab — the autopilot's authority controls.
 // Owns its own useQuery so it loads independently of the Runtime tab.
