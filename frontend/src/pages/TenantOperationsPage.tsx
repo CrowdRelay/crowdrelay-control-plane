@@ -14,6 +14,7 @@ import { SkeletonKpiStrip, SkeletonSection } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
 import { StatusBadge } from '../components/StatusBadge'
 import { SectionFailureCard } from '../components/SectionFailureCard'
+import { operationalTone, operationalLabel } from '../lib/health-tone'
 import type { TenantOperationsReadModel } from '../lib/types'
 
 const metric = (value: number | undefined | null, suffix = '') =>
@@ -41,17 +42,8 @@ export function TenantOperationsPage() {
     if (!s) return 0
     return s.outbox.dead + s.deliveries.dead + s.push.dead
   }
-  const healthTone = (): 'good' | 'warn' | 'bad' | 'muted' => {
-    const s = summary()
-    if (!s) return 'muted'
-    if (s.watchdog.critical_alerts > 0 || deadJobs() > 0) return 'bad'
-    if (s.watchdog.active_alerts > 0 || s.http.p95_ms > 1000) return 'warn'
-    return 'good'
-  }
-  const healthLabel = () => {
-    const t = healthTone()
-    return t === 'good' ? 'healthy' : t === 'warn' ? 'attention' : t === 'bad' ? 'degraded' : 'loading'
-  }
+  const healthTone = () => operationalTone(summary())
+  const healthLabel = () => operationalLabel(summary())
 
   const autopilotTone = (): 'good' | 'warn' | 'bad' | undefined => {
     const a = autopilot()

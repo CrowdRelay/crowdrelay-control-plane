@@ -22,7 +22,9 @@ export function TabBar(props: {
         classList={{ active: props.active === tab.id }}
         onClick={() => props.onChange(tab.id)}
         role="tab"
+        id={`tab-${tab.id}`}
         aria-selected={props.active === tab.id}
+        aria-controls={`tabpanel-${tab.id}`}
       >
         <Show when={tab.icon}>{icon => icon()({})}</Show>
         {tab.label}
@@ -57,6 +59,10 @@ export function TabPanel(props: {
     <div
       class="page-tab-content"
       classList={{ 'tab-hidden': props.active !== props.id }}
+      role="tabpanel"
+      aria-labelledby={`tab-${props.id}`}
+      id={`tabpanel-${props.id}`}
+      tabindex={props.active === props.id ? 0 : -1}
     >
       <Suspense fallback={<SkeletonTabContent />}>
         {props.children}

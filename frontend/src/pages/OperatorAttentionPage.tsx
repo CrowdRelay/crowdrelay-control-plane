@@ -6,10 +6,8 @@ import { StatusBadge } from '../components/StatusBadge'
 import { EmptyState } from '../components/EmptyState'
 import { SkeletonRows } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
+import { healthTone, healthLabel } from '../lib/health-tone'
 import type { RuntimeHealth, TenantSummary } from '../lib/types'
-
-const healthTone = (health: RuntimeHealth) => health === 'healthy' ? 'good' : health === 'degraded' ? 'bad' : health === 'stale' ? 'warn' : 'muted'
-const healthLabel = (health: RuntimeHealth) => health === 'healthy' ? 'healthy' : health === 'degraded' ? 'degraded' : health === 'stale' ? 'stale' : 'unknown'
 
 // Index only. Attention is a tenant subpage with its own read model, so this
 // page deliberately does not fetch a snapshot per row: one request lists the

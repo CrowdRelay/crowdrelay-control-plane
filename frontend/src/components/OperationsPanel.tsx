@@ -2,6 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { api } from '../lib/api'
 import type { AutopilotOverview, FeatureFlag, FreshnessClassification, OperationsSummary, SectionFreshnessMap, SectionState, SectionVerdicts } from '../lib/types'
 import { errorMessage, formatAge, formatTimestamp, oldestQueueAge } from '../lib/format'
+import { operationalTone, operationalLabel } from '../lib/health-tone'
 import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
@@ -55,19 +56,6 @@ const freshnessAge = (observedAt: string | null): string => {
 }
 
 const metric = (value: number | undefined, suffix = '') => value == null ? '—' : `${value.toLocaleString()}${suffix}`
-
-const operationalTone = (summary: OperationsSummary | undefined): 'good'|'warn'|'bad'|'muted' => {
-  if (!summary) return 'muted'
-  const dead = summary.outbox.dead + summary.deliveries.dead + summary.push.dead
-  if (summary.watchdog.critical_alerts > 0 || dead > 0) return 'bad'
-  if (summary.watchdog.active_alerts > 0 || summary.http.p95_ms > 1000 || oldestQueueAge(summary) > 300) return 'warn'
-  return 'good'
-}
-
-const operationalLabel = (summary: OperationsSummary | undefined) => {
-  const tone = operationalTone(summary)
-  return tone === 'good' ? 'healthy' : tone === 'warn' ? 'attention' : tone === 'bad' ? 'degraded' : 'loading'
-}
 
 export function OperationsPanel(props: {
   slug: string

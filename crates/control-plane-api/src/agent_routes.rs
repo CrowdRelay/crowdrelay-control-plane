@@ -359,7 +359,9 @@ async fn create_task(
     _headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Response, ApiError> {
-    proxy_post(&state, &slug, "/tasks", body, AgentCapability::Dispatch).await
+    let resp = proxy_post(&state, &slug, "/tasks", body, AgentCapability::Dispatch).await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    Ok(resp)
 }
 
 async fn get_task(
@@ -519,14 +521,16 @@ async fn paste_credential(
     _headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Response, ApiError> {
-    proxy_post(
+    let resp = proxy_post(
         &state,
         &slug,
         "/credentials",
         body,
         AgentCapability::Credentials,
     )
-    .await
+    .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    Ok(resp)
 }
 
 async fn delete_credential(
@@ -538,7 +542,9 @@ async fn delete_credential(
         return Err(ApiError::InvalidInput("invalid provider id".to_owned()));
     }
     let path = format!("/credentials/{provider}");
-    proxy_delete(&state, &slug, &path, AgentCapability::Credentials).await
+    let resp = proxy_delete(&state, &slug, &path, AgentCapability::Credentials).await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    Ok(resp)
 }
 
 async fn validate_credential(
@@ -817,7 +823,9 @@ async fn create_schedule(
     _headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Response, ApiError> {
-    proxy_post(&state, &slug, "/schedules", body, AgentCapability::Dispatch).await
+    let resp = proxy_post(&state, &slug, "/schedules", body, AgentCapability::Dispatch).await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    Ok(resp)
 }
 
 async fn delete_schedule(
@@ -828,7 +836,9 @@ async fn delete_schedule(
     Uuid::parse_str(&schedule_id)
         .map_err(|_| ApiError::InvalidInput("valid schedule UUID is required".to_owned()))?;
     let path = format!("/schedules/{schedule_id}");
-    proxy_delete(&state, &slug, &path, AgentCapability::Dispatch).await
+    let resp = proxy_delete(&state, &slug, &path, AgentCapability::Dispatch).await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    Ok(resp)
 }
 
 async fn toggle_schedule(
@@ -840,7 +850,9 @@ async fn toggle_schedule(
     Uuid::parse_str(&schedule_id)
         .map_err(|_| ApiError::InvalidInput("valid schedule UUID is required".to_owned()))?;
     let path = format!("/schedules/{schedule_id}/enabled");
-    proxy_post(&state, &slug, &path, body, AgentCapability::Dispatch).await
+    let resp = proxy_post(&state, &slug, &path, body, AgentCapability::Dispatch).await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    Ok(resp)
 }
 
 /// Consolidated Tasks-tab read model. Fans out to the five agent-service

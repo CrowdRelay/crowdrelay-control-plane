@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
+import { healthTone } from '../lib/health-tone'
 import { authState } from '../lib/auth'
 import type { CommandCenterReadModel, CommandCenterTenantSummary, PlatformHealthEntry, RuntimeHealth, TenantSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
@@ -11,8 +12,6 @@ import { ProgressRing } from '../components/ProgressRing'
 import { EmptyState } from '../components/EmptyState'
 import { SectionIcon } from '../components/SectionIcon'
 
-const healthTone = (health: RuntimeHealth) => health === 'healthy' ? 'good' : health === 'degraded' ? 'bad' : health === 'stale' ? 'warn' : 'muted'
-
 const formatLatency = (ms: number | null | undefined) => {
   if (ms == null) return null
   if (ms < 1000) return `${ms}ms`
@@ -20,7 +19,7 @@ const formatLatency = (ms: number | null | undefined) => {
 }
 
 export function OverviewPage() {
-  const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, refetchOnWindowFocus: false, reconcile: 'id' }))
+  const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, refetchOnWindowFocus: false, reconcile: 'id', staleTime: 15_000 }))
   const commandCenter = useQuery(() => ({ queryKey: ['command-center'], queryFn: api.commandCenter, refetchOnWindowFocus: false, staleTime: 10_000 }))
 
   const items = createMemo(() => tenants.data?.items ?? [])

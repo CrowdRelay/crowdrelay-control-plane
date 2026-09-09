@@ -11,6 +11,7 @@ import { SkeletonSection } from '../components/Skeleton'
 import { StatusBadge } from '../components/StatusBadge'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
+import { operationalTone, operationalLabel } from '../lib/health-tone'
 import type { TenantOperationsReadModel } from '../lib/types'
 
 export function TenantHealthPage() {
@@ -26,22 +27,8 @@ export function TenantHealthPage() {
   const refresh = () => model.refetch()
   const d = (): TenantOperationsReadModel | undefined => model.data
   const summary = () => d()?.summary
-  const deadJobs = () => {
-    const s = summary()
-    if (!s) return 0
-    return s.outbox.dead + s.deliveries.dead + s.push.dead
-  }
-  const healthTone = (): 'good' | 'warn' | 'bad' | 'muted' => {
-    const s = summary()
-    if (!s) return 'muted'
-    if (s.watchdog.critical_alerts > 0 || deadJobs() > 0) return 'bad'
-    if (s.watchdog.active_alerts > 0 || s.http.p95_ms > 1000) return 'warn'
-    return 'good'
-  }
-  const healthLabel = () => {
-    const t = healthTone()
-    return t === 'good' ? 'healthy' : t === 'warn' ? 'attention' : t === 'bad' ? 'degraded' : 'loading'
-  }
+  const _healthTone = () => operationalTone(summary())
+  const _healthLabel = () => operationalLabel(summary())
 
   return <section class="page">
     <div class="page-head">
@@ -52,7 +39,7 @@ export function TenantHealthPage() {
       </div>
       <Show when={model.data && !model.error}>
         <div class="page-head-status">
-          <StatusBadge status={healthLabel()} tone={healthTone()} />
+          <StatusBadge status={_healthLabel()} tone={_healthTone()} />
         </div>
       </Show>
     </div>

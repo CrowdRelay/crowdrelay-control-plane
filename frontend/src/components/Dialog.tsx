@@ -13,6 +13,7 @@ type DialogProps = {
   open: boolean
   onClose: () => void
   label: string
+  description?: string
   class?: string
   overlayClass?: string
   children: JSX.Element
@@ -65,6 +66,7 @@ const DialogPanel: Component<Omit<DialogProps, 'open'>> = (props) => {
       role="dialog"
       aria-modal="true"
       aria-label={props.label}
+      aria-describedby={props.description ? `${props.label}-desc` : undefined}
       tabindex={-1}
       onClick={(event) => event.stopPropagation()}
     >
@@ -117,10 +119,10 @@ function settle(ok: boolean) {
 export function ConfirmHost(): JSX.Element {
   return <Show when={pending()} keyed>
     {request => (
-      <Dialog open onClose={() => settle(false)} label={request.title} class="dialog-panel confirm-dialog">
+      <Dialog open onClose={() => settle(false)} label={request.title} description={request.body} class="dialog-panel confirm-dialog">
         <h3 class="confirm-dialog-title">{request.title}</h3>
         <Show when={request.body}>
-          <p class="confirm-dialog-body">{request.body}</p>
+          <p id={`${request.title}-desc`} class="confirm-dialog-body">{request.body}</p>
         </Show>
         <div class="confirm-dialog-actions">
           <button type="button" class="ghost" onClick={() => settle(false)}>

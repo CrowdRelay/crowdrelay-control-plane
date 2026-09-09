@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { FeatureFlag, OperationsSummary } from '../lib/types'
 import { errorMessage, formatAge, oldestQueueAge } from '../lib/format'
+import { operationalTone, operationalLabel } from '../lib/health-tone'
 import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonFlagList } from './Skeleton'
@@ -23,19 +24,6 @@ const flagReason = (flag: FeatureFlag) => flag.reason === 'lazy default'
   : flag.reason || `v${flag.version} · no reason recorded`
 
 const metric = (value: number | undefined, suffix = '') => value == null ? '—' : `${value.toLocaleString()}${suffix}`
-
-const operationalTone = (summary: OperationsSummary | undefined): 'good'|'warn'|'bad'|'muted' => {
-  if (!summary) return 'muted'
-  const dead = summary.outbox.dead + summary.deliveries.dead + summary.push.dead
-  if (summary.watchdog.critical_alerts > 0 || dead > 0) return 'bad'
-  if (summary.watchdog.active_alerts > 0 || summary.http.p95_ms > 1000 || oldestQueueAge(summary) > 300) return 'warn'
-  return 'good'
-}
-
-const operationalLabel = (summary: OperationsSummary | undefined) => {
-  const tone = operationalTone(summary)
-  return tone === 'good' ? 'healthy' : tone === 'warn' ? 'attention' : tone === 'bad' ? 'degraded' : 'loading'
-}
 
 const seconds = (value: number) => value <= 0 ? '—' : formatAge(value)
 

@@ -36,9 +36,9 @@ export function AreaPage() {
   const params = useParams({ from: '/tenants/$slug/area' })
   const slug = () => params().slug
   const queryClient = useQueryClient()
-  const overview = useQuery(() => ({ queryKey: ['area-overview', slug()], queryFn: () => api.areaOverview(slug()), refetchOnWindowFocus: false, reconcile: 'id' }))
-  const drops = useQuery(() => ({ queryKey: ['area-drops', slug()], queryFn: () => api.areaDrops(slug()), refetchOnWindowFocus: false, reconcile: 'id' }))
-  const tenant = useQuery(() => ({ queryKey: ['tenant', slug()], queryFn: () => api.tenant(slug()), refetchOnWindowFocus: false }))
+  const overview = useQuery(() => ({ queryKey: ['area-overview', slug()], queryFn: () => api.areaOverview(slug()), refetchOnWindowFocus: false, reconcile: 'id', staleTime: 15_000 }))
+  const drops = useQuery(() => ({ queryKey: ['area-drops', slug()], queryFn: () => api.areaDrops(slug()), refetchOnWindowFocus: false, reconcile: 'id', staleTime: 15_000 }))
+  const tenant = useQuery(() => ({ queryKey: ['tenant', slug()], queryFn: () => api.tenant(slug()), refetchOnWindowFocus: false, staleTime: 30_000 }))
   const [selectedId, setSelectedId] = createSignal<string | null>(null)
   const [creating, setCreating] = createSignal(false)
   const [citySearch, setCitySearch] = createSignal('')
