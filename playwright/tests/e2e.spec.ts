@@ -277,21 +277,22 @@ test.describe('Control Plane E2E @e2e', () => {
     await page.waitForLoadState('networkidle', { timeout: 15000 })
 
     // The five command blocks should be present. Match by eyebrow label
-    // (the first child of .command-block-head) to avoid text overlap between
-    // blocks (e.g. SYSTEM contains a drill-down link to /attention).
+    // to avoid text overlap between blocks (e.g. SYSTEM contains a
+    // drill-down link to /attention). Each CommandBlock is wrapped in an
+    // <a> link for drill-down navigation.
     const blockEyebrows = ['ATTENTION', 'AUTOPILOT TODAY', 'OUTCOMES', 'SYSTEM', 'LEARNING']
     for (const label of blockEyebrows) {
       const block = page.locator('.command-block').filter({
         has: page.locator('.eyebrow', { hasText: label }),
       })
       await expect(block).toBeVisible({ timeout: 10_000 })
-      // Each block is a link (drill-down)
-      const tagName = await block.evaluate((el) => el.tagName.toLowerCase())
-      expect(tagName).toBe('a')
+      // Each block is wrapped in a link (drill-down)
+      const link = block.locator('xpath=ancestor::a').first()
+      await expect(link).toBeVisible({ timeout: 5_000 })
     }
 
-    // No red blocks (error-card) should be visible on the overview
-    const errorCards = await page.locator('.error-card').count()
+    // No error cards should be visible on the overview
+    const errorCards = await page.locator('[data-error-card], .error-card').count()
     expect(errorCards).toBe(0)
   })
 })

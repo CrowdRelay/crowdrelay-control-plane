@@ -200,7 +200,7 @@ export function useTabPanels(initial: string) {
 
 export function ErrorCard(props: { children: JSX.Element; class?: string }) {
   return (
-    <div class={cn('rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive', props.class)} role="alert">
+    <div class={cn('error-card rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive', props.class)} role="alert">
       {props.children}
     </div>
   )
@@ -274,8 +274,8 @@ export function CommandBlock(props: {
     good: 'border-success/40',
   }
   return (
-    <Card class={cn('p-4 transition-colors hover:border-border-strong cursor-pointer', toneClass[props.tone ?? 'default'], props.class)}>
-      <div class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</div>
+    <Card class={cn('command-block p-4 transition-colors hover:border-border-strong cursor-pointer', toneClass[props.tone ?? 'default'], props.class)}>
+      <div class="eyebrow text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</div>
       <div class="mt-2 flex items-baseline gap-2">
         <span class="text-2xl font-bold tabular-nums text-foreground">{props.metric}</span>
         <span class="text-xs text-muted-foreground">{props.label}</span>
