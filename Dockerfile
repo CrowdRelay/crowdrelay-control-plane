@@ -1,4 +1,8 @@
 # syntax=docker/dockerfile:1.7
+# ARGs used in FROM must be declared before any FROM instruction.
+ARG RUST_IMAGE=rust:1.98.0-alpine
+ARG CARGO_CHEF_VERSION=0.1.77
+
 FROM node:22-alpine AS web
 WORKDIR /src/frontend
 COPY frontend/package.json frontend/package-lock.json ./
@@ -10,9 +14,6 @@ RUN npm run build
 # cargo-chef separates dependency compilation from source compilation.
 # Source edits that don't change Cargo.toml/Cargo.lock skip the expensive
 # dependency rebuild entirely — the cached chef layer is reused.
-ARG RUST_IMAGE=rust:1.98.0-alpine
-ARG CARGO_CHEF_VERSION=0.1.77
-
 FROM ${RUST_IMAGE} AS chef
 RUN apk add --no-cache musl-dev pkgconfig openssl-dev
 ARG CARGO_CHEF_VERSION
