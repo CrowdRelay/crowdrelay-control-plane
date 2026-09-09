@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
-import { useQuery } from '@tanstack/solid-query'
+import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import type { AutopilotOverview, AutopilotPolicy } from '../lib/types'
+import type { AutopilotOverview, AutopilotPolicy, BulkAutopilotResult } from '../lib/types'
 import { errorMessage } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonAutopilotKpis } from './Skeleton'
@@ -25,6 +25,7 @@ export function AuthorityPoliciesPanel(props: {
   fetchedAt?: string
   refresh: () => Promise<unknown>
 }) {
+  const queryClient = useQueryClient()
   const autopilot = useQuery(() => ({
     queryKey: ['autopilot-overview', props.slug],
     queryFn: () => api.autopilotOverview(props.slug),
@@ -53,11 +54,39 @@ export function AuthorityPoliciesPanel(props: {
     () => autopilot.refetch(),
   )
 
-  const bulkAutopilot = (enabled: boolean) => mutate(
-    'autopilot-bulk',
-    () => api.autopilotBulk(props.slug, enabled),
-    () => autopilot.refetch(),
-  )
+  // The bulk mutation fans out to individual policy updates upstream.
+  // A plain refetch races with those updates and can return stale policy
+  // state — the killswitch appears stuck. Instead, optimistically apply
+  // the authoritative BulkAutopilotResult to the query cache so the UI
+  // flips immediately, then refetch in the background to reconcile.
+  const bulkAutopilot = async (enabled: boolean) => {
+    setMutationError(null)
+    setPendingMutation('autopilot-bulk')
+    try {
+      const result: BulkAutopilotResult = await api.autopilotBulk(props.slug, enabled)
+      // Optimistically patch the cached overview so the killswitch state
+      // reflects the mutation result without waiting for a refetch that
+      // may race with upstream's per-policy updates.
+      queryClient.setQueryData<AutopilotOverview>(['autopilot-overview', props.slug], prev => {
+        if (!prev) return prev
+        const updated = new Set(result.results.filter(r => r.ok).map(r => r.context))
+        return {
+          ...prev,
+          runtime_enabled: enabled,
+          policies: prev.policies.map(p => updated.has(p.context)
+            ? { ...p, enabled }
+            : p),
+        }
+      })
+      // Reconcile with upstream in the background; the optimistic patch
+      // already holds the correct visible state.
+      void autopilot.refetch()
+    } catch (error) {
+      setMutationError(errorMessage(error, 'Tenant operation failed'))
+    } finally {
+      setPendingMutation(null)
+    }
+  }
 
   const [confirming, setConfirming] = createSignal<'autopilot-disable' | 'autopilot-enable' | null>(null)
 
@@ -107,16 +136,18 @@ export function AuthorityPoliciesPanel(props: {
         <div><strong>{data().failed_24h}</strong><span>failed 24h</span></div>
         <div><strong>{data().executor_failed_24h}</strong><span>executor fail</span></div>
       </div>
-      {/* Killswitch / full-enable: one switch, one confirmation. */}
+      {/* Killswitch / full-enable: one switch, one confirmation.
+          Right-aligned, directly above the policy list so the operator's
+          eye lands on the master control before the per-context rows. */}
       <Show when={data().policies.length > 0}>
-        <div class="row-health" style={{ "margin-bottom": "16px" }}>
+        <div class="row-health autopilot-bulk-bar">
           <Show when={data().policies.some(policy => policy.enabled)} fallback={
             <button
               class="full-auto-btn"
               disabled={pendingMutation() !== null}
               aria-label="Enable all Autopilot policies"
               onClick={() => setConfirming('autopilot-enable')}
-            >{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirming() === 'autopilot-enable' ? 'Cancel' : 'Full Auto'}</button>
+            >{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirming() === 'autopilot-enable' ? 'Cancel' : 'Full auto: enable all'}</button>
           }>
             <button
               class={`ghost ${confirming() === 'autopilot-disable' ? '' : 'danger-ghost'}`}

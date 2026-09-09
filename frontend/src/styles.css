@@ -2604,6 +2604,7 @@ table tbody tr:hover{background:rgba(255,255,255,.025)}
 
 /* Policy editors stacked with no gap — one long form, not four decisions. */
 .autopilot-policy-list{display:grid;gap:10px;margin:14px 0}
+.autopilot-bulk-bar{justify-content:flex-end;margin-bottom:16px}
 .confidence-field{gap:8px}
 
 /* ── Legacy greys ────────────────────────────────────────────────────────

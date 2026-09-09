@@ -1,6 +1,6 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
 import { refreshQueries } from '../lib/refresh'
 import { errorMessage } from '../lib/format'
 import { compactNumber } from '../lib/charts'
@@ -48,6 +48,18 @@ const stateProgress = (state: ObjectiveState): number => {
   }
 }
 
+// For contract_mismatch the generic errorMessage() heading hides the
+// specific reason ("invalid upstream JSON", "upstream returned an empty
+// success body", etc.). Surface the actual reason so the operator can
+// diagnose whether the upstream is returning HTML, an empty body, or
+// a shape that genuinely changed.
+const objectiveErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof ApiError && error.code === 'contract_mismatch') {
+    return `${errorMessage(error, fallback)} (${error.message})`
+  }
+  return errorMessage(error, fallback)
+}
+
 export function GrowthObjectivesPanel(props: { slug: string }) {
   const [error, setError] = createSignal<string | null>(null)
   const [retiring, setRetiring] = createSignal<string | null>(null)
@@ -71,7 +83,7 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
       await api.retireGrowthObjective(props.slug, objective.objective_id)
       refreshQueries(['growth-objectives', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Failed to retire objective'))
+      setError(objectiveErrorMessage(err, 'Failed to retire objective'))
     } finally {
       setRetiring(null)
     }
@@ -90,7 +102,7 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
       <div class="error-card">{error()}</div>
     </Show>
 
-    <Show when={objectives.error}><div class="error-card">Growth objectives unavailable: {errorMessage(objectives.error, 'Service unreachable')}</div></Show>
+    <Show when={objectives.error}><div class="error-card">Growth objectives unavailable: {objectiveErrorMessage(objectives.error, 'Service unreachable')}</div></Show>
     <Show when={objectives.data && objectives.data!.length > 0} fallback={
       <Show when={objectives.isFetching} fallback={
         <EmptyState label="No growth objectives declared" hint="Declare a target metric and deadline to start tracking progress. The intelligence measures every action against active objectives." />

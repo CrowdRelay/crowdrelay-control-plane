@@ -1346,7 +1346,7 @@ export type ObjectiveState =
   | { state: 'met'; progress_basis_points: number }
   | { state: 'on_track'; progress_basis_points: number; projected_value: number }
   | { state: 'behind'; progress_basis_points: number; projected_value: number; shortfall: number }
-  | { state: 'missed'; progress_basis_points: number; shortfall: number }
+  | { state: 'missed'; progress_basis_points: number; final_value: number; shortfall: number }
   | { state: 'unmeasurable'; reason: string }
 
 export type GrowthObjectiveView = {
