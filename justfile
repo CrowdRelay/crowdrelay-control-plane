@@ -65,6 +65,16 @@ deploy-production:
 bootstrap-management:
     bash scripts/bootstrap-management.sh
 
+# Prepare infra for a new tenant (leaves only the wizard to run).
+onboard-prep hostname:
+    ssh {{env_var_or_default("CONTROL_PLANE_DEPLOY_HOST", "virya-crowdrelay")}} \
+        'sudo bash /srv/crowdrelay-control-plane/scripts/onboard-tenant.sh --prep-infra {{hostname}}'
+
+# Full-auto: create tenant, provision, add edge route, verify — all from the Mac.
+onboard-auto *ARGS:
+    ssh {{env_var_or_default("CONTROL_PLANE_DEPLOY_HOST", "virya-crowdrelay")}} \
+        'sudo bash /srv/crowdrelay-control-plane/scripts/onboard-tenant.sh --full-auto {{ARGS}}'
+
 # Public-edge login + contract probe against https://control.crowdrelay.music.
 # Needs CONTROL_PLANE_SMOKE_BASIC_AUTH=user:pass — see docs/EDGE-OPERATIONS.md.
 smoke:
