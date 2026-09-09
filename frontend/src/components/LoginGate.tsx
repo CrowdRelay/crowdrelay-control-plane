@@ -32,6 +32,7 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
   }
 
   return <Show when={authState.profile()} fallback={
+    <Show when={!authState.hydrated()} fallback={
     <main class="login-shell">
       <LoginHero />
       <section class="login-card" aria-labelledby="control-plane-login-title">
@@ -50,5 +51,16 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
         <div class="login-security"><span class="auth-dot ok"/><span>Session lives in an HttpOnly cookie — credentials never touch browser storage.</span></div>
       </section>
     </main>
+    }>
+      {/* Hydrating from the HttpOnly session cookie — show a minimal
+          loading state so the login form does not flash for authenticated
+          operators on page refresh. */}
+      <main class="login-shell">
+        <div class="login-hydrating" aria-label="Loading">
+          <div class="skeleton-block" style={{ width: '48px', height: '48px', 'border-radius': '12px' }} />
+          <div class="skeleton-block" style={{ width: '180px', height: '16px', 'border-radius': '8px' }} />
+        </div>
+      </main>
+    </Show>
   }>{props.children}</Show>
 }

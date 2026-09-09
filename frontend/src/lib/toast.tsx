@@ -16,16 +16,19 @@ type ToastItem = { id: number; kind: ToastKind; text: string; createdAt: number 
 
 const [toasts, setToasts] = createSignal<ToastItem[]>([])
 let nextId = 0
+const timers = new Map<number, ReturnType<typeof setTimeout>>()
 
 function dismiss(id: number) {
   setToasts(list => list.filter(t => t.id !== id))
+  const t = timers.get(id)
+  if (t) { clearTimeout(t); timers.delete(id) }
 }
 
 function push(kind: ToastKind, text: string, duration = 4000) {
   const id = ++nextId
   setToasts(list => [...list, { id, kind, text, createdAt: Date.now() }])
   if (duration > 0) {
-    setTimeout(() => dismiss(id), duration)
+    timers.set(id, setTimeout(() => dismiss(id), duration))
   }
 }
 

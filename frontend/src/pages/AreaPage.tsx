@@ -137,10 +137,10 @@ export function AreaPage() {
   }, onSuccess: async item => { setDuplicateOpen(false); setDuplicateCityId(''); setDuplicateNumber(''); await refresh(item.summary.id); setSelectedId(item.summary.id); setEditorStep('location'); setFlash('Draft duplicated without the exact claim location. Pick a new secret point before publishing.') } }))
 
   const selectedCity = createMemo(() => { const d=draft(); return d ? cities.data?.items.find(city=>city.id===d.cityId) : undefined })
-  const allPending = () => save.isPending || validate.isPending || publish.isPending || lifecycle.isPending || discard.isPending || duplicate.isPending
-  const mutationError = () => [overview.error,drops.error,tenant.error,cities.error,detail.error,settings.error,createDrop.error,createCity.error,save.error,validate.error,publish.error,lifecycle.error,discard.error,duplicate.error].find(Boolean)
-  const confirmationIssues = () => validation()?.issues.filter(issue => issue.confirmationRequired) ?? []
-  const hardIssues = () => validation()?.issues.filter(issue => !issue.confirmationRequired) ?? []
+  const allPending = createMemo(() => save.isPending || validate.isPending || publish.isPending || lifecycle.isPending || discard.isPending || duplicate.isPending)
+  const mutationError = createMemo(() => [overview.error,drops.error,tenant.error,cities.error,detail.error,settings.error,createDrop.error,createCity.error,save.error,validate.error,publish.error,lifecycle.error,discard.error,duplicate.error].find(Boolean))
+  const confirmationIssues = createMemo(() => validation()?.issues.filter(issue => issue.confirmationRequired) ?? [])
+  const hardIssues = createMemo(() => validation()?.issues.filter(issue => !issue.confirmationRequired) ?? [])
   const toggleConfirmation = (code:string) => setConfirmations(current => current.includes(code) ? current.filter(item=>item!==code) : [...current,code])
 
   return <section class="page">

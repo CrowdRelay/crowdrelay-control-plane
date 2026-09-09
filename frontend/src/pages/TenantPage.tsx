@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createSignal } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link, useNavigate, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -134,11 +134,11 @@ export function TenantPage() {
       navigate({ to: '/tenants' })
     },
   }))
-  const latestJob = () => provisioning.data?.items[0]
-  const deploymentBusy = () => ['planned', 'approved', 'running'].includes(latestJob()?.status ?? '')
-  const requestedVersion = () => desiredVersion().trim() || platform()?.provisionerDefaultImageTag || ''
-  const releaseReady = () => /^sha-[0-9a-f]{40}$/.test(requestedVersion())
-  const isAdmin = () => authState.profile()?.role === 'platform_admin'
+  const latestJob = createMemo(() => provisioning.data?.items[0])
+  const deploymentBusy = createMemo(() => ['planned', 'approved', 'running'].includes(latestJob()?.status ?? ''))
+  const requestedVersion = createMemo(() => desiredVersion().trim() || platform()?.provisionerDefaultImageTag || '')
+  const releaseReady = createMemo(() => /^sha-[0-9a-f]{40}$/.test(requestedVersion()))
+  const isAdmin = createMemo(() => authState.profile()?.role === 'platform_admin')
   const [optOutConfirm, setOptOutConfirm] = createSignal('')
   const [optOutDone, setOptOutDone] = createSignal(false)
   const optOut = useMutation(() => ({

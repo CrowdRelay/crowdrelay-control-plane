@@ -1,5 +1,5 @@
 import { Link, Outlet, useParams, useNavigate, useRouter } from '@tanstack/solid-router'
-import { Show, For, createSignal, createEffect, lazy, onMount, onCleanup, Suspense, type Component } from 'solid-js'
+import { Show, For, createSignal, createEffect, lazy, onMount, onCleanup, Suspense, type Component, type JSX } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { authState } from '../lib/auth'
 import { commandPaletteOpen, toggleCommandPalette } from './command-palette-state'
@@ -80,7 +80,7 @@ const TENANT_NAV_GROUPS: NavGroup[] = [
 
 // Small inline nav icons — 16px, currentColor, no external deps.
 function NavIcon(props: { name: string }) {
-  const icons: Record<string, any> = {
+  const icons: Record<string, JSX.Element> = {
     overview: <><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>,
     operations: <><path d="M3 12h4l2-7 4 14 2-7h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></>,
     intelligence: <><path d="M9 3a3 3 0 0 0-3 3 3 3 0 0 0-1 5.8A3 3 0 0 0 7 17a3 3 0 0 0 2 4 3 3 0 0 0 3-3V3a3 3 0 0 0-3 0z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3a3 3 0 0 1 3 3 3 3 0 0 1 1 5.8A3 3 0 0 1 17 17a3 3 0 0 1-2 4 3 3 0 0 1-3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/></>,
@@ -242,7 +242,7 @@ export const Shell: Component = () => {
   const selectTenant = (newSlug: string) => {
     const current = slug()
     if (current) {
-      const sub = location.pathname.replace(`/tenants/${current}`, '')
+      const sub = pathname().replace(`/tenants/${current}`, '')
       navigate({ to: `/tenants/${newSlug}${sub}` as any })
     } else {
       navigate({ to: `/tenants/${newSlug}` as any })
@@ -356,9 +356,9 @@ export const Shell: Component = () => {
         {/* Tenant switcher + grouped tenant nav */}
         <Show when={slug()}>
           <div class="sidebar-tenant-section">
-            <Show when={isAdmin() && tenants.data} keyed>
+            <Show when={isAdmin() && tenants.data}>
               {(data) => <TenantSwitcher
-                tenants={data.items}
+                tenants={data().items}
                 currentSlug={slug()}
                 onSelect={selectTenant}
                 open={switcherOpen()}
@@ -434,7 +434,7 @@ export const Shell: Component = () => {
           </div>
           <div class="topbar-actions">
             <RefreshControl />
-            <button class="topbar-cmdk ghost" type="button" onClick={() => toggleCommandPalette()} title="Command palette (Ctrl+K / ⌘K)">
+            <button class="topbar-cmdk ghost" type="button" onClick={() => toggleCommandPalette()} title="Command palette (Ctrl+K / ⌘K)" aria-label="Command palette" aria-haspopup="dialog">
               <kbd>⌘K</kbd><span class="cmdk-trigger-label">Commands</span>
             </button>
             <button class="topbar-logout" type="button" onClick={() => { void authState.logout() }}>Log out</button>

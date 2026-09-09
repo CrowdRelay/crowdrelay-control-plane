@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams, useRouter } from '@tanstack/solid-router'
-import { Show, type Component } from 'solid-js'
+import { Show, type Component, type JSX, onCleanup } from 'solid-js'
 
 // Bottom tab bar for mobile — the four critical operator actions that are
 // genuinely useful on a phone. Everything else stays in the sidebar drawer.
@@ -9,7 +9,7 @@ import { Show, type Component } from 'solid-js'
 // the visual language is consistent across surfaces.
 
 function TabIcon(props: { name: string }) {
-  const icons: Record<string, any> = {
+  const icons: Record<string, JSX.Element> = {
     overview: <><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>,
     attention: <><path d="M12 2L1 21h22L12 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1"/></>,
     operations: <><path d="M3 12h4l2-7 4 14 2-7h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></>,
@@ -44,12 +44,14 @@ export const MobileTabBar: Component = () => {
     // loading on slow networks. Poll for the panel up to 2s instead.
     const selector = '.run-brain-cycle-panel, [class*="run-cycle"], [class*="brain-cycle"]'
     const deadline = Date.now() + 2000
+    let rafId = 0
     const tryScroll = () => {
       const panel = document.querySelector(selector)
       if (panel) { panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); return }
-      if (Date.now() < deadline) requestAnimationFrame(tryScroll)
+      if (Date.now() < deadline) rafId = requestAnimationFrame(tryScroll)
     }
-    requestAnimationFrame(tryScroll)
+    rafId = requestAnimationFrame(tryScroll)
+    onCleanup(() => cancelAnimationFrame(rafId))
   }
 
   return (
@@ -60,6 +62,7 @@ export const MobileTabBar: Component = () => {
           class="mobile-tab"
           classList={{ active: isActive('/', true) }}
           activeOptions={{ exact: true }}
+          aria-current={isActive('/', true) ? 'page' : undefined}
         >
           <TabIcon name="overview" />
           <span>Overview</span>
@@ -69,6 +72,7 @@ export const MobileTabBar: Component = () => {
           class="mobile-tab"
           classList={{ active: isActive('/attention', false) }}
           activeOptions={{ exact: false }}
+          aria-current={isActive('/attention', false) ? 'page' : undefined}
         >
           <TabIcon name="attention" />
           <span>Attention</span>
@@ -77,6 +81,7 @@ export const MobileTabBar: Component = () => {
           to={opsPath() as any}
           class="mobile-tab"
           classList={{ active: pathname().includes('/operations') }}
+          aria-current={pathname().includes('/operations') ? 'page' : undefined}
         >
           <TabIcon name="operations" />
           <span>Operations</span>

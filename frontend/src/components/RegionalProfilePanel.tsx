@@ -1,4 +1,4 @@
-import { Show, createEffect, createSignal } from 'solid-js'
+import { Show, createEffect, createSignal, on } from 'solid-js'
 import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { RegionalProfile, TenantSummary } from '../lib/types'
@@ -16,7 +16,18 @@ const empty = (): RegionalProfile => ({
 export function RegionalProfilePanel(props: Props) {
   const queryClient = useQueryClient()
   const [draft, setDraft] = createSignal<RegionalProfile>(props.tenant.regionalProfile ?? empty())
-  createEffect(() => setDraft(props.tenant.regionalProfile ?? empty()))
+  // Only re-sync from server when the profile actually changed, not on
+  // every parent re-render — otherwise background refetches wipe unsaved
+  // operator edits.
+  createEffect(on(
+    () => props.tenant.regionalProfile,
+    (profile, prev) => {
+      const next = profile ?? empty()
+      if (prev === undefined || JSON.stringify(next) !== JSON.stringify(prev ?? empty())) {
+        setDraft(next)
+      }
+    },
+  ))
   const update = useMutation(() => ({
     mutationFn: () => api.regionalProfile(props.tenant.slug, draft()),
     onSuccess: async () => {

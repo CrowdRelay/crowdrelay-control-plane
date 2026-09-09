@@ -8,6 +8,7 @@ import { Dialog } from './Dialog'
 import { EmptyState } from './EmptyState'
 import { SkeletonGrid, SkeletonRows, SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
+import { PolicyEditor } from './PolicyEditor'
 import type { AutopilotOverview, AutopilotPolicy, AutonomyLevel, PendingAutopilotAction, AgentWorkflow, AgentWorkflowTask } from '../lib/types'
 import { CONTEXT_LABELS, DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 
@@ -18,16 +19,6 @@ const IntelligenceIcon = (props: { size?: number }) => (
     <path d="M15 3a3 3 0 0 1 3 3 3 3 0 0 1 1 5.8A3 3 0 0 1 17 17a3 3 0 0 1-2 4 3 3 0 0 1-3-3" opacity="0.5" />
   </svg>
 )
-
-// One vocabulary for the machine enums, shared with the opportunity board and
-// the scorecard — three private copies had already drifted in both coverage
-// and casing, so the same context read differently on each page.
-const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
-
-const workflowStatusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
-  status === 'completed' ? 'good' :
-  status === 'running' || status === 'dispatching' || status === 'planning' ? 'warn' :
-  status === 'failed' ? 'bad' : 'muted'
 
 const actionKindLabel = (kind: string) => labelOr(DECISION_KIND_LABELS, kind)
 

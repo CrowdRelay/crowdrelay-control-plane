@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from 'solid-js'
+import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
@@ -39,19 +39,9 @@ const successTone = (rate: number | null): 'good' | 'warn' | 'bad' | 'muted' =>
   rate == null ? 'muted' : rate >= 90 ? 'good' : rate >= 75 ? 'warn' : 'bad'
 
 export function AIUsagePanel(props: { slug: string; active?: boolean }) {
-  const [error, setError] = createSignal<string | null>(null)
-
   const data = useQuery(() => ({
     queryKey: ['ai-usage', props.slug],
-    queryFn: async () => {
-      try {
-        setError(null)
-        return await api.usageAnalytics(props.slug)
-      } catch (err) {
-        setError(errorMessage(err, 'Failed to load usage analytics'))
-        return null
-      }
-    },
+    queryFn: () => api.usageAnalytics(props.slug),
     enabled: props.active !== false,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
@@ -82,12 +72,12 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
   }
 
   return <div class="ai-usage-panel">
-    <Show when={error()}>
-      <div class="error-card">{error()}</div>
+    <Show when={data.isError}>
+      <div class="error-card" role="alert">{errorMessage(data.error, 'Failed to load usage analytics')}</div>
     </Show>
 
     {/* Budget header */}
-    <Show when={budget()} fallback={<Show when={!error()}><SkeletonRows count={3} /></Show>}>
+    <Show when={budget()} fallback={<Show when={!data.isError}><SkeletonRows count={3} /></Show>}>
       <div class="agent-section">
         <div class="agent-section-head">
           <h3><CrownIcon size={16} /> AI Budget</h3>

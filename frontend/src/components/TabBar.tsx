@@ -15,12 +15,14 @@ export function TabBar(props: {
   active: string
   onChange: (id: string) => void
 }) {
-  return <div class="page-tabs">
+  return <div class="page-tabs" role="tablist">
     <For each={props.tabs}>{tab => (
       <button
         class="page-tab"
         classList={{ active: props.active === tab.id }}
         onClick={() => props.onChange(tab.id)}
+        role="tab"
+        aria-selected={props.active === tab.id}
       >
         <Show when={tab.icon}>{icon => icon()({})}</Show>
         {tab.label}

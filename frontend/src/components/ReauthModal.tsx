@@ -24,7 +24,7 @@ export const ReauthModal: Component = () => {
   return (
     <Show when={reauthState.pending()}>
       <div class="dialog-overlay" onClick={cancel}>
-        <div class="dialog-panel reauth-panel" onClick={(e) => e.stopPropagation()}>
+        <div class="dialog-panel reauth-panel" role="dialog" aria-modal="true" aria-label="Confirm your identity" onClick={(e) => e.stopPropagation()}>
           <h2 class="confirm-dialog-title">Confirm your identity</h2>
           <div class="confirm-dialog-body">
             <p class="reauth-description">{reauthState.pending()?.description}</p>
