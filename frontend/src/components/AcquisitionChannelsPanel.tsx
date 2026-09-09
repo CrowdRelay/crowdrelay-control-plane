@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { SectionIcon } from './SectionIcon'
 import { EmptyState } from './EmptyState'
 import { SkeletonSection } from './Skeleton'
+import { Card } from './ui/card'
 import type { ChannelPerformance } from '../lib/types'
 
 // `/operations/acquisition-channels` answers the question the north star
@@ -45,10 +46,10 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
     return Math.max(...channels.map(c => c.signups))
   }
 
-  return <article class="panel acquisition-panel">
-    <div class="section-title">
+  return <Card class="p-4 acquisition-panel">
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3">
       <div>
-        <span class="eyebrow">ACQUISITION</span>
+        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">ACQUISITION</span>
         <h2><SectionIcon name="users" />Where the fans came from</h2>
         <p>Signups by the channel that produced them, and how many of those were still active 30 days later. A channel that brings people who never come back is not working, however big the first number is.</p>
       </div>
@@ -130,5 +131,5 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
         </section>
       </Show>
     </>}</Show>
-  </article>
+  </Card>
 }

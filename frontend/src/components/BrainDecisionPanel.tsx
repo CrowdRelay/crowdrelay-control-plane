@@ -108,9 +108,9 @@ function renderEvidenceDetail(data: DecisionEvidence) {
   return (
     <div class="brain-decision-evidence">
       <div class="brain-evidence-section">
-        <span class="eyebrow">SIGNALS</span>
+        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">SIGNALS</span>
         <Show when={inputRows.length > 0} fallback={
-          <p class="muted">No signal data recorded for this decision.</p>
+          <p class="text-muted-foreground">No signal data recorded for this decision.</p>
         }>
           <dl class="brain-evidence-list">
             <For each={inputRows}>{row => (
@@ -127,9 +127,9 @@ function renderEvidenceDetail(data: DecisionEvidence) {
         </Show>
       </div>
       <div class="brain-evidence-section">
-        <span class="eyebrow">POLICY</span>
+        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">POLICY</span>
         <Show when={policyRows.length > 0} fallback={
-          <p class="muted">No policy data recorded for this decision.</p>
+          <p class="text-muted-foreground">No policy data recorded for this decision.</p>
         }>
           <dl class="brain-evidence-list">
             <For each={policyRows}>{row => (
@@ -146,7 +146,7 @@ function renderEvidenceDetail(data: DecisionEvidence) {
         </Show>
       </div>
       <div class="brain-evidence-section">
-        <span class="eyebrow">DISPOSITION</span>
+        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DISPOSITION</span>
         <p>{dispositionLabel(data.disposition)} · evaluated {new Date(data.evaluated_at).toLocaleString()}</p>
       </div>
     </div>
@@ -222,10 +222,10 @@ export function BrainDecisionPanel(props: {
     void decide(`reject:${e.decision_id}`, () => api.cancelOpportunityAction(props.slug, e.action_id!), 'Decision rejected — action cancelled')
   }
 
-  return <article class="panel brain-decision-panel">
+  return <article class="rounded-lg border border-border bg-card text-foreground p-4 brain-decision-panel">
     <div class="brain-decision-head">
       <div>
-        <span class="eyebrow">BRAIN DECISION</span>
+        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">BRAIN DECISION</span>
         <h2><SectionIcon name="brain" />What the system decided</h2>
       </div>
       <Show when={hasDecision()} fallback={
@@ -265,7 +265,7 @@ export function BrainDecisionPanel(props: {
 
         {/* WHY — reason + key factors */}
         <div class="brain-decision-why">
-          <span class="eyebrow">WHY</span>
+          <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">WHY</span>
           <p class="brain-decision-reason">{e.reason}</p>
           <div class="brain-decision-factors">
             <div class="brain-decision-factor">
@@ -293,7 +293,7 @@ export function BrainDecisionPanel(props: {
 
         {/* WHAT IT WILL/DID DO — action state */}
         <div class="brain-decision-action-state">
-          <span class="eyebrow">ACTION</span>
+          <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">ACTION</span>
           <div class="brain-decision-action-row">
             <Show when={e.action_id} fallback={
               <span class="brain-decision-no-action">No executable step — handle it yourself</span>
@@ -343,7 +343,7 @@ export function BrainDecisionPanel(props: {
 
         <Show when={showEvidence()}>
           <>
-            <Show when={evidence.error}><div class="error-card">Brain decision evidence unavailable: {errorMessage(evidence.error, 'Service unreachable')}</div></Show>
+            <Show when={evidence.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Brain decision evidence unavailable: {errorMessage(evidence.error, 'Service unreachable')}</div></Show>
             <Show when={evidence.isFetching}>
               <SkeletonRows count={3} />
             </Show>

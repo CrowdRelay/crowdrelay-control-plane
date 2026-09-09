@@ -14,7 +14,7 @@ import { TenantAuditPanel } from '../components/TenantAuditPanel'
 import { TenantOperatorsPanel } from '../components/TenantOperatorsPanel'
 import { OperationsPanel } from '../components/OperationsPanel'
 import { SkeletonTenantPage, SkeletonSection } from '../components/Skeleton'
-import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
+import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, ErrorCard, SectionPanel, SectionTitle, SkeletonBlock } from '../components/layout'
 import { Spinner } from '../components/Spinner'
 
 const paletteFields: Array<keyof Palette> = ['primary','primaryContrast','accent','surface','surfaceElevated','text','textMuted','success','warning','danger']
@@ -151,17 +151,19 @@ export function TenantPage() {
     onSuccess: () => setOptOutDone(true),
   }))
 
-  return <section class="page">
-    <Show when={tenant.error}><div class="error-card" role="alert">{errorMessage(tenant.error, 'Tenant could not be loaded')}</div></Show>
+  return <PageShell>
+    <Show when={tenant.error}><ErrorCard>{errorMessage(tenant.error, 'Tenant could not be loaded')}</ErrorCard></Show>
     <Show when={!tenant.error && tenant.data} fallback={!tenant.error ? <SkeletonTenantPage /> : null}>{data => {
     const t = data()
     return <>
-      <div class="page-head">
-        <div><span class="eyebrow">CONTROL</span><h1>{t.displayName}</h1><p>{t.workspaceId ?? 'Workspace mapping pending'} · {t.defaultCountryCode}</p></div>
-        <div class="row-health"><StatusBadge status={t.status} tone={t.status === 'active' ? 'good' : t.status === 'suspended' ? 'bad' : t.status === 'parked' ? 'warn' : 'warn'} /><Show when={capabilities()?.canPark}><button class="ghost" disabled={park.isPending} onClick={() => park.mutate('non-payment')} aria-label={park.isPending ? 'Parking tenant' : 'Park tenant'}>{park.isPending && <Spinner />} {park.isPending ? 'Parking…' : 'Park'}</button></Show><Show when={capabilities()?.canUnpark}><button class="primary" disabled={unpark.isPending} onClick={() => unpark.mutate()} aria-label={unpark.isPending ? 'Resuming tenant' : 'Resume tenant'}>{unpark.isPending && <Spinner />} {unpark.isPending ? 'Resuming…' : 'Resume'}</button></Show><Show when={capabilities()?.canSuspend !== false && t.status !== 'parked'}><button class="ghost" disabled={status.isPending} onClick={() => status.mutate(t.status === 'suspended' ? 'resume' : 'suspend')} aria-label={status.isPending ? 'Updating status' : (t.status === 'suspended' ? 'Resume tenant' : 'Suspend tenant')}>{status.isPending && <Spinner />} {status.isPending ? 'Updating…' : t.status === 'suspended' ? 'Resume' : 'Suspend'}</button></Show></div>
-      </div>
+      <PageHeader
+        eyebrow="CONTROL"
+        title={t.displayName}
+        description={`${t.workspaceId ?? 'Workspace mapping pending'} · ${t.defaultCountryCode}`}
+        actions={<div class="row-health"><StatusBadge status={t.status} tone={t.status === 'active' ? 'good' : t.status === 'suspended' ? 'bad' : t.status === 'parked' ? 'warn' : 'warn'} /><Show when={capabilities()?.canPark}><button class="ghost" disabled={park.isPending} onClick={() => park.mutate('non-payment')} aria-label={park.isPending ? 'Parking tenant' : 'Park tenant'}>{park.isPending && <Spinner />} {park.isPending ? 'Parking…' : 'Park'}</button></Show><Show when={capabilities()?.canUnpark}><button class="primary" disabled={unpark.isPending} onClick={() => unpark.mutate()} aria-label={unpark.isPending ? 'Resuming tenant' : 'Resume tenant'}>{unpark.isPending && <Spinner />} {unpark.isPending ? 'Resuming…' : 'Resume'}</button></Show><Show when={capabilities()?.canSuspend !== false && t.status !== 'parked'}><button class="ghost" disabled={status.isPending} onClick={() => status.mutate(t.status === 'suspended' ? 'resume' : 'suspend')} aria-label={status.isPending ? 'Updating status' : (t.status === 'suspended' ? 'Resume tenant' : 'Suspend tenant')}>{status.isPending && <Spinner />} {status.isPending ? 'Updating…' : t.status === 'suspended' ? 'Resume' : 'Suspend'}</button></Show></div>}
+      />
       <Show when={status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error}>
-        <div class="error-card" role="alert">{errorMessage(status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error, 'Control Plane operation failed')}</div>
+        <ErrorCard>{errorMessage(status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error, 'Control Plane operation failed')}</ErrorCard>
       </Show>
       <Show when={t.status === 'parked'}>
         <div class="parked-banner" role="status">
@@ -186,23 +188,20 @@ export function TenantPage() {
             and to "unavailable" if the audience section fails. */}
         <Show when={operations.data} fallback={
           <Show when={operations.isFetching} fallback={
-            <article class="panel fan-growth-card fan-growth-unavailable">
-              <div class="section-title"><div><span class="eyebrow">NORTH STAR</span><h2><SectionIcon name="users" />Fan growth</h2></div></div>
-              <p class="muted">Fan data unavailable — the audience endpoint did not respond.</p>
-            </article>
+            <SectionPanel class="fan-growth-card fan-growth-unavailable">
+              <SectionTitle eyebrow="NORTH STAR" title="Fan growth" icon={<SectionIcon name="users" />} />
+              <p class="text-muted-foreground">Fan data unavailable — the audience endpoint did not respond.</p>
+            </SectionPanel>
           }>
-            <article class="panel fan-growth-card skeleton-block" style={{ 'min-height': '120px', 'border-radius': 'var(--radius-lg)' }} />
+            <SkeletonBlock class="fan-growth-card" style={{ 'min-height': '120px', 'border-radius': 'var(--radius-lg)' }} />
           </Show>
         }>
-          <article class="panel fan-growth-card">
-            <div class="section-title">
-              <div><span class="eyebrow">NORTH STAR</span><h2><SectionIcon name="users" />Fan growth</h2></div>
-              <Link to="/tenants/$slug/audience" params={{ slug: t.slug }} class="section-link">Audience detail →</Link>
-            </div>
+          <SectionPanel class="fan-growth-card">
+            <SectionTitle eyebrow="NORTH STAR" title="Fan growth" icon={<SectionIcon name="users" />} action={<Link to="/tenants/$slug/audience" params={{ slug: t.slug }} class="section-link">Audience detail →</Link>} />
             <div class="fan-growth-grid">
               <div class="fan-growth-metric">
                 <span class="fan-growth-value tabular-nums">
-                  <Show when={operations.data?.audience?.active_fans != null} fallback={<span class="muted">—</span>}>
+                  <Show when={operations.data?.audience?.active_fans != null} fallback={<span class="text-muted-foreground">—</span>}>
                     {operations.data!.audience!.active_fans!.toLocaleString()}
                   </Show>
                 </span>
@@ -210,7 +209,7 @@ export function TenantPage() {
               </div>
               <div class="fan-growth-metric">
                 <span class="fan-growth-value tabular-nums">
-                  <Show when={operations.data?.audience?.ticket_buyers != null} fallback={<span class="muted">—</span>}>
+                  <Show when={operations.data?.audience?.ticket_buyers != null} fallback={<span class="text-muted-foreground">—</span>}>
                     {operations.data!.audience!.ticket_buyers!.toLocaleString()}
                   </Show>
                 </span>
@@ -218,7 +217,7 @@ export function TenantPage() {
               </div>
               <div class="fan-growth-metric">
                 <span class="fan-growth-value tabular-nums">
-                  <Show when={operations.data?.audience?.attendees != null} fallback={<span class="muted">—</span>}>
+                  <Show when={operations.data?.audience?.attendees != null} fallback={<span class="text-muted-foreground">—</span>}>
                     {operations.data!.audience!.attendees!.toLocaleString()}
                   </Show>
                 </span>
@@ -226,7 +225,7 @@ export function TenantPage() {
               </div>
               <div class="fan-growth-metric">
                 <span class="fan-growth-value tabular-nums">
-                  <Show when={operations.data?.audience?.paid_ticket_orders != null} fallback={<span class="muted">—</span>}>
+                  <Show when={operations.data?.audience?.paid_ticket_orders != null} fallback={<span class="text-muted-foreground">—</span>}>
                     {operations.data!.audience!.paid_ticket_orders!.toLocaleString()}
                   </Show>
                 </span>
@@ -234,7 +233,7 @@ export function TenantPage() {
               </div>
               <div class="fan-growth-metric">
                 <span class="fan-growth-value tabular-nums">
-                  <Show when={operations.data?.audience?.qualified_referrals != null} fallback={<span class="muted">—</span>}>
+                  <Show when={operations.data?.audience?.qualified_referrals != null} fallback={<span class="text-muted-foreground">—</span>}>
                     {operations.data!.audience!.qualified_referrals!.toLocaleString()}
                   </Show>
                 </span>
@@ -242,7 +241,7 @@ export function TenantPage() {
               </div>
               <div class="fan-growth-metric">
                 <span class="fan-growth-value tabular-nums">
-                  <Show when={operations.data?.audience?.marketing_consented_fans != null} fallback={<span class="muted">—</span>}>
+                  <Show when={operations.data?.audience?.marketing_consented_fans != null} fallback={<span class="text-muted-foreground">—</span>}>
                     {operations.data!.audience!.marketing_consented_fans!.toLocaleString()}
                   </Show>
                 </span>
@@ -255,29 +254,29 @@ export function TenantPage() {
                   <span class="fan-growth-delta tabular-nums">{operations.data!.signal!.activity!.new_fans_7d} new fans (7d)</span>
                 </Show>
                 <Show when={operations.data!.signal!.activity!.new_fans_30d != null}>
-                  <span class="muted tabular-nums">{operations.data!.signal!.activity!.new_fans_30d} new fans (30d)</span>
+                  <span class="text-muted-foreground tabular-nums">{operations.data!.signal!.activity!.new_fans_30d} new fans (30d)</span>
                 </Show>
               </div>
             </Show>
-          </article>
+          </SectionPanel>
         </Show>
 
         <div class="detail-grid">
           <TenantRuntimePanel slug={t.slug} initial={{ runtime: t.runtime, runtimeHealth: t.runtimeHealth }} />
-          <article class="panel products-panel">
-            <div class="section-title"><div><span class="eyebrow">PRODUCTS</span><h2><SectionIcon name="shield" />Entitlements</h2></div><button class="ghost" onClick={() => setEditingMobileApps(true)}>Edit Play Store URLs</button></div>
+          <SectionPanel class="products-panel">
+            <SectionTitle eyebrow="PRODUCTS" title="Entitlements" icon={<SectionIcon name="shield" />} action={<button class="ghost" onClick={() => setEditingMobileApps(true)}>Edit Play Store URLs</button>} />
             <div class="product-row product-entitlement-row"><strong>CrowdRelay</strong><div class="product-action-slot" aria-hidden="true"/><div class="product-status-slot"><StatusBadge status="enabled" tone="good" /></div></div>
             <div class="product-row product-entitlement-row"><strong>Signal</strong><div class="product-action-slot"><Show when={t.signalEnabled && t.signalPlayStoreUrl}><a href={t.signalPlayStoreUrl!} target="_blank" rel="noopener noreferrer" class="play-store-link"><img src="/icons/google-play-badge.svg" alt="Get it on Google Play" width="100" height="30" /></a></Show></div><div class="product-status-slot"><StatusBadge status={t.signalEnabled ? 'enabled' : 'disabled'} tone={t.signalEnabled ? 'good' : 'muted'} /></div></div>
             <div class="product-row product-entitlement-row"><strong>AREA</strong><div class="product-action-slot"><Link class="ghost area-link-button" to="/tenants/$slug/area" params={{slug:t.slug}}>Manage</Link></div><div class="product-status-slot"><StatusBadge status={t.areaEnabled ? 'enabled' : 'disabled'} tone={t.areaEnabled ? 'good' : 'muted'} /></div></div>
             <div class="product-row product-entitlement-row"><strong>Synesthesia</strong><div class="product-action-slot"><Show when={t.synesthesiaEnabled && t.synesthesiaPlayStoreUrl}><a href={t.synesthesiaPlayStoreUrl!} target="_blank" rel="noopener noreferrer" class="play-store-link"><img src="/icons/google-play-badge.svg" alt="Get it on Google Play" width="100" height="30" /></a></Show></div><div class="product-status-slot"><StatusBadge status={t.synesthesiaEnabled ? 'enabled' : 'disabled'} tone={t.synesthesiaEnabled ? 'good' : 'muted'} /></div></div>
-          </article>
+          </SectionPanel>
         </div>
         <RegionalProfilePanel tenant={t} />
-        <article class="panel"><div class="section-title"><div><span class="eyebrow">BRANDING</span><h2><SectionIcon name="palette" />CrowdRelay + Signal palette</h2></div>{t.brandingPalette ? <button class="ghost" disabled={branding.isPending} onClick={() => branding.mutate(null)}>{branding.isPending && <Spinner />} Reset to product defaults</button> : <StatusBadge status="Inherits current product defaults" />}</div><Show when={t.brandingPalette || editingPalette()} fallback={<div class="inherit-card"><p>No palette is stored for this tenant. CrowdRelay and Signal therefore keep their own current default colors with zero theming lookup required.</p><button class="ghost" onClick={() => setEditingPalette(true)}>Create custom palette</button></div>}><p>Ten colours, sent to this tenant's CrowdRelay and Signal builds. Nothing changes for fans until you save; resetting removes the override and both apps fall back to the product defaults.</p><div class="palette-grid"><For each={paletteFields}>{field => <label><span class="palette-field-name">{paletteLabels[field].label}</span><span class="palette-field-role">{paletteLabels[field].role}</span><div class="color-input"><input type="color" aria-label={paletteLabels[field].label} value={palette()[field]} onInput={(e) => setPalette(current => ({ ...current, [field]: e.currentTarget.value }))}/><code>{palette()[field]}</code></div></label>}</For></div><button onClick={() => branding.mutate(palette())} disabled={branding.isPending}>{branding.isPending && <Spinner />} {branding.isPending ? 'Saving…' : 'Save custom palette'}</button></Show></article>
+        <SectionPanel><SectionTitle eyebrow="BRANDING" title="CrowdRelay + Signal palette" icon={<SectionIcon name="palette" />} action={t.brandingPalette ? <button class="ghost" disabled={branding.isPending} onClick={() => branding.mutate(null)}>{branding.isPending && <Spinner />} Reset to product defaults</button> : <StatusBadge status="Inherits current product defaults" />} /><Show when={t.brandingPalette || editingPalette()} fallback={<div class="inherit-card"><p>No palette is stored for this tenant. CrowdRelay and Signal therefore keep their own current default colors with zero theming lookup required.</p><button class="ghost" onClick={() => setEditingPalette(true)}>Create custom palette</button></div>}><p>Ten colours, sent to this tenant's CrowdRelay and Signal builds. Nothing changes for fans until you save; resetting removes the override and both apps fall back to the product defaults.</p><div class="palette-grid"><For each={paletteFields}>{field => <label><span class="palette-field-name">{paletteLabels[field].label}</span><span class="palette-field-role">{paletteLabels[field].role}</span><div class="color-input"><input type="color" aria-label={paletteLabels[field].label} value={palette()[field]} onInput={(e) => setPalette(current => ({ ...current, [field]: e.currentTarget.value }))}/><code>{palette()[field]}</code></div></label>}</For></div><button onClick={() => branding.mutate(palette())} disabled={branding.isPending}>{branding.isPending && <Spinner />} {branding.isPending ? 'Saving…' : 'Save custom palette'}</button></Show></SectionPanel>
 
         <Show when={t.signalEnabled || t.synesthesiaEnabled}>
-          <article class="panel mobile-app-setup-panel">
-            <div class="section-title"><div><span class="eyebrow">MOBILE APPS</span><h2><SectionIcon name="play" />Google Play setup</h2></div></div>
+          <SectionPanel class="mobile-app-setup-panel">
+            <SectionTitle eyebrow="MOBILE APPS" title="Google Play setup" icon={<SectionIcon name="play" />} />
             <p class="wizard-intro">Onboard this tenant's mobile apps for Google Play. Each step is automated by the onboarding script in the virya-signal repo.</p>
             <div class="setup-checklist">
               <div class="setup-step" classList={{ done: Boolean(t.brandingPalette), pending: !t.brandingPalette }}>
@@ -299,24 +298,24 @@ export function TenantPage() {
             </div>
             <Show when={!t.signalPlayStoreUrl && t.signalEnabled}>
               <div class="onboard-command-card">
-                <span class="eyebrow">QUICK START</span>
+                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">QUICK START</span>
                 <p>Run this in the virya-signal repo to onboard the Signal app end-to-end:</p>
                 <pre><code>bash scripts/onboard-tenant-app.sh \<br/>  --tenant {t.slug} \<br/>  --control-plane-url {window.location.origin.replace(/:\d+$/, '')} \<br/>  --token $CONTROL_PLANE_ADMIN_TOKEN \<br/>  --version 0.1.0 --version-code 1</code></pre>
               </div>
             </Show>
-          </article>
+          </SectionPanel>
         </Show>
 
         <Show when={editingMobileApps()}>
           <div class="dialog-overlay" onClick={() => setEditingMobileApps(false)}>
             <div class="dialog-panel" onClick={(e) => e.stopPropagation()}>
-              <div class="section-title"><div><span class="eyebrow">MOBILE APPS</span><h2><SectionIcon name="play" />Google Play Store URLs</h2></div></div>
+              <SectionTitle eyebrow="MOBILE APPS" title="Google Play Store URLs" icon={<SectionIcon name="play" />} />
               <p class="wizard-intro">Set the Google Play Store URL for each tenant mobile app. Leave blank if the app is not yet published.</p>
               <div class="form-grid">
                 <label>Signal Play Store URL<input value={signalPlayUrl()} onInput={(e) => setSignalPlayUrl(e.currentTarget.value)} placeholder="https://play.google.com/store/apps/details?id=music.{t.slug}.signal" /></label>
                 <label>Synesthesia Play Store URL<input value={synesthesiaPlayUrl()} onInput={(e) => setSynesthesiaPlayUrl(e.currentTarget.value)} placeholder="https://play.google.com/store/apps/details?id=music.{t.slug}.synesthesia" /></label>
               </div>
-              <Show when={mobileApps.error}><div class="error-card" role="alert">{mobileApps.error instanceof Error ? mobileApps.error.message : 'Failed to update Play Store URLs'}</div></Show>
+              <Show when={mobileApps.error}><ErrorCard>{mobileApps.error instanceof Error ? mobileApps.error.message : 'Failed to update Play Store URLs'}</ErrorCard></Show>
               <div class="form-actions right">
                 <button class="ghost" onClick={() => setEditingMobileApps(false)}>Cancel</button>
                 <button onClick={() => mobileApps.mutate({ signalPlayStoreUrl: signalPlayUrl().trim() || null, synesthesiaPlayStoreUrl: synesthesiaPlayUrl().trim() || null })} disabled={mobileApps.isPending}>{mobileApps.isPending && <Spinner />} {mobileApps.isPending ? 'Saving…' : 'Save URLs'}</button>
@@ -329,12 +328,9 @@ export function TenantPage() {
       {/* ── Deployment tab — provisioning, operations, release ledger ── */}
       <TabPanel active={activeTab()} id="deployment" visited={isVisited('deployment')}>
         <Show when={operations.isPending}><SkeletonSection titleWidth="180px" lines={4} minHeight="180px" /></Show>
-        <Show when={operations.error}><div class="error-card" role="alert">{errorMessage(operations.error, 'Operations read model unavailable')}</div></Show>
-        <article class="panel provisioning-panel">
-          <div class="section-title">
-            <div><span class="eyebrow">PROVISIONING</span><h2><SectionIcon name="server" />CrowdRelay instance</h2></div>
-            <Show when={latestJob()}>{job => <StatusBadge status={job().status} tone={provisionTone(job().status)} />}</Show>
-          </div>
+        <Show when={operations.error}><ErrorCard>{errorMessage(operations.error, 'Operations read model unavailable')}</ErrorCard></Show>
+        <SectionPanel class="provisioning-panel">
+          <SectionTitle eyebrow="PROVISIONING" title="CrowdRelay instance" icon={<SectionIcon name="server" />} action={<Show when={latestJob()}>{job => <StatusBadge status={job().status} tone={provisionTone(job().status)} />}</Show>} />
           <Show when={capabilities()?.canProvision !== false} fallback={<div class="inherit-card"><p>This tenant stays on its existing production CrowdRelay deployment. The tenant provisioner intentionally refuses to create a second stack for it.</p></div>}>
             <p>The browser only requests desired state. A separately authenticated host agent claims the job and runs a fixed Docker Compose recipe; the Control Plane API never receives Docker access.</p>
             <div class="deployment-target-grid">
@@ -348,25 +344,25 @@ export function TenantPage() {
               <button class="ghost" onClick={() => plan.mutate()} disabled={plan.isPending || deploymentBusy() || !releaseReady()}>Preview</button>
               <button onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || !releaseReady() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl}>{latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</button>
             </div>
-            <Show when={deploy.error}><div class="error-card">{deploy.error instanceof Error ? deploy.error.message : 'Deployment request failed'}</div></Show>
-            <Show when={preview()}>{job => <div class="plan-preview"><span class="eyebrow">PLAN PREVIEW</span><pre>{JSON.stringify(job().plan, null, 2)}</pre></div>}</Show>
+            <Show when={deploy.error}><ErrorCard>{deploy.error instanceof Error ? deploy.error.message : 'Deployment request failed'}</ErrorCard></Show>
+            <Show when={preview()}>{job => <div class="plan-preview"><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">PLAN PREVIEW</span><pre>{JSON.stringify(job().plan, null, 2)}</pre></div>}</Show>
             <Show when={latestJob()}>{job => <div class="provision-job">
               <div class="provision-job-head"><div><strong>{job().desiredVersion ?? 'default release'}</strong><small>attempt {job().attemptCount} · created {new Date(job().createdAt).toLocaleString()}</small></div><div class="provision-job-badges"><StatusBadge status={job().status} tone={provisionTone(job().status)} /><StatusBadge status={`phase: ${job().phase}`} tone={phaseTone(job().phase)} /></div></div>
               <Show when={job().status === 'approved'}><p>Queued for the provisioner agent. No Docker mutation happens in the HTTP request.</p></Show>
               <Show when={job().status === 'running'}><p>Claimed by <code>{job().claimedBy ?? 'provisioner'}</code>. Lease expires {formatTimestamp(job().leaseExpiresAt)}.</p></Show>
               <Show when={job().status === 'succeeded'}><div class="deployment-result"><dl><dt>Local API</dt><dd><code>{job().result?.localApiUrl ?? '—'}</code></dd><dt>Host port</dt><dd>{job().result?.apiPort ?? '—'}</dd><dt>Workspace</dt><dd class="mono">{job().result?.workspaceId ?? t.workspaceId ?? '—'}</dd><dt>Schema</dt><dd>{job().result?.schemaVersion ?? '—'}</dd><dt>Provisioner</dt><dd><code>{job().result?.provisionerWorkerId ?? job().claimedBy ?? '—'}</code></dd></dl><p class="route-note">The instance is healthy locally. Route <code>{t.crowdrelayBaseUrl}</code> at the edge to this host port to expose it publicly.</p></div></Show>
-              <Show when={job().status === 'failed' ? (job().errorCode ?? 'provisioning_failed') : undefined}>{code => <div class="error-card">
+              <Show when={job().status === 'failed' ? (job().errorCode ?? 'provisioning_failed') : undefined}>{code => <ErrorCard>
                 <strong>{provisionFailures[code()]?.title ?? code()}</strong>
                 <Show when={provisionFailures[code()]}>{failure => <>
                   <p>{failure().guidance}</p>
                   <Show when={!failure().retryable}><p class="route-note">Retrying will not help until the underlying cause is fixed.</p></Show>
                 </>}</Show>
                 <small class="mono">{code()}{job().errorDetail ? ` · ${job().errorDetail}` : ''}</small>
-              </div>}</Show>
+              </ErrorCard>}</Show>
               <Show when={['planned','approved'].includes(job().status)}><button class="ghost danger-ghost" onClick={() => cancel.mutate()} disabled={cancel.isPending}>Cancel queued deployment</button></Show>
             </div>}</Show>
           </Show>
-        </article>
+        </SectionPanel>
 
         <Show when={operations.data}>
           {ops => <OperationsPanel
@@ -396,8 +392,8 @@ export function TenantPage() {
             non-Virya tenants. Records the request in the audit trail — the
             crew then uses the admin-side Remove button to complete it. */}
         <Show when={!isAdmin() && capabilities()?.canOptOut === true}>
-          <article class="panel tenant-opt-out">
-            <div class="section-title"><div><span class="eyebrow">LEAVING</span><h2><SectionIcon name="alert-triangle" />Opt out of the platform</h2></div></div>
+          <SectionPanel class="tenant-opt-out">
+            <SectionTitle eyebrow="LEAVING" title="Opt out of the platform" icon={<SectionIcon name="alert-triangle" />} />
             <Show when={optOutDone()} fallback={
               <>
                 <p>
@@ -410,7 +406,7 @@ export function TenantPage() {
                   To expedite, also email <a href="mailto:virya.crew@gmail.com?subject=Opt%20out%3A%20{encodeURIComponent(t.displayName)}&body=Tenant%3A%20{encodeURIComponent(t.slug)}%0A%0AI%20want%20to%20opt%20out%20of%20the%20CrowdRelay%20platform.%20Please%20remove%20my%20tenant%20data.">virya.crew@gmail.com</a>.
                 </p>
                 <Show when={optOut.isError}>
-                  <div class="error-card" role="alert">{errorMessage(optOut.error, 'Opt-out request failed')}</div>
+                  <ErrorCard>{errorMessage(optOut.error, 'Opt-out request failed')}</ErrorCard>
                 </Show>
                 <div class="form-grid">
                   <label>
@@ -440,7 +436,7 @@ export function TenantPage() {
                 from your side.
               </div>
             </Show>
-          </article>
+          </SectionPanel>
         </Show>
 
         {/* Admin-only removal. Rendered from the server's capability flag, never
@@ -449,8 +445,8 @@ export function TenantPage() {
             as "not allowed", which is the opposite default from the reads
             above. Tenant operators never see this — they use Opt out instead. */}
         <Show when={isAdmin() && capabilities()?.canRemove === true}>
-          <article class="panel tenant-danger-zone">
-            <div class="section-title"><div><span class="eyebrow">DANGER ZONE</span><h2><SectionIcon name="alert-triangle" />Remove tenant</h2></div></div>
+          <SectionPanel class="tenant-danger-zone">
+            <SectionTitle eyebrow="DANGER ZONE" title="Remove tenant" icon={<SectionIcon name="alert-triangle" />} />
             <p>
               Unregisters <strong>{t.displayName}</strong> from the control plane: its operators,
               runtime status and provisioning history here are deleted and cannot be restored from
@@ -458,7 +454,7 @@ export function TenantPage() {
               running until it is shut down separately. The audit trail survives this removal.
             </p>
             <Show when={remove.isError}>
-              <div class="error-card" role="alert">{errorMessage(remove.error, 'Tenant removal failed')}</div>
+              <ErrorCard>{errorMessage(remove.error, 'Tenant removal failed')}</ErrorCard>
             </Show>
             <div class="form-grid">
               <label>
@@ -480,9 +476,9 @@ export function TenantPage() {
                 {remove.isPending && <Spinner />} {remove.isPending ? 'Removing…' : 'Remove this tenant'}
               </button>
             </div>
-          </article>
+          </SectionPanel>
         </Show>
       </TabPanel>
     </>
-  }}</Show></section>
+  }}</Show></PageShell>
 }

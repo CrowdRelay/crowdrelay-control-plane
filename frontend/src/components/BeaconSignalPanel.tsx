@@ -5,6 +5,7 @@ import { formatTimestamp } from '../lib/format'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock } from './Skeleton'
 import { TabBar, TabPanel, useTabPanels } from './TabBar'
+import { cn } from '../lib/cn'
 
 const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (status) {

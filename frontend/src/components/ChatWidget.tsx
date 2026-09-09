@@ -2,6 +2,7 @@ import { Show, For, createSignal, createEffect, onCleanup } from 'solid-js'
 import { useNavigate, useLocation } from '@tanstack/solid-router'
 import { request, ApiError } from '../lib/api'
 import { errorMessage } from '../lib/format'
+import { cn } from '../lib/cn'
 import type { ChatMessage, ChatAction } from '../lib/types'
 
 // Distinguishes a server-sent SSE error from a JSON parse failure on a
@@ -472,43 +473,43 @@ export function ChatWidget(props: { slug: string }) {
       {/* Floating button */}
       <Show when={!open()}>
         <button
-          class="chat-fab"
+          class="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-3 shadow-lg hover:bg-primary-hover transition-colors"
           onClick={() => setOpen(true)}
           title="Ask AI Assistant"
           aria-label="Open AI Assistant"
         >
           <SparkIcon />
-          <span class="chat-fab-label">AI Assistant</span>
+          <span class="text-sm font-medium">AI Assistant</span>
         </button>
       </Show>
 
       {/* Chat panel */}
       <Show when={open()}>
-        <div class="chat-backdrop" onClick={() => setOpen(false)} />
-        <div class="chat-panel" ref={panelRef} role="dialog" aria-modal="true" aria-label="AI assistant">
-          <div class="chat-header">
-            <div class="chat-header-info">
+        <div class="fixed inset-0 z-40 bg-black/50" onClick={() => setOpen(false)} />
+        <div class="fixed bottom-4 right-4 z-50 w-96 max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100vh-2rem)] rounded-lg border border-border bg-card shadow-xl flex flex-col overflow-hidden" ref={panelRef} role="dialog" aria-modal="true" aria-label="AI assistant">
+          <div class="flex items-center justify-between gap-2 border-b border-border px-4 py-3 flex-shrink-0">
+            <div class="flex items-center gap-2 min-w-0">
               <SparkIcon />
               <div>
-                <div class="chat-header-title">AI Assistant</div>
-                <div class="chat-header-sub">Free • Powered by Laguna S 2.1</div>
+                <div class="text-sm font-semibold text-foreground">AI Assistant</div>
+                <div class="text-xs text-muted-foreground">Free • Powered by Laguna S 2.1</div>
               </div>
             </div>
-            <button class="chat-close" onClick={() => setOpen(false)} aria-label="Close chat">
+            <button class="p-1.5 rounded-md text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors" onClick={() => setOpen(false)} aria-label="Close chat">
               <CloseIcon />
             </button>
           </div>
 
-          <div class="chat-messages" ref={scrollRef} role="log" aria-live="polite" aria-label="Chat conversation">
+          <div class="flex-1 overflow-y-auto p-4 space-y-4" ref={scrollRef} role="log" aria-live="polite" aria-label="Chat conversation">
             <Show when={messages().length === 0}>
-              <div class="chat-welcome">
-                <div class="chat-welcome-icon"><SparkIcon /></div>
+              <div class="flex flex-col items-center justify-center h-full text-center gap-4">
+                <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary"><SparkIcon /></div>
                 <h3>AI Assistant</h3>
                 <p>Ask about operations, growth metrics, autopilot, or platform health. Try one of these to start:</p>
-                <div class="chat-suggestions">
+                <div class="flex flex-col gap-2 w-full max-w-xs">
                   <For each={SUGGESTIONS}>
                     {(s) => (
-                      <button class="chat-suggestion" onClick={() => send(s)}>{s}</button>
+                      <button class="text-left text-sm rounded-md border border-border px-3 py-2 text-muted-foreground hover:bg-surface-1 hover:text-foreground hover:border-border-strong transition-colors" onClick={() => send(s)}>{s}</button>
                     )}
                   </For>
                 </div>
@@ -520,22 +521,22 @@ export function ChatWidget(props: { slug: string }) {
                 const isStreamingMsg = () =>
                   streaming() && msg.role === 'assistant' && index() === messages().length - 1
                 return (
-                <div class={`chat-msg chat-msg-${msg.role}`}>
+                <div class={cn('flex flex-col gap-1', msg.role === 'user' ? 'items-end' : 'items-start')}>
                   <Show
                     when={isStreamingMsg()}
-                    fallback={<div class="chat-msg-content" innerHTML={renderMarkdown(msg.content, props.slug)} />}
+                    fallback={<div class="text-sm text-foreground leading-relaxed" innerHTML={renderMarkdown(msg.content, props.slug)} />}
                   >
                     {/* During streaming, render as a text node so the text
                         grows smoothly without DOM rebuilds / blinking.
                         Markdown is applied once streaming completes. */}
-                    <div class="chat-msg-content">{streamingContent()}</div>
+                    <div class="text-sm text-foreground leading-relaxed">{streamingContent()}</div>
                   </Show>
                   <Show when={msg.actions && msg.actions.length > 0}>
-                    <div class="chat-actions">
+                    <div class="flex flex-wrap gap-2 mt-2">
                       <For each={msg.actions}>
                         {(action) => (
                           <button
-                            class="chat-action-btn"
+                            class="text-xs rounded-md border border-border px-2.5 py-1.5 text-foreground hover:bg-surface-1 transition-colors"
                             disabled={!!executingAction()}
                             onClick={() => executeAction(action)}
                           >
@@ -547,7 +548,7 @@ export function ChatWidget(props: { slug: string }) {
                   </Show>
                   {/* Blinking cursor while streaming the current assistant message */}
                   <Show when={isStreamingMsg()}>
-                    <span class="chat-cursor" />
+                    <span class="inline-block w-2 h-4 bg-foreground animate-pulse" />
                   </Show>
                 </div>
                 )
@@ -556,47 +557,49 @@ export function ChatWidget(props: { slug: string }) {
           </div>
 
           <Show when={error()}>
-            <div class="chat-error">{error()}</div>
+            <div class="text-sm text-destructive px-3 py-2 rounded-md bg-destructive/10 border border-destructive/30">{error()}</div>
           </Show>
 
-          <div class="chat-input-area">
-            <textarea
-              ref={inputRef}
-              class="chat-input"
-              placeholder="Ask about operations, growth, or autopilot…"
-              value={input()}
-              onInput={(e) => setInput(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  send()
-                }
-              }}
-              rows={1}
-              maxlength={4000}
-            />
-            <Show when={streaming()}>
-              <button
-                class="chat-stop"
-                onClick={stopStreaming}
-                aria-label="Stop streaming"
-                title="Stop"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <rect x="6" y="6" width="12" height="12" rx="2" />
-                </svg>
-              </button>
-            </Show>
-            <Show when={!streaming()}>
-              <button
-                class="chat-send"
-                disabled={loading() || !input().trim()}
-                onClick={() => send()}
-                aria-label="Send message"
-              >
-                <SendIcon />
-              </button>
-            </Show>
+          <div class="border-t border-border p-3 flex-shrink-0">
+            <div class="flex items-end gap-2">
+              <textarea
+                ref={inputRef}
+                class="flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
+                placeholder="Ask about operations, growth, or autopilot…"
+                value={input()}
+                onInput={(e) => setInput(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    send()
+                  }
+                }}
+                rows={1}
+                maxlength={4000}
+              />
+              <Show when={streaming()}>
+                <button
+                  class="flex-shrink-0 w-9 h-9 rounded-md bg-destructive text-destructive-foreground flex items-center justify-center hover:bg-destructive-hover transition-colors"
+                  onClick={stopStreaming}
+                  aria-label="Stop streaming"
+                  title="Stop"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                  </svg>
+                </button>
+              </Show>
+              <Show when={!streaming()}>
+                <button
+                  class="flex-shrink-0 w-9 h-9 rounded-md bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary-hover transition-colors disabled:opacity-50"
+                  disabled={loading() || !input().trim()}
+                  onClick={() => send()}
+                  aria-label="Send message"
+                >
+                  <SendIcon />
+                </button>
+              </Show>
+            </div>
           </div>
         </div>
       </Show>

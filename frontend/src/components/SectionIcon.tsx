@@ -1,4 +1,5 @@
 import { JSX, Show, splitProps } from 'solid-js'
+import { cn } from '../lib/cn'
 
 // Small green Lucide-style icons that sit next to section titles in the
 // tenant overview. Each maps to a semantic area of the page so the eye can
@@ -36,7 +37,7 @@ type IconName =
 
 const Svg = (props: { children: JSX.Element }) => (
   <svg
-    class="section-icon"
+    class="w-[18px] h-[18px]"
     xmlns="http://www.w3.org/2000/svg"
     width="18"
     height="18"
@@ -273,7 +274,7 @@ export function SectionIcon(props: { name: IconName; class?: string }) {
   const [local] = splitProps(props, ['name', 'class'])
   return (
     <Show when={ICONS[local.name]} fallback={null}>
-      <span class={`section-icon-wrap ${local.class ?? ''}`} aria-hidden="true">
+      <span class={cn('inline-flex items-center text-success flex-shrink-0 mr-1.5', local.class)} aria-hidden="true">
         {ICONS[local.name]}
       </span>
     </Show>

@@ -88,7 +88,7 @@ export const ProgressRing: Component<{
   const offset = () => circumference() - (animatedValue() / 100) * circumference()
 
   return (
-    <div class="progress-ring" style={{ width: `${size()}px`, height: `${size()}px`, position: 'relative' }}>
+    <div class="inline-flex relative" style={{ width: `${size()}px`, height: `${size()}px`, position: 'relative' }}>
       <svg width={size()} height={size()} viewBox={`0 0 ${size()} ${size()}`} role="img" aria-label={`${Math.round(props.value)}%`}>
         <circle
           cx={size() / 2}
@@ -113,7 +113,7 @@ export const ProgressRing: Component<{
         />
       </svg>
       {/* An empty ring reads as broken. With no value to show, say so. */}
-      <span class="progress-ring-value" style={{
+      <span class="tabular-nums" style={{
         position: 'absolute',
         top: '50%',
         left: '50%',
@@ -126,7 +126,7 @@ export const ProgressRing: Component<{
         {showValue() ? `${Math.round(animatedValue())}${props.label ? '' : '%'}` : '—'}
       </span>
       {props.label && (
-        <span class="progress-ring-label" style={{
+        <span class="tabular-nums" style={{
           position: 'absolute',
           bottom: '-18px',
           left: '50%',

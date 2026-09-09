@@ -6,6 +6,7 @@ import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
+import { Card } from './ui/card'
 
 // The beacon roster, and everything you can do to it.
 //
@@ -210,12 +211,12 @@ export function BeaconConsolePanel(props: { slug: string }) {
   }
 
   return (
-    <section class="panel">
+    <Card class="p-4">
       <header class="panel-header">
         <h2>Beacons</h2>
         <div class="panel-header-actions">
           <Show when={roster.data}>
-            <span class="muted">
+            <span class="text-muted-foreground">
               {roster.data!.total} total · {roster.data!.active} active · {roster.data!.invited} invited
             </span>
           </Show>
@@ -346,7 +347,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
                   </label>
                   <div class="beacon-identity">
                     <strong>{profile.displayName}</strong>
-                    <span class="muted">
+                    <span class="text-muted-foreground">
                       {profile.beaconKind}
                       {profile.city ? ` · ${profile.city}` : ''}
                       {profile.contactEmail ? ` · ${profile.contactEmail}` : ' · no email'}
@@ -356,10 +357,10 @@ export function BeaconConsolePanel(props: { slug: string }) {
                     <StatusBadge status={profile.status} tone={STATE_TONE[profile.status] ?? 'muted'} />
                     <span class="badge">{profile.inviteCount} invite{profile.inviteCount === 1 ? '' : 's'}</span>
                     <Show when={profile.lastInvitedAt}>
-                      {at => <span class="muted">last invited {formatTimestamp(at())}</span>}
+                      {at => <span class="text-muted-foreground">last invited {formatTimestamp(at())}</span>}
                     </Show>
                     <Show when={profile.joinedAt}>
-                      {at => <span class="muted">joined {formatTimestamp(at())}</span>}
+                      {at => <span class="text-muted-foreground">joined {formatTimestamp(at())}</span>}
                     </Show>
                   </div>
                   <div class="beacon-row-actions">
@@ -397,6 +398,6 @@ export function BeaconConsolePanel(props: { slug: string }) {
       <Show when={notice()}>
         {value => <p class={`notice ${value().tone}`}>{value().message}</p>}
       </Show>
-    </section>
+    </Card>
   )
 }

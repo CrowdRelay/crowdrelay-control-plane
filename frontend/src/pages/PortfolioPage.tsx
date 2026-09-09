@@ -8,6 +8,7 @@ import { FanSourcesPanel } from '../components/FanSourcesPanel'
 import { RedditCookieUploader } from '../components/RedditCookieUploader'
 import { SkeletonPortfolio, SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
+import { PageShell, PageHeader } from '../components/layout'
 import type { TenantPortfolioSection } from '../lib/types'
 
 const SECTION_LABEL: Record<TenantPortfolioSection, string> = {
@@ -48,14 +49,12 @@ export function PortfolioPage() {
   // Mutations stay on their own routes and refresh this one model afterwards.
   const refresh = () => model.refetch()
 
-  return <section class="page">
-    <div class="page-head">
-      <div>
-        <span class="eyebrow">AUDIENCE</span>
-        <h1>Label Portfolio</h1>
-        <p>Roster-wide audience totals, the amplification edges routing one artist's release in front of another artist's consenting fans, and the fan sources feeding both. Fans never leave their home workspace.</p>
-      </div>
-    </div>
+  return <PageShell>
+    <PageHeader
+      eyebrow="AUDIENCE"
+      title="Label Portfolio"
+      description="Roster-wide audience totals, the amplification edges routing one artist's release in front of another artist's consenting fans, and the fan sources feeding both. Fans never leave their home workspace."
+    />
 
     {/* Main portfolio read model — per-panel skeletons while data is
         absent, not a page-wide block. Independent components (Reddit
@@ -103,5 +102,5 @@ export function PortfolioPage() {
         />
       </Show>
     }</Show>
-  </section>
+  </PageShell>
 }

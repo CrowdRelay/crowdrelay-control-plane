@@ -8,6 +8,7 @@ import { SectionIcon } from './SectionIcon'
 import { SkeletonRows } from './Skeleton'
 import { Spinner } from './Spinner'
 import { StatusBadge } from './StatusBadge'
+import { Card } from './ui/card'
 
 const shortId = (value: string) => value.length > 16 ? `${value.slice(0, 8)}…${value.slice(-6)}` : value
 
@@ -160,10 +161,10 @@ export function DeadQueuesPanel(props: {
 
   return <>
     {/* ─── Dead Outbox ─────────────────────────────────────────── */}
-    <div class="section-title" id="dead-outbox">
-      <div><span class="eyebrow">DEAD OUTBOX</span><h3><SectionIcon name="alert-triangle" />Failed events</h3><p>Retry is idempotent.</p></div>
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3" id="dead-outbox">
+      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DEAD OUTBOX</span><h3><SectionIcon name="alert-triangle" />Failed events</h3><p>Retry is idempotent.</p></div>
     </div>
-    <Show when={props.error}><div class="error-card" role="alert">{errorMessage(props.error, 'Dead outbox unavailable')}</div></Show>
+    <Show when={props.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(props.error, 'Dead outbox unavailable')}</div></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
     <For each={expandOutbox() ? (props.deadOutbox ?? []) : (props.deadOutbox ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
       <div class="dead-event-head">
@@ -191,11 +192,11 @@ export function DeadQueuesPanel(props: {
     <Show when={!props.isLoading && (props.deadOutbox?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead outbox events" hint="Dead outbox events are messages that failed delivery after all retries. A clean queue means everything is flowing." /></div></Show>
 
     {/* ─── Dead Webhook Deliveries ─────────────────────────────── */}
-    <div class="section-title" id="dead-deliveries">
-      <div><span class="eyebrow">DEAD WEBHOOK DELIVERIES</span><h3><SectionIcon name="alert-triangle" />Delivery failures</h3><p>Inspect attempt history before retrying.</p></div>
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3" id="dead-deliveries">
+      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DEAD WEBHOOK DELIVERIES</span><h3><SectionIcon name="alert-triangle" />Delivery failures</h3><p>Inspect attempt history before retrying.</p></div>
       <button type="button" class={confirming() ? 'danger-ghost' : 'ghost'} disabled={(props.summary?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' && <Spinner />} {busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</button>
     </div>
-    <Show when={props.error}><div class="error-card" role="alert">{errorMessage(props.error, 'Dead deliveries unavailable')}</div></Show>
+    <Show when={props.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(props.error, 'Dead deliveries unavailable')}</div></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
     <For each={expandDeliveries() ? (props.deadDeliveries ?? []) : (props.deadDeliveries ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
       <div class="dead-event-head">
@@ -223,18 +224,18 @@ export function DeadQueuesPanel(props: {
     </Show>
     <Show when={!props.isLoading && (props.deadDeliveries?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead webhook deliveries" hint="Dead webhooks are deliveries that failed after all retries. A clean list means webhooks are reaching their destinations." /></div></Show>
 
-    <Show when={deliveryDetails()}>{details => <div class="panel">
-      <div class="section-title"><div><span class="eyebrow">DELIVERY DETAILS</span><h3><SectionIcon name="mail" />{details().delivery.endpoint_name}</h3><div class="dead-event-title"><span class="badge tone-warn mono-badge">{details().delivery.event_type}</span><span class="badge tone-muted">delivery</span></div></div><button class="ghost" onClick={() => setDeliveryDetails(null)}>Close</button></div>
+    <Show when={deliveryDetails()}>{details => <Card class="p-4">
+      <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DELIVERY DETAILS</span><h3><SectionIcon name="mail" />{details().delivery.endpoint_name}</h3><div class="dead-event-title"><span class="badge tone-warn mono-badge">{details().delivery.event_type}</span><span class="badge tone-muted">delivery</span></div></div><button class="ghost" onClick={() => setDeliveryDetails(null)}>Close</button></div>
       <For each={details().attempts}>{attempt => <div class="warning-card"><strong>Attempt {attempt.attempt_number} · {attempt.outcome}</strong><p>HTTP {attempt.response_status ?? '—'} · {attempt.error_kind ?? 'no error kind'} · {attempt.duration_ms} ms · {observed(attempt.finished_at)}</p></div>}</For>
       <Show when={details().attempts.length === 0}><EmptyState label="No delivery attempts" hint="Delivery attempts are logged here once the outbox starts processing messages." /></Show>
-    </div>}</Show>
+    </Card>}</Show>
 
     {/* ─── Dead Push ───────────────────────────────────────────── */}
-    <div class="section-title" id="dead-push">
-      <div><span class="eyebrow">DEAD PUSH</span><h3><SectionIcon name="alert-triangle" />Failed push deliveries</h3><p>{pushFailureSummary()}</p></div>
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3" id="dead-push">
+      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DEAD PUSH</span><h3><SectionIcon name="alert-triangle" />Failed push deliveries</h3><p>{pushFailureSummary()}</p></div>
       <StatusBadge status={(props.summary?.push.dead ?? 0) > 0 ? 'dead' : 'clean'} tone={(props.summary?.push.dead ?? 0) > 0 ? 'bad' : 'good'} />
     </div>
-    <Show when={props.error}><div class="error-card" role="alert">{errorMessage(props.error, 'Dead push unavailable')}</div></Show>
+    <Show when={props.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(props.error, 'Dead push unavailable')}</div></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
     <For each={expandPush() ? (props.deadPush ?? []) : (props.deadPush ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
       <div class="dead-event-head">
@@ -249,7 +250,7 @@ export function DeadQueuesPanel(props: {
           <button class="ghost dead-toggle-id" onClick={() => toggleRevealedId(`push:${item.id}`)}>{revealedId() === `push:${item.id}` ? 'Hide ID' : 'Details'}</button>
           <Show
             when={pushIsRetryable(item.error_code)}
-            fallback={<span class="muted push-no-retry">nothing to retry</span>}
+            fallback={<span class="text-muted-foreground push-no-retry">nothing to retry</span>}
           >
             <button class="ghost" disabled={!!busy()} onClick={() => void retryPush(item.id)}>{busy() === `push:${item.id}` && <Spinner />} {busy() === `push:${item.id}` ? 'Retrying…' : 'Retry'}</button>
           </Show>

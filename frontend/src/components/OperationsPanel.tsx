@@ -136,10 +136,10 @@ export function OperationsPanel(props: {
   // mis-click never flips every policy or redeploys an app by accident.
   const [confirming, setConfirming] = createSignal<'autopilot-disable' | 'autopilot-enable' | 'redeploy' | 'replay-dead' | null>(null)
 
-  return <article class="panel operations-panel">
+  return <article class="rounded-lg border border-border bg-card text-foreground p-4 operations-panel">
     <Show when={showHealth()}>
-    <div class="section-title operations-title">
-      <div><span class="eyebrow">OPERATIONS</span><h2><SectionIcon name="activity" />Health & controls</h2><p>Live CrowdRelay telemetry and bounded runtime controls. Changes are tenant-scoped and audited.</p></div>
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3 operations-title">
+      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">OPERATIONS</span><h2><SectionIcon name="activity" />Health & controls</h2><p>Live CrowdRelay telemetry and bounded runtime controls. Changes are tenant-scoped and audited.</p></div>
       <div class="row-health">
         <Show when={props.canRedeploy !== false}>
           <Show when={confirming() === 'redeploy'}><button class="ghost" onClick={() => setConfirming(null)}>Cancel</button></Show>
@@ -184,7 +184,7 @@ export function OperationsPanel(props: {
         </span>
       </div>
     </Show>
-    <Show when={mutationError()}>{message => <div class="error-card operations-error" role="alert">{message()}</div>}</Show>
+    <Show when={mutationError()}>{message => <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive operations-error" role="alert">{message()}</div>}</Show>
 
     {/* Freshness — the Control Plane distinguishes "live" (upstream timestamp
         within stale threshold) from "stale" from "unknown" (no upstream

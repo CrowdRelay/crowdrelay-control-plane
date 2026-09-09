@@ -121,7 +121,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
       <h3>Release campaigns</h3>
       <div class="agent-section-head-actions">
         <Show when={campaigns.data}>
-          <span class="muted">{campaigns.data!.campaigns.length} campaigns · {campaigns.data!.pool.contactable_latarnicy} contactable</span>
+          <span class="text-muted-foreground">{campaigns.data!.campaigns.length} campaigns · {campaigns.data!.pool.contactable_latarnicy} contactable</span>
         </Show>
         <button class="ghost" onClick={() => setCreating(v => !v)}>
           {creating() ? 'Cancel' : 'Add release campaign'}
@@ -131,7 +131,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
     <p class="agent-section-intro">Physical release delivery to beacon recipients. Launch a campaign to notify eligible beacons; close when all parcels are delivered.</p>
 
     <Show when={error()}>
-      <div class="error-card">{error()}</div>
+      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{error()}</div>
     </Show>
 
     <Show when={creating()}>
@@ -164,7 +164,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
       </form>
     </Show>
 
-    <Show when={campaigns.error}><div class="error-card">Release campaigns unavailable: {errorMessage(campaigns.error, 'Service unreachable')}</div></Show>
+    <Show when={campaigns.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Release campaigns unavailable: {errorMessage(campaigns.error, 'Service unreachable')}</div></Show>
     <Show when={campaigns.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
       <Show when={campaigns.data!.pool.active_release_latarnicy > 0 || campaigns.data!.pool.missing_email > 0}>
         <div class="kpi-strip">
@@ -217,7 +217,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
               </div>
 
               <Show when={selectedCampaign() === c.id}>
-                <Show when={recipients.error}><div class="error-card">Campaign recipients unavailable: {errorMessage(recipients.error, 'Service unreachable')}</div></Show>
+                <Show when={recipients.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Campaign recipients unavailable: {errorMessage(recipients.error, 'Service unreachable')}</div></Show>
                 <Show when={recipients.data} fallback={<SkeletonBlock height="80px" radius="10px" />}>
                   <div class="table-wrap">
                     <table class="data-table">
@@ -234,7 +234,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
                       <tbody>
                         <For each={recipients.data!.recipients}>{(r) => (
                           <tr>
-                            <td><strong>{r.displayName}</strong>{r.recipientName ? <><br /><span class="muted">{r.recipientName}</span></> : null}</td>
+                            <td><strong>{r.displayName}</strong>{r.recipientName ? <><br /><span class="text-muted-foreground">{r.recipientName}</span></> : null}</td>
                             <td>{r.beaconKind}</td>
                             <td>{r.city ?? '—'}</td>
                             <td><span class={`badge tone-${recipientStatusTone(r.status)}`}>{r.status}</span></td>

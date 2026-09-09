@@ -1,6 +1,7 @@
 import { For, Show } from 'solid-js'
 import { ApiError, errorHeading } from '../lib/api'
 import type { SectionVerdict } from '../lib/types'
+import { cn } from '../lib/cn'
 
 // When every section of a read-model fan-out fails, the backend returns a
 // structured 503 with per-section verdicts (state + remediation). The old
@@ -54,30 +55,35 @@ export function SectionFailureCard(props: { error: unknown; fallback: string; on
   // old `<div class="error-card">{error.message}</div>` pattern.
   return <Show when={error()}>
     <Show when={isAllSectionsFailed()} fallback={
-      <div class="error-card" role="alert">
+      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
         {errorHeading(error(), props.fallback)}
-        <Show when={props.onRetry}><button class="ghost error-retry" onClick={() => props.onRetry!()}>Retry</button></Show>
+        <Show when={props.onRetry}><button class="ghost mt-2.5 text-sm" onClick={() => props.onRetry!()}>Retry</button></Show>
       </div>
     }>
-      <div class="error-card section-failure-card" role="alert">
-        <strong>{errorHeading(error(), props.fallback)}</strong>
+      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
+        <strong class="block mb-1">{errorHeading(error(), props.fallback)}</strong>
         <Show when={channel()}>
-          {ch => <p class="section-failure-channel">Channel: <code>{ch()}</code></p>}
+          {ch => <p class="m-0 mb-2 text-sm text-muted-foreground">Channel: <code class="text-destructive-light">{ch()}</code></p>}
         </Show>
-        <ul class="section-failure-list">
+        <ul class="list-none m-2 mt-0 p-0 flex flex-col gap-1.5">
           <For each={Object.entries(sections() ?? {})}>
             {([name, verdict]) => (
-              <li class={`section-failure-item tone-${stateTone(verdict.state)}`}>
-                <span class="section-failure-name">{name}</span>
-                <span class="section-failure-state">{stateLabel[verdict.state] ?? verdict.state}</span>
+              <li class="flex flex-wrap items-baseline gap-x-3 gap-y-1.5 p-2 rounded-sm bg-black/20">
+                <span class="font-bold text-sm uppercase tracking-tight text-foreground">{name}</span>
+                <span class={cn(
+                  'text-xs px-2 py-0.5 rounded-sm font-semibold whitespace-nowrap',
+                  stateTone(verdict.state) === 'bad' && 'bg-destructive/15 text-destructive-light',
+                  stateTone(verdict.state) === 'warn' && 'bg-warning/15 text-warning-light',
+                  stateTone(verdict.state) === 'muted' && 'bg-surface-4 text-muted-foreground',
+                )}>{stateLabel[verdict.state] ?? verdict.state}</span>
                 <Show when={verdict.remediation}>
-                  <small class="section-failure-remediation">{verdict.remediation}</small>
+                  <small class="basis-full text-sm text-secondary-foreground leading-relaxed mt-0.5 break-words">{verdict.remediation}</small>
                 </Show>
               </li>
             )}
           </For>
         </ul>
-        <Show when={props.onRetry}><button class="ghost error-retry" onClick={() => props.onRetry!()}>Retry</button></Show>
+        <Show when={props.onRetry}><button class="ghost mt-2.5 text-sm" onClick={() => props.onRetry!()}>Retry</button></Show>
       </div>
     </Show>
   </Show>

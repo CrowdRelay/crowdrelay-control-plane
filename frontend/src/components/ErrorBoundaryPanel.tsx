@@ -25,11 +25,11 @@ export const ErrorBoundaryPanel: Component<{
   return <ErrorBoundary fallback={(error, retry) => {
     reset = retry
     const detail = error instanceof Error ? error.message : String(error ?? 'Unknown error')
-    return <div class="error-card" role="alert">
+    return <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
       <strong>{props.title ?? 'Something failed to render'}</strong>
       <p>The rest of the Control Plane is unaffected. Retry re-renders this section.</p>
-      <small class="mono">{detail}</small>
-      <div class="form-actions">
+      <small class="font-mono">{detail}</small>
+      <div class="mt-5 pt-4 border-t border-border-subtle flex items-center">
         <button type="button" class="ghost" onClick={() => retry()}>Retry</button>
       </div>
     </div>

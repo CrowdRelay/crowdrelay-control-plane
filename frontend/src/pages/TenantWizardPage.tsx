@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import type { RegionalProfile } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { Spinner } from '../components/Spinner'
+import { PageShell, PageHeader, ErrorCard } from '../components/layout'
 
 type Preset = 'PL' | 'DE' | 'CZ' | 'US'
 const presets: Record<Preset, RegionalProfile> = {
@@ -218,14 +219,12 @@ export function TenantWizardPage() {
   }
   const prevStep = () => { if (step() > 1) setStep(step() - 1) }
 
-  return <section class="page wizard-page">
-    <div class="page-head">
-      <div>
-        <span class="eyebrow">ONBOARDING WIZARD</span>
-        <h1>New tenant</h1>
-        <p>Configure identity, products, growth goal, and fanbase sources. The brain adapts its strategy to the selected goal.</p>
-      </div>
-    </div>
+  return <PageShell class="wizard-page">
+    <PageHeader
+      eyebrow="ONBOARDING WIZARD"
+      title="New tenant"
+      description="Configure identity, products, growth goal, and fanbase sources. The brain adapts its strategy to the selected goal."
+    />
 
     <div class="wizard-steps">
       <div class="wizard-step-indicator" classList={{ active: step() >= 1, current: step() === 1 }}>1. Identity + Region</div>
@@ -237,7 +236,7 @@ export function TenantWizardPage() {
 
     <Show when={step() === 1}>
       <div class="wizard-card">
-        <div class="form-section-head"><div><span class="eyebrow">STEP 1</span><h2>Identity + region</h2></div><Show when={overview.error}><StatusBadge status="Provisioner status unavailable" tone="bad" /></Show><Show when={!overview.error}><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></Show></div>
+        <div class="form-section-head"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">STEP 1</span><h2>Identity + region</h2></div><Show when={overview.error}><StatusBadge status="Provisioner status unavailable" tone="bad" /></Show><Show when={!overview.error}><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></Show></div>
         <p class="wizard-intro">Identity is permanent once the tenant exists; the regional block is what the runtime reads instead of guessing from a browser or an IP address.</p>
         <div class="form-grid">
           <label><span>Slug</span><input value={slug()} onInput={(e) => setSlug(e.currentTarget.value.toLowerCase())} placeholder="future-metal" autocomplete="off" /><small>Lowercase, used in URLs, container names and API paths. It cannot be changed later.</small></label>
@@ -252,7 +251,7 @@ export function TenantWizardPage() {
           <label><span>Date format</span><select value={profile().dateFormat} onChange={e=>setRegional('dateFormat',e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></select><small>How dates are printed to fans and operators of this tenant.</small></label>
           <label><span>Number format</span><select value={profile().numberFormat} onChange={e=>setRegional('numberFormat',e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></select><small>Thousands and decimal separators for counts and prices.</small></label>
         </div>
-        <div class="form-section-head"><div><span class="eyebrow">TENANT OPERATOR</span><h2>First account for the team</h2></div></div>
+        <div class="form-section-head"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">TENANT OPERATOR</span><h2>First account for the team</h2></div></div>
         <p class="wizard-intro">Optional. Creates one login scoped to this tenant so the band or their manager can work without a platform admin. You can add more later from the tenant page.</p>
         <div class="form-grid">
           <label>Operator username<input value={opUsername()} onInput={(e) => setOpUsername(e.currentTarget.value.toLowerCase())} placeholder="future-metal-op" autocomplete="off" /><small>Optional. Sees only this tenant; leave blank to skip.</small></label>
@@ -275,7 +274,7 @@ export function TenantWizardPage() {
 
     <Show when={step() === 2}>
       <div class="wizard-card">
-        <div class="form-section-head"><div><span class="eyebrow">STEP 2</span><h2>Products</h2></div></div>
+        <div class="form-section-head"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">STEP 2</span><h2>Products</h2></div></div>
         <p class="wizard-intro">Choose which products to enable for this tenant. Each product can be toggled independently.</p>
         <div class="product-cards">
           <label class="product-card" classList={{ selected: signalEnabled() }}>
@@ -304,7 +303,7 @@ export function TenantWizardPage() {
           <div class="notice-card">Signal is disabled. The brain goal step will not offer "Signal fans" as a north star option. Signal base URL is not required for deployment.</div>
         </Show>
         <Show when={signalEnabled() || synesthesiaEnabled()}>
-          <div class="form-section-head"><div><span class="eyebrow">GOOGLE PLAY</span><h2>Play Store URLs (optional)</h2></div></div>
+          <div class="form-section-head"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">GOOGLE PLAY</span><h2>Play Store URLs (optional)</h2></div></div>
           <p class="wizard-intro">Set the Google Play Store URL for each enabled mobile app. Leave blank if the app is not yet published — you can add it later from the tenant page.</p>
           <div class="form-grid">
             <Show when={signalEnabled()}>
@@ -324,7 +323,7 @@ export function TenantWizardPage() {
 
     <Show when={step() === 3}>
       <div class="wizard-card">
-        <div class="form-section-head"><div><span class="eyebrow">STEP 3</span><h2>Growth goal</h2></div></div>
+        <div class="form-section-head"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">STEP 3</span><h2>Growth goal</h2></div></div>
         <p class="wizard-intro">The brain optimizes its deterministic strategy around this metric. Fan aggregation is always active regardless of this choice.</p>
         <div class="goal-cards">
           <For each={availableNorthStars()}>{ns =>
@@ -346,7 +345,7 @@ export function TenantWizardPage() {
 
     <Show when={step() === 4}>
       <div class="wizard-card">
-        <div class="form-section-head"><div><span class="eyebrow">STEP 4</span><h2>Fanbase sources</h2></div></div>
+        <div class="form-section-head"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">STEP 4</span><h2>Fanbase sources</h2></div></div>
         <p class="wizard-intro">Select which platforms the discovery worker should search for fan communities. These are upserted into the audience graph.</p>
         <div class="source-cards">
           <For each={fanbaseSources}>{src =>
@@ -368,7 +367,7 @@ export function TenantWizardPage() {
 
     <Show when={step() === 5}>
       <div class="wizard-card">
-        <div class="form-section-head"><div><span class="eyebrow">STEP 5</span><h2>Review + deploy</h2></div></div>
+        <div class="form-section-head"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">STEP 5</span><h2>Review + deploy</h2></div></div>
         <div class="wizard-summary">
           <div class="summary-row"><span>Slug</span><strong>{slug()}</strong></div>
           <div class="summary-row"><span>Display name</span><strong>{name()}</strong></div>
@@ -394,7 +393,7 @@ export function TenantWizardPage() {
         </div>
 
         <Show when={deployNow()}>
-          <div class="form-section-head"><div><span class="eyebrow">DEPLOYMENT</span><h2>Deploy URLs</h2></div></div>
+          <div class="form-section-head"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DEPLOYMENT</span><h2>Deploy URLs</h2></div></div>
           <div class="form-grid">
             <label>CrowdRelay API base URL<input value={crowdrelayBaseUrl()} onInput={(e) => setCrowdrelayBaseUrl(e.currentTarget.value)} placeholder="https://api.future-metal.example" /></label>
             <Show when={signalEnabled()}>
@@ -423,7 +422,7 @@ export function TenantWizardPage() {
           <label class="check-row"><input type="checkbox" checked={deployNow()} onChange={(e) => setDeployNow(e.currentTarget.checked)} /><span><strong>Deploy isolated CrowdRelay instance now</strong><small>Only an agent for the selected data region may claim this schema-v4 job.</small></span></label>
         </Show>
 
-        <Show when={createTenant.error}><div class="error-card" role="alert">{createTenant.error instanceof Error ? createTenant.error.message : 'Tenant creation failed'}</div></Show>
+        <Show when={createTenant.error}><ErrorCard>{createTenant.error instanceof Error ? createTenant.error.message : 'Tenant creation failed'}</ErrorCard></Show>
         <div class="form-actions">
           <div class="form-readiness" aria-live="polite">
             <span class="readiness-message">
@@ -438,5 +437,5 @@ export function TenantWizardPage() {
         </div>
       </div>
     </Show>
-  </section>
+  </PageShell>
 }

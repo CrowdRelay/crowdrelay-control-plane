@@ -136,7 +136,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
   return (
     <div class="growth-intelligence-panel">
       <Show when={error()}>
-        <div class="error-card">{error()}</div>
+        <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error()}</div>
       </Show>
 
       {/* Approval queue — pending growth intelligence actions */}
@@ -151,7 +151,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           </Show>
         </div>
         <p class="agent-section-intro">Actions the intelligence has queued for your approval. Community posts, press pitches, and other growth actions appear here with rich detail before they're executed.</p>
-        <Show when={overview.error}><div class="error-card">Growth intelligence overview unavailable: {errorMessage(overview.error, 'Service unreachable')}</div></Show>
+        <Show when={overview.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth intelligence overview unavailable: {errorMessage(overview.error, 'Service unreachable')}</div></Show>
         <Show when={pendingGrowthActions().length > 0} fallback={
           <Show when={overview.isFetching} fallback={
             <Show when={overview.data} fallback={
@@ -175,7 +175,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
                       <span class="badge">{actionKindLabel(action.action_kind)}</span>
                       <strong>{summary.title}</strong>
                       <Show when={action.approval_expires_at}>
-                        <span class="muted">expires {formatIsoAge(action.approval_expires_at!)}</span>
+                        <span class="text-muted-foreground">expires {formatIsoAge(action.approval_expires_at!)}</span>
                       </Show>
                     </div>
                     <Show when={summary.detail}>
@@ -273,7 +273,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           </Show>
         </div>
         <p class="agent-section-intro">Worker runs dispatched by the intelligence. Each workflow is a growth plan: the intelligence decides what to research, draft, or analyse, then dispatches LLM workers to execute.</p>
-        <Show when={workflows.error}><div class="error-card">Growth workflows unavailable: {errorMessage(workflows.error, 'Service unreachable')}</div></Show>
+        <Show when={workflows.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth workflows unavailable: {errorMessage(workflows.error, 'Service unreachable')}</div></Show>
         <Show when={workflows.data && workflows.data!.length > 0} fallback={
           <Show when={workflows.data} fallback={<SkeletonGrid count={3} minCardHeight='100px' />}>
             <EmptyState label="No worker runs" hint="Worker runs are LLM agent executions dispatched by the intelligence. They appear here once the autopilot starts dispatching." />
@@ -287,9 +287,9 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
                   <StatusBadge status={wf.status} tone={workflowStatusTone(wf.status)} />
                 </div>
                 <div class="growth-workflow-meta">
-                  <span class="muted">{formatIsoAge(wf.created_at)}</span>
+                  <span class="text-muted-foreground">{formatIsoAge(wf.created_at)}</span>
                   <Show when={wf.plan}>
-                    <span class="muted">{wf.plan!.length} sub-tasks</span>
+                    <span class="text-muted-foreground">{wf.plan!.length} sub-tasks</span>
                   </Show>
                 </div>
               </button>
@@ -332,7 +332,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
                       <span class="badge">#{i() + 1} · {item.template}</span>
                       <span class="badge">priority {item.priority}</span>
                     </div>
-                    <p class="muted">{item.rationale}</p>
+                    <p class="text-muted-foreground">{item.rationale}</p>
                     <pre class="agent-outcome-item">{item.prompt}</pre>
                   </div>
                 )}</For>

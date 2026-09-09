@@ -121,7 +121,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
 
   return <div class="growth-funnel-panel">
     <Show when={error()}>
-      <div class="error-card">{error()}</div>
+      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error()}</div>
     </Show>
 
     {/* Time range selector */}
@@ -211,7 +211,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
                     <td>{stats.failed}</td>
                     <td>{stats.running}</td>
                     <td>{stats.queued}</td>
-                    <td><Show when={successRate != null} fallback={<span class="muted">—</span>}>
+                    <td><Show when={successRate != null} fallback={<span class="text-muted-foreground">—</span>}>
                       <span class={`badge tone-${tone}`}>{successRate}%</span>
                     </Show></td>
                   </tr>
@@ -233,7 +233,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
       <div class="agent-section">
         <div class="agent-section-head">
           <h3>Recent worker runs</h3>
-          <span class="muted">last {funnel.data!.recent_worker_runs.length}</span>
+          <span class="text-muted-foreground">last {funnel.data!.recent_worker_runs.length}</span>
         </div>
         <p class="agent-section-intro">The most recent worker runs dispatched by the intelligence, with their outcomes.</p>
         <div class="funnel-recent-list">
@@ -242,14 +242,14 @@ export function GrowthFunnelPanel(props: { slug: string }) {
               <div class="funnel-recent-head">
                 <strong>{templateLabel(run.template_id)}</strong>
                 <StatusBadge status={run.status} tone={runStatusTone(run.status)} />
-                <span class="muted">{formatIsoAge(run.created_at)}</span>
+                <span class="text-muted-foreground">{formatIsoAge(run.created_at)}</span>
               </div>
               <div class="funnel-recent-meta">
                 <Show when={run.has_outcome}>
                   <span class="badge free-chip">outcome: {run.outcome_kind ?? 'structured'}</span>
                 </Show>
                 <Show when={run.tokens_in > 0 || run.tokens_out > 0}>
-                  <span class="muted">{run.tokens_in} in · {run.tokens_out} out tokens</span>
+                  <span class="text-muted-foreground">{run.tokens_in} in · {run.tokens_out} out tokens</span>
                 </Show>
               </div>
             </div>

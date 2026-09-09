@@ -59,7 +59,7 @@ export function FanTablePanel(props: {
   return <div class="agent-section">
     <div class="agent-section-head">
       <h3>Fan list</h3>
-      <span class="muted">{filtered().length} fans</span>
+      <span class="text-muted-foreground">{filtered().length} fans</span>
     </div>
     <div class="fan-search-bar">
       <input
@@ -87,11 +87,11 @@ export function FanTablePanel(props: {
             <For each={filtered().slice(0, 100)}>{(fan) => (
               <tr class="fan-row" onClick={() => openFan(fan)}>
                 <td>{fan.display_name ?? '—'}</td>
-                <td class="muted">{fan.email}</td>
+                <td class="text-muted-foreground">{fan.email}</td>
                 <td><span class={`badge tone-${fanStatusTone(fan.status)}`}>{fan.status}</span></td>
-                <td><span class="muted">{fan.activation_state}</span></td>
+                <td><span class="text-muted-foreground">{fan.activation_state}</span></td>
                 <td>{fan.qualified_referrals}</td>
-                <td class="muted">{formatDate(fan.created_at)}</td>
+                <td class="text-muted-foreground">{formatDate(fan.created_at)}</td>
               </tr>
             )}</For>
           </tbody>

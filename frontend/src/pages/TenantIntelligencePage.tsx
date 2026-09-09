@@ -14,7 +14,7 @@ import { AcquisitionChannelsPanel } from '../components/AcquisitionChannelsPanel
 import { GrowthFunnelPanel } from '../components/GrowthFunnelPanel'
 import { StatusBadge } from '../components/StatusBadge'
 import { SkeletonBrainGroup, SkeletonSection } from '../components/Skeleton'
-import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
+import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
 import { SectionIcon } from '../components/SectionIcon'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 
@@ -38,29 +38,29 @@ export function TenantIntelligencePage() {
   const d = () => model.data
   const autopilot = () => d()?.autopilot
 
-  return <section class="page">
-    <div class="page-head">
-      <div>
-        <span class="eyebrow">BRAIN</span>
-        <h1>Intelligence</h1>
-        <p>The deterministic autopilot's decision timeline, worker dispatch, and growth intelligence. The intelligence engine owns strategy — LLM workers gather and draft, but never decide.</p>
-      </div>
-      <Show when={!model.error && model.data}>
-        <div class="page-head-status">
-          <Show when={autopilot()?.runtime_enabled}>
-            <StatusBadge status="autopilot on" tone="good" />
-          </Show>
-          <StatusBadge status={autopilot()?.queued_actions ? `${autopilot()!.queued_actions} queued` : 'idle'} tone={autopilot()?.queued_actions ? 'warn' : 'muted'} />
-        </div>
-      </Show>
-    </div>
+  return <PageShell>
+    <PageHeader
+      eyebrow="BRAIN"
+      title="Intelligence"
+      description="The deterministic autopilot's decision timeline, worker dispatch, and growth intelligence. The intelligence engine owns strategy — LLM workers gather and draft, but never decide."
+      actions={
+        <Show when={!model.error && model.data}>
+          <div class="flex items-center gap-2">
+            <Show when={autopilot()?.runtime_enabled}>
+              <StatusBadge status="autopilot on" tone="good" />
+            </Show>
+            <StatusBadge status={autopilot()?.queued_actions ? `${autopilot()!.queued_actions} queued` : 'idle'} tone={autopilot()?.queued_actions ? 'warn' : 'muted'} />
+          </div>
+        </Show>
+      }
+    />
 
     <Show when={model.error}>
       <SectionFailureCard error={model.error} fallback="Intelligence channel unavailable" onRetry={() => void model.refetch()} />
     </Show>
 
     {/* Intelligence loop SVG — static, renders immediately */}
-    <div class="intel-loop-wrap">
+    <div class="mb-4 p-5 rounded-lg border border-border bg-card">
       <svg viewBox="0 0 800 120" xmlns="http://www.w3.org/2000/svg" class="intel-loop-svg" aria-hidden="true">
         <defs>
           <marker id="intel-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
@@ -108,10 +108,10 @@ export function TenantIntelligencePage() {
 
       {/* ── Overview tab — what it knows ── */}
       <TabPanel active={activeTab()} id="overview" visited={isVisited('overview')}>
-        <div class="brain-group">
-          <div class="brain-group-head">
-            <span class="eyebrow">WHAT IT KNOWS</span>
-            <h3><SectionIcon name="brain" />Scorecard & objectives</h3>
+        <div class="mb-6">
+          <div class="flex items-center gap-3 mb-3 pb-2 border-b border-border-subtle">
+            <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">WHAT IT KNOWS</span>
+            <h3 class="m-0 text-md font-semibold text-foreground flex items-center gap-2"><SectionIcon name="brain" />Scorecard & objectives</h3>
           </div>
           <ScorecardPanel slug={params().slug} />
           <GrowthObjectivesPanel slug={params().slug} />
@@ -120,10 +120,10 @@ export function TenantIntelligencePage() {
 
       {/* ── Growth Intelligence tab — what it believes ── */}
       <TabPanel active={activeTab()} id="growth" visited={isVisited('growth')}>
-        <div class="brain-group">
-          <div class="brain-group-head">
-            <span class="eyebrow">WHAT IT BELIEVES</span>
-            <h3><SectionIcon name="trending-up" />Growth intelligence</h3>
+        <div class="mb-6">
+          <div class="flex items-center gap-3 mb-3 pb-2 border-b border-border-subtle">
+            <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">WHAT IT BELIEVES</span>
+            <h3 class="m-0 text-md font-semibold text-foreground flex items-center gap-2"><SectionIcon name="trending-up" />Growth intelligence</h3>
           </div>
           <GrowthPosturePanel slug={params().slug} />
           <RunBrainCyclePanel slug={params().slug} />
@@ -133,10 +133,10 @@ export function TenantIntelligencePage() {
 
       {/* ── Growth Funnel tab — where the audience is and how it converts ── */}
       <TabPanel active={activeTab()} id="funnel" visited={isVisited('funnel')}>
-        <div class="brain-group">
-          <div class="brain-group-head">
-            <span class="eyebrow">FUNNEL</span>
-            <h3><SectionIcon name="trending-up" />Growth metrics & funnel</h3>
+        <div class="mb-6">
+          <div class="flex items-center gap-3 mb-3 pb-2 border-b border-border-subtle">
+            <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">FUNNEL</span>
+            <h3 class="m-0 text-md font-semibold text-foreground flex items-center gap-2"><SectionIcon name="trending-up" />Growth metrics & funnel</h3>
           </div>
           <GrowthMetricsPanel slug={params().slug} />
           <AcquisitionChannelsPanel slug={params().slug} />
@@ -146,10 +146,10 @@ export function TenantIntelligencePage() {
 
       {/* ── Decisions tab — what it decided ── */}
       <TabPanel active={activeTab()} id="decisions" visited={isVisited('decisions')}>
-        <div class="brain-group">
-          <div class="brain-group-head">
-            <span class="eyebrow">WHAT IT DECIDED</span>
-            <h3><SectionIcon name="history" />Decision timeline</h3>
+        <div class="mb-6">
+          <div class="flex items-center gap-3 mb-3 pb-2 border-b border-border-subtle">
+            <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">WHAT IT DECIDED</span>
+            <h3 class="m-0 text-md font-semibold text-foreground flex items-center gap-2"><SectionIcon name="history" />Decision timeline</h3>
           </div>
           <IntelligenceTransparencyPanel slug={params().slug} />
         </div>
@@ -157,14 +157,14 @@ export function TenantIntelligencePage() {
 
       {/* ── Learning tab — what it learned ── */}
       <TabPanel active={activeTab()} id="learning" visited={isVisited('learning')}>
-        <div class="brain-group">
-          <div class="brain-group-head">
-            <span class="eyebrow">WHAT IT LEARNED</span>
-            <h3><SectionIcon name="refresh-cw" />Decision → Action → Outcome → Learning</h3>
+        <div class="mb-6">
+          <div class="flex items-center gap-3 mb-3 pb-2 border-b border-border-subtle">
+            <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">WHAT IT LEARNED</span>
+            <h3 class="m-0 text-md font-semibold text-foreground flex items-center gap-2"><SectionIcon name="refresh-cw" />Decision → Action → Outcome → Learning</h3>
           </div>
           <LearningLoopPanel slug={params().slug} />
         </div>
       </TabPanel>
     </>}</Show>
-  </section>
+  </PageShell>
 }

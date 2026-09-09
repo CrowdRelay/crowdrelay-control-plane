@@ -7,6 +7,7 @@ import { triggerRefresh, refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
+import { Card } from './ui/card'
 
 const CycleIcon = (props: { size?: number }) => (
   <svg width={props.size ?? 18} height={props.size ?? 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -83,7 +84,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
   }
 
   return (
-    <section class="panel">
+    <Card class="p-4">
       <header class="panel-header">
         <h2><CycleIcon /> Run a growth cycle</h2>
         <button class="ghost" onClick={() => void preview.refetch()} disabled={preview.isFetching}>
@@ -100,7 +101,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
       <Show when={preview.data}>
         {data => (
           <>
-            <p class="muted">
+            <p class="text-muted-foreground">
               The brain would run <strong>{strategyLabel(data().strategy)}</strong>, considering{' '}
               {data().templatesConsidered} worker templates. Nothing below has been dispatched yet.
             </p>
@@ -188,7 +189,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
               >
                 {running() && <Spinner />} {running() ? 'Requesting…' : 'Run cycle now'}
               </button>
-              <span class="muted">
+              <span class="text-muted-foreground">
                 Dispatches real outreach. Subject to the same autonomy policy and 24-hour action
                 cap as a scheduled cycle.
               </span>
@@ -200,6 +201,6 @@ export function RunBrainCyclePanel(props: { slug: string }) {
       <Show when={notice()}>
         {value => <p class={`notice ${value().tone}`}>{value().message}</p>}
       </Show>
-    </section>
+    </Card>
   )
 }

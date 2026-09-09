@@ -5,6 +5,7 @@ import type { RegionalProfile, TenantSummary } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
+import { Card } from './ui/card'
 
 type Props = { tenant: TenantSummary }
 
@@ -45,9 +46,9 @@ export function RegionalProfilePanel(props: Props) {
   const currencyValid = () => /^[A-Z]{3}$/.test(draft().currency.trim())
   const ready = () => countryValid() && localeValid() && timezoneValid() && currencyValid()
 
-  return <article class="panel regional-profile-panel">
-    <div class="section-title">
-      <div><span class="eyebrow">REGIONALIZATION</span><h2><SectionIcon name="globe" />Explicit tenant profile</h2></div>
+  return <Card class="p-4 regional-profile-panel">
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3">
+      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">REGIONALIZATION</span><h2><SectionIcon name="globe" />Explicit tenant profile</h2></div>
       <StatusBadge
         status={props.tenant.regionalProfile ? `${props.tenant.regionalProfile.dataRegion.toUpperCase()} classified` : 'legacy / unclassified'}
         tone={props.tenant.regionalProfile ? 'good' : 'warn'}
@@ -66,12 +67,12 @@ export function RegionalProfilePanel(props: Props) {
       <label>Number format<select value={draft().numberFormat} onChange={e=>set('numberFormat', e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></select></label>
       <label>Data region<select disabled={Boolean(props.tenant.regionalProfile)} value={draft().dataRegion} onChange={e=>set('dataRegion', e.currentTarget.value as 'eu'|'us')}><option value="eu">EU residency</option><option value="us">US residency</option></select><small>{props.tenant.regionalProfile ? 'Residency changes require an explicit migration, not ordinary editing.' : 'Choose before deployment. Normal editing cannot silently move data later.'}</small></label>
     </div>
-    <Show when={update.error}><div class="error-card" role="alert">{update.error instanceof Error ? update.error.message : 'Regional profile update failed'}</div></Show>
+    <Show when={update.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{update.error instanceof Error ? update.error.message : 'Regional profile update failed'}</div></Show>
     <div class="regional-profile-footer">
       <div class="form-readiness" aria-live="polite">
         <Show when={!ready()} fallback={<span class="readiness-message"><span class="auth-dot ok"/>Profile is complete and ready to save.</span>}><span class="readiness-message"><span class="auth-dot"/>Complete country, locale, timezone and currency to continue.</span></Show>
       </div>
       <button type="button" onClick={()=>update.mutate()} disabled={update.isPending || !ready()}>{update.isPending && <Spinner />} {update.isPending ? 'Saving…' : props.tenant.regionalProfile ? 'Save regional profile' : 'Classify tenant'}</button>
     </div>
-  </article>
+  </Card>
 }

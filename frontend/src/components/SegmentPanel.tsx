@@ -37,7 +37,7 @@ export function SegmentPanel(props: {
   return <div class="agent-section">
     <div class="agent-section-head">
       <h3>Segments</h3>
-      <span class="muted">{props.segments.length} segments</span>
+      <span class="text-muted-foreground">{props.segments.length} segments</span>
     </div>
     <p class="agent-section-intro">Audience segments group fans by behaviour, source, or lifecycle stage. Click a segment to preview its size.</p>
     <Show when={props.segments.length > 0} fallback={<EmptyState label="No segments defined" hint="Segments group fans by behavior, source, or engagement level. Define segments to target outreach effectively." />}>
@@ -51,13 +51,13 @@ export function SegmentPanel(props: {
               <strong>{segment.name}</strong>
               <Show when={!segment.active}><span class="badge tone-muted">inactive</span></Show>
             </div>
-            <Show when={segment.description}><p class="muted segment-desc">{segment.description}</p></Show>
+            <Show when={segment.description}><p class="text-muted-foreground segment-desc">{segment.description}</p></Show>
             <Show when={previewSlug() === segment.slug}>
               <div class="segment-preview">
                 <Show when={loading}><SkeletonBlock height="18px" width="120px" /></Show>
                 <Show when={error}><span class="agent-error">{error()}</span></Show>
                 <Show when={!loading && !error && previewCount() != null}>
-                  <span class="muted">~{previewCount()} fans in this segment</span>
+                  <span class="text-muted-foreground">~{previewCount()} fans in this segment</span>
                 </Show>
               </div>
             </Show>

@@ -7,6 +7,7 @@ import { SkeletonRows } from '../components/Skeleton'
 import type { RegionalProfile } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { Spinner } from '../components/Spinner'
+import { PageShell, PageHeader, ErrorCard } from '../components/layout'
 
 type Preset = 'PL' | 'DE' | 'CZ' | 'US'
 const presets: Record<Preset, RegionalProfile> = {
@@ -85,26 +86,24 @@ export function TenantsPage() {
     && (desiredVersion().trim().length > 0 || Boolean(overview.data?.provisionerDefaultImageTag))
   )
 
-  return <section class="page">
-    <div class="page-head">
-      <div>
-        <span class="eyebrow">TENANT REGISTRY</span>
-        <h1>{isPlatformLevel() ? 'Teams on the platform' : 'Your tenant'}</h1>
-        <p>{isPlatformLevel()
-          ? 'Create an isolated CrowdRelay + Signal tenant with an explicit regional profile. Browser locale/IP never silently decides currency, timezone or data residency.'
-          : 'Your tenant on the platform. Regional profile, runtime health and deployment state.'}</p>
-      </div>
-      {/* A <button> inside an <a> nests one interactive control in another:
-          screen readers announce both, and the anchor is what actually
-          navigates. The link carries the button treatment instead. */}
-      <Show when={isAdmin()}><Link class="button-link" to="/tenants/new">+ New tenant</Link></Show>
-    </div>
+  return <PageShell>
+    {/* A <button> inside an <a> nests one interactive control in another:
+        screen readers announce both, and the anchor is what actually
+        navigates. The link carries the button treatment instead. */}
+    <PageHeader
+      eyebrow="TENANT REGISTRY"
+      title={isPlatformLevel() ? 'Teams on the platform' : 'Your tenant'}
+      description={isPlatformLevel()
+        ? 'Create an isolated CrowdRelay + Signal tenant with an explicit regional profile. Browser locale/IP never silently decides currency, timezone or data residency.'
+        : 'Your tenant on the platform. Regional profile, runtime health and deployment state.'}
+      actions={<Show when={isAdmin()}><Link class="button-link" to="/tenants/new">+ New tenant</Link></Show>}
+    />
 
     <Show when={notice()}>{message => <div class="notice-card">{message()}</div>}</Show>
-    <Show when={tenants.error || overview.error}><div class="error-card" role="alert">{tenants.error instanceof Error ? tenants.error.message : overview.error instanceof Error ? overview.error.message : 'Control Plane data could not be loaded'}</div></Show>
+    <Show when={tenants.error || overview.error}><ErrorCard>{tenants.error instanceof Error ? tenants.error.message : overview.error instanceof Error ? overview.error.message : 'Control Plane data could not be loaded'}</ErrorCard></Show>
     <Show when={isAdmin() && creating()}>
       <form class="tenant-create-form" onSubmit={(event) => { event.preventDefault(); createTenant.mutate() }}>
-        <div class="form-section-head"><div><span class="eyebrow">NEW TENANT</span><h2>Identity + region</h2></div><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></div>
+        <div class="form-section-head"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">NEW TENANT</span><h2>Identity + region</h2></div><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></div>
         <div class="form-grid">
           <label>Slug<input value={slug()} onInput={(e) => setSlug(e.currentTarget.value.toLowerCase())} placeholder="future-metal" autocomplete="off" maxlength="60" /></label>
           <label>Display name<input value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="Future Metal" maxlength="120" /></label>
@@ -121,13 +120,13 @@ export function TenantsPage() {
           <label>Signal / public site URL<input value={signalBaseUrl()} onInput={(e) => setSignalBaseUrl(e.currentTarget.value)} placeholder="https://future-metal.example" /></label>
           <label>Release SHA <small>optional if server default is configured</small><input value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={overview.data?.provisionerDefaultImageTag ?? 'sha-<40-char CrowdRelay commit>'} /></label>
         </div>
-        <div class="form-section-head"><div><span class="eyebrow">TENANT OPERATOR</span><h2>First account for the team</h2></div></div>
+        <div class="form-section-head"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">TENANT OPERATOR</span><h2>First account for the team</h2></div></div>
         <div class="form-grid">
           <label>Operator username<input value={opUsername()} onInput={(e) => setOpUsername(e.currentTarget.value.toLowerCase())} placeholder="future-metal-op" autocomplete="off" /><small>Optional. Sees only this tenant; leave blank to skip.</small></label>
           <label>Operator password<input type="password" value={opPassword()} onInput={(e) => setOpPassword(e.currentTarget.value)} placeholder="min 12 characters" autocomplete="new-password" /><small>Handed to the team once — hashed with argon2id, never shown again.</small></label>
         </div>
         <label class="check-row"><input type="checkbox" checked={deployNow()} onChange={(e) => setDeployNow(e.currentTarget.checked)} /><span><strong>Deploy isolated CrowdRelay instance now</strong><small>Only an agent for the selected data region may claim this schema-v4 job.</small></span></label>
-        <Show when={createTenant.error}><div class="error-card" role="alert">{createTenant.error instanceof Error ? createTenant.error.message : 'Tenant creation failed'}</div></Show>
+        <Show when={createTenant.error}><ErrorCard>{createTenant.error instanceof Error ? createTenant.error.message : 'Tenant creation failed'}</ErrorCard></Show>
         <div class="form-actions right"><button type="button" class="ghost" onClick={() => { setCreating(false); resetForm() }}>Cancel</button><button type="submit" disabled={createTenant.isPending || slug().length < 2 || name().length < 2 || !regionalReady() || !deployFieldsReady() || !operatorFieldsReady()}>{createTenant.isPending && <Spinner />} {createTenant.isPending ? 'Creating…' : deployNow() ? 'Create & deploy' : 'Create tenant'}</button></div>
       </form>
     </Show>
@@ -139,5 +138,5 @@ export function TenantsPage() {
         <div class="row-health"><StatusBadge status={tenant.status} tone={tenant.status === 'active' ? 'good' : tenant.status === 'suspended' ? 'bad' : tenant.status === 'parked' ? 'warn' : 'warn'} /><StatusBadge status={tenant.runtimeHealth} tone={tenant.runtimeHealth === 'healthy' ? 'good' : tenant.runtimeHealth === 'degraded' ? 'bad' : tenant.runtimeHealth === 'stale' ? 'warn' : 'muted'} /><StatusBadge status={tenant.regionalProfile ? `${tenant.regionalProfile.dataRegion.toUpperCase()} region` : 'unclassified'} tone={tenant.regionalProfile ? 'good' : 'warn'} /><StatusBadge status={tenant.brandingPalette ? 'Custom palette' : 'Product defaults'} /></div>
       </Link>}
     </For></div>
-  </section>
+  </PageShell>
 }

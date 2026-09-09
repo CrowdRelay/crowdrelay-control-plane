@@ -155,11 +155,11 @@ export function GrowthMetricsPanel(props: { slug: string }) {
     <div class="agent-section-head">
       <h3>Growth metrics</h3>
       <Show when={coverage.data && hasFeeds()}>
-        <span class="muted">{liveSeries()} active series</span>
+        <span class="text-muted-foreground">{liveSeries()} active series</span>
       </Show>
     </div>
 
-    <Show when={coverage.error}><div class="error-card">Growth coverage unavailable: {errorMessage(coverage.error, 'Service unreachable')}</div></Show>
+    <Show when={coverage.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth coverage unavailable: {errorMessage(coverage.error, 'Service unreachable')}</div></Show>
     <Show
       when={coverage.data && hasFeeds()}
       fallback={
@@ -201,7 +201,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
         </Show>
       </div>
 
-      <Show when={trends.error}><div class="error-card">Growth trends unavailable: {errorMessage(trends.error, 'Service unreachable')}</div></Show>
+      <Show when={trends.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth trends unavailable: {errorMessage(trends.error, 'Service unreachable')}</div></Show>
       <Show when={trends.data && trends.data!.length > 0} fallback={
         <Show when={trends.isFetching} fallback={
           <Show when={hasLive()} fallback={<EmptyState label="No live feeds yet" hint="Trends appear once data starts flowing." />}>
@@ -225,7 +225,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                 <div class="gm-platform-head">
                   <span class="gm-platform-dot" style={{ background: color }} />
                   <strong>{platformLabel(platform)}</strong>
-                  <span class="muted">{items.length} series</span>
+                  <span class="text-muted-foreground">{items.length} series</span>
                 </div>
                 <div class="gm-bar-list">
                   <For each={expandedPlatforms().has(platform) ? items : items.slice(0, MAX_VISIBLE_PLATFORM_BARS)}>{(trend: GrowthMetricTrendView) => {
@@ -258,7 +258,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
           <div class="gm-conversion-section">
             <div class="gm-platform-head">
               <strong>Conversion</strong>
-              <span class="muted">{grouped().downstream.length} metrics</span>
+              <span class="text-muted-foreground">{grouped().downstream.length} metrics</span>
             </div>
             <div class="growth-metrics-grid">
               <For each={showAllDownstream() ? grouped().downstream : grouped().downstream.slice(0, MAX_VISIBLE_DOWNSTREAM)}>{(trend: GrowthMetricTrendView) => {
@@ -288,7 +288,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                       {delta != null ? `${delta > 0 ? '+' : ''}${compactNumber(delta)} (7d)` : 'no prior'}
                       {trend.stale ? ' · stale' : ''}
                     </span>
-                    <span class="muted trend-platform">{platformLabel(trend.platform)}</span>
+                    <span class="text-muted-foreground trend-platform">{platformLabel(trend.platform)}</span>
                   </div>
                 )
               }}</For>

@@ -2,6 +2,7 @@ import { For, Show } from 'solid-js'
 import type { ReleaseLedgerOverview } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
+import { Card } from './ui/card'
 
 const staleReleaseComponents = (ledger: ReleaseLedgerOverview | null) =>
   ledger?.components.filter((component) => component.stale) ?? []
@@ -58,10 +59,10 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
   const ledger = () => props.releaseLedger
   const stale = () => staleReleaseComponents(ledger())
 
-  return <article class="panel ecosystem-release-panel">
-    <div class="section-title">
+  return <Card class="p-4 ecosystem-release-panel">
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3">
       <div>
-        <span class="eyebrow">ECOSYSTEM RELEASE</span>
+        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">ECOSYSTEM RELEASE</span>
         <h2><SectionIcon name="git-branch" />Production convergence</h2>
         <p>Every expected production component reports its own release receipt. Missing or stale receipts stay visible until the ecosystem converges.</p>
       </div>
@@ -102,7 +103,7 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
                 </div>
               </div>
               <small>{component.source_sha.slice(0, 12)} · {releaseObserved(component.observed_at)}</small>
-              <Show when={component.deploy_ref}><small class="muted">{component.deploy_ref}</small></Show>
+              <Show when={component.deploy_ref}><small class="text-muted-foreground">{component.deploy_ref}</small></Show>
             </div>
             <div class="row-health">
               <Show when={component.artifact_digest}><code title={component.artifact_digest ?? undefined}>{component.artifact_digest?.slice(0, 20)}…</code></Show>
@@ -133,5 +134,5 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
         </div>
       </>}
     </Show>
-  </article>
+  </Card>
 }

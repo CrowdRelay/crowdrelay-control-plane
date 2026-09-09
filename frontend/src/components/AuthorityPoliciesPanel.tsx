@@ -10,6 +10,7 @@ import { Spinner } from './Spinner'
 import { SectionFailureCard } from './SectionFailureCard'
 import { PolicyEditor } from './PolicyEditor'
 import { CONTEXT_LABELS, labelOr } from '../lib/opportunity-labels'
+import { Card } from './ui/card'
 
 const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
 
@@ -106,15 +107,15 @@ export function AuthorityPoliciesPanel(props: {
     }
   }
 
-  return <article class="panel operations-panel">
-    <div class="section-title operations-title">
-      <div><span class="eyebrow">AUTOPILOT</span><h2><SectionIcon name="shield" />Authority policies</h2><p>One row per kind of work the autopilot does. This is the only place these controls live.</p></div>
+  return <Card class="p-4 operations-panel">
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3 operations-title">
+      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">AUTOPILOT</span><h2><SectionIcon name="shield" />Authority policies</h2><p>One row per kind of work the autopilot does. This is the only place these controls live.</p></div>
       <div class="row-health">
         <StatusBadge status={autopilot.data?.runtime_enabled ? 'runtime on' : 'runtime off'} tone={autopilot.data?.runtime_enabled ? 'good' : 'muted'} />
       </div>
     </div>
 
-    <Show when={mutationError()}>{message => <div class="error-card operations-error" role="alert">{message()}</div>}</Show>
+    <Show when={mutationError()}>{message => <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive operations-error" role="alert">{message()}</div>}</Show>
 
     <Show when={confirming()?.startsWith('autopilot')}><div class="warning-card confirm-card" role="alertdialog" aria-label="Bulk Autopilot change">
       <strong>{confirmCopy()!.title}</strong>
@@ -192,5 +193,5 @@ export function AuthorityPoliciesPanel(props: {
         </div>
       </Show>
     </>}</Show>
-  </article>
+  </Card>
 }

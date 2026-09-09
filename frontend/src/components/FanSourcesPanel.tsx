@@ -388,9 +388,9 @@ export function FanSourcesPanel(props: {
     return null
   }
 
-  return <article class="panel">
-    <div class="section-title">
-      <div><span class="eyebrow">FAN SOURCES</span><h2><SectionIcon name="globe" />Fanbases</h2><p>First-class audience blocks with a swappable acquisition origin. Every ingest lands candidates as pending double opt-in — active fans are never downgraded and opt-outs are never resurrected.</p></div>
+  return <article class="rounded-lg border border-border bg-card text-foreground p-4">
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3">
+      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">FAN SOURCES</span><h2><SectionIcon name="globe" />Fanbases</h2><p>First-class audience blocks with a swappable acquisition origin. Every ingest lands candidates as pending double opt-in — active fans are never downgraded and opt-outs are never resurrected.</p></div>
       <div class="row-health">
         <Show when={!creating}>
           <button onClick={() => { setCreating(true); setNotice(null) }}>+ New fanbase</button>

@@ -1,5 +1,6 @@
 import { Link, useNavigate, useParams, useRouter } from '@tanstack/solid-router'
 import { Show, type Component, type JSX, onCleanup } from 'solid-js'
+import { cn } from '../lib/cn'
 
 // Bottom tab bar for mobile — the three critical operator actions that are
 // genuinely useful on a phone. Everything else stays in the sidebar drawer.
@@ -54,12 +55,14 @@ export const MobileTabBar: Component = () => {
   }
 
   return (
-    <nav class="mobile-tab-bar" aria-label="Quick actions">
-      <div class="mobile-tab-bar-inner">
+    <nav class="hidden max-[560px]:block fixed bottom-0 left-0 right-0 z-20 bg-card border-t border-border pb-[env(safe-area-inset-bottom)]" aria-label="Quick actions">
+      <div class="flex w-full max-w-[600px] mx-auto px-1">
         <Link
           to="/"
-          class="mobile-tab"
-          classList={{ active: isActive('/', true) }}
+          class={cn(
+            'flex-1 flex flex-col items-center gap-[3px] py-2.5 px-1 bg-transparent border-0 rounded-none cursor-pointer transition-colors min-h-[52px] text-xs font-semibold tracking-tight',
+            isActive('/', true) ? 'text-primary' : 'text-muted-foreground hover:text-secondary-foreground',
+          )}
           activeOptions={{ exact: true }}
           aria-current={isActive('/', true) ? 'page' : undefined}
         >
@@ -68,8 +71,10 @@ export const MobileTabBar: Component = () => {
         </Link>
         <Link
           to={opsPath() as any}
-          class="mobile-tab"
-          classList={{ active: pathname().includes('/operations') }}
+          class={cn(
+            'flex-1 flex flex-col items-center gap-[3px] py-2.5 px-1 bg-transparent border-0 rounded-none cursor-pointer transition-colors min-h-[52px] text-xs font-semibold tracking-tight',
+            pathname().includes('/operations') ? 'text-primary' : 'text-muted-foreground hover:text-secondary-foreground',
+          )}
           aria-current={pathname().includes('/operations') ? 'page' : undefined}
         >
           <TabIcon name="operations" />
@@ -77,8 +82,7 @@ export const MobileTabBar: Component = () => {
         </Link>
         <a
           href={cyclePath()}
-          class="mobile-tab"
-          classList={{ active: false }}
+          class="flex-1 flex flex-col items-center gap-[3px] py-2.5 px-1 bg-transparent text-muted-foreground border-0 rounded-none cursor-pointer transition-colors min-h-[52px] text-xs font-semibold tracking-tight hover:text-secondary-foreground"
           onClick={goCycle}
         >
           <TabIcon name="cycle" />

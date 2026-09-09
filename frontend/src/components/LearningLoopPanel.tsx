@@ -6,6 +6,7 @@ import type { LearningLoopEntry } from '../lib/types'
 import { SkeletonLearningLoop } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
+import { Card } from './ui/card'
 
 // The learning loop panel — shows the real decision → action → outcome chain.
 // Uses the learning-loop endpoint which joins viryaos_autopilot_decisions,
@@ -78,10 +79,10 @@ export function LearningLoopPanel(props: { slug: string }) {
     return Math.round((improved / measured.length) * 100)
   }
 
-  return <article class="panel learning-loop-panel">
+  return <Card class="p-4 learning-loop-panel">
     <div class="learning-loop-head">
       <div>
-        <span class="eyebrow">LEARNING LOOP</span>
+        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">LEARNING LOOP</span>
         <h2><SectionIcon name="book-open" />Decision → Action → Outcome → Learning</h2>
       </div>
     </div>
@@ -140,10 +141,10 @@ export function LearningLoopPanel(props: { slug: string }) {
               <div class="learning-loop-stage-card learning-loop-stage-decision">
                 <span class="learning-loop-stage-label">Decision</span>
                 <div class="learning-loop-stage-rows">
-                  <div><span class="muted">Kind</span><strong>{entry.decision_kind.replaceAll('_', ' ')}</strong></div>
-                  <div><span class="muted">Disposition</span><strong>{dispositionLabel(entry.disposition)}</strong></div>
-                  <div><span class="muted">Confidence</span><strong class={confidenceClass(entry.confidence_basis_points)}>{confidencePercent(entry.confidence_basis_points)}</strong></div>
-                  <div><span class="muted">Evaluated</span><span>{timeAgo(entry.evaluated_at)}</span></div>
+                  <div><span class="text-muted-foreground">Kind</span><strong>{entry.decision_kind.replaceAll('_', ' ')}</strong></div>
+                  <div><span class="text-muted-foreground">Disposition</span><strong>{dispositionLabel(entry.disposition)}</strong></div>
+                  <div><span class="text-muted-foreground">Confidence</span><strong class={confidenceClass(entry.confidence_basis_points)}>{confidencePercent(entry.confidence_basis_points)}</strong></div>
+                  <div><span class="text-muted-foreground">Evaluated</span><span>{timeAgo(entry.evaluated_at)}</span></div>
                 </div>
                 <Show when={entry.reason}>
                   <p class="learning-loop-reason">{entry.reason}</p>
@@ -164,10 +165,10 @@ export function LearningLoopPanel(props: { slug: string }) {
                 }>
                   {action => (
                     <div class="learning-loop-stage-rows">
-                      <div><span class="muted">Kind</span><strong>{labelOr(DECISION_KIND_LABELS, action().action_kind)}</strong></div>
-                      <div><span class="muted">Status</span><strong class={actionStatusClass(action().status)}>{action().status.replaceAll('_', ' ')}</strong></div>
+                      <div><span class="text-muted-foreground">Kind</span><strong>{labelOr(DECISION_KIND_LABELS, action().action_kind)}</strong></div>
+                      <div><span class="text-muted-foreground">Status</span><strong class={actionStatusClass(action().status)}>{action().status.replaceAll('_', ' ')}</strong></div>
                       <Show when={action().finished_at}>
-                        <div><span class="muted">Finished</span><span>{timeAgo(action().finished_at!)}</span></div>
+                        <div><span class="text-muted-foreground">Finished</span><span>{timeAgo(action().finished_at!)}</span></div>
                       </Show>
                     </div>
                   )}
@@ -188,9 +189,9 @@ export function LearningLoopPanel(props: { slug: string }) {
                 }>
                   {outcome => (
                     <div class="learning-loop-stage-rows">
-                      <div><span class="muted">Assessment</span><strong class={outcomeClass(outcome().effect_assessment)}>{outcomeLabel(outcome().effect_assessment)}</strong></div>
-                      <div><span class="muted">Metric</span><span>{outcome().metric_key.replaceAll('_', ' ')}</span></div>
-                      <div><span class="muted">Delta</span><strong class={outcomeClass(outcome().effect_assessment)}>{outcome().delta_basis_points > 0 ? '+' : ''}{(outcome().delta_basis_points / 100).toFixed(1)}%</strong></div>
+                      <div><span class="text-muted-foreground">Assessment</span><strong class={outcomeClass(outcome().effect_assessment)}>{outcomeLabel(outcome().effect_assessment)}</strong></div>
+                      <div><span class="text-muted-foreground">Metric</span><span>{outcome().metric_key.replaceAll('_', ' ')}</span></div>
+                      <div><span class="text-muted-foreground">Delta</span><strong class={outcomeClass(outcome().effect_assessment)}>{outcome().delta_basis_points > 0 ? '+' : ''}{(outcome().delta_basis_points / 100).toFixed(1)}%</strong></div>
                     </div>
                   )}
                 </Show>
@@ -219,5 +220,5 @@ export function LearningLoopPanel(props: { slug: string }) {
         </div>
       </Show>
     </Show>
-  </article>
+  </Card>
 }

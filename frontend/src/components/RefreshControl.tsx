@@ -41,12 +41,13 @@ export function RefreshControl(props: {
   const isFetching = () => fetchingCount() > 0
   const loading = () => props.loading || isFetching()
 
-  return <div class="refresh-control grafana-refresh">
+  return <div class="flex items-center gap-2.5 flex-shrink-0">
     <Show when={props.updatedAt != null}>
-      <span class="refresh-timestamp">Updated {relativeTime(props.updatedAt)}</span>
+      <span class="text-sm text-muted-foreground whitespace-nowrap">Updated {relativeTime(props.updatedAt)}</span>
     </Show>
-    <div class="refresh-interval-select">
+    <div>
       <select
+        class="bg-card border border-border text-foreground text-sm px-2.5 py-1.5 cursor-pointer outline-none hover:border-primary focus:border-primary"
         value={refreshInterval()}
         onChange={(e) => setRefreshInterval(Number(e.currentTarget.value))}
         title="Auto-refresh interval"

@@ -92,7 +92,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
 
   return <div class="intel-transparency-panel">
     <Show when={error()}>
-      <div class="error-card">{error()}</div>
+      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error()}</div>
     </Show>
 
     {/* Time range selector */}
@@ -117,15 +117,15 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
     <Show when={summary()} fallback={
       <Show when={!error()} fallback={
         <div class="kpi-strip">
-          <article class="kpi-card"><span class="kpi-label">Intelligence decisions</span><strong class="kpi-value muted">—</strong></article>
-          <article class="kpi-card"><span class="kpi-label">Running</span><strong class="kpi-value muted">—</strong></article>
-          <article class="kpi-card"><span class="kpi-label">Worker tasks</span><strong class="kpi-value muted">—</strong></article>
+          <article class="kpi-card"><span class="kpi-label">Intelligence decisions</span><strong class="kpi-value text-muted-foreground">—</strong></article>
+          <article class="kpi-card"><span class="kpi-label">Running</span><strong class="kpi-value text-muted-foreground">—</strong></article>
+          <article class="kpi-card"><span class="kpi-label">Worker tasks</span><strong class="kpi-value text-muted-foreground">—</strong></article>
         </div>
       }>
         <div class="kpi-strip">
-          <article class="kpi-card"><div class="skeleton-block" style={{ height: '14px', width: '60%', 'border-radius': '6px', 'margin-bottom': '8px' }} /><div class="skeleton-block" style={{ height: '28px', width: '40%', 'border-radius': '6px' }} /></article>
-          <article class="kpi-card"><div class="skeleton-block" style={{ height: '14px', width: '50%', 'border-radius': '6px', 'margin-bottom': '8px' }} /><div class="skeleton-block" style={{ height: '28px', width: '30%', 'border-radius': '6px' }} /></article>
-          <article class="kpi-card"><div class="skeleton-block" style={{ height: '14px', width: '55%', 'border-radius': '6px', 'margin-bottom': '8px' }} /><div class="skeleton-block" style={{ height: '28px', width: '35%', 'border-radius': '6px' }} /></article>
+          <article class="kpi-card"><div class="rounded-lg bg-surface-3 border border-border" style={{ height: '14px', width: '60%', 'border-radius': '6px', 'margin-bottom': '8px' }} /><div class="rounded-lg bg-surface-3 border border-border" style={{ height: '28px', width: '40%', 'border-radius': '6px' }} /></article>
+          <article class="kpi-card"><div class="rounded-lg bg-surface-3 border border-border" style={{ height: '14px', width: '50%', 'border-radius': '6px', 'margin-bottom': '8px' }} /><div class="rounded-lg bg-surface-3 border border-border" style={{ height: '28px', width: '30%', 'border-radius': '6px' }} /></article>
+          <article class="kpi-card"><div class="rounded-lg bg-surface-3 border border-border" style={{ height: '14px', width: '55%', 'border-radius': '6px', 'margin-bottom': '8px' }} /><div class="rounded-lg bg-surface-3 border border-border" style={{ height: '28px', width: '35%', 'border-radius': '6px' }} /></article>
         </div>
       </Show>
     }>
@@ -153,7 +153,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
       <div class="agent-section-head">
         <h3><IntelligenceIcon size={18} /> Decision Timeline</h3>
         <Show when={decisions().length > 0}>
-          <span class="muted">{decisions().length} decisions</span>
+          <span class="text-muted-foreground">{decisions().length} decisions</span>
         </Show>
       </div>
       <p class="agent-section-intro">The intelligence's decision log. Each entry shows what the intelligence decided to research, why (rationale), which workers it dispatched, and what they found. The intelligence is deterministic Rust — it never follows an LLM blindly.</p>
@@ -164,9 +164,9 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
             <div class="intel-decision-list">
               {Array.from({ length: 3 }, () => (
                 <div class="intel-decision-card" style={{ opacity: '0.8' }}>
-                  <div class="skeleton-block" style={{ height: '20px', width: '40%', 'border-radius': '8px', 'margin-bottom': '12px' }} />
-                  <div class="skeleton-block" style={{ height: '14px', width: '100%', 'border-radius': '6px', 'margin-bottom': '8px' }} />
-                  <div class="skeleton-block" style={{ height: '14px', width: '80%', 'border-radius': '6px' }} />
+                  <div class="rounded-lg bg-surface-3 border border-border" style={{ height: '20px', width: '40%', 'border-radius': '8px', 'margin-bottom': '12px' }} />
+                  <div class="rounded-lg bg-surface-3 border border-border" style={{ height: '14px', width: '100%', 'border-radius': '6px', 'margin-bottom': '8px' }} />
+                  <div class="rounded-lg bg-surface-3 border border-border" style={{ height: '14px', width: '80%', 'border-radius': '6px' }} />
                 </div>
               ))}
             </div>
@@ -177,7 +177,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                   <button class="intel-decision-header" onClick={() => toggleExpand(decision.id)}>
                     <div class="intel-decision-meta">
                       <strong>{templateLabel(decision.brain_template)}</strong>
-                      <span class="muted">{formatIsoAge(decision.created_at)}</span>
+                      <span class="text-muted-foreground">{formatIsoAge(decision.created_at)}</span>
                     </div>
                     <div class="intel-decision-badges">
                       <StatusBadge status={decision.status} tone={decisionStatusTone(decision.status)} />
@@ -197,7 +197,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                   <div class="intel-decision-summary">
                     <Show when={decision.plan.length > 0}>
                       <p class="intel-rationale-preview">
-                        <Show when={decision.plan[0]?.rationale != null} fallback={<span class="muted">No rationale recorded</span>}>
+                        <Show when={decision.plan[0]?.rationale != null} fallback={<span class="text-muted-foreground">No rationale recorded</span>}>
                           {decision.plan[0]!.rationale}
                         </Show>
                       </p>
@@ -211,7 +211,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                       <Show when={decision.plan.length > 0}>
                         <div class="intel-plan-section">
                           <h4>Growth Plan</h4>
-                          <p class="muted intel-plan-intro">The intelligence's deterministic plan. Each item shows the template to dispatch, the priority, and the rationale (why the intelligence decided to do this).</p>
+                          <p class="text-muted-foreground intel-plan-intro">The intelligence's deterministic plan. Each item shows the template to dispatch, the priority, and the rationale (why the intelligence decided to do this).</p>
                           <For each={expandedPlans().has(decision.id) ? decision.plan : decision.plan.slice(0, MAX_VISIBLE_PLAN)}>{(item, i) => (
                             <div class="intel-plan-item">
                               <div class="intel-plan-head">
@@ -234,7 +234,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                       <Show when={decision.tasks.length > 0}>
                         <div class="intel-tasks-section">
                           <h4>Dispatched Workers</h4>
-                          <p class="muted intel-plan-intro">Workers the intelligence dispatched for this plan. Each worker runs an LLM template and emits structured outcomes. The intelligence consumes these outcomes deterministically.</p>
+                          <p class="text-muted-foreground intel-plan-intro">Workers the intelligence dispatched for this plan. Each worker runs an LLM template and emits structured outcomes. The intelligence consumes these outcomes deterministically.</p>
                           <table class="agent-task-table">
                             <thead><tr><th>Slot</th><th>Role</th><th>Template</th><th>Status</th><th>Outcome</th><th>Tokens</th><th></th></tr></thead>
                             <tbody>
@@ -245,11 +245,11 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                                   <td>{templateLabel(task.template_id)}</td>
                                   <td><StatusBadge status={task.status} tone={taskStatusTone(task.status)} /></td>
                                   <td>
-                                    <Show when={task.has_outcome} fallback={<span class="muted">—</span>}>
+                                    <Show when={task.has_outcome} fallback={<span class="text-muted-foreground">—</span>}>
                                       <span class="badge free-chip">{task.outcome_kind ?? 'structured'}</span>
                                     </Show>
                                   </td>
-                                  <td class="muted">{task.tokens_in > 0 || task.tokens_out > 0 ? `${task.tokens_in}/${task.tokens_out}` : '—'}</td>
+                                  <td class="text-muted-foreground">{task.tokens_in > 0 || task.tokens_out > 0 ? `${task.tokens_in}/${task.tokens_out}` : '—'}</td>
                                   <td><Show when={task.error}><span class="agent-error" title={task.error!}>error</span></Show></td>
                                 </tr>
                               )}</For>
@@ -269,33 +269,33 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                         <div class="intel-chain">
                           <div class="intel-chain-step">
                             <span class="badge free-chip">Intelligence decides</span>
-                            <span class="muted">{templateLabel(decision.brain_template)}</span>
+                            <span class="text-muted-foreground">{templateLabel(decision.brain_template)}</span>
                           </div>
                           <Show when={decision.plan.length > 0}>
                             <div class="intel-chain-arrow">↓</div>
                             <div class="intel-chain-step">
                               <span class="badge">Plan</span>
-                              <span class="muted">{decision.plan.length} items with rationale</span>
+                              <span class="text-muted-foreground">{decision.plan.length} items with rationale</span>
                             </div>
                           </Show>
                           <Show when={decision.tasks.length > 0}>
                             <div class="intel-chain-arrow">↓</div>
                             <div class="intel-chain-step">
                               <span class="badge">Workers dispatched</span>
-                              <span class="muted">{decision.tasks.length} LLM tasks</span>
+                              <span class="text-muted-foreground">{decision.tasks.length} LLM tasks</span>
                             </div>
                           </Show>
                           <Show when={decision.tasks.some(t => t.has_outcome)}>
                             <div class="intel-chain-arrow">↓</div>
                             <div class="intel-chain-step">
                               <span class="badge">Outcomes emitted</span>
-                              <span class="muted">{decision.tasks.filter(t => t.has_outcome).length} structured results</span>
+                              <span class="text-muted-foreground">{decision.tasks.filter(t => t.has_outcome).length} structured results</span>
                             </div>
                           </Show>
                           <div class="intel-chain-arrow">↓</div>
                           <div class="intel-chain-step">
                             <span class={`badge tone-${decisionStatusTone(decision.status)}`}>{decision.status}</span>
-                            <span class="muted">
+                            <span class="text-muted-foreground">
                               <Show when={decision.completed_at} fallback="in progress">
                                 {formatIsoAge(decision.completed_at!)}
                               </Show>

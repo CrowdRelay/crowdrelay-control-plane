@@ -10,6 +10,7 @@ import { EmptyState } from '../components/EmptyState'
 import { SkeletonRows } from '../components/Skeleton'
 import { confirmAction } from '../components/Dialog'
 import { SectionIcon } from '../components/SectionIcon'
+import { PageShell, PageHeader, ErrorCard, SectionTitle, SectionPanel } from '../components/layout'
 
 const statusTone = (status: AreaStatus) => status === 'LIVE' ? 'good' : status === 'SCHEDULED' || status === 'DRAFT' ? 'warn' : status === 'ARCHIVED' ? 'muted' : status === 'PAUSED' ? 'bad' : 'muted'
 const formatDate = (value: string) => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString() }
@@ -143,17 +144,19 @@ export function AreaPage() {
   const hardIssues = createMemo(() => validation()?.issues.filter(issue => !issue.confirmationRequired) ?? [])
   const toggleConfirmation = (code:string) => setConfirmations(current => current.includes(code) ? current.filter(item=>item!==code) : [...current,code])
 
-  return <section class="page">
-    <div class="page-head">
-      <div><span class="eyebrow">AUDIENCE / AREA</span><h1>AREA Designer</h1><p>Draft, validate and publish tenant-scoped AREA locations. Exact claim coordinates stay on the private management path and never appear in list responses.</p></div>
-      <div class="row-health"><Show when={overview.data}><StatusBadge status={overview.data!.enabled ? 'enabled' : 'disabled'} tone={overview.data!.enabled ? 'good' : 'muted'} /></Show></div>
-    </div>
+  return <PageShell>
+    <PageHeader
+      eyebrow="AUDIENCE / AREA"
+      title="AREA Designer"
+      description="Draft, validate and publish tenant-scoped AREA locations. Exact claim coordinates stay on the private management path and never appear in list responses."
+      actions={<Show when={overview.data}><StatusBadge status={overview.data!.enabled ? 'enabled' : 'disabled'} tone={overview.data!.enabled ? 'good' : 'muted'} /></Show>}
+    />
 
     <Show when={flash()}><div class="notice-card">{flash()}</div></Show>
-    <Show when={mutationError()}><div class="error-card" role="alert">{errorMessage(mutationError(), 'AREA operation failed')}</div></Show>
+    <Show when={mutationError()}><ErrorCard>{errorMessage(mutationError(), 'AREA operation failed')}</ErrorCard></Show>
 
     <Show when={overview.data} fallback={
-      <Show when={overview.isPending} fallback={<div class="error-card" role="alert">{errorMessage(overview.error, 'AREA management is unavailable. This is not an empty game state.')} <button class="ghost" onClick={()=>overview.refetch()}>Retry</button></div>}>
+      <Show when={overview.isPending} fallback={<ErrorCard>{errorMessage(overview.error, 'AREA management is unavailable. This is not an empty game state.')} <button class="ghost" onClick={()=>overview.refetch()}>Retry</button></ErrorCard>}>
         <SkeletonRows count={4} />
       </Show>
     }>{o => <>
@@ -165,11 +168,11 @@ export function AreaPage() {
         <div class="metric"><span>Drafts</span><strong>{o().drafts}</strong></div>
         <div class="metric"><span>Paused / ended</span><strong>{o().paused + o().ended}</strong></div>
       </div>
-      <article class="panel area-entitlement-panel"><div><span class="eyebrow">ENTITLEMENT</span><h2><SectionIcon name="map-pin" />Tenant AREA</h2><p>Disabling AREA hides the public game but preserves drops, claims and audit history.</p></div><button class={o().entitled ? 'ghost danger-ghost' : ''} disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Disable AREA' : 'Enable AREA'}</button></article>
+      <SectionPanel class="area-entitlement-panel"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">ENTITLEMENT</span><h2><SectionIcon name="map-pin" />Tenant AREA</h2><p>Disabling AREA hides the public game but preserves drops, claims and audit history.</p></div><button class={o().entitled ? 'ghost danger-ghost' : ''} disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Disable AREA' : 'Enable AREA'}</button></SectionPanel>
     </>}</Show>
 
-    <article class="panel">
-      <div class="section-title"><div><span class="eyebrow">LOCATIONS</span><h2><SectionIcon name="map-pin" />Published state + drafts</h2></div><button disabled={!overview.data?.entitled} onClick={() => setCreating(v=>!v)}>+ New location</button></div>
+    <SectionPanel>
+      <SectionTitle eyebrow="LOCATIONS" title="Published state + drafts" icon={<SectionIcon name="map-pin" />} action={<button disabled={!overview.data?.entitled} onClick={() => setCreating(v=>!v)}>+ New location</button>} />
       <Show when={creating()}><div class="area-create-card">
         <label>Search city<small>Type to filter the canonical list.</small><input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></label>
         <label>Canonical city<small>Where the drop lives. Missing city? Create one below.</small><select value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></select></label>
@@ -195,10 +198,11 @@ export function AreaPage() {
         </div>}</For>
         <Show when={!drops.isPending && (drops.data?.items.length ?? 0)===0}><div class="inherit-card"><EmptyState label="No AREA locations" hint="AREA locations define geographic targeting for fan discovery. Create the first location draft above." /></div></Show>
       </div>
-    </article>
+    </SectionPanel>
 
-    <Show when={selectedId()}><article class="panel area-editor">
-      <div class="section-title"><div><span class="eyebrow">PRIVATE EDITOR</span><h2>{selectedId()}</h2><p>Single-drop response only · <code>Cache-Control: private, no-store</code></p></div><button class="ghost" onClick={closeEditor}>Close & purge coordinates</button></div>
+    <Show when={selectedId()}><SectionPanel class="area-editor">
+      <SectionTitle eyebrow="PRIVATE EDITOR" title={selectedId()!} action={<button class="ghost" onClick={closeEditor}>Close & purge coordinates</button>} />
+      <p class="text-sm text-muted-foreground -mt-1 mb-4">Single-drop response only · <code>Cache-Control: private, no-store</code></p>
       <Show when={detail.data && draft()} fallback={<SkeletonRows count={4} />}>{_ready => <>
         <div class="area-step-tabs"><For each={['city','location','content','schedule','review'] as const}>{step=><button class={editorStep()===step?'active ghost':'ghost'} onClick={()=>setEditorStep(step)}>{step}</button>}</For></div>
 
@@ -244,7 +248,7 @@ export function AreaPage() {
           <div class="deployment-target-grid"><div><span>City</span><strong>{selectedCity()?.name ?? detail.data!.summary.city}</strong></div><div><span>Revision</span><strong>{detail.data!.summary.revision}</strong></div><div><span>Exact location</span><strong>{draft()!.exactLat != null && draft()!.exactLng != null ? 'configured' : 'missing'}</strong></div><div><span>Radius / capacity</span><strong>{draft()!.radiusMeters} m · {draft()!.maxClaims}</strong></div><div><span>Starts</span><strong>{formatDate(draft()!.startsAt)}</strong></div><div><span>Ends</span><strong>{formatDate(draft()!.endsAt)}</strong></div></div>
           <Show when={validation()}>{v=><>
             <Show when={hardIssues().length===0}><div class="notice-card">No blocking validation errors.</div></Show>
-            <For each={hardIssues()}>{issue=><div class="error-card"><strong>{issue.code}</strong><p>{issue.message}</p></div>}</For>
+            <For each={hardIssues()}>{issue=><ErrorCard><strong>{issue.code}</strong><p>{issue.message}</p></ErrorCard>}</For>
             <For each={confirmationIssues()}>{issue=><label class="area-confirm-row"><input type="checkbox" checked={confirmations().includes(issue.code)} onChange={()=>toggleConfirmation(issue.code)}/><span><strong>{issue.code}</strong><small>{issue.message}</small></span></label>}</For>
           </>}</Show>
           <div class="form-actions"><button class="ghost" disabled={validate.isPending||save.isPending} onClick={()=>validate.mutate()}>Save + validate</button><button disabled={!validation()?.valid || confirmationIssues().some(issue=>!confirmations().includes(issue.code)) || publish.isPending} onClick={()=>publish.mutate()}>Publish revision</button></div>
@@ -279,6 +283,6 @@ export function AreaPage() {
           }}>Delete draft</button></Show></div>
         </div>
       </>}</Show>
-    </article></Show>
-  </section>
+    </SectionPanel></Show>
+  </PageShell>
 }

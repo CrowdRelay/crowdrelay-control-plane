@@ -11,6 +11,7 @@ import { SkeletonFlagList } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { SectionFailureCard } from './SectionFailureCard'
+import { Card } from './ui/card'
 
 const flagLabel = (key: string) => key
   .replace(/_enabled$/, '')
@@ -73,9 +74,9 @@ export function RuntimeSwitchesPanel(props: {
 
   const [confirming, setConfirming] = createSignal<'redeploy' | 'replay-dead' | null>(null)
 
-  return <article class="panel operations-panel">
-    <div class="section-title operations-title">
-      <div><span class="eyebrow">OPERATIONS</span><h2><SectionIcon name="activity" />Runtime switches</h2><p>Feature flags, health metrics and redeploy. Changes are tenant-scoped and audited.</p></div>
+  return <Card class="p-4 operations-panel">
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3 operations-title">
+      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">OPERATIONS</span><h2><SectionIcon name="activity" />Runtime switches</h2><p>Feature flags, health metrics and redeploy. Changes are tenant-scoped and audited.</p></div>
       <div class="row-health">
         <Show when={props.canRedeploy !== false}>
           <Show when={confirming() === 'redeploy'}><button class="ghost" onClick={() => setConfirming(null)}>Cancel</button></Show>
@@ -103,7 +104,7 @@ export function RuntimeSwitchesPanel(props: {
       </div>
     }</Show>
 
-    <Show when={mutationError()}>{message => <div class="error-card operations-error" role="alert">{message()}</div>}</Show>
+    <Show when={mutationError()}>{message => <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive operations-error" role="alert">{message()}</div>}</Show>
 
     <div class="operations-metrics">
       <div><span>HTTP p95</span><strong>{metric(props.summary?.http.p95_ms, ' ms')}</strong><small>p50 {metric(props.summary?.http.p50_ms, ' ms')}</small></div>
@@ -128,7 +129,7 @@ export function RuntimeSwitchesPanel(props: {
 
     <section class="operations-section">
       <details open>
-        <summary class="operations-section-head"><div><span class="eyebrow">FEATURES</span><h3><SectionIcon name="settings" />Runtime switches</h3></div><small>{flags.data?.length ?? 0} declared</small></summary>
+        <summary class="operations-section-head"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">FEATURES</span><h3><SectionIcon name="settings" />Runtime switches</h3></div><small>{flags.data?.length ?? 0} declared</small></summary>
         <Show when={flags.data} fallback={
           <Show when={flags.error} fallback={<SkeletonFlagList />}>
             <SectionFailureCard error={flags.error} fallback="Feature flags unavailable" onRetry={() => void flags.refetch()} />
@@ -149,5 +150,5 @@ export function RuntimeSwitchesPanel(props: {
         </div>}</Show>
       </details>
     </section>
-  </article>
+  </Card>
 }

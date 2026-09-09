@@ -73,7 +73,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
 
   return <div class="ai-usage-panel">
     <Show when={data.isError}>
-      <div class="error-card" role="alert">{errorMessage(data.error, 'Failed to load usage analytics')}</div>
+      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(data.error, 'Failed to load usage analytics')}</div>
     </Show>
 
     {/* Budget header */}
@@ -92,9 +92,9 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
             <div class="usage-budget-fill" style={{ width: `${budgetPct()}%` }} />
           </div>
           <div class="usage-budget-meta">
-            <span class="muted">{budgetPct()}% used</span>
-            <span class="muted">{formatUsd(budget()!.remaining_micro_usd)} remaining</span>
-            <span class="muted">projected: {formatUsd(projectedSpend())}</span>
+            <span class="text-muted-foreground">{budgetPct()}% used</span>
+            <span class="text-muted-foreground">{formatUsd(budget()!.remaining_micro_usd)} remaining</span>
+            <span class="text-muted-foreground">projected: {formatUsd(projectedSpend())}</span>
           </div>
           <Show when={dailySpend().length >= 2}>
             <div class="usage-budget-spark">
@@ -115,7 +115,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
       <div class="agent-section">
         <div class="agent-section-head">
           <h3>Cost vs Outcome ROI</h3>
-          <span class="muted">this month</span>
+          <span class="text-muted-foreground">this month</span>
         </div>
         <p class="agent-section-intro">How much each worker template costs vs the growth outcomes it produced. Sorted by cost-per-outcome (best ROI first). Free models show $0 cost with outcome counts.</p>
         <div class="usage-table-wrap">
@@ -131,12 +131,12 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
                   <td>{formatUsd(row.total_cost_micro_usd)}</td>
                   <td>{row.outcome_count}</td>
                   <td>
-                    <Show when={row.cost_per_outcome_micro_usd != null} fallback={<span class="muted">—</span>}>
+                    <Show when={row.cost_per_outcome_micro_usd != null} fallback={<span class="text-muted-foreground">—</span>}>
                       {formatUsd(row.cost_per_outcome_micro_usd!)}
                     </Show>
                   </td>
                   <td>
-                    <Show when={row.success_rate != null} fallback={<span class="muted">—</span>}>
+                    <Show when={row.success_rate != null} fallback={<span class="text-muted-foreground">—</span>}>
                       <span class={`badge tone-${successTone(row.success_rate)}`}>{row.success_rate}%</span>
                     </Show>
                   </td>
@@ -153,7 +153,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
       <div class="agent-section">
         <div class="agent-section-head">
           <h3>Model performance</h3>
-          <span class="muted">last 30 days</span>
+          <span class="text-muted-foreground">last 30 days</span>
         </div>
         <p class="agent-section-intro">Per-model success rate, latency, and cost. Helps you see if the intelligence is routing tasks to the right models. Color-coded success rate: green ≥90%, yellow ≥75%, red below 75%.</p>
         <div class="usage-table-wrap">
@@ -163,16 +163,16 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
               <For each={modelAnalytics()}>{(m: ModelAnalytics) => (
                 <tr>
                   <td><ModelIcon modelId={m.model_id} providerId={m.model_provider ?? ''} paid={m.total_cost_micro_usd > 0} size={16} /> <strong>{m.model_id}</strong></td>
-                  <td class="muted">{m.model_provider ?? '—'}</td>
+                  <td class="text-muted-foreground">{m.model_provider ?? '—'}</td>
                   <td>{m.total_tasks}</td>
                   <td>
-                    <Show when={m.success_rate != null} fallback={<span class="muted">—</span>}>
+                    <Show when={m.success_rate != null} fallback={<span class="text-muted-foreground">—</span>}>
                       <span class={`badge tone-${successTone(m.success_rate)}`}>{m.success_rate}%</span>
                     </Show>
                   </td>
-                  <td class="muted">{m.avg_latency_ms > 0 ? `${(m.avg_latency_ms / 1000).toFixed(1)}s` : '—'}</td>
+                  <td class="text-muted-foreground">{m.avg_latency_ms > 0 ? `${(m.avg_latency_ms / 1000).toFixed(1)}s` : '—'}</td>
                   <td>{formatUsd(m.avg_cost_per_task_micro_usd)}</td>
-                  <td class="muted">{m.avg_tokens_in > 0 || m.avg_tokens_out > 0 ? `${m.avg_tokens_in}/${m.avg_tokens_out}` : '—'}</td>
+                  <td class="text-muted-foreground">{m.avg_tokens_in > 0 || m.avg_tokens_out > 0 ? `${m.avg_tokens_in}/${m.avg_tokens_out}` : '—'}</td>
                 </tr>
               )}</For>
             </tbody>
@@ -186,7 +186,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
       <div class="agent-section">
         <div class="agent-section-head">
           <h3>Daily spend trend</h3>
-          <span class="muted">last 30 days</span>
+          <span class="text-muted-foreground">last 30 days</span>
         </div>
         <p class="agent-section-intro">Daily AI spend, free vs paid stacked. The bar height shows total requests; color shows paid cost. A flat line at $0 means the intelligence is routing to free models — that's the goal.</p>
         <div class="usage-chart">
@@ -233,7 +233,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
       <div class="agent-section">
         <div class="agent-section-head">
           <h3>Model routing preview</h3>
-          <span class="muted">intelligence fallback chain</span>
+          <span class="text-muted-foreground">intelligence fallback chain</span>
         </div>
         <p class="agent-section-intro">The intelligence routes tasks to models using a fallback chain: free models first, then paid models if connected. This shows which models are available and whether they're being used.</p>
         <div class="routing-preview-grid">
@@ -260,14 +260,14 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
                   </Show>
                 </div>
                 <div class="routing-model-meta">
-                  <span class="muted">{m.provider}</span>
+                  <span class="text-muted-foreground">{m.provider}</span>
                   <Show when={analytics()}>
                     {(a) => (
                       <span class={`badge tone-${tone()}`}>{a().success_rate ?? '—'}% success · {a().total_tasks} tasks</span>
                     )}
                   </Show>
                   <Show when={!analytics()}>
-                    <span class="muted">not yet used</span>
+                    <span class="text-muted-foreground">not yet used</span>
                   </Show>
                 </div>
               </div>

@@ -3,6 +3,7 @@ import { useQuery, useMutation } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { toast } from '../lib/toast'
+import { cn } from '../lib/cn'
 
 /**
  * Reddit Cookie Uploader — lets an operator refresh Reddit session cookies
@@ -104,11 +105,11 @@ export function RedditCookieUploader(props: { slug: string }) {
 
   const statusLabel = createMemo(() => {
     const s = status.data?.status
-    if (!s || s === 'missing') return { text: 'No cookies stored', class: 'badge-neutral' }
-    if (s === 'active') return { text: 'Active', class: 'badge-good' }
-    if (s === 'expired') return { text: 'Expired', class: 'badge-warn' }
-    if (s === 'failed') return { text: 'Failed', class: 'badge-bad' }
-    return { text: s, class: 'badge-neutral' }
+    if (!s || s === 'missing') return { text: 'No cookies stored', class: '' }
+    if (s === 'active') return { text: 'Active', class: 'bg-success/15 text-success border-success/20' }
+    if (s === 'expired') return { text: 'Expired', class: 'bg-warning/15 text-warning border-warning/20' }
+    if (s === 'failed') return { text: 'Failed', class: 'bg-destructive/15 text-destructive border-destructive/20' }
+    return { text: s, class: '' }
   })
 
   const formatExpiry = (iso: string | null) => {
@@ -122,49 +123,54 @@ export function RedditCookieUploader(props: { slug: string }) {
   }
 
   return (
-    <div class="agent-section">
-      <div class="agent-section-head">
+    <div class="bg-card border border-border rounded-lg p-5 shadow-md mb-4">
+      <div class="flex justify-between items-center mb-3 min-w-0 gap-3 flex-wrap">
         <h3>Reddit Session Cookies</h3>
-        <span class={`status-badge ${statusLabel().class}`}>{statusLabel().text}</span>
+        <span class={cn('text-xs uppercase tracking-tight px-2.5 py-0.5 rounded-sm bg-surface-3 border border-border-subtle text-muted-foreground font-semibold', statusLabel().class)}>{statusLabel().text}</span>
       </div>
-      <p class="agent-section-intro">
+      <p class="text-sm text-muted-foreground leading-relaxed m-0 mb-3.5">
         Upload a Netscape <code>cookies.txt</code> file from a logged-in Reddit session.
         Only <code>reddit.com</code> cookies are extracted — other domains are ignored.
         This is the recovery path when Reddit blocks the browser login.
       </p>
 
       <Show when={status.data?.status === 'active'}>
-        <div class="cookie-status-row">
-          <span class="cookie-meta">
-            <strong>{formatExpiry(status.data?.expires_at ?? null)}</strong>
+        <div class="flex gap-4 items-center my-3">
+          <span class="text-[13px] text-muted-foreground">
+            <strong class="text-foreground">{formatExpiry(status.data?.expires_at ?? null)}</strong>
           </span>
           <Show when={status.data?.reddit_username}>
-            <span class="cookie-meta">u/{status.data?.reddit_username}</span>
+            <span class="text-[13px] text-muted-foreground">u/{status.data?.reddit_username}</span>
           </Show>
         </div>
       </Show>
 
       <Show when={status.data?.status === 'expired'}>
-        <div class="notice warn">
+        <div class="p-3.5 my-3 border border-warning/30 border-l-[3px] border-l-warning rounded-md bg-warning/10 text-warning-light leading-relaxed">
           Cookies have expired. Upload a fresh <code>cookies.txt</code> to restore Reddit feeds.
         </div>
       </Show>
 
       <Show when={status.data?.status === 'failed'}>
-        <div class="notice bad">
+        <div class="p-3.5 my-3 border border-destructive/30 border-l-[3px] border-l-destructive rounded-md bg-destructive/10 text-destructive-light leading-relaxed">
           Reddit rejected the cookies (403). The account may be shadow-blocked or the datacenter IP is flagged.
           Upload fresh cookies from a residential IP, then test them.
         </div>
       </Show>
 
       <Show when={status.data?.status === 'missing'}>
-        <div class="notice">
+        <div class="p-3.5 my-3 border border-border-subtle border-l-[3px] border-l-border-subtle rounded-md bg-surface-1 text-muted-foreground leading-relaxed">
           No Reddit cookies stored. Reddit feeds will fail until cookies are uploaded or the browser login succeeds.
         </div>
       </Show>
 
       <Show when={validateResult()}>
-        <div class={`notice ${validateResult()!.valid ? 'good' : 'bad'}`}>
+        <div class={cn(
+          'p-3.5 my-3 border rounded-md leading-relaxed',
+          validateResult()!.valid
+            ? 'border-success/30 border-l-[3px] border-l-success bg-success/10 text-success-light'
+            : 'border-destructive/30 border-l-[3px] border-l-destructive bg-destructive/10 text-destructive-light',
+        )}>
           <Show when={validateResult()!.valid} fallback={<span>{validateResult()!.error}</span>}>
             Cookies valid — logged in as <strong>u/{validateResult()!.reddit_username}</strong>
           </Show>
@@ -182,32 +188,38 @@ export function RedditCookieUploader(props: { slug: string }) {
       </Show>
 
       <div
-        class={`cookie-drop-zone ${dragOver() ? 'drag-over' : ''}`}
+        class={cn(
+          'border-2 border-dashed border-border rounded-[10px] p-6 text-center my-3 transition-colors',
+          dragOver() && 'border-primary bg-surface-1',
+        )}
         onDrop={onDrop}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
       >
-        <label class="cookie-file-label">
-          <input type="file" accept=".txt,text/plain" onChange={onFileInput} disabled={upload.isPending} />
-          <span class="cookie-file-button">
+        <label class="cursor-pointer flex flex-col gap-2 items-center">
+          <input type="file" accept=".txt,text/plain" onChange={onFileInput} disabled={upload.isPending} class="absolute w-px h-px opacity-0 pointer-events-none" />
+          <span class={cn(
+            'inline-block px-5 py-2 rounded-lg bg-primary text-background font-semibold text-sm cursor-pointer transition-opacity hover:opacity-85',
+            upload.isPending && 'opacity-50 cursor-wait',
+          )}>
             {upload.isPending ? 'Uploading…' : 'Choose cookies.txt file'}
           </span>
-          <span class="cookie-drop-hint">or drag and drop here</span>
+          <span class="text-xs text-muted-foreground">or drag and drop here</span>
         </label>
       </div>
 
       <Show when={uploadResult()}>
-        <div class="notice good">
+        <div class="p-3.5 my-3 border border-success/30 border-l-[3px] border-l-success rounded-md bg-success/10 text-success-light leading-relaxed">
           <strong>{uploadResult()!.cookie_count}</strong> Reddit cookies stored. {formatExpiry(uploadResult()!.expires_at)}
         </div>
       </Show>
 
       <Show when={fileError()}>
-        <div class="error-card">{fileError()}</div>
+        <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{fileError()}</div>
       </Show>
 
       <Show when={status.isError}>
-        <div class="error-card">Could not load cookie status: {errorMessage(status.error, 'unknown error')}</div>
+        <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Could not load cookie status: {errorMessage(status.error, 'unknown error')}</div>
       </Show>
     </div>
   )

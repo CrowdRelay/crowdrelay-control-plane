@@ -7,6 +7,7 @@ import { confirmAction } from './Dialog'
 import { SectionIcon } from './SectionIcon'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonSection } from './Skeleton'
+import { Card } from './ui/card'
 
 // `/operations/posture` reads and writes, and nothing in the console called
 // the writer: the one dial that moves all 22 authority policies together could
@@ -87,10 +88,10 @@ export function GrowthPosturePanel(props: { slug: string }) {
     apply.mutate(value)
   }
 
-  return <article class="panel posture-panel">
-    <div class="section-title">
+  return <Card class="p-4 posture-panel">
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3">
       <div>
-        <span class="eyebrow">POSTURE</span>
+        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">POSTURE</span>
         <h2><SectionIcon name="target" />How far the growth loop may go</h2>
         <p>One dial over all 22 authority policies. Pick the posture the band is ready for; the brain applies the matching autonomy level to every context and records why the ceiling moved.</p>
       </div>
@@ -139,5 +140,5 @@ export function GrowthPosturePanel(props: { slug: string }) {
         <p class="posture-set-at">Set {formatTimestamp(posture.data!.set_at!)} · policy version {posture.data!.expected_version}</p>
       </Show>
     </Show>
-  </article>
+  </Card>
 }

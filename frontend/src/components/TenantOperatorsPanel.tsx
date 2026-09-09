@@ -7,6 +7,7 @@ import { confirmAction } from './Dialog'
 import { EmptyState } from './EmptyState'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
+import { Card } from './ui/card'
 
 // Platform-admin-only management of a tenant's scoped operator accounts.
 // Tenant operators never see this panel: the API rejects them anyway, and
@@ -39,8 +40,8 @@ export function TenantOperatorsPanel(props: { slug: string }) {
     onSuccess: refresh,
   }))
 
-  return <Show when={isAdmin()}><article class="panel">
-    <div class="section-title"><div><span class="eyebrow">TEAM ACCESS</span><h2><SectionIcon name="users" />Operator accounts</h2></div><small>{accounts.data?.items.length ?? 0} account(s)</small></div>
+  return <Show when={isAdmin()}><Card class="p-4">
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">TEAM ACCESS</span><h2><SectionIcon name="users" />Operator accounts</h2></div><small>{accounts.data?.items.length ?? 0} account(s)</small></div>
     <p class="route-note">These operators sign in with username + password and see only <strong>{props.slug}</strong>. The platform admin keeps full access via its separate credential.</p>
     <div class="form-grid">
       <label>
@@ -55,9 +56,9 @@ export function TenantOperatorsPanel(props: { slug: string }) {
       </label>
     </div>
     <div class="form-actions operator-create-actions"><button disabled={create.isPending || !/^[a-z0-9][a-z0-9-_.]{2,31}$/.test(username().trim()) || password().length < 12} onClick={() => create.mutate()}>{create.isPending && <Spinner />} {create.isPending ? 'Creating…' : 'Create operator'}</button></div>
-    <Show when={create.error}><div class="error-card" role="alert">{errorMessage(create.error, 'Operator creation failed')}</div></Show>
-    <Show when={remove.error}><div class="error-card" role="alert">{errorMessage(remove.error, 'Operator removal failed')}</div></Show>
-    <Show when={accounts.error}><div class="error-card" role="alert">{errorMessage(accounts.error, 'Could not load operator accounts')}</div></Show>
+    <Show when={create.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(create.error, 'Operator creation failed')}</div></Show>
+    <Show when={remove.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(remove.error, 'Operator removal failed')}</div></Show>
+    <Show when={accounts.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(accounts.error, 'Could not load operator accounts')}</div></Show>
     <Show when={(accounts.data?.items.length ?? 0) === 0 && !accounts.isPending && !accounts.error}>
       <div class="inherit-card"><EmptyState label="No operator accounts yet" hint="Only the platform admin can reach this tenant right now. Create an account above to give the team its own scoped login." /></div>
     </Show>
@@ -75,5 +76,5 @@ export function TenantOperatorsPanel(props: { slug: string }) {
         }}>Remove</button>
       </div>
     }</For></div>
-  </article></Show>
+  </Card></Show>
 }

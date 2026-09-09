@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import type { OperationsSummary } from '../lib/types'
+import { Card } from './ui/card'
 
 // What is wrong, what it means, and the cheapest thing that fixes it.
 //
@@ -152,12 +153,12 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
   }
 
   return (
-    <section class="panel">
+    <Card class="p-4">
       <header class="panel-header">
         <h2>What needs attention</h2>
       </header>
 
-      <Show when={props.summary} fallback={<p class="muted">Waiting for the operations summary…</p>}>
+      <Show when={props.summary} fallback={<p class="text-muted-foreground">Waiting for the operations summary…</p>}>
         <Show
           when={conditions().length > 0}
           fallback={
@@ -176,7 +177,7 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
                   />
                   <strong>{condition.headline}</strong>
                 </div>
-                <p class="muted">{condition.impact}</p>
+                <p class="text-muted-foreground">{condition.impact}</p>
                 <ol class="health-steps">
                   <For each={condition.steps}>{step => <li>{step}</li>}</For>
                 </ol>
@@ -200,6 +201,6 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
       <Show when={notice()}>
         {value => <p class={`notice ${value().tone}`}>{value().message}</p>}
       </Show>
-    </section>
+    </Card>
   )
 }

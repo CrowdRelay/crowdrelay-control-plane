@@ -5,6 +5,7 @@ import { formatTimestamp } from '../lib/format'
 import type { RuntimeHealth, TenantRuntimeSnapshot } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
+import { Card } from './ui/card'
 
 const runtimeTone = (health: RuntimeHealth) => health === 'healthy' ? 'good' : health === 'degraded' ? 'bad' : health === 'stale' ? 'warn' : 'muted'
 
@@ -28,12 +29,12 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
   }))
   const snapshot = () => runtime.data ?? props.initial
 
-  return <article class="panel runtime-panel" aria-busy={runtime.isFetching && !runtime.data}>
-    <div class="section-title">
+  return <Card class="p-4 runtime-panel" aria-busy={runtime.isFetching && !runtime.data}>
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3">
       {/* Named for its source. Plain "Health" read as a contradiction next to
           the Operations page, which reports CrowdRelay's own HTTP health from
           a different feed: this one is the heartbeat the tenant pushes here. */}
-      <div><span class="eyebrow">RUNTIME</span><h2><SectionIcon name="heartbeat" />Heartbeat</h2></div>
+      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">RUNTIME</span><h2><SectionIcon name="heartbeat" />Heartbeat</h2></div>
       <StatusBadge status={snapshot().runtimeHealth} tone={runtimeTone(snapshot().runtimeHealth)} />
     </div>
     <Show when={runtime.error}><div class="inline-stale-note" role="status">Live refresh failed. Showing the last known runtime snapshot.</div></Show>
@@ -51,5 +52,5 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
       <dt>Outbox pending</dt><dd>{snapshot().runtime?.outboxPending ?? '—'}</dd>
       <dt>Heartbeat</dt><dd>{formatTimestamp(snapshot().runtime?.lastHeartbeatAt)}</dd>
     </dl>
-  </article>
+  </Card>
 }

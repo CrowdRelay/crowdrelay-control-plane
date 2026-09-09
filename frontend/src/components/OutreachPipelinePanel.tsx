@@ -82,12 +82,12 @@ export function OutreachPipelinePanel(props: { slug: string }) {
     />
 
     <Show when={error()}>
-      <div class="error-card">{error()}</div>
+      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{error()}</div>
     </Show>
 
     <Show when={tab() === 'outreach'} fallback={
       <>
-      <Show when={booking.error}><div class="error-card">Booking pipeline unavailable: {errorMessage(booking.error, 'Service unreachable')}</div></Show>
+      <Show when={booking.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Booking pipeline unavailable: {errorMessage(booking.error, 'Service unreachable')}</div></Show>
       <Show when={booking.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
         <Show when={booking.data!.length > 0} fallback={<EmptyState label="No booking candidates" hint="The intelligence scans for gig opportunities with computed economics. Candidates appear here when the detector finds viable shows." />}>
           <div class="table-wrap">
@@ -105,9 +105,9 @@ export function OutreachPipelinePanel(props: { slug: string }) {
               <tbody>
                 <For each={showAllBooking() ? booking.data : booking.data!.slice(0, MAX_VISIBLE)}>{(c: BookingCandidateView) => (
                   <tr>
-                    <td><strong>{c.display_name}</strong><br /><span class="muted">{c.target_kind}</span></td>
+                    <td><strong>{c.display_name}</strong><br /><span class="text-muted-foreground">{c.target_kind}</span></td>
                     <td>{c.city_slug ?? '—'}</td>
-                    <td><span class="muted">{c.route_kind}</span><br />{c.route_value}</td>
+                    <td><span class="text-muted-foreground">{c.route_kind}</span><br />{c.route_value}</td>
                     <td>{fitLabel(c.fit_basis_points)}</td>
                     <td><span class={`badge tone-${statusTone(c.status)}`}>{c.status}</span></td>
                     <td>
@@ -134,7 +134,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
       </>
     }>
       <>
-      <Show when={outreach.error}><div class="error-card">Outreach pipeline unavailable: {errorMessage(outreach.error, 'Service unreachable')}</div></Show>
+      <Show when={outreach.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Outreach pipeline unavailable: {errorMessage(outreach.error, 'Service unreachable')}</div></Show>
       <Show when={outreach.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
         <Show when={outreach.data!.length > 0} fallback={<EmptyState label="No outreach candidates" hint="Outreach candidates are fans or contacts the intelligence identified for engagement. They appear here when detectors raise them." />}>
           <div class="table-wrap">
@@ -153,9 +153,9 @@ export function OutreachPipelinePanel(props: { slug: string }) {
               <tbody>
                 <For each={showAllOutreach() ? outreach.data : outreach.data!.slice(0, MAX_VISIBLE)}>{(c: OutreachCandidateView) => (
                   <tr>
-                    <td><strong>{c.display_name}</strong><br /><span class="muted">{c.target_kind}</span></td>
-                    <td><span class="muted">{c.source}</span></td>
-                    <td><span class="muted">{c.route_kind}</span></td>
+                    <td><strong>{c.display_name}</strong><br /><span class="text-muted-foreground">{c.target_kind}</span></td>
+                    <td><span class="text-muted-foreground">{c.source}</span></td>
+                    <td><span class="text-muted-foreground">{c.route_kind}</span></td>
                     <td>{fitLabel(c.fit_basis_points)}</td>
                     <td>{c.follower_count != null ? c.follower_count.toLocaleString() : '—'}</td>
                     <td><span class={`badge tone-${statusTone(c.status)}`}>{c.status}</span></td>

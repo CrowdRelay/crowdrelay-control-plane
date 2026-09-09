@@ -4,6 +4,7 @@ import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './EmptyState'
 import { errorMessage } from '../lib/format'
 import { SectionIcon } from './SectionIcon'
+import { Card } from './ui/card'
 
 // CrowdRelay only queues growth campaigns; the sends happen in external n8n
 // workers. The panel therefore reports whether those workers are draining the
@@ -91,10 +92,10 @@ export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; 
     }
   }
 
-  return <article class="panel operations-panel">
-    <div class="section-title operations-title">
+  return <Card class="p-4 operations-panel">
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3 operations-title">
       <div>
-        <span class="eyebrow">AUTOPILOT GROWTH</span>
+        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">AUTOPILOT GROWTH</span>
         <h2><SectionIcon name="trending-up" />Campaign delivery & outreach</h2>
         <p>CrowdRelay queues consented growth campaigns; external n8n workers deliver them. These counters come from the delivery ledger, so a campaign that nobody is draining stays visible.</p>
       </div>
@@ -138,7 +139,7 @@ export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; 
 
         <section class="operations-section">
           <div class="operations-section-head">
-            <div><span class="eyebrow">OUTREACH</span><h3><SectionIcon name="megaphone" />Playlist & press pitching</h3><p>Opportunities are seeded from verified, consenting targets only. Reply counts are what stop automated follow-ups.</p></div>
+            <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">OUTREACH</span><h3><SectionIcon name="megaphone" />Playlist & press pitching</h3><p>Opportunities are seeded from verified, consenting targets only. Reply counts are what stop automated follow-ups.</p></div>
           </div>
           <div class="autopilot-kpis">
             <div><strong>{count(outreach()?.active_opportunities)}</strong><span>active opportunities</span></div>
@@ -157,7 +158,7 @@ export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; 
 
         <section class="operations-section">
           <div class="operations-section-head">
-            <div><span class="eyebrow">CAMPAIGNS</span><h3><SectionIcon name="megaphone" />Recent growth campaigns</h3></div>
+            <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">CAMPAIGNS</span><h3><SectionIcon name="megaphone" />Recent growth campaigns</h3></div>
           </div>
           <Show when={data().campaigns.length > 0} fallback={<div class="inherit-card"><EmptyState label="No growth campaigns" hint="Growth campaigns coordinate multi-step outreach. They appear here once the intelligence creates them." /></div>}>
             <div class="flag-list">
@@ -181,5 +182,5 @@ export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; 
           </Show>
         </section>
       </>}</Show>
-  </article>
+  </Card>
 }

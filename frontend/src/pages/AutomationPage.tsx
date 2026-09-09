@@ -8,6 +8,7 @@ import type { AutomationEvent, AutomationWorkflowConfig } from '../lib/types'
 import { EmptyState } from '../components/EmptyState'
 import { SkeletonRows } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
+import { PageShell, PageHeader, KpiStrip, KpiCard, ErrorCard, SectionTitle } from '../components/layout'
 
 const severityTone = (s: string) => s === 'error' ? 'bad' : s === 'warn' ? 'warn' : 'muted'
 const statusTone = (s: string) => s === 'new' ? 'bad' : s === 'acknowledged' ? 'warn' : s === 'retried' ? 'warn' : 'muted'
@@ -101,23 +102,22 @@ export function AutomationPage() {
     finally { setBusyId(null) }
   }
 
-  return <section class="page">
-    <div class="page-head">
-      <div>
-        <span class="eyebrow">AUTOMATION</span>
-        <h1>Automation events</h1>
-        <p>n8n workflow outcomes — errors, status and heartbeat events. Real-work items route to Discord; everything else stays here.</p>
-      </div>
-      <div class="page-head-actions">
+  return <PageShell>
+    <PageHeader
+      eyebrow="AUTOMATION"
+      title="Automation events"
+      description="n8n workflow outcomes — errors, status and heartbeat events. Real-work items route to Discord; everything else stays here."
+      actions={
         <button class="ghost" classList={{ active: showConfigs() }} onClick={() => setShowConfigs(v => !v)}>
           {showConfigs() ? 'Back to events' : 'Workflow routing'}
         </button>
-      </div>
-    </div>
+      }
+    />
 
     <Show when={showConfigs()}>
-      <div class="section-title"><div><span class="eyebrow">AUTOMATION</span><h2><SectionIcon name="workflow" />Workflow routing</h2><p>One row per n8n workflow, deciding what its events do when they arrive. <strong>Category</strong> sorts the event — only <em>real work</em> is worth waking someone for. <strong>Discord</strong> forwards it to the crew channel. <strong>Muted</strong> keeps the events recorded but stops them counting as new. Changes save as you make them.</p></div></div>
-      <Show when={configs.error}><div class="error-card" role="alert">{errorMessage(configs.error, 'Automation routing could not be loaded')}</div></Show>
+      <SectionTitle eyebrow="AUTOMATION" title="Workflow routing" icon={<SectionIcon name="workflow" />} />
+      <p class="text-sm text-muted-foreground -mt-1 mb-4 leading-relaxed">One row per n8n workflow, deciding what its events do when they arrive. <strong>Category</strong> sorts the event — only <em>real work</em> is worth waking someone for. <strong>Discord</strong> forwards it to the crew channel. <strong>Muted</strong> keeps the events recorded but stops them counting as new. Changes save as you make them.</p>
+      <Show when={configs.error}><ErrorCard>{errorMessage(configs.error, 'Automation routing could not be loaded')}</ErrorCard></Show>
       <Show when={configsReady()} fallback={!configs.error ? <SkeletonRows count={3} /> : null}>
         <div class="automation-config-list">
           <For each={configs.data!.items}>{(cfg: AutomationWorkflowConfig) => (
@@ -165,27 +165,17 @@ export function AutomationPage() {
     </Show>
 
     <Show when={!showConfigs()}>
-      <div class="kpi-strip">
-        <article class="kpi-card kpi-bad">
-          <span class="kpi-label">New events</span>
-          <strong class="kpi-value tabular-nums">{newCount()}</strong>
-          <span class="kpi-sub">unacknowledged</span>
-        </article>
-        <article class="kpi-card">
-          <span class="kpi-label">Errors</span>
-          <strong class="kpi-value tabular-nums">{errorCount()}</strong>
-          <span class="kpi-sub">in last 100</span>
-        </article>
-        <article class="kpi-card">
-          <span class="kpi-label">Workflows</span>
-          <strong class="kpi-value tabular-nums">{configMap().size}</strong>
-          <span class="kpi-sub">configured</span>
-        </article>
-      </div>
+      <KpiStrip>
+        <KpiCard label="New events" value={newCount()} sub="unacknowledged" />
+        <KpiCard label="Errors" value={errorCount()} sub="in last 100" />
+        <KpiCard label="Workflows" value={configMap().size} sub="configured" />
+      </KpiStrip>
 
-      <div class="section-title">
-        <div><span class="eyebrow">EVENTS</span><h2><SectionIcon name="history" />Recent events</h2></div>
-        <div class="filter-row">
+      <SectionTitle
+        eyebrow="EVENTS"
+        title="Recent events"
+        icon={<SectionIcon name="history" />}
+        action={
           <select value={statusFilter()} onChange={(e) => setStatusFilter(e.currentTarget.value)}>
             <option value="">All statuses</option>
             <option value="new">New</option>
@@ -193,10 +183,10 @@ export function AutomationPage() {
             <option value="retried">Retried</option>
             <option value="resolved">Resolved</option>
           </select>
-        </div>
-      </div>
+        }
+      />
 
-      <Show when={events.error}><div class="error-card" role="alert">{errorMessage(events.error, 'Automation events could not be loaded')}</div></Show>
+      <Show when={events.error}><ErrorCard>{errorMessage(events.error, 'Automation events could not be loaded')}</ErrorCard></Show>
       <Show when={eventsReady()} fallback={!events.error ? <SkeletonRows count={5} /> : null}>
         <div class="automation-event-list">
           <For each={events.data!.items}>{(ev: AutomationEvent) => {
@@ -206,18 +196,18 @@ export function AutomationPage() {
                 <div class="automation-event-head">
                   <span class={`severity-dot ${severityTone(ev.severity)}`} />
                   <strong>{ev.workflowName}</strong>
-                  <span class="muted">{ev.eventKind}</span>
+                  <span class="text-muted-foreground">{ev.eventKind}</span>
                   <Show when={cfg}><span class={`category-badge ${cfg!.category}`}>{categoryLabel(cfg!.category)}</span></Show>
-                  <span class="muted time">{formatTime(ev.occurredAt)}</span>
+                  <span class="text-muted-foreground time">{formatTime(ev.occurredAt)}</span>
                 </div>
                 <div class="automation-event-body">
                   <p>{ev.message}</p>
-                  <Show when={ev.nodeName}><small class="muted">Node: {ev.nodeName}</small></Show>
-                  <Show when={ev.executionId}><small class="muted">Execution: {ev.executionId}</small></Show>
+                  <Show when={ev.nodeName}><small class="text-muted-foreground">Node: {ev.nodeName}</small></Show>
+                  <Show when={ev.executionId}><small class="text-muted-foreground">Execution: {ev.executionId}</small></Show>
                 </div>
                 <div class="automation-event-actions">
                   <span class={`status-badge ${statusTone(ev.status)}`}>{ev.status}</span>
-                  <Show when={ev.retryCount > 0}><span class="muted">retried {ev.retryCount}×</span></Show>
+                  <Show when={ev.retryCount > 0}><span class="text-muted-foreground">retried {ev.retryCount}×</span></Show>
                   <Show when={ev.status === 'new'}>
                     <button class="ghost alert-action" disabled={busyId() === ev.id} onClick={() => handleAck(ev.id)}>Ack</button>
                   </Show>
@@ -237,5 +227,5 @@ export function AutomationPage() {
         </div>
       </Show>
     </Show>
-  </section>
+  </PageShell>
 }

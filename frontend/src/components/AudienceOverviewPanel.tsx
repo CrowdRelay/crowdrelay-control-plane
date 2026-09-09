@@ -4,6 +4,7 @@ import type { AudienceOverview } from '../lib/types'
 import { compactNumber } from '../lib/charts'
 import { EmptyState } from './EmptyState'
 import { KpiValue } from './KpiValue'
+import { KpiStrip, KpiCard } from './layout'
 
 const fmt = (value: number | undefined) => value == null ? '—' : compactNumber(value)
 
@@ -29,36 +30,15 @@ export function AudienceOverviewPanel(props: { slug: string; overview?: Audience
           </div>
         </div>
       </Show>
-      <div class="kpi-strip">
-        <div class="kpi-card">
-          <span class="kpi-label">Active fans</span>
-          <KpiValue value={fmt(props.overview!.active_fans)} />
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-label">Marketing consented</span>
-          <KpiValue value={fmt(props.overview!.marketing_consented_fans)} />
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-label">Ticket buyers</span>
-          <KpiValue value={fmt(props.overview!.ticket_buyers)} />
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-label">Attendees</span>
-          <KpiValue value={fmt(props.overview!.attendees)} />
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-label">Synesthesia participants</span>
-          <KpiValue value={fmt(props.overview!.synesthesia_participants)} />
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-label">Qualified referrals</span>
-          <KpiValue value={fmt(props.overview!.qualified_referrals)} />
-        </div>
-        <div class="kpi-card accent">
-          <span class="kpi-label">Paid ticket orders</span>
-          <KpiValue value={fmt(props.overview!.paid_ticket_orders)} />
-        </div>
-      </div>
+      <KpiStrip>
+        <KpiCard label="Active fans" value={<KpiValue value={fmt(props.overview!.active_fans)} />} />
+        <KpiCard label="Marketing consented" value={<KpiValue value={fmt(props.overview!.marketing_consented_fans)} />} />
+        <KpiCard label="Ticket buyers" value={<KpiValue value={fmt(props.overview!.ticket_buyers)} />} />
+        <KpiCard label="Attendees" value={<KpiValue value={fmt(props.overview!.attendees)} />} />
+        <KpiCard label="Synesthesia participants" value={<KpiValue value={fmt(props.overview!.synesthesia_participants)} />} />
+        <KpiCard label="Qualified referrals" value={<KpiValue value={fmt(props.overview!.qualified_referrals)} />} />
+        <KpiCard label="Paid ticket orders" value={<KpiValue value={fmt(props.overview!.paid_ticket_orders)} />} />
+      </KpiStrip>
     </Show>
   </div>
 }

@@ -8,6 +8,7 @@ import { EmptyState } from './EmptyState'
 import { SectionIcon } from './SectionIcon'
 import { SkeletonRows } from './Skeleton'
 import { StatusBadge } from './StatusBadge'
+import { Card } from './ui/card'
 import type { DeliveryDetails, DeliveryItem, OutboxItem } from '../lib/types'
 
 // The health panel's remediation for a dead letter reads "Open Deliveries and
@@ -95,10 +96,10 @@ export function QueueInspectorPanel(props: { slug: string }) {
     }
   }
 
-  return <article class="panel queue-panel">
-    <div class="section-title">
+  return <Card class="p-4 queue-panel">
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3">
       <div>
-        <span class="eyebrow">QUEUES</span>
+        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">QUEUES</span>
         <h2><SectionIcon name="list-checks" />What is stuck, and why</h2>
         <p>The outbox holds events leaving this system; deliveries are the webhook attempts against your endpoints. A dead row has used every attempt and will not move again on its own — read one before retrying the rest, because a bulk retry reproduces a bad payload as fast as it reproduces a blip.</p>
       </div>
@@ -119,7 +120,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
     </div>
 
     <Show when={model.error}>
-      <div class="error-card" role="alert">{errorMessage(model.error, 'The queue could not be read')}</div>
+      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(model.error, 'The queue could not be read')}</div>
     </Show>
 
     {/* Skeletons only before the first result. A tab or status change swaps the
@@ -174,7 +175,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
 
     <Dialog open={detail() !== null} onClose={() => setDetail(null)} label="Delivery attempts" class="dialog-panel queue-detail-dialog">
       <Show when={detail()}>{data => <>
-        <div class="section-title"><div><span class="eyebrow">DELIVERY</span><h2>{data().delivery.event_type}</h2></div>
+        <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DELIVERY</span><h2>{data().delivery.event_type}</h2></div>
           <StatusBadge status={data().delivery.status} tone={statusTone(data().delivery.status)} /></div>
         <p class="queue-detail-meta">
           {data().delivery.endpoint_name}
@@ -208,5 +209,5 @@ export function QueueInspectorPanel(props: { slug: string }) {
         </div>
       </>}</Show>
     </Dialog>
-  </article>
+  </Card>
 }

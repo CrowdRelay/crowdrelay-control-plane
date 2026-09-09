@@ -85,9 +85,9 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
   const recovered = () => props.alerts.filter(alert => !alert.active)
 
   return <>
-    <div class="section-title">
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3">
       <div>
-        <span class="eyebrow">WATCHDOG</span>
+        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">WATCHDOG</span>
         <h3><SectionIcon name="alert-triangle" />Open alerts</h3>
         {/* The counts on this page and on Operations come from these rows, so
             state the cadence: an operator who fixed the cause should not read a
@@ -102,8 +102,8 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
 
     <For each={open()}>{alert => {
       const guide = () => GUIDE[alert.alert_key]
-      return <div class={alert.severity === 'critical' ? 'error-card' : 'warning-card'}>
-        <div class="section-title">
+      return <div class={alert.severity === 'critical' ? 'rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive' : 'warning-card'}>
+        <div class="flex items-center justify-between gap-4 mt-6 mb-3">
           <div>
             <strong>{guide()?.title ?? alert.summary}</strong>
             <p>{guide()?.cause ?? alert.summary}</p>

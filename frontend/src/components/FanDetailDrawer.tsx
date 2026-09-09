@@ -42,21 +42,21 @@ export function FanDetailDrawer(props: {
           <div>
             <h3>{props.fan!.fan.display_name ?? 'Unknown fan'}</h3>
             <Show when={props.fan!.fan.email}>
-              <span class="muted">{props.fan!.fan.email}</span>
+              <span class="text-muted-foreground">{props.fan!.fan.email}</span>
             </Show>
           </div>
           <button class="link" onClick={props.onClose}>Close</button>
         </div>
         <div class="fan-drawer-body">
           <div class="fan-drawer-meta">
-            <div><span class="muted">Status</span><span class={`badge tone-${props.fan!.fan.status === 'active' ? 'good' : 'muted'}`}>{props.fan!.fan.status}</span></div>
-            <div><span class="muted">Locale</span><span>{props.fan!.fan.locale ?? '—'}</span></div>
-            <div><span class="muted">Activation</span><span>{props.fan!.fan.activation_state}</span></div>
-            <div><span class="muted">Joined</span><span>{formatDateTime(props.fan!.fan.created_at)}</span></div>
-            <div><span class="muted">Last activity</span><span>{formatDateTime(props.fan!.fan.last_activity_at)}</span></div>
-            <div><span class="muted">Consented</span><span>{props.fan!.fan.consented ? 'Yes' : 'No'}</span></div>
-            <div><span class="muted">Qualified referrals</span><span>{props.fan!.fan.qualified_referrals}</span></div>
-            <div><span class="muted">Paid ticket orders</span><span>{props.fan!.fan.paid_ticket_orders}</span></div>
+            <div><span class="text-muted-foreground">Status</span><span class={`badge tone-${props.fan!.fan.status === 'active' ? 'good' : 'muted'}`}>{props.fan!.fan.status}</span></div>
+            <div><span class="text-muted-foreground">Locale</span><span>{props.fan!.fan.locale ?? '—'}</span></div>
+            <div><span class="text-muted-foreground">Activation</span><span>{props.fan!.fan.activation_state}</span></div>
+            <div><span class="text-muted-foreground">Joined</span><span>{formatDateTime(props.fan!.fan.created_at)}</span></div>
+            <div><span class="text-muted-foreground">Last activity</span><span>{formatDateTime(props.fan!.fan.last_activity_at)}</span></div>
+            <div><span class="text-muted-foreground">Consented</span><span>{props.fan!.fan.consented ? 'Yes' : 'No'}</span></div>
+            <div><span class="text-muted-foreground">Qualified referrals</span><span>{props.fan!.fan.qualified_referrals}</span></div>
+            <div><span class="text-muted-foreground">Paid ticket orders</span><span>{props.fan!.fan.paid_ticket_orders}</span></div>
           </div>
           <Show when={props.fan!.tags.length > 0}>
             <div class="fan-drawer-tags">
@@ -73,7 +73,7 @@ export function FanDetailDrawer(props: {
                 <div class="journey-event">
                   <span class="journey-time">{formatDateTime(purchase.paid_at)}</span>
                   <span class="badge">{purchase.event_title}</span>
-                  <span class="muted">{purchase.status} · {purchase.currency} {purchase.amount_gross_minor / 100}</span>
+                  <span class="text-muted-foreground">{purchase.status} · {purchase.currency} {purchase.amount_gross_minor / 100}</span>
                 </div>
               )}</For>
             </div>
@@ -81,7 +81,7 @@ export function FanDetailDrawer(props: {
           <div class="fan-drawer-journey">
             <h4>Journey</h4>
             <Show when={props.loading}><SkeletonRows count={3} /></Show>
-            <Show when={props.error}><div class="error-card">{props.error}</div></Show>
+            <Show when={props.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{props.error}</div></Show>
             <Show when={!props.loading && !props.error && props.journey.length === 0}>
               <EmptyState label="No journey events" hint="Journey events track fan interactions over time. They appear here once the fan engages with the platform." />
             </Show>
@@ -91,8 +91,8 @@ export function FanDetailDrawer(props: {
                   <div class="journey-event">
                     <span class="journey-time">{formatDateTime(event.occurred_at)}</span>
                     <span class="badge">{journeyKindLabel(event.kind)}</span>
-                    <span class="muted">{event.title}</span>
-                    <Show when={event.detail != null}><span class="muted detail-json">{detailToString(event.detail)}</span></Show>
+                    <span class="text-muted-foreground">{event.title}</span>
+                    <Show when={event.detail != null}><span class="text-muted-foreground detail-json">{detailToString(event.detail)}</span></Show>
                   </div>
                 )}</For>
               </div>

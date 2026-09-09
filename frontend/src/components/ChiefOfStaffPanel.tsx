@@ -5,6 +5,7 @@ import { SectionIcon } from './SectionIcon'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './EmptyState'
 import { SkeletonSection } from './Skeleton'
+import { Card } from './ui/card'
 import { CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 import type { ChiefOfStaffActivity } from '../lib/types'
 
@@ -90,10 +91,10 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
       && data.parked_for_approval.length === 0 && data.stopped.length === 0
   }
 
-  return <article class="panel chief-of-staff-panel">
-    <div class="section-title">
+  return <Card class="p-4 chief-of-staff-panel">
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3">
       <div>
-        <span class="eyebrow">LAST 24 HOURS</span>
+        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">LAST 24 HOURS</span>
         <h2><SectionIcon name="activity" />What the autopilot did</h2>
         <p>Its own report: what ran, what it stopped itself from running, and what is waiting on you. Counts cover the last day; measured effect covers the last week.</p>
       </div>
@@ -283,5 +284,5 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
     <Show when={d() && !model.isPending && d()!.executed_24h === 0 && d()!.failed_24h === 0 && d()!.stopped.length === 0 && d()!.about_to_act.length === 0 && d()!.attention_items.length === 0}>
       <EmptyState label="No autopilot activity recorded" hint="Once a cycle runs and a policy allows it to act, this is where the run shows up." />
     </Show>
-  </article>
+  </Card>
 }

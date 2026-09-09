@@ -1,12 +1,14 @@
 import type { Component } from 'solid-js'
+import { Card } from './ui/card'
 
 // Reusable skeleton loading placeholders.
-// Uses the existing shimmer animation from styles.css.
-// Dimension utilities (.skel-w*, .skel-h*, .skel-r*, .skel-mb*) are in styles.css.
+// Static gradient (no shimmer animation — this is an operator console, not a
+// marketing site). Dimension utilities are expressed as Tailwind arbitrary
+// values (w-[40px], h-[11px], rounded-[5px], mb-[6px], etc.).
 
 export const SkeletonBlock: Component<{ height?: string; width?: string; radius?: string }> = (props) => (
   <div
-    class="skeleton-block"
+    class="rounded-lg bg-surface-3 border border-border"
     style={{
       height: props.height ?? '120px',
       width: props.width ?? '100%',
@@ -16,28 +18,28 @@ export const SkeletonBlock: Component<{ height?: string; width?: string; radius?
 )
 
 export const SkeletonGrid: Component<{ count?: number; minCardHeight?: string }> = (props) => (
-  <div class="skeleton-grid skel-grid-2">
+  <div class="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3 mb-8">
     {Array.from({ length: props.count ?? 3 }, () => (
-      <div class="skeleton-block skel-r12" style={{ height: props.minCardHeight ?? '160px' }} />
+      <div class="rounded-lg bg-surface-3 border border-border rounded-[12px]" style={{ height: props.minCardHeight ?? '160px' }} />
     ))}
   </div>
 )
 
 export const SkeletonRows: Component<{ count?: number }> = (props) => (
-  <div class="skel-rows">
+  <div class="flex flex-col gap-2.5 mt-4">
     {Array.from({ length: props.count ?? 4 }, () => (
-      <div class="skeleton-block skel-h48 skel-r12" />
+      <div class="rounded-lg bg-surface-3 border border-border h-12 rounded-[12px]" />
     ))}
   </div>
 )
 
 export const SkeletonPanel: Component<{ lines?: number }> = (props) => (
-  <div class="panel" style={{ padding: '20px' }}>
-    <div class="skeleton-block skel-h20 skel-w180 skel-r8 skel-mb16" />
+  <Card class="p-5">
+    <div class="rounded-lg bg-surface-3 border border-border h-5 w-[180px] rounded-[8px] mb-4" />
     {Array.from({ length: props.lines ?? 3 }, () => (
-      <div class="skeleton-block skel-text skel-w100pct" />
+      <div class="rounded-lg bg-surface-3 border border-border h-[14px] rounded-[6px] mb-2.5 w-full" />
     ))}
-  </div>
+  </Card>
 )
 
 // ── Layout-matching skeletons — make pages FEEL fast ──────────────
@@ -47,24 +49,24 @@ export const SkeletonPanel: Component<{ lines?: number }> = (props) => (
 /** Page header skeleton — eyebrow + h1 + paragraph.
  *  Internal helper used by composite page skeletons. */
 const SkeletonPageHead: Component = () => (
-  <div class="page-head">
+  <div class="flex justify-between items-start gap-6 mb-8">
     <div>
-      <div class="skeleton-block skel-h12 skel-w120 skel-r6 skel-mb10" />
-      <div class="skeleton-block skel-h28 skel-w280 skel-r8" style={{ 'margin-bottom': '8px' }} />
-      <div class="skeleton-block skel-h14 skel-w420 skel-r6" />
+      <div class="rounded-lg bg-surface-3 border border-border h-[12px] w-[120px] rounded-[6px] mb-2.5" />
+      <div class="rounded-lg bg-surface-3 border border-border h-7 w-[280px] rounded-[8px]" style={{ 'margin-bottom': '8px' }} />
+      <div class="rounded-lg bg-surface-3 border border-border h-[14px] w-[420px] rounded-[6px]" />
     </div>
-    <div class="skeleton-block skel-h28 skel-w90 skel-r-full" />
+    <div class="rounded-lg bg-surface-3 border border-border h-7 w-[90px] rounded-full" />
   </div>
 )
 
 /** KPI strip skeleton — row of metric cards */
 export const SkeletonKpiStrip: Component<{ count?: number }> = (props) => (
-  <div class="ops-kpi-strip">
+  <div class="grid grid-cols-7 gap-2.5 mb-6">
     {Array.from({ length: props.count ?? 3 }, () => (
-      <div class="ops-kpi-card">
-        <div class="skeleton-block skel-label skel-w70" />
-        <div class="skeleton-block skel-value skel-w50" />
-        <div class="skeleton-block skel-small skel-w90" />
+      <div class="flex flex-col border border-border rounded-md bg-card p-4 gap-1">
+        <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] mb-2 w-[70px]" />
+        <div class="rounded-lg bg-surface-3 border border-border h-[22px] rounded-[6px] mb-1.5 w-[50px]" />
+        <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] w-[90px]" />
       </div>
     ))}
   </div>
@@ -72,36 +74,36 @@ export const SkeletonKpiStrip: Component<{ count?: number }> = (props) => (
 
 /** Panel skeleton — section title + body lines */
 export const SkeletonSection: Component<{ titleWidth?: string; lines?: number; minHeight?: string }> = (props) => (
-  <article class="panel" style={{ 'min-height': props.minHeight ?? 'auto' }}>
-    <div class="section-title skel-mb16">
+  <Card class="p-4" style={{ 'min-height': props.minHeight ?? 'auto' }}>
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3 mb-4">
       <div>
-        <div class="skeleton-block skel-h11 skel-w80 skel-r5 skel-mb6" />
-        <div class="skeleton-block skel-h18 skel-r6" style={{ width: props.titleWidth ?? '200px' }} />
+        <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px] rounded-[5px] mb-1.5" />
+        <div class="rounded-lg bg-surface-3 border border-border h-[18px] rounded-[6px]" style={{ width: props.titleWidth ?? '200px' }} />
       </div>
     </div>
     {Array.from({ length: props.lines ?? 3 }, () => (
-      <div class="skeleton-block skel-h14 skel-w100pct skel-r6 skel-mb10" />
+      <div class="rounded-lg bg-surface-3 border border-border h-[14px] w-full rounded-[6px] mb-2.5" />
     ))}
-  </article>
+  </Card>
 )
 
 /** Two-column grid skeleton — for detail-grid layouts.
  *  Internal helper used by SkeletonTenantPage. */
 const SkeletonDetailGrid: Component<{ leftHeight?: string; rightHeight?: string }> = (props) => (
-  <div class="detail-grid">
-    <div class="skeleton-block" style={{ height: props.leftHeight ?? '200px', 'border-radius': 'var(--radius-lg)' }} />
-    <div class="skeleton-block" style={{ height: props.rightHeight ?? '200px', 'border-radius': 'var(--radius-lg)' }} />
+  <div class="grid grid-cols-2 gap-4 mb-4">
+    <div class="rounded-lg bg-surface-3 border border-border" style={{ height: props.leftHeight ?? '200px' }} />
+    <div class="rounded-lg bg-surface-3 border border-border" style={{ height: props.rightHeight ?? '200px' }} />
   </div>
 )
 
 /** Brain group skeleton — for intelligence page sections */
 export const SkeletonBrainGroup: Component<{ label?: string }> = (props) => (
-  <div class="brain-group">
-    <div class="brain-group-head">
-      <div class="skeleton-block skel-h11 skel-w100 skel-r5 skel-mb6" />
-      <div class="skeleton-block skel-h18 skel-w180 skel-r6" />
+  <div class="mb-6">
+    <div class="flex items-center gap-3 mb-3 pb-2 border-b border-border-subtle">
+      <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[100px] rounded-[5px] mb-1.5" />
+      <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[180px] rounded-[6px]" />
     </div>
-    <div class="skeleton-block skel-h120 skel-mt16" style={{ 'border-radius': 'var(--radius-lg)' }} />
+    <div class="rounded-lg bg-surface-3 border border-border h-[120px] mt-4" />
   </div>
 )
 
@@ -110,7 +112,7 @@ export const SkeletonTenantPage: Component = () => (
   <>
     <SkeletonPageHead />
     <SkeletonDetailGrid leftHeight="220px" rightHeight="220px" />
-    <div class="skeleton-block skel-h140 skel-mt16" style={{ 'border-radius': 'var(--radius-lg)' }} />
+    <div class="rounded-lg bg-surface-3 border border-border h-[140px] mt-4" />
     <SkeletonSection titleWidth="180px" lines={5} minHeight="180px" />
     <SkeletonSection titleWidth="200px" lines={4} minHeight="160px" />
   </>
@@ -128,15 +130,15 @@ export const SkeletonNotifiersPage: Component = () => (
 /** Generic full-page skeleton — shown while a lazy route chunk loads.
  *  Mirrors the common page shape: head + KPI strip + panel grid. */
 export const SkeletonPage: Component = () => (
-  <section class="page">
+  <section class="mx-auto max-w-7xl px-6 py-6 pb-24">
     <SkeletonPageHead />
     <SkeletonKpiStrip count={4} />
-    <div class="panel-grid skel-grid-wide">
+    <div class="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-4 mt-4">
       <SkeletonSection titleWidth="160px" lines={4} minHeight="180px" />
       <SkeletonSection titleWidth="200px" lines={3} minHeight="180px" />
       <SkeletonSection titleWidth="140px" lines={5} minHeight="180px" />
     </div>
-    <div class="skeleton-block skel-h220 skel-mt16" style={{ 'border-radius': 'var(--radius-lg)' }} />
+    <div class="rounded-lg bg-surface-3 border border-border h-[220px] mt-4" />
   </section>
 )
 
@@ -148,41 +150,41 @@ export const SkeletonPage: Component = () => (
 /** Skeleton for ScorecardPanel — status metrics row + week summary + track record */
 export const SkeletonScorecard: Component = () => (
   <>
-    <div class="operations-metrics">
+    <div class="grid gap-2.5">
       {Array.from({ length: 3 }, () => (
-        <div>
-          <div class="skeleton-block skel-label skel-w70" />
-          <div class="skeleton-block skel-value skel-w50" />
-          <div class="skeleton-block skel-small skel-w90" />
+        <div class="p-3.5 border border-border rounded-md bg-card">
+          <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] mb-2 w-[70px]" />
+          <div class="rounded-lg bg-surface-3 border border-border h-[22px] rounded-[6px] mb-1.5 w-[50px]" />
+          <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] w-[90px]" />
         </div>
       ))}
     </div>
-    <section class="operations-section">
-      <div class="operations-section-head">
-        <div class="skeleton-block skel-small skel-w80 skel-mb6" />
-        <div class="skeleton-block skel-h18 skel-w120 skel-r6" />
+    <section class="mt-6 pt-6 border-t border-border">
+      <div class="flex justify-between gap-4 items-start">
+        <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px] rounded-[5px] mb-1.5" />
+        <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[120px] rounded-[6px]" />
       </div>
-      <div class="operations-metrics">
+      <div class="grid gap-2.5">
         {Array.from({ length: 4 }, () => (
-          <div>
-            <div class="skeleton-block skel-label skel-w60" />
-            <div class="skeleton-block skel-value skel-w40" />
-            <div class="skeleton-block skel-small skel-w80" />
+          <div class="p-3.5 border border-border rounded-md bg-card">
+            <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] mb-2 w-[60px]" />
+            <div class="rounded-lg bg-surface-3 border border-border h-[22px] rounded-[6px] mb-1.5 w-[40px]" />
+            <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] w-[80px]" />
           </div>
         ))}
       </div>
     </section>
-    <section class="operations-section">
-      <div class="operations-section-head">
-        <div class="skeleton-block skel-small skel-w80 skel-mb6" />
-        <div class="skeleton-block skel-h18 skel-w100 skel-r6" />
+    <section class="mt-6 pt-6 border-t border-border">
+      <div class="flex justify-between gap-4 items-start">
+        <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px] rounded-[5px] mb-1.5" />
+        <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[100px] rounded-[6px]" />
       </div>
-      <div class="operations-metrics">
+      <div class="grid gap-2.5">
         {Array.from({ length: 4 }, () => (
-          <div>
-            <div class="skeleton-block skel-label skel-w60" />
-            <div class="skeleton-block skel-value skel-w40" />
-            <div class="skeleton-block skel-small skel-w80" />
+          <div class="p-3.5 border border-border rounded-md bg-card">
+            <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] mb-2 w-[60px]" />
+            <div class="rounded-lg bg-surface-3 border border-border h-[22px] rounded-[6px] mb-1.5 w-[40px]" />
+            <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] w-[80px]" />
           </div>
         ))}
       </div>
@@ -193,18 +195,18 @@ export const SkeletonScorecard: Component = () => (
 /** Skeleton for ReplyTriagePanel — summary metrics + reply rows */
 export const SkeletonReplyTriage: Component = () => (
   <>
-    <div class="operations-metrics">
+    <div class="grid gap-2.5">
       {Array.from({ length: 3 }, () => (
-        <div>
-          <div class="skeleton-block skel-label skel-w70" />
-          <div class="skeleton-block skel-value skel-w40" />
-          <div class="skeleton-block skel-small skel-w80" />
+        <div class="p-3.5 border border-border rounded-md bg-card">
+          <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] mb-2 w-[70px]" />
+          <div class="rounded-lg bg-surface-3 border border-border h-[22px] rounded-[6px] mb-1.5 w-[40px]" />
+          <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] w-[80px]" />
         </div>
       ))}
     </div>
-    <div class="skel-rows">
+    <div class="flex flex-col gap-2.5 mt-4">
       {Array.from({ length: 3 }, () => (
-        <div class="skeleton-block skel-h64 skel-w100pct skel-r10" />
+        <div class="rounded-lg bg-surface-3 border border-border h-16 w-full rounded-[10px]" />
       ))}
     </div>
   </>
@@ -213,17 +215,17 @@ export const SkeletonReplyTriage: Component = () => (
 /** Skeleton for LearningLoopPanel — summary line + entry cards */
 export const SkeletonLearningLoop: Component = () => (
   <>
-    <div class="learning-loop-summary">
+    <div class="flex flex-wrap gap-3 mb-4 p-3 border border-border-subtle rounded-md bg-surface-1">
       {Array.from({ length: 4 }, () => (
-        <div class="learning-loop-stat">
-          <div class="skeleton-block skel-small skel-w60 skel-mb6" />
-          <div class="skeleton-block skel-h20 skel-w40 skel-r6" />
+        <div class="flex flex-col gap-0.5">
+          <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] w-[60px] mb-1.5" />
+          <div class="rounded-lg bg-surface-3 border border-border h-5 w-[40px] rounded-[6px]" />
         </div>
       ))}
     </div>
-    <div class="skel-rows">
+    <div class="flex flex-col gap-2.5 mt-4">
       {Array.from({ length: 4 }, () => (
-        <div class="skeleton-block skel-h72 skel-w100pct skel-r10" />
+        <div class="rounded-lg bg-surface-3 border border-border h-[72px] w-full rounded-[10px]" />
       ))}
     </div>
   </>
@@ -231,15 +233,15 @@ export const SkeletonLearningLoop: Component = () => (
 
 /** Skeleton for OpportunityBoardPanel — opportunity list rows */
 export const SkeletonOpportunityBoard: Component = () => (
-  <div class="flag-list opportunity-list">
+  <div class="grid gap-2.5">
     {Array.from({ length: 3 }, () => (
-      <div class="flag-row release-component-row opportunity-row">
-        <div class="opportunity-body">
-          <div class="skeleton-block skel-h16 skel-w60pct skel-r6 skel-mb6" />
-          <div class="skeleton-block skel-h12 skel-w40pct skel-r5" style={{ 'margin-bottom': '4px' }} />
-          <div class="skeleton-block skel-h12 skel-w80pct skel-r5" />
+      <div class="flex justify-between items-start gap-4 p-3.5 border border-border rounded-md bg-card">
+        <div class="min-w-0 flex-1 flex flex-col gap-1.5">
+          <div class="rounded-lg bg-surface-3 border border-border h-4 w-3/5 rounded-[6px] mb-1.5" />
+          <div class="rounded-lg bg-surface-3 border border-border h-[12px] w-2/5 rounded-[5px]" style={{ 'margin-bottom': '4px' }} />
+          <div class="rounded-lg bg-surface-3 border border-border h-[12px] w-4/5 rounded-[5px]" />
         </div>
-        <div class="skeleton-block skel-h32 skel-w70 skel-r8" />
+        <div class="rounded-lg bg-surface-3 border border-border h-8 w-[70px] rounded-[8px]" />
       </div>
     ))}
   </div>
@@ -247,14 +249,14 @@ export const SkeletonOpportunityBoard: Component = () => (
 
 /** Skeleton for OperationsPanel flag list — flag rows in a 2-col grid */
 export const SkeletonFlagList: Component = () => (
-  <div class="flag-list" style={{ display: 'grid', 'grid-template-columns': 'repeat(2, minmax(0,1fr))', 'column-gap': '24px' }}>
+  <div class="grid grid-cols-2 gap-6">
     {Array.from({ length: 4 }, () => (
-      <div class="flag-row">
+      <div class="flex justify-between items-center py-3.5 border-b border-surface-3">
         <div>
-          <div class="skeleton-block skel-h14 skel-w120 skel-r6 skel-mb6" />
-          <div class="skeleton-block skel-h11 skel-w180 skel-r5" />
+          <div class="rounded-lg bg-surface-3 border border-border h-[14px] w-[120px] rounded-[6px] mb-1.5" />
+          <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[180px] rounded-[5px]" />
         </div>
-        <div class="skeleton-block skel-h24 skel-w50 skel-r-full" />
+        <div class="rounded-lg bg-surface-3 border border-border h-6 w-[50px] rounded-full" />
       </div>
     ))}
   </div>
@@ -262,12 +264,12 @@ export const SkeletonFlagList: Component = () => (
 
 /** Skeleton for OperationsPanel autopilot KPIs — 4-col KPI grid */
 export const SkeletonAutopilotKpis: Component = () => (
-  <div class="autopilot-kpis">
+  <div class="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2.5 mt-4">
     {Array.from({ length: 4 }, () => (
-      <div>
-        <div class="skeleton-block skel-label skel-w60" />
-        <div class="skeleton-block skel-value skel-w40" />
-        <div class="skeleton-block skel-small skel-w80" />
+      <div class="p-3.5 border border-border rounded-md bg-card">
+        <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] mb-2 w-[60px]" />
+        <div class="rounded-lg bg-surface-3 border border-border h-[22px] rounded-[6px] mb-1.5 w-[40px]" />
+        <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] w-[80px]" />
       </div>
     ))}
   </div>
@@ -278,15 +280,15 @@ export const SkeletonAutopilotKpis: Component = () => (
  *  tab layout without being specific to any one tab. */
 export const SkeletonTabContent: Component = () => (
   <>
-    <article class="panel" style={{ padding: '24px', 'min-height': '180px' }}>
-      <div class="skeleton-block skel-h20 skel-w180 skel-r8 skel-mb16" />
-      <div class="skeleton-block skel-h14 skel-w100pct skel-r6 skel-mb10" />
-      <div class="skeleton-block skel-h14 skel-w80pct skel-r6" />
-    </article>
-    <article class="panel" style={{ padding: '24px', 'min-height': '140px' }}>
-      <div class="skeleton-block skel-h20 skel-w160 skel-r8 skel-mb16" />
-      <div class="skeleton-block skel-h14 skel-w100pct skel-r6" />
-    </article>
+    <Card class="p-6" style={{ 'min-height': '180px' }}>
+      <div class="rounded-lg bg-surface-3 border border-border h-5 w-[180px] rounded-[8px] mb-4" />
+      <div class="rounded-lg bg-surface-3 border border-border h-[14px] w-full rounded-[6px] mb-2.5" />
+      <div class="rounded-lg bg-surface-3 border border-border h-[14px] w-4/5 rounded-[6px]" />
+    </Card>
+    <Card class="p-6" style={{ 'min-height': '140px' }}>
+      <div class="rounded-lg bg-surface-3 border border-border h-5 w-[160px] rounded-[8px] mb-4" />
+      <div class="rounded-lg bg-surface-3 border border-border h-[14px] w-full rounded-[6px]" />
+    </Card>
   </>
 )
 
@@ -296,51 +298,51 @@ export const SkeletonTabContent: Component = () => (
 export const SkeletonPortfolio: Component = () => (
   <>
     {/* Portfolio panel — KPI grid + edges table */}
-    <article class="panel">
-      <div class="section-title skel-mb16">
+    <Card class="p-4">
+      <div class="flex items-center justify-between gap-4 mt-6 mb-3 mb-4">
         <div>
-          <div class="skeleton-block skel-small skel-w80 skel-mb6" />
-          <div class="skeleton-block skel-h18 skel-w200 skel-r6" />
+          <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px] rounded-[5px] mb-1.5" />
+          <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[200px] rounded-[6px]" />
         </div>
       </div>
-      <div class="kpi-grid skel-grid-kpi">
+      <div class="grid grid-cols-5 gap-3.5 mb-8">
         {Array.from({ length: 5 }, () => (
           <div>
-            <div class="skeleton-block skel-h24 skel-w60 skel-r6 skel-mb6" />
-            <div class="skeleton-block skel-small skel-w80" />
+            <div class="rounded-lg bg-surface-3 border border-border h-6 w-[60px] rounded-[6px] mb-1.5" />
+            <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] w-[80px]" />
           </div>
         ))}
       </div>
-      <div class="skeleton-block skel-h160 skel-w100pct skel-r10" />
-    </article>
+      <div class="rounded-lg bg-surface-3 border border-border h-40 w-full rounded-[10px]" />
+    </Card>
     {/* Fan sources panel */}
-    <article class="panel skel-mt16">
-      <div class="section-title skel-mb16">
+    <Card class="p-4 mt-4">
+      <div class="flex items-center justify-between gap-4 mt-6 mb-3 mb-4">
         <div>
-          <div class="skeleton-block skel-small skel-w80 skel-mb6" />
-          <div class="skeleton-block skel-h18 skel-w160 skel-r6" />
+          <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px] rounded-[5px] mb-1.5" />
+          <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[160px] rounded-[6px]" />
         </div>
       </div>
-      <div class="skel-grid-cards">
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
         {Array.from({ length: 3 }, () => (
-          <div class="skeleton-block skel-h80 skel-r10" />
+          <div class="rounded-lg bg-surface-3 border border-border h-20 rounded-[10px]" />
         ))}
       </div>
-    </article>
+    </Card>
     {/* Settings panel */}
-    <article class="panel skel-mt16">
-      <div class="section-title skel-mb16">
+    <Card class="p-4 mt-4">
+      <div class="flex items-center justify-between gap-4 mt-6 mb-3 mb-4">
         <div>
-          <div class="skeleton-block skel-small skel-w60 skel-mb6" />
-          <div class="skeleton-block skel-h18 skel-w140 skel-r6" />
+          <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[60px] rounded-[5px] mb-1.5" />
+          <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[140px] rounded-[6px]" />
         </div>
       </div>
-      <div class="skel-grid-settings">
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
         {Array.from({ length: 4 }, () => (
-          <div class="skeleton-block skel-h60 skel-r8" />
+          <div class="rounded-lg bg-surface-3 border border-border h-[60px] rounded-[8px]" />
         ))}
       </div>
-    </article>
+    </Card>
   </>
 )
 
@@ -348,18 +350,18 @@ export const SkeletonPortfolio: Component = () => (
  *  section title + metrics row + cities row. */
 export const SkeletonSignalOverview: Component = () => (
   <>
-    <div class="section-title" id="signal-overview">
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3" id="signal-overview">
       <div>
-        <div class="skeleton-block skel-small skel-w120 skel-mb6" />
-        <div class="skeleton-block skel-h18 skel-w180 skel-r6" />
+        <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[120px] rounded-[5px] mb-1.5" />
+        <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[180px] rounded-[6px]" />
       </div>
     </div>
-    <div class="operations-metrics">
+    <div class="grid gap-2.5">
       {Array.from({ length: 8 }, () => (
-        <div>
-          <div class="skeleton-block skel-label skel-w70" />
-          <div class="skeleton-block skel-value skel-w50" />
-          <div class="skeleton-block skel-small skel-w80" />
+        <div class="p-3.5 border border-border rounded-md bg-card">
+          <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] mb-2 w-[70px]" />
+          <div class="rounded-lg bg-surface-3 border border-border h-[22px] rounded-[6px] mb-1.5 w-[50px]" />
+          <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] w-[80px]" />
         </div>
       ))}
     </div>

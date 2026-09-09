@@ -5,7 +5,7 @@ import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { Dialog } from './Dialog'
-import { TabBar, TabPanel, useTabPanels } from './TabBar'
+import { TabBar, TabPanel, useTabPanels } from './layout'
 import { AgentProvidersPanel } from './AgentProvidersPanel'
 import { AIUsagePanel } from './AIUsagePanel'
 import { IntelligenceTransparencyPanel } from './IntelligenceTransparencyPanel'
@@ -271,7 +271,7 @@ export function AgentPanel(props: { slug: string }) {
 
       <TabPanel active={activeTab()} id="tasks" visited={isVisited('tasks')}>
       {/* Autopilot intelligence → agent suggestions — the bridge between operations data and LLM execution */}
-      <Show when={tasksOverview.data?.suggestions && '__error' in tasksOverview.data!.suggestions}><div class="error-card">Agent suggestions unavailable: {errorMessage(tasksOverview.error, 'Service unreachable')}</div></Show>
+      <Show when={tasksOverview.data?.suggestions && '__error' in tasksOverview.data!.suggestions}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Agent suggestions unavailable: {errorMessage(tasksOverview.error, 'Service unreachable')}</div></Show>
       <Show when={suggestions().length > 0}>
         <div class="agent-section">
           <div class="agent-section-head">
@@ -299,7 +299,7 @@ export function AgentPanel(props: { slug: string }) {
       <div class="agent-section">
         <div class="agent-section-head">
           <h3>Agent tasks</h3>
-          <Show when={templates().length > 0}><span class="muted">{templates().length} templates</span></Show>
+          <Show when={templates().length > 0}><span class="text-muted-foreground">{templates().length} templates</span></Show>
         </div>
         <p class="agent-section-intro">A template is a pre-written job — research, drafting, analysis — with the prompt scaffolding already in place. Pick one, choose a model, describe the specific work in your own words, and run it. Results appear under Recent tasks, usually within a minute.</p>
         <Show when={tasksOverview.data} fallback={<SkeletonGrid count={4} minCardHeight='120px' />}>
@@ -401,7 +401,7 @@ export function AgentPanel(props: { slug: string }) {
             </div>
           </div>
         </Show>
-        <Show when={tasksOverview.data?.schedules && '__error' in tasksOverview.data!.schedules}><div class="error-card">Agent schedules unavailable: {errorMessage(tasksOverview.error, 'Service unreachable')}</div></Show>
+        <Show when={tasksOverview.data?.schedules && '__error' in tasksOverview.data!.schedules}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Agent schedules unavailable: {errorMessage(tasksOverview.error, 'Service unreachable')}</div></Show>
         <Show when={schedules().length > 0}>
           <table class="agent-task-table">
             <thead><tr><th>Template</th><th>Interval</th><th>Enabled</th><th>Last run</th><th>Next run</th><th></th></tr></thead>
@@ -416,8 +416,8 @@ export function AgentPanel(props: { slug: string }) {
                         {scheduleBusy() === sched.id ? '…' : sched.enabled ? '✓ enabled' : 'disabled'}
                       </button>
                     </td>
-                    <td class="muted">{sched.last_run_at ? formatIsoAge(sched.last_run_at) : 'never'}</td>
-                    <td class="muted">{sched.next_run_at ? formatIsoAge(sched.next_run_at) : '—'}</td>
+                    <td class="text-muted-foreground">{sched.last_run_at ? formatIsoAge(sched.last_run_at) : 'never'}</td>
+                    <td class="text-muted-foreground">{sched.next_run_at ? formatIsoAge(sched.next_run_at) : '—'}</td>
                     <td><button class="agent-btn-danger" disabled={scheduleBusy() === sched.id} onClick={() => deleteSchedule(sched.id)}>Delete</button></td>
                   </tr>
                 )}
@@ -433,7 +433,7 @@ export function AgentPanel(props: { slug: string }) {
       <div class="agent-section">
         <div class="agent-section-head">
           <h3>Recent tasks</h3>
-          <Show when={tasks().length > 0}><span class="muted">last {Math.min(tasks().length, 10)}</span></Show>
+          <Show when={tasks().length > 0}><span class="text-muted-foreground">last {Math.min(tasks().length, 10)}</span></Show>
         </div>
         <p class="agent-section-intro">Every run, whether started here or by a schedule. <strong>Queued</strong> and <strong>running</strong> refresh on their own; <strong>completed</strong> opens the full output with a copy button. A failed run charges nothing — hover it for the reason.</p>
         <Show when={tasksOverview.data} fallback={

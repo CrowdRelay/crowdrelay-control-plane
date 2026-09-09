@@ -93,16 +93,16 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
     <div class="agent-section-head">
       <h3>Growth objectives</h3>
       <Show when={objectives.data && objectives.data!.length > 0}>
-        <span class="muted">{objectives.data!.length} objectives</span>
+        <span class="text-muted-foreground">{objectives.data!.length} objectives</span>
       </Show>
     </div>
     <p class="agent-section-intro">Declared growth targets with progress tracking. Each objective freezes a baseline and measures progress toward the target value by the deadline.</p>
 
     <Show when={error()}>
-      <div class="error-card">{error()}</div>
+      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{error()}</div>
     </Show>
 
-    <Show when={objectives.error}><div class="error-card">Growth objectives unavailable: {objectiveErrorMessage(objectives.error, 'Service unreachable')}</div></Show>
+    <Show when={objectives.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Growth objectives unavailable: {objectiveErrorMessage(objectives.error, 'Service unreachable')}</div></Show>
     <Show when={objectives.data && objectives.data!.length > 0} fallback={
       <Show when={objectives.isFetching} fallback={
         <EmptyState label="No growth objectives declared" hint="Declare a target metric and deadline to start tracking progress. The intelligence measures every action against active objectives." />

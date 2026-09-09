@@ -100,11 +100,11 @@ export function PressRoomPanel(props: { slug: string }) {
     />
 
     <Show when={error()}>
-      <div class="error-card">{error()}</div>
+      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error()}</div>
     </Show>
 
     <Show when={tab() === 'requests'}>
-      <Show when={model.error}><div class="error-card">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
+      <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
       <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
         <Show when={requests().length > 0} fallback={<EmptyState label="No press requests" hint="Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches." />}>
           <div class="table-wrap">
@@ -122,7 +122,7 @@ export function PressRoomPanel(props: { slug: string }) {
               <tbody>
                 <For each={showAllRequests() ? requests() : requests().slice(0, MAX_VISIBLE)}>{(r) => (
                   <tr>
-                    <td><strong>{r.displayName}</strong><br /><span class="muted">{r.beaconKind}</span></td>
+                    <td><strong>{r.displayName}</strong><br /><span class="text-muted-foreground">{r.beaconKind}</span></td>
                     <td>{r.requestKind}</td>
                     <td>{r.eventTitle ?? '—'}</td>
                     <td><span class={`badge tone-${statusTone(r.status)}`}>{r.status}</span></td>
@@ -151,7 +151,7 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'assets'}>
-      <Show when={model.error}><div class="error-card">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
+      <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
       <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
         <Show when={assets().length > 0} fallback={<EmptyState label="No press assets" hint="Press assets are media materials (photos, bios, EPKs) available for outreach. Upload them through the tenant content pipeline." />}>
           <div class="table-wrap">
@@ -169,7 +169,7 @@ export function PressRoomPanel(props: { slug: string }) {
               <tbody>
                 <For each={showAllAssets() ? assets() : assets().slice(0, MAX_VISIBLE)}>{(a) => (
                   <tr>
-                    <td><strong>{a.labelEn}</strong><br /><span class="muted">{a.labelPl}</span></td>
+                    <td><strong>{a.labelEn}</strong><br /><span class="text-muted-foreground">{a.labelPl}</span></td>
                     <td>{a.assetKind}</td>
                     <td>{a.eventTitle ?? '—'}</td>
                     <td>{a.active ? '✓' : '—'}</td>
@@ -190,7 +190,7 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'engagements'}>
-      <Show when={model.error}><div class="error-card">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
+      <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
       <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
         <Show when={engagements().length > 0} fallback={<EmptyState label="No event engagements" hint="Event engagements track press interactions for specific shows and releases." />}>
           <div class="table-wrap">
@@ -210,7 +210,7 @@ export function PressRoomPanel(props: { slug: string }) {
               <tbody>
                 <For each={showAllEngagements() ? engagements() : engagements().slice(0, MAX_VISIBLE)}>{(e) => (
                   <tr>
-                    <td><strong>{e.displayName}</strong><br /><span class="muted">{e.beaconKind}</span></td>
+                    <td><strong>{e.displayName}</strong><br /><span class="text-muted-foreground">{e.beaconKind}</span></td>
                     <td>{e.eventTitle}</td>
                     <td><span class={`badge tone-${statusTone(e.status)}`}>{e.status}</span></td>
                     <td>{e.helpKind ?? '—'}</td>
@@ -255,7 +255,7 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'coverage'}>
-      <Show when={model.error}><div class="error-card">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
+      <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
       <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
         <Show when={coverage().length > 0} fallback={<EmptyState label="No earned media coverage" hint="Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage." />}>
           <div class="table-wrap">

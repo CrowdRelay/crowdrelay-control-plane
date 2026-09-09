@@ -9,6 +9,7 @@ import type { ReplyTriageEntry } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonReplyTriage } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
+import { Card } from './ui/card'
 
 const timeAgo = (value: string | null | undefined) => {
   if (!value) return 'never'
@@ -65,10 +66,10 @@ export function ReplyTriagePanel() {
   const [showAllRecentAuto, setShowAllRecentAuto] = createSignal(false)
   const MAX_VISIBLE = 10
 
-  return <article class="panel operations-panel">
-    <div class="section-title operations-title">
+  return <Card class="p-4 operations-panel">
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3 operations-title">
       <div>
-        <span class="eyebrow">REPLY TRIAGE</span>
+        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">REPLY TRIAGE</span>
         <h2><SectionIcon name="inbox" />Replies needing a human</h2>
         <p>Inbound replies the classifier could not resolve automatically. Read the text, then decide.</p>
       </div>
@@ -122,7 +123,7 @@ export function ReplyTriagePanel() {
       {/* Needs human */}
       <section class="operations-section">
         <div class="operations-section-head">
-          <div><span class="eyebrow">NEEDS HUMAN</span><h3><SectionIcon name="mail" />Read these</h3></div>
+          <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">NEEDS HUMAN</span><h3><SectionIcon name="mail" />Read these</h3></div>
         </div>
         <Show
           when={d().needs_human.length > 0}
@@ -143,7 +144,7 @@ export function ReplyTriagePanel() {
       <Show when={d().recent_auto.length > 0}>
         <section class="operations-section">
           <div class="operations-section-head">
-            <div><span class="eyebrow">RECENT AUTO</span><h3><SectionIcon name="zap" />Classified without a human</h3></div>
+            <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">RECENT AUTO</span><h3><SectionIcon name="zap" />Classified without a human</h3></div>
           </div>
           <div class="flag-list">
             <For each={showAllRecentAuto() ? d().recent_auto : d().recent_auto.slice(0, MAX_VISIBLE)}>{entry => <ReplyRow entry={entry} slug={params().slug} />}</For>
@@ -156,7 +157,7 @@ export function ReplyTriagePanel() {
         </section>
       </Show>
     </>}</Show>
-  </article>
+  </Card>
 }
 
 function ReplyRow(props: { entry: ReplyTriageEntry; slug: string; actionable?: boolean }) {

@@ -99,13 +99,13 @@ export function PlayLedgerPanel(props: { slug: string }) {
     <div class="agent-section-head">
       <h3>Play ledger</h3>
       <Show when={ledger.data}>
-        <span class="muted">{ledger.data!.plays.length} plays · {ledger.data!.standings.length} kinds</span>
+        <span class="text-muted-foreground">{ledger.data!.plays.length} plays · {ledger.data!.standings.length} kinds</span>
       </Show>
     </div>
     <p class="agent-section-intro">What the agent committed to, what it did, and what each number is allowed to prove. Each play is a structured experiment with claims, evidence, and effect assessment.</p>
 
     <Show when={ledger.error}>
-      <div class="error-card">Play ledger unavailable: {errorMessage(ledger.error, 'Service unreachable')}</div>
+      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Play ledger unavailable: {errorMessage(ledger.error, 'Service unreachable')}</div>
     </Show>
     <Show when={ledger.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
       <Show when={ledger.data!.standings.length > 0}>
@@ -124,7 +124,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
                 <span class="tone-good">↑{s.record.improved}</span>
                 <span class="tone-muted">={s.record.neutral}</span>
                 <span class="tone-bad">↓{s.record.worsened}</span>
-                <span class="muted">?{s.record.insufficient}</span>
+                <span class="text-muted-foreground">?{s.record.insufficient}</span>
               </div>
               <div class="standing-meta">
                 <span>Recipient cap per step: {s.effective_max_recipients_per_step}</span>
@@ -162,7 +162,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
                   <For each={expandedClaims().has(p.play_id) ? p.claims : p.claims.slice(0, MAX_VISIBLE_CLAIMS)}>{(c) => (
                     <div class="claim-row">
                       <span class={`badge tone-${effectTone(c.effect)}`}>{c.effect ?? c.status}</span>
-                      <span class="muted">{claimLabel(c.claim_means)}</span>
+                      <span class="text-muted-foreground">{claimLabel(c.claim_means)}</span>
                       <span>{metricLabel(c.success_metric_platform, c.success_metric_key)}</span>
                       <Show when={c.delta_basis_points != null}>
                         {(() => { const delta = c.delta_basis_points!; return (

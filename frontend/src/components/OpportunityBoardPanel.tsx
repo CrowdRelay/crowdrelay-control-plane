@@ -7,6 +7,7 @@ import { SkeletonOpportunityBoard } from './Skeleton'
 import { CONTEXT_LABELS, SUBJECT_KIND_LABELS, RANK_FACTOR_LABELS, VALUE_TIER_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
+import { Card } from './ui/card'
 
 // Phase 18 — find, then "do it". CrowdRelay parks what its agent found; this
 // board is where a human decides. "Do it" approves through CrowdRelay's own
@@ -102,10 +103,10 @@ export function OpportunityBoardPanel(props: {
   const doneOurselves = (entry: OpportunityBoardEntry) =>
     void decide(`done:${entry.decision_id}`, () => api.markOpportunityHandledExternally(props.slug, entry.decision_id))
 
-  return <article class="panel operations-panel">
-    <div class="section-title operations-title">
+  return <Card class="p-4 operations-panel">
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3 operations-title">
       <div>
-        <span class="eyebrow">OPPORTUNITY BOARD</span>
+        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">OPPORTUNITY BOARD</span>
         <h2><SectionIcon name="target" />Found for you — decide</h2>
         <p>Everything the agent found and parked: gigs with computed economics, pitches, waves and deadlines. “Do it” approves the parked action through CrowdRelay’s existing approval path; “done ourselves” records that a human handled it outside the system, which is a success — not a dismissal.</p>
       </div>
@@ -119,7 +120,7 @@ export function OpportunityBoardPanel(props: {
     </Show>
 
     <Show when={mutationError()}>
-      {message => <div class="error-card operations-error" role="alert">{message()}</div>}
+      {message => <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive operations-error" role="alert">{message()}</div>}
     </Show>
 
     <Show when={board.data} fallback={!board.error ? <SkeletonOpportunityBoard /> : null}>{data => <>
@@ -237,5 +238,5 @@ export function OpportunityBoardPanel(props: {
         </Show>
       </Show>
     </>}</Show>
-  </article>
+  </Card>
 }

@@ -12,7 +12,9 @@ import { ErrorBoundaryPanel } from './ErrorBoundaryPanel'
 import { ConfirmHost } from './Dialog'
 import { ReauthModal } from './ReauthModal'
 import { MobileTabBar } from './MobileTabBar'
+import { Button } from './ui/button'
 import type { TenantSummary } from '../lib/types'
+import { cn } from '../lib/cn'
 
 // The palette component loads on first invocation; the shortcut lives here so
 // Ctrl/⌘-K works before that chunk exists.
@@ -118,21 +120,26 @@ function TenantSwitcher(props: {
     return sorted().filter(t => t.displayName.toLowerCase().includes(q) || t.slug.toLowerCase().includes(q))
   }
 
-  return <div class="tenant-switcher" classList={{ open: props.open, collapsed: props.collapsed }}>
-    <button type="button" class="tenant-switcher-trigger" onClick={() => props.onToggle()} title={current()?.displayName} aria-expanded={props.open} aria-haspopup="listbox" aria-label="Select tenant">
-      <Show when={current()} fallback={<span class="tenant-switcher-dot muted" />}>
-        {t => <span class={`tenant-switcher-dot ${healthDot(t())}`} />}
+  return <div class="relative">
+    <button type="button" class="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-surface-1 transition-colors" onClick={() => props.onToggle()} title={current()?.displayName} aria-expanded={props.open} aria-haspopup="listbox" aria-label="Select tenant">
+      <Show when={current()} fallback={<span class="w-2 h-2 rounded-full bg-muted-foreground flex-shrink-0" />}>
+        {t => <span class={cn('w-2 h-2 rounded-full flex-shrink-0', {
+          'bg-success': healthDot(t()) === 'good',
+          'bg-warning': healthDot(t()) === 'warn',
+          'bg-destructive': healthDot(t()) === 'bad',
+          'bg-muted-foreground': healthDot(t()) === 'muted',
+        })} />}
       </Show>
       <Show when={!props.collapsed}>
-        <span class="tenant-switcher-label">{current()?.displayName ?? 'Select tenant'}</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="tenant-switcher-chevron" classList={{ rotated: props.open }} aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        <span class="flex-1 truncate font-medium text-foreground">{current()?.displayName ?? 'Select tenant'}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class={cn('text-muted-foreground transition-transform', props.open && 'rotate-180')} aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
       </Show>
     </button>
     <Show when={props.open && !props.collapsed}>
-      <div class="tenant-switcher-menu" role="listbox">
+      <div class="absolute left-0 right-0 top-full z-50 mt-1 rounded-md border border-border bg-popover shadow-lg max-h-80 overflow-auto" role="listbox">
         <Show when={props.tenants.length > 5}>
           <input
-            class="tenant-switcher-search"
+            class="w-full border-b border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
             placeholder="Filter tenants…"
             aria-label="Filter tenants"
             value={search()}
@@ -144,19 +151,23 @@ function TenantSwitcher(props: {
         <For each={filtered()}>{tenant => (
           <button
             type="button"
-            class="tenant-switcher-item"
-            classList={{ active: tenant.slug === props.currentSlug }}
+            class={cn('flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-surface-1 transition-colors', tenant.slug === props.currentSlug && 'bg-surface-1')}
             onClick={() => { props.onClose(); props.onSelect(tenant.slug) }}
           >
-            <span class={`tenant-switcher-dot ${healthDot(tenant)}`} />
-            <span class="tenant-switcher-item-label">
-              <strong>{tenant.displayName}</strong>
-              <small>{tenant.slug} · {healthLabel(tenant)}</small>
+            <span class={cn('w-2 h-2 rounded-full flex-shrink-0', {
+              'bg-success': healthDot(tenant) === 'good',
+              'bg-warning': healthDot(tenant) === 'warn',
+              'bg-destructive': healthDot(tenant) === 'bad',
+              'bg-muted-foreground': healthDot(tenant) === 'muted',
+            })} />
+            <span class="flex flex-col min-w-0">
+              <strong class="truncate text-foreground">{tenant.displayName}</strong>
+              <small class="text-xs text-muted-foreground">{tenant.slug} · {healthLabel(tenant)}</small>
             </span>
           </button>
         )}</For>
         <Show when={filtered().length === 0}>
-          <div class="tenant-switcher-empty">No tenants match “{search()}”.</div>
+          <div class="px-3 py-4 text-sm text-muted-foreground">No tenants match “{search()}”.</div>
         </Show>
       </div>
     </Show>
@@ -295,7 +306,7 @@ export const Shell: Component = () => {
     }
     const onDocClick = (event: MouseEvent) => {
       const el = event.target as HTMLElement
-      if (!el.closest('.tenant-switcher')) setSwitcherOpen(false)
+      if (!el.closest('.relative')) setSwitcherOpen(false)
     }
     document.addEventListener('keydown', onKey)
     document.addEventListener('click', onDocClick)
@@ -306,40 +317,48 @@ export const Shell: Component = () => {
   })
 
   return <>
-    <a href="#main-content" class="skip-link">Skip to content</a>
-    <div class="app-shell" classList={{ collapsed: collapsed() }}>
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:rounded-md focus:bg-card focus:px-4 focus:py-2 focus:text-foreground">Skip to content</a>
+    <div class="flex min-h-screen bg-background">
       <Show when={mobileNavOpen()}>
-        <div class="nav-backdrop" onClick={() => setMobileNavOpen(false)} aria-hidden="true" />
+        <div class="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setMobileNavOpen(false)} aria-hidden="true" />
       </Show>
-      <aside class="sidebar" classList={{ collapsed: collapsed(), 'mobile-open': mobileNavOpen() }}>
-        <div class="sidebar-head">
-          <div class="brand">
-            <a href="https://crowdrelay.music" target="_blank" rel="noreferrer noopener" class="brand-mark-wrap" aria-label="CrowdRelay landing page">
-              <img class="brand-mark" src="/crowdrelay-brand-mark.png" alt="" width="36" height="36" />
+      <aside class={cn(
+        'fixed inset-y-0 left-0 z-50 flex flex-col border-r border-border bg-card transition-all duration-200',
+        collapsed() ? 'w-16' : 'w-60',
+        mobileNavOpen() ? 'translate-x-0' : '-translate-x-full',
+        'md:translate-x-0',
+      )}>
+        <div class="flex items-center justify-between gap-2 border-b border-border px-3 py-3 h-14">
+          <div class="flex items-center gap-2 min-w-0">
+            <a href="https://crowdrelay.music" target="_blank" rel="noreferrer noopener" aria-label="CrowdRelay landing page" class="flex-shrink-0">
+              <img src="/crowdrelay-brand-mark.png" alt="" width="32" height="32" class="rounded-lg" />
             </a>
             <Show when={!collapsed()}>
-              <div><strong>CrowdRelay</strong><small>Control Plane</small><a href="https://virya.music" target="_blank" rel="noreferrer noopener" class="brand-landing-link">virya.music ↗</a></div>
+              <div class="flex flex-col min-w-0">
+                <strong class="text-sm font-bold text-foreground leading-tight">CrowdRelay</strong>
+                <small class="text-xs text-muted-foreground leading-tight">Control Plane</small>
+                <a href="https://virya.music" target="_blank" rel="noreferrer noopener" class="text-xs text-primary hover:text-primary-hover">virya.music ↗</a>
+              </div>
             </Show>
           </div>
-          <button type="button" class="sidebar-toggle" onClick={toggleCollapsed} title={collapsed() ? 'Expand sidebar' : 'Collapse sidebar'} aria-label="Toggle sidebar">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" classList={{ rotated: collapsed() }} aria-hidden="true">              <path d="M15 18l-6-6 6-6"/>
-            </svg>
+          <button type="button" class="hidden md:flex p-1.5 rounded-md text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors" onClick={toggleCollapsed} title={collapsed() ? 'Expand sidebar' : 'Collapse sidebar'} aria-label="Toggle sidebar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={cn('transition-transform', collapsed() && 'rotate-180')} aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
         </div>
 
         {/* Global nav */}
-        <nav class="sidebar-nav-global">
-          <Link to="/" activeProps={{ class: 'active' }} activeOptions={{ exact: true }} title="Overview">
+        <nav class="flex flex-col gap-0.5 p-2">
+          <Link to="/" activeProps={{ class: 'bg-surface-1 text-foreground' }} activeOptions={{ exact: true }} title="Overview" class="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors">
             <NavIcon name="overview" />
             <Show when={!collapsed()}><span>Overview</span></Show>
           </Link>
           <Show when={isPlatformLevel()}>
-            <Link to="/tenants" activeProps={{ class: 'active' }} activeOptions={{ exact: true }} title="Tenants">
+            <Link to="/tenants" activeProps={{ class: 'bg-surface-1 text-foreground' }} activeOptions={{ exact: true }} title="Tenants" class="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors">
               <NavIcon name="portfolio" />
               <Show when={!collapsed()}><span>Tenants</span></Show>
             </Link>
           </Show>
-          <Link to="/flow" activeProps={{ class: 'active' }} title="Process map">
+          <Link to="/flow" activeProps={{ class: 'bg-surface-1 text-foreground' }} title="Process map" class="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors">
             <NavIcon name="flow" />
             <Show when={!collapsed()}><span>Process map</span></Show>
           </Link>
@@ -347,7 +366,7 @@ export const Shell: Component = () => {
 
         {/* Tenant switcher + grouped tenant nav */}
         <Show when={slug()}>
-          <div class="sidebar-tenant-section">
+          <div class="flex-1 overflow-y-auto px-2 pb-2">
             <Show when={isPlatformLevel() && tenants.data}>
               {(data) => <TenantSwitcher
                 tenants={data().items}
@@ -360,25 +379,26 @@ export const Shell: Component = () => {
               />}
             </Show>
             <Show when={!isPlatformLevel()}>
-              <div class="sidebar-tenant-static" title={profile()?.tenantSlug ?? 'tenant'}>
-                <span class="auth-dot ok" />
-                <Show when={!collapsed()}><span>{profile()?.tenantSlug ?? 'tenant'}</span></Show>
+              <div class="flex items-center gap-2 rounded-md px-2 py-2 text-sm text-muted-foreground" title={profile()?.tenantSlug ?? 'tenant'}>
+                <span class="w-2 h-2 rounded-full bg-success flex-shrink-0" />
+                <Show when={!collapsed()}><span class="truncate">{profile()?.tenantSlug ?? 'tenant'}</span></Show>
               </div>
             </Show>
 
             <For each={TENANT_NAV_GROUPS}>{group => (
-              <div class="sidebar-nav-group">
+              <div class="mt-2">
                 <Show when={!collapsed()}>
-                  <span class="sidebar-nav-group-label">{group.label}</span>
+                  <span class="block px-2.5 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">{group.label}</span>
                 </Show>
-                <nav class="sidebar-nav-tenant" aria-label={group.label}>
+                <nav class="flex flex-col gap-0.5 mt-0.5" aria-label={group.label}>
                   <For each={group.items}>{item => (
                     <Link
                       to={item.path as any}
                       params={{ slug: slug()! } as any}
                       activeOptions={{ exact: item.exact }}
-                      activeProps={{ class: 'active' }}
+                      activeProps={{ class: 'bg-surface-1 text-foreground' }}
                       title={item.label}
+                      class="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors"
                     >
                       <NavIcon name={item.icon} />
                       <Show when={!collapsed()}><span>{item.label}</span></Show>
@@ -390,20 +410,20 @@ export const Shell: Component = () => {
           </div>
         </Show>
 
-        <div class="sidebar-foot" classList={{ collapsed: collapsed() }}>
-          <span class={`auth-dot ok`} />
+        <div class={cn('border-t border-border px-3 py-2.5 flex items-center gap-2', collapsed() && 'justify-center')}>
+          <span class="w-2 h-2 rounded-full bg-success flex-shrink-0" />
           <Show when={!collapsed()}>
-            <span class="sidebar-foot-user">{profile()?.username ?? 'operator'}</span>
-            <span class="sidebar-foot-role">{isAdmin() ? 'admin' : isPlatformLevel() ? 'viewer' : 'tenant'}</span>
+            <span class="text-sm text-foreground truncate">{profile()?.username ?? 'operator'}</span>
+            <span class="text-xs text-muted-foreground ml-auto">{isAdmin() ? 'admin' : isPlatformLevel() ? 'viewer' : 'tenant'}</span>
           </Show>
         </div>
       </aside>
 
-      <main class="content" id="main-content">
-        <header class="topbar">
+      <main class={cn('flex-1 flex flex-col min-h-screen md:ml-60', collapsed() && 'md:ml-16')} id="main-content">
+        <header class="h-14 border-b border-border bg-card flex items-center gap-3 px-4 flex-shrink-0">
           <button
             type="button"
-            class="topbar-menu"
+            class="md:hidden p-2 -ml-2 rounded-md text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors"
             onClick={() => mobileNavOpen() ? setMobileNavOpen(false) : openMobileNav()}
             aria-label={mobileNavOpen() ? 'Close navigation' : 'Open navigation'}
             aria-expanded={mobileNavOpen()}
@@ -416,26 +436,26 @@ export const Shell: Component = () => {
           </button>
           {/* Breadcrumb, not a second copy of the page heading: it says where
               you are, while the page below says what it is. */}
-          <div class="topbar-context">
-            <Show when={slug()} fallback={<><span class="eyebrow">PLATFORM</span><strong>{currentPageLabel(pathname(), undefined)}</strong></>}>
+          <div class="flex items-center gap-2 flex-1 min-w-0">
+            <Show when={slug()} fallback={<><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">PLATFORM</span><strong class="text-sm font-semibold text-foreground">{currentPageLabel(pathname(), undefined)}</strong></>}>
               {s => <>
-                <span class="eyebrow">{(tenants.data?.items.find(t => t.slug === s())?.displayName ?? s()).toUpperCase()}</span>
-                <strong>{currentPageLabel(pathname(), s())}</strong>
+                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{(tenants.data?.items.find(t => t.slug === s())?.displayName ?? s()).toUpperCase()}</span>
+                <strong class="text-sm font-semibold text-foreground">{currentPageLabel(pathname(), s())}</strong>
               </>}
             </Show>
           </div>
-          <div class="topbar-actions">
+          <div class="flex items-center gap-2">
             <RefreshControl />
-            <button class="topbar-cmdk ghost" type="button" onClick={() => toggleCommandPalette()} title="Command palette (Ctrl+K / ⌘K)" aria-label="Command palette" aria-haspopup="dialog">
-              <kbd>⌘K</kbd><span class="cmdk-trigger-label">Commands</span>
+            <button class="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-muted-foreground border border-border rounded-md hover:bg-surface-1 hover:text-foreground transition-colors" type="button" onClick={() => toggleCommandPalette()} title="Command palette (Ctrl+K / ⌘K)" aria-label="Command palette" aria-haspopup="dialog">
+              <kbd class="font-mono text-xs">⌘K</kbd><span>Commands</span>
             </button>
-            <button class="topbar-logout" type="button" onClick={() => { void authState.logout() }}>Log out</button>
+            <Button variant="ghost" size="sm" type="button" onClick={() => { void authState.logout() }}>Log out</Button>
           </div>
         </header>
         {/* Keyed on the route so a thrown page recovers by navigating away
             instead of leaving the console permanently blank. The key forces
             a remount which resets Suspense + ErrorBoundary state per page. */}
-        <div class="page-content" data-key={pathname()}>
+        <div class="flex-1 overflow-auto" data-key={pathname()}>
           <ErrorBoundaryPanel resetKey={pathname()} title="This page failed to render">
             <Suspense fallback={<SkeletonPage />}>
               <Outlet />
