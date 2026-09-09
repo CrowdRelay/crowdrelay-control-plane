@@ -2338,6 +2338,7 @@ table tbody tr:hover{background:rgba(255,255,255,.025)}
    Cards give each community room for the two things that decide whether
    somebody joins it: how big it is, and what it actually talks about. */
 .community-queue-summary{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 18px}
+.community-actions-row{display:flex;flex-direction:row;gap:8px;flex-wrap:nowrap;align-items:center;margin-bottom:16px}
 .community-count{color:var(--muted);font-size:var(--text-sm)}
 .community-count strong{color:var(--text-primary);font-size:1.15rem;margin-right:4px}
 .community-count[data-state="not_joined"] strong{color:var(--accent)}
@@ -3088,6 +3089,28 @@ button,
 .operations-section-head button,.panel-header-actions button,
 .agent-section-head button,.row-health button,.row-health a.ghost,
 .form-actions button,.queue-row-actions button{white-space:nowrap}
+
+/* ── Straight left accent rail ──
+   The community card uses a ::before bar for its left accent — a straight
+   3px line that doesn't curve with the border-radius. Every other accent
+   left border in the app should look the same: straight, not warped round.
+   Squaring the left corners on every element that carries a border-left
+   accent achieves this without pseudo-elements. */
+.service-card.healthy,.service-card.unhealthy,
+.toast-success,.toast-error,.toast-info,
+.standing-card,.standing-card-good,.standing-card-warn,.standing-card-bad,.standing-card-muted,
+.brain-evidence-json,
+.learning-loop-stage-decision,.learning-loop-stage-action,.learning-loop-stage-outcome,.learning-loop-stage-learned,
+.attention-item-urgent,.attention-item-review,.attention-item-informational,
+.error-card,.warning-card,.notice-card,
+.parked-banner,
+.inherit-card,
+.inline-stale-note,
+.route-note,
+.policy-legend,
+.fanbase-connection-card.connected,.fanbase-connection-card:not(.connected),
+.release-component-missing,
+.cos-stopped{border-top-left-radius:0;border-bottom-left-radius:0}
 
 /* A section head keeps its status badge on the right until the title has to
    wrap for it. Below that the badge belongs under the heading, not floating

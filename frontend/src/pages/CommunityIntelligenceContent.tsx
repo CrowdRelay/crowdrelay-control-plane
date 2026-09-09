@@ -265,14 +265,6 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
             for it.
           </p>
         </div>
-        <div class="panel-header-actions">
-          <button class="ghost" onClick={() => { setImporting(false); setAdding(value => !value) }}>
-            {adding() ? 'Cancel' : 'Add a community'}
-          </button>
-          <button class="ghost" onClick={() => { setAdding(false); setImporting(value => !value) }}>
-            {importing() ? 'Cancel' : 'Import a list'}
-          </button>
-        </div>
       </div>
 
       {/* ── Add form ── */}
@@ -332,6 +324,15 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
       </Show>
 
       {/* ── Community intelligence ── */}
+      <div class="community-actions-row">
+        <button class="ghost" onClick={() => { setImporting(false); setAdding(value => !value) }}>
+          {adding() ? 'Cancel' : 'Add a community'}
+        </button>
+        <button class="ghost" onClick={() => { setAdding(false); setImporting(value => !value) }}>
+          {importing() ? 'Cancel' : 'Import a list'}
+        </button>
+      </div>
+
       <Show when={communities.error}>
         <div class="error-card" role="alert">
           {communities.error instanceof Error ? communities.error.message : 'Community intelligence channel unavailable'}

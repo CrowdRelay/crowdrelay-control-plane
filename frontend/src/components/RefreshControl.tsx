@@ -1,5 +1,5 @@
 import { Show, createMemo, For, type JSX } from 'solid-js'
-import { useQueryClient } from '@tanstack/solid-query'
+import { useQueryClient, useIsFetching } from '@tanstack/solid-query'
 import { REFRESH_INTERVALS, refreshInterval, setRefreshInterval, triggerRefresh } from '../lib/refresh'
 
 // Grafana-style refresh control: an interval dropdown + a manual refresh button.
@@ -35,7 +35,10 @@ export function RefreshControl(props: {
   // Show the spinner when any query is fetching, or when the page explicitly
   // passes loading=true (e.g. for a mutation). This gives the operator real
   // feedback that data is being loaded, not just that a button was pressed.
-  const isFetching = () => queryClient.isFetching() > 0
+  // useIsFetching() is reactive — queryClient.isFetching() is not, so the
+  // spinner would get stuck without this hook.
+  const fetchingCount = useIsFetching()
+  const isFetching = () => fetchingCount() > 0
   const loading = () => props.loading || isFetching()
 
   return <div class="refresh-control grafana-refresh">
