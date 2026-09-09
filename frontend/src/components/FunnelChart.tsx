@@ -84,7 +84,6 @@ export const FunnelChart: Component<{
         <g
           style={animate ? {
             'transform-origin': `center ${i() * stageH() + stageH() / 2}px`,
-            animation: `funnelScaleYIn 400ms ${i() * 80}ms ease-out forwards`,
           } : undefined}
         >
           <path

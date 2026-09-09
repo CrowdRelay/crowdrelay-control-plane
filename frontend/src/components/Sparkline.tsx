@@ -84,8 +84,7 @@ export const Sparkline: Component<{
             stroke-linejoin="round"
             style={animate ? {
               'stroke-dasharray': `${pathLen()}`,
-              'stroke-dashoffset': animate ? `${pathLen()}` : '0',
-              animation: `drawLine ${Math.min(800, pathLen() * 3)}ms ease-out forwards`,
+              'stroke-dashoffset': '0',
               '--len': `${pathLen()}`,
             } : undefined}
           />
