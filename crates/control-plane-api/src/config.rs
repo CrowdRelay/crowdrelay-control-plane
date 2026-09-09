@@ -45,6 +45,11 @@ pub struct Config {
     /// in to the styled form without manual SQL. Both or neither.
     pub bootstrap_admin_username: Option<String>,
     pub bootstrap_admin_password: Option<String>,
+    /// Optional read-only platform_viewer account. Same scope as
+    /// platform_admin (all tenants) but the auth middleware blocks all
+    /// mutations. Used for observer/auditor access. Both or neither.
+    pub bootstrap_viewer_username: Option<String>,
+    pub bootstrap_viewer_password: Option<String>,
     /// n8n base URL for retry calls (e.g. https://n8n.virya.music). Without
     /// it the retry button is disabled in the UI.
     pub n8n_base_url: Option<String>,
@@ -252,6 +257,21 @@ impl Config {
                 }
                 None => None,
             },
+            bootstrap_viewer_password: optional_env("CONTROL_PLANE_BOOTSTRAP_VIEWER_PASSWORD")?,
+            bootstrap_viewer_username: match optional_env("CONTROL_PLANE_BOOTSTRAP_VIEWER_USERNAME")?
+            {
+                Some(username) => {
+                    anyhow::ensure!(
+                        (3..=32).contains(&username.len())
+                            && username.bytes().all(|byte| byte.is_ascii_lowercase()
+                                || byte.is_ascii_digit()
+                                || matches!(byte, b'-' | b'_' | b'.')),
+                        "CONTROL_PLANE_BOOTSTRAP_VIEWER_USERNAME must be 3-32 lowercase URL-safe characters"
+                    );
+                    Some(username)
+                }
+                None => None,
+            },
             agent_service_url: optional_env("CONTROL_PLANE_AGENT_SERVICE_URL")?,
             n8n_base_url: match optional_env("CONTROL_PLANE_N8N_BASE_URL")? {
                 Some(url) => {
@@ -330,6 +350,17 @@ impl Config {
                 (12..=128).contains(&password.chars().count())
                     && !password.chars().any(char::is_control),
                 "CONTROL_PLANE_BOOTSTRAP_ADMIN_PASSWORD must be 12-128 characters"
+            );
+        }
+        anyhow::ensure!(
+            config.bootstrap_viewer_password.is_some() == config.bootstrap_viewer_username.is_some(),
+            "CONTROL_PLANE_BOOTSTRAP_VIEWER_PASSWORD and CONTROL_PLANE_BOOTSTRAP_VIEWER_USERNAME must be set together"
+        );
+        if let Some(password) = config.bootstrap_viewer_password.as_deref() {
+            anyhow::ensure!(
+                (12..=128).contains(&password.chars().count())
+                    && !password.chars().any(char::is_control),
+                "CONTROL_PLANE_BOOTSTRAP_VIEWER_PASSWORD must be 12-128 characters"
             );
         }
         Ok(config)

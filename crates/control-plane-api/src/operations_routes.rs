@@ -39,6 +39,10 @@ pub fn router() -> Router<AppState> {
             get(list_deliveries),
         )
         .route(
+            "/tenants/{slug}/operations/delivery-results",
+            get(list_delivery_results),
+        )
+        .route(
             "/tenants/{slug}/operations/deliveries/{delivery_id}",
             get(delivery_details),
         )
@@ -1799,6 +1803,19 @@ async fn list_deliveries(
     let path = build_list_path("/v1/control-plane/ops/deliveries", &params);
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     array_no_store(value, "deliveries list")
+}
+
+/// Delivery results — what the brain actually posted, where, and what
+/// engagement it got. Read-only proxy.
+async fn list_delivery_results(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    Query(params): Query<ListQuery>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let path = build_list_path("/v1/control-plane/ops/delivery-results", &params);
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    array_no_store(value, "delivery results list")
 }
 
 /// Retry a dead push delivery. The upstream handler owns the feature flag

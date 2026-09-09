@@ -85,6 +85,31 @@ impl Identity {
             )
     }
 
+    /// True for any platform-level identity (admin or viewer). Used by
+    /// tenant-scoped guards so both roles can read across all tenants.
+    pub fn is_platform_level(&self) -> bool {
+        matches!(self, Self::PlatformAdmin)
+            || matches!(
+                self,
+                Self::Account {
+                    role: "platform_admin" | "platform_viewer",
+                    ..
+                }
+            )
+    }
+
+    /// True for read-only identities. The authenticate middleware blocks
+    /// all mutations before any route handler runs.
+    pub fn is_read_only(&self) -> bool {
+        matches!(
+            self,
+            Self::Account {
+                role: "platform_viewer",
+                ..
+            }
+        )
+    }
+
     pub fn audit_actor(&self) -> String {
         match self {
             Self::PlatformAdmin => "platform-admin".to_owned(),
@@ -109,10 +134,10 @@ impl Identity {
         }
     }
 
-    /// Tenant-scoped authorization: platform admins pass everywhere; account
-    /// operators only where their row points.
+    /// Tenant-scoped authorization: platform admins and viewers pass
+    /// everywhere; account operators only where their row points.
     pub fn ensure_tenant(&self, tenant_id: Uuid) -> Result<(), ApiError> {
-        if self.is_platform_admin() || self.tenant_scope() == Some(tenant_id) {
+        if self.is_platform_level() || self.tenant_scope() == Some(tenant_id) {
             Ok(())
         } else {
             Err(ApiError::Forbidden(
@@ -167,10 +192,10 @@ pub async fn resolve_identity(state: &AppState, headers: &HeaderMap) -> Result<I
     let account = state.store.resolve_session(&hash_token(token)).await?;
     Ok(Identity::Account {
         username: account.username.clone(),
-        role: if account.role == "platform_admin" {
-            "platform_admin"
-        } else {
-            "tenant_operator"
+        role: match account.role.as_str() {
+            "platform_admin" => "platform_admin",
+            "platform_viewer" => "platform_viewer",
+            _ => "tenant_operator",
         },
         tenant_id: account.tenant_id,
         via_session: true,
@@ -185,6 +210,18 @@ pub async fn authenticate(
     next: Next,
 ) -> Result<Response, ApiError> {
     let identity = resolve_identity(&state, request.headers()).await?;
+    // Read-only identities (platform_viewer) are blocked from all
+    // mutations at the middleware level, before any route handler runs.
+    if identity.is_read_only()
+        && !matches!(
+            *request.method(),
+            axum::http::Method::GET | axum::http::Method::HEAD | axum::http::Method::OPTIONS
+        )
+    {
+        return Err(ApiError::Forbidden(
+            "read-only account cannot perform mutations".to_owned(),
+        ));
+    }
     // CSRF guard for session callers: state-changing requests must prove they
     // originate from the SPA, which always attaches x-request-id.
     if matches!(
@@ -233,10 +270,11 @@ pub async fn require_tenant_access(
     let slug = tenant_slug_from_path(request.uri().path())
         .ok_or_else(|| ApiError::InvalidInput("missing tenant scope".to_owned()))?;
     let slug = crate::validation::slug(slug)?;
-    // For a tenant operator, check their scope before hitting the DB: a
-    // caller without access to *any* tenant should not learn from a 404
-    // whether a particular slug exists. A platform admin always passes.
-    if !identity.is_platform_admin() {
+    // For a non-platform identity, check their scope before hitting the DB:
+    // a caller without access to *any* tenant should not learn from a 404
+    // whether a particular slug exists. Platform admins and viewers always
+    // pass.
+    if !identity.is_platform_level() {
         if let Some(scope) = identity.tenant_scope() {
             // The slug-to-id mapping is not available here without a DB
             // lookup, but we can still avoid the information leak by

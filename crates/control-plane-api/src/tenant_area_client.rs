@@ -376,6 +376,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/ops/attention"
                     | "/v1/control-plane/ops/outbox"
                     | "/v1/control-plane/ops/deliveries"
+                    | "/v1/control-plane/ops/delivery-results"
                     | "/v1/control-plane/ecosystem/flags"
                     | "/v1/control-plane/autopilot/overview"
                     | "/v1/control-plane/autopilot/growth"

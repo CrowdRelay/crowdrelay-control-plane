@@ -138,6 +138,15 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!(username, "bootstrap platform admin ensured");
     }
 
+    if let (Some(username), Some(password)) = (
+        config.bootstrap_viewer_username.as_deref(),
+        config.bootstrap_viewer_password.as_deref(),
+    ) {
+        let hash = auth::hash_password(password)?;
+        store.ensure_bootstrap_viewer(username, &hash).await?;
+        tracing::info!(username, "bootstrap platform viewer ensured");
+    }
+
     if config.allowed_redirect_origins.is_empty() && config.agent_service_url.is_some() {
         // Without an allow-list, an OAuth `redirect_uri` is checked against
         // the request's own Host header — which the caller supplies. That is

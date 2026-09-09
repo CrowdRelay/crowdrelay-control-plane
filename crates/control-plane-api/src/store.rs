@@ -287,6 +287,33 @@ impl Store {
         Ok(())
     }
 
+    /// Seed/refresh the platform_viewer row. Same mechanism as
+    /// [`ensure_bootstrap_admin`] but with the read-only role. The auth
+    /// middleware blocks all mutations for this identity.
+    pub async fn ensure_bootstrap_viewer(
+        &self,
+        username: &str,
+        password_hash: &str,
+    ) -> Result<(), ApiError> {
+        sqlx::query(
+            r#"INSERT INTO control_plane_operator_accounts
+               (id, username, password_hash, role, tenant_id)
+               VALUES ($1, $2, $3, 'platform_viewer', NULL)
+               ON CONFLICT (username) DO UPDATE SET
+                   password_hash = EXCLUDED.password_hash,
+                   role = 'platform_viewer',
+                   tenant_id = NULL,
+                   active = true,
+                   updated_at = now()"#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(username)
+        .bind(password_hash)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     pub async fn create_tenant(
         &self,
         input: CreateTenantRequest,
