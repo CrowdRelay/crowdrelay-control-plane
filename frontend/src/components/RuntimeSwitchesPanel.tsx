@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import type { FeatureFlag, OperationsSummary } from '../lib/types'
 import { errorMessage, formatAge, oldestQueueAge } from '../lib/format'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
+import { useOperationsMutations } from '../lib/operations-mutations'
 import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonFlagList } from './Skeleton'
@@ -43,22 +44,9 @@ export function RuntimeSwitchesPanel(props: {
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
-  const [pendingMutation, setPendingMutation] = createSignal<string | null>(null)
-  const [mutationError, setMutationError] = createSignal<string | null>(null)
+  const { pendingMutation, mutationError, mutate, redeploy, replayDead, confirmCopy } =
+    useOperationsMutations(props.slug, props.refresh)
   const [flagOverrides, setFlagOverrides] = createSignal<Record<string, boolean>>({})
-
-  const mutate = async (key: string, operation: () => Promise<unknown>, refresh: () => Promise<unknown>) => {
-    setMutationError(null)
-    setPendingMutation(key)
-    try {
-      await operation()
-      await refresh()
-    } catch (error) {
-      setMutationError(errorMessage(error, 'Tenant operation failed'))
-    } finally {
-      setPendingMutation(null)
-    }
-  }
 
   const updateFlag = (flag: FeatureFlag) => {
     setFlagOverrides(prev => ({ ...prev, [flag.key]: !flag.enabled }))
@@ -84,37 +72,6 @@ export function RuntimeSwitchesPanel(props: {
 
   const [confirming, setConfirming] = createSignal<'redeploy' | 'replay-dead' | null>(null)
 
-  const redeploy = async () => {
-    setMutationError(null)
-    setPendingMutation('redeploy')
-    try {
-      await api.deployTenant(props.slug)
-      toast.success('Deploy requested — accepted by GitHub. Watch the Actions tab for completion.')
-      await props.refresh()
-    } catch (error) {
-      setMutationError(errorMessage(error, 'Deploy trigger failed'))
-    } finally {
-      setPendingMutation(null)
-    }
-  }
-  const replayDead = () => mutate('replay-dead', () => api.clearDeadDeliveries(props.slug), () => props.refresh())
-
-  const confirmCopy = (): { title: string; body: string; action: string } | null => {
-    switch (confirming()) {
-      case 'redeploy': return {
-        title: 'Redeploy this app now?',
-        body: 'Triggers a fresh production deploy. The current stack keeps serving until the blue-green switchover completes.',
-        action: 'Queue redeploy',
-      }
-      case 'replay-dead': return {
-        title: 'Replay dead deliveries?',
-        body: `Asks CrowdRelay to redeliver ${deadJobs()} dead queue item(s). Failed items land back in the dead queue if the root cause persists.`,
-        action: 'Replay dead items',
-      }
-      default: return null
-    }
-  }
-
   return <article class="panel operations-panel">
     <div class="section-title operations-title">
       <div><span class="eyebrow">OPERATIONS</span><h2><SectionIcon name="activity" />Runtime switches</h2><p>Feature flags, health metrics and redeploy. Changes are tenant-scoped and audited.</p></div>
@@ -125,7 +82,7 @@ export function RuntimeSwitchesPanel(props: {
       </div>
     </div>
 
-    <Show when={confirming() ? confirmCopy() : null} keyed>{copy =>
+    <Show when={confirming() ? confirmCopy(confirming(), deadJobs()) : null} keyed>{copy =>
       <div class="warning-card confirm-card" role="alertdialog" aria-label={copy.title}>
         <strong>{copy.title}</strong>
         <span>{copy.body}</span>

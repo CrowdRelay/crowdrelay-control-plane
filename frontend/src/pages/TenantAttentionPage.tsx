@@ -5,61 +5,24 @@ import { api } from '../lib/api'
 import { toast } from '../lib/toast'
 import { fetchOperationsAttention } from '../lib/attention'
 import { errorMessage, formatTimestamp as observed } from '../lib/format'
-import type { DeliveryDetails, OperationsSummary } from '../lib/types'
+import type { OperationsSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
 import { AttentionInbox } from '../components/AttentionInbox'
 import { EmptyState } from '../components/EmptyState'
 import { SignalOverviewPanel } from '../components/SignalOverviewPanel'
-import { SkeletonSection, SkeletonKpiStrip, SkeletonRows } from '../components/Skeleton'
+import { DeadQueuesPanel } from '../components/DeadQueuesPanel'
+import { SkeletonSection, SkeletonKpiStrip } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
 import { Spinner } from '../components/Spinner'
+import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
 
 const totalDead = (summary: OperationsSummary) => summary.outbox.dead + summary.deliveries.dead + summary.push.dead
 const staleAreaReservations = (summary: OperationsSummary) => summary.area.stale_voucher_reservations + summary.area.stale_ticket_reward_reservations
-const shortId = (value: string) => value.length > 16 ? `${value.slice(0, 8)}…${value.slice(-6)}` : value
-
-
-// Push failures in words, and whether retrying can possibly help.
-//
-// The raw codes read as accusations. `fan_or_consent_ineligible` on twenty-one
-// rows looked like the system had been messaging people who said no — it had
-// not; those were one fan's seven abandoned app installs, and the same fan
-// received their messages on the device they still use. A panel that cannot
-// say which of those two things happened turns a hygiene event into a scare.
-//
-// Retry is offered only where it can succeed. A dead endpoint is a phone that
-// reinstalled: there is nothing on the other end, and the button was a promise
-// the system could not keep.
-const PUSH_FAILURES: Record<string, { reason: string; retryable: boolean }> = {
-  endpoint_inactive: {
-    reason: 'device no longer registered — the app was reinstalled or removed',
-    retryable: false,
-  },
-  fcm_endpoint_invalid: {
-    reason: 'push service rejected the device token as stale',
-    retryable: false,
-  },
-  fan_or_consent_ineligible: {
-    reason: 'fan is inactive or has withdrawn marketing consent',
-    retryable: false,
-  },
-  beacon_session_ineligible: { reason: 'beacon session expired or revoked', retryable: false },
-  staff_endpoint_ineligible: { reason: 'staff session expired', retryable: false },
-  device_ack_timeout: { reason: 'sent, but the device never acknowledged', retryable: true },
-  preference_disabled: { reason: 'fan turned this notification category off', retryable: false },
-}
-
-const pushFailureReason = (code: string | null | undefined) =>
-  (code && PUSH_FAILURES[code]?.reason) ?? code ?? 'unknown error'
-
-// Unknown codes stay retryable: a new failure mode nobody has classified yet
-// should not silently lose its only remedy.
-const pushIsRetryable = (code: string | null | undefined) =>
-  !code || (PUSH_FAILURES[code]?.retryable ?? true)
 
 export function TenantAttentionPage() {
   const params = useParams({ from: '/tenants/$slug/attention' })
+  const { activeTab, switchTab, isVisited } = useTabPanels('inbox')
   const attention = useQuery(() => ({
     queryKey: ['tenant-operator-attention-snapshot', params().slug],
     queryFn: () => fetchOperationsAttention(params().slug),
@@ -68,62 +31,14 @@ export function TenantAttentionPage() {
     staleTime: 20_000,
   }))
 
-  // Keep the rendering vocabulary local to this page while all five formerly
-  // independent polling reads now share one server-side snapshot request.
   const summary = {
     get data() { return attention.data?.summary },
     get error() { return attention.error },
     get isLoading() { return attention.isLoading },
   }
-  const deadOutbox = {
-    get data() { return attention.data?.dead_outbox },
-    get error() { return attention.error },
-    get isLoading() { return attention.isLoading },
-  }
-  const deadDeliveries = {
-    get data() { return attention.data?.dead_deliveries },
-    get error() { return attention.error },
-    get isLoading() { return attention.isLoading },
-  }
-  const deadPush = {
-    get data() { return attention.data?.dead_push },
-    get error() { return attention.error },
-    get isLoading() { return attention.isLoading },
-  }
-  const ecosystem = {
-    get data() { return attention.data?.ecosystem },
-    get error() { return attention.error },
-    get isLoading() { return attention.isLoading },
-  }
-  const findings = {
-    get data() { return attention.data?.findings },
-    get error() { return attention.error },
-    get isLoading() { return attention.isLoading },
-  }
 
-  // Dead queue expand state — show first 10, expand on demand
-  const DEAD_PREVIEW = 10
-  const [expandOutbox, setExpandOutbox] = createSignal(false)
-  const [expandDeliveries, setExpandDeliveries] = createSignal(false)
-  const [expandPush, setExpandPush] = createSignal(false)
-
-  /// Says what these failures mean before the operator reads twenty rows.
-  const pushFailureSummary = () => {
-    const items = deadPush.data ?? []
-    if (items.length === 0) return 'Retry is idempotent.'
-    const retryable = items.filter(item => pushIsRetryable(item.error_code)).length
-    const stale = items.length - retryable
-    if (stale === items.length) {
-      return `All ${items.length} are devices that no longer exist — reinstalled or uninstalled apps. Nothing was lost and there is nothing to retry.`
-    }
-    if (stale === 0) return `${retryable} worth retrying. Retry is idempotent.`
-    return `${stale} are devices that no longer exist and cannot be retried; ${retryable} are worth a retry. Retry is idempotent.`
-  }
-
-  const [confirming, setConfirming] = createSignal(false)
   const [confirmingReconcile, setConfirmingReconcile] = createSignal(false)
   const [busy, setBusy] = createSignal('')
-  const [deliveryDetails, setDeliveryDetails] = createSignal<DeliveryDetails | null>(null)
   const [timelineInput, setTimelineInput] = createSignal('')
   const [timeline, setTimeline] = createSignal<Awaited<ReturnType<typeof api.operationTimeline>> | null>(null)
   const [revealedId, setRevealedId] = createSignal<string | null>(null)
@@ -131,81 +46,6 @@ export function TenantAttentionPage() {
 
   const refreshMaintenance = async () => {
     await attention.refetch()
-  }
-
-  const clearDead = async () => {
-    if (!summary.data || summary.data.deliveries.dead <= 0 || busy()) return
-    if (!confirming()) {
-      setConfirming(true)
-      toast.info('Click again to confirm marking dead webhook deliveries as cancelled.')
-      return
-    }
-    setBusy('clear')
-    try {
-      const result = await api.clearDeadDeliveries(params().slug)
-      setConfirming(false)
-      toast.success(`Cleanup complete: ${result.cleared} dead delivery item(s) cancelled. Outbox and push queues untouched.`)
-      await refreshMaintenance()
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Dead queue cleanup failed')
-    } finally {
-      setBusy('')
-    }
-  }
-
-  const retryOutbox = async (id: string) => {
-    if (busy()) return
-    setBusy(`outbox:${id}`)
-    try {
-      await api.retryOutbox(params().slug, id)
-      toast.success(`Outbox ${shortId(id)} is back in the pending queue.`)
-      await refreshMaintenance()
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Outbox retry failed')
-    } finally {
-      setBusy('')
-    }
-  }
-
-  const retryDelivery = async (id: string) => {
-    if (busy()) return
-    setBusy(`delivery:${id}`)
-    try {
-      await api.retryDelivery(params().slug, id)
-      toast.success(`Delivery ${shortId(id)} is back in the pending queue.`)
-      setDeliveryDetails(null)
-      await refreshMaintenance()
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Delivery retry failed')
-    } finally {
-      setBusy('')
-    }
-  }
-
-  const retryPush = async (id: string) => {
-    if (busy()) return
-    setBusy(`push:${id}`)
-    try {
-      await api.retryPush(params().slug, id)
-      toast.success(`Push ${shortId(id)} is back in the queue.`)
-      await refreshMaintenance()
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Push retry failed')
-    } finally {
-      setBusy('')
-    }
-  }
-
-  const loadDeliveryDetails = async (id: string) => {
-    if (busy()) return
-    setBusy(`details:${id}`)
-    try {
-      setDeliveryDetails(await api.deliveryDetails(params().slug, id))
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Delivery details unavailable')
-    } finally {
-      setBusy('')
-    }
   }
 
   const reconcile = async () => {
@@ -242,6 +82,9 @@ export function TenantAttentionPage() {
     }
   }
 
+  const deadCount = () => summary.data ? totalDead(summary.data) : 0
+  const findingsCount = () => attention.data?.findings?.length ?? 0
+
   return <section class="page">
     <div class="page-head">
       <div>
@@ -257,192 +100,117 @@ export function TenantAttentionPage() {
       </Show>
     </div>
 
-    {/* Critical watchdog alerts are rendered by WatchdogAlertsPanel */}
-    <Show when={!attention.isLoading} fallback={<SkeletonSection titleWidth="180px" lines={2} minHeight="80px" />}>
-      <WatchdogAlertsPanel alerts={attention.data?.alerts ?? []} slug={params().slug} />
-    </Show>
+    <TabBar
+      active={activeTab()}
+      onChange={switchTab}
+      tabs={[
+        { id: 'inbox', label: 'Inbox' },
+        { id: 'queues', label: 'Queues', count: deadCount() > 0 ? () => deadCount() : undefined },
+        { id: 'runtime', label: 'Runtime' },
+        { id: 'trace', label: 'Trace' },
+      ]}
+    />
 
-    {/* ─── Attention Inbox — tiered action center ──────────────────── */}
-    <Show when={!summary.error && summary.data}>
-      <AttentionInbox
+    {/* ─── Inbox Tab ─────────────────────────────────────────────── */}
+    <TabPanel active={activeTab()} id="inbox" visited={isVisited('inbox')}>
+      {/* Critical watchdog alerts */}
+      <Show when={!attention.isLoading} fallback={<SkeletonSection titleWidth="180px" lines={2} minHeight="80px" />}>
+        <WatchdogAlertsPanel alerts={attention.data?.alerts ?? []} slug={params().slug} />
+      </Show>
+
+      {/* Attention Inbox — tiered action center */}
+      <Show when={!summary.error && summary.data}>
+        <AttentionInbox
+          slug={params().slug}
+          needsYou={attention.data?.needs_you ?? []}
+          deadJobs={summary.data ? totalDead(summary.data) : 0}
+          criticalAlerts={summary.data?.watchdog.critical_alerts ?? 0}
+          staleReservations={summary.data ? staleAreaReservations(summary.data) : 0}
+          activeAlerts={summary.data?.watchdog.active_alerts ?? 0}
+          awaitingApproval={attention.data?.awaiting_approval ?? 0}
+          notReported={attention.data?.not_reported ?? []}
+        />
+      </Show>
+
+      <Show when={summary.error}>
+        <div class="error-card" role="alert">{errorMessage(summary.error, 'Operations attention snapshot unavailable')}</div>
+      </Show>
+
+      <Show when={!summary.error && !summary.data}>
+        <SkeletonKpiStrip count={4} />
+        <SkeletonSection titleWidth="200px" lines={3} minHeight="120px" />
+        <SkeletonSection titleWidth="180px" lines={4} minHeight="140px" />
+      </Show>
+
+      {/* Reconciliation findings */}
+      <Show when={!summary.error && summary.data}>{data => <>
+        <div class="section-title" id="reconciliation-findings">
+          <div>
+            <span class="eyebrow">RECONCILIATION</span>
+            <h3><SectionIcon name="refresh-cw" />Ecosystem reconciliation</h3>
+            <p>Consistency pass across feature flags, Bandsintown sync, and open findings. Run it first, then work through what it finds.</p>
+          </div>
+          <button class={confirmingReconcile() ? 'reconciliation-confirm' : 'ghost'} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' && <Spinner />} {busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Confirm reconciliation' : 'Run reconciliation'}</button>
+        </div>
+        <Show when={attention.data?.ecosystem}><div class="operations-metrics">
+          <div><span>Open findings</span><strong>{attention.data!.ecosystem!.open_findings}</strong><small>reported by canonical overview</small></div>
+          <div><span>Last reconciliation</span><strong>{attention.data!.ecosystem!.last_reconciliation?.status ?? '—'}</strong><small>{observed(attention.data!.ecosystem!.last_reconciliation?.finished_at ?? null)}</small></div>
+          <div><span>Bandsintown failures</span><strong>{attention.data!.ecosystem!.bandsintown_sync?.consecutive_failures ?? 0}</strong><small>{attention.data!.ecosystem!.bandsintown_sync?.in_progress ? 'sync in progress' : 'idle'}</small></div>
+        </div></Show>
+        <For each={attention.data?.findings ?? []}>{finding => <div class={finding.severity === 'critical' ? 'error-card' : 'warning-card'}>
+          <div class="section-title"><div><strong>{finding.summary}</strong><small>{finding.severity} · {finding.kind} · {finding.entity_label ?? finding.entity_type}</small><Show when={finding.suggested_action}><p>{finding.suggested_action}</p></Show></div><StatusBadge status={finding.severity} tone={finding.severity === 'critical' ? 'bad' : finding.severity === 'warning' ? 'warn' : 'muted'} /></div>
+        </div>}</For>
+        <Show when={findingsCount() === 0}><div class="inherit-card"><EmptyState label="No reconciliation findings" hint="The reconciliation engine checks for state mismatches between systems. Findings appear here when discrepancies are detected." /></div></Show>
+      </>}</Show>
+    </TabPanel>
+
+    {/* ─── Queues Tab ────────────────────────────────────────────── */}
+    <TabPanel active={activeTab()} id="queues" visited={isVisited('queues')}>
+      <DeadQueuesPanel
         slug={params().slug}
-        needsYou={attention.data?.needs_you ?? []}
-        deadJobs={summary.data ? totalDead(summary.data) : 0}
-        criticalAlerts={summary.data?.watchdog.critical_alerts ?? 0}
-        staleReservations={summary.data ? staleAreaReservations(summary.data) : 0}
-        activeAlerts={summary.data?.watchdog.active_alerts ?? 0}
-        awaitingApproval={attention.data?.awaiting_approval ?? 0}
-        notReported={attention.data?.not_reported ?? []}
+        summary={summary.data}
+        deadOutbox={attention.data?.dead_outbox}
+        deadDeliveries={attention.data?.dead_deliveries}
+        deadPush={attention.data?.dead_push}
+        error={attention.error}
+        isLoading={attention.isLoading}
+        onRefresh={refreshMaintenance}
       />
-    </Show>
+    </TabPanel>
 
-    <Show when={summary.error}>
-      <div class="error-card" role="alert">{errorMessage(summary.error, 'Operations attention snapshot unavailable')}</div>
-    </Show>
-
-    <Show when={!summary.error && !summary.data}>
-      <SkeletonKpiStrip count={4} />
-      <SkeletonSection titleWidth="200px" lines={3} minHeight="120px" />
-      <SkeletonSection titleWidth="180px" lines={4} minHeight="140px" />
-    </Show>
-
-    <Show when={!summary.error && summary.data}>{data => <>
-      {/* The AttentionInbox above already renders the tiered attention
-          banner — this duplicate was redundant and added visual noise. */}
-
-      {/* Reconciliation — the first action an operator should take. Run it to
-          get a fresh consistency pass, then work through the findings below. */}
-      <div class="section-title" id="reconciliation-findings">
-        <div>
-          <span class="eyebrow">RECONCILIATION</span>
-          <h3><SectionIcon name="refresh-cw" />Ecosystem reconciliation</h3>
-          <p>Consistency pass across feature flags, Bandsintown sync, and open findings. Run it first, then work through what it finds.</p>
-        </div>
-        <button class={confirmingReconcile() ? 'reconciliation-confirm' : 'ghost'} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' && <Spinner />} {busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Confirm reconciliation' : 'Run reconciliation'}</button>
-      </div>
-      <Show when={ecosystem.data}><div class="operations-metrics">
-        <div><span>Open findings</span><strong>{ecosystem.data!.open_findings}</strong><small>reported by canonical overview</small></div>
-        <div><span>Last reconciliation</span><strong>{ecosystem.data!.last_reconciliation?.status ?? '—'}</strong><small>{observed(ecosystem.data!.last_reconciliation?.finished_at ?? null)}</small></div>
-        <div><span>Bandsintown failures</span><strong>{ecosystem.data!.bandsintown_sync?.consecutive_failures ?? 0}</strong><small>{ecosystem.data!.bandsintown_sync?.in_progress ? 'sync in progress' : 'idle'}</small></div>
-      </div></Show>
-      <For each={findings.data ?? []}>{finding => <div class={finding.severity === 'critical' ? 'error-card' : 'warning-card'}>
-        <div class="section-title"><div><strong>{finding.summary}</strong><small>{finding.severity} · {finding.kind} · {finding.entity_label ?? finding.entity_type}</small><Show when={finding.suggested_action}><p>{finding.suggested_action}</p></Show></div><StatusBadge status={finding.severity} tone={finding.severity === 'critical' ? 'bad' : finding.severity === 'warning' ? 'warn' : 'muted'} /></div>
-      </div>}</For>
-      <Show when={!findings.isLoading && (findings.data?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No reconciliation findings" hint="The reconciliation engine checks for state mismatches between systems. Findings appear here when discrepancies are detected." /></div></Show>
-
-      {/* Runtime health — collapsed by default. These are reference metrics
-          an operator checks when investigating, not primary actions. */}
-      <details>
-        <summary class="section-title section-title-summary"><div><span class="eyebrow">RUNTIME</span><h3><SectionIcon name="database" />Database & AREA health</h3></div></summary>
-        <div class="section-title"><div><span class="eyebrow">POSTGRES RUNTIME</span><h4><SectionIcon name="database" />Database health</h4></div><StatusBadge status={data().database.async_io_active ? 'async I/O active' : 'check I/O'} tone={data().database.async_io_active ? 'good' : 'warn'} /></div>
-        <div class="operations-metrics">
-          <div><span>Pool</span><strong>{data().database.pool_size}/{data().database.pool_max}</strong><small>{data().database.pool_idle} idle</small></div>
-          <div><span>Postgres</span><strong>{data().database.server_version_num}</strong><small>{data().database.io_method ?? 'I/O method unknown'}</small></div>
-          <div><span>Effective I/O concurrency</span><strong>{data().database.effective_io_concurrency ?? '—'}</strong><small>workers {data().database.io_workers ?? '—'}</small></div>
-          <div><span>Maintenance I/O</span><strong>{data().database.maintenance_io_concurrency ?? '—'}</strong><small>max concurrency {data().database.io_max_concurrency ?? '—'}</small></div>
-        </div>
-
-        <div class="section-title"><div><span class="eyebrow">AREA RUNTIME</span><h4><SectionIcon name="map-pin" />Reservation maintenance</h4></div><StatusBadge status={staleAreaReservations(data()) > 0 ? `${staleAreaReservations(data())} stale` : 'clean'} tone={staleAreaReservations(data()) > 0 ? 'bad' : 'good'} /></div>
-        <div class="operations-metrics">
-          <div><span>Stale vouchers</span><strong>{data().area.stale_voucher_reservations}</strong><small>{data().area.vouchers_issued} issued</small></div>
-          <div><span>Stale ticket rewards</span><strong>{data().area.stale_ticket_reward_reservations}</strong><small>{data().area.ticket_rewards_issued} issued</small></div>
-          <div><span>Credits</span><strong>{data().area.credits_total}</strong><small>current total</small></div>
-          <div><span>Legacy imports</span><strong>{data().area.legacy_imported_players}</strong><small>players migrated</small></div>
-        </div>
-      </details>
-    </>}</Show>
-
-    <SignalOverviewPanel slug={params().slug} />
-
-    <div class="section-title" id="dead-outbox">
-      <div><span class="eyebrow">DEAD OUTBOX</span><h3><SectionIcon name="alert-triangle" />Failed events</h3><p>Retry is idempotent.</p></div>
-    </div>
-    <Show when={deadOutbox.error}><div class="error-card" role="alert">{errorMessage(deadOutbox.error, 'Dead outbox unavailable')}</div></Show>
-    <Show when={deadOutbox.isLoading}><SkeletonRows count={2} /></Show>
-    <For each={expandOutbox() ? (deadOutbox.data ?? []) : (deadOutbox.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
-      <div class="dead-event-head">
-        <div class="dead-event-info">
-          <div class="dead-event-title">
-            <span class="badge tone-warn mono-badge">{item.event_type}</span>
-            <span class="badge tone-muted">outbox</span>
+    {/* ─── Runtime Tab ───────────────────────────────────────────── */}
+    <TabPanel active={activeTab()} id="runtime" visited={isVisited('runtime')}>
+      <Show when={!summary.error && summary.data} fallback={<SkeletonSection titleWidth="180px" lines={4} minHeight="140px" />}>
+        {data => <>
+          <div class="section-title"><div><span class="eyebrow">POSTGRES RUNTIME</span><h3><SectionIcon name="database" />Database health</h3></div><StatusBadge status={data().database.async_io_active ? 'async I/O active' : 'check I/O'} tone={data().database.async_io_active ? 'good' : 'warn'} /></div>
+          <div class="operations-metrics">
+            <div><span>Pool</span><strong>{data().database.pool_size}/{data().database.pool_max}</strong><small>{data().database.pool_idle} idle</small></div>
+            <div><span>Postgres</span><strong>{data().database.server_version_num}</strong><small>{data().database.io_method ?? 'I/O method unknown'}</small></div>
+            <div><span>Effective I/O concurrency</span><strong>{data().database.effective_io_concurrency ?? '—'}</strong><small>workers {data().database.io_workers ?? '—'}</small></div>
+            <div><span>Maintenance I/O</span><strong>{data().database.maintenance_io_concurrency ?? '—'}</strong><small>max concurrency {data().database.io_max_concurrency ?? '—'}</small></div>
           </div>
-          <p>{item.last_error_kind ?? 'unknown error'} · attempts {item.attempts}/{item.max_attempts} · dead {observed(item.dead_at)}</p>
-        </div>
-        <div class="dead-event-actions">
-          <button class="ghost dead-toggle-id" onClick={() => toggleRevealedId(`outbox:${item.id}`)}>{revealedId() === `outbox:${item.id}` ? 'Hide ID' : 'Details'}</button>
-          <button class="ghost" disabled={!!busy()} onClick={() => void retryOutbox(item.id)}>{busy() === `outbox:${item.id}` && <Spinner />} {busy() === `outbox:${item.id}` ? 'Retrying…' : 'Retry'}</button>
-        </div>
-      </div>
-      <Show when={revealedId() === `outbox:${item.id}`}>
-        <small class="mono dead-event-id">Event ID · <span class="mono">{item.id}</span></small>
-      </Show>
-    </div>}</For>
-    <Show when={(deadOutbox.data?.length ?? 0) > DEAD_PREVIEW}>
-      <button class="ghost dead-expand-btn" onClick={() => setExpandOutbox(!expandOutbox())}>
-        {expandOutbox() ? 'Show fewer' : `Show all ${deadOutbox.data?.length ?? 0} (showing ${DEAD_PREVIEW})`}
-      </button>
-    </Show>
-    <Show when={!deadOutbox.isLoading && (deadOutbox.data?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead outbox events" hint="Dead outbox events are messages that failed delivery after all retries. A clean queue means everything is flowing." /></div></Show>
 
-    <div class="section-title" id="dead-deliveries">
-      <div><span class="eyebrow">DEAD WEBHOOK DELIVERIES</span><h3><SectionIcon name="alert-triangle" />Delivery failures</h3><p>Inspect attempt history before retrying.</p></div>
-      <button type="button" class={confirming() ? 'danger-ghost' : 'ghost'} disabled={(summary.data?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' && <Spinner />} {busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</button>
-    </div>
-    <Show when={deadDeliveries.error}><div class="error-card" role="alert">{errorMessage(deadDeliveries.error, 'Dead deliveries unavailable')}</div></Show>
-    <Show when={deadDeliveries.isLoading}><SkeletonRows count={2} /></Show>
-    <For each={expandDeliveries() ? (deadDeliveries.data ?? []) : (deadDeliveries.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
-      <div class="dead-event-head">
-        <div class="dead-event-info">
-          <div class="dead-event-title">
-            <span class="badge tone-warn mono-badge">{item.event_type}</span>
-            <span class="badge tone-muted">{item.endpoint_name}</span>
+          <div class="section-title"><div><span class="eyebrow">AREA RUNTIME</span><h3><SectionIcon name="map-pin" />Reservation maintenance</h3></div><StatusBadge status={staleAreaReservations(data()) > 0 ? `${staleAreaReservations(data())} stale` : 'clean'} tone={staleAreaReservations(data()) > 0 ? 'bad' : 'good'} /></div>
+          <div class="operations-metrics">
+            <div><span>Stale vouchers</span><strong>{data().area.stale_voucher_reservations}</strong><small>{data().area.vouchers_issued} issued</small></div>
+            <div><span>Stale ticket rewards</span><strong>{data().area.stale_ticket_reward_reservations}</strong><small>{data().area.ticket_rewards_issued} issued</small></div>
+            <div><span>Credits</span><strong>{data().area.credits_total}</strong><small>current total</small></div>
+            <div><span>Legacy imports</span><strong>{data().area.legacy_imported_players}</strong><small>players migrated</small></div>
           </div>
-          <p>{item.last_error_kind ?? 'unknown error'} · HTTP {item.last_response_status ?? '—'} · attempts {item.attempt_count}/{item.max_attempts}</p>
-        </div>
-        <div class="dead-event-actions">
-          <button class="ghost dead-toggle-id" onClick={() => toggleRevealedId(`delivery:${item.id}`)}>{revealedId() === `delivery:${item.id}` ? 'Hide ID' : 'Details'}</button>
-          <button class="ghost" disabled={!!busy()} onClick={() => void loadDeliveryDetails(item.id)}>Attempts</button>
-          <button class="ghost" disabled={!!busy()} onClick={() => void retryDelivery(item.id)}>{busy() === `delivery:${item.id}` && <Spinner />} {busy() === `delivery:${item.id}` ? 'Retrying…' : 'Retry'}</button>
-        </div>
-      </div>
-      <Show when={revealedId() === `delivery:${item.id}`}>
-        <small class="mono dead-event-id">Delivery ID · <span class="mono">{item.id}</span></small>
+        </>}
       </Show>
-    </div>}</For>
-    <Show when={(deadDeliveries.data?.length ?? 0) > DEAD_PREVIEW}>
-      <button class="ghost dead-expand-btn" onClick={() => setExpandDeliveries(!expandDeliveries())}>
-        {expandDeliveries() ? 'Show fewer' : `Show all ${deadDeliveries.data?.length ?? 0} (showing ${DEAD_PREVIEW})`}
-      </button>
-    </Show>
-    <Show when={!deadDeliveries.isLoading && (deadDeliveries.data?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead webhook deliveries" hint="Dead webhooks are deliveries that failed after all retries. A clean list means webhooks are reaching their destinations." /></div></Show>
 
-    <Show when={deliveryDetails()}>{details => <div class="panel">
-      <div class="section-title"><div><span class="eyebrow">DELIVERY DETAILS</span><h3><SectionIcon name="mail" />{details().delivery.endpoint_name}</h3><div class="dead-event-title"><span class="badge tone-warn mono-badge">{details().delivery.event_type}</span><span class="badge tone-muted">delivery</span></div></div><button class="ghost" onClick={() => setDeliveryDetails(null)}>Close</button></div>
-      <For each={details().attempts}>{attempt => <div class="warning-card"><strong>Attempt {attempt.attempt_number} · {attempt.outcome}</strong><p>HTTP {attempt.response_status ?? '—'} · {attempt.error_kind ?? 'no error kind'} · {attempt.duration_ms} ms · {observed(attempt.finished_at)}</p></div>}</For>
-      <Show when={details().attempts.length === 0}><EmptyState label="No delivery attempts" hint="Delivery attempts are logged here once the outbox starts processing messages." /></Show>
-    </div>}</Show>
+      <SignalOverviewPanel slug={params().slug} />
+    </TabPanel>
 
-    <div class="section-title" id="dead-push">
-      <div><span class="eyebrow">DEAD PUSH</span><h3><SectionIcon name="alert-triangle" />Failed push deliveries</h3><p>{pushFailureSummary()}</p></div>
-      <StatusBadge status={(summary.data?.push.dead ?? 0) > 0 ? 'dead' : 'clean'} tone={(summary.data?.push.dead ?? 0) > 0 ? 'bad' : 'good'} />
-    </div>
-    <Show when={deadPush.error}><div class="error-card" role="alert">{errorMessage(deadPush.error, 'Dead push unavailable')}</div></Show>
-    <Show when={deadPush.isLoading}><SkeletonRows count={2} /></Show>
-    <For each={expandPush() ? (deadPush.data ?? []) : (deadPush.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
-      <div class="dead-event-head">
-        <div class="dead-event-info">
-          <div class="dead-event-title">
-            <span class="badge tone-warn mono-badge">{item.source_kind}</span>
-            <span class="badge tone-muted">push</span>
-          </div>
-          <p><strong>{item.title}</strong> — {pushFailureReason(item.error_code)} · attempts {item.attempt_count}</p>
-        </div>
-        <div class="dead-event-actions">
-          <button class="ghost dead-toggle-id" onClick={() => toggleRevealedId(`push:${item.id}`)}>{revealedId() === `push:${item.id}` ? 'Hide ID' : 'Details'}</button>
-          <Show
-            when={pushIsRetryable(item.error_code)}
-            fallback={<span class="muted push-no-retry">nothing to retry</span>}
-          >
-            <button class="ghost" disabled={!!busy()} onClick={() => void retryPush(item.id)}>{busy() === `push:${item.id}` && <Spinner />} {busy() === `push:${item.id}` ? 'Retrying…' : 'Retry'}</button>
-          </Show>
-        </div>
+    {/* ─── Trace Tab ─────────────────────────────────────────────── */}
+    <TabPanel active={activeTab()} id="trace" visited={isVisited('trace')}>
+      <div class="section-title"><div><span class="eyebrow">REQUEST TIMELINE</span><h3><SectionIcon name="history" />Correlation trace</h3><p>Metadata-only trace across audit, outbox, delivery and operator actions.</p></div></div>
+      <div class="provision-row">
+        <input class="mono" value={timelineInput()} onInput={(event) => setTimelineInput(event.currentTarget.value)} placeholder="Request or correlation ID" aria-label="Request or correlation ID" />
+        <button class="ghost" disabled={!timelineInput().trim() || !!busy()} onClick={() => void lookupTimeline()}>{busy() === 'timeline' ? 'Tracing…' : 'Trace request'}</button>
       </div>
-      <Show when={revealedId() === `push:${item.id}`}>
-        <small class="mono dead-event-id">Push ID · <span class="mono">{item.id}</span></small>
-      </Show>
-    </div>}</For>
-    <Show when={(deadPush.data?.length ?? 0) > DEAD_PREVIEW}>
-      <button class="ghost dead-expand-btn" onClick={() => setExpandPush(!expandPush())}>
-        {expandPush() ? 'Show fewer' : `Show all ${deadPush.data?.length ?? 0} (showing ${DEAD_PREVIEW})`}
-      </button>
-    </Show>
-    <Show when={!deadPush.isLoading && (deadPush.data?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead push deliveries" hint="Dead push notifications are deliveries that failed after all retries. A clean list means pushes are reaching devices." /></div></Show>
-
-    <div class="section-title"><div><span class="eyebrow">REQUEST TIMELINE</span><h3><SectionIcon name="history" />Correlation trace</h3><p>Metadata-only trace across audit, outbox, delivery and operator actions.</p></div></div>
-    <div class="provision-row">
-      <input class="mono" value={timelineInput()} onInput={(event) => setTimelineInput(event.currentTarget.value)} placeholder="Request or correlation ID" aria-label="Request or correlation ID" />
-      <button class="ghost" disabled={!timelineInput().trim() || !!busy()} onClick={() => void lookupTimeline()}>{busy() === 'timeline' ? 'Tracing…' : 'Trace request'}</button>
-    </div>
-    <Show when={timeline()}>{result => <div class="panel"><div class="section-title"><div><span class="eyebrow">REQUEST TIMELINE</span><h3><SectionIcon name="history" />{result().events.length} timeline event(s)</h3><button class="ghost dead-toggle-id" onClick={() => toggleRevealedId('timeline')}>{revealedId() === 'timeline' ? 'Hide ID' : 'Details'}</button><Show when={revealedId() === 'timeline'}><small class="mono dead-event-id">Request ID · <span class="mono">{result().request_id}</span></small></Show></div><button class="ghost" onClick={() => setTimeline(null)}>Close</button></div><For each={result().events}>{event => <div class="warning-card"><div class="dead-event-title"><span class="badge tone-muted mono-badge">{event.source}</span><span class="badge tone-muted">{event.kind}</span></div><p>{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'}</p></div>}</For></div>}</Show>
+      <Show when={timeline()}>{result => <div class="panel"><div class="section-title"><div><span class="eyebrow">REQUEST TIMELINE</span><h3><SectionIcon name="history" />{result().events.length} timeline event(s)</h3><button class="ghost dead-toggle-id" onClick={() => toggleRevealedId('timeline')}>{revealedId() === 'timeline' ? 'Hide ID' : 'Details'}</button><Show when={revealedId() === 'timeline'}><small class="mono dead-event-id">Request ID · <span class="mono">{result().request_id}</span></small></Show></div><button class="ghost" onClick={() => setTimeline(null)}>Close</button></div><For each={result().events}>{event => <div class="warning-card"><div class="dead-event-title"><span class="badge tone-muted mono-badge">{event.source}</span><span class="badge tone-muted">{event.kind}</span></div><p>{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'}</p></div>}</For></div>}</Show>
+    </TabPanel>
   </section>
 }

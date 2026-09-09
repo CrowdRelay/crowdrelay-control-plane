@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import type { AutopilotOverview, FeatureFlag, FreshnessClassification, OperationsSummary, SectionFreshnessMap, SectionState, SectionVerdicts } from '../lib/types'
 import { errorMessage, formatAge, formatTimestamp, oldestQueueAge } from '../lib/format'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
+import { useOperationsMutations } from '../lib/operations-mutations'
 import { toast } from '../lib/toast'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
@@ -94,21 +95,8 @@ export function OperationsPanel(props: {
     get error() { return degradedSection('autopilot') },
     refetch: () => props.refresh(),
   }
-  const [pendingMutation, setPendingMutation] = createSignal<string | null>(null)
-  const [mutationError, setMutationError] = createSignal<string | null>(null)
-
-  const mutate = async (key: string, operation: () => Promise<unknown>, refresh: () => Promise<unknown>) => {
-    setMutationError(null)
-    setPendingMutation(key)
-    try {
-      await operation()
-      await refresh()
-    } catch (error) {
-      setMutationError(errorMessage(error, 'Tenant operation failed'))
-    } finally {
-      setPendingMutation(null)
-    }
-  }
+  const { pendingMutation, mutationError, mutate, redeploy, replayDead, bulkAutopilot, confirmCopy } =
+    useOperationsMutations(props.slug, props.refresh)
 
   const unavailable = () => summary.error || flags.error || autopilot.error
   // Name each missing section and why. Falls back to the old wording only
@@ -147,52 +135,6 @@ export function OperationsPanel(props: {
   // mis-click never flips every policy or redeploys an app by accident.
   const [confirming, setConfirming] = createSignal<'autopilot-disable' | 'autopilot-enable' | 'redeploy' | 'replay-dead' | null>(null)
 
-  const bulkAutopilot = (enabled: boolean) => mutate(
-    'autopilot-bulk',
-    () => api.autopilotBulk(props.slug, enabled),
-    () => flags.refetch(),
-  )
-  const redeploy = async () => {
-    setMutationError(null)
-    setPendingMutation('redeploy')
-    try {
-      await api.deployTenant(props.slug)
-      toast.success('Deploy requested — accepted by GitHub. Watch the Actions tab for completion.')
-      await flags.refetch()
-    } catch (error) {
-      setMutationError(errorMessage(error, 'Deploy trigger failed'))
-    } finally {
-      setPendingMutation(null)
-    }
-  }
-  const replayDead = () => mutate('replay-dead', () => api.clearDeadDeliveries(props.slug), () => flags.refetch())
-
-  const confirmCopy = (): { title: string; body: string; action: string } | null => {
-    switch (confirming()) {
-      case 'autopilot-disable': return {
-        title: 'Disable all Autopilot policies?',
-        body: 'Every context stops acting immediately — full killswitch. Queued actions stay parked until you re-enable.',
-        action: 'Disable everything',
-      }
-      case 'autopilot-enable': return {
-        title: 'Enable all Autopilot policies?',
-        body: 'Every context resumes at its saved autonomy level, confidence threshold and daily cap.',
-        action: 'Enable everything',
-      }
-      case 'redeploy': return {
-        title: 'Redeploy this app now?',
-        body: 'Triggers a fresh production deploy. The current stack keeps serving until the blue-green switchover completes.',
-        action: 'Queue redeploy',
-      }
-      case 'replay-dead': return {
-        title: 'Replay dead deliveries?',
-        body: `Asks CrowdRelay to redeliver ${deadJobs()} dead queue item(s). Failed items land back in the dead queue if the root cause persists.`,
-        action: 'Replay dead items',
-      }
-      default: return null
-    }
-  }
-
   return <article class="panel operations-panel">
     <Show when={showHealth()}>
     <div class="section-title operations-title">
@@ -204,7 +146,7 @@ export function OperationsPanel(props: {
       </div>
     </div>
 
-    <Show when={confirming() ? confirmCopy() : null} keyed>{copy =>
+    <Show when={confirming() ? confirmCopy(confirming(), deadJobs()) : null} keyed>{copy =>
       <div class="warning-card confirm-card" role="alertdialog" aria-label={copy.title}>
         <strong>{copy.title}</strong>
         <span>{copy.body}</span>

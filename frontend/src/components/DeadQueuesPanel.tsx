@@ -1,0 +1,269 @@
+import { For, Show, createSignal } from 'solid-js'
+import { api } from '../lib/api'
+import { toast } from '../lib/toast'
+import { errorMessage, formatTimestamp as observed } from '../lib/format'
+import type { DeliveryDetails, OutboxItem, DeliveryItem, PushDeliveryItem, OperationsSummary } from '../lib/types'
+import { EmptyState } from './EmptyState'
+import { SectionIcon } from './SectionIcon'
+import { SkeletonRows } from './Skeleton'
+import { Spinner } from './Spinner'
+import { StatusBadge } from './StatusBadge'
+
+const shortId = (value: string) => value.length > 16 ? `${value.slice(0, 8)}…${value.slice(-6)}` : value
+
+// Push failures in words, and whether retrying can possibly help.
+//
+// The raw codes read as accusations. `fan_or_consent_ineligible` on twenty-one
+// rows looked like the system had been messaging people who said no — it had
+// not; those were one fan's seven abandoned app installs, and the same fan
+// received their messages on the device they still use. A panel that cannot
+// say which of those two things happened turns a hygiene event into a scare.
+//
+// Retry is offered only where it can succeed. A dead endpoint is a phone that
+// reinstalled: there is nothing on the other end, and the button was a promise
+// the system could not keep.
+const PUSH_FAILURES: Record<string, { reason: string; retryable: boolean }> = {
+  endpoint_inactive: {
+    reason: 'device no longer registered — the app was reinstalled or removed',
+    retryable: false,
+  },
+  fcm_endpoint_invalid: {
+    reason: 'push service rejected the device token as stale',
+    retryable: false,
+  },
+  fan_or_consent_ineligible: {
+    reason: 'fan is inactive or has withdrawn marketing consent',
+    retryable: false,
+  },
+  beacon_session_ineligible: { reason: 'beacon session expired or revoked', retryable: false },
+  staff_endpoint_ineligible: { reason: 'staff session expired', retryable: false },
+  device_ack_timeout: { reason: 'sent, but the device never acknowledged', retryable: true },
+  preference_disabled: { reason: 'fan turned this notification category off', retryable: false },
+}
+
+const pushFailureReason = (code: string | null | undefined) =>
+  (code && PUSH_FAILURES[code]?.reason) ?? code ?? 'unknown error'
+
+// Unknown codes stay retryable: a new failure mode nobody has classified yet
+// should not silently lose its only remedy.
+const pushIsRetryable = (code: string | null | undefined) =>
+  !code || (PUSH_FAILURES[code]?.retryable ?? true)
+
+const DEAD_PREVIEW = 10
+
+export function DeadQueuesPanel(props: {
+  slug: string
+  summary: OperationsSummary | null | undefined
+  deadOutbox: OutboxItem[] | null | undefined
+  deadDeliveries: DeliveryItem[] | null | undefined
+  deadPush: PushDeliveryItem[] | null | undefined
+  error: unknown
+  isLoading: boolean
+  onRefresh: () => void
+}) {
+  const [expandOutbox, setExpandOutbox] = createSignal(false)
+  const [expandDeliveries, setExpandDeliveries] = createSignal(false)
+  const [expandPush, setExpandPush] = createSignal(false)
+  const [confirming, setConfirming] = createSignal(false)
+  const [busy, setBusy] = createSignal('')
+  const [deliveryDetails, setDeliveryDetails] = createSignal<DeliveryDetails | null>(null)
+  const [revealedId, setRevealedId] = createSignal<string | null>(null)
+  const toggleRevealedId = (key: string) => setRevealedId(prev => prev === key ? null : key)
+
+  /// Says what these failures mean before the operator reads twenty rows.
+  const pushFailureSummary = () => {
+    const items = props.deadPush ?? []
+    if (items.length === 0) return 'Retry is idempotent.'
+    const retryable = items.filter(item => pushIsRetryable(item.error_code)).length
+    const stale = items.length - retryable
+    if (stale === items.length) {
+      return `All ${items.length} are devices that no longer exist — reinstalled or uninstalled apps. Nothing was lost and there is nothing to retry.`
+    }
+    if (stale === 0) return `${retryable} worth retrying. Retry is idempotent.`
+    return `${stale} are devices that no longer exist and cannot be retried; ${retryable} are worth a retry. Retry is idempotent.`
+  }
+
+  const clearDead = async () => {
+    if (!props.summary || props.summary.deliveries.dead <= 0 || busy()) return
+    if (!confirming()) {
+      setConfirming(true)
+      toast.info('Click again to confirm marking dead webhook deliveries as cancelled.')
+      return
+    }
+    setBusy('clear')
+    try {
+      const result = await api.clearDeadDeliveries(props.slug)
+      setConfirming(false)
+      toast.success(`Cleanup complete: ${result.cleared} dead delivery item(s) cancelled. Outbox and push queues untouched.`)
+      props.onRefresh()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Dead queue cleanup failed')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const retryOutbox = async (id: string) => {
+    if (busy()) return
+    setBusy(`outbox:${id}`)
+    try {
+      await api.retryOutbox(props.slug, id)
+      toast.success(`Outbox ${shortId(id)} is back in the pending queue.`)
+      props.onRefresh()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Outbox retry failed')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const retryDelivery = async (id: string) => {
+    if (busy()) return
+    setBusy(`delivery:${id}`)
+    try {
+      await api.retryDelivery(props.slug, id)
+      toast.success(`Delivery ${shortId(id)} is back in the pending queue.`)
+      setDeliveryDetails(null)
+      props.onRefresh()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Delivery retry failed')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const retryPush = async (id: string) => {
+    if (busy()) return
+    setBusy(`push:${id}`)
+    try {
+      await api.retryPush(props.slug, id)
+      toast.success(`Push ${shortId(id)} is back in the queue.`)
+      props.onRefresh()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Push retry failed')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const loadDeliveryDetails = async (id: string) => {
+    if (busy()) return
+    setBusy(`details:${id}`)
+    try {
+      setDeliveryDetails(await api.deliveryDetails(props.slug, id))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Delivery details unavailable')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  return <>
+    {/* ─── Dead Outbox ─────────────────────────────────────────── */}
+    <div class="section-title" id="dead-outbox">
+      <div><span class="eyebrow">DEAD OUTBOX</span><h3><SectionIcon name="alert-triangle" />Failed events</h3><p>Retry is idempotent.</p></div>
+    </div>
+    <Show when={props.error}><div class="error-card" role="alert">{errorMessage(props.error, 'Dead outbox unavailable')}</div></Show>
+    <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
+    <For each={expandOutbox() ? (props.deadOutbox ?? []) : (props.deadOutbox ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
+      <div class="dead-event-head">
+        <div class="dead-event-info">
+          <div class="dead-event-title">
+            <span class="badge tone-warn mono-badge">{item.event_type}</span>
+            <span class="badge tone-muted">outbox</span>
+          </div>
+          <p>{item.last_error_kind ?? 'unknown error'} · attempts {item.attempts}/{item.max_attempts} · dead {observed(item.dead_at)}</p>
+        </div>
+        <div class="dead-event-actions">
+          <button class="ghost dead-toggle-id" onClick={() => toggleRevealedId(`outbox:${item.id}`)}>{revealedId() === `outbox:${item.id}` ? 'Hide ID' : 'Details'}</button>
+          <button class="ghost" disabled={!!busy()} onClick={() => void retryOutbox(item.id)}>{busy() === `outbox:${item.id}` && <Spinner />} {busy() === `outbox:${item.id}` ? 'Retrying…' : 'Retry'}</button>
+        </div>
+      </div>
+      <Show when={revealedId() === `outbox:${item.id}`}>
+        <small class="mono dead-event-id">Event ID · <span class="mono">{item.id}</span></small>
+      </Show>
+    </div>}</For>
+    <Show when={(props.deadOutbox?.length ?? 0) > DEAD_PREVIEW}>
+      <button class="ghost dead-expand-btn" onClick={() => setExpandOutbox(!expandOutbox())}>
+        {expandOutbox() ? 'Show fewer' : `Show all ${props.deadOutbox?.length ?? 0} (showing ${DEAD_PREVIEW})`}
+      </button>
+    </Show>
+    <Show when={!props.isLoading && (props.deadOutbox?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead outbox events" hint="Dead outbox events are messages that failed delivery after all retries. A clean queue means everything is flowing." /></div></Show>
+
+    {/* ─── Dead Webhook Deliveries ─────────────────────────────── */}
+    <div class="section-title" id="dead-deliveries">
+      <div><span class="eyebrow">DEAD WEBHOOK DELIVERIES</span><h3><SectionIcon name="alert-triangle" />Delivery failures</h3><p>Inspect attempt history before retrying.</p></div>
+      <button type="button" class={confirming() ? 'danger-ghost' : 'ghost'} disabled={(props.summary?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' && <Spinner />} {busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</button>
+    </div>
+    <Show when={props.error}><div class="error-card" role="alert">{errorMessage(props.error, 'Dead deliveries unavailable')}</div></Show>
+    <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
+    <For each={expandDeliveries() ? (props.deadDeliveries ?? []) : (props.deadDeliveries ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
+      <div class="dead-event-head">
+        <div class="dead-event-info">
+          <div class="dead-event-title">
+            <span class="badge tone-warn mono-badge">{item.event_type}</span>
+            <span class="badge tone-muted">{item.endpoint_name}</span>
+          </div>
+          <p>{item.last_error_kind ?? 'unknown error'} · HTTP {item.last_response_status ?? '—'} · attempts {item.attempt_count}/{item.max_attempts}</p>
+        </div>
+        <div class="dead-event-actions">
+          <button class="ghost dead-toggle-id" onClick={() => toggleRevealedId(`delivery:${item.id}`)}>{revealedId() === `delivery:${item.id}` ? 'Hide ID' : 'Details'}</button>
+          <button class="ghost" disabled={!!busy()} onClick={() => void loadDeliveryDetails(item.id)}>Attempts</button>
+          <button class="ghost" disabled={!!busy()} onClick={() => void retryDelivery(item.id)}>{busy() === `delivery:${item.id}` && <Spinner />} {busy() === `delivery:${item.id}` ? 'Retrying…' : 'Retry'}</button>
+        </div>
+      </div>
+      <Show when={revealedId() === `delivery:${item.id}`}>
+        <small class="mono dead-event-id">Delivery ID · <span class="mono">{item.id}</span></small>
+      </Show>
+    </div>}</For>
+    <Show when={(props.deadDeliveries?.length ?? 0) > DEAD_PREVIEW}>
+      <button class="ghost dead-expand-btn" onClick={() => setExpandDeliveries(!expandDeliveries())}>
+        {expandDeliveries() ? 'Show fewer' : `Show all ${props.deadDeliveries?.length ?? 0} (showing ${DEAD_PREVIEW})`}
+      </button>
+    </Show>
+    <Show when={!props.isLoading && (props.deadDeliveries?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead webhook deliveries" hint="Dead webhooks are deliveries that failed after all retries. A clean list means webhooks are reaching their destinations." /></div></Show>
+
+    <Show when={deliveryDetails()}>{details => <div class="panel">
+      <div class="section-title"><div><span class="eyebrow">DELIVERY DETAILS</span><h3><SectionIcon name="mail" />{details().delivery.endpoint_name}</h3><div class="dead-event-title"><span class="badge tone-warn mono-badge">{details().delivery.event_type}</span><span class="badge tone-muted">delivery</span></div></div><button class="ghost" onClick={() => setDeliveryDetails(null)}>Close</button></div>
+      <For each={details().attempts}>{attempt => <div class="warning-card"><strong>Attempt {attempt.attempt_number} · {attempt.outcome}</strong><p>HTTP {attempt.response_status ?? '—'} · {attempt.error_kind ?? 'no error kind'} · {attempt.duration_ms} ms · {observed(attempt.finished_at)}</p></div>}</For>
+      <Show when={details().attempts.length === 0}><EmptyState label="No delivery attempts" hint="Delivery attempts are logged here once the outbox starts processing messages." /></Show>
+    </div>}</Show>
+
+    {/* ─── Dead Push ───────────────────────────────────────────── */}
+    <div class="section-title" id="dead-push">
+      <div><span class="eyebrow">DEAD PUSH</span><h3><SectionIcon name="alert-triangle" />Failed push deliveries</h3><p>{pushFailureSummary()}</p></div>
+      <StatusBadge status={(props.summary?.push.dead ?? 0) > 0 ? 'dead' : 'clean'} tone={(props.summary?.push.dead ?? 0) > 0 ? 'bad' : 'good'} />
+    </div>
+    <Show when={props.error}><div class="error-card" role="alert">{errorMessage(props.error, 'Dead push unavailable')}</div></Show>
+    <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
+    <For each={expandPush() ? (props.deadPush ?? []) : (props.deadPush ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
+      <div class="dead-event-head">
+        <div class="dead-event-info">
+          <div class="dead-event-title">
+            <span class="badge tone-warn mono-badge">{item.source_kind}</span>
+            <span class="badge tone-muted">push</span>
+          </div>
+          <p><strong>{item.title}</strong> — {pushFailureReason(item.error_code)} · attempts {item.attempt_count}</p>
+        </div>
+        <div class="dead-event-actions">
+          <button class="ghost dead-toggle-id" onClick={() => toggleRevealedId(`push:${item.id}`)}>{revealedId() === `push:${item.id}` ? 'Hide ID' : 'Details'}</button>
+          <Show
+            when={pushIsRetryable(item.error_code)}
+            fallback={<span class="muted push-no-retry">nothing to retry</span>}
+          >
+            <button class="ghost" disabled={!!busy()} onClick={() => void retryPush(item.id)}>{busy() === `push:${item.id}` && <Spinner />} {busy() === `push:${item.id}` ? 'Retrying…' : 'Retry'}</button>
+          </Show>
+        </div>
+      </div>
+      <Show when={revealedId() === `push:${item.id}`}>
+        <small class="mono dead-event-id">Push ID · <span class="mono">{item.id}</span></small>
+      </Show>
+    </div>}</For>
+    <Show when={(props.deadPush?.length ?? 0) > DEAD_PREVIEW}>
+      <button class="ghost dead-expand-btn" onClick={() => setExpandPush(!expandPush())}>
+        {expandPush() ? 'Show fewer' : `Show all ${props.deadPush?.length ?? 0} (showing ${DEAD_PREVIEW})`}
+      </button>
+    </Show>
+    <Show when={!props.isLoading && (props.deadPush?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead push deliveries" hint="Dead push notifications are deliveries that failed after all retries. A clean list means pushes are reaching devices." /></div></Show>
+  </>
+}
