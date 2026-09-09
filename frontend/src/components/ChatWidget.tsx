@@ -103,14 +103,16 @@ export function ChatWidget(props: { slug: string }) {
   createEffect(() => {
     const msgs = messages()
     if (msgs.length > 0 && scrollRef) {
-      setTimeout(() => scrollRef!.scrollTop = scrollRef!.scrollHeight, 0)
+      const t = setTimeout(() => { if (scrollRef) scrollRef.scrollTop = scrollRef.scrollHeight }, 0)
+      onCleanup(() => clearTimeout(t))
     }
   })
 
   // Focus input when opened
   createEffect(() => {
     if (open() && inputRef) {
-      setTimeout(() => inputRef!.focus(), 100)
+      const t = setTimeout(() => { if (inputRef) inputRef.focus() }, 100)
+      onCleanup(() => clearTimeout(t))
     }
   })
 

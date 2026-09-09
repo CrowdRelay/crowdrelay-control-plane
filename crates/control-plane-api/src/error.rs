@@ -155,8 +155,13 @@ impl IntoResponse for ApiError {
                     "internal error while encoding the response".to_owned(),
                 )
             }
-            // Handled by the early return above; unreachable here.
-            Self::AllSectionsFailed { .. } => unreachable!(),
+            // Handled by the early return above; if the early return is ever
+            // removed, this arm produces a safe 503 instead of panicking.
+            Self::AllSectionsFailed { .. } => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "all_sections_failed",
+                "tenant unavailable".to_owned(),
+            ),
         };
         (status, Json(json!({"error": code, "detail": detail}))).into_response()
     }

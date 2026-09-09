@@ -23,25 +23,25 @@ export function OverviewPage() {
   const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, refetchOnWindowFocus: false, reconcile: 'id' }))
   const commandCenter = useQuery(() => ({ queryKey: ['command-center'], queryFn: api.commandCenter, refetchOnWindowFocus: false, staleTime: 10_000 }))
 
-  const items = () => tenants.data?.items ?? []
+  const items = createMemo(() => tenants.data?.items ?? [])
   const count = (health: RuntimeHealth) => items().filter(t => t.runtimeHealth === health).length
-  const activeCount = () => items().filter(t => t.status === 'active').length
-  const needsAttention = () => count('degraded') + count('stale')
-  const suspendedCount = () => items().filter(t => t.status === 'suspended').length
-  const parkedCount = () => items().filter(t => t.status === 'parked').length
-  const unknownCount = () => count('unknown')
-  const reportingCount = () => items().length - unknownCount()
-  const healthyPct = () => {
+  const activeCount = createMemo(() => items().filter(t => t.status === 'active').length)
+  const needsAttention = createMemo(() => count('degraded') + count('stale'))
+  const suspendedCount = createMemo(() => items().filter(t => t.status === 'suspended').length)
+  const parkedCount = createMemo(() => items().filter(t => t.status === 'parked').length)
+  const unknownCount = createMemo(() => count('unknown'))
+  const reportingCount = createMemo(() => items().length - unknownCount())
+  const healthyPct = createMemo(() => {
     const reporting = reportingCount()
     if (reporting === 0) return 0
     return Math.round((count('healthy') / reporting) * 100)
-  }
-  const fleetTone = () => reportingCount() === 0 ? 'muted' as const : undefined
-  const lastRefresh = () => {
+  })
+  const fleetTone = createMemo(() => reportingCount() === 0 ? 'muted' as const : undefined)
+  const lastRefresh = createMemo(() => {
     const ts = Math.max(tenants.dataUpdatedAt, commandCenter.dataUpdatedAt)
     if (ts === 0) return null
     return new Date(ts).toLocaleTimeString()
-  }
+  })
 
   const cc = (): CommandCenterReadModel | undefined => commandCenter.data
   // Platform health has one source on this page. It used to be read from

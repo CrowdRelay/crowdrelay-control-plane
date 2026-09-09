@@ -1,4 +1,4 @@
-import { For, Show, onMount } from 'solid-js'
+import { For, Show, onMount, onCleanup } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
 import type { PendingActionSummary } from '../lib/types'
 import { EmptyState } from './EmptyState'
@@ -142,7 +142,8 @@ export function AttentionInbox(props: {
     if (!el) return
     el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     el.classList.add('attention-item-highlighted')
-    setTimeout(() => el.classList.remove('attention-item-highlighted'), 4000)
+    const t = setTimeout(() => el.classList.remove('attention-item-highlighted'), 4000)
+    onCleanup(() => clearTimeout(t))
   })
 
   return <div class="attention-inbox">

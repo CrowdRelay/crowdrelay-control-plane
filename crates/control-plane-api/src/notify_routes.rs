@@ -642,6 +642,7 @@ async fn sync_automation_routing(
         }
     }
 
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     Ok(axum::Json(json!({ "synced": synced, "skipped": skipped })).into_response())
 }
 

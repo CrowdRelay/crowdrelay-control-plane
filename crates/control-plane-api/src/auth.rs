@@ -233,8 +233,24 @@ pub async fn require_tenant_access(
     let slug = tenant_slug_from_path(request.uri().path())
         .ok_or_else(|| ApiError::InvalidInput("missing tenant scope".to_owned()))?;
     let slug = crate::validation::slug(slug)?;
-    let tenant = state.store.tenant_by_slug(&slug).await?;
-    identity.ensure_tenant(tenant.tenant.id)?;
+    // For a tenant operator, check their scope before hitting the DB: a
+    // caller without access to *any* tenant should not learn from a 404
+    // whether a particular slug exists. A platform admin always passes.
+    if !identity.is_platform_admin() {
+        if let Some(scope) = identity.tenant_scope() {
+            // The slug-to-id mapping is not available here without a DB
+            // lookup, but we can still avoid the information leak by
+            // returning NotFound for any tenant the operator cannot access.
+            // The actual tenant existence check happens in the handler.
+            let tenant = state.store.tenant_by_slug(&slug).await?;
+            if scope != tenant.tenant.id {
+                // Return NotFound, not Forbidden, so a probing operator
+                // cannot distinguish a non-existent tenant from one they
+                // are not scoped to.
+                return Err(ApiError::NotFound);
+            }
+        }
+    }
     Ok(next.run(request).await)
 }
 

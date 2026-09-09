@@ -547,6 +547,16 @@ impl Store {
         actor: &str,
         request_id: Option<&str>,
     ) -> Result<TenantSummary, ApiError> {
+        // Enforce the allowed lifecycle states — a future route must not be
+        // able to write an arbitrary string into the status column.
+        match status {
+            "active" | "suspended" | "parked" | "provisioning" => {}
+            _ => {
+                return Err(ApiError::InvalidInput(
+                    "status must be one of: active, suspended, parked, provisioning".to_owned(),
+                ));
+            }
+        }
         // The externally-owned guard only needs the slug, which we already
         // have. Skip the full tenant_by_slug join here — the tenant_id for
         // the audit comes from UPDATE ... RETURNING, and the final summary

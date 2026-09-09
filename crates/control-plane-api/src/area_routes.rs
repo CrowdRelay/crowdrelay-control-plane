@@ -309,6 +309,7 @@ async fn settings(
         "accepted",
     )
     .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     Ok(json_no_store(json!({
         "enabled": enabled,
         "entitled": updated
@@ -667,6 +668,7 @@ async fn mutation(
     )
     .await;
     let value = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, slug).await;
     if method == "DELETE" && value.is_null() {
         Ok(StatusCode::NO_CONTENT.into_response())
     } else {

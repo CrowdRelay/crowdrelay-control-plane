@@ -195,6 +195,7 @@ async fn remove_tenant(
             request_id(&headers),
         )
         .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -343,6 +344,7 @@ async fn create_tenant(
             request_id,
         )
         .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &tenant.tenant.slug).await;
     Ok((StatusCode::CREATED, Json(json!(tenant))))
 }
 
@@ -356,7 +358,7 @@ async fn update_branding(
     identity.require_platform_admin()?;
     let slug = validation::slug(&raw_slug)?;
     let palette = validation::palette(input.branding_palette)?;
-    Ok(Json(json!(
+    let result = json!(
         state
             .store
             .update_branding(
@@ -366,7 +368,9 @@ async fn update_branding(
                 request_id(&headers)
             )
             .await?
-    )))
+    );
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    Ok(Json(result))
 }
 
 async fn update_regional_profile(
@@ -379,7 +383,7 @@ async fn update_regional_profile(
     identity.require_platform_admin()?;
     let slug = validation::slug(&raw_slug)?;
     let profile = validation::regional_profile(input.regional_profile)?;
-    Ok(Json(json!(
+    let result = json!(
         state
             .store
             .update_regional_profile(
@@ -389,7 +393,9 @@ async fn update_regional_profile(
                 request_id(&headers),
             )
             .await?
-    )))
+    );
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    Ok(Json(result))
 }
 
 async fn update_mobile_apps(
@@ -403,7 +409,7 @@ async fn update_mobile_apps(
     let slug = validation::slug(&raw_slug)?;
     let signal_url = validation::play_store_url(input.signal_play_store_url)?;
     let synesthesia_url = validation::play_store_url(input.synesthesia_play_store_url)?;
-    Ok(Json(json!(
+    let result = json!(
         state
             .store
             .update_mobile_apps(
@@ -414,7 +420,9 @@ async fn update_mobile_apps(
                 request_id(&headers),
             )
             .await?
-    )))
+    );
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    Ok(Json(result))
 }
 
 async fn suspend_tenant(
@@ -425,7 +433,7 @@ async fn suspend_tenant(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     identity.require_platform_admin()?;
     let slug = validation::slug(&raw_slug)?;
-    Ok(Json(json!(
+    let result = json!(
         state
             .store
             .set_status(
@@ -435,7 +443,9 @@ async fn suspend_tenant(
                 request_id(&headers)
             )
             .await?
-    )))
+    );
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    Ok(Json(result))
 }
 
 async fn resume_tenant(
@@ -446,7 +456,7 @@ async fn resume_tenant(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     identity.require_platform_admin()?;
     let slug = validation::slug(&raw_slug)?;
-    Ok(Json(json!(
+    let result = json!(
         state
             .store
             .set_status(
@@ -456,7 +466,9 @@ async fn resume_tenant(
                 request_id(&headers)
             )
             .await?
-    )))
+    );
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    Ok(Json(result))
 }
 
 #[derive(Deserialize)]
@@ -626,6 +638,7 @@ async fn park_tenant(
         .store
         .set_status(&slug, "parked", actor, request_id(&headers))
         .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     Ok(Json(json!(result)))
 }
 
@@ -737,6 +750,7 @@ async fn unpark_tenant(
     state.store.consume_park_snapshot(tenant_id, actor).await?;
 
     let result = state.store.tenant_by_slug(&slug).await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     Ok(Json(json!(result)))
 }
 
@@ -826,13 +840,16 @@ async fn billing_webhook(
         .await;
     if let Err(e) = envelope_result {
         // Restore failed — roll back to parked so the snapshot survives.
-        let slug_clone = slug.clone();
-        let store = state.store.clone();
-        tokio::spawn(async move {
-            let _ = store
-                .set_status(&slug_clone, "parked", "billing-webhook", None)
-                .await;
-        });
+        // Await the rollback inline so the tenant is never left in an
+        // inconsistent state if the rollback itself fails (matching the
+        // unpark_tenant path's approach).
+        if let Err(rb) = state
+            .store
+            .set_status(&slug, "parked", "billing-webhook", None)
+            .await
+        {
+            tracing::error!(error = %rb, slug = %slug, "failed to roll back to parked after billing restore failure");
+        }
         return Err(ApiError::Unavailable(format!(
             "failed to restore growth envelope: {e}"
         )));
@@ -862,6 +879,7 @@ async fn billing_webhook(
     }
     // Consume the snapshot only after a successful envelope restore.
     state.store.consume_park_snapshot(tenant_id, actor).await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     Ok(StatusCode::OK)
 }
 
@@ -888,6 +906,7 @@ async fn plan_provisioning(
             request_id(&headers),
         )
         .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &tenant.tenant.slug).await;
     Ok((
         if created {
             StatusCode::CREATED
@@ -960,6 +979,7 @@ async fn deploy_tenant(
             request_id(&headers),
         )
         .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &tenant.tenant.slug).await;
     Ok((
         if created {
             StatusCode::CREATED
@@ -1293,6 +1313,7 @@ async fn cancel_provisioning(
         .store
         .cancel_provisioning(&tenant.tenant.slug, &actor, request_id(&headers))
         .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &tenant.tenant.slug).await;
     Ok(Json(job_with_phase(&job)?))
 }
 
@@ -1424,7 +1445,7 @@ async fn report_runtime(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let slug = validation::slug(&raw_slug)?;
     validation::runtime_report(&input)?;
-    Ok(Json(json!(
+    let result = json!(
         state
             .store
             .report_runtime(
@@ -1434,7 +1455,9 @@ async fn report_runtime(
                 request_id(&headers)
             )
             .await?
-    )))
+    );
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    Ok(Json(result))
 }
 
 #[derive(Deserialize)]
@@ -1494,6 +1517,7 @@ async fn create_operator(
             request_id(&headers),
         )
         .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     Ok((StatusCode::CREATED, Json(json!(account))))
 }
 
@@ -1513,6 +1537,7 @@ async fn delete_operator(
             request_id(&headers),
         )
         .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     Ok(StatusCode::NO_CONTENT)
 }
 

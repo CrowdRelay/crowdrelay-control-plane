@@ -926,6 +926,9 @@ async fn providers_overview(
     };
     let (providers, credentials, models) =
         tokio::join!(fetch("/providers"), fetch("/credentials"), fetch("/models"),);
+    // Only cache when all three sections succeeded — a transient agent-service
+    // failure should not be persisted in the shared cache.
+    let all_ok = providers.is_ok() && credentials.is_ok() && models.is_ok();
     let section = |result: Result<Value, ApiError>| match result {
         Ok(value) => value,
         Err(error) => serde_json::json!({ "__error": error.to_string() }),
@@ -935,8 +938,10 @@ async fn providers_overview(
         "credentials": section(credentials),
         "models": section(models),
     });
-    crate::read_models::cache_set_public(&state.read_model_cache, cache_key, projected.clone())
-        .await;
+    if all_ok {
+        crate::read_models::cache_set_public(&state.read_model_cache, cache_key, projected.clone())
+            .await;
+    }
     Ok((
         StatusCode::OK,
         [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
@@ -1035,7 +1040,14 @@ async fn chat_stream(
         while let Some(chunk_result) = reader.next().await {
             match chunk_result {
                 Ok(chunk) => yield Ok::<_, std::convert::Infallible>(chunk),
-                Err(_) => break,
+                Err(e) => {
+                    tracing::warn!(error = %e, "agent chat SSE stream interrupted");
+                    // Yield an SSE error event so the client can distinguish
+                    // a truncated stream from a completed one.
+                    let error_event = "event: error\ndata: stream interrupted\n\n";
+                    yield Ok::<_, std::convert::Infallible>(error_event.into());
+                    break;
+                }
             }
         }
     };
