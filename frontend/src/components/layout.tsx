@@ -22,9 +22,9 @@ export function PageHeader(props: {
         <Show when={props.eyebrow}>
           <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</span>
         </Show>
-        <h1 class="text-2xl font-bold tracking-tight text-foreground mt-1">{props.title}</h1>
+        <h1 class="text-2xl font-bold tracking-tight text-foreground mt-1 break-words">{props.title}</h1>
         <Show when={props.description}>
-          <p class="text-sm text-muted-foreground mt-1.5 leading-relaxed">{props.description}</p>
+          <p class="text-sm text-muted-foreground mt-1.5 leading-relaxed break-words">{props.description}</p>
         </Show>
       </div>
       <Show when={props.actions}>
@@ -113,7 +113,7 @@ export function CollapsiblePanel(props: {
 
 export function PageShell(props: { children: JSX.Element; class?: string }) {
   return (
-    <section class={cn('mx-auto max-w-7xl px-6 py-6 pb-24', props.class)}>
+    <section class={cn('mx-auto max-w-7xl px-4 md:px-6 py-6 pb-24 overflow-hidden', props.class)}>
       {props.children}
     </section>
   )
@@ -140,7 +140,7 @@ export function TabBar(props: {
       <For each={props.tabs}>{tab => (
         <button
           class={cn(
-            'flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors',
+            'page-tab flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors',
             props.active === tab.id
               ? 'border-primary text-foreground'
               : 'border-transparent text-muted-foreground hover:text-foreground',
@@ -171,6 +171,7 @@ export function TabPanel(props: {
   return (
     <Show when={props.visited}>
       <div
+        class="page-tab-content"
         classList={{ hidden: props.active !== props.id }}
         role="tabpanel"
         aria-labelledby={`tab-${props.id}`}
@@ -200,7 +201,7 @@ export function useTabPanels(initial: string) {
 
 export function ErrorCard(props: { children: JSX.Element; class?: string }) {
   return (
-    <div class={cn('error-card rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive', props.class)} role="alert">
+    <div class={cn('error-card rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive break-words', props.class)} role="alert">
       {props.children}
     </div>
   )

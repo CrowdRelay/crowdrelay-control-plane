@@ -32,7 +32,7 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
 
     // Mark the section and SVG to verify they persist
     await page.evaluate(() => {
-      const section = document.querySelector('.page-content > section.page') as HTMLElement
+      const section = document.querySelector('#main-content > div > section') as HTMLElement
       const svg = document.querySelector('.intel-loop-svg') as HTMLElement
       if (section) section.dataset.testMarker = 'original'
       if (svg) svg.dataset.testMarker = 'original'
@@ -49,7 +49,7 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
     // The section and SVG must persist (no remount — a page-wide skeleton
     // replacement would have torn down these elements and lost the marker)
     const markers = await page.evaluate(() => {
-      const section = document.querySelector('.page-content > section.page') as HTMLElement
+      const section = document.querySelector('#main-content > div > section') as HTMLElement
       const svg = document.querySelector('.intel-loop-svg') as HTMLElement
       return {
         section: section?.dataset.testMarker ?? 'gone',
@@ -64,7 +64,7 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
     expect(tabPanelsAfter).toBe(2)
 
     // Only the active tab should be visible
-    const visiblePanels = await page.locator('.page-tab-content:not(.tab-hidden)').count()
+    const visiblePanels = await page.locator('.page-tab-content:not([class~="hidden"])').count()
     expect(visiblePanels).toBe(1)
 
     // API requests should have been fired for the Growth Intelligence tab
@@ -78,7 +78,7 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
 
     // Section must still persist
     const markerAfterDecisions = await page.evaluate(() => {
-      const section = document.querySelector('.page-content > section.page') as HTMLElement
+      const section = document.querySelector('#main-content > div > section') as HTMLElement
       return section?.dataset.testMarker ?? 'gone'
     })
     expect(markerAfterDecisions).toBe('original')
@@ -93,7 +93,7 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
     await page.waitForTimeout(1000)
 
     const markerAfterBack = await page.evaluate(() => {
-      const section = document.querySelector('.page-content > section.page') as HTMLElement
+      const section = document.querySelector('#main-content > div > section') as HTMLElement
       return section?.dataset.testMarker ?? 'gone'
     })
     expect(markerAfterBack).toBe('original')
@@ -119,7 +119,7 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
 
     // Mark the section
     await page.evaluate(() => {
-      const section = document.querySelector('.page-content > section.page') as HTMLElement
+      const section = document.querySelector('#main-content > div > section') as HTMLElement
       if (section) section.dataset.testMarker = 'original'
     })
 
@@ -129,7 +129,7 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
 
     // Section must persist
     const marker = await page.evaluate(() => {
-      const section = document.querySelector('.page-content > section.page') as HTMLElement
+      const section = document.querySelector('#main-content > div > section') as HTMLElement
       return section?.dataset.testMarker ?? 'gone'
     })
     expect(marker).toBe('original')
@@ -143,7 +143,7 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
     await page.waitForTimeout(2000)
 
     const marker2 = await page.evaluate(() => {
-      const section = document.querySelector('.page-content > section.page') as HTMLElement
+      const section = document.querySelector('#main-content > div > section') as HTMLElement
       return section?.dataset.testMarker ?? 'gone'
     })
     expect(marker2).toBe('original')
@@ -157,7 +157,7 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
     await page.waitForTimeout(1000)
 
     const marker3 = await page.evaluate(() => {
-      const section = document.querySelector('.page-content > section.page') as HTMLElement
+      const section = document.querySelector('#main-content > div > section') as HTMLElement
       return section?.dataset.testMarker ?? 'gone'
     })
     expect(marker3).toBe('original')

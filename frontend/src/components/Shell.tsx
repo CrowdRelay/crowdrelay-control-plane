@@ -419,8 +419,8 @@ export const Shell: Component = () => {
         </div>
       </aside>
 
-      <main class={cn('flex-1 flex flex-col min-h-screen md:ml-60', collapsed() && 'md:ml-16')} id="main-content">
-        <header class="h-14 border-b border-border bg-card flex items-center gap-3 px-4 flex-shrink-0">
+      <main class={cn('flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden md:ml-60', collapsed() && 'md:ml-16')} id="main-content">
+        <header class="h-14 border-b border-border bg-card flex items-center gap-3 px-4 flex-shrink-0 overflow-x-hidden">
           <button
             type="button"
             class="md:hidden p-2 -ml-2 rounded-md text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors"
@@ -436,11 +436,11 @@ export const Shell: Component = () => {
           </button>
           {/* Breadcrumb, not a second copy of the page heading: it says where
               you are, while the page below says what it is. */}
-          <div class="flex items-center gap-2 flex-1 min-w-0">
-            <Show when={slug()} fallback={<><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">PLATFORM</span><strong class="text-sm font-semibold text-foreground">{currentPageLabel(pathname(), undefined)}</strong></>}>
+          <div class="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
+            <Show when={slug()} fallback={<><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">PLATFORM</span><strong class="text-sm font-semibold text-foreground truncate">{currentPageLabel(pathname(), undefined)}</strong></>}>
               {s => <>
-                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{(tenants.data?.items.find(t => t.slug === s())?.displayName ?? s()).toUpperCase()}</span>
-                <strong class="text-sm font-semibold text-foreground">{currentPageLabel(pathname(), s())}</strong>
+                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground truncate">{(tenants.data?.items.find(t => t.slug === s())?.displayName ?? s()).toUpperCase()}</span>
+                <strong class="text-sm font-semibold text-foreground truncate">{currentPageLabel(pathname(), s())}</strong>
               </>}
             </Show>
           </div>
