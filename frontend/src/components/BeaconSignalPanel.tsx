@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import { formatTimestamp } from '../lib/format'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock } from './Skeleton'
-import { TabBar, TabPanel, useTabPanels } from './TabBar'
+import { TabBar, TabPanel, useTabPanels } from './layout'
 import { cn } from '../lib/cn'
 
 const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {

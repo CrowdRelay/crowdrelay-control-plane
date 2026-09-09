@@ -1,7 +1,7 @@
 import { useParams } from '@tanstack/solid-router'
 import { BeaconConsolePanel } from '../components/BeaconConsolePanel'
 import { BeaconSignalPanel } from '../components/BeaconSignalPanel'
-import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
+import { TabBar, TabPanel, useTabPanels } from '../components/layout'
 
 /// Beacons are an audience surface, not an operations one.
 ///

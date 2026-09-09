@@ -7,7 +7,7 @@ import { FanTablePanel } from '../components/FanTablePanel'
 import { SegmentPanel } from '../components/SegmentPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
-import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
+import { TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { CommunityIntelligenceContent } from './CommunityIntelligenceContent'
 
 const SECTION_LABEL: Record<string, string> = {

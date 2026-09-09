@@ -10,7 +10,7 @@ import { AuthorityPoliciesPanel } from '../components/AuthorityPoliciesPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { StatusBadge } from '../components/StatusBadge'
 import { SectionFailureCard } from '../components/SectionFailureCard'
-import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
+import { TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
 import type { TenantOperationsReadModel } from '../lib/types'
 

@@ -6,7 +6,7 @@ import { errorMessage } from '../lib/format'
 import type { OutreachCandidateView, BookingCandidateView } from '../lib/types'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock } from './Skeleton'
-import { TabBar } from './TabBar'
+import { TabBar } from './layout'
 
 const fitLabel = (bps: number) => `${Math.round(bps / 100)}%`
 

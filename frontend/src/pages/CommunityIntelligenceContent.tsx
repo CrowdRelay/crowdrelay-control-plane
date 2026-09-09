@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { CommunityItem, CommunityObservationItem, CommunityEntityItem, AudiencePlaceInput } from '../lib/types'
 import { SkeletonRows } from '../components/Skeleton'
-import { TabBar, TabPanel, useTabPanels } from '../components/TabBar'
+import { TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { toast } from '../lib/toast'
 import { errorMessage } from '../lib/format'
 
