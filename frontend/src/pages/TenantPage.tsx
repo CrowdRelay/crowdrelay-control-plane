@@ -75,6 +75,7 @@ export function TenantPage() {
     queryFn: () => api.tenantOverview(params().slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
+    staleTime: 30_000,
   }))
   const tenant = { get data() { return model.data?.tenant }, get error() { return model.error } }
   const platform = () => model.data?.platform
@@ -107,13 +108,16 @@ export function TenantPage() {
     }
   })
 
+  // Invalidate only the read models a mutation actually changes — not the
+  // whole fleet. Palette/mobile-apps edits don't touch operations or
+  // runtime; provisioning changes don't touch the fleet list.
   const refreshTenant = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['tenant-overview', params().slug] }),
-      queryClient.invalidateQueries({ queryKey: ['tenant-runtime', params().slug] }),
-      queryClient.invalidateQueries({ queryKey: ['tenant-operations', params().slug] }),
-      queryClient.invalidateQueries({ queryKey: ['tenants'] }),
-    ])
+    await queryClient.invalidateQueries({ queryKey: ['tenant-overview', params().slug] })
+    await queryClient.invalidateQueries({ queryKey: ['tenants'] })
+  }
+  const refreshProvisioning = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['tenant-overview', params().slug] })
+    await queryClient.invalidateQueries({ queryKey: ['tenant-operations', params().slug] })
   }
   const branding = useMutation(() => ({ mutationFn: (value: Palette | null) => api.branding(params().slug, value), onSuccess: refreshTenant }))
   const mobileApps = useMutation(() => ({ mutationFn: (input: { signalPlayStoreUrl?: string | null; synesthesiaPlayStoreUrl?: string | null }) => api.mobileApps(params().slug, input), onSuccess: async () => { setEditingMobileApps(false); await refreshTenant() } }))
@@ -121,8 +125,8 @@ export function TenantPage() {
   const park = useMutation(() => ({ mutationFn: (reason?: string) => api.park(params().slug, reason), onSuccess: refreshTenant }))
   const unpark = useMutation(() => ({ mutationFn: () => api.unpark(params().slug), onSuccess: refreshTenant }))
   const plan = useMutation(() => ({ mutationFn: () => api.planProvisioning(params().slug, desiredVersion() || platform()?.provisionerDefaultImageTag || undefined), onSuccess: (job) => setPreview(job) }))
-  const deploy = useMutation(() => ({ mutationFn: () => api.deployTenant(params().slug, desiredVersion()), onSuccess: async () => { setPreview(null); await refreshTenant() } }))
-  const cancel = useMutation(() => ({ mutationFn: () => api.cancelProvisioning(params().slug), onSuccess: refreshTenant }))
+  const deploy = useMutation(() => ({ mutationFn: () => api.deployTenant(params().slug, desiredVersion()), onSuccess: async () => { setPreview(null); await refreshProvisioning() } }))
+  const cancel = useMutation(() => ({ mutationFn: () => api.cancelProvisioning(params().slug), onSuccess: refreshProvisioning }))
   // Removal is the one action here that cannot be undone from this screen, so
   // the confirmation is the slug typed out rather than a second button.
   const [removalConfirm, setRemovalConfirm] = createSignal('')

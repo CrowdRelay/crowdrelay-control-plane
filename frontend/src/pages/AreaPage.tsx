@@ -49,7 +49,7 @@ export function AreaPage() {
   const detail = useQuery(() => ({
     queryKey: ['area-drop', slug(), selectedId()],
     queryFn: () => api.areaDrop(slug(), selectedId()!),
-    enabled: Boolean(selectedId()), staleTime: 0, gcTime: 0, refetchOnWindowFocus: false,
+    enabled: Boolean(selectedId()), staleTime: 5_000, gcTime: 0, refetchOnWindowFocus: false,
   }))
   const [draft, setDraft] = createSignal<AreaDropDraft | null>(null)
   const [validation, setValidation] = createSignal<AreaValidationResult | null>(null)

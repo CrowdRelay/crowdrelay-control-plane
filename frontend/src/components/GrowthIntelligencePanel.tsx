@@ -61,7 +61,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
   const MAX_VISIBLE_SUB_TASKS = 10
 
   const overview = useQuery(() => ({
-    queryKey: ['growth-intelligence-overview', props.slug],
+    queryKey: ['autopilot-overview', props.slug],
     queryFn: () => api.autopilotOverview(props.slug),
     enabled: props.active !== false,
     refetchOnWindowFocus: false,
