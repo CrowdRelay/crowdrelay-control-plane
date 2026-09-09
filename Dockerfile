@@ -7,14 +7,34 @@ COPY frontend/ ./
 COPY scripts/ ../scripts/
 RUN npm run build
 
-FROM rust:1.97.1-alpine AS rust
+# cargo-chef separates dependency compilation from source compilation.
+# Source edits that don't change Cargo.toml/Cargo.lock skip the expensive
+# dependency rebuild entirely — the cached chef layer is reused.
+ARG RUST_IMAGE=rust:1.98.0-alpine
+ARG CARGO_CHEF_VERSION=0.1.77
+
+FROM ${RUST_IMAGE} AS chef
 RUN apk add --no-cache musl-dev pkgconfig openssl-dev
+ARG CARGO_CHEF_VERSION
+RUN --mount=type=cache,id=control-plane-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=control-plane-cargo-git,target=/usr/local/cargo/git/db,sharing=locked \
+    cargo install cargo-chef --locked --profile dev --version "${CARGO_CHEF_VERSION}"
 WORKDIR /src
+
+FROM chef AS planner
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ ./crates/
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS builder
+COPY --from=planner /src/recipe.json recipe.json
+RUN --mount=type=cache,id=control-plane-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=control-plane-cargo-git,target=/usr/local/cargo/git/db,sharing=locked \
+    --mount=type=cache,id=control-plane-target,target=/src/target,sharing=locked \
+    cargo chef cook --release --locked --recipe-path recipe.json
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ ./crates/
 COPY migrations/ ./migrations/
-# Without these mounts every image build re-downloads the registry and
-# recompiles the whole dependency tree, even when only crate sources changed.
 RUN --mount=type=cache,id=control-plane-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=control-plane-cargo-git,target=/usr/local/cargo/git/db,sharing=locked \
     --mount=type=cache,id=control-plane-target,target=/src/target,sharing=locked \
@@ -29,7 +49,7 @@ LABEL org.opencontainers.image.revision=$VCS_REF \
       org.opencontainers.image.title=crowdrelay-control-plane
 RUN addgroup -S controlplane && adduser -S -G controlplane controlplane
 WORKDIR /app
-COPY --from=rust /out/control-plane /usr/local/bin/control-plane
+COPY --from=builder /out/control-plane /usr/local/bin/control-plane
 COPY --from=web /src/frontend/dist /app/frontend/dist
 USER controlplane
 ENV CONTROL_PLANE_BIND=0.0.0.0:8090 CONTROL_PLANE_FRONTEND_DIST=/app/frontend/dist

@@ -160,9 +160,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cache_args=(--cache-from "type=gha,scope=control-plane-image-arm64")
+          # Use registry cache (GHCR) instead of GHA cache — doesn't compete
+          # with the 10GB Actions cache pool and doesn't eat local disk.
+          owner_lower="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          cache_ref="ghcr.io/${owner_lower}/crowdrelay-control-plane-buildcache:arm64"
+          cache_args=(--cache-from "type=registry,ref=${cache_ref}")
           if [[ "${CACHE_WRITE}" == "true" ]]; then
-            cache_args+=(--cache-to "type=gha,mode=max,scope=control-plane-image-arm64")
+            cache_args+=(--cache-to "type=registry,ref=${cache_ref},mode=max")
           fi
           image="ghcr.io/$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')/crowdrelay-control-plane:sha-${GITHUB_SHA}"
           if [[ "${PUBLISH_IMAGE}" == "true" ]]; then
@@ -201,7 +205,13 @@ jobs:
               "$GITHUB_SHA" "$digest" > image-digest/image.env
             ( cd image-digest && sha256sum image.env > image.env.sha256 )
           fi
-          echo "CONTROL_PLANE_CONTAINER=PASS architecture=$architecture revision=$revision digest=$digest cache=gha write=${CACHE_WRITE} publish=${PUBLISH_IMAGE}"
+          echo "CONTROL_PLANE_CONTAINER=PASS architecture=$architecture revision=$revision digest=$digest cache=registry write=${CACHE_WRITE} publish=${PUBLISH_IMAGE}"
+
+      - name: Prune BuildKit cache after build
+        if: always()
+        continue-on-error: true
+        run: docker builder prune --all -f 2>/dev/null || true
+
       - name: Purge stale artifacts before upload
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         continue-on-error: true
