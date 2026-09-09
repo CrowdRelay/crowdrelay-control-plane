@@ -1,6 +1,7 @@
 import { render } from 'solid-js/web'
 import { lazy } from 'solid-js'
 import { LoginGate } from './components/LoginGate'
+import './styles/tailwind.css'
 
 const staleChunkReloadKey = 'control-plane-stale-chunk-reload'
 window.addEventListener('vite:preloadError', (event) => {

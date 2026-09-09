@@ -37,6 +37,7 @@ export function RuntimeSwitchesPanel(props: {
   slug: string
   summary: OperationsSummary | null | undefined
   refresh: () => Promise<unknown>
+  canRedeploy?: boolean
 }) {
   const flags = useQuery(() => ({
     queryKey: ['feature-flags', props.slug],
@@ -76,8 +77,10 @@ export function RuntimeSwitchesPanel(props: {
     <div class="section-title operations-title">
       <div><span class="eyebrow">OPERATIONS</span><h2><SectionIcon name="activity" />Runtime switches</h2><p>Feature flags, health metrics and redeploy. Changes are tenant-scoped and audited.</p></div>
       <div class="row-health">
-        <Show when={confirming() === 'redeploy'}><button class="ghost" onClick={() => setConfirming(null)}>Cancel</button></Show>
-        <button disabled={pendingMutation() !== null} onClick={() => setConfirming('redeploy')}>{pendingMutation() === 'redeploy' && <Spinner />} {confirming() === 'redeploy' ? 'Confirm below ↓' : 'Redeploy app'}</button>
+        <Show when={props.canRedeploy !== false}>
+          <Show when={confirming() === 'redeploy'}><button class="ghost" onClick={() => setConfirming(null)}>Cancel</button></Show>
+          <button disabled={pendingMutation() !== null} onClick={() => setConfirming('redeploy')}>{pendingMutation() === 'redeploy' && <Spinner />} {confirming() === 'redeploy' ? 'Confirm below ↓' : 'Redeploy app'}</button>
+        </Show>
         <StatusBadge status={operationalLabel(props.summary ?? undefined)} tone={operationalTone(props.summary ?? undefined)} />
       </div>
     </div>

@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+/*
+ * Token mapping — the existing CSS custom properties from styles.css :root,
+ * mapped onto Tailwind v4 @theme keys. The visual identity survives: same
+ * surface colours, same accent purple, same border opacity levels, same
+ * type scale. What dies (in later phases): glass, gradient, glow, shimmer,
+ * pulse, backdrop-filter, and all decorative @keyframes.
+ *
+ * These tokens are available as Tailwind utilities (e.g. bg-background,
+ * text-foreground, border-border) AND as CSS custom properties (var(--color-background))
+ * so the existing styles.css — which still references var(--surface-0) etc. —
+ * continues to work unchanged during the migration.
+ */
+@theme {
+  /* ── Surfaces ────────────────────────────────────────────────────── */
+  --color-background: #0a0b0e;
+  --color-surface-1: #0f1116;
+  --color-card: #14171e;
+  --color-popover: #14171e;
+  --color-surface-3: #1a1e27;
+  --color-muted: #1a1e27;
+  --color-surface-4: #232838;
+
+  /* ── Borders ──────────────────────────────────────────────────────── */
+  --color-border: rgba(255, 255, 255, 0.09);
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+  --color-border-accent: rgba(155, 135, 245, 0.40);
+
+  /* ── Text ────────────────────────────────────────────────────────── */
+  --color-foreground: #f7f7f8;
+  --color-secondary-foreground: #b7bfcc;
+  --color-muted-foreground: #9aa1ae;
+  --color-disabled-foreground: #4a5060;
+
+  /* ── Accent (single accent: purple) ──────────────────────────────── */
+  --color-primary: #9b87f5;
+  --color-primary-hover: #ae9df8;
+  --color-primary-active: #8a78ed;
+  --color-primary-light: #c4b5fd;
+  --color-primary-foreground: #ddd7ff;
+
+  /* ── Status colours (semantic only) ──────────────────────────────── */
+  --color-success: #3ddc84;
+  --color-success-light: #9ff0bd;
+  --color-success-border: #2d4a2d;
+  --color-success-bg: #1a2e1a;
+  --color-warning: #f5b942;
+  --color-warning-light: #f5c468;
+  --color-destructive: #ff6565;
+  --color-destructive-light: #ff9d9d;
+  --color-destructive-foreground: #e899b8;
+  --color-destructive-bg: #38201f;
+  --color-destructive-border: #643333;
+  --color-destructive-bg-deep: #3b1d2e;
+
+  /* ── Radius ──────────────────────────────────────────────────────── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  /* ── Shadows (one elevation step) ───────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.35);
+
+  /* ── Font ────────────────────────────────────────────────────────── */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ── Type scale ──────────────────────────────────────────────────── */
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-body: 0.9375rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+  --text-3xl: clamp(1.75rem, 3vw, 2.75rem);
+}
+
+/*
+ * Preserve the legacy token names as CSS custom properties so the existing
+ * styles.css — which references var(--surface-0), var(--accent), etc. —
+ * continues to resolve correctly during the migration. These alias the
+ * Tailwind theme tokens above.
+ */
+:root {
+  --bg: var(--color-background);
+  --panel: var(--color-surface-1);
+  --panel2: var(--color-card);
+  --line: var(--color-border);
+  --text: var(--color-foreground);
+  --muted: var(--color-muted-foreground);
+  --accent: var(--color-primary);
+  --cyan: #55d6e9;
+  --good: var(--color-success);
+  --warn: var(--color-warning);
+  --bad: var(--color-destructive);
+  --surface-0: var(--color-background);
+  --surface-1: var(--color-surface-1);
+  --surface-2: var(--color-card);
+  --surface-3: var(--color-surface-3);
+  --surface-4: var(--color-surface-4);
+  --border-subtle: var(--color-border-subtle);
+  --border-default: var(--color-border);
+  --border-strong: var(--color-border-strong);
+  --border-accent: var(--color-border-accent);
+  --text-primary: var(--color-foreground);
+  --text-secondary: var(--color-secondary-foreground);
+  --text-muted: var(--color-muted-foreground);
+  --text-disabled: var(--color-disabled-foreground);
+  --accent-hover: var(--color-primary-hover);
+  --accent-active: var(--color-primary-active);
+  --accent-light: var(--color-primary-light);
+  --good-light: var(--color-success-light);
+  --warn-light: var(--color-warning-light);
+  --bad-light: var(--color-destructive-light);
+  --accent-text: var(--color-primary-foreground);
+  --danger-bg: var(--color-destructive-bg);
+  --danger-border: var(--color-destructive-border);
+  --danger-bg-deep: var(--color-destructive-bg-deep);
+  --danger-text: var(--color-destructive-foreground);
+  --success-border: var(--color-success-border);
+  --success-bg: var(--color-success-bg);
+  --shadow-focus: 0 0 0 3px rgba(155, 135, 245, 0.15);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --t-fast: 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  --t-med: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  --t-slow: 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  --t-smooth: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  --t-spring: 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}

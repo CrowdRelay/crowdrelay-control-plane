@@ -24,6 +24,13 @@ export function TenantHealthPage() {
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
+  const overview = useQuery(() => ({
+    queryKey: ['tenant-overview', params().slug],
+    queryFn: () => api.tenantOverview(params().slug),
+    reconcile: 'id',
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+  }))
   const refresh = () => model.refetch()
   const d = (): TenantOperationsReadModel | undefined => model.data
   const summary = () => d()?.summary
@@ -98,6 +105,7 @@ export function TenantHealthPage() {
           slug={params().slug}
           summary={d()?.summary ?? null}
           refresh={refresh}
+          canRedeploy={overview.data?.platform?.capabilities?.canRedeploy}
         />
       </TabPanel>
     </Show>

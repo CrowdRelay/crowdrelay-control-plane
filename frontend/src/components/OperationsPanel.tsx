@@ -75,6 +75,7 @@ export function OperationsPanel(props: {
   fetchedAt?: string
   refresh: () => Promise<unknown>
   mode?: 'full' | 'health'
+  canRedeploy?: boolean
 }) {
   // The Operations subpage owns the one read-model request. This panel renders
   // its health metrics and control sections and keeps each section's degraded
@@ -140,8 +141,10 @@ export function OperationsPanel(props: {
     <div class="section-title operations-title">
       <div><span class="eyebrow">OPERATIONS</span><h2><SectionIcon name="activity" />Health & controls</h2><p>Live CrowdRelay telemetry and bounded runtime controls. Changes are tenant-scoped and audited.</p></div>
       <div class="row-health">
-        <Show when={confirming() === 'redeploy'}><button class="ghost" onClick={() => setConfirming(null)}>Cancel</button></Show>
-        <button disabled={pendingMutation() !== null} onClick={() => setConfirming('redeploy')}>{pendingMutation() === 'redeploy' && <Spinner />} {confirming() === 'redeploy' ? 'Confirm below ↓' : 'Redeploy app'}</button>
+        <Show when={props.canRedeploy !== false}>
+          <Show when={confirming() === 'redeploy'}><button class="ghost" onClick={() => setConfirming(null)}>Cancel</button></Show>
+          <button disabled={pendingMutation() !== null} onClick={() => setConfirming('redeploy')}>{pendingMutation() === 'redeploy' && <Spinner />} {confirming() === 'redeploy' ? 'Confirm below ↓' : 'Redeploy app'}</button>
+        </Show>
         <StatusBadge status={operationalLabel(summary.data)} tone={operationalTone(summary.data)} />
       </div>
     </div>

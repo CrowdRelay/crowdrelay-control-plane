@@ -1,5 +1,7 @@
 import { defineConfig, loadEnv } from 'vite'
 import solid from 'vite-plugin-solid'
+import tailwindcss from '@tailwindcss/vite'
+import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -9,7 +11,12 @@ export default defineConfig(({ command, mode }) => {
   }
 
   return {
-    plugins: [solid()],
+    plugins: [tailwindcss(), solid()],
+    resolve: {
+      alias: {
+        '~': fileURLToPath(new URL('./src', import.meta.url)),
+      },
+    },
     build: {
       target: 'es2022',
       // Maps were 712 KiB against 171 KiB of JS, sat unbudgeted in the
@@ -28,6 +35,7 @@ export default defineConfig(({ command, mode }) => {
           manualChunks(id) {
             if (id.includes('node_modules/solid-js/')) return 'solid-vendor'
             if (id.includes('node_modules/@tanstack/')) return 'tanstack-vendor'
+            if (id.includes('node_modules/@kobalte/')) return 'kobalte-vendor'
           },
         },
       },

@@ -30,6 +30,7 @@ pub fn admin_router() -> Router<AppState> {
     Router::new()
         .route("/overview", get(overview))
         .route("/tenants", get(list_tenants).post(create_tenant))
+        .route("/fleet/status", get(fleet_status))
 }
 
 /// Tenant-scoped admin surface.
@@ -158,6 +159,34 @@ async fn list_tenants(
         tenants.retain(|item| item.tenant.id == scope);
     }
     Ok(Json(json!({"items": tenants})))
+}
+
+/// Fleet-wide deploy status: one row per tenant with the SHA each is running.
+///
+/// Platform-admin only — this is a cross-tenant view used by the local
+/// `ship-fleet` orchestrator to decide canary order and verify convergence.
+/// A tenant operator has no business reading another tenant's revision.
+async fn fleet_status(
+    State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    identity.require_platform_admin()?;
+    let tenants = state.store.list_tenants().await?;
+    let items: Vec<Value> = tenants
+        .iter()
+        .map(|t| {
+            json!({
+                "slug": t.tenant.slug,
+                "displayName": t.tenant.display_name,
+                "status": t.tenant.status,
+                "runtimeHealth": t.runtime_health,
+                "deployedSha": t.runtime.as_ref().and_then(|r| r.deployed_sha).unwrap_or(""),
+                "lastHeartbeatAt": t.runtime.as_ref().and_then(|r| r.last_heartbeat_at),
+                "externallyOwned": store::tenant_lifecycle_is_externally_owned(&t.tenant.slug),
+            })
+        })
+        .collect();
+    Ok(Json(json!({"items": items})))
 }
 
 async fn get_tenant(
@@ -960,36 +989,14 @@ async fn deploy_tenant(
         .await;
     }
 
-    if state.provisioner_token_hash.is_none() {
-        return Err(ApiError::Unavailable(
-            "tenant provisioner is not configured".to_owned(),
-        ));
-    }
-    let desired_version = validation::deployment_version(
-        input.desired_version,
-        state.provisioner_default_image_tag.as_deref(),
-    )?;
-    let actor = identity.audit_actor();
-    let (job, created) = state
-        .store
-        .request_deployment(
-            &tenant.tenant.slug,
-            desired_version,
-            state.provisioner_api_image.as_ref(),
-            state.provisioner_worker_image.as_ref(),
-            &actor,
-            request_id(&headers),
-        )
-        .await?;
-    crate::read_models::invalidate_tenant(&state.read_model_cache, &tenant.tenant.slug).await;
-    Ok((
-        if created {
-            StatusCode::CREATED
-        } else {
-            StatusCode::OK
-        },
-        Json(job_with_phase(&job)?),
-    ))
+    // The provisioner-managed redeploy path is too much operator access for
+    // non-Virya tenants. Tenant creation still provisions internally via
+    // store::create_tenant_with_deployment, but the operator-facing
+    // "Redeploy app" button is removed. Only externally-owned tenants
+    // (Virya) get a runtime deploy control in the panel.
+    return Err(ApiError::Forbidden(
+        "redeploy is only available for externally-owned tenants".to_owned(),
+    ));
 }
 
 /// The revision an external deploy targets.

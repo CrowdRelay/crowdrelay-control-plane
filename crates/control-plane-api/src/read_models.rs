@@ -685,6 +685,11 @@ async fn overview(
                 "canOptOut": !externally_owned,
                 "canPark": !externally_owned && tenant.tenant.status == "active",
                 "canUnpark": !externally_owned && tenant.tenant.status == "parked",
+                // Only externally-owned tenants (Virya) may trigger a redeploy
+                // from the panel. Provisioner-managed tenants get no
+                // operator-facing deploy button — the provisioner path is
+                // internal, used at tenant creation, not a runtime control.
+                "canRedeploy": externally_owned,
             },
         },
     });

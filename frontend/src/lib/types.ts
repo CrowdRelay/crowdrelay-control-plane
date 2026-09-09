@@ -561,6 +561,7 @@ export type TenantOverviewReadModel = {
       canOptOut: boolean
       canPark: boolean
       canUnpark: boolean
+      canRedeploy: boolean
     }
   }
 }

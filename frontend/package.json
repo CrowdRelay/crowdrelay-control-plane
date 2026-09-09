@@ -9,9 +9,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@kobalte/core": "^0.13.14",
+    "@tailwindcss/vite": "^4.3.3",
     "@tanstack/solid-query": "5.101.4",
     "@tanstack/solid-router": "1.170.18",
-    "solid-js": "1.9.14"
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "solid-js": "1.9.14",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",

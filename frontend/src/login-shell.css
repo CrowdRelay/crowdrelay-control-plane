@@ -739,7 +739,7 @@ body {
 .hero-links a {
   color: #a8aebc;
   font-size: 0.88rem;
-  padding: 8px 4px;
+  padding: 8px 16px;
   min-height: 44px;
   display: inline-flex;
   align-items: center;

@@ -380,6 +380,7 @@ export function TenantPage() {
             fetchedAt={ops()?.fetchedAt}
             refresh={async () => { await queryClient.invalidateQueries({ queryKey: ['tenant-operations', params().slug] }) }}
             mode="health"
+            canRedeploy={capabilities()?.canRedeploy}
           />}
         </Show>
 
