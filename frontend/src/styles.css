@@ -1184,6 +1184,11 @@ a.kpi-card:hover{border-color:var(--border-accent)}
 .scorecard-result-card small{font-size:var(--text-sm);color:var(--text-muted)}
 
 
+.ops-kpi-card{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-2);transition:border-color var(--t-fast)}
+.ops-kpi-card:hover{border-color:var(--border-strong)}
+.ops-kpi-label{font-size:var(--text-xs);letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);font-weight:700}
+.ops-kpi-card strong{font-weight:700;font-size:1.5rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.ops-kpi-card small{font-size:var(--text-sm);color:var(--text-muted);margin-top:2px}
 .ops-kpi-card.tone-good{border-color:rgba(61,220,132,0.25)}
 .ops-kpi-card.tone-warn{border-color:rgba(245,185,66,0.25)}
 .ops-kpi-card.tone-muted{opacity:.7}
