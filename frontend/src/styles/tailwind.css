@@ -1,3 +1,10 @@
+/*
+ * Layer order: declare `legacy` before `utilities` so Tailwind utility
+ * classes override the old styles.css rules during the phased migration.
+ * styles.css is wrapped in `@layer legacy { ... }` — its rules still apply
+ * but lose to Tailwind utilities of equal specificity.
+ */
+@layer theme, base, components, legacy, utilities;
 @import "tailwindcss";
 
 /*

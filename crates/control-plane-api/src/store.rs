@@ -815,6 +815,14 @@ impl Store {
         Ok((existing, false))
     }
 
+    /// Request a deployment for a provisioner-managed tenant.
+    ///
+    /// Currently unused: the operator-facing redeploy path was removed for
+    /// non-Virya tenants (too much access). Tenant creation still provisions
+    /// internally via `create_tenant_with_deployment`. This method is kept
+    /// for when provisioner-managed tenant redeploy is re-introduced with
+    /// proper access scoping.
+    #[allow(dead_code)]
     pub async fn request_deployment(
         &self,
         slug: &str,

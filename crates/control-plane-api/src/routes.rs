@@ -180,7 +180,7 @@ async fn fleet_status(
                 "displayName": t.tenant.display_name,
                 "status": t.tenant.status,
                 "runtimeHealth": t.runtime_health,
-                "deployedSha": t.runtime.as_ref().and_then(|r| r.deployed_sha).unwrap_or(""),
+                "deployedSha": t.runtime.as_ref().and_then(|r| r.deployed_sha.clone()).unwrap_or_default(),
                 "lastHeartbeatAt": t.runtime.as_ref().and_then(|r| r.last_heartbeat_at),
                 "externallyOwned": store::tenant_lifecycle_is_externally_owned(&t.tenant.slug),
             })
@@ -994,9 +994,9 @@ async fn deploy_tenant(
     // store::create_tenant_with_deployment, but the operator-facing
     // "Redeploy app" button is removed. Only externally-owned tenants
     // (Virya) get a runtime deploy control in the panel.
-    return Err(ApiError::Forbidden(
+    Err(ApiError::Forbidden(
         "redeploy is only available for externally-owned tenants".to_owned(),
-    ));
+    ))
 }
 
 /// The revision an external deploy targets.

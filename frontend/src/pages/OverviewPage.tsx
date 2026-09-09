@@ -7,15 +7,21 @@ import { healthTone } from '../lib/health-tone'
 import { authState } from '../lib/auth'
 import type { CommandCenterReadModel, CommandCenterTenantSummary, PlatformHealthEntry, RuntimeHealth, TenantSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
-import { CountUp } from '../components/CountUp'
 import { ProgressRing } from '../components/ProgressRing'
 import { EmptyState } from '../components/EmptyState'
 import { SectionIcon } from '../components/SectionIcon'
+import { cn } from '../lib/cn'
 
 const formatLatency = (ms: number | null | undefined) => {
   if (ms == null) return null
   if (ms < 1000) return `${ms}ms`
   return `${(ms / 1000).toFixed(1)}s`
+}
+
+/** Format an integer with thousands separators, or dash for null/undefined. */
+const fmt = (n: number | null | undefined): string => {
+  if (n == null) return '—'
+  return n.toLocaleString('en-US')
 }
 
 export function OverviewPage() {
@@ -46,22 +52,14 @@ export function OverviewPage() {
   })
 
   const cc = (): CommandCenterReadModel | undefined => commandCenter.data
-  // Platform health has one source on this page. It used to be read from
-  // `/overview` while `/command-center` carried the same list in
-  // `system.platformServices`, so the page paid for two requests and the two
-  // copies could disagree for the width of a refresh.
   const platformServices = createMemo<PlatformHealthEntry[]>(() => cc()?.system.platformServices ?? [])
   const healthyServices = createMemo(() => platformServices().filter(service => service.healthy).length)
   const ccTenants = createMemo(() => cc()?.perTenant ?? [])
 
-  // The first tenant with attention needs — the natural drill-down target
-  // for the ATTENTION block when the operator wants to see the detail.
   const firstNeedsYouTenant = createMemo(() => ccTenants().find(t => t.attention.available && t.attention.needsYou > 0))
   const firstAutopilotTenant = createMemo(() => ccTenants().find(t => t.autopilot.available && (t.autopilot.queuedActions > 0 || t.autopilot.processingActions > 0)))
   const firstOutcomesTenant = createMemo(() => ccTenants().find(t => t.outcomes.available && (t.outcomes.unknown > 0 || t.outcomes.waitingForObservation > 0)))
   const firstLearningTenant = createMemo(() => ccTenants().find(t => t.learning.available && t.learning.totalOutcomes > 0))
-  // The first tenant with fan data — the drill-down target for the
-  // AGGREGATE and CONVERT North Star blocks.
   const firstFanTenant = createMemo(() => ccTenants().find(t => t.fans.available && t.fans.activeFans != null))
 
   return <section class="page">
@@ -90,9 +88,7 @@ export function OverviewPage() {
         <div class="kpi-strip">
           <article class="kpi-card kpi-good">
             <span class="kpi-label">Active fans</span>
-            <Show when={cc()!.fans.activeFans != null} fallback={<span class="muted">—</span>}>
-              <CountUp value={cc()!.fans.activeFans!} />
-            </Show>
+            <span class="kpi-value tabular-nums">{fmt(cc()!.fans.activeFans)}</span>
             <span class="kpi-sub">
               <Show when={cc()!.fans.reportingTenants > 0} fallback="no tenants reporting">
                 across {cc()!.fans.reportingTenants} {cc()!.fans.reportingTenants === 1 ? 'tenant' : 'tenants'}
@@ -101,23 +97,17 @@ export function OverviewPage() {
           </article>
           <article class="kpi-card">
             <span class="kpi-label">Ticket buyers</span>
-            <Show when={cc()!.fans.ticketBuyers != null} fallback={<span class="muted">—</span>}>
-              <CountUp value={cc()!.fans.ticketBuyers!} />
-            </Show>
+            <span class="kpi-value tabular-nums">{fmt(cc()!.fans.ticketBuyers)}</span>
             <span class="kpi-sub">conversion signal</span>
           </article>
           <article class="kpi-card">
             <span class="kpi-label">Attendees</span>
-            <Show when={cc()!.fans.attendees != null} fallback={<span class="muted">—</span>}>
-              <CountUp value={cc()!.fans.attendees!} />
-            </Show>
+            <span class="kpi-value tabular-nums">{fmt(cc()!.fans.attendees)}</span>
             <span class="kpi-sub">live show conversion</span>
           </article>
           <article class="kpi-card">
             <span class="kpi-label">Paid ticket orders</span>
-            <Show when={cc()!.fans.paidTicketOrders != null} fallback={<span class="muted">—</span>}>
-              <CountUp value={cc()!.fans.paidTicketOrders!} />
-            </Show>
+            <span class="kpi-value tabular-nums">{fmt(cc()!.fans.paidTicketOrders)}</span>
             <span class="kpi-sub">revenue signal</span>
           </article>
         </div>
@@ -146,9 +136,7 @@ export function OverviewPage() {
             </div>
             <div class="command-block-body">
               <div class="command-block-metric">
-                <Show when={cc()!.fans.activeFans != null} fallback={<span class="muted">—</span>}>
-                  <CountUp value={cc()!.fans.activeFans!} />
-                </Show>
+                <span class="kpi-value tabular-nums">{fmt(cc()!.fans.activeFans)}</span>
                 <span class="command-block-label">active fans</span>
               </div>
               <div class="command-block-detail">
@@ -177,7 +165,7 @@ export function OverviewPage() {
             </div>
             <div class="command-block-body">
               <div class="command-block-metric">
-                <CountUp value={cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions} />
+                <span class="kpi-value tabular-nums">{fmt(cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions)}</span>
                 <span class="command-block-label">in flight</span>
               </div>
               <div class="command-block-detail">
@@ -201,14 +189,12 @@ export function OverviewPage() {
             </div>
             <div class="command-block-body">
               <div class="command-block-metric">
-                <Show when={cc()!.fans.ticketBuyers != null} fallback={<span class="muted">—</span>}>
-                  <CountUp value={cc()!.fans.ticketBuyers!} />
-                </Show>
+                <span class="kpi-value tabular-nums">{fmt(cc()!.fans.ticketBuyers)}</span>
                 <span class="command-block-label">ticket buyers</span>
               </div>
               <div class="command-block-detail">
-                <Show when={cc()!.fans.attendees != null && cc()!.fans.attendees! > 0}><span>{cc()!.fans.attendees!} attendees</span></Show>
-                <Show when={cc()!.fans.paidTicketOrders != null && cc()!.fans.paidTicketOrders! > 0}><span>{cc()!.fans.paidTicketOrders!} paid orders</span></Show>
+                <Show when={cc()!.fans.attendees != null && cc()!.fans.attendees! > 0}><span>{fmt(cc()!.fans.attendees)} attendees</span></Show>
+                <Show when={cc()!.fans.paidTicketOrders != null && cc()!.fans.paidTicketOrders! > 0}><span>{fmt(cc()!.fans.paidTicketOrders)} paid orders</span></Show>
                 <Show when={(cc()!.fans.ticketBuyers == null || cc()!.fans.ticketBuyers === 0) && (cc()!.fans.attendees == null || cc()!.fans.attendees === 0)}>
                   <span class="muted">No conversion data yet</span>
                 </Show>
@@ -251,14 +237,14 @@ export function OverviewPage() {
             </div>
             <div class="command-block-body">
               <div class="command-block-metric">
-                <CountUp value={cc()!.attention.needsYou} />
+                <span class="kpi-value tabular-nums">{fmt(cc()!.attention.needsYou)}</span>
                 <span class="command-block-label">need you</span>
               </div>
               <div class="command-block-detail">
-                <Show when={cc()!.attention.awaitingApproval > 0}><span>{cc()!.attention.awaitingApproval} awaiting approval</span></Show>
-                <Show when={cc()!.attention.criticalAlerts > 0}><span class="command-block-critical">{cc()!.attention.criticalAlerts} critical alerts</span></Show>
-                <Show when={cc()!.attention.openFindings > 0}><span>{cc()!.attention.openFindings} open findings</span></Show>
-                <Show when={cc()!.attention.deadDeliveries > 0}><span>{cc()!.attention.deadDeliveries} dead deliveries</span></Show>
+                <Show when={cc()!.attention.awaitingApproval > 0}><span>{fmt(cc()!.attention.awaitingApproval)} awaiting approval</span></Show>
+                <Show when={cc()!.attention.criticalAlerts > 0}><span class="command-block-critical">{fmt(cc()!.attention.criticalAlerts)} critical alerts</span></Show>
+                <Show when={cc()!.attention.openFindings > 0}><span>{fmt(cc()!.attention.openFindings)} open findings</span></Show>
+                <Show when={cc()!.attention.deadDeliveries > 0}><span>{fmt(cc()!.attention.deadDeliveries)} dead deliveries</span></Show>
                 <Show when={cc()!.brainNeedsAttention}><span class="command-block-critical">brain needs attention</span></Show>
                 <Show when={cc()!.attention.needsYou === 0 && cc()!.attention.awaitingApproval === 0 && cc()!.attention.criticalAlerts === 0}>
                   <span class="muted">Nothing needs you right now</span>
@@ -279,15 +265,15 @@ export function OverviewPage() {
             </div>
             <div class="command-block-body">
               <div class="command-block-metric">
-                <CountUp value={cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions} />
+                <span class="kpi-value tabular-nums">{fmt(cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions)}</span>
                 <span class="command-block-label">in flight</span>
               </div>
               <div class="command-block-detail">
-                <Show when={cc()!.autopilot.queuedActions > 0}><span>{cc()!.autopilot.queuedActions} queued</span></Show>
-                <Show when={cc()!.autopilot.processingActions > 0}><span>{cc()!.autopilot.processingActions} processing</span></Show>
-                <Show when={cc()!.autopilot.succeeded24h > 0}><span class="command-block-good">{cc()!.autopilot.succeeded24h} succeeded (24h)</span></Show>
-                <Show when={cc()!.autopilot.failed24h > 0}><span class="command-block-critical">{cc()!.autopilot.failed24h} failed (24h)</span></Show>
-                <Show when={cc()!.autopilot.unknownActions > 0}><span class="muted">{cc()!.autopilot.unknownActions} unknown</span></Show>
+                <Show when={cc()!.autopilot.queuedActions > 0}><span>{fmt(cc()!.autopilot.queuedActions)} queued</span></Show>
+                <Show when={cc()!.autopilot.processingActions > 0}><span>{fmt(cc()!.autopilot.processingActions)} processing</span></Show>
+                <Show when={cc()!.autopilot.succeeded24h > 0}><span class="command-block-good">{fmt(cc()!.autopilot.succeeded24h)} succeeded (24h)</span></Show>
+                <Show when={cc()!.autopilot.failed24h > 0}><span class="command-block-critical">{fmt(cc()!.autopilot.failed24h)} failed (24h)</span></Show>
+                <Show when={cc()!.autopilot.unknownActions > 0}><span class="muted">{fmt(cc()!.autopilot.unknownActions)} unknown</span></Show>
                 <Show when={cc()!.autopilot.queuedActions === 0 && cc()!.autopilot.processingActions === 0}>
                   <span class="muted">No actions in flight</span>
                 </Show>
@@ -307,12 +293,12 @@ export function OverviewPage() {
             </div>
             <div class="command-block-body">
               <div class="command-block-metric">
-                <CountUp value={cc()!.outcomes.resolved} />
+                <span class="kpi-value tabular-nums">{fmt(cc()!.outcomes.resolved)}</span>
                 <span class="command-block-label">resolved</span>
               </div>
               <div class="command-block-detail">
-                <Show when={cc()!.outcomes.waitingForObservation > 0}><span>{cc()!.outcomes.waitingForObservation} waiting for observation</span></Show>
-                <Show when={cc()!.outcomes.unknown > 0}><span class="muted">{cc()!.outcomes.unknown} unknown</span></Show>
+                <Show when={cc()!.outcomes.waitingForObservation > 0}><span>{fmt(cc()!.outcomes.waitingForObservation)} waiting for observation</span></Show>
+                <Show when={cc()!.outcomes.unknown > 0}><span class="muted">{fmt(cc()!.outcomes.unknown)} unknown</span></Show>
                 <Show when={cc()!.outcomes.resolved === 0 && cc()!.outcomes.unknown === 0 && cc()!.outcomes.waitingForObservation === 0}>
                   <span class="muted">No outcomes yet</span>
                 </Show>
@@ -327,12 +313,12 @@ export function OverviewPage() {
             </div>
             <div class="command-block-body">
               <div class="command-block-metric">
-                <CountUp value={healthyServices()} format={(n) => platformServices().length === 0 ? '—' : String(Math.round(n))} />
+                <span class="kpi-value tabular-nums">{platformServices().length === 0 ? '—' : fmt(healthyServices())}</span>
                 <span class="command-block-label">of {platformServices().length || '—'} services healthy</span>
               </div>
               <div class="command-block-detail">
                 <Show when={items().length > 0}>
-                  <span>{healthyCount()} healthy · {needsAttention()} need attention<Show when={unknownCount() > 0}> · {unknownCount()} not reporting</Show></span>
+                  <span>{fmt(healthyCount())} healthy · {fmt(needsAttention())} need attention<Show when={unknownCount() > 0}> · {fmt(unknownCount())} not reporting</Show></span>
                 </Show>
               </div>
             </div>
@@ -349,12 +335,12 @@ export function OverviewPage() {
             </div>
             <div class="command-block-body">
               <div class="command-block-metric">
-                <CountUp value={cc()!.learning.totalOutcomes} />
+                <span class="kpi-value tabular-nums">{fmt(cc()!.learning.totalOutcomes)}</span>
                 <span class="command-block-label">total outcomes</span>
               </div>
               <div class="command-block-detail">
-                <Show when={cc()!.learning.admitted > 0}><span class="command-block-good">{cc()!.learning.admitted} admitted</span></Show>
-                <Show when={cc()!.learning.rejected > 0}><span>{cc()!.learning.rejected} rejected</span></Show>
+                <Show when={cc()!.learning.admitted > 0}><span class="command-block-good">{fmt(cc()!.learning.admitted)} admitted</span></Show>
+                <Show when={cc()!.learning.rejected > 0}><span>{fmt(cc()!.learning.rejected)} rejected</span></Show>
                 <Show when={cc()!.learning.totalOutcomes === 0}>
                   <span class="muted">No learning outcomes yet</span>
                 </Show>
@@ -373,30 +359,30 @@ export function OverviewPage() {
         <div class="kpi-strip">
           <article class="kpi-card">
             <span class="kpi-label">Tenants</span>
-            <CountUp value={items().length} />
-            <span class="kpi-sub">{activeCount()} active<Show when={parkedCount() > 0}> · {parkedCount()} parked</Show><Show when={suspendedCount() > 0}> · {suspendedCount()} suspended</Show></span>
+            <span class="kpi-value tabular-nums">{fmt(items().length)}</span>
+            <span class="kpi-sub">{fmt(activeCount())} active<Show when={parkedCount() > 0}> · {fmt(parkedCount())} parked</Show><Show when={suspendedCount() > 0}> · {fmt(suspendedCount())} suspended</Show></span>
           </article>
           <article class="kpi-card" classList={{ 'kpi-good': allHealthy() }}>
             <span class="kpi-label">Healthy</span>
-            <CountUp value={healthyCount()} />
+            <span class="kpi-value tabular-nums">{fmt(healthyCount())}</span>
             <span class="kpi-sub">
               <Show when={reportingCount() > 0} fallback="no runtime reports yet">
-                {healthyPct()}% of reporting
+                {fmt(healthyPct())}% of reporting
               </Show>
             </span>
           </article>
           <article class="kpi-card" classList={{ 'kpi-warn': needsAttention() > 0, 'kpi-good': needsAttention() === 0 && reportingCount() > 0 }}>
             <span class="kpi-label">Needs attention</span>
-            <CountUp value={needsAttention()} />
+            <span class="kpi-value tabular-nums">{fmt(needsAttention())}</span>
             <span class="kpi-sub">
-              {count('degraded')} degraded · {count('stale')} stale
-              <Show when={suspendedCount() > 0}> · {suspendedCount()} suspended</Show>
-              <Show when={unknownCount() > 0}> · {unknownCount()} not reporting</Show>
+              {fmt(count('degraded'))} degraded · {fmt(count('stale'))} stale
+              <Show when={suspendedCount() > 0}> · {fmt(suspendedCount())} suspended</Show>
+              <Show when={unknownCount() > 0}> · {fmt(unknownCount())} not reporting</Show>
             </span>
           </article>
           <article class="kpi-card">
             <span class="kpi-label">Platform services</span>
-            <CountUp value={healthyServices()} format={(n) => platformServices().length === 0 ? '—' : String(Math.round(n))} />
+            <span class="kpi-value tabular-nums">{platformServices().length === 0 ? '—' : fmt(healthyServices())}</span>
             <span class="kpi-sub">of {platformServices().length || '—'} monitored</span>
           </article>
         </div>
@@ -415,9 +401,9 @@ export function OverviewPage() {
         </div>
         <div class="fleet-health-stats">
           <strong>
-            {healthyCount()} healthy · {needsAttention()} need attention
-            <Show when={unknownCount() > 0}> · {unknownCount()} not reporting</Show>
-            {' '}· {items().length} total
+            {fmt(healthyCount())} healthy · {fmt(needsAttention())} need attention
+            <Show when={unknownCount() > 0}> · {fmt(unknownCount())} not reporting</Show>
+            {' '}· {fmt(items().length)} total
           </strong>
           <Show when={reportingCount() === 0}>
             <span class="muted">No tenant has sent a runtime heartbeat yet, so there is nothing to score.</span>
@@ -456,7 +442,7 @@ export function OverviewPage() {
               <strong>{svc.label}</strong>
             </div>
             <div class="service-card-meta">
-              <Show when={formatLatency(svc.latencyMs)}>{lat => <span>{lat()}</span>}</Show>
+              <Show when={formatLatency(svc.latencyMs)}>{lat => <span class="tabular-nums">{lat()}</span>}</Show>
               <Show when={!svc.healthy && svc.lastStatus}><span class="muted">{svc.lastStatus}</span></Show>
               <span class="muted">{svc.url.replace(/^https?:\/\//, '')}</span>
             </div>

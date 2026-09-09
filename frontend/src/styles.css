@@ -1,3 +1,4 @@
+@layer legacy {
 .skip-link{position:absolute;top:-100px;left:0;z-index:1000;padding:12px 20px;background:var(--accent);color:var(--surface-0);font-weight:700;border-radius:0 0 var(--radius-md) 0;transition:top var(--t-fast)}
 .skip-link:focus{top:0;outline:2px solid var(--accent);outline-offset:2px}
 .regional-profile-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:var(--space-5);padding-top:16px;border-top:1px solid var(--border-default)}
@@ -3248,3 +3249,4 @@ button,
     animation:none!important
   }
 }
+} /* @layer legacy */
