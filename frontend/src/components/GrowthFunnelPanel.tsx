@@ -6,6 +6,7 @@ import { StatusBadge } from './StatusBadge'
 import { FunnelChart } from './FunnelChart'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock, SkeletonRows } from './Skeleton'
+import { KpiStrip, KpiCard } from './layout'
 import type { GrowthFunnelData, FunnelRecentWorkerRun } from '../lib/types'
 
 const fmt = (n: number | null | undefined): string =>
@@ -146,24 +147,11 @@ export function GrowthFunnelPanel(props: { slug: string }) {
 
     {/* KPI strip */}
     <Show when={funnel.data} fallback={<Show when={!error()}><SkeletonBlock height="100px" radius="10px" /></Show>}>
-      <div class="kpi-strip">
-        <article class="kpi-card">
-          <span class="kpi-label">Communities</span>
-          <span class="kpi-value tabular-nums">{fmt(funnel.data!.communities_discovered)}</span>
-
-          <span class="kpi-sub">discovered</span>
-        </article>
-        <article class="kpi-card">
-          <span class="kpi-label">Worker runs</span>
-          <span class="kpi-value tabular-nums">{fmt(totalWorkerRuns())}</span>
-          <span class="kpi-sub">{completedWorkerRuns()} completed · {failedWorkerRuns()} failed</span>
-        </article>
-        <article class="kpi-card">
-          <span class="kpi-label">Intelligence workflows</span>
-          <span class="kpi-value tabular-nums">{fmt(funnel.data!.brain_workflows.total)}</span>
-          <span class="kpi-sub">{funnel.data!.brain_workflows.by_status.completed ?? 0} completed</span>
-        </article>
-      </div>
+      <KpiStrip>
+        <KpiCard label="Communities" value={fmt(funnel.data!.communities_discovered)} sub="discovered" />
+        <KpiCard label="Worker runs" value={fmt(totalWorkerRuns())} sub={`${completedWorkerRuns()} completed · ${failedWorkerRuns()} failed`} />
+        <KpiCard label="Intelligence workflows" value={fmt(funnel.data!.brain_workflows.total)} sub={`${funnel.data!.brain_workflows.by_status.completed ?? 0} completed`} />
+      </KpiStrip>
     </Show>
 
     {/* Funnel visualization */}

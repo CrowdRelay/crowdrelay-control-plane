@@ -10,7 +10,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { ProgressRing } from '../components/ProgressRing'
 import { EmptyState } from '../components/EmptyState'
 import { SectionIcon } from '../components/SectionIcon'
-import { PageShell, PageHeader, KpiStrip, KpiCard, SectionTitle, ErrorCard } from '../components/layout'
+import { PageShell, PageHeader, KpiStrip, KpiCard, SectionTitle, ErrorCard, CommandBlock, SkeletonBlock } from '../components/layout'
 
 const formatLatency = (ms: number | null | undefined) => {
   if (ms == null) return null
@@ -32,8 +32,8 @@ export function OverviewPage() {
   const count = (health: RuntimeHealth) => items().filter(t => t.runtimeHealth === health).length
   const activeItems = createMemo(() => items().filter(t => t.status === 'active'))
   const activeCount = createMemo(() => activeItems().length)
-  const needsAttention = createMemo(() => count('degraded') + count('stale') + suspendedCount())
   const suspendedCount = createMemo(() => items().filter(t => t.status === 'suspended').length)
+  const needsAttention = createMemo(() => count('degraded') + count('stale') + suspendedCount())
   const parkedCount = createMemo(() => items().filter(t => t.status === 'parked').length)
   const unknownCount = createMemo(() => count('unknown'))
   const reportingCount = createMemo(() => items().length - unknownCount())
@@ -78,7 +78,7 @@ export function OverviewPage() {
       <Match when={!cc()}>
         <KpiStrip>
           {Array.from({ length: 4 }, () => (
-            <div class="kpi-card skeleton-block" style={{ 'min-height': '80px', 'border-radius': 'var(--radius-lg)' }} />
+            <SkeletonBlock style={{ 'min-height': '80px' }} />
           ))}
         </KpiStrip>
       </Match>
@@ -101,7 +101,7 @@ export function OverviewPage() {
       <Match when={!cc()}>
         <div class="command-center-grid">
           {Array.from({ length: 3 }, () => (
-            <div class="command-block skeleton-block" style={{ 'min-height': '120px', 'border-radius': 'var(--radius-lg)' }} />
+            <SkeletonBlock style={{ 'min-height': '120px' }} />
           ))}
         </div>
       </Match>
@@ -109,79 +109,73 @@ export function OverviewPage() {
         <div class="command-center-grid">
           {/* AGGREGATE */}
           <Link
-            class="command-block"
             to={firstFanTenant() ? '/tenants/$slug/audience' : '/tenants'}
             params={firstFanTenant() ? { slug: firstFanTenant()!.slug } : {}}
+            class="block"
           >
-            <div class="command-block-head">
-              <span class="eyebrow">AGGREGATE</span>
-            </div>
-            <div class="command-block-body">
-              <div class="command-block-metric">
-                <span class="kpi-value tabular-nums">{fmt(cc()!.fans.activeFans)}</span>
-                <span class="command-block-label">active fans</span>
-              </div>
-              <div class="command-block-detail">
-                <Show when={cc()!.fans.reportingTenants > 0 && cc()!.fans.reportingTenants < cc()!.tenants.total}>
-                  <span class="text-muted-foreground">{cc()!.tenants.total - cc()!.fans.reportingTenants} tenants not reporting audience</span>
-                </Show>
-                <Show when={cc()!.fans.reportingTenants === 0}>
-                  <span class="text-muted-foreground">No audience data yet</span>
-                </Show>
-                <Show when={cc()!.fans.reportingTenants === cc()!.tenants.total && cc()!.fans.activeFans != null}>
-                  <span class="text-muted-foreground">All tenants reporting</span>
-                </Show>
-              </div>
-            </div>
+            <CommandBlock
+              eyebrow="AGGREGATE"
+              metric={fmt(cc()!.fans.activeFans)}
+              label="active fans"
+              detail={
+                <>
+                  <Show when={cc()!.fans.reportingTenants > 0 && cc()!.fans.reportingTenants < cc()!.tenants.total}>
+                    <span>{cc()!.tenants.total - cc()!.fans.reportingTenants} tenants not reporting audience</span>
+                  </Show>
+                  <Show when={cc()!.fans.reportingTenants === 0}>
+                    <span>No audience data yet</span>
+                  </Show>
+                  <Show when={cc()!.fans.reportingTenants === cc()!.tenants.total && cc()!.fans.activeFans != null}>
+                    <span>All tenants reporting</span>
+                  </Show>
+                </>
+              }
+            />
           </Link>
 
           {/* ENGAGE */}
           <Link
-            class="command-block"
             to={firstAutopilotTenant() ? '/tenants/$slug/intelligence' : '/tenants'}
             params={firstAutopilotTenant() ? { slug: firstAutopilotTenant()!.slug } : {}}
-            classList={{ 'command-block-active': (cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions) > 0 }}
+            class="block"
           >
-            <div class="command-block-head">
-              <span class="eyebrow">ENGAGE</span>
-            </div>
-            <div class="command-block-body">
-              <div class="command-block-metric">
-                <span class="kpi-value tabular-nums">{fmt(cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions)}</span>
-                <span class="command-block-label">in flight</span>
-              </div>
-              <div class="command-block-detail">
-                <Show when={cc()!.autopilot.succeeded24h > 0}><span class="command-block-good">{cc()!.autopilot.succeeded24h} succeeded (24h)</span></Show>
-                <Show when={cc()!.autopilot.queuedActions === 0 && cc()!.autopilot.processingActions === 0}>
-                  <span class="text-muted-foreground">No engagement actions in flight</span>
-                </Show>
-              </div>
-            </div>
+            <CommandBlock
+              eyebrow="ENGAGE"
+              metric={fmt(cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions)}
+              label="in flight"
+              tone={(cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions) > 0 ? 'active' : 'default'}
+              detail={
+                <>
+                  <Show when={cc()!.autopilot.succeeded24h > 0}><span class="text-success-foreground">{cc()!.autopilot.succeeded24h} succeeded (24h)</span></Show>
+                  <Show when={cc()!.autopilot.queuedActions === 0 && cc()!.autopilot.processingActions === 0}>
+                    <span>No engagement actions in flight</span>
+                  </Show>
+                </>
+              }
+            />
           </Link>
 
           {/* CONVERT */}
           <Link
-            class="command-block"
             to={firstFanTenant() ? '/tenants/$slug/audience' : '/tenants'}
             params={firstFanTenant() ? { slug: firstFanTenant()!.slug } : {}}
-            classList={{ 'command-block-good': cc()!.fans.ticketBuyers != null && cc()!.fans.ticketBuyers! > 0 }}
+            class="block"
           >
-            <div class="command-block-head">
-              <span class="eyebrow">CONVERT</span>
-            </div>
-            <div class="command-block-body">
-              <div class="command-block-metric">
-                <span class="kpi-value tabular-nums">{fmt(cc()!.fans.ticketBuyers)}</span>
-                <span class="command-block-label">ticket buyers</span>
-              </div>
-              <div class="command-block-detail">
-                <Show when={cc()!.fans.attendees != null && cc()!.fans.attendees! > 0}><span>{fmt(cc()!.fans.attendees)} attendees</span></Show>
-                <Show when={cc()!.fans.paidTicketOrders != null && cc()!.fans.paidTicketOrders! > 0}><span>{fmt(cc()!.fans.paidTicketOrders)} paid orders</span></Show>
-                <Show when={(cc()!.fans.ticketBuyers == null || cc()!.fans.ticketBuyers === 0) && (cc()!.fans.attendees == null || cc()!.fans.attendees === 0)}>
-                  <span class="text-muted-foreground">No conversion data yet</span>
-                </Show>
-              </div>
-            </div>
+            <CommandBlock
+              eyebrow="CONVERT"
+              metric={fmt(cc()!.fans.ticketBuyers)}
+              label="ticket buyers"
+              tone={cc()!.fans.ticketBuyers != null && cc()!.fans.ticketBuyers! > 0 ? 'good' : 'default'}
+              detail={
+                <>
+                  <Show when={cc()!.fans.attendees != null && cc()!.fans.attendees! > 0}><span>{fmt(cc()!.fans.attendees)} attendees</span></Show>
+                  <Show when={cc()!.fans.paidTicketOrders != null && cc()!.fans.paidTicketOrders! > 0}><span>{fmt(cc()!.fans.paidTicketOrders)} paid orders</span></Show>
+                  <Show when={(cc()!.fans.ticketBuyers == null || cc()!.fans.ticketBuyers === 0) && (cc()!.fans.attendees == null || cc()!.fans.attendees === 0)}>
+                    <span>No conversion data yet</span>
+                  </Show>
+                </>
+              }
+            />
           </Link>
         </div>
       </Match>
@@ -196,7 +190,7 @@ export function OverviewPage() {
       <Match when={!cc()}>
         <div class="command-center-grid">
           {Array.from({ length: 5 }, () => (
-            <div class="command-block skeleton-block" style={{ 'min-height': '120px', 'border-radius': 'var(--radius-lg)' }} />
+            <SkeletonBlock style={{ 'min-height': '120px' }} />
           ))}
         </div>
       </Match>
@@ -204,128 +198,113 @@ export function OverviewPage() {
         <div class="command-center-grid">
           {/* ATTENTION */}
           <Link
-            class="command-block"
             to={firstNeedsYouTenant() ? '/tenants/$slug/attention' : '/tenants'}
             params={firstNeedsYouTenant() ? { slug: firstNeedsYouTenant()!.slug } : {}}
-            classList={{ 'command-block-warn': (cc()!.attention.needsYou + cc()!.attention.awaitingApproval + cc()!.attention.criticalAlerts) > 0 }}
+            class="block"
           >
-            <div class="command-block-head">
-              <span class="eyebrow">ATTENTION</span>
-              <Show when={cc()!.attention.unavailableTenants > 0}>
-                <span class="command-block-unavailable">{cc()!.attention.unavailableTenants} unavailable</span>
-              </Show>
-            </div>
-            <div class="command-block-body">
-              <div class="command-block-metric">
-                <span class="kpi-value tabular-nums">{fmt(cc()!.attention.needsYou)}</span>
-                <span class="command-block-label">need you</span>
-              </div>
-              <div class="command-block-detail">
-                <Show when={cc()!.attention.awaitingApproval > 0}><span>{fmt(cc()!.attention.awaitingApproval)} awaiting approval</span></Show>
-                <Show when={cc()!.attention.criticalAlerts > 0}><span class="command-block-critical">{fmt(cc()!.attention.criticalAlerts)} critical alerts</span></Show>
-                <Show when={cc()!.attention.openFindings > 0}><span>{fmt(cc()!.attention.openFindings)} open findings</span></Show>
-                <Show when={cc()!.attention.deadDeliveries > 0}><span>{fmt(cc()!.attention.deadDeliveries)} dead deliveries</span></Show>
-                <Show when={cc()!.brainNeedsAttention}><span class="command-block-critical">brain needs attention</span></Show>
-                <Show when={cc()!.attention.needsYou === 0 && cc()!.attention.awaitingApproval === 0 && cc()!.attention.criticalAlerts === 0}>
-                  <span class="text-muted-foreground">Nothing needs you right now</span>
-                </Show>
-              </div>
-            </div>
+            <CommandBlock
+              eyebrow="ATTENTION"
+              metric={fmt(cc()!.attention.needsYou)}
+              label="need you"
+              tone={(cc()!.attention.needsYou + cc()!.attention.awaitingApproval + cc()!.attention.criticalAlerts) > 0 ? 'warn' : 'default'}
+              detail={
+                <>
+                  <Show when={cc()!.attention.awaitingApproval > 0}><span>{fmt(cc()!.attention.awaitingApproval)} awaiting approval</span></Show>
+                  <Show when={cc()!.attention.criticalAlerts > 0}><span class="text-destructive">{fmt(cc()!.attention.criticalAlerts)} critical alerts</span></Show>
+                  <Show when={cc()!.attention.openFindings > 0}><span>{fmt(cc()!.attention.openFindings)} open findings</span></Show>
+                  <Show when={cc()!.attention.deadDeliveries > 0}><span>{fmt(cc()!.attention.deadDeliveries)} dead deliveries</span></Show>
+                  <Show when={cc()!.brainNeedsAttention}><span class="text-destructive">brain needs attention</span></Show>
+                  <Show when={cc()!.attention.needsYou === 0 && cc()!.attention.awaitingApproval === 0 && cc()!.attention.criticalAlerts === 0}>
+                    <span>Nothing needs you right now</span>
+                  </Show>
+                </>
+              }
+            />
           </Link>
 
           {/* AUTOPILOT TODAY */}
           <Link
-            class="command-block"
             to={firstAutopilotTenant() ? '/tenants/$slug/intelligence' : '/tenants'}
             params={firstAutopilotTenant() ? { slug: firstAutopilotTenant()!.slug } : {}}
-            classList={{ 'command-block-active': (cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions) > 0 }}
+            class="block"
           >
-            <div class="command-block-head">
-              <span class="eyebrow">AUTOPILOT TODAY</span>
-            </div>
-            <div class="command-block-body">
-              <div class="command-block-metric">
-                <span class="kpi-value tabular-nums">{fmt(cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions)}</span>
-                <span class="command-block-label">in flight</span>
-              </div>
-              <div class="command-block-detail">
-                <Show when={cc()!.autopilot.queuedActions > 0}><span>{fmt(cc()!.autopilot.queuedActions)} queued</span></Show>
-                <Show when={cc()!.autopilot.processingActions > 0}><span>{fmt(cc()!.autopilot.processingActions)} processing</span></Show>
-                <Show when={cc()!.autopilot.succeeded24h > 0}><span class="command-block-good">{fmt(cc()!.autopilot.succeeded24h)} succeeded (24h)</span></Show>
-                <Show when={cc()!.autopilot.failed24h > 0}><span class="command-block-critical">{fmt(cc()!.autopilot.failed24h)} failed (24h)</span></Show>
-                <Show when={cc()!.autopilot.unknownActions > 0}><span class="text-muted-foreground">{fmt(cc()!.autopilot.unknownActions)} unknown</span></Show>
-                <Show when={cc()!.autopilot.queuedActions === 0 && cc()!.autopilot.processingActions === 0}>
-                  <span class="text-muted-foreground">No actions in flight</span>
-                </Show>
-              </div>
-            </div>
+            <CommandBlock
+              eyebrow="AUTOPILOT TODAY"
+              metric={fmt(cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions)}
+              label="in flight"
+              tone={(cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions) > 0 ? 'active' : 'default'}
+              detail={
+                <>
+                  <Show when={cc()!.autopilot.queuedActions > 0}><span>{fmt(cc()!.autopilot.queuedActions)} queued</span></Show>
+                  <Show when={cc()!.autopilot.processingActions > 0}><span>{fmt(cc()!.autopilot.processingActions)} processing</span></Show>
+                  <Show when={cc()!.autopilot.succeeded24h > 0}><span class="text-success-foreground">{fmt(cc()!.autopilot.succeeded24h)} succeeded (24h)</span></Show>
+                  <Show when={cc()!.autopilot.failed24h > 0}><span class="text-destructive">{fmt(cc()!.autopilot.failed24h)} failed (24h)</span></Show>
+                  <Show when={cc()!.autopilot.unknownActions > 0}><span>{fmt(cc()!.autopilot.unknownActions)} unknown</span></Show>
+                  <Show when={cc()!.autopilot.queuedActions === 0 && cc()!.autopilot.processingActions === 0}>
+                    <span>No actions in flight</span>
+                  </Show>
+                </>
+              }
+            />
           </Link>
 
           {/* OUTCOMES */}
           <Link
-            class="command-block"
             to={firstOutcomesTenant() ? '/tenants/$slug/intelligence' : '/tenants'}
             params={firstOutcomesTenant() ? { slug: firstOutcomesTenant()!.slug } : {}}
-            classList={{ 'command-block-warn': cc()!.outcomes.unknown > 0 || cc()!.outcomes.waitingForObservation > 0 }}
+            class="block"
           >
-            <div class="command-block-head">
-              <span class="eyebrow">OUTCOMES</span>
-            </div>
-            <div class="command-block-body">
-              <div class="command-block-metric">
-                <span class="kpi-value tabular-nums">{fmt(cc()!.outcomes.resolved)}</span>
-                <span class="command-block-label">resolved</span>
-              </div>
-              <div class="command-block-detail">
-                <Show when={cc()!.outcomes.waitingForObservation > 0}><span>{fmt(cc()!.outcomes.waitingForObservation)} waiting for observation</span></Show>
-                <Show when={cc()!.outcomes.unknown > 0}><span class="text-muted-foreground">{fmt(cc()!.outcomes.unknown)} unknown</span></Show>
-                <Show when={cc()!.outcomes.resolved === 0 && cc()!.outcomes.unknown === 0 && cc()!.outcomes.waitingForObservation === 0}>
-                  <span class="text-muted-foreground">No outcomes yet</span>
-                </Show>
-              </div>
-            </div>
+            <CommandBlock
+              eyebrow="OUTCOMES"
+              metric={fmt(cc()!.outcomes.resolved)}
+              label="resolved"
+              tone={cc()!.outcomes.unknown > 0 || cc()!.outcomes.waitingForObservation > 0 ? 'warn' : 'default'}
+              detail={
+                <>
+                  <Show when={cc()!.outcomes.waitingForObservation > 0}><span>{fmt(cc()!.outcomes.waitingForObservation)} waiting for observation</span></Show>
+                  <Show when={cc()!.outcomes.unknown > 0}><span>{fmt(cc()!.outcomes.unknown)} unknown</span></Show>
+                  <Show when={cc()!.outcomes.resolved === 0 && cc()!.outcomes.unknown === 0 && cc()!.outcomes.waitingForObservation === 0}>
+                    <span>No outcomes yet</span>
+                  </Show>
+                </>
+              }
+            />
           </Link>
 
           {/* SYSTEM */}
-          <Link class="command-block" to="/tenants">
-            <div class="command-block-head">
-              <span class="eyebrow">SYSTEM</span>
-            </div>
-            <div class="command-block-body">
-              <div class="command-block-metric">
-                <span class="kpi-value tabular-nums">{platformServices().length === 0 ? '—' : fmt(healthyServices())}</span>
-                <span class="command-block-label">of {platformServices().length || '—'} services healthy</span>
-              </div>
-              <div class="command-block-detail">
+          <Link to="/tenants" class="block">
+            <CommandBlock
+              eyebrow="SYSTEM"
+              metric={platformServices().length === 0 ? '—' : fmt(healthyServices())}
+              label={`of ${platformServices().length || '—'} services healthy`}
+              detail={
                 <Show when={items().length > 0}>
                   <span>{fmt(healthyCount())} healthy · {fmt(needsAttention())} need attention<Show when={unknownCount() > 0}> · {fmt(unknownCount())} not reporting</Show></span>
                 </Show>
-              </div>
-            </div>
+              }
+            />
           </Link>
 
           {/* LEARNING */}
           <Link
-            class="command-block"
             to={firstLearningTenant() ? '/tenants/$slug/intelligence' : '/tenants'}
             params={firstLearningTenant() ? { slug: firstLearningTenant()!.slug } : {}}
+            class="block"
           >
-            <div class="command-block-head">
-              <span class="eyebrow">LEARNING</span>
-            </div>
-            <div class="command-block-body">
-              <div class="command-block-metric">
-                <span class="kpi-value tabular-nums">{fmt(cc()!.learning.totalOutcomes)}</span>
-                <span class="command-block-label">total outcomes</span>
-              </div>
-              <div class="command-block-detail">
-                <Show when={cc()!.learning.admitted > 0}><span class="command-block-good">{fmt(cc()!.learning.admitted)} admitted</span></Show>
-                <Show when={cc()!.learning.rejected > 0}><span>{fmt(cc()!.learning.rejected)} rejected</span></Show>
-                <Show when={cc()!.learning.totalOutcomes === 0}>
-                  <span class="text-muted-foreground">No learning outcomes yet</span>
-                </Show>
-              </div>
-            </div>
+            <CommandBlock
+              eyebrow="LEARNING"
+              metric={fmt(cc()!.learning.totalOutcomes)}
+              label="total outcomes"
+              detail={
+                <>
+                  <Show when={cc()!.learning.admitted > 0}><span class="text-success-foreground">{fmt(cc()!.learning.admitted)} admitted</span></Show>
+                  <Show when={cc()!.learning.rejected > 0}><span>{fmt(cc()!.learning.rejected)} rejected</span></Show>
+                  <Show when={cc()!.learning.totalOutcomes === 0}>
+                    <span>No learning outcomes yet</span>
+                  </Show>
+                </>
+              }
+            />
           </Link>
         </div>
       </Match>
@@ -333,7 +312,7 @@ export function OverviewPage() {
 
     {/* ── KPI strip (fleet summary) ──────────────────────────────── */}
     <Switch>
-      <Match when={!tenants.data && !tenants.isError}><div class="skeleton-grid"><div/><div/><div/><div/></div></Match>
+      <Match when={!tenants.data && !tenants.isError}><KpiStrip>{Array.from({ length: 4 }, () => <SkeletonBlock style={{ 'min-height': '80px' }} />)}</KpiStrip></Match>
       <Match when={tenants.isError}><ErrorCard>{errorMessage(tenants.error, 'Tenant registry unavailable')}</ErrorCard></Match>
       <Match when={tenants.data}>
         <KpiStrip>
@@ -343,7 +322,7 @@ export function OverviewPage() {
               {fmt(healthyPct())}% of reporting
             </Show>
           } />
-          <KpiCard label="Needs attention" value={fmt(needsAttention())} tone={needsAttention() === 0 && reportingCount() > 0 ? 'good' : 'default'} class={needsAttention() > 0 ? 'kpi-warn' : ''} sub={
+          <KpiCard label="Needs attention" value={fmt(needsAttention())} tone={needsAttention() > 0 ? 'warn' : needsAttention() === 0 && reportingCount() > 0 ? 'good' : 'default'} sub={
             <>{fmt(count('degraded'))} degraded · {fmt(count('stale'))} stale
             <Show when={suspendedCount() > 0}> · {fmt(suspendedCount())} suspended</Show>
             <Show when={unknownCount() > 0}> · {fmt(unknownCount())} not reporting</Show></>

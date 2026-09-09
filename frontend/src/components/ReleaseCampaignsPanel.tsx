@@ -5,6 +5,7 @@ import { refreshQueries } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock } from './Skeleton'
+import { KpiStrip, KpiCard } from './layout'
 
 const phaseTone = (phase: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (phase) {
@@ -167,11 +168,11 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
     <Show when={campaigns.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Release campaigns unavailable: {errorMessage(campaigns.error, 'Service unreachable')}</div></Show>
     <Show when={campaigns.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
       <Show when={campaigns.data!.pool.active_release_latarnicy > 0 || campaigns.data!.pool.missing_email > 0}>
-        <div class="kpi-strip">
-          <div class="kpi"><span class="kpi-value">{campaigns.data!.pool.active_release_latarnicy}</span><span class="kpi-label">Active Latarnicy</span></div>
-          <div class="kpi"><span class="kpi-value">{campaigns.data!.pool.contactable_latarnicy}</span><span class="kpi-label">Contactable</span></div>
-          <div class="kpi"><span class="kpi-value">{campaigns.data!.pool.missing_email}</span><span class="kpi-label">Missing Email</span></div>
-        </div>
+        <KpiStrip>
+          <KpiCard label="Active Latarnicy" value={campaigns.data!.pool.active_release_latarnicy} />
+          <KpiCard label="Contactable" value={campaigns.data!.pool.contactable_latarnicy} />
+          <KpiCard label="Missing Email" value={campaigns.data!.pool.missing_email} />
+        </KpiStrip>
       </Show>
 
       <Show when={campaigns.data!.campaigns.length > 0} fallback={<EmptyState label="No release campaigns" hint="Release campaigns coordinate outreach around a single or album launch. Create one from the release plan." />}>

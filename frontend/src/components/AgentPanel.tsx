@@ -456,7 +456,7 @@ export function AgentPanel(props: { slug: string }) {
                   <tr>
                     <td>{task.template_id}</td>
                     <td><StatusBadge status={task.status} tone={statusTone(task.status)} /></td>
-                    <td class="muted">{formatIsoAge(task.created_at)}</td>
+                    <td class="text-muted-foreground">{formatIsoAge(task.created_at)}</td>
                     <td>
                       <Show when={task.status === 'completed'}>
                         <button class="link" onClick={() => viewResult(task.id)}>View →</button>
@@ -504,7 +504,7 @@ export function AgentPanel(props: { slug: string }) {
                       <span class="badge">{outcome.kind.replaceAll('_', ' ')}</span>
                       <span class="badge">confidence {Math.round(outcome.confidence_basis_points / 100)}%</span>
                     </div>
-                    <p class="muted">{outcome.rationale}</p>
+                    <p class="text-muted-foreground">{outcome.rationale}</p>
                     <Show when={outcome.item}>
                       <pre class="agent-outcome-item">{JSON.stringify(outcome.item, null, 2)}</pre>
                     </Show>

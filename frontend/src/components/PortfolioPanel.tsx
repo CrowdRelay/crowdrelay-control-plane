@@ -105,11 +105,11 @@ export function PortfolioPanel(props: {
     </div>
 
     <Show when={props.overview} keyed>{overview => <div class="kpi-grid">
-      <div class="kpi"><KpiValue value={metric(overview.workspaceCount)} /><span class="kpi-label">Artists</span></div>
-      <div class="kpi"><KpiValue value={metric(overview.activeFans)} /><span class="kpi-label">Active fans</span></div>
-      <div class="kpi"><KpiValue value={`+${metric(overview.fansLast30d)}`} /><span class="kpi-label">New fans · 30d</span></div>
-      <div class="kpi"><KpiValue value={metric(overview.activeEdges)} /><span class="kpi-label">Live edges</span></div>
-      <div class="kpi"><KpiValue value={metric(overview.deliveriesLast30d)} /><span class="kpi-label">Amplified · 30d</span></div>
+      <div class="kpi"><KpiValue value={metric(overview.workspaceCount)} /><span class="text-muted-foreground">Artists</span></div>
+      <div class="kpi"><KpiValue value={metric(overview.activeFans)} /><span class="text-muted-foreground">Active fans</span></div>
+      <div class="kpi"><KpiValue value={`+${metric(overview.fansLast30d)}`} /><span class="text-muted-foreground">New fans · 30d</span></div>
+      <div class="kpi"><KpiValue value={metric(overview.activeEdges)} /><span class="text-muted-foreground">Live edges</span></div>
+      <div class="kpi"><KpiValue value={metric(overview.deliveriesLast30d)} /><span class="text-muted-foreground">Amplified · 30d</span></div>
     </div>}</Show>
 
     <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">EDGES</span><h3><SectionIcon name="link" />Amplification edges</h3></div>

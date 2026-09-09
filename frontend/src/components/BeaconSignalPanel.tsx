@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import { formatTimestamp } from '../lib/format'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock } from './Skeleton'
-import { TabBar, TabPanel, useTabPanels } from './layout'
+import { TabBar, TabPanel, useTabPanels, KpiStrip, KpiCard, ErrorCard } from './layout'
 import { cn } from '../lib/cn'
 
 const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
@@ -44,25 +44,25 @@ export function BeaconSignalPanel(props: { slug: string }) {
     <div class="agent-section-head">
       <h3>Beacon signal network</h3>
       <Show when={dashboard.data}>
-        <span class="muted">{dashboard.data!.total} beacons · {dashboard.data!.active} active</span>
+        <span class="text-muted-foreground">{dashboard.data!.total} beacons · {dashboard.data!.active} active</span>
       </Show>
     </div>
     <p class="agent-section-intro">Press and industry relationships. Beacons are the people the agent is talking to — journalists, promoters, superfans. The network shows discovery runs and invite jobs.</p>
 
     <Show when={dashboard.error}>
-      <div class="error-card" role="alert">Beacon signal dashboard unavailable</div>
+      <ErrorCard>Beacon signal dashboard unavailable</ErrorCard>
     </Show>
     <Show when={dashboard.isPending && !dashboard.error}>
       <SkeletonBlock height="60px" radius="10px" />
     </Show>
     <Show when={dashboard.data}>
-      <div class="kpi-strip">
-        <div class="kpi"><span class="kpi-value">{dashboard.data!.total}</span><span class="kpi-label">Total</span></div>
-        <div class="kpi"><span class="kpi-value">{dashboard.data!.active}</span><span class="kpi-label">Active</span></div>
-        <div class="kpi"><span class="kpi-value">{dashboard.data!.invited}</span><span class="kpi-label">Invited</span></div>
-        <div class="kpi"><span class="kpi-value">{dashboard.data!.paused}</span><span class="kpi-label">Paused</span></div>
-        <div class="kpi"><span class="kpi-value">{dashboard.data!.revoked}</span><span class="kpi-label">Revoked</span></div>
-      </div>
+      <KpiStrip>
+        <KpiCard label="Total" value={dashboard.data!.total} />
+        <KpiCard label="Active" value={dashboard.data!.active} />
+        <KpiCard label="Invited" value={dashboard.data!.invited} />
+        <KpiCard label="Paused" value={dashboard.data!.paused} />
+        <KpiCard label="Revoked" value={dashboard.data!.revoked} />
+      </KpiStrip>
 
       <TabBar
         active={activeTab()}
@@ -94,7 +94,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
               <tbody>
                 <For each={dashboard.data!.profiles}>{(p) => (
                   <tr>
-                    <td><strong>{p.displayName}</strong>{p.contactEmail ? <><br /><span class="muted">{p.contactEmail}</span></> : null}</td>
+                    <td><strong>{p.displayName}</strong>{p.contactEmail ? <><br /><span class="text-muted-foreground">{p.contactEmail}</span></> : null}</td>
                     <td>{p.beaconKind}</td>
                     <td>{p.city ?? '—'}</td>
                     <td><span class={`badge tone-${statusTone(p.status)}`}>{p.status}</span></td>
@@ -113,7 +113,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
       {/* ── Candidates tab ── */}
       <TabPanel active={activeTab()} id="candidates" visited={isVisited('candidates')}>
         <Show when={candidates.error}>
-          <div class="error-card" role="alert">Candidates unavailable</div>
+          <ErrorCard>Candidates unavailable</ErrorCard>
         </Show>
         <Show when={candidates.isPending && !candidates.error}>
           <SkeletonBlock height="120px" radius="10px" />
@@ -136,7 +136,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
                 <tbody>
                   <For each={candidates.data!.candidates}>{(c) => (
                     <tr>
-                      <td><strong>{c.displayName}</strong><br /><span class="muted">{c.contactEmail}</span></td>
+                      <td><strong>{c.displayName}</strong><br /><span class="text-muted-foreground">{c.contactEmail}</span></td>
                       <td>{c.beaconKind}</td>
                       <td>{c.city ?? '—'}</td>
                       <td>{Math.round(c.relevanceBasisPoints / 100)}%</td>
@@ -155,7 +155,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
       {/* ── Discovery tab ── */}
       <TabPanel active={activeTab()} id="discovery" visited={isVisited('discovery')}>
         <Show when={network.error}>
-          <div class="error-card" role="alert">Network discovery unavailable</div>
+          <ErrorCard>Network discovery unavailable</ErrorCard>
         </Show>
         <Show when={network.isPending && !network.error}>
           <SkeletonBlock height="120px" radius="10px" />

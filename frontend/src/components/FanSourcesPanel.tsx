@@ -8,6 +8,7 @@ import { FanbaseIcon } from './ProviderIcon'
 import { SkeletonRows } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
+import { ErrorCard } from './layout'
 
 const SOURCE_KINDS = [
   { value: 'http_json_pull', label: 'HTTP JSON (pull)' },
@@ -401,7 +402,7 @@ export function FanSourcesPanel(props: {
 
     <Show when={notice()}><div class="notice-card" role="status">{notice()}</div></Show>
     <Show when={errorText()}>
-      <div class="error-card" role="alert">{errorText()}</div>
+      <ErrorCard>{errorText()}</ErrorCard>
     </Show>
 
     {/* Platform connections — OAuth-based fanbase sources */}
@@ -416,7 +417,7 @@ export function FanSourcesPanel(props: {
         </Show>
       </div>
       <p class="agent-section-intro">Connected audience and music platforms. Each connection syncs follower and engagement metrics on the growth schedule. Disconnect to revoke access.</p>
-      <Show when={connections.error}><div class="error-card">Fan source connections unavailable: {errorMessage(connections.error, 'Service unreachable')}</div></Show>
+      <Show when={connections.error}><ErrorCard>Fan source connections unavailable: {errorMessage(connections.error, 'Service unreachable')}</ErrorCard></Show>
       <Show when={!connections.isFetching} fallback={<SkeletonRows count={3} />}>
       <div class="agent-providers">
         <For each={OAUTH_PLATFORMS}>{(plat) => {
@@ -430,7 +431,7 @@ export function FanSourcesPanel(props: {
                 <div class="fanbase-connection-name">{plat.label}</div>
                 <Show when={conn() && conn()!.last_sync_at}>
                   <div class="fanbase-connection-meta">
-                    <span class="muted">last sync {formatAge(conn()!.last_sync_at!)}</span>
+                    <span class="text-muted-foreground">last sync {formatAge(conn()!.last_sync_at!)}</span>
                   </div>
                 </Show>
                 {/* A connected channel that never syncs is the failure mode
@@ -700,7 +701,7 @@ export function FanSourcesPanel(props: {
         <button class="ghost" onClick={() => setCreating(false)}>Cancel</button>
       </div>
       <Show when={!name() || (needsAttestation() && !attestedBy())}>
-        <small class="muted form-disabled-hint">
+        <small class="text-muted-foreground form-disabled-hint">
           {needsAttestation() && !attestedBy()
             ? 'Enter a name and consent attestation to enable Create.'
             : 'Enter a name to enable Create.'}
@@ -718,7 +719,7 @@ export function FanSourcesPanel(props: {
               <td><span class="fanbase-origin"><FanbaseIcon sourceKind={fb.source_kind} size={16} class="provider-icon" /> {SOURCE_LABEL[fb.source_kind] ?? fb.source_kind}</span></td>
               <td>{metric(fb.members)}</td>
               <td>
-                <Show when={fb.last_status} fallback={<span class="muted">never</span>}>
+                <Show when={fb.last_status} fallback={<span class="text-muted-foreground">never</span>}>
                   <span class="row-health">
                     <StatusBadge status={fb.last_status ?? ''} tone={ingestionTone(fb.last_status)} />
                     <Show when={fb.last_imported_pending != null}>

@@ -107,7 +107,6 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent)26;out
 .data-table td.actions{display:flex;gap:8px;flex-wrap:wrap}
 
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-.muted{color:var(--muted)}
 .danger{background:var(--danger-bg);color:var(--bad-light);border:1px solid var(--danger-border)}
 .danger:hover{border-color:var(--danger-border)}
 
@@ -230,34 +229,8 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent)26;out
 }
 
 /* === Overview / landing page === */
-.kpi-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:32px}
-a.kpi-card:hover{border-color:var(--border-accent)}
-/* One KPI type treatment. The `ops-` family is the compact variant of the
-   same card, so its label/sub share this rule instead of drifting apart. */
-.kpi-sub{font-size:var(--text-sm);color:var(--muted);margin-top:2px}
-.kpi-card.kpi-good{border-color:rgba(61,220,132,0.25);box-shadow:var(--shadow-md)}.kpi-card.kpi-good .kpi-value{color:var(--good-light)}
-.kpi-card.kpi-warn{border-color:rgba(245,185,66,0.25);box-shadow:var(--shadow-md)}.kpi-card.kpi-warn .kpi-value{color:var(--warn-light)}
-.kpi-card.kpi-bad{border-color:rgba(255,101,101,0.25);box-shadow:var(--shadow-md)}.kpi-card.kpi-bad .kpi-value{color:var(--bad-light)}
-/* KPI value flash — briefly highlights when the value changes, so the
-   operator's eye is drawn to fresh data on refresh. Respects reduced motion. */
-
-
 /* Command center — five operator blocks, each a drill-down link */
 .command-center-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:32px}
-.command-block{border:1px solid var(--border-default);border-radius:var(--radius-lg);background:var(--surface-2);box-shadow:var(--shadow-md);padding:20px;display:flex;flex-direction:column;gap:14px;color:inherit;text-decoration:none;transition:border-color var(--t-smooth),box-shadow var(--t-smooth),transform var(--t-smooth)}
-.command-block:hover{border-color:var(--border-accent);box-shadow:0 4px 16px #00000050,0 0 0 1px var(--border-accent);transform:translateY(-2px)}
-@media(prefers-reduced-motion:reduce){.command-block:hover{transform:none}}
-.command-block-warn{border-color:rgba(245,185,66,0.3)}
-.command-block-active{border-color:rgba(99,179,237,0.3)}
-.command-block-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.command-block-unavailable{font-size:var(--text-sm);color:var(--muted)}
-.command-block-body{display:flex;flex-direction:column;gap:8px}
-.command-block-metric{display:flex;align-items:baseline;gap:8px}
-.command-block-metric .kpi-value{font-size:2rem;font-weight:700;line-height:1}
-.command-block-label{font-size:var(--text-sm);color:var(--muted)}
-.command-block-detail{display:flex;flex-direction:column;gap:3px;font-size:var(--text-sm);color:var(--text-secondary)}
-.command-block-good{color:var(--good-light)}
-.command-block-critical{color:var(--bad-light)}
 @media(max-width:768px){.command-center-grid{grid-template-columns:1fr}}
 @media(min-width:769px) and (max-width:1100px){.command-center-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
@@ -302,12 +275,8 @@ a.kpi-card:hover{border-color:var(--border-accent)}
 
 /* Responsive */
 @media(max-width:900px){
-  .kpi-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
   .service-grid{grid-template-columns:1fr}
   
-}
-@media(max-width:560px){
-  .kpi-strip{grid-template-columns:1fr}
 }
 
 /* === 2026 modernization pass === */
@@ -751,12 +720,6 @@ a.kpi-card:hover{border-color:var(--border-accent)}
 }
 
 /* ── Audience Intelligence ──────────────────────────────────────── */
-
-.audience .kpi-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.75rem;margin-bottom:1rem}
-.audience .kpi-card{background:var(--surface-3);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:.85rem 1rem;display:flex;flex-direction:column;gap:.25rem}
-.audience .kpi-card.accent{border-color:var(--border-accent);background:var(--surface-3)}
-.audience .kpi-label{font-size:var(--text-xs);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
-.audience .kpi-value{font-size:1.5rem;font-weight:700;color:var(--text-primary)}
 
 .city-chips{display:flex;flex-wrap:wrap;gap:.4rem}
 
@@ -1280,10 +1243,10 @@ a.kpi-card:hover{border-color:var(--border-accent)}
 .opportunity-briefing-content .brain-evidence-row{border-bottom:1px solid var(--border-subtle)}
 
 /* ── Card hover lift ─────────────────────────────────────────────────── */
-.kpi-card, .service-card, .premium-connector-card, .metric, .intel-decision-card{
+.service-card, .premium-connector-card, .metric, .intel-decision-card{
   transition:border-color var(--t-smooth),box-shadow var(--t-smooth),transform var(--t-smooth)
 }
-.kpi-card:hover, .service-card:hover, .premium-connector-card:hover, .metric:hover{
+.service-card:hover, .premium-connector-card:hover, .metric:hover{
   border-color:var(--border-strong);
   box-shadow:var(--shadow-md)}
 .intel-decision-card:hover{
@@ -1309,7 +1272,7 @@ button.danger-ghost:hover:not(:disabled){background:rgba(36,24,24,0.6);border-co
 }
 
 /* ── Skeleton — static surface (no shimmer) ────────────────────────────── */
-.skeleton-grid div, .skeleton-block, .mini-skeleton, .premium-skeleton-hero, .premium-skeleton-card{
+.mini-skeleton, .premium-skeleton-hero, .premium-skeleton-card{
   border-radius:var(--radius-lg);
   background:var(--surface-3);border:1px solid var(--border-default)}
 
@@ -1328,7 +1291,7 @@ button.danger-ghost:hover:not(:disabled){background:rgba(36,24,24,0.6);border-co
 
 /* ── Mobile: disable hover transforms for performance ─────────────────── */
 @media(max-width:768px){
-  .kpi-card:hover, .service-card:hover, .premium-connector-card:hover, .metric:hover{
+  .service-card:hover, .premium-connector-card:hover, .metric:hover{
     transform:none
   }
 }
@@ -1434,10 +1397,6 @@ button.danger-ghost:hover:not(:disabled){background:rgba(36,24,24,0.6);border-co
 .growth-approval-card:hover{border-color:var(--border-strong);background:var(--surface-2)}
 .growth-workflow-card{background:var(--surface-3);border:1px solid var(--border-subtle)}
 .growth-workflow-card:hover{border-color:var(--border-strong);background:var(--surface-2)}
-
-/* Audience — surfaces. The base `.audience .kpi-card` lives with the other
-   audience rules above; only the accent variant belongs here. */
-.audience .kpi-card.accent{border-color:var(--border-accent);background:var(--surface-3)}
 
 .segment-card.expanded{border-color:var(--border-accent);background:var(--surface-3)}
 .journey-event{background:var(--surface-3);border:1px solid var(--border-subtle)}
@@ -1610,25 +1569,6 @@ button.danger-ghost:hover:not(:disabled){background:rgba(36,24,24,0.6);border-co
 /* Badge tones — glass refinement */
 .badge.tone-good{background:rgba(16,37,26,0.40);border:1px solid rgba(61,220,132,0.15)}
 
-/* ─── UI Primitives (primitives.tsx) ──────────────────────────────────── */
-
-
-.ui-metric.tone-good .ui-metric-value{color:var(--good)}
-.ui-metric.tone-warn .ui-metric-value{color:var(--warn)}
-.ui-metric.tone-bad .ui-metric-value{color:var(--bad)}
-
-
-.ui-data-row-label{flex:0 0 auto;color:var(--text-secondary);font-size:var(--text-sm);font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ui-data-row-value{flex:0 0 auto;margin-left:auto;color:var(--text-primary);font-size:var(--text-sm);font-weight:600;font-variant-numeric:tabular-nums}
-.ui-data-row-content{flex:1 1 auto;min-width:0;margin-left:auto}
-.ui-empty-state-icon{color:var(--text-muted);opacity:0.6}
-.ui-empty-state-title{font-size:var(--text-md);font-weight:600;color:var(--text-secondary)}
-.ui-empty-state-message{margin:0;max-width:480px;font-size:var(--text-sm);color:var(--text-muted);line-height:1.5}
-.ui-empty-state-action{margin-top:var(--space-2)}
-
-.ui-panel-head{padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--border-subtle);font-size:var(--text-sm);font-weight:600;color:var(--text-secondary);letter-spacing:0.04em;text-transform:uppercase}
-.ui-panel-body{padding:var(--space-4)}
-
 /* ─── Intelligence cockpit layout ────────────────────────────────────────────── */
 .page-head-status{display:flex;align-items:center;gap:var(--space-2);flex:0 0 auto}
 .ops-attention-banner{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-4);border-radius:var(--radius-md);border:1px solid var(--border-default)}
@@ -1699,11 +1639,10 @@ button:focus-visible, .ghost:focus-visible, a:focus-visible{box-shadow:var(--sha
 /* ── Numerals ──────────────────────────────────────────────────────────
    Every figure an operator scans column-wise. Proportional digits made
    values jitter between refreshes because `1` is narrower than `8`. */
-.kpi-value, .metric strong, .fleet-health-stats strong, table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card small{
+.metric strong, .fleet-health-stats strong, table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card small{
   font-variant-numeric:tabular-nums;
   font-feature-settings:"tnum" 1,"cv05" 1
 }
-.kpi-value, .metric strong{letter-spacing:-.035em}
 
 /* Long unbreakable strings (SHA hashes, UUIDs, workspace IDs) inside `code`
    and `.mono` elements must not force the page wider than the viewport.
@@ -1732,7 +1671,7 @@ code, .mono{overflow-wrap:anywhere;word-break:break-word;max-width:100%}
 /* ── Surfaces ──────────────────────────────────────────────────────────
    One card treatment: soft radius, one hairline, a single shadow tier.
    The top highlight is what separates a card from a grey rectangle. */
-.panel, .kpi-card, .metric, .service-card{
+.panel, .metric, .service-card{
   position:relative;
   border-radius:var(--radius-lg);
   background:var(--surface-2);
@@ -1745,14 +1684,10 @@ code, .mono{overflow-wrap:anywhere;word-break:break-word;max-width:100%}
 .panel p{font-size:var(--text-base);color:var(--text-secondary)}
 
 /* ── KPI cards ─────────────────────────────────────────────────────────*/
-.kpi-strip{gap:var(--space-4);margin-bottom:var(--space-8)}
-.kpi-card{display:flex;flex-direction:column;color:inherit;text-decoration:none;padding:var(--space-5) var(--space-5) var(--space-4);gap:var(--space-2)}
-.kpi-label{font-size:var(--text-xs);letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted);font-weight:700}
-.kpi-value{font-weight:700;font-size:2.1rem;line-height:1}
 
 
-a.kpi-card, .kpi-card, .service-card{transition:transform var(--t-fast),border-color var(--t-fast),box-shadow var(--t-fast)}
-a.kpi-card:hover, .service-card:hover{transform:translateY(-2px);border-color:var(--border-strong)}
+.service-card{transition:transform var(--t-fast),border-color var(--t-fast),box-shadow var(--t-fast)}
+.service-card:hover{transform:translateY(-2px);border-color:var(--border-strong)}
 a.ops-kpi-link{text-decoration:none;color:inherit;display:block}
 a.ops-kpi-link:hover .ops-kpi-card{transform:translateY(-2px);border-color:var(--border-strong)}
 
@@ -1785,14 +1720,6 @@ input, select, textarea{border-radius:var(--radius-md);font-size:var(--text-base
   box-shadow:inset 3px 0 0 var(--accent)
 }
 
-
-/* ── KPI baselines ─────────────────────────────────────────────────────
-   A two-line label ("Growth delivered") used to push its value a row
-   lower than its neighbours, so the strip read as a ragged line of
-   numbers. Reserving the label's second line keeps the figures level. */
-.kpi-card{justify-content:flex-start}
-.kpi-label{display:block;min-height:2.2em;line-height:1.1}
-.kpi-value{margin-top:auto}
 
 /* ── Segmented tabs — now handled by layout.tsx TabBar with Tailwind ── */
 
@@ -1936,7 +1863,6 @@ th[aria-sort="none"]:hover::after{content:' \2195';font-size:.7em;color:var(--te
 @media(max-width:375px){
   .operations-metrics, .autopilot-kpis{grid-template-columns:1fr}
   .stat-row{grid-template-columns:1fr}
-  .kpi-strip{grid-template-columns:1fr}
 }
 
 /* Touch targets — ≥44px on mobile for all action buttons */
@@ -2102,8 +2028,7 @@ th[aria-sort="none"]:hover::after{content:' \2195';font-size:.7em;color:var(--te
 /* Notices were solid blocks of colour the width of the page, which made an
    informational line as loud as a failure. Keep the tint, move the signal to
    a left rule, and let the text carry the rest. */
-.error-card, .warning-card, .notice-card{padding:14px 16px;margin:12px 0;border:1px solid;border-left-width:3px;border-radius:var(--radius-md);box-shadow:var(--shadow-sm);line-height:1.55}
-.error-card{background:rgba(43,19,19,0.55);border-color:rgba(255,101,101,0.25);border-left-color:var(--bad);color:var(--bad-light)}
+.warning-card, .notice-card{padding:14px 16px;margin:12px 0;border:1px solid;border-left-width:3px;border-radius:var(--radius-md);box-shadow:var(--shadow-sm);line-height:1.55}
 
 .warning-card{background:rgba(41,32,15,0.55);border-color:rgba(101,80,38,0.3);border-left-color:var(--warn);color:var(--warn-light)}
 .notice-card{background:rgba(16,37,26,0.55);border-color:rgba(40,90,64,0.3);border-left-color:var(--good);color:var(--good-light)}
@@ -2142,7 +2067,6 @@ th[aria-sort="none"]:hover::after{content:' \2195';font-size:.7em;color:var(--te
 .metric:hover{border-color:var(--border-strong);box-shadow:var(--shadow-md);transform:translateY(-1px)}
 .metric strong{font-size:2.4rem;letter-spacing:-.03em}
 .metric span{font-size:var(--text-xs);letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);font-weight:700}
-.kpi-card:hover{border-color:var(--border-strong);box-shadow:var(--shadow-md);transform:translateY(-1px)}
 /* `margin-inline:auto` centred the paragraph box inside a full-width card, so
    the text floated in the middle with a quarter of the card empty either side.
    A readable measure is worth keeping; centring it is not. */
@@ -2799,7 +2723,7 @@ details[open]>.section-title-summary~*{margin-top:var(--space-3)}
    shortened to instant. This is a catch-all for animations that don't have
    their own per-rule guard above. */
 @media(prefers-reduced-motion:reduce){
-  .skeleton-block, .skeleton-grid div, .mini-skeleton, .premium-skeleton-hero, .premium-skeleton-card, .spin, .btn-spinner, .premium-spinner, .ops-degraded-dot, .ops-freshness-dot, .kpi-value.kpi-flash, .premium-connector-card.connected, .premium-connected-badge{
+  .mini-skeleton, .premium-skeleton-hero, .premium-skeleton-card, .spin, .btn-spinner, .premium-spinner, .ops-degraded-dot, .ops-freshness-dot, .kpi-value.kpi-flash, .premium-connector-card.connected, .premium-connected-badge{
     animation:none!important
   }
   .cmdk-backdrop, .cmdk, .fan-drawer{

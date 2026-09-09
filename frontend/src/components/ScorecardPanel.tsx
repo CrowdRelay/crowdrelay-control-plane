@@ -14,7 +14,7 @@ const count = (value: number | undefined | null) =>
 
 /** Render an integer with thousands separators, wrapped for tabular alignment. */
 const num = (value: number | undefined | null) =>
-  value == null ? <span class="muted">—</span> : <strong class="tabular-nums">{value.toLocaleString()}</strong>
+  value == null ? <span class="text-muted-foreground">—</span> : <strong class="tabular-nums">{value.toLocaleString()}</strong>
 
 const bpsToPercent = (value: number | null | undefined) =>
   value == null ? '—' : `${(value / 100).toFixed(1)}%`
@@ -207,7 +207,7 @@ export function ScorecardPanel(props: { slug: string }) {
         </Show>
         <Show when={(d().track_record.awaiting_measurement ?? 0) > 0
                     && d().track_record.improved + d().track_record.neutral + d().track_record.worsened === 0}>
-          <p class="muted">
+          <p class="text-muted-foreground">
             No verdicts yet because no measurement horizon has elapsed — not because nothing is being
             measured. {count(d().track_record.awaiting_measurement ?? 0)} action(s) are waiting on a 7, 14 or 30 day window.
           </p>
@@ -224,7 +224,7 @@ export function ScorecardPanel(props: { slug: string }) {
             <For each={showAllByContext() ? d().by_context : d().by_context.slice(0, MAX_VISIBLE_BY_CONTEXT)}>{ctx => <div class="scorecard-context-card">
               <strong>{contextLabel(ctx.context)}</strong>
               <small>{count(ctx.executed)} executed · {count(ctx.succeeded)} succeeded · {count(ctx.failed)} failed</small>
-              <Show when={ctx.parked > 0}><small class="muted">{count(ctx.parked)} parked</small></Show>
+              <Show when={ctx.parked > 0}><small class="text-muted-foreground">{count(ctx.parked)} parked</small></Show>
             </div>}</For>
           </div>
           <Show when={d().by_context.length > MAX_VISIBLE_BY_CONTEXT}>
@@ -248,8 +248,8 @@ export function ScorecardPanel(props: { slug: string }) {
                 <StatusBadge status={outcomeLabel(result.outcome)} tone={outcomeTone(result.outcome)} />
               </div>
               <small>{contextLabel(result.context)} · {subjectLabel(result.subject_kind)}</small>
-              <Show when={result.metric_key}><small class="muted">metric: {result.metric_key}</small></Show>
-              <small class="muted">{timeAgo(result.completed_at)}<Show when={result.executor_id}>{` · ${result.executor_id}`}</Show></small>
+              <Show when={result.metric_key}><small class="text-muted-foreground">metric: {result.metric_key}</small></Show>
+              <small class="text-muted-foreground">{timeAgo(result.completed_at)}<Show when={result.executor_id}>{` · ${result.executor_id}`}</Show></small>
             </div>}</For>
           </div>
           <Show when={d().recent_results.length > MAX_VISIBLE_RECENT}>

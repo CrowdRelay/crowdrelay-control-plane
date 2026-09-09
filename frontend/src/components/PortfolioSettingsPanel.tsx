@@ -3,6 +3,7 @@ import { useMutation, useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { PortfolioSettingsReadModel } from '../lib/types'
 import { SectionIcon } from './SectionIcon'
+import { ErrorCard, SectionTitle } from './layout'
 
 const LABELS: Record<string, string> = {
   member_site_base_url: 'Member site base URL',
@@ -95,10 +96,8 @@ export function PortfolioSettingsPanel(props: {
     },
   }))
 
-  return <article class="panel">
-    <div class="section-title">
-      <div><span class="eyebrow">BRAND</span><h2><SectionIcon name="settings" />Brand settings</h2><p>Where this tenant's fan-facing links point. Each field is live as soon as it is saved — the apps read these values directly.</p></div>
-    </div>
+  return <article class="rounded-lg border border-border bg-card text-foreground p-5">
+    <SectionTitle eyebrow="BRAND" title="Brand settings" icon={<SectionIcon name="settings" />} description="Where this tenant's fan-facing links point. Each field is live as soon as it is saved — the apps read these values directly." />
     <p class="agent-section-intro">A field left empty runs the shipped default; <span class="badge tone-warn override-pill">override</span> marks the ones this tenant has replaced. Edit a field and its Save button appears beside it.</p>
     <div class="form-grid">
       <For each={keys()}>{key => (
@@ -143,7 +142,7 @@ export function PortfolioSettingsPanel(props: {
           </Show>
           <Show when={HINTS[key]}>{h => <small>{h().hint}<Show when={!BOOLEAN_KEYS.has(key) && key !== 'north_star_metric'}> Example: <code>{h().example}</code></Show></small>}</Show>
           <Show when={dirty(key)} fallback={
-            <Show when={savedKey() === key}><small class="muted">Saved ✓</small></Show>
+            <Show when={savedKey() === key}><small class="text-muted-foreground">Saved ✓</small></Show>
           }>
             <div class="portfolio-field-save">
               <button
@@ -158,7 +157,7 @@ export function PortfolioSettingsPanel(props: {
       )}</For>
     </div>
     <Show when={errorText()}>
-      <div class="error-card" role="alert">{errorText()}</div>
+      <ErrorCard>{errorText()}</ErrorCard>
     </Show>
   </article>
 }

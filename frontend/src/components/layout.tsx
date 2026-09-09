@@ -43,11 +43,11 @@ export function KpiCard(props: {
   label: string
   value: JSX.Element
   sub?: JSX.Element
-  tone?: 'default' | 'good'
+  tone?: 'default' | 'good' | 'warn'
   class?: string
 }) {
   return (
-    <Card class={cn('p-4', props.tone === 'good' && 'border-success/30', props.class)}>
+    <Card class={cn('p-4', props.tone === 'good' && 'border-success/30', props.tone === 'warn' && 'border-warning/30', props.class)}>
       <div class="text-xs text-muted-foreground">{props.label}</div>
       <div class="text-2xl font-bold tabular-nums text-foreground mt-1">{props.value}</div>
       <Show when={props.sub}>
@@ -226,6 +226,7 @@ export function SkeletonBlock(props: { class?: string; style?: JSX.CSSProperties
 export function SectionTitle(props: {
   eyebrow?: string
   title: string
+  description?: JSX.Element
   icon?: JSX.Element
   action?: JSX.Element
   class?: string
@@ -241,6 +242,9 @@ export function SectionTitle(props: {
             <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</span>
           </Show>
           <h2 class="text-lg font-semibold text-foreground">{props.title}</h2>
+          <Show when={props.description}>
+            <p class="text-sm text-muted-foreground mt-1 max-w-prose">{props.description}</p>
+          </Show>
         </div>
       </div>
       <Show when={props.action}>

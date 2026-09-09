@@ -5,6 +5,7 @@ import { errorMessage, formatIsoAge } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonRows } from './Skeleton'
 import { EmptyState } from './EmptyState'
+import { KpiStrip, KpiCard } from './layout'
 import type { IntelligenceDecision, IntelligenceDecisionTask, IntelligenceDecisionsData } from '../lib/types'
 
 // --- Intelligence icon (deterministic Rust autopilot) ---
@@ -116,36 +117,24 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
     {/* Summary KPIs */}
     <Show when={summary()} fallback={
       <Show when={!error()} fallback={
-        <div class="kpi-strip">
-          <article class="kpi-card"><span class="kpi-label">Intelligence decisions</span><strong class="kpi-value text-muted-foreground">—</strong></article>
-          <article class="kpi-card"><span class="kpi-label">Running</span><strong class="kpi-value text-muted-foreground">—</strong></article>
-          <article class="kpi-card"><span class="kpi-label">Worker tasks</span><strong class="kpi-value text-muted-foreground">—</strong></article>
-        </div>
+        <KpiStrip>
+          <KpiCard label="Intelligence decisions" value="—" />
+          <KpiCard label="Running" value="—" />
+          <KpiCard label="Worker tasks" value="—" />
+        </KpiStrip>
       }>
-        <div class="kpi-strip">
-          <article class="kpi-card"><div class="rounded-lg bg-surface-3 border border-border" style={{ height: '14px', width: '60%', 'border-radius': '6px', 'margin-bottom': '8px' }} /><div class="rounded-lg bg-surface-3 border border-border" style={{ height: '28px', width: '40%', 'border-radius': '6px' }} /></article>
-          <article class="kpi-card"><div class="rounded-lg bg-surface-3 border border-border" style={{ height: '14px', width: '50%', 'border-radius': '6px', 'margin-bottom': '8px' }} /><div class="rounded-lg bg-surface-3 border border-border" style={{ height: '28px', width: '30%', 'border-radius': '6px' }} /></article>
-          <article class="kpi-card"><div class="rounded-lg bg-surface-3 border border-border" style={{ height: '14px', width: '55%', 'border-radius': '6px', 'margin-bottom': '8px' }} /><div class="rounded-lg bg-surface-3 border border-border" style={{ height: '28px', width: '35%', 'border-radius': '6px' }} /></article>
-        </div>
+        <KpiStrip>
+          <KpiCard label="" value="" class="overflow-hidden" />
+          <KpiCard label="" value="" class="overflow-hidden" />
+          <KpiCard label="" value="" class="overflow-hidden" />
+        </KpiStrip>
       </Show>
     }>
-      <div class="kpi-strip">
-        <article class="kpi-card">
-          <span class="kpi-label">Intelligence decisions</span>
-          <strong class="kpi-value">{summary()!.total_decisions}</strong>
-          <span class="kpi-sub">{summary()!.completed_decisions} completed · {summary()!.failed_decisions} failed</span>
-        </article>
-        <article class="kpi-card">
-          <span class="kpi-label">Running</span>
-          <strong class="kpi-value">{summary()!.running_decisions}</strong>
-          <span class="kpi-sub">in progress now</span>
-        </article>
-        <article class="kpi-card">
-          <span class="kpi-label">Worker tasks</span>
-          <strong class="kpi-value">{summary()!.total_tasks}</strong>
-          <span class="kpi-sub">{summary()!.completed_tasks} completed</span>
-        </article>
-      </div>
+      <KpiStrip>
+        <KpiCard label="Intelligence decisions" value={summary()!.total_decisions} sub={`${summary()!.completed_decisions} completed · ${summary()!.failed_decisions} failed`} />
+        <KpiCard label="Running" value={summary()!.running_decisions} sub="in progress now" />
+        <KpiCard label="Worker tasks" value={summary()!.total_tasks} sub={`${summary()!.completed_tasks} completed`} />
+      </KpiStrip>
     </Show>
 
     {/* Decision timeline */}

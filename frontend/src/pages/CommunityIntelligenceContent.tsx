@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { CommunityItem, CommunityObservationItem, CommunityEntityItem, AudiencePlaceInput } from '../lib/types'
 import { SkeletonRows } from '../components/Skeleton'
-import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, SectionTitle } from '../components/layout'
+import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, SectionTitle, ErrorCard } from '../components/layout'
 import { toast } from '../lib/toast'
 import { errorMessage } from '../lib/format'
 
@@ -361,9 +361,9 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
         </div>
 
         <Show when={communities.error}>
-          <div class="error-card" role="alert">
+          <ErrorCard>
             {communities.error instanceof Error ? communities.error.message : 'Community intelligence channel unavailable'}
-          </div>
+          </ErrorCard>
         </Show>
 
         <Show when={!communities.error && communities.isPending}>
@@ -473,7 +473,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
 
                             <Show when={draftFor() === item.placeId}>
                               <div class="community-draft">
-                                <Show when={draft.isFetching && !draft.data}><p class="muted">Reading what was observed here…</p></Show>
+                                <Show when={draft.isFetching && !draft.data}><p class="text-muted-foreground">Reading what was observed here…</p></Show>
                                 <Show when={draft.data}>
                                   <Show when={!draft.data!.grounded}>
                                     <p class="notice warn">
@@ -481,7 +481,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                                     </p>
                                   </Show>
                                   <Show when={draft.data!.sharedGenres.length > 0}>
-                                    <p class="muted">
+                                    <p class="text-muted-foreground">
                                       Overlaps on {draft.data!.sharedGenres.join(', ')}.
                                     </p>
                                   </Show>
@@ -522,7 +522,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
           <h3>Observations</h3>
           <Show when={detail.isPending}><SkeletonRows /></Show>
           <Show when={detail.data?.observations && '__error' in detail.data!.observations}>
-            <div class="error-card" role="alert">Failed to load observations</div>
+            <ErrorCard>Failed to load observations</ErrorCard>
           </Show>
           <Show when={detail.data}>
             <Show when={observations().length === 0}>
@@ -554,7 +554,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
           <h3>Extracted Entities (Latest)</h3>
           <Show when={detail.isPending}><SkeletonRows /></Show>
           <Show when={detail.data?.entities && '__error' in detail.data!.entities}>
-            <div class="error-card" role="alert">Failed to load entities</div>
+            <ErrorCard>Failed to load entities</ErrorCard>
           </Show>
           <Show when={detail.data}>
             <Show when={entities().length === 0}>

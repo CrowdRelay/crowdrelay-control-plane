@@ -9,6 +9,7 @@ import { SectionIcon } from './SectionIcon'
 import { SkeletonRows } from './Skeleton'
 import { StatusBadge } from './StatusBadge'
 import { Card } from './ui/card'
+import { TabBar } from './layout'
 import type { DeliveryDetails, DeliveryItem, OutboxItem } from '../lib/types'
 
 // The health panel's remediation for a dead letter reads "Open Deliveries and
@@ -106,10 +107,14 @@ export function QueueInspectorPanel(props: { slug: string }) {
     </div>
 
     <div class="queue-controls">
-      <div class="ui-tabs queue-tabs">
-        <button class="ui-tab" classList={{ active: tab() === 'deliveries' }} onClick={() => setTab('deliveries')}>Deliveries</button>
-        <button class="ui-tab" classList={{ active: tab() === 'outbox' }} onClick={() => setTab('outbox')}>Outbox</button>
-      </div>
+      <TabBar
+        tabs={[
+          { id: 'deliveries', label: 'Deliveries' },
+          { id: 'outbox', label: 'Outbox' },
+        ]}
+        active={tab()}
+        onChange={setTab}
+      />
       <label class="compact-field queue-filter">
         <span>Status</span>
         <select value={status()} onChange={event => setStatus(event.currentTarget.value)}>

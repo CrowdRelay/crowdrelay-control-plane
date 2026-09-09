@@ -85,7 +85,7 @@ export const ActivityHeatmap: Component<{
           <span class="eyebrow">ACTIVITY HEATMAP</span>
           <div class="ops-heatmap-summary">
             <strong>{totalActivity()}</strong>
-            <span class="muted">events in {weeks()} weeks · {activeDays()} active days</span>
+            <span class="text-muted-foreground">events in {weeks()} weeks · {activeDays()} active days</span>
           </div>
         </div>
         <div class="ops-heatmap-legend">

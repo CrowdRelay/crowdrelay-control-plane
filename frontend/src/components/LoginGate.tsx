@@ -1,6 +1,7 @@
 import { Show, createSignal, onMount } from 'solid-js'
 import type { Component, JSX } from 'solid-js'
 import { authState } from '../lib/auth'
+import { SkeletonBlock } from './layout'
 
 export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
   const [username, setUsername] = createSignal('')
@@ -63,8 +64,8 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
           operators on page refresh. */}
       <main class="login-shell">
         <div class="login-hydrating" aria-label="Loading">
-          <div class="skeleton-block" style={{ width: '48px', height: '48px', 'border-radius': '12px' }} />
-          <div class="skeleton-block" style={{ width: '180px', height: '16px', 'border-radius': '8px' }} />
+          <SkeletonBlock style={{ width: '48px', height: '48px', 'border-radius': '12px' }} />
+          <SkeletonBlock style={{ width: '180px', height: '16px', 'border-radius': '8px' }} />
         </div>
       </main>
     </Show>
