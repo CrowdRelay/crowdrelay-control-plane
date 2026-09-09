@@ -120,7 +120,7 @@ jobs:
           key: ${{ runner.os }}-cargo-audit-0.22.2
       - name: Install pinned cargo-audit
         if: steps.cargo-audit-cache.outputs.cache-hit != 'true'
-        run: cargo install cargo-audit --locked --version 0.22.2
+        run: cargo install cargo-audit --locked --force --version 0.22.2
       - name: Audit reachable Rust dependencies
         shell: bash
         run: |
