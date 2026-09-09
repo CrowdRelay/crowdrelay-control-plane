@@ -20,8 +20,8 @@ const freshProfile = () => ({ ...presets.PL })
 
 export function TenantsPage() {
   const queryClient = useQueryClient()
-  const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, reconcile: 'id', refetchOnWindowFocus: false }))
-  const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview, reconcile: 'id', refetchOnWindowFocus: false }))
+  const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, reconcile: 'id', staleTime: 15_000, refetchOnWindowFocus: false }))
+  const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview, reconcile: 'id', staleTime: 30_000, refetchOnWindowFocus: false }))
   const isAdmin = () => authState.profile()?.role === 'platform_admin'
   const [creating, setCreating] = createSignal(false)
   const [slug, setSlug] = createSignal('')

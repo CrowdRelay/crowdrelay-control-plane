@@ -32,6 +32,7 @@ export function AutomationPage() {
     queryKey: ['automation-events', statusFilter()],
     queryFn: () => api.automationEvents({ limit: 100, status: statusFilter() || undefined }),
     reconcile: 'id',
+    staleTime: 10_000,
     refetchOnWindowFocus: false,
   }))
   const configs = useQuery(() => ({

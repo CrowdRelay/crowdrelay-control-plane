@@ -71,7 +71,7 @@ const fanbaseSources: { value: FanbaseSource; label: string; description: string
 export function TenantWizardPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview, reconcile: 'id', refetchOnWindowFocus: false }))
+  const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview, reconcile: 'id', staleTime: 30_000, refetchOnWindowFocus: false }))
 
   const [step, setStep] = createSignal(1)
   const [slug, setSlug] = createSignal('')

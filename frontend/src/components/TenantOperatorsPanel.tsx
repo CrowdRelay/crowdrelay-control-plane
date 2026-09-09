@@ -18,6 +18,7 @@ export function TenantOperatorsPanel(props: { slug: string }) {
     queryFn: () => api.operators(props.slug),
     enabled: isAdmin(),
     reconcile: 'id',
+    staleTime: 30_000,
     refetchOnWindowFocus: false,
   }))
   const queryClient = useQueryClient()

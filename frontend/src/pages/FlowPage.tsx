@@ -10,6 +10,7 @@ export function FlowPage() {
     queryKey: ['tenants'],
     queryFn: () => api.tenants(),
     reconcile: 'id',
+    staleTime: 30_000,
     refetchOnWindowFocus: false,
   }))
 
