@@ -82,13 +82,14 @@ export function TenantPage() {
   const capabilities = () => model.data?.platform?.capabilities
   const provisioning = { get data() { return model.data?.provisioning } }
 
-  // Operations read model — lazy-loaded only when the Deployment tab is
-  // opened. `enabled` gates the query so it never fires for operators who
-  // only visit Profile or Access.
+  // Operations read model — loaded when the Profile or Deployment tab is
+  // opened. Profile needs it for the fan-growth KPI card (North Star);
+  // Deployment needs it for the operations detail. The query is cached by
+  // TanStack Query, so visiting one tab preloads the other.
   const operations = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
-    enabled: isVisited('deployment'),
+    enabled: isVisited('profile') || isVisited('deployment'),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
@@ -177,8 +178,90 @@ export function TenantPage() {
         ]}
       />
 
-      {/* ── Profile tab — identity, runtime, branding, mobile apps ── */}
+      {/* ── Profile tab — fan growth, identity, runtime, branding ── */}
       <TabPanel active={activeTab()} id="profile" visited={isVisited('profile')}>
+        {/* North Star fan-growth card — the first thing the operator sees
+            on the tenant landing page. Shows audience KPIs from the
+            operations read model. Degrades to a skeleton while loading
+            and to "unavailable" if the audience section fails. */}
+        <Show when={operations.data} fallback={
+          <Show when={operations.isFetching} fallback={
+            <article class="panel fan-growth-card fan-growth-unavailable">
+              <div class="section-title"><div><span class="eyebrow">NORTH STAR</span><h2><SectionIcon name="users" />Fan growth</h2></div></div>
+              <p class="muted">Fan data unavailable — the audience endpoint did not respond.</p>
+            </article>
+          }>
+            <article class="panel fan-growth-card skeleton-block" style={{ 'min-height': '120px', 'border-radius': 'var(--radius-lg)' }} />
+          </Show>
+        }>
+          <article class="panel fan-growth-card">
+            <div class="section-title">
+              <div><span class="eyebrow">NORTH STAR</span><h2><SectionIcon name="users" />Fan growth</h2></div>
+              <Link to="/tenants/$slug/audience" params={{ slug: t.slug }} class="section-link">Audience detail →</Link>
+            </div>
+            <div class="fan-growth-grid">
+              <div class="fan-growth-metric">
+                <span class="fan-growth-value">
+                  <Show when={operations.data?.audience?.active_fans != null} fallback={<span class="muted">—</span>}>
+                    {operations.data!.audience!.active_fans!.toLocaleString()}
+                  </Show>
+                </span>
+                <span class="fan-growth-label">Active fans</span>
+              </div>
+              <div class="fan-growth-metric">
+                <span class="fan-growth-value">
+                  <Show when={operations.data?.audience?.ticket_buyers != null} fallback={<span class="muted">—</span>}>
+                    {operations.data!.audience!.ticket_buyers!.toLocaleString()}
+                  </Show>
+                </span>
+                <span class="fan-growth-label">Ticket buyers</span>
+              </div>
+              <div class="fan-growth-metric">
+                <span class="fan-growth-value">
+                  <Show when={operations.data?.audience?.attendees != null} fallback={<span class="muted">—</span>}>
+                    {operations.data!.audience!.attendees!.toLocaleString()}
+                  </Show>
+                </span>
+                <span class="fan-growth-label">Attendees</span>
+              </div>
+              <div class="fan-growth-metric">
+                <span class="fan-growth-value">
+                  <Show when={operations.data?.audience?.paid_ticket_orders != null} fallback={<span class="muted">—</span>}>
+                    {operations.data!.audience!.paid_ticket_orders!.toLocaleString()}
+                  </Show>
+                </span>
+                <span class="fan-growth-label">Paid orders</span>
+              </div>
+              <div class="fan-growth-metric">
+                <span class="fan-growth-value">
+                  <Show when={operations.data?.audience?.qualified_referrals != null} fallback={<span class="muted">—</span>}>
+                    {operations.data!.audience!.qualified_referrals!.toLocaleString()}
+                  </Show>
+                </span>
+                <span class="fan-growth-label">Qualified referrals</span>
+              </div>
+              <div class="fan-growth-metric">
+                <span class="fan-growth-value">
+                  <Show when={operations.data?.audience?.marketing_consented_fans != null} fallback={<span class="muted">—</span>}>
+                    {operations.data!.audience!.marketing_consented_fans!.toLocaleString()}
+                  </Show>
+                </span>
+                <span class="fan-growth-label">Marketing consented</span>
+              </div>
+            </div>
+            <Show when={operations.data?.signal?.activity}>
+              <div class="fan-growth-rate">
+                <Show when={operations.data!.signal!.activity!.new_fans_7d != null}>
+                  <span class="fan-growth-delta">{operations.data!.signal!.activity!.new_fans_7d} new fans (7d)</span>
+                </Show>
+                <Show when={operations.data!.signal!.activity!.new_fans_30d != null}>
+                  <span class="muted">{operations.data!.signal!.activity!.new_fans_30d} new fans (30d)</span>
+                </Show>
+              </div>
+            </Show>
+          </article>
+        </Show>
+
         <div class="detail-grid">
           <TenantRuntimePanel slug={t.slug} initial={{ runtime: t.runtime, runtimeHealth: t.runtimeHealth }} />
           <article class="panel products-panel">

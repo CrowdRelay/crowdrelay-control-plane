@@ -50,6 +50,8 @@ export type Tenant = {
   signalEnabled: boolean
   signalPlayStoreUrl: string | null
   synesthesiaPlayStoreUrl: string | null
+  northStarMetric: string
+  fanbaseSources: string[]
   createdAt: string
   updatedAt: string
 }
@@ -563,7 +565,7 @@ export type TenantOverviewReadModel = {
   }
 }
 
-export type TenantOperationsSection = 'summary' | 'flags' | 'autopilot' | 'growth' | 'opportunities'
+export type TenantOperationsSection = 'summary' | 'flags' | 'autopilot' | 'growth' | 'opportunities' | 'signal' | 'audience' | 'growth_metrics' | 'acquisition'
 
 // Why a read-model section is missing. The Control Plane classifies each
 // failure at the tunnel instead of collapsing them all into "degraded", so a
@@ -613,6 +615,12 @@ export type TenantOperationsReadModel = {
   autopilot: AutopilotOverview | null
   growth: GrowthOverview | null
   opportunities: OpportunityBoardEntry[] | null
+  // North Star fan-growth sections. Each degrades independently — a dead
+  // audience endpoint does not blank signal KPIs.
+  signal: SignalOverview | null
+  audience: AudienceOverview | null
+  growth_metrics: GrowthMetricTrendsResponse | null
+  acquisition: ChannelPerformance[] | null
   // Sections the tenant channel could not serve. They render as locally
   // degraded instead of failing the whole subpage.
   degraded: TenantOperationsSection[]
@@ -2306,6 +2314,18 @@ export type CommandCenterTenantSummary = {
   learning: CommandCenterTenantLearning
   outcomes: CommandCenterTenantOutcomes
   brain: CommandCenterTenantAttention['brain']
+  // North Star fan KPIs — null when audience endpoint is unavailable,
+  // not zero. The operator sees "unknown" not "0 fans".
+  fans: {
+    available: boolean
+    activeFans: number | null
+    marketingConsentedFans: number | null
+    ticketBuyers: number | null
+    attendees: number | null
+    paidTicketOrders: number | null
+    qualifiedReferrals: number | null
+    synesthesiaParticipants: number | null
+  }
 }
 
 /// The global command-center read model — the first screen an operator sees.
@@ -2351,5 +2371,14 @@ export type CommandCenterReadModel = {
     rejected: number
   }
   brainNeedsAttention: boolean
+  // North Star fan KPIs — null when no tenant reported, so the UI can
+  // show "unknown" instead of a misleading "0 fans".
+  fans: {
+    activeFans: number | null
+    ticketBuyers: number | null
+    attendees: number | null
+    paidTicketOrders: number | null
+    reportingTenants: number
+  }
   perTenant: CommandCenterTenantSummary[]
 }

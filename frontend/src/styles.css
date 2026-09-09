@@ -294,6 +294,17 @@ a.kpi-card:hover{border-color:var(--border-accent)}
 @media(max-width:768px){.command-center-grid{grid-template-columns:1fr}}
 @media(min-width:769px) and (max-width:1100px){.command-center-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
+/* Fan growth card — North Star KPIs on the tenant profile tab */
+.fan-growth-card{margin-bottom:24px}
+.fan-growth-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:16px;margin-bottom:12px}
+.fan-growth-metric{display:flex;flex-direction:column;gap:4px}
+.fan-growth-value{font-size:1.75rem;font-weight:700;line-height:1;color:var(--text-primary)}
+.fan-growth-label{font-size:var(--text-xs);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.fan-growth-rate{display:flex;gap:16px;align-items:center;font-size:var(--text-sm);padding-top:8px;border-top:1px solid var(--border-subtle)}
+.fan-growth-delta{color:var(--good-light);font-weight:600}
+.fan-growth-unavailable{padding:24px}
+@media(max-width:768px){.fan-growth-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 /* Service cards — compact health tiles */
 .service-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-bottom:32px}
 .service-card{padding:16px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-2);transition:border-color var(--t-smooth),box-shadow var(--t-smooth)}

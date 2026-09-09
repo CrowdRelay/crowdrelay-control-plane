@@ -13,10 +13,6 @@ const SOURCE_KINDS = [
   { value: 'http_json_pull', label: 'HTTP JSON (pull)' },
   { value: 'csv_inline', label: 'CSV / inline batch' },
   { value: 'manual_import', label: 'Manual import' },
-  { value: 'meta_lead_ads', label: 'Meta Lead Ads' },
-  { value: 'bandsintown_followers', label: 'Bandsintown followers' },
-  { value: 'google_customer_match', label: 'Google Customer Match' },
-  { value: 'reddit_community', label: 'Reddit community' },
 ]
 
 const SOURCE_LABEL: Record<string, string> = Object.fromEntries(
@@ -24,9 +20,6 @@ const SOURCE_LABEL: Record<string, string> = Object.fromEntries(
 )
 
 const OAUTH_PLATFORMS = [
-  { value: 'meta', label: 'Meta (Facebook/Instagram)', icon: 'meta' },
-  { value: 'google_ads', label: 'Google Ads', icon: 'google_ads' },
-  { value: 'spotify', label: 'Spotify', icon: 'spotify' },
   { value: 'reddit', label: 'Reddit', icon: 'reddit' },
   { value: 'tiktok', label: 'TikTok', icon: 'tiktok' },
   { value: 'discord', label: 'Discord', icon: 'discord' },
@@ -40,7 +33,6 @@ const OAUTH_PLATFORMS = [
   { value: 'facebook', label: 'Facebook', icon: 'facebook' },
   { value: 'instagram', label: 'Instagram', icon: 'instagram' },
   { value: 'soundcloud', label: 'SoundCloud', icon: 'soundcloud' },
-  { value: 'x', label: 'X (Twitter)', icon: 'x' },
 ]
 
 const EMPTY_INGEST = ''
@@ -423,7 +415,7 @@ export function FanSourcesPanel(props: {
           </span>
         </Show>
       </div>
-      <p class="agent-section-intro">Connected ad and music platforms. Disconnect to revoke access.</p>
+      <p class="agent-section-intro">Connected audience and music platforms. Each connection syncs follower and engagement metrics on the growth schedule. Disconnect to revoke access.</p>
       <Show when={connections.error}><div class="error-card">Fan source connections unavailable: {errorMessage(connections.error, 'Service unreachable')}</div></Show>
       <Show when={!connections.isFetching} fallback={<SkeletonRows count={3} />}>
       <div class="agent-providers">
@@ -685,13 +677,13 @@ export function FanSourcesPanel(props: {
           <select value={sourceKind()} onChange={e => setSourceKind(e.currentTarget.value)}>
             <For each={SOURCE_KINDS}>{k => <option value={k.value}>{k.label}</option>}</For>
           </select>
-          <small>How fans reach the graph: a URL polled on a schedule, a batch you paste in, or a platform this tenant is connected to.</small>
+          <small>How fans reach the graph: a URL you import from, a batch you paste in, or a platform this tenant is connected to.</small>
         </label>
         <Show when={sourceKind() === 'http_json_pull'}>
           <label>
             <span>Fetch URL</span>
             <input value={fetchUrl()} onInput={e => setFetchUrl(e.currentTarget.value)} placeholder="https://…/candidates.json" />
-            <small>HTTPS endpoint returning the candidate list as JSON. Polled on the ingestion schedule; it must stay reachable, so avoid a signed URL that expires.</small>
+            <small>HTTPS endpoint returning the candidate list as JSON. The URL is stored for manual import; automatic polling is not yet wired.</small>
           </label>
         </Show>
         <Show when={needsAttestation()}>

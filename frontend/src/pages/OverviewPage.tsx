@@ -60,18 +60,169 @@ export function OverviewPage() {
   const firstAutopilotTenant = createMemo(() => ccTenants().find(t => t.autopilot.available && (t.autopilot.queuedActions > 0 || t.autopilot.processingActions > 0)))
   const firstOutcomesTenant = createMemo(() => ccTenants().find(t => t.outcomes.available && (t.outcomes.unknown > 0 || t.outcomes.waitingForObservation > 0)))
   const firstLearningTenant = createMemo(() => ccTenants().find(t => t.learning.available && t.learning.totalOutcomes > 0))
+  // The first tenant with fan data — the drill-down target for the
+  // AGGREGATE and CONVERT North Star blocks.
+  const firstFanTenant = createMemo(() => ccTenants().find(t => t.fans.available && t.fans.activeFans != null))
 
   return <section class="page">
     <div class="page-head">
       <div>
-        <span class="eyebrow">COMMAND CENTER</span>
-        <h1>Operations command center</h1>
-        <p>The whole ecosystem at a glance — attention, autopilot, outcomes, system and learning signal across all tenants. Each block drills into the page that owns the detail.</p>
+        <span class="eyebrow">NORTH STAR</span>
+        <h1>Fan growth command center</h1>
+        <p>Aggregate real fans, grow them through genuine engagement, convert through tickets, merch and attendance. Each block drills into the page that owns the detail.</p>
       </div>
       <Show when={lastRefresh()}><span class="muted page-head-meta">Last refresh {lastRefresh()}</span></Show>
     </div>
 
-    {/* ── Command blocks ─────────────────────────────────────────── */}
+    {/* ── North Star fan KPI strip ────────────────────────────────── */}
+    <Switch>
+      <Match when={commandCenter.isError}>
+        <div class="error-card" role="alert">{errorMessage(commandCenter.error, 'Command center unavailable')}</div>
+      </Match>
+      <Match when={!cc()}>
+        <div class="kpi-strip">
+          {Array.from({ length: 4 }, () => (
+            <div class="kpi-card skeleton-block" style={{ 'min-height': '80px', 'border-radius': 'var(--radius-lg)' }} />
+          ))}
+        </div>
+      </Match>
+      <Match when={cc()}>
+        <div class="kpi-strip">
+          <article class="kpi-card kpi-good">
+            <span class="kpi-label">Active fans</span>
+            <Show when={cc()!.fans.activeFans != null} fallback={<span class="muted">—</span>}>
+              <CountUp value={cc()!.fans.activeFans!} />
+            </Show>
+            <span class="kpi-sub">
+              <Show when={cc()!.fans.reportingTenants > 0} fallback="no tenants reporting">
+                across {cc()!.fans.reportingTenants} {cc()!.fans.reportingTenants === 1 ? 'tenant' : 'tenants'}
+              </Show>
+            </span>
+          </article>
+          <article class="kpi-card">
+            <span class="kpi-label">Ticket buyers</span>
+            <Show when={cc()!.fans.ticketBuyers != null} fallback={<span class="muted">—</span>}>
+              <CountUp value={cc()!.fans.ticketBuyers!} />
+            </Show>
+            <span class="kpi-sub">conversion signal</span>
+          </article>
+          <article class="kpi-card">
+            <span class="kpi-label">Attendees</span>
+            <Show when={cc()!.fans.attendees != null} fallback={<span class="muted">—</span>}>
+              <CountUp value={cc()!.fans.attendees!} />
+            </Show>
+            <span class="kpi-sub">live show conversion</span>
+          </article>
+          <article class="kpi-card">
+            <span class="kpi-label">Paid ticket orders</span>
+            <Show when={cc()!.fans.paidTicketOrders != null} fallback={<span class="muted">—</span>}>
+              <CountUp value={cc()!.fans.paidTicketOrders!} />
+            </Show>
+            <span class="kpi-sub">revenue signal</span>
+          </article>
+        </div>
+      </Match>
+    </Switch>
+
+    {/* ── North Star command blocks (Aggregate → Engage → Convert) ── */}
+    <Switch>
+      <Match when={!cc()}>
+        <div class="command-center-grid">
+          {Array.from({ length: 3 }, () => (
+            <div class="command-block skeleton-block" style={{ 'min-height': '120px', 'border-radius': 'var(--radius-lg)' }} />
+          ))}
+        </div>
+      </Match>
+      <Match when={cc()}>
+        <div class="command-center-grid">
+          {/* AGGREGATE */}
+          <Link
+            class="command-block"
+            to={firstFanTenant() ? '/tenants/$slug/audience' : '/tenants'}
+            params={firstFanTenant() ? { slug: firstFanTenant()!.slug } : {}}
+          >
+            <div class="command-block-head">
+              <span class="eyebrow">AGGREGATE</span>
+            </div>
+            <div class="command-block-body">
+              <div class="command-block-metric">
+                <Show when={cc()!.fans.activeFans != null} fallback={<span class="muted">—</span>}>
+                  <CountUp value={cc()!.fans.activeFans!} />
+                </Show>
+                <span class="command-block-label">active fans</span>
+              </div>
+              <div class="command-block-detail">
+                <Show when={cc()!.fans.reportingTenants > 0 && cc()!.fans.reportingTenants < cc()!.tenants.total}>
+                  <span class="muted">{cc()!.tenants.total - cc()!.fans.reportingTenants} tenants not reporting audience</span>
+                </Show>
+                <Show when={cc()!.fans.reportingTenants === 0}>
+                  <span class="muted">No audience data yet</span>
+                </Show>
+                <Show when={cc()!.fans.reportingTenants === cc()!.tenants.total && cc()!.fans.activeFans != null}>
+                  <span class="muted">All tenants reporting</span>
+                </Show>
+              </div>
+            </div>
+          </Link>
+
+          {/* ENGAGE */}
+          <Link
+            class="command-block"
+            to={firstAutopilotTenant() ? '/tenants/$slug/intelligence' : '/tenants'}
+            params={firstAutopilotTenant() ? { slug: firstAutopilotTenant()!.slug } : {}}
+            classList={{ 'command-block-active': (cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions) > 0 }}
+          >
+            <div class="command-block-head">
+              <span class="eyebrow">ENGAGE</span>
+            </div>
+            <div class="command-block-body">
+              <div class="command-block-metric">
+                <CountUp value={cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions} />
+                <span class="command-block-label">in flight</span>
+              </div>
+              <div class="command-block-detail">
+                <Show when={cc()!.autopilot.succeeded24h > 0}><span class="command-block-good">{cc()!.autopilot.succeeded24h} succeeded (24h)</span></Show>
+                <Show when={cc()!.autopilot.queuedActions === 0 && cc()!.autopilot.processingActions === 0}>
+                  <span class="muted">No engagement actions in flight</span>
+                </Show>
+              </div>
+            </div>
+          </Link>
+
+          {/* CONVERT */}
+          <Link
+            class="command-block"
+            to={firstFanTenant() ? '/tenants/$slug/audience' : '/tenants'}
+            params={firstFanTenant() ? { slug: firstFanTenant()!.slug } : {}}
+            classList={{ 'command-block-good': cc()!.fans.ticketBuyers != null && cc()!.fans.ticketBuyers! > 0 }}
+          >
+            <div class="command-block-head">
+              <span class="eyebrow">CONVERT</span>
+            </div>
+            <div class="command-block-body">
+              <div class="command-block-metric">
+                <Show when={cc()!.fans.ticketBuyers != null} fallback={<span class="muted">—</span>}>
+                  <CountUp value={cc()!.fans.ticketBuyers!} />
+                </Show>
+                <span class="command-block-label">ticket buyers</span>
+              </div>
+              <div class="command-block-detail">
+                <Show when={cc()!.fans.attendees != null && cc()!.fans.attendees! > 0}><span>{cc()!.fans.attendees!} attendees</span></Show>
+                <Show when={cc()!.fans.paidTicketOrders != null && cc()!.fans.paidTicketOrders! > 0}><span>{cc()!.fans.paidTicketOrders!} paid orders</span></Show>
+                <Show when={(cc()!.fans.ticketBuyers == null || cc()!.fans.ticketBuyers === 0) && (cc()!.fans.attendees == null || cc()!.fans.attendees === 0)}>
+                  <span class="muted">No conversion data yet</span>
+                </Show>
+              </div>
+            </div>
+          </Link>
+        </div>
+      </Match>
+    </Switch>
+
+    {/* ── Operations command blocks ──────────────────────────────── */}
+    <div class="section-title">
+      <div><span class="eyebrow">OPERATIONS</span><h2><SectionIcon name="activity" />Operations signal</h2></div>
+    </div>
     <Switch>
       <Match when={commandCenter.isError}>
         <div class="error-card" role="alert">{errorMessage(commandCenter.error, 'Command center unavailable')}</div>
