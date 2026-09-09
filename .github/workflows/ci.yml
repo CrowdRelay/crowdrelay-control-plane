@@ -38,9 +38,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Activate Rust toolchain
         run: |
-          # actions/checkout overrides HOME to a temp dir, so use the
-          # runner's real home path explicitly.
-          source "/home/ubuntu/.cargo/env" 2>/dev/null || true
           echo "/home/ubuntu/.cargo/bin" >> "$GITHUB_PATH"
           echo "RUSTUP_HOME=/home/ubuntu/.rustup" >> "$GITHUB_ENV"
           echo "CARGO_HOME=/home/ubuntu/.cargo" >> "$GITHUB_ENV"
@@ -105,7 +102,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Activate Rust toolchain
         run: |
-          source "/home/ubuntu/.cargo/env" 2>/dev/null || true
           echo "/home/ubuntu/.cargo/bin" >> "$GITHUB_PATH"
           echo "RUSTUP_HOME=/home/ubuntu/.rustup" >> "$GITHUB_ENV"
           echo "CARGO_HOME=/home/ubuntu/.cargo" >> "$GITHUB_ENV"
