@@ -121,15 +121,30 @@ pub fn ingestion_router() -> Router<AppState> {
 }
 
 /// Operator-facing router: browse events, ack, retry, configure workflows.
+/// Mounted under the scoped tenant router so every path is
+/// `/tenants/{slug}/automation/*` and the `require_tenant_access` guard
+/// enforces the caller's scope before any handler runs.
 pub fn operator_router() -> Router<AppState> {
     Router::new()
-        .route("/automation/events", get(list_events))
-        .route("/automation/events/{id}/ack", post(ack_event))
-        .route("/automation/events/{id}/resolve", post(resolve_event))
-        .route("/automation/events/{id}/retry", post(retry_event))
-        .route("/automation/workflows", get(list_workflow_configs))
+        .route("/tenants/{slug}/automation/events", get(list_events))
         .route(
-            "/automation/workflows/{workflow_id}",
+            "/tenants/{slug}/automation/events/{id}/ack",
+            post(ack_event),
+        )
+        .route(
+            "/tenants/{slug}/automation/events/{id}/resolve",
+            post(resolve_event),
+        )
+        .route(
+            "/tenants/{slug}/automation/events/{id}/retry",
+            post(retry_event),
+        )
+        .route(
+            "/tenants/{slug}/automation/workflows",
+            get(list_workflow_configs),
+        )
+        .route(
+            "/tenants/{slug}/automation/workflows/{workflow_id}",
             axum::routing::patch(update_workflow_config),
         )
 }
@@ -220,11 +235,14 @@ struct ListEventsQuery {
 
 async fn list_events(
     State(state): State<AppState>,
+    Path(slug): Path<String>,
     Query(query): Query<ListEventsQuery>,
 ) -> Result<Response, ApiError> {
+    let tenant = state.store.tenant_by_slug(&slug).await?;
     let events = state
         .store
         .list_automation_events(
+            tenant.tenant.id,
             query.limit.unwrap_or(50),
             query.status.as_deref(),
             query.workflow_id.as_deref(),
@@ -235,7 +253,7 @@ async fn list_events(
 
 async fn ack_event(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path((_slug, id)): Path<(String, Uuid)>,
 ) -> Result<Response, ApiError> {
     state.store.ack_automation_event(id).await?;
     Ok(json_no_store(json!({ "id": id, "status": "acknowledged" })))
@@ -243,7 +261,7 @@ async fn ack_event(
 
 async fn resolve_event(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path((_slug, id)): Path<(String, Uuid)>,
 ) -> Result<Response, ApiError> {
     state.store.resolve_automation_event(id).await?;
     Ok(json_no_store(json!({ "id": id, "status": "resolved" })))
@@ -251,7 +269,7 @@ async fn resolve_event(
 
 async fn retry_event(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path((_slug, id)): Path<(String, Uuid)>,
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let event = state.store.get_automation_event(id).await?;
@@ -304,19 +322,28 @@ async fn retry_event(
     Ok(json_no_store(json!({ "id": id, "status": "retried" })))
 }
 
-async fn list_workflow_configs(State(state): State<AppState>) -> Result<Response, ApiError> {
-    let configs = state.store.list_automation_workflow_configs().await?;
+async fn list_workflow_configs(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+) -> Result<Response, ApiError> {
+    let tenant = state.store.tenant_by_slug(&slug).await?;
+    let configs = state
+        .store
+        .list_automation_workflow_configs(tenant.tenant.id)
+        .await?;
     Ok(json_no_store(json!({ "items": configs })))
 }
 
 async fn update_workflow_config(
     State(state): State<AppState>,
-    Path(workflow_id): Path<String>,
+    Path((slug, workflow_id)): Path<(String, String)>,
     Json(input): Json<UpdateAutomationWorkflowConfigRequest>,
 ) -> Result<Response, ApiError> {
+    let tenant = state.store.tenant_by_slug(&slug).await?;
     let config = state
         .store
         .upsert_automation_workflow_config(
+            tenant.tenant.id,
             &workflow_id,
             input.label.as_deref(),
             input.category.as_deref(),

@@ -541,7 +541,7 @@ async fn sync_automation_routing(
     State(state): State<AppState>,
     Path(slug): Path<String>,
 ) -> Result<Response, ApiError> {
-    state.store.tenant_by_slug(&slug).await?;
+    let tenant = state.store.tenant_by_slug(&slug).await?;
     let (base_url, api_key) = match (state.n8n_base_url.as_deref(), state.n8n_api_key.as_deref()) {
         (Some(url), Some(key)) => (url, key),
         _ => {
@@ -594,7 +594,7 @@ async fn sync_automation_routing(
 
     let existing: std::collections::HashSet<String> = state
         .store
-        .list_automation_workflow_configs()
+        .list_automation_workflow_configs(tenant.tenant.id)
         .await?
         .into_iter()
         .map(|row| row.workflow_id)
@@ -611,6 +611,7 @@ async fn sync_automation_routing(
             match state
                 .store
                 .upsert_automation_workflow_config(
+                    tenant.tenant.id,
                     &workflow.id,
                     Some(&workflow.name),
                     None,
@@ -629,6 +630,7 @@ async fn sync_automation_routing(
         match state
             .store
             .upsert_automation_workflow_config(
+                tenant.tenant.id,
                 &workflow.id,
                 Some(&workflow.name),
                 Some(categorise_workflow(&workflow.name)),
@@ -650,8 +652,11 @@ async fn automation_routing(
     State(state): State<AppState>,
     Path(slug): Path<String>,
 ) -> Result<Response, ApiError> {
-    state.store.tenant_by_slug(&slug).await?;
-    let configs = state.store.list_automation_workflow_configs().await?;
+    let tenant = state.store.tenant_by_slug(&slug).await?;
+    let configs = state
+        .store
+        .list_automation_workflow_configs(tenant.tenant.id)
+        .await?;
     let items: Vec<serde_json::Value> = configs
         .iter()
         .map(|row| {

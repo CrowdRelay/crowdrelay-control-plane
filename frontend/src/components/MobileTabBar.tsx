@@ -68,16 +68,6 @@ export const MobileTabBar: Component = () => {
           <span>Overview</span>
         </Link>
         <Link
-          to="/attention"
-          class="mobile-tab"
-          classList={{ active: isActive('/attention', false) }}
-          activeOptions={{ exact: false }}
-          aria-current={isActive('/attention', false) ? 'page' : undefined}
-        >
-          <TabIcon name="attention" />
-          <span>Attention</span>
-        </Link>
-        <Link
           to={opsPath() as any}
           class="mobile-tab"
           classList={{ active: pathname().includes('/operations') }}

@@ -2,7 +2,7 @@ import type { OperationsSummary, RuntimeHealth } from './types'
 import { oldestQueueAge } from './format'
 
 // Shared health/operational tone utilities. Previously duplicated across
-// OverviewPage, OperatorAttentionPage, TenantHealthPage, TenantOperationsPage,
+// OverviewPage, TenantHealthPage, TenantOperationsPage,
 // OperationsPanel, RuntimeSwitchesPanel, and Shell — each copy had drifted
 // in thresholds and casing.
 

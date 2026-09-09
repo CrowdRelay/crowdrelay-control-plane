@@ -474,6 +474,7 @@ pub struct ProvisioningFailureRequest {
 #[serde(rename_all = "camelCase")]
 pub struct AutomationEventRow {
     pub id: Uuid,
+    pub tenant_id: Uuid,
     pub workflow_id: String,
     pub workflow_name: String,
     pub execution_id: Option<String>,
@@ -492,6 +493,7 @@ pub struct AutomationEventRow {
 #[derive(Debug, Clone, Serialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct AutomationWorkflowConfigRow {
+    pub tenant_id: Uuid,
     pub workflow_id: String,
     pub label: String,
     pub category: String,
@@ -504,6 +506,7 @@ pub struct AutomationWorkflowConfigRow {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CreateAutomationEventRequest {
+    pub tenant_slug: String,
     pub workflow_id: String,
     pub workflow_name: String,
     pub execution_id: Option<String>,

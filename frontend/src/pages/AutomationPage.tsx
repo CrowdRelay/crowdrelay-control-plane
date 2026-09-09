@@ -1,5 +1,6 @@
 import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
+import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { toast } from '../lib/toast'
@@ -24,20 +25,22 @@ const formatTime = (iso: string) => {
 }
 
 export function AutomationPage() {
+  const params = useParams({ from: '/tenants/$slug/automation' })
+  const slug = () => params().slug
   const queryClient = useQueryClient()
   const [statusFilter, setStatusFilter] = createSignal<string>('')
   const [showConfigs, setShowConfigs] = createSignal(false)
 
   const events = useQuery(() => ({
-    queryKey: ['automation-events', statusFilter()],
-    queryFn: () => api.automationEvents({ limit: 100, status: statusFilter() || undefined }),
+    queryKey: ['automation-events', slug(), statusFilter()],
+    queryFn: () => api.automationEvents(slug(), { limit: 100, status: statusFilter() || undefined }),
     reconcile: 'id',
     staleTime: 10_000,
     refetchOnWindowFocus: false,
   }))
   const configs = useQuery(() => ({
-    queryKey: ['automation-workflow-configs'],
-    queryFn: api.automationWorkflowConfigs,
+    queryKey: ['automation-workflow-configs', slug()],
+    queryFn: () => api.automationWorkflowConfigs(slug()),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   }))
@@ -52,8 +55,8 @@ export function AutomationPage() {
   const errorCount = () => events.data?.items.filter(e => e.severity === 'error').length ?? 0
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['automation-events'] })
-    queryClient.invalidateQueries({ queryKey: ['automation-workflow-configs'] })
+    queryClient.invalidateQueries({ queryKey: ['automation-events', slug()] })
+    queryClient.invalidateQueries({ queryKey: ['automation-workflow-configs', slug()] })
   }
 
   const [busyId, setBusyId] = createSignal<string | null>(null)
@@ -61,28 +64,28 @@ export function AutomationPage() {
   const handleAck = async (id: string) => {
     if (busyId()) return
     setBusyId(id)
-    try { await api.ackAutomationEvent(id); invalidate() }
+    try { await api.ackAutomationEvent(slug(), id); invalidate() }
     catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to acknowledge') }
     finally { setBusyId(null) }
   }
   const handleResolve = async (id: string) => {
     if (busyId()) return
     setBusyId(id)
-    try { await api.resolveAutomationEvent(id); invalidate() }
+    try { await api.resolveAutomationEvent(slug(), id); invalidate() }
     catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to resolve') }
     finally { setBusyId(null) }
   }
   const handleRetry = async (id: string) => {
     if (busyId()) return
     setBusyId(id)
-    try { await api.retryAutomationEvent(id); invalidate() }
+    try { await api.retryAutomationEvent(slug(), id); invalidate() }
     catch (e) { toast.error(e instanceof Error ? e.message : 'Retry failed') }
     finally { setBusyId(null) }
   }
   const handleConfigUpdate = async (workflowId: string, input: { category?: string; discordEnabled?: boolean; muted?: boolean }) => {
     if (busyId()) return
     setBusyId(`cfg:${workflowId}`)
-    try { await api.updateAutomationWorkflowConfig(workflowId, input); invalidate() }
+    try { await api.updateAutomationWorkflowConfig(slug(), workflowId, input); invalidate() }
     catch (e) { toast.error(e instanceof Error ? e.message : 'Update failed') }
     finally { setBusyId(null) }
   }

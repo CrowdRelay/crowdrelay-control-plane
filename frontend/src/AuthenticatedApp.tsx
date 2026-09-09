@@ -19,7 +19,6 @@ const PortfolioPage = lazyRouteComponent(() => import('./pages/PortfolioPage'), 
 const AudiencePage = lazyRouteComponent(() => import('./pages/AudiencePage'), 'AudiencePage')
 const BeaconsPage = lazyRouteComponent(() => import('./pages/BeaconsPage'), 'BeaconsPage')
 const TenantNotifiersPage = lazyRouteComponent(() => import('./pages/TenantNotifiersPage'), 'TenantNotifiersPage')
-const OperatorAttentionPage = lazyRouteComponent(() => import('./pages/OperatorAttentionPage'), 'OperatorAttentionPage')
 const AutomationPage = lazyRouteComponent(() => import('./pages/AutomationPage'), 'AutomationPage')
 
 const rootRoute = createRootRoute({ component: Shell })
@@ -38,15 +37,16 @@ const tenantHealthRoute = createRoute({ getParentRoute: () => rootRoute, path: '
 const tenantIntelligenceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/intelligence', component: TenantIntelligencePage })
 const tenantIntegrationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/integrations', component: TenantIntegrationsPage })
 const tenantNotifiersRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/notifiers', component: TenantNotifiersPage })
-const operatorAttentionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/attention', component: OperatorAttentionPage })
-const automationRoute = createRoute({ getParentRoute: () => rootRoute, path: '/automation', component: AutomationPage })
+const tenantAutomationRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/automation', component: AutomationPage })
+const operatorAttentionRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/attention', beforeLoad: () => { throw redirect({ href: '/' }) } })
+const automationRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/automation', beforeLoad: () => { throw redirect({ href: '/tenants/virya/automation' }) } })
 
 // Legacy redirects — old routes that were consolidated into other pages
 const tenantActionsRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/actions', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/operations` }) } })
 const funnelRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/funnel', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/intelligence` }) } })
 const communityRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/communities', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/audience` }) } })
 
-const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute, tenantWizardRoute, operatorAttentionRoute, automationRoute, tenantRoute, tenantActionsRedirect, tenantAttentionRoute, tenantOperationsRoute, tenantHealthRoute, tenantIntelligenceRoute, tenantIntegrationsRoute, tenantNotifiersRoute, communityRedirect, portfolioRoute, audienceRoute, funnelRedirect, beaconsRoute, areaRoute])
+const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute, tenantWizardRoute, operatorAttentionRedirect, automationRedirect, tenantRoute, tenantActionsRedirect, tenantAttentionRoute, tenantOperationsRoute, tenantHealthRoute, tenantIntelligenceRoute, tenantIntegrationsRoute, tenantNotifiersRoute, tenantAutomationRoute, communityRedirect, portfolioRoute, audienceRoute, funnelRedirect, beaconsRoute, areaRoute])
 const router = createRouter({ routeTree, defaultPreload: 'intent', defaultPreloadStaleTime: 10_000, scrollRestoration: true })
 
 declare module '@tanstack/solid-router' { interface Register { router: typeof router } }

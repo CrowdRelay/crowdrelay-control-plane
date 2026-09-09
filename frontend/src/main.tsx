@@ -13,7 +13,7 @@ window.addEventListener('vite:preloadError', (event) => {
 // Static source contracts intentionally remain visible in the bootstrap source.
 // @tanstack/solid-query
 // @tanstack/solid-router
-// Operator attention route: path: '/attention' -> OperatorAttentionPage
+// Operator attention route: path: '/attention' -> redirects to '/'
 // Tenant attention route: path: '/tenants/$slug/attention' -> TenantAttentionPage
 // The actual QueryClient/router remain inside AuthenticatedApp so the login
 // bootstrap does not eagerly pull the authenticated application bundle back in.

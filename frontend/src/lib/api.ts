@@ -348,18 +348,18 @@ export const api = {
   areaArchive: (slug:string,id:string) => request<AreaDropDetail>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}/archive`, {method:'POST',body:'{}'}),
   areaDuplicate: (slug:string,id:string,newDropId:string,cityId:string) => request<AreaDropDetail>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}/duplicate`, {method:'POST',body:JSON.stringify({newDropId,cityId})}),
   areaDelete: (slug:string,id:string) => request<void>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}`, {method:'DELETE'}),
-  automationEvents: (params?: { limit?: number; status?: string; workflowId?: string }) =>
-    request<{ items: AutomationEvent[] }>(`/automation/events${params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])).toString() : ''}`),
-  ackAutomationEvent: (id: string) =>
-    request<{ id: string; status: string }>(`/automation/events/${encodeURIComponent(id)}/ack`, { method: 'POST', body: '{}' }),
-  resolveAutomationEvent: (id: string) =>
-    request<{ id: string; status: string }>(`/automation/events/${encodeURIComponent(id)}/resolve`, { method: 'POST', body: '{}' }),
-  retryAutomationEvent: (id: string) =>
-    request<{ id: string; status: string }>(`/automation/events/${encodeURIComponent(id)}/retry`, { method: 'POST', body: '{}', headers: { 'idempotency-key': crypto.randomUUID() } }),
-  automationWorkflowConfigs: () =>
-    request<{ items: AutomationWorkflowConfig[] }>(`/automation/workflows`),
-  updateAutomationWorkflowConfig: (workflowId: string, input: { category?: string; discordEnabled?: boolean; muted?: boolean; label?: string }) =>
-    request<AutomationWorkflowConfig>(`/automation/workflows/${encodeURIComponent(workflowId)}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  automationEvents: (slug: string, params?: { limit?: number; status?: string; workflowId?: string }) =>
+    request<{ items: AutomationEvent[] }>(`/tenants/${encodeURIComponent(slug)}/automation/events${params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])).toString() : ''}`),
+  ackAutomationEvent: (slug: string, id: string) =>
+    request<{ id: string; status: string }>(`/tenants/${encodeURIComponent(slug)}/automation/events/${encodeURIComponent(id)}/ack`, { method: 'POST', body: '{}' }),
+  resolveAutomationEvent: (slug: string, id: string) =>
+    request<{ id: string; status: string }>(`/tenants/${encodeURIComponent(slug)}/automation/events/${encodeURIComponent(id)}/resolve`, { method: 'POST', body: '{}' }),
+  retryAutomationEvent: (slug: string, id: string) =>
+    request<{ id: string; status: string }>(`/tenants/${encodeURIComponent(slug)}/automation/events/${encodeURIComponent(id)}/retry`, { method: 'POST', body: '{}', headers: { 'idempotency-key': crypto.randomUUID() } }),
+  automationWorkflowConfigs: (slug: string) =>
+    request<{ items: AutomationWorkflowConfig[] }>(`/tenants/${encodeURIComponent(slug)}/automation/workflows`),
+  updateAutomationWorkflowConfig: (slug: string, workflowId: string, input: { category?: string; discordEnabled?: boolean; muted?: boolean; label?: string }) =>
+    request<AutomationWorkflowConfig>(`/tenants/${encodeURIComponent(slug)}/automation/workflows/${encodeURIComponent(workflowId)}`, { method: 'PATCH', body: JSON.stringify(input) }),
 
   // --- Agent service (proxied through control-plane) ---
   agentTemplates: (slug: string) =>
