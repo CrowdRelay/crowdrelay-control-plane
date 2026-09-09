@@ -6,7 +6,7 @@ import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { Dialog } from './Dialog'
 import { TabBar, TabPanel, useTabPanels } from './TabBar'
-import { PremiumAIPanel } from './PremiumAIPanel'
+import { AgentProvidersPanel } from './AgentProvidersPanel'
 import { AIUsagePanel } from './AIUsagePanel'
 import { IntelligenceTransparencyPanel } from './IntelligenceTransparencyPanel'
 import { EmptyState } from './EmptyState'
@@ -258,7 +258,7 @@ export function AgentPanel(props: { slug: string }) {
           page-wide skeleton. Queries are gated by `enabled: tab() === ...`
           so hidden tabs don't refetch on the global refresh tick. */}
       <TabPanel active={activeTab()} id="providers" visited={isVisited('providers')}>
-        <PremiumAIPanel slug={props.slug} providers={providers()} credentials={credentials()} refetchCreds={() => refreshQueries(['agent-providers-overview', props.slug])} active={activeTab() === 'providers'} models={models()} />
+        <AgentProvidersPanel slug={props.slug} providers={providers()} credentials={credentials()} refetchCreds={() => refreshQueries(['agent-providers-overview', props.slug])} active={activeTab() === 'providers'} models={models()} />
       </TabPanel>
 
       <TabPanel active={activeTab()} id="usage" visited={isVisited('usage')}>

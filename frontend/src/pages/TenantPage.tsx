@@ -201,7 +201,7 @@ export function TenantPage() {
             </div>
             <div class="fan-growth-grid">
               <div class="fan-growth-metric">
-                <span class="fan-growth-value">
+                <span class="fan-growth-value tabular-nums">
                   <Show when={operations.data?.audience?.active_fans != null} fallback={<span class="muted">—</span>}>
                     {operations.data!.audience!.active_fans!.toLocaleString()}
                   </Show>
@@ -209,7 +209,7 @@ export function TenantPage() {
                 <span class="fan-growth-label">Active fans</span>
               </div>
               <div class="fan-growth-metric">
-                <span class="fan-growth-value">
+                <span class="fan-growth-value tabular-nums">
                   <Show when={operations.data?.audience?.ticket_buyers != null} fallback={<span class="muted">—</span>}>
                     {operations.data!.audience!.ticket_buyers!.toLocaleString()}
                   </Show>
@@ -217,7 +217,7 @@ export function TenantPage() {
                 <span class="fan-growth-label">Ticket buyers</span>
               </div>
               <div class="fan-growth-metric">
-                <span class="fan-growth-value">
+                <span class="fan-growth-value tabular-nums">
                   <Show when={operations.data?.audience?.attendees != null} fallback={<span class="muted">—</span>}>
                     {operations.data!.audience!.attendees!.toLocaleString()}
                   </Show>
@@ -225,7 +225,7 @@ export function TenantPage() {
                 <span class="fan-growth-label">Attendees</span>
               </div>
               <div class="fan-growth-metric">
-                <span class="fan-growth-value">
+                <span class="fan-growth-value tabular-nums">
                   <Show when={operations.data?.audience?.paid_ticket_orders != null} fallback={<span class="muted">—</span>}>
                     {operations.data!.audience!.paid_ticket_orders!.toLocaleString()}
                   </Show>
@@ -233,7 +233,7 @@ export function TenantPage() {
                 <span class="fan-growth-label">Paid orders</span>
               </div>
               <div class="fan-growth-metric">
-                <span class="fan-growth-value">
+                <span class="fan-growth-value tabular-nums">
                   <Show when={operations.data?.audience?.qualified_referrals != null} fallback={<span class="muted">—</span>}>
                     {operations.data!.audience!.qualified_referrals!.toLocaleString()}
                   </Show>
@@ -241,7 +241,7 @@ export function TenantPage() {
                 <span class="fan-growth-label">Qualified referrals</span>
               </div>
               <div class="fan-growth-metric">
-                <span class="fan-growth-value">
+                <span class="fan-growth-value tabular-nums">
                   <Show when={operations.data?.audience?.marketing_consented_fans != null} fallback={<span class="muted">—</span>}>
                     {operations.data!.audience!.marketing_consented_fans!.toLocaleString()}
                   </Show>
@@ -252,10 +252,10 @@ export function TenantPage() {
             <Show when={operations.data?.signal?.activity}>
               <div class="fan-growth-rate">
                 <Show when={operations.data!.signal!.activity!.new_fans_7d != null}>
-                  <span class="fan-growth-delta">{operations.data!.signal!.activity!.new_fans_7d} new fans (7d)</span>
+                  <span class="fan-growth-delta tabular-nums">{operations.data!.signal!.activity!.new_fans_7d} new fans (7d)</span>
                 </Show>
                 <Show when={operations.data!.signal!.activity!.new_fans_30d != null}>
-                  <span class="muted">{operations.data!.signal!.activity!.new_fans_30d} new fans (30d)</span>
+                  <span class="muted tabular-nums">{operations.data!.signal!.activity!.new_fans_30d} new fans (30d)</span>
                 </Show>
               </div>
             </Show>

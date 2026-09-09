@@ -96,7 +96,7 @@ const CheckIcon = (props: { size?: number }) => (
 
 // ─── Component ──────────────────────────────────────────────────────────
 
-export function PremiumAIPanel(props: {
+export function AgentProvidersPanel(props: {
   slug: string
   providers?: AgentProvider[]
   credentials?: AgentCredential[]

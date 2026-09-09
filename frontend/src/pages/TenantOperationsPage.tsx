@@ -20,6 +20,12 @@ import type { TenantOperationsReadModel } from '../lib/types'
 const metric = (value: number | undefined | null, suffix = '') =>
   value == null ? '—' : `${value.toLocaleString()}${suffix}`
 
+/** Format an integer with thousands separators, or dash for null/undefined. */
+const fmt = (n: number | null | undefined): string => {
+  if (n == null) return '—'
+  return n.toLocaleString('en-US')
+}
+
 export function TenantOperationsPage() {
   const params = useParams({ from: '/tenants/$slug/operations' })
   const { activeTab, switchTab, isVisited } = useTabPanels('opportunities')

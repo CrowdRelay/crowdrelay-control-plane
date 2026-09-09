@@ -4,7 +4,6 @@ import { api } from '../lib/api'
 import { formatTimestamp } from '../lib/format'
 import type { AgentScorecard } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
-import { CountUp } from './CountUp'
 import { ProgressRing } from './ProgressRing'
 import { SkeletonScorecard } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
@@ -12,6 +11,10 @@ import { CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } fr
 
 const count = (value: number | undefined | null) =>
   value == null ? '—' : value.toLocaleString()
+
+/** Render an integer with thousands separators, wrapped for tabular alignment. */
+const num = (value: number | undefined | null) =>
+  value == null ? <span class="muted">—</span> : <strong class="tabular-nums">{value.toLocaleString()}</strong>
 
 const bpsToPercent = (value: number | null | undefined) =>
   value == null ? '—' : `${(value / 100).toFixed(1)}%`
@@ -150,7 +153,7 @@ export function ScorecardPanel(props: { slug: string }) {
           <div><span class="eyebrow">THIS WEEK</span><h3><SectionIcon name="zap" />Actions</h3></div>
         </div>
         <div class="operations-metrics">
-          <div><span>Executed</span><CountUp value={d().week.executed} /><small>{count(d().week.succeeded)} succeeded · {count(d().week.failed)} failed</small></div>
+          <div><span>Executed</span>{num(d().week.executed)}<small>{count(d().week.succeeded)} succeeded · {count(d().week.failed)} failed</small></div>
           <div><span>Success rate</span>
             <Show when={d().week.success_rate_basis_points != null} fallback={<strong>—</strong>}>
               <ProgressRing value={Math.round((d().week.success_rate_basis_points as number) / 100)} size={44} strokeWidth={4} showValue />
@@ -158,10 +161,10 @@ export function ScorecardPanel(props: { slug: string }) {
             <small>of actions that resolved</small>
           </div>
           <Show when={(d().week.unknown ?? 0) > 0}>
-            <div><span>Unknown</span><CountUp value={d().week.unknown ?? 0} /><small>outcome not established — excluded from the rate</small></div>
+            <div><span>Unknown</span>{num(d().week.unknown ?? 0)}<small>outcome not established — excluded from the rate</small></div>
           </Show>
-          <div><span>Parked</span><CountUp value={d().week.parked} /><small>no executor available</small></div>
-          <div><span>Awaiting approval</span><CountUp value={d().week.awaiting_approval} /><small>requires operator review</small></div>
+          <div><span>Parked</span>{num(d().week.parked)}<small>no executor available</small></div>
+          <div><span>Awaiting approval</span>{num(d().week.awaiting_approval)}<small>requires operator review</small></div>
         </div>
       </section>
 

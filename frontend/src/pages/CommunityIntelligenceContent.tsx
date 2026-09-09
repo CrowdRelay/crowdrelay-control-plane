@@ -444,7 +444,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                                 <div class="community-card-sub">
                                   <span class="community-platform" data-platform={item.platform}>{item.placeKind.replaceAll('_', ' ')}</span>
                                   <Show when={item.memberCount}>
-                                    <span><span class="community-card-members">{item.memberCount!.toLocaleString()}</span> members</span>
+                                    <span><span class="community-card-members tabular-nums">{item.memberCount!.toLocaleString()}</span> members</span>
                                   </Show>
                                   <Show when={item.countryCode}><span>· {item.countryCode}</span></Show>
                                 </div>
@@ -585,7 +585,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                     <div class="entity-strength-bar">
                       <div class="entity-strength-fill" style={{ width: `${(entity.strength / 10000) * 100}%` }} />
                     </div>
-                    <span class="entity-strength-value">{entity.strength}</span>
+                    <span class="entity-strength-value tabular-nums">{entity.strength}</span>
                   </div>
                 )}
               </For>

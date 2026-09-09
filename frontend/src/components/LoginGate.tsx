@@ -1,8 +1,6 @@
 import { Show, createSignal, onMount } from 'solid-js'
 import type { Component, JSX } from 'solid-js'
 import { authState } from '../lib/auth'
-import { LoginHero } from './LoginHero'
-import '../login-shell.css'
 
 export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
   const [username, setUsername] = createSignal('')
@@ -34,10 +32,7 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
   return <Show when={authState.profile()} fallback={
     <Show when={!authState.hydrated()} fallback={
     <main class="login-shell">
-      <LoginHero />
       <section class="login-card" aria-labelledby="control-plane-login-title">
-        {/* Same mark as the hero 40px to the left — the card used to show a
-            text "CR" square next to the real logo. */}
         <div class="login-brand"><a href="https://crowdrelay.music" target="_blank" rel="noreferrer noopener" aria-label="CrowdRelay landing page"><img class="brand-mark" src="/crowdrelay-brand-mark.png" alt="" width="36" height="36" /></a><div><strong>CrowdRelay</strong><small>Control Plane</small></div></div>
         <span class="eyebrow">OPERATOR ACCESS</span>
         <h1 id="control-plane-login-title">Welcome back</h1>

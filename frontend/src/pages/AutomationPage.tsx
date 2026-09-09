@@ -168,17 +168,17 @@ export function AutomationPage() {
       <div class="kpi-strip">
         <article class="kpi-card kpi-bad">
           <span class="kpi-label">New events</span>
-          <strong class="kpi-value">{newCount()}</strong>
+          <strong class="kpi-value tabular-nums">{newCount()}</strong>
           <span class="kpi-sub">unacknowledged</span>
         </article>
         <article class="kpi-card">
           <span class="kpi-label">Errors</span>
-          <strong class="kpi-value">{errorCount()}</strong>
+          <strong class="kpi-value tabular-nums">{errorCount()}</strong>
           <span class="kpi-sub">in last 100</span>
         </article>
         <article class="kpi-card">
           <span class="kpi-label">Workflows</span>
-          <strong class="kpi-value">{configMap().size}</strong>
+          <strong class="kpi-value tabular-nums">{configMap().size}</strong>
           <span class="kpi-sub">configured</span>
         </article>
       </div>

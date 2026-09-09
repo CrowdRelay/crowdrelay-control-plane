@@ -3,11 +3,13 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
-import { CountUp } from './CountUp'
 import { FunnelChart } from './FunnelChart'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock, SkeletonRows } from './Skeleton'
 import type { GrowthFunnelData, FunnelRecentWorkerRun } from '../lib/types'
+
+const fmt = (n: number | null | undefined): string =>
+  n == null ? '—' : n.toLocaleString('en-US')
 
 // --- Funnel icon ---
 const FunnelIcon = (props: { size?: number }) => (
@@ -147,17 +149,18 @@ export function GrowthFunnelPanel(props: { slug: string }) {
       <div class="kpi-strip">
         <article class="kpi-card">
           <span class="kpi-label">Communities</span>
-          <CountUp value={funnel.data!.communities_discovered} />
+          <span class="kpi-value tabular-nums">{fmt(funnel.data!.communities_discovered)}</span>
+
           <span class="kpi-sub">discovered</span>
         </article>
         <article class="kpi-card">
           <span class="kpi-label">Worker runs</span>
-          <CountUp value={totalWorkerRuns()} />
+          <span class="kpi-value tabular-nums">{fmt(totalWorkerRuns())}</span>
           <span class="kpi-sub">{completedWorkerRuns()} completed · {failedWorkerRuns()} failed</span>
         </article>
         <article class="kpi-card">
           <span class="kpi-label">Intelligence workflows</span>
-          <CountUp value={funnel.data!.brain_workflows.total} />
+          <span class="kpi-value tabular-nums">{fmt(funnel.data!.brain_workflows.total)}</span>
           <span class="kpi-sub">{funnel.data!.brain_workflows.by_status.completed ?? 0} completed</span>
         </article>
       </div>
