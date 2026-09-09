@@ -339,10 +339,7 @@ async fn main() -> anyhow::Result<()> {
                 .route_layer(middleware::from_fn(auth::require_platform_level)),
         )
         .merge(scoped(notify_routes::router()))
-        .merge(
-            automation_routes::operator_router()
-                .route_layer(middleware::from_fn(auth::require_platform_level)),
-        )
+        .merge(scoped(automation_routes::operator_router()))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth::authenticate,

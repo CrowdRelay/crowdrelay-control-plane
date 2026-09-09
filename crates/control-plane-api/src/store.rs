@@ -2323,17 +2323,23 @@ impl Store {
             }
         }
 
+        // Resolve the tenant slug from the n8n payload to a tenant_id.
+        // The ingestion endpoint is machine-authed (no operator identity),
+        // so the slug is the only tenant boundary.
+        let tenant = self.tenant_by_slug(&input.tenant_slug).await?;
+
         let mut tx = self.pool.begin().await?;
         // Lazily seed a default config row for unseen workflows so the UI
         // always has a config to display. Default category='status' means
         // Discord stays quiet until an operator explicitly promotes a
         // workflow to 'real_work'.
         let config = sqlx::query_as::<_, AutomationWorkflowConfigRow>(
-            r#"INSERT INTO control_plane_automation_workflow_config (workflow_id, label)
-               VALUES ($1, $2)
-               ON CONFLICT (workflow_id) DO UPDATE SET updated_at = now()
-               RETURNING workflow_id, label, category, discord_enabled, muted, created_at, updated_at"#,
+            r#"INSERT INTO control_plane_automation_workflow_config (tenant_id, workflow_id, label)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (tenant_id, workflow_id) DO UPDATE SET updated_at = now()
+               RETURNING tenant_id, workflow_id, label, category, discord_enabled, muted, created_at, updated_at"#,
         )
+        .bind(tenant.tenant.id)
         .bind(&input.workflow_id)
         .bind(input.workflow_name.trim())
         .fetch_one(&mut *tx)
@@ -2341,12 +2347,13 @@ impl Store {
 
         let event = sqlx::query_as::<_, AutomationEventRow>(
             r#"INSERT INTO control_plane_automation_events
-                   (workflow_id, workflow_name, execution_id, event_kind, severity, node_name, message, payload)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-               RETURNING id, workflow_id, workflow_name, execution_id, event_kind, severity,
+                   (tenant_id, workflow_id, workflow_name, execution_id, event_kind, severity, node_name, message, payload)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               RETURNING id, tenant_id, workflow_id, workflow_name, execution_id, event_kind, severity,
                          node_name, message, payload, occurred_at, status, retry_count,
                          last_retried_at, created_at"#,
         )
+        .bind(tenant.tenant.id)
         .bind(&input.workflow_id)
         .bind(input.workflow_name.trim())
         .bind(input.execution_id.as_deref().map(str::trim).filter(|s| !s.is_empty()))
@@ -2363,6 +2370,7 @@ impl Store {
 
     pub async fn list_automation_events(
         &self,
+        tenant_id: Uuid,
         limit: i64,
         status_filter: Option<&str>,
         workflow_filter: Option<&str>,
@@ -2374,15 +2382,17 @@ impl Store {
             }
         }
         sqlx::query_as::<_, AutomationEventRow>(
-            r#"SELECT id, workflow_id, workflow_name, execution_id, event_kind, severity,
+            r#"SELECT id, tenant_id, workflow_id, workflow_name, execution_id, event_kind, severity,
                       node_name, message, payload, occurred_at, status, retry_count,
                       last_retried_at, created_at
                FROM control_plane_automation_events
-               WHERE ($1::text IS NULL OR status = $1)
-                 AND ($2::text IS NULL OR workflow_id = $2)
+               WHERE tenant_id = $1
+                 AND ($2::text IS NULL OR status = $2)
+                 AND ($3::text IS NULL OR workflow_id = $3)
                ORDER BY occurred_at DESC
-               LIMIT $3"#,
+               LIMIT $4"#,
         )
+        .bind(tenant_id)
         .bind(status_filter)
         .bind(workflow_filter)
         .bind(limit)
@@ -2437,7 +2447,7 @@ impl Store {
 
     pub async fn get_automation_event(&self, id: Uuid) -> Result<AutomationEventRow, ApiError> {
         sqlx::query_as::<_, AutomationEventRow>(
-            r#"SELECT id, workflow_id, workflow_name, execution_id, event_kind, severity,
+            r#"SELECT id, tenant_id, workflow_id, workflow_name, execution_id, event_kind, severity,
                       node_name, message, payload, occurred_at, status, retry_count,
                       last_retried_at, created_at
                FROM control_plane_automation_events
@@ -2451,12 +2461,15 @@ impl Store {
 
     pub async fn list_automation_workflow_configs(
         &self,
+        tenant_id: Uuid,
     ) -> Result<Vec<AutomationWorkflowConfigRow>, ApiError> {
         sqlx::query_as::<_, AutomationWorkflowConfigRow>(
-            r#"SELECT workflow_id, label, category, discord_enabled, muted, created_at, updated_at
+            r#"SELECT tenant_id, workflow_id, label, category, discord_enabled, muted, created_at, updated_at
                FROM control_plane_automation_workflow_config
+               WHERE tenant_id = $1
                ORDER BY label"#,
         )
+        .bind(tenant_id)
         .fetch_all(&self.pool)
         .await
         .map_err(ApiError::Database)
@@ -2464,6 +2477,7 @@ impl Store {
 
     pub async fn upsert_automation_workflow_config(
         &self,
+        tenant_id: Uuid,
         workflow_id: &str,
         label: Option<&str>,
         category: Option<&str>,
@@ -2495,16 +2509,17 @@ impl Store {
         }
         sqlx::query_as::<_, AutomationWorkflowConfigRow>(
             r#"INSERT INTO control_plane_automation_workflow_config
-                   (workflow_id, label, category, discord_enabled, muted)
-               VALUES ($1, COALESCE($2, $1), COALESCE($3, 'status'), COALESCE($4, false), COALESCE($5, false))
-               ON CONFLICT (workflow_id) DO UPDATE SET
-                   label = COALESCE($2, control_plane_automation_workflow_config.label),
-                   category = COALESCE($3, control_plane_automation_workflow_config.category),
-                   discord_enabled = COALESCE($4, control_plane_automation_workflow_config.discord_enabled),
-                   muted = COALESCE($5, control_plane_automation_workflow_config.muted),
+                   (tenant_id, workflow_id, label, category, discord_enabled, muted)
+               VALUES ($1, $2, COALESCE($3, $2), COALESCE($4, 'status'), COALESCE($5, false), COALESCE($6, false))
+               ON CONFLICT (tenant_id, workflow_id) DO UPDATE SET
+                   label = COALESCE($3, control_plane_automation_workflow_config.label),
+                   category = COALESCE($4, control_plane_automation_workflow_config.category),
+                   discord_enabled = COALESCE($5, control_plane_automation_workflow_config.discord_enabled),
+                   muted = COALESCE($6, control_plane_automation_workflow_config.muted),
                    updated_at = now()
-               RETURNING workflow_id, label, category, discord_enabled, muted, created_at, updated_at"#,
+               RETURNING tenant_id, workflow_id, label, category, discord_enabled, muted, created_at, updated_at"#,
         )
+        .bind(tenant_id)
         .bind(workflow_id)
         .bind(label.map(str::trim))
         .bind(category)

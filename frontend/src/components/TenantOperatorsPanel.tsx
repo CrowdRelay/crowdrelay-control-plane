@@ -12,7 +12,7 @@ import { Spinner } from './Spinner'
 // Tenant operators never see this panel: the API rejects them anyway, and
 // hiding it keeps their surface honest about what they can do.
 export function TenantOperatorsPanel(props: { slug: string }) {
-  const isAdmin = () => authState.profile()?.role === 'platform_admin'
+  const isAdmin = () => authState.isAdmin()
   const accounts = useQuery(() => ({
     queryKey: ['operators', props.slug],
     queryFn: () => api.operators(props.slug),

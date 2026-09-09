@@ -654,7 +654,7 @@ export interface PortfolioOverview {
 
 export type Profile = {
   username: string
-  role: 'platform_admin' | 'tenant_operator'
+  role: 'platform_admin' | 'platform_viewer' | 'tenant_operator'
   tenantSlug: string | null
   isMobile?: boolean
 }

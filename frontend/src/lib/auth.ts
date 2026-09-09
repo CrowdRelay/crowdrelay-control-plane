@@ -19,6 +19,10 @@ export const authState = {
   hydrated,
   authenticated: () => profile() !== null,
   setProfile,
+  /** Platform-level identity: admin or viewer. Sees all tenants. */
+  isPlatformLevel: () => profile()?.role === 'platform_admin' || profile()?.role === 'platform_viewer',
+  /** Full mutation authority. Viewer is read-only. */
+  isAdmin: () => profile()?.role === 'platform_admin',
   async hydrate() {
     try {
       const profile = await api.session()

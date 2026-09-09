@@ -142,7 +142,7 @@ export function TenantPage() {
   const deploymentBusy = createMemo(() => ['planned', 'approved', 'running'].includes(latestJob()?.status ?? ''))
   const requestedVersion = createMemo(() => desiredVersion().trim() || platform()?.provisionerDefaultImageTag || '')
   const releaseReady = createMemo(() => /^sha-[0-9a-f]{40}$/.test(requestedVersion()))
-  const isAdmin = createMemo(() => authState.profile()?.role === 'platform_admin')
+  const isAdmin = createMemo(() => authState.isAdmin())
   const [optOutConfirm, setOptOutConfirm] = createSignal('')
   const [optOutDone, setOptOutDone] = createSignal(false)
   const optOut = useMutation(() => ({

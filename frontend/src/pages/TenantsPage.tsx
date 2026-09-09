@@ -22,7 +22,8 @@ export function TenantsPage() {
   const queryClient = useQueryClient()
   const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, reconcile: 'id', staleTime: 15_000, refetchOnWindowFocus: false }))
   const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview, reconcile: 'id', staleTime: 30_000, refetchOnWindowFocus: false }))
-  const isAdmin = () => authState.profile()?.role === 'platform_admin'
+  const isPlatformLevel = () => authState.isPlatformLevel()
+  const isAdmin = () => authState.isAdmin()
   const [creating, setCreating] = createSignal(false)
   const [slug, setSlug] = createSignal('')
   const [name, setName] = createSignal('')
@@ -88,8 +89,8 @@ export function TenantsPage() {
     <div class="page-head">
       <div>
         <span class="eyebrow">TENANT REGISTRY</span>
-        <h1>{isAdmin() ? 'Teams on the platform' : 'Your tenant'}</h1>
-        <p>{isAdmin()
+        <h1>{isPlatformLevel() ? 'Teams on the platform' : 'Your tenant'}</h1>
+        <p>{isPlatformLevel()
           ? 'Create an isolated CrowdRelay + Signal tenant with an explicit regional profile. Browser locale/IP never silently decides currency, timezone or data residency.'
           : 'Your tenant on the platform. Regional profile, runtime health and deployment state.'}</p>
       </div>

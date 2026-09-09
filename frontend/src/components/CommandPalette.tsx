@@ -74,7 +74,7 @@ export const CommandPalette: Component = () => {
   // tenant paths dynamically, so it narrows once at this single boundary.
   const navigate = rawNavigate as unknown as (opts: { to: string; params?: Record<string, string> }) => void
   const profile = () => authState.profile()
-  const isAdmin = () => profile()?.role === 'platform_admin'
+  const isPlatformLevel = () => authState.isPlatformLevel()
 
   const [query, setQuery] = createSignal('')
   const [index, setIndex] = createSignal(0)
@@ -90,7 +90,7 @@ export const CommandPalette: Component = () => {
   const tenantsQuery = useQuery(() => ({
     queryKey: ['tenants'],
     queryFn: api.tenants,
-    enabled: isAdmin() && open(),
+    enabled: isPlatformLevel() && open(),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
     reconcile: 'id',
@@ -104,7 +104,7 @@ export const CommandPalette: Component = () => {
   })
 
   const scopedTenants = createMemo(() => {
-    if (isAdmin()) return tenants()
+    if (isPlatformLevel()) return tenants()
     const slug = profile()?.tenantSlug
     return tenants().filter(t => t.slug === slug)
   })
@@ -113,10 +113,9 @@ export const CommandPalette: Component = () => {
     const list: Cmd[] = [
       { id: 'page-overview', label: 'Overview', group: 'Go', kind: 'navigate', perform: () => navigate({ to: '/' }) },
     ]
-    if (isAdmin()) {
+    if (isPlatformLevel()) {
       list.push(
         { id: 'page-tenants', label: 'Tenants', group: 'Go', keywords: 'registry', kind: 'navigate', perform: () => navigate({ to: '/tenants' }) },
-        { id: 'page-attention', label: 'Attention', group: 'Go', keywords: 'alerts watchdog', kind: 'navigate', perform: () => navigate({ to: '/attention' }) },
       )
     }
     const visible = scopedTenants()

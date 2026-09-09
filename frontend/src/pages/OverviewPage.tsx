@@ -24,16 +24,19 @@ export function OverviewPage() {
 
   const items = createMemo(() => tenants.data?.items ?? [])
   const count = (health: RuntimeHealth) => items().filter(t => t.runtimeHealth === health).length
-  const activeCount = createMemo(() => items().filter(t => t.status === 'active').length)
-  const needsAttention = createMemo(() => count('degraded') + count('stale'))
+  const activeItems = createMemo(() => items().filter(t => t.status === 'active'))
+  const activeCount = createMemo(() => activeItems().length)
+  const needsAttention = createMemo(() => count('degraded') + count('stale') + suspendedCount())
   const suspendedCount = createMemo(() => items().filter(t => t.status === 'suspended').length)
   const parkedCount = createMemo(() => items().filter(t => t.status === 'parked').length)
   const unknownCount = createMemo(() => count('unknown'))
   const reportingCount = createMemo(() => items().length - unknownCount())
+  const healthyCount = createMemo(() => count('healthy'))
+  const allHealthy = createMemo(() => activeCount() > 0 && healthyCount() === activeCount())
   const healthyPct = createMemo(() => {
     const reporting = reportingCount()
     if (reporting === 0) return 0
-    return Math.round((count('healthy') / reporting) * 100)
+    return Math.round((healthyCount() / reporting) * 100)
   })
   const fleetTone = createMemo(() => reportingCount() === 0 ? 'muted' as const : undefined)
   const lastRefresh = createMemo(() => {
@@ -85,7 +88,7 @@ export function OverviewPage() {
           {/* ATTENTION */}
           <Link
             class="command-block"
-            to={firstNeedsYouTenant() ? '/tenants/$slug/attention' : '/attention'}
+            to={firstNeedsYouTenant() ? '/tenants/$slug/attention' : '/tenants'}
             params={firstNeedsYouTenant() ? { slug: firstNeedsYouTenant()!.slug } : {}}
             classList={{ 'command-block-warn': (cc()!.attention.needsYou + cc()!.attention.awaitingApproval + cc()!.attention.criticalAlerts) > 0 }}
           >
@@ -116,7 +119,7 @@ export function OverviewPage() {
           {/* AUTOPILOT TODAY */}
           <Link
             class="command-block"
-            to={firstAutopilotTenant() ? '/tenants/$slug/intelligence' : '/attention'}
+            to={firstAutopilotTenant() ? '/tenants/$slug/intelligence' : '/tenants'}
             params={firstAutopilotTenant() ? { slug: firstAutopilotTenant()!.slug } : {}}
             classList={{ 'command-block-active': (cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions) > 0 }}
           >
@@ -144,7 +147,7 @@ export function OverviewPage() {
           {/* OUTCOMES */}
           <Link
             class="command-block"
-            to={firstOutcomesTenant() ? '/tenants/$slug/intelligence' : '/attention'}
+            to={firstOutcomesTenant() ? '/tenants/$slug/intelligence' : '/tenants'}
             params={firstOutcomesTenant() ? { slug: firstOutcomesTenant()!.slug } : {}}
             classList={{ 'command-block-warn': cc()!.outcomes.unknown > 0 || cc()!.outcomes.waitingForObservation > 0 }}
           >
@@ -167,7 +170,7 @@ export function OverviewPage() {
           </Link>
 
           {/* SYSTEM */}
-          <Link class="command-block" to="/attention">
+          <Link class="command-block" to="/tenants">
             <div class="command-block-head">
               <span class="eyebrow">SYSTEM</span>
             </div>
@@ -178,7 +181,7 @@ export function OverviewPage() {
               </div>
               <div class="command-block-detail">
                 <Show when={items().length > 0}>
-                  <span>{count('healthy')} healthy · {needsAttention()} need attention<Show when={unknownCount() > 0}> · {unknownCount()} not reporting</Show></span>
+                  <span>{healthyCount()} healthy · {needsAttention()} need attention<Show when={unknownCount() > 0}> · {unknownCount()} not reporting</Show></span>
                 </Show>
               </div>
             </div>
@@ -187,7 +190,7 @@ export function OverviewPage() {
           {/* LEARNING */}
           <Link
             class="command-block"
-            to={firstLearningTenant() ? '/tenants/$slug/intelligence' : '/attention'}
+            to={firstLearningTenant() ? '/tenants/$slug/intelligence' : '/tenants'}
             params={firstLearningTenant() ? { slug: firstLearningTenant()!.slug } : {}}
           >
             <div class="command-block-head">
@@ -222,23 +225,24 @@ export function OverviewPage() {
             <CountUp value={items().length} />
             <span class="kpi-sub">{activeCount()} active<Show when={parkedCount() > 0}> · {parkedCount()} parked</Show><Show when={suspendedCount() > 0}> · {suspendedCount()} suspended</Show></span>
           </article>
-          <article class="kpi-card" classList={{ 'kpi-good': count('healthy') > 0 }}>
+          <article class="kpi-card" classList={{ 'kpi-good': allHealthy() }}>
             <span class="kpi-label">Healthy</span>
-            <CountUp value={count('healthy')} />
+            <CountUp value={healthyCount()} />
             <span class="kpi-sub">
               <Show when={reportingCount() > 0} fallback="no runtime reports yet">
                 {healthyPct()}% of reporting
               </Show>
             </span>
           </article>
-          <Link class="kpi-card" to="/attention" classList={{ 'kpi-warn': needsAttention() > 0, 'kpi-good': needsAttention() === 0 && reportingCount() > 0 }}>
+          <article class="kpi-card" classList={{ 'kpi-warn': needsAttention() > 0, 'kpi-good': needsAttention() === 0 && reportingCount() > 0 }}>
             <span class="kpi-label">Needs attention</span>
             <CountUp value={needsAttention()} />
             <span class="kpi-sub">
               {count('degraded')} degraded · {count('stale')} stale
+              <Show when={suspendedCount() > 0}> · {suspendedCount()} suspended</Show>
               <Show when={unknownCount() > 0}> · {unknownCount()} not reporting</Show>
             </span>
-          </Link>
+          </article>
           <article class="kpi-card">
             <span class="kpi-label">Platform services</span>
             <CountUp value={healthyServices()} format={(n) => platformServices().length === 0 ? '—' : String(Math.round(n))} />
@@ -251,7 +255,7 @@ export function OverviewPage() {
     {/* Fleet health ring + Tenant pulse — the fleet at a glance, first */}
     <div class="section-title">
       <div><span class="eyebrow">PULSE</span><h2><SectionIcon name="heartbeat" />Tenant pulse</h2></div>
-      <Show when={authState.profile()?.role === 'platform_admin'}><Link to="/tenants" class="section-link">Manage tenants →</Link></Show>
+      <Show when={authState.isPlatformLevel()}><Link to="/tenants" class="section-link">Manage tenants →</Link></Show>
     </div>
     <Show when={items().length > 0}>
       <div class="fleet-health-row">
@@ -260,7 +264,7 @@ export function OverviewPage() {
         </div>
         <div class="fleet-health-stats">
           <strong>
-            {count('healthy')} healthy · {needsAttention()} need attention
+            {healthyCount()} healthy · {needsAttention()} need attention
             <Show when={unknownCount() > 0}> · {unknownCount()} not reporting</Show>
             {' '}· {items().length} total
           </strong>

@@ -63,6 +63,7 @@ const TENANT_NAV_GROUPS: NavGroup[] = [
     label: 'Execution',
     items: [
       { path: '/tenants/$slug/operations', label: 'Operations', exact: false, icon: 'operations' },
+      { path: '/tenants/$slug/automation', label: 'Automation', exact: false, icon: 'automation' },
       { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
       { path: '/tenants/$slug/notifiers', label: 'Notifiers', exact: false, icon: 'notifiers' },
     ],
@@ -172,8 +173,6 @@ const GLOBAL_NAV: NavItem[] = [
   { path: '/', label: 'Overview', exact: true, icon: 'overview' },
   { path: '/tenants', label: 'Tenants', exact: true, icon: 'portfolio' },
   { path: '/tenants/new', label: 'New tenant', exact: true, icon: 'portfolio' },
-  { path: '/automation', label: 'Automation', exact: false, icon: 'automation' },
-  { path: '/attention', label: 'Attention', exact: false, icon: 'attention' },
   { path: '/flow', label: 'Process map', exact: false, icon: 'flow' },
 ]
 
@@ -203,7 +202,8 @@ export const Shell: Component = () => {
   const navigate = useNavigate()
   const router = useRouter()
   const pathname = () => router.state.location.pathname
-  const isAdmin = () => profile()?.role === 'platform_admin'
+  const isPlatformLevel = () => authState.isPlatformLevel()
+  const isAdmin = () => authState.isAdmin()
   const [switcherOpen, setSwitcherOpen] = createSignal(false)
   // Mobile drawer. Desktop ignores it; the media query does the hiding.
   const [mobileNavOpen, setMobileNavOpen] = createSignal(false)
@@ -231,13 +231,11 @@ export const Shell: Component = () => {
   const tenants = useQuery(() => ({
     queryKey: ['tenants'],
     queryFn: () => api.tenants(),
-    enabled: isAdmin(),
+    enabled: isPlatformLevel(),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
     reconcile: 'id',
   }))
-  const attentionCount = () =>
-    (tenants.data?.items ?? []).filter(t => t.runtimeHealth === 'degraded' || t.runtimeHealth === 'stale').length
 
   const selectTenant = (newSlug: string) => {
     const current = slug()
@@ -265,7 +263,7 @@ export const Shell: Component = () => {
     if (!authState.profile()) return
     if (pathname() !== '/') return
     if (sessionStorage.getItem('cp-default-tenant')) return
-    const targetSlug = isAdmin() ? 'virya' : profile()?.tenantSlug
+    const targetSlug = isPlatformLevel() ? 'virya' : profile()?.tenantSlug
     if (!targetSlug) return
     sessionStorage.setItem('cp-default-tenant', '1')
     navigate({ to: `/tenants/${targetSlug}/operations` as any })
@@ -332,19 +330,10 @@ export const Shell: Component = () => {
             <NavIcon name="overview" />
             <Show when={!collapsed()}><span>Overview</span></Show>
           </Link>
-          <Show when={isAdmin()}>
+          <Show when={isPlatformLevel()}>
             <Link to="/tenants" activeProps={{ class: 'active' }} activeOptions={{ exact: true }} title="Tenants">
               <NavIcon name="portfolio" />
               <Show when={!collapsed()}><span>Tenants</span></Show>
-            </Link>
-            <Link to="/attention" activeProps={{ class: 'active' }} title="Attention">
-              <NavIcon name="attention" />
-              <Show when={!collapsed()}><span>Attention</span></Show>
-              <Show when={attentionCount() > 0}><span class="nav-badge" aria-label={`${attentionCount()} tenants need attention`}>{attentionCount()}</span></Show>
-            </Link>
-            <Link to="/automation" activeProps={{ class: 'active' }} title="Automation">
-              <NavIcon name="automation" />
-              <Show when={!collapsed()}><span>Automation</span></Show>
             </Link>
           </Show>
           <Link to="/flow" activeProps={{ class: 'active' }} title="Process map">
@@ -356,7 +345,7 @@ export const Shell: Component = () => {
         {/* Tenant switcher + grouped tenant nav */}
         <Show when={slug()}>
           <div class="sidebar-tenant-section">
-            <Show when={isAdmin() && tenants.data}>
+            <Show when={isPlatformLevel() && tenants.data}>
               {(data) => <TenantSwitcher
                 tenants={data().items}
                 currentSlug={slug()}
@@ -367,7 +356,7 @@ export const Shell: Component = () => {
                 collapsed={collapsed()}
               />}
             </Show>
-            <Show when={!isAdmin()}>
+            <Show when={!isPlatformLevel()}>
               <div class="sidebar-tenant-static" title={profile()?.tenantSlug ?? 'tenant'}>
                 <span class="auth-dot ok" />
                 <Show when={!collapsed()}><span>{profile()?.tenantSlug ?? 'tenant'}</span></Show>
@@ -402,7 +391,7 @@ export const Shell: Component = () => {
           <span class={`auth-dot ok`} />
           <Show when={!collapsed()}>
             <span class="sidebar-foot-user">{profile()?.username ?? 'operator'}</span>
-            <span class="sidebar-foot-role">{isAdmin() ? 'admin' : 'tenant'}</span>
+            <span class="sidebar-foot-role">{isAdmin() ? 'admin' : isPlatformLevel() ? 'viewer' : 'tenant'}</span>
           </Show>
         </div>
       </aside>
