@@ -45,6 +45,13 @@ export function AutomationPage() {
     refetchOnWindowFocus: false,
   }))
 
+  // When the slug changes, TanStack fetches the new tenant's data in the
+  // background. Without reconcile/placeholderData the old data is dropped
+  // immediately, so the Show fallback (skeleton) renders during the
+  // switch instead of painting the wrong tenant's events.
+  const eventsReady = () => events.data != null && !events.isPending
+  const configsReady = () => configs.data != null && !configs.isPending
+
   const configMap = createMemo(() => {
     const m = new Map<string, AutomationWorkflowConfig>()
     for (const c of configs.data?.items ?? []) m.set(c.workflowId, c)
@@ -54,38 +61,42 @@ export function AutomationPage() {
   const newCount = () => events.data?.items.filter(e => e.status === 'new').length ?? 0
   const errorCount = () => events.data?.items.filter(e => e.severity === 'error').length ?? 0
 
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['automation-events', slug()] })
-    queryClient.invalidateQueries({ queryKey: ['automation-workflow-configs', slug()] })
+  const invalidate = (scopeSlug: string) => {
+    queryClient.invalidateQueries({ queryKey: ['automation-events', scopeSlug] })
+    queryClient.invalidateQueries({ queryKey: ['automation-workflow-configs', scopeSlug] })
   }
 
   const [busyId, setBusyId] = createSignal<string | null>(null)
 
   const handleAck = async (id: string) => {
     if (busyId()) return
+    const scopeSlug = slug()
     setBusyId(id)
-    try { await api.ackAutomationEvent(slug(), id); invalidate() }
+    try { await api.ackAutomationEvent(scopeSlug, id); invalidate(scopeSlug) }
     catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to acknowledge') }
     finally { setBusyId(null) }
   }
   const handleResolve = async (id: string) => {
     if (busyId()) return
+    const scopeSlug = slug()
     setBusyId(id)
-    try { await api.resolveAutomationEvent(slug(), id); invalidate() }
+    try { await api.resolveAutomationEvent(scopeSlug, id); invalidate(scopeSlug) }
     catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to resolve') }
     finally { setBusyId(null) }
   }
   const handleRetry = async (id: string) => {
     if (busyId()) return
+    const scopeSlug = slug()
     setBusyId(id)
-    try { await api.retryAutomationEvent(slug(), id); invalidate() }
+    try { await api.retryAutomationEvent(scopeSlug, id); invalidate(scopeSlug) }
     catch (e) { toast.error(e instanceof Error ? e.message : 'Retry failed') }
     finally { setBusyId(null) }
   }
   const handleConfigUpdate = async (workflowId: string, input: { category?: string; discordEnabled?: boolean; muted?: boolean }) => {
     if (busyId()) return
+    const scopeSlug = slug()
     setBusyId(`cfg:${workflowId}`)
-    try { await api.updateAutomationWorkflowConfig(slug(), workflowId, input); invalidate() }
+    try { await api.updateAutomationWorkflowConfig(scopeSlug, workflowId, input); invalidate(scopeSlug) }
     catch (e) { toast.error(e instanceof Error ? e.message : 'Update failed') }
     finally { setBusyId(null) }
   }
@@ -107,7 +118,7 @@ export function AutomationPage() {
     <Show when={showConfigs()}>
       <div class="section-title"><div><span class="eyebrow">AUTOMATION</span><h2><SectionIcon name="workflow" />Workflow routing</h2><p>One row per n8n workflow, deciding what its events do when they arrive. <strong>Category</strong> sorts the event — only <em>real work</em> is worth waking someone for. <strong>Discord</strong> forwards it to the crew channel. <strong>Muted</strong> keeps the events recorded but stops them counting as new. Changes save as you make them.</p></div></div>
       <Show when={configs.error}><div class="error-card" role="alert">{errorMessage(configs.error, 'Automation routing could not be loaded')}</div></Show>
-      <Show when={configs.data} fallback={!configs.error ? <SkeletonRows count={3} /> : null}>
+      <Show when={configsReady()} fallback={!configs.error ? <SkeletonRows count={3} /> : null}>
         <div class="automation-config-list">
           <For each={configs.data!.items}>{(cfg: AutomationWorkflowConfig) => (
             <div class="inherit-card automation-config-row">
@@ -186,7 +197,7 @@ export function AutomationPage() {
       </div>
 
       <Show when={events.error}><div class="error-card" role="alert">{errorMessage(events.error, 'Automation events could not be loaded')}</div></Show>
-      <Show when={events.data} fallback={!events.error ? <SkeletonRows count={5} /> : null}>
+      <Show when={eventsReady()} fallback={!events.error ? <SkeletonRows count={5} /> : null}>
         <div class="automation-event-list">
           <For each={events.data!.items}>{(ev: AutomationEvent) => {
             const cfg = configMap().get(ev.workflowId)

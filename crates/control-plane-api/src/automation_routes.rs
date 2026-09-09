@@ -253,26 +253,38 @@ async fn list_events(
 
 async fn ack_event(
     State(state): State<AppState>,
-    Path((_slug, id)): Path<(String, Uuid)>,
+    Path((slug, id)): Path<(String, Uuid)>,
 ) -> Result<Response, ApiError> {
-    state.store.ack_automation_event(id).await?;
+    let tenant = state.store.tenant_by_slug(&slug).await?;
+    state
+        .store
+        .ack_automation_event(id, tenant.tenant.id)
+        .await?;
     Ok(json_no_store(json!({ "id": id, "status": "acknowledged" })))
 }
 
 async fn resolve_event(
     State(state): State<AppState>,
-    Path((_slug, id)): Path<(String, Uuid)>,
+    Path((slug, id)): Path<(String, Uuid)>,
 ) -> Result<Response, ApiError> {
-    state.store.resolve_automation_event(id).await?;
+    let tenant = state.store.tenant_by_slug(&slug).await?;
+    state
+        .store
+        .resolve_automation_event(id, tenant.tenant.id)
+        .await?;
     Ok(json_no_store(json!({ "id": id, "status": "resolved" })))
 }
 
 async fn retry_event(
     State(state): State<AppState>,
-    Path((_slug, id)): Path<(String, Uuid)>,
+    Path((slug, id)): Path<(String, Uuid)>,
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    let event = state.store.get_automation_event(id).await?;
+    let tenant = state.store.tenant_by_slug(&slug).await?;
+    let event = state
+        .store
+        .get_automation_event(id, tenant.tenant.id)
+        .await?;
     let Some(ref execution_id) = event.execution_id else {
         return Err(ApiError::InvalidInput(
             "event has no executionId — cannot retry via n8n API".to_owned(),
@@ -318,7 +330,10 @@ async fn retry_event(
             body.chars().take(500).collect::<String>()
         )));
     }
-    state.store.mark_automation_event_retried(id).await?;
+    state
+        .store
+        .mark_automation_event_retried(id, tenant.tenant.id)
+        .await?;
     Ok(json_no_store(json!({ "id": id, "status": "retried" })))
 }
 

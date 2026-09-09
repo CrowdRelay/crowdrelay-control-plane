@@ -46,10 +46,12 @@ type NavGroup = { label: string; items: NavItem[] }
 
 const TENANT_NAV_GROUPS: NavGroup[] = [
   {
-    label: 'Control',
+    label: 'Execution',
     items: [
-      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings' },
-      { path: '/tenants/$slug/attention', label: 'Attention', exact: false, icon: 'attention' },
+      { path: '/tenants/$slug/operations', label: 'Operations', exact: false, icon: 'operations' },
+      { path: '/tenants/$slug/automation', label: 'Automation', exact: false, icon: 'automation' },
+      { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
+      { path: '/tenants/$slug/notifiers', label: 'Notifiers', exact: false, icon: 'notifiers' },
     ],
   },
   {
@@ -60,21 +62,19 @@ const TENANT_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Execution',
-    items: [
-      { path: '/tenants/$slug/operations', label: 'Operations', exact: false, icon: 'operations' },
-      { path: '/tenants/$slug/automation', label: 'Automation', exact: false, icon: 'automation' },
-      { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
-      { path: '/tenants/$slug/notifiers', label: 'Notifiers', exact: false, icon: 'notifiers' },
-    ],
-  },
-  {
     label: 'Audience',
     items: [
       { path: '/tenants/$slug/portfolio', label: 'Portfolio', exact: false, icon: 'portfolio' },
       { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
       { path: '/tenants/$slug/beacons', label: 'Beacons', exact: false, icon: 'beacons' },
       { path: '/tenants/$slug/area', label: 'AREA', exact: false, icon: 'area' },
+    ],
+  },
+  {
+    label: 'Control',
+    items: [
+      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings' },
+      { path: '/tenants/$slug/attention', label: 'Attention', exact: false, icon: 'attention' },
     ],
   },
 ]
@@ -255,18 +255,21 @@ export const Shell: Component = () => {
   })
 
   // After login, redirect the operator to their default tenant so the
-  // tenant-scoped nav is immediately available. Admins land on Virya (the
-  // first tenant and the one the crew works on); tenant operators land on
-  // their own tenant. Only redirects once per session (the flag is cleared
-  // on login/logout by auth.ts) and only from the bare `/` path.
+  // tenant-scoped nav is immediately available. Admins land on the first
+  // tenant in the registry (Virya in practice, but resolved from the list
+  // not hardcoded); tenant operators land on their own tenant. Only
+  // redirects once per session (the flag is cleared on login/logout by
+  // auth.ts) and only from the bare `/` path.
   createEffect(() => {
     if (!authState.profile()) return
     if (pathname() !== '/') return
     if (sessionStorage.getItem('cp-default-tenant')) return
-    const targetSlug = isPlatformLevel() ? 'virya' : profile()?.tenantSlug
-    if (!targetSlug) return
+    const tenantSlug = isPlatformLevel()
+      ? (tenants.data?.items?.[0]?.slug ?? profile()?.tenantSlug)
+      : profile()?.tenantSlug
+    if (!tenantSlug) return
     sessionStorage.setItem('cp-default-tenant', '1')
-    navigate({ to: `/tenants/${targetSlug}/operations` as any })
+    navigate({ to: `/tenants/${tenantSlug}/operations` as any })
   })
 
   onMount(() => {

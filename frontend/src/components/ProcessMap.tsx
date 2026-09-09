@@ -53,7 +53,7 @@ const NODES: MapNode[] = [
 
   // ── AUTHORITY (what the disposition allows) ──
   { id: 'auto', x: 660, y: 120, w: 220, h: 60, zone: 'auth', title: 'Auto-execute', desc: 'queued immediately' },
-  { id: 'approval', x: 660, y: 210, w: 220, h: 60, zone: 'auth', title: 'Awaiting approval', desc: 'a person decides · 72h', to: '/attention' },
+  { id: 'approval', x: 660, y: 210, w: 220, h: 60, zone: 'auth', title: 'Awaiting approval', desc: 'a person decides · 72h', to: '/tenants/{slug}/attention' },
   { id: 'noaction', x: 660, y: 300, w: 220, h: 60, zone: 'auth', title: 'Observe · Deny', desc: 'recorded, never executed' },
 
   // ── EXECUTION ──

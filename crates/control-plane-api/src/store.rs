@@ -2401,13 +2401,14 @@ impl Store {
         .map_err(ApiError::Database)
     }
 
-    pub async fn ack_automation_event(&self, id: Uuid) -> Result<(), ApiError> {
+    pub async fn ack_automation_event(&self, id: Uuid, tenant_id: Uuid) -> Result<(), ApiError> {
         let result = sqlx::query(
             r#"UPDATE control_plane_automation_events
                SET status = 'acknowledged', created_at = created_at
-               WHERE id = $1 AND status = 'new'"#,
+               WHERE id = $1 AND tenant_id = $2 AND status = 'new'"#,
         )
         .bind(id)
+        .bind(tenant_id)
         .execute(&self.pool)
         .await?;
         if result.rows_affected() == 0 {
@@ -2416,13 +2417,18 @@ impl Store {
         Ok(())
     }
 
-    pub async fn resolve_automation_event(&self, id: Uuid) -> Result<(), ApiError> {
+    pub async fn resolve_automation_event(
+        &self,
+        id: Uuid,
+        tenant_id: Uuid,
+    ) -> Result<(), ApiError> {
         let result = sqlx::query(
             r#"UPDATE control_plane_automation_events
                SET status = 'resolved'
-               WHERE id = $1"#,
+               WHERE id = $1 AND tenant_id = $2"#,
         )
         .bind(id)
+        .bind(tenant_id)
         .execute(&self.pool)
         .await?;
         if result.rows_affected() == 0 {
@@ -2431,29 +2437,39 @@ impl Store {
         Ok(())
     }
 
-    pub async fn mark_automation_event_retried(&self, id: Uuid) -> Result<(), ApiError> {
+    pub async fn mark_automation_event_retried(
+        &self,
+        id: Uuid,
+        tenant_id: Uuid,
+    ) -> Result<(), ApiError> {
         sqlx::query(
             r#"UPDATE control_plane_automation_events
                SET retry_count = retry_count + 1,
                    last_retried_at = now(),
                    status = 'retried'
-               WHERE id = $1"#,
+               WHERE id = $1 AND tenant_id = $2"#,
         )
         .bind(id)
+        .bind(tenant_id)
         .execute(&self.pool)
         .await?;
         Ok(())
     }
 
-    pub async fn get_automation_event(&self, id: Uuid) -> Result<AutomationEventRow, ApiError> {
+    pub async fn get_automation_event(
+        &self,
+        id: Uuid,
+        tenant_id: Uuid,
+    ) -> Result<AutomationEventRow, ApiError> {
         sqlx::query_as::<_, AutomationEventRow>(
             r#"SELECT id, tenant_id, workflow_id, workflow_name, execution_id, event_kind, severity,
                       node_name, message, payload, occurred_at, status, retry_count,
                       last_retried_at, created_at
                FROM control_plane_automation_events
-               WHERE id = $1"#,
+               WHERE id = $1 AND tenant_id = $2"#,
         )
         .bind(id)
+        .bind(tenant_id)
         .fetch_optional(&self.pool)
         .await?
         .ok_or(ApiError::NotFound)
