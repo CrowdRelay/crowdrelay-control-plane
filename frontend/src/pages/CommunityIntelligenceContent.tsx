@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { CommunityItem, CommunityObservationItem, CommunityEntityItem, AudiencePlaceInput } from '../lib/types'
 import { SkeletonRows } from '../components/Skeleton'
-import { TabBar, TabPanel, useTabPanels } from '../components/layout'
+import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, SectionTitle } from '../components/layout'
 import { toast } from '../lib/toast'
 import { errorMessage } from '../lib/format'
 
@@ -280,18 +280,8 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
     communities.data?.items?.find((c) => c.placeId === selectedPlaceId())
 
   return (
-    <section class="page">
-      <div class="page-head">
-        <div>
-          <span class="eyebrow">AUDIENCE</span>
-          <h1>Communities</h1>
-          <p>
-            Places your listeners already gather — subreddits, forums, Discord servers. The
-            brain observes them; joining them is a person's job, and this page is the queue
-            for it.
-          </p>
-        </div>
-      </div>
+    <PageShell>
+      <PageHeader eyebrow="AUDIENCE" title="Communities" description="Places your listeners already gather — subreddits, forums, Discord servers. The brain observes them; joining them is a person's job, and this page is the queue for it." />
 
       <TabBar
         active={activeTab()}
@@ -527,13 +517,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
         </Show>
 
         <Show when={selectedPlaceId()}>
-          <div class="section-title">
-            <div>
-              <span class="eyebrow">COMMUNITY</span>
-              <h2>{selectedCommunity()?.name ?? 'Community'}</h2>
-            </div>
-            <button class="ghost" onClick={() => { setSelectedPlaceId(null); switchTab('communities') }}>Back to communities</button>
-          </div>
+          <SectionTitle eyebrow="COMMUNITY" title={selectedCommunity()?.name ?? 'Community'} action={<button class="ghost" onClick={() => { setSelectedPlaceId(null); switchTab('communities') }}>Back to communities</button>} />
 
           <h3>Observations</h3>
           <Show when={detail.isPending}><SkeletonRows /></Show>
@@ -593,6 +577,6 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
           </Show>
         </Show>
       </TabPanel>
-    </section>
+    </PageShell>
   )
 }

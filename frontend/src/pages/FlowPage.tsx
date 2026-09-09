@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { ProcessMap } from '../components/ProcessMap'
 import { SkeletonSection } from '../components/Skeleton'
+import { PageShell, PageHeader, ErrorCard } from '../components/layout'
 
 export function FlowPage() {
   const tenants = useQuery(() => ({
@@ -25,32 +26,20 @@ export function FlowPage() {
   })
 
   return (
-    <section class="page">
-      <div class="page-head">
-        <div>
-          <span class="eyebrow">BIG PICTURE</span>
-          <h1>Process map</h1>
-          <p>
-            Sources feed the deterministic Rust autopilot, which decides. What that decision is allowed
-            to do is the fork: some actions queue immediately, some wait for a person and expire after
-            72 hours if nobody answers, and some are recorded and never executed. Delivery is
-            at-least-once, so only what comes back with a receipt updates the causal model and shapes
-            the next decision. Click any block to jump to its page.
-          </p>
-        </div>
-      </div>
+    <PageShell>
+      <PageHeader eyebrow="BIG PICTURE" title="Process map" description="Sources feed the deterministic Rust autopilot, which decides. What that decision is allowed to do is the fork: some actions queue immediately, some wait for a person and expire after 72 hours if nobody answers, and some are recorded and never executed. Delivery is at-least-once, so only what comes back with a receipt updates the causal model and shapes the next decision. Click any block to jump to its page." />
 
       <Show
         when={slug()}
         fallback={<>
           <Show when={tenants.error}>
-            <div class="error-card" role="alert">Could not load tenants: {String(tenants.error?.message ?? tenants.error)}</div>
+            <ErrorCard>Could not load tenants: {String(tenants.error?.message ?? tenants.error)}</ErrorCard>
           </Show>
           <Show when={!tenants.error && tenants.isPending && !tenants.data}>
             <SkeletonSection titleWidth="160px" lines={3} minHeight="120px" />
           </Show>
           <Show when={!tenants.error && !tenants.isPending && !slug()}>
-            <div class="error-card" role="alert">No active tenant — create one on the Tenants tab.</div>
+            <ErrorCard>No active tenant — create one on the Tenants tab.</ErrorCard>
           </Show>
         </>}
       >
@@ -64,6 +53,6 @@ export function FlowPage() {
         </div>
         <ProcessMap slug={slug} />
       </Show>
-    </section>
+    </PageShell>
   )
 }

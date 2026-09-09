@@ -10,7 +10,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { ProgressRing } from '../components/ProgressRing'
 import { EmptyState } from '../components/EmptyState'
 import { SectionIcon } from '../components/SectionIcon'
-import { cn } from '../lib/cn'
+import { PageShell, PageHeader, KpiStrip, KpiCard, SectionTitle, ErrorCard } from '../components/layout'
 
 const formatLatency = (ms: number | null | undefined) => {
   if (ms == null) return null
@@ -62,55 +62,37 @@ export function OverviewPage() {
   const firstLearningTenant = createMemo(() => ccTenants().find(t => t.learning.available && t.learning.totalOutcomes > 0))
   const firstFanTenant = createMemo(() => ccTenants().find(t => t.fans.available && t.fans.activeFans != null))
 
-  return <section class="page">
-    <div class="page-head">
-      <div>
-        <span class="eyebrow">NORTH STAR</span>
-        <h1>Fan growth command center</h1>
-        <p>Aggregate real fans, grow them through genuine engagement, convert through tickets, merch and attendance. Each block drills into the page that owns the detail.</p>
-      </div>
-      <Show when={lastRefresh()}><span class="muted page-head-meta">Last refresh {lastRefresh()}</span></Show>
-    </div>
+  return <PageShell>
+    <PageHeader
+      eyebrow="NORTH STAR"
+      title="Fan growth command center"
+      description="Aggregate real fans, grow them through genuine engagement, convert through tickets, merch and attendance. Each block drills into the page that owns the detail."
+      actions={<Show when={lastRefresh()}><span class="text-muted-foreground page-head-meta">Last refresh {lastRefresh()}</span></Show>}
+    />
 
     {/* ── North Star fan KPI strip ────────────────────────────────── */}
     <Switch>
       <Match when={commandCenter.isError}>
-        <div class="error-card" role="alert">{errorMessage(commandCenter.error, 'Command center unavailable')}</div>
+        <ErrorCard>{errorMessage(commandCenter.error, 'Command center unavailable')}</ErrorCard>
       </Match>
       <Match when={!cc()}>
-        <div class="kpi-strip">
+        <KpiStrip>
           {Array.from({ length: 4 }, () => (
             <div class="kpi-card skeleton-block" style={{ 'min-height': '80px', 'border-radius': 'var(--radius-lg)' }} />
           ))}
-        </div>
+        </KpiStrip>
       </Match>
       <Match when={cc()}>
-        <div class="kpi-strip">
-          <article class="kpi-card kpi-good">
-            <span class="kpi-label">Active fans</span>
-            <span class="kpi-value tabular-nums">{fmt(cc()!.fans.activeFans)}</span>
-            <span class="kpi-sub">
-              <Show when={cc()!.fans.reportingTenants > 0} fallback="no tenants reporting">
-                across {cc()!.fans.reportingTenants} {cc()!.fans.reportingTenants === 1 ? 'tenant' : 'tenants'}
-              </Show>
-            </span>
-          </article>
-          <article class="kpi-card">
-            <span class="kpi-label">Ticket buyers</span>
-            <span class="kpi-value tabular-nums">{fmt(cc()!.fans.ticketBuyers)}</span>
-            <span class="kpi-sub">conversion signal</span>
-          </article>
-          <article class="kpi-card">
-            <span class="kpi-label">Attendees</span>
-            <span class="kpi-value tabular-nums">{fmt(cc()!.fans.attendees)}</span>
-            <span class="kpi-sub">live show conversion</span>
-          </article>
-          <article class="kpi-card">
-            <span class="kpi-label">Paid ticket orders</span>
-            <span class="kpi-value tabular-nums">{fmt(cc()!.fans.paidTicketOrders)}</span>
-            <span class="kpi-sub">revenue signal</span>
-          </article>
-        </div>
+        <KpiStrip>
+          <KpiCard label="Active fans" value={fmt(cc()!.fans.activeFans)} tone="good" sub={
+            <Show when={cc()!.fans.reportingTenants > 0} fallback="no tenants reporting">
+              across {cc()!.fans.reportingTenants} {cc()!.fans.reportingTenants === 1 ? 'tenant' : 'tenants'}
+            </Show>
+          } />
+          <KpiCard label="Ticket buyers" value={fmt(cc()!.fans.ticketBuyers)} sub="conversion signal" />
+          <KpiCard label="Attendees" value={fmt(cc()!.fans.attendees)} sub="live show conversion" />
+          <KpiCard label="Paid ticket orders" value={fmt(cc()!.fans.paidTicketOrders)} sub="revenue signal" />
+        </KpiStrip>
       </Match>
     </Switch>
 
@@ -141,13 +123,13 @@ export function OverviewPage() {
               </div>
               <div class="command-block-detail">
                 <Show when={cc()!.fans.reportingTenants > 0 && cc()!.fans.reportingTenants < cc()!.tenants.total}>
-                  <span class="muted">{cc()!.tenants.total - cc()!.fans.reportingTenants} tenants not reporting audience</span>
+                  <span class="text-muted-foreground">{cc()!.tenants.total - cc()!.fans.reportingTenants} tenants not reporting audience</span>
                 </Show>
                 <Show when={cc()!.fans.reportingTenants === 0}>
-                  <span class="muted">No audience data yet</span>
+                  <span class="text-muted-foreground">No audience data yet</span>
                 </Show>
                 <Show when={cc()!.fans.reportingTenants === cc()!.tenants.total && cc()!.fans.activeFans != null}>
-                  <span class="muted">All tenants reporting</span>
+                  <span class="text-muted-foreground">All tenants reporting</span>
                 </Show>
               </div>
             </div>
@@ -171,7 +153,7 @@ export function OverviewPage() {
               <div class="command-block-detail">
                 <Show when={cc()!.autopilot.succeeded24h > 0}><span class="command-block-good">{cc()!.autopilot.succeeded24h} succeeded (24h)</span></Show>
                 <Show when={cc()!.autopilot.queuedActions === 0 && cc()!.autopilot.processingActions === 0}>
-                  <span class="muted">No engagement actions in flight</span>
+                  <span class="text-muted-foreground">No engagement actions in flight</span>
                 </Show>
               </div>
             </div>
@@ -196,7 +178,7 @@ export function OverviewPage() {
                 <Show when={cc()!.fans.attendees != null && cc()!.fans.attendees! > 0}><span>{fmt(cc()!.fans.attendees)} attendees</span></Show>
                 <Show when={cc()!.fans.paidTicketOrders != null && cc()!.fans.paidTicketOrders! > 0}><span>{fmt(cc()!.fans.paidTicketOrders)} paid orders</span></Show>
                 <Show when={(cc()!.fans.ticketBuyers == null || cc()!.fans.ticketBuyers === 0) && (cc()!.fans.attendees == null || cc()!.fans.attendees === 0)}>
-                  <span class="muted">No conversion data yet</span>
+                  <span class="text-muted-foreground">No conversion data yet</span>
                 </Show>
               </div>
             </div>
@@ -206,12 +188,10 @@ export function OverviewPage() {
     </Switch>
 
     {/* ── Operations command blocks ──────────────────────────────── */}
-    <div class="section-title">
-      <div><span class="eyebrow">OPERATIONS</span><h2><SectionIcon name="activity" />Operations signal</h2></div>
-    </div>
+    <SectionTitle eyebrow="OPERATIONS" title="Operations signal" icon={<SectionIcon name="activity" />} />
     <Switch>
       <Match when={commandCenter.isError}>
-        <div class="error-card" role="alert">{errorMessage(commandCenter.error, 'Command center unavailable')}</div>
+        <ErrorCard>{errorMessage(commandCenter.error, 'Command center unavailable')}</ErrorCard>
       </Match>
       <Match when={!cc()}>
         <div class="command-center-grid">
@@ -247,7 +227,7 @@ export function OverviewPage() {
                 <Show when={cc()!.attention.deadDeliveries > 0}><span>{fmt(cc()!.attention.deadDeliveries)} dead deliveries</span></Show>
                 <Show when={cc()!.brainNeedsAttention}><span class="command-block-critical">brain needs attention</span></Show>
                 <Show when={cc()!.attention.needsYou === 0 && cc()!.attention.awaitingApproval === 0 && cc()!.attention.criticalAlerts === 0}>
-                  <span class="muted">Nothing needs you right now</span>
+                  <span class="text-muted-foreground">Nothing needs you right now</span>
                 </Show>
               </div>
             </div>
@@ -273,9 +253,9 @@ export function OverviewPage() {
                 <Show when={cc()!.autopilot.processingActions > 0}><span>{fmt(cc()!.autopilot.processingActions)} processing</span></Show>
                 <Show when={cc()!.autopilot.succeeded24h > 0}><span class="command-block-good">{fmt(cc()!.autopilot.succeeded24h)} succeeded (24h)</span></Show>
                 <Show when={cc()!.autopilot.failed24h > 0}><span class="command-block-critical">{fmt(cc()!.autopilot.failed24h)} failed (24h)</span></Show>
-                <Show when={cc()!.autopilot.unknownActions > 0}><span class="muted">{fmt(cc()!.autopilot.unknownActions)} unknown</span></Show>
+                <Show when={cc()!.autopilot.unknownActions > 0}><span class="text-muted-foreground">{fmt(cc()!.autopilot.unknownActions)} unknown</span></Show>
                 <Show when={cc()!.autopilot.queuedActions === 0 && cc()!.autopilot.processingActions === 0}>
-                  <span class="muted">No actions in flight</span>
+                  <span class="text-muted-foreground">No actions in flight</span>
                 </Show>
               </div>
             </div>
@@ -298,9 +278,9 @@ export function OverviewPage() {
               </div>
               <div class="command-block-detail">
                 <Show when={cc()!.outcomes.waitingForObservation > 0}><span>{fmt(cc()!.outcomes.waitingForObservation)} waiting for observation</span></Show>
-                <Show when={cc()!.outcomes.unknown > 0}><span class="muted">{fmt(cc()!.outcomes.unknown)} unknown</span></Show>
+                <Show when={cc()!.outcomes.unknown > 0}><span class="text-muted-foreground">{fmt(cc()!.outcomes.unknown)} unknown</span></Show>
                 <Show when={cc()!.outcomes.resolved === 0 && cc()!.outcomes.unknown === 0 && cc()!.outcomes.waitingForObservation === 0}>
-                  <span class="muted">No outcomes yet</span>
+                  <span class="text-muted-foreground">No outcomes yet</span>
                 </Show>
               </div>
             </div>
@@ -342,7 +322,7 @@ export function OverviewPage() {
                 <Show when={cc()!.learning.admitted > 0}><span class="command-block-good">{fmt(cc()!.learning.admitted)} admitted</span></Show>
                 <Show when={cc()!.learning.rejected > 0}><span>{fmt(cc()!.learning.rejected)} rejected</span></Show>
                 <Show when={cc()!.learning.totalOutcomes === 0}>
-                  <span class="muted">No learning outcomes yet</span>
+                  <span class="text-muted-foreground">No learning outcomes yet</span>
                 </Show>
               </div>
             </div>
@@ -354,46 +334,27 @@ export function OverviewPage() {
     {/* ── KPI strip (fleet summary) ──────────────────────────────── */}
     <Switch>
       <Match when={!tenants.data && !tenants.isError}><div class="skeleton-grid"><div/><div/><div/><div/></div></Match>
-      <Match when={tenants.isError}><div class="error-card" role="alert">{errorMessage(tenants.error, 'Tenant registry unavailable')}</div></Match>
+      <Match when={tenants.isError}><ErrorCard>{errorMessage(tenants.error, 'Tenant registry unavailable')}</ErrorCard></Match>
       <Match when={tenants.data}>
-        <div class="kpi-strip">
-          <article class="kpi-card">
-            <span class="kpi-label">Tenants</span>
-            <span class="kpi-value tabular-nums">{fmt(items().length)}</span>
-            <span class="kpi-sub">{fmt(activeCount())} active<Show when={parkedCount() > 0}> · {fmt(parkedCount())} parked</Show><Show when={suspendedCount() > 0}> · {fmt(suspendedCount())} suspended</Show></span>
-          </article>
-          <article class="kpi-card" classList={{ 'kpi-good': allHealthy() }}>
-            <span class="kpi-label">Healthy</span>
-            <span class="kpi-value tabular-nums">{fmt(healthyCount())}</span>
-            <span class="kpi-sub">
-              <Show when={reportingCount() > 0} fallback="no runtime reports yet">
-                {fmt(healthyPct())}% of reporting
-              </Show>
-            </span>
-          </article>
-          <article class="kpi-card" classList={{ 'kpi-warn': needsAttention() > 0, 'kpi-good': needsAttention() === 0 && reportingCount() > 0 }}>
-            <span class="kpi-label">Needs attention</span>
-            <span class="kpi-value tabular-nums">{fmt(needsAttention())}</span>
-            <span class="kpi-sub">
-              {fmt(count('degraded'))} degraded · {fmt(count('stale'))} stale
-              <Show when={suspendedCount() > 0}> · {fmt(suspendedCount())} suspended</Show>
-              <Show when={unknownCount() > 0}> · {fmt(unknownCount())} not reporting</Show>
-            </span>
-          </article>
-          <article class="kpi-card">
-            <span class="kpi-label">Platform services</span>
-            <span class="kpi-value tabular-nums">{platformServices().length === 0 ? '—' : fmt(healthyServices())}</span>
-            <span class="kpi-sub">of {platformServices().length || '—'} monitored</span>
-          </article>
-        </div>
+        <KpiStrip>
+          <KpiCard label="Tenants" value={fmt(items().length)} sub={<>{fmt(activeCount())} active<Show when={parkedCount() > 0}> · {fmt(parkedCount())} parked</Show><Show when={suspendedCount() > 0}> · {fmt(suspendedCount())} suspended</Show></>} />
+          <KpiCard label="Healthy" value={fmt(healthyCount())} tone={allHealthy() ? 'good' : 'default'} sub={
+            <Show when={reportingCount() > 0} fallback="no runtime reports yet">
+              {fmt(healthyPct())}% of reporting
+            </Show>
+          } />
+          <KpiCard label="Needs attention" value={fmt(needsAttention())} tone={needsAttention() === 0 && reportingCount() > 0 ? 'good' : 'default'} class={needsAttention() > 0 ? 'kpi-warn' : ''} sub={
+            <>{fmt(count('degraded'))} degraded · {fmt(count('stale'))} stale
+            <Show when={suspendedCount() > 0}> · {fmt(suspendedCount())} suspended</Show>
+            <Show when={unknownCount() > 0}> · {fmt(unknownCount())} not reporting</Show></>
+          } />
+          <KpiCard label="Platform services" value={platformServices().length === 0 ? '—' : fmt(healthyServices())} sub={`of ${platformServices().length || '—'} monitored`} />
+        </KpiStrip>
       </Match>
     </Switch>
 
     {/* Fleet health ring + Tenant pulse — the fleet at a glance, first */}
-    <div class="section-title">
-      <div><span class="eyebrow">PULSE</span><h2><SectionIcon name="heartbeat" />Tenant pulse</h2></div>
-      <Show when={authState.isPlatformLevel()}><Link to="/tenants" class="section-link">Manage tenants →</Link></Show>
-    </div>
+    <SectionTitle eyebrow="PULSE" title="Tenant pulse" icon={<SectionIcon name="heartbeat" />} action={<Show when={authState.isPlatformLevel()}><Link to="/tenants" class="section-link">Manage tenants →</Link></Show>} />
     <Show when={items().length > 0}>
       <div class="fleet-health-row">
         <div class="fleet-health-ring">
@@ -406,7 +367,7 @@ export function OverviewPage() {
             {' '}· {fmt(items().length)} total
           </strong>
           <Show when={reportingCount() === 0}>
-            <span class="muted">No tenant has sent a runtime heartbeat yet, so there is nothing to score.</span>
+            <span class="text-muted-foreground">No tenant has sent a runtime heartbeat yet, so there is nothing to score.</span>
           </Show>
         </div>
       </div>
@@ -417,7 +378,7 @@ export function OverviewPage() {
           <div class="tenant-pulse-row-left">
             <span class={`tenant-pulse-dot ${healthTone(tenant.runtimeHealth)}`} />
             <strong>{tenant.displayName}</strong>
-            <span class="muted">{tenant.slug}</span>
+            <span class="text-muted-foreground">{tenant.slug}</span>
           </div>
           <div class="tenant-pulse-row-right">
             <StatusBadge status={tenant.runtimeHealth} tone={healthTone(tenant.runtimeHealth)} />
@@ -433,7 +394,7 @@ export function OverviewPage() {
     {/* Platform services — reference, moved below the fleet so the operator's
         own tenants are the first thing they see. */}
     <Show when={platformServices().length > 0}>
-      <div class="section-title"><div><span class="eyebrow">SERVICES</span><h2><SectionIcon name="server" />Platform services</h2></div></div>
+      <SectionTitle eyebrow="SERVICES" title="Platform services" icon={<SectionIcon name="server" />} />
       <div class="service-grid">
         <For each={platformServices()}>{(svc: PlatformHealthEntry) => (
           <div class="service-card" classList={{ healthy: svc.healthy, unhealthy: !svc.healthy }}>
@@ -443,12 +404,12 @@ export function OverviewPage() {
             </div>
             <div class="service-card-meta">
               <Show when={formatLatency(svc.latencyMs)}>{lat => <span class="tabular-nums">{lat()}</span>}</Show>
-              <Show when={!svc.healthy && svc.lastStatus}><span class="muted">{svc.lastStatus}</span></Show>
-              <span class="muted">{svc.url.replace(/^https?:\/\//, '')}</span>
+              <Show when={!svc.healthy && svc.lastStatus}><span class="text-muted-foreground">{svc.lastStatus}</span></Show>
+              <span class="text-muted-foreground">{svc.url.replace(/^https?:\/\//, '')}</span>
             </div>
           </div>
         )}</For>
       </div>
     </Show>
-  </section>
+  </PageShell>
 }

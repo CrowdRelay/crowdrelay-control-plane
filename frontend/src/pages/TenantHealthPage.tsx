@@ -10,7 +10,7 @@ import { AuthorityPoliciesPanel } from '../components/AuthorityPoliciesPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { StatusBadge } from '../components/StatusBadge'
 import { SectionFailureCard } from '../components/SectionFailureCard'
-import { TabBar, TabPanel, useTabPanels } from '../components/layout'
+import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
 import type { TenantOperationsReadModel } from '../lib/types'
 
@@ -37,19 +37,12 @@ export function TenantHealthPage() {
   const _healthTone = () => operationalTone(summary())
   const _healthLabel = () => operationalLabel(summary())
 
-  return <section class="page">
-    <div class="page-head">
-      <div>
-        <span class="eyebrow">SYSTEM</span>
-        <h1>Autopilot</h1>
-        <p>Authority policies, system health, chief of staff summary, and delivery queue inspector.</p>
-      </div>
+  return <PageShell>
+    <PageHeader eyebrow="SYSTEM" title="Autopilot" description="Authority policies, system health, chief of staff summary, and delivery queue inspector." actions={
       <Show when={model.data && !model.error}>
-        <div class="page-head-status">
-          <StatusBadge status={_healthLabel()} tone={_healthTone()} />
-        </div>
+        <StatusBadge status={_healthLabel()} tone={_healthTone()} />
       </Show>
-    </div>
+    } />
 
     <Show when={model.error}>
       <SectionFailureCard error={model.error} fallback="Tenant operations channel unavailable" onRetry={() => void refresh()} />
@@ -109,5 +102,5 @@ export function TenantHealthPage() {
         />
       </TabPanel>
     </Show>
-  </section>
+  </PageShell>
 }

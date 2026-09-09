@@ -7,7 +7,7 @@ import { FanTablePanel } from '../components/FanTablePanel'
 import { SegmentPanel } from '../components/SegmentPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
-import { TabBar, TabPanel, useTabPanels } from '../components/layout'
+import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
 import { CommunityIntelligenceContent } from './CommunityIntelligenceContent'
 
 const SECTION_LABEL: Record<string, string> = {
@@ -40,14 +40,8 @@ export function AudiencePage() {
   }))
   const refresh = () => model.refetch()
 
-  return <section class="page">
-    <div class="page-head">
-      <div>
-        <span class="eyebrow">AUDIENCE</span>
-        <h1>Audience</h1>
-        <p>Every fan aggregated from all sides of the internet — Reddit, Meta, Spotify, Bandsintown, forums, press, live shows — in one view. Plus the communities where they already gather.</p>
-      </div>
-    </div>
+  return <PageShell>
+    <PageHeader eyebrow="AUDIENCE" title="Audience" description="Every fan aggregated from all sides of the internet — Reddit, Meta, Spotify, Bandsintown, forums, press, live shows — in one view. Plus the communities where they already gather." />
 
     {/* Tab bar */}
     <TabBar
@@ -90,5 +84,5 @@ export function AudiencePage() {
     <TabPanel active={activeTab()} id="communities" visited={isVisited('communities')}>
       <CommunityIntelligenceContent slug={params().slug} />
     </TabPanel>
-  </section>
+  </PageShell>
 }

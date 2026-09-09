@@ -1,7 +1,7 @@
 import { useParams } from '@tanstack/solid-router'
 import { BeaconConsolePanel } from '../components/BeaconConsolePanel'
 import { BeaconSignalPanel } from '../components/BeaconSignalPanel'
-import { TabBar, TabPanel, useTabPanels } from '../components/layout'
+import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
 
 /// Beacons are an audience surface, not an operations one.
 ///
@@ -21,18 +21,8 @@ export function BeaconsPage() {
   const params = useParams({ from: '/tenants/$slug/beacons' })
   const { activeTab, switchTab, isVisited } = useTabPanels('roster')
 
-  return <section class="page">
-    <div class="page-head">
-      <div>
-        <span class="eyebrow">AUDIENCE</span>
-        <h1>Beacons</h1>
-        <p>
-          People who carry a release or a show into a city the band has no audience in —
-          venues, promoters, shops, radio. Invite them to Signal, record what they say,
-          and pause the ones who go quiet.
-        </p>
-      </div>
-    </div>
+  return <PageShell>
+    <PageHeader eyebrow="AUDIENCE" title="Beacons" description="People who carry a release or a show into a city the band has no audience in — venues, promoters, shops, radio. Invite them to Signal, record what they say, and pause the ones who go quiet." />
     <TabBar
       active={activeTab()}
       onChange={switchTab}
@@ -47,5 +37,5 @@ export function BeaconsPage() {
     <TabPanel active={activeTab()} id="signal" visited={isVisited('signal')}>
       <BeaconSignalPanel slug={params().slug} />
     </TabPanel>
-  </section>
+  </PageShell>
 }

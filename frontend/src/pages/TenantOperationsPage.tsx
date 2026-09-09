@@ -2,7 +2,6 @@ import { Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Link, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
-import { KpiCard } from '../components/primitives'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { BrainDecisionPanel } from '../components/BrainDecisionPanel'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
@@ -11,7 +10,7 @@ import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { SkeletonKpiStrip, SkeletonSection } from '../components/Skeleton'
-import { TabBar, TabPanel, useTabPanels } from '../components/layout'
+import { KpiCard, PageShell, PageHeader, ErrorCard, TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { StatusBadge } from '../components/StatusBadge'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
@@ -24,6 +23,20 @@ const metric = (value: number | undefined | null, suffix = '') =>
 const fmt = (n: number | null | undefined): string => {
   if (n == null) return '—'
   return n.toLocaleString('en-US')
+}
+
+/** Map legacy tone values to the layout KpiCard's `tone` prop ('good' only). */
+const kpiTone = (tone: string | undefined): 'good' | undefined =>
+  tone === 'good' ? 'good' : undefined
+
+/** Map legacy warn/bad/muted tones to Tailwind classes for the `class` prop. */
+const kpiClass = (tone: string | undefined): string => {
+  switch (tone) {
+    case 'warn': return 'border-warning/25'
+    case 'bad': return 'border-destructive/25'
+    case 'muted': return 'opacity-70'
+    default: return ''
+  }
 }
 
 export function TenantOperationsPage() {
@@ -65,22 +78,20 @@ export function TenantOperationsPage() {
   const topOpportunity = () => d()?.opportunities?.[0] ?? null
   const lastDecisionAt = () => d()?.opportunities?.[0]?.due_at ?? null
 
-  return <section class="page">
-    <div class="page-head">
-      <div>
-        <span class="eyebrow">EXECUTION</span>
-        <h1>Operations</h1>
-        <p>Opportunity board, outreach pipeline and release campaigns. Autopilot authority policies live on the Autopilot page.</p>
-      </div>
-      <Show when={model.data && !model.error}>
-        <div class="page-head-status">
+  return <PageShell>
+    <PageHeader
+      eyebrow="EXECUTION"
+      title="Operations"
+      description="Opportunity board, outreach pipeline and release campaigns. Autopilot authority policies live on the Autopilot page."
+      actions={
+        <Show when={model.data && !model.error}>
           <StatusBadge status={healthLabel()} tone={healthTone()} />
           <Show when={autopilot()?.runtime_enabled}>
             <StatusBadge status="autopilot on" tone="good" />
           </Show>
-        </div>
-      </Show>
-    </div>
+        </Show>
+      }
+    />
 
     <Show when={model.error}>
       <SectionFailureCard error={model.error} fallback="Tenant operations channel unavailable" onRetry={() => void refresh()} />
@@ -102,36 +113,34 @@ export function TenantOperationsPage() {
             and sliders live on the Autopilot page only — this card links there. */}
         <Link to="/tenants/$slug/health" params={{ slug: params().slug }} class="ops-kpi-link">
           <KpiCard
-            compact
             label="Autopilot"
-            tone={autopilot()?.runtime_enabled ? 'good' : 'muted'}
+            tone={kpiTone(autopilot()?.runtime_enabled ? 'good' : 'muted')}
+            class={kpiClass(autopilot()?.runtime_enabled ? 'good' : 'muted')}
             value={autopilot()?.runtime_enabled ? 'on' : 'off'}
             sub={`${autopilot()?.queued_actions ?? 0} queued · manage →`}
           />
         </Link>
         <KpiCard
-          compact
           label="Needs you"
-          tone={hasAttention() ? 'warn' : 'good'}
+          tone={kpiTone(hasAttention() ? 'warn' : 'good')}
+          class={kpiClass(hasAttention() ? 'warn' : 'good')}
           value={needsYouCount() + awaitingApproval()}
           sub={needsYouCount() > 0 ? `${needsYouCount()} approval(s)` : awaitingApproval() > 0 ? `${awaitingApproval()} awaiting` : 'all clear'}
         />
         <KpiCard
-          compact
           label="Health"
-          tone={deadJobs() > 0 ? 'bad' : healthTone() === 'good' ? 'good' : healthTone() === 'warn' ? 'warn' : undefined}
+          tone={kpiTone(deadJobs() > 0 ? 'bad' : healthTone() === 'good' ? 'good' : healthTone() === 'warn' ? 'warn' : undefined)}
+          class={kpiClass(deadJobs() > 0 ? 'bad' : healthTone() === 'warn' ? 'warn' : undefined)}
           value={healthLabel()}
           sub={deadJobs() > 0 ? `${deadJobs()} dead` : `${summary()?.http.p95_ms ?? 0}ms p95`}
         />
-        <KpiCard compact label="Opportunities" value={metric(opCount())} sub="awaiting decision" />
+        <KpiCard label="Opportunities" value={metric(opCount())} sub="awaiting decision" />
         <KpiCard
-          compact
           label="Growth delivered"
           value={metric(growth()?.totals.delivered)}
           sub={`${metric(growth()?.totals.pending)} pending`}
         />
         <KpiCard
-          compact
           label="Outreach"
           value={metric(growth()?.outreach.active_opportunities)}
           sub={`${metric(growth()?.outreach.awaiting_reply)} awaiting reply`}
@@ -140,12 +149,15 @@ export function TenantOperationsPage() {
             a red footnote. If nothing landed and the failures outnumber the
             successes, that is the state of the card, not a caption on it. */}
         <KpiCard
-          compact
           label="Autopilot 24h"
-          tone={autopilotTone()}
+          tone={kpiTone(autopilotTone())}
+          class={kpiClass(autopilotTone())}
           value={metric(autopilot()?.succeeded_24h)}
-          sub={autopilot() ? `${autopilot()!.failed_24h} failed` : '—'}
-          subClass={autopilot() && autopilot()!.failed_24h > 0 ? 'tone-bad' : undefined}
+          sub={autopilot() ? (
+            autopilot()!.failed_24h > 0
+              ? <span class="text-destructive">{autopilot()!.failed_24h} failed</span>
+              : `${autopilot()!.failed_24h} failed`
+          ) : '—'}
         />
       </div>
 
@@ -233,5 +245,5 @@ export function TenantOperationsPage() {
       <ReleaseCampaignsPanel slug={params().slug} />
       <PlayLedgerPanel slug={params().slug} />
     </TabPanel>
-  </section>
+  </PageShell>
 }
