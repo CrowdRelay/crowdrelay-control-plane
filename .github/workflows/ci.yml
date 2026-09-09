@@ -134,125 +134,40 @@ jobs:
           cargo audit --ignore RUSTSEC-2023-0071
 
   container:
-    name: Build production container (arm64)
-    # Self-hosted runner on virya-crowdrelay — the same ARM64 hardware
-    # that production deploys to. Free, unlimited, no billing.
+    name: Build container (PR validation)
+    # Only on PRs — validates the Dockerfile builds. Main branch builds
+    # and deploys happen in deploy.yml which is not cancellable.
+    if: github.event_name == 'pull_request'
     runs-on: [self-hosted, arm64]
     timeout-minutes: 45
     permissions:
       contents: read
-      packages: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-      - name: Log in to GHCR for validated main builds
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build exact linux/arm64 production image
-        env:
-          CACHE_WRITE: ${{ github.ref == 'refs/heads/main' }}
-          PUBLISH_IMAGE: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+      - name: Build linux/arm64 image (no publish)
         shell: bash
         run: |
           set -euo pipefail
-          # Use registry cache (GHCR) instead of GHA cache — doesn't compete
-          # with the 10GB Actions cache pool and doesn't eat local disk.
           owner_lower="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
           cache_ref="ghcr.io/${owner_lower}/crowdrelay-control-plane-buildcache:arm64"
-          cache_args=(--cache-from "type=registry,ref=${cache_ref}")
-          if [[ "${CACHE_WRITE}" == "true" ]]; then
-            cache_args+=(--cache-to "type=registry,ref=${cache_ref},mode=max")
-          fi
-          image="ghcr.io/$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')/crowdrelay-control-plane:sha-${GITHUB_SHA}"
-          if [[ "${PUBLISH_IMAGE}" == "true" ]]; then
-            docker buildx build \
-              --platform linux/arm64 \
-              --build-arg "VCS_REF=${GITHUB_SHA}" \
-              "${cache_args[@]}" \
-              --tag "$image" \
-              --push \
-              .
-            docker pull "$image" >/dev/null
-            architecture="$(docker image inspect "$image" --format '{{.Architecture}}')"
-            revision="$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
-            repo_digests="$(docker image inspect "$image" --format '{{join .RepoDigests "\n"}}')"
-            digest="$(docker buildx imagetools inspect "$image" --format '{{.Manifest.Digest}}')"
-          else
-            docker buildx build \
-              --platform linux/arm64 \
-              --build-arg "VCS_REF=${GITHUB_SHA}" \
-              "${cache_args[@]}" \
-              --tag crowdrelay-control-plane:ci \
-              --load \
-              .
-            architecture="$(docker image inspect crowdrelay-control-plane:ci --format '{{.Architecture}}')"
-            revision="$(docker image inspect crowdrelay-control-plane:ci --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
-            repo_digests=""
-            digest="local"
-          fi
-          [[ "$architecture" == "arm64" ]]
-          [[ "$revision" == "$GITHUB_SHA" ]]
-          if [[ "$PUBLISH_IMAGE" == "true" ]]; then
-            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
-            grep -Fq "@${digest}" <<<"$repo_digests"
-            mkdir -p image-digest
-            printf 'CONTROL_PLANE_RELEASE_SHA=%s\nCONTROL_PLANE_IMAGE_DIGEST=%s\n' \
-              "$GITHUB_SHA" "$digest" > image-digest/image.env
-            ( cd image-digest && sha256sum image.env > image.env.sha256 )
-          fi
-          echo "CONTROL_PLANE_CONTAINER=PASS architecture=$architecture revision=$revision digest=$digest cache=registry write=${CACHE_WRITE} publish=${PUBLISH_IMAGE}"
-
+          docker buildx build \
+            --platform linux/arm64 \
+            --build-arg "VCS_REF=${GITHUB_SHA}" \
+            --cache-from "type=registry,ref=${cache_ref}" \
+            --tag crowdrelay-control-plane:ci \
+            --load \
+            .
+          architecture="$(docker image inspect crowdrelay-control-plane:ci --format '{{.Architecture}}')"
+          revision="$(docker image inspect crowdrelay-control-plane:ci --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
+          [[ "$architecture" == "arm64" ]] || { echo "ERROR: wrong architecture: $architecture" >&2; exit 1; }
+          [[ "$revision" == "$GITHUB_SHA" ]] || { echo "ERROR: revision mismatch: $revision != $GITHUB_SHA" >&2; exit 1; }
+          echo "CONTAINER=PASS arch=$architecture revision=$revision"
       - name: Prune BuildKit cache after build
         if: always()
         continue-on-error: true
         run: docker builder prune --all -f 2>/dev/null || true
-
-      - name: Purge stale artifacts before upload
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          mapfile -t ids < <(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
-            --jq ".artifacts[] | select(.workflow_run.id != ${GITHUB_RUN_ID}) | select(.created_at < (now - 7200 | strftime(\"%Y-%m-%dT%H:%M:%SZ\"))) | .id" 2>/dev/null || true)
-          for id in "${ids[@]}"; do
-            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}" 2>/dev/null || true
-          done
-          echo "Purged ${#ids[@]} stale artifact(s)"
-      - name: Upload immutable image digest
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: control-plane-image-digest-${{ github.sha }}
-          path: image-digest/
-          if-no-files-found: error
-          retention-days: 3
-
-      # GHCR packages inherit the org's default visibility (private) on first
-      # publish. The production host pulls anonymously, so the package must
-      # be public. Idempotent — PATCH with the same visibility is a no-op.
-      - name: Ensure package visibility is public
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          owner_lower="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
-          echo "Setting crowdrelay-control-plane to public…"
-          gh api -X PATCH "/orgs/${owner_lower}/packages/container/crowdrelay-control-plane" \
-            -f visibility=public 2>/dev/null \
-            || gh api -X PATCH "/user/packages/container/crowdrelay-control-plane" \
-            -f visibility=public 2>/dev/null \
-            || echo "WARN: could not set crowdrelay-control-plane visibility"
 
   web:
     runs-on: [self-hosted, arm64]

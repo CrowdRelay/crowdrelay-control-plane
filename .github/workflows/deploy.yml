@@ -7,11 +7,12 @@ on:
 
 permissions:
   contents: read
-  packages: read
+  packages: write
 
-# Never cancel a deploy in progress. New pushes cancel CI (tests + build),
-# but once this workflow starts, it runs to completion — rolling containers
-# mid-deploy would leave the tenant without a working control plane.
+# Never cancel once the build starts. New pushes cancel CI (tests), but
+# once this workflow begins building, it runs to completion — rolling
+# containers mid-deploy would leave the tenant without a control plane.
+# The next push queues behind this one, not over it.
 concurrency:
   group: deploy-control-plane
   cancel-in-progress: false
@@ -24,18 +25,23 @@ env:
   ENV_FILE: control-plane.env
 
 jobs:
-  deploy:
-    name: Deploy to production
-    # Only deploy after CI succeeds on the default branch. CI builds and
-    # publishes the image; this workflow pulls it and rolls the container.
+  build-and-deploy:
+    name: Build, deploy, cleanup
+    # Only after CI succeeds on main. CI runs tests; this workflow builds
+    # the image, publishes it, deploys, and cleans up — all non-cancellable.
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == github.event.repository.default_branch
 
     runs-on: [self-hosted, arm64]
-    timeout-minutes: 10
+    timeout-minutes: 30
 
     steps:
+      - name: Check out the exact validated revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.IMAGE_SHA }}
+
       - name: Resolve image identity
         shell: bash
         run: |
@@ -46,39 +52,57 @@ jobs:
           echo "GHCR_IMAGE=${REGISTRY}/${owner_lower}/crowdrelay-control-plane:sha-${IMAGE_SHA}" >> "$GITHUB_ENV"
           echo "LOCAL_IMAGE=crowdrelay-control-plane:sha-${IMAGE_SHA}" >> "$GITHUB_ENV"
 
-      - name: Pull validated image from GHCR
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Build ──────────────────────────────────────────────────────────
+      # Build the production image with cargo-chef dependency caching.
+      # Registry cache (GHCR) avoids competing with the Actions cache pool.
+      - name: Build and publish linux/arm64 production image
         shell: bash
         run: |
           set -euo pipefail
-          echo "Pulling ${GHCR_IMAGE}..."
-          docker pull "${GHCR_IMAGE}"
-          # Retag to the local name the compose file expects
+          owner_lower="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          cache_ref="ghcr.io/${owner_lower}/crowdrelay-control-plane-buildcache:arm64"
+          docker buildx build \
+            --platform linux/arm64 \
+            --build-arg "VCS_REF=${IMAGE_SHA}" \
+            --cache-from "type=registry,ref=${cache_ref}" \
+            --cache-to "type=registry,ref=${cache_ref},mode=max" \
+            --tag "${GHCR_IMAGE}" \
+            --push \
+            .
+          # Pull the published image locally for deploy + verification
+          docker pull "${GHCR_IMAGE}" >/dev/null
           docker tag "${GHCR_IMAGE}" "${LOCAL_IMAGE}"
-          # Verify architecture and revision
           architecture="$(docker image inspect "${LOCAL_IMAGE}" --format '{{.Architecture}}')"
           revision="$(docker image inspect "${LOCAL_IMAGE}" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
           [[ "$architecture" == "arm64" ]] || { echo "ERROR: wrong architecture: $architecture" >&2; exit 1; }
           [[ "$revision" == "$IMAGE_SHA" ]] || { echo "ERROR: revision mismatch: $revision != $IMAGE_SHA" >&2; exit 1; }
-          echo "IMAGE=PASS arch=$architecture revision=$revision"
+          echo "BUILD=PASS arch=$architecture revision=$revision"
 
+      # ── Deploy ─────────────────────────────────────────────────────────
       - name: Deploy — update env and restart container
         shell: bash
         run: |
           set -euo pipefail
           cd "${DEPLOY_DIR}"
+          # Record previous tag for rollback
+          PREV_TAG="$(grep '^CONTROL_PLANE_IMAGE_TAG=' "${ENV_FILE}" 2>/dev/null | cut -d= -f2 || echo "")"
+          echo "PREV_TAG=${PREV_TAG}" >> "$GITHUB_ENV"
           # Update the image tag in the env file
           sudo sed -i "s|^CONTROL_PLANE_IMAGE_TAG=.*|CONTROL_PLANE_IMAGE_TAG=${IMAGE_TAG}|" "${ENV_FILE}"
-          # Verify the tag was written
           grep -q "CONTROL_PLANE_IMAGE_TAG=${IMAGE_TAG}" "${ENV_FILE}" || {
-            echo "ERROR: failed to update CONTROL_PLANE_IMAGE_TAG in ${ENV_FILE}" >&2; exit 1; }
+            echo "ERROR: failed to update CONTROL_PLANE_IMAGE_TAG" >&2; exit 1; }
           echo "ENV=PASS tag=${IMAGE_TAG}"
-
-          # Pull the current container's image tag for rollback reference
-          PREV_TAG="$(docker inspect crowdrelay-control-plane-app-1 --format '{{.Config.Image}}' 2>/dev/null || echo "")"
-          echo "PREV_IMAGE=${PREV_TAG}" >> "$GITHUB_ENV"
-
-          # Recreate the app container with the new image. Compose handles
-          # the dependency ordering (postgres healthy before app starts).
+          # Recreate the app container with the new image
           sudo docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d --no-deps app
           echo "COMPOSE_UP=PASS"
 
@@ -96,10 +120,10 @@ jobs:
           done
           echo "ERROR: control plane did not become ready in 90s" >&2
           # Rollback: restore previous image tag and restart
-          echo "Rolling back to previous image..."
-          cd "${DEPLOY_DIR}"
-          if [[ -n "${PREV_IMAGE:-}" ]]; then
-            sudo sed -i "s|^CONTROL_PLANE_IMAGE_TAG=.*|CONTROL_PLANE_IMAGE_TAG=${PREV_IMAGE}|" "${ENV_FILE}"
+          if [[ -n "${PREV_TAG:-}" ]]; then
+            echo "Rolling back to ${PREV_TAG}..."
+            cd "${DEPLOY_DIR}"
+            sudo sed -i "s|^CONTROL_PLANE_IMAGE_TAG=.*|CONTROL_PLANE_IMAGE_TAG=${PREV_TAG}|" "${ENV_FILE}"
             sudo docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d --no-deps app
           fi
           exit 1
@@ -108,24 +132,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # The running container's image should match the deployed SHA
           running_image="$(docker inspect crowdrelay-control-plane-app-1 --format '{{.Config.Image}}')"
           [[ "$running_image" == "${LOCAL_IMAGE}" ]] || {
             echo "ERROR: running image $running_image != expected ${LOCAL_IMAGE}" >&2; exit 1; }
           echo "REVISION=PASS running=${running_image}"
 
+      # ── Cleanup ────────────────────────────────────────────────────────
       - name: Cleanup — prune old images and build cache
         if: always()
         continue-on-error: true
         shell: bash
         run: |
           set -uo pipefail
-          # Prune all BuildKit cache (regrows on next build)
           docker builder prune --all -f 2>/dev/null || true
-          # Prune dangling images
           docker image prune -f 2>/dev/null || true
           # Keep only the 2 newest control-plane images (latest + rollback)
-          # Never delete images used by running containers
           running_images="$(docker inspect $(docker ps -q) --format '{{.Image}}' 2>/dev/null | sort -u || echo "")"
           docker images --format '{{.Repository}}:{{.Tag}}\t{{.ID}}' 2>/dev/null \
             | grep -E '(^|/)crowdrelay-control-plane:sha-' \
@@ -136,3 +157,21 @@ jobs:
               docker rmi "$image_id" 2>/dev/null && echo "  pruned $repo_tag" || true
             done
           echo "CLEANUP=PASS"
+
+      # GHCR packages inherit the org's default visibility (private) on first
+      # publish. The production host pulls anonymously, so the package must
+      # be public. Idempotent — PATCH with the same visibility is a no-op.
+      - name: Ensure package visibility is public
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          owner_lower="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          gh api -X PATCH "/orgs/${owner_lower}/packages/container/crowdrelay-control-plane" \
+            -f visibility=public 2>/dev/null \
+            || gh api -X PATCH "/user/packages/container/crowdrelay-control-plane" \
+            -f visibility=public 2>/dev/null \
+            || echo "WARN: could not set visibility"
