@@ -112,6 +112,9 @@ export function TenantNotifiersPage() {
   const items = () => channels.data?.items ?? []
   const platformItems = () => platformConfig.data?.items ?? []
   const routingItems = () => automationRouting.data?.items ?? []
+  const [showAllRouting, setShowAllRouting] = createSignal(false)
+  const MAX_VISIBLE_ROUTING = 5
+  const visibleRoutingItems = () => showAllRouting() ? routingItems() : routingItems().slice(0, MAX_VISIBLE_ROUTING)
 
   return <section class="page">
     <div class="page-head"><div><span class="eyebrow">SYSTEM</span><h1>Notification topology</h1><p>Where this tenant's alerts land and how they get there. Three layers: tenant channels, platform config, and automation routing. Delivery is best-effort with bounded retries; endpoints belong to your own infrastructure.</p></div></div>
@@ -174,7 +177,7 @@ export function TenantNotifiersPage() {
     <Show when={!platformConfig.error && !platformConfig.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={platformConfig.data}>
       <article class="panel">
-        <details>
+        <details open>
           <summary class="section-title section-title-summary"><div><span class="eyebrow">PLATFORM / CONTROL PLANE</span><h2><SectionIcon name="server" /> Platform notification config</h2></div></summary>
         <p class="agent-section-intro">Environment-level notification routing. <strong>source:</strong> environment · <strong>owner:</strong> platform · <strong>path:</strong> direct, relay, or workflow</p>
         <p class="agent-section-intro muted">These are separate from any Discord or n8n you have configured elsewhere — each is read from its own variable in the control plane's deployment environment, and an unset one shows the variable to set.</p>
@@ -206,7 +209,7 @@ export function TenantNotifiersPage() {
     <Show when={!automationRouting.error && !automationRouting.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={automationRouting.data}>
       <article class="panel">
-        <details>
+        <details open>
           <summary class="section-title section-title-summary"><div><span class="eyebrow">AUTOMATION / N8N</span><h2><SectionIcon name="workflow" /> Workflow routing configs</h2></div><div class="row-health"><Show when={routingItems().length > 0}><small class="muted">{routingItems().length} workflows</small></Show><button type="button" class="ghost" disabled={syncRouting.isPending} onClick={(e) => { e.preventDefault(); syncRouting.mutate() }}>{syncRouting.isPending && <Spinner />} {syncRouting.isPending ? 'Syncing…' : 'Sync from n8n'}</button></div></summary>
         <p class="agent-section-intro">n8n workflow routing with Discord forwarding and mute controls. <strong>source:</strong> database · <strong>owner:</strong> automation · <strong>path:</strong> workflow</p>
         <Show when={routingItems().length === 0}>
@@ -221,7 +224,7 @@ export function TenantNotifiersPage() {
         <table class="data-table">
           <thead><tr><th>Workflow</th><th>Label</th><th>Category</th><th>Discord</th><th>Muted</th><th>Status</th></tr></thead>
           <tbody>
-            <For each={routingItems()}>{(item: AutomationRoutingItem) => <tr>
+            <For each={visibleRoutingItems()}>{(item: AutomationRoutingItem) => <tr>
               <td><code>{item.workflowId}</code></td>
               <td>{item.label}</td>
               <td><small class="muted">{item.category}</small></td>
@@ -231,6 +234,11 @@ export function TenantNotifiersPage() {
             </tr>}</For>
           </tbody>
         </table>
+        <Show when={routingItems().length > MAX_VISIBLE_ROUTING}>
+          <button class="ghost" onClick={() => setShowAllRouting(s => !s)}>
+            {showAllRouting() ? 'Show less' : `Show all (${routingItems().length})`}
+          </button>
+        </Show>
         </Show>
         </details>
       </article>

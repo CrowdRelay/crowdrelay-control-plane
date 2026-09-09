@@ -71,8 +71,10 @@ pub fn tenant_admin_router() -> Router<AppState> {
         .route("/tenants/{slug}/audit", get(audit))
 }
 
-/// Named operator account management. Platform admins only — a tenant
-/// operator can never mint accounts.
+/// Named operator account management. Platform-level access — a tenant
+/// operator can never mint accounts. The `authenticate` middleware
+/// blocks mutations for `platform_viewer`, so a viewer can list but
+/// not create or delete operators.
 pub fn operator_admin_router() -> Router<AppState> {
     use axum::middleware;
     Router::new()
@@ -84,7 +86,7 @@ pub fn operator_admin_router() -> Router<AppState> {
             "/tenants/{slug}/operators/{account_id}",
             axum::routing::delete(delete_operator),
         )
-        .route_layer(middleware::from_fn(auth::require_platform_admin))
+        .route_layer(middleware::from_fn(auth::require_platform_level))
 }
 
 pub fn telemetry_router() -> Router<AppState> {

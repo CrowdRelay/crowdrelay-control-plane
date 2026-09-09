@@ -245,13 +245,19 @@ pub async fn authenticate(
     Ok(next.run(request).await)
 }
 
-/// Platform-admin-only surface (AREA designer proxy).
-pub async fn require_platform_admin(request: Request, next: Next) -> Result<Response, ApiError> {
-    request
+/// Platform-level surface (admin or viewer). Read access for both
+/// platform roles; the `authenticate` middleware already blocks
+/// mutations for `platform_viewer`, so this guard only controls scope.
+pub async fn require_platform_level(request: Request, next: Next) -> Result<Response, ApiError> {
+    let identity = request
         .extensions()
         .get::<Arc<Identity>>()
-        .ok_or(ApiError::Unauthorized)?
-        .require_platform_admin()?;
+        .ok_or(ApiError::Unauthorized)?;
+    if !identity.is_platform_level() {
+        return Err(ApiError::Forbidden(
+            "this surface requires platform-level access".to_owned(),
+        ));
+    }
     Ok(next.run(request).await)
 }
 

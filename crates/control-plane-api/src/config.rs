@@ -258,8 +258,9 @@ impl Config {
                 None => None,
             },
             bootstrap_viewer_password: optional_env("CONTROL_PLANE_BOOTSTRAP_VIEWER_PASSWORD")?,
-            bootstrap_viewer_username: match optional_env("CONTROL_PLANE_BOOTSTRAP_VIEWER_USERNAME")?
-            {
+            bootstrap_viewer_username: match optional_env(
+                "CONTROL_PLANE_BOOTSTRAP_VIEWER_USERNAME",
+            )? {
                 Some(username) => {
                     anyhow::ensure!(
                         (3..=32).contains(&username.len())
@@ -353,7 +354,8 @@ impl Config {
             );
         }
         anyhow::ensure!(
-            config.bootstrap_viewer_password.is_some() == config.bootstrap_viewer_username.is_some(),
+            config.bootstrap_viewer_password.is_some()
+                == config.bootstrap_viewer_username.is_some(),
             "CONTROL_PLANE_BOOTSTRAP_VIEWER_PASSWORD and CONTROL_PLANE_BOOTSTRAP_VIEWER_USERNAME must be set together"
         );
         if let Some(password) = config.bootstrap_viewer_password.as_deref() {

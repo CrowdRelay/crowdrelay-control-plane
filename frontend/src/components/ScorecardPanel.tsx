@@ -117,11 +117,6 @@ export function ScorecardPanel(props: { slug: string }) {
           <strong>{timeAgo(d().status.last_decision_at)}</strong>
           <small>{timeAgo(d().status.last_action_at)} last action</small>
         </div>
-        <div>
-          <span>Live capabilities</span>
-          <strong>{count(d().status.live_capabilities.length)}</strong>
-          <small>{d().status.live_capabilities.length > 0 ? d().status.live_capabilities.join(', ') : 'no active capabilities'}</small>
-        </div>
         <Show when={d().status.parked_capabilities.length > 0}>
           <div class="operations-attention">
             <strong>Execution gap</strong>
@@ -129,6 +124,25 @@ export function ScorecardPanel(props: { slug: string }) {
           </div>
         </Show>
       </div>
+
+      {/* Live capabilities as chips — spans the full row */}
+      <Show when={d().status.live_capabilities.length > 0}>
+        <div class="capability-chips-row">
+          <span class="capability-chips-label">Live capabilities</span>
+          <div class="capability-chips">
+            <For each={d().status.live_capabilities}>{cap => <span class="capability-chip">{cap}</span>}</For>
+          </div>
+        </div>
+      </Show>
+      <Show when={d().status.live_capabilities.length === 0}>
+        <div class="operations-metrics">
+          <div>
+            <span>Live capabilities</span>
+            <strong>0</strong>
+            <small>no active capabilities</small>
+          </div>
+        </div>
+      </Show>
 
       {/* Week summary */}
       <section class="operations-section">

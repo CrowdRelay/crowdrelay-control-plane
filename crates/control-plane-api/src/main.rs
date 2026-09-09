@@ -320,7 +320,7 @@ async fn main() -> anyhow::Result<()> {
         ))
     };
     let superadmin_area = area_routes::router()
-        .route_layer(middleware::from_fn(auth::require_platform_admin))
+        .route_layer(middleware::from_fn(auth::require_platform_level))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth::require_tenant_access,
@@ -336,12 +336,12 @@ async fn main() -> anyhow::Result<()> {
         .merge(scoped(read_models::router()))
         .merge(
             read_models::global_router()
-                .route_layer(middleware::from_fn(auth::require_platform_admin)),
+                .route_layer(middleware::from_fn(auth::require_platform_level)),
         )
         .merge(scoped(notify_routes::router()))
         .merge(
             automation_routes::operator_router()
-                .route_layer(middleware::from_fn(auth::require_platform_admin)),
+                .route_layer(middleware::from_fn(auth::require_platform_level)),
         )
         .route_layer(middleware::from_fn_with_state(
             state.clone(),

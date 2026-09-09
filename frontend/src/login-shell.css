@@ -208,14 +208,13 @@ body {
   box-shadow: 0 8px 24px rgba(0,0,0,0.35);
 }
 
-/* === CTA button glow === */
-.hero-cta {
+/* === Email link glow === */
+.hero-email-link {
   box-shadow: 0 0 0 0 rgba(155, 135, 245, 0);
   transition: background var(--login-t-fast), border-color var(--login-t-fast), box-shadow var(--login-t-slow), transform var(--login-t-smooth);
 }
 
-.hero-cta:hover {
-  background: rgba(155,135,245,0.12);
+.hero-email-link:hover {
   border-color: var(--login-accent);
   box-shadow: 0 0 24px rgba(155, 135, 245, 0.2);
   transform: translateY(-1px);
@@ -685,18 +684,24 @@ body {
   font-size: 0.92rem;
 }
 
-.hero-cta {
-  align-self: center;
-  padding: 12px 20px;
+.hero-email-link {
+  padding: 10px 18px;
   min-height: 44px;
-  border: 1px solid rgba(87,72,143,0.5);
+  border: 1px solid rgba(87,72,143,0.4);
   border-radius: 10px;
   color: #ddd7ff;
-  background: var(--login-panel-2);
+  background: rgba(87,72,143,0.12);
   font-weight: 700;
+  font-size: 0.95rem;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.hero-email-link:hover {
+  background: rgba(87,72,143,0.22);
+  border-color: rgba(87,72,143,0.7);
 }
 
 .hero-links {
@@ -727,7 +732,7 @@ body {
   min-width: 0;
 }
 
-.hero-links-row .hero-cta {
+.hero-links-row .hero-email-link {
   white-space: nowrap;
 }
 
@@ -945,7 +950,7 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .hero-cta {
+  .hero-email-link {
     justify-self: start;
   }
 
