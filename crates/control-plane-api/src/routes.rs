@@ -843,7 +843,7 @@ async fn billing_webhook(
         "expected_version": snapshot.posture_version,
     });
     let posture_idempotency = format!("billing-unpark-posture-{}", Uuid::new_v4());
-    let _ = state
+    let posture_result = state
         .area_client
         .request_management(
             tenant_id,
@@ -857,6 +857,9 @@ async fn billing_webhook(
             },
         )
         .await;
+    if let Err(e) = &posture_result {
+        tracing::warn!(error = %e, slug = %slug, "posture restore failed during billing unpark — envelope was restored");
+    }
     // Consume the snapshot only after a successful envelope restore.
     state.store.consume_park_snapshot(tenant_id, actor).await?;
     Ok(StatusCode::OK)

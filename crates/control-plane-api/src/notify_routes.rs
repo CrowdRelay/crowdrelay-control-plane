@@ -448,8 +448,12 @@ where
 
 async fn platform_config(
     State(state): State<AppState>,
-    Path(_slug): Path<String>,
+    Path(slug): Path<String>,
 ) -> Result<Response, ApiError> {
+    // Validate the tenant exists — these are platform-wide configs but
+    // they are served under a tenant-scoped path, so a bogus slug must
+    // fail closed rather than leak platform state to an invalid tenant.
+    state.store.tenant_by_slug(&slug).await?;
     let discord_webhook = &state.discord_automation_webhook_url;
     let email_relay = &state.notify_email_relay_url;
     let n8n_base = &state.n8n_base_url;
@@ -535,8 +539,9 @@ fn categorise_workflow(name: &str) -> &'static str {
 /// silently re-enable something they turned off.
 async fn sync_automation_routing(
     State(state): State<AppState>,
-    Path(_slug): Path<String>,
+    Path(slug): Path<String>,
 ) -> Result<Response, ApiError> {
+    state.store.tenant_by_slug(&slug).await?;
     let (base_url, api_key) = match (state.n8n_base_url.as_deref(), state.n8n_api_key.as_deref()) {
         (Some(url), Some(key)) => (url, key),
         _ => {
@@ -642,8 +647,9 @@ async fn sync_automation_routing(
 
 async fn automation_routing(
     State(state): State<AppState>,
-    Path(_slug): Path<String>,
+    Path(slug): Path<String>,
 ) -> Result<Response, ApiError> {
+    state.store.tenant_by_slug(&slug).await?;
     let configs = state.store.list_automation_workflow_configs().await?;
     let items: Vec<serde_json::Value> = configs
         .iter()

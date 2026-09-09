@@ -1323,7 +1323,7 @@ impl Store {
 
     /// Total tenant count for metrics.
     pub async fn tenant_count(&self) -> Result<i64, ApiError> {
-        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM tenants")
+        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM control_plane_tenants")
             .fetch_one(&self.pool)
             .await?;
         Ok(row.0)

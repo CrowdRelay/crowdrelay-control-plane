@@ -114,6 +114,10 @@ pub async fn invalidate_tenant(cache: &ReadModelCache, slug: &str) {
     let prefix = format!("{slug}:");
     let mut entries = cache.write().await;
     entries.retain(|key, _| !key.starts_with(&prefix));
+    // The global command-center snapshot aggregates per-tenant summaries,
+    // so a tenant mutation invalidates it too. Without this, the overview
+    // page shows stale fleet health for up to the TTL window.
+    entries.remove("command-center");
 }
 
 /// Remove all entries older than `READ_MODEL_CACHE_TTL * 2`. Called by a
@@ -195,27 +199,37 @@ async fn command_center(
         }));
     }
 
-    let mut per_tenant = Vec::with_capacity(handles.len());
-    for handle in handles {
-        match handle.await {
-            Ok(Some((tenant, summary))) => {
-                per_tenant.push(build_per_tenant_summary(&tenant, &summary));
+    // Fan out per-tenant summaries and the platform-health query concurrently
+    // — they are independent, so running them in parallel shortens TTI.
+    let (per_tenant, platform_health) = tokio::join!(
+        async {
+            let mut per_tenant = Vec::with_capacity(handles.len());
+            for handle in handles {
+                match handle.await {
+                    Ok(Some((tenant, summary))) => {
+                        per_tenant.push(build_per_tenant_summary(&tenant, &summary));
+                    }
+                    Ok(None) => {
+                        // The semaphore was closed — the tenant summary is skipped.
+                        // This should not happen in normal operation.
+                    }
+                    Err(join_error) => {
+                        // A task panic or cancellation. Log it so the operator has
+                        // a visible signal that a tenant was skipped due to an
+                        // internal error, not because it returned no data.
+                        tracing::warn!(
+                            error = %join_error,
+                            "command-center tenant task panicked or was cancelled",
+                        );
+                    }
+                }
             }
-            Ok(None) => {
-                // The semaphore was closed — the tenant summary is skipped.
-                // This should not happen in normal operation.
-            }
-            Err(join_error) => {
-                // A task panic or cancellation. Log it so the operator has
-                // a visible signal that a tenant was skipped due to an
-                // internal error, not because it returned no data.
-                tracing::warn!(
-                    error = %join_error,
-                    "command-center tenant task panicked or was cancelled",
-                );
-            }
-        }
-    }
+            per_tenant
+        },
+        state.store.list_platform_health(),
+    );
+
+    let platform_health = platform_health?;
 
     // Aggregate global totals from per-tenant projections.
     let mut needs_you = 0u64;
@@ -278,8 +292,6 @@ async fn command_center(
             brain_needs_attention = true;
         }
     }
-
-    let platform_health = state.store.list_platform_health().await?;
 
     let projected = json!({
         "fetchedAt": now,
@@ -439,7 +451,6 @@ fn build_per_tenant_summary(
             }).count() as u64
         }).unwrap_or(0),
         "deadDeliveries": att.and_then(|a| a.get("dead_deliveries")).and_then(|v| v.as_array()).map(|a| a.len() as u64).unwrap_or(0),
-        "brain": att.and_then(|a| a.get("ecosystem")).and_then(|v| v.get("brain")).cloned().unwrap_or(Value::Null),
     });
 
     // ── autopilot ──

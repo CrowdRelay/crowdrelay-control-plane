@@ -11,7 +11,7 @@ import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
 import { AttentionInbox } from '../components/AttentionInbox'
 import { EmptyState } from '../components/EmptyState'
 import { SignalOverviewPanel } from '../components/SignalOverviewPanel'
-import { SkeletonSection, SkeletonKpiStrip } from '../components/Skeleton'
+import { SkeletonSection, SkeletonKpiStrip, SkeletonRows } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
 import { Spinner } from '../components/Spinner'
 
@@ -258,7 +258,9 @@ export function TenantAttentionPage() {
     </div>
 
     {/* Critical watchdog alerts are rendered by WatchdogAlertsPanel */}
-    <WatchdogAlertsPanel alerts={attention.data?.alerts ?? []} slug={params().slug} />
+    <Show when={!attention.isLoading} fallback={<SkeletonSection titleWidth="180px" lines={2} minHeight="80px" />}>
+      <WatchdogAlertsPanel alerts={attention.data?.alerts ?? []} slug={params().slug} />
+    </Show>
 
     {/* ─── Attention Inbox — tiered action center ──────────────────── */}
     <Show when={!summary.error && summary.data}>
@@ -336,6 +338,7 @@ export function TenantAttentionPage() {
       <div><span class="eyebrow">DEAD OUTBOX</span><h3><SectionIcon name="alert-triangle" />Failed events</h3><p>Retry is idempotent.</p></div>
     </div>
     <Show when={deadOutbox.error}><div class="error-card" role="alert">{errorMessage(deadOutbox.error, 'Dead outbox unavailable')}</div></Show>
+    <Show when={deadOutbox.isLoading}><SkeletonRows count={2} /></Show>
     <For each={expandOutbox() ? (deadOutbox.data ?? []) : (deadOutbox.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
       <div class="dead-event-head">
         <div class="dead-event-info">
@@ -366,6 +369,7 @@ export function TenantAttentionPage() {
       <button type="button" class={confirming() ? 'danger-ghost' : 'ghost'} disabled={(summary.data?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' && <Spinner />} {busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</button>
     </div>
     <Show when={deadDeliveries.error}><div class="error-card" role="alert">{errorMessage(deadDeliveries.error, 'Dead deliveries unavailable')}</div></Show>
+    <Show when={deadDeliveries.isLoading}><SkeletonRows count={2} /></Show>
     <For each={expandDeliveries() ? (deadDeliveries.data ?? []) : (deadDeliveries.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
       <div class="dead-event-head">
         <div class="dead-event-info">
@@ -403,6 +407,7 @@ export function TenantAttentionPage() {
       <StatusBadge status={(summary.data?.push.dead ?? 0) > 0 ? 'dead' : 'clean'} tone={(summary.data?.push.dead ?? 0) > 0 ? 'bad' : 'good'} />
     </div>
     <Show when={deadPush.error}><div class="error-card" role="alert">{errorMessage(deadPush.error, 'Dead push unavailable')}</div></Show>
+    <Show when={deadPush.isLoading}><SkeletonRows count={2} /></Show>
     <For each={expandPush() ? (deadPush.data ?? []) : (deadPush.data ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
       <div class="dead-event-head">
         <div class="dead-event-info">
