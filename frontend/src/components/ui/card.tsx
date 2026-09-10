@@ -5,6 +5,11 @@ import { cn } from '~/lib/cn'
  * Card — flat surface with one border colour. No glassmorphism, no shadow
  * by default. One elevation step (shadow-sm) available via the `elevated`
  * prop for popovers and dialogs.
+ *
+ * Background panels use sharp corners (no radius) so they sit flush against
+ * each other and the page edge without visual gaps. Inner elements (buttons,
+ * inputs, badges, KPI tiles) keep their own rounded-* classes from the
+ * radius tokens.
  */
 
 export const Card: Component<JSX.HTMLAttributes<HTMLDivElement> & { class?: string; elevated?: boolean }> = (props) => {
@@ -13,8 +18,8 @@ export const Card: Component<JSX.HTMLAttributes<HTMLDivElement> & { class?: stri
     <div
       data-card=""
       class={cn(
-        'rounded-lg border border-border bg-card text-foreground',
-        local.elevated && 'shadow-sm',
+        'border border-border bg-card text-foreground',
+        local.elevated && 'shadow-sm rounded-lg',
         local.class,
       )}
       {...rest}

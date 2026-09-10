@@ -174,17 +174,17 @@ export function TenantAttentionPage() {
           <Button variant={confirmingReconcile() ? 'default' : 'outline'} size="sm" class={confirmingReconcile() ? 'flex gap-2 items-center mt-2' : ''} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' && <Spinner />} {busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Confirm reconciliation' : 'Run reconciliation'}</Button>
         </div>
         <Show when={attention.data?.ecosystem}><div class="grid gap-2.5">
-          <Card class="p-3.5 hover:border-border-strong transition-colors">
+          <Card class="rounded-lg p-3.5 hover:border-border-strong transition-colors">
             <span class="block text-sm text-muted-foreground">Open findings</span>
             <strong class="block text-xl font-bold tabular-nums my-1.5">{attention.data!.ecosystem!.open_findings}</strong>
             <small class="block text-sm text-muted-foreground">reported by canonical overview</small>
           </Card>
-          <Card class="p-3.5 hover:border-border-strong transition-colors">
+          <Card class="rounded-lg p-3.5 hover:border-border-strong transition-colors">
             <span class="block text-sm text-muted-foreground">Last reconciliation</span>
             <strong class="block text-xl font-bold tabular-nums my-1.5">{attention.data!.ecosystem!.last_reconciliation?.status ?? '—'}</strong>
             <small class="block text-sm text-muted-foreground">{observed(attention.data!.ecosystem!.last_reconciliation?.finished_at ?? null)}</small>
           </Card>
-          <Card class="p-3.5 hover:border-border-strong transition-colors">
+          <Card class="rounded-lg p-3.5 hover:border-border-strong transition-colors">
             <span class="block text-sm text-muted-foreground">Bandsintown failures</span>
             <strong class="block text-xl font-bold tabular-nums my-1.5">{attention.data!.ecosystem!.bandsintown_sync?.consecutive_failures ?? 0}</strong>
             <small class="block text-sm text-muted-foreground">{attention.data!.ecosystem!.bandsintown_sync?.in_progress ? 'sync in progress' : 'idle'}</small>
@@ -221,22 +221,22 @@ export function TenantAttentionPage() {
       <Show when={!summary.error && summary.data} fallback={<Show when={!summary.error}><SkeletonRows count={4} /></Show>}>
         {data => <>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Card class="p-3.5">
+            <Card class="rounded-lg p-3.5">
               <span class="block text-xs text-muted-foreground">Pool</span>
               <strong class="block text-xl font-bold tabular-nums mt-1">{data().database.pool_size}/{data().database.pool_max}</strong>
               <small class="block text-xs text-muted-foreground mt-1">{data().database.pool_idle} idle</small>
             </Card>
-            <Card class="p-3.5">
+            <Card class="rounded-lg p-3.5">
               <span class="block text-xs text-muted-foreground">Postgres</span>
               <strong class="block text-xl font-bold tabular-nums mt-1">{formatPgVersion(data().database.server_version_num)}</strong>
               <small class="block text-xs text-muted-foreground mt-1">{data().database.io_method ?? 'I/O method unknown'}</small>
             </Card>
-            <Card class="p-3.5">
+            <Card class="rounded-lg p-3.5">
               <span class="block text-xs text-muted-foreground">Effective I/O concurrency</span>
               <strong class="block text-xl font-bold tabular-nums mt-1">{data().database.effective_io_concurrency ?? '—'}</strong>
               <small class="block text-xs text-muted-foreground mt-1">workers {data().database.io_workers ?? '—'}</small>
             </Card>
-            <Card class="p-3.5">
+            <Card class="rounded-lg p-3.5">
               <span class="block text-xs text-muted-foreground">Maintenance I/O</span>
               <strong class="block text-xl font-bold tabular-nums mt-1">{data().database.maintenance_io_concurrency ?? '—'}</strong>
               <small class="block text-xs text-muted-foreground mt-1">max {data().database.io_max_concurrency ?? '—'}</small>
@@ -249,22 +249,22 @@ export function TenantAttentionPage() {
       <Show when={!summary.error && summary.data} fallback={<Show when={!summary.error}><SkeletonRows count={4} /></Show>}>
         {data => <>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Card class="p-3.5">
+            <Card class="rounded-lg p-3.5">
               <span class="block text-xs text-muted-foreground">Stale vouchers</span>
               <strong class="block text-xl font-bold tabular-nums mt-1">{data().area.stale_voucher_reservations}</strong>
               <small class="block text-xs text-muted-foreground mt-1">{data().area.vouchers_issued} issued</small>
             </Card>
-            <Card class="p-3.5">
+            <Card class="rounded-lg p-3.5">
               <span class="block text-xs text-muted-foreground">Stale ticket rewards</span>
               <strong class="block text-xl font-bold tabular-nums mt-1">{data().area.stale_ticket_reward_reservations}</strong>
               <small class="block text-xs text-muted-foreground mt-1">{data().area.ticket_rewards_issued} issued</small>
             </Card>
-            <Card class="p-3.5">
+            <Card class="rounded-lg p-3.5">
               <span class="block text-xs text-muted-foreground">Credits</span>
               <strong class="block text-xl font-bold tabular-nums mt-1">{data().area.credits_total}</strong>
               <small class="block text-xs text-muted-foreground mt-1">current total</small>
             </Card>
-            <Card class="p-3.5">
+            <Card class="rounded-lg p-3.5">
               <span class="block text-xs text-muted-foreground">Legacy imports</span>
               <strong class="block text-xl font-bold tabular-nums mt-1">{data().area.legacy_imported_players}</strong>
               <small class="block text-xs text-muted-foreground mt-1">players migrated</small>
