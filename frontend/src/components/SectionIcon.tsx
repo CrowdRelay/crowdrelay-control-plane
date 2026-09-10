@@ -1,9 +1,11 @@
 import { JSX, Show, splitProps } from 'solid-js'
 import { cn } from '../lib/cn'
 
-// Small green Lucide-style icons that sit next to section titles in the
-// tenant overview. Each maps to a semantic area of the page so the eye can
-// scan the panels without reading every eyebrow.
+// Small Lucide-style icons that sit next to section titles in the tenant
+// overview. Each maps to a semantic area of the page so the eye can scan
+// the panels without reading every eyebrow. Neutral colour by default —
+// pass `class` to override for a specific severity (e.g. text-destructive
+// next to a danger-zone heading).
 
 type IconName =
   | 'heartbeat'
@@ -274,7 +276,7 @@ export function SectionIcon(props: { name: IconName; class?: string }) {
   const [local] = splitProps(props, ['name', 'class'])
   return (
     <Show when={ICONS[local.name]} fallback={null}>
-      <span class={cn('inline-flex items-center text-success flex-shrink-0 mr-1.5', local.class)} aria-hidden="true">
+      <span class={cn('inline-flex items-center text-muted-foreground flex-shrink-0 mr-1.5', local.class)} aria-hidden="true">
         {ICONS[local.name]}
       </span>
     </Show>
