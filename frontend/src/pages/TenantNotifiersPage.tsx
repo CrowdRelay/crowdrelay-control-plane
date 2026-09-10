@@ -145,7 +145,7 @@ export function TenantNotifiersPage() {
           <div class="grid gap-2" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))' }}>
             <For each={[...NOTIFIER_EVENTS]}>{ev => (
               <label class="flex items-start gap-3 py-1.5 px-2.5 rounded-sm hover:bg-surface-3 transition-colors cursor-pointer">
-                <input type="checkbox" class="mt-0.5 w-4 h-4" style={{ 'accent-color': 'var(--color-primary)' }} checked={events().includes(ev)} onChange={() => toggleEvent(ev)} />
+                <input type="checkbox" class="mt-0.5 w-4 h-4 accent-primary" checked={events().includes(ev)} onChange={() => toggleEvent(ev)} />
                 <span class="text-sm text-foreground"><strong>{evLabel(ev)}</strong></span>
               </label>
             )}</For>

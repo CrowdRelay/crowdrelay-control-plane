@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import { formatTimestamp, errorMessage } from '../lib/format'
 import type { PlayKindStanding } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
-import { SkeletonBlock } from './Skeleton'
+import { SkeletonRows } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
@@ -119,7 +119,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
     <Show when={ledger.error}>
       <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Play ledger unavailable: {errorMessage(ledger.error, 'Service unreachable')}</div>
     </Show>
-    <Show when={ledger.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
+    <Show when={ledger.data} fallback={<SkeletonRows count={3} />}>
       <Show when={ledger.data!.standings.length > 0}>
         <h4 class="text-sm font-semibold text-foreground flex items-center gap-2 mt-6 pt-4 border-t border-border"><SectionIcon name="list-checks" />Kind Standings</h4>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 mb-4">

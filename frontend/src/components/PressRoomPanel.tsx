@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import { refreshQueries } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
-import { SkeletonBlock } from './Skeleton'
+import { SkeletonRows } from './Skeleton'
 import { TabBar } from './layout'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
@@ -157,7 +157,7 @@ export function PressRoomPanel(props: { slug: string }) {
 
     <Show when={tab() === 'requests'}>
       <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
-      <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
+      <Show when={model.data} fallback={<SkeletonRows count={3} />}>
         <Show when={requests().length > 0} fallback={<EmptyState label="No press requests" hint="Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches." />}>
           <Table>
             <TableHeader>
@@ -254,7 +254,7 @@ export function PressRoomPanel(props: { slug: string }) {
         </form>
       </Show>
 
-      <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
+      <Show when={model.data} fallback={<SkeletonRows count={3} />}>
         <Show when={assets().length > 0} fallback={<EmptyState label="No press assets" hint="Photos, logos, bios and EPKs for outreach. Instagram picks its image from the active photo and logo rows, so add at least one to publish there." />}>
           <Table>
             <TableHeader>
@@ -291,7 +291,7 @@ export function PressRoomPanel(props: { slug: string }) {
 
     <Show when={tab() === 'engagements'}>
       <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
-      <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
+      <Show when={model.data} fallback={<SkeletonRows count={3} />}>
         <Show when={engagements().length > 0} fallback={<EmptyState label="No event engagements" hint="Event engagements track press interactions for specific shows and releases." />}>
           <Table>
             <TableHeader>
@@ -353,7 +353,7 @@ export function PressRoomPanel(props: { slug: string }) {
 
     <Show when={tab() === 'coverage'}>
       <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
-      <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
+      <Show when={model.data} fallback={<SkeletonRows count={3} />}>
         <Show when={coverage().length > 0} fallback={<EmptyState label="No earned media coverage" hint="Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage." />}>
           <Table>
             <TableHeader>

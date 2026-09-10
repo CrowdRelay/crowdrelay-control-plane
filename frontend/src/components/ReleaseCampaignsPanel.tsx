@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import { refreshQueries } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
-import { SkeletonBlock } from './Skeleton'
+import { SkeletonRows } from './Skeleton'
 import { KpiStrip, KpiCard } from './layout'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
@@ -179,7 +179,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
     </Show>
 
     <Show when={campaigns.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Release campaigns unavailable: {errorMessage(campaigns.error, 'Service unreachable')}</div></Show>
-    <Show when={campaigns.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
+    <Show when={campaigns.data} fallback={<SkeletonRows count={3} />}>
       <Show when={campaigns.data!.pool.active_release_latarnicy > 0 || campaigns.data!.pool.missing_email > 0}>
         <KpiStrip>
           <KpiCard label="Active Latarnicy" value={campaigns.data!.pool.active_release_latarnicy} />
@@ -233,7 +233,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
 
               <Show when={selectedCampaign() === c.id}>
                 <Show when={recipients.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Campaign recipients unavailable: {errorMessage(recipients.error, 'Service unreachable')}</div></Show>
-                <Show when={recipients.data} fallback={<SkeletonBlock height="80px" radius="10px" />}>
+                <Show when={recipients.data} fallback={<SkeletonRows count={3} />}>
                   <Table class="mt-3">
                     <TableHeader>
                       <TableRow>

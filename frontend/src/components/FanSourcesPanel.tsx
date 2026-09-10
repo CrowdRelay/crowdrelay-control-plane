@@ -425,7 +425,7 @@ export function FanSourcesPanel(props: {
       </div>
       <p class="text-sm text-muted-foreground leading-relaxed mt-1">Connected audience and music platforms. Each connection syncs follower and engagement metrics on the growth schedule. Disconnect to revoke access.</p>
       <Show when={connections.error}><ErrorCard>Fan source connections unavailable: {errorMessage(connections.error, 'Service unreachable')}</ErrorCard></Show>
-      <Show when={!connections.isFetching} fallback={<SkeletonRows count={3} />}>
+      <Show when={connections.data} fallback={<Show when={connections.isPending}><SkeletonRows count={3} /></Show>}>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         <For each={OAUTH_PLATFORMS}>{(plat) => {
           const conn = () => connections.data?.find(c => c.platform === plat.value)

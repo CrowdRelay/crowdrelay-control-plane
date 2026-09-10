@@ -13,7 +13,7 @@ import { AttentionInbox } from '../components/AttentionInbox'
 import { EmptyState } from '../components/ui/empty-state'
 import { SignalOverviewPanel } from '../components/SignalOverviewPanel'
 import { DeadQueuesPanel } from '../components/DeadQueuesPanel'
-import { SkeletonSection, SkeletonKpiStrip } from '../components/Skeleton'
+import { SkeletonSection, SkeletonKpiStrip, SkeletonRows } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
 import { Spinner } from '../components/Spinner'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, ErrorCard, SectionPanel } from '../components/layout'
@@ -205,9 +205,13 @@ export function TenantAttentionPage() {
 
     {/* ─── Runtime Tab ───────────────────────────────────────────── */}
     <TabPanel active={activeTab()} id="runtime" visited={isVisited('runtime')}>
-      <Show when={!summary.error && summary.data} fallback={<SkeletonSection titleWidth="180px" lines={4} minHeight="140px" />}>
+      <Show when={summary.error}>
+        <ErrorCard>Runtime summary unavailable: {errorMessage(summary.error, 'Service unreachable')}</ErrorCard>
+      </Show>
+      {/* Section headings are static — show them immediately, skeleton only the data cards */}
+      <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="database" />Database health</h3></div><Show when={summary.data}>{data => <StatusBadge status={data().database.async_io_active ? 'async I/O active' : 'check I/O'} tone={data().database.async_io_active ? 'good' : 'warn'} />}</Show></div>
+      <Show when={!summary.error && summary.data} fallback={<Show when={!summary.error}><SkeletonRows count={4} /></Show>}>
         {data => <>
-          <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="database" />Database health</h3></div><StatusBadge status={data().database.async_io_active ? 'async I/O active' : 'check I/O'} tone={data().database.async_io_active ? 'good' : 'warn'} /></div>
           <div class="grid gap-2.5">
             <Card class="p-3.5 hover:border-border-strong transition-colors">
               <span class="block text-sm text-muted-foreground">Pool</span>
@@ -230,8 +234,12 @@ export function TenantAttentionPage() {
               <small class="block text-sm text-muted-foreground">max concurrency {data().database.io_max_concurrency ?? '—'}</small>
             </Card>
           </div>
+        </>}
+      </Show>
 
-          <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="map-pin" />Reservation maintenance</h3></div><StatusBadge status={staleAreaReservations(data()) > 0 ? `${staleAreaReservations(data())} stale` : 'clean'} tone={staleAreaReservations(data()) > 0 ? 'bad' : 'good'} /></div>
+      <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="map-pin" />Reservation maintenance</h3></div><Show when={summary.data}>{data => <StatusBadge status={staleAreaReservations(data()) > 0 ? `${staleAreaReservations(data())} stale` : 'clean'} tone={staleAreaReservations(data()) > 0 ? 'bad' : 'good'} />}</Show></div>
+      <Show when={!summary.error && summary.data} fallback={<Show when={!summary.error}><SkeletonRows count={4} /></Show>}>
+        {data => <>
           <div class="grid gap-2.5">
             <Card class="p-3.5 hover:border-border-strong transition-colors">
               <span class="block text-sm text-muted-foreground">Stale vouchers</span>
@@ -267,7 +275,7 @@ export function TenantAttentionPage() {
         <Input class="min-h-10" value={timelineInput()} onInput={(event) => setTimelineInput(event.currentTarget.value)} placeholder="Request or correlation ID" aria-label="Request or correlation ID" />
         <Button variant="ghost" size="sm" disabled={!timelineInput().trim() || !!busy()} onClick={() => void lookupTimeline()}>{busy() === 'timeline' ? 'Tracing…' : 'Trace request'}</Button>
       </div>
-      <Show when={timeline()}>{result => <SectionPanel><div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="history" />{result().events.length} timeline event(s)</h3><Button variant="ghost" size="sm" class="text-xs py-1.5 px-2.5" onClick={() => toggleRevealedId('timeline')}>{revealedId() === 'timeline' ? 'Hide ID' : 'Details'}</Button><Show when={revealedId() === 'timeline'}><small class="mono block p-1.5 px-2.5 rounded-sm bg-background border border-border-subtle text-muted-foreground text-xs break-all">Request ID · <span class="mono">{result().request_id}</span></small></Show></div><Button variant="ghost" size="sm" onClick={() => setTimeline(null)}>Close</Button></div><For each={result().events}>{event => <div class="rounded-lg border border-warning/30 bg-warning/10 p-3.5 px-4 my-3 text-sm text-warning-light leading-relaxed"><div class="flex gap-1.5 flex-wrap items-center"><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.source}</Badge><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.kind}</Badge></div><p class="mt-1.5">{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'}</p></div>}</For></SectionPanel>}</Show>
+      <Show when={timeline()}>{result => <SectionPanel><div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="history" />{result().events.length} timeline event(s)</h3><Button variant="ghost" size="sm" class="text-xs py-1.5 px-2.5" onClick={() => toggleRevealedId('timeline')}>{revealedId() === 'timeline' ? 'Hide ID' : 'Details'}</Button><Show when={revealedId() === 'timeline'}><small class="font-mono block p-1.5 px-2.5 rounded-sm bg-background border border-border-subtle text-muted-foreground text-xs break-all">Request ID · <span class="font-mono">{result().request_id}</span></small></Show></div><Button variant="ghost" size="sm" onClick={() => setTimeline(null)}>Close</Button></div><For each={result().events}>{event => <div class="rounded-lg border border-warning/30 bg-warning/10 p-3.5 px-4 my-3 text-sm text-warning-light leading-relaxed"><div class="flex gap-1.5 flex-wrap items-center"><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.source}</Badge><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.kind}</Badge></div><p class="mt-1.5">{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'}</p></div>}</For></SectionPanel>}</Show>
     </TabPanel>
   </PageShell>
 }

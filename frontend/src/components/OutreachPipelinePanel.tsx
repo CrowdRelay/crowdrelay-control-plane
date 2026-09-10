@@ -5,7 +5,7 @@ import { refreshQueries } from '../lib/refresh'
 import { errorMessage } from '../lib/format'
 import type { OutreachCandidateView, BookingCandidateView } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
-import { SkeletonBlock } from './Skeleton'
+import { SkeletonRows } from './Skeleton'
 import { TabBar } from './layout'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
@@ -95,7 +95,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
     <Show when={tab() === 'outreach'} fallback={
       <>
       <Show when={booking.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Booking pipeline unavailable: {errorMessage(booking.error, 'Service unreachable')}</div></Show>
-      <Show when={booking.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
+      <Show when={booking.data} fallback={<SkeletonRows count={3} />}>
         <Show when={booking.data!.length > 0} fallback={<EmptyState label="No booking candidates" hint="The intelligence scans for gig opportunities with computed economics. Candidates appear here when the detector finds viable shows." />}>
           <Table>
             <TableHeader>
@@ -141,7 +141,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
     }>
       <>
       <Show when={outreach.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Outreach pipeline unavailable: {errorMessage(outreach.error, 'Service unreachable')}</div></Show>
-      <Show when={outreach.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
+      <Show when={outreach.data} fallback={<SkeletonRows count={3} />}>
         <Show when={outreach.data!.length > 0} fallback={<EmptyState label="No outreach candidates" hint="Outreach candidates are fans or contacts the intelligence identified for engagement. They appear here when detectors raise them." />}>
           <Table>
             <TableHeader>
