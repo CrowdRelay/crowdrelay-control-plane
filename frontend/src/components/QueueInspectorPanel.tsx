@@ -108,7 +108,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
       </div>
     </div>
 
-    <div class="flex items-center gap-3 flex-wrap">
+    <div class="flex items-end gap-3 flex-wrap">
       <TabBar
         tabs={[
           { id: 'deliveries', label: 'Deliveries' },
@@ -117,13 +117,16 @@ export function QueueInspectorPanel(props: { slug: string }) {
         active={tab()}
         onChange={setTab}
       />
-      <label class="grid gap-1.5 text-muted-foreground text-sm min-w-[170px]">
-        <span>Status</span>
-        <NativeSelect value={status()} onChange={event => setStatus(event.currentTarget.value)}>
-          <option value="">Any status</option>
-          <For each={STATUSES}>{value => <option value={value}>{value}</option>}</For>
-        </NativeSelect>
-      </label>
+      <NativeSelect
+        size="sm"
+        value={status()}
+        onChange={event => setStatus(event.currentTarget.value)}
+        aria-label="Filter by status"
+        class="mb-4 w-auto min-w-[120px]"
+      >
+        <option value="">Any status</option>
+        <For each={STATUSES}>{value => <option value={value}>{value}</option>}</For>
+      </NativeSelect>
     </div>
 
     <Show when={model.error}>
