@@ -10,6 +10,8 @@ import { SkeletonRows } from './Skeleton'
 import { CONTEXT_LABELS, SUBJECT_KIND_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
+import { Card } from './ui/card'
+import { Button } from './ui/button'
 
 // The flagship decision surface. Shows the single most important current
 // decision (opportunity board position #1) in a structured narrative:
@@ -90,13 +92,13 @@ const timeAgoBrief = (iso: string): string => {
 function JsonBlock(props: { source: string }) {
   const lines = createMemo(() => props.source.split('\n'))
   return (
-    <div class="brain-evidence-json">
+    <div class="block m-0 p-3 bg-surface-1 border border-border-subtle border-l-2 border-l-primary rounded-sm font-mono text-xs leading-relaxed text-secondary-foreground max-h-[400px] overflow-auto text-left">
       <For each={lines()}>{line => {
         const match = /^\s*/.exec(line)
         const indent = match ? match[0].length : 0
         const content = line.slice(indent)
         const style = { 'padding-left': `${indent}ch` }
-        return <span class="json-line" style={style}>{content}</span>
+        return <span class="block whitespace-pre-wrap break-normal" style={style}>{content}</span>
       }}</For>
     </div>
   )
@@ -106,17 +108,17 @@ function renderEvidenceDetail(data: DecisionEvidence) {
   const inputRows = renderEvidence(data.input_snapshot)
   const policyRows = renderEvidence(data.policy_snapshot)
   return (
-    <div class="brain-decision-evidence">
-      <div class="brain-evidence-section">
+    <div class="flex flex-col gap-4 mt-3 p-4 border border-border-subtle rounded-md bg-surface-3">
+      <div class="flex flex-col gap-2">
         <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">SIGNALS</span>
         <Show when={inputRows.length > 0} fallback={
-          <p class="text-muted-foreground">No signal data recorded for this decision.</p>
+          <p class="text-sm text-muted-foreground">No signal data recorded for this decision.</p>
         }>
-          <dl class="brain-evidence-list">
+          <dl class="m-0 flex flex-col gap-1">
             <For each={inputRows}>{row => (
-              <div classList={{ 'brain-evidence-row': true, 'brain-evidence-row-json': row.isJson }}>
-                <dt>{row.key}</dt>
-                <dd>
+              <div classList={{ 'flex gap-3 items-baseline py-1 border-b border-border-subtle': true, 'flex-col gap-1 items-stretch min-w-0': row.isJson }}>
+                <dt class="text-xs text-muted-foreground capitalize" classList={{ 'flex-none': !row.isJson }}>{row.key}</dt>
+                <dd class="flex-1 min-w-0 m-0 text-sm text-secondary-foreground break-words" classList={{ 'w-full': row.isJson }}>
                   <Show when={row.isJson} fallback={row.value}>
                     <JsonBlock source={row.value} />
                   </Show>
@@ -126,16 +128,16 @@ function renderEvidenceDetail(data: DecisionEvidence) {
           </dl>
         </Show>
       </div>
-      <div class="brain-evidence-section">
+      <div class="flex flex-col gap-2">
         <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">POLICY</span>
         <Show when={policyRows.length > 0} fallback={
-          <p class="text-muted-foreground">No policy data recorded for this decision.</p>
+          <p class="text-sm text-muted-foreground">No policy data recorded for this decision.</p>
         }>
-          <dl class="brain-evidence-list">
+          <dl class="m-0 flex flex-col gap-1">
             <For each={policyRows}>{row => (
-              <div classList={{ 'brain-evidence-row': true, 'brain-evidence-row-json': row.isJson }}>
-                <dt>{row.key}</dt>
-                <dd>
+              <div classList={{ 'flex gap-3 items-baseline py-1 border-b border-border-subtle': true, 'flex-col gap-1 items-stretch min-w-0': row.isJson }}>
+                <dt class="text-xs text-muted-foreground capitalize" classList={{ 'flex-none': !row.isJson }}>{row.key}</dt>
+                <dd class="flex-1 min-w-0 m-0 text-sm text-secondary-foreground break-words" classList={{ 'w-full': row.isJson }}>
                   <Show when={row.isJson} fallback={row.value}>
                     <JsonBlock source={row.value} />
                   </Show>
@@ -145,9 +147,9 @@ function renderEvidenceDetail(data: DecisionEvidence) {
           </dl>
         </Show>
       </div>
-      <div class="brain-evidence-section">
+      <div class="flex flex-col gap-2">
         <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DISPOSITION</span>
-        <p>{dispositionLabel(data.disposition)} · evaluated {new Date(data.evaluated_at).toLocaleString()}</p>
+        <p class="m-0 text-sm text-secondary-foreground">{dispositionLabel(data.disposition)} · evaluated {new Date(data.evaluated_at).toLocaleString()}</p>
       </div>
     </div>
   )
@@ -222,11 +224,11 @@ export function BrainDecisionPanel(props: {
     void decide(`reject:${e.decision_id}`, () => api.cancelOpportunityAction(props.slug, e.action_id!), 'Decision rejected — action cancelled')
   }
 
-  return <article class="rounded-lg border border-border bg-card text-foreground p-4 brain-decision-panel">
-    <div class="brain-decision-head">
+  return <Card class="p-5 brain-decision-panel">
+    <div class="flex items-start justify-between gap-4 mb-4">
       <div>
         <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">BRAIN DECISION</span>
-        <h2><SectionIcon name="brain" />What the system decided</h2>
+        <h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="brain" />What the system decided</h2>
       </div>
       <Show when={hasDecision()} fallback={
         <StatusBadge status="idle" tone="muted" />
@@ -254,51 +256,51 @@ export function BrainDecisionPanel(props: {
     </Show>
 
     <Show when={entry()} keyed>{(e) => (
-        <div class="brain-decision-body">
+        <div class="flex flex-col gap-4">
         {/* WHAT — the decision itself */}
-        <div class="brain-decision-what">
-          <strong class="brain-decision-action">{opportunityTitle(e)}</strong>
-          <small class="brain-decision-context">
+        <div class="flex flex-col gap-1">
+          <strong class="text-lg font-bold leading-snug text-foreground">{opportunityTitle(e)}</strong>
+          <small class="text-sm text-muted-foreground">
             {labelOr(CONTEXT_LABELS, e.context)} · {labelOr(SUBJECT_KIND_LABELS, e.subject_kind)}
           </small>
         </div>
 
         {/* WHY — reason + key factors */}
-        <div class="brain-decision-why">
+        <div class="flex flex-col gap-2">
           <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">WHY</span>
-          <p class="brain-decision-reason">{e.reason}</p>
-          <div class="brain-decision-factors">
-            <div class="brain-decision-factor">
-              <span>Confidence</span>
-              <strong>{confidencePercent(e.confidence)}</strong>
+          <p class="m-0 text-sm leading-relaxed text-secondary-foreground">{e.reason}</p>
+          <div class="flex flex-wrap gap-3 mt-1">
+            <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-md bg-surface-3 min-w-[80px]">
+              <span class="text-xs text-muted-foreground uppercase tracking-wider">Confidence</span>
+              <strong class="text-sm font-bold text-foreground">{confidencePercent(e.confidence)}</strong>
             </div>
             <Show when={e.value_tier}>
-              <div class="brain-decision-factor">
-                <span>Value</span>
-                <strong>{VALUE_TIER_LABELS[e.value_tier!] ?? e.value_tier}</strong>
+              <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-md bg-surface-3 min-w-[80px]">
+                <span class="text-xs text-muted-foreground uppercase tracking-wider">Value</span>
+                <strong class="text-sm font-bold text-foreground">{VALUE_TIER_LABELS[e.value_tier!] ?? e.value_tier}</strong>
               </div>
             </Show>
-            <div class="brain-decision-factor">
-              <span>Ranked by</span>
-              <strong>{RANK_FACTOR_LABELS[e.ranked_by] ?? e.ranked_by}</strong>
+            <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-md bg-surface-3 min-w-[80px]">
+              <span class="text-xs text-muted-foreground uppercase tracking-wider">Ranked by</span>
+              <strong class="text-sm font-bold text-foreground">{RANK_FACTOR_LABELS[e.ranked_by] ?? e.ranked_by}</strong>
             </div>
             <Show when={e.deviation_basis_points != null}>
-              <div class="brain-decision-factor">
-                <span>Deviation</span>
-                <strong>{(e.deviation_basis_points! / 100).toFixed(1)}%</strong>
+              <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-md bg-surface-3 min-w-[80px]">
+                <span class="text-xs text-muted-foreground uppercase tracking-wider">Deviation</span>
+                <strong class="text-sm font-bold text-foreground">{(e.deviation_basis_points! / 100).toFixed(1)}%</strong>
               </div>
             </Show>
           </div>
         </div>
 
         {/* WHAT IT WILL/DID DO — action state */}
-        <div class="brain-decision-action-state">
+        <div class="flex flex-col gap-2 pt-3 border-t border-border-subtle">
           <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">ACTION</span>
-          <div class="brain-decision-action-row">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
             <Show when={e.action_id} fallback={
-              <span class="brain-decision-no-action">No executable step — handle it yourself</span>
+              <span class="text-sm text-muted-foreground">No executable step — handle it yourself</span>
             }>
-              <span class="brain-decision-action-status">
+              <span class="font-semibold text-secondary-foreground">
                 {e.authority === 'awaiting_approval'
                   ? 'Awaiting your approval'
                   : e.authority === 'auto_executing'
@@ -307,37 +309,38 @@ export function BrainDecisionPanel(props: {
               </span>
             </Show>
             <Show when={e.due_at}>
-              <span class="brain-decision-deadline">deadline {new Date(e.due_at!).toLocaleDateString()}</span>
+              <span class="text-sm font-semibold text-warning">deadline {new Date(e.due_at!).toLocaleDateString()}</span>
             </Show>
           </div>
           <Show when={e.consequence}>
-            <small class="brain-decision-consequence">if ignored: {e.consequence}</small>
+            <small class="text-xs text-muted-foreground leading-relaxed">if ignored: {e.consequence}</small>
           </Show>
 
-          {/* Approve / Reject / Inspect — all in one row. Approve on the
-              left, Reject on the right, "Why this decision?" between them
-              so the operator sees the evidence link alongside the actions. */}
-          <div class="brain-decision-actions-row">
+          {/* Approve / Reject / Inspect */}
+          <div class="flex items-center gap-2 mt-1 flex-wrap">
             <Show when={e.authority === 'awaiting_approval' && e.action_id && !actedOn().has(e.decision_id)}>
-              <button
+              <Button
                 type="button"
+                size="sm"
                 disabled={pendingMutation() !== null}
                 onClick={() => approve(e)}
               >
                 {pendingMutation() === `approve:${e.decision_id}` && <Spinner />} {pendingMutation() === `approve:${e.decision_id}` ? 'Approving…' : confirming() === `approve:${e.decision_id}` ? 'Confirm approval' : 'Approve'}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="destructive-ghost"
+                size="sm"
                 classList={{ 'confirm-danger': confirming() === `reject:${e.decision_id}` }}
                 disabled={pendingMutation() !== null}
                 onClick={() => reject(e)}
               >
                 {pendingMutation() === `reject:${e.decision_id}` && <Spinner />} {pendingMutation() === `reject:${e.decision_id}` ? 'Rejecting…' : confirming() === `reject:${e.decision_id}` ? 'Confirm reject' : 'Reject'}
-              </button>
+              </Button>
             </Show>
-            <button class="brain-decision-inspect" onClick={() => toggleEvidence()}>
+            <Button variant="ghost" size="sm" class="ml-auto" onClick={() => toggleEvidence()}>
               {showEvidence() ? 'Hide evidence' : 'Why this decision?'}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -359,5 +362,5 @@ export function BrainDecisionPanel(props: {
 
         </div>
     )}</Show>
-  </article>
+  </Card>
 }

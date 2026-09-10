@@ -36,3 +36,13 @@ export const CardContent: Component<JSX.HTMLAttributes<HTMLDivElement> & { class
   const [local, rest] = splitProps(props, ['class'])
   return <div class={cn('p-4 pt-0', local.class)} {...rest} />
 }
+
+export const CardDescription: Component<JSX.HTMLAttributes<HTMLParagraphElement> & { class?: string }> = (props) => {
+  const [local, rest] = splitProps(props, ['class'])
+  return <p class={cn('text-sm text-muted-foreground leading-relaxed', local.class)} {...rest} />
+}
+
+export const CardFooter: Component<JSX.HTMLAttributes<HTMLDivElement> & { class?: string }> = (props) => {
+  const [local, rest] = splitProps(props, ['class'])
+  return <div class={cn('flex items-center gap-2 p-4 pt-0', local.class)} {...rest} />
+}
