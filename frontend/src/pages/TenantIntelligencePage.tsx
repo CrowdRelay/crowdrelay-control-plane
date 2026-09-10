@@ -64,21 +64,21 @@ export function TenantIntelligencePage() {
       <svg viewBox="0 0 800 120" xmlns="http://www.w3.org/2000/svg" class="intel-loop-svg" aria-hidden="true">
         <defs>
           <marker id="intel-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-            <path d="M0 0 L8 4 L0 8 z" fill="#9b87f5" />
+            <path d="M0 0 L8 4 L0 8 z" fill="var(--color-primary)" />
           </marker>
         </defs>
         <rect x="20" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-core" />
         <text x="100" y="55" text-anchor="middle" class="intel-loop-label">Intelligence</text>
         <text x="100" y="72" text-anchor="middle" class="intel-loop-sub">Rust autopilot</text>
-        <line x1="180" y1="60" x2="290" y2="60" stroke="#9b87f5" stroke-width="1.5" marker-end="url(#intel-arrow)" />
+        <line x1="180" y1="60" x2="290" y2="60" stroke="var(--color-primary)" stroke-width="1.5" marker-end="url(#intel-arrow)" />
         <rect x="300" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-worker" />
         <text x="380" y="55" text-anchor="middle" class="intel-loop-label">Workers</text>
         <text x="380" y="72" text-anchor="middle" class="intel-loop-sub">LLM agents</text>
-        <line x1="460" y1="60" x2="570" y2="60" stroke="#9b87f5" stroke-width="1.5" marker-end="url(#intel-arrow)" />
+        <line x1="460" y1="60" x2="570" y2="60" stroke="var(--color-primary)" stroke-width="1.5" marker-end="url(#intel-arrow)" />
         <rect x="580" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-outcome" />
         <text x="660" y="55" text-anchor="middle" class="intel-loop-label">Outcomes</text>
         <text x="660" y="72" text-anchor="middle" class="intel-loop-sub">fans · engagement</text>
-        <path d="M 660 90 Q 400 115, 100 90" fill="none" stroke="#7dffb2" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#intel-arrow)" />
+        <path d="M 660 90 Q 400 115, 100 90" fill="none" stroke="var(--color-success-light)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#intel-arrow)" />
         <text x="380" y="115" text-anchor="middle" class="intel-loop-feedback">Learning loop</text>
       </svg>
     </div>
