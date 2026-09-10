@@ -256,6 +256,7 @@ export function AgentPanel(props: { slug: string }) {
       onPrefetch={prefetch}
         tabs={[
           { id: 'providers', label: 'AI Providers' },
+          { id: 'library', label: 'Add a provider' },
           { id: 'tasks', label: 'Tasks' },
           { id: 'usage', label: 'AI Usage' },
           { id: 'intel', label: 'Intelligence' },
@@ -268,7 +269,13 @@ export function AgentPanel(props: { slug: string }) {
           page-wide skeleton. Queries are gated by `enabled: tab() === ...`
           so hidden tabs don't refetch on the global refresh tick. */}
       <TabPanel active={activeTab()} id="providers" visited={isVisited('providers')}>
-        <AgentProvidersPanel slug={props.slug} providers={providers()} credentials={credentials()} refetchCreds={() => refreshQueries(['agent-providers-overview', props.slug])} active={activeTab() === 'providers'} models={models()} />
+        <AgentProvidersPanel mode="in-use" slug={props.slug} providers={providers()} credentials={credentials()} refetchCreds={() => refreshQueries(['agent-providers-overview', props.slug])} active={activeTab() === 'providers'} models={models()} />
+      </TabPanel>
+
+      {/* The catalogue is its own tab. Ten cards where two are yours makes an
+          operator find their own two every time they open the page. */}
+      <TabPanel active={activeTab()} id="library" visited={isVisited('library')}>
+        <AgentProvidersPanel mode="library" slug={props.slug} providers={providers()} credentials={credentials()} refetchCreds={() => refreshQueries(['agent-providers-overview', props.slug])} active={activeTab() === 'library'} models={models()} />
       </TabPanel>
 
       <TabPanel active={activeTab()} id="usage" visited={isVisited('usage')}>

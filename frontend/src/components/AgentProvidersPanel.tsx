@@ -12,6 +12,7 @@ import { Badge } from './ui/badge'
 import { Input } from './ui/input'
 import { Spinner } from './Spinner'
 import { Card } from './ui/card'
+import { Hint } from './ui/hint'
 import { KpiCard } from './layout'
 import type { AgentProvider, AgentCredential, AgentModel } from '../lib/types'
 
@@ -48,6 +49,49 @@ interface PremiumUsage {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────
+
+// A key can be present, accepted once, and still buy nothing today: the
+// account ran out of credit, the card failed, the plan hit its rate ceiling, or
+// somebody rotated the key. The panel used to call all of those "Connected"
+// with a green tick, so a provider that had silently stopped working looked
+// exactly like one that was working.
+//
+// The provider's own message is the only thing that names the fix, so it is
+// matched rather than replaced — and when it matches nothing, it is shown
+// verbatim rather than flattened into "unavailable".
+export type CredentialHealth =
+  | { state: 'working' }
+  | { state: 'broken'; headline: string; whatToDo: string }
+
+export const credentialHealth = (credential: AgentCredential | undefined): CredentialHealth => {
+  if (!credential) return { state: 'working' }
+  const raw = (credential.last_validation_error ?? '').toLowerCase()
+
+  if (credential.status === 'revoked') {
+    return { state: 'broken', headline: 'Key was revoked', whatToDo: 'Paste a new key to start using this provider again.' }
+  }
+
+  const billing = /insufficient|quota|credit|balance|billing|payment|exceeded your current/.test(raw)
+  if (billing) {
+    return { state: 'broken', headline: 'Out of credit', whatToDo: 'Top up or add a payment method in the provider\'s own console. The key itself is fine.' }
+  }
+
+  const rate = /rate.?limit|too many requests|429/.test(raw)
+  if (rate) {
+    return { state: 'broken', headline: 'Rate limited', whatToDo: 'The plan is sending more than it allows. It usually clears on its own; raise the tier if it keeps happening.' }
+  }
+
+  const badKey = /invalid|unauthor|forbidden|401|403|authentication|api key/.test(raw)
+  if (badKey || credential.status === 'invalid') {
+    return { state: 'broken', headline: 'Key was rejected', whatToDo: 'The key is wrong, expired, or was rotated. Paste the current one.' }
+  }
+
+  if (raw) {
+    return { state: 'broken', headline: 'Provider refused the last check', whatToDo: credential.last_validation_error! }
+  }
+
+  return { state: 'working' }
+}
 
 const budgetPct = (spent: number, budget: number): number => {
   if (budget <= 0) return 0
@@ -105,6 +149,10 @@ export function AgentProvidersPanel(props: {
   slug: string
   providers?: AgentProvider[]
   credentials?: AgentCredential[]
+  /** `in-use` shows the pool the router picks from. `library` shows what is
+   *  not connected yet. They are separate tabs so an operator opening this
+   *  page sees their own providers, not a catalogue. */
+  mode?: 'in-use' | 'library'
   refetchCreds?: () => void
   /** When false (tab hidden), resources don't refetch on global refreshTick. */
   active?: boolean
@@ -201,6 +249,37 @@ export function AgentProvidersPanel(props: {
   )
   const apiKeyProviders = createMemo(() =>
     allProviders().filter((p: AgentProvider) => p.authMethod === 'api_key')
+  )
+
+  const credentialFor = (providerId: string) =>
+    credentials().find((c: AgentCredential) => c.provider === providerId)
+
+  // `authMethod` is `api_key` for every provider the service returns, free tier
+  // included — the old free-models grid keyed off `authMethod === 'none'` and so
+  // never rendered at all. `freeTier`/`tier` is the real signal, and having a
+  // credential is what puts a provider in the pool.
+  const isConnectedProvider = (provider: AgentProvider) => credentialFor(provider.id) != null
+
+  // Free providers need no key, so they are always in the pool. A paid one is
+  // in the pool once it has a credential — working or not, because a broken key
+  // is something the operator has to see, not something to hide back in the
+  // catalogue.
+  const inUseProviders = createMemo(() =>
+    props.mode === 'library'
+      ? []
+      : allProviders().filter(p => isConnectedProvider(p) && credentialHealth(credentialFor(p.id)).state === 'working')
+  )
+
+  const libraryProviders = createMemo(() =>
+    allProviders()
+      .filter((p: AgentProvider) => !isConnectedProvider(p))
+      // Free tiers first: they cost nothing to try and they are what keeps the
+      // simple work off the paid budget.
+      .sort((a, b) => Number(b.freeTier) - Number(a.freeTier))
+  )
+
+  const brokenProviders = createMemo(() =>
+    allProviders().filter((p: AgentProvider) => credentialHealth(credentialFor(p.id)).state === 'broken')
   )
 
   const connectedCount = createMemo(() =>
@@ -362,130 +441,11 @@ export function AgentProvidersPanel(props: {
     return err.includes('unavailable') || err.includes('unreachable') || err.includes('503')
   }
 
-  return (
-    <Show
-      when={usage.data}
-      fallback={
-        <div class="flex flex-col gap-4">
-          <Show when={isServiceDown()}>
-            <div class="flex items-start gap-3 p-4 rounded-lg border border-warning/30 bg-warning/10 text-warning-light">
-              <div class="flex-shrink-0 text-warning mt-0.5">
-                <SparkIcon size={28} />
-              </div>
-              <div class="flex flex-col gap-1">
-                <strong class="text-sm text-warning-light">AI service is temporarily unavailable</strong>
-                <span class="text-sm text-muted-foreground leading-relaxed">Free models continue to work. Premium features will return shortly — no action needed.</span>
-              </div>
-            </div>
-          </Show>
-          <Show when={error() && !isServiceDown()}>
-            <div class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error()}</div>
-          </Show>
-          <Show when={!isServiceDown()}>
-            <div class="h-20 rounded-lg border border-border bg-surface-1 animate-pulse" />
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
-              <div class="h-32 rounded-lg border border-border bg-surface-1 animate-pulse" />
-              <div class="h-32 rounded-lg border border-border bg-surface-1 animate-pulse" />
-              <div class="h-32 rounded-lg border border-border bg-surface-1 animate-pulse" />
-            </div>
-          </Show>
-        </div>
-      }
-    >
-      <div class="flex flex-col gap-4">
-        {/* ─── Free models banner ──────────────────────────────────── */}
-        <Show when={connectedCount() === 0}>
-          <div class="flex items-center gap-3 p-4 rounded-lg border border-primary/20 bg-primary/5">
-            <div class="flex flex-col gap-1">
-              <strong class="text-sm font-semibold text-foreground">Free models are active</strong>
-              <span class="text-xs text-muted-foreground">Free models (Laguna, Gemini Flash, Groq) need no key. Connect a provider below to unlock frontier models.</span>
-            </div>
-          </div>
-        </Show>
-
-        {/* ─── Compact budget + status strip ─────────────────────── */}
-        {/* These were the only KPI tiles in the console still hand-rolled:
-            rounded on a page of square panels, with uppercase letter-spaced
-            labels where every other strip uses sentence case at the same size.
-            Same four numbers, through the shared primitive. */}
-        <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <KpiCard
-            label="Spent this month"
-            value={formatUsd(usage.data!.monthly_spend_micro_usd)}
-            sub={`of ${formatUsd(usage.data!.budget_micro_usd)}`}
-            tone={budgetPctValue() > 80 ? 'warn' : 'default'}
-          />
-          <KpiCard label="Connected" value={connectedCount()} sub="providers" />
-          <KpiCard label="Models" value={availableModelCount()} sub="available" />
-          <Card class="p-4">
-            <div class="text-xs text-muted-foreground">Tasks run</div>
-            <div class="mt-1 text-2xl font-bold tabular-nums text-foreground">{usage.data!.tasks.length}</div>
-            <div class="text-xs text-muted-foreground">in the last 30 days</div>
-            <Show when={dailyCostSeries().some(v => v > 0)}>
-              <div class="mt-1 h-5 opacity-80">
-                <Sparkline data={dailyCostSeries()} width={80} height={20} color={budgetPctValue() > 80 ? 'var(--color-warning)' : 'var(--color-primary)'} />
-              </div>
-            </Show>
-          </Card>
-        </section>
-
-        <Show when={error()}>
-          <div class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error()}</div>
-        </Show>
-
-        {/* ─── Free Models (no key needed) ───────────────────────── */}
-        <Show when={freeProviders().length > 0}>
-          <section class="rounded-lg border border-border bg-card p-5">
-            <div class="flex items-center justify-between mb-2">
-              <h3 class="flex items-center gap-2 m-0 text-base font-semibold text-foreground"><SparkIcon size={16} /> Free Models <span class="inline-flex items-center text-xs font-medium text-success bg-success/10 rounded-full px-2 py-0.5">no key needed</span></h3>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              <For each={freeProviders()}>
-                {(provider) => {
-                  const cred = () => credentials().find((c: AgentCredential) => c.provider === provider.id)
-                  const isConnected = () => cred()?.status === 'active'
-                  return (
-                    <div class="flex flex-col gap-2 p-4 rounded-lg border border-border bg-surface-1" classList={{ 'border-primary/40': isConnected() }}>
-                      <div class="flex items-center gap-2">
-                        <div class="w-9 h-9 flex items-center justify-center rounded-md border border-border bg-surface-1">
-                          <LlmProviderIconWithTier providerId={provider.id} tier={provider.tier} connected={isConnected()} size={28} />
-                        </div>
-                        <div class="flex-1 min-w-0">
-                          <div class="font-semibold text-sm text-foreground">{provider.name}</div>
-                          <div class="text-xs text-muted-foreground">{provider.modelCount} models</div>
-                        </div>
-                        <Show when={provider.authMethod === 'none'}>
-                          <span class="inline-flex items-center text-xs font-medium text-success bg-success/10 rounded-full px-2 py-0.5">free</span>
-                        </Show>
-                      </div>
-                      <div class="text-sm text-muted-foreground leading-relaxed">{provider.description}</div>
-                    </div>
-                  )
-                }}
-              </For>
-            </div>
-          </section>
-        </Show>
-
-        {/* ─── API Key Providers ──────────────────────────────────── */}
-        <section class="rounded-lg border border-border bg-card p-5">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="flex items-center gap-2 m-0 text-base font-semibold text-foreground"><KeyIcon size={16} /> AI Provider API Keys</h3>
-            <Show when={connectedCount() > 0}>
-              <span class="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <span class="w-2 h-2 rounded-full bg-success inline-block" />
-                {connectedCount()} of {apiKeyProviders().length} connected
-              </span>
-            </Show>
-          </div>
-          <p class="text-sm text-muted-foreground leading-relaxed mb-3">
-            Connect your AI accounts to unlock models for the autopilot intelligence.
-            Paste an API key from each provider's developer console. Keys are encrypted at rest.
-          </p>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            <For each={apiKeyProviders()}>
-              {(provider) => {
+  // One provider card. It was inlined twice — once in a free-models grid and
+  // once in an API-key grid — which is why the two drifted apart. One card,
+  // rendered wherever a provider belongs.
+  function ProviderCard(cardProps: { provider: AgentProvider }) {
+    const provider = cardProps.provider
                 const cred = () => credentials().find((c: AgentCredential) => c.provider === provider.id)
                 const isConnected = () => cred()?.status === 'active'
                 return (
@@ -498,14 +458,43 @@ export function AgentProvidersPanel(props: {
                         <div class="font-semibold text-sm text-foreground">{provider.name}</div>
                         <div class="text-xs text-muted-foreground">{provider.modelCount} models</div>
                       </div>
+                      {/* Which budget this provider spends. The old pill keyed
+                          off `authMethod === 'none'`, which no provider is, so
+                          it never rendered. */}
+                      <Show
+                        when={provider.freeTier}
+                        fallback={<Badge variant="outline">paid</Badge>}
+                      >
+                        <Badge variant="success">free</Badge>
+                      </Show>
+                      {/* "Connected" with a green tick was shown for any key
+                          the tenant had ever pasted, including ones the
+                          provider now refuses. A provider that has quietly
+                          stopped working looked identical to one that works. */}
                       <Show when={isConnected()}>
-                        <span class="inline-flex items-center gap-1 text-xs font-medium text-success">
-                          <CheckIcon size={12} /> Connected
-                        </span>
+                        <Show
+                          when={credentialHealth(cred()).state === 'working'}
+                          fallback={<Badge variant="destructive">not working</Badge>}
+                        >
+                          <span class="inline-flex items-center gap-1 text-xs font-medium text-success">
+                            <CheckIcon size={12} /> Working
+                          </span>
+                        </Show>
                       </Show>
                     </div>
 
                     <div class="text-sm text-muted-foreground leading-relaxed">{provider.description}</div>
+
+                    {/* The provider's own message names the fix; the headline
+                        says which kind of dead it is. */}
+                    <Show when={credentialHealth(cred()).state === 'broken' ? credentialHealth(cred()) : null} keyed>
+                      {health => (
+                        <div class="border border-destructive/30 bg-destructive/10 p-2.5 text-xs leading-relaxed">
+                          <strong class="text-destructive">{(health as Extract<CredentialHealth, { state: 'broken' }>).headline}</strong>
+                          <span class="mt-0.5 block text-secondary-foreground">{(health as Extract<CredentialHealth, { state: 'broken' }>).whatToDo}</span>
+                        </div>
+                      )}
+                    </Show>
 
                     {/* Model recommendation — shows which templates benefit from this provider */}
                     <Show when={!isConnected()}>
@@ -604,9 +593,12 @@ export function AgentProvidersPanel(props: {
                               is an ordinary choice among ten, not the page's
                               headline action, and ten filled buttons in a grid
                               spend emphasis on nothing. */}
+                          {/* A provider whose key the service rejected still
+                              has a credential, so "Connect" is the wrong verb —
+                              the operator is replacing one, not adding one. */}
                           <Show when={showKeyInputFor() !== provider.id}>
                             <Button variant="outline" size="sm" onClick={() => setShowKeyInputFor(provider.id)}>
-                              <KeyIcon size={13} /> Connect with API Key
+                              <KeyIcon size={13} /> {cred() ? 'Replace key' : 'Connect with API Key'}
                             </Button>
                           </Show>
                         </Show>
@@ -648,12 +640,177 @@ export function AgentProvidersPanel(props: {
                     </Show>
                   </div>
                 )
-              }}
-            </For>
-          </div>
+  }
 
+  return (
+    <Show
+      when={usage.data}
+      fallback={
+        <div class="flex flex-col gap-4">
+          <Show when={isServiceDown()}>
+            <div class="flex items-start gap-3 p-4 rounded-lg border border-warning/30 bg-warning/10 text-warning-light">
+              <div class="flex-shrink-0 text-warning mt-0.5">
+                <SparkIcon size={28} />
+              </div>
+              <div class="flex flex-col gap-1">
+                <strong class="text-sm text-warning-light">AI service is temporarily unavailable</strong>
+                <span class="text-sm text-muted-foreground leading-relaxed">Free models continue to work. Premium features will return shortly — no action needed.</span>
+              </div>
+            </div>
+          </Show>
+          <Show when={error() && !isServiceDown()}>
+            <div class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error()}</div>
+          </Show>
+          <Show when={!isServiceDown()}>
+            <div class="h-20 rounded-lg border border-border bg-surface-1 animate-pulse" />
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+              <div class="h-32 rounded-lg border border-border bg-surface-1 animate-pulse" />
+              <div class="h-32 rounded-lg border border-border bg-surface-1 animate-pulse" />
+              <div class="h-32 rounded-lg border border-border bg-surface-1 animate-pulse" />
+            </div>
+          </Show>
+        </div>
+      }
+    >
+      <div class="flex flex-col gap-4">
+
+        {/* The spend strip, the model list and the task list describe what
+            this tenant is doing. The catalogue tab is a list of things it is
+            not doing yet, so none of them belong there. */}
+        <Show when={props.mode !== 'library'}>
+        {/* ─── Compact budget + status strip ─────────────────────── */}
+        {/* These were the only KPI tiles in the console still hand-rolled:
+            rounded on a page of square panels, with uppercase letter-spaced
+            labels where every other strip uses sentence case at the same size.
+            Same four numbers, through the shared primitive. */}
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <KpiCard
+            label="Spent this month"
+            value={formatUsd(usage.data!.monthly_spend_micro_usd)}
+            sub={`of ${formatUsd(usage.data!.budget_micro_usd)}`}
+            tone={budgetPctValue() > 80 ? 'warn' : 'default'}
+          />
+          <KpiCard label="Connected" value={connectedCount()} sub="providers" />
+          <KpiCard label="Models" value={availableModelCount()} sub="available" />
+          <Card class="p-4">
+            <div class="text-xs text-muted-foreground">Tasks run</div>
+            <div class="mt-1 text-2xl font-bold tabular-nums text-foreground">{usage.data!.tasks.length}</div>
+            <div class="text-xs text-muted-foreground">in the last 30 days</div>
+            <Show when={dailyCostSeries().some(v => v > 0)}>
+              <div class="mt-1 h-5 opacity-80">
+                <Sparkline data={dailyCostSeries()} width={80} height={20} color={budgetPctValue() > 80 ? 'var(--color-warning)' : 'var(--color-primary)'} />
+              </div>
+            </Show>
+          </Card>
         </section>
 
+        <Show when={error()}>
+          <div class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error()}</div>
+        </Show>
+
+        </Show>
+
+        {/* ─── Not working ─────────────────────────────────────────
+            A connected provider that buys nothing is worse than an unconnected
+            one: the operator believes it is covered. It leads the page when it
+            happens, and does not exist when it does not. */}
+        <Show when={props.mode !== 'library' && brokenProviders().length > 0}>
+          <section>
+            <h3 class="m-0 flex items-center gap-2 text-base font-semibold text-destructive">
+              <KeyIcon size={16} /> Connected but not working
+            </h3>
+            <p class="mb-3 mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+              {brokenProviders().length === 1 ? 'This provider has' : 'These providers have'} a key,
+              but the provider is refusing it. Work that would have used
+              {brokenProviders().length === 1 ? ' it' : ' them'} is running on free models instead —
+              nothing is being skipped, but the writing an operator sees is not what you paid for.
+            </p>
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+              <For each={brokenProviders()}>{provider => <ProviderCard provider={provider} />}</For>
+            </div>
+          </section>
+        </Show>
+
+        {/* ─── What the intelligence is using ─────────────────────
+            Connected paid providers and the free ones, together, because that
+            is the pool the router actually picks from. Providers the operator
+            has not connected are not shown here at all — they live in the
+            Add provider tab. A grid of ten cards where two are yours makes the
+            operator find their own two every time they open the page. */}
+        {/* Nothing connected is a normal starting state, not an error. It
+            says what happens meanwhile and where to go. */}
+        <Show when={props.mode !== 'library' && inUseProviders().length === 0 && brokenProviders().length === 0}>
+          <section>
+            <div class="mb-1 flex items-center gap-2">
+              <h3 class="m-0 flex items-center gap-2 text-base font-semibold text-foreground">
+                <SparkIcon size={16} /> No AI provider connected
+              </h3>
+              <Hint label="What happens without a provider">
+                Work still runs. Everything goes to the free models the platform ships with, which are
+                good enough for scanning, sorting and summarising. What suffers is the writing a
+                person reads — outreach, press pitches, replies.
+              </Hint>
+            </div>
+            <p class="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+              Nothing is blocked — the intelligence is running everything on free models. Connect a
+              paid provider and it will use that one for anything a person will read.
+            </p>
+          </section>
+        </Show>
+
+        <Show when={inUseProviders().length > 0}>
+          <section>
+            <div class="mb-1 flex items-center gap-2">
+              <h3 class="m-0 flex items-center gap-2 text-base font-semibold text-foreground">
+                <SparkIcon size={16} /> In use
+              </h3>
+              <Hint label="How the intelligence chooses a provider">
+                <strong class="text-foreground">Paid first when a person will read it.</strong> Outreach,
+                press pitches and anything a fan or a promoter sees goes to a paid model, because the
+                wording matters and it is your name on it.
+                <br /><br />
+                <strong class="text-foreground">Free for the rest.</strong> Scanning, sorting,
+                summarising and scoring run on free models — the work is simple and the volume is high.
+                <br /><br />
+                <strong class="text-foreground">Free is also the fallback.</strong> If a paid provider
+                is down, out of budget or has no key, the job runs on a free model rather than not at
+                all. Nothing is skipped for want of a paid answer.
+              </Hint>
+            </div>
+            <p class="mb-3 text-sm leading-relaxed text-muted-foreground">
+              The pool the intelligence picks from right now.
+            </p>
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+              <For each={inUseProviders()}>{provider => <ProviderCard provider={provider} />}</For>
+            </div>
+          </section>
+        </Show>
+
+        {/* ─── Library ─────────────────────────────────────────────
+            Only rendered in library mode, which is its own tab. */}
+        <Show when={props.mode === 'library'}>
+          <section>
+            <h3 class="m-0 flex items-center gap-2 text-base font-semibold text-foreground">
+              <KeyIcon size={16} /> Providers you have not connected
+            </h3>
+            <p class="mb-3 mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+              Paste an API key from the provider's own console to add it to the pool. Keys are
+              encrypted at rest. Connecting one does not switch anything off — it gives the
+              intelligence one more option for the work that needs a paid model.
+            </p>
+            <Show
+              when={libraryProviders().length > 0}
+              fallback={<EmptyState label="Everything is connected" hint="Every provider we support already has a key on this tenant." />}
+            >
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                <For each={libraryProviders()}>{provider => <ProviderCard provider={provider} />}</For>
+              </div>
+            </Show>
+          </section>
+        </Show>
+
+
+        <Show when={props.mode !== 'library'}>
         {/* ─── Connected Premium Models ──────────────────────────── */}
         <section class="rounded-lg border border-border bg-card p-5">
           <div class="flex items-center justify-between mb-2">
@@ -724,6 +881,7 @@ export function AgentProvidersPanel(props: {
             </div>
           </Show>
         </section>
+        </Show>
       </div>
     </Show>
   )
