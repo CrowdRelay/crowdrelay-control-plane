@@ -123,9 +123,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          scp -q scripts/deploy-bluegreen.sh scripts/release_receipt.py \
-            deploy/compose.bluegreen.yml \
-            virya-crowdrelay:/tmp/cp-deploy-bluegreen.sh /tmp/release_receipt.py /tmp/cp-compose-bluegreen.yml
+          scp -q scripts/deploy-bluegreen.sh virya-crowdrelay:/tmp/cp-deploy-bluegreen.sh
+          scp -q scripts/release_receipt.py virya-crowdrelay:/tmp/release_receipt.py
+          scp -q deploy/compose.bluegreen.yml virya-crowdrelay:/tmp/cp-compose-bluegreen.yml
           echo "SYNC=PASS"
 
       - name: Blue-green deploy via SSH
