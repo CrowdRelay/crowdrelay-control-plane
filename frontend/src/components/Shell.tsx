@@ -357,7 +357,11 @@ export const Shell: Component = () => {
 
   return <>
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:rounded-md focus:bg-card focus:px-4 focus:py-2 focus:text-foreground">Skip to content</a>
-    <div class="flex min-h-screen bg-background">
+    {/* `min-h-screen` let this wrapper grow past the viewport, so the document
+        scrolled at the same time as the pane inside `main` — two scrollbars, and
+        a wheel gesture that moved whichever one the pointer happened to be over.
+        The pane inside `main` is the only thing that scrolls. */}
+    <div class="flex h-screen overflow-hidden bg-background">
       <Show when={mobileNavOpen()}>
         <div class="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setMobileNavOpen(false)} aria-hidden="true" />
       </Show>

@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import { formatTimestamp } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock } from './Skeleton'
-import { TabBar, TabPanel, useTabPanels, KpiStrip, KpiCard, ErrorCard } from './layout'
+import { TabBar, TabPanel, useTabPanels, KpiStrip, KpiCard, ErrorCard, ShowMore, useShowMore } from './layout'
 import { cn } from '../lib/cn'
 import { Card } from './ui/card'
 import { Badge } from './ui/badge'
@@ -22,6 +22,13 @@ const statusTone = (status: string): 'success' | 'warning' | 'destructive' | 'mu
 
 export function BeaconSignalPanel(props: { slug: string }) {
   const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('profiles')
+
+  // Four tables here had no bound. A tenant with two hundred candidates paid
+  // two hundred rows of scrolling to reach the Discovery tab below them.
+  const profileList = useShowMore(() => dashboard.data?.profiles ?? [])
+  const candidateList = useShowMore(() => candidates.data?.candidates ?? [])
+  const discoveryList = useShowMore(() => network.data?.discoveryRuns ?? [])
+  const inviteList = useShowMore(() => network.data?.inviteJobs ?? [])
   const dashboard = useQuery(() => ({
     queryKey: ['beacon-signal-dashboard', props.slug],
     queryFn: () => api.beaconSignalDashboard(props.slug),
@@ -95,7 +102,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <For each={dashboard.data!.profiles}>{(p) => (
+              <For each={profileList.visible()}>{(p) => (
                 <TableRow>
                   <TableCell><strong>{p.displayName}</strong>{p.contactEmail ? <><br /><span class="text-muted-foreground">{p.contactEmail}</span></> : null}</TableCell>
                   <TableCell>{p.beaconKind}</TableCell>
@@ -109,6 +116,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
               )}</For>
             </TableBody>
           </Table>
+          <ShowMore hidden={profileList.hidden()} expanded={profileList.expanded()} onToggle={profileList.toggle} noun="profiles" />
         </Show>
       </TabPanel>
 
@@ -135,7 +143,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <For each={candidates.data!.candidates}>{(c) => (
+                <For each={candidateList.visible()}>{(c) => (
                   <TableRow>
                     <TableCell><strong>{c.displayName}</strong><br /><span class="text-muted-foreground">{c.contactEmail}</span></TableCell>
                     <TableCell>{c.beaconKind}</TableCell>
@@ -148,6 +156,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
                 )}</For>
               </TableBody>
             </Table>
+            <ShowMore hidden={candidateList.hidden()} expanded={candidateList.expanded()} onToggle={candidateList.toggle} noun="candidates" />
           </Show>
         </Show>
       </TabPanel>
@@ -174,7 +183,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <For each={network.data!.discoveryRuns}>{(r) => (
+                <For each={discoveryList.visible()}>{(r) => (
                   <TableRow>
                     <TableCell>{r.countryCode}</TableCell>
                     <TableCell><Badge variant={r.status === 'completed' ? 'success' : r.status === 'failed' ? 'destructive' : 'muted'}>{r.status}</Badge></TableCell>
@@ -186,6 +195,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
                 )}</For>
               </TableBody>
             </Table>
+            <ShowMore hidden={discoveryList.hidden()} expanded={discoveryList.expanded()} onToggle={discoveryList.toggle} noun="runs" />
           </Show>
 
           <Show when={network.data!.inviteJobs.length > 0}>
@@ -202,7 +212,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <For each={network.data!.inviteJobs}>{(j) => (
+                <For each={inviteList.visible()}>{(j) => (
                   <TableRow>
                     <TableCell><Badge variant={j.status === 'reported' ? 'success' : 'muted'}>{j.status}</Badge></TableCell>
                     <TableCell numeric>{j.beaconCount}</TableCell>
@@ -214,6 +224,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
                 )}</For>
               </TableBody>
             </Table>
+            <ShowMore hidden={inviteList.hidden()} expanded={inviteList.expanded()} onToggle={inviteList.toggle} noun="invite jobs" />
           </Show>
         </Show>
       </TabPanel>

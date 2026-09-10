@@ -114,10 +114,23 @@ export function CollapsiblePanel(props: {
 
 // ─── PageShell ──────────────────────────────────────────────────────────
 // The outer page wrapper. Replaces `<section class="page">`.
+//
+// This carried `overflow-hidden`, which cut the bottom off every page taller
+// than the viewport: the content was clipped instead of scrolled, because the
+// element that scrolls is this section's parent.
+//
+// `overflow-x-hidden` is not the fix either. Setting one axis to `hidden`
+// makes the other compute to `auto`, so the section became a second scroll
+// container nested inside the pane that already scrolls — two scrollbars, and
+// a wheel gesture that moved whichever one the pointer was over.
+//
+// No overflow property here at all. `main` guards the horizontal axis, and the
+// two elements that are genuinely wider than the page — the fan table and the
+// process map — carry their own `overflow-auto`.
 
 export function PageShell(props: { children: JSX.Element; class?: string }) {
   return (
-    <section class={cn('px-4 md:px-6 py-6 pb-24 overflow-hidden space-y-6', props.class)}>
+    <section class={cn('px-4 md:px-6 py-6 pb-24 space-y-6', props.class)}>
       {props.children}
     </section>
   )
@@ -266,6 +279,46 @@ export function SectionTitle(props: {
         {props.action}
       </Show>
     </div>
+  )
+}
+
+// ─── useShowMore / ShowMore ────────────────────────────────────────────
+// A long list is a scroll cost paid by everyone to serve the few who wanted
+// row forty. Show the first screenful, say how many are behind it, and let the
+// operator ask for the rest.
+//
+// The limit defaults to 12: enough that most lists never truncate at all, few
+// enough that the ones that do stay a screenful.
+
+export function useShowMore<T>(items: () => T[], limit = 12) {
+  const [expanded, setExpanded] = createSignal(false)
+  return {
+    visible: () => (expanded() ? items() : items().slice(0, limit)),
+    hidden: () => Math.max(0, items().length - limit),
+    expanded,
+    toggle: () => setExpanded(v => !v),
+  }
+}
+
+export function ShowMore(props: {
+  hidden: number
+  expanded: boolean
+  onToggle: () => void
+  /** Plural noun for the hidden rows, e.g. "profiles". */
+  noun?: string
+}) {
+  return (
+    <Show when={props.hidden > 0}>
+      <button
+        type="button"
+        class="mt-2 w-full border-t border-border py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+        onClick={() => props.onToggle()}
+      >
+        {props.expanded
+          ? 'Show fewer'
+          : `Show ${props.hidden} more${props.noun ? ` ${props.noun}` : ''}`}
+      </button>
+    </Show>
   )
 }
 
