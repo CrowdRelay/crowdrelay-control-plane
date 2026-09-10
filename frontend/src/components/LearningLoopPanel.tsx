@@ -83,7 +83,6 @@ export function LearningLoopPanel(props: { slug: string }) {
   return <Card class="p-4 learning-loop-panel">
     <div class="learning-loop-head">
       <div>
-        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">LEARNING LOOP</span>
         <h2><SectionIcon name="book-open" />Decision → Action → Outcome → Learning</h2>
       </div>
     </div>

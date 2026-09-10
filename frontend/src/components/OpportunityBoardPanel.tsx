@@ -109,9 +109,8 @@ export function OpportunityBoardPanel(props: {
   return <Card class="p-5 operations-panel">
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div>
-        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">OPPORTUNITY BOARD</span>
         <h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="target" />Found for you — decide</h2>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">Everything the agent found and parked: gigs with computed economics, pitches, waves and deadlines. “Do it” approves the parked action through CrowdRelay’s existing approval path; “done ourselves” records that a human handled it outside the system, which is a success — not a dismissal.</p>
+        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Everything the agent found and parked — approve the action or record that you handled it yourself.</p>
       </div>
       <StatusBadge status={board.data ? `${board.data.length} queued` : 'loading'} tone={board.error ? 'bad' : 'muted'} />
     </div>
@@ -128,12 +127,12 @@ export function OpportunityBoardPanel(props: {
 
     <Show when={board.data} fallback={!board.error ? <SkeletonOpportunityBoard /> : null}>{data => <>
       <Show when={data().length === 0}>
-        <Card class="p-4 mt-2.5"><p class="m-0 text-sm text-muted-foreground">The agent has nothing parked right now. Findings appear here the moment a detector raises them.</p></Card>
+        <div class="p-4 mt-2.5"><p class="m-0 text-sm text-muted-foreground">The agent has nothing parked right now. Findings appear here the moment a detector raises them.</p></div>
       </Show>
       <Show when={data().length > 0}>
         <details class="mb-4">
           <summary class="cursor-pointer text-sm text-muted-foreground py-2 border-b border-border hover:text-secondary-foreground">How to decide</summary>
-          <div class="mt-2.5 p-3.5 border border-border rounded-md bg-surface-1">
+          <div class="mt-2.5 p-3.5 border border-border rounded-lg bg-surface-1">
             <p class="m-0 text-sm text-muted-foreground leading-relaxed"><strong class="text-foreground">Do it</strong> — the agent found something with an executable step. Clicking approves it through CrowdRelay's normal action path. <strong class="text-foreground">Done ourselves</strong> — you handled it outside the system (sent the message manually, made the call, etc.). This records a success and stops the agent from re-raising it. If you're unsure, leave it — the approval will expire on its own and the agent will re-evaluate next cycle.</p>
           </div>
         </details>
@@ -141,7 +140,7 @@ export function OpportunityBoardPanel(props: {
       <Show when={data().length > 0}>
         <div class="grid gap-2.5">
           <For each={showAll() ? data() : data().slice(0, MAX_VISIBLE)}>{entry => (
-            <div class="flex justify-between items-start gap-4 p-3.5 border border-border rounded-md bg-card hover:border-primary/40 hover:bg-surface-3 transition-colors">
+            <div class="flex justify-between items-start gap-4 p-3.5 border border-border rounded-lg bg-card hover:border-primary/40 hover:bg-surface-3 transition-colors">
               <div class="min-w-0 flex-1 flex flex-col gap-1.5">
                 <div class="flex items-center gap-2 flex-wrap">
                   <span class="inline-flex items-center justify-center min-w-[26px] h-[22px] px-1.5 rounded-sm bg-surface-4 text-primary-foreground font-bold text-xs flex-shrink-0">#{entry.position}</span>

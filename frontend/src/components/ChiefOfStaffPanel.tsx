@@ -95,9 +95,8 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
   return <Card class="p-5 chief-of-staff-panel">
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div>
-        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">LAST 24 HOURS</span>
         <h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="activity" />What the autopilot did</h2>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">Its own report: what ran, what it stopped itself from running, and what is waiting on you. Counts cover the last day; measured effect covers the last week.</p>
+        <p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">Its own report: what ran, what it stopped, and what is waiting on you.</p>
       </div>
       <Show when={d()}>
         <StatusBadge
@@ -108,23 +107,23 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
     </div>
 
     <Show when={model.error}>
-      <Card class="p-4 mt-2.5"><p class="m-0 text-sm text-muted-foreground">The autopilot could not report on itself right now. The panels below still show what the queues say.</p></Card>
+      <div class="p-4 mt-2.5"><p class="m-0 text-sm text-muted-foreground">The autopilot could not report on itself right now.</p></div>
     </Show>
 
     <Show when={!model.error && model.isPending}><SkeletonSection titleWidth="180px" lines={4} minHeight="160px" /></Show>
 
     <Show when={d()}>{data => <>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-        <div class="p-3 border border-border rounded-md bg-card"><span class="block text-xs text-muted-foreground">Executed</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().executed_24h}</strong><small class="block text-xs text-muted-foreground mt-0.5">{data().executor_confirmed_24h} confirmed by an executor</small></div>
-        <div class="p-3 border border-border rounded-md bg-card" classList={{ 'border-destructive/30': data().failed_24h > 0 }}><span class="block text-xs text-muted-foreground">Failed</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground" classList={{ 'text-destructive': data().failed_24h > 0 }}>{data().failed_24h}</strong><small class="block text-xs text-muted-foreground mt-0.5">{data().executor_failed_24h} failed at the executor</small></div>
-        <div class="p-3 border border-border rounded-md bg-card" classList={{ 'border-warning/30': data().needs_you > 0 }}><span class="block text-xs text-muted-foreground">Waiting on you</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground" classList={{ 'text-warning': data().needs_you > 0 }}>{data().needs_you}</strong><small class="block text-xs text-muted-foreground mt-0.5">parked until approved</small></div>
-        <div class="p-3 border border-border rounded-md bg-card"><span class="block text-xs text-muted-foreground">Time saved</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{minutes(data().estimated_minutes_saved_24h)}</strong><small class="block text-xs text-muted-foreground mt-0.5">estimated, from work it ran unattended</small></div>
+        <div class="p-3 border border-border rounded-lg bg-card"><span class="block text-xs text-muted-foreground">Executed</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().executed_24h}</strong><small class="block text-xs text-muted-foreground mt-0.5">{data().executor_confirmed_24h} confirmed by an executor</small></div>
+        <div class="p-3 border border-border rounded-lg bg-card" classList={{ 'border-destructive/30': data().failed_24h > 0 }}><span class="block text-xs text-muted-foreground">Failed</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground" classList={{ 'text-destructive': data().failed_24h > 0 }}>{data().failed_24h}</strong><small class="block text-xs text-muted-foreground mt-0.5">{data().executor_failed_24h} failed at the executor</small></div>
+        <div class="p-3 border border-border rounded-lg bg-card" classList={{ 'border-warning/30': data().needs_you > 0 }}><span class="block text-xs text-muted-foreground">Waiting on you</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground" classList={{ 'text-warning': data().needs_you > 0 }}>{data().needs_you}</strong><small class="block text-xs text-muted-foreground mt-0.5">parked until approved</small></div>
+        <div class="p-3 border border-border rounded-lg bg-card"><span class="block text-xs text-muted-foreground">Time saved</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{minutes(data().estimated_minutes_saved_24h)}</strong><small class="block text-xs text-muted-foreground mt-0.5">estimated, from work it ran unattended</small></div>
       </div>
 
       <Show when={quiet()}>
-        <Card class="p-4 mt-3">
-          <p class="m-0 text-sm text-muted-foreground">The autopilot did nothing in the last day. That is expected when every policy is set to observe or the confidence floor is above what the cycle produced — check the authority policies below.</p>
-        </Card>
+        <div class="p-4 mt-3">
+          <p class="m-0 text-sm text-muted-foreground">The autopilot did nothing in the last day — expected when every policy is set to observe or the confidence floor is above what the cycle produced.</p>
+        </div>
       </Show>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
@@ -221,10 +220,9 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
       </Show>
 
       <Show when={measured() > 0} fallback={
-        <p class="mt-6 pt-6 border-t border-border text-sm text-muted-foreground">Nothing it did in the last week has been measured yet. Effects are scored once enough time has passed to attribute them.</p>
+        <p class="mt-6 pt-6 border-t border-border text-sm text-muted-foreground">Nothing it did in the last week has been measured yet.</p>
       }>
         <div class="mt-6 pt-6 border-t border-border">
-          <span class="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Measured effect, 7 days</span>
           <div class="mt-2 flex h-3 rounded-full overflow-hidden bg-surface-3" role="img" aria-label={`${data().measured_improved_7d} improved, ${data().measured_neutral_7d} neutral, ${data().measured_worsened_7d} worsened`}>
             <span class="bg-success" style={{ width: `${(data().measured_improved_7d / measured()) * 100}%` }} />
             <span class="bg-muted" style={{ width: `${(data().measured_neutral_7d / measured()) * 100}%` }} />

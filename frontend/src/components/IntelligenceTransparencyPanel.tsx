@@ -151,24 +151,24 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
           <span class="text-muted-foreground">{decisions().length} decisions</span>
         </Show>
       </div>
-      <p class="text-sm text-muted-foreground leading-relaxed mt-2">The intelligence's decision log. Each entry shows what the intelligence decided to research, why (rationale), which workers it dispatched, and what they found. The intelligence is deterministic Rust — it never follows an LLM blindly.</p>
+      <p class="text-sm text-muted-foreground leading-relaxed mt-2">The deterministic Rust intelligence's decision log — what it decided, why, and what workers found.</p>
 
       <Show when={data.data && decisions().length === 0} fallback={
         <Show when={error()} fallback={
           <Show when={data.data} fallback={
             <div class="flex flex-col gap-2.5 mt-4">
               {Array.from({ length: 3 }, () => (
-                <Card class="p-4" style={{ opacity: '0.8' }}>
+                <div class="p-4" style={{ opacity: '0.8' }}>
                   <div class="rounded-lg bg-surface-3 border border-border" style={{ height: '20px', width: '40%', 'border-radius': '8px', 'margin-bottom': '12px' }} />
                   <div class="rounded-lg bg-surface-3 border border-border" style={{ height: '14px', width: '100%', 'border-radius': '6px', 'margin-bottom': '8px' }} />
                   <div class="rounded-lg bg-surface-3 border border-border" style={{ height: '14px', width: '80%', 'border-radius': '6px' }} />
-                </Card>
+                </div>
               ))}
             </div>
           }>
             <div class="flex flex-col gap-2.5 mt-4">
               <For each={showAllDecisions() ? decisions() : decisions().slice(0, MAX_VISIBLE_DECISIONS)}>{(decision: IntelligenceDecision) => (
-                <Card class="overflow-hidden shadow-sm transition-colors hover:border-border-strong">
+                <div class="overflow-hidden shadow-sm transition-colors hover:border-border-strong">
                   <Button variant="ghost" size="sm" class="w-full h-auto p-4 flex items-center justify-between gap-3" onClick={() => toggleExpand(decision.id)}>
                     <div class="flex items-center gap-2.5">
                       <strong>{templateLabel(decision.brain_template)}</strong>
@@ -206,15 +206,15 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                       <Show when={decision.plan.length > 0}>
                         <div class="mt-4">
                           <h4 class="text-sm font-semibold text-foreground m-0 mb-1.5">Growth Plan</h4>
-                          <p class="text-sm text-muted-foreground m-0 mb-2.5">The intelligence's deterministic plan. Each item shows the template to dispatch, the priority, and the rationale (why the intelligence decided to do this).</p>
+                          <p class="text-sm text-muted-foreground m-0 mb-2.5">The deterministic plan — each item shows the template, priority, and rationale.</p>
                           <For each={expandedPlans().has(decision.id) ? decision.plan : decision.plan.slice(0, MAX_VISIBLE_PLAN)}>{(item, i) => (
-                            <div class="p-3 border border-border-subtle rounded-md bg-surface-3 mb-2">
+                            <div class="p-3 border border-border-subtle rounded-lg bg-surface-3 mb-2">
                               <div class="flex gap-2 items-center mb-1.5">
                                 <Badge>#{i() + 1} · {templateLabel(item.template)}</Badge>
                                 <Badge variant="success">priority {item.priority}</Badge>
                               </div>
                               <p class="text-sm m-0 mb-1.5 leading-relaxed text-foreground"><strong>Why:</strong> {item.rationale}</p>
-                              <pre class="text-sm text-muted-foreground bg-background p-2 rounded-md overflow-auto max-h-[120px] m-0 whitespace-pre-wrap">{item.prompt}</pre>
+                              <pre class="text-sm text-muted-foreground bg-background p-2 rounded-lg overflow-auto max-h-[120px] m-0 whitespace-pre-wrap">{item.prompt}</pre>
                             </div>
                           )}</For>
                         </div>
@@ -229,7 +229,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                       <Show when={decision.tasks.length > 0}>
                         <div class="mt-4">
                           <h4 class="text-sm font-semibold text-foreground m-0 mb-1.5">Dispatched Workers</h4>
-                          <p class="text-sm text-muted-foreground m-0 mb-2.5">Workers the intelligence dispatched for this plan. Each worker runs an LLM template and emits structured outcomes. The intelligence consumes these outcomes deterministically.</p>
+                          <p class="text-sm text-muted-foreground m-0 mb-2.5">Workers dispatched for this plan — each runs an LLM template and emits structured outcomes the intelligence consumes deterministically.</p>
                           <table class="w-full text-sm">
                             <thead><tr><th>Slot</th><th>Role</th><th>Template</th><th>Status</th><th>Outcome</th><th>Tokens</th><th></th></tr></thead>
                             <tbody>
@@ -300,7 +300,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                       </div>
                     </div>
                   </Show>
-                </Card>
+                </div>
               )}</For>
             </div>
             <Show when={decisions().length > MAX_VISIBLE_DECISIONS}>
@@ -310,12 +310,12 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
             </Show>
           </Show>
         }>
-          <Card class="p-4"><EmptyState label="Intelligence data unavailable" hint={error()!} /></Card>
+          <div class="p-4"><EmptyState label="Intelligence data unavailable" hint={error()!} /></div>
         </Show>
       }>
-        <Card class="p-4">
-          <EmptyState label="No intelligence decisions" hint="The intelligence dispatches growth plans on a deterministic schedule. Decisions appear here once the autopilot starts running." />
-        </Card>
+        <div class="p-4">
+          <EmptyState label="No intelligence decisions" hint="Decisions appear here once the deterministic autopilot starts running." />
+        </div>
       </Show>
     </Card>
     </div>

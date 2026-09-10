@@ -123,7 +123,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
           <h3 class="text-sm font-semibold text-foreground">Cost vs Outcome ROI</h3>
           <span class="text-muted-foreground">this month</span>
         </div>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">How much each worker template costs vs the growth outcomes it produced. Sorted by cost-per-outcome (best ROI first). Free models show $0 cost with outcome counts.</p>
+        <p class="mt-1 text-sm text-muted-foreground">Cost vs outcome per template. Sorted by cost-per-outcome (best ROI first).</p>
         <div class="mt-3 overflow-x-auto">
           <table class="w-full border-collapse text-sm [&_th]:text-left [&_th]:p-2 [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-muted-foreground [&_th]:border-b [&_th]:border-border [&_td]:p-2 [&_td]:border-b [&_td]:border-border">
             <thead><tr><th>Template</th><th>Tasks</th><th>Completed</th><th>Failed</th><th>Cost</th><th>Outcomes</th><th>Cost/Outcome</th><th>Success</th></tr></thead>
@@ -161,7 +161,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
           <h3 class="text-sm font-semibold text-foreground">Model performance</h3>
           <span class="text-muted-foreground">last 30 days</span>
         </div>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Per-model success rate, latency, and cost. Helps you see if the intelligence is routing tasks to the right models. Color-coded success rate: green ≥90%, yellow ≥75%, red below 75%.</p>
+        <p class="mt-1 text-sm text-muted-foreground">Per-model success rate, latency, and cost.</p>
         <div class="mt-3 overflow-x-auto">
           <table class="w-full border-collapse text-sm [&_th]:text-left [&_th]:p-2 [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-muted-foreground [&_th]:border-b [&_th]:border-border [&_td]:p-2 [&_td]:border-b [&_td]:border-border">
             <thead><tr><th>Model</th><th>Provider</th><th>Tasks</th><th>Success</th><th>Avg latency</th><th>Avg cost/task</th><th>Avg tokens</th></tr></thead>
@@ -194,7 +194,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
           <h3 class="text-sm font-semibold text-foreground">Daily spend trend</h3>
           <span class="text-muted-foreground">last 30 days</span>
         </div>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Daily AI spend, free vs paid stacked. The bar height shows total requests; color shows paid cost. A flat line at $0 means the intelligence is routing to free models — that's the goal.</p>
+        <p class="mt-1 text-sm text-muted-foreground">Daily AI spend, free vs paid stacked. A flat line at $0 means free models are being used.</p>
         <div class="flex items-end gap-0.5 h-[120px] mt-4 px-1">
           <For each={dailySpend()}>{(d) => {
             const totalCost = d.paid_cost_micro_usd + d.free_cost_micro_usd
@@ -229,9 +229,9 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
 
     {/* Empty state */}
     <Show when={data.data && templateRoi().length === 0 && modelAnalytics().length === 0}>
-      <Card class="p-4 mt-2.5">
-        <EmptyState label="No AI usage data" hint="AI usage tracks token consumption and costs for worker agents. Data appears here once the intelligence dispatches workers." />
-      </Card>
+      <div class="mt-4">
+        <EmptyState label="No AI usage data" hint="Data appears once the intelligence dispatches workers." />
+      </div>
     </Show>
 
     {/* Model routing preview — shows the intelligence's fallback chain */}
@@ -241,7 +241,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
           <h3 class="text-sm font-semibold text-foreground">Model routing preview</h3>
           <span class="text-muted-foreground">intelligence fallback chain</span>
         </div>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">The intelligence routes tasks to models using a fallback chain: free models first, then paid models if connected. This shows which models are available and whether they're being used.</p>
+        <p class="mt-1 text-sm text-muted-foreground">The intelligence routes to free models first, then paid if connected.</p>
         <div class="grid gap-2.5 mt-4 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]">
           <For each={data.data?.available_models ?? []}>{(m) => {
             const analytics = () => modelAnalytics().find(a => a.model_id === m.id)
@@ -251,7 +251,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
               return a.success_rate >= 90 ? 'good' as const : a.success_rate >= 75 ? 'warn' as const : 'bad' as const
             }
             return (
-              <div class="p-3 border rounded-md bg-surface-3 transition-colors hover:bg-surface-4 hover:-translate-y-px" classList={{ 'border-success': m.paid && m.connected, 'border-primary': !m.paid }}>
+              <div class="p-3 border rounded-lg bg-surface-3 transition-colors hover:bg-surface-4 hover:-translate-y-px" classList={{ 'border-success': m.paid && m.connected, 'border-primary': !m.paid }}>
                 <div class="flex items-center gap-2 flex-wrap">
                   <ModelIcon modelId={m.id} providerId={m.provider} paid={m.paid} size={18} />
                   <strong>{m.name}</strong>

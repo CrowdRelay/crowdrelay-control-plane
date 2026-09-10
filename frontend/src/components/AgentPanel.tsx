@@ -279,19 +279,21 @@ export function AgentPanel(props: { slug: string }) {
       <Show when={suggestions().length > 0}>
         <Card class="p-4">
           <div class="flex items-center justify-between gap-4">
-            <h3><IntelligenceIcon size={18} /> From the Autopilot Intelligence</h3>
+            <h3><IntelligenceIcon size={18} /> Autopilot Intelligence</h3>
           </div>
-          <p class="text-sm text-muted-foreground leading-relaxed mt-1">Data-driven suggestions based on your events and campaign performance. Click to run.</p>
-          <div class="agent-suggestions">
+          <p class="text-sm text-muted-foreground mt-1">Data-driven suggestions based on your events and campaign performance. Click to run.</p>
+          <div class="grid gap-2.5 mt-3 grid-cols-1 md:grid-cols-2">
             <For each={suggestions().slice(0, 4)}>
               {(s) => (
                 <button type="button" class="agent-suggestion-card" onClick={() => runSuggestion(s)}>
-                  <div class="agent-suggestion-head">
-                    <span class="agent-suggestion-title">{s.title}</span>
+                  <div class="flex items-center justify-between gap-2 mb-1">
+                    <span class="font-semibold text-sm text-foreground text-left">{s.title}</span>
                     <StatusBadge status={s.priority} tone={priorityTone(s.priority)} />
                   </div>
-                  <p class="agent-suggestion-desc">{s.description}</p>
-                  <span class="agent-suggestion-reason">{s.reason}</span>
+                  <p class="text-sm text-muted-foreground text-left leading-snug">{s.description}</p>
+                  <Show when={s.reason}>
+                    <span class="text-xs text-muted-foreground italic mt-1.5 block text-left">{s.reason}</span>
+                  </Show>
                 </button>
               )}
             </For>
@@ -305,7 +307,7 @@ export function AgentPanel(props: { slug: string }) {
           <h3>Agent tasks</h3>
           <Show when={templates().length > 0}><span class="text-muted-foreground">{templates().length} templates</span></Show>
         </div>
-        <p class="text-sm text-muted-foreground leading-relaxed mt-1">Pick a template, choose a model, describe the work, and run. Results appear under Recent tasks.</p>
+        <p class="text-sm text-muted-foreground mt-1">Pick a template, choose a model, and describe the work.</p>
         <Show when={tasksOverview.data} fallback={<SkeletonGrid count={4} minCardHeight='120px' />}>
           <div class="agent-template-grid">
             <For each={templates()}>
@@ -339,7 +341,7 @@ export function AgentPanel(props: { slug: string }) {
             <h3>Run: {templates().find(t => t.id === selectedTemplate())?.name ?? 'task'}</h3>
             <Button variant="ghost" size="sm" onClick={() => setSelectedTemplate(null)}>Choose another template</Button>
           </div>
-          <p class="text-sm text-muted-foreground leading-relaxed mt-1">Free models cost nothing; paid models bill against the AI budget. The prompt is the only thing the template doesn't already know.</p>
+          <p class="text-sm text-muted-foreground mt-1">Free models cost nothing; paid models bill against the AI budget.</p>
           <label class="agent-field">
             <span>Model</span>
             <select value={selectedModel()} onChange={(e) => setSelectedModel(e.currentTarget.value)}>
@@ -387,7 +389,7 @@ export function AgentPanel(props: { slug: string }) {
             </Button>
           </Show>
         </div>
-        <p class="text-sm text-muted-foreground leading-relaxed mt-1">Recurring tasks run automatically on the configured interval. Results land in Recent Tasks.</p>
+        <p class="text-sm text-muted-foreground mt-1">Recurring tasks run automatically. Results land in Recent tasks.</p>
         <Show when={creatingSchedule()}>
           <div class="agent-schedule-form">
             <label class="agent-field">
@@ -431,7 +433,7 @@ export function AgentPanel(props: { slug: string }) {
           </table>
         </Show>
         <Show when={schedules().length === 0}>
-          <EmptyState label="No schedules configured" hint="Schedules define when the intelligence dispatches worker agents. Create a schedule to automate intelligence gathering." />
+          <EmptyState label="No schedules configured" hint="Automate recurring intelligence tasks." />
         </Show>
       </Card>
 
@@ -440,9 +442,9 @@ export function AgentPanel(props: { slug: string }) {
           <h3>Recent tasks</h3>
           <Show when={tasks().length > 0}><span class="text-muted-foreground">last {Math.min(tasks().length, 10)}</span></Show>
         </div>
-        <p class="text-sm text-muted-foreground leading-relaxed mt-1">Every run, started here or by a schedule. Queued and running refresh automatically; completed opens the full output.</p>
+        <p class="text-sm text-muted-foreground mt-1">Every run, started here or by a schedule. Completed tasks show full output.</p>
         <Show when={tasksOverview.data} fallback={
-          <Show when={tasksOverview.isFetching} fallback={<EmptyState label="No tasks yet" hint="Tasks are individual worker runs. They appear here once the intelligence or a schedule dispatches them." />}>
+          <Show when={tasksOverview.isFetching} fallback={<EmptyState label="No tasks yet" hint="Tasks appear once the intelligence or a schedule dispatches them." />}>
             <SkeletonRows count={4} />
           </Show>
         }>

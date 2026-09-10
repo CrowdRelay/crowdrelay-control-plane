@@ -142,7 +142,7 @@ export function OperationsPanel(props: {
   return <Card class="p-5 operations-panel">
     <Show when={showHealth()}>
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
-      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">OPERATIONS</span><h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="activity" />Health & controls</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">Live CrowdRelay telemetry and bounded runtime controls. Changes are tenant-scoped and audited.</p></div>
+      <div><h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="activity" />Health & controls</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Live CrowdRelay telemetry and bounded runtime controls.</p></div>
       <div class="flex items-center gap-2 flex-wrap">
         <Show when={props.canRedeploy !== false}>
           <Show when={confirming() === 'redeploy'}><Button variant="ghost" size="sm" onClick={() => setConfirming(null)}>Cancel</Button></Show>
@@ -223,7 +223,7 @@ export function OperationsPanel(props: {
     </div>
 
     <Show when={summary.data && (deadJobs() > 0 || summary.data.watchdog.critical_alerts > 0)}>
-      <div class="rounded-md border border-destructive/30 bg-destructive/10 p-3 flex items-center justify-between gap-3 flex-wrap mt-4">
+      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 flex items-center justify-between gap-3 flex-wrap mt-4">
         <div><strong class="text-destructive">Operator attention required</strong><br /><span class="text-sm text-secondary-foreground">{deadJobs()} dead queue item(s) · {summary.data?.watchdog.critical_alerts ?? 0} critical watchdog alert(s)</span></div>
         <Show when={confirming() === 'replay-dead'}>
           <div class="flex items-center gap-2"><Button variant="ghost" size="sm" onClick={() => setConfirming(null)}>Cancel</Button><Button size="sm" disabled={pendingMutation() !== null} onClick={() => { setConfirming(null); void replayDead() }}>{pendingMutation() === 'replay-dead' && <Spinner />} Confirm replay</Button></div>

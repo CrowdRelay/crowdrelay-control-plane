@@ -49,7 +49,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
         <span class="text-muted-foreground">{dashboard.data!.total} beacons · {dashboard.data!.active} active</span>
       </Show>
     </div>
-    <p class="text-sm text-muted-foreground leading-relaxed mt-1">Press and industry relationships. Beacons are the people the agent is talking to — journalists, promoters, superfans. The network shows discovery runs and invite jobs.</p>
+    <p class="text-sm text-muted-foreground leading-relaxed mt-1">Press and industry relationships — the people the agent is talking to, with discovery runs and invite jobs.</p>
 
     <Show when={dashboard.error}>
       <ErrorCard>Beacon signal dashboard unavailable</ErrorCard>
@@ -163,7 +163,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
           <SkeletonBlock height="120px" radius="10px" />
         </Show>
         <Show when={network.data}>
-          <Show when={network.data!.discoveryRuns.length > 0} fallback={<EmptyState label="No discovery runs" hint="Discovery runs scan for nearby fans using beacon campaigns. Runs appear here once the intelligence dispatches them." />}>
+          <Show when={network.data!.discoveryRuns.length > 0} fallback={<EmptyState label="No discovery runs" hint="Discovery runs scan for nearby fans using beacon campaigns." />}>
             <div class="table-wrap">
               <table class="data-table">
                 <thead>

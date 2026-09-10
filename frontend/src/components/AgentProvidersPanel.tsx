@@ -400,57 +400,36 @@ export function AgentProvidersPanel(props: {
           <div class="premium-free-banner">
             <div class="premium-free-banner-text">
               <strong>Free models are active</strong>
-              <span>The intelligence routes to free models (Laguna, Gemini Flash, Groq) by default. No provider connection needed to start growing fans. Connect a premium provider below to unlock frontier models for deeper reasoning.</span>
+              <span>Free models (Laguna, Gemini Flash, Groq) need no key. Connect a provider below to unlock frontier models.</span>
             </div>
           </div>
         </Show>
 
-        {/* ─── Hero: Budget + Status ─────────────────────────────── */}
-        <section class="premium-hero">
-          <div class="premium-hero-left">
-            <div class="premium-hero-badge">
-              <CrownIcon size={16} />
-              <span>Premium AI</span>
-            </div>
-            <div class="premium-budget-amount">
-              <span class="premium-budget-spent">{formatUsd(usage.data!.monthly_spend_micro_usd)}</span>
-              <span class="premium-budget-limit">of {formatUsd(usage.data!.budget_micro_usd)} / mo</span>
-            </div>
-            <div class="premium-budget-bar">
-              <div
-                class="premium-budget-fill"
-                classList={{
-                  'tier-ok': budgetPctValue() < 50,
-                  'tier-warn': budgetPctValue() >= 50 && budgetPctValue() < 90,
-                  'tier-crit': budgetPctValue() >= 90,
-                }}
-                style={{ width: `${Math.max(2, budgetPctValue())}%` }}
-              />
-            </div>
+        {/* ─── Compact budget + status strip ─────────────────────── */}
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
+            <span class="text-xs text-muted-foreground uppercase tracking-wider">Monthly spend</span>
+            <strong class="text-lg font-bold text-foreground tabular-nums">{formatUsd(usage.data!.monthly_spend_micro_usd)}</strong>
+            <span class="text-xs text-muted-foreground">of {formatUsd(usage.data!.budget_micro_usd)}</span>
           </div>
-          <div class="premium-hero-right">
+          <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
+            <span class="text-xs text-muted-foreground uppercase tracking-wider">Connected</span>
+            <strong class="text-lg font-bold text-foreground tabular-nums">{connectedCount()}</strong>
+            <span class="text-xs text-muted-foreground">providers</span>
+          </div>
+          <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
+            <span class="text-xs text-muted-foreground uppercase tracking-wider">Models</span>
+            <strong class="text-lg font-bold text-foreground tabular-nums">{availableModelCount()}</strong>
+            <span class="text-xs text-muted-foreground">available</span>
+          </div>
+          <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
+            <span class="text-xs text-muted-foreground uppercase tracking-wider">Tasks (30d)</span>
+            <strong class="text-lg font-bold text-foreground tabular-nums">{usage.data!.tasks.length}</strong>
             <Show when={dailyCostSeries().some(v => v > 0)}>
-              <div class="premium-hero-spark" title="Daily AI spend — last 14 days">
-                <Sparkline
-                  data={dailyCostSeries()}
-                  width={120}
-                  height={40}
-                  color={budgetPctValue() > 80 ? 'var(--warn)' : 'var(--accent)'}
-                />
+              <div class="mt-0.5 h-5 opacity-80">
+                <Sparkline data={dailyCostSeries()} width={80} height={20} color={budgetPctValue() > 80 ? 'var(--warn)' : 'var(--accent)'} />
               </div>
             </Show>
-            <div class="premium-stat">
-              <span class="premium-stat-value">{connectedCount()}</span>
-              <span class="premium-stat-label">Connected</span>
-            </div>
-            <div class="premium-stat">
-              <span class="premium-stat-value">{availableModelCount()}</span>
-              <span class="premium-stat-label">Models</span>
-            </div>
-            <div class="premium-stat">
-              <span class="premium-stat-value">{usage.data!.tasks.length}</span>
-              <span class="premium-stat-label">Tasks (30d)</span>
-            </div>
           </div>
         </section>
 

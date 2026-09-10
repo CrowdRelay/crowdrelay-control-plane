@@ -90,7 +90,6 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
   return <>
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div>
-        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">WATCHDOG</span>
         <h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="alert-triangle" />Open alerts</h3>
         <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Evaluated every 5 minutes. An alert closes itself once its condition is false.</p>
       </div>
@@ -127,7 +126,7 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
     }}</For>
 
     <Show when={open().length === 0}>
-      <Card class="p-4 mt-2.5"><EmptyState label="No open alerts" hint="The watchdog monitors runtime health. Open alerts appear here when the system detects issues." /></Card>
+      <div class="p-4 mt-2.5"><EmptyState label="No open alerts" hint="The watchdog monitors runtime health and shows open alerts here." /></div>
     </Show>
 
     {/* Recovered rows stay for 24 hours so a cleared incident is visible as

@@ -187,16 +187,16 @@ export function GrowthMetricsPanel(props: { slug: string }) {
     >
       {/* Feed coverage */}
       <div class="mb-4">
-        <div class="flex items-center justify-between gap-3">
-          <span class="text-sm text-muted-foreground uppercase tracking-wide">Feed coverage</span>
-          <strong class="text-foreground">{liveSeries()} / {totalSeries()} series live</strong>
+        <div class="flex items-center justify-between gap-3 mb-2">
+          <span class="text-sm text-muted-foreground">Feed coverage</span>
+          <strong class="text-sm text-foreground">{liveSeries()} / {totalSeries()} series live</strong>
         </div>
-        <div class="flex flex-col mt-2 border border-border-subtle rounded-md overflow-hidden">
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
           <For each={showAllCoverage() ? coverage.data!.platforms : coverage.data!.platforms.slice(0, MAX_VISIBLE_COVERAGE)}>{(platform: FeedCoverage) => (
-            <div class="flex items-center gap-3 px-3 py-2 border-b border-border-subtle min-h-9 last:border-b-0" classList={{ 'opacity-60': platform.state === 'missing' }}>
-              <span class="text-sm font-semibold text-secondary-foreground min-w-[90px]">{platformLabel(platform.platform)}</span>
+            <div class="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-border bg-card min-h-9" classList={{ 'opacity-60': platform.state === 'missing' }}>
               <Badge variant={feedStateVariant(platform.state)}>{feedStateLabel(platform.state)}</Badge>
-              <span class="ml-auto text-xs text-muted-foreground tabular-nums">{platform.live_series}/{platform.series} series</span>
+              <span class="text-sm font-medium text-secondary-foreground truncate flex-1">{platformLabel(platform.platform)}</span>
+              <span class="text-xs text-muted-foreground tabular-nums shrink-0">{platform.live_series}/{platform.series}</span>
             </div>
           )}</For>
         </div>
@@ -233,17 +233,17 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                   <strong class="text-base font-bold text-foreground">{platformLabel(platform)}</strong>
                   <span class="text-sm text-muted-foreground">{items.length} series</span>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1.5">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
                   <For each={expandedPlatforms().has(platform) ? items : items.slice(0, MAX_VISIBLE_PLATFORM_BARS)}>{(trend: GrowthMetricTrendView) => {
                     const delta = trend.delta_7d ?? trend.delta_24h ?? trend.delta_28d
                     const dir = trendDirection(delta)
                     return (
                       <div class="flex items-center gap-2 min-w-0" title={trend.display_name}>
-                        <span class="text-sm text-secondary-foreground whitespace-nowrap overflow-hidden text-ellipsis cursor-help shrink-0 max-w-[40%]">{trend.display_name}</span>
+                        <span class="text-sm text-secondary-foreground whitespace-nowrap overflow-hidden text-ellipsis cursor-help shrink-0 max-w-[42%]">{trend.display_name}</span>
                         <div class="flex-1 min-w-0"><Bar value={trend.latest_value} max={max()} color={color} /></div>
-                        <span class="text-sm font-semibold text-foreground whitespace-nowrap text-right shrink-0">{compactNumber(trend.latest_value)}</span>
+                        <span class="text-sm font-semibold text-foreground whitespace-nowrap text-right shrink-0 tabular-nums">{compactNumber(trend.latest_value)}</span>
                         <Show when={delta != null}>
-                          <span class="text-sm font-medium text-right shrink-0" classList={{ 'text-success': dir === 'up', 'text-destructive': dir === 'down', 'text-muted-foreground': dir === 'flat' || dir === 'unknown' }}>{delta! > 0 ? '+' : ''}{compactNumber(delta!)}</span>
+                          <span class="text-sm font-medium text-right shrink-0 tabular-nums" classList={{ 'text-success': dir === 'up', 'text-destructive': dir === 'down', 'text-muted-foreground': dir === 'flat' || dir === 'unknown' }}>{delta! > 0 ? '+' : ''}{compactNumber(delta!)}</span>
                         </Show>
                       </div>
                     )
@@ -279,7 +279,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                 }
                 const sparkColor = dir === 'up' ? 'var(--color-success)' : dir === 'down' ? 'var(--color-destructive)' : 'var(--color-muted-foreground)'
                 return (
-                  <div class="bg-surface-3 border border-border-subtle rounded-md p-3.5 flex flex-col gap-1">
+                  <div class="bg-surface-3 border border-border-subtle rounded-lg p-3.5 flex flex-col gap-1">
                     <div class="flex justify-between items-center">
                       <span class="text-sm text-muted-foreground uppercase tracking-wide">{trend.display_name}</span>
                       <span classList={{ 'text-success': dir === 'up', 'text-destructive': dir === 'down', 'text-muted-foreground': dir === 'flat' || dir === 'unknown' }}>{trendArrow(dir)}</span>

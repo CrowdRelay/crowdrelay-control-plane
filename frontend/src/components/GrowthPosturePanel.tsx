@@ -92,9 +92,8 @@ export function GrowthPosturePanel(props: { slug: string }) {
   return <Card class="p-5 posture-panel">
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div>
-        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">POSTURE</span>
         <h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="target" />How far the growth loop may go</h2>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">One dial over all 22 authority policies. Pick the posture the band is ready for; the brain applies the matching autonomy level to every context and records why the ceiling moved.</p>
+        <p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">One dial over all 22 authority policies — pick the posture the band is ready for and the brain applies the matching autonomy level everywhere.</p>
       </div>
       <Show when={posture.data}>
         <StatusBadge
@@ -105,16 +104,16 @@ export function GrowthPosturePanel(props: { slug: string }) {
     </div>
 
     <Show when={posture.error}>
-      <Card class="p-4 mt-2.5"><p class="m-0 text-sm text-muted-foreground">Posture is unavailable on the connected CrowdRelay build. Authority policies below still work one at a time.</p></Card>
+      <div class="p-4 mt-2.5"><p class="m-0 text-sm text-muted-foreground">Posture is unavailable on this build, but individual authority policies still work below.</p></div>
     </Show>
 
     <Show when={!posture.error && posture.isPending}><SkeletonSection titleWidth="160px" lines={3} minHeight="140px" /></Show>
 
     <Show when={posture.data}>
       <Show when={!current()}>
-        <Card class="p-4 mt-2.5">
-          <p class="m-0 text-sm text-muted-foreground">No posture has been chosen, so each policy carries whatever it was last set to individually. Picking one here brings them into a state you can describe in a sentence.</p>
-        </Card>
+        <div class="p-4 mt-2.5">
+          <p class="m-0 text-sm text-muted-foreground">No posture chosen yet, so each policy keeps its last individual setting.</p>
+        </div>
       </Show>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3" role="radiogroup" aria-label="Growth posture">
         <For each={POSTURES}>{option => (
@@ -122,7 +121,7 @@ export function GrowthPosturePanel(props: { slug: string }) {
             type="button"
             role="radio"
             aria-checked={current() === option.value}
-            class="text-left p-4 border rounded-md transition-colors cursor-pointer hover:border-primary/40 flex flex-col gap-1.5"
+            class="text-left p-4 border rounded-lg transition-colors cursor-pointer hover:border-primary/40 flex flex-col gap-1.5"
             classList={{
               'border-primary bg-primary/5': current() === option.value,
               'border-border bg-card': current() !== option.value,
@@ -141,7 +140,7 @@ export function GrowthPosturePanel(props: { slug: string }) {
         )}</For>
       </div>
       <Show when={posture.data?.set_at}>
-        <p class="mt-3 text-sm text-muted-foreground">Set {formatTimestamp(posture.data!.set_at!)} · policy version {posture.data!.expected_version}</p>
+        <p class="mt-3 text-sm text-muted-foreground">Set {formatTimestamp(posture.data!.set_at!)}</p>
       </Show>
     </Show>
   </Card>

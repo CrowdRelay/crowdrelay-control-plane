@@ -101,7 +101,7 @@ export function PortfolioPanel(props: {
 
   return <Card class="p-4">
     <div class="flex items-center justify-between gap-4 mt-6 mb-3">
-      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">PORTFOLIO</span><h2 class="mt-1 text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="megaphone" />Roster & amplification</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">Route one artist's release or show in front of another artist's consenting fans. Approvals are per edge; fans never leave their home workspace.</p></div>
+      <div><h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="megaphone" />Roster & amplification</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">Route one artist's release or show in front of another artist's consenting fans, per edge.</p></div>
       <div class="flex flex-wrap items-center gap-2">
         <StatusBadge status={boardLabel()} tone={boardTone()} />
       </div>
@@ -115,7 +115,7 @@ export function PortfolioPanel(props: {
       <div class="rounded-lg border border-border bg-card p-4 text-foreground flex flex-col gap-1"><KpiValue value={metric(overview.deliveriesLast30d)} /><span class="text-muted-foreground">Amplified · 30d</span></div>
     </div>}</Show>
 
-    <div class="mt-6 pt-6 border-t border-border"><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">EDGES</span><h3 class="mt-1 text-sm font-semibold text-foreground flex items-center gap-2"><SectionIcon name="link" />Amplification edges</h3></div>
+    <div class="mt-6 pt-6 border-t border-border"><h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><SectionIcon name="link" />Amplification edges</h3></div>
     <Show when={sortedEdges().length}>
       <div class="overflow-x-auto"><table class="data-table" aria-label="Amplification edges">
         <thead><tr>
@@ -209,9 +209,9 @@ export function PortfolioPanel(props: {
     <Show when={!edges().length}>
       <Show
         when={(props.overview?.workspaceCount ?? 0) >= 2}
-        fallback={<EmptyState label="No amplification yet" hint="Amplification needs at least two artists on the roster. It becomes available when a second artist is added." />}
+        fallback={<EmptyState label="No amplification yet" hint="Amplification needs at least two artists on the roster." />}
       >
-        <EmptyState label="No amplification edges" hint="Create an edge from either artist's workspace. It arrives here as proposed, and routing starts once you approve it." />
+        <EmptyState label="No amplification edges" hint="Create an edge from either artist's workspace to start routing." />
       </Show>
     </Show>
     <Show when={errorText()}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorText()}</div></Show>

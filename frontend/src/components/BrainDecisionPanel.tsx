@@ -93,7 +93,7 @@ const timeAgoBrief = (iso: string): string => {
 function JsonBlock(props: { source: string }) {
   const lines = createMemo(() => props.source.split('\n'))
   return (
-    <div class="block m-0 p-3 bg-surface-1 border border-border-subtle border-l-2 border-l-primary rounded-sm font-mono text-xs leading-relaxed text-secondary-foreground max-h-[400px] overflow-auto text-left">
+    <div class="block m-0 p-3 bg-surface-1 border border-border-subtle rounded-sm font-mono text-xs leading-relaxed text-secondary-foreground max-h-[400px] overflow-auto text-left">
       <For each={lines()}>{line => {
         const match = /^\s*/.exec(line)
         const indent = match ? match[0].length : 0
@@ -109,9 +109,8 @@ function renderEvidenceDetail(data: DecisionEvidence) {
   const inputRows = renderEvidence(data.input_snapshot)
   const policyRows = renderEvidence(data.policy_snapshot)
   return (
-    <div class="flex flex-col gap-4 mt-3 p-4 border border-border-subtle rounded-md bg-surface-3">
+    <div class="flex flex-col gap-4 mt-3 p-4 border border-border-subtle rounded-lg bg-surface-3">
       <div class="flex flex-col gap-2">
-        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">SIGNALS</span>
         <Show when={inputRows.length > 0} fallback={
           <p class="text-sm text-muted-foreground">No signal data recorded for this decision.</p>
         }>
@@ -130,7 +129,6 @@ function renderEvidenceDetail(data: DecisionEvidence) {
         </Show>
       </div>
       <div class="flex flex-col gap-2">
-        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">POLICY</span>
         <Show when={policyRows.length > 0} fallback={
           <p class="text-sm text-muted-foreground">No policy data recorded for this decision.</p>
         }>
@@ -149,7 +147,6 @@ function renderEvidenceDetail(data: DecisionEvidence) {
         </Show>
       </div>
       <div class="flex flex-col gap-2">
-        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DISPOSITION</span>
         <p class="m-0 text-sm text-secondary-foreground">{dispositionLabel(data.disposition)} · evaluated {new Date(data.evaluated_at).toLocaleString()}</p>
       </div>
     </div>
@@ -228,7 +225,6 @@ export function BrainDecisionPanel(props: {
   return <Card class="p-5 brain-decision-panel">
     <div class="flex items-start justify-between gap-4 mb-4">
       <div>
-        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">BRAIN DECISION</span>
         <h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="brain" />What the system decided</h2>
       </div>
       <Show when={hasDecision()} fallback={
@@ -268,25 +264,24 @@ export function BrainDecisionPanel(props: {
 
         {/* WHY — reason + key factors */}
         <div class="flex flex-col gap-2">
-          <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">WHY</span>
           <p class="m-0 text-sm leading-relaxed text-secondary-foreground">{e.reason}</p>
           <div class="flex flex-wrap gap-3 mt-1">
-            <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-md bg-surface-3 min-w-[80px]">
+            <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-lg bg-surface-3 min-w-[80px]">
               <span class="text-xs text-muted-foreground uppercase tracking-wider">Confidence</span>
               <strong class="text-sm font-bold text-foreground">{confidencePercent(e.confidence)}</strong>
             </div>
             <Show when={e.value_tier}>
-              <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-md bg-surface-3 min-w-[80px]">
+              <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-lg bg-surface-3 min-w-[80px]">
                 <span class="text-xs text-muted-foreground uppercase tracking-wider">Value</span>
                 <strong class="text-sm font-bold text-foreground">{VALUE_TIER_LABELS[e.value_tier!] ?? e.value_tier}</strong>
               </div>
             </Show>
-            <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-md bg-surface-3 min-w-[80px]">
+            <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-lg bg-surface-3 min-w-[80px]">
               <span class="text-xs text-muted-foreground uppercase tracking-wider">Ranked by</span>
               <strong class="text-sm font-bold text-foreground">{RANK_FACTOR_LABELS[e.ranked_by] ?? e.ranked_by}</strong>
             </div>
             <Show when={e.deviation_basis_points != null}>
-              <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-md bg-surface-3 min-w-[80px]">
+              <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-lg bg-surface-3 min-w-[80px]">
                 <span class="text-xs text-muted-foreground uppercase tracking-wider">Deviation</span>
                 <strong class="text-sm font-bold text-foreground">{(e.deviation_basis_points! / 100).toFixed(1)}%</strong>
               </div>
@@ -296,7 +291,6 @@ export function BrainDecisionPanel(props: {
 
         {/* WHAT IT WILL/DID DO — action state */}
         <div class="flex flex-col gap-2 pt-3 border-t border-border-subtle">
-          <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">ACTION</span>
           <div class="flex items-center justify-between gap-3 flex-wrap">
             <Show when={e.action_id} fallback={
               <span class="text-sm text-muted-foreground">No executable step — handle it yourself</span>

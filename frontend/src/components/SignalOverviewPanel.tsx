@@ -20,13 +20,13 @@ export function SignalOverviewPanel(props: { slug: string }) {
     </Show>
     <Show when={signal.error}>
       <div class="flex items-center justify-between gap-4 mt-6 mb-3" id="signal-overview">
-        <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">SIGNAL OVERVIEW</span><h3><SectionIcon name="activity" />App audience health</h3></div>
+        <div><h3><SectionIcon name="activity" />App audience health</h3></div>
       </div>
       <Alert tone="warning"><p>Signal overview unavailable: {signal.error instanceof Error ? signal.error.message : 'channel error'}</p></Alert>
     </Show>
     <Show when={signal.data}>{data => <>
     <div class="flex items-center justify-between gap-4 mt-6 mb-3" id="signal-overview">
-      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">SIGNAL OVERVIEW</span><h3><SectionIcon name="activity" />App audience health</h3><p>Aggregate-only view of Virya Signal fans, activity and top cities.</p></div>
+      <div><h3><SectionIcon name="activity" />App audience health</h3><p>Aggregate-only view of Virya Signal fans, activity and top cities.</p></div>
       <StatusBadge status={data().unavailable_sources.length > 0 ? 'degraded' : 'healthy'} tone={data().unavailable_sources.length > 0 ? 'warn' : 'good'} />
     </div>
     <div class="operations-metrics">
@@ -40,7 +40,7 @@ export function SignalOverviewPanel(props: { slug: string }) {
       <div><span>Nearby (30d)</span><strong>{data().activity.nearby_notifications_30d.toLocaleString()}</strong><small>{data().activity.pending_city_requests.toLocaleString()} city requests</small></div>
     </div>
     <Show when={data().top_cities.length > 0}>
-      <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">TOP CITIES</span><h3><SectionIcon name="map-pin" />By active fans</h3></div></div>
+      <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h3><SectionIcon name="map-pin" />By active fans</h3></div></div>
       <div class="operations-metrics">
         <For each={data().top_cities.slice(0, 6)}>{city => <div><span>{city.name}</span><strong>{city.active_fans.toLocaleString()}</strong><small>{city.country_code}</small></div>}</For>
       </div>

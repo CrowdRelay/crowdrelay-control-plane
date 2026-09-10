@@ -162,11 +162,11 @@ export function GrowthFunnelPanel(props: { slug: string }) {
 
     {/* Funnel visualization */}
     <Show when={funnel.data}>
-      <Card class="p-4 mt-6 pt-6 border-t border-border">
+      <div class="p-4 mt-6 pt-6 border-t border-border">
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-sm font-semibold text-foreground"><FunnelIcon size={18} /> Growth Funnel</h3>
         </div>
-        <p class="mt-1 text-sm text-muted-foreground">The fan growth journey from community discovery to conversion. Each stage shows how many progressed to the next.</p>
+        <p class="mt-1 text-sm text-muted-foreground">The fan growth journey from community discovery to conversion.</p>
 
         {/* Bottleneck highlight */}
         <Show when={bottleneck()}>{(b) => (
@@ -180,16 +180,16 @@ export function GrowthFunnelPanel(props: { slug: string }) {
         <div class="flex flex-col gap-2.5 mt-4">
           <FunnelChart stages={stages()} />
         </div>
-      </Card>
+      </div>
     </Show>
 
     {/* Worker run breakdown */}
     <Show when={funnel.data && Object.keys(funnel.data!.worker_runs).length > 0}>
-      <Card class="p-4 mt-6 pt-6 border-t border-border">
+      <div class="p-4 mt-6 pt-6 border-t border-border">
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-sm font-semibold text-foreground">Worker run breakdown</h3>
         </div>
-        <p class="mt-1 text-sm text-muted-foreground">Per-template worker run statistics. The intelligence dispatches these workers to gather intelligence and draft content.</p>
+        <p class="mt-1 text-sm text-muted-foreground">Per-template worker run statistics dispatched by the intelligence.</p>
         <div class="mt-3 overflow-x-auto">
           <table class="w-full text-sm">
             <thead><tr><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Template</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Total</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Completed</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Failed</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Running</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Queued</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Success rate</th></tr></thead>
@@ -219,20 +219,20 @@ export function GrowthFunnelPanel(props: { slug: string }) {
             {showAllWorkerStats() ? 'Show less' : `Show all (${Object.keys(funnel.data!.worker_runs).length})`}
           </Button>
         </Show>
-      </Card>
+      </div>
     </Show>
 
     {/* Recent worker runs */}
     <Show when={funnel.data && funnel.data!.recent_worker_runs.length > 0}>
-      <Card class="p-4 mt-6 pt-6 border-t border-border">
+      <div class="p-4 mt-6 pt-6 border-t border-border">
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-sm font-semibold text-foreground">Recent worker runs</h3>
           <span class="text-muted-foreground">last {funnel.data!.recent_worker_runs.length}</span>
         </div>
-        <p class="mt-1 text-sm text-muted-foreground">The most recent worker runs dispatched by the intelligence, with their outcomes.</p>
+        <p class="mt-1 text-sm text-muted-foreground">The most recent worker runs dispatched by the intelligence.</p>
         <div class="flex flex-col gap-2 mt-3">
           <For each={showAllRecentRuns() ? funnel.data!.recent_worker_runs : funnel.data!.recent_worker_runs.slice(0, MAX_VISIBLE_RECENT_RUNS)}>{(run: FunnelRecentWorkerRun) => (
-            <div class="p-3 md:p-4 border border-border rounded-md bg-surface-3 transition-colors">
+            <div class="p-3 md:p-4 border border-border rounded-lg bg-surface-3 transition-colors">
               <div class="flex items-center gap-3">
                 <strong class="text-sm flex-shrink-0">{templateLabel(run.template_id)}</strong>
                 <StatusBadge status={run.status} tone={runStatusTone(run.status)} />
@@ -254,7 +254,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
             {showAllRecentRuns() ? 'Show less' : `Show all (${funnel.data!.recent_worker_runs.length})`}
           </Button>
         </Show>
-      </Card>
+      </div>
     </Show>
 
     {/* Empty state */}
@@ -262,7 +262,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
       <EmptyState
         icon={<FunnelIcon size={28} />}
         label="No growth activity in this period"
-        hint="The autopilot hasn't dispatched any workers and no communities have been discovered. Make sure the autopilot is enabled and the growth intelligence policy is set to bounded auto or require approval."
+        hint="Make sure the autopilot is enabled and the growth intelligence policy allows dispatching."
       />
     </Show>
     </div>
