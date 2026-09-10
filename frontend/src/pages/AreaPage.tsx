@@ -14,6 +14,11 @@ import { PageShell, PageHeader, ErrorCard, SectionTitle, SectionPanel } from '..
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Alert } from '../components/ui/alert'
+import { Input } from '../components/ui/input'
+import { cn } from '../lib/cn'
+
+const selectClass = 'flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+const textareaClass = 'w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
 
 const statusTone = (status: AreaStatus) => status === 'LIVE' ? 'good' : status === 'SCHEDULED' || status === 'DRAFT' ? 'warn' : status === 'ARCHIVED' ? 'muted' : status === 'PAUSED' ? 'bad' : 'muted'
 const formatDate = (value: string) => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString() }
@@ -155,7 +160,7 @@ export function AreaPage() {
       actions={<Show when={overview.data}><StatusBadge status={overview.data!.enabled ? 'enabled' : 'disabled'} tone={overview.data!.enabled ? 'good' : 'muted'} /></Show>}
     />
 
-    <Show when={flash()}><div class="notice-card">{flash()}</div></Show>
+    <Show when={flash()}><div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground">{flash()}</div></Show>
     <Show when={mutationError()}><ErrorCard>{errorMessage(mutationError(), 'AREA operation failed')}</ErrorCard></Show>
 
     <Show when={overview.data} fallback={
@@ -163,111 +168,111 @@ export function AreaPage() {
         <SkeletonRows count={4} />
       </Show>
     }>{o => <>
-      <div class="metric-grid area-metrics">
-        <div class="metric"><span>Locations</span><strong>{o().total}</strong></div>
-        <div class="metric"><span>Live</span><strong>{o().live}</strong></div>
-        <div class="metric"><span>Total claims</span><strong>{o().totalClaims}</strong></div>
-        <div class="metric"><span>Scheduled</span><strong>{o().scheduled}</strong></div>
-        <div class="metric"><span>Drafts</span><strong>{o().drafts}</strong></div>
-        <div class="metric"><span>Paused / ended</span><strong>{o().paused + o().ended}</strong></div>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Locations</span><strong class="text-lg tabular-nums text-foreground">{o().total}</strong></div>
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Live</span><strong class="text-lg tabular-nums text-foreground">{o().live}</strong></div>
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Total claims</span><strong class="text-lg tabular-nums text-foreground">{o().totalClaims}</strong></div>
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Scheduled</span><strong class="text-lg tabular-nums text-foreground">{o().scheduled}</strong></div>
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Drafts</span><strong class="text-lg tabular-nums text-foreground">{o().drafts}</strong></div>
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Paused / ended</span><strong class="text-lg tabular-nums text-foreground">{o().paused + o().ended}</strong></div>
       </div>
-      <SectionPanel class="area-entitlement-panel"><div><h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="map-pin" />Tenant AREA</h2><p>Disabling AREA hides the public game but preserves drops, claims and audit history.</p></div><Button variant={o().entitled ? 'destructive-ghost' : 'default'} size="sm" disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Disable AREA' : 'Enable AREA'}</Button></SectionPanel>
+      <SectionPanel><div><h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="map-pin" />Tenant AREA</h2><p class="text-sm text-muted-foreground">Disabling AREA hides the public game but preserves drops, claims and audit history.</p></div><Button variant={o().entitled ? 'destructive-ghost' : 'default'} size="sm" disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Disable AREA' : 'Enable AREA'}</Button></SectionPanel>
     </>}</Show>
 
     <SectionPanel>
       <SectionTitle eyebrow="LOCATIONS" title="Published state + drafts" icon={<SectionIcon name="map-pin" />} action={<Button size="sm" disabled={!overview.data?.entitled} onClick={() => setCreating(v=>!v)}>+ New location</Button>} />
-      <Show when={creating()}><div class="area-create-card">
-        <label>Search city<small>Type to filter the canonical list.</small><input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></label>
-        <label>Canonical city<small>Where the drop lives. Missing city? Create one below.</small><select value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></select></label>
-        <label>Drop number<small>1–3 digits, required. Padded to three for the id: 7 in Wrocław becomes <code>wro-007</code>.</small><input inputmode="numeric" maxlength="3" value={newNumber()} onInput={e=>setNewNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></label>
+      <Show when={creating()}><div class="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
+        <label>Search city<small class="block text-xs text-muted-foreground">Type to filter the canonical list.</small><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></label>
+        <label>Canonical city<small class="block text-xs text-muted-foreground">Where the drop lives. Missing city? Create one below.</small><select class={selectClass} value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></select></label>
+        <label>Drop number<small class="block text-xs text-muted-foreground">1–3 digits, required. Padded to three for the id: 7 in Wrocław becomes <code>wro-007</code>.</small><Input inputmode="numeric" maxlength="3" value={newNumber()} onInput={e=>setNewNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></label>
         {/* The button was enabled without a drop number and the mutation threw
             "Drop number must contain 1–3 digits" only after the click. Same
             rule, checked where the operator can still act on it. */}
-        <div class="form-actions"><Button variant="ghost" size="sm" onClick={()=>setCreateCityOpen(v=>!v)}>Create custom city</Button><Button size="sm" disabled={createDrop.isPending || !newCityId() || !/^\d{1,3}$/.test(newNumber().trim())} onClick={()=>createDrop.mutate()}>Create draft</Button></div>
-        <Show when={createCityOpen()}><div class="area-custom-city">
-          <label>Name<input required value={newCity().name} onInput={e=>setNewCity(v=>({...v,name:e.currentTarget.value}))}/></label>
-          <label>Slug<input required value={newCity().slug} onInput={e=>setNewCity(v=>({...v,slug:e.currentTarget.value}))}/></label>
-          <label>Country<input required maxlength="2" value={newCity().countryCode} onInput={e=>setNewCity(v=>({...v,countryCode:e.currentTarget.value}))}/></label>
-          <label>Region<input required value={newCity().region} onInput={e=>setNewCity(v=>({...v,region:e.currentTarget.value}))}/></label>
-          <label>Public latitude<input required type="number" step="0.000001" value={newCity().latitude} onInput={e=>setNewCity(v=>({...v,latitude:e.currentTarget.value}))}/></label>
-          <label>Public longitude<input required type="number" step="0.000001" value={newCity().longitude} onInput={e=>setNewCity(v=>({...v,longitude:e.currentTarget.value}))}/></label>
+        <div class="flex justify-end gap-2"><Button variant="ghost" size="sm" onClick={()=>setCreateCityOpen(v=>!v)}>Create custom city</Button><Button size="sm" disabled={createDrop.isPending || !newCityId() || !/^\d{1,3}$/.test(newNumber().trim())} onClick={()=>createDrop.mutate()}>Create draft</Button></div>
+        <Show when={createCityOpen()}><div class="rounded-md border border-border bg-surface-2 p-3 space-y-3">
+          <label>Name<Input required value={newCity().name} onInput={e=>setNewCity(v=>({...v,name:e.currentTarget.value}))}/></label>
+          <label>Slug<Input required value={newCity().slug} onInput={e=>setNewCity(v=>({...v,slug:e.currentTarget.value}))}/></label>
+          <label>Country<Input required maxlength="2" value={newCity().countryCode} onInput={e=>setNewCity(v=>({...v,countryCode:e.currentTarget.value}))}/></label>
+          <label>Region<Input required value={newCity().region} onInput={e=>setNewCity(v=>({...v,region:e.currentTarget.value}))}/></label>
+          <label>Public latitude<Input required type="number" step="0.000001" value={newCity().latitude} onInput={e=>setNewCity(v=>({...v,latitude:e.currentTarget.value}))}/></label>
+          <label>Public longitude<Input required type="number" step="0.000001" value={newCity().longitude} onInput={e=>setNewCity(v=>({...v,longitude:e.currentTarget.value}))}/></label>
           <Button size="sm" disabled={createCity.isPending} onClick={()=>createCity.mutate()}>Save canonical city</Button>
         </div></Show>
       </div></Show>
-      <div class="area-drop-table">
-        <div class="area-drop-head"><span>#</span><span>City</span><span>Status</span><span>Claims</span><span>Window</span><span/></div>
-        <For each={drops.data?.items ?? []}>{item => <div class="area-drop-row">
-          <code>{item.number}</code><div><strong>{item.city}</strong><small>rev {item.revision}{item.hasDraft ? ' · draft' : ''}</small></div><StatusBadge status={item.status} tone={statusTone(item.status)} /><span>{item.claimCount} / {item.maxClaims}</span><small>{formatDate(item.startsAt)}<br/>{formatDate(item.endsAt)}</small><Button variant="ghost" size="sm" onClick={()=>{setSelectedId(item.id);setEditorStep('city')}}>Edit</Button>
+      <div class="rounded-lg border border-border overflow-hidden">
+        <div class="grid items-center gap-3 px-4 py-2 bg-surface-2 text-xs font-medium uppercase tracking-wider text-muted-foreground border-b border-border" style="grid-template-columns: 60px minmax(0,1fr) 100px 80px minmax(120px,1fr) 60px"><span>#</span><span>City</span><span>Status</span><span>Claims</span><span>Window</span><span/></div>
+        <For each={drops.data?.items ?? []}>{item => <div class="grid items-center gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-surface-3 transition-colors" style="grid-template-columns: 60px minmax(0,1fr) 100px 80px minmax(120px,1fr) 60px">
+          <code class="text-xs text-muted-foreground">{item.number}</code><div class="min-w-0"><strong class="text-sm text-foreground">{item.city}</strong><small class="block text-xs text-muted-foreground">rev {item.revision}{item.hasDraft ? ' · draft' : ''}</small></div><StatusBadge status={item.status} tone={statusTone(item.status)} /><span class="text-sm tabular-nums text-foreground">{item.claimCount} / {item.maxClaims}</span><small class="text-xs text-muted-foreground">{formatDate(item.startsAt)}<br/>{formatDate(item.endsAt)}</small><Button variant="ghost" size="sm" onClick={()=>{setSelectedId(item.id);setEditorStep('city')}}>Edit</Button>
         </div>}</For>
         <Show when={!drops.isPending && (drops.data?.items.length ?? 0)===0}><div class="p-4 rounded-lg border border-border bg-surface-1"><EmptyState label="No AREA locations" hint="AREA locations define geographic targeting for fan discovery. Create the first location draft above." /></div></Show>
       </div>
     </SectionPanel>
 
-    <Show when={selectedId()}><SectionPanel class="area-editor">
+    <Show when={selectedId()}><SectionPanel>
       <SectionTitle eyebrow="PRIVATE EDITOR" title={detail.data?.summary ? `${detail.data.summary.city} · #${detail.data.summary.number}` : 'Loading…'} action={<Button variant="ghost" size="sm" onClick={closeEditor}>Close & purge coordinates</Button>} />
       <p class="text-sm text-muted-foreground -mt-1 mb-4">Single-drop response only · <code>Cache-Control: private, no-store</code></p>
       <Show when={detail.data && draft()} fallback={<SkeletonRows count={4} />}>{_ready => <>
-        <div class="area-step-tabs"><For each={['city','location','content','schedule','review'] as const}>{step=><Button variant="ghost" size="sm" class={editorStep()===step?'active':''} onClick={()=>setEditorStep(step)}>{step}</Button>}</For></div>
+        <div class="flex gap-1 flex-wrap"><For each={['city','location','content','schedule','review'] as const}>{step=><Button variant="ghost" size="sm" class={cn(editorStep()===step && 'bg-primary/10 text-primary')} onClick={()=>setEditorStep(step)}>{step}</Button>}</For></div>
 
         <Show when={editorStep()==='city'}><p class="text-sm text-muted-foreground leading-relaxed mt-1">Which city this drop belongs to and where it sits in the list fans see. Nothing here is secret — the exact spot is set on the next step.</p>
-        <div class="area-form-grid">
-          <label>Search canonical city<small>Filters the list below. Cities are shared across tenants; add one only if it is genuinely missing.</small><input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder={detail.data!.summary.city}/></label>
-          <label>Canonical city<select value={draft()!.cityId} onChange={e=>{const id=e.currentTarget.value;const city=cities.data?.items.find(c=>c.id===id);setDraft(d=>d?({...d,cityId:id,approximateLat:city?.latitude ?? d.approximateLat,approximateLng:city?.longitude ?? d.approximateLng}):d)}}><Show when={!(cities.data?.items ?? []).some(city=>city.id===draft()!.cityId)}><option value={draft()!.cityId}>{detail.data!.summary.city} · current</option></Show><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name} · {city.countryCode}</option>}</For></select></label>
-          <label>Drop number<small>Up to three digits. Fans see it as the drop's identity in the game, so it should not be reused within a city.</small><input maxlength="3" value={draft()!.number} onInput={e=>mutateDraft({number:e.currentTarget.value.replace(/\D/g,'').slice(0,3)})}/></label>
-          <label>Sort order<small>Position in the list. Lower comes first; ties fall back to the drop number.</small><input type="number" value={draft()!.sortOrder} onInput={e=>mutateDraft({sortOrder:finiteInput(e.currentTarget.value,draft()!.sortOrder)})}/></label>
-          <label>Illustration X (advanced)<small>Where the pin sits on the illustrated map, 0–100 left to right. Not a coordinate — it moves artwork, not the drop.</small><input type="number" min="0" max="100" value={draft()!.mapX} onInput={e=>mutateDraft({mapX:finiteInput(e.currentTarget.value,draft()!.mapX)})}/></label>
-          <label>Illustration Y (advanced)<small>Same, 0–100 top to bottom.</small><input type="number" min="0" max="100" value={draft()!.mapY} onInput={e=>mutateDraft({mapY:finiteInput(e.currentTarget.value,draft()!.mapY)})}/></label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <label>Search canonical city<small class="block text-xs text-muted-foreground">Filters the list below. Cities are shared across tenants; add one only if it is genuinely missing.</small><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder={detail.data!.summary.city}/></label>
+          <label>Canonical city<select class={selectClass} value={draft()!.cityId} onChange={e=>{const id=e.currentTarget.value;const city=cities.data?.items.find(c=>c.id===id);setDraft(d=>d?({...d,cityId:id,approximateLat:city?.latitude ?? d.approximateLat,approximateLng:city?.longitude ?? d.approximateLng}):d)}}><Show when={!(cities.data?.items ?? []).some(city=>city.id===draft()!.cityId)}><option value={draft()!.cityId}>{detail.data!.summary.city} · current</option></Show><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name} · {city.countryCode}</option>}</For></select></label>
+          <label>Drop number<small class="block text-xs text-muted-foreground">Up to three digits. Fans see it as the drop's identity in the game, so it should not be reused within a city.</small><Input maxlength="3" value={draft()!.number} onInput={e=>mutateDraft({number:e.currentTarget.value.replace(/\D/g,'').slice(0,3)})}/></label>
+          <label>Sort order<small class="block text-xs text-muted-foreground">Position in the list. Lower comes first; ties fall back to the drop number.</small><Input type="number" value={draft()!.sortOrder} onInput={e=>mutateDraft({sortOrder:finiteInput(e.currentTarget.value,draft()!.sortOrder)})}/></label>
+          <label>Illustration X (advanced)<small class="block text-xs text-muted-foreground">Where the pin sits on the illustrated map, 0–100 left to right. Not a coordinate — it moves artwork, not the drop.</small><Input type="number" min="0" max="100" value={draft()!.mapX} onInput={e=>mutateDraft({mapX:finiteInput(e.currentTarget.value,draft()!.mapX)})}/></label>
+          <label>Illustration Y (advanced)<small class="block text-xs text-muted-foreground">Same, 0–100 top to bottom.</small><Input type="number" min="0" max="100" value={draft()!.mapY} onInput={e=>mutateDraft({mapY:finiteInput(e.currentTarget.value,draft()!.mapY)})}/></label>
         </div></Show>
 
-        <Show when={editorStep()==='location'}><div class="area-location-editor">
+        <Show when={editorStep()==='location'}><div class="space-y-3">
           <Alert tone="warning"><strong>Secret location.</strong> The canvas below is rendered locally. It does not load map tiles or transmit exact coordinates to an external mapping provider.</Alert>
           <LocationCanvas publicLat={draft()!.approximateLat} publicLng={draft()!.approximateLng} exactLat={draft()!.exactLat} exactLng={draft()!.exactLng} radiusMeters={draft()!.radiusMeters} onPick={(lat,lng)=>mutateDraft({exactLat:lat,exactLng:lng})}/>
           <p class="text-sm text-muted-foreground leading-relaxed mt-1">Two coordinates, two audiences. The <strong>public</strong> pair is what the app shows everyone — keep it at neighbourhood level. The <strong>exact</strong> pair never leaves this editor; it is only used server-side to decide whether a fan standing there is close enough to claim. Click the canvas to set it.</p>
-          <div class="area-form-grid">
-            <label>Public latitude<small>Shown to fans. Round it — this is the hint, not the spot.</small><input required type="number" step="0.000001" value={draft()!.approximateLat} onInput={e=>mutateDraft({approximateLat:finiteInput(e.currentTarget.value,draft()!.approximateLat)})}/></label>
-            <label>Public longitude<small>Shown to fans, same rounding.</small><input required type="number" step="0.000001" value={draft()!.approximateLng} onInput={e=>mutateDraft({approximateLng:finiteInput(e.currentTarget.value,draft()!.approximateLng)})}/></label>
-            <label>Exact latitude<small>Never published. Leave blank and the drop cannot be claimed.</small><input type="number" step="0.000001" value={draft()!.exactLat ?? ''} onInput={e=>mutateDraft({exactLat:nullableInput(e.currentTarget.value,draft()!.exactLat)})}/></label>
-            <label>Exact longitude<small>Never published, set together with the latitude.</small><input type="number" step="0.000001" value={draft()!.exactLng ?? ''} onInput={e=>mutateDraft({exactLng:nullableInput(e.currentTarget.value,draft()!.exactLng)})}/></label>
-            <label>Claim radius (m)<small>How close a fan must be to the exact point, 25–500 m. Tight is harder in a dense city; wide forgives GPS drift indoors.</small><input type="number" min="25" max="500" value={draft()!.radiusMeters} onInput={e=>mutateDraft({radiusMeters:finiteInput(e.currentTarget.value,draft()!.radiusMeters)})}/></label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            <label>Public latitude<small class="block text-xs text-muted-foreground">Shown to fans. Round it — this is the hint, not the spot.</small><Input required type="number" step="0.000001" value={draft()!.approximateLat} onInput={e=>mutateDraft({approximateLat:finiteInput(e.currentTarget.value,draft()!.approximateLat)})}/></label>
+            <label>Public longitude<small class="block text-xs text-muted-foreground">Shown to fans, same rounding.</small><Input required type="number" step="0.000001" value={draft()!.approximateLng} onInput={e=>mutateDraft({approximateLng:finiteInput(e.currentTarget.value,draft()!.approximateLng)})}/></label>
+            <label>Exact latitude<small class="block text-xs text-muted-foreground">Never published. Leave blank and the drop cannot be claimed.</small><Input type="number" step="0.000001" value={draft()!.exactLat ?? ''} onInput={e=>mutateDraft({exactLat:nullableInput(e.currentTarget.value,draft()!.exactLat)})}/></label>
+            <label>Exact longitude<small class="block text-xs text-muted-foreground">Never published, set together with the latitude.</small><Input type="number" step="0.000001" value={draft()!.exactLng ?? ''} onInput={e=>mutateDraft({exactLng:nullableInput(e.currentTarget.value,draft()!.exactLng)})}/></label>
+            <label>Claim radius (m)<small class="block text-xs text-muted-foreground">How close a fan must be to the exact point, 25–500 m. Tight is harder in a dense city; wide forgives GPS drift indoors.</small><Input type="number" min="25" max="500" value={draft()!.radiusMeters} onInput={e=>mutateDraft({radiusMeters:finiteInput(e.currentTarget.value,draft()!.radiusMeters)})}/></label>
           </div>
         </div></Show>
 
-        <Show when={editorStep()==='content'}><div class="area-form-grid area-content-grid">
-          <label>Clue — Polski<textarea maxlength="2000" value={draft()!.clue.pl} onInput={e=>mutateClue('pl',e.currentTarget.value)}/></label>
-          <label>Clue — English<textarea maxlength="2000" value={draft()!.clue.en} onInput={e=>mutateClue('en',e.currentTarget.value)}/></label>
-          <label>Track<input maxlength="256" value={draft()!.collectible.track} onInput={e=>mutateCollectible('track',e.currentTarget.value)}/></label>
-          <label>Edition<input maxlength="256" value={draft()!.collectible.edition} onInput={e=>mutateCollectible('edition',e.currentTarget.value)}/></label>
-          <label>Collectible line<textarea maxlength="1000" value={draft()!.collectible.line} onInput={e=>mutateCollectible('line',e.currentTarget.value)}/></label>
-          <label>Riddle<input maxlength="256" value={draft()!.collectible.riddle} onInput={e=>mutateCollectible('riddle',e.currentTarget.value)}/></label>
+        <Show when={editorStep()==='content'}><div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <label>Clue — Polski<textarea class={textareaClass} maxlength="2000" value={draft()!.clue.pl} onInput={e=>mutateClue('pl',e.currentTarget.value)}/></label>
+          <label>Clue — English<textarea class={textareaClass} maxlength="2000" value={draft()!.clue.en} onInput={e=>mutateClue('en',e.currentTarget.value)}/></label>
+          <label>Track<Input maxlength="256" value={draft()!.collectible.track} onInput={e=>mutateCollectible('track',e.currentTarget.value)}/></label>
+          <label>Edition<Input maxlength="256" value={draft()!.collectible.edition} onInput={e=>mutateCollectible('edition',e.currentTarget.value)}/></label>
+          <label>Collectible line<textarea class={textareaClass} maxlength="1000" value={draft()!.collectible.line} onInput={e=>mutateCollectible('line',e.currentTarget.value)}/></label>
+          <label>Riddle<Input maxlength="256" value={draft()!.collectible.riddle} onInput={e=>mutateCollectible('riddle',e.currentTarget.value)}/></label>
         </div></Show>
 
-        <Show when={editorStep()==='schedule'}><div class="area-form-grid">
-          <label>Starts <small>{Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone'}</small><input required type="datetime-local" value={toLocalInput(draft()!.startsAt)} onInput={e=>mutateDraft({startsAt:fromLocalInput(e.currentTarget.value,draft()!.startsAt)})}/></label>
-          <label>Ends <small>{Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone'}</small><input required type="datetime-local" value={toLocalInput(draft()!.endsAt)} onInput={e=>mutateDraft({endsAt:fromLocalInput(e.currentTarget.value,draft()!.endsAt)})}/></label>
-          <label>Capacity<input type="number" min="1" max="500" value={draft()!.maxClaims} onInput={e=>mutateDraft({maxClaims:finiteInput(e.currentTarget.value,draft()!.maxClaims)})}/></label>
+        <Show when={editorStep()==='schedule'}><div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <label>Starts <small class="block text-xs text-muted-foreground">{Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone'}</small><Input required type="datetime-local" value={toLocalInput(draft()!.startsAt)} onInput={e=>mutateDraft({startsAt:fromLocalInput(e.currentTarget.value,draft()!.startsAt)})}/></label>
+          <label>Ends <small class="block text-xs text-muted-foreground">{Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone'}</small><Input required type="datetime-local" value={toLocalInput(draft()!.endsAt)} onInput={e=>mutateDraft({endsAt:fromLocalInput(e.currentTarget.value,draft()!.endsAt)})}/></label>
+          <label>Capacity<Input type="number" min="1" max="500" value={draft()!.maxClaims} onInput={e=>mutateDraft({maxClaims:finiteInput(e.currentTarget.value,draft()!.maxClaims)})}/></label>
         </div></Show>
 
-        <Show when={editorStep()==='review'}><div class="area-review">
-          <div class="deployment-target-grid"><div><span>City</span><strong>{selectedCity()?.name ?? detail.data!.summary.city}</strong></div><div><span>Revision</span><strong>{detail.data!.summary.revision}</strong></div><div><span>Exact location</span><strong>{draft()!.exactLat != null && draft()!.exactLng != null ? 'configured' : 'missing'}</strong></div><div><span>Radius / capacity</span><strong>{draft()!.radiusMeters} m · {draft()!.maxClaims}</strong></div><div><span>Starts</span><strong>{formatDate(draft()!.startsAt)}</strong></div><div><span>Ends</span><strong>{formatDate(draft()!.endsAt)}</strong></div></div>
+        <Show when={editorStep()==='review'}><div class="space-y-3">
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-3"><div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1"><span class="text-xs text-muted-foreground">City</span><strong class="text-sm text-foreground">{selectedCity()?.name ?? detail.data!.summary.city}</strong></div><div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1"><span class="text-xs text-muted-foreground">Revision</span><strong class="text-sm text-foreground">{detail.data!.summary.revision}</strong></div><div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1"><span class="text-xs text-muted-foreground">Exact location</span><strong class="text-sm text-foreground">{draft()!.exactLat != null && draft()!.exactLng != null ? 'configured' : 'missing'}</strong></div><div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1"><span class="text-xs text-muted-foreground">Radius / capacity</span><strong class="text-sm text-foreground">{draft()!.radiusMeters} m · {draft()!.maxClaims}</strong></div><div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1"><span class="text-xs text-muted-foreground">Starts</span><strong class="text-sm text-foreground">{formatDate(draft()!.startsAt)}</strong></div><div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1"><span class="text-xs text-muted-foreground">Ends</span><strong class="text-sm text-foreground">{formatDate(draft()!.endsAt)}</strong></div></div>
           <Show when={validation()}>{v=><>
-            <Show when={hardIssues().length===0}><div class="notice-card">No blocking validation errors.</div></Show>
+            <Show when={hardIssues().length===0}><div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground">No blocking validation errors.</div></Show>
             <For each={hardIssues()}>{issue=><ErrorCard><strong>{issue.code}</strong><p>{issue.message}</p></ErrorCard>}</For>
-            <For each={confirmationIssues()}>{issue=><label class="area-confirm-row"><input type="checkbox" checked={confirmations().includes(issue.code)} onChange={()=>toggleConfirmation(issue.code)}/><span><strong>{issue.code}</strong><small>{issue.message}</small></span></label>}</For>
+            <For each={confirmationIssues()}>{issue=><label class="flex items-start gap-3 cursor-pointer p-3 rounded-md border border-border bg-surface-1"><input type="checkbox" class="mt-1" checked={confirmations().includes(issue.code)} onChange={()=>toggleConfirmation(issue.code)}/><span><strong class="text-sm text-foreground">{issue.code}</strong><small class="block text-xs text-muted-foreground">{issue.message}</small></span></label>}</For>
           </>}</Show>
-          <div class="form-actions"><Button variant="ghost" size="sm" disabled={validate.isPending||save.isPending} onClick={()=>validate.mutate()}>Save + validate</Button><Button size="sm" disabled={!validation()?.valid || confirmationIssues().some(issue=>!confirmations().includes(issue.code)) || publish.isPending} onClick={()=>publish.mutate()}>Publish revision</Button></div>
+          <div class="flex justify-end gap-2"><Button variant="ghost" size="sm" disabled={validate.isPending||save.isPending} onClick={()=>validate.mutate()}>Save + validate</Button><Button size="sm" disabled={!validation()?.valid || confirmationIssues().some(issue=>!confirmations().includes(issue.code)) || publish.isPending} onClick={()=>publish.mutate()}>Publish revision</Button></div>
         </div></Show>
 
-        <Show when={duplicateOpen()}><div class="area-create-card area-duplicate-card">
-          <strong>Duplicate as a new draft</strong><p>The collectible/content is copied, but the exact claim coordinates are deliberately cleared.</p>
-          <label>Search destination city<input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Search canonical cities"/></label>
-          <label>Destination city<select value={duplicateCityId()} onChange={e=>setDuplicateCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''}</option>}</For></select></label>
-          <label>New number<input inputmode="numeric" maxlength="3" value={duplicateNumber()} onInput={e=>setDuplicateNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></label>
-          <div class="form-actions"><Button variant="ghost" size="sm" onClick={()=>setDuplicateOpen(false)}>Cancel</Button><Button size="sm" disabled={duplicate.isPending || !duplicateCityId() || !duplicateNumber()} onClick={()=>duplicate.mutate()}>Create duplicate draft</Button></div>
+        <Show when={duplicateOpen()}><div class="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
+          <strong class="text-sm text-foreground">Duplicate as a new draft</strong><p class="text-sm text-muted-foreground">The collectible/content is copied, but the exact claim coordinates are deliberately cleared.</p>
+          <label>Search destination city<Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Search canonical cities"/></label>
+          <label>Destination city<select class={selectClass} value={duplicateCityId()} onChange={e=>setDuplicateCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''}</option>}</For></select></label>
+          <label>New number<Input inputmode="numeric" maxlength="3" value={duplicateNumber()} onInput={e=>setDuplicateNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></label>
+          <div class="flex justify-end gap-2"><Button variant="ghost" size="sm" onClick={()=>setDuplicateOpen(false)}>Cancel</Button><Button size="sm" disabled={duplicate.isPending || !duplicateCityId() || !duplicateNumber()} onClick={()=>duplicate.mutate()}>Create duplicate draft</Button></div>
         </div></Show>
 
-        <div class="area-editor-footer">
-          <div class="form-actions"><Button variant="ghost" size="sm" disabled={allPending()} onClick={()=>save.mutate()}>Save draft</Button><Show when={detail.data!.summary.hasDraft && detail.data!.summary.status!=='DRAFT'}><Button variant="ghost" size="sm" disabled={discard.isPending} onClick={()=>discard.mutate()}>Discard draft</Button></Show><Show when={detail.data!.summary.status!=='DRAFT' && detail.data!.summary.status!=='ARCHIVED'}><Button variant="ghost" size="sm" disabled={allPending()} onClick={()=>setDuplicateOpen(v=>!v)}>Duplicate</Button></Show></div>
-          <div class="form-actions"><Show when={detail.data!.summary.status==='LIVE'||detail.data!.summary.status==='SCHEDULED'}><Button variant="destructive-ghost" size="sm" disabled={allPending()} onClick={()=>lifecycle.mutate('pause')}>Pause</Button></Show><Show when={detail.data!.summary.status==='PAUSED'}><Button variant="ghost" size="sm" disabled={allPending()} onClick={()=>lifecycle.mutate('resume')}>Resume</Button></Show><Show when={detail.data!.summary.status!=='ARCHIVED' && detail.data!.summary.status!=='DRAFT'}><Button variant="destructive-ghost" size="sm" disabled={allPending()} onClick={async()=>{
+        <div class="flex items-center justify-between gap-2 flex-wrap pt-4 border-t border-border">
+          <div class="flex gap-2"><Button variant="ghost" size="sm" disabled={allPending()} onClick={()=>save.mutate()}>Save draft</Button><Show when={detail.data!.summary.hasDraft && detail.data!.summary.status!=='DRAFT'}><Button variant="ghost" size="sm" disabled={discard.isPending} onClick={()=>discard.mutate()}>Discard draft</Button></Show><Show when={detail.data!.summary.status!=='DRAFT' && detail.data!.summary.status!=='ARCHIVED'}><Button variant="ghost" size="sm" disabled={allPending()} onClick={()=>setDuplicateOpen(v=>!v)}>Duplicate</Button></Show></div>
+          <div class="flex gap-2"><Show when={detail.data!.summary.status==='LIVE'||detail.data!.summary.status==='SCHEDULED'}><Button variant="destructive-ghost" size="sm" disabled={allPending()} onClick={()=>lifecycle.mutate('pause')}>Pause</Button></Show><Show when={detail.data!.summary.status==='PAUSED'}><Button variant="ghost" size="sm" disabled={allPending()} onClick={()=>lifecycle.mutate('resume')}>Resume</Button></Show><Show when={detail.data!.summary.status!=='ARCHIVED' && detail.data!.summary.status!=='DRAFT'}><Button variant="destructive-ghost" size="sm" disabled={allPending()} onClick={async()=>{
             const ok = await confirmAction({
               title: 'Archive this AREA location?',
               body: 'Claims and history are preserved. The location stops accepting new claims.',
