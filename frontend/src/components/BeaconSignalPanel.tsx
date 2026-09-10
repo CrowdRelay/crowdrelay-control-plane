@@ -2,12 +2,13 @@ import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { formatTimestamp } from '../lib/format'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock } from './Skeleton'
 import { TabBar, TabPanel, useTabPanels, KpiStrip, KpiCard, ErrorCard } from './layout'
 import { cn } from '../lib/cn'
 import { Card } from './ui/card'
 import { Badge } from './ui/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 
 const statusTone = (status: string): 'success' | 'warning' | 'destructive' | 'muted' => {
   switch (status) {
@@ -79,36 +80,34 @@ export function BeaconSignalPanel(props: { slug: string }) {
       {/* ── Profiles tab ── */}
       <TabPanel active={activeTab()} id="profiles" visited={isVisited('profiles')}>
         <Show when={dashboard.data!.profiles.length > 0} fallback={<EmptyState label="No beacon profiles" hint="Beacon profiles define how this tenant discovers and invites fans in physical venues." />}>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Kind</th>
-                  <th>City</th>
-                  <th>Status</th>
-                  <th>Invites</th>
-                  <th>Press</th>
-                  <th>Coverage</th>
-                  <th>Last seen</th>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={dashboard.data!.profiles}>{(p) => (
-                  <tr>
-                    <td><strong>{p.displayName}</strong>{p.contactEmail ? <><br /><span class="text-muted-foreground">{p.contactEmail}</span></> : null}</td>
-                    <td>{p.beaconKind}</td>
-                    <td>{p.city ?? '—'}</td>
-                    <td><Badge variant={statusTone(p.status)}>{p.status}</Badge></td>
-                    <td>{p.inviteCount}</td>
-                    <td>{p.openPressRequests}</td>
-                    <td>{p.coverageCount}</td>
-                    <td>{formatTimestamp(p.lastSeenAt)}</td>
-                  </tr>
-                )}</For>
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Kind</TableHead>
+                <TableHead>City</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Invites</TableHead>
+                <TableHead>Press</TableHead>
+                <TableHead>Coverage</TableHead>
+                <TableHead>Last seen</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <For each={dashboard.data!.profiles}>{(p) => (
+                <TableRow>
+                  <TableCell><strong>{p.displayName}</strong>{p.contactEmail ? <><br /><span class="text-muted-foreground">{p.contactEmail}</span></> : null}</TableCell>
+                  <TableCell>{p.beaconKind}</TableCell>
+                  <TableCell>{p.city ?? '—'}</TableCell>
+                  <TableCell><Badge variant={statusTone(p.status)}>{p.status}</Badge></TableCell>
+                  <TableCell numeric>{p.inviteCount}</TableCell>
+                  <TableCell numeric>{p.openPressRequests}</TableCell>
+                  <TableCell numeric>{p.coverageCount}</TableCell>
+                  <TableCell>{formatTimestamp(p.lastSeenAt)}</TableCell>
+                </TableRow>
+              )}</For>
+            </TableBody>
+          </Table>
         </Show>
       </TabPanel>
 
@@ -122,34 +121,32 @@ export function BeaconSignalPanel(props: { slug: string }) {
         </Show>
         <Show when={candidates.data}>
           <Show when={candidates.data!.candidates.length > 0} fallback={<EmptyState label="No candidates" hint="Candidates are discovered beacons that have not been added to the roster yet." />}>
-            <div class="table-wrap">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Kind</th>
-                    <th>City</th>
-                    <th>Relevance</th>
-                    <th>Relationship</th>
-                    <th>Signal</th>
-                    <th>Invites</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <For each={candidates.data!.candidates}>{(c) => (
-                    <tr>
-                      <td><strong>{c.displayName}</strong><br /><span class="text-muted-foreground">{c.contactEmail}</span></td>
-                      <td>{c.beaconKind}</td>
-                      <td>{c.city ?? '—'}</td>
-                      <td>{Math.round(c.relevanceBasisPoints / 100)}%</td>
-                      <td>{Math.round(c.relationshipScore / 100)}%</td>
-                      <td>{c.signalStatus ?? '—'}</td>
-                      <td>{c.inviteCount}</td>
-                    </tr>
-                  )}</For>
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Kind</TableHead>
+                  <TableHead>City</TableHead>
+                  <TableHead>Relevance</TableHead>
+                  <TableHead>Relationship</TableHead>
+                  <TableHead>Signal</TableHead>
+                  <TableHead>Invites</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <For each={candidates.data!.candidates}>{(c) => (
+                  <TableRow>
+                    <TableCell><strong>{c.displayName}</strong><br /><span class="text-muted-foreground">{c.contactEmail}</span></TableCell>
+                    <TableCell>{c.beaconKind}</TableCell>
+                    <TableCell>{c.city ?? '—'}</TableCell>
+                    <TableCell numeric>{Math.round(c.relevanceBasisPoints / 100)}%</TableCell>
+                    <TableCell numeric>{Math.round(c.relationshipScore / 100)}%</TableCell>
+                    <TableCell>{c.signalStatus ?? '—'}</TableCell>
+                    <TableCell numeric>{c.inviteCount}</TableCell>
+                  </TableRow>
+                )}</For>
+              </TableBody>
+            </Table>
           </Show>
         </Show>
       </TabPanel>
@@ -164,62 +161,58 @@ export function BeaconSignalPanel(props: { slug: string }) {
         </Show>
         <Show when={network.data}>
           <Show when={network.data!.discoveryRuns.length > 0} fallback={<EmptyState label="No discovery runs" hint="Discovery runs scan for nearby fans using beacon campaigns." />}>
-            <div class="table-wrap">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Country</th>
-                    <th>Status</th>
-                    <th>Discovered</th>
-                    <th>Target</th>
-                    <th>Requested</th>
-                    <th>Completed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <For each={network.data!.discoveryRuns}>{(r) => (
-                    <tr>
-                      <td>{r.countryCode}</td>
-                      <td><Badge variant={r.status === 'completed' ? 'success' : r.status === 'failed' ? 'destructive' : 'muted'}>{r.status}</Badge></td>
-                      <td>{r.discoveredCount}</td>
-                      <td>{r.targetCount}</td>
-                      <td>{formatTimestamp(r.requestedAt)}</td>
-                      <td>{formatTimestamp(r.completedAt)}</td>
-                    </tr>
-                  )}</For>
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Country</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Discovered</TableHead>
+                  <TableHead>Target</TableHead>
+                  <TableHead>Requested</TableHead>
+                  <TableHead>Completed</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <For each={network.data!.discoveryRuns}>{(r) => (
+                  <TableRow>
+                    <TableCell>{r.countryCode}</TableCell>
+                    <TableCell><Badge variant={r.status === 'completed' ? 'success' : r.status === 'failed' ? 'destructive' : 'muted'}>{r.status}</Badge></TableCell>
+                    <TableCell numeric>{r.discoveredCount}</TableCell>
+                    <TableCell numeric>{r.targetCount}</TableCell>
+                    <TableCell>{formatTimestamp(r.requestedAt)}</TableCell>
+                    <TableCell>{formatTimestamp(r.completedAt)}</TableCell>
+                  </TableRow>
+                )}</For>
+              </TableBody>
+            </Table>
           </Show>
 
           <Show when={network.data!.inviteJobs.length > 0}>
-            <h4 class="subsection">Invite Jobs</h4>
-            <div class="table-wrap">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Status</th>
-                    <th>Beacons</th>
-                    <th>Radius</th>
-                    <th>Exchanged</th>
-                    <th>Active</th>
-                    <th>Created</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <For each={network.data!.inviteJobs}>{(j) => (
-                    <tr>
-                      <td><Badge variant={j.status === 'reported' ? 'success' : 'muted'}>{j.status}</Badge></td>
-                      <td>{j.beaconCount}</td>
-                      <td>{j.radiusKm}km</td>
-                      <td>{j.exchangedCount}</td>
-                      <td>{j.activeCount}</td>
-                      <td>{formatTimestamp(j.createdAt)}</td>
-                    </tr>
-                  )}</For>
-                </tbody>
-              </table>
-            </div>
+            <h4 class="text-sm font-semibold text-secondary-foreground mt-5 mb-2 uppercase tracking-wider flex items-center gap-1.5">Invite Jobs</h4>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Beacons</TableHead>
+                  <TableHead>Radius</TableHead>
+                  <TableHead>Exchanged</TableHead>
+                  <TableHead>Active</TableHead>
+                  <TableHead>Created</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <For each={network.data!.inviteJobs}>{(j) => (
+                  <TableRow>
+                    <TableCell><Badge variant={j.status === 'reported' ? 'success' : 'muted'}>{j.status}</Badge></TableCell>
+                    <TableCell numeric>{j.beaconCount}</TableCell>
+                    <TableCell numeric>{j.radiusKm}km</TableCell>
+                    <TableCell numeric>{j.exchangedCount}</TableCell>
+                    <TableCell numeric>{j.activeCount}</TableCell>
+                    <TableCell>{formatTimestamp(j.createdAt)}</TableCell>
+                  </TableRow>
+                )}</For>
+              </TableBody>
+            </Table>
           </Show>
         </Show>
       </TabPanel>

@@ -3,15 +3,16 @@ import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
-import { toast } from '../lib/toast'
+import { toast } from '../components/ui/toast'
 import type { AutomationEvent, AutomationWorkflowConfig } from '../lib/types'
-import { EmptyState } from '../components/EmptyState'
+import { EmptyState } from '../components/ui/empty-state'
 import { SkeletonRows } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
 import { PageShell, PageHeader, KpiStrip, KpiCard, ErrorCard, SectionTitle } from '../components/layout'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { cn } from '../lib/cn'
+import { NativeSelect } from '../components/ui/native-select'
 
 const severityTone = (s: string) => s === 'error' ? 'bad' : s === 'warn' ? 'warn' : 'muted'
 const statusTone = (s: string) => s === 'new' ? 'bad' : s === 'acknowledged' ? 'warn' : s === 'retried' ? 'warn' : 'muted'
@@ -130,8 +131,7 @@ export function AutomationPage() {
                 <small class="text-xs text-muted-foreground">{cfg.workflowId}</small>
               </div>
               <div class="flex items-center gap-3 flex-wrap">
-                <select
-                  class="flex h-9 rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                <NativeSelect class="w-auto"
                   value={cfg.category}
                   disabled={busyId() !== null}
                   onChange={(e) => handleConfigUpdate(cfg.workflowId, { category: e.currentTarget.value })}
@@ -139,7 +139,7 @@ export function AutomationPage() {
                   <option value="status">Status</option>
                   <option value="real_work">Real work</option>
                   <option value="system">System</option>
-                </select>
+                </NativeSelect>
                 <label class="flex items-center gap-2 text-sm text-foreground">
                   <input
                     type="checkbox"
@@ -180,13 +180,13 @@ export function AutomationPage() {
         title="Recent events"
         icon={<SectionIcon name="history" />}
         action={
-          <select class="flex h-9 rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={statusFilter()} onChange={(e) => setStatusFilter(e.currentTarget.value)}>
+          <NativeSelect class="w-auto" value={statusFilter()} onChange={(e) => setStatusFilter(e.currentTarget.value)}>
             <option value="">All statuses</option>
             <option value="new">New</option>
             <option value="acknowledged">Acknowledged</option>
             <option value="retried">Retried</option>
             <option value="resolved">Resolved</option>
-          </select>
+          </NativeSelect>
         }
       />
 

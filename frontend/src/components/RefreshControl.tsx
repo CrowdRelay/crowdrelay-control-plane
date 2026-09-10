@@ -1,6 +1,7 @@
 import { Show, createMemo, For, type JSX } from 'solid-js'
 import { useQueryClient, useIsFetching } from '@tanstack/solid-query'
 import { REFRESH_INTERVALS, refreshInterval, setRefreshInterval, triggerRefresh } from '../lib/refresh'
+import { NativeSelect } from './ui/native-select'
 
 // Grafana-style refresh control: an interval dropdown + a manual refresh button.
 // Sits in the topbar so every page inherits it. The interval drives
@@ -46,9 +47,7 @@ export function RefreshControl(props: {
       <span class="text-sm text-muted-foreground whitespace-nowrap">Updated {relativeTime(props.updatedAt)}</span>
     </Show>
     <div>
-      <select
-        class="bg-card border border-border text-foreground text-sm rounded-md px-2.5 py-1.5 cursor-pointer outline-none transition-colors hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20"
-        value={refreshInterval()}
+      <NativeSelect value={refreshInterval()}
         onChange={(e) => setRefreshInterval(Number(e.currentTarget.value))}
         title="Auto-refresh interval"
         aria-label="Auto-refresh interval"
@@ -56,7 +55,7 @@ export function RefreshControl(props: {
         <For each={REFRESH_INTERVALS}>{r => (
           <option value={r.ms} selected={refreshInterval() === r.ms}>{r.label}</option>
         )}</For>
-      </select>
+      </NativeSelect>
     </div>
     <button
       type="button"

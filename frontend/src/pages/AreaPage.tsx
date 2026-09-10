@@ -6,7 +6,7 @@ import { errorMessage } from '../lib/format'
 import type { AreaCity, AreaDropDraft, AreaStatus, AreaValidationResult } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { LocationCanvas } from '../components/area/LocationCanvas'
-import { EmptyState } from '../components/EmptyState'
+import { EmptyState } from '../components/ui/empty-state'
 import { SkeletonRows } from '../components/Skeleton'
 import { confirmAction } from '../components/Dialog'
 import { SectionIcon } from '../components/SectionIcon'
@@ -15,10 +15,10 @@ import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Alert } from '../components/ui/alert'
 import { Input } from '../components/ui/input'
+import { Textarea } from '../components/ui/textarea'
 import { cn } from '../lib/cn'
+import { NativeSelect } from '../components/ui/native-select'
 
-const selectClass = 'flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
-const textareaClass = 'w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
 
 const statusTone = (status: AreaStatus) => status === 'LIVE' ? 'good' : status === 'SCHEDULED' || status === 'DRAFT' ? 'warn' : status === 'ARCHIVED' ? 'muted' : status === 'PAUSED' ? 'bad' : 'muted'
 const formatDate = (value: string) => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString() }
@@ -183,7 +183,7 @@ export function AreaPage() {
       <SectionTitle eyebrow="LOCATIONS" title="Published state + drafts" icon={<SectionIcon name="map-pin" />} action={<Button size="sm" disabled={!overview.data?.entitled} onClick={() => setCreating(v=>!v)}>+ New location</Button>} />
       <Show when={creating()}><div class="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
         <label>Search city<small class="block text-xs text-muted-foreground">Type to filter the canonical list.</small><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></label>
-        <label>Canonical city<small class="block text-xs text-muted-foreground">Where the drop lives. Missing city? Create one below.</small><select class={selectClass} value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></select></label>
+        <label>Canonical city<small class="block text-xs text-muted-foreground">Where the drop lives. Missing city? Create one below.</small><NativeSelect value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></NativeSelect></label>
         <label>Drop number<small class="block text-xs text-muted-foreground">1–3 digits, required. Padded to three for the id: 7 in Wrocław becomes <code>wro-007</code>.</small><Input inputmode="numeric" maxlength="3" value={newNumber()} onInput={e=>setNewNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></label>
         {/* The button was enabled without a drop number and the mutation threw
             "Drop number must contain 1–3 digits" only after the click. Same
@@ -217,7 +217,7 @@ export function AreaPage() {
         <Show when={editorStep()==='city'}><p class="text-sm text-muted-foreground leading-relaxed mt-1">Which city this drop belongs to and where it sits in the list fans see. Nothing here is secret — the exact spot is set on the next step.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           <label>Search canonical city<small class="block text-xs text-muted-foreground">Filters the list below. Cities are shared across tenants; add one only if it is genuinely missing.</small><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder={detail.data!.summary.city}/></label>
-          <label>Canonical city<select class={selectClass} value={draft()!.cityId} onChange={e=>{const id=e.currentTarget.value;const city=cities.data?.items.find(c=>c.id===id);setDraft(d=>d?({...d,cityId:id,approximateLat:city?.latitude ?? d.approximateLat,approximateLng:city?.longitude ?? d.approximateLng}):d)}}><Show when={!(cities.data?.items ?? []).some(city=>city.id===draft()!.cityId)}><option value={draft()!.cityId}>{detail.data!.summary.city} · current</option></Show><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name} · {city.countryCode}</option>}</For></select></label>
+          <label>Canonical city<NativeSelect value={draft()!.cityId} onChange={e=>{const id=e.currentTarget.value;const city=cities.data?.items.find(c=>c.id===id);setDraft(d=>d?({...d,cityId:id,approximateLat:city?.latitude ?? d.approximateLat,approximateLng:city?.longitude ?? d.approximateLng}):d)}}><Show when={!(cities.data?.items ?? []).some(city=>city.id===draft()!.cityId)}><option value={draft()!.cityId}>{detail.data!.summary.city} · current</option></Show><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name} · {city.countryCode}</option>}</For></NativeSelect></label>
           <label>Drop number<small class="block text-xs text-muted-foreground">Up to three digits. Fans see it as the drop's identity in the game, so it should not be reused within a city.</small><Input maxlength="3" value={draft()!.number} onInput={e=>mutateDraft({number:e.currentTarget.value.replace(/\D/g,'').slice(0,3)})}/></label>
           <label>Sort order<small class="block text-xs text-muted-foreground">Position in the list. Lower comes first; ties fall back to the drop number.</small><Input type="number" value={draft()!.sortOrder} onInput={e=>mutateDraft({sortOrder:finiteInput(e.currentTarget.value,draft()!.sortOrder)})}/></label>
           <label>Illustration X (advanced)<small class="block text-xs text-muted-foreground">Where the pin sits on the illustrated map, 0–100 left to right. Not a coordinate — it moves artwork, not the drop.</small><Input type="number" min="0" max="100" value={draft()!.mapX} onInput={e=>mutateDraft({mapX:finiteInput(e.currentTarget.value,draft()!.mapX)})}/></label>
@@ -238,11 +238,11 @@ export function AreaPage() {
         </div></Show>
 
         <Show when={editorStep()==='content'}><div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-          <label>Clue — Polski<textarea class={textareaClass} maxlength="2000" value={draft()!.clue.pl} onInput={e=>mutateClue('pl',e.currentTarget.value)}/></label>
-          <label>Clue — English<textarea class={textareaClass} maxlength="2000" value={draft()!.clue.en} onInput={e=>mutateClue('en',e.currentTarget.value)}/></label>
+          <label>Clue — Polski<Textarea maxlength="2000" value={draft()!.clue.pl} onInput={e=>mutateClue('pl',e.currentTarget.value)}/></label>
+          <label>Clue — English<Textarea maxlength="2000" value={draft()!.clue.en} onInput={e=>mutateClue('en',e.currentTarget.value)}/></label>
           <label>Track<Input maxlength="256" value={draft()!.collectible.track} onInput={e=>mutateCollectible('track',e.currentTarget.value)}/></label>
           <label>Edition<Input maxlength="256" value={draft()!.collectible.edition} onInput={e=>mutateCollectible('edition',e.currentTarget.value)}/></label>
-          <label>Collectible line<textarea class={textareaClass} maxlength="1000" value={draft()!.collectible.line} onInput={e=>mutateCollectible('line',e.currentTarget.value)}/></label>
+          <label>Collectible line<Textarea maxlength="1000" value={draft()!.collectible.line} onInput={e=>mutateCollectible('line',e.currentTarget.value)}/></label>
           <label>Riddle<Input maxlength="256" value={draft()!.collectible.riddle} onInput={e=>mutateCollectible('riddle',e.currentTarget.value)}/></label>
         </div></Show>
 
@@ -265,7 +265,7 @@ export function AreaPage() {
         <Show when={duplicateOpen()}><div class="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
           <strong class="text-sm text-foreground">Duplicate as a new draft</strong><p class="text-sm text-muted-foreground">The collectible/content is copied, but the exact claim coordinates are deliberately cleared.</p>
           <label>Search destination city<Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Search canonical cities"/></label>
-          <label>Destination city<select class={selectClass} value={duplicateCityId()} onChange={e=>setDuplicateCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''}</option>}</For></select></label>
+          <label>Destination city<NativeSelect value={duplicateCityId()} onChange={e=>setDuplicateCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''}</option>}</For></NativeSelect></label>
           <label>New number<Input inputmode="numeric" maxlength="3" value={duplicateNumber()} onInput={e=>setDuplicateNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></label>
           <div class="flex justify-end gap-2"><Button variant="ghost" size="sm" onClick={()=>setDuplicateOpen(false)}>Cancel</Button><Button size="sm" disabled={duplicate.isPending || !duplicateCityId() || !duplicateNumber()} onClick={()=>duplicate.mutate()}>Create duplicate draft</Button></div>
         </div></Show>

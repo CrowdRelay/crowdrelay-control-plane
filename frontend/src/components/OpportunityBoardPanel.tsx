@@ -116,7 +116,7 @@ export function OpportunityBoardPanel(props: {
     </div>
 
     <Show when={board.error}>
-      <Alert tone="warning" class="operations-warning" role="status">
+      <Alert tone="warning" class="mt-4" role="status">
         {errorMessage(board.error, 'Opportunity queue is temporarily unavailable.')}
       </Alert>
     </Show>

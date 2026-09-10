@@ -1,7 +1,7 @@
 import { For, Show } from 'solid-js'
 import type { GrowthCampaignProgress, GrowthOverview } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { errorMessage } from '../lib/format'
 import { SectionIcon } from './SectionIcon'
 import { Card } from './ui/card'
@@ -103,7 +103,7 @@ export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; 
     </div>
 
       <Show when={growth.error}>
-        <Alert tone="warning" class="operations-warning" role="status">
+        <Alert tone="warning" class="mt-4" role="status">
           {errorMessage(growth.error, 'Growth delivery telemetry is temporarily unavailable.')}
         </Alert>
       </Show>

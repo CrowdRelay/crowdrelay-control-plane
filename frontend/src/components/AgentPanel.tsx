@@ -9,12 +9,16 @@ import { TabBar, TabPanel, useTabPanels } from './layout'
 import { AgentProvidersPanel } from './AgentProvidersPanel'
 import { AIUsagePanel } from './AIUsagePanel'
 import { IntelligenceTransparencyPanel } from './IntelligenceTransparencyPanel'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { SkeletonGrid, SkeletonRows } from './Skeleton'
 import { Button } from './ui/button'
 import { Card } from './ui/card'
+import { Badge } from './ui/badge'
 import { Input } from './ui/input'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { Textarea } from './ui/textarea'
 import type { AgentTaskResult, TaskSuggestion, AgentOutcome } from '../lib/types'
+import { NativeSelect } from './ui/native-select'
 
 // --- Ant icon (agent service mascot) ---
 const AntIcon = (props: { size?: number }) => (
@@ -345,7 +349,7 @@ export function AgentPanel(props: { slug: string }) {
           <p class="text-sm text-muted-foreground mt-1">Free models cost nothing; paid models bill against the AI budget.</p>
           <label class="flex flex-col gap-1 text-sm text-muted-foreground">
             <span>Model</span>
-            <select class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={selectedModel()} onChange={(e) => setSelectedModel(e.currentTarget.value)}>
+            <NativeSelect value={selectedModel()} onChange={(e) => setSelectedModel(e.currentTarget.value)}>
               <For each={models()?.models ?? []}>
                 {(model) => (
                   <option value={model.id}>
@@ -353,12 +357,11 @@ export function AgentPanel(props: { slug: string }) {
                   </option>
                 )}
               </For>
-            </select>
+            </NativeSelect>
           </label>
           <label class="flex flex-col gap-1 text-sm text-muted-foreground">
             <span>Describe what you want the agent to do</span>
-            <textarea
-              class="w-full text-sm p-2 rounded-md border border-border bg-background text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            <Textarea
               value={prompt()}
               onInput={(e) => setPrompt(e.currentTarget.value)}
               placeholder="e.g. Write a press pitch for the Sep 5 Sanity Check Tour show targeting Polish metal blogs and zines"
@@ -412,27 +415,27 @@ export function AgentPanel(props: { slug: string }) {
         </Show>
         <Show when={tasksOverview.data?.schedules && '__error' in tasksOverview.data!.schedules}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Agent schedules unavailable: {errorMessage(tasksOverview.error, 'Service unreachable')}</div></Show>
         <Show when={schedules().length > 0}>
-          <table class="w-full text-sm mt-4">
-            <thead><tr><th>Template</th><th>Interval</th><th>Enabled</th><th>Last run</th><th>Next run</th><th></th></tr></thead>
-            <tbody>
+          <Table class="mt-4">
+            <TableHeader><TableRow><TableHead>Template</TableHead><TableHead>Interval</TableHead><TableHead>Enabled</TableHead><TableHead>Last run</TableHead><TableHead>Next run</TableHead><TableHead></TableHead></TableRow></TableHeader>
+            <TableBody>
               <For each={schedules()}>
                 {(sched) => (
-                  <tr>
-                    <td>{templateName(sched.template_id)}</td>
-                    <td>{sched.interval_minutes}m</td>
-                    <td>
+                  <TableRow>
+                    <TableCell>{templateName(sched.template_id)}</TableCell>
+                    <TableCell>{sched.interval_minutes}m</TableCell>
+                    <TableCell>
                       <Button variant="ghost" size="sm" disabled={scheduleBusy() === sched.id} onClick={() => toggleSchedule(sched.id, !sched.enabled)}>
                         {scheduleBusy() === sched.id ? '…' : sched.enabled ? '✓ enabled' : 'disabled'}
                       </Button>
-                    </td>
-                    <td class="text-muted-foreground">{sched.last_run_at ? formatIsoAge(sched.last_run_at) : 'never'}</td>
-                    <td class="text-muted-foreground">{sched.next_run_at ? formatIsoAge(sched.next_run_at) : '—'}</td>
-                    <td><Button variant="destructive-ghost" size="sm" disabled={scheduleBusy() === sched.id} onClick={() => deleteSchedule(sched.id)}>Delete</Button></td>
-                  </tr>
+                    </TableCell>
+                    <TableCell class="text-muted-foreground">{sched.last_run_at ? formatIsoAge(sched.last_run_at) : 'never'}</TableCell>
+                    <TableCell class="text-muted-foreground">{sched.next_run_at ? formatIsoAge(sched.next_run_at) : '—'}</TableCell>
+                    <TableCell><Button variant="destructive-ghost" size="sm" disabled={scheduleBusy() === sched.id} onClick={() => deleteSchedule(sched.id)}>Delete</Button></TableCell>
+                  </TableRow>
                 )}
               </For>
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </Show>
         <Show when={schedules().length === 0}>
           <EmptyState label="No schedules configured" hint="Automate recurring intelligence tasks." />
@@ -450,35 +453,35 @@ export function AgentPanel(props: { slug: string }) {
             <SkeletonRows count={4} />
           </Show>
         }>
-          <table class="w-full text-sm mt-4">
-            <thead>
-              <tr>
-                <th>Template</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table class="mt-4">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Template</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               <For each={tasks().slice(0, 10)}>
                 {(task) => (
-                  <tr>
-                    <td>{templateName(task.template_id)}</td>
-                    <td><StatusBadge status={task.status} tone={statusTone(task.status)} /></td>
-                    <td class="text-muted-foreground">{formatIsoAge(task.created_at)}</td>
-                    <td>
+                  <TableRow>
+                    <TableCell>{templateName(task.template_id)}</TableCell>
+                    <TableCell><StatusBadge status={task.status} tone={statusTone(task.status)} /></TableCell>
+                    <TableCell class="text-muted-foreground">{formatIsoAge(task.created_at)}</TableCell>
+                    <TableCell>
                       <Show when={task.status === 'completed'}>
                         <Button variant="ghost" size="sm" onClick={() => viewResult(task.id)}>View →</Button>
                       </Show>
                       <Show when={task.status === 'failed'}>
                         <span class="text-sm text-destructive" title={task.error ?? ''}>failed</span>
                       </Show>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )}
               </For>
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </Show>
       </Card>
       </TabPanel>
@@ -487,8 +490,7 @@ export function AgentPanel(props: { slug: string }) {
         open={viewingResult() !== null}
         onClose={() => setViewingResult(null)}
         label="Agent task result"
-        overlayClass="agent-result-overlay"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        class="w-full max-w-2xl max-h-[80vh] overflow-y-auto"
       >
         <>
             <div class="flex justify-between items-center p-4 border-b border-border">
@@ -510,8 +512,8 @@ export function AgentPanel(props: { slug: string }) {
                 <For each={viewingResult()!.outcomes}>{(outcome: AgentOutcome) => (
                   <div class="p-3 rounded-lg border border-border bg-surface-1">
                     <div class="flex items-center gap-2 mb-2">
-                      <span class="badge">{outcome.kind.replaceAll('_', ' ')}</span>
-                      <span class="badge">confidence {Math.round(outcome.confidence_basis_points / 100)}%</span>
+                      <Badge>{outcome.kind.replaceAll('_', ' ')}</Badge>
+                      <Badge>confidence {Math.round(outcome.confidence_basis_points / 100)}%</Badge>
                     </div>
                     <p class="text-muted-foreground">{outcome.rationale}</p>
                     <Show when={outcome.item}>

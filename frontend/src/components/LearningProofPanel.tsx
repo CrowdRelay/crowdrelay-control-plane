@@ -1,7 +1,7 @@
 import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import type { LearningProofEntry } from '../lib/types'
 import { SectionIcon } from './SectionIcon'
 import { Card } from './ui/card'

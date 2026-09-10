@@ -2,15 +2,16 @@ import { Show } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
 import type { AudienceOverview } from '../lib/types'
 import { compactNumber } from '../lib/charts'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { KpiValue } from './KpiValue'
 import { KpiStrip, KpiCard } from './layout'
 import { Card } from './ui/card'
+import { buttonVariants } from './ui/button'
 
 const fmt = (value: number | undefined) => value == null ? '—' : compactNumber(value)
 
 const ghostLinkClass =
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors h-8 px-3 text-xs text-secondary-foreground hover:bg-surface-3 hover:text-foreground'
+  buttonVariants({ variant: 'ghost', size: 'sm' })
 
 export function AudienceOverviewPanel(props: { slug: string; overview?: AudienceOverview }) {
   // Seven cards reading 0 is a true answer to a question nobody asked. A

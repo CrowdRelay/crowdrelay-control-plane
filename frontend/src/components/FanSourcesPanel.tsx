@@ -13,6 +13,9 @@ import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Input } from './ui/input'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { Textarea } from './ui/textarea'
+import { NativeSelect } from './ui/native-select'
 
 const SOURCE_KINDS = [
   { value: 'http_json_pull', label: 'HTTP JSON (pull)' },
@@ -431,10 +434,10 @@ export function FanSourcesPanel(props: {
               <div class="w-9 h-9 flex items-center justify-center rounded-md border border-border bg-surface-1">
                 <FanbaseIcon sourceKind={plat.icon as never} size={28} />
               </div>
-              <div class="fanbase-connection-info">
-                <div class="fanbase-connection-name">{plat.label}</div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-semibold break-words [overflow-wrap:anywhere]">{plat.label}</div>
                 <Show when={conn() && conn()!.last_sync_at}>
-                  <div class="fanbase-connection-meta">
+                  <div class="text-sm text-muted-foreground mt-1 break-words">
                     <span class="text-muted-foreground">last sync {formatAge(conn()!.last_sync_at!)}</span>
                   </div>
                 </Show>
@@ -444,7 +447,7 @@ export function FanSourcesPanel(props: {
                     goes here, because it names the fix — a wrong page id, a
                     missing API key — and the status badge never can. */}
                 <Show when={conn() && conn()!.last_sync_error}>
-                  <div class="fanbase-connection-meta">
+                  <div class="text-sm text-muted-foreground mt-1 break-words">
                     <span class="notifier-test-bad">
                       {conn()!.last_sync_at ? 'sync failing' : 'never synced'}
                       {conn()!.last_sync_failed_at ? ` (${formatAge(conn()!.last_sync_failed_at!)})` : ''}
@@ -453,7 +456,7 @@ export function FanSourcesPanel(props: {
                   </div>
                 </Show>
               </div>
-              <div class="fanbase-connection-actions">
+              <div class="flex gap-2 items-center flex-shrink-0 whitespace-nowrap">
                 <Show when={conn()}>
                   <StatusBadge status={conn()!.status} tone={connTone(conn()!.status, !!conn()!.last_sync_error)} />
                   <Button variant="destructive-ghost" size="sm" onClick={() => disconnectConnection(conn()!.id)}>Disconnect</Button>
@@ -643,9 +646,9 @@ export function FanSourcesPanel(props: {
         </label>
         <label>
           <span>Source kind</span>
-          <select class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={sourceKind()} onChange={e => setSourceKind(e.currentTarget.value)}>
+          <NativeSelect value={sourceKind()} onChange={e => setSourceKind(e.currentTarget.value)}>
             <For each={SOURCE_KINDS}>{k => <option value={k.value}>{k.label}</option>}</For>
-          </select>
+          </NativeSelect>
           <small>How fans reach the graph: a URL you import from, a batch you paste in, or a platform this tenant is connected to.</small>
         </label>
         <Show when={sourceKind() === 'http_json_pull'}>
@@ -669,7 +672,7 @@ export function FanSourcesPanel(props: {
         <Button variant="ghost" size="sm" onClick={() => setCreating(false)}>Cancel</Button>
       </div>
       <Show when={!name() || (needsAttestation() && !attestedBy())}>
-        <small class="text-muted-foreground form-disabled-hint">
+        <small class="text-muted-foreground block mt-1.5 mb-4 text-sm">
           {needsAttestation() && !attestedBy()
             ? 'Enter a name and consent attestation to enable Create.'
             : 'Enter a name to enable Create.'}
@@ -678,15 +681,15 @@ export function FanSourcesPanel(props: {
     </Show>
 
     <Show when={blocks().length}>
-      <table class="data-table" aria-label="Fanbases">
-        <thead><tr><th>Name</th><th>Origin</th><th>Members</th><th>Last ingestion</th><th>Ingest</th><th></th></tr></thead>
-        <tbody>
+      <Table aria-label="Fanbases">
+        <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Origin</TableHead><TableHead>Members</TableHead><TableHead>Last ingestion</TableHead><TableHead>Ingest</TableHead><TableHead></TableHead></TableRow></TableHeader>
+        <TableBody>
           <For each={blocks()}>{fb => (
-            <tr classList={{ 'row-pending': isDeleting(fb.id) }}>
-              <td>{fb.name}{fb.enabled ? '' : ' (off)'}</td>
-              <td><span class="fanbase-origin"><FanbaseIcon sourceKind={fb.source_kind} size={16} class="provider-icon" /> {SOURCE_LABEL[fb.source_kind] ?? fb.source_kind}</span></td>
-              <td>{metric(fb.members)}</td>
-              <td>
+            <TableRow classList={{ 'row-pending': isDeleting(fb.id) }}>
+              <TableCell>{fb.name}{fb.enabled ? '' : ' (off)'}</TableCell>
+              <TableCell><span class="inline-flex items-center gap-1.5"><FanbaseIcon sourceKind={fb.source_kind} size={16} class="flex-shrink-0 opacity-85" /> {SOURCE_LABEL[fb.source_kind] ?? fb.source_kind}</span></TableCell>
+              <TableCell numeric>{metric(fb.members)}</TableCell>
+              <TableCell>
                 <Show when={fb.last_status} fallback={<span class="text-muted-foreground">never</span>}>
                   <span class="flex items-center gap-2">
                     <StatusBadge status={fb.last_status ?? ''} tone={ingestionTone(fb.last_status)} />
@@ -695,19 +698,19 @@ export function FanSourcesPanel(props: {
                     </Show>
                   </span>
                 </Show>
-              </td>
-              <td>
+              </TableCell>
+              <TableCell>
                 <Show when={ingestingId() === fb.id} fallback={
                   <Button size="sm" variant="outline" disabled={pendingFor() !== null}
                     onClick={() => { setIngestingId(fb.id); setIngestJson(EMPTY_INGEST) }}>
                     Ingest batch…
                   </Button>
                 }>
-                  <div class="ingest-editor">
-                    <textarea rows="4" placeholder='{"entries":[{"external_id":"x1","email":"a@b.c"}]}'
+                  <div class="flex flex-col gap-2.5 max-w-[420px]">
+                    <Textarea rows="4" placeholder='{"entries":[{"external_id":"x1","email":"a@b.c"}]}'
                       aria-label="Fan batch JSON"
                       value={ingestJson()} onInput={e => setIngestJson(e.currentTarget.value)} />
-                    <div class="ingest-validation">
+                    <div class="flex flex-col gap-1">
                       <Show when={ingestJson().trim().length > 0} fallback={
                         <details class="ingest-format-help">
                           <summary>Format help</summary>
@@ -730,8 +733,8 @@ export function FanSourcesPanel(props: {
                     </div>
                   </div>
                 </Show>
-              </td>
-              <td>
+              </TableCell>
+              <TableCell>
                 <Show when={confirmingDelete() === fb.id} fallback={
                   <Button variant="destructive-ghost" size="sm" disabled={pendingFor() !== null || remove.isPending}
                     onClick={() => setConfirmingDelete(fb.id)}>
@@ -746,11 +749,11 @@ export function FanSourcesPanel(props: {
                     <Button variant="ghost" size="sm" onClick={() => setConfirmingDelete(null)}>Cancel</Button>
                   </div>
                 </Show>
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           )}</For>
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </Show>
     <Show when={!blocks().length}>
       <Card class="p-4 mt-2.5">

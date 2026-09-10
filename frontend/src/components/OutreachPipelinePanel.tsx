@@ -4,12 +4,13 @@ import { api } from '../lib/api'
 import { refreshQueries } from '../lib/refresh'
 import { errorMessage } from '../lib/format'
 import type { OutreachCandidateView, BookingCandidateView } from '../lib/types'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock } from './Skeleton'
 import { TabBar } from './layout'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 
 const fitLabel = (bps: number) => `${Math.round(bps / 100)}%`
 
@@ -96,41 +97,39 @@ export function OutreachPipelinePanel(props: { slug: string }) {
       <Show when={booking.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Booking pipeline unavailable: {errorMessage(booking.error, 'Service unreachable')}</div></Show>
       <Show when={booking.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
         <Show when={booking.data!.length > 0} fallback={<EmptyState label="No booking candidates" hint="The intelligence scans for gig opportunities with computed economics. Candidates appear here when the detector finds viable shows." />}>
-          <div class="overflow-x-auto">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Venue</th>
-                  <th>City</th>
-                  <th>Route</th>
-                  <th>Fit</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={showAllBooking() ? booking.data : booking.data!.slice(0, MAX_VISIBLE)}>{(c: BookingCandidateView) => (
-                  <tr>
-                    <td><strong>{c.display_name}</strong><br /><span class="text-muted-foreground">{c.target_kind}</span></td>
-                    <td>{c.city_slug ?? '—'}</td>
-                    <td><span class="text-muted-foreground">{c.route_kind}</span><br />{c.route_value}</td>
-                    <td>{fitLabel(c.fit_basis_points)}</td>
-                    <td><Badge variant={toneToVariant(statusTone(c.status))}>{c.status}</Badge></td>
-                    <td>
-                      <Show when={c.status !== 'refused' && c.status !== 'promoted'}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={confirming() === c.candidate_id}
-                          onClick={() => confirmBooking(c)}
-                        >{confirming() === c.candidate_id ? '…' : 'Confirm'}</Button>
-                      </Show>
-                    </td>
-                  </tr>
-                )}</For>
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Venue</TableHead>
+                <TableHead>City</TableHead>
+                <TableHead>Route</TableHead>
+                <TableHead>Fit</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <For each={showAllBooking() ? booking.data : booking.data!.slice(0, MAX_VISIBLE)}>{(c: BookingCandidateView) => (
+                <TableRow>
+                  <TableCell><strong>{c.display_name}</strong><br /><span class="text-muted-foreground">{c.target_kind}</span></TableCell>
+                  <TableCell>{c.city_slug ?? '—'}</TableCell>
+                  <TableCell><span class="text-muted-foreground">{c.route_kind}</span><br />{c.route_value}</TableCell>
+                  <TableCell>{fitLabel(c.fit_basis_points)}</TableCell>
+                  <TableCell><Badge variant={toneToVariant(statusTone(c.status))}>{c.status}</Badge></TableCell>
+                  <TableCell>
+                    <Show when={c.status !== 'refused' && c.status !== 'promoted'}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={confirming() === c.candidate_id}
+                        onClick={() => confirmBooking(c)}
+                      >{confirming() === c.candidate_id ? '…' : 'Confirm'}</Button>
+                    </Show>
+                  </TableCell>
+                </TableRow>
+              )}</For>
+            </TableBody>
+          </Table>
           <Show when={booking.data!.length > MAX_VISIBLE}>
             <Button variant="ghost" size="sm" onClick={() => setShowAllBooking(s => !s)}>
               {showAllBooking() ? 'Show less' : `Show all (${booking.data!.length})`}
@@ -144,43 +143,41 @@ export function OutreachPipelinePanel(props: { slug: string }) {
       <Show when={outreach.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Outreach pipeline unavailable: {errorMessage(outreach.error, 'Service unreachable')}</div></Show>
       <Show when={outreach.data} fallback={<SkeletonBlock height="120px" radius="10px" />}>
         <Show when={outreach.data!.length > 0} fallback={<EmptyState label="No outreach candidates" hint="Outreach candidates are fans or contacts the intelligence identified for engagement. They appear here when detectors raise them." />}>
-          <div class="overflow-x-auto">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Community</th>
-                  <th>Source</th>
-                  <th>Route</th>
-                  <th>Fit</th>
-                  <th>Followers</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={showAllOutreach() ? outreach.data : outreach.data!.slice(0, MAX_VISIBLE)}>{(c: OutreachCandidateView) => (
-                  <tr>
-                    <td><strong>{c.display_name}</strong><br /><span class="text-muted-foreground">{c.target_kind}</span></td>
-                    <td><span class="text-muted-foreground">{c.source}</span></td>
-                    <td><span class="text-muted-foreground">{c.route_kind}</span></td>
-                    <td>{fitLabel(c.fit_basis_points)}</td>
-                    <td>{c.follower_count != null ? c.follower_count.toLocaleString() : '—'}</td>
-                    <td><Badge variant={toneToVariant(statusTone(c.status))}>{c.status}</Badge></td>
-                    <td>
-                      <Show when={c.status !== 'refused' && c.status !== 'promoted'}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={confirming() === c.id}
-                          onClick={() => confirmOutreach(c)}
-                        >{confirming() === c.id ? '…' : 'Confirm'}</Button>
-                      </Show>
-                    </td>
-                  </tr>
-                )}</For>
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Community</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead>Route</TableHead>
+                <TableHead>Fit</TableHead>
+                <TableHead>Followers</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <For each={showAllOutreach() ? outreach.data : outreach.data!.slice(0, MAX_VISIBLE)}>{(c: OutreachCandidateView) => (
+                <TableRow>
+                  <TableCell><strong>{c.display_name}</strong><br /><span class="text-muted-foreground">{c.target_kind}</span></TableCell>
+                  <TableCell><span class="text-muted-foreground">{c.source}</span></TableCell>
+                  <TableCell><span class="text-muted-foreground">{c.route_kind}</span></TableCell>
+                  <TableCell>{fitLabel(c.fit_basis_points)}</TableCell>
+                  <TableCell>{c.follower_count != null ? c.follower_count.toLocaleString() : '—'}</TableCell>
+                  <TableCell><Badge variant={toneToVariant(statusTone(c.status))}>{c.status}</Badge></TableCell>
+                  <TableCell>
+                    <Show when={c.status !== 'refused' && c.status !== 'promoted'}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={confirming() === c.id}
+                        onClick={() => confirmOutreach(c)}
+                      >{confirming() === c.id ? '…' : 'Confirm'}</Button>
+                    </Show>
+                  </TableCell>
+                </TableRow>
+              )}</For>
+            </TableBody>
+          </Table>
           <Show when={outreach.data!.length > MAX_VISIBLE}>
             <Button variant="ghost" size="sm" onClick={() => setShowAllOutreach(s => !s)}>
               {showAllOutreach() ? 'Show less' : `Show all (${outreach.data!.length})`}

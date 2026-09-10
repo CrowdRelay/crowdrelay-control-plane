@@ -140,7 +140,7 @@ export function TabBar(props: {
       <For each={props.tabs}>{tab => (
         <button
           class={cn(
-            'page-tab flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors',
+            'flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors',
             props.active === tab.id
               ? 'border-primary text-foreground'
               : 'border-transparent text-muted-foreground hover:text-foreground',
@@ -171,7 +171,6 @@ export function TabPanel(props: {
   return (
     <Show when={props.visited}>
       <div
-        class="page-tab-content"
         classList={{ hidden: props.active !== props.id }}
         role="tabpanel"
         aria-labelledby={`tab-${props.id}`}

@@ -3,12 +3,14 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { refreshQueries } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock } from './Skeleton'
 import { TabBar } from './layout'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { NativeSelect } from './ui/native-select'
 
 const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (status) {
@@ -113,41 +115,39 @@ export function PressRoomPanel(props: { slug: string }) {
       <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
       <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
         <Show when={requests().length > 0} fallback={<EmptyState label="No press requests" hint="Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches." />}>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>From</th>
-                  <th>Kind</th>
-                  <th>Event</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={showAllRequests() ? requests() : requests().slice(0, MAX_VISIBLE)}>{(r) => (
-                  <tr>
-                    <td><strong>{r.displayName}</strong><br /><span class="text-muted-foreground">{r.beaconKind}</span></td>
-                    <td>{r.requestKind}</td>
-                    <td>{r.eventTitle ?? '—'}</td>
-                    <td><Badge variant={toneToVariant(statusTone(r.status))}>{r.status}</Badge></td>
-                    <td>{formatTimestamp(r.createdAt)}</td>
-                    <td>
-                      <Show when={r.status === 'pending' || r.status === 'open'}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={resolving() === r.id}
-                          onClick={() => resolveRequest(r.id)}
-                        >{resolving() === r.id ? '…' : 'Resolve'}</Button>
-                      </Show>
-                    </td>
-                  </tr>
-                )}</For>
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>From</TableHead>
+                <TableHead>Kind</TableHead>
+                <TableHead>Event</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <For each={showAllRequests() ? requests() : requests().slice(0, MAX_VISIBLE)}>{(r) => (
+                <TableRow>
+                  <TableCell><strong>{r.displayName}</strong><br /><span class="text-muted-foreground">{r.beaconKind}</span></TableCell>
+                  <TableCell>{r.requestKind}</TableCell>
+                  <TableCell>{r.eventTitle ?? '—'}</TableCell>
+                  <TableCell><Badge variant={toneToVariant(statusTone(r.status))}>{r.status}</Badge></TableCell>
+                  <TableCell>{formatTimestamp(r.createdAt)}</TableCell>
+                  <TableCell>
+                    <Show when={r.status === 'pending' || r.status === 'open'}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={resolving() === r.id}
+                        onClick={() => resolveRequest(r.id)}
+                      >{resolving() === r.id ? '…' : 'Resolve'}</Button>
+                    </Show>
+                  </TableCell>
+                </TableRow>
+              )}</For>
+            </TableBody>
+          </Table>
           <Show when={requests().length > MAX_VISIBLE}>
             <Button variant="ghost" size="sm" onClick={() => setShowAllRequests(s => !s)}>
               {showAllRequests() ? 'Show less' : `Show all (${requests().length})`}
@@ -161,32 +161,30 @@ export function PressRoomPanel(props: { slug: string }) {
       <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
       <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
         <Show when={assets().length > 0} fallback={<EmptyState label="No press assets" hint="Press assets are media materials (photos, bios, EPKs) available for outreach. Upload them through the tenant content pipeline." />}>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Asset</th>
-                  <th>Kind</th>
-                  <th>Event</th>
-                  <th>Active</th>
-                  <th>Updated</th>
-                  <th>URL</th>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={showAllAssets() ? assets() : assets().slice(0, MAX_VISIBLE)}>{(a) => (
-                  <tr>
-                    <td><strong>{a.labelEn}</strong><br /><span class="text-muted-foreground">{a.labelPl}</span></td>
-                    <td>{a.assetKind}</td>
-                    <td>{a.eventTitle ?? '—'}</td>
-                    <td>{a.active ? '✓' : '—'}</td>
-                    <td>{formatTimestamp(a.updatedAt)}</td>
-                    <td><a href={a.url} target="_blank" rel="noopener noreferrer" class="text-primary underline-offset-4 hover:underline">Open</a></td>
-                  </tr>
-                )}</For>
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Asset</TableHead>
+                <TableHead>Kind</TableHead>
+                <TableHead>Event</TableHead>
+                <TableHead>Active</TableHead>
+                <TableHead>Updated</TableHead>
+                <TableHead>URL</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <For each={showAllAssets() ? assets() : assets().slice(0, MAX_VISIBLE)}>{(a) => (
+                <TableRow>
+                  <TableCell><strong>{a.labelEn}</strong><br /><span class="text-muted-foreground">{a.labelPl}</span></TableCell>
+                  <TableCell>{a.assetKind}</TableCell>
+                  <TableCell>{a.eventTitle ?? '—'}</TableCell>
+                  <TableCell>{a.active ? '✓' : '—'}</TableCell>
+                  <TableCell>{formatTimestamp(a.updatedAt)}</TableCell>
+                  <TableCell><a href={a.url} target="_blank" rel="noopener noreferrer" class="text-primary underline-offset-4 hover:underline">Open</a></TableCell>
+                </TableRow>
+              )}</For>
+            </TableBody>
+          </Table>
           <Show when={assets().length > MAX_VISIBLE}>
             <Button variant="ghost" size="sm" onClick={() => setShowAllAssets(s => !s)}>
               {showAllAssets() ? 'Show less' : `Show all (${assets().length})`}
@@ -200,58 +198,55 @@ export function PressRoomPanel(props: { slug: string }) {
       <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
       <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
         <Show when={engagements().length > 0} fallback={<EmptyState label="No event engagements" hint="Event engagements track press interactions for specific shows and releases." />}>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Beacon</th>
-                  <th>Event</th>
-                  <th>Status</th>
-                  <th>Help</th>
-                  <th>Notifications</th>
-                  <th>Coverage</th>
-                  <th>Updated</th>
-                  <th>Reply</th>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={showAllEngagements() ? engagements() : engagements().slice(0, MAX_VISIBLE)}>{(e) => (
-                  <tr>
-                    <td><strong>{e.displayName}</strong><br /><span class="text-muted-foreground">{e.beaconKind}</span></td>
-                    <td>{e.eventTitle}</td>
-                    <td><Badge variant={toneToVariant(statusTone(e.status))}>{e.status}</Badge></td>
-                    <td>{e.helpKind ?? '—'}</td>
-                    <td>{e.notificationCount}</td>
-                    <td>{e.coverageCount}</td>
-                    <td>{formatTimestamp(e.updatedAt)}</td>
-                    {/* The write endpoint existed and nothing called it, so a
-                        beacon who declined twice looked the same as one who
-                        had never been asked. This row has both ids the reply
-                        needs, so it is where the answer gets written down. */}
-                    <td>
-                      <label class="engagement-reply">
-                        <span class="sr-only">Reply from {e.displayName} about {e.eventTitle}</span>
-                        <select
-                          disabled={replying() === `${e.beaconId}:${e.eventId}`}
-                          value=""
-                          onChange={(event) => {
-                            const disposition = event.currentTarget.value
-                            event.currentTarget.value = ''
-                            if (disposition) void recordReply(e.beaconId, e.eventId, disposition)
-                          }}
-                        >
-                          <option value="">Record…</option>
-                          <For each={REPLY_DISPOSITIONS}>{option =>
-                            <option value={option.value}>{option.label}</option>
-                          }</For>
-                        </select>
-                      </label>
-                    </td>
-                  </tr>
-                )}</For>
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Beacon</TableHead>
+                <TableHead>Event</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Help</TableHead>
+                <TableHead>Notifications</TableHead>
+                <TableHead>Coverage</TableHead>
+                <TableHead>Updated</TableHead>
+                <TableHead>Reply</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <For each={showAllEngagements() ? engagements() : engagements().slice(0, MAX_VISIBLE)}>{(e) => (
+                <TableRow>
+                  <TableCell><strong>{e.displayName}</strong><br /><span class="text-muted-foreground">{e.beaconKind}</span></TableCell>
+                  <TableCell>{e.eventTitle}</TableCell>
+                  <TableCell><Badge variant={toneToVariant(statusTone(e.status))}>{e.status}</Badge></TableCell>
+                  <TableCell>{e.helpKind ?? '—'}</TableCell>
+                  <TableCell numeric>{e.notificationCount}</TableCell>
+                  <TableCell numeric>{e.coverageCount}</TableCell>
+                  <TableCell>{formatTimestamp(e.updatedAt)}</TableCell>
+                  {/* The write endpoint existed and nothing called it, so a
+                      beacon who declined twice looked the same as one who
+                      had never been asked. This row has both ids the reply
+                      needs, so it is where the answer gets written down. */}
+                  <TableCell>
+                    <label class="engagement-reply">
+                      <span class="sr-only">Reply from {e.displayName} about {e.eventTitle}</span>
+                      <NativeSelect disabled={replying() === `${e.beaconId}:${e.eventId}`}
+                        value=""
+                        onChange={(event) => {
+                          const disposition = event.currentTarget.value
+                          event.currentTarget.value = ''
+                          if (disposition) void recordReply(e.beaconId, e.eventId, disposition)
+                        }}
+                      >
+                        <option value="">Record…</option>
+                        <For each={REPLY_DISPOSITIONS}>{option =>
+                          <option value={option.value}>{option.label}</option>
+                        }</For>
+                      </NativeSelect>
+                    </label>
+                  </TableCell>
+                </TableRow>
+              )}</For>
+            </TableBody>
+          </Table>
           <Show when={engagements().length > MAX_VISIBLE}>
             <Button variant="ghost" size="sm" onClick={() => setShowAllEngagements(s => !s)}>
               {showAllEngagements() ? 'Show less' : `Show all (${engagements().length})`}
@@ -265,32 +260,30 @@ export function PressRoomPanel(props: { slug: string }) {
       <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
       <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
         <Show when={coverage().length > 0} fallback={<EmptyState label="No earned media coverage" hint="Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage." />}>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Beacon</th>
-                  <th>Event</th>
-                  <th>Kind</th>
-                  <th>Title</th>
-                  <th>Created</th>
-                  <th>URL</th>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={showAllCoverage() ? coverage() : coverage().slice(0, MAX_VISIBLE)}>{(c) => (
-                  <tr>
-                    <td><strong>{c.displayName}</strong></td>
-                    <td>{c.eventTitle}</td>
-                    <td>{c.coverageKind}</td>
-                    <td>{c.title ?? '—'}</td>
-                    <td>{formatTimestamp(c.createdAt)}</td>
-                    <td><a href={c.url} target="_blank" rel="noopener noreferrer" class="text-primary underline-offset-4 hover:underline">Open</a></td>
-                  </tr>
-                )}</For>
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Beacon</TableHead>
+                <TableHead>Event</TableHead>
+                <TableHead>Kind</TableHead>
+                <TableHead>Title</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead>URL</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <For each={showAllCoverage() ? coverage() : coverage().slice(0, MAX_VISIBLE)}>{(c) => (
+                <TableRow>
+                  <TableCell><strong>{c.displayName}</strong></TableCell>
+                  <TableCell>{c.eventTitle}</TableCell>
+                  <TableCell>{c.coverageKind}</TableCell>
+                  <TableCell>{c.title ?? '—'}</TableCell>
+                  <TableCell>{formatTimestamp(c.createdAt)}</TableCell>
+                  <TableCell><a href={c.url} target="_blank" rel="noopener noreferrer" class="text-primary underline-offset-4 hover:underline">Open</a></TableCell>
+                </TableRow>
+              )}</For>
+            </TableBody>
+          </Table>
           <Show when={coverage().length > MAX_VISIBLE}>
             <Button variant="ghost" size="sm" onClick={() => setShowAllCoverage(s => !s)}>
               {showAllCoverage() ? 'Show less' : `Show all (${coverage().length})`}

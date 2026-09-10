@@ -5,11 +5,12 @@ import type { PortfolioConsent, PortfolioConsentStatus, PortfolioOverview } from
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
 import { KpiValue } from './KpiValue'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Badge } from './ui/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 
 const STATUS_TONE: Record<PortfolioConsentStatus, 'good' | 'warn' | 'bad' | 'muted'> = {
   proposed: 'warn',
@@ -118,48 +119,50 @@ export function PortfolioPanel(props: {
 
     <div class="mt-6 pt-4 border-t border-border"><h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><SectionIcon name="link" />Amplification edges</h3></div>
     <Show when={sortedEdges().length}>
-      <div class="overflow-x-auto"><table class="data-table" aria-label="Amplification edges">
-        <thead><tr>
-          <th>Purpose</th><th>Audience owner</th><th>Beneficiary</th><th>Status</th>
-          <th>Campaigns / month</th><th>Cooldown</th><th>Actions</th>
-        </tr></thead>
-        <tbody>
+      <Table aria-label="Amplification edges">
+        <TableHeader><TableRow>
+          <TableHead>Purpose</TableHead><TableHead>Audience owner</TableHead><TableHead>Beneficiary</TableHead><TableHead>Status</TableHead>
+          <TableHead>Campaigns / month</TableHead><TableHead>Cooldown</TableHead><TableHead>Actions</TableHead>
+        </TableRow></TableHeader>
+        <TableBody>
           <For each={sortedEdges()}>{(edge: PortfolioConsent) => (
             <>
-            <tr>
-              <td>{PURPOSE_LABEL[edge.purpose]}</td>
-              <td>{shortWs(edge.from_workspace_id)}</td>
-              <td>{shortWs(edge.to_workspace_id)}</td>
-              <td>
+            <TableRow>
+              <TableCell>{PURPOSE_LABEL[edge.purpose]}</TableCell>
+              <TableCell>{shortWs(edge.from_workspace_id)}</TableCell>
+              <TableCell>{shortWs(edge.to_workspace_id)}</TableCell>
+              <TableCell>
                 <span class="flex flex-wrap items-center gap-2">
                   <StatusBadge status={STATUS_LABEL[edge.status]} tone={STATUS_TONE[edge.status]} />
                   <Show when={edge.status === 'active'}>
                     <small class="text-xs text-muted-foreground">{edge.campaigns_this_month}/{edge.max_campaigns_per_month} this month</small>
                   </Show>
                 </span>
-              </td>
-              <td>{edge.cooldown_days}d</td>
-              <td class="actions">
-                <Show when={edge.status === 'proposed'}>
-                  <Button size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Approve</Button>
-                  <Button variant="destructive" size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Decline</Button>
-                </Show>
-                <Show when={edge.status === 'active'}>
-                  <Button size="sm" disabled={pendingId() !== null} onClick={() => decide.mutate({ id: edge.id, action: 'pause' })}>Pause</Button>
-                  <Button variant="destructive" size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Revoke</Button>
-                </Show>
-                <Show when={edge.status === 'paused'}>
-                  <Button size="sm" disabled={pendingId() !== null} onClick={() => decide.mutate({ id: edge.id, action: 'resume' })}>Resume</Button>
-                  <Button variant="destructive" size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Revoke</Button>
-                </Show>
-                <Show when={edge.status === 'revoked'}><span class="text-muted-foreground">closed</span></Show>
-              </td>
-            </tr>
+              </TableCell>
+              <TableCell>{edge.cooldown_days}d</TableCell>
+              <TableCell class="whitespace-nowrap">
+                <div class="flex gap-2 flex-wrap">
+                  <Show when={edge.status === 'proposed'}>
+                    <Button size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Approve</Button>
+                    <Button variant="destructive" size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Decline</Button>
+                  </Show>
+                  <Show when={edge.status === 'active'}>
+                    <Button size="sm" disabled={pendingId() !== null} onClick={() => decide.mutate({ id: edge.id, action: 'pause' })}>Pause</Button>
+                    <Button variant="destructive" size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Revoke</Button>
+                  </Show>
+                  <Show when={edge.status === 'paused'}>
+                    <Button size="sm" disabled={pendingId() !== null} onClick={() => decide.mutate({ id: edge.id, action: 'resume' })}>Resume</Button>
+                    <Button variant="destructive" size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Revoke</Button>
+                  </Show>
+                  <Show when={edge.status === 'revoked'}><span class="text-muted-foreground">closed</span></Show>
+                </div>
+              </TableCell>
+            </TableRow>
             {/* Inline form — expands below the row when Approve/Decline/Revoke
                 is clicked. Replaces the global operator/reason fields. */}
             <Show when={expandedRow() === edge.id}>
-              <tr class="p-0 border-t-0">
-                <td colspan="7" class="p-0 border-t-0">
+              <TableRow class="p-0 border-t-0">
+                <TableCell colspan="7" class="p-0 border-t-0">
                   <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3.5 items-end px-4.5 py-4 bg-surface-1 border border-primary/30 rounded-b-lg -mt-px">
                     <Show when={edge.status === 'proposed'}>
                       <label class="grid gap-1.5 text-muted-foreground text-sm">
@@ -195,13 +198,13 @@ export function PortfolioPanel(props: {
                       <Button variant="ghost" size="sm" onClick={() => setExpandedRow(null)}>Cancel</Button>
                     </div>
                   </div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             </Show>
             </>
           )}</For>
-        </tbody>
-      </table></div>
+        </TableBody>
+      </Table>
     </Show>
     {/* Two different empty states, because they mean different things.
         With fewer than two artists amplification cannot exist at all, and

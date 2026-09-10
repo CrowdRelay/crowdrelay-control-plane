@@ -2,11 +2,12 @@ import { For, Show } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
 import type { OpsAlert } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
 import { Card } from './ui/card'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
+import { buttonVariants } from './ui/button'
 
 // What each watchdog condition actually observes, and where an operator can act
 // on it. The upstream row carries a one-line summary and raw evidence; the
@@ -117,7 +118,7 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
         <Show when={guide()?.action}>{action => <div class="flex items-center gap-2 mt-3">
           <Show
             when={'operations' in action() ? null : (action() as { anchor: string }).anchor}
-            fallback={<Link class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors h-8 px-3 text-xs text-secondary-foreground hover:bg-surface-3 hover:text-foreground" to="/tenants/$slug" params={{ slug: props.slug }}>{action().label}</Link>}
+            fallback={<Link class={buttonVariants({ variant: 'ghost', size: 'sm' })} to="/tenants/$slug" params={{ slug: props.slug }}>{action().label}</Link>}
           >
             {anchor => <Button variant="ghost" size="sm" onClick={() => jumpTo(anchor())}>{action().label}</Button>}
           </Show>

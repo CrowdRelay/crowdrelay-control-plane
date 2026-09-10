@@ -4,12 +4,14 @@ import { api } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonRows } from './Skeleton'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { KpiStrip, KpiCard } from './layout'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 import type { IntelligenceDecision, IntelligenceDecisionTask, IntelligenceDecisionsData } from '../lib/types'
+import { NativeSelect } from './ui/native-select'
 
 // --- Intelligence icon (deterministic Rust autopilot) ---
 const IntelligenceIcon = (props: { size?: number }) => (
@@ -106,12 +108,12 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
     <div class="flex flex-wrap gap-3 items-end">
       <label class="grid gap-1.5 text-muted-foreground text-sm">
         <span>Time range</span>
-        <select class="border border-border-strong text-white px-2.5 py-2 rounded-md" value={days()} onChange={(e) => setDays(Number(e.currentTarget.value))}>
+        <NativeSelect value={days()} onChange={(e) => setDays(Number(e.currentTarget.value))}>
           <option value={7}>Last 7 days</option>
           <option value={30}>Last 30 days</option>
           <option value={90}>Last 90 days</option>
           <option value={365}>All time</option>
-        </select>
+        </NativeSelect>
       </label>
       <Button variant="ghost" size="sm" onClick={() => void data.refetch()} disabled={data.isFetching}>{data.isFetching ? 'Refreshing…' : 'Refresh'}</Button>
     </div>
@@ -230,26 +232,26 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                         <div class="mt-4">
                           <h4 class="text-sm font-semibold text-foreground m-0 mb-1.5">Dispatched Workers</h4>
                           <p class="text-sm text-muted-foreground m-0 mb-2.5">Workers dispatched for this plan — each runs an LLM template and emits structured outcomes the intelligence consumes deterministically.</p>
-                          <table class="w-full text-sm">
-                            <thead><tr><th>Slot</th><th>Role</th><th>Template</th><th>Status</th><th>Outcome</th><th>Tokens</th><th></th></tr></thead>
-                            <tbody>
+                          <Table>
+                            <TableHeader><TableRow><TableHead>Slot</TableHead><TableHead>Role</TableHead><TableHead>Template</TableHead><TableHead>Status</TableHead><TableHead>Outcome</TableHead><TableHead>Tokens</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                            <TableBody>
                               <For each={expandedTasks().has(decision.id) ? decision.tasks : decision.tasks.slice(0, MAX_VISIBLE_TASKS)}>{(task: IntelligenceDecisionTask) => (
-                                <tr>
-                                  <td>{String(task.slot).replace(/_/g, ' ')}</td>
-                                  <td><Badge variant={task.role === 'brain' ? 'success' : 'warning'}>{task.role}</Badge></td>
-                                  <td>{templateLabel(task.template_id)}</td>
-                                  <td><StatusBadge status={task.status} tone={taskStatusTone(task.status)} /></td>
-                                  <td>
+                                <TableRow>
+                                  <TableCell>{String(task.slot).replace(/_/g, ' ')}</TableCell>
+                                  <TableCell><Badge variant={task.role === 'brain' ? 'success' : 'warning'}>{task.role}</Badge></TableCell>
+                                  <TableCell>{templateLabel(task.template_id)}</TableCell>
+                                  <TableCell><StatusBadge status={task.status} tone={taskStatusTone(task.status)} /></TableCell>
+                                  <TableCell>
                                     <Show when={task.has_outcome} fallback={<span class="text-muted-foreground">—</span>}>
                                       <Badge variant="success">{task.outcome_kind ?? 'structured'}</Badge>
                                     </Show>
-                                  </td>
-                                  <td class="text-muted-foreground">{task.tokens_in > 0 || task.tokens_out > 0 ? `${task.tokens_in}/${task.tokens_out}` : '—'}</td>
-                                  <td><Show when={task.error}><span class="inline-flex items-center rounded-md border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive" title={task.error!}>error</span></Show></td>
-                                </tr>
+                                  </TableCell>
+                                  <TableCell class="text-muted-foreground">{task.tokens_in > 0 || task.tokens_out > 0 ? `${task.tokens_in}/${task.tokens_out}` : '—'}</TableCell>
+                                  <TableCell><Show when={task.error}><span class="inline-flex items-center rounded-md border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive" title={task.error!}>error</span></Show></TableCell>
+                                </TableRow>
                               )}</For>
-                            </tbody>
-                          </table>
+                            </TableBody>
+                          </Table>
                           <Show when={decision.tasks.length > MAX_VISIBLE_TASKS}>
                             <Button variant="ghost" size="sm" class="mt-2" onClick={() => toggleTasks(decision.id)}>
                               {expandedTasks().has(decision.id) ? 'Show less' : `Show all (${decision.tasks.length})`}

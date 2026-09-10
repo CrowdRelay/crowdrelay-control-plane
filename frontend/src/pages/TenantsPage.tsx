@@ -10,6 +10,8 @@ import { Spinner } from '../components/Spinner'
 import { PageShell, PageHeader, ErrorCard } from '../components/layout'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { NativeSelect } from '../components/ui/native-select'
+import { buttonVariants } from '../components/ui/button'
 
 type Preset = 'PL' | 'DE' | 'CZ' | 'US'
 const presets: Record<Preset, RegionalProfile> = {
@@ -98,7 +100,7 @@ export function TenantsPage() {
       description={isPlatformLevel()
         ? 'Create an isolated CrowdRelay + Signal tenant with an explicit regional profile.'
         : 'Your tenant on the platform. Regional profile, runtime health and deployment state.'}
-      actions={<Show when={isAdmin()}><Link class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors h-9 px-4 text-sm bg-primary text-primary-foreground hover:bg-primary/90" to="/tenants/new">+ New tenant</Link></Show>}
+      actions={<Show when={isAdmin()}><Link class={buttonVariants()} to="/tenants/new">+ New tenant</Link></Show>}
     />
 
     <Show when={notice()}>{message => <div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground">{message()}</div>}</Show>
@@ -109,15 +111,15 @@ export function TenantsPage() {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           <label>Slug<Input value={slug()} onInput={(e) => setSlug(e.currentTarget.value.toLowerCase())} placeholder="future-metal" autocomplete="off" maxlength="60" /></label>
           <label>Display name<Input value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="Future Metal" maxlength="120" /></label>
-          <label>Regional preset<select class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" onChange={e=>applyPreset(e.currentTarget.value as Preset)}><option value="PL">Poland</option><option value="DE">Germany</option><option value="CZ">Czechia</option><option value="US">United States</option></select><small>Fills fields below; can be overridden.</small></label>
+          <label>Regional preset<NativeSelect onChange={e=>applyPreset(e.currentTarget.value as Preset)}><option value="PL">Poland</option><option value="DE">Germany</option><option value="CZ">Czechia</option><option value="US">United States</option></NativeSelect><small>Fills fields below; can be overridden.</small></label>
           <label>Country<Input maxlength="2" value={profile().countryCode} onInput={e=>setRegional('countryCode',e.currentTarget.value.toUpperCase())}/></label>
           <label>Locale<Input value={profile().locale} onInput={e=>setRegional('locale',e.currentTarget.value)} placeholder="de-DE"/></label>
           <label>Timezone<Input value={profile().timezone} onInput={e=>setRegional('timezone',e.currentTarget.value)} placeholder={profile().countryCode === 'US' ? 'America/Chicago (choose explicitly)' : 'Europe/Berlin'}/><small>{profile().countryCode === 'US' ? 'Required: US preset has no hidden timezone default.' : 'Explicit timezone.'}</small></label>
           <label>Currency<Input maxlength="3" value={profile().currency} onInput={e=>setRegional('currency',e.currentTarget.value.toUpperCase())}/></label>
-          <label>Market region<select class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={profile().region} onChange={e=>setRegional('region',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></select></label>
-          <label>Data residency<select class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={profile().dataRegion} onChange={e=>setRegional('dataRegion',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></select><small>Enforced by the regional provisioner pool.</small></label>
-          <label>Date format<select class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={profile().dateFormat} onChange={e=>setRegional('dateFormat',e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></select></label>
-          <label>Number format<select class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={profile().numberFormat} onChange={e=>setRegional('numberFormat',e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></select></label>
+          <label>Market region<NativeSelect value={profile().region} onChange={e=>setRegional('region',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></NativeSelect></label>
+          <label>Data residency<NativeSelect value={profile().dataRegion} onChange={e=>setRegional('dataRegion',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></NativeSelect><small>Enforced by the regional provisioner pool.</small></label>
+          <label>Date format<NativeSelect value={profile().dateFormat} onChange={e=>setRegional('dateFormat',e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></NativeSelect></label>
+          <label>Number format<NativeSelect value={profile().numberFormat} onChange={e=>setRegional('numberFormat',e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></NativeSelect></label>
           <label>CrowdRelay API base URL<Input value={crowdrelayBaseUrl()} onInput={(e) => setCrowdrelayBaseUrl(e.currentTarget.value)} placeholder="https://api.future-metal.example" /></label>
           <label>Signal / public site URL<Input value={signalBaseUrl()} onInput={(e) => setSignalBaseUrl(e.currentTarget.value)} placeholder="https://future-metal.example" /></label>
           <label>Release SHA <small>optional if server default is configured</small><Input value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={overview.data?.provisionerDefaultImageTag ?? 'sha-<40-char CrowdRelay commit>'} /></label>

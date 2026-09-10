@@ -3,7 +3,9 @@ import type { AutopilotPolicy, AutonomyLevel } from '../lib/types'
 import { CONTEXT_LABELS, labelOr } from '../lib/opportunity-labels'
 import { StatusBadge } from './StatusBadge'
 import { Button } from './ui/button'
-import { cn } from '../lib/cn'
+import { Input } from './ui/input'
+import { NativeSelect } from './ui/native-select'
+import { Switch } from './ui/switch'
 
 // Shared autopilot policy editor — used by both AuthorityPoliciesPanel
 // and GrowthIntelligencePanel. The two copies had already drifted in
@@ -47,24 +49,21 @@ export function PolicyEditor(props: {
     </div>
     <label class="grid gap-1.5 text-muted-foreground text-sm items-center">
       <span>Enabled</span>
-      <button
-        type="button"
-        class={cn('switch-control', enabled() && 'on')}
-        role="switch"
-        aria-checked={enabled()}
-        aria-label={`${contextLabel(props.policy.context)} enabled`}
+      <Switch
+        checked={enabled()}
+        label={`${contextLabel(props.policy.context)} enabled`}
         disabled={props.pending}
-        onClick={() => setEnabled((current) => !current)}
-      ><span /></button>
+        onChange={() => setEnabled((current) => !current)}
+      />
     </label>
     <label class="grid gap-1.5 text-muted-foreground text-sm">
       <span>Mode</span>
-      <select class="bg-background border border-border-strong text-white px-2.5 py-2 rounded-md outline-none transition-[border-color,box-shadow] duration-100 focus:border-primary focus:shadow-[0_0_0_3px_rgba(118,99,216,0.15),0_0_12px_rgba(155,135,245,0.1)]" disabled={props.pending} value={level()} onChange={(event) => setLevel(event.currentTarget.value as AutonomyLevel)}>
+      <NativeSelect disabled={props.pending} value={level()} onChange={(event) => setLevel(event.currentTarget.value as AutonomyLevel)}>
         <option value="observe">Observe</option>
         <option value="recommend">Recommend</option>
         <option value="require_approval">Require approval</option>
         <option value="bounded_auto">Bounded auto</option>
-      </select>
+      </NativeSelect>
     </label>
     <label class="grid gap-1.5 text-muted-foreground text-sm">
       <div class="flex justify-between gap-2 items-center">
@@ -85,7 +84,7 @@ export function PolicyEditor(props: {
     </label>
     <label class="grid gap-1.5 text-muted-foreground text-sm">
       <span>Max / 24h</span>
-      <input class="bg-background border border-border-strong text-white px-2.5 py-2 rounded-md outline-none transition-[border-color,box-shadow] duration-100 focus:border-primary focus:shadow-[0_0_0_3px_rgba(118,99,216,0.15),0_0_12px_rgba(155,135,245,0.1)] w-20 text-right" disabled={props.pending} type="number" min="1" max="1000" step="1" value={maxActions()} onInput={(event) => setMaxActions(event.currentTarget.valueAsNumber)} />
+      <Input class="w-20 text-right" disabled={props.pending} type="number" min="1" max="1000" step="1" value={maxActions()} onInput={(event) => setMaxActions(event.currentTarget.valueAsNumber)} />
     </label>
     <Button
       variant="ghost"

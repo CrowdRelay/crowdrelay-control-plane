@@ -1,14 +1,15 @@
-import { Show, createSignal, onCleanup, onMount, type Component, type JSX } from 'solid-js'
+import { Show, createSignal, type Component, type JSX } from 'solid-js'
+import { Dialog as DialogPrimitive } from '@kobalte/core'
 import { Button } from './ui/button'
+import { cn } from '../lib/cn'
 
-// Shared modal shell. Overlays used to be plain divs with a click-to-close
-// backdrop: no dialog role, no Escape, no focus trap, and focus left behind on
-// whatever the operator clicked. Every overlay goes through this instead.
+// Shared modal shell built on Kobalte's Dialog primitive. Provides focus trap,
+// Escape to close, click-outside, and ARIA roles out of the box. Same API as
+// the previous hand-rolled Dialog so consumers don't change.
 //
-// The trap is deliberately simple — it cycles the focusable children on Tab
-// rather than hiding the rest of the tree — because the overlay is short-lived
-// and the console has no nested modals.
-const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+//   <Dialog open={show()} onClose={() => setShow(false)} label="Title">
+//     …content…
+//   </Dialog>
 
 type DialogProps = {
   open: boolean
@@ -20,73 +21,27 @@ type DialogProps = {
   children: JSX.Element
 }
 
-// Mounted only while open, so the key handler and focus restore live exactly
-// as long as the dialog does.
-const DialogPanel: Component<Omit<DialogProps, 'open'>> = (props) => {
-  let panel: HTMLDivElement | undefined
-
-  onMount(() => {
-    const previous = document.activeElement as HTMLElement | null
-
-    const focusables = () => Array.from(panel?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation()
-        props.onClose()
-        return
-      }
-      if (event.key !== 'Tab') return
-      const items = focusables()
-      const first = items[0]
-      const last = items[items.length - 1]
-      if (!first || !last) return
-      const active = document.activeElement
-      if (event.shiftKey && (active === first || !panel?.contains(active))) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-
-    document.addEventListener('keydown', onKey, true)
-    // Move focus in so the first Tab lands inside the dialog, not behind it.
-    queueMicrotask(() => (focusables()[0] ?? panel)?.focus())
-
-    onCleanup(() => {
-      document.removeEventListener('keydown', onKey, true)
-      previous?.focus?.()
-    })
-  })
-
-  return <div class={props.overlayClass ?? 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4'} onClick={() => props.onClose()}>
-    <div
-      ref={panel}
-      class={props.class ?? 'w-full max-w-md rounded-lg border border-border bg-card p-5 shadow-xl'}
-      role="dialog"
-      aria-modal="true"
-      aria-label={props.label}
-      aria-describedby={props.description ? `${props.label}-desc` : undefined}
-      tabindex={-1}
-      onClick={(event) => event.stopPropagation()}
-    >
-      {props.children}
-    </div>
-  </div>
-}
-
 export const Dialog: Component<DialogProps> = (props) => (
-  <Show when={props.open}>
-    <DialogPanel
-      onClose={() => props.onClose()}
-      label={props.label}
-      class={props.class}
-      overlayClass={props.overlayClass}
-    >
-      {props.children}
-    </DialogPanel>
-  </Show>
+  <DialogPrimitive.Root open={props.open} onOpenChange={(open) => { if (!open) props.onClose() }}>
+    <DialogPrimitive.Portal>
+      <DialogPrimitive.Overlay
+        class={cn(
+          'fixed inset-0 z-50 bg-black/50',
+          props.overlayClass,
+        )}
+      />
+      <DialogPrimitive.Content
+        class={cn(
+          'fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-5 shadow-xl',
+          props.class,
+        )}
+        aria-label={props.label}
+        aria-describedby={props.description ? `${props.label}-desc` : undefined}
+      >
+        {props.children}
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+  </DialogPrimitive.Root>
 )
 
 // ─── Confirmation ────────────────────────────────────────────────────────
@@ -118,27 +73,38 @@ function settle(ok: boolean) {
 }
 
 export function ConfirmHost(): JSX.Element {
-  return <Show when={pending()} keyed>
-    {request => (
-      <Dialog open onClose={() => settle(false)} label={request.title} description={request.body} class="w-full max-w-md rounded-lg border border-border bg-card p-5 shadow-xl">
-        <h3 class="text-lg font-semibold text-foreground">{request.title}</h3>
-        <Show when={request.body}>
-          <p id={`${request.title}-desc`} class="mt-2 text-sm text-muted-foreground leading-relaxed">{request.body}</p>
-        </Show>
-        <div class="mt-5 flex justify-end gap-2">
-          <Button type="button" variant="ghost" size="sm" onClick={() => settle(false)}>
-            {request.cancelLabel ?? 'Cancel'}
-          </Button>
-          <Button
-            type="button"
-            variant={request.destructive ? 'destructive' : 'default'}
-            size="sm"
-            onClick={() => settle(true)}
-          >
-            {request.confirmLabel ?? 'Confirm'}
-          </Button>
-        </div>
-      </Dialog>
-    )}
-  </Show>
+  return (
+    <DialogPrimitive.Root open={pending() !== null} onOpenChange={(open) => { if (!open) settle(false) }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay class="fixed inset-0 z-50 bg-black/50" />
+        <DialogPrimitive.Content class="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-5 shadow-xl">
+          <Show when={pending()} keyed>
+            {request => (
+              <>
+                <DialogPrimitive.Title class="text-lg font-semibold text-foreground">{request.title}</DialogPrimitive.Title>
+                <Show when={request.body}>
+                  <DialogPrimitive.Description class="mt-2 text-sm text-muted-foreground leading-relaxed">
+                    {request.body}
+                  </DialogPrimitive.Description>
+                </Show>
+                <div class="mt-5 flex justify-end gap-2">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => settle(false)}>
+                    {request.cancelLabel ?? 'Cancel'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={request.destructive ? 'destructive' : 'default'}
+                    size="sm"
+                    onClick={() => settle(true)}
+                  >
+                    {request.confirmLabel ?? 'Confirm'}
+                  </Button>
+                </div>
+              </>
+            )}
+          </Show>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  )
 }

@@ -2,21 +2,24 @@ import { For, Show, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
-import { toast } from '../lib/toast'
+import { toast } from '../components/ui/toast'
 import type { NotifierChannel, NotifierEvent, DiscoveredEndpoint, PlatformConfigItem, AutomationRoutingItem, NotifiersOverview } from '../lib/types'
 import { NOTIFIER_EVENTS, NOTIFIER_EVENT_LABELS } from '../lib/types'
 import { SectionIcon } from '../components/SectionIcon'
 import { errorMessage } from '../lib/format'
 import { NotifierIcon } from '../components/ProviderIcon'
-import { EmptyState } from '../components/EmptyState'
+import { EmptyState } from '../components/ui/empty-state'
 import { SkeletonNotifiersPage, SkeletonSection } from '../components/Skeleton'
 import { confirmAction } from '../components/Dialog'
 import { Spinner } from '../components/Spinner'
 import { PageShell, PageHeader, ErrorCard, SectionPanel } from '../components/layout'
 import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
+import { Switch } from '../components/ui/switch'
 import { Badge } from '../components/ui/badge'
 import { Input } from '../components/ui/input'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
+import { NativeSelect } from '../components/ui/native-select'
 
 const kindLabel = (k: NotifierChannel['kind']) => k === 'discord' ? 'Discord app' : k === 'webhook' ? 'Webhook' : 'Email (relay)'
 const evLabel = (e: string) => NOTIFIER_EVENT_LABELS[e as NotifierEvent] ?? e.replaceAll('.', ' ')
@@ -118,11 +121,11 @@ export function TenantNotifiersPage() {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-4">
           <label class="grid gap-1.5 text-muted-foreground text-sm">
             <span>Type</span>
-            <select class="w-full bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15" value={kind()} onChange={(e) => { setKind(e.currentTarget.value as NotifierChannel['kind']); setTarget('') }}>
+            <NativeSelect value={kind()} onChange={(e) => { setKind(e.currentTarget.value as NotifierChannel['kind']); setTarget('') }}>
               <option value="discord">Discord app</option>
               <option value="webhook">Generic webhook</option>
               <option value="email_relay">Email via platform relay</option>
-            </select>
+            </NativeSelect>
             <small class="text-xs text-muted-foreground">{typeHint()}</small>
           </label>
           <label class="grid gap-1.5 text-muted-foreground text-sm">
@@ -187,15 +190,12 @@ export function TenantNotifiersPage() {
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
                   <Button variant="ghost" size="sm" disabled={test.isPending} onClick={() => test.mutateAsync(ch.id)}>Send test</Button>
-                  <button
-                    type="button"
-                    class={`switch-control ${ch.enabled ? 'on' : ''}`}
-                    role="switch"
-                    aria-checked={ch.enabled}
-                    aria-label={`${ch.label} enabled`}
+                  <Switch
+                    checked={ch.enabled}
+                    label={`${ch.label} enabled`}
                     disabled={update.isPending}
-                    onClick={() => update.mutate({ id: ch.id, enabled: !ch.enabled })}
-                  ><span /></button>
+                    onChange={() => update.mutate({ id: ch.id, enabled: !ch.enabled })}
+                  />
                   <Button variant="destructive-ghost" size="sm" disabled={remove.isPending} onClick={async () => {
                     const ok = await confirmAction({
                       title: `Delete channel "${ch.label}"?`,
@@ -234,32 +234,32 @@ export function TenantNotifiersPage() {
             <p class="text-sm text-muted-foreground leading-relaxed">Environment-level notification routing. <strong class="text-secondary-foreground">source:</strong> environment · <strong class="text-secondary-foreground">owner:</strong> platform · <strong class="text-secondary-foreground">path:</strong> direct, relay, or workflow</p>
             <p class="text-sm text-muted-foreground leading-relaxed mt-2">These are separate from any Discord or n8n you have configured elsewhere — each is read from its own variable in the control plane's deployment environment, and an unset one shows the variable to set.</p>
 
-            <div class="mt-4 overflow-x-auto">
-              <table class="data-table">
-                <thead><tr><th>Type</th><th>Source</th><th>Owner</th><th>Path</th><th>Destination</th><th>Status</th></tr></thead>
-                <tbody>
-                  <For each={platformItems()}>{(item: PlatformConfigItem) => <tr>
-                    <td>{platformTypeLabel(item.type)}</td>
-                    <td><small class="text-muted-foreground">{item.source}</small></td>
-                    <td><small class="text-muted-foreground">{item.owner}</small></td>
-                    <td><small class="text-muted-foreground">{item.path}</small></td>
-                    <td>
+            <div class="mt-4">
+              <Table>
+                <TableHeader><TableRow><TableHead>Type</TableHead><TableHead>Source</TableHead><TableHead>Owner</TableHead><TableHead>Path</TableHead><TableHead>Destination</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  <For each={platformItems()}>{(item: PlatformConfigItem) => <TableRow>
+                    <TableCell>{platformTypeLabel(item.type)}</TableCell>
+                    <TableCell><small class="text-muted-foreground">{item.source}</small></TableCell>
+                    <TableCell><small class="text-muted-foreground">{item.owner}</small></TableCell>
+                    <TableCell><small class="text-muted-foreground">{item.path}</small></TableCell>
+                    <TableCell>
                       <Show when={item.destination} fallback={
                         <small class="text-muted-foreground">set <code class="text-xs bg-surface-3 px-1.5 py-0.5 rounded-sm">{PLATFORM_ENV_VAR[item.type] ?? item.type}</code> in the deployment's <code class="text-xs bg-surface-3 px-1.5 py-0.5 rounded-sm">.env</code></small>
                       }>
                         <code class="text-xs">{item.destination}</code>
                       </Show>
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       <Show when={item.configured && item.enabled} fallback={
                         <Badge variant="muted">{item.configured ? 'disabled' : 'not configured'}</Badge>
                       }>
                         <Badge variant="success">enabled</Badge>
                       </Show>
-                    </td>
-                  </tr>}</For>
-                </tbody>
-              </table>
+                    </TableCell>
+                  </TableRow>}</For>
+                </TableBody>
+              </Table>
             </div>
           </div>
         </details>
@@ -298,24 +298,24 @@ export function TenantNotifiersPage() {
             </Show>
 
             <Show when={routingItems().length > 0}>
-              <div class="mt-4 overflow-x-auto">
-                <table class="data-table">
-                  <thead><tr><th>Workflow</th><th>Label</th><th>Category</th><th>Discord</th><th>Muted</th><th>Status</th></tr></thead>
-                  <tbody>
-                    <For each={visibleRoutingItems()}>{(item: AutomationRoutingItem) => <tr>
-                      <td><code class="text-xs">{item.workflowId}</code></td>
-                      <td>{item.label}</td>
-                      <td><small class="text-muted-foreground">{item.category}</small></td>
-                      <td>{item.discordEnabled ? '✓' : '—'}</td>
-                      <td>{item.muted ? 'muted' : '—'}</td>
-                      <td>
+              <div class="mt-4">
+                <Table>
+                  <TableHeader><TableRow><TableHead>Workflow</TableHead><TableHead>Label</TableHead><TableHead>Category</TableHead><TableHead>Discord</TableHead><TableHead>Muted</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    <For each={visibleRoutingItems()}>{(item: AutomationRoutingItem) => <TableRow>
+                      <TableCell><code class="text-xs">{item.workflowId}</code></TableCell>
+                      <TableCell>{item.label}</TableCell>
+                      <TableCell><small class="text-muted-foreground">{item.category}</small></TableCell>
+                      <TableCell>{item.discordEnabled ? '✓' : '—'}</TableCell>
+                      <TableCell>{item.muted ? 'muted' : '—'}</TableCell>
+                      <TableCell>
                         <Show when={item.enabled} fallback={<Badge variant="muted">muted</Badge>}>
                           <Badge variant="success">enabled</Badge>
                         </Show>
-                      </td>
-                    </tr>}</For>
-                  </tbody>
-                </table>
+                      </TableCell>
+                    </TableRow>}</For>
+                  </TableBody>
+                </Table>
               </div>
               <Show when={routingItems().length > MAX_VISIBLE_ROUTING}>
                 <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllRouting(s => !s)}>
@@ -350,22 +350,20 @@ export function TenantNotifiersPage() {
           </div>
           <p class="text-sm text-muted-foreground">Outbound webhook delivery targets already configured in this tenant's CrowdRelay instance.</p>
         </div>
-        <div class="overflow-x-auto">
-          <table class="data-table">
-            <thead><tr><th>Name</th><th>Target</th><th>Active</th></tr></thead>
-            <tbody>
-              <For each={discovered.data?.endpoints ?? []}>{(ep: DiscoveredEndpoint) => <tr>
-                <td>{ep.name}</td>
-                <td><code class="text-xs">{ep.urlHost}</code></td>
-                <td>
-                  <Show when={ep.active} fallback={<Badge variant="muted">inactive</Badge>}>
-                    <Badge variant="success">active</Badge>
-                  </Show>
-                </td>
-              </tr>}</For>
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Target</TableHead><TableHead>Active</TableHead></TableRow></TableHeader>
+          <TableBody>
+            <For each={discovered.data?.endpoints ?? []}>{(ep: DiscoveredEndpoint) => <TableRow>
+              <TableCell>{ep.name}</TableCell>
+              <TableCell><code class="text-xs">{ep.urlHost}</code></TableCell>
+              <TableCell>
+                <Show when={ep.active} fallback={<Badge variant="muted">inactive</Badge>}>
+                  <Badge variant="success">active</Badge>
+                </Show>
+              </TableCell>
+            </TableRow>}</For>
+          </TableBody>
+        </Table>
       </SectionPanel>
     </Show>
   </PageShell>

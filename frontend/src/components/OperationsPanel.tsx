@@ -4,7 +4,7 @@ import type { AutopilotOverview, FeatureFlag, FreshnessClassification, Operation
 import { errorMessage, formatAge, formatTimestamp, oldestQueueAge } from '../lib/format'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
 import { useOperationsMutations } from '../lib/operations-mutations'
-import { toast } from '../lib/toast'
+import { toast } from './ui/toast'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
@@ -174,7 +174,7 @@ export function OperationsPanel(props: {
     }</Show>
 
     <Show when={unavailable() || props.degraded.length > 0}>
-      <div class={cn('flex items-center gap-2 mt-3 px-3.5 py-2 border rounded-sm text-sm', untrusted() ? 'border-[#5a2a20] bg-[rgba(58,26,18,0.85)] text-[#e0a08c]' : 'border-[rgba(101,80,38,0.3)] bg-[rgba(41,32,15,0.4)] text-[#d4c878]')} role={untrusted() ? 'alert' : 'status'}>
+      <div class={cn('flex items-center gap-2 mt-3 px-3.5 py-2 border rounded-sm text-sm', untrusted() ? 'border-destructive/30 bg-destructive/10 text-destructive' : 'border-warning/30 bg-warning/10 text-warning')} role={untrusted() ? 'alert' : 'status'}>
         <span class="inline-block w-2 h-2 rounded-full bg-current" />
         <span>
           <Show
@@ -197,7 +197,7 @@ export function OperationsPanel(props: {
         one section is stale or unknown; "live" and "assembled" are the
         default and don't need a visible badge. */}
     <Show when={worstFreshness() && worstFreshness() !== 'live' && worstFreshness() !== 'assembled'}>
-      <div class={cn('flex items-center gap-2 mt-3 px-3.5 py-2 border rounded-sm text-sm', FRESHNESS_TONE[worstFreshness()!] === 'warn' && 'border-[rgba(245,185,66,0.3)] bg-[rgba(41,32,15,0.4)] text-warning-light', FRESHNESS_TONE[worstFreshness()!] === 'good' && 'border-[rgba(40,90,64,0.3)] bg-[rgba(16,37,26,0.4)] text-success-light', FRESHNESS_TONE[worstFreshness()!] === 'muted' && 'border-border-subtle bg-card text-muted-foreground')} role="status">
+      <div class={cn('flex items-center gap-2 mt-3 px-3.5 py-2 border rounded-sm text-sm', FRESHNESS_TONE[worstFreshness()!] === 'warn' && 'border-warning/30 bg-warning/10 text-warning-light', FRESHNESS_TONE[worstFreshness()!] === 'good' && 'border-success/30 bg-success/10 text-success-light', FRESHNESS_TONE[worstFreshness()!] === 'muted' && 'border-border-subtle bg-card text-muted-foreground')} role="status">
         <span class={cn('inline-block w-2 h-2 rounded-full', FRESHNESS_TONE[worstFreshness()!] === 'warn' && 'bg-warning', FRESHNESS_TONE[worstFreshness()!] === 'good' && 'bg-success', FRESHNESS_TONE[worstFreshness()!] === 'muted' && 'bg-muted-foreground')} />
         <span>
           <Show when={staleSections().length > 0} fallback={`Data ${FRESHNESS_LABEL[worstFreshness()!]}`}>

@@ -10,6 +10,7 @@ import { Spinner } from './Spinner'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
+import { NativeSelect } from './ui/native-select'
 
 const CycleIcon = (props: { size?: number }) => (
   <svg width={props.size ?? 18} height={props.size ?? 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -124,9 +125,9 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                   creation wizard and never changed again. */}
               <div class="p-3 border border-border rounded-lg bg-card flex flex-col gap-1">
                 <label class="block text-xs text-muted-foreground uppercase tracking-wider" for="north-star-select">Goal</label>
-                <select
-                  id="north-star-select"
-                  class="w-full py-1.5 text-sm font-semibold bg-transparent text-foreground border-b border-border focus:outline-none focus:border-primary disabled:opacity-60 disabled:cursor-progress"
+                <NativeSelect id="north-star-select"
+                  size="sm"
+                  class="font-semibold disabled:cursor-progress"
                   value={data().northStar}
                   disabled={savingGoal() || goals.isFetching}
                   onChange={event => void changeGoal(event.currentTarget.value)}
@@ -137,7 +138,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                   <For each={goals.data?.options ?? []}>
                     {option => <option value={option.value}>{option.label}</option>}
                   </For>
-                </select>
+                </NativeSelect>
                 <strong class="block text-xl font-bold tabular-nums text-foreground">{number(data().northStarCurrent)}</strong>
                 <small class="block text-xs text-muted-foreground">+{number(data().northStarThisMonth)} this month</small>
               </div>

@@ -5,7 +5,7 @@ import type { FeatureFlag, OperationsSummary } from '../lib/types'
 import { errorMessage, formatAge, oldestQueueAge } from '../lib/format'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
 import { useOperationsMutations } from '../lib/operations-mutations'
-import { toast } from '../lib/toast'
+import { toast } from './ui/toast'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonFlagList } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
@@ -14,6 +14,7 @@ import { SectionFailureCard } from './SectionFailureCard'
 import { Card } from './ui/card'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
+import { Switch } from './ui/switch'
 
 const flagLabel = (key: string) => key
   .replace(/_enabled$/, '')
@@ -139,15 +140,12 @@ export function RuntimeSwitchesPanel(props: {
         }>{items => <div class="flex flex-col mt-3">
           <For each={items()}>{flag => <div class="flex items-center justify-between gap-3 py-2.5 border-b border-border">
             <div class="min-w-0"><strong class="block text-sm text-foreground">{flagLabel(flag.key)}</strong><small class="block text-xs text-muted-foreground">{flagReason(flag)}</small></div>
-            <button
-              type="button"
-              class={`switch-control ${flagEnabled(flag) ? 'on' : ''}`}
-              role="switch"
-              aria-checked={flagEnabled(flag)}
-              aria-label={`${flagLabel(flag.key)} ${flagEnabled(flag) ? 'enabled' : 'disabled'}`}
+            <Switch
+              checked={flagEnabled(flag)}
+              label={`${flagLabel(flag.key)} ${flagEnabled(flag) ? 'enabled' : 'disabled'}`}
               disabled={pendingMutation() !== null}
-              onClick={() => updateFlag(flag)}
-            ><span /></button>
+              onChange={() => updateFlag(flag)}
+            />
           </div>}</For>
         </div>}</Show>
       </details>

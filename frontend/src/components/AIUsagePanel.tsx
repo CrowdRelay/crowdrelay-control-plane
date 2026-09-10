@@ -5,11 +5,12 @@ import { errorMessage } from '../lib/format'
 import { ModelIcon } from './ProviderIcon'
 import { Sparkline } from './Sparkline'
 import type { TemplateRoi, ModelAnalytics } from '../lib/types'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 
 // --- Icons ---
 const CrownIcon = (props: { size?: number }) => (
@@ -124,33 +125,31 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
           <span class="text-muted-foreground">this month</span>
         </div>
         <p class="mt-1 text-sm text-muted-foreground">Cost vs outcome per template. Sorted by cost-per-outcome (best ROI first).</p>
-        <div class="mt-3 overflow-x-auto">
-          <table class="w-full border-collapse text-sm [&_th]:text-left [&_th]:p-2 [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-muted-foreground [&_th]:border-b [&_th]:border-border [&_td]:p-2 [&_td]:border-b [&_td]:border-border">
-            <thead><tr><th>Template</th><th>Tasks</th><th>Completed</th><th>Failed</th><th>Cost</th><th>Outcomes</th><th>Cost/Outcome</th><th>Success</th></tr></thead>
-            <tbody>
-              <For each={templateRoi()}>{(row: TemplateRoi) => (
-                <tr>
-                  <td><strong>{templateLabel(row.template_id)}</strong></td>
-                  <td>{row.total_tasks}</td>
-                  <td>{row.completed_tasks}</td>
-                  <td>{row.failed_tasks}</td>
-                  <td>{formatUsd(row.total_cost_micro_usd)}</td>
-                  <td>{row.outcome_count}</td>
-                  <td>
-                    <Show when={row.cost_per_outcome_micro_usd != null} fallback={<span class="text-muted-foreground">—</span>}>
-                      {formatUsd(row.cost_per_outcome_micro_usd!)}
-                    </Show>
-                  </td>
-                  <td>
-                    <Show when={row.success_rate != null} fallback={<span class="text-muted-foreground">—</span>}>
-                      <Badge variant={toneVariant(successTone(row.success_rate))}>{row.success_rate}%</Badge>
-                    </Show>
-                  </td>
-                </tr>
-              )}</For>
-            </tbody>
-          </table>
-        </div>
+        <Table class="mt-3">
+          <TableHeader><TableRow><TableHead>Template</TableHead><TableHead>Tasks</TableHead><TableHead>Completed</TableHead><TableHead>Failed</TableHead><TableHead>Cost</TableHead><TableHead>Outcomes</TableHead><TableHead>Cost/Outcome</TableHead><TableHead>Success</TableHead></TableRow></TableHeader>
+          <TableBody>
+            <For each={templateRoi()}>{(row: TemplateRoi) => (
+              <TableRow>
+                <TableCell><strong>{templateLabel(row.template_id)}</strong></TableCell>
+                <TableCell>{row.total_tasks}</TableCell>
+                <TableCell>{row.completed_tasks}</TableCell>
+                <TableCell>{row.failed_tasks}</TableCell>
+                <TableCell>{formatUsd(row.total_cost_micro_usd)}</TableCell>
+                <TableCell>{row.outcome_count}</TableCell>
+                <TableCell>
+                  <Show when={row.cost_per_outcome_micro_usd != null} fallback={<span class="text-muted-foreground">—</span>}>
+                    {formatUsd(row.cost_per_outcome_micro_usd!)}
+                  </Show>
+                </TableCell>
+                <TableCell>
+                  <Show when={row.success_rate != null} fallback={<span class="text-muted-foreground">—</span>}>
+                    <Badge variant={toneVariant(successTone(row.success_rate))}>{row.success_rate}%</Badge>
+                  </Show>
+                </TableCell>
+              </TableRow>
+            )}</For>
+          </TableBody>
+        </Table>
       </div>
     </Show>
 
@@ -162,28 +161,26 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
           <span class="text-muted-foreground">last 30 days</span>
         </div>
         <p class="mt-1 text-sm text-muted-foreground">Per-model success rate, latency, and cost.</p>
-        <div class="mt-3 overflow-x-auto">
-          <table class="w-full border-collapse text-sm [&_th]:text-left [&_th]:p-2 [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-muted-foreground [&_th]:border-b [&_th]:border-border [&_td]:p-2 [&_td]:border-b [&_td]:border-border">
-            <thead><tr><th>Model</th><th>Provider</th><th>Tasks</th><th>Success</th><th>Avg latency</th><th>Avg cost/task</th><th>Avg tokens</th></tr></thead>
-            <tbody>
-              <For each={modelAnalytics()}>{(m: ModelAnalytics) => (
-                <tr>
-                  <td><ModelIcon modelId={m.model_id} providerId={m.model_provider ?? ''} paid={m.total_cost_micro_usd > 0} size={16} /> <strong>{m.model_id}</strong></td>
-                  <td class="text-muted-foreground">{m.model_provider ?? '—'}</td>
-                  <td>{m.total_tasks}</td>
-                  <td>
-                    <Show when={m.success_rate != null} fallback={<span class="text-muted-foreground">—</span>}>
-                      <Badge variant={toneVariant(successTone(m.success_rate))}>{m.success_rate}%</Badge>
-                    </Show>
-                  </td>
-                  <td class="text-muted-foreground">{m.avg_latency_ms > 0 ? `${(m.avg_latency_ms / 1000).toFixed(1)}s` : '—'}</td>
-                  <td>{formatUsd(m.avg_cost_per_task_micro_usd)}</td>
-                  <td class="text-muted-foreground">{m.avg_tokens_in > 0 || m.avg_tokens_out > 0 ? `${m.avg_tokens_in}/${m.avg_tokens_out}` : '—'}</td>
-                </tr>
-              )}</For>
-            </tbody>
-          </table>
-        </div>
+        <Table class="mt-3">
+          <TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Provider</TableHead><TableHead>Tasks</TableHead><TableHead>Success</TableHead><TableHead>Avg latency</TableHead><TableHead>Avg cost/task</TableHead><TableHead>Avg tokens</TableHead></TableRow></TableHeader>
+          <TableBody>
+            <For each={modelAnalytics()}>{(m: ModelAnalytics) => (
+              <TableRow>
+                <TableCell><ModelIcon modelId={m.model_id} providerId={m.model_provider ?? ''} paid={m.total_cost_micro_usd > 0} size={16} /> <strong>{m.model_id}</strong></TableCell>
+                <TableCell class="text-muted-foreground">{m.model_provider ?? '—'}</TableCell>
+                <TableCell>{m.total_tasks}</TableCell>
+                <TableCell>
+                  <Show when={m.success_rate != null} fallback={<span class="text-muted-foreground">—</span>}>
+                    <Badge variant={toneVariant(successTone(m.success_rate))}>{m.success_rate}%</Badge>
+                  </Show>
+                </TableCell>
+                <TableCell class="text-muted-foreground">{m.avg_latency_ms > 0 ? `${(m.avg_latency_ms / 1000).toFixed(1)}s` : '—'}</TableCell>
+                <TableCell>{formatUsd(m.avg_cost_per_task_micro_usd)}</TableCell>
+                <TableCell class="text-muted-foreground">{m.avg_tokens_in > 0 || m.avg_tokens_out > 0 ? `${m.avg_tokens_in}/${m.avg_tokens_out}` : '—'}</TableCell>
+              </TableRow>
+            )}</For>
+          </TableBody>
+        </Table>
       </div>
     </Show>
 

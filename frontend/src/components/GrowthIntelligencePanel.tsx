@@ -5,13 +5,14 @@ import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { Dialog } from './Dialog'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { SkeletonGrid, SkeletonRows, SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
 import { PolicyEditor } from './PolicyEditor'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 import type { AutopilotOverview, AutopilotPolicy, PendingAutopilotAction, AgentWorkflow, AgentWorkflowTask } from '../lib/types'
 import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 
@@ -348,18 +349,18 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
             <Show when={workflowTasks().length > 0}>
               <div class="py-3 border-b border-border">
                 <h4 class="text-sm font-semibold text-muted-foreground mb-2">Sub-tasks</h4>
-                <table class="w-full text-sm">
-                  <thead><tr><th>Role</th><th>Status</th><th></th></tr></thead>
-                  <tbody>
+                <Table>
+                  <TableHeader><TableRow><TableHead>Role</TableHead><TableHead>Status</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                  <TableBody>
                     <For each={showAllSubTasks() ? workflowTasks() : workflowTasks().slice(0, MAX_VISIBLE_SUB_TASKS)}>{(t) => (
-                      <tr>
-                        <td><Badge variant={t.role === 'brain' ? 'success' : 'destructive'}>{t.role}</Badge></td>
-                        <td><StatusBadge status={t.task_status} tone={workflowStatusTone(t.task_status)} /></td>
-                        <td><Show when={t.task_error}><span class="inline-block rounded-md border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-xs text-destructive" title={t.task_error!}>error</span></Show></td>
-                      </tr>
+                      <TableRow>
+                        <TableCell><Badge variant={t.role === 'brain' ? 'success' : 'destructive'}>{t.role}</Badge></TableCell>
+                        <TableCell><StatusBadge status={t.task_status} tone={workflowStatusTone(t.task_status)} /></TableCell>
+                        <TableCell><Show when={t.task_error}><span class="inline-block rounded-md border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-xs text-destructive" title={t.task_error!}>error</span></Show></TableCell>
+                      </TableRow>
                     )}</For>
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
                 <Show when={workflowTasks().length > MAX_VISIBLE_SUB_TASKS}>
                   <Button variant="ghost" size="sm" class="mt-3 w-full" onClick={() => setShowAllSubTasks(s => !s)}>
                     {showAllSubTasks() ? 'Show less' : `Show all (${workflowTasks().length})`}

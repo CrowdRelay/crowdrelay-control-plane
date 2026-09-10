@@ -448,7 +448,7 @@ export function TierBadge(props: { tier: 'free' | 'premium' | 'connected' | 'bet
   const s = props.size ?? 10
   if (props.tier === 'connected') {
     return (
-      <span class="tier-badge-overlay tier-badge-connected" style={{ width: `${s}px`, height: `${s}px` }} aria-label="connected">
+      <span class="absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-surface-3 flex items-center justify-center leading-none bg-emerald-500 text-white" style={{ width: `${s}px`, height: `${s}px` }} aria-label="connected">
         <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M20 6L9 17l-5-5" />
         </svg>
@@ -456,12 +456,12 @@ export function TierBadge(props: { tier: 'free' | 'premium' | 'connected' | 'bet
     )
   }
   if (props.tier === 'beta') {
-    return <span class="tier-badge-overlay tier-badge-beta" aria-label="beta">beta</span>
+    return <span class="absolute -bottom-1.5 -right-1.5 rounded-full flex items-center justify-center leading-none bg-warning text-surface-3 text-xs font-bold px-1 py-0.5 border-none tracking-wider" aria-label="beta">beta</span>
   }
   const color = props.tier === 'free' ? '#22c55e' : '#a78bfa'
   return (
     <span
-      class="tier-badge-overlay"
+      class="absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-surface-3 flex items-center justify-center leading-none"
       style={{ width: `${s}px`, height: `${s}px`, background: color }}
       aria-label={props.tier}
     />
@@ -488,7 +488,7 @@ export function ModelIcon(props: { modelId: string; providerId: string; paid?: b
   // Free models get the free spark mark
   if (!props.paid) {
     return (
-      <span class="model-icon-wrap" style={{ width: `${s}px`, height: `${s}px` }}>
+      <span class="relative inline-flex items-center justify-center" style={{ width: `${s}px`, height: `${s}px` }}>
         <FreeSparkIcon size={s} class={props.class} />
       </span>
     )
@@ -496,7 +496,7 @@ export function ModelIcon(props: { modelId: string; providerId: string; paid?: b
   // Paid models use the provider brand icon with a premium tier dot
   const Icon = LLM_PROVIDER_ICONS[props.providerId] ?? DefaultIcon
   return (
-    <span class="model-icon-wrap" style={{ width: `${s}px`, height: `${s}px` }}>
+    <span class="relative inline-flex items-center justify-center" style={{ width: `${s}px`, height: `${s}px` }}>
       <Icon size={s} class={props.class} />
       <TierBadge tier="premium" size={Math.max(6, Math.floor(s / 3))} />
     </span>
@@ -510,7 +510,7 @@ export function ModelIcon(props: { modelId: string; providerId: string; paid?: b
 export function LlmProviderIconWithTier(props: { providerId: string; tier?: 'free' | 'premium'; connected?: boolean; beta?: boolean; size?: number; class?: string }) {
   const s = props.size ?? 28
   return (
-    <span class="model-icon-wrap" style={{ width: `${s}px`, height: `${s}px` }}>
+    <span class="relative inline-flex items-center justify-center" style={{ width: `${s}px`, height: `${s}px` }}>
       <LlmProviderIcon providerId={props.providerId} size={s} class={props.class} />
       <Show when={props.connected}>
         <TierBadge tier="connected" size={Math.max(8, Math.floor(s / 3))} />

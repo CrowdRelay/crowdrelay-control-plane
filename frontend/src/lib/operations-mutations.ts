@@ -1,7 +1,7 @@
 import { createSignal } from 'solid-js'
 import { api } from './api'
 import { errorMessage } from './format'
-import { toast } from './toast'
+import { toast } from '../components/ui/toast'
 
 // Shared mutation + confirmation logic for the Operations and Runtime
 // Switches panels. Both panels had identical copies of the mutate helper,

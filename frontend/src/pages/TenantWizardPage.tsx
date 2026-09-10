@@ -9,6 +9,7 @@ import { Spinner } from '../components/Spinner'
 import { PageShell, PageHeader, ErrorCard } from '../components/layout'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { NativeSelect } from '../components/ui/native-select'
 
 type Preset = 'PL' | 'DE' | 'CZ' | 'US'
 const presets: Record<Preset, RegionalProfile> = {
@@ -72,7 +73,6 @@ const fanbaseSources: { value: FanbaseSource; label: string; description: string
   { value: 'x', label: 'X (Twitter)', description: 'Discover X curators and music communities via browser-scraped search.' },
 ]
 
-const selectClass = 'flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
 
 export function TenantWizardPage() {
   const queryClient = useQueryClient()
@@ -246,15 +246,15 @@ export function TenantWizardPage() {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           <label><span>Slug</span><Input value={slug()} onInput={(e) => setSlug(e.currentTarget.value.toLowerCase())} placeholder="future-metal" autocomplete="off" /><small>Lowercase, used in URLs, container names and API paths. It cannot be changed later.</small></label>
           <label><span>Display name</span><Input value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="Future Metal" /><small>The band or label as people write it. Shown across the console and in operator-facing alerts.</small></label>
-          <label>Regional preset<select class={selectClass} onChange={e=>applyPreset(e.currentTarget.value as Preset)}><option value="PL">Poland</option><option value="DE">Germany</option><option value="CZ">Czechia</option><option value="US">United States</option></select><small>Fills the six fields below in one go. Nothing is inferred from it afterwards — edit any of them freely.</small></label>
+          <label>Regional preset<NativeSelect onChange={e=>applyPreset(e.currentTarget.value as Preset)}><option value="PL">Poland</option><option value="DE">Germany</option><option value="CZ">Czechia</option><option value="US">United States</option></NativeSelect><small>Fills the six fields below in one go. Nothing is inferred from it afterwards — edit any of them freely.</small></label>
           <label><span>Country</span><Input maxlength="2" value={profile().countryCode} onInput={e=>setRegional('countryCode',e.currentTarget.value.toUpperCase())}/><small>Two-letter ISO code, e.g. PL. The tenant's home market, not where the servers are.</small></label>
           <label><span>Locale</span><Input value={profile().locale} onInput={e=>setRegional('locale',e.currentTarget.value)} placeholder="de-DE"/><small>BCP-47 tag. Decides the language and formatting of fan-facing copy.</small></label>
           <label>Timezone<Input value={profile().timezone} onInput={e=>setRegional('timezone',e.currentTarget.value)} placeholder={profile().countryCode === 'US' ? 'America/Chicago (choose explicitly)' : 'Europe/Berlin'}/><small>{profile().countryCode === 'US' ? 'Required: US preset intentionally has no hidden timezone default.' : 'Explicit IANA timezone.'}</small></label>
           <label><span>Currency</span><Input maxlength="3" value={profile().currency} onInput={e=>setRegional('currency',e.currentTarget.value.toUpperCase())}/><small>Three-letter ISO code, e.g. PLN. Ticket and merch amounts are stored and shown in it.</small></label>
-          <label><span>Market region</span><select class={selectClass} value={profile().region} onChange={e=>setRegional('region',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></select><small>Which market the growth strategy plays in. Separate from data residency below.</small></label>
-          <label>Data residency<select class={selectClass} value={profile().dataRegion} onChange={e=>setRegional('dataRegion',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></select><small>Persisted and enforced by the regional provisioner pool.</small></label>
-          <label><span>Date format</span><select class={selectClass} value={profile().dateFormat} onChange={e=>setRegional('dateFormat',e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></select><small>How dates are printed to fans and operators of this tenant.</small></label>
-          <label><span>Number format</span><select class={selectClass} value={profile().numberFormat} onChange={e=>setRegional('numberFormat',e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></select><small>Thousands and decimal separators for counts and prices.</small></label>
+          <label><span>Market region</span><NativeSelect value={profile().region} onChange={e=>setRegional('region',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></NativeSelect><small>Which market the growth strategy plays in. Separate from data residency below.</small></label>
+          <label>Data residency<NativeSelect value={profile().dataRegion} onChange={e=>setRegional('dataRegion',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></NativeSelect><small>Persisted and enforced by the regional provisioner pool.</small></label>
+          <label><span>Date format</span><NativeSelect value={profile().dateFormat} onChange={e=>setRegional('dateFormat',e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></NativeSelect><small>How dates are printed to fans and operators of this tenant.</small></label>
+          <label><span>Number format</span><NativeSelect value={profile().numberFormat} onChange={e=>setRegional('numberFormat',e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></NativeSelect><small>Thousands and decimal separators for counts and prices.</small></label>
         </div>
         <div class="flex items-center justify-between gap-2"><div><h2 class="text-lg font-semibold text-foreground">First account for the team</h2></div></div>
         <p class="text-sm text-muted-foreground leading-relaxed">Optional. Creates one login scoped to this tenant so the band or their manager can work without a platform admin. You can add more later from the tenant page.</p>

@@ -3,13 +3,14 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { refreshQueries } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock } from './Skeleton'
 import { KpiStrip, KpiCard } from './layout'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Badge } from './ui/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 
 type Tone = 'good' | 'warn' | 'bad' | 'muted'
 type BadgeVariant = 'success' | 'warning' | 'destructive' | 'muted'
@@ -233,32 +234,30 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
               <Show when={selectedCampaign() === c.id}>
                 <Show when={recipients.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Campaign recipients unavailable: {errorMessage(recipients.error, 'Service unreachable')}</div></Show>
                 <Show when={recipients.data} fallback={<SkeletonBlock height="80px" radius="10px" />}>
-                  <div class="overflow-x-auto mt-3">
-                    <table class="w-full border-collapse text-sm">
-                      <thead>
-                        <tr>
-                          <th class="text-left py-2 px-2 text-xs uppercase tracking-wide text-muted-foreground border-b border-border">Recipient</th>
-                          <th class="text-left py-2 px-2 text-xs uppercase tracking-wide text-muted-foreground border-b border-border">Kind</th>
-                          <th class="text-left py-2 px-2 text-xs uppercase tracking-wide text-muted-foreground border-b border-border">City</th>
-                          <th class="text-left py-2 px-2 text-xs uppercase tracking-wide text-muted-foreground border-b border-border">Status</th>
-                          <th class="text-left py-2 px-2 text-xs uppercase tracking-wide text-muted-foreground border-b border-border">Confirmed</th>
-                          <th class="text-left py-2 px-2 text-xs uppercase tracking-wide text-muted-foreground border-b border-border">Delivered</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <For each={recipients.data!.recipients}>{(r) => (
-                          <tr>
-                            <td class="py-2 px-2 border-b border-border"><strong class="text-foreground">{r.displayName}</strong>{r.recipientName ? <><br /><span class="text-muted-foreground">{r.recipientName}</span></> : null}</td>
-                            <td class="py-2 px-2 border-b border-border">{r.beaconKind}</td>
-                            <td class="py-2 px-2 border-b border-border">{r.city ?? '—'}</td>
-                            <td class="py-2 px-2 border-b border-border"><Badge variant={toneToVariant(recipientStatusTone(r.status))}>{r.status}</Badge></td>
-                            <td class="py-2 px-2 border-b border-border">{formatTimestamp(r.confirmedAt)}</td>
-                            <td class="py-2 px-2 border-b border-border">{formatTimestamp(r.deliveredAt)}</td>
-                          </tr>
-                        )}</For>
-                      </tbody>
-                    </table>
-                  </div>
+                  <Table class="mt-3">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Recipient</TableHead>
+                        <TableHead>Kind</TableHead>
+                        <TableHead>City</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Confirmed</TableHead>
+                        <TableHead>Delivered</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <For each={recipients.data!.recipients}>{(r) => (
+                        <TableRow>
+                          <TableCell><strong class="text-foreground">{r.displayName}</strong>{r.recipientName ? <><br /><span class="text-muted-foreground">{r.recipientName}</span></> : null}</TableCell>
+                          <TableCell>{r.beaconKind}</TableCell>
+                          <TableCell>{r.city ?? '—'}</TableCell>
+                          <TableCell><Badge variant={toneToVariant(recipientStatusTone(r.status))}>{r.status}</Badge></TableCell>
+                          <TableCell>{formatTimestamp(r.confirmedAt)}</TableCell>
+                          <TableCell>{formatTimestamp(r.deliveredAt)}</TableCell>
+                        </TableRow>
+                      )}</For>
+                    </TableBody>
+                  </Table>
                 </Show>
               </Show>
             </Card>

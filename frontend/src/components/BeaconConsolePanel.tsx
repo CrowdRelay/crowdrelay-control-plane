@@ -10,6 +10,9 @@ import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Badge } from './ui/badge'
+import { NativeSelect } from './ui/native-select'
+import { buttonVariants } from './ui/button'
+import { cn } from '../lib/cn'
 
 // The beacon roster, and everything you can do to it.
 //
@@ -237,7 +240,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
             </Button>
           </Show>
           <label
-            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors text-secondary-foreground hover:bg-surface-3 hover:text-foreground cursor-pointer"
+            class={cn(buttonVariants({ variant: 'ghost' }), 'cursor-pointer')}
             classList={{ 'pointer-events-none opacity-45': busy() !== null }}
             title="Upload a SubmitHub Activity CSV. Curators who approved or shared become unverified beacons — enrich contact info from the chats, then approve."
           >
@@ -270,10 +273,10 @@ export function BeaconConsolePanel(props: { slug: string }) {
           </label>
           <label class="grid gap-1.75 text-muted-foreground text-sm">
             Kind <small class="text-xs text-muted-foreground">what they are to the band, not their job title</small>
-            <select class="w-full bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15" value={form().beaconKind}
+            <NativeSelect value={form().beaconKind}
                     onChange={e => setForm({ ...form(), beaconKind: e.currentTarget.value })}>
               <For each={KINDS}>{kind => <option value={kind}>{KIND_LABEL[kind]}</option>}</For>
-            </select>
+            </NativeSelect>
           </label>
           <label class="grid gap-1.75 text-muted-foreground text-sm">
             City slug <small class="text-xs text-muted-foreground">as the public city list returns it</small>
@@ -306,14 +309,14 @@ export function BeaconConsolePanel(props: { slug: string }) {
             value={query()}
             onInput={event => onSearch(event.currentTarget.value)}
           />
-          <select class="bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15" aria-label="Filter beacons by state" value={statusFilter()} onChange={event => onFilter(event.currentTarget.value)}>
+          <NativeSelect aria-label="Filter beacons by state" value={statusFilter()} onChange={event => onFilter(event.currentTarget.value)}>
             <option value="all">All states</option>
             <option value="unverified">Unverified</option>
             <option value="active">Active</option>
             <option value="invited">Invited</option>
             <option value="paused">Paused</option>
             <option value="revoked">Revoked</option>
-          </select>
+          </NativeSelect>
           <Button variant="ghost" size="sm" onClick={selectAllVisible} disabled={visible().length === 0}>
             {visible().every(p => selected().has(p.beaconId)) && visible().length > 0
               ? 'Clear selection'

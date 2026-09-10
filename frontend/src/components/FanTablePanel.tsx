@@ -2,9 +2,11 @@ import { For, Show, createSignal } from 'solid-js'
 import { api } from '../lib/api'
 import type { FanCard, FanDetail, FanJourneyEntry } from '../lib/types'
 import { FanDetailDrawer } from './FanDetailDrawer'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { Card } from './ui/card'
 import { Badge } from './ui/badge'
+import { Input } from './ui/input'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 
 const fanStatusTone = (status: string): 'success' | 'warning' | 'destructive' | 'muted' =>
   status === 'active' ? 'success' :
@@ -63,8 +65,8 @@ export function FanTablePanel(props: {
       <h3>Fan list</h3>
       <span class="text-muted-foreground">{filtered().length} fans</span>
     </div>
-    <div class="fan-search-bar">
-      <input
+    <div class="mb-3">
+      <Input
         type="search"
         placeholder="Search by name, email, or locale…"
         value={search()}
@@ -74,30 +76,30 @@ export function FanTablePanel(props: {
     </div>
     <Show when={filtered().length > 0} fallback={<EmptyState label="No fans match this search" hint="Try adjusting your search query or filters." />}>
       <div class="overflow-auto border border-border rounded-md max-h-[600px]">
-        <table class="data-table fan-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Status</th>
-              <th>Activation</th>
-              <th>Referrals</th>
-              <th>Joined</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Activation</TableHead>
+              <TableHead>Referrals</TableHead>
+              <TableHead>Joined</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             <For each={filtered().slice(0, 100)}>{(fan) => (
-              <tr class="fan-row" onClick={() => openFan(fan)}>
-                <td>{fan.display_name ?? '—'}</td>
-                <td class="text-muted-foreground">{fan.email}</td>
-                <td><Badge variant={fanStatusTone(fan.status)}>{fan.status}</Badge></td>
-                <td><span class="text-muted-foreground">{fan.activation_state}</span></td>
-                <td>{fan.qualified_referrals}</td>
-                <td class="text-muted-foreground">{formatDate(fan.created_at)}</td>
-              </tr>
+              <TableRow class="cursor-pointer" onClick={() => openFan(fan)}>
+                <TableCell>{fan.display_name ?? '—'}</TableCell>
+                <TableCell class="text-muted-foreground">{fan.email}</TableCell>
+                <TableCell><Badge variant={fanStatusTone(fan.status)}>{fan.status}</Badge></TableCell>
+                <TableCell><span class="text-muted-foreground">{fan.activation_state}</span></TableCell>
+                <TableCell numeric>{fan.qualified_referrals}</TableCell>
+                <TableCell class="text-muted-foreground">{formatDate(fan.created_at)}</TableCell>
+              </TableRow>
             )}</For>
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </Show>
     <FanDetailDrawer

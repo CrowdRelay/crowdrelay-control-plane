@@ -1,6 +1,6 @@
 import { For, Show } from 'solid-js'
 import type { FanDetail, FanJourneyEntry } from '../lib/types'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { Dialog } from './Dialog'
 import { Button } from './ui/button'
@@ -36,11 +36,10 @@ export function FanDetailDrawer(props: {
     open={props.fan !== null}
     onClose={props.onClose}
     label={`Fan detail: ${props.fan?.fan.display_name ?? 'Unknown fan'}`}
-    overlayClass="fan-drawer-overlay"
-    class="fan-drawer"
+    class="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-card border-l border-border rounded-none p-0 translate-x-0 translate-y-0 left-auto top-0"
   >
     <>
-        <div class="fan-drawer-head">
+        <div class="flex justify-between items-start p-4 px-5 border-b border-border sticky top-0 z-1">
           <div>
             <h3>{props.fan!.fan.display_name ?? 'Unknown fan'}</h3>
             <Show when={props.fan!.fan.email}>
@@ -49,22 +48,22 @@ export function FanDetailDrawer(props: {
           </div>
           <Button variant="ghost" size="sm" onClick={props.onClose}>Close</Button>
         </div>
-        <div class="fan-drawer-body">
-          <div class="fan-drawer-meta">
-            <div><span class="text-muted-foreground">Status</span><Badge variant={props.fan!.fan.status === 'active' ? 'success' : 'muted'}>{props.fan!.fan.status}</Badge></div>
-            <div><span class="text-muted-foreground">Locale</span><span>{props.fan!.fan.locale ?? '—'}</span></div>
-            <div><span class="text-muted-foreground">Activation</span><span>{props.fan!.fan.activation_state}</span></div>
-            <div><span class="text-muted-foreground">Joined</span><span>{formatDateTime(props.fan!.fan.created_at)}</span></div>
-            <div><span class="text-muted-foreground">Last activity</span><span>{formatDateTime(props.fan!.fan.last_activity_at)}</span></div>
-            <div><span class="text-muted-foreground">Consented</span><span>{props.fan!.fan.consented ? 'Yes' : 'No'}</span></div>
-            <div><span class="text-muted-foreground">Qualified referrals</span><span>{props.fan!.fan.qualified_referrals}</span></div>
-            <div><span class="text-muted-foreground">Paid ticket orders</span><span>{props.fan!.fan.paid_ticket_orders}</span></div>
+        <div class="p-4 px-5 flex flex-col gap-5">
+          <div class="fan-drawer-meta flex flex-col gap-2">
+            <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Status</span><Badge variant={props.fan!.fan.status === 'active' ? 'success' : 'muted'}>{props.fan!.fan.status}</Badge></div>
+            <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Locale</span><span>{props.fan!.fan.locale ?? '—'}</span></div>
+            <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Activation</span><span>{props.fan!.fan.activation_state}</span></div>
+            <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Joined</span><span>{formatDateTime(props.fan!.fan.created_at)}</span></div>
+            <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Last activity</span><span>{formatDateTime(props.fan!.fan.last_activity_at)}</span></div>
+            <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Consented</span><span>{props.fan!.fan.consented ? 'Yes' : 'No'}</span></div>
+            <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Qualified referrals</span><span>{props.fan!.fan.qualified_referrals}</span></div>
+            <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Paid ticket orders</span><span>{props.fan!.fan.paid_ticket_orders}</span></div>
           </div>
           <Show when={props.fan!.tags.length > 0}>
             <div class="fan-drawer-tags">
-              <h4>Tags</h4>
-              <div class="city-chips">
-                <For each={props.fan!.tags}>{tag => <span class="badge free-chip">{tag}</span>}</For>
+              <h4 class="text-sm text-muted-foreground uppercase tracking-wider mb-2">Tags</h4>
+              <div class="flex flex-wrap gap-1.5">
+                <For each={props.fan!.tags}>{tag => <Badge class="free-chip text-emerald-300 text-xs px-1 rounded-sm uppercase tracking-wider">{tag}</Badge>}</For>
               </div>
             </div>
           </Show>
@@ -72,29 +71,29 @@ export function FanDetailDrawer(props: {
             <div class="fan-drawer-section">
               <h4>Ticket purchases</h4>
               <For each={props.fan!.ticket_purchases}>{(purchase) => (
-                <div class="journey-event">
-                  <span class="journey-time">{formatDateTime(purchase.paid_at)}</span>
-                  <span class="badge">{purchase.event_title}</span>
+                <div class="flex items-center gap-2.5 px-3 py-2 rounded-sm">
+                  <span class="text-sm text-muted-foreground whitespace-nowrap">{formatDateTime(purchase.paid_at)}</span>
+                  <Badge>{purchase.event_title}</Badge>
                   <span class="text-muted-foreground">{purchase.status} · {purchase.currency} {purchase.amount_gross_minor / 100}</span>
                 </div>
               )}</For>
             </div>
           </Show>
           <div class="fan-drawer-journey">
-            <h4>Journey</h4>
+            <h4 class="text-sm text-muted-foreground uppercase tracking-wider mb-2">Journey</h4>
             <Show when={props.loading}><SkeletonRows count={3} /></Show>
             <Show when={props.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{props.error}</div></Show>
             <Show when={!props.loading && !props.error && props.journey.length === 0}>
               <EmptyState label="No journey events" hint="Journey events track fan interactions over time. They appear here once the fan engages with the platform." />
             </Show>
             <Show when={!props.loading && !props.error && props.journey.length > 0}>
-              <div class="journey-timeline">
+              <div class="flex flex-col gap-2">
                 <For each={props.journey}>{(event) => (
-                  <div class="journey-event">
-                    <span class="journey-time">{formatDateTime(event.occurred_at)}</span>
-                    <span class="badge">{journeyKindLabel(event.kind)}</span>
+                  <div class="flex items-center gap-2.5 px-3 py-2 rounded-sm">
+                    <span class="text-sm text-muted-foreground whitespace-nowrap">{formatDateTime(event.occurred_at)}</span>
+                    <Badge>{journeyKindLabel(event.kind)}</Badge>
                     <span class="text-muted-foreground">{event.title}</span>
-                    <Show when={event.detail != null}><span class="text-muted-foreground detail-json">{detailToString(event.detail)}</span></Show>
+                    <Show when={event.detail != null}><span class="text-muted-foreground detail-json font-mono text-xs block break-all">{detailToString(event.detail)}</span></Show>
                   </div>
                 )}</For>
               </div>

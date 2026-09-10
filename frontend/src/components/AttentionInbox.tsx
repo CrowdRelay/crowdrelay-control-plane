@@ -1,11 +1,12 @@
 import { For, Show, onMount, onCleanup } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
 import type { PendingActionSummary } from '../lib/types'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
 import { CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 import { Button } from './ui/button'
 import { cn } from '../lib/cn'
+import { buttonVariants } from './ui/button'
 
 // The attention inbox — converts the operator-attention experience from an
 // informational banner into a real action-oriented surface.
@@ -196,7 +197,6 @@ export function AttentionInbox(props: {
 }
 
 function AttentionItemRow(props: { item: AttentionItem }) {
-  const tierClass = () => `attention-action-${props.item.tier}`
   return <div id={`attention-item-${props.item.id}`} class={cn('flex items-start justify-between gap-3 px-3.5 py-3 border-b border-border-subtle last:border-0 border-l-2', props.item.tier === 'urgent' && 'border-l-destructive/50', props.item.tier === 'review' && 'border-l-warning/50', props.item.tier === 'informational' && 'border-l-border')}>
     <div class="flex-1 min-w-0 flex flex-col gap-0.75">
       <strong class="text-sm font-semibold text-foreground">{props.item.title}</strong>
@@ -210,7 +210,7 @@ function AttentionItemRow(props: { item: AttentionItem }) {
         <Show when={props.item.action!.to} fallback={
           <Button size="sm" variant={props.item.tier === 'urgent' ? 'destructive' : 'ghost'}>{props.item.action!.label}</Button>
         }>
-          <Link class={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors h-8 px-3 text-xs ${props.item.tier === 'urgent' ? 'bg-destructive text-white hover:bg-destructive/90' : 'text-secondary-foreground hover:bg-surface-3 hover:text-foreground'}`} to={props.item.action!.to!}>{props.item.action!.label}</Link>
+          <Link class={buttonVariants({ variant: props.item.tier === 'urgent' ? 'destructive' : 'ghost', size: 'sm' })} to={props.item.action!.to!}>{props.item.action!.label}</Link>
         </Show>
       </div>
     </Show>

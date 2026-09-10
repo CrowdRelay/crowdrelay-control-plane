@@ -4,10 +4,12 @@ import { api } from '../lib/api'
 import type { CommunityItem, CommunityObservationItem, CommunityEntityItem, AudiencePlaceInput } from '../lib/types'
 import { SkeletonRows } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, SectionTitle, ErrorCard } from '../components/layout'
-import { toast } from '../lib/toast'
+import { toast } from '../components/ui/toast'
 import { errorMessage } from '../lib/format'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { Textarea } from '../components/ui/textarea'
+import { NativeSelect } from '../components/ui/native-select'
 
 /**
  * Community Intelligence content — the Communities tab inside the Audience page.
@@ -301,9 +303,9 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
           <form class="grid grid-cols-1 md:grid-cols-2 gap-3.5" onSubmit={submit}>
             <label>
               Kind
-              <select class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={kind()} onChange={event => setKind(event.currentTarget.value)}>
+              <NativeSelect value={kind()} onChange={event => setKind(event.currentTarget.value)}>
                 <For each={PLACE_KINDS}>{value => <option value={value}>{value.replaceAll('_', ' ')}</option>}</For>
-              </select>
+              </NativeSelect>
             </label>
             <label>
               Name <small>as people refer to it, e.g. r/progmetal</small>
@@ -331,8 +333,8 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                 country optional. Re-importing the same platform and URL refreshes it rather than
                 duplicating it.
               </small>
-              <textarea
-                class="w-full text-sm font-mono p-3 rounded-md border border-border bg-background text-foreground"
+              <Textarea
+                class="font-mono p-3"
                 rows={8}
                 spellcheck={false}
                 value={importText()}
@@ -434,7 +436,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                                   {item.name}
                                 </a>
                                 <div class="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                                  <span class="community-platform" data-platform={item.platform}>{item.placeKind.replaceAll('_', ' ')}</span>
+                                  <span class="text-xs text-muted-foreground uppercase tracking-wider" data-platform={item.platform}>{item.placeKind.replaceAll('_', ' ')}</span>
                                   <Show when={item.memberCount}>
                                     <span><span class="font-medium text-foreground tabular-nums">{item.memberCount!.toLocaleString()}</span> members</span>
                                   </Show>
@@ -461,15 +463,14 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                                 Open<span class="text-xs" aria-hidden="true">↗</span>
                               </a>
                               <Button variant="ghost" size="sm" onClick={() => loadDraft(item.placeId)}>Draft intro</Button>
-                              <select
-                                class="text-xs rounded-md border border-border bg-surface-1 px-2 py-1 text-foreground"
+                              <NativeSelect size="sm" class="w-auto"
                                 value={item.membershipState}
                                 onChange={(e) => setMembership(item.placeId, e.currentTarget.value)}
                               >
                                 <For each={MEMBERSHIP_ORDER}>
                                   {(s) => <option value={s}>{MEMBERSHIP_LABEL[s]}</option>}
                                 </For>
-                              </select>
+                              </NativeSelect>
                               <Button variant="ghost" size="sm" onClick={() => viewObservations(item.placeId)}>Observations</Button>
                             </footer>
 
@@ -487,7 +488,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                                       Overlaps on {draft.data!.sharedGenres.join(', ')}.
                                     </p>
                                   </Show>
-                                  <textarea class="w-full text-sm font-mono p-2 rounded-md border border-border bg-background text-foreground" rows={10} readonly>{draft.data!.draft}</textarea>
+                                  <Textarea class="font-mono p-2" rows={10} readonly>{draft.data!.draft}</Textarea>
                                   <Button variant="ghost" size="sm" onClick={() => navigator.clipboard?.writeText(draft.data!.draft)}>
                                     Copy
                                   </Button>

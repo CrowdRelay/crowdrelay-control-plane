@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { formatTimestamp } from '../lib/format'
 import { ActivityHeatmap } from './ActivityHeatmap'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
 import type { AuditEntry } from '../lib/types'
 import { Card } from './ui/card'

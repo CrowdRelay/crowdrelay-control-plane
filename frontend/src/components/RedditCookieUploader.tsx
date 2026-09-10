@@ -2,8 +2,9 @@ import { Show, createSignal, createMemo } from 'solid-js'
 import { useQuery, useMutation } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
-import { toast } from '../lib/toast'
+import { toast } from './ui/toast'
 import { cn } from '../lib/cn'
+import { Button } from './ui/button'
 
 /**
  * Reddit Cookie Uploader — lets an operator refresh Reddit session cookies
@@ -178,13 +179,13 @@ export function RedditCookieUploader(props: { slug: string }) {
       </Show>
 
       <Show when={status.data?.status === 'active' || status.data?.status === 'failed'}>
-        <button
-          class="btn btn-secondary"
+        <Button
+          variant="outline"
           onClick={() => validate.mutate()}
           disabled={validate.isPending}
         >
           {validate.isPending ? 'Testing…' : 'Test cookies'}
-        </button>
+        </Button>
       </Show>
 
       <div

@@ -2,9 +2,9 @@ import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage, formatTimestamp } from '../lib/format'
-import { toast } from '../lib/toast'
+import { toast } from './ui/toast'
 import { Dialog } from './Dialog'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
 import { SkeletonRows } from './Skeleton'
 import { StatusBadge } from './StatusBadge'
@@ -13,6 +13,7 @@ import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { TabBar } from './layout'
 import type { DeliveryDetails, DeliveryItem, OutboxItem } from '../lib/types'
+import { NativeSelect } from './ui/native-select'
 
 // The health panel's remediation for a dead letter reads "Open Deliveries and
 // read one failure" — and there was no Deliveries anywhere in the console. The
@@ -118,10 +119,10 @@ export function QueueInspectorPanel(props: { slug: string }) {
       />
       <label class="grid gap-1.5 text-muted-foreground text-sm min-w-[170px]">
         <span>Status</span>
-        <select class="border border-border-strong text-white px-2.5 py-2 rounded-md" value={status()} onChange={event => setStatus(event.currentTarget.value)}>
+        <NativeSelect value={status()} onChange={event => setStatus(event.currentTarget.value)}>
           <option value="">Any status</option>
           <For each={STATUSES}>{value => <option value={value}>{value}</option>}</For>
-        </select>
+        </NativeSelect>
       </label>
     </div>
 

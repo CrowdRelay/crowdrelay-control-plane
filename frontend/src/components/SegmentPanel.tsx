@@ -1,7 +1,8 @@
 import { For, Show, createSignal } from 'solid-js'
 import { api } from '../lib/api'
+import { cn } from '../lib/cn'
 import type { AudienceSegment } from '../lib/types'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock } from './Skeleton'
 import { Card } from './ui/card'
 import { Badge } from './ui/badge'
@@ -43,19 +44,22 @@ export function SegmentPanel(props: {
     </div>
     <p class="text-sm text-muted-foreground leading-relaxed mt-1">Audience segments group fans by behaviour, source, or lifecycle stage. Click a segment to preview its size.</p>
     <Show when={props.segments.length > 0} fallback={<EmptyState label="No segments defined" hint="Segments group fans by behavior, source, or engagement level. Define segments to target outreach effectively." />}>
-      <div class="segment-list">
+      <div class="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
         <For each={props.segments}>{(segment) => (
           <button
-            class={`segment-card ${previewSlug() === segment.slug ? 'expanded' : ''}`}
+            class={cn(
+              'flex flex-col gap-1.5 text-left px-3 py-2.5 border border-border rounded-md bg-surface-1 cursor-pointer transition-colors hover:border-primary hover:bg-surface-2',
+              previewSlug() === segment.slug && 'border-primary bg-surface-2',
+            )}
             onClick={() => previewSegment(segment.slug)}
           >
-            <div class="segment-card-head">
+            <div class="flex justify-between items-center gap-2">
               <strong>{segment.name}</strong>
               <Show when={!segment.active}><Badge variant="muted">inactive</Badge></Show>
             </div>
-            <Show when={segment.description}><p class="text-muted-foreground segment-desc">{segment.description}</p></Show>
+            <Show when={segment.description}><p class="text-muted-foreground mt-1 text-sm leading-snug">{segment.description}</p></Show>
             <Show when={previewSlug() === segment.slug}>
-              <div class="segment-preview">
+              <div class="mt-2.5 pt-2.5 border-t border-border text-sm">
                 <Show when={loading}><SkeletonBlock height="18px" width="120px" /></Show>
                 <Show when={error}><span class="text-sm text-destructive">{error()}</span></Show>
                 <Show when={!loading && !error && previewCount() != null}>

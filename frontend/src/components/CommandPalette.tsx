@@ -4,6 +4,7 @@ import { createEffect, createMemo, createSignal, For, Show, onMount, onCleanup }
 import type { Component } from 'solid-js'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
+import { cn } from '../lib/cn'
 import type { TenantSummary } from '../lib/types'
 
 // Keyboard-first surface for the operator: jump to any tenant subpage and run
@@ -223,11 +224,11 @@ export const CommandPalette: Component = () => {
   })
 
   return <Show when={open()}>
-    <div class="cmdk-backdrop" onClick={close}>
-      <div class="cmdk" role="dialog" aria-modal="true" aria-label="Command palette" onClick={event => event.stopPropagation()}>
+    <div class="fixed inset-0 z-50 bg-black/50" onClick={close}>
+      <div class="fixed left-1/2 top-4 z-50 -translate-x-1/2 w-full max-w-xl rounded-lg border border-border bg-popover shadow-xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Command palette" onClick={event => event.stopPropagation()}>
         <input
           ref={inputRef}
-          class="cmdk-input"
+          class="w-full bg-transparent border-none border-b border-border px-3.5 py-3 text-sm outline-none focus:border-primary focus:ring-0"
           placeholder="Type a page, tenant or action…"
           aria-label="Command palette search"
           role="combobox"
@@ -238,43 +239,48 @@ export const CommandPalette: Component = () => {
           onInput={event => { setQuery(event.currentTarget.value); setArmed(null) }}
           spellcheck={false}
         />
-        <div class="cmdk-list" id="cmdk-listbox" role="listbox" aria-label="Command results">
-          <For each={filtered()} fallback={<div class="cmdk-empty">Nothing matches “{query()}”.</div>}>
+        <div class="cmdk-list overflow-y-auto overscroll-contain p-2" id="cmdk-listbox" role="listbox" aria-label="Command results">
+          <For each={filtered()} fallback={<div class="px-4 py-3 text-muted-foreground text-sm">Nothing matches “{query()}”.</div>}>
             {(cmd, i) => (
               <button
                 type="button"
                 id={`cmdk-item-${i()}`}
                 role="option"
                 aria-selected={i() === index()}
+                class={cn(
+                  'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-surface-1',
+                  i() === index() && 'bg-surface-1 text-foreground',
+                  Boolean(cmd.confirm) && armed() !== cmd.id && 'text-destructive',
+                  armed() === cmd.id && 'bg-destructive/10 text-destructive border border-destructive/30',
+                )}
                 classList={{
                   'cmdk-item': true,
-                  active: i() === index(),
                   danger: Boolean(cmd.confirm),
                   armed: armed() === cmd.id,
                 }}
                 onMouseEnter={() => setIndex(i())}
                 onClick={() => void execute(cmd)}
               >
-                <span class="cmdk-label">{armed() === cmd.id ? `Confirm: ${cmd.label}` : cmd.label}</span>
-                <Show when={cmd.hint}><span class="cmdk-hint">{cmd.hint}</span></Show>
-                <span class="cmdk-group">{cmd.group}</span>
+                <span class="cmdk-label flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{armed() === cmd.id ? `Confirm: ${cmd.label}` : cmd.label}</span>
+                <Show when={cmd.hint}><span class="text-muted-foreground text-sm">{cmd.hint}</span></Show>
+                <span class="ml-auto flex-none text-xs uppercase tracking-wider text-muted-foreground">{cmd.group}</span>
               </button>
             )}
           </For>
         </div>
-        <div class="cmdk-foot">
+        <div class="cmdk-foot px-4 py-3 border-t border-border flex gap-3 items-center justify-between text-muted-foreground text-sm">
           <Show when={message()} fallback={
-            <span class="cmdk-foot-hints">
-              <span class="cmdk-foot-hint"><kbd>↑↓</kbd>navigate</span>
-              <span class="cmdk-foot-sep">·</span>
-              <span class="cmdk-foot-hint"><kbd>↵</kbd>run{active()?.confirm ? ' (twice to confirm)' : ''}</span>
-              <span class="cmdk-foot-sep">·</span>
-              <span class="cmdk-foot-hint"><kbd>esc</kbd>close</span>
+            <span class="flex gap-2 items-center">
+              <span class="flex items-center gap-0.5"><kbd>↑↓</kbd>navigate</span>
+              <span class="text-muted-foreground">·</span>
+              <span class="flex items-center gap-0.5"><kbd>↵</kbd>run{active()?.confirm ? ' (twice to confirm)' : ''}</span>
+              <span class="text-muted-foreground">·</span>
+              <span class="flex items-center gap-0.5"><kbd>esc</kbd>close</span>
             </span>
           }>
             <span>{message()}</span>
           </Show>
-          {busy() !== null && <span class="cmdk-busy">running…</span>}
+          {busy() !== null && <span class="text-primary">running…</span>}
         </div>
       </div>
     </div>

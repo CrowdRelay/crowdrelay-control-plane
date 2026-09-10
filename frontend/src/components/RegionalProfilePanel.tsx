@@ -8,6 +8,7 @@ import { Spinner } from './Spinner'
 import { Card } from './ui/card'
 import { Input } from './ui/input'
 import { cn } from '../lib/cn'
+import { NativeSelect } from './ui/native-select'
 
 type Props = { tenant: TenantSummary }
 
@@ -61,13 +62,13 @@ export function RegionalProfilePanel(props: Props) {
     </Show>
     <div class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
       <label>Country code<Input required maxlength="2" autocomplete="country" class={cn(!countryValid() && draft().countryCode && 'border-destructive')} aria-invalid={!countryValid()} value={draft().countryCode} onInput={e=>set('countryCode', e.currentTarget.value.toUpperCase())} placeholder="DE"/></label>
-      <label>Market region<select class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={draft().region} onChange={e=>set('region', e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></select></label>
+      <label>Market region<NativeSelect value={draft().region} onChange={e=>set('region', e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></NativeSelect></label>
       <label>Locale<Input required maxlength="35" class={cn(!localeValid() && draft().locale && 'border-destructive')} aria-invalid={!localeValid()} value={draft().locale} onInput={e=>set('locale', e.currentTarget.value)} placeholder="de-DE"/><small>BCP-47 tag, e.g. de-DE.</small></label>
       <label>Timezone<Input required maxlength="64" class={cn(!timezoneValid() && draft().timezone && 'border-destructive')} aria-invalid={!timezoneValid()} value={draft().timezone} onInput={e=>set('timezone', e.currentTarget.value)} placeholder="Europe/Berlin"/><small>IANA timezone, e.g. Europe/Berlin.</small></label>
       <label>Currency<Input required maxlength="3" class={cn(!currencyValid() && draft().currency && 'border-destructive')} aria-invalid={!currencyValid()} value={draft().currency} onInput={e=>set('currency', e.currentTarget.value.toUpperCase())} placeholder="EUR"/></label>
-      <label>Date format<select class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={draft().dateFormat} onChange={e=>set('dateFormat', e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></select></label>
-      <label>Number format<select class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={draft().numberFormat} onChange={e=>set('numberFormat', e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></select></label>
-      <label>Data region<select disabled={Boolean(props.tenant.regionalProfile)} class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={draft().dataRegion} onChange={e=>set('dataRegion', e.currentTarget.value as 'eu'|'us')}><option value="eu">EU residency</option><option value="us">US residency</option></select><small>{props.tenant.regionalProfile ? 'Residency changes require an explicit migration, not ordinary editing.' : 'Choose before deployment. Normal editing cannot silently move data later.'}</small></label>
+      <label>Date format<NativeSelect value={draft().dateFormat} onChange={e=>set('dateFormat', e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></NativeSelect></label>
+      <label>Number format<NativeSelect value={draft().numberFormat} onChange={e=>set('numberFormat', e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></NativeSelect></label>
+      <label>Data region<NativeSelect disabled={Boolean(props.tenant.regionalProfile)}  value={draft().dataRegion} onChange={e=>set('dataRegion', e.currentTarget.value as 'eu'|'us')}><option value="eu">EU residency</option><option value="us">US residency</option></NativeSelect><small>{props.tenant.regionalProfile ? 'Residency changes require an explicit migration, not ordinary editing.' : 'Choose before deployment. Normal editing cannot silently move data later.'}</small></label>
     </div>
     <Show when={update.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{update.error instanceof Error ? update.error.message : 'Regional profile update failed'}</div></Show>
     <div class="flex items-center justify-between gap-4 mt-5 pt-4 border-t border-border">

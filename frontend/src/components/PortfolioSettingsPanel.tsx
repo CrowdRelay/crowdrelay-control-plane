@@ -8,6 +8,7 @@ import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Input } from './ui/input'
+import { NativeSelect } from './ui/native-select'
 
 const LABELS: Record<string, string> = {
   member_site_base_url: 'Member site base URL',
@@ -16,12 +17,13 @@ const LABELS: Record<string, string> = {
   signal_enabled: 'Signal app',
   synesthesia_enabled: 'Synesthesia',
   north_star_metric: 'North star metric',
+  social_auto_post: 'Social auto-posting',
 }
 
 // The server grew three more editable keys than this panel had labels for, so
 // `signal_enabled` and `north_star_metric` rendered as their own key names over
 // a free-text box — a boolean and an enum you had to spell correctly by hand.
-const BOOLEAN_KEYS = new Set(['signal_enabled', 'synesthesia_enabled'])
+const BOOLEAN_KEYS = new Set(['signal_enabled', 'synesthesia_enabled', 'social_auto_post'])
 
 // A key name alone does not say what the value does or what shape it takes.
 // Each row carries what the value drives, and an example of a valid one — the
@@ -50,6 +52,10 @@ const HINTS: Record<string, { hint: string; example: string }> = {
   north_star_metric: {
     hint: 'The one number the brain optimises. Everything else is still aggregated — this only decides what it prioritises when it has to choose.',
     example: 'total_audience',
+  },
+  social_auto_post: {
+    hint: 'When enabled, the social post executor publishes to Facebook Pages and Instagram through the Graph API instead of drafting for manual review. X always drafts. The publish guard still runs — a held post lands in the operator queue with its reason. Instagram needs at least one active photo press asset.',
+    example: 'false',
   },
 }
 
@@ -125,26 +131,22 @@ export function PortfolioSettingsPanel(props: {
                   />
                 }
               >
-                <select
-                  class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  value={drafts()[key] ?? props.model?.settings[key] ?? ''}
+                <NativeSelect value={drafts()[key] ?? props.model?.settings[key] ?? ''}
                   onChange={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
                 >
                   <For each={goals.data!.options}>{option =>
                     <option value={option.value}>{option.label}</option>
                   }</For>
-                </select>
+                </NativeSelect>
               </Show>
             }
           >
-            <select
-              class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              value={drafts()[key] ?? props.model?.settings[key] ?? 'false'}
+            <NativeSelect value={drafts()[key] ?? props.model?.settings[key] ?? 'false'}
               onChange={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
             >
               <option value="true">Enabled</option>
               <option value="false">Disabled</option>
-            </select>
+            </NativeSelect>
           </Show>
           <Show when={HINTS[key]}>{h => <small class="text-xs text-muted-foreground leading-relaxed">{h().hint}<Show when={!BOOLEAN_KEYS.has(key) && key !== 'north_star_metric'}> Example: <code class="text-xs">{h().example}</code></Show></small>}</Show>
           <Show when={dirty(key)} fallback={

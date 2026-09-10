@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from '@tanstack/solid-router'
 import { request, ApiError } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { cn } from '../lib/cn'
+import { Textarea } from './ui/textarea'
 import type { ChatMessage, ChatAction } from '../lib/types'
 
 // Distinguishes a server-sent SSE error from a JSON parse failure on a
@@ -562,9 +563,9 @@ export function ChatWidget(props: { slug: string }) {
 
           <div class="border-t border-border p-3 flex-shrink-0">
             <div class="flex items-end gap-2">
-              <textarea
+              <Textarea
                 ref={inputRef}
-                class="flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
+                class="flex-1 resize-none"
                 placeholder="Ask about operations, growth, or autopilot…"
                 value={input()}
                 onInput={(e) => setInput(e.currentTarget.value)}

@@ -4,13 +4,15 @@ import { api } from '../lib/api'
 import { errorMessage, formatIsoAge } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import { FunnelChart } from './FunnelChart'
-import { EmptyState } from './EmptyState'
+import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock, SkeletonRows } from './Skeleton'
 import { KpiStrip, KpiCard } from './layout'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 import type { GrowthFunnelData, FunnelRecentWorkerRun } from '../lib/types'
+import { NativeSelect } from './ui/native-select'
 
 const fmt = (n: number | null | undefined): string =>
   n == null ? '—' : n.toLocaleString('en-US')
@@ -135,12 +137,12 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     <div class="flex flex-wrap gap-3 items-end mb-5">
       <label class="grid gap-1.5 text-muted-foreground text-sm">
         <span>Time range</span>
-        <select class="border border-border-strong text-white px-2.5 py-2 rounded-md" value={days()} onChange={(e) => setDays(Number(e.currentTarget.value))}>
+        <NativeSelect value={days()} onChange={(e) => setDays(Number(e.currentTarget.value))}>
           <option value={7}>Last 7 days</option>
           <option value={30}>Last 30 days</option>
           <option value={90}>Last 90 days</option>
           <option value={365}>All time</option>
-        </select>
+        </NativeSelect>
       </label>
       <Button variant="ghost" size="sm" onClick={() => void funnel.refetch()} disabled={funnel.isFetching}>{funnel.isFetching ? 'Refreshing…' : 'Refresh'}</Button>
     </div>
@@ -190,29 +192,29 @@ export function GrowthFunnelPanel(props: { slug: string }) {
           <h3 class="text-sm font-semibold text-foreground">Worker run breakdown</h3>
         </div>
         <p class="mt-1 text-sm text-muted-foreground">Per-template worker run statistics dispatched by the intelligence.</p>
-        <div class="mt-3 overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead><tr><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Template</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Total</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Completed</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Failed</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Running</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Queued</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Success rate</th></tr></thead>
-            <tbody>
+        <div class="mt-3">
+          <Table>
+            <TableHeader><TableRow><TableHead>Template</TableHead><TableHead class="text-right">Total</TableHead><TableHead class="text-right">Completed</TableHead><TableHead class="text-right">Failed</TableHead><TableHead class="text-right">Running</TableHead><TableHead class="text-right">Queued</TableHead><TableHead>Success rate</TableHead></TableRow></TableHeader>
+            <TableBody>
               <For each={showAllWorkerStats() ? Object.entries(funnel.data!.worker_runs) : Object.entries(funnel.data!.worker_runs).slice(0, MAX_VISIBLE_WORKER_STATS)}>{([tpl, stats]) => {
                 const successRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : null
                 const tone = successRate == null ? 'muted' : successRate >= 90 ? 'good' : successRate >= 75 ? 'warn' : 'bad'
                 return (
-                  <tr>
-                    <td class="p-2 border-b border-border"><strong>{templateLabel(tpl)}</strong></td>
-                    <td class="p-2 border-b border-border">{stats.total}</td>
-                    <td class="p-2 border-b border-border">{stats.completed}</td>
-                    <td class="p-2 border-b border-border">{stats.failed}</td>
-                    <td class="p-2 border-b border-border">{stats.running}</td>
-                    <td class="p-2 border-b border-border">{stats.queued}</td>
-                    <td class="p-2 border-b border-border"><Show when={successRate != null} fallback={<span class="text-muted-foreground">—</span>}>
+                  <TableRow>
+                    <TableCell><strong>{templateLabel(tpl)}</strong></TableCell>
+                    <TableCell numeric>{stats.total}</TableCell>
+                    <TableCell numeric>{stats.completed}</TableCell>
+                    <TableCell numeric>{stats.failed}</TableCell>
+                    <TableCell numeric>{stats.running}</TableCell>
+                    <TableCell numeric>{stats.queued}</TableCell>
+                    <TableCell><Show when={successRate != null} fallback={<span class="text-muted-foreground">—</span>}>
                       <Badge variant={badgeVariantFor(tone)}>{successRate}%</Badge>
-                    </Show></td>
-                  </tr>
+                    </Show></TableCell>
+                  </TableRow>
                 )
               }}</For>
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
         <Show when={Object.keys(funnel.data!.worker_runs).length > MAX_VISIBLE_WORKER_STATS}>
           <Button variant="ghost" size="sm" onClick={() => setShowAllWorkerStats(s => !s)}>
