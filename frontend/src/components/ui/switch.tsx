@@ -33,7 +33,10 @@ export const Switch: Component<SwitchProps> = (props) => {
       aria-label={local.label}
       onClick={() => local.onChange?.()}
       class={cn(
-        'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition-colors',
+        // 20px tall was smaller than every other control in the row and a poor
+        // pointer target next to twenty-one siblings. 24px matches the `xs`
+        // button height and the badge cap height beside it.
+        'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         'disabled:cursor-not-allowed disabled:opacity-45',
         local.checked ? 'border-primary bg-primary' : 'border-border-strong bg-surface-3',
@@ -44,8 +47,8 @@ export const Switch: Component<SwitchProps> = (props) => {
       <span
         aria-hidden="true"
         class={cn(
-          'pointer-events-none block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform',
-          local.checked ? 'translate-x-4.5' : 'translate-x-0.5',
+          'pointer-events-none block h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform',
+          local.checked ? 'translate-x-6' : 'translate-x-0.5',
         )}
       />
     </button>

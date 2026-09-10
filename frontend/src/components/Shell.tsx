@@ -343,7 +343,7 @@ export const Shell: Component = () => {
         'md:translate-x-0',
       )}>
         <div class="flex flex-col border-b border-border px-3 py-3 gap-2">
-          <div class="flex items-center justify-center gap-2 min-w-0">
+          <div class={cn('flex items-center gap-2 min-w-0', collapsed() && 'justify-center')}>
             <a href="https://crowdrelay.music" target="_blank" rel="noreferrer noopener" aria-label="CrowdRelay landing page" class="flex-shrink-0">
               <img src="/crowdrelay-brand-mark.png" alt="" width="32" height="32" class="rounded-lg" />
             </a>
@@ -357,10 +357,17 @@ export const Shell: Component = () => {
                 <small class="truncate text-xs text-muted-foreground">Control Plane</small>
               </div>
             </Show>
+            <Show when={!collapsed()}>
+              <button type="button" class="hidden md:flex p-1.5 rounded-md border border-border bg-surface-2 text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors ml-auto" onClick={toggleCollapsed} title="Collapse sidebar" aria-label="Collapse sidebar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+              </button>
+            </Show>
           </div>
-          <button type="button" class="hidden md:flex p-1.5 rounded-md text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors mx-auto" onClick={toggleCollapsed} title={collapsed() ? 'Expand sidebar' : 'Collapse sidebar'} aria-label="Toggle sidebar">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={cn('transition-transform', collapsed() && 'rotate-180')} aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
-          </button>
+          <Show when={collapsed()}>
+            <button type="button" class="hidden md:flex p-1.5 rounded-md border border-border bg-surface-2 text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors mx-auto" onClick={toggleCollapsed} title="Expand sidebar" aria-label="Expand sidebar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="rotate-180" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+          </Show>
         </div>
 
         {/* Global nav */}

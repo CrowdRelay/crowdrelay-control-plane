@@ -155,15 +155,18 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
 
   return (
     <Card class="p-4">
+      {/* This sat at 14px directly above a sibling `<h2>` at 20px, so two
+          headings of the same rank on the same page read as different ranks. */}
       <header class="flex items-center justify-between gap-4 mb-3">
-        <h2 class="text-base font-semibold text-foreground">What needs attention</h2>
+        <h2 class="text-lg font-semibold text-foreground">What needs attention</h2>
       </header>
 
       <Show when={props.summary} fallback={<p class="text-muted-foreground">Waiting for the operations summary…</p>}>
         <Show
           when={conditions().length > 0}
           fallback={
-            <p class="rounded-lg border border-success/30 bg-success/10 p-4 text-sm text-success">
+            <p class="flex items-center gap-2 text-sm text-success">
+              <span class="inline-block h-2 w-2 shrink-0 rounded-full bg-success" aria-hidden="true" />
               Nothing needs attention. The engine is running and every queue is draining.
             </p>
           }

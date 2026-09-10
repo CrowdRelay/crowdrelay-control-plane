@@ -8,9 +8,10 @@ import { SkeletonAutopilotKpis } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { SectionFailureCard } from './SectionFailureCard'
-import { PolicyEditor } from './PolicyEditor'
+import { PolicyEditor, PolicyHeader } from './PolicyEditor'
 import { CONTEXT_LABELS, labelOr } from '../lib/opportunity-labels'
 import { Card } from './ui/card'
+import { KpiCard } from './layout'
 import { Button } from './ui/button'
 
 const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
@@ -132,11 +133,13 @@ export function AuthorityPoliciesPanel(props: {
         <SectionFailureCard error={autopilot.error} fallback="Autopilot overview unavailable" onRetry={() => void autopilot.refetch()} />
       </Show>
     }>{data => <>
+      {/* These were rounded tiles on a page where every other surface is
+          square, with labels lifted from the field names — "executor fail". */}
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 my-4">
-        <div class="rounded-lg border border-border-subtle bg-surface-1 p-3.5 grid gap-0.5"><strong>{data().needs_you.length}</strong><span>needs you</span></div>
-        <div class="rounded-lg border border-border-subtle bg-surface-1 p-3.5 grid gap-0.5"><strong>{data().queued_actions}</strong><span>queued</span></div>
-        <div class="rounded-lg border border-border-subtle bg-surface-1 p-3.5 grid gap-0.5"><strong>{data().failed_24h}</strong><span>failed 24h</span></div>
-        <div class="rounded-lg border border-border-subtle bg-surface-1 p-3.5 grid gap-0.5"><strong>{data().executor_failed_24h}</strong><span>executor fail</span></div>
+        <KpiCard label="Waiting on you" value={data().needs_you.length} sub="decisions parked" tone={data().needs_you.length > 0 ? 'warn' : 'default'} />
+        <KpiCard label="Queued" value={data().queued_actions} sub="about to run" />
+        <KpiCard label="Failed today" value={data().failed_24h} sub="in the last 24 hours" />
+        <KpiCard label="Nothing could run them" value={data().executor_failed_24h} sub="no worker available" />
       </div>
       {/* Killswitch / full-enable: one switch, one confirmation.
           Right-aligned, directly above the policy list so the operator's
@@ -165,7 +168,7 @@ export function AuthorityPoliciesPanel(props: {
       </Show>
       <details class="mb-3.5">
         <summary class="cursor-pointer text-muted-foreground text-sm font-semibold py-1.5 list-none [&::-webkit-details-marker]:hidden before:content-['ⓘ_'] before:mr-1 open:mb-2 open:text-secondary-foreground">How authority policies work</summary>
-        <p class="rounded-r-md">
+        <p class="text-sm leading-relaxed text-muted-foreground">
           One row per kind of work the autopilot does.{' '}
           <strong>Mode</strong> is how far it may go on its own —{' '}
           <em>observe</em> records what it would do,{' '}
@@ -177,20 +180,32 @@ export function AuthorityPoliciesPanel(props: {
           Changes take effect on the next cycle — <em>Apply</em> saves one row.
         </p>
       </details>
-      <div class="bg-surface-1 text-muted-foreground flex flex-wrap gap-2 mb-3 p-2.5">
-        <span><strong>{data().policies.length}</strong> policies</span>
-        <span><strong>{data().policies.filter(p => p.enabled).length}</strong> enabled</span>
-        <span><strong class="text-warning">{data().policies.filter(p => p.enabled && p.autonomy_level === 'bounded_auto').length}</strong> act without asking</span>
-        <span><strong>{data().policies.filter(p => p.enabled && p.autonomy_level === 'require_approval').length}</strong> wait for you</span>
-        <span><strong>{data().policies.filter(p => p.enabled && (p.autonomy_level === 'observe' || p.autonomy_level === 'recommend')).length}</strong> only watching</span>
+      {/* Five counts ran together into one unpunctuated line — "22 policies 22
+          enabled 5 act without asking 17 wait for you 0 only watching". The
+          only one that changes what an operator does today is how many act
+          without asking, so that one is a sentence and the rest are a tally. */}
+      <div class="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 border border-border bg-surface-1 p-3 text-sm text-muted-foreground">
+        <Show
+          when={data().policies.filter(p => p.enabled && p.autonomy_level === 'bounded_auto').length > 0}
+          fallback={<span class="text-foreground">Nothing acts without asking you.</span>}
+        >
+          <span class="text-foreground">
+            <strong class="text-warning tabular-nums">{data().policies.filter(p => p.enabled && p.autonomy_level === 'bounded_auto').length}</strong>
+            {data().policies.filter(p => p.enabled && p.autonomy_level === 'bounded_auto').length === 1 ? ' kind of work acts' : ' kinds of work act'} without asking you.
+          </span>
+        </Show>
+        <span class="text-muted-foreground">
+          {data().policies.filter(p => p.enabled).length} of {data().policies.length} on
+          {' · '}{data().policies.filter(p => p.enabled && p.autonomy_level === 'require_approval').length} wait for you
+          {' · '}{data().policies.filter(p => p.enabled && (p.autonomy_level === 'observe' || p.autonomy_level === 'recommend')).length} only watch
+        </span>
       </div>
-      <div class="grid grid-cols-1 xl:grid-cols-2 gap-x-6 gap-y-1">
-        <For each={data().policies}>{policy => <PolicyEditor
-          policy={policy}
-          pending={pendingMutation() !== null}
-          onSave={(input) => updatePolicy(policy, input) as Promise<void>}
-        />}</For>
-      </div>
+      <PolicyHeader />
+      <For each={data().policies}>{policy => <PolicyEditor
+        policy={policy}
+        pending={pendingMutation() !== null}
+        onSave={(input) => updatePolicy(policy, input) as Promise<void>}
+      />}</For>
       <Show when={data().rum_metrics_24h.length > 0}>
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 mt-4">
           <For each={data().rum_metrics_24h.slice(0, 6)}>{rum => <div class="min-w-0 p-3 border border-border rounded-lg bg-surface-3"><strong>{contextLabel(rum.metric_key)}</strong><span>{rum.surface} · {rum.samples_24h} samples</span><small>p75 {rum.p75.toFixed(1)} · p95 {rum.p95.toFixed(1)}</small></div>}</For>
