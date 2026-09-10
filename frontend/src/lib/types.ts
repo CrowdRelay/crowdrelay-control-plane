@@ -929,6 +929,23 @@ export type AgentScorecard = {
     completed_at: string
     executor_id: string | null
   }>
+  learning: {
+    metacognition: string | null
+    learning_cycles: number
+    improving_cycles_total: number
+    evidence_partial: number
+    evidence_resolved: number
+    evidence_pending: number
+    last_partial_resolution_at: string | null
+    last_full_resolution_at: string | null
+    measurements_by_horizon: Array<{
+      kind: string
+      pending: number
+      succeeded: number
+      failed: number
+      next_due_at: string | null
+    }>
+  }
 }
 
 export type ReplyTriageView = {
