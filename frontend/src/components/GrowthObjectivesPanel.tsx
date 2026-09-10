@@ -95,7 +95,7 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
     }
   }
 
-  return <Card class="p-4">
+  return <Card flat class="p-4">
     <div class="flex items-center justify-between gap-4">
       <h3 class="text-sm font-semibold text-foreground">Growth objectives</h3>
       <Show when={objectives.data && objectives.data!.length > 0}>

@@ -37,7 +37,7 @@ export function SegmentPanel(props: {
     }
   }
 
-  return <Card class="p-4">
+  return <Card flat class="p-4">
     <div class="flex items-center justify-between gap-4">
       <h3>Segments</h3>
       <span class="text-muted-foreground">{props.segments.length} segments</span>

@@ -100,7 +100,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
     }
   }
 
-  return <Card class="p-4">
+  return <Card flat class="p-4">
     <div class="flex items-center justify-between gap-4 mt-6 mb-3">
       <div>
         <h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="list-checks" />What is stuck, and why</h2>

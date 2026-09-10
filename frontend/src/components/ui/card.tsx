@@ -10,17 +10,31 @@ import { cn } from '~/lib/cn'
  * each other and the page edge without visual gaps. Inner elements (buttons,
  * inputs, badges, KPI tiles) keep their own rounded-* classes from the
  * radius tokens.
+ *
+ * `flat` is for a panel stacked inside a page. Those used to draw a filled,
+ * bordered box on a page whose background is the same fill, so a column of
+ * them read as one undifferentiated slab and the borders separated nothing.
+ * A flat panel keeps only a top rule; its heading does the separating. Boxes
+ * are reserved for surfaces that genuinely sit on a different background —
+ * KPI tiles, popovers, dialogs.
  */
 
-export const Card: Component<JSX.HTMLAttributes<HTMLDivElement> & { class?: string; elevated?: boolean }> = (props) => {
-  const [local, rest] = splitProps(props, ['class', 'elevated'])
+export const Card: Component<
+  JSX.HTMLAttributes<HTMLDivElement> & { class?: string; elevated?: boolean; flat?: boolean }
+> = (props) => {
+  const [local, rest] = splitProps(props, ['class', 'elevated', 'flat'])
   return (
     <div
       data-card=""
+      data-flat={local.flat ? '' : undefined}
       class={cn(
         'border border-border bg-card text-foreground',
         local.elevated && 'shadow-sm rounded-lg',
         local.class,
+        // `flat` is applied last so it beats the caller's own padding, which is
+        // the whole point: a stacked page panel should not carry side padding
+        // that insets its content from the page's other panels.
+        local.flat && 'border-0 border-t border-border bg-transparent px-0 pb-0 pt-6 first:border-t-0 first:pt-0',
       )}
       {...rest}
     />

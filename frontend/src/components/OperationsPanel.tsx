@@ -140,7 +140,7 @@ export function OperationsPanel(props: {
   // mis-click never flips every policy or redeploys an app by accident.
   const [confirming, setConfirming] = createSignal<'autopilot-disable' | 'autopilot-enable' | 'redeploy' | 'replay-dead' | null>(null)
 
-  return <Card class="p-5">
+  return <Card flat class="p-5">
     <Show when={showHealth()}>
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div><h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="activity" />Health & controls</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Live CrowdRelay telemetry and bounded runtime controls.</p></div>

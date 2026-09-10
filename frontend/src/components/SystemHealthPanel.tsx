@@ -154,7 +154,7 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
   }
 
   return (
-    <Card class="p-4">
+    <Card flat class="p-4">
       {/* This sat at 14px directly above a sibling `<h2>` at 20px, so two
           headings of the same rank on the same page read as different ranks. */}
       <header class="flex items-center justify-between gap-4 mb-3">

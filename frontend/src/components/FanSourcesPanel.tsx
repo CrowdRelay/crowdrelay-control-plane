@@ -396,7 +396,7 @@ export function FanSourcesPanel(props: {
     return null
   }
 
-  return <Card class="p-5">
+  return <Card flat class="p-5">
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div><h2 class="text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="globe" />Fanbases</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed">First-class audience blocks with a swappable acquisition origin. Every ingest lands candidates as pending double opt-in — active fans are never downgraded and opt-outs are never resurrected.</p></div>
       <div class="flex items-center gap-2 flex-wrap">
@@ -759,10 +759,10 @@ export function FanSourcesPanel(props: {
       </Table>
     </Show>
     <Show when={!blocks().length}>
-      <Card class="p-4 mt-2.5">
+      <div class="mt-2.5">
         <p class="m-0 text-sm text-muted-foreground"><strong class="text-foreground">No fanbases created yet.</strong> {connections.data?.length ? 'Your platform connections are ready — create a fanbase to start ingesting candidates from them.' : 'Connect a platform above or create a fanbase with a manual source to start collecting candidates.'}</p>
         <p class="mt-2 m-0 text-sm text-muted-foreground">Each fanbase is an audience block with a swappable acquisition origin. Every ingest lands candidates as pending double opt-in.</p>
-      </Card>
+      </div>
     </Show>
   </Card>
 }

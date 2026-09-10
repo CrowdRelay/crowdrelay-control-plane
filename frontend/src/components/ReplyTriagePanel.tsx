@@ -67,7 +67,7 @@ export function ReplyTriagePanel() {
   const [showAllRecentAuto, setShowAllRecentAuto] = createSignal(false)
   const MAX_VISIBLE = 10
 
-  return <Card class="p-4">
+  return <Card flat class="p-4">
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div>
         <h2 class="text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="inbox" />Replies needing a human</h2>

@@ -218,7 +218,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
   }
 
   return (
-    <Card class="p-4">
+    <Card flat class="p-4">
       <header class="flex items-center justify-between gap-4 mb-3">
         <h2 class="text-lg font-semibold text-foreground">Beacons</h2>
         <div class="flex items-center gap-2">

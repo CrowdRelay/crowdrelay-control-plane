@@ -16,7 +16,7 @@ import { DeadQueuesPanel } from '../components/DeadQueuesPanel'
 import { SkeletonSection, SkeletonKpiStrip, SkeletonRows } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
 import { Spinner } from '../components/Spinner'
-import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, ErrorCard, SectionPanel, SectionTitle } from '../components/layout'
+import { TabBar, TabPanel, useTabPanels, KpiCard, PageShell, PageHeader, ErrorCard, SectionPanel, SectionTitle } from '../components/layout'
 import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -173,22 +173,27 @@ export function TenantAttentionPage() {
           </div>
           <Button variant={confirmingReconcile() ? 'default' : 'outline'} size="sm" class={confirmingReconcile() ? 'flex gap-2 items-center mt-2' : ''} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' && <Spinner />} {busy() === 'reconcile' ? 'Checking…' : confirmingReconcile() ? 'Yes, run the check' : 'Run the check'}</Button>
         </div>
-        <Show when={attention.data?.ecosystem}><div class="grid gap-2.5">
-          <Card class="rounded-lg p-3.5 hover:border-border-strong transition-colors">
-            <span class="block text-sm text-muted-foreground">Open findings</span>
-            <strong class="block text-xl font-bold tabular-nums my-1.5">{attention.data!.ecosystem!.open_findings}</strong>
-            <small class="block text-sm text-muted-foreground">reported by canonical overview</small>
-          </Card>
-          <Card class="rounded-lg p-3.5 hover:border-border-strong transition-colors">
-            <span class="block text-sm text-muted-foreground">Last check</span>
-            <strong class="block text-xl font-bold tabular-nums my-1.5">{attention.data!.ecosystem!.last_reconciliation?.status ?? '—'}</strong>
-            <small class="block text-sm text-muted-foreground">{observed(attention.data!.ecosystem!.last_reconciliation?.finished_at ?? null)}</small>
-          </Card>
-          <Card class="rounded-lg p-3.5 hover:border-border-strong transition-colors">
-            <span class="block text-sm text-muted-foreground">Bandsintown failures</span>
-            <strong class="block text-xl font-bold tabular-nums my-1.5">{attention.data!.ecosystem!.bandsintown_sync?.consecutive_failures ?? 0}</strong>
-            <small class="block text-sm text-muted-foreground">{attention.data!.ecosystem!.bandsintown_sync?.in_progress ? 'sync in progress' : 'idle'}</small>
-          </Card>
+        {/* `grid gap-2.5` with no column count stacked three stat cards full
+            width, one under the other, so a row of numbers read as three more
+            panels. */}
+        <Show when={attention.data?.ecosystem}><div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <KpiCard
+            label="Open findings"
+            value={attention.data!.ecosystem!.open_findings}
+            sub="differences nobody has closed yet"
+            tone={attention.data!.ecosystem!.open_findings > 0 ? 'warn' : 'default'}
+          />
+          <KpiCard
+            label="Last check"
+            value={attention.data!.ecosystem!.last_reconciliation?.status ?? '—'}
+            sub={observed(attention.data!.ecosystem!.last_reconciliation?.finished_at ?? null)}
+          />
+          <KpiCard
+            label="Bandsintown sync"
+            value={attention.data!.ecosystem!.bandsintown_sync?.consecutive_failures ?? 0}
+            sub={attention.data!.ecosystem!.bandsintown_sync?.in_progress ? 'running now' : 'failures in a row'}
+            tone={(attention.data!.ecosystem!.bandsintown_sync?.consecutive_failures ?? 0) > 0 ? 'warn' : 'default'}
+          />
         </div></Show>
         <For each={attention.data?.findings ?? []}>{finding => <div class={finding.severity === 'critical' ? 'rounded-lg border border-destructive/30 bg-destructive/10 p-3.5 my-3 text-sm text-destructive leading-relaxed' : 'rounded-lg border border-warning/30 bg-warning/10 p-3.5 my-3 text-sm text-warning-light leading-relaxed'}>
           <div class="flex items-center justify-between gap-4"><div><strong>{finding.summary}</strong><small class="block text-sm text-muted-foreground">{finding.severity} · {finding.kind} · {finding.entity_label ?? finding.entity_type}</small><Show when={finding.suggested_action}><p class="text-sm text-muted-foreground mt-1 leading-relaxed">{finding.suggested_action}</p></Show></div><StatusBadge status={finding.severity} tone={finding.severity === 'critical' ? 'bad' : finding.severity === 'warning' ? 'warn' : 'muted'} /></div>

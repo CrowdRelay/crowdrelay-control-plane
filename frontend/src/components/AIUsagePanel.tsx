@@ -72,7 +72,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
     return Math.max(1, ...spend.map(d => d.paid_cost_micro_usd + d.free_cost_micro_usd))
   }
 
-  return <Card class="p-5">
+  return <Card flat class="p-5">
     <Show when={data.isError}>
       <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(data.error, 'Failed to load usage analytics')}</div>
     </Show>

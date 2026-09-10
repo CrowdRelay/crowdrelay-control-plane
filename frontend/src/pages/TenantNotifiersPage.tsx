@@ -108,7 +108,7 @@ export function TenantNotifiersPage() {
     <Show when={channels.error}><ErrorCard>{errorMessage(channels.error, 'Channels could not be loaded')}</ErrorCard></Show>
     <Show when={!channels.error && !channels.data}><SkeletonNotifiersPage /></Show>
 
-    <Card class="p-5">
+    <Card flat class="p-5">
       <div class="flex items-center gap-2 mb-1">
         <SectionIcon name="bell" />
         <div>
@@ -289,12 +289,10 @@ export function TenantNotifiersPage() {
             <p class="text-sm text-muted-foreground leading-relaxed">Automation forwards its own workflow results to Discord. Mute a workflow here to stop its messages without stopping the workflow.</p>
 
             <Show when={routingItems().length === 0}>
-              <Card class="p-4 mt-4">
-                <EmptyState
-                  label="No workflows mirrored yet"
-                  hint="n8n owns the workflows; this table is the control plane's copy. Sync to pull the live list in, then mute the ones you do not want reported."
-                />
-              </Card>
+              <EmptyState
+                label="No workflows synced yet"
+                hint="Automation owns the workflows; this is our copy of the list. Sync to pull it in, then mute anything you do not want reported."
+              />
             </Show>
 
             <Show when={routingItems().length > 0}>

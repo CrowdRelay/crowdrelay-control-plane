@@ -81,7 +81,7 @@ export function LearningLoopPanel(props: { slug: string }) {
     return Math.round((improved / measured.length) * 100)
   }
 
-  return <Card class="p-4 space-y-4">
+  return <Card flat class="p-4 space-y-4">
     <div>
       <h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="book-open" />Decision → Action → Outcome → Learning</h2>
     </div>

@@ -101,7 +101,7 @@ export function PortfolioPanel(props: {
     setRowReason('')
   }
 
-  return <Card class="p-4">
+  return <Card flat class="p-4">
     <div class="flex items-center justify-between gap-4 mt-6 mb-3">
       <div><h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="megaphone" />Roster & amplification</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Route one artist's release or show in front of another artist's consenting fans, per edge.</p></div>
       <div class="flex flex-wrap items-center gap-2">

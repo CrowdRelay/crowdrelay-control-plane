@@ -135,7 +135,7 @@ export function PressRoomPanel(props: { slug: string }) {
     )
   }
 
-  return <Card class="p-4">
+  return <Card flat class="p-4">
     <div class="flex items-center justify-between gap-4">
       <h3 class="text-sm font-semibold text-foreground">Press room</h3>
       <Show when={model.dataUpdatedAt}><span class="text-xs text-muted-foreground">Updated {relativeTime(model.dataUpdatedAt)}</span></Show>

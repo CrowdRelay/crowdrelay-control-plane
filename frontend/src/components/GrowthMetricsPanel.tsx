@@ -157,7 +157,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
     return groups
   })
 
-  return <Card class="p-4">
+  return <Card flat class="p-4">
     <div class="flex items-center justify-between gap-4">
       <h3 class="text-sm font-semibold text-foreground">Growth metrics</h3>
       <Show when={coverage.data && hasFeeds()}>

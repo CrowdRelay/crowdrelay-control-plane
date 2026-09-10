@@ -106,7 +106,7 @@ export function PortfolioSettingsPanel(props: {
     },
   }))
 
-  return <Card class="p-5">
+  return <Card flat class="p-5">
     <SectionTitle eyebrow="BRAND" title="Brand settings" icon={<SectionIcon name="settings" />} description="Where this tenant's fan-facing links point. Each field is live as soon as it is saved — the apps read these values directly." />
     <p class="text-sm text-muted-foreground leading-relaxed">A field left empty runs the shipped default; <Badge variant="warning">override</Badge> marks the ones this tenant has replaced. Edit a field and its Save button appears beside it.</p>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-4">

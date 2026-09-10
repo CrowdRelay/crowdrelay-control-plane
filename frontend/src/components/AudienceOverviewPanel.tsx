@@ -17,7 +17,7 @@ export function AudienceOverviewPanel(props: { slug: string; overview?: Audience
   // not a wall of zeros on the page that carries the north star.
   const empty = () => (props.overview?.active_fans ?? 0) === 0
 
-  return <Card class="p-4">
+  return <Card flat class="p-4">
     <div class="flex items-center justify-between gap-4">
       <h3 class="text-sm font-semibold text-foreground">Audience KPIs</h3>
     </div>

@@ -58,7 +58,7 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
     return !r || (r.apiHealthy == null && r.workerHealthy == null && r.schemaVersion == null && r.deployedSha == null && r.outboxPending == null)
   }
 
-  return <Card class="p-4" aria-busy={runtime.isFetching && !runtime.data}>
+  return <Card flat class="p-4" aria-busy={runtime.isFetching && !runtime.data}>
     <div class="flex items-center justify-between gap-4 mt-6 mb-3">
       {/* Named for its source. Plain "Health" read as a contradiction next to
           the Operations page, which reports CrowdRelay's own HTTP health from

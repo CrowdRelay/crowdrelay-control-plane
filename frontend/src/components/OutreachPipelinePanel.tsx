@@ -74,7 +74,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
     }
   }
 
-  return <Card class="p-4">
+  return <Card flat class="p-4">
     <div class="flex items-center justify-between gap-4">
       <h3>Outreach pipeline</h3>
     </div>

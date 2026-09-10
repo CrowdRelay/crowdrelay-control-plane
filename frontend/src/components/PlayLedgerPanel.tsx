@@ -107,7 +107,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
       return next
     })
 
-  return <Card class="p-4">
+  return <Card flat class="p-4">
     <div class="flex items-center justify-between gap-4">
       <h3 class="text-base font-semibold text-foreground m-0">Play ledger</h3>
       <div class="flex items-center gap-3">

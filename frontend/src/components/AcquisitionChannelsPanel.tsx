@@ -48,7 +48,7 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
     return Math.max(...channels.map(c => c.signups))
   }
 
-  return <Card class="p-5">
+  return <Card flat class="p-5">
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div>
         <h2 class="text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="users" />Where the fans came from</h2>

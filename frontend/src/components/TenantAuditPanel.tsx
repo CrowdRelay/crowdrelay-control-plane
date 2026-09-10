@@ -17,7 +17,7 @@ export function TenantAuditPanel(props: { items: AuditEntry[] }) {
   const visible = () => expanded() ? props.items : props.items.slice(0, VISIBLE)
   const hasMore = () => props.items.length > VISIBLE
 
-  return <Card class="p-4">
+  return <Card flat class="p-4">
     <SectionTitle
       title="Recent platform changes"
       icon={<SectionIcon name="history" />}

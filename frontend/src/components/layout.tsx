@@ -73,9 +73,12 @@ export function SectionPanel(props: {
   children: JSX.Element
   class?: string
   elevated?: boolean
+  /** Keep the filled, bordered box. For a panel that genuinely sits on a
+   *  different surface — inside a dialog, or over a map. */
+  boxed?: boolean
 }) {
   return (
-    <Card elevated={props.elevated} class={cn('p-4', props.class)}>
+    <Card elevated={props.elevated} flat={!props.boxed && !props.elevated} class={cn('p-4', props.class)}>
       {props.children}
     </Card>
   )
