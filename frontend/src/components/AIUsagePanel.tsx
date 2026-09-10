@@ -1,7 +1,7 @@
 import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { errorMessage } from '../lib/format'
+import { errorMessage, formatUsd } from '../lib/format'
 import { ModelIcon } from './ProviderIcon'
 import { Sparkline } from './Sparkline'
 import type { TemplateRoi, ModelAnalytics } from '../lib/types'
@@ -18,12 +18,6 @@ const CrownIcon = (props: { size?: number }) => (
     <path d="M3 18h18M3 18l2-10 5 5 2-8 2 8 5-5 2 10" />
   </svg>
 )
-
-const formatUsd = (microUsd: number): string => {
-  const usd = microUsd / 1_000_000
-  if (usd < 0.01) return `$${usd.toFixed(4)}`
-  return `$${usd.toFixed(2)}`
-}
 
 const templateLabel = (id: string): string => {
   const labels: Record<string, string> = {

@@ -74,3 +74,17 @@ export const oldestQueueAge = (summary: {
   summary.deliveries.oldest_pending_seconds,
   summary.push.oldest_pending_seconds,
 )
+
+/** Money the operator sees, from the micro-USD the LLM ledger stores.
+ *
+ *  Sub-cent amounts keep four decimals because a single task genuinely costs
+ *  $0.0003 and rounding it to $0.00 would say the work was free. Exactly zero
+ *  is not a sub-cent amount, though, and `$0.0000` on a spend tile reads as a
+ *  precision no one asked for rather than as "nothing spent yet".
+ */
+export const formatUsd = (microUsd: number): string => {
+  const usd = microUsd / 1_000_000
+  if (usd === 0) return '$0.00'
+  if (usd < 0.01) return `$${usd.toFixed(4)}`
+  return `$${usd.toFixed(2)}`
+}

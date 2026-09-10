@@ -1,7 +1,7 @@
 import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api, request } from '../lib/api'
-import { errorMessage, formatIsoAge } from '../lib/format'
+import { errorMessage, formatIsoAge, formatUsd } from '../lib/format'
 import { toast } from './ui/toast'
 import { StatusBadge } from './StatusBadge'
 import { LlmProviderIconWithTier, ModelIcon } from './ProviderIcon'
@@ -46,12 +46,6 @@ interface PremiumUsage {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────
-
-const formatUsd = (microUsd: number): string => {
-  const usd = microUsd / 1_000_000
-  if (usd < 0.01) return `$${usd.toFixed(4)}`
-  return `$${usd.toFixed(2)}`
-}
 
 const budgetPct = (spent: number, budget: number): number => {
   if (budget <= 0) return 0
