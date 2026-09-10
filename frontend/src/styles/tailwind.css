@@ -682,8 +682,12 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
   /* ── Release component ───────────────────────────────────────────── */
 
   /* ── Fanbase connection ──────────────────────────────────────────── */
+  /* `rounded-lg` here was the last rounded surface among square panels, and the
+     card fill matched its parent exactly, so the border drew an edge without
+     separating anything. A connected source is worth marking; an unconnected
+     one is a row. */
   .fanbase-connection-card {
-    @apply rounded-lg border border-border bg-card p-3.5 flex items-center gap-3;
+    @apply flex items-center gap-3 border border-border bg-surface-1 p-3.5;
   }
   .fanbase-connection-card.connected {
     @apply border-success/30;

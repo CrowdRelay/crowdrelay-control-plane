@@ -412,8 +412,11 @@ export function FanSourcesPanel(props: {
       <ErrorCard>{errorText()}</ErrorCard>
     </Show>
 
-    {/* Platform connections — OAuth-based fanbase sources */}
-    <Card class="p-4">
+    {/* Platform connections used to be a Card inside the Fanbases Card inside
+        the page Card, with a fourth Card per connection. Four nested borders
+        over one unchanging fill carry no depth information — they only add
+        edges to count. This is a titled section with a rule above it. */}
+    <section class="mt-6 border-t border-border pt-4">
       <div class="flex items-center justify-between gap-4">
         <h3>Platform connections</h3>
         <Show when={connections.data && connections.data!.length > 0}>
@@ -448,7 +451,7 @@ export function FanSourcesPanel(props: {
                     missing API key — and the status badge never can. */}
                 <Show when={conn() && conn()!.last_sync_error}>
                   <div class="text-sm text-muted-foreground mt-1 break-words">
-                    <span class="notifier-test-bad">
+                    <span class="text-destructive">
                       {conn()!.last_sync_at ? 'sync failing' : 'never synced'}
                       {conn()!.last_sync_failed_at ? ` (${formatAge(conn()!.last_sync_failed_at!)})` : ''}
                       : {conn()!.last_sync_error}
@@ -462,45 +465,45 @@ export function FanSourcesPanel(props: {
                   <Button variant="destructive-ghost" size="sm" onClick={() => disconnectConnection(conn()!.id)}>Disconnect</Button>
                 </Show>
                 <Show when={!conn() && plat.value === 'tiktok'}>
-                  <Button size="sm" onClick={() => {
+                  <Button variant="outline" size="sm" onClick={() => {
                     window.location.href = `https://signal-api.virya.music/v1/public/connections/tiktok/authorize?redirect=/tenants/${props.slug}/portfolio`
                   }}>Connect</Button>
                 </Show>
                 <Show when={!conn() && plat.value === 'discord'}>
-                  <Button size="sm" onClick={() => setConnectingPlatform('discord')}>Connect</Button>
+                  <Button variant="outline" size="sm" onClick={() => setConnectingPlatform('discord')}>Connect</Button>
                 </Show>
                 <Show when={!conn() && plat.value === 'telegram'}>
-                  <Button size="sm" onClick={() => setConnectingPlatform('telegram')}>Connect</Button>
+                  <Button variant="outline" size="sm" onClick={() => setConnectingPlatform('telegram')}>Connect</Button>
                 </Show>
                 <Show when={!conn() && plat.value === 'lastfm'}>
-                  <Button size="sm" onClick={() => setConnectingPlatform('lastfm')}>Connect</Button>
+                  <Button variant="outline" size="sm" onClick={() => setConnectingPlatform('lastfm')}>Connect</Button>
                 </Show>
                 <Show when={!conn() && plat.value === 'deezer'}>
-                  <Button size="sm" onClick={() => setConnectingPlatform('deezer')}>Connect</Button>
+                  <Button variant="outline" size="sm" onClick={() => setConnectingPlatform('deezer')}>Connect</Button>
                 </Show>
                 <Show when={!conn() && plat.value === 'discogs'}>
-                  <Button size="sm" onClick={() => setConnectingPlatform('discogs')}>Connect</Button>
+                  <Button variant="outline" size="sm" onClick={() => setConnectingPlatform('discogs')}>Connect</Button>
                 </Show>
                 <Show when={!conn() && plat.value === 'bluesky'}>
-                  <Button size="sm" onClick={() => setConnectingPlatform('bluesky')}>Connect</Button>
+                  <Button variant="outline" size="sm" onClick={() => setConnectingPlatform('bluesky')}>Connect</Button>
                 </Show>
                 <Show when={!conn() && plat.value === 'bandcamp'}>
-                  <Button size="sm" onClick={() => setConnectingPlatform('bandcamp')}>Connect</Button>
+                  <Button variant="outline" size="sm" onClick={() => setConnectingPlatform('bandcamp')}>Connect</Button>
                 </Show>
                 <Show when={!conn() && plat.value === 'youtube'}>
-                  <Button size="sm" onClick={() => { setConnectingPlatform('youtube'); setVerificationNotice(null) }}>Connect</Button>
+                  <Button variant="outline" size="sm" onClick={() => { setConnectingPlatform('youtube'); setVerificationNotice(null) }}>Connect</Button>
                 </Show>
                 <Show when={!conn() && plat.value === 'facebook'}>
-                  <Button size="sm" onClick={() => { setConnectingPlatform('facebook'); setVerificationNotice(null) }}>Connect</Button>
+                  <Button variant="outline" size="sm" onClick={() => { setConnectingPlatform('facebook'); setVerificationNotice(null) }}>Connect</Button>
                 </Show>
                 <Show when={!conn() && plat.value === 'instagram'}>
-                  <Button size="sm" onClick={() => { setConnectingPlatform('instagram'); setVerificationNotice(null) }}>Connect</Button>
+                  <Button variant="outline" size="sm" onClick={() => { setConnectingPlatform('instagram'); setVerificationNotice(null) }}>Connect</Button>
                 </Show>
                 <Show when={!conn() && plat.value === 'soundcloud'}>
-                  <Button size="sm" onClick={() => { setConnectingPlatform('soundcloud'); setVerificationNotice(null) }}>Connect</Button>
+                  <Button variant="outline" size="sm" onClick={() => { setConnectingPlatform('soundcloud'); setVerificationNotice(null) }}>Connect</Button>
                 </Show>
                 <Show when={!conn() && plat.value === 'reddit'}>
-                  <Button size="sm" onClick={() => { setConnectingPlatform('reddit'); setVerificationNotice(null) }}>Connect</Button>
+                  <Button variant="outline" size="sm" onClick={() => { setConnectingPlatform('reddit'); setVerificationNotice(null) }}>Connect</Button>
                 </Show>
               </div>
             </div>
@@ -634,7 +637,7 @@ export function FanSourcesPanel(props: {
         <Show when={verificationNotice()}><div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground" role="status">{verificationNotice()}</div></Show>
       </Show>
       </Show>
-    </Card>
+    </section>
 
     <Show when={creating}>
       <p class="text-sm text-muted-foreground leading-relaxed mt-5">A source is one place fans arrive from. Naming it well matters — the name is what every ingestion row, attribution report and audit entry refers back to.</p>
@@ -718,8 +721,8 @@ export function FanSourcesPanel(props: {
                           <small>Each entry needs <code>external_id</code> (required). Optional: <code>email</code>, <code>display_name</code>, <code>locale</code>.</small>
                         </details>
                       }>
-                        <Show when={parseEntries()} fallback={<small class="notifier-test-bad">Invalid JSON — check the format and try again.</small>}>
-                          <small class="notifier-test-ok">✓ Valid — {parseEntries()!.entries.length} entr{parseEntries()!.entries.length === 1 ? 'y' : 'ies'} ready</small>
+                        <Show when={parseEntries()} fallback={<small class="text-destructive">Invalid JSON — check the format and try again.</small>}>
+                          <small class="text-success">✓ Valid — {parseEntries()!.entries.length} entr{parseEntries()!.entries.length === 1 ? 'y' : 'ies'} ready</small>
                         </Show>
                       </Show>
                     </div>
