@@ -108,7 +108,7 @@ export function AuthorityPoliciesPanel(props: {
     }
   }
 
-  return <Card class="p-4 operations-panel">
+  return <Card class="p-4">
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div><h2 class="text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="shield" />Authority policies</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed">One row per kind of work the autopilot does. This is the only place these controls live.</p></div>
       <div class="flex flex-wrap items-center gap-2">

@@ -214,7 +214,7 @@ export function PressRoomPanel(props: { slug: string }) {
       </div>
 
       <Show when={adding()}>
-        <div class="mb-4 grid gap-2 rounded-lg border border-border p-3 sm:grid-cols-2">
+        <form class="mb-4 grid gap-2 rounded-lg border border-border p-3 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); if (draftIsComplete() && !saving()) saveAsset() }}>
           <Input
             placeholder="Key (band_photo_01)"
             value={draft().assetKey}
@@ -247,11 +247,11 @@ export function PressRoomPanel(props: { slug: string }) {
             onInput={(e) => setDraft(d => ({ ...d, url: e.currentTarget.value }))}
           />
           <div class="sm:col-span-2">
-            <Button size="sm" disabled={!draftIsComplete() || saving()} onClick={saveAsset}>
+            <Button type="submit" size="sm" disabled={!draftIsComplete() || saving()}>
               {saving() ? 'Saving…' : 'Save asset'}
             </Button>
           </div>
-        </div>
+        </form>
       </Show>
 
       <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>

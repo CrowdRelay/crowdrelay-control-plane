@@ -60,7 +60,7 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
   const ledger = () => props.releaseLedger
   const stale = () => staleReleaseComponents(ledger())
 
-  return <Card class="p-4 ecosystem-release-panel">
+  return <Card class="p-4">
     <div class="flex items-center justify-between gap-4 mt-6 mb-3">
       <div>
         <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">ECOSYSTEM RELEASE</span>

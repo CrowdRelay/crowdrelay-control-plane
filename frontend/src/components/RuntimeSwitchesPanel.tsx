@@ -77,7 +77,7 @@ export function RuntimeSwitchesPanel(props: {
 
   const [confirming, setConfirming] = createSignal<'redeploy' | 'replay-dead' | null>(null)
 
-  return <Card class="p-5 operations-panel">
+  return <Card class="p-5">
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div><h2 class="text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="activity" />Runtime switches</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Feature flags, health metrics and redeploy. Changes are tenant-scoped and audited.</p></div>
       <div class="flex items-center gap-2 flex-wrap">

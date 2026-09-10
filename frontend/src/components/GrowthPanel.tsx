@@ -6,6 +6,7 @@ import { errorMessage } from '../lib/format'
 import { SectionIcon } from './SectionIcon'
 import { Card } from './ui/card'
 import { Alert } from './ui/alert'
+import { SkeletonRows } from './Skeleton'
 
 // CrowdRelay only queues growth campaigns; the sends happen in external n8n
 // workers. The panel therefore reports whether those workers are draining the
@@ -93,7 +94,7 @@ export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; 
     }
   }
 
-  return <Card class="p-5 operations-panel">
+  return <Card class="p-5">
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div>
         <h2 class="text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="trending-up" />Campaign delivery & outreach</h2>
@@ -108,7 +109,7 @@ export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; 
         </Alert>
       </Show>
 
-      <Show when={growth.data} fallback={!growth.error ? <div class="mini-skeleton"/> : null}>{data => <>
+      <Show when={growth.data} fallback={!growth.error ? <SkeletonRows count={3} /> : null}>{data => <>
         <Show when={data().totals.stalled_campaigns > 0}>
           <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 flex flex-col gap-1">
             <strong class="text-destructive">Growth delivery is stalled</strong>
