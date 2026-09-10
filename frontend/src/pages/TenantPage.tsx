@@ -336,15 +336,15 @@ export function TenantPage() {
       {/* ── Deployment tab — provisioning, operations, release ledger ── */}
       <TabPanel active={activeTab()} id="deployment" visited={isVisited('deployment')}>
         <Show when={operations.isPending}><SkeletonSection titleWidth="180px" lines={4} minHeight="180px" /></Show>
-        <Show when={operations.error}><ErrorCard>{errorMessage(operations.error, 'Operations read model unavailable')}</ErrorCard></Show>
+        <Show when={operations.error}><ErrorCard>{errorMessage(operations.error, 'Operations data unavailable')}</ErrorCard></Show>
         <SectionPanel>
           <SectionTitle eyebrow="PROVISIONING" title="CrowdRelay instance" icon={<SectionIcon name="server" />} action={<Show when={latestJob()}>{job => <StatusBadge status={job().status} tone={provisionTone(job().status)} />}</Show>} />
           <Show when={capabilities()?.canProvision !== false} fallback={<div class="p-4 rounded-lg border border-border bg-surface-1"><p class="text-sm text-muted-foreground m-0">This tenant stays on its existing production CrowdRelay deployment.</p></div>}>
-            <p class="text-sm text-muted-foreground">The browser only requests desired state. A separately authenticated host agent claims the job and runs the deployment.</p>
+            <p class="text-sm text-muted-foreground">Set the desired state here. A separate deploy agent picks up the job and runs the deployment.</p>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
               <div class="flex flex-col gap-1"><span class="text-xs text-muted-foreground">Public API</span><strong class="text-sm text-foreground break-all">{t.crowdrelayBaseUrl ?? 'not configured'}</strong></div>
               <div class="flex flex-col gap-1"><span class="text-xs text-muted-foreground">Signal / site</span><strong class="text-sm text-foreground break-all">{t.signalBaseUrl ?? 'not configured'}</strong></div>
-              <div class="flex flex-col gap-1"><span class="text-xs text-muted-foreground">Provisioner</span><strong class="text-sm text-foreground">{platform()?.provisionerConfigured ? 'configured' : 'not configured'}</strong></div>
+              <div class="flex flex-col gap-1"><span class="text-xs text-muted-foreground">Deploy agent</span><strong class="text-sm text-foreground">{platform()?.provisionerConfigured ? 'configured' : 'not configured'}</strong></div>
             </div>
             <div class="flex gap-2 items-center mt-4">
               <Input class={cn('flex-1', !releaseReady() && desiredVersion().trim() && 'border-destructive/50')} value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder="Leave blank for latest release" aria-label="Desired release version" aria-invalid={!releaseReady() && Boolean(desiredVersion().trim())} />
@@ -355,9 +355,9 @@ export function TenantPage() {
             <Show when={preview()}>{job => <div class="mt-3 p-3 rounded-lg bg-surface-2 border border-border overflow-x-auto"><pre class="text-xs text-foreground">{JSON.stringify(job().plan, null, 2)}</pre></div>}</Show>
             <Show when={latestJob()}>{job => <div class="mt-4 pt-4 border-t border-border">
               <div class="flex items-center justify-between gap-2"><div><strong class="text-foreground">{job().status === 'succeeded' ? 'Deployed' : job().status === 'failed' ? 'Deployment failed' : job().status === 'running' ? 'Deploying…' : job().status === 'approved' ? 'Queued' : 'Planned'}</strong><small class="block text-xs text-muted-foreground">attempt {job().attemptCount} · {new Date(job().createdAt).toLocaleString()}</small></div><StatusBadge status={job().status} tone={provisionTone(job().status)} /></div>
-              <Show when={job().status === 'approved'}><p class="text-sm text-muted-foreground mt-2">Queued for the provisioner agent. No Docker mutation happens in the HTTP request.</p></Show>
-              <Show when={job().status === 'running'}><p class="text-sm text-muted-foreground mt-2">The provisioner agent is deploying. This typically takes 2–5 minutes.</p></Show>
-              <Show when={job().status === 'succeeded'}><div class="mt-3 p-3 rounded-lg bg-surface-1"><dl class="grid grid-cols-2 gap-2 text-sm"><dt class="text-muted-foreground">Local API</dt><dd class="text-foreground"><code class="text-xs">{job().result?.localApiUrl ?? '—'}</code></dd><dt class="text-muted-foreground">Host port</dt><dd class="text-foreground">{job().result?.apiPort ?? '—'}</dd><dt class="text-muted-foreground">Schema</dt><dd class="text-foreground">{job().result?.schemaVersion ?? '—'}</dd></dl><p class="text-xs text-muted-foreground italic mt-2">The instance is healthy locally. Route <code>{t.crowdrelayBaseUrl}</code> at the edge to this host port to expose it publicly.</p></div></Show>
+              <Show when={job().status === 'approved'}><p class="text-sm text-muted-foreground mt-2">Queued for deployment. Nothing changes until the deploy agent picks it up.</p></Show>
+              <Show when={job().status === 'running'}><p class="text-sm text-muted-foreground mt-2">Deployment is running. This typically takes 2–5 minutes.</p></Show>
+              <Show when={job().status === 'succeeded'}><div class="mt-3 p-3 rounded-lg bg-surface-1"><dl class="grid grid-cols-2 gap-2 text-sm"><dt class="text-muted-foreground">Local API</dt><dd class="text-foreground"><code class="text-xs">{job().result?.localApiUrl ?? '—'}</code></dd><dt class="text-muted-foreground">Host port</dt><dd class="text-foreground">{job().result?.apiPort ?? '—'}</dd><dt class="text-muted-foreground">Schema</dt><dd class="text-foreground">{job().result?.schemaVersion ?? '—'}</dd></dl><p class="text-xs text-muted-foreground italic mt-2">The instance is healthy locally. Route <code>{t.crowdrelayBaseUrl}</code> to this host port to expose it publicly.</p></div></Show>
               <Show when={job().status === 'failed' ? (job().errorCode ?? 'provisioning_failed') : undefined}>{code => <ErrorCard>
                 <strong>{provisionFailures[code()]?.title ?? 'Deployment failed'}</strong>
                 <Show when={provisionFailures[code()]}>{failure => <>

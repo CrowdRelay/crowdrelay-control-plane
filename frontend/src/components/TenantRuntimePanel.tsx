@@ -71,7 +71,7 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
       <p class="mb-4 px-4 py-3 border border-border-subtle rounded-md bg-surface-1 text-muted-foreground text-base leading-[1.55]">This tenant has never reported a runtime heartbeat, so there is nothing to score here yet. Service health measured inside CrowdRelay is on the Operations page.</p>
     </Show>
     <Show when={snapshot().runtimeHealth === 'stale'}>
-      <p class="mb-4 px-4 py-3 border border-border-subtle rounded-md bg-surface-1 text-muted-foreground text-base leading-[1.55]">The runtime reporter has stopped sending fresh telemetry. Optional products and app-store distribution do not affect this status.</p>
+      <p class="mb-4 px-4 py-3 border border-border-subtle rounded-md bg-surface-1 text-muted-foreground text-base leading-[1.55]">Live data has stopped updating. Optional products and app-store distribution do not affect this status.</p>
     </Show>
     {/* This grid printed `String(apiHealthy)` — the words "true", "false" and
         "unknown" — under headings named after the code that produced them

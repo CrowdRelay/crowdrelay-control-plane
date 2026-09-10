@@ -658,7 +658,7 @@ export function FanSourcesPanel(props: {
           <label>
             <span>Fetch URL</span>
             <Input value={fetchUrl()} onInput={e => setFetchUrl(e.currentTarget.value)} placeholder="https://…/candidates.json" />
-            <small>HTTPS endpoint returning the candidate list as JSON. The URL is stored for manual import; automatic polling is not yet wired.</small>
+            <small>HTTPS endpoint returning the candidate list as JSON. The URL is stored for manual import; automatic sync is not yet wired.</small>
           </label>
         </Show>
         <Show when={needsAttestation()}>

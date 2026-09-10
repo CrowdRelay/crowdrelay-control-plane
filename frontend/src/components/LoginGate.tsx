@@ -70,7 +70,7 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
         </form>
         <div class="mt-5 flex items-center gap-2 text-xs text-muted-foreground">
           <span class="w-2 h-2 rounded-full bg-success flex-shrink-0" />
-          <span>Session lives in an HttpOnly cookie — credentials never touch browser storage.</span>
+          <span>Credentials never touch browser storage.</span>
         </div>
       </section>
     </main>

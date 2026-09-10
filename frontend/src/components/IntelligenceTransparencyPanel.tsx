@@ -153,7 +153,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
           <span class="text-muted-foreground">{decisions().length} decisions</span>
         </Show>
       </div>
-      <p class="text-sm text-muted-foreground leading-relaxed mt-2">The deterministic Rust intelligence's decision log — what it decided, why, and what workers found.</p>
+      <p class="text-sm text-muted-foreground leading-relaxed mt-2">The autopilot's decision log — what it decided, why, and what workers found.</p>
 
       <Show when={data.data && decisions().length === 0} fallback={
         <Show when={error()} fallback={

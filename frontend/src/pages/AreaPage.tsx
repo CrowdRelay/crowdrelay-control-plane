@@ -238,7 +238,7 @@ export function AreaPage() {
 
     <Show when={selectedId()}><SectionPanel>
       <SectionTitle eyebrow="PRIVATE EDITOR" title={detail.data?.summary ? `${detail.data.summary.city} · #${detail.data.summary.number}` : 'Loading…'} action={<Button variant="ghost" size="sm" onClick={closeEditor}>Close & purge coordinates</Button>} />
-      <p class="text-sm text-muted-foreground -mt-1 mb-4">Single-drop response only · <code>Cache-Control: private, no-store</code></p>
+      <p class="text-sm text-muted-foreground -mt-1 mb-4">Single-drop response only · not cached.</p>
       <Show when={detail.data && draft()} fallback={<SkeletonRows count={4} />}>{_ready => <>
         <div class="flex gap-1 flex-wrap"><For each={['city','location','content','schedule','review'] as const}>{step=><Button variant="ghost" size="sm" class={cn(editorStep()===step && 'bg-primary/10 text-primary')} onClick={()=>setEditorStep(step)}>{step}</Button>}</For></div>
 

@@ -63,7 +63,7 @@ export function TenantOperatorsPanel(props: { slug: string }) {
       <label class="grid gap-1.5">
         <span class="text-sm font-medium text-foreground">Password</span>
         <Input type="password" value={password()} onInput={(e) => setPassword(e.currentTarget.value)} placeholder="min 12 characters" autocomplete="new-password" />
-        <small class="text-xs text-muted-foreground">At least 12 characters. Hand it to the operator once — it is hashed with argon2id and never shown again. Losing it means creating a new account.</small>
+        <small class="text-xs text-muted-foreground">At least 12 characters. Hand it to the operator once — it is never shown again. Losing it means creating a new account.</small>
       </label>
       </div>
       <div class="flex justify-end mt-3"><Button size="sm" disabled={create.isPending || !/^[a-z0-9][a-z0-9-_.]{2,31}$/.test(username().trim()) || password().length < 12} onClick={() => create.mutate()}>{create.isPending && <Spinner />} {create.isPending ? 'Creating…' : 'Create operator'}</Button></div>
