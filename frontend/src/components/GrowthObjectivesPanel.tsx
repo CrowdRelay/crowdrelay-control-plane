@@ -6,6 +6,9 @@ import { errorMessage } from '../lib/format'
 import { compactNumber } from '../lib/charts'
 import { EmptyState } from './EmptyState'
 import { SkeletonRows } from './Skeleton'
+import { Card } from './ui/card'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
 import type { GrowthObjectiveView, ObjectiveState } from '../lib/types'
 
 const formatDeadline = (iso: string) => {
@@ -39,6 +42,9 @@ const stateTone = (state: ObjectiveState): 'good' | 'warn' | 'bad' | 'muted' => 
     case 'unmeasurable': return 'muted'
   }
 }
+
+const toneVariant = (tone: 'good' | 'warn' | 'bad' | 'muted'): 'success' | 'warning' | 'destructive' | 'muted' =>
+  tone === 'good' ? 'success' : tone === 'warn' ? 'warning' : tone === 'bad' ? 'destructive' : 'muted'
 
 const stateProgress = (state: ObjectiveState): number => {
   switch (state.state) {
@@ -89,20 +95,20 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
     }
   }
 
-  return <div class="agent-section">
-    <div class="agent-section-head">
-      <h3>Growth objectives</h3>
+  return <Card class="p-4">
+    <div class="flex items-center justify-between gap-4">
+      <h3 class="text-sm font-semibold text-foreground">Growth objectives</h3>
       <Show when={objectives.data && objectives.data!.length > 0}>
         <span class="text-muted-foreground">{objectives.data!.length} objectives</span>
       </Show>
     </div>
-    <p class="agent-section-intro">Declared growth targets with progress tracking. Each objective freezes a baseline and measures progress toward the target value by the deadline.</p>
+    <p class="mt-1 text-sm text-muted-foreground">Declared growth targets with progress tracking. Each objective freezes a baseline and measures progress toward the target value by the deadline.</p>
 
     <Show when={error()}>
-      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{error()}</div>
+      <div class="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{error()}</div>
     </Show>
 
-    <Show when={objectives.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Growth objectives unavailable: {objectiveErrorMessage(objectives.error, 'Service unreachable')}</div></Show>
+    <Show when={objectives.error}><div class="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Growth objectives unavailable: {objectiveErrorMessage(objectives.error, 'Service unreachable')}</div></Show>
     <Show when={objectives.data && objectives.data!.length > 0} fallback={
       <Show when={objectives.isFetching} fallback={
         <EmptyState label="No growth objectives declared" hint="Declare a target metric and deadline to start tracking progress. The intelligence measures every action against active objectives." />
@@ -110,29 +116,32 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
         <SkeletonRows count={3} />
       </Show>
     }>
-      <div class="objective-list">
+      <div class="mt-3 flex flex-col gap-3">
         <For each={showAll() ? objectives.data : objectives.data!.slice(0, MAX_VISIBLE)}>{(obj: GrowthObjectiveView) => {
           const observed = obj.observed_value ?? obj.baseline_value
           const pct = stateProgress(obj.state)
           const overTarget = observed > obj.target_value
           return (
-            <div class="objective-card">
-              <div class="objective-card-head">
-                <strong>{obj.platform} · {obj.metric_key}</strong>
-                <span class={`badge tone-${stateTone(obj.state)}`}>{stateLabel(obj.state)}</span>
-                <button
-                  class="ghost"
-                  disabled={retiring() === obj.objective_id}
-                  onClick={() => retireObjective(obj)}
-                >{retiring() === obj.objective_id ? 'Retiring…' : 'Retire'}</button>
+            <div class="p-4 border border-border rounded-md bg-card">
+              <div class="flex items-center justify-between gap-3">
+                <strong class="text-sm font-semibold text-foreground">{obj.platform} · {obj.metric_key}</strong>
+                <div class="flex items-center gap-2">
+                  <Badge variant={toneVariant(stateTone(obj.state))}>{stateLabel(obj.state)}</Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={retiring() === obj.objective_id}
+                    onClick={() => retireObjective(obj)}
+                  >{retiring() === obj.objective_id ? 'Retiring…' : 'Retire'}</Button>
+                </div>
               </div>
-              <div class="objective-progress-track">
+              <div class="mt-3 h-2 rounded-full bg-surface-3 overflow-hidden">
                 <div
-                  class={`objective-progress-fill ${overTarget ? 'over' : ''}`}
+                  class={`h-full rounded-full ${overTarget ? 'bg-destructive' : 'bg-primary'}`}
                   style={{ width: `${pct}%` }}
                 />
               </div>
-              <div class="objective-meta">
+              <div class="mt-3 flex items-center justify-between gap-3 text-sm text-muted-foreground">
                 <span>Baseline: {compactNumber(obj.baseline_value)}</span>
                 <span>Observed: {obj.observed_value != null ? compactNumber(obj.observed_value) : '—'}</span>
                 <span>Target: {compactNumber(obj.target_value)}</span>
@@ -143,10 +152,10 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
         }}</For>
       </div>
       <Show when={objectives.data!.length > MAX_VISIBLE}>
-        <button class="ghost" onClick={() => setShowAll(s => !s)}>
+        <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAll(s => !s)}>
           {showAll() ? 'Show less' : `Show all (${objectives.data!.length})`}
-        </button>
+        </Button>
       </Show>
     </Show>
-  </div>
+  </Card>
 }

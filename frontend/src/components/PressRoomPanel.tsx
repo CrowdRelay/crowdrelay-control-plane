@@ -6,6 +6,9 @@ import { errorMessage, formatTimestamp } from '../lib/format'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock } from './Skeleton'
 import { TabBar } from './layout'
+import { Card } from './ui/card'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
 
 const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (status) {
@@ -15,6 +18,9 @@ const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
     default: return 'muted'
   }
 }
+
+const toneToVariant = (tone: 'good' | 'warn' | 'bad' | 'muted'): 'success' | 'warning' | 'destructive' | 'muted' =>
+  tone === 'good' ? 'success' : tone === 'warn' ? 'warning' : tone === 'bad' ? 'destructive' : 'muted'
 
 // `BeaconReplyDisposition` in crowdrelay-domain. Ordered by how much the
 // answer is worth, with the two that end the relationship last.
@@ -83,11 +89,11 @@ export function PressRoomPanel(props: { slug: string }) {
     }
   }
 
-  return <div class="agent-section">
-    <div class="agent-section-head">
-      <h3>Press room</h3>
+  return <Card class="p-4">
+    <div class="flex items-center justify-between gap-4">
+      <h3 class="text-sm font-semibold text-foreground">Press room</h3>
     </div>
-    <p class="agent-section-intro">Press requests from beacons, press assets for distribution, event engagements, and earned media coverage.</p>
+    <p class="mt-1 text-sm text-muted-foreground">Press requests from beacons, press assets for distribution, event engagements, and earned media coverage.</p>
     <TabBar
       active={tab()}
       onChange={setTab}
@@ -125,15 +131,16 @@ export function PressRoomPanel(props: { slug: string }) {
                     <td><strong>{r.displayName}</strong><br /><span class="text-muted-foreground">{r.beaconKind}</span></td>
                     <td>{r.requestKind}</td>
                     <td>{r.eventTitle ?? '—'}</td>
-                    <td><span class={`badge tone-${statusTone(r.status)}`}>{r.status}</span></td>
+                    <td><Badge variant={toneToVariant(statusTone(r.status))}>{r.status}</Badge></td>
                     <td>{formatTimestamp(r.createdAt)}</td>
                     <td>
                       <Show when={r.status === 'pending' || r.status === 'open'}>
-                        <button
-                          class="ghost"
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           disabled={resolving() === r.id}
                           onClick={() => resolveRequest(r.id)}
-                        >{resolving() === r.id ? '…' : 'Resolve'}</button>
+                        >{resolving() === r.id ? '…' : 'Resolve'}</Button>
                       </Show>
                     </td>
                   </tr>
@@ -142,9 +149,9 @@ export function PressRoomPanel(props: { slug: string }) {
             </table>
           </div>
           <Show when={requests().length > MAX_VISIBLE}>
-            <button class="ghost" onClick={() => setShowAllRequests(s => !s)}>
+            <Button variant="ghost" size="sm" onClick={() => setShowAllRequests(s => !s)}>
               {showAllRequests() ? 'Show less' : `Show all (${requests().length})`}
-            </button>
+            </Button>
           </Show>
         </Show>
       </Show>
@@ -174,16 +181,16 @@ export function PressRoomPanel(props: { slug: string }) {
                     <td>{a.eventTitle ?? '—'}</td>
                     <td>{a.active ? '✓' : '—'}</td>
                     <td>{formatTimestamp(a.updatedAt)}</td>
-                    <td><a href={a.url} target="_blank" rel="noopener noreferrer" class="link">Open</a></td>
+                    <td><a href={a.url} target="_blank" rel="noopener noreferrer" class="text-primary underline-offset-4 hover:underline">Open</a></td>
                   </tr>
                 )}</For>
               </tbody>
             </table>
           </div>
           <Show when={assets().length > MAX_VISIBLE}>
-            <button class="ghost" onClick={() => setShowAllAssets(s => !s)}>
+            <Button variant="ghost" size="sm" onClick={() => setShowAllAssets(s => !s)}>
               {showAllAssets() ? 'Show less' : `Show all (${assets().length})`}
-            </button>
+            </Button>
           </Show>
         </Show>
       </Show>
@@ -212,7 +219,7 @@ export function PressRoomPanel(props: { slug: string }) {
                   <tr>
                     <td><strong>{e.displayName}</strong><br /><span class="text-muted-foreground">{e.beaconKind}</span></td>
                     <td>{e.eventTitle}</td>
-                    <td><span class={`badge tone-${statusTone(e.status)}`}>{e.status}</span></td>
+                    <td><Badge variant={toneToVariant(statusTone(e.status))}>{e.status}</Badge></td>
                     <td>{e.helpKind ?? '—'}</td>
                     <td>{e.notificationCount}</td>
                     <td>{e.coverageCount}</td>
@@ -223,7 +230,7 @@ export function PressRoomPanel(props: { slug: string }) {
                         needs, so it is where the answer gets written down. */}
                     <td>
                       <label class="engagement-reply">
-                        <span class="visually-hidden">Reply from {e.displayName} about {e.eventTitle}</span>
+                        <span class="sr-only">Reply from {e.displayName} about {e.eventTitle}</span>
                         <select
                           disabled={replying() === `${e.beaconId}:${e.eventId}`}
                           value=""
@@ -246,9 +253,9 @@ export function PressRoomPanel(props: { slug: string }) {
             </table>
           </div>
           <Show when={engagements().length > MAX_VISIBLE}>
-            <button class="ghost" onClick={() => setShowAllEngagements(s => !s)}>
+            <Button variant="ghost" size="sm" onClick={() => setShowAllEngagements(s => !s)}>
               {showAllEngagements() ? 'Show less' : `Show all (${engagements().length})`}
-            </button>
+            </Button>
           </Show>
         </Show>
       </Show>
@@ -278,19 +285,19 @@ export function PressRoomPanel(props: { slug: string }) {
                     <td>{c.coverageKind}</td>
                     <td>{c.title ?? '—'}</td>
                     <td>{formatTimestamp(c.createdAt)}</td>
-                    <td><a href={c.url} target="_blank" rel="noopener noreferrer" class="link">Open</a></td>
+                    <td><a href={c.url} target="_blank" rel="noopener noreferrer" class="text-primary underline-offset-4 hover:underline">Open</a></td>
                   </tr>
                 )}</For>
               </tbody>
             </table>
           </div>
           <Show when={coverage().length > MAX_VISIBLE}>
-            <button class="ghost" onClick={() => setShowAllCoverage(s => !s)}>
+            <Button variant="ghost" size="sm" onClick={() => setShowAllCoverage(s => !s)}>
               {showAllCoverage() ? 'Show less' : `Show all (${coverage().length})`}
-            </button>
+            </Button>
           </Show>
         </Show>
       </Show>
     </Show>
-  </div>
+  </Card>
 }

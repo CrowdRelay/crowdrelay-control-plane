@@ -7,6 +7,9 @@ import { FunnelChart } from './FunnelChart'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock, SkeletonRows } from './Skeleton'
 import { KpiStrip, KpiCard } from './layout'
+import { Card } from './ui/card'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
 import type { GrowthFunnelData, FunnelRecentWorkerRun } from '../lib/types'
 
 const fmt = (n: number | null | undefined): string =>
@@ -37,6 +40,9 @@ const runStatusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
   status === 'completed' ? 'good' :
   status === 'running' || status === 'queued' ? 'warn' :
   status === 'failed' ? 'bad' : 'muted'
+
+const badgeVariantFor = (tone: 'good' | 'warn' | 'bad' | 'muted'): 'success' | 'warning' | 'destructive' | 'muted' =>
+  tone === 'good' ? 'success' : tone === 'warn' ? 'warning' : tone === 'bad' ? 'destructive' : 'muted'
 
 export function GrowthFunnelPanel(props: { slug: string }) {
   const [error, setError] = createSignal<string | null>(null)
@@ -120,23 +126,23 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     return Object.values(data.worker_runs).reduce((sum, r) => sum + r.failed, 0)
   }
 
-  return <div class="growth-funnel-panel">
+  return <Card class="p-5 growth-funnel-panel">
     <Show when={error()}>
       <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error()}</div>
     </Show>
 
     {/* Time range selector */}
-    <div class="funnel-controls">
-      <label class="compact-field">
+    <div class="flex flex-wrap gap-3 items-end mb-5">
+      <label class="grid gap-1.5 text-muted-foreground text-sm">
         <span>Time range</span>
-        <select value={days()} onChange={(e) => setDays(Number(e.currentTarget.value))}>
+        <select class="border border-border-strong text-white px-2.5 py-2 rounded-md" value={days()} onChange={(e) => setDays(Number(e.currentTarget.value))}>
           <option value={7}>Last 7 days</option>
           <option value={30}>Last 30 days</option>
           <option value={90}>Last 90 days</option>
           <option value={365}>All time</option>
         </select>
       </label>
-      <button class="ghost" onClick={() => void funnel.refetch()} disabled={funnel.isFetching}>{funnel.isFetching ? 'Refreshing…' : 'Refresh'}</button>
+      <Button variant="ghost" size="sm" onClick={() => void funnel.refetch()} disabled={funnel.isFetching}>{funnel.isFetching ? 'Refreshing…' : 'Refresh'}</Button>
     </div>
 
     {/* Changing the time range swaps the query key. The previous result stays
@@ -156,51 +162,51 @@ export function GrowthFunnelPanel(props: { slug: string }) {
 
     {/* Funnel visualization */}
     <Show when={funnel.data}>
-      <div class="agent-section">
-        <div class="agent-section-head">
-          <h3><FunnelIcon size={18} /> Growth Funnel</h3>
+      <Card class="p-4 mt-6 pt-6 border-t border-border">
+        <div class="flex items-center justify-between gap-4">
+          <h3 class="text-sm font-semibold text-foreground"><FunnelIcon size={18} /> Growth Funnel</h3>
         </div>
-        <p class="agent-section-intro">The fan growth journey from community discovery to conversion. Each stage shows how many progressed to the next.</p>
+        <p class="mt-1 text-sm text-muted-foreground">The fan growth journey from community discovery to conversion. Each stage shows how many progressed to the next.</p>
 
         {/* Bottleneck highlight */}
         <Show when={bottleneck()}>{(b) => (
-          <div class="warning-card">
+          <div class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning mt-3">
             <strong>Funnel bottleneck: {b().stage.label}</strong>
             <span>Only {b().rate}% progressed to {b().nextStage.label}. {b().stage.value} → {b().nextStage.value}.<br />Consider dispatching more {b().stage.label.toLowerCase()} or reviewing the intelligence's growth intelligence policy.</span>
 
           </div>
         )}</Show>
 
-        <div class="funnel-stages">
+        <div class="flex flex-col gap-2.5 mt-4">
           <FunnelChart stages={stages()} />
         </div>
-      </div>
+      </Card>
     </Show>
 
     {/* Worker run breakdown */}
     <Show when={funnel.data && Object.keys(funnel.data!.worker_runs).length > 0}>
-      <div class="agent-section">
-        <div class="agent-section-head">
-          <h3>Worker run breakdown</h3>
+      <Card class="p-4 mt-6 pt-6 border-t border-border">
+        <div class="flex items-center justify-between gap-4">
+          <h3 class="text-sm font-semibold text-foreground">Worker run breakdown</h3>
         </div>
-        <p class="agent-section-intro">Per-template worker run statistics. The intelligence dispatches these workers to gather intelligence and draft content.</p>
-        <div class="funnel-worker-table">
-          <table class="agent-task-table">
-            <thead><tr><th>Template</th><th>Total</th><th>Completed</th><th>Failed</th><th>Running</th><th>Queued</th><th>Success rate</th></tr></thead>
+        <p class="mt-1 text-sm text-muted-foreground">Per-template worker run statistics. The intelligence dispatches these workers to gather intelligence and draft content.</p>
+        <div class="mt-3 overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Template</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Total</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Completed</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Failed</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Running</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Queued</th><th class="text-left p-2 text-muted-foreground text-xs uppercase tracking-wider border-b border-border">Success rate</th></tr></thead>
             <tbody>
               <For each={showAllWorkerStats() ? Object.entries(funnel.data!.worker_runs) : Object.entries(funnel.data!.worker_runs).slice(0, MAX_VISIBLE_WORKER_STATS)}>{([tpl, stats]) => {
                 const successRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : null
                 const tone = successRate == null ? 'muted' : successRate >= 90 ? 'good' : successRate >= 75 ? 'warn' : 'bad'
                 return (
                   <tr>
-                    <td><strong>{templateLabel(tpl)}</strong></td>
-                    <td>{stats.total}</td>
-                    <td>{stats.completed}</td>
-                    <td>{stats.failed}</td>
-                    <td>{stats.running}</td>
-                    <td>{stats.queued}</td>
-                    <td><Show when={successRate != null} fallback={<span class="text-muted-foreground">—</span>}>
-                      <span class={`badge tone-${tone}`}>{successRate}%</span>
+                    <td class="p-2 border-b border-border"><strong>{templateLabel(tpl)}</strong></td>
+                    <td class="p-2 border-b border-border">{stats.total}</td>
+                    <td class="p-2 border-b border-border">{stats.completed}</td>
+                    <td class="p-2 border-b border-border">{stats.failed}</td>
+                    <td class="p-2 border-b border-border">{stats.running}</td>
+                    <td class="p-2 border-b border-border">{stats.queued}</td>
+                    <td class="p-2 border-b border-border"><Show when={successRate != null} fallback={<span class="text-muted-foreground">—</span>}>
+                      <Badge variant={badgeVariantFor(tone)}>{successRate}%</Badge>
                     </Show></td>
                   </tr>
                 )
@@ -209,46 +215,46 @@ export function GrowthFunnelPanel(props: { slug: string }) {
           </table>
         </div>
         <Show when={Object.keys(funnel.data!.worker_runs).length > MAX_VISIBLE_WORKER_STATS}>
-          <button class="ghost" onClick={() => setShowAllWorkerStats(s => !s)}>
+          <Button variant="ghost" size="sm" onClick={() => setShowAllWorkerStats(s => !s)}>
             {showAllWorkerStats() ? 'Show less' : `Show all (${Object.keys(funnel.data!.worker_runs).length})`}
-          </button>
+          </Button>
         </Show>
-      </div>
+      </Card>
     </Show>
 
     {/* Recent worker runs */}
     <Show when={funnel.data && funnel.data!.recent_worker_runs.length > 0}>
-      <div class="agent-section">
-        <div class="agent-section-head">
-          <h3>Recent worker runs</h3>
+      <Card class="p-4 mt-6 pt-6 border-t border-border">
+        <div class="flex items-center justify-between gap-4">
+          <h3 class="text-sm font-semibold text-foreground">Recent worker runs</h3>
           <span class="text-muted-foreground">last {funnel.data!.recent_worker_runs.length}</span>
         </div>
-        <p class="agent-section-intro">The most recent worker runs dispatched by the intelligence, with their outcomes.</p>
-        <div class="funnel-recent-list">
+        <p class="mt-1 text-sm text-muted-foreground">The most recent worker runs dispatched by the intelligence, with their outcomes.</p>
+        <div class="flex flex-col gap-2 mt-3">
           <For each={showAllRecentRuns() ? funnel.data!.recent_worker_runs : funnel.data!.recent_worker_runs.slice(0, MAX_VISIBLE_RECENT_RUNS)}>{(run: FunnelRecentWorkerRun) => (
-            <div class="funnel-recent-row">
-              <div class="funnel-recent-head">
-                <strong>{templateLabel(run.template_id)}</strong>
+            <div class="p-3 md:p-4 border border-border rounded-md bg-surface-3 transition-colors">
+              <div class="flex items-center gap-3">
+                <strong class="text-sm flex-shrink-0">{templateLabel(run.template_id)}</strong>
                 <StatusBadge status={run.status} tone={runStatusTone(run.status)} />
-                <span class="text-muted-foreground">{formatIsoAge(run.created_at)}</span>
+                <span class="ml-auto text-sm text-muted-foreground">{formatIsoAge(run.created_at)}</span>
               </div>
-              <div class="funnel-recent-meta">
+              <div class="flex items-center gap-3 mt-2 text-sm pl-0.5">
                 <Show when={run.has_outcome}>
-                  <span class="badge free-chip">outcome: {run.outcome_kind ?? 'structured'}</span>
+                  <Badge variant="success">outcome: {run.outcome_kind ?? 'structured'}</Badge>
                 </Show>
                 <Show when={run.tokens_in > 0 || run.tokens_out > 0}>
-                  <span class="text-muted-foreground">{run.tokens_in} in · {run.tokens_out} out tokens</span>
+                  <span class="ml-auto text-muted-foreground">{run.tokens_in} in · {run.tokens_out} out tokens</span>
                 </Show>
               </div>
             </div>
           )}</For>
         </div>
         <Show when={funnel.data!.recent_worker_runs.length > MAX_VISIBLE_RECENT_RUNS}>
-          <button class="ghost" onClick={() => setShowAllRecentRuns(s => !s)}>
+          <Button variant="ghost" size="sm" onClick={() => setShowAllRecentRuns(s => !s)}>
             {showAllRecentRuns() ? 'Show less' : `Show all (${funnel.data!.recent_worker_runs.length})`}
-          </button>
+          </Button>
         </Show>
-      </div>
+      </Card>
     </Show>
 
     {/* Empty state */}
@@ -260,5 +266,5 @@ export function GrowthFunnelPanel(props: { slug: string }) {
       />
     </Show>
     </div>
-  </div>
+  </Card>
 }

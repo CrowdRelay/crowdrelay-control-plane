@@ -9,6 +9,9 @@ import { EmptyState } from './EmptyState'
 import { SkeletonGrid, SkeletonRows, SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
 import { PolicyEditor } from './PolicyEditor'
+import { Card } from './ui/card'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
 import type { AutopilotOverview, AutopilotPolicy, PendingAutopilotAction, AgentWorkflow, AgentWorkflowTask } from '../lib/types'
 import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 
@@ -134,23 +137,23 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
   }
 
   return (
-    <div class="growth-intelligence-panel">
+    <Card class="p-5 growth-intelligence-panel">
       <Show when={error()}>
         <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error()}</div>
       </Show>
 
       {/* Approval queue — pending growth intelligence actions */}
-      <div class="agent-section">
-        <div class="agent-section-head">
-          <h3><IntelligenceIcon size={18} /> Approval Queue</h3>
+      <section class="mt-6">
+        <div class="flex items-center justify-between gap-4">
+          <h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><IntelligenceIcon size={18} /> Approval Queue</h3>
           <Show when={pendingGrowthActions().length > 0}>
-            <span class="agent-connection-summary">
-              <span class="agent-connection-dot warn" />
+            <span class="text-muted-foreground text-sm flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-warning" />
               {pendingGrowthActions().length} pending
             </span>
           </Show>
         </div>
-        <p class="agent-section-intro">Actions the intelligence has queued for your approval. Community posts, press pitches, and other growth actions appear here with rich detail before they're executed.</p>
+        <p class="mt-1 text-sm text-muted-foreground">Actions the intelligence has queued for your approval. Community posts, press pitches, and other growth actions appear here with rich detail before they're executed.</p>
         <Show when={overview.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth intelligence overview unavailable: {errorMessage(overview.error, 'Service unreachable')}</div></Show>
         <Show when={pendingGrowthActions().length > 0} fallback={
           <Show when={overview.isFetching} fallback={
@@ -163,63 +166,63 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
             <SkeletonRows count={2} />
           </Show>
         }>
-          <div class="growth-approval-list">
+          <div class="flex flex-col gap-2.5 mt-3">
             <For each={showAllApprovals() ? pendingGrowthActions() : pendingGrowthActions().slice(0, MAX_VISIBLE_APPROVALS)}>{(action) => {
               const summary = payloadSummary(action)
               const approveKey = `approve:${action.id}`
               const rejectKey = `reject:${action.id}`
               return (
-                <div class="growth-approval-card">
-                  <div class="growth-approval-body">
-                    <div class="growth-approval-head">
-                      <span class="badge">{actionKindLabel(action.action_kind)}</span>
+                <div class="flex items-start justify-between gap-4 p-3.5 border border-border rounded-md bg-card">
+                  <div class="min-w-0 flex-1 flex flex-col gap-1.5">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <Badge>{actionKindLabel(action.action_kind)}</Badge>
                       <strong>{summary.title}</strong>
                       <Show when={action.approval_expires_at}>
                         <span class="text-muted-foreground">expires {formatIsoAge(action.approval_expires_at!)}</span>
                       </Show>
                     </div>
                     <Show when={summary.detail}>
-                      <p class="growth-approval-detail">{summary.detail}</p>
+                      <p class="m-0 text-sm text-secondary-foreground leading-relaxed">{summary.detail}</p>
                     </Show>
                     <Show when={action.payload.kind === 'community.engage.request'}>
-                      <div class="growth-approval-meta">
+                      <div class="flex flex-col gap-1.5 mt-1">
                         <Show when={(action.payload as Record<string, unknown>).subreddit}>
-                          <span class="badge free-chip">r/{String((action.payload as Record<string, unknown>).subreddit)}</span>
+                          <Badge variant="success">r/{String((action.payload as Record<string, unknown>).subreddit)}</Badge>
                         </Show>
                         <Show when={(action.payload as Record<string, unknown>).body}>
-                          <pre class="growth-approval-body-text">{String((action.payload as Record<string, unknown>).body)}</pre>
+                          <pre class="text-xs text-muted-foreground whitespace-pre-wrap font-mono m-0">{String((action.payload as Record<string, unknown>).body)}</pre>
                         </Show>
                       </div>
                     </Show>
                     <Show when={!action.executor_ready && action.required_capability}>
-                      <div class="warning-card">
+                      <div class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
                         <strong>Executor not ready</strong>
                         <span>Requires capability "{action.required_capability}" — no live executor advertises it. Approving will queue the action but nothing will execute it.</span>
                       </div>
                     </Show>
                   </div>
-                  <div class="growth-approval-actions">
+                  <div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
                     <Show when={confirming() === approveKey} fallback={
                       <Show when={confirming() === rejectKey} fallback={
                         <>
-                          <button class="primary" disabled={pendingMutation()} onClick={() => setConfirming(approveKey)}>
+                          <Button size="sm" disabled={pendingMutation()} onClick={() => setConfirming(approveKey)}>
                             Approve
-                          </button>
-                          <button class="danger" disabled={pendingMutation()} onClick={() => setConfirming(rejectKey)}>
+                          </Button>
+                          <Button variant="destructive" size="sm" disabled={pendingMutation()} onClick={() => setConfirming(rejectKey)}>
                             Reject
-                          </button>
+                          </Button>
                         </>
                       }>
-                        <button class="confirm-danger" disabled={pendingMutation()} onClick={() => cancelAction(action)}>
+                        <Button variant="destructive" size="sm" disabled={pendingMutation()} onClick={() => cancelAction(action)}>
                           {pendingMutation() && <Spinner />} {pendingMutation() ? 'Rejecting…' : 'Confirm rejection'}
-                        </button>
-                        <button class="ghost" disabled={pendingMutation()} onClick={() => setConfirming(null)}>Back</button>
+                        </Button>
+                        <Button variant="ghost" size="sm" disabled={pendingMutation()} onClick={() => setConfirming(null)}>Back</Button>
                       </Show>
                     }>
-                      <button class="confirm-danger" disabled={pendingMutation()} onClick={() => approveAction(action)}>
+                      <Button size="sm" disabled={pendingMutation()} onClick={() => approveAction(action)}>
                         {pendingMutation() && <Spinner />} {pendingMutation() ? 'Approving…' : 'Confirm approval'}
-                      </button>
-                      <button class="ghost" disabled={pendingMutation()} onClick={() => setConfirming(null)}>Cancel</button>
+                      </Button>
+                      <Button variant="ghost" size="sm" disabled={pendingMutation()} onClick={() => setConfirming(null)}>Cancel</Button>
                     </Show>
                   </div>
                 </div>
@@ -227,19 +230,19 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
             }}</For>
           </div>
           <Show when={pendingGrowthActions().length > MAX_VISIBLE_APPROVALS}>
-            <button class="ghost" onClick={() => setShowAllApprovals(s => !s)}>
+            <Button variant="ghost" size="sm" class="mt-3 w-full" onClick={() => setShowAllApprovals(s => !s)}>
               {showAllApprovals() ? 'Show less' : `Show all (${pendingGrowthActions().length})`}
-            </button>
+            </Button>
           </Show>
         </Show>
-      </div>
+      </section>
 
       {/* Autonomy controls — growth_intelligence policy */}
-      <div class="agent-section">
-        <div class="agent-section-head">
-          <h3>Autonomy controls</h3>
+      <section class="mt-6 pt-6 border-t border-border">
+        <div class="flex items-center justify-between gap-4">
+          <h3 class="text-sm font-semibold text-foreground">Autonomy controls</h3>
         </div>
-        <p class="agent-section-intro">How much freedom the intelligence has to act on what it finds. <strong>Observe</strong> only records the decision, <strong>recommend</strong> puts it on the opportunity board, <strong>require approval</strong> queues every action for your sign-off, <strong>bounded auto</strong> executes without asking. <strong>Min confidence</strong> is the floor an action has to clear before any of that happens, and <strong>Max / 24h</strong> caps how many run in a rolling day. Apply saves the row; the next cycle uses it.</p>
+        <p class="mt-1 text-sm text-muted-foreground">How much freedom the intelligence has to act on what it finds. <strong>Observe</strong> only records the decision, <strong>recommend</strong> puts it on the opportunity board, <strong>require approval</strong> queues every action for your sign-off, <strong>bounded auto</strong> executes without asking. <strong>Min confidence</strong> is the floor an action has to clear before any of that happens, and <strong>Max / 24h</strong> caps how many run in a rolling day. Apply saves the row; the next cycle uses it.</p>
         <Show when={growthPolicy()} fallback={
           <Show when={overview.isFetching} fallback={
             <Show when={overview.data} fallback={
@@ -251,7 +254,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
             <SkeletonPanel lines={4} />
           </Show>
         }>
-          <div class="autopilot-policy-list">
+          <div class="mt-3">
             <PolicyEditor
               policy={growthPolicy()!}
               pending={pendingMutation()}
@@ -259,49 +262,49 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
             />
           </div>
         </Show>
-      </div>
+      </section>
 
       {/* Brain-dispatched worker runs */}
-      <div class="agent-section">
-        <div class="agent-section-head">
-          <h3>Worker runs</h3>
+      <section class="mt-6 pt-6 border-t border-border">
+        <div class="flex items-center justify-between gap-4">
+          <h3 class="text-sm font-semibold text-foreground">Worker runs</h3>
           <Show when={overview.data}>
-            <span class="agent-connection-summary">
-              <span class="agent-connection-dot ok" />
+            <span class="text-muted-foreground text-sm flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-success" />
               {overview.data!.succeeded_24h} succeeded · {overview.data!.failed_24h} failed (24h)
             </span>
           </Show>
         </div>
-        <p class="agent-section-intro">Worker runs dispatched by the intelligence. Each workflow is a growth plan: the intelligence decides what to research, draft, or analyse, then dispatches LLM workers to execute.</p>
+        <p class="mt-1 text-sm text-muted-foreground">Worker runs dispatched by the intelligence. Each workflow is a growth plan: the intelligence decides what to research, draft, or analyse, then dispatches LLM workers to execute.</p>
         <Show when={workflows.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth workflows unavailable: {errorMessage(workflows.error, 'Service unreachable')}</div></Show>
         <Show when={workflows.data && workflows.data!.length > 0} fallback={
           <Show when={workflows.data} fallback={<SkeletonGrid count={3} minCardHeight='100px' />}>
             <EmptyState label="No worker runs" hint="Worker runs are LLM agent executions dispatched by the intelligence. They appear here once the autopilot starts dispatching." />
           </Show>
         }>
-          <div class="growth-workflow-list">
+          <div class="grid gap-2.5 mt-3">
             <For each={showAllWorkflows() ? workflows.data : workflows.data!.slice(0, MAX_VISIBLE_WORKFLOWS)}>{(wf) => (
-              <button class="growth-workflow-card" onClick={() => viewWorkflowDetail(wf)}>
-                <div class="growth-workflow-head">
+              <Button variant="outline" size="sm" class="w-full flex flex-col gap-1.5 items-start text-left h-auto py-3" onClick={() => viewWorkflowDetail(wf)}>
+                <div class="flex items-center justify-between gap-2 w-full">
                   <strong>{wf.brain_template}</strong>
                   <StatusBadge status={wf.status} tone={workflowStatusTone(wf.status)} />
                 </div>
-                <div class="growth-workflow-meta">
+                <div class="flex items-center gap-2 text-sm">
                   <span class="text-muted-foreground">{formatIsoAge(wf.created_at)}</span>
                   <Show when={wf.plan}>
                     <span class="text-muted-foreground">{wf.plan!.length} sub-tasks</span>
                   </Show>
                 </div>
-              </button>
+              </Button>
             )}</For>
           </div>
           <Show when={workflows.data!.length > MAX_VISIBLE_WORKFLOWS}>
-            <button class="ghost" onClick={() => setShowAllWorkflows(s => !s)}>
+            <Button variant="ghost" size="sm" class="mt-3 w-full" onClick={() => setShowAllWorkflows(s => !s)}>
               {showAllWorkflows() ? 'Show less' : `Show all (${workflows.data!.length})`}
-            </button>
+            </Button>
           </Show>
         </Show>
-      </div>
+      </section>
 
       {/* Workflow detail modal */}
       <Dialog
@@ -312,11 +315,11 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
         class="agent-result-modal"
       >
         <>
-            <div class="agent-result-header">
-              <h3>Workflow detail</h3>
-              <button class="link" onClick={() => setViewingWorkflow(null)}>Close</button>
+            <div class="flex justify-between items-center pb-4 border-b border-border">
+              <h3 class="text-sm font-semibold text-foreground">Workflow detail</h3>
+              <Button variant="link" size="sm" onClick={() => setViewingWorkflow(null)}>Close</Button>
             </div>
-            <div class="agent-result-meta">
+            <div class="flex gap-4 py-2 text-sm border-b border-border">
               <span>Brain: {viewingWorkflow()?.brain_template}</span>
               <Show when={viewingWorkflow()?.brain_model}>
                 <span>Model: {viewingWorkflow()?.brain_model}</span>
@@ -324,51 +327,51 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
               <StatusBadge status={viewingWorkflow()?.status ?? ''} tone={workflowStatusTone(viewingWorkflow()?.status ?? '')} />
             </div>
             <Show when={viewingWorkflow()?.plan && viewingWorkflow()!.plan!.length > 0}>
-              <div class="agent-outcomes">
-                <h4>Growth Plan</h4>
+              <div class="py-3 border-b border-border">
+                <h4 class="text-sm font-semibold text-muted-foreground mb-2">Growth Plan</h4>
                 <For each={showAllPlan() ? viewingWorkflow()!.plan : viewingWorkflow()!.plan!.slice(0, MAX_VISIBLE_PLAN)}>{(item, i) => (
-                  <div class="agent-outcome-card">
-                    <div class="agent-outcome-head">
-                      <span class="badge">#{i() + 1} · {item.template}</span>
-                      <span class="badge">priority {item.priority}</span>
+                  <Card class="p-4 mb-2">
+                    <div class="flex gap-1.5 mb-1">
+                      <Badge>#{i() + 1} · {item.template}</Badge>
+                      <Badge>priority {item.priority}</Badge>
                     </div>
                     <p class="text-muted-foreground">{item.rationale}</p>
-                    <pre class="agent-outcome-item">{item.prompt}</pre>
-                  </div>
+                    <pre class="text-sm text-muted-foreground whitespace-pre-wrap max-h-[200px] overflow-auto mt-1 m-0">{item.prompt}</pre>
+                  </Card>
                 )}</For>
               </div>
               <Show when={viewingWorkflow()!.plan!.length > MAX_VISIBLE_PLAN}>
-                <button class="ghost" onClick={() => setShowAllPlan(s => !s)}>
+                <Button variant="ghost" size="sm" class="mt-3 w-full" onClick={() => setShowAllPlan(s => !s)}>
                   {showAllPlan() ? 'Show less' : `Show all (${viewingWorkflow()!.plan!.length})`}
-                </button>
+                </Button>
               </Show>
             </Show>
             <Show when={workflowTasks().length > 0}>
-              <div class="agent-outcomes">
-                <h4>Sub-tasks</h4>
-                <table class="agent-task-table">
+              <div class="py-3 border-b border-border">
+                <h4 class="text-sm font-semibold text-muted-foreground mb-2">Sub-tasks</h4>
+                <table class="w-full text-sm">
                   <thead><tr><th>Slot</th><th>Role</th><th>Template</th><th>Status</th><th></th></tr></thead>
                   <tbody>
                     <For each={showAllSubTasks() ? workflowTasks() : workflowTasks().slice(0, MAX_VISIBLE_SUB_TASKS)}>{(t) => (
                       <tr>
                         <td>{t.slot}</td>
-                        <td><span class={`badge ${t.role === 'brain' ? 'free-chip' : 'paid-chip'}`}>{t.role}</span></td>
+                        <td><Badge variant={t.role === 'brain' ? 'success' : 'destructive'}>{t.role}</Badge></td>
                         <td>{t.task_template_id}</td>
                         <td><StatusBadge status={t.task_status} tone={workflowStatusTone(t.task_status)} /></td>
-                        <td><Show when={t.task_error}><span class="agent-error" title={t.task_error!}>error</span></Show></td>
+                        <td><Show when={t.task_error}><span class="inline-block rounded-md border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-xs text-destructive" title={t.task_error!}>error</span></Show></td>
                       </tr>
                     )}</For>
                   </tbody>
                 </table>
                 <Show when={workflowTasks().length > MAX_VISIBLE_SUB_TASKS}>
-                  <button class="ghost" onClick={() => setShowAllSubTasks(s => !s)}>
+                  <Button variant="ghost" size="sm" class="mt-3 w-full" onClick={() => setShowAllSubTasks(s => !s)}>
                     {showAllSubTasks() ? 'Show less' : `Show all (${workflowTasks().length})`}
-                  </button>
+                  </Button>
                 </Show>
               </div>
             </Show>
         </>
       </Dialog>
-    </div>
+    </Card>
   )
 }

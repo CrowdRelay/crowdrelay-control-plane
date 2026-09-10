@@ -6,8 +6,17 @@ import { errorMessage, formatTimestamp } from '../lib/format'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock } from './Skeleton'
 import { KpiStrip, KpiCard } from './layout'
+import { Card } from './ui/card'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
 
-const phaseTone = (phase: string): 'good' | 'warn' | 'bad' | 'muted' => {
+type Tone = 'good' | 'warn' | 'bad' | 'muted'
+type BadgeVariant = 'success' | 'warning' | 'destructive' | 'muted'
+
+const toneToVariant = (tone: Tone): BadgeVariant =>
+  tone === 'good' ? 'success' : tone === 'warn' ? 'warning' : tone === 'bad' ? 'destructive' : 'muted'
+
+const phaseTone = (phase: string): Tone => {
   switch (phase) {
     case 'delivering': case 'delivered': return 'good'
     case 'preparing': case 'claiming': return 'warn'
@@ -16,7 +25,7 @@ const phaseTone = (phase: string): 'good' | 'warn' | 'bad' | 'muted' => {
   }
 }
 
-const recipientStatusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
+const recipientStatusTone = (status: string): Tone => {
   switch (status) {
     case 'delivered': case 'confirmed': case 'sent': return 'good'
     case 'pending': case 'prepared': case 'queued': return 'warn'
@@ -117,50 +126,53 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
     }
   }
 
-  return <div class="agent-section">
-    <div class="agent-section-head">
-      <h3>Release campaigns</h3>
-      <div class="agent-section-head-actions">
+  return <div class="mt-6 pt-6 border-t border-border">
+    <div class="flex items-start justify-between gap-4 mb-3">
+      <div>
+        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">RELEASE CAMPAIGNS</span>
+        <h3 class="mt-1 text-base font-semibold text-foreground">Release campaigns</h3>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
         <Show when={campaigns.data}>
           <span class="text-muted-foreground">{campaigns.data!.campaigns.length} campaigns · {campaigns.data!.pool.contactable_latarnicy} contactable</span>
         </Show>
-        <button class="ghost" onClick={() => setCreating(v => !v)}>
+        <Button variant="ghost" size="sm" onClick={() => setCreating(v => !v)}>
           {creating() ? 'Cancel' : 'Add release campaign'}
-        </button>
+        </Button>
       </div>
     </div>
-    <p class="agent-section-intro">Physical release delivery to beacon recipients. Launch a campaign to notify eligible beacons; close when all parcels are delivered.</p>
+    <p class="text-sm text-muted-foreground leading-relaxed">Physical release delivery to beacon recipients. Launch a campaign to notify eligible beacons; close when all parcels are delivered.</p>
 
     <Show when={error()}>
       <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{error()}</div>
     </Show>
 
     <Show when={creating()}>
-      <form class="form-grid campaign-create" onSubmit={event => { event.preventDefault(); void createCampaign() }}>
-        <label>
-          Title <small>what the beacon sees</small>
-          <input value={form().title} maxlength={200} required
+      <form class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4" onSubmit={event => { event.preventDefault(); void createCampaign() }}>
+        <label class="flex flex-col gap-1">
+          <span class="text-sm font-medium text-foreground">Title <small class="text-muted-foreground font-normal">what the beacon sees</small></span>
+          <input class="bg-surface-0 border border-border rounded-md px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" value={form().title} maxlength={200} required
                  onInput={e => setForm({ ...form(), title: e.currentTarget.value })} />
         </label>
-        <label>
-          Slug <small>lowercase, used in links</small>
-          <input value={form().slug} maxlength={100} required
+        <label class="flex flex-col gap-1">
+          <span class="text-sm font-medium text-foreground">Slug <small class="text-muted-foreground font-normal">lowercase, used in links</small></span>
+          <input class="bg-surface-0 border border-border rounded-md px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" value={form().slug} maxlength={100} required
                  onInput={e => setForm({ ...form(), slug: e.currentTarget.value })} />
         </label>
-        <label>
-          SKU <small>the physical item being sent</small>
-          <input value={form().sku} maxlength={100} required
+        <label class="flex flex-col gap-1">
+          <span class="text-sm font-medium text-foreground">SKU <small class="text-muted-foreground font-normal">the physical item being sent</small></span>
+          <input class="bg-surface-0 border border-border rounded-md px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" value={form().sku} maxlength={100} required
                  onInput={e => setForm({ ...form(), sku: e.currentTarget.value })} />
         </label>
-        <label>
-          Claim deadline <small>must be in the future</small>
-          <input type="datetime-local" value={form().claimDeadline} required
+        <label class="flex flex-col gap-1">
+          <span class="text-sm font-medium text-foreground">Claim deadline <small class="text-muted-foreground font-normal">must be in the future</small></span>
+          <input class="bg-surface-0 border border-border rounded-md px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" type="datetime-local" value={form().claimDeadline} required
                  onInput={e => setForm({ ...form(), claimDeadline: e.currentTarget.value })} />
         </label>
-        <div class="form-actions right">
-          <button class="primary" type="submit" disabled={acting() === 'create'}>
+        <div class="flex justify-end md:col-span-2">
+          <Button size="sm" type="submit" disabled={acting() === 'create'}>
             {acting() === 'create' ? 'Creating…' : 'Create campaign'}
-          </button>
+          </Button>
         </div>
       </form>
     </Show>
@@ -176,71 +188,72 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
       </Show>
 
       <Show when={campaigns.data!.campaigns.length > 0} fallback={<EmptyState label="No release campaigns" hint="Release campaigns coordinate outreach around a single or album launch. Create one from the release plan." />}>
-        <div class="campaign-list">
+        <div class="flex flex-col gap-3 mt-4">
           <For each={showAllCampaigns() ? campaigns.data!.campaigns : campaigns.data!.campaigns.slice(0, MAX_VISIBLE)}>{(c) => (
-            <div class="campaign-card" classList={{ selected: selectedCampaign() === c.id }}>
-              <div class="campaign-card-head">
-                <strong>{c.title}</strong>
-                <span class={`badge tone-${phaseTone(c.phase)}`}>{c.phase}</span>
+            <Card class="p-4" classList={{ 'border-primary/30': selectedCampaign() === c.id }}>
+              <div class="flex items-center justify-between gap-3">
+                <strong class="text-foreground">{c.title}</strong>
+                <Badge variant={toneToVariant(phaseTone(c.phase))}>{c.phase}</Badge>
               </div>
-              <div class="campaign-meta">
+              <div class="flex flex-wrap gap-4 mt-1 text-sm text-muted-foreground">
                 <span>{c.product_name} · {c.variant_label}</span>
                 <span>SKU: {c.sku}</span>
                 <span>Claim deadline: {formatDeadline(c.claim_deadline)}</span>
               </div>
-              <div class="campaign-progress">
-                <span>Notified: {c.notified_count}</span>
-                <span>Confirmed: {c.confirmed_count}</span>
-                <span>Prepared: {c.prepared_count}</span>
-                <span>Sent: {c.sent_count}</span>
-                <span>Delivered: {c.delivered_count}</span>
-                <span>Declined: {c.declined_count}</span>
-                <span>Expired: {c.expired_count}</span>
+              <div class="flex flex-wrap gap-3 mt-2 text-sm text-secondary-foreground">
+                <span class="whitespace-nowrap">Notified: {c.notified_count}</span>
+                <span class="whitespace-nowrap">Confirmed: {c.confirmed_count}</span>
+                <span class="whitespace-nowrap">Prepared: {c.prepared_count}</span>
+                <span class="whitespace-nowrap">Sent: {c.sent_count}</span>
+                <span class="whitespace-nowrap">Delivered: {c.delivered_count}</span>
+                <span class="whitespace-nowrap">Declined: {c.declined_count}</span>
+                <span class="whitespace-nowrap">Expired: {c.expired_count}</span>
               </div>
-              <div class="campaign-actions">
-                <button class="ghost" onClick={() => setSelectedCampaign(selectedCampaign() === c.id ? null : c.id)}>
+              <div class="flex flex-wrap gap-2 mt-3">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedCampaign(selectedCampaign() === c.id ? null : c.id)}>
                   {selectedCampaign() === c.id ? 'Hide recipients' : 'Show recipients'}
-                </button>
+                </Button>
                 <Show when={c.phase === 'draft' || c.phase === 'ready'}>
-                  <button
-                    class="primary"
+                  <Button
+                    size="sm"
                     disabled={acting() === c.id}
                     onClick={() => launchCampaign(c.id)}
-                  >{acting() === c.id ? 'Launching…' : 'Launch'}</button>
+                  >{acting() === c.id ? 'Launching…' : 'Launch'}</Button>
                 </Show>
                 <Show when={c.phase !== 'closed' && c.phase !== 'cancelled' && c.launched_at != null}>
-                  <button
-                    class="ghost"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     disabled={acting() === c.id}
                     onClick={() => closeCampaign(c.id)}
-                  >{acting() === c.id ? 'Closing…' : 'Close'}</button>
+                  >{acting() === c.id ? 'Closing…' : 'Close'}</Button>
                 </Show>
               </div>
 
               <Show when={selectedCampaign() === c.id}>
                 <Show when={recipients.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Campaign recipients unavailable: {errorMessage(recipients.error, 'Service unreachable')}</div></Show>
                 <Show when={recipients.data} fallback={<SkeletonBlock height="80px" radius="10px" />}>
-                  <div class="table-wrap">
-                    <table class="data-table">
+                  <div class="overflow-x-auto mt-3">
+                    <table class="w-full border-collapse text-sm">
                       <thead>
                         <tr>
-                          <th>Recipient</th>
-                          <th>Kind</th>
-                          <th>City</th>
-                          <th>Status</th>
-                          <th>Confirmed</th>
-                          <th>Delivered</th>
+                          <th class="text-left py-2 px-2 text-xs uppercase tracking-wide text-muted-foreground border-b border-border">Recipient</th>
+                          <th class="text-left py-2 px-2 text-xs uppercase tracking-wide text-muted-foreground border-b border-border">Kind</th>
+                          <th class="text-left py-2 px-2 text-xs uppercase tracking-wide text-muted-foreground border-b border-border">City</th>
+                          <th class="text-left py-2 px-2 text-xs uppercase tracking-wide text-muted-foreground border-b border-border">Status</th>
+                          <th class="text-left py-2 px-2 text-xs uppercase tracking-wide text-muted-foreground border-b border-border">Confirmed</th>
+                          <th class="text-left py-2 px-2 text-xs uppercase tracking-wide text-muted-foreground border-b border-border">Delivered</th>
                         </tr>
                       </thead>
                       <tbody>
                         <For each={recipients.data!.recipients}>{(r) => (
                           <tr>
-                            <td><strong>{r.displayName}</strong>{r.recipientName ? <><br /><span class="text-muted-foreground">{r.recipientName}</span></> : null}</td>
-                            <td>{r.beaconKind}</td>
-                            <td>{r.city ?? '—'}</td>
-                            <td><span class={`badge tone-${recipientStatusTone(r.status)}`}>{r.status}</span></td>
-                            <td>{formatTimestamp(r.confirmedAt)}</td>
-                            <td>{formatTimestamp(r.deliveredAt)}</td>
+                            <td class="py-2 px-2 border-b border-border"><strong class="text-foreground">{r.displayName}</strong>{r.recipientName ? <><br /><span class="text-muted-foreground">{r.recipientName}</span></> : null}</td>
+                            <td class="py-2 px-2 border-b border-border">{r.beaconKind}</td>
+                            <td class="py-2 px-2 border-b border-border">{r.city ?? '—'}</td>
+                            <td class="py-2 px-2 border-b border-border"><Badge variant={toneToVariant(recipientStatusTone(r.status))}>{r.status}</Badge></td>
+                            <td class="py-2 px-2 border-b border-border">{formatTimestamp(r.confirmedAt)}</td>
+                            <td class="py-2 px-2 border-b border-border">{formatTimestamp(r.deliveredAt)}</td>
                           </tr>
                         )}</For>
                       </tbody>
@@ -248,13 +261,13 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
                   </div>
                 </Show>
               </Show>
-            </div>
+            </Card>
           )}</For>
         </div>
         <Show when={campaigns.data!.campaigns.length > MAX_VISIBLE}>
-          <button class="ghost" onClick={() => setShowAllCampaigns(s => !s)}>
+          <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllCampaigns(s => !s)}>
             {showAllCampaigns() ? 'Show less' : `Show all (${campaigns.data!.campaigns.length})`}
-          </button>
+          </Button>
         </Show>
       </Show>
     </Show>

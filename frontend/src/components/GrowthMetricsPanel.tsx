@@ -7,12 +7,18 @@ import { Sparkline } from './Sparkline'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock, SkeletonRows } from '../components/Skeleton'
 import type { FeedCoverage, GrowthMetricTrendView } from '../lib/types'
+import { Card } from './ui/card'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
 
 const feedStateLabel = (state: string): string =>
   state === 'live' ? 'Live' : state === 'stale' ? 'Stale' : 'Missing'
 
 const feedStateTone = (state: string): 'good' | 'warn' | 'bad' =>
   state === 'live' ? 'good' : state === 'stale' ? 'warn' : 'bad'
+
+const feedStateVariant = (state: string): 'success' | 'warning' | 'destructive' =>
+  state === 'live' ? 'success' : state === 'stale' ? 'warning' : 'destructive'
 
 // Platform display config — label + brand color for bars and headers.
 const PLATFORM_CONFIG: Record<string, { label: string; color: string }> = {
@@ -58,8 +64,8 @@ const platformColor = (key: string) => PLATFORM_CONFIG[key]?.color ?? '#9b87f5'
 const Bar: Component<{ value: number; max: number; color: string }> = (props) => {
   const pct = () => Math.max(2, Math.min(100, (props.value / props.max) * 100))
   return (
-    <div class="gm-bar-track" title={compactNumber(props.value)}>
-      <div class="gm-bar-fill" style={{ width: `${pct()}%`, background: props.color }} />
+    <div class="h-1.5 bg-surface-1 rounded-sm overflow-hidden" title={compactNumber(props.value)}>
+      <div class="h-full rounded-sm transition-[width] duration-[400ms] ease-out" style={{ width: `${pct()}%`, background: props.color }} />
     </div>
   )
 }
@@ -151,9 +157,9 @@ export function GrowthMetricsPanel(props: { slug: string }) {
     return groups
   })
 
-  return <div class="agent-section">
-    <div class="agent-section-head">
-      <h3>Growth metrics</h3>
+  return <Card class="p-4">
+    <div class="flex items-center justify-between gap-4">
+      <h3 class="text-sm font-semibold text-foreground">Growth metrics</h3>
       <Show when={coverage.data && hasFeeds()}>
         <span class="text-muted-foreground">{liveSeries()} active series</span>
       </Show>
@@ -180,24 +186,24 @@ export function GrowthMetricsPanel(props: { slug: string }) {
       }
     >
       {/* Feed coverage */}
-      <div class="coverage-bar-wrap">
-        <div class="objective-card-head">
-          <span class="trend-card-label">Feed coverage</span>
-          <strong>{liveSeries()} / {totalSeries()} series live</strong>
+      <div class="mb-4">
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-sm text-muted-foreground uppercase tracking-wide">Feed coverage</span>
+          <strong class="text-foreground">{liveSeries()} / {totalSeries()} series live</strong>
         </div>
-        <div class="feed-coverage-list">
+        <div class="flex flex-col mt-2 border border-border-subtle rounded-md overflow-hidden">
           <For each={showAllCoverage() ? coverage.data!.platforms : coverage.data!.platforms.slice(0, MAX_VISIBLE_COVERAGE)}>{(platform: FeedCoverage) => (
-            <div class="feed-coverage-row" classList={{ 'feed-coverage-row--missing': platform.state === 'missing' }}>
-              <span class="feed-platform-name">{platformLabel(platform.platform)}</span>
-              <span class={`badge tone-${feedStateTone(platform.state)}`}>{feedStateLabel(platform.state)}</span>
-              <span class="feed-platform-series">{platform.live_series}/{platform.series} series</span>
+            <div class="flex items-center gap-3 px-3 py-2 border-b border-border-subtle min-h-9 last:border-b-0" classList={{ 'opacity-60': platform.state === 'missing' }}>
+              <span class="text-sm font-semibold text-secondary-foreground min-w-[90px]">{platformLabel(platform.platform)}</span>
+              <Badge variant={feedStateVariant(platform.state)}>{feedStateLabel(platform.state)}</Badge>
+              <span class="ml-auto text-xs text-muted-foreground tabular-nums">{platform.live_series}/{platform.series} series</span>
             </div>
           )}</For>
         </div>
         <Show when={coverage.data!.platforms.length > MAX_VISIBLE_COVERAGE}>
-          <button class="ghost" onClick={() => setShowAllCoverage(s => !s)}>
+          <Button variant="ghost" size="sm" onClick={() => setShowAllCoverage(s => !s)}>
             {showAllCoverage() ? 'Show less' : `Show all (${coverage.data!.platforms.length})`}
-          </button>
+          </Button>
         </Show>
       </div>
 
@@ -208,7 +214,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
             <EmptyState label="No growth metric trends available" hint="Trends require at least one live data feed. Connect a source (Reddit, Spotify, Meta) to start collecting metric series." />
           </Show>
         }>
-          <div class="growth-metrics-grid">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
             <SkeletonBlock height="120px" radius="10px" />
             <SkeletonBlock height="120px" radius="10px" />
             <SkeletonBlock height="120px" radius="10px" />
@@ -221,32 +227,32 @@ export function GrowthMetricsPanel(props: { slug: string }) {
             const max = () => Math.max(...items.map(t => t.latest_value), 1)
             const color = platformColor(platform)
             return (
-              <div class="gm-platform-section">
-                <div class="gm-platform-head">
-                  <span class="gm-platform-dot" style={{ background: color }} />
-                  <strong>{platformLabel(platform)}</strong>
-                  <span class="text-muted-foreground">{items.length} series</span>
+              <div class="mb-4">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="w-2 h-2 rounded-full shrink-0 opacity-90" style={{ background: color, 'box-shadow': `0 0 6px ${color}` }} />
+                  <strong class="text-base font-bold text-foreground">{platformLabel(platform)}</strong>
+                  <span class="text-sm text-muted-foreground">{items.length} series</span>
                 </div>
-                <div class="gm-bar-list">
+                <div class="grid gap-1.5" style={{ 'grid-template-columns': 'minmax(120px,1.2fr) minmax(60px,2fr) 4.5rem 3.25rem' }}>
                   <For each={expandedPlatforms().has(platform) ? items : items.slice(0, MAX_VISIBLE_PLATFORM_BARS)}>{(trend: GrowthMetricTrendView) => {
                     const delta = trend.delta_7d ?? trend.delta_24h ?? trend.delta_28d
                     const dir = trendDirection(delta)
                     return (
-                      <div class="gm-bar-row" title={trend.display_name}>
-                        <span class="gm-bar-label">{trend.display_name}</span>
+                      <div class="contents" title={trend.display_name}>
+                        <span class="text-sm text-secondary-foreground whitespace-nowrap overflow-hidden text-ellipsis cursor-help">{trend.display_name}</span>
                         <Bar value={trend.latest_value} max={max()} color={color} />
-                        <span class="gm-bar-value">{compactNumber(trend.latest_value)}</span>
+                        <span class="text-base font-semibold text-foreground whitespace-nowrap text-right">{compactNumber(trend.latest_value)}</span>
                         <Show when={delta != null}>
-                          <span class={`gm-bar-delta ${dir}`}>{delta! > 0 ? '+' : ''}{compactNumber(delta!)}</span>
+                          <span class="text-sm font-medium text-right" classList={{ 'text-success': dir === 'up', 'text-destructive': dir === 'down', 'text-muted-foreground': dir === 'flat' || dir === 'unknown' }}>{delta! > 0 ? '+' : ''}{compactNumber(delta!)}</span>
                         </Show>
                       </div>
                     )
                   }}</For>
                 </div>
                 <Show when={items.length > MAX_VISIBLE_PLATFORM_BARS}>
-                  <button class="ghost" onClick={() => togglePlatform(platform)}>
+                  <Button variant="ghost" size="sm" onClick={() => togglePlatform(platform)}>
                     {expandedPlatforms().has(platform) ? 'Show less' : `Show all (${items.length})`}
-                  </button>
+                  </Button>
                 </Show>
               </div>
             )
@@ -255,12 +261,12 @@ export function GrowthMetricsPanel(props: { slug: string }) {
 
         {/* ── Conversion (downstream) section ── */}
         <Show when={grouped().downstream.length > 0}>
-          <div class="gm-conversion-section">
-            <div class="gm-platform-head">
-              <strong>Conversion</strong>
-              <span class="text-muted-foreground">{grouped().downstream.length} metrics</span>
+          <div class="mt-6 pt-6 border-t border-border">
+            <div class="flex items-center gap-2 mb-2">
+              <strong class="text-base font-bold text-foreground">Conversion</strong>
+              <span class="text-sm text-muted-foreground">{grouped().downstream.length} metrics</span>
             </div>
-            <div class="growth-metrics-grid">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
               <For each={showAllDownstream() ? grouped().downstream : grouped().downstream.slice(0, MAX_VISIBLE_DOWNSTREAM)}>{(trend: GrowthMetricTrendView) => {
                 const delta = trend.delta_7d ?? trend.delta_24h ?? trend.delta_28d
                 const dir = trendDirection(delta)
@@ -271,36 +277,36 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                   const d24 = trend.delta_24h != null ? v - trend.delta_24h : d7
                   return [d28, d7, d24, v].map(n => Math.max(0, n))
                 }
-                const sparkColor = dir === 'up' ? 'var(--good)' : dir === 'down' ? 'var(--bad)' : 'var(--muted)'
+                const sparkColor = dir === 'up' ? 'var(--color-success)' : dir === 'down' ? 'var(--color-destructive)' : 'var(--color-muted-foreground)'
                 return (
-                  <div class="trend-card">
-                    <div class="trend-card-head">
-                      <span class="trend-card-label">{trend.display_name}</span>
-                      <span class={`trend-arrow ${dir}`}>{trendArrow(dir)}</span>
+                  <div class="bg-surface-3 border border-border-subtle rounded-md p-3.5 flex flex-col gap-1">
+                    <div class="flex justify-between items-center">
+                      <span class="text-sm text-muted-foreground uppercase tracking-wide">{trend.display_name}</span>
+                      <span classList={{ 'text-success': dir === 'up', 'text-destructive': dir === 'down', 'text-muted-foreground': dir === 'flat' || dir === 'unknown' }}>{trendArrow(dir)}</span>
                     </div>
-                    <span class="trend-card-value">{compactNumber(trend.latest_value)}</span>
+                    <span class="text-xl font-bold text-foreground">{compactNumber(trend.latest_value)}</span>
                     <Show when={sparkData().some((n, i) => i > 0 && n !== sparkData()[0])}>
-                      <div class="trend-card-spark">
+                      <div class="my-1.5 h-7 opacity-85">
                         <Sparkline data={sparkData()} width={120} height={28} color={sparkColor} />
                       </div>
                     </Show>
-                    <span class="trend-delta">
+                    <span class="text-sm text-muted-foreground">
                       {delta != null ? `${delta > 0 ? '+' : ''}${compactNumber(delta)} (7d)` : 'no prior'}
                       {trend.stale ? ' · stale' : ''}
                     </span>
-                    <span class="text-muted-foreground trend-platform">{platformLabel(trend.platform)}</span>
+                    <span class="text-xs text-muted-foreground mt-0.5">{platformLabel(trend.platform)}</span>
                   </div>
                 )
               }}</For>
             </div>
             <Show when={grouped().downstream.length > MAX_VISIBLE_DOWNSTREAM}>
-              <button class="ghost" onClick={() => setShowAllDownstream(s => !s)}>
+              <Button variant="ghost" size="sm" onClick={() => setShowAllDownstream(s => !s)}>
                 {showAllDownstream() ? 'Show less' : `Show all (${grouped().downstream.length})`}
-              </button>
+              </Button>
             </Show>
           </div>
         </Show>
       </Show>
     </Show>
-  </div>
+  </Card>
 }

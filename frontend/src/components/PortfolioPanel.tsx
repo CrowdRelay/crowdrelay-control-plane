@@ -6,6 +6,8 @@ import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
 import { KpiValue } from './KpiValue'
 import { Card } from './ui/card'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
 
 const STATUS_TONE: Record<PortfolioConsentStatus, 'good' | 'warn' | 'bad' | 'muted'> = {
   proposed: 'warn',
@@ -98,21 +100,21 @@ export function PortfolioPanel(props: {
 
   return <Card class="p-4">
     <div class="flex items-center justify-between gap-4 mt-6 mb-3">
-      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">PORTFOLIO</span><h2><SectionIcon name="megaphone" />Roster & amplification</h2><p>One artist's release or show routed in front of another artist's consenting fans. Approvals are per edge, tenant-scoped and audited; fans never leave their home workspace.</p></div>
-      <div class="row-health">
+      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">PORTFOLIO</span><h2 class="mt-1 text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="megaphone" />Roster & amplification</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">One artist's release or show routed in front of another artist's consenting fans. Approvals are per edge, tenant-scoped and audited; fans never leave their home workspace.</p></div>
+      <div class="flex flex-wrap items-center gap-2">
         <StatusBadge status={boardLabel()} tone={boardTone()} />
       </div>
     </div>
 
-    <Show when={props.overview} keyed>{overview => <div class="kpi-grid">
-      <div class="kpi"><KpiValue value={metric(overview.workspaceCount)} /><span class="text-muted-foreground">Artists</span></div>
-      <div class="kpi"><KpiValue value={metric(overview.activeFans)} /><span class="text-muted-foreground">Active fans</span></div>
-      <div class="kpi"><KpiValue value={`+${metric(overview.fansLast30d)}`} /><span class="text-muted-foreground">New fans · 30d</span></div>
-      <div class="kpi"><KpiValue value={metric(overview.activeEdges)} /><span class="text-muted-foreground">Live edges</span></div>
-      <div class="kpi"><KpiValue value={metric(overview.deliveriesLast30d)} /><span class="text-muted-foreground">Amplified · 30d</span></div>
+    <Show when={props.overview} keyed>{overview => <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="rounded-lg border border-border bg-card p-5.5 text-foreground"><KpiValue value={metric(overview.workspaceCount)} /><span class="text-muted-foreground">Artists</span></div>
+      <div class="rounded-lg border border-border bg-card p-5.5 text-foreground"><KpiValue value={metric(overview.activeFans)} /><span class="text-muted-foreground">Active fans</span></div>
+      <div class="rounded-lg border border-border bg-card p-5.5 text-foreground"><KpiValue value={`+${metric(overview.fansLast30d)}`} /><span class="text-muted-foreground">New fans · 30d</span></div>
+      <div class="rounded-lg border border-border bg-card p-5.5 text-foreground"><KpiValue value={metric(overview.activeEdges)} /><span class="text-muted-foreground">Live edges</span></div>
+      <div class="rounded-lg border border-border bg-card p-5.5 text-foreground"><KpiValue value={metric(overview.deliveriesLast30d)} /><span class="text-muted-foreground">Amplified · 30d</span></div>
     </div>}</Show>
 
-    <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">EDGES</span><h3><SectionIcon name="link" />Amplification edges</h3></div>
+    <div class="mt-6 pt-6 border-t border-border"><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">EDGES</span><h3 class="mt-1 text-sm font-semibold text-foreground flex items-center gap-2"><SectionIcon name="link" />Amplification edges</h3></div>
     <Show when={sortedEdges().length}>
       <table class="data-table" aria-label="Amplification edges">
         <thead><tr>
@@ -127,26 +129,26 @@ export function PortfolioPanel(props: {
               <td title={edge.from_workspace_id}>{shortWs(edge.from_workspace_id)}…</td>
               <td title={edge.to_workspace_id}>{shortWs(edge.to_workspace_id)}…</td>
               <td>
-                <span class="row-health">
+                <span class="flex flex-wrap items-center gap-2">
                   <StatusBadge status={STATUS_LABEL[edge.status]} tone={STATUS_TONE[edge.status]} />
                   <Show when={edge.status === 'active'}>
-                    <small>{edge.campaigns_this_month}/{edge.max_campaigns_per_month} this month</small>
+                    <small class="text-xs text-muted-foreground">{edge.campaigns_this_month}/{edge.max_campaigns_per_month} this month</small>
                   </Show>
                 </span>
               </td>
               <td>{edge.cooldown_days}d</td>
               <td class="actions">
                 <Show when={edge.status === 'proposed'}>
-                  <button disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Approve</button>
-                  <button disabled={pendingId() !== null} class="danger" onClick={() => expand(edge.id)}>Decline</button>
+                  <Button size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Approve</Button>
+                  <Button variant="destructive" size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Decline</Button>
                 </Show>
                 <Show when={edge.status === 'active'}>
-                  <button disabled={pendingId() !== null} onClick={() => decide.mutate({ id: edge.id, action: 'pause' })}>Pause</button>
-                  <button disabled={pendingId() !== null} class="danger" onClick={() => expand(edge.id)}>Revoke</button>
+                  <Button size="sm" disabled={pendingId() !== null} onClick={() => decide.mutate({ id: edge.id, action: 'pause' })}>Pause</Button>
+                  <Button variant="destructive" size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Revoke</Button>
                 </Show>
                 <Show when={edge.status === 'paused'}>
-                  <button disabled={pendingId() !== null} onClick={() => decide.mutate({ id: edge.id, action: 'resume' })}>Resume</button>
-                  <button disabled={pendingId() !== null} class="danger" onClick={() => expand(edge.id)}>Revoke</button>
+                  <Button size="sm" disabled={pendingId() !== null} onClick={() => decide.mutate({ id: edge.id, action: 'resume' })}>Resume</Button>
+                  <Button variant="destructive" size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Revoke</Button>
                 </Show>
                 <Show when={edge.status === 'revoked'}><span class="text-muted-foreground">closed</span></Show>
               </td>
@@ -154,41 +156,41 @@ export function PortfolioPanel(props: {
             {/* Inline form — expands below the row when Approve/Decline/Revoke
                 is clicked. Replaces the global operator/reason fields. */}
             <Show when={expandedRow() === edge.id}>
-              <tr class="edge-inline-form-row">
-                <td colspan="7">
-                  <div class="edge-inline-form">
+              <tr class="p-0 border-t-0">
+                <td colspan="7" class="p-0 border-t-0">
+                  <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3.5 items-end px-4.5 py-4 bg-surface-1 border border-primary/30 rounded-b-lg -mt-px">
                     <Show when={edge.status === 'proposed'}>
-                      <label>
+                      <label class="grid gap-1.5 text-muted-foreground text-sm">
                         <span>Approving operator</span>
-                        <input value={rowActor()} onInput={e => setRowActor(e.currentTarget.value)} placeholder="operator@label" />
-                        <small>Recorded against the edge in the audit trail.</small>
+                        <input class="w-full bg-surface-0 border border-border text-foreground px-3 py-2.5 rounded-md" value={rowActor()} onInput={e => setRowActor(e.currentTarget.value)} placeholder="operator@label" />
+                        <small class="text-xs text-muted-foreground">Recorded against the edge in the audit trail.</small>
                       </label>
                     </Show>
                     <Show when={edge.status === 'proposed' || edge.status === 'active' || edge.status === 'paused'}>
-                      <label>
+                      <label class="grid gap-1.5 text-muted-foreground text-sm">
                         <span>Reason</span>
-                        <input value={rowReason()} onInput={e => setRowReason(e.currentTarget.value)} placeholder="duplicate edge / artist withdrew consent" />
-                        <small>Required for revocation. Stored with the decision.</small>
+                        <input class="w-full bg-surface-0 border border-border text-foreground px-3 py-2.5 rounded-md" value={rowReason()} onInput={e => setRowReason(e.currentTarget.value)} placeholder="duplicate edge / artist withdrew consent" />
+                        <small class="text-xs text-muted-foreground">Required for revocation. Stored with the decision.</small>
                       </label>
                     </Show>
-                    <div class="edge-inline-actions">
+                    <div class="flex items-center gap-2 flex-wrap">
                       <Show when={edge.status === 'proposed'}>
-                        <button disabled={pendingId() !== null || !canSubmit('approve')}
+                        <Button size="sm" disabled={pendingId() !== null || !canSubmit('approve')}
                           onClick={() => decide.mutate({ id: edge.id, action: 'approve', actor: rowActor(), reason: rowReason() })}>
                           {pendingId() === edge.id ? 'Approving…' : 'Confirm approve'}
-                        </button>
-                        <button class="danger" disabled={pendingId() !== null || !canSubmit('revoke')}
+                        </Button>
+                        <Button variant="destructive" size="sm" disabled={pendingId() !== null || !canSubmit('revoke')}
                           onClick={() => decide.mutate({ id: edge.id, action: 'revoke', actor: rowActor(), reason: rowReason() })}>
                           {pendingId() === edge.id ? 'Declining…' : 'Confirm decline'}
-                        </button>
+                        </Button>
                       </Show>
                       <Show when={edge.status === 'active' || edge.status === 'paused'}>
-                        <button class="danger" disabled={pendingId() !== null || !canSubmit('revoke')}
+                        <Button variant="destructive" size="sm" disabled={pendingId() !== null || !canSubmit('revoke')}
                           onClick={() => decide.mutate({ id: edge.id, action: 'revoke', actor: rowActor(), reason: rowReason() })}>
                           {pendingId() === edge.id ? 'Revoking…' : 'Confirm revoke'}
-                        </button>
+                        </Button>
                       </Show>
-                      <button class="ghost" onClick={() => setExpandedRow(null)}>Cancel</button>
+                      <Button variant="ghost" size="sm" onClick={() => setExpandedRow(null)}>Cancel</Button>
                     </div>
                   </div>
                 </td>
@@ -203,19 +205,19 @@ export function PortfolioPanel(props: {
         With fewer than two artists amplification cannot exist at all, and
         explaining an approval workflow to someone who has nothing to approve
         reads as a broken feature rather than an inapplicable one. */}
-    <Show when={!edges().length}><div class="inherit-card portfolio-empty">
+    <Show when={!edges().length}><Card class="p-4 grid gap-2.5">
       <Show
         when={(props.overview?.workspaceCount ?? 0) >= 2}
         fallback={
           <>
-            <p><strong>Amplification needs at least two artists. This tenant has {props.overview?.workspaceCount ?? 0}.</strong></p>
-            <p>
+            <p class="m-0 text-muted-foreground leading-relaxed"><strong class="text-foreground">Amplification needs at least two artists. This tenant has {props.overview?.workspaceCount ?? 0}.</strong></p>
+            <p class="m-0 text-muted-foreground leading-relaxed">
               Amplification lends one artist's audience to another: a release or show is
               routed in front of a different artist's consenting fans, who stay in their
               own workspace throughout. With a single artist there is no second audience
               to borrow, so there is nothing for this panel to do yet.
             </p>
-            <p class="text-muted-foreground">
+            <p class="m-0 text-muted-foreground leading-relaxed">
               It becomes available when a second artist is added to the roster. Until then
               this is not something to configure — it is a feature waiting on a roster,
               not on you.
@@ -223,19 +225,19 @@ export function PortfolioPanel(props: {
           </>
         }
       >
-        <p><strong>No amplification edges yet.</strong></p>
-        <p>
+        <p class="m-0 text-muted-foreground leading-relaxed"><strong class="text-foreground">No amplification edges yet.</strong></p>
+        <p class="m-0 text-muted-foreground leading-relaxed">
           An edge routes one artist's release or show in front of another artist's
           consenting fans. Create one from either artist's workspace page — it arrives
           here as <em>proposed</em>, and routing only starts once you approve it.
         </p>
-        <p class="text-muted-foreground">
+        <p class="m-0 text-muted-foreground leading-relaxed">
           This panel is the approval gate: approve, pause or revoke. Fans never leave
           their home workspace, and every decision is recorded against the operator who
           made it.
         </p>
       </Show>
-    </div></Show>
+    </Card></Show>
     <Show when={errorText()}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorText()}</div></Show>
   </Card>
 }

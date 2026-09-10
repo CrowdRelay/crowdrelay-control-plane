@@ -11,6 +11,7 @@ import { SectionFailureCard } from './SectionFailureCard'
 import { PolicyEditor } from './PolicyEditor'
 import { CONTEXT_LABELS, labelOr } from '../lib/opportunity-labels'
 import { Card } from './ui/card'
+import { Button } from './ui/button'
 
 const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
 
@@ -108,21 +109,21 @@ export function AuthorityPoliciesPanel(props: {
   }
 
   return <Card class="p-4 operations-panel">
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3 operations-title">
-      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">AUTOPILOT</span><h2><SectionIcon name="shield" />Authority policies</h2><p>One row per kind of work the autopilot does. This is the only place these controls live.</p></div>
-      <div class="row-health">
+    <div class="flex items-start justify-between gap-4 mt-6 mb-3">
+      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">AUTOPILOT</span><h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="shield" />Authority policies</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed">One row per kind of work the autopilot does. This is the only place these controls live.</p></div>
+      <div class="flex flex-wrap items-center gap-2">
         <StatusBadge status={autopilot.data?.runtime_enabled ? 'runtime on' : 'runtime off'} tone={autopilot.data?.runtime_enabled ? 'good' : 'muted'} />
       </div>
     </div>
 
-    <Show when={mutationError()}>{message => <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive operations-error" role="alert">{message()}</div>}</Show>
+    <Show when={mutationError()}>{message => <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{message()}</div>}</Show>
 
-    <Show when={confirming()?.startsWith('autopilot')}><div class="warning-card confirm-card" role="alertdialog" aria-label="Bulk Autopilot change">
+    <Show when={confirming()?.startsWith('autopilot')}><div class="rounded-md border border-warning/30 bg-warning/10 p-4 text-sm text-warning flex flex-col gap-2.5 my-3" role="alertdialog" aria-label="Bulk Autopilot change">
       <strong>{confirmCopy()!.title}</strong>
       <span>{confirmCopy()!.body}</span>
-      <div class="row-health">
-        <button class="ghost" onClick={() => setConfirming(null)}>Cancel</button>
-        <button class={confirming() === 'autopilot-disable' ? 'danger-ghost' : ''} disabled={pendingMutation() !== null} onClick={() => { const enable = confirming() === 'autopilot-enable'; setConfirming(null); void bulkAutopilot(enable) }}>{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirmCopy()!.action}</button>
+      <div class="flex flex-wrap items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={() => setConfirming(null)}>Cancel</Button>
+        <Button variant={confirming() === 'autopilot-disable' ? 'destructive-ghost' : 'default'} size="sm" disabled={pendingMutation() !== null} onClick={() => { const enable = confirming() === 'autopilot-enable'; setConfirming(null); void bulkAutopilot(enable) }}>{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirmCopy()!.action}</Button>
       </div>
     </div></Show>
 
@@ -131,37 +132,38 @@ export function AuthorityPoliciesPanel(props: {
         <SectionFailureCard error={autopilot.error} fallback="Autopilot overview unavailable" onRetry={() => void autopilot.refetch()} />
       </Show>
     }>{data => <>
-      <div class="autopilot-kpis">
-        <div><strong>{data().needs_you.length}</strong><span>needs you</span></div>
-        <div><strong>{data().queued_actions}</strong><span>queued</span></div>
-        <div><strong>{data().failed_24h}</strong><span>failed 24h</span></div>
-        <div><strong>{data().executor_failed_24h}</strong><span>executor fail</span></div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 my-4">
+        <div class="rounded-lg border border-border-subtle bg-surface-1 p-3.5 grid gap-0.5"><strong>{data().needs_you.length}</strong><span>needs you</span></div>
+        <div class="rounded-lg border border-border-subtle bg-surface-1 p-3.5 grid gap-0.5"><strong>{data().queued_actions}</strong><span>queued</span></div>
+        <div class="rounded-lg border border-border-subtle bg-surface-1 p-3.5 grid gap-0.5"><strong>{data().failed_24h}</strong><span>failed 24h</span></div>
+        <div class="rounded-lg border border-border-subtle bg-surface-1 p-3.5 grid gap-0.5"><strong>{data().executor_failed_24h}</strong><span>executor fail</span></div>
       </div>
       {/* Killswitch / full-enable: one switch, one confirmation.
           Right-aligned, directly above the policy list so the operator's
           eye lands on the master control before the per-context rows. */}
       <Show when={data().policies.length > 0}>
-        <div class="row-health autopilot-bulk-bar">
+        <div class="flex flex-wrap items-center justify-end gap-2">
           <Show when={data().policies.some(policy => policy.enabled)} fallback={
-            <button
-              class="full-auto-btn"
+            <Button
+              size="sm"
               disabled={pendingMutation() !== null}
               aria-label="Enable all Autopilot policies"
               onClick={() => setConfirming('autopilot-enable')}
-            >{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirming() === 'autopilot-enable' ? 'Cancel' : 'Full auto: enable all'}</button>
+            >{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirming() === 'autopilot-enable' ? 'Cancel' : 'Full auto: enable all'}</Button>
           }>
-            <button
-              class={`ghost ${confirming() === 'autopilot-disable' ? '' : 'danger-ghost'}`}
+            <Button
+              variant={confirming() === 'autopilot-disable' ? 'ghost' : 'destructive-ghost'}
+              size="sm"
               disabled={pendingMutation() !== null}
               aria-label={confirming() === 'autopilot-disable' ? 'Cancel bulk action' : 'Disable all Autopilot policies'}
               onClick={() => setConfirming(confirming()?.startsWith('autopilot') ? null : 'autopilot-disable')}
-            >{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirming() === 'autopilot-disable' ? 'Cancel' : 'Kill switch: disable all'}</button>
+            >{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirming() === 'autopilot-disable' ? 'Cancel' : 'Kill switch: disable all'}</Button>
           </Show>
         </div>
       </Show>
-      <details class="policy-legend-collapse">
-        <summary>How authority policies work</summary>
-        <p class="policy-legend">
+      <details class="mb-3.5">
+        <summary class="cursor-pointer text-muted-foreground text-sm font-semibold py-1.5 list-none [&::-webkit-details-marker]:hidden before:content-['ⓘ_'] before:mr-1 open:mb-2 open:text-secondary-foreground">How authority policies work</summary>
+        <p class="rounded-r-md">
           One row per kind of work the autopilot does.{' '}
           <strong>Mode</strong> is how far it may go on its own —{' '}
           <em>observe</em> records what it would do,{' '}
@@ -173,14 +175,14 @@ export function AuthorityPoliciesPanel(props: {
           Changes take effect on the next cycle — <em>Apply</em> saves one row.
         </p>
       </details>
-      <div class="policy-summary">
+      <div class="bg-surface-1 text-muted-foreground flex flex-wrap gap-2 mb-3 p-2.5">
         <span><strong>{data().policies.length}</strong> policies</span>
         <span><strong>{data().policies.filter(p => p.enabled).length}</strong> enabled</span>
-        <span class="policy-summary-auto"><strong>{data().policies.filter(p => p.enabled && p.autonomy_level === 'bounded_auto').length}</strong> act without asking</span>
+        <span><strong class="text-warning">{data().policies.filter(p => p.enabled && p.autonomy_level === 'bounded_auto').length}</strong> act without asking</span>
         <span><strong>{data().policies.filter(p => p.enabled && p.autonomy_level === 'require_approval').length}</strong> wait for you</span>
         <span><strong>{data().policies.filter(p => p.enabled && (p.autonomy_level === 'observe' || p.autonomy_level === 'recommend')).length}</strong> only watching</span>
       </div>
-      <div class="autopilot-policy-list">
+      <div>
         <For each={data().policies}>{policy => <PolicyEditor
           policy={policy}
           pending={pendingMutation() !== null}
@@ -188,8 +190,8 @@ export function AuthorityPoliciesPanel(props: {
         />}</For>
       </div>
       <Show when={data().rum_metrics_24h.length > 0}>
-        <div class="rum-grid">
-          <For each={data().rum_metrics_24h.slice(0, 6)}>{rum => <div><strong>{contextLabel(rum.metric_key)}</strong><span>{rum.surface} · {rum.samples_24h} samples</span><small>p75 {rum.p75.toFixed(1)} · p95 {rum.p95.toFixed(1)}</small></div>}</For>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 mt-4">
+          <For each={data().rum_metrics_24h.slice(0, 6)}>{rum => <div class="min-w-0 p-3 border border-border rounded-md bg-surface-3"><strong>{contextLabel(rum.metric_key)}</strong><span>{rum.surface} · {rum.samples_24h} samples</span><small>p75 {rum.p75.toFixed(1)} · p95 {rum.p95.toFixed(1)}</small></div>}</For>
         </div>
       </Show>
     </>}</Show>

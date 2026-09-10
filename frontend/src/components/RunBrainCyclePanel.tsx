@@ -8,6 +8,8 @@ import { StatusBadge } from './StatusBadge'
 import { SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
 import { Card } from './ui/card'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
 
 const CycleIcon = (props: { size?: number }) => (
   <svg width={props.size ?? 18} height={props.size ?? 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -85,17 +87,17 @@ export function RunBrainCyclePanel(props: { slug: string }) {
 
   return (
     <Card class="p-4">
-      <header class="panel-header">
-        <h2><CycleIcon /> Run a growth cycle</h2>
-        <button class="ghost" onClick={() => void preview.refetch()} disabled={preview.isFetching}>
+      <header class="flex items-center justify-between gap-4 mb-3">
+        <h2 class="flex items-center gap-2 text-lg font-bold text-foreground"><CycleIcon /> Run a growth cycle</h2>
+        <Button variant="ghost" size="sm" onClick={() => void preview.refetch()} disabled={preview.isFetching}>
           Refresh preview
-        </button>
+        </Button>
       </header>
 
       <Show when={preview.isFetching}><SkeletonPanel /></Show>
 
       <Show when={preview.error}>
-        <p class="notice bad">Could not read what the brain believes: {errorMessage(preview.error, 'unknown error')}</p>
+        <p class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Could not read what the brain believes: {errorMessage(preview.error, 'unknown error')}</p>
       </Show>
 
       <Show when={preview.data}>
@@ -106,25 +108,25 @@ export function RunBrainCyclePanel(props: { slug: string }) {
               {data().templatesConsidered} worker templates. Nothing below has been dispatched yet.
             </p>
 
-            <div class="stat-row">
-              <div class="stat">
-                <span class="stat-label">Fans</span>
-                <span class="stat-value">{number(data().totalFans)}</span>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+              <div class="p-3 border border-border rounded-md bg-card flex flex-col gap-1">
+                <span class="block text-xs text-muted-foreground uppercase tracking-wider">Fans</span>
+                <strong class="block text-xl font-bold tabular-nums text-foreground">{number(data().totalFans)}</strong>
               </div>
-              <div class="stat">
-                <span class="stat-label">Reachable audience</span>
-                <span class="stat-value">{number(data().offPlatformAudience)}</span>
-                <span class="stat-note">+{number(data().offPlatformAudienceThisMonth)} this month</span>
+              <div class="p-3 border border-border rounded-md bg-card flex flex-col gap-1">
+                <span class="block text-xs text-muted-foreground uppercase tracking-wider">Reachable audience</span>
+                <strong class="block text-xl font-bold tabular-nums text-foreground">{number(data().offPlatformAudience)}</strong>
+                <small class="block text-xs text-muted-foreground">+{number(data().offPlatformAudienceThisMonth)} this month</small>
               </div>
               {/* The goal is the one number the brain optimises, so it is
                   editable where it is displayed rather than hidden in a
                   settings screen. Before this it could only be chosen in the
                   creation wizard and never changed again. */}
-              <div class="stat">
-                <label class="stat-label" for="north-star-select">Goal</label>
+              <div class="p-3 border border-border rounded-md bg-card flex flex-col gap-1">
+                <label class="block text-xs text-muted-foreground uppercase tracking-wider" for="north-star-select">Goal</label>
                 <select
                   id="north-star-select"
-                  class="stat-select"
+                  class="w-full py-1.5 text-sm font-semibold bg-transparent text-foreground border-b border-border focus:outline-none focus:border-primary disabled:opacity-60 disabled:cursor-progress"
                   value={data().northStar}
                   disabled={savingGoal() || goals.isFetching}
                   onChange={event => void changeGoal(event.currentTarget.value)}
@@ -136,59 +138,55 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                     {option => <option value={option.value}>{option.label}</option>}
                   </For>
                 </select>
-                <span class="stat-value">{number(data().northStarCurrent)}</span>
-                <span class="stat-note">+{number(data().northStarThisMonth)} this month</span>
+                <strong class="block text-xl font-bold tabular-nums text-foreground">{number(data().northStarCurrent)}</strong>
+                <small class="block text-xs text-muted-foreground">+{number(data().northStarThisMonth)} this month</small>
               </div>
-              <div class="stat">
-                <span class="stat-label">Platforms</span>
-                <span class="stat-value">{data().freshPlatforms} / {data().connectedPlatforms}</span>
-                <span class="stat-note">fresh / connected</span>
+              <div class="p-3 border border-border rounded-md bg-card flex flex-col gap-1">
+                <span class="block text-xs text-muted-foreground uppercase tracking-wider">Platforms</span>
+                <strong class="block text-xl font-bold tabular-nums text-foreground">{data().freshPlatforms} / {data().connectedPlatforms}</strong>
+                <small class="block text-xs text-muted-foreground">fresh / connected</small>
               </div>
             </div>
 
             {/* A gap here is measurement debt, not audience loss: the platform is
                 configured but its newest reading is too old to act on. */}
             <Show when={data().connectedPlatforms > data().freshPlatforms}>
-              <p class="notice warn">
+              <p class="mt-3 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
                 {data().connectedPlatforms - data().freshPlatforms} connected platform(s) have no
                 recent reading. The brain is deciding without them.
               </p>
             </Show>
 
             <Show when={!data().hasAnyConnectedPlatform}>
-              <p class="notice warn">
+              <p class="mt-3 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
                 No platform is connected yet, so a cycle would correctly decide to do nothing.
                 Connect a fan source first in Portfolio.
               </p>
             </Show>
 
-            <div class="template-priority">
-              <span class="stat-label">Worker pipeline — brain dispatches in this order</span>
-              <div class="template-flow">
+            <section class="mt-6 pt-6 border-t border-border">
+              <h3 class="text-sm font-semibold text-foreground mb-2.5">Worker pipeline — brain dispatches in this order</h3>
+              <div class="flex flex-wrap items-center gap-1.5">
                 <For each={data().templatePriority}>
                   {(template, index) => (
                     <>
                       <Show when={index() > 0}>
-                        <span class="template-flow-arrow" aria-hidden="true">→</span>
+                        <span class="text-muted-foreground text-sm" aria-hidden="true">→</span>
                       </Show>
-                      <div class="template-flow-chip" classList={{ 'template-flow-chip-first': index() === 0 }}>
-                        <span class="template-flow-index">{index() + 1}</span>
-                        <span class="template-flow-name">{template.replaceAll('-', ' ')}</span>
+                      <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-surface-2 border border-border text-sm text-secondary-foreground">
+                        <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-surface-4 text-muted-foreground text-xs font-bold" classList={{ 'bg-success/15 text-success': index() === 0 }}>{index() + 1}</span>
+                        <span class="capitalize whitespace-nowrap">{template.replaceAll('-', ' ')}</span>
                       </div>
                     </>
                   )}
                 </For>
               </div>
-            </div>
+            </section>
 
-            <footer class="panel-footer">
-              <button
-                class="primary"
-                onClick={() => void runCycle()}
-                disabled={running() || !data().hasAnyConnectedPlatform}
-              >
+            <footer class="flex flex-col md:flex-row md:items-center md:justify-end gap-3 pt-3 mt-6 border-t border-border">
+              <Button size="sm" onClick={() => void runCycle()} disabled={running() || !data().hasAnyConnectedPlatform}>
                 {running() && <Spinner />} {running() ? 'Requesting…' : 'Run cycle now'}
-              </button>
+              </Button>
               <span class="text-muted-foreground">
                 Dispatches real outreach. Subject to the same autonomy policy and 24-hour action
                 cap as a scheduled cycle.
@@ -199,7 +197,9 @@ export function RunBrainCyclePanel(props: { slug: string }) {
       </Show>
 
       <Show when={notice()}>
-        {value => <p class={`notice ${value().tone}`}>{value().message}</p>}
+        {value => (
+          <p class={`mt-3 rounded-lg p-4 text-sm ${value().tone === 'bad' ? 'border border-destructive/30 bg-destructive/10 text-destructive' : 'border border-success/30 bg-success/10 text-success'}`}>{value().message}</p>
+        )}
       </Show>
     </Card>
   )

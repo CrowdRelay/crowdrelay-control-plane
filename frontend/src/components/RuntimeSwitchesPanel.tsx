@@ -12,6 +12,7 @@ import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { SectionFailureCard } from './SectionFailureCard'
 import { Card } from './ui/card'
+import { Button } from './ui/button'
 
 const flagLabel = (key: string) => key
   .replace(/_enabled$/, '')
@@ -74,69 +75,69 @@ export function RuntimeSwitchesPanel(props: {
 
   const [confirming, setConfirming] = createSignal<'redeploy' | 'replay-dead' | null>(null)
 
-  return <Card class="p-4 operations-panel">
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3 operations-title">
-      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">OPERATIONS</span><h2><SectionIcon name="activity" />Runtime switches</h2><p>Feature flags, health metrics and redeploy. Changes are tenant-scoped and audited.</p></div>
-      <div class="row-health">
+  return <Card class="p-5 operations-panel">
+    <div class="flex items-start justify-between gap-4 mt-6 mb-3">
+      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">OPERATIONS</span><h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="activity" />Runtime switches</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">Feature flags, health metrics and redeploy. Changes are tenant-scoped and audited.</p></div>
+      <div class="flex items-center gap-2 flex-wrap">
         <Show when={props.canRedeploy !== false}>
-          <Show when={confirming() === 'redeploy'}><button class="ghost" onClick={() => setConfirming(null)}>Cancel</button></Show>
-          <button disabled={pendingMutation() !== null} onClick={() => setConfirming('redeploy')}>{pendingMutation() === 'redeploy' && <Spinner />} {confirming() === 'redeploy' ? 'Confirm below ↓' : 'Redeploy app'}</button>
+          <Show when={confirming() === 'redeploy'}><Button variant="ghost" size="sm" onClick={() => setConfirming(null)}>Cancel</Button></Show>
+          <Button size="sm" disabled={pendingMutation() !== null} onClick={() => setConfirming('redeploy')}>{pendingMutation() === 'redeploy' && <Spinner />} {confirming() === 'redeploy' ? 'Confirm below ↓' : 'Redeploy app'}</Button>
         </Show>
         <StatusBadge status={operationalLabel(props.summary ?? undefined)} tone={operationalTone(props.summary ?? undefined)} />
       </div>
     </div>
 
     <Show when={confirming() ? confirmCopy(confirming(), deadJobs()) : null} keyed>{copy =>
-      <div class="warning-card confirm-card" role="alertdialog" aria-label={copy.title}>
-        <strong>{copy.title}</strong>
-        <span>{copy.body}</span>
-        <div class="row-health">
-          <button class="ghost" onClick={() => setConfirming(null)}>Cancel</button>
-          <button class={confirming() === 'replay-dead' ? 'danger-ghost' : ''} disabled={pendingMutation() !== null}
+      <div class="warning-card mt-3" role="alertdialog" aria-label={copy.title}>
+        <strong class="text-warning">{copy.title}</strong>
+        <span class="block mt-1 text-sm text-secondary-foreground">{copy.body}</span>
+        <div class="flex items-center gap-2 mt-3">
+          <Button variant="ghost" size="sm" onClick={() => setConfirming(null)}>Cancel</Button>
+          <Button variant={confirming() === 'replay-dead' ? 'destructive-ghost' : 'default'} size="sm" disabled={pendingMutation() !== null}
             onClick={() => {
               const which = confirming()
               setConfirming(null)
               if (which === 'redeploy') void redeploy()
               else if (which === 'replay-dead') void replayDead()
             }}
-          >{pendingMutation() !== null && <Spinner />} {copy.action}</button>
+          >{pendingMutation() !== null && <Spinner />} {copy.action}</Button>
         </div>
       </div>
     }</Show>
 
-    <Show when={mutationError()}>{message => <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive operations-error" role="alert">{message()}</div>}</Show>
+    <Show when={mutationError()}>{message => <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{message()}</div>}</Show>
 
-    <div class="operations-metrics">
-      <div><span>HTTP p95</span><strong>{metric(props.summary?.http.p95_ms, ' ms')}</strong><small>p50 {metric(props.summary?.http.p50_ms, ' ms')}</small></div>
-      <div><span>Outbox pending</span><strong>{metric(props.summary?.outbox.pending)}</strong><small>{props.summary ? `${props.summary.outbox.processing} processing` : '—'}</small></div>
-      <div><span>Delivery pending</span><strong>{metric(props.summary?.deliveries.pending)}</strong><small>{props.summary ? `${props.summary.deliveries.dead} dead` : '—'}</small></div>
-      <div><span>Push pending</span><strong>{metric(props.summary?.push.pending)}</strong><small>{props.summary ? `${props.summary.push.dead} dead` : '—'}</small></div>
-      <div><span>Oldest queue</span><strong>{props.summary ? seconds(oldestQueueAge(props.summary)) : '—'}</strong><small>across async queues</small></div>
-      <div><span>Watchdog</span><strong>{metric(props.summary?.watchdog.active_alerts)}</strong><small>{props.summary ? `${props.summary.watchdog.critical_alerts} critical` : '—'}</small></div>
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+      <div><span class="block text-xs text-muted-foreground">HTTP p95</span><strong class="block mt-1 text-lg font-bold tabular-nums text-foreground">{metric(props.summary?.http.p95_ms, ' ms')}</strong><small class="block text-xs text-muted-foreground">p50 {metric(props.summary?.http.p50_ms, ' ms')}</small></div>
+      <div><span class="block text-xs text-muted-foreground">Outbox pending</span><strong class="block mt-1 text-lg font-bold tabular-nums text-foreground">{metric(props.summary?.outbox.pending)}</strong><small class="block text-xs text-muted-foreground">{props.summary ? `${props.summary.outbox.processing} processing` : '—'}</small></div>
+      <div><span class="block text-xs text-muted-foreground">Delivery pending</span><strong class="block mt-1 text-lg font-bold tabular-nums text-foreground">{metric(props.summary?.deliveries.pending)}</strong><small class="block text-xs text-muted-foreground">{props.summary ? `${props.summary.deliveries.dead} dead` : '—'}</small></div>
+      <div><span class="block text-xs text-muted-foreground">Push pending</span><strong class="block mt-1 text-lg font-bold tabular-nums text-foreground">{metric(props.summary?.push.pending)}</strong><small class="block text-xs text-muted-foreground">{props.summary ? `${props.summary.push.dead} dead` : '—'}</small></div>
+      <div><span class="block text-xs text-muted-foreground">Oldest queue</span><strong class="block mt-1 text-lg font-bold tabular-nums text-foreground">{props.summary ? seconds(oldestQueueAge(props.summary)) : '—'}</strong><small class="block text-xs text-muted-foreground">across async queues</small></div>
+      <div><span class="block text-xs text-muted-foreground">Watchdog</span><strong class="block mt-1 text-lg font-bold tabular-nums text-foreground">{metric(props.summary?.watchdog.active_alerts)}</strong><small class="block text-xs text-muted-foreground">{props.summary ? `${props.summary.watchdog.critical_alerts} critical` : '—'}</small></div>
     </div>
 
     <Show when={props.summary && (deadJobs() > 0 || props.summary.watchdog.critical_alerts > 0)}>
-      <div class="operations-attention">
-        <div><strong>Operator attention required</strong><br /><span>{deadJobs()} dead queue item(s) · {props.summary?.watchdog.critical_alerts ?? 0} critical watchdog alert(s)</span></div>
+      <div class="mt-3 p-3.5 rounded-md border border-destructive/30 bg-destructive/10 flex items-center justify-between gap-3 flex-wrap">
+        <div><strong class="text-destructive">Operator attention required</strong><br /><span class="text-sm text-secondary-foreground">{deadJobs()} dead queue item(s) · {props.summary?.watchdog.critical_alerts ?? 0} critical watchdog alert(s)</span></div>
         <Show when={confirming() === 'replay-dead'}>
-          <div class="row-health"><button class="ghost" onClick={() => setConfirming(null)}>Cancel</button><button disabled={pendingMutation() !== null} onClick={() => { setConfirming(null); void replayDead() }}>{pendingMutation() === 'replay-dead' && <Spinner />} Confirm replay</button></div>
+          <div class="flex items-center gap-2"><Button variant="ghost" size="sm" onClick={() => setConfirming(null)}>Cancel</Button><Button size="sm" disabled={pendingMutation() !== null} onClick={() => { setConfirming(null); void replayDead() }}>{pendingMutation() === 'replay-dead' && <Spinner />} Confirm replay</Button></div>
         </Show>
         <Show when={confirming() !== 'replay-dead' && props.summary && props.summary.deliveries.dead > 0}>
-          <button class="ghost" disabled={pendingMutation() !== null} onClick={() => setConfirming('replay-dead')}>Replay dead deliveries</button>
+          <Button variant="ghost" size="sm" disabled={pendingMutation() !== null} onClick={() => setConfirming('replay-dead')}>Replay dead deliveries</Button>
         </Show>
       </div>
     </Show>
 
-    <section class="operations-section">
+    <section class="mt-6 pt-6 border-t border-border">
       <details open>
-        <summary class="operations-section-head"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">FEATURES</span><h3><SectionIcon name="settings" />Runtime switches</h3></div><small>{flags.data?.length ?? 0} declared</small></summary>
+        <summary class="flex items-center justify-between gap-4 cursor-pointer list-none"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">FEATURES</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="settings" />Runtime switches</h3></div><small class="text-xs text-muted-foreground">{flags.data?.length ?? 0} declared</small></summary>
         <Show when={flags.data} fallback={
           <Show when={flags.error} fallback={<SkeletonFlagList />}>
             <SectionFailureCard error={flags.error} fallback="Feature flags unavailable" onRetry={() => void flags.refetch()} />
           </Show>
-        }>{items => <div class="flag-list">
-          <For each={items()}>{flag => <div class="flag-row">
-            <div><strong>{flagLabel(flag.key)}</strong><small>{flagReason(flag)}</small></div>
+        }>{items => <div class="flex flex-col mt-3">
+          <For each={items()}>{flag => <div class="flex items-center justify-between gap-3 py-2.5 border-b border-border">
+            <div class="min-w-0"><strong class="block text-sm text-foreground">{flagLabel(flag.key)}</strong><small class="block text-xs text-muted-foreground">{flagReason(flag)}</small></div>
             <button
               type="button"
               class={`switch-control ${flagEnabled(flag) ? 'on' : ''}`}

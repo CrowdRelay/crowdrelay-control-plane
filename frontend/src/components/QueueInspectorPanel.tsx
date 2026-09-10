@@ -9,6 +9,8 @@ import { SectionIcon } from './SectionIcon'
 import { SkeletonRows } from './Skeleton'
 import { StatusBadge } from './StatusBadge'
 import { Card } from './ui/card'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
 import { TabBar } from './layout'
 import type { DeliveryDetails, DeliveryItem, OutboxItem } from '../lib/types'
 
@@ -97,7 +99,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
     }
   }
 
-  return <Card class="p-4 queue-panel">
+  return <Card class="p-4">
     <div class="flex items-center justify-between gap-4 mt-6 mb-3">
       <div>
         <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">QUEUES</span>
@@ -106,7 +108,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
       </div>
     </div>
 
-    <div class="queue-controls">
+    <div class="flex items-center gap-3 flex-wrap">
       <TabBar
         tabs={[
           { id: 'deliveries', label: 'Deliveries' },
@@ -115,9 +117,9 @@ export function QueueInspectorPanel(props: { slug: string }) {
         active={tab()}
         onChange={setTab}
       />
-      <label class="compact-field queue-filter">
+      <label class="grid gap-1.5 text-muted-foreground text-sm min-w-[170px]">
         <span>Status</span>
-        <select value={status()} onChange={event => setStatus(event.currentTarget.value)}>
+        <select class="border border-border-strong text-white px-2.5 py-2 rounded-md" value={status()} onChange={event => setStatus(event.currentTarget.value)}>
           <option value="">Any status</option>
           <For each={STATUSES}>{value => <option value={value}>{value}</option>}</For>
         </select>
@@ -145,15 +147,15 @@ export function QueueInspectorPanel(props: { slug: string }) {
             : 'Try another status — dead rows are the ones worth reading first.'}
         />}
       >
-        <div class="queue-list">
+        <div class="grid gap-2">
           <For each={rows()}>{item => (
-            <div class="queue-row">
-              <div class="queue-row-main">
-                <div class="row-health">
+            <div class="flex justify-between items-center gap-3.5 p-3 border border-border-subtle rounded-md bg-surface-1 transition-colors hover:border-border">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
                   <strong>{item.event_type}</strong>
                   <StatusBadge status={item.status} tone={statusTone(item.status)} />
                 </div>
-                <small>
+                <small class="block mt-0.5 text-sm text-muted-foreground leading-relaxed">
                   <Show when={isDelivery(item)}>{`${(item as DeliveryItem).endpoint_name} · `}</Show>
                   attempt {isDelivery(item) ? (item as DeliveryItem).attempt_count : (item as OutboxItem).attempts} of {item.max_attempts}
                   {' · '}{errorLabel(item.last_error_kind)}
@@ -163,13 +165,13 @@ export function QueueInspectorPanel(props: { slug: string }) {
                   {' · '}created {age(item.created_at)}
                 </small>
               </div>
-              <div class="row-health queue-row-actions">
+              <div class="flex flex-wrap items-center gap-2">
                 <Show when={isDelivery(item)}>
-                  <button class="ghost" disabled={busy() === item.id} onClick={() => inspect(item as DeliveryItem)}>Inspect</button>
+                  <Button variant="ghost" size="sm" disabled={busy() === item.id} onClick={() => inspect(item as DeliveryItem)}>Inspect</Button>
                 </Show>
-                <button class="ghost" disabled={busy() === item.id} onClick={() => retry(item)}>
+                <Button variant="ghost" size="sm" disabled={busy() === item.id} onClick={() => retry(item)}>
                   {busy() === item.id ? 'Working…' : 'Retry'}
-                </button>
+                </Button>
               </div>
             </div>
           )}</For>
@@ -182,35 +184,35 @@ export function QueueInspectorPanel(props: { slug: string }) {
       <Show when={detail()}>{data => <>
         <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DELIVERY</span><h2>{data().delivery.event_type}</h2></div>
           <StatusBadge status={data().delivery.status} tone={statusTone(data().delivery.status)} /></div>
-        <p class="queue-detail-meta">
+        <p class="m-0 mb-3 text-sm text-muted-foreground">
           {data().delivery.endpoint_name}
           {data().delivery.endpoint_active ? '' : ' · endpoint disabled'}
           {' · '}attempt {data().delivery.attempt_count} of {data().delivery.max_attempts}
         </p>
-        <Show when={data().attempts.length > 0} fallback={<p class="cos-empty">No attempt was recorded, which means it never left the queue.</p>}>
-          <ol class="queue-attempts">
+        <Show when={data().attempts.length > 0} fallback={<p class="m-0 text-sm text-muted-foreground leading-relaxed">No attempt was recorded, which means it never left the queue.</p>}>
+          <ol class="grid gap-2 max-h-80 m-0 list-none overflow-y-auto">
             <For each={data().attempts}>{attempt => (
-              <li>
+              <li class="flex justify-between items-center gap-3 py-2.5 border-b border-border-subtle last:border-0">
                 <div>
                   <strong>#{attempt.attempt_number} · {attempt.outcome}</strong>
-                  <small>{formatTimestamp(attempt.started_at)} · {attempt.duration_ms}ms · {errorLabel(attempt.error_kind)}</small>
+                  <small class="block mt-0.5 text-sm text-muted-foreground leading-relaxed">{formatTimestamp(attempt.started_at)} · {attempt.duration_ms}ms · {errorLabel(attempt.error_kind)}</small>
                   {/* The status code alone cannot tell you whether the
                       receiver disliked the payload, the signature or the
                       event type. This is what it actually said. */}
                   <Show when={attempt.response_excerpt}>
-                    <code class="queue-attempt-response">{attempt.response_excerpt}</code>
+                    <code class="block mt-1.5 p-2 border border-border-subtle rounded-sm bg-background text-secondary-foreground text-xs leading-relaxed whitespace-pre-wrap break-words max-h-36 overflow-auto">{attempt.response_excerpt}</code>
                   </Show>
                 </div>
                 <Show when={attempt.response_status != null}>
-                  <span class="badge">HTTP {attempt.response_status}</span>
+                  <Badge variant="muted">HTTP {attempt.response_status}</Badge>
                 </Show>
               </li>
             )}</For>
           </ol>
         </Show>
-        <div class="form-actions right">
-          <button class="ghost" onClick={() => setDetail(null)}>Close</button>
-          <button disabled={busy() !== null} onClick={() => { void retry(data().delivery); setDetail(null) }}>Retry this delivery</button>
+        <div class="flex gap-2 justify-end mt-5">
+          <Button variant="ghost" size="sm" onClick={() => setDetail(null)}>Close</Button>
+          <Button size="sm" disabled={busy() !== null} onClick={() => { void retry(data().delivery); setDetail(null) }}>Retry this delivery</Button>
         </div>
       </>}</Show>
     </Dialog>

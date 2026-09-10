@@ -10,6 +10,7 @@ import { StatusBadge } from './StatusBadge'
 import { SkeletonReplyTriage } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Card } from './ui/card'
+import { Button } from './ui/button'
 
 const timeAgo = (value: string | null | undefined) => {
   if (!value) return 'never'
@@ -66,12 +67,12 @@ export function ReplyTriagePanel() {
   const [showAllRecentAuto, setShowAllRecentAuto] = createSignal(false)
   const MAX_VISIBLE = 10
 
-  return <Card class="p-4 operations-panel">
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3 operations-title">
+  return <Card class="p-4">
+    <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div>
         <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">REPLY TRIAGE</span>
-        <h2><SectionIcon name="inbox" />Replies needing a human</h2>
-        <p>Inbound replies the classifier could not resolve automatically. Read the text, then decide.</p>
+        <h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="inbox" />Replies needing a human</h2>
+        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Inbound replies the classifier could not resolve automatically. Read the text, then decide.</p>
       </div>
       <Show when={data()}>
         <StatusBadge
@@ -82,7 +83,7 @@ export function ReplyTriagePanel() {
     </div>
 
     <Show when={model.error}>
-      <div class="warning-card operations-warning" role="status">
+      <div class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning mt-4" role="status">
         {model.error instanceof Error ? model.error.message : 'Reply triage is temporarily unavailable.'}
       </div>
     </Show>
@@ -91,68 +92,68 @@ export function ReplyTriagePanel() {
 
     <Show when={data()}>{d => <>
       {/* Summary */}
-      <div class="operations-metrics">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
         <div>
-          <span>Needs human</span>
-          <strong>{d().summary.needs_human_count}</strong>
-          <small>awaiting review</small>
+          <span class="block text-muted-foreground text-sm">Needs human</span>
+          <strong class="block my-1.5 text-foreground">{d().summary.needs_human_count}</strong>
+          <small class="block text-muted-foreground text-sm">awaiting review</small>
         </div>
         <div>
-          <span>Auto positive</span>
-          <strong>{d().summary.auto_positive_count}</strong>
-          <small class="tone-good">classified</small>
+          <span class="block text-muted-foreground text-sm">Auto positive</span>
+          <strong class="block my-1.5 text-foreground">{d().summary.auto_positive_count}</strong>
+          <small class="block text-success text-sm">classified</small>
         </div>
         <div>
-          <span>Auto declined</span>
-          <strong>{d().summary.auto_declined_count}</strong>
-          <small class="tone-warn">classified</small>
+          <span class="block text-muted-foreground text-sm">Auto declined</span>
+          <strong class="block my-1.5 text-foreground">{d().summary.auto_declined_count}</strong>
+          <small class="block text-warning text-sm">classified</small>
         </div>
         <div>
-          <span>Auto DNC</span>
-          <strong>{d().summary.auto_do_not_contact_count}</strong>
-          <small class="tone-bad">classified</small>
+          <span class="block text-muted-foreground text-sm">Auto DNC</span>
+          <strong class="block my-1.5 text-foreground">{d().summary.auto_do_not_contact_count}</strong>
+          <small class="block text-destructive text-sm">classified</small>
         </div>
         <Show when={d().summary.pending_count > 0}>
-          <div class="operations-attention">
-            <strong>Pending</strong>
-            <span>{d().summary.pending_count} reply(ies) queued for classification</span>
+          <div class="flex flex-wrap gap-2 col-span-full p-3 border border-warning rounded-md bg-card text-warning">
+            <strong class="text-foreground">Pending</strong>
+            <span class="text-sm text-secondary-foreground">{d().summary.pending_count} reply(ies) queued for classification</span>
           </div>
         </Show>
       </div>
 
       {/* Needs human */}
-      <section class="operations-section">
-        <div class="operations-section-head">
-          <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">NEEDS HUMAN</span><h3><SectionIcon name="mail" />Read these</h3></div>
+      <section class="mt-6 pt-6 border-t border-border">
+        <div class="flex justify-between gap-4 items-start">
+          <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">NEEDS HUMAN</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="mail" />Read these</h3></div>
         </div>
         <Show
           when={d().needs_human.length > 0}
           fallback={<EmptyState label="No replies need human review" hint="The agent handles routine replies automatically. Items that need a human touch appear here." />}
         >
-          <div class="flag-list">
+          <div class="flex flex-col mt-3">
             <For each={showAllNeedsHuman() ? d().needs_human : d().needs_human.slice(0, MAX_VISIBLE)}>{entry => <ReplyRow entry={entry} slug={params().slug} actionable />}</For>
           </div>
           <Show when={d().needs_human.length > MAX_VISIBLE}>
-            <button class="ghost" onClick={() => setShowAllNeedsHuman(s => !s)}>
+            <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllNeedsHuman(s => !s)}>
               {showAllNeedsHuman() ? 'Show less' : `Show all (${d().needs_human.length})`}
-            </button>
+            </Button>
           </Show>
         </Show>
       </section>
 
       {/* Recent auto */}
       <Show when={d().recent_auto.length > 0}>
-        <section class="operations-section">
-          <div class="operations-section-head">
-            <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">RECENT AUTO</span><h3><SectionIcon name="zap" />Classified without a human</h3></div>
+        <section class="mt-6 pt-6 border-t border-border">
+          <div class="flex justify-between gap-4 items-start">
+            <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">RECENT AUTO</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="zap" />Classified without a human</h3></div>
           </div>
-          <div class="flag-list">
+          <div class="flex flex-col mt-3">
             <For each={showAllRecentAuto() ? d().recent_auto : d().recent_auto.slice(0, MAX_VISIBLE)}>{entry => <ReplyRow entry={entry} slug={params().slug} />}</For>
           </div>
           <Show when={d().recent_auto.length > MAX_VISIBLE}>
-            <button class="ghost" onClick={() => setShowAllRecentAuto(s => !s)}>
+            <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllRecentAuto(s => !s)}>
               {showAllRecentAuto() ? 'Show less' : `Show all (${d().recent_auto.length})`}
-            </button>
+            </Button>
           </Show>
         </section>
       </Show>
@@ -182,44 +183,50 @@ function ReplyRow(props: { entry: ReplyTriageEntry; slug: string; actionable?: b
     }
   }
 
-  return <div class="flag-row release-component-row reply-triage-row">
-    <div>
-      <strong>{targetKindLabel(props.entry.target_kind)}</strong>
-      <small class="reply-text">{props.entry.reply_text}</small>
+  return <div class="flex items-start justify-between gap-3 py-3 border-b border-border last:border-0">
+    <div class="min-w-0 flex-1">
+      <strong class="block text-foreground">{targetKindLabel(props.entry.target_kind)}</strong>
+      <small class="block text-muted-foreground text-sm">{props.entry.reply_text}</small>
       <Show when={reasonLabel(props.entry.human_review_reason)}>
-        {r => <small>reason: {r()}</small>}
+        {r => <small class="block text-muted-foreground text-sm">reason: {r()}</small>}
       </Show>
       <Show when={props.entry.matched_rules.length > 0}>
-        <small>rules: {props.entry.matched_rules.join(', ')}</small>
+        <small class="block text-muted-foreground text-sm">rules: {props.entry.matched_rules.join(', ')}</small>
       </Show>
-      <small>{timeAgo(props.entry.classified_at)} · {confidencePercent(props.entry.confidence_basis_points)}</small>
-      <Show when={error()}><small class="agent-error">{error()}</small></Show>
+      <small class="block text-muted-foreground text-sm">{timeAgo(props.entry.classified_at)} · {confidencePercent(props.entry.confidence_basis_points)}</small>
+      <Show when={error()}><small class="block text-destructive text-sm">{error()}</small></Show>
     </div>
-    <div class="row-health reply-triage-actions">
+    <div class="flex flex-col items-end gap-2 flex-shrink-0">
       <StatusBadge
         status={dispositionLabel(props.entry.classified_disposition)}
         tone={dispositionTone(props.entry.classified_disposition)}
       />
       <Show when={props.actionable}>
-        <div class="reply-triage-buttons">
-          <button
-            class="ghost reply-btn reply-btn-good"
+        <div class="flex gap-1.5 flex-wrap justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            class="text-success"
             disabled={busy() !== null}
             onClick={() => resolve('positive')}
             title="Mark as positive — the contact is interested"
-          >{busy() === 'positive' ? '…' : 'Positive'}</button>
-          <button
-            class="ghost reply-btn reply-btn-warn"
+          >{busy() === 'positive' ? '…' : 'Positive'}</Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            class="text-warning"
             disabled={busy() !== null}
             onClick={() => resolve('declined')}
             title="Mark as declined — the contact said no"
-          >{busy() === 'declined' ? '…' : 'Declined'}</button>
-          <button
-            class="ghost reply-btn reply-btn-bad"
+          >{busy() === 'declined' ? '…' : 'Declined'}</Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            class="text-destructive"
             disabled={busy() !== null}
             onClick={() => resolve('do_not_contact')}
             title="Do not contact — stop all outreach to this contact"
-          >{busy() === 'do_not_contact' ? '…' : 'DNC'}</button>
+          >{busy() === 'do_not_contact' ? '…' : 'DNC'}</Button>
         </div>
       </Show>
     </div>

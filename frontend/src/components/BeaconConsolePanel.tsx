@@ -7,6 +7,8 @@ import { StatusBadge } from './StatusBadge'
 import { SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
 import { Card } from './ui/card'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
 
 // The beacon roster, and everything you can do to it.
 //
@@ -212,17 +214,18 @@ export function BeaconConsolePanel(props: { slug: string }) {
 
   return (
     <Card class="p-4">
-      <header class="panel-header">
-        <h2>Beacons</h2>
-        <div class="panel-header-actions">
+      <header class="flex items-center justify-between gap-4 mb-3">
+        <h2 class="text-lg font-semibold text-foreground">Beacons</h2>
+        <div class="flex items-center gap-2">
           <Show when={roster.data}>
             <span class="text-muted-foreground">
               {roster.data!.total} total · {roster.data!.active} active · {roster.data!.invited} invited
             </span>
           </Show>
           <Show when={(network.data?.researchedAvailable ?? 0) > 0}>
-            <button
-              class="ghost"
+            <Button
+              variant="ghost"
+              size="sm"
               disabled={busy() !== null}
               onClick={importResearched}
               title="Adds researched contacts to the roster as unverified. Approve them before inviting."
@@ -230,11 +233,11 @@ export function BeaconConsolePanel(props: { slug: string }) {
               {busy() === 'import' && <Spinner />} {busy() === 'import'
                 ? 'Importing…'
                 : `Import ${network.data!.researchedAvailable} researched`}
-            </button>
+            </Button>
           </Show>
           <label
-            class="ghost"
-            classList={{ disabled: busy() !== null }}
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors text-secondary-foreground hover:bg-surface-3 hover:text-foreground cursor-pointer"
+            classList={{ 'pointer-events-none opacity-45': busy() !== null }}
             title="Upload a SubmitHub Activity CSV. Curators who approved or shared become unverified beacons — enrich contact info from the chats, then approve."
           >
             {busy() === 'submithub' && <Spinner />} {busy() === 'submithub' ? 'Importing…' : 'Import SubmitHub CSV'}
@@ -246,63 +249,63 @@ export function BeaconConsolePanel(props: { slug: string }) {
               onChange={importSubmithub}
             />
           </label>
-          <button class="ghost" onClick={() => setAdding(value => !value)}>
+          <Button variant="ghost" size="sm" onClick={() => setAdding(value => !value)}>
             {adding() ? 'Cancel' : 'Add beacon'}
-          </button>
+          </Button>
         </div>
       </header>
 
       <Show when={roster.isPending}><SkeletonPanel /></Show>
       <Show when={roster.error}>
-        <p class="notice bad">Could not load the roster: {errorMessage(roster.error, 'unknown error')}</p>
+        <p class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Could not load the roster: {errorMessage(roster.error, 'unknown error')}</p>
       </Show>
 
       <Show when={adding()}>
-        <form class="form-grid beacon-create" onSubmit={addBeacon}>
-          <label>
-            Name <small>venue, shop or person</small>
-            <input value={form().displayName} required maxlength={200}
+        <form class="grid grid-cols-1 md:grid-cols-2 gap-3.5 rounded-lg border border-border bg-card p-4" onSubmit={addBeacon}>
+          <label class="grid gap-1.75 text-muted-foreground text-sm">
+            Name <small class="text-xs text-muted-foreground">venue, shop or person</small>
+            <input class="w-full bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15" value={form().displayName} required maxlength={200}
                    onInput={e => setForm({ ...form(), displayName: e.currentTarget.value })} />
           </label>
-          <label>
-            Kind <small>what they are to the band, not their job title</small>
-            <select value={form().beaconKind}
+          <label class="grid gap-1.75 text-muted-foreground text-sm">
+            Kind <small class="text-xs text-muted-foreground">what they are to the band, not their job title</small>
+            <select class="w-full bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15" value={form().beaconKind}
                     onChange={e => setForm({ ...form(), beaconKind: e.currentTarget.value })}>
               <For each={KINDS}>{kind => <option value={kind}>{KIND_LABEL[kind]}</option>}</For>
             </select>
           </label>
-          <label>
-            City slug <small>as the public city list returns it</small>
-            <input value={form().citySlug} maxlength={100}
+          <label class="grid gap-1.75 text-muted-foreground text-sm">
+            City slug <small class="text-xs text-muted-foreground">as the public city list returns it</small>
+            <input class="w-full bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15" value={form().citySlug} maxlength={100}
                    onInput={e => setForm({ ...form(), citySlug: e.currentTarget.value })} />
           </label>
-          <label>
-            Contact email <small>needed before they can be invited</small>
-            <input type="email" value={form().contactEmail} maxlength={320}
+          <label class="grid gap-1.75 text-muted-foreground text-sm">
+            Contact email <small class="text-xs text-muted-foreground">needed before they can be invited</small>
+            <input type="email" class="w-full bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15" value={form().contactEmail} maxlength={320}
                    onInput={e => setForm({ ...form(), contactEmail: e.currentTarget.value })} />
           </label>
-          <div class="form-actions right">
-            <button class="primary" type="submit" disabled={busy() !== null || !form().displayName.trim()}>
+          <div class="flex gap-2 justify-end mt-5 md:col-span-2">
+            <Button size="sm" type="submit" disabled={busy() !== null || !form().displayName.trim()}>
               {busy() === 'add' && <Spinner />} {busy() === 'add' ? 'Adding…' : 'Add beacon'}
-            </button>
+            </Button>
           </div>
         </form>
       </Show>
 
       <Show when={roster.data}>
-        <div class="beacon-toolbar">
+        <div class="flex gap-2.5 items-center flex-wrap my-3.5">
           {/* Placeholder text disappears the moment you type, so it is not a
               name: the field announced itself as "edit text" to a screen
               reader. Same for the filter beside it. */}
           <input
-            class="beacon-search"
+            class="flex-1 min-w-[200px] bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15"
             type="search"
             aria-label="Search beacons"
             placeholder="Search name, city, email or kind…"
             value={query()}
             onInput={event => onSearch(event.currentTarget.value)}
           />
-          <select aria-label="Filter beacons by state" value={statusFilter()} onChange={event => onFilter(event.currentTarget.value)}>
+          <select class="bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15" aria-label="Filter beacons by state" value={statusFilter()} onChange={event => onFilter(event.currentTarget.value)}>
             <option value="all">All states</option>
             <option value="unverified">Unverified</option>
             <option value="active">Active</option>
@@ -310,52 +313,53 @@ export function BeaconConsolePanel(props: { slug: string }) {
             <option value="paused">Paused</option>
             <option value="revoked">Revoked</option>
           </select>
-          <button class="ghost" onClick={selectAllVisible} disabled={visible().length === 0}>
+          <Button variant="ghost" size="sm" onClick={selectAllVisible} disabled={visible().length === 0}>
             {visible().every(p => selected().has(p.beaconId)) && visible().length > 0
               ? 'Clear selection'
               : `Select all ${visible().length} filtered`}
-          </button>
-          <button
-            class="primary"
+          </Button>
+          <Button
+            size="sm"
             disabled={selected().size === 0 || busy() !== null}
             onClick={inviteSelected}
           >
             {busy() === 'invite' && <Spinner />} {busy() === 'invite' ? 'Inviting…' : `Invite ${selected().size} to Signal`}
-          </button>
+          </Button>
         </div>
 
         <Show
           when={visible().length > 0}
           fallback={
-            <p class="notice warn">
+            <p class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
               {profiles().length === 0
                 ? 'No beacons yet. Local growth needs people on the ground — add the venues, shops and promoters you already know.'
                 : 'No beacon matches that search.'}
             </p>
           }
         >
-          <div class="beacon-list">
+          <div class="flex flex-col gap-2">
             <For each={rendered()}>
               {profile => (
-                <div class="beacon-row" classList={{ selected: selected().has(profile.beaconId) }}>
-                  <label class="beacon-pick">
+                <div class="grid grid-cols-[auto_1fr_auto_auto] gap-3 items-center px-3.5 py-3 border border-border rounded-md bg-card" classList={{ 'border-primary': selected().has(profile.beaconId) }}>
+                  <label class="flex items-center">
                     <input
                       type="checkbox"
+                      class="accent-primary w-4 h-4"
                       checked={selected().has(profile.beaconId)}
                       onChange={() => toggle(profile.beaconId)}
                     />
                   </label>
-                  <div class="beacon-identity">
+                  <div class="flex flex-col gap-0.5 min-w-0">
                     <strong>{profile.displayName}</strong>
-                    <span class="text-muted-foreground">
+                    <span class="text-muted-foreground break-all">
                       {profile.beaconKind}
                       {profile.city ? ` · ${profile.city}` : ''}
                       {profile.contactEmail ? ` · ${profile.contactEmail}` : ' · no email'}
                     </span>
                   </div>
-                  <div class="beacon-facts">
+                  <div class="flex items-center gap-2 flex-wrap text-xs">
                     <StatusBadge status={profile.status} tone={STATE_TONE[profile.status] ?? 'muted'} />
-                    <span class="badge">{profile.inviteCount} invite{profile.inviteCount === 1 ? '' : 's'}</span>
+                    <Badge>{profile.inviteCount} invite{profile.inviteCount === 1 ? '' : 's'}</Badge>
                     <Show when={profile.lastInvitedAt}>
                       {at => <span class="text-muted-foreground">last invited {formatTimestamp(at())}</span>}
                     </Show>
@@ -363,24 +367,24 @@ export function BeaconConsolePanel(props: { slug: string }) {
                       {at => <span class="text-muted-foreground">joined {formatTimestamp(at())}</span>}
                     </Show>
                   </div>
-                  <div class="beacon-row-actions">
+                  <div class="flex gap-1.5 flex-wrap">
                     <Show when={profile.status !== 'unverified' && profile.status !== 'paused' && profile.status !== 'revoked'}>
-                      <button class="ghost" disabled={busy() !== null}
+                      <Button variant="ghost" size="sm" disabled={busy() !== null}
                               onClick={() => setState(profile.beaconId, 'paused')}>
                         {busy() === `state:${profile.beaconId}` && <Spinner />} Pause
-                      </button>
+                      </Button>
                     </Show>
                     <Show when={profile.status === 'paused'}>
-                      <button class="ghost" disabled={busy() !== null}
+                      <Button variant="ghost" size="sm" disabled={busy() !== null}
                               onClick={() => setState(profile.beaconId, 'active')}>
                         {busy() === `state:${profile.beaconId}` && <Spinner />} Resume
-                      </button>
+                      </Button>
                     </Show>
                     <Show when={profile.status !== 'unverified' && profile.status !== 'revoked'}>
-                      <button class="ghost danger-ghost" disabled={busy() !== null}
+                      <Button variant="destructive-ghost" size="sm" disabled={busy() !== null}
                               onClick={() => setState(profile.beaconId, 'revoked')}>
                         {busy() === `state:${profile.beaconId}` && <Spinner />} Revoke
-                      </button>
+                      </Button>
                     </Show>
                   </div>
                 </div>
@@ -388,15 +392,18 @@ export function BeaconConsolePanel(props: { slug: string }) {
             </For>
           </div>
           <Show when={visible().length > rendered().length}>
-            <button class="ghost dead-expand-btn" onClick={() => setPageSize(pageSize() + PAGE_SIZE)}>
+            <Button variant="ghost" size="sm" onClick={() => setPageSize(pageSize() + PAGE_SIZE)}>
               Show {Math.min(PAGE_SIZE, visible().length - rendered().length)} more · {rendered().length} of {visible().length} shown
-            </button>
+            </Button>
           </Show>
         </Show>
       </Show>
 
       <Show when={notice()}>
-        {value => <p class={`notice ${value().tone}`}>{value().message}</p>}
+        {value => <p class="rounded-lg border p-4 text-sm" classList={{
+          'border-success/30 bg-success/10 text-success': value().tone === 'good',
+          'border-destructive/30 bg-destructive/10 text-destructive': value().tone === 'bad',
+        }}>{value().message}</p>}
       </Show>
     </Card>
   )

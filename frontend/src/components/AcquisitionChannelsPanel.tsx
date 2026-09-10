@@ -5,6 +5,8 @@ import { SectionIcon } from './SectionIcon'
 import { EmptyState } from './EmptyState'
 import { SkeletonSection } from './Skeleton'
 import { Card } from './ui/card'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
 import type { ChannelPerformance } from '../lib/types'
 
 // `/operations/acquisition-channels` answers the question the north star
@@ -46,28 +48,28 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
     return Math.max(...channels.map(c => c.signups))
   }
 
-  return <Card class="p-4 acquisition-panel">
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3">
+  return <Card class="p-5">
+    <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div>
         <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">ACQUISITION</span>
-        <h2><SectionIcon name="users" />Where the fans came from</h2>
-        <p>Signups by the channel that produced them, and how many of those were still active 30 days later. A channel that brings people who never come back is not working, however big the first number is.</p>
+        <h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="users" />Where the fans came from</h2>
+        <p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">Signups by the channel that produced them, and how many of those were still active 30 days later. A channel that brings people who never come back is not working, however big the first number is.</p>
       </div>
     </div>
 
     <Show when={model.error}>
-      <div class="inherit-card"><p>Acquisition attribution is not available on the connected CrowdRelay build. The funnel below still reports totals.</p></div>
+      <Card class="p-4 mt-2.5"><p class="m-0 text-sm text-muted-foreground">Acquisition attribution is not available on the connected CrowdRelay build. The funnel below still reports totals.</p></Card>
     </Show>
 
     <Show when={!model.error && model.isPending}><SkeletonSection titleWidth="200px" lines={4} minHeight="160px" /></Show>
 
     <Show when={d()}>{data => <>
-      <div class="acq-kpis">
-        <div class="acq-kpi"><span>Signups</span><strong>{data().total_signups.toLocaleString()}</strong></div>
-        <div class="acq-kpi"><span>Activated · 30d</span><strong>{data().total_activated_30d.toLocaleString()}</strong></div>
-        <div class="acq-kpi"><span>Active · 30d</span><strong>{data().active_30d.toLocaleString()}</strong></div>
-        <div class="acq-kpi"><span>Retained · 30d</span><strong>{data().retained_30d.toLocaleString()}</strong></div>
-        <div class="acq-kpi"><span>Reachable</span><strong>{data().reachable_consented.toLocaleString()}</strong><small>consented to be contacted</small></div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+        <div class="p-3 border border-border rounded-md bg-card"><span class="block text-xs text-muted-foreground">Signups</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().total_signups.toLocaleString()}</strong></div>
+        <div class="p-3 border border-border rounded-md bg-card"><span class="block text-xs text-muted-foreground">Activated · 30d</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().total_activated_30d.toLocaleString()}</strong></div>
+        <div class="p-3 border border-border rounded-md bg-card"><span class="block text-xs text-muted-foreground">Active · 30d</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().active_30d.toLocaleString()}</strong></div>
+        <div class="p-3 border border-border rounded-md bg-card"><span class="block text-xs text-muted-foreground">Retained · 30d</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().retained_30d.toLocaleString()}</strong></div>
+        <div class="p-3 border border-border rounded-md bg-card"><span class="block text-xs text-muted-foreground">Reachable</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().reachable_consented.toLocaleString()}</strong><small class="block text-xs text-muted-foreground mt-0.5">consented to be contacted</small></div>
       </div>
 
       <Show
@@ -77,56 +79,56 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
           hint="A channel appears here once a fan arrives carrying its attribution — a tracked link, a community post, or a campaign creative. Until then the funnel counts them, but cannot say who sent them."
         />}
       >
-        <ul class="acq-list">
+        <ul class="grid gap-2.5 m-0 p-0 list-none mt-4">
           <For each={showAllChannels() ? data().channels : data().channels.slice(0, MAX_VISIBLE_CHANNELS)}>{channel => (
-            <li class="acq-row" classList={{ 'acq-row-unattributed': channel.attribution.evidence !== 'attributed' }}>
-              <div class="acq-row-name">
-                <strong>{channelName(channel)}</strong>
-                <small>{channelDetail(channel)}</small>
+            <li class="grid items-center gap-3 p-3 border border-border-subtle rounded-md bg-surface-1 grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto]">
+              <div class="min-w-0">
+                <strong class="block text-base capitalize text-foreground">{channelName(channel)}</strong>
+                <small class="block text-sm text-muted-foreground mt-0.5">{channelDetail(channel)}</small>
               </div>
-              <div class="acq-bar-wrap" aria-hidden="true">
-                <span class="acq-bar" style={{ width: `${best() > 0 ? (channel.signups / best()) * 100 : 0}%` }} />
+              <div class="bg-surface-3 rounded-full min-w-15 h-2 overflow-hidden" aria-hidden="true">
+                <span class="bg-primary rounded-full block h-full" style={{ width: `${best() > 0 ? (channel.signups / best()) * 100 : 0}%` }} />
               </div>
-              <div class="acq-row-numbers">
-                <span><strong>{channel.signups.toLocaleString()}</strong> signups</span>
-                <span><strong>{channel.activated_30d.toLocaleString()}</strong> activated</span>
-                <span class="acq-rate">{pct(channel.activation_basis_points)} activation</span>
+              <div class="flex items-center gap-3 text-sm text-muted-foreground whitespace-nowrap">
+                <span><strong class="text-foreground">{channel.signups.toLocaleString()}</strong> signups</span>
+                <span><strong class="text-foreground">{channel.activated_30d.toLocaleString()}</strong> activated</span>
+                <span class="text-secondary-foreground">{pct(channel.activation_basis_points)} activation</span>
               </div>
               <Show when={channel.best_action}>
-                <p class="acq-best-action">{channel.best_action}</p>
+                <p class="col-span-full mt-1.5 pt-2 border-t border-border-subtle text-secondary-foreground text-sm leading-relaxed m-0">{channel.best_action}</p>
               </Show>
             </li>
           )}</For>
         </ul>
         <Show when={data().channels.length > MAX_VISIBLE_CHANNELS}>
-          <button class="ghost" onClick={() => setShowAllChannels(s => !s)}>
+          <Button variant="ghost" size="sm" onClick={() => setShowAllChannels(s => !s)}>
             {showAllChannels() ? 'Show less' : `Show all (${data().channels.length})`}
-          </button>
+          </Button>
         </Show>
       </Show>
 
       <Show when={data().unattributed.length > 0}>
-        <section class="acq-unattributed">
-          <h3>Signups the system could not attribute</h3>
-          <p class="acq-block-intro">Each row says what to instrument so the next batch lands in a channel above.</p>
-          <ul class="cos-risk-list">
+        <section class="mt-6 pt-6 border-t border-border">
+          <h3 class="text-sm font-semibold text-foreground">Signups the system could not attribute</h3>
+          <p class="m-0 mt-1 text-sm text-muted-foreground leading-relaxed">Each row says what to instrument so the next batch lands in a channel above.</p>
+          <ul class="grid gap-2 m-0 p-0 list-none mt-3">
             <For each={showAllUnattributed() ? data().unattributed : data().unattributed.slice(0, MAX_VISIBLE_UNATTRIBUTED)}>{item => (
-              <li>
-                <div>
-                  <strong>{item.reason.replace(/_/g, ' ')}</strong>
-                  <small>{item.remedy}</small>
+              <li class="flex items-center justify-between gap-3 py-2.5 border-b border-border last:border-0">
+                <div class="min-w-0">
+                  <strong class="block text-foreground">{item.reason.replace(/_/g, ' ')}</strong>
+                  <small class="block text-sm text-muted-foreground mt-0.5">{item.remedy}</small>
                 </div>
-                <div class="row-health">
-                  <span class="badge">{item.signups.toLocaleString()} signups</span>
-                  <span class="badge">{item.activated_30d.toLocaleString()} activated</span>
+                <div class="flex flex-wrap items-center gap-2">
+                  <Badge variant="muted">{item.signups.toLocaleString()} signups</Badge>
+                  <Badge variant="muted">{item.activated_30d.toLocaleString()} activated</Badge>
                 </div>
               </li>
             )}</For>
           </ul>
           <Show when={data().unattributed.length > MAX_VISIBLE_UNATTRIBUTED}>
-            <button class="ghost" onClick={() => setShowAllUnattributed(s => !s)}>
+            <Button variant="ghost" size="sm" onClick={() => setShowAllUnattributed(s => !s)}>
               {showAllUnattributed() ? 'Show less' : `Show all (${data().unattributed.length})`}
-            </button>
+            </Button>
           </Show>
         </section>
       </Show>

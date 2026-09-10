@@ -6,6 +6,9 @@ import { StatusBadge } from './StatusBadge'
 import { SkeletonRows } from './Skeleton'
 import { EmptyState } from './EmptyState'
 import { KpiStrip, KpiCard } from './layout'
+import { Card } from './ui/card'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
 import type { IntelligenceDecision, IntelligenceDecisionTask, IntelligenceDecisionsData } from '../lib/types'
 
 // --- Intelligence icon (deterministic Rust autopilot) ---
@@ -39,6 +42,9 @@ const taskStatusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
   status === 'completed' ? 'good' :
   status === 'running' || status === 'queued' ? 'warn' :
   status === 'failed' ? 'bad' : 'muted'
+
+const toneToBadgeVariant = (tone: 'good' | 'warn' | 'bad' | 'muted'): 'success' | 'warning' | 'destructive' | 'muted' =>
+  tone === 'good' ? 'success' : tone === 'warn' ? 'warning' : tone === 'bad' ? 'destructive' : 'muted'
 
 export function IntelligenceTransparencyPanel(props: { slug: string; active?: boolean }) {
   const [error, setError] = createSignal<string | null>(null)
@@ -91,23 +97,23 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
     setExpanded((curr) => (curr === id ? null : id))
   }
 
-  return <div class="intel-transparency-panel">
+  return <div class="flex flex-col gap-4">
     <Show when={error()}>
       <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error()}</div>
     </Show>
 
     {/* Time range selector */}
-    <div class="funnel-controls">
-      <label class="compact-field">
+    <div class="flex flex-wrap gap-3 items-end">
+      <label class="grid gap-1.5 text-muted-foreground text-sm">
         <span>Time range</span>
-        <select value={days()} onChange={(e) => setDays(Number(e.currentTarget.value))}>
+        <select class="border border-border-strong text-white px-2.5 py-2 rounded-md" value={days()} onChange={(e) => setDays(Number(e.currentTarget.value))}>
           <option value={7}>Last 7 days</option>
           <option value={30}>Last 30 days</option>
           <option value={90}>Last 90 days</option>
           <option value={365}>All time</option>
         </select>
       </label>
-      <button class="ghost" onClick={() => void data.refetch()} disabled={data.isFetching}>{data.isFetching ? 'Refreshing…' : 'Refresh'}</button>
+      <Button variant="ghost" size="sm" onClick={() => void data.refetch()} disabled={data.isFetching}>{data.isFetching ? 'Refreshing…' : 'Refresh'}</Button>
     </div>
 
     {/* Same as the funnel: the range selector changes the query key, the old
@@ -138,54 +144,54 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
     </Show>
 
     {/* Decision timeline */}
-    <div class="agent-section">
-      <div class="agent-section-head">
-        <h3><IntelligenceIcon size={18} /> Decision Timeline</h3>
+    <Card class="p-4 mt-4">
+      <div class="flex items-center justify-between gap-4">
+        <h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><IntelligenceIcon size={18} /> Decision Timeline</h3>
         <Show when={decisions().length > 0}>
           <span class="text-muted-foreground">{decisions().length} decisions</span>
         </Show>
       </div>
-      <p class="agent-section-intro">The intelligence's decision log. Each entry shows what the intelligence decided to research, why (rationale), which workers it dispatched, and what they found. The intelligence is deterministic Rust — it never follows an LLM blindly.</p>
+      <p class="text-sm text-muted-foreground leading-relaxed mt-2">The intelligence's decision log. Each entry shows what the intelligence decided to research, why (rationale), which workers it dispatched, and what they found. The intelligence is deterministic Rust — it never follows an LLM blindly.</p>
 
       <Show when={data.data && decisions().length === 0} fallback={
         <Show when={error()} fallback={
           <Show when={data.data} fallback={
-            <div class="intel-decision-list">
+            <div class="flex flex-col gap-2.5 mt-4">
               {Array.from({ length: 3 }, () => (
-                <div class="intel-decision-card" style={{ opacity: '0.8' }}>
+                <Card class="p-4" style={{ opacity: '0.8' }}>
                   <div class="rounded-lg bg-surface-3 border border-border" style={{ height: '20px', width: '40%', 'border-radius': '8px', 'margin-bottom': '12px' }} />
                   <div class="rounded-lg bg-surface-3 border border-border" style={{ height: '14px', width: '100%', 'border-radius': '6px', 'margin-bottom': '8px' }} />
                   <div class="rounded-lg bg-surface-3 border border-border" style={{ height: '14px', width: '80%', 'border-radius': '6px' }} />
-                </div>
+                </Card>
               ))}
             </div>
           }>
-            <div class="intel-decision-list">
+            <div class="flex flex-col gap-2.5 mt-4">
               <For each={showAllDecisions() ? decisions() : decisions().slice(0, MAX_VISIBLE_DECISIONS)}>{(decision: IntelligenceDecision) => (
-                <div class="intel-decision-card">
-                  <button class="intel-decision-header" onClick={() => toggleExpand(decision.id)}>
-                    <div class="intel-decision-meta">
+                <Card class="overflow-hidden shadow-sm transition-colors hover:border-border-strong">
+                  <Button variant="ghost" size="sm" class="w-full h-auto p-4 flex items-center justify-between gap-3" onClick={() => toggleExpand(decision.id)}>
+                    <div class="flex items-center gap-2.5">
                       <strong>{templateLabel(decision.brain_template)}</strong>
                       <span class="text-muted-foreground">{formatIsoAge(decision.created_at)}</span>
                     </div>
-                    <div class="intel-decision-badges">
+                    <div class="flex items-center gap-2">
                       <StatusBadge status={decision.status} tone={decisionStatusTone(decision.status)} />
                       <Show when={decision.plan.length > 0}>
-                        <span class="badge">{decision.plan.length} plan items</span>
+                        <Badge>{decision.plan.length} plan items</Badge>
                       </Show>
                       <Show when={decision.tasks.length > 0}>
-                        <span class="badge">{decision.tasks.length} workers</span>
+                        <Badge>{decision.tasks.length} workers</Badge>
                       </Show>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" classList={{ rotated: expanded() === decision.id }} aria-hidden="true">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="transition-transform" classList={{ 'rotate-180': expanded() === decision.id }} aria-hidden="true">
                         <path d="M6 9l6 6 6-6" />
                       </svg>
                     </div>
-                  </button>
+                  </Button>
 
                   {/* Quick summary (always visible) */}
-                  <div class="intel-decision-summary">
+                  <div class="px-4 pb-2.5">
                     <Show when={decision.plan.length > 0}>
-                      <p class="intel-rationale-preview">
+                      <p class="m-0 text-sm text-secondary-foreground leading-relaxed">
                         <Show when={decision.plan[0]?.rationale != null} fallback={<span class="text-muted-foreground">No rationale recorded</span>}>
                           {decision.plan[0]!.rationale}
                         </Show>
@@ -195,95 +201,95 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
 
                   {/* Expanded detail */}
                   <Show when={expanded() === decision.id}>
-                    <div class="intel-decision-detail">
+                    <div class="px-4 pb-4 border-t border-border">
                       {/* Plan items (the intelligence's reasoning) */}
                       <Show when={decision.plan.length > 0}>
-                        <div class="intel-plan-section">
-                          <h4>Growth Plan</h4>
-                          <p class="text-muted-foreground intel-plan-intro">The intelligence's deterministic plan. Each item shows the template to dispatch, the priority, and the rationale (why the intelligence decided to do this).</p>
+                        <div class="mt-4">
+                          <h4 class="text-sm font-semibold text-foreground m-0 mb-1.5">Growth Plan</h4>
+                          <p class="text-sm text-muted-foreground m-0 mb-2.5">The intelligence's deterministic plan. Each item shows the template to dispatch, the priority, and the rationale (why the intelligence decided to do this).</p>
                           <For each={expandedPlans().has(decision.id) ? decision.plan : decision.plan.slice(0, MAX_VISIBLE_PLAN)}>{(item, i) => (
-                            <div class="intel-plan-item">
-                              <div class="intel-plan-head">
-                                <span class="badge">#{i() + 1} · {templateLabel(item.template)}</span>
-                                <span class="badge free-chip">priority {item.priority}</span>
+                            <div class="p-3 border border-border-subtle rounded-md bg-surface-3 mb-2">
+                              <div class="flex gap-2 items-center mb-1.5">
+                                <Badge>#{i() + 1} · {templateLabel(item.template)}</Badge>
+                                <Badge variant="success">priority {item.priority}</Badge>
                               </div>
-                              <p class="intel-plan-rationale"><strong>Why:</strong> {item.rationale}</p>
-                              <pre class="intel-plan-prompt">{item.prompt}</pre>
+                              <p class="text-sm m-0 mb-1.5 leading-relaxed text-foreground"><strong>Why:</strong> {item.rationale}</p>
+                              <pre class="text-sm text-muted-foreground bg-background p-2 rounded-md overflow-auto max-h-[120px] m-0 whitespace-pre-wrap">{item.prompt}</pre>
                             </div>
                           )}</For>
                         </div>
                         <Show when={decision.plan.length > MAX_VISIBLE_PLAN}>
-                          <button class="ghost" onClick={() => togglePlan(decision.id)}>
+                          <Button variant="ghost" size="sm" class="mt-2" onClick={() => togglePlan(decision.id)}>
                             {expandedPlans().has(decision.id) ? 'Show less' : `Show all (${decision.plan.length})`}
-                          </button>
+                          </Button>
                         </Show>
                       </Show>
 
                       {/* Dispatched worker tasks */}
                       <Show when={decision.tasks.length > 0}>
-                        <div class="intel-tasks-section">
-                          <h4>Dispatched Workers</h4>
-                          <p class="text-muted-foreground intel-plan-intro">Workers the intelligence dispatched for this plan. Each worker runs an LLM template and emits structured outcomes. The intelligence consumes these outcomes deterministically.</p>
-                          <table class="agent-task-table">
+                        <div class="mt-4">
+                          <h4 class="text-sm font-semibold text-foreground m-0 mb-1.5">Dispatched Workers</h4>
+                          <p class="text-sm text-muted-foreground m-0 mb-2.5">Workers the intelligence dispatched for this plan. Each worker runs an LLM template and emits structured outcomes. The intelligence consumes these outcomes deterministically.</p>
+                          <table class="w-full text-sm">
                             <thead><tr><th>Slot</th><th>Role</th><th>Template</th><th>Status</th><th>Outcome</th><th>Tokens</th><th></th></tr></thead>
                             <tbody>
                               <For each={expandedTasks().has(decision.id) ? decision.tasks : decision.tasks.slice(0, MAX_VISIBLE_TASKS)}>{(task: IntelligenceDecisionTask) => (
                                 <tr>
                                   <td>{task.slot}</td>
-                                  <td><span class={`badge ${task.role === 'brain' ? 'free-chip' : 'paid-chip'}`}>{task.role}</span></td>
+                                  <td><Badge variant={task.role === 'brain' ? 'success' : 'warning'}>{task.role}</Badge></td>
                                   <td>{templateLabel(task.template_id)}</td>
                                   <td><StatusBadge status={task.status} tone={taskStatusTone(task.status)} /></td>
                                   <td>
                                     <Show when={task.has_outcome} fallback={<span class="text-muted-foreground">—</span>}>
-                                      <span class="badge free-chip">{task.outcome_kind ?? 'structured'}</span>
+                                      <Badge variant="success">{task.outcome_kind ?? 'structured'}</Badge>
                                     </Show>
                                   </td>
                                   <td class="text-muted-foreground">{task.tokens_in > 0 || task.tokens_out > 0 ? `${task.tokens_in}/${task.tokens_out}` : '—'}</td>
-                                  <td><Show when={task.error}><span class="agent-error" title={task.error!}>error</span></Show></td>
+                                  <td><Show when={task.error}><span class="inline-flex items-center rounded-md border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive" title={task.error!}>error</span></Show></td>
                                 </tr>
                               )}</For>
                             </tbody>
                           </table>
                           <Show when={decision.tasks.length > MAX_VISIBLE_TASKS}>
-                            <button class="ghost" onClick={() => toggleTasks(decision.id)}>
+                            <Button variant="ghost" size="sm" class="mt-2" onClick={() => toggleTasks(decision.id)}>
                               {expandedTasks().has(decision.id) ? 'Show less' : `Show all (${decision.tasks.length})`}
-                            </button>
+                            </Button>
                           </Show>
                         </div>
                       </Show>
 
                       {/* Decision chain visualization */}
-                      <div class="intel-chain-section">
-                        <h4>Decision Chain</h4>
-                        <div class="intel-chain">
-                          <div class="intel-chain-step">
-                            <span class="badge free-chip">Intelligence decides</span>
+                      <div class="mt-4">
+                        <h4 class="text-sm font-semibold text-foreground m-0 mb-1.5">Decision Chain</h4>
+                        <div class="flex flex-col gap-1 mt-2">
+                          <div class="flex items-center gap-2.5 py-1.5">
+                            <Badge variant="success">Intelligence decides</Badge>
                             <span class="text-muted-foreground">{templateLabel(decision.brain_template)}</span>
                           </div>
                           <Show when={decision.plan.length > 0}>
-                            <div class="intel-chain-arrow">↓</div>
-                            <div class="intel-chain-step">
-                              <span class="badge">Plan</span>
+                            <div class="text-muted-foreground text-sm pl-1.5">↓</div>
+                            <div class="flex items-center gap-2.5 py-1.5">
+                              <Badge>Plan</Badge>
                               <span class="text-muted-foreground">{decision.plan.length} items with rationale</span>
                             </div>
                           </Show>
                           <Show when={decision.tasks.length > 0}>
-                            <div class="intel-chain-arrow">↓</div>
-                            <div class="intel-chain-step">
-                              <span class="badge">Workers dispatched</span>
+                            <div class="text-muted-foreground text-sm pl-1.5">↓</div>
+                            <div class="flex items-center gap-2.5 py-1.5">
+                              <Badge>Workers dispatched</Badge>
                               <span class="text-muted-foreground">{decision.tasks.length} LLM tasks</span>
                             </div>
                           </Show>
                           <Show when={decision.tasks.some(t => t.has_outcome)}>
-                            <div class="intel-chain-arrow">↓</div>
-                            <div class="intel-chain-step">
-                              <span class="badge">Outcomes emitted</span>
+                            <div class="text-muted-foreground text-sm pl-1.5">↓</div>
+                            <div class="flex items-center gap-2.5 py-1.5">
+                              <Badge>Outcomes emitted</Badge>
                               <span class="text-muted-foreground">{decision.tasks.filter(t => t.has_outcome).length} structured results</span>
                             </div>
                           </Show>
-                          <div class="intel-chain-arrow">↓</div>
-                          <div class="intel-chain-step">
-                            <span class={`badge tone-${decisionStatusTone(decision.status)}`}>{decision.status}</span>
+                          <div class="text-muted-foreground text-sm pl-1.5">↓</div>
+                          <div class="flex items-center gap-2.5 py-1.5">
+                            <Badge variant={toneToBadgeVariant(decisionStatusTone(decision.status))}>{decision.status}</Badge>
                             <span class="text-muted-foreground">
                               <Show when={decision.completed_at} fallback="in progress">
                                 {formatIsoAge(decision.completed_at!)}
@@ -294,24 +300,24 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                       </div>
                     </div>
                   </Show>
-                </div>
+                </Card>
               )}</For>
             </div>
             <Show when={decisions().length > MAX_VISIBLE_DECISIONS}>
-              <button class="ghost" onClick={() => setShowAllDecisions(s => !s)}>
+              <Button variant="ghost" size="sm" class="mt-2" onClick={() => setShowAllDecisions(s => !s)}>
                 {showAllDecisions() ? 'Show less' : `Show all (${decisions().length})`}
-              </button>
+              </Button>
             </Show>
           </Show>
         }>
-          <div class="inherit-card"><EmptyState label="Intelligence data unavailable" hint={error()!} /></div>
+          <Card class="p-4"><EmptyState label="Intelligence data unavailable" hint={error()!} /></Card>
         </Show>
       }>
-        <div class="inherit-card">
+        <Card class="p-4">
           <EmptyState label="No intelligence decisions" hint="The intelligence dispatches growth plans on a deterministic schedule. Decisions appear here once the autopilot starts running." />
-        </div>
+        </Card>
       </Show>
-    </div>
+    </Card>
     </div>
   </div>
 }

@@ -47,7 +47,7 @@ export function RefreshControl(props: {
     </Show>
     <div>
       <select
-        class="bg-card border border-border text-foreground text-sm px-2.5 py-1.5 cursor-pointer outline-none hover:border-primary focus:border-primary"
+        class="bg-card border border-border text-foreground text-sm rounded-md px-2.5 py-1.5 cursor-pointer outline-none transition-colors hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20"
         value={refreshInterval()}
         onChange={(e) => setRefreshInterval(Number(e.currentTarget.value))}
         title="Auto-refresh interval"
@@ -60,7 +60,7 @@ export function RefreshControl(props: {
     </div>
     <button
       type="button"
-      class="ghost refresh-btn"
+      class="inline-flex items-center justify-center w-9 h-9 rounded-md text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-all duration-150 hover:rotate-180 active:scale-95"
       onClick={() => triggerRefresh()}
       disabled={loading()}
       title="Refresh now"
