@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 concurrency:
   group: control-plane-ci-${{ github.ref }}
@@ -54,25 +53,48 @@ jobs:
       - uses: taiki-e/install-action@b6b84cf49ebfe0176417bdce007c624f0db37f20 # v2
         with:
           tool: just
-      - name: Purge stale Rust cache entries
-        # Each Cargo.lock change orphans the previous ~440 MB cache entry
-        # until 7-day TTL. Prune before saving to stay within account quota.
-        if: github.ref == 'refs/heads/main'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Discard an inconsistent target directory
+        # The runner keeps target/ between runs, so a build that died partway
+        # through — a cancelled run gets SIGKILL, and cancel-in-progress is on
+        # above — can leave a compiled artifact with no dep-info beside it.
+        # Cargo treats that as a hard error rather than rebuilding the unit,
+        # and it never recovers on its own, so one interrupted run wedges the
+        # runner for every run after it. Every artifact cargo writes gets a
+        # matching .d; if one does not have it, the tree is inconsistent and
+        # the derived state is discarded. Only fingerprints and deps go —
+        # cargo rebuilds both — and only when the check actually finds a gap.
         shell: bash
         run: |
-          set -euo pipefail
-          mapfile -t ids < <(gh api "repos/${GITHUB_REPOSITORY}/actions/caches?per_page=100" \
-            --jq '.actions_caches[] | select(.key | startswith("v0-rust-")) | .id' 2>/dev/null || true)
-          for id in "${ids[@]}"; do
-            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/caches/${id}" 2>/dev/null || true
-          done
-          echo "Purged ${#ids[@]} stale Rust cache entries"
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          set -uo pipefail
+          inconsistent=0
+          if [ -d target/debug/deps ]; then
+            while IFS= read -r artifact; do
+              stem=$(basename "${artifact}")
+              stem=${stem%.*}
+              stem=${stem#lib}
+              if [ ! -f "target/debug/deps/${stem}.d" ]; then
+                echo "no dep info for ${artifact}"
+                inconsistent=1
+                break
+              fi
+            done < <(find target/debug/deps -maxdepth 1 \( -name '*.rlib' -o -name '*.rmeta' \))
+          fi
+          if [ "${inconsistent}" -eq 1 ]; then
+            echo "target/debug is inconsistent; discarding fingerprints and deps"
+            rm -rf target/debug/.fingerprint target/debug/deps
+          else
+            echo "target/debug is consistent"
+          fi
+      # No Rust cache action here on purpose. Every job in this workflow runs
+      # on the self-hosted runner, where the workspace — and with it target/ —
+      # already survives between runs, so an archived target/ buys nothing and
+      # costs correctness: rust-cache prunes intermediate artifacts before it
+      # saves but keeps the fingerprints that name them, and restoring that
+      # archive over the runner's own live target/ leaves cargo reading a
+      # fingerprint whose dep-info file is gone. That is the literal
+      # "could not parse/generate dep info at: .../deps/zerocopy-*.d,
+      # No such file or directory" that failed this workflow, and no re-run
+      # clears it because the bad state is restored again each time.
       - run: just rust-fmt
       - name: PostgreSQL migration smoke
         env:
