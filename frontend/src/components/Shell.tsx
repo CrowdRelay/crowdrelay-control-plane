@@ -44,39 +44,44 @@ const healthLabel = (tenant: TenantSummary) => {
 //   EXECUTION — live operations, integrations, and alert channels
 //   AUDIENCE — who you're reaching and how (portfolio, fans, beacons, AREA)
 type NavItem = { path: string; label: string; exact: boolean; icon: string }
-type NavGroup = { label: string; items: NavItem[] }
+type NavGroup = { label: string; items: NavItem[]; defaultOpen: boolean }
 
+// Fourteen links, four groups, all expanded, was the whole product laid out
+// as a menu. Somebody who books shows opens this to do one thing: work today's
+// list. The daily group is always visible; the rest — set-up, deeper reports —
+// sits behind one disclosure that remembers whether it was left open.
+//
+// Nothing was removed. `defaultOpen` decides what an operator has to look at
+// before finding the work.
 const TENANT_NAV_GROUPS: NavGroup[] = [
   {
-    label: 'Execution',
+    label: 'Every day',
+    defaultOpen: true,
     items: [
       { path: '/tenants/$slug/operations', label: 'Operations', exact: false, icon: 'operations' },
-      { path: '/tenants/$slug/automation', label: 'Automation', exact: false, icon: 'automation' },
-      { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
-      { path: '/tenants/$slug/notifiers', label: 'Notifiers', exact: false, icon: 'notifiers' },
+      { path: '/tenants/$slug/attention', label: 'Attention', exact: false, icon: 'attention' },
+      { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
     ],
   },
   {
-    label: 'Brain',
+    label: 'How it is going',
+    defaultOpen: false,
     items: [
       { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
       { path: '/tenants/$slug/health', label: 'Autopilot', exact: false, icon: 'sliders' },
+      { path: '/tenants/$slug/portfolio', label: 'Portfolio', exact: false, icon: 'portfolio' },
     ],
   },
   {
-    label: 'Audience',
+    label: 'Set up once',
+    defaultOpen: false,
     items: [
-      { path: '/tenants/$slug/portfolio', label: 'Portfolio', exact: false, icon: 'portfolio' },
-      { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
       { path: '/tenants/$slug/beacons', label: 'Beacons', exact: false, icon: 'beacons' },
       { path: '/tenants/$slug/area', label: 'AREA', exact: false, icon: 'area' },
-    ],
-  },
-  {
-    label: 'Control',
-    items: [
+      { path: '/tenants/$slug/notifiers', label: 'Notifiers', exact: false, icon: 'notifiers' },
+      { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
+      { path: '/tenants/$slug/automation', label: 'Automation', exact: false, icon: 'automation' },
       { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings' },
-      { path: '/tenants/$slug/attention', label: 'Attention', exact: false, icon: 'attention' },
     ],
   },
 ]
@@ -216,6 +221,26 @@ export const Shell: Component = () => {
   const isPlatformLevel = () => authState.isPlatformLevel()
   const isAdmin = () => authState.isAdmin()
   const [switcherOpen, setSwitcherOpen] = createSignal(false)
+
+  // Which nav groups are open. Remembered, because an operator who opens
+  // "Set up once" is usually in the middle of setting something up and should
+  // not have to reopen it on every navigation.
+  const NAV_GROUP_KEY = 'nav-open-groups'
+  const [openGroups, setOpenGroups] = createSignal<Record<string, boolean>>((() => {
+    try {
+      const raw = localStorage.getItem(NAV_GROUP_KEY)
+      return raw ? JSON.parse(raw) as Record<string, boolean> : {}
+    } catch { return {} }
+  })())
+  const groupOpen = (group: NavGroup) => openGroups()[group.label] ?? group.defaultOpen
+  const toggleGroup = (label: string) => {
+    setOpenGroups(prev => {
+      const group = TENANT_NAV_GROUPS.find(g => g.label === label)
+      const next = { ...prev, [label]: !(prev[label] ?? group?.defaultOpen ?? false) }
+      try { localStorage.setItem(NAV_GROUP_KEY, JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
   // Mobile drawer. Desktop ignores it; the media query does the hiding.
   const [mobileNavOpen, setMobileNavOpen] = createSignal(false)
   // Sidebar collapse state — persisted in localStorage so it survives refresh.
@@ -411,9 +436,22 @@ export const Shell: Component = () => {
 
             <For each={TENANT_NAV_GROUPS}>{group => (
               <div class="mt-2">
+                {/* A collapsed sidebar has no room for a label, and hiding the
+                    icons behind a disclosure the operator cannot read would
+                    hide the nav itself. Groups only fold when there is a label
+                    to fold them under. */}
                 <Show when={!collapsed()}>
-                  <span class="block px-2.5 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">{group.label}</span>
+                  <button
+                    type="button"
+                    class="flex w-full items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-secondary-foreground"
+                    aria-expanded={groupOpen(group)}
+                    onClick={() => toggleGroup(group.label)}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class={cn('transition-transform', groupOpen(group) ? 'rotate-90' : '')}><path d="m9 18 6-6-6-6" /></svg>
+                    <span>{group.label}</span>
+                  </button>
                 </Show>
+                <Show when={collapsed() || groupOpen(group)}>
                 <nav class="flex flex-col gap-0.5 mt-0.5" aria-label={group.label}>
                   <For each={group.items}>{item => (
                     <Link
@@ -435,6 +473,7 @@ export const Shell: Component = () => {
                     </Link>
                   )}</For>
                 </nav>
+                </Show>
               </div>
             )}</For>
           </div>
