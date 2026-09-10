@@ -9,10 +9,6 @@ web-install:
 web-build:
     cd frontend && npm run build
 
-# Fails when the stylesheet carries declarations the cascade throws away.
-web-css:
-    cd frontend && python3 scripts/dedupe-css.py src/styles.css --check --fail-on-dead
-
 rust-fmt:
     cargo fmt --all -- --check
 
@@ -37,7 +33,7 @@ script-test:
     for script in scripts/*.sh deploy/*.sh; do bash -n "$script"; done
 
 # Everything CI runs for a merge decision.
-ci: rust-fmt rust-clippy rust-test script-test web-install web-css web-build
+ci: rust-fmt rust-clippy rust-test script-test web-install web-build
 
 # Is this host ready to take another tenant, and if not, what is missing.
 # Read-only; run it before an onboarding call, not during one.

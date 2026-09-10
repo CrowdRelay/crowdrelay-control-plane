@@ -95,7 +95,7 @@ export const ProgressRing: Component<{
           cy={size() / 2}
           r={r()}
           fill="none"
-          stroke="var(--glass-border)"
+          stroke="var(--color-border)"
           stroke-width={sw()}
         />
         <circle

@@ -1,23 +1,18 @@
 /*
- * Layer order: declare `legacy` before `utilities` so Tailwind utility
- * classes override the old styles.css rules during the phased migration.
- * styles.css is wrapped in `@layer legacy { ... }` — its rules still apply
- * but lose to Tailwind utilities of equal specificity.
+ * Layer order: `legacy` before `components` so new shadCN component styles
+ * override any remaining legacy rules, and `utilities` overrides everything.
  */
-@layer theme, base, components, legacy, utilities;
+@layer theme, base, legacy, components, utilities;
 @import "tailwindcss";
 
 /*
- * Token mapping — the existing CSS custom properties from styles.css :root,
- * mapped onto Tailwind v4 @theme keys. The visual identity survives: same
- * surface colours, same accent purple, same border opacity levels, same
- * type scale. What dies (in later phases): glass, gradient, glow, shimmer,
- * pulse, backdrop-filter, and all decorative @keyframes.
+ * Token mapping — CSS custom properties mapped onto Tailwind v4 @theme keys.
+ * The visual identity: same surface colours, same accent purple, same border
+ * opacity levels, same type scale.
  *
  * These tokens are available as Tailwind utilities (e.g. bg-background,
  * text-foreground, border-border) AND as CSS custom properties (var(--color-background))
- * so the existing styles.css — which still references var(--surface-0) etc. —
- * continues to work unchanged during the migration.
+ * so components can reference them directly.
  */
 @theme {
   /* ── Surfaces ────────────────────────────────────────────────────── */
@@ -89,10 +84,9 @@
 }
 
 /*
- * Preserve the legacy token names as CSS custom properties so the existing
- * styles.css — which references var(--surface-0), var(--accent), etc. —
- * continues to resolve correctly during the migration. These alias the
- * Tailwind theme tokens above.
+ * Preserve the legacy token names as CSS custom properties so components
+ * that reference var(--surface-0), var(--accent), etc. continue to resolve.
+ * These alias the Tailwind theme tokens above.
  */
 :root {
   --bg: var(--color-background);
@@ -147,4 +141,1292 @@
   --t-slow: 320ms cubic-bezier(0.16, 1, 0.3, 1);
   --t-smooth: 200ms cubic-bezier(0.16, 1, 0.3, 1);
   --t-spring: 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ── Font faces ─────────────────────────────────────────────────────── */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Inter-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/Inter-SemiBold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Inter-Bold.woff2') format('woff2');
+}
+
+/* ── Base styles ────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--color-foreground);
+    background: var(--color-background);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-width: 320px;
+    background: var(--color-background);
+    color: var(--color-foreground);
+    position: relative;
+  }
+  button, input, select, textarea { font: inherit; }
+  a { color: inherit; text-decoration: none; }
+}
+
+/* ── Component styles (override legacy) ────────────────────────────── */
+@layer components {
+  /* ── Buttons ──────────────────────────────────────────────────────── */
+  .ghost {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 text-secondary-foreground hover:bg-surface-3 hover:text-foreground;
+  }
+  .primary {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 bg-primary text-white hover:bg-primary-hover active:bg-primary-active;
+  }
+  .danger {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 bg-destructive text-white hover:bg-destructive/90;
+  }
+  .danger-ghost {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 border border-destructive/30 text-destructive hover:bg-destructive/10;
+  }
+  .agent-btn {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 border border-border bg-transparent text-foreground hover:bg-surface-3;
+  }
+  .agent-btn-danger {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 bg-destructive text-white hover:bg-destructive/90;
+  }
+  .full-auto-btn {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 bg-primary text-white hover:bg-primary-hover active:bg-primary-active;
+  }
+  .refresh-btn {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 text-secondary-foreground hover:bg-surface-3 hover:text-foreground;
+  }
+  .dead-expand-btn {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 text-secondary-foreground hover:bg-surface-3 hover:text-foreground;
+  }
+  .premium-btn-connect {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 bg-primary text-white hover:bg-primary-hover active:bg-primary-active;
+  }
+  .premium-btn-cancel {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 text-secondary-foreground hover:bg-surface-3 hover:text-foreground;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 bg-primary text-white hover:bg-primary-hover active:bg-primary-active;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 border border-border bg-transparent text-foreground hover:bg-surface-3;
+  }
+  .link {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 text-primary underline-offset-4 hover:underline;
+  }
+  .reply-btn {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 text-secondary-foreground hover:bg-surface-3 hover:text-foreground;
+  }
+  .reply-btn-good { @apply text-success; }
+  .reply-btn-warn { @apply text-warning; }
+  .reply-btn-bad { @apply text-destructive; }
+
+  /* ── Panels / Cards ──────────────────────────────────────────────── */
+  .panel {
+    @apply rounded-lg border border-border bg-card text-foreground p-4;
+  }
+  .operations-panel,
+  .agent-panel,
+  .queue-panel,
+  .runtime-panel,
+  .brain-decision-panel,
+  .chief-of-staff-panel,
+  .growth-funnel-panel,
+  .growth-intelligence-panel,
+  .posture-panel,
+  .intel-transparency-panel,
+  .learning-loop-panel,
+  .regional-profile-panel,
+  .ecosystem-release-panel,
+  .ai-usage-panel,
+  .acquisition-panel,
+  .premium-panel,
+  .products-panel,
+  .mobile-app-setup-panel,
+  .provisioning-panel,
+  .dialog-panel,
+  .area-entitlement-panel {
+    @apply rounded-lg border border-border bg-card text-foreground p-4;
+  }
+  .panel-header {
+    @apply flex items-center justify-between gap-4 mb-3;
+  }
+  .panel-header-actions {
+    @apply flex items-center gap-2;
+  }
+  .panel-footer {
+    @apply flex justify-end gap-2 pt-3 border-t border-border;
+  }
+
+  /* ── KPIs ─────────────────────────────────────────────────────────── */
+  .kpi-grid,
+  .metric-grid,
+  .skeleton-grid {
+    @apply grid gap-3.5 mb-8;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+  .kpi,
+  .metric {
+    @apply rounded-lg border border-border bg-card p-5.5 text-foreground block no-underline transition-colors;
+  }
+  .kpi strong,
+  .metric strong {
+    @apply block mt-2.5 font-bold;
+  }
+  .skeleton-grid > div,
+  .skeleton-block {
+    @apply rounded-lg bg-surface-3 border border-border;
+    height: 130px;
+  }
+  .mini-skeleton {
+    @apply rounded-lg bg-surface-3 border border-border mt-4;
+    height: 100px;
+  }
+  .acq-kpis,
+  .cos-kpis,
+  .autopilot-kpis {
+    @apply grid gap-3 my-4;
+  }
+  .acq-kpi,
+  .cos-kpi,
+  .autopilot-kpis > div {
+    @apply rounded-lg border border-border-subtle bg-surface-1 p-3.5 grid gap-0.5;
+  }
+  .ops-kpi-strip {
+    @apply grid grid-cols-2 md:grid-cols-4 gap-3 mb-5;
+  }
+  .ops-kpi-link {
+    @apply rounded-lg border border-border bg-card p-4 text-foreground block no-underline transition-colors hover:border-border-strong;
+  }
+
+  /* ── Cards (semantic) ────────────────────────────────────────────── */
+  .inherit-card {
+    @apply rounded-lg border border-border bg-card p-4 text-foreground;
+  }
+  .warning-card {
+    @apply rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning;
+  }
+  .notice-card {
+    @apply rounded-lg border border-border bg-surface-1 p-3 text-sm text-muted-foreground;
+  }
+  .error-card {
+    @apply rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive break-words;
+  }
+  .route-note {
+    @apply rounded-lg border border-border bg-surface-1 p-3 text-sm text-muted-foreground;
+  }
+  .confirm-card {
+    @apply flex flex-col gap-2.5 my-3;
+  }
+
+  /* ── Layout ───────────────────────────────────────────────────────── */
+  .page {
+    @apply mx-auto max-w-7xl px-4 md:px-6 py-6 pb-24 overflow-hidden;
+  }
+  .page-head {
+    @apply flex items-start justify-between gap-6 mb-5;
+  }
+  .page-head h1 {
+    @apply text-2xl font-bold tracking-tight text-foreground mt-1 break-words;
+  }
+  .page-head-meta {
+    @apply text-sm text-muted-foreground;
+  }
+  .section-title {
+    @apply flex items-center justify-between gap-4 mt-6 mb-3;
+  }
+  .section-title h2 {
+    @apply text-lg font-semibold text-foreground m-0;
+  }
+  .section-title a {
+    @apply text-primary hover:text-primary-hover;
+  }
+  .section-title-summary {
+    @apply flex items-center justify-between gap-4 cursor-pointer;
+  }
+  .command-center-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-5;
+  }
+  .command-block {
+    @apply rounded-lg border border-border bg-card p-4 text-foreground transition-colors hover:border-border-strong cursor-pointer;
+  }
+  .eyebrow {
+    @apply text-xs font-medium uppercase tracking-wider text-muted-foreground;
+  }
+
+  /* ── Data rows ────────────────────────────────────────────────────── */
+  .tenant-list {
+    @apply grid gap-2.5 border border-border rounded-lg overflow-hidden;
+  }
+  .tenant-row {
+    @apply flex items-center justify-between gap-5 px-4 py-3.5 border-b border-border last:border-0 transition-colors;
+  }
+  .tenant-row.large {
+    min-height: 78px;
+  }
+  .product-row,
+  .audit-row {
+    @apply flex items-center justify-between gap-3.5 py-3 border-b border-border last:border-0;
+  }
+  .flag-row {
+    @apply flex items-center justify-between gap-3.5 py-3 border-b border-border last:border-0;
+  }
+  .detail-grid {
+    @apply grid grid-cols-2 gap-4 mb-4;
+  }
+  .data-table {
+    @apply w-full text-sm;
+  }
+
+  /* ── Forms ────────────────────────────────────────────────────────── */
+  .form-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-3.5;
+  }
+  .form-grid label {
+    @apply grid gap-1.75 text-muted-foreground text-sm;
+  }
+  .form-grid input,
+  .form-grid select,
+  .form-grid textarea {
+    @apply w-full bg-background border border-border text-white px-3 py-2.5 rounded-md outline-none transition-colors;
+  }
+  .form-grid input:focus,
+  .form-grid select:focus,
+  .form-grid textarea:focus {
+    @apply border-primary;
+    box-shadow: 0 0 0 3px rgba(155, 135, 245, 0.15);
+  }
+  .form-actions {
+    @apply flex gap-2;
+  }
+  .form-actions.right {
+    @apply justify-end mt-5;
+  }
+  .form-section-head {
+    @apply flex items-center justify-between gap-4.5 mb-5;
+  }
+  .check-row {
+    @apply flex items-start gap-3 my-4 text-foreground;
+  }
+  .check-row input {
+    @apply mt-0.75;
+    accent-color: var(--color-primary);
+  }
+  .check-row-group {
+    @apply grid gap-2 my-3 p-3.5 border border-border-subtle rounded-md bg-surface-1;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+  .compact-field {
+    @apply grid gap-1.5 text-muted-foreground text-sm;
+  }
+  .compact-field select,
+  .compact-field input[type="number"] {
+    @apply border border-border-strong text-white px-2.5 py-2 rounded-md;
+  }
+  .confidence-slider {
+    @apply w-full;
+    accent-color: var(--color-primary);
+  }
+  .confidence-field-head {
+    @apply flex justify-between gap-2 items-center;
+  }
+
+  /* ── Badges ───────────────────────────────────────────────────────── */
+  .badge {
+    @apply inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium tabular-nums;
+  }
+  .badge-good {
+    @apply bg-success/15 text-success border border-success/30;
+  }
+
+  /* ── Misc ────────────────────────────────────────────────────────── */
+  .mono, code {
+    @apply font-mono;
+  }
+  .auth-dot {
+    @apply w-1.75 h-1.75 rounded-full bg-destructive;
+  }
+  .auth-dot.ok {
+    @apply bg-success;
+  }
+  .brand-mark {
+    @apply rounded-md grid place-items-center bg-primary font-bold text-background;
+  }
+
+  /* ── Login ───────────────────────────────────────────────────────── */
+  .login-shell {
+    @apply flex justify-center items-center min-h-screen bg-background p-4;
+  }
+  .login-card {
+    @apply border border-border rounded-lg bg-card w-full max-w-96 p-8;
+    box-shadow: var(--shadow-lg);
+  }
+  .login-brand {
+    @apply flex items-center gap-2.5 mb-7.5;
+  }
+  .login-brand .brand-mark {
+    @apply rounded-md w-9 h-9;
+  }
+  .login-form {
+    @apply flex flex-col gap-4 mt-6;
+  }
+  .login-form label {
+    @apply text-sm text-foreground flex flex-col gap-1.5 font-medium;
+  }
+  .login-form input {
+    @apply bg-background border border-border-strong text-foreground rounded-md text-sm px-2.5 py-2.5 outline-none transition-colors;
+  }
+  .login-form input:focus {
+    @apply border-primary;
+    box-shadow: 0 0 0 3px rgba(155, 135, 245, 0.15);
+  }
+  .login-form button {
+    @apply bg-primary text-white rounded-md font-medium text-sm cursor-pointer transition-colors border-none mt-2 px-4 py-2.5;
+  }
+  .login-form button:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+  .login-error {
+    @apply rounded-md text-destructive text-sm bg-destructive/10 border border-destructive/30 mt-2 px-3 py-2;
+  }
+  .login-security {
+    @apply text-xs text-muted-foreground flex items-center gap-2 mt-6;
+  }
+  .password-field {
+    @apply relative;
+  }
+  .password-input-wrap {
+    @apply flex items-center relative;
+  }
+  .password-input-wrap input {
+    @apply w-full pr-10;
+  }
+  .password-toggle {
+    @apply text-muted-foreground cursor-pointer rounded-sm absolute top-1/2 right-1.5 -translate-y-1/2 p-1 bg-transparent border-none flex;
+  }
+
+  /* ── Process Map (SVG-specific, keep as CSS) ─────────────────────── */
+  .process-map-wrap {
+    @apply overflow-x-auto border border-border rounded-lg bg-card p-4;
+    box-shadow: var(--shadow-md);
+  }
+  .process-map {
+    @apply block w-full h-auto;
+    min-width: 960px;
+  }
+  .process-map-legend {
+    @apply flex flex-wrap gap-3.5 my-3.5 text-muted-foreground text-sm;
+  }
+  .process-map-legend span {
+    @apply inline-flex items-center gap-1.75;
+  }
+  .process-map-legend i,
+  .legend-swatch {
+    @apply inline-block w-2.5 h-2.5 rounded-sm;
+  }
+  .legend-inputs { background: #71dcff; }
+  .legend-intel { background: var(--color-primary); }
+  .legend-auth { background: #ffa657; }
+  .legend-worker { background: var(--color-warning-light); }
+  .legend-outcome { background: #ff6680; }
+  .legend-learning { background: var(--color-success-light); }
+
+  .pm-node-group { cursor: pointer; }
+  .pm-node {
+    fill: var(--color-surface-3);
+    stroke: #243049;
+    stroke-width: 1.5;
+    transition: stroke-width 120ms cubic-bezier(0.16, 1, 0.3, 1), fill 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .pm-node-group:hover .pm-node {
+    stroke-width: 2.5;
+    fill: rgba(155, 135, 245, 0.10);
+  }
+  .pm-body {
+    box-sizing: border-box;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    font-family: inherit;
+    pointer-events: none;
+  }
+  .pm-title { color: #e8edf6; font-size: 13.5px; font-weight: 700; line-height: 1.25; }
+  .pm-desc { color: #8fa0b8; font-size: 11px; line-height: 1.35; white-space: pre-line; }
+  .pm-zone { fill: rgba(13, 16, 26, 0.4); stroke: rgba(35, 44, 64, 0.5); stroke-dasharray: 5 5; }
+  .pm-zone-intel { fill: rgba(155, 135, 245, 0.04); stroke: rgba(155, 135, 245, 0.15); }
+  .pm-zone-auth { fill: rgba(255, 166, 87, 0.05); stroke: rgba(255, 166, 87, 0.18); }
+  .pm-zt { fill: #a7b3c8; font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em; }
+  .pm-edge { fill: none; stroke-width: 1.4; opacity: 0.7; }
+  .pm-edge-src { stroke: #71dcff; stroke-dasharray: 4 4; }
+  .pm-edge-intel { stroke: var(--color-primary); stroke-width: 1.8; opacity: 0.9; }
+  .pm-edge-auth { stroke: #ffa657; stroke-width: 1.8; opacity: 0.9; }
+  .pm-edge-exec { stroke: var(--color-warning-light); stroke-dasharray: 4 4; }
+  .pm-edge-out { stroke: #ff6680; }
+  .pm-edge-learn { stroke: var(--color-success-light); stroke-dasharray: 6 3; opacity: 0.5; }
+
+  /* ── Spinner ──────────────────────────────────────────────────────── */
+  .spin {
+    @apply inline-block;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .btn-spinner {
+    @apply inline-block w-4 h-4;
+    animation: spin 0.8s linear infinite;
+  }
+
+  /* ── Skeleton shimmer (static, no animation) ─────────────────────── */
+  .premium-skeleton-hero,
+  .premium-skeleton-card {
+    @apply rounded-lg bg-surface-3 border border-border;
+  }
+
+  /* ── Operations ───────────────────────────────────────────────────── */
+  .operations-section {
+    @apply mt-6 pt-6 border-t border-border;
+  }
+  .operations-section-head {
+    @apply flex justify-between gap-4.5 items-start;
+  }
+  .operations-attention {
+    @apply flex flex-wrap gap-2 mt-4 p-3 border border-warning rounded-md bg-card text-warning-light;
+  }
+  .operations-metrics {
+    @apply grid gap-2.5;
+  }
+  .operations-metrics span,
+  .operations-metrics small {
+    @apply block text-muted-foreground text-sm;
+  }
+  .operations-metrics strong {
+    @apply block my-1.5;
+  }
+  .operations-split > .operations-section:first-child .flag-list {
+    @apply grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 24px;
+  }
+
+  /* ── Opportunity ──────────────────────────────────────────────────── */
+  .opportunity-list {
+    @apply grid gap-2.5;
+  }
+  .opportunity-row {
+    @apply flex justify-between items-start gap-4 p-3.5 border border-border rounded-md bg-card transition-colors;
+  }
+  .opportunity-row:hover {
+    @apply border-border-accent bg-surface-3;
+  }
+  .opportunity-actions button {
+    @apply px-2 py-2 rounded-md text-sm font-bold whitespace-nowrap border border-transparent;
+  }
+  .opportunity-actions button.ghost:hover:not(:disabled) {
+    @apply border-border-strong bg-surface-3 text-white;
+  }
+  .opportunity-actions button.confirm-danger {
+    @apply bg-destructive/10 text-destructive-light border-destructive/30;
+  }
+
+  /* ── Queue ────────────────────────────────────────────────────────── */
+  .queue-list {
+    @apply grid gap-2;
+  }
+  .queue-row {
+    @apply flex justify-between items-center gap-3.5 p-3 border border-border-subtle rounded-md bg-surface-1 transition-colors;
+  }
+  .queue-row:hover {
+    @apply border-border;
+  }
+  .queue-detail-dialog {
+    @apply w-full max-w-2xl;
+  }
+  .queue-attempts {
+    @apply grid gap-2 max-h-80 m-0 list-none overflow-y-auto;
+  }
+  .queue-attempts li {
+    @apply flex justify-between items-center gap-3 py-2.5 border-b border-border-subtle last:border-0;
+  }
+
+  /* ── Notifier ─────────────────────────────────────────────────────── */
+  .notifier-list {
+    @apply grid gap-2.5 mt-4;
+  }
+  .notifier-meta {
+    @apply grid gap-1;
+  }
+
+  /* ── Area ────────────────────────────────────────────────────────── */
+  .area-metrics {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .area-create-card {
+    @apply grid gap-3 p-4 mb-4 border border-border rounded-md bg-card;
+  }
+  .area-form-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-3.5;
+  }
+  .area-step-tabs {
+    @apply flex gap-1.75 flex-wrap mb-4;
+  }
+  .area-step-tabs button.active {
+    @apply border-primary text-white bg-surface-3;
+  }
+  .area-drop-table {
+    @apply grid;
+  }
+  .area-drop-head,
+  .area-drop-row {
+    @apply grid gap-3.5 items-center py-3 px-2.5;
+  }
+  .area-drop-head {
+    @apply text-muted-foreground text-xs uppercase border-b border-border;
+    letter-spacing: 0.08em;
+  }
+  .area-drop-row {
+    @apply border-b border-border last:border-0;
+  }
+  .area-entitlement-panel {
+    @apply flex items-center justify-between gap-6;
+  }
+  .area-location-canvas {
+    @apply border border-border rounded-lg overflow-hidden;
+    background: radial-gradient(circle at 50% 50%, #191f29, var(--color-background));
+  }
+  .area-map-legend {
+    @apply flex gap-4 flex-wrap p-2.5 border-t border-border text-muted-foreground text-sm;
+  }
+
+  /* ── Autopilot policy ────────────────────────────────────────────── */
+  .autopilot-policy-row {
+    @apply grid gap-3 items-end py-3.5 border-b border-border;
+  }
+  .policy-name small {
+    @apply text-muted-foreground mt-1 block;
+  }
+
+  /* ── Provisioning ─────────────────────────────────────────────────── */
+  .provision-job {
+    @apply mt-4 p-4 border border-border rounded-md bg-background;
+  }
+  .provision-row {
+    @apply flex gap-2.5;
+  }
+  .provision-row input {
+    @apply bg-background border border-border-strong text-white px-3 py-2.5 rounded-md;
+  }
+  .deployment-target-grid {
+    @apply grid grid-cols-2 gap-2.5 my-4;
+  }
+  .deployment-target-grid > div {
+    @apply p-3 border border-border min-w-0;
+  }
+  .deployment-result dl {
+    @apply grid gap-2 my-3.5;
+    grid-template-columns: 1fr 2fr;
+  }
+  .deployment-result dt {
+    @apply text-muted-foreground;
+  }
+  .deployment-result dd {
+    @apply text-right;
+    overflow-wrap: anywhere;
+  }
+
+  /* ── Palette ───────────────────────────────────────────────────────── */
+  .palette-grid {
+    @apply grid gap-3 my-4;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .palette-grid label {
+    @apply text-muted-foreground text-sm;
+  }
+  .color-input {
+    @apply flex items-center gap-2 mt-1.5;
+  }
+  .color-input input {
+    @apply border-0 bg-transparent p-0;
+  }
+
+  /* ── Misc utility ─────────────────────────────────────────────────── */
+  .visually-hidden {
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    position: absolute;
+    overflow: hidden;
+  }
+  [data-refreshing="true"] {
+    opacity: 0.55;
+    pointer-events: none;
+    transition: opacity 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* ── Fan growth ──────────────────────────────────────────────────── */
+  .fan-growth-grid {
+    @apply grid grid-cols-2 md:grid-cols-4 gap-3 mb-5;
+  }
+  .fan-growth-metric {
+    @apply rounded-lg border border-border bg-card p-4;
+  }
+
+  /* ── Wizard ───────────────────────────────────────────────────────── */
+  .wizard-page {
+    @apply mx-auto max-w-7xl px-4 md:px-6 py-6 pb-24 overflow-hidden;
+  }
+
+  /* ── Cmdk ─────────────────────────────────────────────────────────── */
+  .cmdk-backdrop {
+    @apply fixed inset-0 z-50 bg-black/50;
+  }
+  .cmdk {
+    @apply fixed left-1/2 top-4 z-50 -translate-x-1/2 w-full max-w-xl;
+  }
+
+  /* ── Fan drawer ───────────────────────────────────────────────────── */
+  .fan-drawer {
+    @apply fixed inset-y-0 right-0 z-50 w-full max-w-md bg-card border-l border-border;
+  }
+
+  /* ── Agent section ────────────────────────────────────────────────── */
+  .agent-section-head {
+    @apply flex items-center justify-between gap-4;
+  }
+  .agent-section-head-actions {
+    @apply flex items-center gap-2;
+  }
+  .agent-section-intro {
+    @apply text-muted-foreground text-sm;
+  }
+
+  /* ── Row health ──────────────────────────────────────────────────── */
+  .row-health {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  /* ── Inherit card spacing ────────────────────────────────────────── */
+  .inherit-card + .inherit-card,
+  .error-card + .error-card {
+    @apply mt-2.5;
+  }
+  .inherit-card {
+    @apply mt-2.5;
+  }
+
+  /* ── Section title + inherit card spacing ────────────────────────── */
+  .inherit-card + .section-title {
+    @apply mt-8;
+  }
+
+  /* ── Operations metrics + inherit card ───────────────────────────── */
+  .operations-metrics + .inherit-card {
+    @apply mt-5;
+  }
+
+  /* ── Warning card + form grid ────────────────────────────────────── */
+  .warning-card + .form-grid {
+    @apply mt-4;
+  }
+
+  /* ── Alert ────────────────────────────────────────────────────────── */
+  .alert-evidence {
+    @apply flex flex-wrap gap-2 mt-2.5;
+  }
+
+  /* ── Watchdog ─────────────────────────────────────────────────────── */
+  .watchdog-recovered {
+    @apply my-3.5 mb-7;
+  }
+
+  /* ── Provisioning panel ──────────────────────────────────────────── */
+  .provisioning-panel > p {
+    @apply m-0 mb-4 p-3.5 border-l-2 border-primary-active bg-surface-1 text-secondary-foreground;
+    border-radius: 0 10px 10px 0;
+    line-height: 1.65;
+  }
+
+  /* ── Premium ──────────────────────────────────────────────────────── */
+  .premium-test-result {
+    @apply text-xs py-1 leading-relaxed;
+  }
+  .premium-test-result.ok { @apply text-success; }
+  .premium-test-result.bad { @apply text-destructive; }
+  .premium-test-result.muted { @apply text-muted-foreground; }
+  .premium-skeleton-grid {
+    @apply grid gap-3;
+  }
+
+  /* ── Cos ──────────────────────────────────────────────────────────── */
+  .cos-grid {
+    @apply grid grid-cols-3 gap-3 mb-4;
+  }
+  .cos-block {
+    @apply rounded-md border border-border-subtle bg-surface-1 p-3.5 min-w-0;
+  }
+  .cos-block h3 {
+    @apply text-xs uppercase text-muted-foreground mb-2 font-bold;
+    letter-spacing: 0.1em;
+  }
+  .cos-activity-list,
+  .cos-stopped-list,
+  .cos-risk-list {
+    @apply grid gap-2 m-0 list-none;
+  }
+  .cos-activity-list li {
+    @apply grid items-baseline gap-1;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .cos-activity-count {
+    @apply bg-surface-3 border border-border-subtle min-w-6 text-foreground text-xs text-center rounded-full px-1.5 font-bold;
+    font-variant-numeric: tabular-nums;
+  }
+  .cos-stopped {
+    @apply border-l-4 border-warning;
+    background: rgba(41, 32, 15, 0.28);
+  }
+  .cos-risk-list li {
+    @apply flex justify-between items-center gap-3 py-2 border-b border-border-subtle last:border-0;
+  }
+
+  /* ── Posture ──────────────────────────────────────────────────────── */
+  .posture-options {
+    @apply grid grid-cols-3 gap-3 mt-4;
+  }
+  .posture-option {
+    @apply text-left border border-border rounded-md bg-surface-1 text-inherit cursor-pointer transition-colors grid gap-1.5 p-4;
+  }
+  .posture-option:hover:not(:disabled) {
+    @apply border-border-accent;
+    background: rgba(155, 135, 245, 0.05);
+  }
+  .posture-option.selected {
+    @apply border-primary;
+    background: rgba(155, 135, 245, 0.1);
+    box-shadow: inset 0 0 0 1px rgba(155, 135, 245, 0.18);
+  }
+  .posture-option:disabled {
+    @apply cursor-not-allowed opacity-60;
+  }
+
+  /* ── Acquisition ──────────────────────────────────────────────────── */
+  .acq-list {
+    @apply grid gap-2.5 m-0 list-none;
+  }
+  .acq-row {
+    @apply grid items-center gap-3 p-3 border border-border-subtle rounded-md bg-surface-1;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto;
+  }
+  .acq-bar-wrap {
+    @apply bg-surface-3 rounded-full min-w-15 h-2 overflow-hidden;
+  }
+  .acq-bar {
+    @apply bg-primary rounded-full block h-full;
+  }
+
+  /* ── Engagement reply ────────────────────────────────────────────── */
+  .engagement-reply select {
+    @apply min-w-30 text-sm px-1.5 py-1.5;
+  }
+
+  /* ── Brain evidence ──────────────────────────────────────────────── */
+  .brain-evidence-json {
+    @apply font-mono text-xs;
+  }
+
+  /* ── Learning loop ────────────────────────────────────────────────── */
+  .learning-loop-stage-decision,
+  .learning-loop-stage-action,
+  .learning-loop-stage-outcome,
+  .learning-loop-stage-learned {
+    @apply rounded-r-md;
+  }
+
+  /* ── Release component ───────────────────────────────────────────── */
+  .release-component-missing {
+    @apply rounded-r-md;
+  }
+
+  /* ── Fanbase connection ──────────────────────────────────────────── */
+  .fanbase-connection-card {
+    @apply rounded-lg border border-border bg-card p-4;
+  }
+  .fanbase-connection-card.connected {
+    @apply border-success/30;
+  }
+
+  /* ── Inline stale note ───────────────────────────────────────────── */
+  .inline-stale-note {
+    @apply rounded-r-md;
+  }
+
+  /* ── Parked banner ───────────────────────────────────────────────── */
+  .parked-banner {
+    @apply rounded-r-md;
+  }
+
+  /* ── Policy legend ────────────────────────────────────────────────── */
+  .policy-legend {
+    @apply rounded-r-md;
+  }
+
+  /* ── Policy summary ───────────────────────────────────────────────── */
+  .policy-summary {
+    @apply bg-surface-1 text-muted-foreground flex flex-wrap gap-2 mb-3 p-2.5;
+  }
+  .policy-summary-auto strong {
+    @apply text-warning;
+  }
+
+  /* ── Rum grid ─────────────────────────────────────────────────────── */
+  .rum-grid {
+    @apply grid gap-2.5 mt-4;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .rum-grid > div {
+    @apply min-w-0 p-3 border border-border rounded-md bg-surface-3;
+  }
+
+  /* ── Readiness message ───────────────────────────────────────────── */
+  .readiness-message {
+    @apply inline-flex items-center gap-2 text-muted-foreground text-sm;
+  }
+
+  /* ── Regional profile footer ─────────────────────────────────────── */
+  .regional-profile-footer {
+    @apply flex items-center justify-between gap-4 mt-5 pt-4 border-t border-border;
+  }
+
+  /* ── Area link button ─────────────────────────────────────────────── */
+  .area-link-button {
+    @apply inline-flex items-center justify-center py-2.5 px-3.5 rounded-md;
+  }
+
+  /* ── Area custom city ─────────────────────────────────────────────── */
+  .area-custom-city {
+    @apply grid gap-2.5 p-3.5 border-t border-border;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* ── Area content grid ────────────────────────────────────────────── */
+  .area-content-grid textarea {
+    min-height: 150px;
+  }
+
+  /* ── Area location editor ────────────────────────────────────────── */
+  .area-location-editor {
+    @apply grid gap-3.5;
+  }
+
+  /* ── Area editor footer ───────────────────────────────────────────── */
+  .area-editor-footer {
+    @apply flex gap-2.5;
+  }
+
+  /* ── Area duplicate card ──────────────────────────────────────────── */
+  .area-duplicate-card {
+    @apply rounded-lg border border-border bg-card p-4;
+  }
+
+  /* ── Area review ──────────────────────────────────────────────────── */
+  .area-review {
+    @apply rounded-lg border border-border bg-card p-4;
+  }
+
+  /* ── Area confirm row ─────────────────────────────────────────────── */
+  .area-confirm-row {
+    @apply flex items-center gap-3;
+  }
+
+  /* ── Attention inbox ──────────────────────────────────────────────── */
+  .attention-inbox {
+    @apply rounded-lg border border-border bg-card;
+  }
+  .attention-inbox-head {
+    @apply flex items-center justify-between gap-2 p-3.5 border-b border-border;
+  }
+  .attention-inbox-count {
+    @apply text-muted-foreground text-sm;
+  }
+  .attention-inbox-count-badge {
+    @apply bg-surface-4 text-primary-foreground text-xs rounded-full px-1.5 font-bold;
+  }
+  .attention-tier {
+    @apply border-b border-border last:border-0;
+  }
+  .attention-tier-head {
+    @apply flex items-center gap-2 p-3.5;
+  }
+  .attention-tier-count {
+    @apply bg-surface-3 text-foreground text-xs rounded-full px-2 py-0.5 font-bold;
+  }
+
+  /* ── Audience start ───────────────────────────────────────────────── */
+  .audience-start-card {
+    @apply rounded-lg border border-border bg-card p-4;
+  }
+  .audience-start-links {
+    @apply flex flex-col gap-2;
+  }
+
+  /* ── Audit list ───────────────────────────────────────────────────── */
+  .audit-list {
+    @apply grid gap-2.5;
+  }
+
+  /* ── Agent providers ─────────────────────────────────────────────── */
+  .agent-providers {
+    @apply grid gap-2.5;
+  }
+  .agent-provider-logo {
+    @apply w-8 h-8 rounded-md;
+  }
+
+  /* ── Agent outcomes ──────────────────────────────────────────────── */
+  .agent-outcome-card {
+    @apply rounded-lg border border-border bg-card p-4;
+  }
+
+  /* ── Agent suggestions ────────────────────────────────────────────── */
+  .agent-suggestion-card {
+    @apply rounded-lg border border-border bg-card p-4;
+  }
+
+  /* ── Agent task table ─────────────────────────────────────────────── */
+  .agent-task-table {
+    @apply w-full text-sm;
+  }
+
+  /* ── Agent template grid ──────────────────────────────────────────── */
+  .agent-template-grid {
+    @apply grid grid-cols-2 gap-3;
+  }
+
+  /* ── Agent field ───────────────────────────────────────────────────── */
+  .agent-field {
+    @apply grid gap-1.5;
+  }
+  .agent-field-hint {
+    @apply text-muted-foreground text-xs;
+  }
+
+  /* ── Agent error ───────────────────────────────────────────────────── */
+  .agent-error {
+    @apply rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive;
+  }
+
+  /* ── Agent service down ───────────────────────────────────────────── */
+  .agent-service-down {
+    @apply rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive;
+  }
+
+  /* ── Agent result modal ───────────────────────────────────────────── */
+  .agent-result-modal {
+    @apply rounded-lg border border-border bg-card p-4;
+  }
+
+  /* ── Agent schedule form ──────────────────────────────────────────── */
+  .agent-schedule-form {
+    @apply grid gap-2;
+  }
+
+  /* ── Agent actions ────────────────────────────────────────────────── */
+  .agent-actions {
+    @apply flex gap-2;
+  }
+
+  /* ── Agent connection ─────────────────────────────────────────────── */
+  .agent-connection-dot {
+    @apply w-2 h-2 rounded-full;
+  }
+  .agent-connection-summary {
+    @apply text-muted-foreground text-sm;
+  }
+
+  /* ── Agent model tag ──────────────────────────────────────────────── */
+  .agent-model-tag {
+    @apply inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-surface-4 text-primary-foreground;
+  }
+
+  /* ── Agent section ────────────────────────────────────────────────── */
+  .agent-section {
+    @apply rounded-lg border border-border bg-card p-4;
+  }
+
+  /* ── Beacon create ───────────────────────────────────────────────── */
+  .beacon-create {
+    @apply rounded-lg border border-border bg-card p-4;
+  }
+
+  /* ── Apikey ───────────────────────────────────────────────────────── */
+  .apikey {
+    @apply font-mono text-sm;
+  }
+
+  /* ── Alert action ─────────────────────────────────────────────────── */
+  .alert-action {
+    @apply inline-flex items-center gap-1.5;
+  }
+  .alert-actions {
+    @apply flex items-center gap-2;
+  }
+
+  /* ── Premium connector card ──────────────────────────────────────── */
+  .premium-connector-card {
+    @apply rounded-lg border border-border bg-card p-4;
+  }
+  .premium-connector-card.connected {
+    @apply border-success/30;
+  }
+  .premium-connected-badge {
+    @apply inline-flex items-center gap-1.5 text-success text-xs font-bold;
+  }
+
+  /* ── Ops degraded/freshness dots ─────────────────────────────────── */
+  .ops-degraded-dot,
+  .ops-freshness-dot {
+    @apply inline-block w-2 h-2 rounded-full;
+  }
+
+  /* ── Kpi value flash ──────────────────────────────────────────────── */
+  .kpi-value.kpi-flash {
+    animation: kpi-flash 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes kpi-flash {
+    0% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+
+  /* ── Premium spinner ──────────────────────────────────────────────── */
+  .premium-spinner {
+    @apply inline-block w-4 h-4;
+    animation: spin 0.8s linear infinite;
+  }
+
+  /* ── Reduced motion ──────────────────────────────────────────────── */
+  @media (prefers-reduced-motion: reduce) {
+    .mini-skeleton,
+    .premium-skeleton-hero,
+    .premium-skeleton-card,
+    .spin,
+    .btn-spinner,
+    .premium-spinner,
+    .ops-degraded-dot,
+    .ops-freshness-dot,
+    .kpi-value.kpi-flash,
+    .premium-connector-card.connected,
+    .premium-connected-badge,
+    .cmdk-backdrop,
+    .cmdk,
+    .fan-drawer {
+      animation: none !important;
+    }
+    [data-refreshing="true"] {
+      transition: none;
+    }
+  }
+
+  /* ── Responsive ───────────────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .form-grid,
+    .deployment-target-grid {
+      grid-template-columns: 1fr;
+    }
+    .form-section-head {
+      @apply flex-col items-start;
+    }
+    .area-drop-head,
+    .area-drop-row {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .area-metrics {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .area-create-card {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .area-custom-city {
+      grid-template-columns: 1fr;
+    }
+    .area-entitlement-panel {
+      @apply flex-col items-start gap-3;
+    }
+    .area-editor-footer {
+      @apply flex-col gap-2.5;
+    }
+    .area-editor-footer .form-actions {
+      @apply justify-stretch;
+    }
+    .area-editor-footer .form-actions button {
+      @apply flex-1;
+    }
+    .autopilot-policy-row {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .detail-grid {
+      grid-template-columns: 1fr;
+    }
+    .deployment-result dl {
+      grid-template-columns: 1fr;
+    }
+    .deployment-result dd {
+      @apply text-left;
+    }
+    .section-title,
+    .operations-section-head,
+    .agent-section-head,
+    .panel-header {
+      @apply flex-col items-start gap-2.5;
+    }
+    .section-title > div:last-child:not(:only-child),
+    .operations-section-head > div:last-child:not(:only-child) {
+      @apply w-full;
+    }
+    .page {
+      @apply px-4;
+      padding-left: calc(18px + env(safe-area-inset-left));
+      padding-right: calc(18px + env(safe-area-inset-right));
+    }
+    .rum-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .regional-profile-footer {
+      @apply flex-col items-start;
+    }
+    .cos-kpis {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .cos-grid {
+      grid-template-columns: 1fr;
+    }
+    .posture-options {
+      grid-template-columns: 1fr;
+    }
+    .acq-kpis {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .operations-split > .operations-section:first-child .flag-list {
+      grid-template-columns: 1fr;
+    }
+    .provisioning-panel > p {
+      @apply mb-4;
+    }
+    .provisioning-panel .provision-row {
+      @apply flex-col;
+    }
+    .opportunity-row {
+      @apply flex-col items-start;
+    }
+    .opportunity-actions {
+      @apply w-full justify-start;
+    }
+    .queue-row {
+      @apply flex-col items-start;
+    }
+    .queue-controls {
+      @apply flex-col items-stretch;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .acq-kpis {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .acq-row {
+      grid-template-columns: 1fr;
+    }
+    .acq-row-numbers {
+      @apply flex-wrap;
+      white-space: normal;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .rum-grid {
+      grid-template-columns: 1fr;
+    }
+    .cos-kpis {
+      grid-template-columns: 1fr;
+    }
+    .cos-risk-list li {
+      @apply flex-col items-start gap-1.5;
+    }
+    .login-card {
+      @apply p-6 px-5;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .operations-attention .attention-items {
+      @apply ml-0 w-full;
+    }
+    .operations-attention strong {
+      flex-shrink: 1;
+      min-width: 0;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .login-card {
+      @apply p-6 px-5;
+    }
+  }
+
+  /* ── White-space preservation for buttons in tight rows ──────────── */
+  .section-title button,
+  .section-title a.ghost,
+  .operations-section-head button,
+  .panel-header-actions button,
+  .agent-section-head button,
+  .row-health button,
+  .row-health a.ghost,
+  .form-actions button,
+  .queue-row-actions button {
+    @apply whitespace-nowrap;
+  }
+
+  /* ── Radius removal for cards that sit inside section titles ─────── */
+  .error-card,
+  .warning-card,
+  .notice-card,
+  .parked-banner,
+  .inherit-card,
+  .inline-stale-note,
+  .route-note,
+  .policy-legend,
+  .fanbase-connection-card.connected,
+  .fanbase-connection-card:not(.connected),
+  .release-component-missing,
+  .cos-stopped {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
 }

@@ -1,8 +1,8 @@
 import type { Component } from 'solid-js'
 
 // Inline button spinner. Sits next to the "Doing…" text so the button
-// shows progress instead of just blinking disabled. Reuses the existing
-// `spin` keyframe from styles.css.
+// shows progress instead of just blinking disabled. Reuses the `spin`
+// keyframe defined in the component layer of tailwind.css.
 export const Spinner: Component<{ size?: number }> = (props) => (
   <span
     class="btn-spinner"

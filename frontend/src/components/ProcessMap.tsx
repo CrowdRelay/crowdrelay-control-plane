@@ -130,11 +130,11 @@ function edgePath(edge: Edge): string {
 
 const ZONE_STROKE: Record<Zone, string> = {
   src: '#71dcff',
-  intel: '#9b87f5',
+  intel: 'var(--color-primary)',
   auth: '#ffa657',
-  exec: '#ffd56d',
+  exec: 'var(--color-warning-light)',
   out: '#ff6680',
-  learn: '#7dffb2',
+  learn: 'var(--color-success-light)',
 }
 
 // Pre-compute edge paths once — no reactive overhead.
@@ -169,6 +169,7 @@ export function ProcessMap(props: { slug: () => string }) {
             <path
               class={`pm-edge pm-edge-${item.edge.kind}`}
               d={item.d}
+              fill="none"
             />
           )}
         </For>

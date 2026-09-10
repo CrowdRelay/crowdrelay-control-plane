@@ -59,7 +59,7 @@ export function KpiCard(props: {
 
 export function KpiStrip(props: { children: JSX.Element; class?: string }) {
   return (
-    <div class={cn('grid grid-cols-2 md:grid-cols-4 gap-3 mb-5', props.class)}>
+    <div data-kpi-strip="" class={cn('grid grid-cols-2 md:grid-cols-4 gap-3 mb-5', props.class)}>
       {props.children}
     </div>
   )
@@ -286,4 +286,50 @@ export function CommandBlock(props: {
       </Show>
     </Card>
   )
+}
+
+// ─── DataRow ───────────────────────────────────────────────────────────
+// A horizontal key-value row with a bottom border. Replaces `.product-row`,
+// `.audit-row`, `.flag-row` patterns.
+
+export function DataRow(props: {
+  children: JSX.Element
+  class?: string
+  last?: boolean
+}) {
+  return (
+    <div class={cn('flex items-center justify-between gap-3.5 py-3', !props.last && 'border-b border-border', props.class)}>
+      {props.children}
+    </div>
+  )
+}
+
+// ─── FormGrid ──────────────────────────────────────────────────────────
+// A responsive 2-column form grid. Replaces `.form-grid`.
+
+export function FormGrid(props: { children: JSX.Element; class?: string }) {
+  return (
+    <div class={cn('grid grid-cols-1 md:grid-cols-2 gap-3.5', props.class)}>
+      {props.children}
+    </div>
+  )
+}
+
+// ─── KeyValueList ──────────────────────────────────────────────────────
+// A definition list with 2-column grid. Replaces `.panel dl`.
+
+export function KeyValueList(props: { children: JSX.Element; class?: string }) {
+  return (
+    <dl class={cn('grid grid-cols-2 gap-2.5 m-0', props.class)}>
+      {props.children}
+    </dl>
+  )
+}
+
+export function KeyValueTerm(props: { children: JSX.Element; class?: string }) {
+  return <dt class={cn('text-muted-foreground text-sm', props.class)}>{props.children}</dt>
+}
+
+export function KeyValueDesc(props: { children: JSX.Element; class?: string }) {
+  return <dd class={cn('text-right text-foreground text-sm break-words', props.class)}>{props.children}</dd>
 }

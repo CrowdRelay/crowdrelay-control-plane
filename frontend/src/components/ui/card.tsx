@@ -11,6 +11,7 @@ export const Card: Component<JSX.HTMLAttributes<HTMLDivElement> & { class?: stri
   const [local, rest] = splitProps(props, ['class', 'elevated'])
   return (
     <div
+      data-card=""
       class={cn(
         'rounded-lg border border-border bg-card text-foreground',
         local.elevated && 'shadow-sm',
