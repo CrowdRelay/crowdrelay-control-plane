@@ -117,12 +117,32 @@ fi
 [[ -f "$BLUEGREEN_COMPOSE" ]] || fail "missing compose.bluegreen.yml (checked /tmp/ and repo)"
 [[ -f "$EDGE_CADDYFILE" ]] || fail "missing edge Caddyfile"
 
-# Verify edge Caddyfile uses static blue-green upstreams, not dynamic DNS
+# Verify edge Caddyfile uses static blue-green upstreams, not dynamic DNS.
+# Self-heal: if only one upstream is present (e.g. after a cold start or
+# out-of-band edit), add the missing one rather than blocking the deploy.
 grep -Fq '# CONTROL_PLANE_ACTIVE=' "$EDGE_CADDYFILE" || \
   fail 'edge Caddyfile is not release-ready: missing active release marker; apply edge config separately'
-grep -Fq 'to crowdrelay-control-plane-app-1:8090 crowdrelay-control-plane-app-green-1:8090' "$EDGE_CADDYFILE" \
-  || grep -Fq 'to crowdrelay-control-plane-app-green-1:8090 crowdrelay-control-plane-app-1:8090' "$EDGE_CADDYFILE" \
-  || fail 'edge Caddyfile does not contain the static blue-green upstream pair for Control Plane'
+if ! grep -Fq 'to crowdrelay-control-plane-app-1:8090 crowdrelay-control-plane-app-green-1:8090' "$EDGE_CADDYFILE" \
+  && ! grep -Fq 'to crowdrelay-control-plane-app-green-1:8090 crowdrelay-control-plane-app-1:8090' "$EDGE_CADDYFILE"; then
+  # Only one upstream is present. Repair by adding the missing color.
+  # The active marker determines which color is listed first.
+  _marker_color="$(sed -n 's/^[[:space:]]*# CONTROL_PLANE_ACTIVE=//p' "$EDGE_CADDYFILE" | head -n1)"
+  _healed="$(mktemp -t caddyfile-heal.XXXXXX)"
+  if [[ "$_marker_color" == "green" ]]; then
+    sed 's|^\([[:space:]]*\)to crowdrelay-control-plane-app[a-z0-9-]*:8090[[:space:]]*$|\1to crowdrelay-control-plane-app-green-1:8090 crowdrelay-control-plane-app-1:8090|' \
+      "$EDGE_CADDYFILE" > "$_healed"
+  else
+    sed 's|^\([[:space:]]*\)to crowdrelay-control-plane-app[a-z0-9-]*:8090[[:space:]]*$|\1to crowdrelay-control-plane-app-1:8090 crowdrelay-control-plane-app-green-1:8090|' \
+      "$EDGE_CADDYFILE" > "$_healed"
+  fi
+  # Verify the heal worked
+  grep -Fq 'to crowdrelay-control-plane-app-1:8090 crowdrelay-control-plane-app-green-1:8090' "$_healed" \
+    || grep -Fq 'to crowdrelay-control-plane-app-green-1:8090 crowdrelay-control-plane-app-1:8090' "$_healed" \
+    || { rm -f "$_healed"; fail 'edge Caddyfile has a malformed upstream line; repair manually before deploying'; }
+  cat "$_healed" > "$EDGE_CADDYFILE"
+  rm -f "$_healed"
+  printf 'EDGE_UPSTREAM=HEALED reason=single-upstream-repaired marker=%s\n' "${_marker_color:-blue}" >&2
+fi
 # A single-file bind mount is bound by inode, not by path. Any edit that
 # replaces the file — `cp`, `git apply`, `git checkout`, most editors writing
 # via a temp file and rename — leaves the container pinned to the old inode,
