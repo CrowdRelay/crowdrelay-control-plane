@@ -83,8 +83,8 @@ export function BeaconConsolePanel(props: { slug: string }) {
   // Pagination — only controls what is rendered, not what is selected.
   // "Select all N shown" selects the full filtered set so bulk invite still
   // reaches every matching beacon, even those not yet rendered.
-  const PAGE_SIZE = 50
-  const [pageSize, setPageSize] = createSignal(PAGE_SIZE)
+  const MAX_VISIBLE = 10
+  const [showAll, setShowAll] = createSignal(false)
 
   const profiles = () => roster.data?.profiles ?? []
 
@@ -104,12 +104,12 @@ export function BeaconConsolePanel(props: { slug: string }) {
 
   // Reset pagination when search or filter changes — a new filter should
   // start from the top, not from page 3 of the previous filter.
-  const onSearch = (value: string) => { setQuery(value); setPageSize(PAGE_SIZE) }
-  const onFilter = (value: string) => { setStatusFilter(value); setPageSize(PAGE_SIZE) }
+  const onSearch = (value: string) => { setQuery(value); setShowAll(false) }
+  const onFilter = (value: string) => { setStatusFilter(value); setShowAll(false) }
 
-  // Only the first `pageSize()` rows are rendered. The full `visible()` set
-  // is used for selection and the "show more" count.
-  const rendered = createMemo(() => visible().slice(0, pageSize()))
+  // Only the first `MAX_VISIBLE` rows are rendered unless expanded. The full
+  // `visible()` set is used for selection and the "show all" count.
+  const rendered = createMemo(() => showAll() ? visible() : visible().slice(0, MAX_VISIBLE))
 
   const toggle = (beaconId: string) => {
     const next = new Set(selected())
@@ -408,9 +408,9 @@ export function BeaconConsolePanel(props: { slug: string }) {
               )}
             </For>
           </div>
-          <Show when={visible().length > rendered().length}>
-            <Button variant="ghost" size="sm" onClick={() => setPageSize(pageSize() + PAGE_SIZE)}>
-              Show {Math.min(PAGE_SIZE, visible().length - rendered().length)} more · {rendered().length} of {visible().length} shown
+          <Show when={visible().length > MAX_VISIBLE}>
+            <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAll(s => !s)}>
+              {showAll() ? 'Show less' : `Show all (${visible().length})`}
             </Button>
           </Show>
         </Show>
