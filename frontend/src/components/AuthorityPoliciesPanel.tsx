@@ -182,7 +182,7 @@ export function AuthorityPoliciesPanel(props: {
         <span><strong>{data().policies.filter(p => p.enabled && p.autonomy_level === 'require_approval').length}</strong> wait for you</span>
         <span><strong>{data().policies.filter(p => p.enabled && (p.autonomy_level === 'observe' || p.autonomy_level === 'recommend')).length}</strong> only watching</span>
       </div>
-      <div>
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-x-6 gap-y-1">
         <For each={data().policies}>{policy => <PolicyEditor
           policy={policy}
           pending={pendingMutation() !== null}

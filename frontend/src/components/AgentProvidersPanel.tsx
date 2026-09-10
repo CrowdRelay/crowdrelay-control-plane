@@ -577,7 +577,7 @@ export function AgentProvidersPanel(props: {
                         <div class="premium-method-badge apikey">
                           <span class="premium-method-icon" title="Connected via API key">API Key</span>
                           <Show when={cred()?.provider_account}>
-                            <span class="premium-method-account">{cred()!.provider_account}</span>
+                            <span class="premium-method-account">{cred()!.provider_account?.slice(0, 8)}…</span>
                           </Show>
                         </div>
                       </div>
@@ -603,7 +603,7 @@ export function AgentProvidersPanel(props: {
                                 <input
                                   class="premium-key-input"
                                   classList={{ 'premium-key-error': !!error() && connectingProvider() !== provider.id }}
-                                  type="text"
+                                  type="password"
                                   placeholder="Organization ID (org-…)"
                                   aria-label={`${provider.name} organization ID`}
                                   value={orgIdInput()}

@@ -4,6 +4,7 @@ import type { PendingActionSummary } from '../lib/types'
 import { EmptyState } from './EmptyState'
 import { SectionIcon } from './SectionIcon'
 import { CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
+import { Button } from './ui/button'
 
 // The attention inbox — converts the operator-attention experience from an
 // informational banner into a real action-oriented surface.
@@ -207,9 +208,9 @@ function AttentionItemRow(props: { item: AttentionItem }) {
     <Show when={props.item.action}>
       <div class="attention-item-actions">
         <Show when={props.item.action!.to} fallback={
-          <button class={tierClass()}>{props.item.action!.label}</button>
+          <Button size="sm" variant={props.item.tier === 'urgent' ? 'destructive' : 'ghost'}>{props.item.action!.label}</Button>
         }>
-          <Link class={tierClass()} to={props.item.action!.to!}>{props.item.action!.label}</Link>
+          <Link class={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors h-8 px-3 text-xs ${props.item.tier === 'urgent' ? 'bg-destructive text-white hover:bg-destructive/90' : 'text-secondary-foreground hover:bg-surface-3 hover:text-foreground'}`} to={props.item.action!.to!}>{props.item.action!.label}</Link>
         </Show>
       </div>
     </Show>

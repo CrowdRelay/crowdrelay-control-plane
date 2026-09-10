@@ -106,17 +106,17 @@ export function PortfolioPanel(props: {
       </div>
     </div>
 
-    <Show when={props.overview} keyed>{overview => <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-      <div class="rounded-lg border border-border bg-card p-5.5 text-foreground"><KpiValue value={metric(overview.workspaceCount)} /><span class="text-muted-foreground">Artists</span></div>
-      <div class="rounded-lg border border-border bg-card p-5.5 text-foreground"><KpiValue value={metric(overview.activeFans)} /><span class="text-muted-foreground">Active fans</span></div>
-      <div class="rounded-lg border border-border bg-card p-5.5 text-foreground"><KpiValue value={`+${metric(overview.fansLast30d)}`} /><span class="text-muted-foreground">New fans · 30d</span></div>
-      <div class="rounded-lg border border-border bg-card p-5.5 text-foreground"><KpiValue value={metric(overview.activeEdges)} /><span class="text-muted-foreground">Live edges</span></div>
-      <div class="rounded-lg border border-border bg-card p-5.5 text-foreground"><KpiValue value={metric(overview.deliveriesLast30d)} /><span class="text-muted-foreground">Amplified · 30d</span></div>
+    <Show when={props.overview} keyed>{overview => <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div class="rounded-lg border border-border bg-card p-4 text-foreground flex flex-col gap-1"><KpiValue value={metric(overview.workspaceCount)} /><span class="text-muted-foreground">Artists</span></div>
+      <div class="rounded-lg border border-border bg-card p-4 text-foreground flex flex-col gap-1"><KpiValue value={metric(overview.activeFans)} /><span class="text-muted-foreground">Active fans</span></div>
+      <div class="rounded-lg border border-border bg-card p-4 text-foreground flex flex-col gap-1"><KpiValue value={`+${metric(overview.fansLast30d)}`} /><span class="text-muted-foreground">New fans · 30d</span></div>
+      <div class="rounded-lg border border-border bg-card p-4 text-foreground flex flex-col gap-1"><KpiValue value={metric(overview.activeEdges)} /><span class="text-muted-foreground">Live edges</span></div>
+      <div class="rounded-lg border border-border bg-card p-4 text-foreground flex flex-col gap-1"><KpiValue value={metric(overview.deliveriesLast30d)} /><span class="text-muted-foreground">Amplified · 30d</span></div>
     </div>}</Show>
 
     <div class="mt-6 pt-6 border-t border-border"><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">EDGES</span><h3 class="mt-1 text-sm font-semibold text-foreground flex items-center gap-2"><SectionIcon name="link" />Amplification edges</h3></div>
     <Show when={sortedEdges().length}>
-      <table class="data-table" aria-label="Amplification edges">
+      <div class="overflow-x-auto"><table class="data-table" aria-label="Amplification edges">
         <thead><tr>
           <th>Purpose</th><th>Audience owner</th><th>Beneficiary</th><th>Status</th>
           <th>Campaigns / month</th><th>Cooldown</th><th>Actions</th>
@@ -199,7 +199,7 @@ export function PortfolioPanel(props: {
             </>
           )}</For>
         </tbody>
-      </table>
+      </table></div>
     </Show>
     {/* Two different empty states, because they mean different things.
         With fewer than two artists amplification cannot exist at all, and

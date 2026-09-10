@@ -155,19 +155,19 @@ export function ScorecardPanel(props: { slug: string }) {
         <div class="flex justify-between gap-4 items-start">
           <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">THIS WEEK</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="zap" />Actions</h3></div>
         </div>
-        <div class="grid gap-2.5 mt-3">
-          <div><span class="block text-muted-foreground text-sm">Executed</span>{num(d().week.executed)}<small class="block text-muted-foreground text-sm">{count(d().week.succeeded)} succeeded · {count(d().week.failed)} failed</small></div>
-          <div><span class="block text-muted-foreground text-sm">Success rate</span>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mt-3">
+          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Executed</span>{num(d().week.executed)}<small class="block text-muted-foreground text-sm">{count(d().week.succeeded)} succeeded · {count(d().week.failed)} failed</small></div>
+          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Success rate</span>
             <Show when={d().week.success_rate_basis_points != null} fallback={<strong class="block my-1.5 text-foreground">—</strong>}>
               <ProgressRing value={Math.round((d().week.success_rate_basis_points as number) / 100)} size={44} strokeWidth={4} showValue />
             </Show>
             <small class="block text-muted-foreground text-sm">of actions that resolved</small>
           </div>
           <Show when={(d().week.unknown ?? 0) > 0}>
-            <div><span class="block text-muted-foreground text-sm">Unknown</span>{num(d().week.unknown ?? 0)}<small class="block text-muted-foreground text-sm">outcome not established — excluded from the rate</small></div>
+            <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Unknown</span>{num(d().week.unknown ?? 0)}<small class="block text-muted-foreground text-sm">outcome not established — excluded from the rate</small></div>
           </Show>
-          <div><span class="block text-muted-foreground text-sm">Parked</span>{num(d().week.parked)}<small class="block text-muted-foreground text-sm">no executor available</small></div>
-          <div><span class="block text-muted-foreground text-sm">Awaiting approval</span>{num(d().week.awaiting_approval)}<small class="block text-muted-foreground text-sm">requires operator review</small></div>
+          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Parked</span>{num(d().week.parked)}<small class="block text-muted-foreground text-sm">no executor available</small></div>
+          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Awaiting approval</span>{num(d().week.awaiting_approval)}<small class="block text-muted-foreground text-sm">requires operator review</small></div>
         </div>
       </section>
 
@@ -176,13 +176,13 @@ export function ScorecardPanel(props: { slug: string }) {
         <div class="flex justify-between gap-4 items-start">
           <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">TRACK RECORD</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="history" />Did it work?</h3></div>
         </div>
-        <div class="grid gap-2.5 mt-3">
-          <div><span class="block text-muted-foreground text-sm">Improved</span><strong class="block my-1.5 text-foreground">{count(d().track_record.improved)}</strong><small class="block text-sm text-success">measured wins</small></div>
-          <div><span class="block text-muted-foreground text-sm">Worsened</span><strong class="block my-1.5 text-foreground">{count(d().track_record.worsened)}</strong><small class="block text-sm text-destructive">measured losses</small></div>
-          <div><span class="block text-muted-foreground text-sm">Neutral</span><strong class="block my-1.5 text-foreground">{count(d().track_record.neutral)}</strong><small class="block text-muted-foreground text-sm">no change</small></div>
-          <div><span class="block text-muted-foreground text-sm">Unmeasured</span><strong class="block my-1.5 text-foreground">{count(d().track_record.unmeasured)}</strong><small class="block text-muted-foreground text-sm">{bpsToPercent(d().track_record.measurement_coverage_basis_points)} coverage</small></div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Improved</span><strong class="block my-1.5 text-foreground">{count(d().track_record.improved)}</strong><small class="block text-sm text-success">measured wins</small></div>
+          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Worsened</span><strong class="block my-1.5 text-foreground">{count(d().track_record.worsened)}</strong><small class="block text-sm text-destructive">measured losses</small></div>
+          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Neutral</span><strong class="block my-1.5 text-foreground">{count(d().track_record.neutral)}</strong><small class="block text-muted-foreground text-sm">no change</small></div>
+          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Unmeasured</span><strong class="block my-1.5 text-foreground">{count(d().track_record.unmeasured)}</strong><small class="block text-muted-foreground text-sm">{bpsToPercent(d().track_record.measurement_coverage_basis_points)} coverage</small></div>
           <Show when={(d().track_record.awaiting_measurement ?? 0) > 0}>
-            <div>
+            <div class="rounded-lg border border-border bg-card p-3">
               <span class="block text-muted-foreground text-sm">Awaiting</span>
               <strong class="block my-1.5 text-foreground">{count(d().track_record.awaiting_measurement ?? 0)}</strong>
               <small class="block text-muted-foreground text-sm">{

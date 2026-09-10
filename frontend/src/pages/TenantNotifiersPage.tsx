@@ -345,8 +345,8 @@ export function TenantNotifiersPage() {
     <Show when={!discovered.error && !discovered.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={discovered.data && discovered.data.endpoints.length > 0}>
       <SectionPanel>
-        <div class="flex items-center justify-between gap-4 mb-3">
-          <div class="flex items-center gap-2">
+        <div class="mb-3">
+          <div class="flex items-center gap-2 mb-2">
             <SectionIcon name="link" />
             <div>
               <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">CROWDRELAY</span>
