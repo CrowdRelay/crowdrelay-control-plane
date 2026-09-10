@@ -13,6 +13,7 @@ import { Badge } from './ui/badge'
 import { NativeSelect } from './ui/native-select'
 import { buttonVariants } from './ui/button'
 import { cn } from '../lib/cn'
+import { EmptyState } from './ui/empty-state'
 
 // The beacon roster, and everything you can do to it.
 //
@@ -253,7 +254,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
               onChange={importSubmithub}
             />
           </label>
-          <Button variant="ghost" size="sm" onClick={() => setAdding(value => !value)}>
+          <Button variant={adding() ? 'ghost' : 'default'} size="sm" onClick={() => setAdding(value => !value)}>
             {adding() ? 'Cancel' : 'Add beacon'}
           </Button>
         </div>
@@ -297,6 +298,11 @@ export function BeaconConsolePanel(props: { slug: string }) {
       </Show>
 
       <Show when={roster.data}>
+        {/* An empty roster was still shown a search box, a state filter, a
+            "Select all 0 filtered" and an "Invite 0 to Signal" — four dead
+            controls above the sentence telling the operator to add their first
+            beacon. Nothing to search until there is something to search. */}
+        <Show when={profiles().length > 0}>
         <div class="flex gap-2.5 items-center flex-wrap my-3.5">
           {/* Placeholder text disappears the moment you type, so it is not a
               name: the field announced itself as "edit text" to a screen
@@ -330,15 +336,22 @@ export function BeaconConsolePanel(props: { slug: string }) {
             {busy() === 'invite' && <Spinner />} {busy() === 'invite' ? 'Inviting…' : `Invite ${selected().size} to Signal`}
           </Button>
         </div>
+        </Show>
 
+        {/* Having no beacons yet is a starting position, not a fault, and the
+            amber warning panel it used to render said otherwise. */}
         <Show
           when={visible().length > 0}
           fallback={
-            <p class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
-              {profiles().length === 0
-                ? 'No beacons yet. Local growth needs people on the ground — add the venues, shops and promoters you already know.'
-                : 'No beacon matches that search.'}
-            </p>
+            <Show
+              when={profiles().length === 0}
+              fallback={<EmptyState label="No beacon matches that search" hint="Search covers name, city, email and kind." />}
+            >
+              <EmptyState
+                label="No beacons yet"
+                hint="Local growth needs people on the ground. Add the venues, shops and promoters the band already knows, then invite them to Signal."
+              />
+            </Show>
           }
         >
           <div class="flex flex-col gap-2">

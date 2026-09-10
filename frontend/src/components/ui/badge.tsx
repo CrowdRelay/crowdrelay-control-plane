@@ -8,7 +8,10 @@ import { cn } from '~/lib/cn'
  */
 
 const badgeVariants = cva(
-  'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium tabular-nums transition-colors',
+  // `whitespace-nowrap`: a badge is one token. Without it, a two-word status in
+  // a `flex-wrap` header shrank to its minimum content width and broke across
+  // two lines inside its own pill — "none yet" rendered as a squashed block.
+  'inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium tabular-nums transition-colors',
   {
     variants: {
       variant: {

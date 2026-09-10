@@ -157,7 +157,12 @@ export function AreaPage() {
       eyebrow="AUDIENCE / AREA"
       title="AREA Designer"
       description="Draft, validate and publish tenant-scoped AREA locations. Exact claim coordinates stay on the private management path and never appear in list responses."
-      actions={<Show when={overview.data}><StatusBadge status={overview.data!.enabled ? 'enabled' : 'disabled'} tone={overview.data!.enabled ? 'good' : 'muted'} /></Show>}
+      // The badge used to read the tenant runtime's `enabled` while the button
+      // below writes the control plane's `entitled`, so the page could show
+      // "disabled" above a button offering "Disable AREA". The badge reflects
+      // the switch this page owns; the disagreement between the two, which is
+      // real and worth knowing about, is explained in the panel below.
+      actions={<Show when={overview.data}><StatusBadge status={overview.data!.entitled ? 'on' : 'off'} tone={overview.data!.entitled ? 'good' : 'muted'} /></Show>}
     />
 
     <Show when={flash()}><div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground">{flash()}</div></Show>
@@ -176,7 +181,23 @@ export function AreaPage() {
         <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Drafts</span><strong class="text-lg tabular-nums text-foreground">{o().drafts}</strong></div>
         <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Paused / ended</span><strong class="text-lg tabular-nums text-foreground">{o().paused + o().ended}</strong></div>
       </div>
-      <SectionPanel><div><h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="map-pin" />Tenant AREA</h2><p class="text-sm text-muted-foreground">Disabling AREA hides the public game but preserves drops, claims and audit history.</p></div><Button variant={o().entitled ? 'destructive-ghost' : 'default'} size="sm" disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Disable AREA' : 'Enable AREA'}</Button></SectionPanel>
+      <SectionPanel class="flex flex-wrap items-start justify-between gap-4">
+        <div class="min-w-0">
+          <h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="map-pin" />Tenant AREA</h2>
+          <p class="text-sm text-muted-foreground mt-1 max-w-2xl leading-relaxed">Turning AREA off hides the public game from fans. Drops, claims and audit history are kept, and come back exactly as they were when you turn it on again.</p>
+          {/* Two switches, one name. This page writes the control plane's, the
+              tenant's own app reports the other, and they drift while a deploy
+              is in flight. Saying which is which beats one badge that picks a
+              side and leaves the operator wondering why the button disagrees. */}
+          <Show when={o().entitled && !o().enabled}>
+            <p class="text-sm text-warning mt-2 leading-relaxed">AREA is on here, but this tenant's app is not running the game yet. It starts at its next deploy or sync.</p>
+          </Show>
+          <Show when={!o().entitled && o().enabled}>
+            <p class="text-sm text-warning mt-2 leading-relaxed">AREA is off here, but this tenant's app is still showing the game to fans. It stops at its next deploy or sync.</p>
+          </Show>
+        </div>
+        <Button variant={o().entitled ? 'destructive-ghost' : 'default'} size="sm" disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Turn AREA off' : 'Turn AREA on'}</Button>
+      </SectionPanel>
     </>}</Show>
 
     <SectionPanel>
@@ -200,11 +221,18 @@ export function AreaPage() {
         </div></Show>
       </div></Show>
       <div class="rounded-lg border border-border overflow-hidden">
+        {/* Column headings over nothing are furniture. They also implied the
+            rows were loading when the list was simply empty. */}
+        <Show when={(drops.data?.items.length ?? 0) > 0}>
         <div class="grid items-center gap-3 px-4 py-2 bg-surface-2 text-xs font-medium uppercase tracking-wider text-muted-foreground border-b border-border" style="grid-template-columns: 60px minmax(0,1fr) 100px 80px minmax(120px,1fr) 60px"><span>#</span><span>City</span><span>Status</span><span>Claims</span><span>Window</span><span/></div>
+        </Show>
         <For each={drops.data?.items ?? []}>{item => <div class="grid items-center gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-surface-3 transition-colors" style="grid-template-columns: 60px minmax(0,1fr) 100px 80px minmax(120px,1fr) 60px">
           <code class="text-xs text-muted-foreground">{item.number}</code><div class="min-w-0"><strong class="text-sm text-foreground">{item.city}</strong><small class="block text-xs text-muted-foreground">rev {item.revision}{item.hasDraft ? ' · draft' : ''}</small></div><StatusBadge status={item.status} tone={statusTone(item.status)} /><span class="text-sm tabular-nums text-foreground">{item.claimCount} / {item.maxClaims}</span><small class="text-xs text-muted-foreground">{formatDate(item.startsAt)}<br/>{formatDate(item.endsAt)}</small><Button variant="ghost" size="sm" onClick={()=>{setSelectedId(item.id);setEditorStep('city')}}>Edit</Button>
         </div>}</For>
-        <Show when={!drops.isPending && (drops.data?.items.length ?? 0)===0}><div class="p-4 rounded-lg border border-border bg-surface-1"><EmptyState label="No AREA locations" hint="AREA locations define geographic targeting for fan discovery. Create the first location draft above." /></div></Show>
+        {/* "above" pointed at a form that is not open; the control is the
+            "+ New location" button to the right of this panel's heading. */}
+        <Show when={!drops.isPending && (drops.data?.items.length ?? 0)===0}><EmptyState label="No locations yet" hint="A location is a place fans can claim a drop in. Use “+ New location” to draft the first one — nothing is public until you publish it." /></Show>
+        <Show when={drops.isPending}><div class="p-4"><SkeletonRows count={3} /></div></Show>
       </div>
     </SectionPanel>
 
