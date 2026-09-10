@@ -853,26 +853,15 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
      which override @layer components. */
 
   /* ── Fan drawer ───────────────────────────────────────────────────── */
-  .fan-drawer {
-    @apply fixed inset-y-0 right-0 z-50 w-full max-w-md bg-card border-l border-border;
-  }
+  /* fan-drawer-meta, fan-drawer-tags, fan-drawer-section, fan-drawer-journey
+     are kept as they have descendant CSS rules. The bare .fan-drawer
+     positioning is now handled by Dialog.tsx utility classes. */
 
   /* ── Agent section ────────────────────────────────────────────────── */
 
-  /* ── Inherit card spacing ────────────────────────────────────────── */
-  .inherit-card + .inherit-card,
+  /* ── Adjacent error card spacing ─────────────────────────────────── */
   .error-card + .error-card {
     @apply mt-2.5;
-  }
-
-  /* ── Section title + inherit card spacing ────────────────────────── */
-  .inherit-card + .section-title {
-    @apply mt-8;
-  }
-
-  /* ── Operations metrics + inherit card ───────────────────────────── */
-  .operations-metrics + .inherit-card {
-    @apply mt-5;
   }
 
   /* ── Alert ────────────────────────────────────────────────────────── */
@@ -1005,10 +994,8 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
   @media (prefers-reduced-motion: reduce) {
     .mini-skeleton,
     .premium-skeleton-hero,
-    .premium-skeleton-card,
     .spin,
-    .btn-spinner,
-    .fan-drawer {
+    .btn-spinner {
       animation: none !important;
     }
     [data-refreshing="true"] {
