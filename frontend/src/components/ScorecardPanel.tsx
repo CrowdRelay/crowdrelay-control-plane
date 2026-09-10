@@ -111,41 +111,37 @@ export function ScorecardPanel(props: { slug: string }) {
     <Show when={!model.error && model.isPending}><SkeletonScorecard /></Show>
 
     <Show when={data()}>{d => <>
-      {/* Status row */}
-      <div class="grid gap-2.5">
-        <div>
-          <span class="block text-muted-foreground text-sm">Agent</span>
-          <strong class="block my-1.5 text-foreground">{d().status.agent_enabled ? 'on' : 'off'}</strong>
-          <small class="block text-muted-foreground text-sm">{d().status.dry_run ? 'dry run' : postureLabel(d().status.posture)}</small>
+      {/* Status row — horizontal KPI strip */}
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+        <div class="rounded-lg border border-border bg-card p-3">
+          <span class="block text-xs text-muted-foreground">Agent</span>
+          <strong class="block mt-1 text-lg font-bold text-foreground">{d().status.agent_enabled ? 'on' : 'off'}</strong>
+          <small class="block text-xs text-muted-foreground mt-0.5">{d().status.dry_run ? 'dry run' : postureLabel(d().status.posture)}</small>
         </div>
-        <div>
-          <span class="block text-muted-foreground text-sm">Last decision</span>
-          <strong class="block my-1.5 text-foreground">{timeAgo(d().status.last_decision_at)}</strong>
-          <small class="block text-muted-foreground text-sm">{timeAgo(d().status.last_action_at)} last action</small>
+        <div class="rounded-lg border border-border bg-card p-3">
+          <span class="block text-xs text-muted-foreground">Last decision</span>
+          <strong class="block mt-1 text-lg font-bold text-foreground">{timeAgo(d().status.last_decision_at)}</strong>
+          <small class="block text-xs text-muted-foreground mt-0.5">{timeAgo(d().status.last_action_at)} last action</small>
+        </div>
+        <div class="rounded-lg border border-border bg-card p-3">
+          <span class="block text-xs text-muted-foreground">Live capabilities</span>
+          <strong class="block mt-1 text-lg font-bold text-foreground">{d().status.live_capabilities.length}</strong>
+          <small class="block text-xs text-muted-foreground mt-0.5">{d().status.live_capabilities.length === 0 ? 'none active' : 'running'}</small>
         </div>
         <Show when={d().status.parked_capabilities.length > 0}>
           <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 flex flex-col gap-1">
-            <strong class="text-destructive">Execution gap</strong>
-            <span class="text-sm text-secondary-foreground">{d().status.parked_capabilities.length === 1 ? 'One job is' : `${d().status.parked_capabilities.length} jobs are`} queued with nothing able to run them: {d().status.parked_capabilities.map(cap => labelOr(CAPABILITY_LABELS, cap)).join(', ')}</span>
+            <strong class="text-destructive text-sm">Execution gap</strong>
+            <span class="text-xs text-secondary-foreground">{d().status.parked_capabilities.length === 1 ? 'One job is' : `${d().status.parked_capabilities.length} jobs are`} queued with nothing able to run them: {d().status.parked_capabilities.map(cap => labelOr(CAPABILITY_LABELS, cap)).join(', ')}</span>
           </div>
         </Show>
       </div>
 
       {/* Live capabilities as chips — spans the full row */}
       <Show when={d().status.live_capabilities.length > 0}>
-        <div class="flex items-center gap-2 flex-wrap mt-4">
+        <div class="flex items-center gap-2 flex-wrap mt-3">
           <span class="text-xs text-muted-foreground font-medium">Live capabilities</span>
           <div class="flex items-center gap-1.5 flex-wrap">
             <For each={d().status.live_capabilities}>{cap => <Badge variant="muted" title={cap} class="rounded-full px-2.5 py-1 leading-relaxed border border-border text-secondary-foreground">{labelOr(CAPABILITY_LABELS, cap)}</Badge>}</For>
-          </div>
-        </div>
-      </Show>
-      <Show when={d().status.live_capabilities.length === 0}>
-        <div class="grid gap-2.5 mt-4">
-          <div>
-            <span class="block text-muted-foreground text-sm">Live capabilities</span>
-            <strong class="block my-1.5 text-foreground">0</strong>
-            <small class="block text-muted-foreground text-sm">no active capabilities</small>
           </div>
         </div>
       </Show>

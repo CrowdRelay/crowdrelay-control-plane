@@ -6,6 +6,7 @@ import { errorMessage } from '../lib/format'
 import { confirmAction } from './Dialog'
 import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
+import { SectionTitle } from './layout'
 import { Spinner } from './Spinner'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
@@ -44,30 +45,39 @@ export function TenantOperatorsPanel(props: { slug: string }) {
   }))
 
   return <Show when={isAdmin()}><Card class="p-4">
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="users" />Operator accounts</h2></div><small>{accounts.data?.items.length ?? 0} account(s)</small></div>
-    <p class="rounded-lg border border-border bg-surface-1 p-3 text-sm text-muted-foreground">These operators sign in with username + password and see only <strong>{props.slug}</strong>. The platform admin keeps full access via its separate credential.</p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-      <label>
-        <span>New operator username</span>
+    <SectionTitle
+      title="Operator accounts"
+      icon={<SectionIcon name="users" />}
+      action={<small class="text-muted-foreground">{accounts.data?.items.length ?? 0} account(s)</small>}
+    />
+    <p class="text-sm text-muted-foreground mt-2 leading-relaxed">These operators sign in with username + password and see only <strong>{props.slug}</strong>. The platform admin keeps full access via its separate credential.</p>
+
+    {/* Create form — compact, self-contained card */}
+    <div class="rounded-lg border border-border bg-surface-1 p-4 mt-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <label class="grid gap-1.5">
+        <span class="text-sm font-medium text-foreground">New operator username</span>
         <Input value={username()} onInput={(e) => setUsername(e.currentTarget.value.toLowerCase())} placeholder="stage-op" autocomplete="off" />
-        <small>3–32 characters: lowercase letters, digits, <code>- _ .</code> — starting with a letter or digit. This is what they type to sign in and cannot be changed later.</small>
+        <small class="text-xs text-muted-foreground">3–32 characters: lowercase letters, digits, <code>- _ .</code> — starting with a letter or digit. This is what they type to sign in and cannot be changed later.</small>
       </label>
-      <label>
-        <span>Password</span>
+      <label class="grid gap-1.5">
+        <span class="text-sm font-medium text-foreground">Password</span>
         <Input type="password" value={password()} onInput={(e) => setPassword(e.currentTarget.value)} placeholder="min 12 characters" autocomplete="new-password" />
-        <small>At least 12 characters. Hand it to the operator once — it is hashed with argon2id and never shown again. Losing it means creating a new account.</small>
+        <small class="text-xs text-muted-foreground">At least 12 characters. Hand it to the operator once — it is hashed with argon2id and never shown again. Losing it means creating a new account.</small>
       </label>
+      </div>
+      <div class="flex justify-end mt-3"><Button size="sm" disabled={create.isPending || !/^[a-z0-9][a-z0-9-_.]{2,31}$/.test(username().trim()) || password().length < 12} onClick={() => create.mutate()}>{create.isPending && <Spinner />} {create.isPending ? 'Creating…' : 'Create operator'}</Button></div>
     </div>
-    <div class="flex gap-2 mb-6"><Button size="sm" disabled={create.isPending || !/^[a-z0-9][a-z0-9-_.]{2,31}$/.test(username().trim()) || password().length < 12} onClick={() => create.mutate()}>{create.isPending && <Spinner />} {create.isPending ? 'Creating…' : 'Create operator'}</Button></div>
-    <Show when={create.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(create.error, 'Operator creation failed')}</div></Show>
-    <Show when={remove.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(remove.error, 'Operator removal failed')}</div></Show>
-    <Show when={accounts.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(accounts.error, 'Could not load operator accounts')}</div></Show>
+
+    <Show when={create.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive mt-3" role="alert">{errorMessage(create.error, 'Operator creation failed')}</div></Show>
+    <Show when={remove.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive mt-3" role="alert">{errorMessage(remove.error, 'Operator removal failed')}</div></Show>
+    <Show when={accounts.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive mt-3" role="alert">{errorMessage(accounts.error, 'Could not load operator accounts')}</div></Show>
     <Show when={(accounts.data?.items.length ?? 0) === 0 && !accounts.isPending && !accounts.error}>
-      <div class="p-4 mt-2.5 rounded-lg border border-border bg-surface-1"><EmptyState label="No operator accounts yet" hint="Only the platform admin can reach this tenant right now. Create an account above to give the team its own scoped login." /></div>
+      <div class="p-4 mt-4 rounded-lg border border-border bg-surface-1"><EmptyState label="No operator accounts yet" hint="Only the platform admin can reach this tenant right now. Create an account above to give the team its own scoped login." /></div>
     </Show>
-    <div class="grid gap-2.5 mt-4"><For each={accounts.data?.items ?? []}>{account =>
-      <div class="flex items-center justify-between gap-3 py-2.5 border-b border-border">
-        <div class="grid gap-1"><strong>{account.username}</strong><small class="text-muted-foreground">{account.active ? 'active' : 'disabled'} · <Badge variant="muted">tenant_operator</Badge></small></div>
+    <div class="grid gap-2 mt-4"><For each={accounts.data?.items ?? []}>{account =>
+      <div class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg border border-border bg-card">
+        <div class="grid gap-1"><strong class="text-sm text-foreground">{account.username}</strong><small class="text-xs text-muted-foreground">{account.active ? 'active' : 'disabled'} · <Badge variant="muted">tenant_operator</Badge></small></div>
         <Button variant="destructive-ghost" size="sm" disabled={remove.isPending} onClick={async () => {
           const ok = await confirmAction({
             title: `Remove operator “${account.username}”?`,

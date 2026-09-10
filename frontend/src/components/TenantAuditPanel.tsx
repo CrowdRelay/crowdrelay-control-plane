@@ -3,6 +3,7 @@ import { formatTimestamp } from '../lib/format'
 import { ActivityHeatmap } from './ActivityHeatmap'
 import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
+import { SectionTitle } from './layout'
 import type { AuditEntry } from '../lib/types'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
@@ -17,21 +18,25 @@ export function TenantAuditPanel(props: { items: AuditEntry[] }) {
   const hasMore = () => props.items.length > VISIBLE
 
   return <Card class="p-4">
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3">
-      <div><h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="history" />Recent platform changes</h2></div>
-      <Show when={hasMore()}>
+    <SectionTitle
+      title="Recent platform changes"
+      icon={<SectionIcon name="history" />}
+      action={<Show when={hasMore()}>
         <Button type="button" variant="ghost" size="sm" onClick={() => setExpanded(e => !e)}>
           {expanded() ? 'Show less' : `Show all (${props.items.length})`}
         </Button>
-      </Show>
-    </div>
+      </Show>}
+    />
     <Show when={props.items.length > 0}>
       <ActivityHeatmap entries={props.items} timestampKey="createdAt" weeks={8} />
     </Show>
-    <div class="audit-list">
-      <For each={visible()}>{item => <div class="audit-row">
-        <div><strong>{item.action}</strong><small>{item.actor} · {formatTimestamp(item.createdAt)}</small></div>
-        <code>{item.targetKind}</code>
+    <div class="grid gap-2 mt-4">
+      <For each={visible()}>{item => <div class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg border border-border bg-card">
+        <div class="min-w-0">
+          <strong class="block text-sm text-foreground">{item.action}</strong>
+          <small class="block text-xs text-muted-foreground mt-0.5">{item.actor} · {formatTimestamp(item.createdAt)}</small>
+        </div>
+        <code class="text-xs text-muted-foreground bg-surface-2 px-2 py-1 rounded-sm border border-border-subtle flex-shrink-0">{item.targetKind}</code>
       </div>}</For>
     </div>
     <Show when={props.items.length === 0}>

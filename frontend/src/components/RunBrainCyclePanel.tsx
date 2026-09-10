@@ -184,14 +184,14 @@ export function RunBrainCyclePanel(props: { slug: string }) {
               </div>
             </section>
 
-            <footer class="flex flex-col md:flex-row md:items-center md:justify-end gap-3 pt-3 mt-6 border-t border-border">
+            <footer class="pt-3 mt-6 border-t border-border">
+              <p class="text-sm text-muted-foreground leading-relaxed mb-3">
+                Dispatches real outreach. Subject to the same autonomy policy and 24-hour action
+                cap as a scheduled cycle.
+              </p>
               <Button size="sm" onClick={() => void runCycle()} disabled={running() || !data().hasAnyConnectedPlatform}>
                 {running() && <Spinner />} {running() ? 'Requesting…' : 'Run cycle now'}
               </Button>
-              <span class="text-muted-foreground">
-                Dispatches real outreach. Subject to the same autonomy policy and 24-hour action
-                cap as a scheduled cycle.
-              </span>
             </footer>
           </>
         )}

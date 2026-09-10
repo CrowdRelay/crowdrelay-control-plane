@@ -174,7 +174,7 @@ export function OperationsPanel(props: {
     }</Show>
 
     <Show when={unavailable() || props.degraded.length > 0}>
-      <div class={cn('flex items-center gap-2 mt-3 px-3.5 py-2 border rounded-sm text-sm', untrusted() ? 'border-destructive/30 bg-destructive/10 text-destructive' : 'border-warning/30 bg-warning/10 text-warning')} role={untrusted() ? 'alert' : 'status'}>
+      <div class={cn('flex items-center gap-2 mt-3 px-3.5 py-2 border rounded-lg text-sm', untrusted() ? 'border-destructive/30 bg-destructive/10 text-destructive' : 'border-warning/30 bg-warning/10 text-warning')} role={untrusted() ? 'alert' : 'status'}>
         <span class="inline-block w-2 h-2 rounded-full bg-current" />
         <span>
           <Show

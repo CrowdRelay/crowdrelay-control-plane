@@ -145,17 +145,17 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
         <section class="mt-6 pt-4 border-t border-border">
           <h3 class="text-sm font-semibold text-foreground">Stopped itself</h3>
           <p class="mt-1 text-sm text-muted-foreground">Work the autopilot refused to finish. These do not retry on their own.</p>
-          <ul class="m-0 p-0 mt-3 flex flex-col gap-2 list-none">
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-3">
             <For each={data().stopped}>{item => (
-              <li class="flex items-start gap-2.5">
-                <span class="inline-flex items-center justify-center min-w-[28px] h-[24px] px-1.5 rounded-sm bg-surface-4 text-primary-foreground font-bold text-xs flex-shrink-0">{item.count}</span>
-                <div class="min-w-0">
-                  <strong class="block text-sm text-foreground">{STOPPED_REASON_LABEL[item.reason] ?? item.reason.replace(/_/g, ' ')}</strong>
-                  <small class="block text-xs text-muted-foreground">{item.detail}</small>
+              <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex items-center justify-center min-w-[24px] h-[24px] px-1.5 rounded-sm bg-surface-4 text-primary-foreground font-bold text-xs flex-shrink-0">{item.count}</span>
+                  <strong class="text-sm text-foreground">{STOPPED_REASON_LABEL[item.reason] ?? item.reason.replace(/_/g, ' ')}</strong>
                 </div>
-              </li>
+                <small class="text-xs text-muted-foreground">{item.detail}</small>
+              </div>
             )}</For>
-          </ul>
+          </div>
         </section>
       </Show>
 

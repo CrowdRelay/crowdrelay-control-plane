@@ -9,7 +9,7 @@ import { Spinner } from './Spinner'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
-import { Badge } from './ui/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 import { NativeSelect } from './ui/native-select'
 import { buttonVariants } from './ui/button'
 import { cn } from '../lib/cn'
@@ -355,60 +355,76 @@ export function BeaconConsolePanel(props: { slug: string }) {
             </Show>
           }
         >
-          <div class="flex flex-col gap-2">
-            <For each={rendered()}>
-              {profile => (
-                <div class="grid grid-cols-[auto_1fr_auto_auto] gap-3 items-center px-3.5 py-3 border border-border rounded-md bg-card" classList={{ 'border-primary': selected().has(profile.beaconId) }}>
-                  <label class="flex items-center">
-                    <input
-                      type="checkbox"
-                      class="accent-primary w-4 h-4"
-                      checked={selected().has(profile.beaconId)}
-                      onChange={() => toggle(profile.beaconId)}
-                    />
-                  </label>
-                  <div class="flex flex-col gap-0.5 min-w-0">
-                    <strong>{profile.displayName}</strong>
-                    <span class="text-muted-foreground break-all">
-                      {profile.beaconKind}
-                      {profile.city ? ` · ${profile.city}` : ''}
-                      {profile.contactEmail ? ` · ${profile.contactEmail}` : ' · no email'}
-                    </span>
-                  </div>
-                  <div class="flex items-center gap-2 flex-wrap text-xs">
-                    <StatusBadge status={profile.status} tone={STATE_TONE[profile.status] ?? 'muted'} />
-                    <Badge>{profile.inviteCount} invite{profile.inviteCount === 1 ? '' : 's'}</Badge>
-                    <Show when={profile.lastInvitedAt}>
-                      {at => <span class="text-muted-foreground">last invited {formatTimestamp(at())}</span>}
-                    </Show>
-                    <Show when={profile.joinedAt}>
-                      {at => <span class="text-muted-foreground">joined {formatTimestamp(at())}</span>}
-                    </Show>
-                  </div>
-                  <div class="flex gap-1.5 flex-wrap">
-                    <Show when={profile.status !== 'unverified' && profile.status !== 'paused' && profile.status !== 'revoked'}>
-                      <Button variant="ghost" size="sm" disabled={busy() !== null}
-                              onClick={() => setState(profile.beaconId, 'paused')}>
-                        {busy() === `state:${profile.beaconId}` && <Spinner />} Pause
-                      </Button>
-                    </Show>
-                    <Show when={profile.status === 'paused'}>
-                      <Button variant="ghost" size="sm" disabled={busy() !== null}
-                              onClick={() => setState(profile.beaconId, 'active')}>
-                        {busy() === `state:${profile.beaconId}` && <Spinner />} Resume
-                      </Button>
-                    </Show>
-                    <Show when={profile.status !== 'unverified' && profile.status !== 'revoked'}>
-                      <Button variant="destructive-ghost" size="sm" disabled={busy() !== null}
-                              onClick={() => setState(profile.beaconId, 'revoked')}>
-                        {busy() === `state:${profile.beaconId}` && <Spinner />} Revoke
-                      </Button>
-                    </Show>
-                  </div>
-                </div>
-              )}
-            </For>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead class="w-8" />
+                <TableHead>Beacon</TableHead>
+                <TableHead class="w-24">Status</TableHead>
+                <TableHead class="w-20 text-center">Invites</TableHead>
+                <TableHead class="w-32">Last invited</TableHead>
+                <TableHead class="w-40 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <For each={rendered()}>
+                {profile => (
+                  <TableRow classList={{ 'bg-primary/5': selected().has(profile.beaconId) }}>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        class="accent-primary w-4 h-4"
+                        checked={selected().has(profile.beaconId)}
+                        onChange={() => toggle(profile.beaconId)}
+                        aria-label={`Select ${profile.displayName}`}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div class="flex flex-col gap-0.5">
+                        <strong class="text-sm text-foreground">{profile.displayName}</strong>
+                        <span class="text-xs text-muted-foreground truncate">
+                          {profile.beaconKind}
+                          {profile.city ? ` · ${profile.city}` : ''}
+                          {profile.contactEmail ? ` · ${profile.contactEmail}` : ' · no email'}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={profile.status} tone={STATE_TONE[profile.status] ?? 'muted'} />
+                    </TableCell>
+                    <TableCell class="text-center tabular-nums">{profile.inviteCount}</TableCell>
+                    <TableCell>
+                      <Show when={profile.lastInvitedAt} fallback={<span class="text-muted-foreground">—</span>}>
+                        {at => <span class="text-xs text-muted-foreground">{formatTimestamp(at())}</span>}
+                      </Show>
+                    </TableCell>
+                    <TableCell>
+                      <div class="flex gap-1.5 justify-end">
+                        <Show when={profile.status !== 'unverified' && profile.status !== 'paused' && profile.status !== 'revoked'}>
+                          <Button variant="ghost" size="sm" disabled={busy() !== null}
+                                  onClick={() => setState(profile.beaconId, 'paused')}>
+                            {busy() === `state:${profile.beaconId}` && <Spinner />} Pause
+                          </Button>
+                        </Show>
+                        <Show when={profile.status === 'paused'}>
+                          <Button variant="ghost" size="sm" disabled={busy() !== null}
+                                  onClick={() => setState(profile.beaconId, 'active')}>
+                            {busy() === `state:${profile.beaconId}` && <Spinner />} Resume
+                          </Button>
+                        </Show>
+                        <Show when={profile.status !== 'unverified' && profile.status !== 'revoked'}>
+                          <Button variant="destructive-ghost" size="sm" disabled={busy() !== null}
+                                  onClick={() => setState(profile.beaconId, 'revoked')}>
+                            {busy() === `state:${profile.beaconId}` && <Spinner />} Revoke
+                          </Button>
+                        </Show>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </For>
+            </TableBody>
+          </Table>
           <Show when={visible().length > MAX_VISIBLE}>
             <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAll(s => !s)}>
               {showAll() ? 'Show less' : `Show all (${visible().length})`}

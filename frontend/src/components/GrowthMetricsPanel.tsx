@@ -230,10 +230,10 @@ export function GrowthMetricsPanel(props: { slug: string }) {
               <div class="mb-4">
                 <div class="flex items-center gap-2 mb-2">
                   <span class="w-2 h-2 rounded-full shrink-0 opacity-90" style={{ background: color, 'box-shadow': `0 0 6px ${color}` }} />
-                  <strong class="text-base font-bold text-foreground">{platformLabel(platform)}</strong>
-                  <span class="text-sm text-muted-foreground">{items.length} series</span>
+                  <strong class="text-sm font-semibold text-foreground">{platformLabel(platform)}</strong>
+                  <span class="text-xs text-muted-foreground">{items.length} series</span>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1.5">
                   <For each={expandedPlatforms().has(platform) ? items : items.slice(0, MAX_VISIBLE_PLATFORM_BARS)}>{(trend: GrowthMetricTrendView) => {
                     const delta = trend.delta_7d ?? trend.delta_24h ?? trend.delta_28d
                     const dir = trendDirection(delta)

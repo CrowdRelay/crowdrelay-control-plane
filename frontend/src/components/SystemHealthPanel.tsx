@@ -163,14 +163,14 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
         <Show
           when={conditions().length > 0}
           fallback={
-            <p class="rounded-md border border-success/30 bg-success/10 p-4 text-sm text-success">
+            <p class="rounded-lg border border-success/30 bg-success/10 p-4 text-sm text-success">
               Nothing needs attention. The engine is running and every queue is draining.
             </p>
           }
         >
           <For each={conditions()}>
             {condition => (
-              <article class="p-4 mt-3 first:mt-0 border border-border bg-surface-2 rounded-md">
+              <article class="p-4 mt-3 first:mt-0 rounded-lg border border-border bg-card">
                 <div class="flex items-center gap-2.5 flex-wrap mb-2">
                   <StatusBadge
                     status={condition.severity === 'critical' ? 'act now' : 'when convenient'}
@@ -178,8 +178,8 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
                   />
                   <strong class="text-sm font-semibold text-foreground">{condition.headline}</strong>
                 </div>
-                <p class="text-muted-foreground">{condition.impact}</p>
-                <ol class="mt-3 pl-5 flex flex-col gap-2 text-muted-foreground leading-relaxed">
+                <p class="text-sm text-muted-foreground leading-relaxed">{condition.impact}</p>
+                <ol class="mt-3 pl-5 flex flex-col gap-1.5 text-sm text-muted-foreground leading-relaxed">
                   <For each={condition.steps}>{step => <li>{step}</li>}</For>
                 </ol>
                 <Show when={condition.action}>
@@ -203,7 +203,7 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
       <Show when={notice()}>
         {value => (
           <p
-            class={`mt-3 rounded-md border p-4 text-sm ${value().tone === 'good' ? 'border-success/30 bg-success/10 text-success' : 'border-destructive/30 bg-destructive/10 text-destructive'}`}
+            class={`mt-3 rounded-lg border p-4 text-sm ${value().tone === 'good' ? 'border-success/30 bg-success/10 text-success' : 'border-destructive/30 bg-destructive/10 text-destructive'}`}
           >
             {value().message}
           </p>
