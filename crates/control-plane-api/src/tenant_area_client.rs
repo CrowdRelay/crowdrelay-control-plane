@@ -23,19 +23,40 @@ const AREA_NAMESPACE: &[u8] = b"crowdrelay-area-admin-v1:";
 const CONTROL_PLANE_NAMESPACE: &[u8] = b"crowdrelay-control-plane-v1:";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 
-/// Maximum idle connections kept per upstream target (host:port), and the
-/// maximum number of upstream requests this client will have in flight at once.
+/// Idle connections kept per upstream target (host:port), and the requests
+/// this client will have in flight against that target at once.
 ///
 /// One number for both on purpose. A fan-out wider than the pool cannot be
 /// served from it: the surplus requests each open a fresh connection, and on
-/// the way back only `POOL_MAX_PER_TARGET` fit, so the rest are dropped. Every
-/// page load then opened and discarded connections in a burst — which is churn
-/// the upstream sees as a connection storm, and is what turned a nine-section
-/// page into four sections that answered and five that did not.
+/// the way back only this many fit, so the rest are dropped. Every page load
+/// then opened and discarded connections in a burst — churn the upstream sees
+/// as a connection storm, and what turned a nine-section page into four
+/// sections that answered and five that did not.
 ///
-/// Holding them equal makes the fan-out exactly fillable from the pool: the
+/// Holding them equal makes any fan-out exactly fillable from the pool: the
 /// same connections are reused, returned, and reused again.
-const POOL_MAX_PER_TARGET: usize = 4;
+///
+/// Twelve because the widest fan-out is nine — the operations page — and a
+/// limit below the widest fan-out is not a limit, it is a queue. At four, that
+/// page ran in three waves and paid two extra round trips for nothing. At
+/// twelve it runs in one wave against connections that already exist, with
+/// headroom for a tenth and eleventh section before anyone has to think about
+/// this number again.
+///
+/// The cost is twelve idle sockets per tenant, reclaimed after
+/// [`POOL_IDLE_TIMEOUT`]. That is the whole price of the fan-out being free.
+const POOL_MAX_PER_TARGET: usize = 12;
+
+/// The widest concurrent fan-out any handler makes against one target: the
+/// operations page, which fetches nine sections at once.
+const WIDEST_FAN_OUT: usize = 9;
+
+// A budget below the widest fan-out is not a budget, it is a queue: that page
+// would run in waves and pay a round trip per wave for nothing. Checked at
+// compile time rather than in a test, so lowering the pool without widening
+// the fan-out — or widening a fan-out past the pool — fails the build instead
+// of the suite.
+const _: () = assert!(POOL_MAX_PER_TARGET >= WIDEST_FAN_OUT);
 
 /// A connection idle longer than this is closed when next encountered. Sweeping
 /// on access avoids a background task and naturally reclaims connections after
@@ -84,13 +105,20 @@ pub struct TenantAreaClient {
     master_key: Option<Arc<str>>,
     management_master_key: Option<Arc<str>>,
     pool: ConnectionPool,
-    /// Caps in-flight upstream requests at the pool size.
+    /// Caps in-flight requests per target at the pool size for that target.
+    ///
+    /// Per target, keyed exactly as the pool is. A single global limiter would
+    /// be the same thing while one tenant exists and would serialise every
+    /// tenant behind one budget as soon as a second appeared — the pool is
+    /// per target, so a cap that is not per target is measuring a different
+    /// quantity from the one it exists to protect.
     ///
     /// On the client rather than at each fan-out, because the failure this
     /// prevents is a property of the transport and the call sites cannot see
-    /// it. Six fan-outs exist and several were wider than the pool; bounding
-    /// them one at a time would leave the seventh to rediscover the bug.
-    in_flight: Arc<Semaphore>,
+    /// it. Several fan-outs exist and more than one was wider than the pool;
+    /// bounding them individually would leave the next one to rediscover the
+    /// bug.
+    in_flight: Arc<Mutex<HashMap<String, Arc<Semaphore>>>>,
 }
 
 pub(crate) struct ManagementRequest<'a> {
@@ -109,7 +137,7 @@ impl TenantAreaClient {
             master_key: master_key.map(Arc::from),
             management_master_key: None,
             pool: Arc::new(Mutex::new(HashMap::new())),
-            in_flight: Arc::new(Semaphore::new(POOL_MAX_PER_TARGET)),
+            in_flight: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -122,8 +150,23 @@ impl TenantAreaClient {
             master_key: master_key.map(Arc::from),
             management_master_key: management_master_key.map(Arc::from),
             pool: Arc::new(Mutex::new(HashMap::new())),
-            in_flight: Arc::new(Semaphore::new(POOL_MAX_PER_TARGET)),
+            in_flight: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    /// The per-target request limiter, created on first use.
+    ///
+    /// Keyed by the raw base URL rather than the resolved `host:port` the pool
+    /// uses. The two agree for every configured target, and doing the
+    /// resolution here would mean a DNS lookup before the limiter — which is
+    /// the wrong order: the cap exists to bound work, and resolving is work.
+    async fn target_limiter(&self, base_url: &str) -> Arc<Semaphore> {
+        let mut limiters = self.in_flight.lock().await;
+        Arc::clone(
+            limiters
+                .entry(base_url.to_owned())
+                .or_insert_with(|| Arc::new(Semaphore::new(POOL_MAX_PER_TARGET))),
+        )
     }
 
     pub fn derived_token(&self, tenant_id: Uuid) -> Result<String, ApiError> {
@@ -199,7 +242,8 @@ impl TenantAreaClient {
         }
         let token = self.derived_token(tenant_id)?;
         // Held for the whole exchange. See `POOL_MAX_PER_TARGET`.
-        let _permit = self.in_flight.acquire().await;
+        let limiter = self.target_limiter(base_url).await;
+        let _permit = limiter.acquire().await;
         request_authorized(
             &self.pool,
             base_url,
@@ -241,7 +285,8 @@ impl TenantAreaClient {
         }
         let token = self.derived_management_token(tenant_id)?;
         // Held for the whole exchange. See `POOL_MAX_PER_TARGET`.
-        let _permit = self.in_flight.acquire().await;
+        let limiter = self.target_limiter(base_url).await;
+        let _permit = limiter.acquire().await;
         request_authorized(
             &self.pool,
             base_url,
@@ -1704,15 +1749,19 @@ mod tests {
         );
     }
 
-    /// A fan-out wider than the pool must not open a connection per section.
+    /// A repeated fan-out must reuse connections rather than churn them.
     ///
-    /// The operations page fetches nine sections at once against a pool of
-    /// four. Unbounded, five of them opened fresh connections every load and
-    /// only four could be returned, so the rest were discarded — a connection
-    /// storm on every page view, and the reason a nine-section page came back
-    /// as four that answered and five that did not.
+    /// This is the property the whole pool exists for and the one that broke:
+    /// nine sections against a pool of four meant five fresh connections per
+    /// page load and only four kept on the way back, so every view discarded
+    /// five sockets. The upstream saw a connection storm and answered four
+    /// sections out of nine.
+    ///
+    /// Asserting "opened at most the pool size" alone would pass trivially now
+    /// that the pool is wider than the fan-out. What has to hold is that the
+    /// *second* identical fan-out opens nothing at all.
     #[tokio::test]
-    async fn a_fan_out_wider_than_the_pool_does_not_open_a_connection_per_request() {
+    async fn a_repeated_fan_out_reuses_connections_instead_of_churning_them() {
         use tokio::io::AsyncWriteExt as _;
         use tokio::net::TcpListener;
 
@@ -1751,29 +1800,72 @@ mod tests {
         let tenant = Uuid::nil();
 
         // Nine at once, exactly as the operations page does.
-        let calls = (0..9).map(|_| {
-            client.request_management(
-                tenant,
-                &base,
-                ManagementRequest {
-                    method: "GET",
-                    path: "/v1/control-plane/ops/summary",
-                    body: None,
-                    correlation_id: None,
-                    idempotency_key: None,
-                },
-            )
-        });
-        let results = futures_util::future::join_all(calls).await;
+        let fan_out = || {
+            let calls = (0..9).map(|_| {
+                client.request_management(
+                    tenant,
+                    &base,
+                    ManagementRequest {
+                        method: "GET",
+                        path: "/v1/control-plane/ops/summary",
+                        body: None,
+                        correlation_id: None,
+                        idempotency_key: None,
+                    },
+                )
+            });
+            futures_util::future::join_all(calls)
+        };
+
+        let first = fan_out().await;
         assert!(
-            results.iter().all(Result::is_ok),
-            "every section must answer: {results:?}"
+            first.iter().all(Result::is_ok),
+            "every section must answer: {first:?}"
         );
-        let opened = accepted.load(std::sync::atomic::Ordering::SeqCst);
+        let after_first = accepted.load(std::sync::atomic::Ordering::SeqCst);
         assert!(
-            opened <= POOL_MAX_PER_TARGET,
-            "nine concurrent sections opened {opened} connections against a pool of \
-             {POOL_MAX_PER_TARGET}; the fan-out is not bounded by the pool"
+            after_first <= POOL_MAX_PER_TARGET,
+            "nine concurrent sections opened {after_first} connections against a pool \
+             of {POOL_MAX_PER_TARGET}; the fan-out is not bounded by the pool"
         );
+
+        let second = fan_out().await;
+        assert!(
+            second.iter().all(Result::is_ok),
+            "the second load must answer too: {second:?}"
+        );
+        assert_eq!(
+            accepted.load(std::sync::atomic::Ordering::SeqCst),
+            after_first,
+            "the second identical fan-out opened new connections; the first load's \
+             sockets were discarded rather than pooled, which is the churn this \
+             exists to prevent"
+        );
+    }
+
+    /// Two tenants must not share one budget.
+    ///
+    /// The pool is per target. A single global limiter is indistinguishable
+    /// from a per-target one while a single tenant exists, and serialises
+    /// every tenant behind one budget the moment a second appears — the
+    /// command centre fans out across all tenants at once, so that is not a
+    /// hypothetical shape.
+    #[tokio::test]
+    async fn each_target_gets_its_own_budget() {
+        let client = TenantAreaClient::with_management(None, Some("0".repeat(32)));
+        let first = client.target_limiter("http://127.0.0.1:9001").await;
+        let second = client.target_limiter("http://127.0.0.1:9002").await;
+        let first_again = client.target_limiter("http://127.0.0.1:9001").await;
+
+        assert!(
+            !Arc::ptr_eq(&first, &second),
+            "two targets sharing a limiter means one slow tenant stalls the other"
+        );
+        assert!(
+            Arc::ptr_eq(&first, &first_again),
+            "the same target must reuse its limiter, or the cap is per call"
+        );
+        assert_eq!(first.available_permits(), POOL_MAX_PER_TARGET);
+        assert_eq!(second.available_permits(), POOL_MAX_PER_TARGET);
     }
 }
