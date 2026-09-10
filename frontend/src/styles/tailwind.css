@@ -621,11 +621,6 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
     @apply rounded-md grid place-items-center bg-primary font-bold text-background;
   }
 
-  /* ── Login ───────────────────────────────────────────────────────── */
-  .login-brand .brand-mark {
-    @apply rounded-md w-9 h-9;
-  }
-
   /* ── Process Map (SVG-specific, keep as CSS) ─────────────────────── */
   .process-map-wrap {
     @apply overflow-x-auto border border-border rounded-lg bg-card p-4;
