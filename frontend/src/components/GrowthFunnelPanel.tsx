@@ -153,8 +153,8 @@ export function GrowthFunnelPanel(props: { slug: string }) {
         controls sit outside the region and stay usable. */}
     <div data-refreshing={funnel.isFetching && !funnel.isPending} aria-busy={funnel.isFetching}>
 
-    {/* KPI strip */}
-    <Show when={funnel.data} fallback={<Show when={!error()}><SkeletonBlock height="100px" radius="10px" /></Show>}>
+    {/* KPI strip — skeleton only for the data values, not the whole panel */}
+    <Show when={funnel.data} fallback={<Show when={!error()}><KpiStrip><KpiCard label="Communities" value="—" sub="discovered" /><KpiCard label="Worker runs" value="—" sub="loading…" /><KpiCard label="Intelligence workflows" value="—" sub="loading…" /></KpiStrip></Show>}>
       <KpiStrip>
         <KpiCard label="Communities" value={fmt(funnel.data!.communities_discovered)} sub="discovered" />
         <KpiCard label="Worker runs" value={fmt(totalWorkerRuns())} sub={`${completedWorkerRuns()} completed · ${failedWorkerRuns()} failed`} />
@@ -162,28 +162,29 @@ export function GrowthFunnelPanel(props: { slug: string }) {
       </KpiStrip>
     </Show>
 
-    {/* Funnel visualization */}
-    <Show when={funnel.data}>
-      <div class="p-4 mt-6 pt-4 border-t border-border">
-        <div class="flex items-center justify-between gap-4">
-          <h3 class="text-sm font-semibold text-foreground"><FunnelIcon size={18} /> Growth Funnel</h3>
-        </div>
-        <p class="mt-1 text-sm text-muted-foreground">The fan growth journey from community discovery to conversion.</p>
+    {/* Funnel visualization — header is static, chart waits for data */}
+    <div class="p-4 mt-6 pt-4 border-t border-border">
+      <div class="flex items-center justify-between gap-4">
+        <h3 class="text-sm font-semibold text-foreground"><FunnelIcon size={18} /> Growth Funnel</h3>
+      </div>
+      <p class="mt-1 text-sm text-muted-foreground">The fan growth journey from community discovery to conversion.</p>
 
+      <Show when={funnel.data}>
         {/* Bottleneck highlight */}
         <Show when={bottleneck()}>{(b) => (
           <div class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning mt-3">
-            <strong>Funnel bottleneck: {b().stage.label}</strong>
+            <strong>Funnel bottleneck: {b().stage.label}</strong><br />
             <span>Only {b().rate}% progressed to {b().nextStage.label}. {b().stage.value} → {b().nextStage.value}.<br />Consider dispatching more {b().stage.label.toLowerCase()} or reviewing the intelligence's growth intelligence policy.</span>
-
           </div>
         )}</Show>
+      </Show>
 
-        <div class="flex flex-col gap-2.5 mt-4">
+      <div class="flex flex-col items-center gap-2.5 mt-4">
+        <Show when={funnel.data} fallback={<Show when={!error()}><div class="max-w-[480px] w-full"><SkeletonBlock height="280px" radius="10px" /></div></Show>}>
           <FunnelChart stages={stages()} />
-        </div>
+        </Show>
       </div>
-    </Show>
+    </div>
 
     {/* Worker run breakdown */}
     <Show when={funnel.data && Object.keys(funnel.data!.worker_runs).length > 0}>
