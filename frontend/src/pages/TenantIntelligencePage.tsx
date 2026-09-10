@@ -43,7 +43,7 @@ export function TenantIntelligencePage() {
     <PageHeader
       eyebrow="BRAIN"
       title="Intelligence"
-      description="The deterministic autopilot's decision timeline, worker dispatch, and growth intelligence."
+      description="What the autopilot decided, what it handed to the AI workers, and how the growth numbers moved."
       actions={
         <Show when={!model.error && model.data}>
           <div class="flex items-center gap-2">

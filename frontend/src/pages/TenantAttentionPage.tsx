@@ -65,7 +65,7 @@ export function TenantAttentionPage() {
     if (busy()) return
     if (!confirmingReconcile()) {
       setConfirmingReconcile(true)
-      toast.info('Click again to run an audited reconciliation pass.')
+      toast.info('Click again to run the check. It only reads — nothing is changed.')
       return
     }
     setBusy('reconcile')
@@ -102,7 +102,7 @@ export function TenantAttentionPage() {
     <PageHeader
       eyebrow="CONTROL"
       title="Operator Attention"
-      description="Incidents, observability and bounded maintenance. One snapshot, on-demand details."
+      description="What is wrong right now, what the watchdog is seeing, and the checks you can run yourself."
       actions={
         <Show when={!summary.error && summary.data} fallback={<StatusBadge status={summary.error ? 'unavailable' : 'loading'} tone={summary.error ? 'bad' : 'muted'} />}>
           {data => <StatusBadge
@@ -168,10 +168,10 @@ export function TenantAttentionPage() {
       <Show when={!summary.error && summary.data}>{data => <>
         <div class="flex items-center justify-between gap-4 mt-6 mb-3" id="reconciliation-findings">
           <div>
-            <h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="refresh-cw" />Ecosystem reconciliation</h3>
-            <p class="text-sm text-muted-foreground mt-1 leading-relaxed">Consistency pass across feature flags, Bandsintown sync, and open findings. Run it first, then work through what it finds.</p>
+            <h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="refresh-cw" />Cross-check against the tenant</h3>
+            <p class="text-sm text-muted-foreground mt-1 leading-relaxed">Compares what this console believes about the tenant with what the tenant actually reports — feature switches, Bandsintown sync, and anything already flagged. It only reads. Run it first, then work through whatever it disagrees about.</p>
           </div>
-          <Button variant={confirmingReconcile() ? 'default' : 'outline'} size="sm" class={confirmingReconcile() ? 'flex gap-2 items-center mt-2' : ''} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' && <Spinner />} {busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Confirm reconciliation' : 'Run reconciliation'}</Button>
+          <Button variant={confirmingReconcile() ? 'default' : 'outline'} size="sm" class={confirmingReconcile() ? 'flex gap-2 items-center mt-2' : ''} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' && <Spinner />} {busy() === 'reconcile' ? 'Checking…' : confirmingReconcile() ? 'Yes, run the check' : 'Run the check'}</Button>
         </div>
         <Show when={attention.data?.ecosystem}><div class="grid gap-2.5">
           <Card class="rounded-lg p-3.5 hover:border-border-strong transition-colors">
@@ -180,7 +180,7 @@ export function TenantAttentionPage() {
             <small class="block text-sm text-muted-foreground">reported by canonical overview</small>
           </Card>
           <Card class="rounded-lg p-3.5 hover:border-border-strong transition-colors">
-            <span class="block text-sm text-muted-foreground">Last reconciliation</span>
+            <span class="block text-sm text-muted-foreground">Last check</span>
             <strong class="block text-xl font-bold tabular-nums my-1.5">{attention.data!.ecosystem!.last_reconciliation?.status ?? '—'}</strong>
             <small class="block text-sm text-muted-foreground">{observed(attention.data!.ecosystem!.last_reconciliation?.finished_at ?? null)}</small>
           </Card>
@@ -193,7 +193,7 @@ export function TenantAttentionPage() {
         <For each={attention.data?.findings ?? []}>{finding => <div class={finding.severity === 'critical' ? 'rounded-lg border border-destructive/30 bg-destructive/10 p-3.5 my-3 text-sm text-destructive leading-relaxed' : 'rounded-lg border border-warning/30 bg-warning/10 p-3.5 my-3 text-sm text-warning-light leading-relaxed'}>
           <div class="flex items-center justify-between gap-4"><div><strong>{finding.summary}</strong><small class="block text-sm text-muted-foreground">{finding.severity} · {finding.kind} · {finding.entity_label ?? finding.entity_type}</small><Show when={finding.suggested_action}><p class="text-sm text-muted-foreground mt-1 leading-relaxed">{finding.suggested_action}</p></Show></div><StatusBadge status={finding.severity} tone={finding.severity === 'critical' ? 'bad' : finding.severity === 'warning' ? 'warn' : 'muted'} /></div>
         </div>}</For>
-        <Show when={findingsCount() === 0}><div class="p-4 border border-border-subtle rounded-lg bg-surface-1 text-left"><EmptyState label="No reconciliation findings" hint="The reconciliation engine checks for state mismatches between systems. Findings appear here when discrepancies are detected." /></div></Show>
+        <Show when={findingsCount() === 0}><div class="p-4 border border-border-subtle rounded-lg bg-surface-1 text-left"><EmptyState label="Nothing disagrees" hint="The last check found no difference between what this console believes and what the tenant reports. Differences appear here when it finds one." /></div></Show>
       </>}</Show>
     </TabPanel>
 

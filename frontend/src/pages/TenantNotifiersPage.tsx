@@ -102,7 +102,7 @@ export function TenantNotifiersPage() {
   const visibleRoutingItems = () => showAllRouting() ? routingItems() : routingItems().slice(0, MAX_VISIBLE_ROUTING)
 
   return <PageShell>
-    <PageHeader eyebrow="SYSTEM" title="Notification topology" description="Where this tenant's alerts land. Three layers: channels, platform config, and automation routing." />
+    <PageHeader eyebrow="SYSTEM" title="Where alerts go" description="The places this tenant's alerts are delivered — the destinations you own, the ones the platform sets for everybody, and the ones automation routes." />
 
     {/* ── Create form ────────────────────────────────────────────── */}
     <Show when={channels.error}><ErrorCard>{errorMessage(channels.error, 'Channels could not be loaded')}</ErrorCard></Show>
@@ -172,7 +172,7 @@ export function TenantNotifiersPage() {
           </div>
           <Show when={items().length > 0}><small class="text-sm text-muted-foreground">{items().length} configured</small></Show>
         </div>
-        <p class="text-sm text-muted-foreground leading-relaxed">Per-tenant notifier channels. <strong class="text-secondary-foreground">source:</strong> database · <strong class="text-secondary-foreground">owner:</strong> tenant · <strong class="text-secondary-foreground">path:</strong> direct or relay</p>
+        <p class="text-sm text-muted-foreground leading-relaxed">Destinations you added for this tenant. You can edit or remove any of them.</p>
 
         <Show when={items().length === 0} fallback={
           <div class="grid gap-2.5 mt-4">
@@ -231,7 +231,7 @@ export function TenantNotifiersPage() {
           </summary>
 
           <div class="mt-2">
-            <p class="text-sm text-muted-foreground leading-relaxed">Environment-level notification routing. <strong class="text-secondary-foreground">source:</strong> environment · <strong class="text-secondary-foreground">owner:</strong> platform · <strong class="text-secondary-foreground">path:</strong> direct, relay, or workflow</p>
+            <p class="text-sm text-muted-foreground leading-relaxed">Set once for the whole platform, not per tenant. Shown so you know where else an alert lands; changing these is a platform admin job.</p>
             <p class="text-sm text-muted-foreground leading-relaxed mt-2">These are separate from any Discord or n8n you have configured elsewhere — each is read from its own variable in the control plane's deployment environment, and an unset one shows the variable to set.</p>
 
             <div class="mt-4">
@@ -286,7 +286,7 @@ export function TenantNotifiersPage() {
           </summary>
 
           <div class="mt-2">
-            <p class="text-sm text-muted-foreground leading-relaxed">n8n workflow routing with Discord forwarding and mute controls. <strong class="text-secondary-foreground">source:</strong> database · <strong class="text-secondary-foreground">owner:</strong> automation · <strong class="text-secondary-foreground">path:</strong> workflow</p>
+            <p class="text-sm text-muted-foreground leading-relaxed">Automation forwards its own workflow results to Discord. Mute a workflow here to stop its messages without stopping the workflow.</p>
 
             <Show when={routingItems().length === 0}>
               <Card class="p-4 mt-4">

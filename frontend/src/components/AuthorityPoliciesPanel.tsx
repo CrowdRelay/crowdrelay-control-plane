@@ -139,7 +139,7 @@ export function AuthorityPoliciesPanel(props: {
         <KpiCard label="Waiting on you" value={data().needs_you.length} sub="decisions parked" tone={data().needs_you.length > 0 ? 'warn' : 'default'} />
         <KpiCard label="Queued" value={data().queued_actions} sub="about to run" />
         <KpiCard label="Failed today" value={data().failed_24h} sub="in the last 24 hours" />
-        <KpiCard label="Nothing could run them" value={data().executor_failed_24h} sub="no worker available" />
+        <KpiCard label="Nothing could run them" value={data().executor_failed_24h} sub="nothing was running to do it" />
       </div>
       {/* Killswitch / full-enable: one switch, one confirmation.
           Right-aligned, directly above the policy list so the operator's

@@ -231,7 +231,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                       <Show when={decision.tasks.length > 0}>
                         <div class="mt-4">
                           <h4 class="text-sm font-semibold text-foreground m-0 mb-1.5">Dispatched Workers</h4>
-                          <p class="text-sm text-muted-foreground m-0 mb-2.5">Workers dispatched for this plan — each runs an LLM template and emits structured outcomes the intelligence consumes deterministically.</p>
+                          <p class="text-sm text-muted-foreground m-0 mb-2.5">The AI jobs this plan handed out. Each one returns a result the autopilot reads back before it decides anything else.</p>
                           <Table>
                             <TableHeader><TableRow><TableHead>Slot</TableHead><TableHead>Role</TableHead><TableHead>Template</TableHead><TableHead>Status</TableHead><TableHead>Outcome</TableHead><TableHead>Tokens</TableHead><TableHead></TableHead></TableRow></TableHeader>
                             <TableBody>

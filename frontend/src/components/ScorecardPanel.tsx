@@ -162,7 +162,7 @@ export function ScorecardPanel(props: { slug: string }) {
           <Show when={(d().week.unknown ?? 0) > 0}>
             <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Unknown</span>{num(d().week.unknown ?? 0)}<small class="block text-muted-foreground text-sm">outcome not established — excluded from the rate</small></div>
           </Show>
-          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Parked</span>{num(d().week.parked)}<small class="block text-muted-foreground text-sm">no executor available</small></div>
+          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Parked</span>{num(d().week.parked)}<small class="block text-muted-foreground text-sm">nothing was running to do it</small></div>
           <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Awaiting approval</span>{num(d().week.awaiting_approval)}<small class="block text-muted-foreground text-sm">requires operator review</small></div>
         </div>
       </section>

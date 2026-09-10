@@ -280,11 +280,11 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
             </span>
           </Show>
         </div>
-        <p class="mt-1 text-sm text-muted-foreground">Worker runs dispatched by the intelligence. Each workflow is a growth plan: the intelligence decides what to research, draft, or analyse, then dispatches LLM workers to execute.</p>
+        <p class="mt-1 text-sm text-muted-foreground">Each of these is a growth plan the autopilot decided on: what to research, draft or analyse. It then hands the work to an AI worker and records what came back.</p>
         <Show when={workflows.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth workflows unavailable: {errorMessage(workflows.error, 'We couldn\'t reach the growth workflows. Try refreshing.')}</div></Show>
         <Show when={workflows.data && workflows.data!.length > 0} fallback={
           <Show when={workflows.data} fallback={<SkeletonGrid count={3} minCardHeight='100px' />}>
-            <EmptyState label="No worker runs" hint="Worker runs are LLM agent executions dispatched by the intelligence. They appear here once the autopilot starts dispatching." />
+            <EmptyState label="No AI work yet" hint="When the autopilot decides something needs researching, drafting or analysing, it hands the job to an AI worker and the run appears here." />
           </Show>
         }>
           <div class="grid gap-2.5 mt-3">

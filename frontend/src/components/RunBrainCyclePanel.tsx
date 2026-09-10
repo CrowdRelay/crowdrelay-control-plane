@@ -104,18 +104,18 @@ export function RunBrainCyclePanel(props: { slug: string }) {
       <Show when={preview.data}>
         {data => (
           <>
-            <p class="text-muted-foreground">
-              The brain would run <strong>{strategyLabel(data().strategy)}</strong>, considering{' '}
-              {data().templatesConsidered} worker templates. Nothing below has been dispatched yet.
+            <p class="text-sm leading-relaxed text-muted-foreground">
+              The autopilot would run <strong class="text-foreground">{strategyLabel(data().strategy)}</strong>, choosing from{' '}
+              {data().templatesConsidered} kinds of AI job. Nothing below has started — this is what it currently believes.
             </p>
 
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-              <div class="p-3 border border-border rounded-lg bg-card flex flex-col gap-1">
-                <span class="block text-xs text-muted-foreground uppercase tracking-wider">Fans</span>
+              <div class="flex flex-col gap-1 border border-border bg-card p-3">
+                <span class="block text-xs text-muted-foreground">Fans</span>
                 <strong class="block text-xl font-bold tabular-nums text-foreground">{number(data().totalFans)}</strong>
               </div>
-              <div class="p-3 border border-border rounded-lg bg-card flex flex-col gap-1">
-                <span class="block text-xs text-muted-foreground uppercase tracking-wider">Reachable audience</span>
+              <div class="flex flex-col gap-1 border border-border bg-card p-3">
+                <span class="block text-xs text-muted-foreground">Reachable audience</span>
                 <strong class="block text-xl font-bold tabular-nums text-foreground">{number(data().offPlatformAudience)}</strong>
                 <small class="block text-xs text-muted-foreground">+{number(data().offPlatformAudienceThisMonth)} this month</small>
               </div>
@@ -123,8 +123,8 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                   editable where it is displayed rather than hidden in a
                   settings screen. Before this it could only be chosen in the
                   creation wizard and never changed again. */}
-              <div class="p-3 border border-border rounded-lg bg-card flex flex-col gap-1">
-                <label class="block text-xs text-muted-foreground uppercase tracking-wider" for="north-star-select">Goal</label>
+              <div class="flex flex-col gap-1 border border-border bg-card p-3">
+                <label class="block text-xs text-muted-foreground" for="north-star-select">Goal</label>
                 <NativeSelect id="north-star-select"
                   size="sm"
                   class="font-semibold disabled:cursor-progress"
@@ -142,8 +142,8 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                 <strong class="block text-xl font-bold tabular-nums text-foreground">{number(data().northStarCurrent)}</strong>
                 <small class="block text-xs text-muted-foreground">+{number(data().northStarThisMonth)} this month</small>
               </div>
-              <div class="p-3 border border-border rounded-lg bg-card flex flex-col gap-1">
-                <span class="block text-xs text-muted-foreground uppercase tracking-wider">Platforms</span>
+              <div class="flex flex-col gap-1 border border-border bg-card p-3">
+                <span class="block text-xs text-muted-foreground">Platforms</span>
                 <strong class="block text-xl font-bold tabular-nums text-foreground">{data().freshPlatforms} / {data().connectedPlatforms}</strong>
                 <small class="block text-xs text-muted-foreground">fresh / connected</small>
               </div>

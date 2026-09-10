@@ -215,7 +215,7 @@ export function OperationsPanel(props: {
     </Show>
 
     <div class="grid gap-2.5">
-      <div><span class="block text-muted-foreground text-sm">HTTP p95</span><strong class="block my-1.5 text-foreground">{metric(summary.data?.http.p95_ms, ' ms')}</strong><small class="block text-muted-foreground text-sm">p50 {metric(summary.data?.http.p50_ms, ' ms')}</small></div>
+      <div><span class="block text-muted-foreground text-sm">Slowest requests</span><strong class="block my-1.5 text-foreground">{metric(summary.data?.http.p95_ms, ' ms')}</strong><small class="block text-muted-foreground text-sm">typical {metric(summary.data?.http.p50_ms, ' ms')}</small></div>
       <div><span class="block text-muted-foreground text-sm">Outbox pending</span><strong class="block my-1.5 text-foreground">{metric(summary.data?.outbox.pending)}</strong><small class="block text-muted-foreground text-sm">{summary.data ? `${summary.data.outbox.processing} processing` : '—'}</small></div>
       <div><span class="block text-muted-foreground text-sm">Delivery pending</span><strong class="block my-1.5 text-foreground">{metric(summary.data?.deliveries.pending)}</strong><small class="block text-muted-foreground text-sm">{summary.data ? `${summary.data.deliveries.dead} dead` : '—'}</small></div>
       <div><span class="block text-muted-foreground text-sm">Push pending</span><strong class="block my-1.5 text-foreground">{metric(summary.data?.push.pending)}</strong><small class="block text-muted-foreground text-sm">{summary.data ? `${summary.data.push.dead} dead` : '—'}</small></div>
