@@ -34,8 +34,8 @@ const healthLabel = (tenant: TenantSummary) => {
   if (tenant.status === 'parked') return 'parked'
   if (tenant.runtimeHealth === 'healthy') return 'healthy'
   if (tenant.runtimeHealth === 'degraded') return 'degraded'
-  if (tenant.runtimeHealth === 'stale') return 'stale'
-  return 'unknown'
+  if (tenant.runtimeHealth === 'stale') return 'stopped reporting'
+  return 'not reporting'
 }
 
 // Tenant-scoped nav, grouped by the operator's mental model:

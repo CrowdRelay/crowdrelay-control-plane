@@ -11,8 +11,16 @@ export type Tone = 'good' | 'warn' | 'bad' | 'muted'
 export const healthTone = (health: RuntimeHealth): Tone =>
   health === 'healthy' ? 'good' : health === 'degraded' ? 'bad' : health === 'stale' ? 'warn' : 'muted'
 
+/** "unknown" is the enum's word for "this tenant has never sent us a
+ *  heartbeat", and it reads to an operator as "something is wrong and we
+ *  cannot say what". "Not reporting" says which of the two it is, and matches
+ *  the wording the overview counters already use. "Stale" is the same problem
+ *  one step milder: the tenant reported once and then stopped. */
 export const healthLabel = (health: RuntimeHealth): string =>
-  health === 'healthy' ? 'healthy' : health === 'degraded' ? 'degraded' : health === 'stale' ? 'stale' : 'unknown'
+  health === 'healthy' ? 'healthy'
+    : health === 'degraded' ? 'degraded'
+    : health === 'stale' ? 'stopped reporting'
+    : 'not reporting'
 
 export const operationalTone = (summary: OperationsSummary | undefined | null): Tone => {
   if (!summary) return 'muted'
