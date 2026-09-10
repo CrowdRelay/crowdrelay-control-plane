@@ -5,6 +5,7 @@ import { EmptyState } from './EmptyState'
 import { SectionIcon } from './SectionIcon'
 import type { AuditEntry } from '../lib/types'
 import { Card } from './ui/card'
+import { Button } from './ui/button'
 
 // Audit is a section of the tenant Overview read model, not its own request.
 // The subpage refreshes the whole model on one tick, so these rows are patched
@@ -19,9 +20,9 @@ export function TenantAuditPanel(props: { items: AuditEntry[] }) {
     <div class="flex items-center justify-between gap-4 mt-6 mb-3">
       <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">AUDIT</span><h2><SectionIcon name="history" />Recent platform changes</h2></div>
       <Show when={hasMore()}>
-        <button type="button" class="ghost" onClick={() => setExpanded(e => !e)}>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setExpanded(e => !e)}>
           {expanded() ? 'Show less' : `Show all (${props.items.length})`}
-        </button>
+        </Button>
       </Show>
     </div>
     <Show when={props.items.length > 0}>

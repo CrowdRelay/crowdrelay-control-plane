@@ -11,6 +11,8 @@ import { SkeletonRows } from '../components/Skeleton'
 import { confirmAction } from '../components/Dialog'
 import { SectionIcon } from '../components/SectionIcon'
 import { PageShell, PageHeader, ErrorCard, SectionTitle, SectionPanel } from '../components/layout'
+import { Button } from '../components/ui/button'
+import { Card } from '../components/ui/card'
 
 const statusTone = (status: AreaStatus) => status === 'LIVE' ? 'good' : status === 'SCHEDULED' || status === 'DRAFT' ? 'warn' : status === 'ARCHIVED' ? 'muted' : status === 'PAUSED' ? 'bad' : 'muted'
 const formatDate = (value: string) => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString() }
@@ -156,7 +158,7 @@ export function AreaPage() {
     <Show when={mutationError()}><ErrorCard>{errorMessage(mutationError(), 'AREA operation failed')}</ErrorCard></Show>
 
     <Show when={overview.data} fallback={
-      <Show when={overview.isPending} fallback={<ErrorCard>{errorMessage(overview.error, 'AREA management is unavailable. This is not an empty game state.')} <button class="ghost" onClick={()=>overview.refetch()}>Retry</button></ErrorCard>}>
+      <Show when={overview.isPending} fallback={<ErrorCard>{errorMessage(overview.error, 'AREA management is unavailable. This is not an empty game state.')} <Button variant="ghost" size="sm" onClick={()=>overview.refetch()}>Retry</Button></ErrorCard>}>
         <SkeletonRows count={4} />
       </Show>
     }>{o => <>
@@ -168,11 +170,11 @@ export function AreaPage() {
         <div class="metric"><span>Drafts</span><strong>{o().drafts}</strong></div>
         <div class="metric"><span>Paused / ended</span><strong>{o().paused + o().ended}</strong></div>
       </div>
-      <SectionPanel class="area-entitlement-panel"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">ENTITLEMENT</span><h2><SectionIcon name="map-pin" />Tenant AREA</h2><p>Disabling AREA hides the public game but preserves drops, claims and audit history.</p></div><button class={o().entitled ? 'ghost danger-ghost' : ''} disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Disable AREA' : 'Enable AREA'}</button></SectionPanel>
+      <SectionPanel class="area-entitlement-panel"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">ENTITLEMENT</span><h2><SectionIcon name="map-pin" />Tenant AREA</h2><p>Disabling AREA hides the public game but preserves drops, claims and audit history.</p></div><Button variant={o().entitled ? 'destructive-ghost' : 'default'} size="sm" disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Disable AREA' : 'Enable AREA'}</Button></SectionPanel>
     </>}</Show>
 
     <SectionPanel>
-      <SectionTitle eyebrow="LOCATIONS" title="Published state + drafts" icon={<SectionIcon name="map-pin" />} action={<button disabled={!overview.data?.entitled} onClick={() => setCreating(v=>!v)}>+ New location</button>} />
+      <SectionTitle eyebrow="LOCATIONS" title="Published state + drafts" icon={<SectionIcon name="map-pin" />} action={<Button size="sm" disabled={!overview.data?.entitled} onClick={() => setCreating(v=>!v)}>+ New location</Button>} />
       <Show when={creating()}><div class="area-create-card">
         <label>Search city<small>Type to filter the canonical list.</small><input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></label>
         <label>Canonical city<small>Where the drop lives. Missing city? Create one below.</small><select value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></select></label>
@@ -180,7 +182,7 @@ export function AreaPage() {
         {/* The button was enabled without a drop number and the mutation threw
             "Drop number must contain 1–3 digits" only after the click. Same
             rule, checked where the operator can still act on it. */}
-        <div class="form-actions"><button class="ghost" onClick={()=>setCreateCityOpen(v=>!v)}>Create custom city</button><button disabled={createDrop.isPending || !newCityId() || !/^\d{1,3}$/.test(newNumber().trim())} onClick={()=>createDrop.mutate()}>Create draft</button></div>
+        <div class="form-actions"><Button variant="ghost" size="sm" onClick={()=>setCreateCityOpen(v=>!v)}>Create custom city</Button><Button size="sm" disabled={createDrop.isPending || !newCityId() || !/^\d{1,3}$/.test(newNumber().trim())} onClick={()=>createDrop.mutate()}>Create draft</Button></div>
         <Show when={createCityOpen()}><div class="area-custom-city">
           <label>Name<input required value={newCity().name} onInput={e=>setNewCity(v=>({...v,name:e.currentTarget.value}))}/></label>
           <label>Slug<input required value={newCity().slug} onInput={e=>setNewCity(v=>({...v,slug:e.currentTarget.value}))}/></label>
@@ -188,25 +190,25 @@ export function AreaPage() {
           <label>Region<input required value={newCity().region} onInput={e=>setNewCity(v=>({...v,region:e.currentTarget.value}))}/></label>
           <label>Public latitude<input required type="number" step="0.000001" value={newCity().latitude} onInput={e=>setNewCity(v=>({...v,latitude:e.currentTarget.value}))}/></label>
           <label>Public longitude<input required type="number" step="0.000001" value={newCity().longitude} onInput={e=>setNewCity(v=>({...v,longitude:e.currentTarget.value}))}/></label>
-          <button disabled={createCity.isPending} onClick={()=>createCity.mutate()}>Save canonical city</button>
+          <Button size="sm" disabled={createCity.isPending} onClick={()=>createCity.mutate()}>Save canonical city</Button>
         </div></Show>
       </div></Show>
       <div class="area-drop-table">
         <div class="area-drop-head"><span>#</span><span>City</span><span>Status</span><span>Claims</span><span>Window</span><span/></div>
         <For each={drops.data?.items ?? []}>{item => <div class="area-drop-row">
-          <code>{item.number}</code><div><strong>{item.city}</strong><small>{item.id} · rev {item.revision}{item.hasDraft ? ' · draft' : ''}</small></div><StatusBadge status={item.status} tone={statusTone(item.status)} /><span>{item.claimCount} / {item.maxClaims}</span><small>{formatDate(item.startsAt)}<br/>{formatDate(item.endsAt)}</small><button class="ghost" onClick={()=>{setSelectedId(item.id);setEditorStep('city')}}>Edit</button>
+          <code>{item.number}</code><div><strong>{item.city}</strong><small>{item.id} · rev {item.revision}{item.hasDraft ? ' · draft' : ''}</small></div><StatusBadge status={item.status} tone={statusTone(item.status)} /><span>{item.claimCount} / {item.maxClaims}</span><small>{formatDate(item.startsAt)}<br/>{formatDate(item.endsAt)}</small><Button variant="ghost" size="sm" onClick={()=>{setSelectedId(item.id);setEditorStep('city')}}>Edit</Button>
         </div>}</For>
-        <Show when={!drops.isPending && (drops.data?.items.length ?? 0)===0}><div class="inherit-card"><EmptyState label="No AREA locations" hint="AREA locations define geographic targeting for fan discovery. Create the first location draft above." /></div></Show>
+        <Show when={!drops.isPending && (drops.data?.items.length ?? 0)===0}><Card class="p-4"><EmptyState label="No AREA locations" hint="AREA locations define geographic targeting for fan discovery. Create the first location draft above." /></Card></Show>
       </div>
     </SectionPanel>
 
     <Show when={selectedId()}><SectionPanel class="area-editor">
-      <SectionTitle eyebrow="PRIVATE EDITOR" title={selectedId()!} action={<button class="ghost" onClick={closeEditor}>Close & purge coordinates</button>} />
+      <SectionTitle eyebrow="PRIVATE EDITOR" title={selectedId()!} action={<Button variant="ghost" size="sm" onClick={closeEditor}>Close & purge coordinates</Button>} />
       <p class="text-sm text-muted-foreground -mt-1 mb-4">Single-drop response only · <code>Cache-Control: private, no-store</code></p>
       <Show when={detail.data && draft()} fallback={<SkeletonRows count={4} />}>{_ready => <>
-        <div class="area-step-tabs"><For each={['city','location','content','schedule','review'] as const}>{step=><button class={editorStep()===step?'active ghost':'ghost'} onClick={()=>setEditorStep(step)}>{step}</button>}</For></div>
+        <div class="area-step-tabs"><For each={['city','location','content','schedule','review'] as const}>{step=><Button variant="ghost" size="sm" class={editorStep()===step?'active':''} onClick={()=>setEditorStep(step)}>{step}</Button>}</For></div>
 
-        <Show when={editorStep()==='city'}><p class="agent-section-intro">Which city this drop belongs to and where it sits in the list fans see. Nothing here is secret — the exact spot is set on the next step.</p>
+        <Show when={editorStep()==='city'}><p class="text-sm text-muted-foreground leading-relaxed mt-1">Which city this drop belongs to and where it sits in the list fans see. Nothing here is secret — the exact spot is set on the next step.</p>
         <div class="area-form-grid">
           <label>Search canonical city<small>Filters the list below. Cities are shared across tenants; add one only if it is genuinely missing.</small><input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder={detail.data!.summary.city}/></label>
           <label>Canonical city<select value={draft()!.cityId} onChange={e=>{const id=e.currentTarget.value;const city=cities.data?.items.find(c=>c.id===id);setDraft(d=>d?({...d,cityId:id,approximateLat:city?.latitude ?? d.approximateLat,approximateLng:city?.longitude ?? d.approximateLng}):d)}}><Show when={!(cities.data?.items ?? []).some(city=>city.id===draft()!.cityId)}><option value={draft()!.cityId}>{detail.data!.summary.city} · current</option></Show><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name} · {city.countryCode}</option>}</For></select></label>
@@ -219,7 +221,7 @@ export function AreaPage() {
         <Show when={editorStep()==='location'}><div class="area-location-editor">
           <div class="warning-card"><strong>Secret location.</strong> The canvas below is rendered locally. It does not load map tiles or transmit exact coordinates to an external mapping provider.</div>
           <LocationCanvas publicLat={draft()!.approximateLat} publicLng={draft()!.approximateLng} exactLat={draft()!.exactLat} exactLng={draft()!.exactLng} radiusMeters={draft()!.radiusMeters} onPick={(lat,lng)=>mutateDraft({exactLat:lat,exactLng:lng})}/>
-          <p class="agent-section-intro">Two coordinates, two audiences. The <strong>public</strong> pair is what the app shows everyone — keep it at neighbourhood level. The <strong>exact</strong> pair never leaves this editor; it is only used server-side to decide whether a fan standing there is close enough to claim. Click the canvas to set it.</p>
+          <p class="text-sm text-muted-foreground leading-relaxed mt-1">Two coordinates, two audiences. The <strong>public</strong> pair is what the app shows everyone — keep it at neighbourhood level. The <strong>exact</strong> pair never leaves this editor; it is only used server-side to decide whether a fan standing there is close enough to claim. Click the canvas to set it.</p>
           <div class="area-form-grid">
             <label>Public latitude<small>Shown to fans. Round it — this is the hint, not the spot.</small><input required type="number" step="0.000001" value={draft()!.approximateLat} onInput={e=>mutateDraft({approximateLat:finiteInput(e.currentTarget.value,draft()!.approximateLat)})}/></label>
             <label>Public longitude<small>Shown to fans, same rounding.</small><input required type="number" step="0.000001" value={draft()!.approximateLng} onInput={e=>mutateDraft({approximateLng:finiteInput(e.currentTarget.value,draft()!.approximateLng)})}/></label>
@@ -251,7 +253,7 @@ export function AreaPage() {
             <For each={hardIssues()}>{issue=><ErrorCard><strong>{issue.code}</strong><p>{issue.message}</p></ErrorCard>}</For>
             <For each={confirmationIssues()}>{issue=><label class="area-confirm-row"><input type="checkbox" checked={confirmations().includes(issue.code)} onChange={()=>toggleConfirmation(issue.code)}/><span><strong>{issue.code}</strong><small>{issue.message}</small></span></label>}</For>
           </>}</Show>
-          <div class="form-actions"><button class="ghost" disabled={validate.isPending||save.isPending} onClick={()=>validate.mutate()}>Save + validate</button><button disabled={!validation()?.valid || confirmationIssues().some(issue=>!confirmations().includes(issue.code)) || publish.isPending} onClick={()=>publish.mutate()}>Publish revision</button></div>
+          <div class="form-actions"><Button variant="ghost" size="sm" disabled={validate.isPending||save.isPending} onClick={()=>validate.mutate()}>Save + validate</Button><Button size="sm" disabled={!validation()?.valid || confirmationIssues().some(issue=>!confirmations().includes(issue.code)) || publish.isPending} onClick={()=>publish.mutate()}>Publish revision</Button></div>
         </div></Show>
 
         <Show when={duplicateOpen()}><div class="area-create-card area-duplicate-card">
@@ -259,12 +261,12 @@ export function AreaPage() {
           <label>Search destination city<input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Search canonical cities"/></label>
           <label>Destination city<select value={duplicateCityId()} onChange={e=>setDuplicateCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''}</option>}</For></select></label>
           <label>New number<input inputmode="numeric" maxlength="3" value={duplicateNumber()} onInput={e=>setDuplicateNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></label>
-          <div class="form-actions"><button class="ghost" onClick={()=>setDuplicateOpen(false)}>Cancel</button><button disabled={duplicate.isPending || !duplicateCityId() || !duplicateNumber()} onClick={()=>duplicate.mutate()}>Create duplicate draft</button></div>
+          <div class="form-actions"><Button variant="ghost" size="sm" onClick={()=>setDuplicateOpen(false)}>Cancel</Button><Button size="sm" disabled={duplicate.isPending || !duplicateCityId() || !duplicateNumber()} onClick={()=>duplicate.mutate()}>Create duplicate draft</Button></div>
         </div></Show>
 
         <div class="area-editor-footer">
-          <div class="form-actions"><button class="ghost" disabled={allPending()} onClick={()=>save.mutate()}>Save draft</button><Show when={detail.data!.summary.hasDraft && detail.data!.summary.status!=='DRAFT'}><button class="ghost" disabled={discard.isPending} onClick={()=>discard.mutate()}>Discard draft</button></Show><Show when={detail.data!.summary.status!=='DRAFT' && detail.data!.summary.status!=='ARCHIVED'}><button class="ghost" disabled={allPending()} onClick={()=>setDuplicateOpen(v=>!v)}>Duplicate</button></Show></div>
-          <div class="form-actions"><Show when={detail.data!.summary.status==='LIVE'||detail.data!.summary.status==='SCHEDULED'}><button class="ghost danger-ghost" disabled={allPending()} onClick={()=>lifecycle.mutate('pause')}>Pause</button></Show><Show when={detail.data!.summary.status==='PAUSED'}><button class="ghost" disabled={allPending()} onClick={()=>lifecycle.mutate('resume')}>Resume</button></Show><Show when={detail.data!.summary.status!=='ARCHIVED' && detail.data!.summary.status!=='DRAFT'}><button class="ghost danger-ghost" disabled={allPending()} onClick={async()=>{
+          <div class="form-actions"><Button variant="ghost" size="sm" disabled={allPending()} onClick={()=>save.mutate()}>Save draft</Button><Show when={detail.data!.summary.hasDraft && detail.data!.summary.status!=='DRAFT'}><Button variant="ghost" size="sm" disabled={discard.isPending} onClick={()=>discard.mutate()}>Discard draft</Button></Show><Show when={detail.data!.summary.status!=='DRAFT' && detail.data!.summary.status!=='ARCHIVED'}><Button variant="ghost" size="sm" disabled={allPending()} onClick={()=>setDuplicateOpen(v=>!v)}>Duplicate</Button></Show></div>
+          <div class="form-actions"><Show when={detail.data!.summary.status==='LIVE'||detail.data!.summary.status==='SCHEDULED'}><Button variant="destructive-ghost" size="sm" disabled={allPending()} onClick={()=>lifecycle.mutate('pause')}>Pause</Button></Show><Show when={detail.data!.summary.status==='PAUSED'}><Button variant="ghost" size="sm" disabled={allPending()} onClick={()=>lifecycle.mutate('resume')}>Resume</Button></Show><Show when={detail.data!.summary.status!=='ARCHIVED' && detail.data!.summary.status!=='DRAFT'}><Button variant="destructive-ghost" size="sm" disabled={allPending()} onClick={async()=>{
             const ok = await confirmAction({
               title: 'Archive this AREA location?',
               body: 'Claims and history are preserved. The location stops accepting new claims.',
@@ -272,7 +274,7 @@ export function AreaPage() {
               destructive: true,
             })
             if (ok) lifecycle.mutate('archive')
-          }}>Archive</button></Show><Show when={detail.data!.summary.status==='DRAFT'}><button class="ghost danger-ghost" disabled={allPending()} onClick={async()=>{
+          }}>Archive</Button></Show><Show when={detail.data!.summary.status==='DRAFT'}><Button variant="destructive-ghost" size="sm" disabled={allPending()} onClick={async()=>{
             const ok = await confirmAction({
               title: 'Delete this never-published draft?',
               body: 'The draft has never been live, so nothing downstream is affected. This cannot be undone.',
@@ -280,7 +282,7 @@ export function AreaPage() {
               destructive: true,
             })
             if (ok) lifecycle.mutate('delete')
-          }}>Delete draft</button></Show></div>
+          }}>Delete draft</Button></Show></div>
         </div>
       </>}</Show>
     </SectionPanel></Show>

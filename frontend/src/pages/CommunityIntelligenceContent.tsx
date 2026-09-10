@@ -6,6 +6,7 @@ import { SkeletonRows } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, SectionTitle, ErrorCard } from '../components/layout'
 import { toast } from '../lib/toast'
 import { errorMessage } from '../lib/format'
+import { Button } from '../components/ui/button'
 
 /**
  * Community Intelligence content — the Communities tab inside the Audience page.
@@ -312,9 +313,9 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
               <input value={url()} onInput={event => setUrl(event.currentTarget.value)} required type="url" maxlength={512} />
             </label>
             <div class="form-actions right">
-              <button class="primary" type="submit" disabled={saving() || !name().trim() || !url().trim()}>
+              <Button size="sm" type="submit" disabled={saving() || !name().trim() || !url().trim()}>
                 {saving() ? 'Registering…' : 'Register'}
-              </button>
+              </Button>
             </div>
           </form>
         </Show>
@@ -339,9 +340,9 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
               />
             </label>
             <div class="form-actions right">
-              <button class="primary" type="submit" disabled={saving() || !importText().trim()}>
+              <Button size="sm" type="submit" disabled={saving() || !importText().trim()}>
                 {saving() ? 'Importing…' : 'Import'}
-              </button>
+              </Button>
             </div>
           </form>
         </Show>
@@ -352,12 +353,12 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
 
         {/* ── Community intelligence ── */}
         <div class="community-actions-row">
-          <button class="ghost" onClick={() => { setImporting(false); setAdding(value => !value) }}>
+          <Button variant="ghost" size="sm" onClick={() => { setImporting(false); setAdding(value => !value) }}>
             {adding() ? 'Cancel' : 'Add a community'}
-          </button>
-          <button class="ghost" onClick={() => { setAdding(false); setImporting(value => !value) }}>
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => { setAdding(false); setImporting(value => !value) }}>
             {importing() ? 'Cancel' : 'Import a list'}
-          </button>
+          </Button>
         </div>
 
         <Show when={communities.error}>
@@ -458,7 +459,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                               <a class="ghost" href={item.url} target="_blank" rel="noreferrer noopener">
                                 Open<span class="external-mark" aria-hidden="true">↗</span>
                               </a>
-                              <button class="ghost draft-intro" onClick={() => loadDraft(item.placeId)}>Draft intro</button>
+                              <Button variant="ghost" size="sm" class="draft-intro" onClick={() => loadDraft(item.placeId)}>Draft intro</Button>
                               <select
                                 class="community-state-select"
                                 value={item.membershipState}
@@ -468,7 +469,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                                   {(s) => <option value={s}>{MEMBERSHIP_LABEL[s]}</option>}
                                 </For>
                               </select>
-                              <button class="ghost" onClick={() => viewObservations(item.placeId)}>Observations</button>
+                              <Button variant="ghost" size="sm" onClick={() => viewObservations(item.placeId)}>Observations</Button>
                             </footer>
 
                             <Show when={draftFor() === item.placeId}>
@@ -486,9 +487,9 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                                     </p>
                                   </Show>
                                   <textarea class="community-draft-text" rows={10} readonly>{draft.data!.draft}</textarea>
-                                  <button class="ghost" onClick={() => navigator.clipboard?.writeText(draft.data!.draft)}>
+                                  <Button variant="ghost" size="sm" onClick={() => navigator.clipboard?.writeText(draft.data!.draft)}>
                                     Copy
-                                  </button>
+                                  </Button>
                                 </Show>
                               </div>
                             </Show>
@@ -517,7 +518,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
         </Show>
 
         <Show when={selectedPlaceId()}>
-          <SectionTitle eyebrow="COMMUNITY" title={selectedCommunity()?.name ?? 'Community'} action={<button class="ghost" onClick={() => { setSelectedPlaceId(null); switchTab('communities') }}>Back to communities</button>} />
+          <SectionTitle eyebrow="COMMUNITY" title={selectedCommunity()?.name ?? 'Community'} action={<Button variant="ghost" size="sm" onClick={() => { setSelectedPlaceId(null); switchTab('communities') }}>Back to communities</Button>} />
 
           <h3>Observations</h3>
           <Show when={detail.isPending}><SkeletonRows /></Show>

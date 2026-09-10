@@ -3,12 +3,14 @@ import { api } from '../lib/api'
 import type { FanCard, FanDetail, FanJourneyEntry } from '../lib/types'
 import { FanDetailDrawer } from './FanDetailDrawer'
 import { EmptyState } from './EmptyState'
+import { Card } from './ui/card'
+import { Badge } from './ui/badge'
 
-const fanStatusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
-  status === 'active' ? 'good' :
-  status === 'pending' ? 'warn' :
+const fanStatusTone = (status: string): 'success' | 'warning' | 'destructive' | 'muted' =>
+  status === 'active' ? 'success' :
+  status === 'pending' ? 'warning' :
   status === 'unsubscribed' || status === 'suppressed' ? 'muted' :
-  status === 'bounced' || status === 'invalid' ? 'bad' : 'muted'
+  status === 'bounced' || status === 'invalid' ? 'destructive' : 'muted'
 
 const formatDate = (iso: string | null) => {
   if (!iso) return '—'
@@ -56,8 +58,8 @@ export function FanTablePanel(props: {
     }
   }
 
-  return <div class="agent-section">
-    <div class="agent-section-head">
+  return <Card class="p-4">
+    <div class="flex items-center justify-between gap-4">
       <h3>Fan list</h3>
       <span class="text-muted-foreground">{filtered().length} fans</span>
     </div>
@@ -88,7 +90,7 @@ export function FanTablePanel(props: {
               <tr class="fan-row" onClick={() => openFan(fan)}>
                 <td>{fan.display_name ?? '—'}</td>
                 <td class="text-muted-foreground">{fan.email}</td>
-                <td><span class={`badge tone-${fanStatusTone(fan.status)}`}>{fan.status}</span></td>
+                <td><Badge variant={fanStatusTone(fan.status)}>{fan.status}</Badge></td>
                 <td><span class="text-muted-foreground">{fan.activation_state}</span></td>
                 <td>{fan.qualified_referrals}</td>
                 <td class="text-muted-foreground">{formatDate(fan.created_at)}</td>
@@ -105,5 +107,5 @@ export function FanTablePanel(props: {
       error={detailError()}
       onClose={() => setSelectedFan(null)}
     />
-  </div>
+  </Card>
 }

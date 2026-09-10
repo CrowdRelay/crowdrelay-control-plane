@@ -410,8 +410,8 @@ export function FanSourcesPanel(props: {
     </Show>
 
     {/* Platform connections — OAuth-based fanbase sources */}
-    <div class="agent-section">
-      <div class="agent-section-head">
+    <Card class="p-4">
+      <div class="flex items-center justify-between gap-4">
         <h3>Platform connections</h3>
         <Show when={connections.data && connections.data!.length > 0}>
           <span class="agent-connection-summary">
@@ -420,7 +420,7 @@ export function FanSourcesPanel(props: {
           </span>
         </Show>
       </div>
-      <p class="agent-section-intro">Connected audience and music platforms. Each connection syncs follower and engagement metrics on the growth schedule. Disconnect to revoke access.</p>
+      <p class="text-sm text-muted-foreground leading-relaxed mt-1">Connected audience and music platforms. Each connection syncs follower and engagement metrics on the growth schedule. Disconnect to revoke access.</p>
       <Show when={connections.error}><ErrorCard>Fan source connections unavailable: {errorMessage(connections.error, 'Service unreachable')}</ErrorCard></Show>
       <Show when={!connections.isFetching} fallback={<SkeletonRows count={3} />}>
       <div class="agent-providers">
@@ -631,10 +631,10 @@ export function FanSourcesPanel(props: {
         <Show when={verificationNotice()}><div class="notice-card" role="status">{verificationNotice()}</div></Show>
       </Show>
       </Show>
-    </div>
+    </Card>
 
     <Show when={creating}>
-      <p class="agent-section-intro" style={{ 'margin-top': '20px' }}>A source is one place fans arrive from. Naming it well matters — the name is what every ingestion row, attribution report and audit entry refers back to.</p>
+      <p class="text-sm text-muted-foreground leading-relaxed mt-1" style={{ 'margin-top': '20px' }}>A source is one place fans arrive from. Naming it well matters — the name is what every ingestion row, attribution report and audit entry refers back to.</p>
       <div class="form-grid">
         <label>
           <span>Name</span>

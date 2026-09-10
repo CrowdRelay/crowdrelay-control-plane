@@ -113,7 +113,7 @@ export function CollapsiblePanel(props: {
 
 export function PageShell(props: { children: JSX.Element; class?: string }) {
   return (
-    <section class={cn('max-w-[1600px] px-4 md:px-6 py-6 pb-24 overflow-hidden', props.class)}>
+    <section class={cn('px-4 md:px-6 py-6 pb-24 overflow-hidden space-y-6', props.class)}>
       {props.children}
     </section>
   )

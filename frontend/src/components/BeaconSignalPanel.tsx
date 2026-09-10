@@ -6,13 +6,15 @@ import { EmptyState } from './EmptyState'
 import { SkeletonBlock } from './Skeleton'
 import { TabBar, TabPanel, useTabPanels, KpiStrip, KpiCard, ErrorCard } from './layout'
 import { cn } from '../lib/cn'
+import { Card } from './ui/card'
+import { Badge } from './ui/badge'
 
-const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
+const statusTone = (status: string): 'success' | 'warning' | 'destructive' | 'muted' => {
   switch (status) {
-    case 'active': return 'good'
-    case 'invited': return 'good'
-    case 'paused': return 'warn'
-    case 'revoked': return 'bad'
+    case 'active': return 'success'
+    case 'invited': return 'success'
+    case 'paused': return 'warning'
+    case 'revoked': return 'destructive'
     default: return 'muted'
   }
 }
@@ -40,14 +42,14 @@ export function BeaconSignalPanel(props: { slug: string }) {
     staleTime: 10_000,
   }))
 
-  return <div class="agent-section">
-    <div class="agent-section-head">
+  return <Card class="p-4">
+    <div class="flex items-center justify-between gap-4">
       <h3>Beacon signal network</h3>
       <Show when={dashboard.data}>
         <span class="text-muted-foreground">{dashboard.data!.total} beacons · {dashboard.data!.active} active</span>
       </Show>
     </div>
-    <p class="agent-section-intro">Press and industry relationships. Beacons are the people the agent is talking to — journalists, promoters, superfans. The network shows discovery runs and invite jobs.</p>
+    <p class="text-sm text-muted-foreground leading-relaxed mt-1">Press and industry relationships. Beacons are the people the agent is talking to — journalists, promoters, superfans. The network shows discovery runs and invite jobs.</p>
 
     <Show when={dashboard.error}>
       <ErrorCard>Beacon signal dashboard unavailable</ErrorCard>
@@ -97,7 +99,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
                     <td><strong>{p.displayName}</strong>{p.contactEmail ? <><br /><span class="text-muted-foreground">{p.contactEmail}</span></> : null}</td>
                     <td>{p.beaconKind}</td>
                     <td>{p.city ?? '—'}</td>
-                    <td><span class={`badge tone-${statusTone(p.status)}`}>{p.status}</span></td>
+                    <td><Badge variant={statusTone(p.status)}>{p.status}</Badge></td>
                     <td>{p.inviteCount}</td>
                     <td>{p.openPressRequests}</td>
                     <td>{p.coverageCount}</td>
@@ -207,7 +209,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
                 <tbody>
                   <For each={network.data!.inviteJobs}>{(j) => (
                     <tr>
-                      <td><span class={`badge tone-${j.status === 'reported' ? 'good' : 'muted'}`}>{j.status}</span></td>
+                      <td><Badge variant={j.status === 'reported' ? 'success' : 'muted'}>{j.status}</Badge></td>
                       <td>{j.beaconCount}</td>
                       <td>{j.radiusKm}km</td>
                       <td>{j.exchangedCount}</td>
@@ -222,5 +224,5 @@ export function BeaconSignalPanel(props: { slug: string }) {
         </Show>
       </TabPanel>
     </Show>
-  </div>
+  </Card>
 }

@@ -11,6 +11,8 @@ import { AIUsagePanel } from './AIUsagePanel'
 import { IntelligenceTransparencyPanel } from './IntelligenceTransparencyPanel'
 import { EmptyState } from './EmptyState'
 import { SkeletonGrid, SkeletonRows } from './Skeleton'
+import { Button } from './ui/button'
+import { Card } from './ui/card'
 import type { AgentTaskResult, TaskSuggestion, AgentOutcome } from '../lib/types'
 
 // --- Ant icon (agent service mascot) ---
@@ -273,11 +275,11 @@ export function AgentPanel(props: { slug: string }) {
       {/* Autopilot intelligence → agent suggestions — the bridge between operations data and LLM execution */}
       <Show when={tasksOverview.data?.suggestions && '__error' in tasksOverview.data!.suggestions}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Agent suggestions unavailable: {errorMessage(tasksOverview.error, 'Service unreachable')}</div></Show>
       <Show when={suggestions().length > 0}>
-        <div class="agent-section">
-          <div class="agent-section-head">
+        <Card class="p-4">
+          <div class="flex items-center justify-between gap-4">
             <h3><IntelligenceIcon size={18} /> From the Autopilot Intelligence</h3>
           </div>
-          <p class="agent-section-intro">Data-driven task suggestions based on your events, fan growth, and campaign performance. Click to pre-fill and run.</p>
+          <p class="text-sm text-muted-foreground leading-relaxed mt-1">Data-driven task suggestions based on your events, fan growth, and campaign performance. Click to pre-fill and run.</p>
           <div class="agent-suggestions">
             <For each={suggestions().slice(0, 4)}>
               {(s) => (
@@ -292,16 +294,16 @@ export function AgentPanel(props: { slug: string }) {
               )}
             </For>
           </div>
-        </div>
+        </Card>
       </Show>
 
       {/* Task templates and execution */}
-      <div class="agent-section">
-        <div class="agent-section-head">
+      <Card class="p-4">
+        <div class="flex items-center justify-between gap-4">
           <h3>Agent tasks</h3>
           <Show when={templates().length > 0}><span class="text-muted-foreground">{templates().length} templates</span></Show>
         </div>
-        <p class="agent-section-intro">A template is a pre-written job — research, drafting, analysis — with the prompt scaffolding already in place. Pick one, choose a model, describe the specific work in your own words, and run it. Results appear under Recent tasks, usually within a minute.</p>
+        <p class="text-sm text-muted-foreground leading-relaxed mt-1">A template is a pre-written job — research, drafting, analysis — with the prompt scaffolding already in place. Pick one, choose a model, describe the specific work in your own words, and run it. Results appear under Recent tasks, usually within a minute.</p>
         <Show when={tasksOverview.data} fallback={<SkeletonGrid count={4} minCardHeight='120px' />}>
           <div class="agent-template-grid">
             <For each={templates()}>
@@ -325,16 +327,16 @@ export function AgentPanel(props: { slug: string }) {
             </For>
           </div>
         </Show>
-      </div>
+      </Card>
 
 
       <Show when={selectedTemplate()}>
-        <div class="agent-section">
-          <div class="agent-section-head">
+        <Card class="p-4">
+          <div class="flex items-center justify-between gap-4">
             <h3>Run: {templates().find(t => t.id === selectedTemplate())?.name ?? 'task'}</h3>
             <button class="agent-btn" onClick={() => setSelectedTemplate(null)}>Choose another template</button>
           </div>
-          <p class="agent-section-intro">Free models cost nothing and are always available; paid models bill against the AI budget on the Usage tab. The prompt is the only thing the template does not already know — name the show, the city, the audience, the deadline.</p>
+          <p class="text-sm text-muted-foreground leading-relaxed mt-1">Free models cost nothing and are always available; paid models bill against the AI budget on the Usage tab. The prompt is the only thing the template does not already know — name the show, the city, the audience, the deadline.</p>
           <label class="agent-field">
             <span>Model</span>
             <select value={selectedModel()} onChange={(e) => setSelectedModel(e.currentTarget.value)}>
@@ -369,12 +371,12 @@ export function AgentPanel(props: { slug: string }) {
               <span class="agent-error">{error()}</span>
             </Show>
           </div>
-        </div>
+        </Card>
       </Show>
 
       {/* Schedules — recurring agent tasks */}
-      <div class="agent-section">
-        <div class="agent-section-head">
+      <Card class="p-4">
+        <div class="flex items-center justify-between gap-4">
           <h3>Schedules</h3>
           <Show when={!creatingSchedule()}>
             <button class="agent-btn" onClick={() => { setCreatingSchedule(true); setError(null) }}>
@@ -382,7 +384,7 @@ export function AgentPanel(props: { slug: string }) {
             </button>
           </Show>
         </div>
-        <p class="agent-section-intro">Recurring agent tasks run automatically on the configured interval. Each run is a normal task — results land in Recent Tasks and structured outcomes flow to the opportunity board.</p>
+        <p class="text-sm text-muted-foreground leading-relaxed mt-1">Recurring agent tasks run automatically on the configured interval. Each run is a normal task — results land in Recent Tasks and structured outcomes flow to the opportunity board.</p>
         <Show when={creatingSchedule()}>
           <div class="agent-schedule-form">
             <label class="agent-field">
@@ -428,14 +430,14 @@ export function AgentPanel(props: { slug: string }) {
         <Show when={schedules().length === 0}>
           <EmptyState label="No schedules configured" hint="Schedules define when the intelligence dispatches worker agents. Create a schedule to automate intelligence gathering." />
         </Show>
-      </div>
+      </Card>
 
-      <div class="agent-section">
-        <div class="agent-section-head">
+      <Card class="p-4">
+        <div class="flex items-center justify-between gap-4">
           <h3>Recent tasks</h3>
           <Show when={tasks().length > 0}><span class="text-muted-foreground">last {Math.min(tasks().length, 10)}</span></Show>
         </div>
-        <p class="agent-section-intro">Every run, whether started here or by a schedule. <strong>Queued</strong> and <strong>running</strong> refresh on their own; <strong>completed</strong> opens the full output with a copy button. A failed run charges nothing — hover it for the reason.</p>
+        <p class="text-sm text-muted-foreground leading-relaxed mt-1">Every run, whether started here or by a schedule. <strong>Queued</strong> and <strong>running</strong> refresh on their own; <strong>completed</strong> opens the full output with a copy button. A failed run charges nothing — hover it for the reason.</p>
         <Show when={tasksOverview.data} fallback={
           <Show when={tasksOverview.isFetching} fallback={<EmptyState label="No tasks yet" hint="Tasks are individual worker runs. They appear here once the intelligence or a schedule dispatches them." />}>
             <SkeletonRows count={4} />
@@ -471,7 +473,7 @@ export function AgentPanel(props: { slug: string }) {
             </tbody>
           </table>
         </Show>
-      </div>
+      </Card>
       </TabPanel>
 
       <Dialog

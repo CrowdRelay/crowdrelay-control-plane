@@ -12,7 +12,10 @@ import { EmptyState } from '../components/EmptyState'
 import { SkeletonNotifiersPage, SkeletonSection } from '../components/Skeleton'
 import { confirmAction } from '../components/Dialog'
 import { Spinner } from '../components/Spinner'
-import { PageShell, PageHeader, ErrorCard, SectionPanel, SectionTitle } from '../components/layout'
+import { PageShell, PageHeader, ErrorCard, SectionPanel } from '../components/layout'
+import { Card } from '../components/ui/card'
+import { Button } from '../components/ui/button'
+import { Badge } from '../components/ui/badge'
 
 const kindLabel = (k: NotifierChannel['kind']) => k === 'discord' ? 'Discord app' : k === 'webhook' ? 'Webhook' : 'Email (relay)'
 const evLabel = (e: string) => NOTIFIER_EVENT_LABELS[e as NotifierEvent] ?? e.replaceAll('.', ' ')
@@ -26,21 +29,6 @@ const platformTypeLabel = (t: string) => {
   }
 }
 
-const provenanceBadge = (source: string, owner: string) =>
-  <span class="provenance-badge"><small class="text-muted-foreground">{source}</small> · <small class="text-muted-foreground">{owner}</small></span>
-
-
-// The environment variable behind each platform notifier.
-//
-// "not configured" with no variable name is a dead end: it reports a fact and
-// gives the operator nowhere to go. Worse, these are easy to believe are set —
-// Discord and n8n are both configured elsewhere in this system, so the panel
-// reads as broken rather than as an unset variable.
-//
-// They are interpolated by compose from `.env` in the deployment directory.
-// A variable that is absent there becomes an empty string via `${VAR:-}` and
-// silently overrides anything an env_file provides, which is exactly how these
-// three ended up empty while a file on the same server held real values.
 const PLATFORM_ENV_VAR: Record<string, string> = {
   discord_automation_webhook: 'CONTROL_PLANE_DISCORD_AUTOMATION_WEBHOOK_URL',
   email_relay: 'CONTROL_PLANE_NOTIFY_EMAIL_RELAY_URL',
@@ -51,14 +39,8 @@ export function TenantNotifiersPage() {
   const params = useParams({ from: '/tenants/$slug/notifiers' })
   const slug = () => params().slug
   const qc = useQueryClient()
-  // One request for the whole topology. This was four independent queries,
-  // each with its own loading and error state, so the page assembled itself
-  // in front of the operator and any one failure left a hole in a picture
-  // that only means anything whole.
   const overview = useQuery(() => ({ queryKey: ['notifiers-overview', slug()], queryFn: () => api.notifiersOverview(slug()), refetchOnWindowFocus: false, staleTime: 20_000 }))
 
-  // The panels below still read four names; each now projects one section of
-  // the single response, including that section's own error.
   const section = <T,>(pick: (o: NotifiersOverview) => { error?: string } | undefined, take: (o: NotifiersOverview) => T | undefined) => ({
     get data() { const o = overview.data; return o && !pick(o)?.error ? take(o) : undefined },
     get error() { const o = overview.data; return overview.error ?? (o && pick(o)?.error ? new Error(pick(o)!.error) : undefined) },
@@ -79,8 +61,6 @@ export function TenantNotifiersPage() {
   const toggleEvent = (e: NotifierEvent) => setEvents(c => c.includes(e) ? c.filter(i => i !== e) : [...c, e])
   const targetLabel = () => kind() === 'email_relay' ? 'Recipient email' : 'Webhook URL'
   const targetPh = () => kind() === 'discord' ? 'https://discord.com/api/webhooks/…' : kind() === 'webhook' ? 'https://ops.example.com/hooks/crowdrelay' : 'alerts@future-metal.example'
-  // A three-option select and an empty URL field say nothing about where the
-  // value comes from. Each option carries what it delivers and where to get it.
   const typeHint = () => kind() === 'discord'
     ? 'Posts a formatted message into one Discord channel. Fastest to set up and the usual choice for a crew channel.'
     : kind() === 'webhook'
@@ -120,134 +100,278 @@ export function TenantNotifiersPage() {
   return <PageShell>
     <PageHeader eyebrow="SYSTEM" title="Notification topology" description="Where this tenant's alerts land and how they get there. Three layers: tenant channels, platform config, and automation routing. Delivery is best-effort with bounded retries; endpoints belong to your own infrastructure." />
 
-    {/* ── TENANT / VIRYA ─────────────────────────────────────────── */}
+    {/* ── Create form ────────────────────────────────────────────── */}
     <Show when={channels.error}><ErrorCard>{errorMessage(channels.error, 'Channels could not be loaded')}</ErrorCard></Show>
     <Show when={!channels.error && !channels.data}><SkeletonNotifiersPage /></Show>
 
-    {/* ── Create form — first, so adding a channel is the first action ── */}
-    <form class="tenant-create-form" onSubmit={(e) => { e.preventDefault(); create.mutate() }}>
-      <div class="form-section-head"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">NEW CHANNEL</span><h2><SectionIcon name="bell" /> Add a destination</h2></div></div>
-      <p class="agent-section-intro">Adds one place this tenant's alerts are delivered to. Send a test straight after saving — a wrong URL is accepted here and only fails at delivery time.</p>
-      <div class="form-grid">
-        <label>
-          <span>Type</span>
-          <select value={kind()} onChange={(e) => { setKind(e.currentTarget.value as NotifierChannel['kind']); setTarget('') }}><option value="discord">Discord app</option><option value="webhook">Generic webhook</option><option value="email_relay">Email via platform relay</option></select>
-          <small>{typeHint()}</small>
-        </label>
-        <label>
-          <span>Label</span>
-          <input value={label()} onInput={(e) => setLabel(e.currentTarget.value)} placeholder="Ops Discord" />
-          <small>Your name for this destination — it is what the rows above and the delivery log show.</small>
-        </label>
-        <label style={{ 'grid-column': '1 / -1' }}>
-          <span>{targetLabel()}</span>
-          <input value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPh()} />
-          <small>{targetHint()}</small>
-        </label>
+    <Card class="p-5">
+      <div class="flex items-center gap-2 mb-1">
+        <SectionIcon name="bell" />
+        <div>
+          <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">NEW CHANNEL</span>
+          <h2 class="text-lg font-bold text-foreground">Add a destination</h2>
+        </div>
       </div>
-      <div class="check-row-group" role="group" aria-label="Subscribed events">
-        <p class="check-row-lead">Which events reach this destination. Leave every box clear to receive all of them — that is the default, and new event kinds are included automatically.</p>
-        <For each={[...NOTIFIER_EVENTS]}>{ev => <label class="check-row"><input type="checkbox" checked={events().includes(ev)} onChange={() => toggleEvent(ev)} /><span><strong>{evLabel(ev)}</strong></span></label>}</For>
-        <Show when={!events().length}><small class="check-row-hint">Nothing selected — this channel receives every event.</small></Show>
-      </div>
-      <Show when={create.error}><ErrorCard>{errorMessage(create.error, 'Channel creation failed')}</ErrorCard></Show>
-      <div class="form-actions right"><button type="submit" disabled={create.isPending || !formReady()}>{create.isPending && <Spinner />} {create.isPending ? 'Adding…' : 'Add channel'}</button></div>
-    </form>
+      <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Adds one place this tenant's alerts are delivered to. Send a test straight after saving — a wrong URL is accepted here and only fails at delivery time.</p>
 
+      <form onSubmit={(e) => { e.preventDefault(); create.mutate() }}>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-4">
+          <label class="grid gap-1.5 text-muted-foreground text-sm">
+            <span>Type</span>
+            <select class="w-full bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15" value={kind()} onChange={(e) => { setKind(e.currentTarget.value as NotifierChannel['kind']); setTarget('') }}>
+              <option value="discord">Discord app</option>
+              <option value="webhook">Generic webhook</option>
+              <option value="email_relay">Email via platform relay</option>
+            </select>
+            <small class="text-xs text-muted-foreground">{typeHint()}</small>
+          </label>
+          <label class="grid gap-1.5 text-muted-foreground text-sm">
+            <span>Label</span>
+            <input class="w-full bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15" value={label()} onInput={(e) => setLabel(e.currentTarget.value)} placeholder="Ops Discord" />
+            <small class="text-xs text-muted-foreground">Your name for this destination — it is what the rows above and the delivery log show.</small>
+          </label>
+          <label class="grid gap-1.5 text-muted-foreground text-sm md:col-span-2">
+            <span>{targetLabel()}</span>
+            <input class="w-full bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15" value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPh()} />
+            <small class="text-xs text-muted-foreground">{targetHint()}</small>
+          </label>
+        </div>
+
+        <div class="mt-4 p-3.5 border border-border-subtle rounded-md bg-surface-1" role="group" aria-label="Subscribed events">
+          <p class="text-sm text-secondary-foreground leading-relaxed mb-2">Which events reach this destination. Leave every box clear to receive all of them — that is the default, and new event kinds are included automatically.</p>
+          <div class="grid gap-2" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+            <For each={[...NOTIFIER_EVENTS]}>{ev => (
+              <label class="flex items-start gap-3 py-1.5 px-2.5 rounded-sm hover:bg-surface-3 transition-colors cursor-pointer">
+                <input type="checkbox" class="mt-0.5 w-4 h-4" style={{ 'accent-color': 'var(--color-primary)' }} checked={events().includes(ev)} onChange={() => toggleEvent(ev)} />
+                <span class="text-sm text-foreground"><strong>{evLabel(ev)}</strong></span>
+              </label>
+            )}</For>
+          </div>
+          <Show when={!events().length}><small class="block mt-2 text-xs text-muted-foreground">Nothing selected — this channel receives every event.</small></Show>
+        </div>
+
+        <Show when={create.error}><div class="mt-3"><ErrorCard>{errorMessage(create.error, 'Channel creation failed')}</ErrorCard></div></Show>
+        <div class="flex justify-end mt-5">
+          <Button type="submit" size="sm" disabled={create.isPending || !formReady()}>{create.isPending && <Spinner />} {create.isPending ? 'Adding…' : 'Add channel'}</Button>
+        </div>
+      </form>
+    </Card>
+
+    {/* ── TENANT / VIRYA — Active destinations ──────────────────── */}
     <Show when={channels.data} fallback={!channels.error ? null : undefined}>
       <SectionPanel>
-        <SectionTitle eyebrow={`TENANT / ${slug().toUpperCase()}`} title="Active destinations" icon={<SectionIcon name="bell" />} action={<Show when={items().length > 0}><small class="text-muted-foreground">{items().length} configured</small></Show>} />
-        <p class="agent-section-intro">Per-tenant notifier channels. <strong>source:</strong> database · <strong>owner:</strong> tenant · <strong>path:</strong> direct or relay</p>
-        <Show when={items().length === 0} fallback={<div class="notifier-list"><For each={items()}>{ch => <div class="notifier-row">
-          <div class="notifier-meta notifier-meta-with-icon"><NotifierIcon kind={ch.kind} size={20} class="provider-icon" /><div><strong>{ch.label}</strong><small>{kindLabel(ch.kind)} · {ch.config.to ?? ch.config.urlHost ?? 'endpoint'} · {ch.events.length ? ch.events.map(evLabel).join(', ') : 'all events'}</small><Show when={testResult()[ch.id]}><small class={testResult()[ch.id]?.includes('failed') ? 'notifier-test-bad' : 'notifier-test-ok'}>{testResult()[ch.id]}</small></Show></div></div>
-          <div class="row-health"><button type="button" class="ghost" disabled={test.isPending} onClick={() => test.mutateAsync(ch.id)}>Send test</button><button type="button" class={`switch-control ${ch.enabled ? 'on' : ''}`} role="switch" aria-checked={ch.enabled} aria-label={`${ch.label} enabled`} disabled={update.isPending} onClick={() => update.mutate({ id: ch.id, enabled: !ch.enabled })}><span /></button><button type="button" class="danger-ghost" disabled={remove.isPending} onClick={async () => {
-            const ok = await confirmAction({
-              title: `Delete channel “${ch.label}”?`,
-              body: 'Alerts routed to this channel stop being delivered.',
-              confirmLabel: 'Delete channel',
-              destructive: true,
-            })
-            if (ok) remove.mutate(ch.id)
-          }}>Delete</button></div>
-        </div>}</For></div>}><div class="inherit-card"><EmptyState label="No notification channels" hint="Add a destination above to start receiving operational alerts." /></div></Show>
+        <div class="flex items-center justify-between gap-4 mb-3">
+          <div class="flex items-center gap-2">
+            <SectionIcon name="bell" />
+            <div>
+              <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{`TENANT / ${slug().toUpperCase()}`}</span>
+              <h2 class="text-lg font-semibold text-foreground">Active destinations</h2>
+            </div>
+          </div>
+          <Show when={items().length > 0}><small class="text-sm text-muted-foreground">{items().length} configured</small></Show>
+        </div>
+        <p class="text-sm text-muted-foreground leading-relaxed">Per-tenant notifier channels. <strong class="text-secondary-foreground">source:</strong> database · <strong class="text-secondary-foreground">owner:</strong> tenant · <strong class="text-secondary-foreground">path:</strong> direct or relay</p>
+
+        <Show when={items().length === 0} fallback={
+          <div class="grid gap-2.5 mt-4">
+            <For each={items()}>{ch => (
+              <div class="flex items-center justify-between gap-3 py-3 border-b border-border last:border-0">
+                <div class="flex items-center gap-3 min-w-0">
+                  <NotifierIcon kind={ch.kind} size={20} class="provider-icon flex-shrink-0" />
+                  <div class="grid gap-1 min-w-0">
+                    <strong class="text-foreground">{ch.label}</strong>
+                    <small class="text-sm text-muted-foreground">{kindLabel(ch.kind)} · {ch.config.to ?? ch.config.urlHost ?? 'endpoint'} · {ch.events.length ? ch.events.map(evLabel).join(', ') : 'all events'}</small>
+                    <Show when={testResult()[ch.id]}>
+                      <small classList={{ 'text-destructive text-sm': testResult()[ch.id]?.includes('failed'), 'text-success text-sm': !testResult()[ch.id]?.includes('failed') }}>{testResult()[ch.id]}</small>
+                    </Show>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                  <Button variant="ghost" size="sm" disabled={test.isPending} onClick={() => test.mutateAsync(ch.id)}>Send test</Button>
+                  <button
+                    type="button"
+                    class={`switch-control ${ch.enabled ? 'on' : ''}`}
+                    role="switch"
+                    aria-checked={ch.enabled}
+                    aria-label={`${ch.label} enabled`}
+                    disabled={update.isPending}
+                    onClick={() => update.mutate({ id: ch.id, enabled: !ch.enabled })}
+                  ><span /></button>
+                  <Button variant="destructive-ghost" size="sm" disabled={remove.isPending} onClick={async () => {
+                    const ok = await confirmAction({
+                      title: `Delete channel "${ch.label}"?`,
+                      body: 'Alerts routed to this channel stop being delivered.',
+                      confirmLabel: 'Delete channel',
+                      destructive: true,
+                    })
+                    if (ok) remove.mutate(ch.id)
+                  }}>Delete</Button>
+                </div>
+              </div>
+            )}</For>
+          </div>
+        }>
+          <Card class="p-4 mt-4"><EmptyState label="No notification channels" hint="Add a destination above to start receiving operational alerts." /></Card>
+        </Show>
       </SectionPanel>
     </Show>
 
-    {/* ── PLATFORM / CONTROL PLANE — reference, collapsed by default ── */}
+    {/* ── PLATFORM / CONTROL PLANE ──────────────────────────────── */}
     <Show when={platformConfig.error}><SectionPanel><ErrorCard>{errorMessage(platformConfig.error, 'Platform config could not be loaded')}</ErrorCard></SectionPanel></Show>
     <Show when={!platformConfig.error && !platformConfig.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={platformConfig.data}>
       <SectionPanel>
         <details open>
-          <summary class="section-title section-title-summary"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">PLATFORM / CONTROL PLANE</span><h2><SectionIcon name="server" /> Platform notification config</h2></div></summary>
-        <p class="agent-section-intro">Environment-level notification routing. <strong>source:</strong> environment · <strong>owner:</strong> platform · <strong>path:</strong> direct, relay, or workflow</p>
-        <p class="agent-section-intro text-muted-foreground">These are separate from any Discord or n8n you have configured elsewhere — each is read from its own variable in the control plane's deployment environment, and an unset one shows the variable to set.</p>
-        <table class="data-table">
-          <thead><tr><th>Type</th><th>Source</th><th>Owner</th><th>Path</th><th>Destination</th><th>Status</th></tr></thead>
-          <tbody>
-            <For each={platformItems()}>{(item: PlatformConfigItem) => <tr>
-              <td>{platformTypeLabel(item.type)}</td>
-              <td><small class="text-muted-foreground">{item.source}</small></td>
-              <td><small class="text-muted-foreground">{item.owner}</small></td>
-              <td><small class="text-muted-foreground">{item.path}</small></td>
-              <td>
-                <Show when={item.destination} fallback={
-                  <small class="text-muted-foreground">set <code>{PLATFORM_ENV_VAR[item.type] ?? item.type}</code> in the deployment's <code>.env</code></small>
-                }>
-                  <code>{item.destination}</code>
-                </Show>
-              </td>
-              <td><span class={`status-badge ${item.configured && item.enabled ? 'good' : 'muted'}`}>{item.configured ? (item.enabled ? 'enabled' : 'disabled') : 'not configured'}</span></td>
-            </tr>}</For>
-          </tbody>
-        </table>
+          <summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-4 mb-3">
+            <div class="flex items-center gap-2">
+              <SectionIcon name="server" />
+              <div>
+                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">PLATFORM / CONTROL PLANE</span>
+                <h2 class="text-lg font-semibold text-foreground">Platform notification config</h2>
+              </div>
+            </div>
+          </summary>
+
+          <div class="mt-2">
+            <p class="text-sm text-muted-foreground leading-relaxed">Environment-level notification routing. <strong class="text-secondary-foreground">source:</strong> environment · <strong class="text-secondary-foreground">owner:</strong> platform · <strong class="text-secondary-foreground">path:</strong> direct, relay, or workflow</p>
+            <p class="text-sm text-muted-foreground leading-relaxed mt-2">These are separate from any Discord or n8n you have configured elsewhere — each is read from its own variable in the control plane's deployment environment, and an unset one shows the variable to set.</p>
+
+            <div class="mt-4 overflow-x-auto">
+              <table class="data-table">
+                <thead><tr><th>Type</th><th>Source</th><th>Owner</th><th>Path</th><th>Destination</th><th>Status</th></tr></thead>
+                <tbody>
+                  <For each={platformItems()}>{(item: PlatformConfigItem) => <tr>
+                    <td>{platformTypeLabel(item.type)}</td>
+                    <td><small class="text-muted-foreground">{item.source}</small></td>
+                    <td><small class="text-muted-foreground">{item.owner}</small></td>
+                    <td><small class="text-muted-foreground">{item.path}</small></td>
+                    <td>
+                      <Show when={item.destination} fallback={
+                        <small class="text-muted-foreground">set <code class="text-xs bg-surface-3 px-1.5 py-0.5 rounded-sm">{PLATFORM_ENV_VAR[item.type] ?? item.type}</code> in the deployment's <code class="text-xs bg-surface-3 px-1.5 py-0.5 rounded-sm">.env</code></small>
+                      }>
+                        <code class="text-xs">{item.destination}</code>
+                      </Show>
+                    </td>
+                    <td>
+                      <Show when={item.configured && item.enabled} fallback={
+                        <Badge variant="muted">{item.configured ? 'disabled' : 'not configured'}</Badge>
+                      }>
+                        <Badge variant="success">enabled</Badge>
+                      </Show>
+                    </td>
+                  </tr>}</For>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </details>
       </SectionPanel>
     </Show>
 
-    {/* ── AUTOMATION / N8N — reference, collapsed by default ── */}
+    {/* ── AUTOMATION / N8N ──────────────────────────────────────── */}
     <Show when={automationRouting.error}><SectionPanel><ErrorCard>{errorMessage(automationRouting.error, 'Automation routing could not be loaded')}</ErrorCard></SectionPanel></Show>
     <Show when={!automationRouting.error && !automationRouting.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={automationRouting.data}>
       <SectionPanel>
         <details open>
-          <summary class="section-title section-title-summary"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">AUTOMATION / N8N</span><h2><SectionIcon name="workflow" /> Workflow routing configs</h2></div><div class="row-health"><Show when={routingItems().length > 0}><small class="text-muted-foreground">{routingItems().length} workflows</small></Show><button type="button" class="ghost" disabled={syncRouting.isPending} onClick={(e) => { e.preventDefault(); syncRouting.mutate() }}>{syncRouting.isPending && <Spinner />} {syncRouting.isPending ? 'Syncing…' : 'Sync from n8n'}</button></div></summary>
-        <p class="agent-section-intro">n8n workflow routing with Discord forwarding and mute controls. <strong>source:</strong> database · <strong>owner:</strong> automation · <strong>path:</strong> workflow</p>
-        <Show when={routingItems().length === 0}>
-          <div class="inherit-card">
-            <EmptyState
-              label="No workflows mirrored yet"
-              hint="n8n owns the workflows; this table is the control plane's copy. Sync to pull the live list in, then mute the ones you do not want reported."
-            />
+          <summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-4 mb-3">
+            <div class="flex items-center gap-2">
+              <SectionIcon name="workflow" />
+              <div>
+                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">AUTOMATION / N8N</span>
+                <h2 class="text-lg font-semibold text-foreground">Workflow routing configs</h2>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <Show when={routingItems().length > 0}><small class="text-sm text-muted-foreground">{routingItems().length} workflows</small></Show>
+              <Button variant="ghost" size="sm" disabled={syncRouting.isPending} onClick={(e) => { e.preventDefault(); syncRouting.mutate() }}>{syncRouting.isPending && <Spinner />} {syncRouting.isPending ? 'Syncing…' : 'Sync from n8n'}</Button>
+            </div>
+          </summary>
+
+          <div class="mt-2">
+            <p class="text-sm text-muted-foreground leading-relaxed">n8n workflow routing with Discord forwarding and mute controls. <strong class="text-secondary-foreground">source:</strong> database · <strong class="text-secondary-foreground">owner:</strong> automation · <strong class="text-secondary-foreground">path:</strong> workflow</p>
+
+            <Show when={routingItems().length === 0}>
+              <Card class="p-4 mt-4">
+                <EmptyState
+                  label="No workflows mirrored yet"
+                  hint="n8n owns the workflows; this table is the control plane's copy. Sync to pull the live list in, then mute the ones you do not want reported."
+                />
+              </Card>
+            </Show>
+
+            <Show when={routingItems().length > 0}>
+              <div class="mt-4 overflow-x-auto">
+                <table class="data-table">
+                  <thead><tr><th>Workflow</th><th>Label</th><th>Category</th><th>Discord</th><th>Muted</th><th>Status</th></tr></thead>
+                  <tbody>
+                    <For each={visibleRoutingItems()}>{(item: AutomationRoutingItem) => <tr>
+                      <td><code class="text-xs">{item.workflowId}</code></td>
+                      <td>{item.label}</td>
+                      <td><small class="text-muted-foreground">{item.category}</small></td>
+                      <td>{item.discordEnabled ? '✓' : '—'}</td>
+                      <td>{item.muted ? 'muted' : '—'}</td>
+                      <td>
+                        <Show when={item.enabled} fallback={<Badge variant="muted">muted</Badge>}>
+                          <Badge variant="success">enabled</Badge>
+                        </Show>
+                      </td>
+                    </tr>}</For>
+                  </tbody>
+                </table>
+              </div>
+              <Show when={routingItems().length > MAX_VISIBLE_ROUTING}>
+                <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllRouting(s => !s)}>
+                  {showAllRouting() ? 'Show less' : `Show all (${routingItems().length})`}
+                </Button>
+              </Show>
+            </Show>
           </div>
-        </Show>
-        <Show when={routingItems().length > 0}>
-        <table class="data-table">
-          <thead><tr><th>Workflow</th><th>Label</th><th>Category</th><th>Discord</th><th>Muted</th><th>Status</th></tr></thead>
-          <tbody>
-            <For each={visibleRoutingItems()}>{(item: AutomationRoutingItem) => <tr>
-              <td><code>{item.workflowId}</code></td>
-              <td>{item.label}</td>
-              <td><small class="text-muted-foreground">{item.category}</small></td>
-              <td>{item.discordEnabled ? '✓' : '—'}</td>
-              <td>{item.muted ? 'muted' : '—'}</td>
-              <td><span class={`status-badge ${item.enabled ? 'good' : 'muted'}`}>{item.enabled ? 'enabled' : 'muted'}</span></td>
-            </tr>}</For>
-          </tbody>
-        </table>
-        <Show when={routingItems().length > MAX_VISIBLE_ROUTING}>
-          <button class="ghost" onClick={() => setShowAllRouting(s => !s)}>
-            {showAllRouting() ? 'Show less' : `Show all (${routingItems().length})`}
-          </button>
-        </Show>
-        </Show>
         </details>
       </SectionPanel>
     </Show>
 
     {/* ── Discovered webhook endpoints ───────────────────────────── */}
-    <Show when={discovered.error}><SectionPanel><SectionTitle eyebrow="CROWDRELAY" title="Discovered webhook endpoints" /><div class="inherit-card"><p>CrowdRelay webhook endpoints unavailable: {errorMessage(discovered.error, 'read failed')}</p></div></SectionPanel></Show>
+    <Show when={discovered.error}><SectionPanel>
+      <div class="flex items-center gap-2 mb-3">
+        <SectionIcon name="link" />
+        <div>
+          <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">CROWDRELAY</span>
+          <h2 class="text-lg font-semibold text-foreground">Discovered webhook endpoints</h2>
+        </div>
+      </div>
+      <Card class="p-4"><p class="text-sm text-muted-foreground">CrowdRelay webhook endpoints unavailable: {errorMessage(discovered.error, 'read failed')}</p></Card>
+    </SectionPanel></Show>
     <Show when={!discovered.error && !discovered.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
-    <Show when={discovered.data && discovered.data.endpoints.length > 0}><SectionPanel><SectionTitle eyebrow="CROWDRELAY" title="Discovered webhook endpoints" icon={<SectionIcon name="link" />} action={<p>Outbound webhook delivery targets already configured in this tenant's CrowdRelay instance.</p>} /><table class="data-table"><thead><tr><th>Name</th><th>Target</th><th>Active</th></tr></thead><tbody><For each={discovered.data?.endpoints ?? []}>{(ep: DiscoveredEndpoint) => <tr><td>{ep.name}</td><td><code>{ep.urlHost}</code></td><td><span class={`status-badge ${ep.active ? 'good' : 'muted'}`}>{ep.active ? 'active' : 'inactive'}</span></td></tr>}</For></tbody></table></SectionPanel></Show>
+    <Show when={discovered.data && discovered.data.endpoints.length > 0}>
+      <SectionPanel>
+        <div class="flex items-center justify-between gap-4 mb-3">
+          <div class="flex items-center gap-2">
+            <SectionIcon name="link" />
+            <div>
+              <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">CROWDRELAY</span>
+              <h2 class="text-lg font-semibold text-foreground">Discovered webhook endpoints</h2>
+            </div>
+          </div>
+          <p class="text-sm text-muted-foreground">Outbound webhook delivery targets already configured in this tenant's CrowdRelay instance.</p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead><tr><th>Name</th><th>Target</th><th>Active</th></tr></thead>
+            <tbody>
+              <For each={discovered.data?.endpoints ?? []}>{(ep: DiscoveredEndpoint) => <tr>
+                <td>{ep.name}</td>
+                <td><code class="text-xs">{ep.urlHost}</code></td>
+                <td>
+                  <Show when={ep.active} fallback={<Badge variant="muted">inactive</Badge>}>
+                    <Badge variant="success">active</Badge>
+                  </Show>
+                </td>
+              </tr>}</For>
+            </tbody>
+          </table>
+        </div>
+      </SectionPanel>
+    </Show>
   </PageShell>
 }

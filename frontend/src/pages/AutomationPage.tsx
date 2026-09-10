@@ -9,6 +9,8 @@ import { EmptyState } from '../components/EmptyState'
 import { SkeletonRows } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
 import { PageShell, PageHeader, KpiStrip, KpiCard, ErrorCard, SectionTitle } from '../components/layout'
+import { Button } from '../components/ui/button'
+import { Card } from '../components/ui/card'
 
 const severityTone = (s: string) => s === 'error' ? 'bad' : s === 'warn' ? 'warn' : 'muted'
 const statusTone = (s: string) => s === 'new' ? 'bad' : s === 'acknowledged' ? 'warn' : s === 'retried' ? 'warn' : 'muted'
@@ -108,9 +110,9 @@ export function AutomationPage() {
       title="Automation events"
       description="n8n workflow outcomes — errors, status and heartbeat events. Real-work items route to Discord; everything else stays here."
       actions={
-        <button class="ghost" classList={{ active: showConfigs() }} onClick={() => setShowConfigs(v => !v)}>
+        <Button variant="ghost" size="sm" classList={{ active: showConfigs() }} onClick={() => setShowConfigs(v => !v)}>
           {showConfigs() ? 'Back to events' : 'Workflow routing'}
-        </button>
+        </Button>
       }
     />
 
@@ -121,7 +123,7 @@ export function AutomationPage() {
       <Show when={configsReady()} fallback={!configs.error ? <SkeletonRows count={3} /> : null}>
         <div class="automation-config-list">
           <For each={configs.data!.items}>{(cfg: AutomationWorkflowConfig) => (
-            <div class="inherit-card automation-config-row">
+            <Card class="p-4 automation-config-row">
               <div class="automation-config-info">
                 <strong>{cfg.label}</strong>
                 <small>{cfg.workflowId}</small>
@@ -155,10 +157,10 @@ export function AutomationPage() {
                   <span>Muted</span>
                 </label>
               </div>
-            </div>
+            </Card>
           )}</For>
           <Show when={configs.data!.items.length === 0}>
-            <div class="inherit-card"><EmptyState label="No workflow events" hint="Workflow events appear here when automation rules fire. Connect event sources to start tracking." /></div>
+            <Card class="p-4"><EmptyState label="No workflow events" hint="Workflow events appear here when automation rules fire. Connect event sources to start tracking." /></Card>
           </Show>
         </div>
       </Show>
@@ -192,7 +194,7 @@ export function AutomationPage() {
           <For each={events.data!.items}>{(ev: AutomationEvent) => {
             const cfg = configMap().get(ev.workflowId)
             return (
-              <div class="inherit-card automation-event-row" classList={{ 'automation-event-new': ev.status === 'new' }}>
+              <Card class="p-4 automation-event-row" classList={{ 'automation-event-new': ev.status === 'new' }}>
                 <div class="automation-event-head">
                   <span class={`severity-dot ${severityTone(ev.severity)}`} />
                   <strong>{ev.workflowName}</strong>
@@ -209,20 +211,20 @@ export function AutomationPage() {
                   <span class={`status-badge ${statusTone(ev.status)}`}>{ev.status}</span>
                   <Show when={ev.retryCount > 0}><span class="text-muted-foreground">retried {ev.retryCount}×</span></Show>
                   <Show when={ev.status === 'new'}>
-                    <button class="ghost alert-action" disabled={busyId() === ev.id} onClick={() => handleAck(ev.id)}>Ack</button>
+                    <Button variant="ghost" size="sm" class="alert-action" disabled={busyId() === ev.id} onClick={() => handleAck(ev.id)}>Ack</Button>
                   </Show>
                   <Show when={ev.executionId && ev.status !== 'retried'}>
-                    <button class="ghost alert-action" disabled={busyId() === ev.id} onClick={() => handleRetry(ev.id)}>Retry</button>
+                    <Button variant="ghost" size="sm" class="alert-action" disabled={busyId() === ev.id} onClick={() => handleRetry(ev.id)}>Retry</Button>
                   </Show>
                   <Show when={ev.status !== 'resolved'}>
-                    <button class="ghost alert-action" disabled={busyId() === ev.id} onClick={() => handleResolve(ev.id)}>Resolve</button>
+                    <Button variant="ghost" size="sm" class="alert-action" disabled={busyId() === ev.id} onClick={() => handleResolve(ev.id)}>Resolve</Button>
                   </Show>
                 </div>
-              </div>
+              </Card>
             )
           }}</For>
           <Show when={events.data!.items.length === 0}>
-            <div class="inherit-card"><EmptyState label="No events match this filter" hint="Try adjusting the event type or time range filter." /></div>
+            <Card class="p-4"><EmptyState label="No events match this filter" hint="Try adjusting the event type or time range filter." /></Card>
           </Show>
         </div>
       </Show>

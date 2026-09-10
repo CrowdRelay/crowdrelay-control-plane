@@ -3,6 +3,8 @@ import { api } from '../lib/api'
 import type { AudienceSegment } from '../lib/types'
 import { EmptyState } from './EmptyState'
 import { SkeletonBlock } from './Skeleton'
+import { Card } from './ui/card'
+import { Badge } from './ui/badge'
 
 export function SegmentPanel(props: {
   slug: string
@@ -34,12 +36,12 @@ export function SegmentPanel(props: {
     }
   }
 
-  return <div class="agent-section">
-    <div class="agent-section-head">
+  return <Card class="p-4">
+    <div class="flex items-center justify-between gap-4">
       <h3>Segments</h3>
       <span class="text-muted-foreground">{props.segments.length} segments</span>
     </div>
-    <p class="agent-section-intro">Audience segments group fans by behaviour, source, or lifecycle stage. Click a segment to preview its size.</p>
+    <p class="text-sm text-muted-foreground leading-relaxed mt-1">Audience segments group fans by behaviour, source, or lifecycle stage. Click a segment to preview its size.</p>
     <Show when={props.segments.length > 0} fallback={<EmptyState label="No segments defined" hint="Segments group fans by behavior, source, or engagement level. Define segments to target outreach effectively." />}>
       <div class="segment-list">
         <For each={props.segments}>{(segment) => (
@@ -49,7 +51,7 @@ export function SegmentPanel(props: {
           >
             <div class="segment-card-head">
               <strong>{segment.name}</strong>
-              <Show when={!segment.active}><span class="badge tone-muted">inactive</span></Show>
+              <Show when={!segment.active}><Badge variant="muted">inactive</Badge></Show>
             </div>
             <Show when={segment.description}><p class="text-muted-foreground segment-desc">{segment.description}</p></Show>
             <Show when={previewSlug() === segment.slug}>
@@ -65,5 +67,5 @@ export function SegmentPanel(props: {
         )}</For>
       </div>
     </Show>
-  </div>
+  </Card>
 }

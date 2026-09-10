@@ -6,6 +6,7 @@ import type { RegionalProfile } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { Spinner } from '../components/Spinner'
 import { PageShell, PageHeader, ErrorCard } from '../components/layout'
+import { Button } from '../components/ui/button'
 
 type Preset = 'PL' | 'DE' | 'CZ' | 'US'
 const presets: Record<Preset, RegionalProfile> = {
@@ -266,8 +267,8 @@ export function TenantWizardPage() {
               {step1Blocker() ?? 'Identity and region are complete.'}
             </span>
           </div>
-          <button class="ghost" onClick={() => navigate({ to: '/tenants' })}>Cancel</button>
-          <button onClick={nextStep} disabled={!step1Ready() || !operatorFieldsReady()}>Next: Products →</button>
+          <Button variant="ghost" size="sm" onClick={() => navigate({ to: '/tenants' })}>Cancel</Button>
+          <Button size="sm" onClick={nextStep} disabled={!step1Ready() || !operatorFieldsReady()}>Next: Products →</Button>
         </div>
       </div>
     </Show>
@@ -315,8 +316,8 @@ export function TenantWizardPage() {
           </div>
         </Show>
         <div class="form-actions right">
-          <button class="ghost" onClick={prevStep}>← Back</button>
-          <button onClick={nextStep} disabled={!step2Ready()}>Next: Goal →</button>
+          <Button variant="ghost" size="sm" onClick={prevStep}>← Back</Button>
+          <Button size="sm" onClick={nextStep} disabled={!step2Ready()}>Next: Goal →</Button>
         </div>
       </div>
     </Show>
@@ -337,8 +338,8 @@ export function TenantWizardPage() {
           }</For>
         </div>
         <div class="form-actions right">
-          <button class="ghost" onClick={prevStep}>← Back</button>
-          <button onClick={nextStep} disabled={!step3Ready()}>Next: Fanbase Sources →</button>
+          <Button variant="ghost" size="sm" onClick={prevStep}>← Back</Button>
+          <Button size="sm" onClick={nextStep} disabled={!step3Ready()}>Next: Fanbase Sources →</Button>
         </div>
       </div>
     </Show>
@@ -359,8 +360,8 @@ export function TenantWizardPage() {
           }</For>
         </div>
         <div class="form-actions right">
-          <button class="ghost" onClick={prevStep}>← Back</button>
-          <button onClick={nextStep} disabled={!step4Ready()}>Next: Deploy →</button>
+          <Button variant="ghost" size="sm" onClick={prevStep}>← Back</Button>
+          <Button size="sm" onClick={nextStep} disabled={!step4Ready()}>Next: Deploy →</Button>
         </div>
       </div>
     </Show>
@@ -403,9 +404,9 @@ export function TenantWizardPage() {
           </div>
 
           {/* Optional provider API keys — collapsible, only shown when deploying */}
-          <button class="ghost provider-keys-toggle" onClick={() => setShowProviderKeys(!showProviderKeys())}>
+          <Button variant="ghost" size="sm" class="provider-keys-toggle" onClick={() => setShowProviderKeys(!showProviderKeys())}>
             {showProviderKeys() ? '▾' : '▸'} Optional: Provider API keys
-          </button>
+          </Button>
           <Show when={showProviderKeys()}>
             <div class="form-grid provider-keys-section">
               <label>Bandsintown API key<input value={bandsintownKey()} onInput={(e) => setBandsintownKey(e.currentTarget.value)} placeholder="Optional" /></label>
@@ -430,10 +431,10 @@ export function TenantWizardPage() {
               {deployBlocker() ?? (deployNow() ? 'Ready to create the tenant and queue its deployment.' : 'Ready to create the tenant. Nothing is deployed yet.')}
             </span>
           </div>
-          <button class="ghost" onClick={prevStep}>← Back</button>
-          <button onClick={() => createTenant.mutate()} disabled={createTenant.isPending || !deployFieldsReady()}>
+          <Button variant="ghost" size="sm" onClick={prevStep}>← Back</Button>
+          <Button size="sm" onClick={() => createTenant.mutate()} disabled={createTenant.isPending || !deployFieldsReady()}>
             {createTenant.isPending && <Spinner />} {createTenant.isPending ? 'Creating…' : deployNow() ? 'Create & deploy' : 'Create tenant'}
-          </button>
+          </Button>
         </div>
       </div>
     </Show>

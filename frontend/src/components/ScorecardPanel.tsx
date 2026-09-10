@@ -7,6 +7,10 @@ import { StatusBadge } from './StatusBadge'
 import { ProgressRing } from './ProgressRing'
 import { SkeletonScorecard } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
+import { Card } from './ui/card'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
+import { SectionTitle } from './layout'
 import { CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 
 const count = (value: number | undefined | null) =>
@@ -89,18 +93,17 @@ export function ScorecardPanel(props: { slug: string }) {
   const [showAllRecent, setShowAllRecent] = createSignal(false)
   const MAX_VISIBLE_RECENT = 10
 
-  return <article class="panel operations-panel">
-    <div class="section-title operations-title">
-      <div>
-        <span class="eyebrow">AGENT SCORECARD</span>
-        <h2><SectionIcon name="activity" />Is it working?</h2>
-        <p>Autopilot status, weekly activity, and recent completions — results, not logs.</p>
-      </div>
-      <StatusBadge status={statusLabel(data())} tone={statusTone(data())} />
-    </div>
+  return <Card class="p-5 operations-panel">
+    <SectionTitle
+      eyebrow="AGENT SCORECARD"
+      title="Is it working?"
+      description="Autopilot status, weekly activity, and recent completions — results, not logs."
+      icon={<SectionIcon name="activity" />}
+      action={<StatusBadge status={statusLabel(data())} tone={statusTone(data())} />}
+    />
 
     <Show when={model.error}>
-      <div class="warning-card operations-warning" role="status">
+      <div class="mt-4 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning" role="status">
         {model.error instanceof Error ? model.error.message : 'Agent scorecard is temporarily unavailable.'}
       </div>
     </Show>
@@ -109,80 +112,80 @@ export function ScorecardPanel(props: { slug: string }) {
 
     <Show when={data()}>{d => <>
       {/* Status row */}
-      <div class="operations-metrics">
+      <div class="grid gap-2.5">
         <div>
-          <span>Agent</span>
-          <strong>{d().status.agent_enabled ? 'on' : 'off'}</strong>
-          <small>{d().status.dry_run ? 'dry run' : postureLabel(d().status.posture)}</small>
+          <span class="block text-muted-foreground text-sm">Agent</span>
+          <strong class="block my-1.5 text-foreground">{d().status.agent_enabled ? 'on' : 'off'}</strong>
+          <small class="block text-muted-foreground text-sm">{d().status.dry_run ? 'dry run' : postureLabel(d().status.posture)}</small>
         </div>
         <div>
-          <span>Last decision</span>
-          <strong>{timeAgo(d().status.last_decision_at)}</strong>
-          <small>{timeAgo(d().status.last_action_at)} last action</small>
+          <span class="block text-muted-foreground text-sm">Last decision</span>
+          <strong class="block my-1.5 text-foreground">{timeAgo(d().status.last_decision_at)}</strong>
+          <small class="block text-muted-foreground text-sm">{timeAgo(d().status.last_action_at)} last action</small>
         </div>
         <Show when={d().status.parked_capabilities.length > 0}>
-          <div class="operations-attention">
-            <strong>Execution gap</strong>
-            <span>{d().status.parked_capabilities.length} capability(ies) have parked actions but no executor: {d().status.parked_capabilities.join(', ')}</span>
+          <div class="rounded-md border border-destructive/30 bg-destructive/10 p-3 flex flex-col gap-1">
+            <strong class="text-destructive">Execution gap</strong>
+            <span class="text-sm text-secondary-foreground">{d().status.parked_capabilities.length} capability(ies) have parked actions but no executor: {d().status.parked_capabilities.join(', ')}</span>
           </div>
         </Show>
       </div>
 
       {/* Live capabilities as chips — spans the full row */}
       <Show when={d().status.live_capabilities.length > 0}>
-        <div class="capability-chips-row">
-          <span class="capability-chips-label">Live capabilities</span>
-          <div class="capability-chips">
-            <For each={d().status.live_capabilities}>{cap => <span class="capability-chip">{cap}</span>}</For>
+        <div class="flex items-center gap-2 flex-wrap mt-4">
+          <span class="text-xs text-muted-foreground font-medium">Live capabilities</span>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <For each={d().status.live_capabilities}>{cap => <Badge variant="muted" class="rounded-full font-mono px-2.5 py-1 leading-relaxed border border-border text-secondary-foreground">{cap}</Badge>}</For>
           </div>
         </div>
       </Show>
       <Show when={d().status.live_capabilities.length === 0}>
-        <div class="operations-metrics">
+        <div class="grid gap-2.5 mt-4">
           <div>
-            <span>Live capabilities</span>
-            <strong>0</strong>
-            <small>no active capabilities</small>
+            <span class="block text-muted-foreground text-sm">Live capabilities</span>
+            <strong class="block my-1.5 text-foreground">0</strong>
+            <small class="block text-muted-foreground text-sm">no active capabilities</small>
           </div>
         </div>
       </Show>
 
       {/* Week summary */}
-      <section class="operations-section">
-        <div class="operations-section-head">
-          <div><span class="eyebrow">THIS WEEK</span><h3><SectionIcon name="zap" />Actions</h3></div>
+      <section class="mt-6 pt-6 border-t border-border">
+        <div class="flex justify-between gap-4 items-start">
+          <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">THIS WEEK</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="zap" />Actions</h3></div>
         </div>
-        <div class="operations-metrics">
-          <div><span>Executed</span>{num(d().week.executed)}<small>{count(d().week.succeeded)} succeeded · {count(d().week.failed)} failed</small></div>
-          <div><span>Success rate</span>
-            <Show when={d().week.success_rate_basis_points != null} fallback={<strong>—</strong>}>
+        <div class="grid gap-2.5 mt-3">
+          <div><span class="block text-muted-foreground text-sm">Executed</span>{num(d().week.executed)}<small class="block text-muted-foreground text-sm">{count(d().week.succeeded)} succeeded · {count(d().week.failed)} failed</small></div>
+          <div><span class="block text-muted-foreground text-sm">Success rate</span>
+            <Show when={d().week.success_rate_basis_points != null} fallback={<strong class="block my-1.5 text-foreground">—</strong>}>
               <ProgressRing value={Math.round((d().week.success_rate_basis_points as number) / 100)} size={44} strokeWidth={4} showValue />
             </Show>
-            <small>of actions that resolved</small>
+            <small class="block text-muted-foreground text-sm">of actions that resolved</small>
           </div>
           <Show when={(d().week.unknown ?? 0) > 0}>
-            <div><span>Unknown</span>{num(d().week.unknown ?? 0)}<small>outcome not established — excluded from the rate</small></div>
+            <div><span class="block text-muted-foreground text-sm">Unknown</span>{num(d().week.unknown ?? 0)}<small class="block text-muted-foreground text-sm">outcome not established — excluded from the rate</small></div>
           </Show>
-          <div><span>Parked</span>{num(d().week.parked)}<small>no executor available</small></div>
-          <div><span>Awaiting approval</span>{num(d().week.awaiting_approval)}<small>requires operator review</small></div>
+          <div><span class="block text-muted-foreground text-sm">Parked</span>{num(d().week.parked)}<small class="block text-muted-foreground text-sm">no executor available</small></div>
+          <div><span class="block text-muted-foreground text-sm">Awaiting approval</span>{num(d().week.awaiting_approval)}<small class="block text-muted-foreground text-sm">requires operator review</small></div>
         </div>
       </section>
 
       {/* Track record */}
-      <section class="operations-section">
-        <div class="operations-section-head">
-          <div><span class="eyebrow">TRACK RECORD</span><h3><SectionIcon name="history" />Did it work?</h3></div>
+      <section class="mt-6 pt-6 border-t border-border">
+        <div class="flex justify-between gap-4 items-start">
+          <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">TRACK RECORD</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="history" />Did it work?</h3></div>
         </div>
-        <div class="operations-metrics">
-          <div><span>Improved</span><strong>{count(d().track_record.improved)}</strong><small class="tone-good">measured wins</small></div>
-          <div><span>Worsened</span><strong>{count(d().track_record.worsened)}</strong><small class="tone-bad">measured losses</small></div>
-          <div><span>Neutral</span><strong>{count(d().track_record.neutral)}</strong><small>no change</small></div>
-          <div><span>Unmeasured</span><strong>{count(d().track_record.unmeasured)}</strong><small>{bpsToPercent(d().track_record.measurement_coverage_basis_points)} coverage</small></div>
+        <div class="grid gap-2.5 mt-3">
+          <div><span class="block text-muted-foreground text-sm">Improved</span><strong class="block my-1.5 text-foreground">{count(d().track_record.improved)}</strong><small class="block text-sm text-success">measured wins</small></div>
+          <div><span class="block text-muted-foreground text-sm">Worsened</span><strong class="block my-1.5 text-foreground">{count(d().track_record.worsened)}</strong><small class="block text-sm text-destructive">measured losses</small></div>
+          <div><span class="block text-muted-foreground text-sm">Neutral</span><strong class="block my-1.5 text-foreground">{count(d().track_record.neutral)}</strong><small class="block text-muted-foreground text-sm">no change</small></div>
+          <div><span class="block text-muted-foreground text-sm">Unmeasured</span><strong class="block my-1.5 text-foreground">{count(d().track_record.unmeasured)}</strong><small class="block text-muted-foreground text-sm">{bpsToPercent(d().track_record.measurement_coverage_basis_points)} coverage</small></div>
           <Show when={(d().track_record.awaiting_measurement ?? 0) > 0}>
             <div>
-              <span>Awaiting</span>
-              <strong>{count(d().track_record.awaiting_measurement ?? 0)}</strong>
-              <small>{
+              <span class="block text-muted-foreground text-sm">Awaiting</span>
+              <strong class="block my-1.5 text-foreground">{count(d().track_record.awaiting_measurement ?? 0)}</strong>
+              <small class="block text-muted-foreground text-sm">{
                 d().track_record.next_measurement_due_at
                   ? `first result ${formatTimestamp(d().track_record.next_measurement_due_at as string)}`
                   : 'horizon not elapsed'
@@ -197,17 +200,17 @@ export function ScorecardPanel(props: { slug: string }) {
         <Show when={d().track_record.measurement_coverage_basis_points != null
                     && (d().track_record.measurement_coverage_basis_points as number) < 5000
                     && d().track_record.unmeasured > 0}>
-          <details class="ops-details-warning">
-            <summary>Low measurement coverage — click for details</summary>
-            <div class="operations-attention">
-              <strong>Low measurement coverage</strong>
-              <span>{d().track_record.unmeasured} executed action(s) have no measurement scheduled, so their effect can never be judged. This excludes anything still inside its measurement horizon.</span>
+          <details class="mt-3">
+            <summary class="cursor-pointer text-sm text-warning font-medium">Low measurement coverage — click for details</summary>
+            <div class="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 flex flex-col gap-1">
+              <strong class="text-destructive">Low measurement coverage</strong>
+              <span class="text-sm text-secondary-foreground">{d().track_record.unmeasured} executed action(s) have no measurement scheduled, so their effect can never be judged. This excludes anything still inside its measurement horizon.</span>
             </div>
           </details>
         </Show>
         <Show when={(d().track_record.awaiting_measurement ?? 0) > 0
                     && d().track_record.improved + d().track_record.neutral + d().track_record.worsened === 0}>
-          <p class="text-muted-foreground">
+          <p class="text-sm text-muted-foreground mt-3">
             No verdicts yet because no measurement horizon has elapsed — not because nothing is being
             measured. {count(d().track_record.awaiting_measurement ?? 0)} action(s) are waiting on a 7, 14 or 30 day window.
           </p>
@@ -216,49 +219,49 @@ export function ScorecardPanel(props: { slug: string }) {
 
       {/* By context */}
       <Show when={d().by_context.length > 0}>
-        <section class="operations-section">
-          <div class="operations-section-head">
-            <div><span class="eyebrow">BY CONTEXT</span><h3><SectionIcon name="target" />Which parts are producing</h3></div>
+        <section class="mt-6 pt-6 border-t border-border">
+          <div class="flex justify-between gap-4 items-start">
+            <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">BY CONTEXT</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="target" />Which parts are producing</h3></div>
           </div>
-          <div class="scorecard-grid-3">
-            <For each={showAllByContext() ? d().by_context : d().by_context.slice(0, MAX_VISIBLE_BY_CONTEXT)}>{ctx => <div class="scorecard-context-card">
-              <strong>{contextLabel(ctx.context)}</strong>
-              <small>{count(ctx.executed)} executed · {count(ctx.succeeded)} succeeded · {count(ctx.failed)} failed</small>
-              <Show when={ctx.parked > 0}><small class="text-muted-foreground">{count(ctx.parked)} parked</small></Show>
+          <div class="grid gap-2.5 mt-3" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+            <For each={showAllByContext() ? d().by_context : d().by_context.slice(0, MAX_VISIBLE_BY_CONTEXT)}>{ctx => <div class="p-3 border border-border rounded-md bg-card flex flex-col gap-1">
+              <strong class="text-foreground">{contextLabel(ctx.context)}</strong>
+              <small class="text-muted-foreground text-sm">{count(ctx.executed)} executed · {count(ctx.succeeded)} succeeded · {count(ctx.failed)} failed</small>
+              <Show when={ctx.parked > 0}><small class="text-muted-foreground text-sm">{count(ctx.parked)} parked</small></Show>
             </div>}</For>
           </div>
           <Show when={d().by_context.length > MAX_VISIBLE_BY_CONTEXT}>
-            <button class="ghost" onClick={() => setShowAllByContext(s => !s)}>
+            <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllByContext(s => !s)}>
               {showAllByContext() ? 'Show less' : `Show all (${d().by_context.length})`}
-            </button>
+            </Button>
           </Show>
         </section>
       </Show>
 
       {/* Recent results */}
-      <section class="operations-section">
-        <div class="operations-section-head">
-          <div><span class="eyebrow">RECENT RESULTS</span><h3><SectionIcon name="list-checks" />Last 10 completed actions</h3></div>
+      <section class="mt-6 pt-6 border-t border-border">
+        <div class="flex justify-between gap-4 items-start">
+          <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">RECENT RESULTS</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="list-checks" />Last 10 completed actions</h3></div>
         </div>
-        <Show when={d().recent_results.length > 0} fallback={<div class="inherit-card"><p>The agent has not completed any actions yet.</p></div>}>
-          <div class="scorecard-grid-2">
-            <For each={showAllRecent() ? d().recent_results : d().recent_results.slice(0, MAX_VISIBLE_RECENT)}>{result => <div class="scorecard-result-card">
-              <div class="scorecard-result-head">
-                <strong>{actionLabel(result.action_kind)}</strong>
+        <Show when={d().recent_results.length > 0} fallback={<Card class="p-4 mt-3"><p class="m-0 text-sm text-muted-foreground">The agent has not completed any actions yet.</p></Card>}>
+          <div class="grid gap-2.5 mt-3" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+            <For each={showAllRecent() ? d().recent_results : d().recent_results.slice(0, MAX_VISIBLE_RECENT)}>{result => <div class="p-3 border border-border rounded-md bg-card flex flex-col gap-1">
+              <div class="flex items-center justify-between gap-2">
+                <strong class="text-foreground text-sm">{actionLabel(result.action_kind)}</strong>
                 <StatusBadge status={outcomeLabel(result.outcome)} tone={outcomeTone(result.outcome)} />
               </div>
-              <small>{contextLabel(result.context)} · {subjectLabel(result.subject_kind)}</small>
-              <Show when={result.metric_key}><small class="text-muted-foreground">metric: {result.metric_key}</small></Show>
-              <small class="text-muted-foreground">{timeAgo(result.completed_at)}<Show when={result.executor_id}>{` · ${result.executor_id}`}</Show></small>
+              <small class="text-muted-foreground text-sm">{contextLabel(result.context)} · {subjectLabel(result.subject_kind)}</small>
+              <Show when={result.metric_key}><small class="text-muted-foreground text-sm">metric: {result.metric_key}</small></Show>
+              <small class="text-muted-foreground text-sm">{timeAgo(result.completed_at)}<Show when={result.executor_id}>{` · ${result.executor_id}`}</Show></small>
             </div>}</For>
           </div>
           <Show when={d().recent_results.length > MAX_VISIBLE_RECENT}>
-            <button class="ghost" onClick={() => setShowAllRecent(s => !s)}>
+            <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllRecent(s => !s)}>
               {showAllRecent() ? 'Show less' : `Show all (${d().recent_results.length})`}
-            </button>
+            </Button>
           </Show>
         </Show>
       </section>
     </>}</Show>
-  </article>
+  </Card>
 }
