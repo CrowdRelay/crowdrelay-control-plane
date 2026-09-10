@@ -79,7 +79,7 @@ export function TenantOperationsPage() {
     <PageHeader
       eyebrow="EXECUTION"
       title="Operations"
-      description="Opportunity board, outreach pipeline and release campaigns. Autopilot authority policies live on the Autopilot page."
+      description="Your daily worklist. Anything the autopilot needs a decision on is here — work the list top to bottom."
       actions={
         <Show when={model.data && !model.error}>
           <StatusBadge status={healthLabel()} tone={healthTone()} />
@@ -100,84 +100,52 @@ export function TenantOperationsPage() {
         skeleton must show whenever there is no data to render, not just on
         the very first fetch. */}
     <Show when={!model.error && !model.data}>
-      <SkeletonKpiStrip count={7} />
+      <SkeletonKpiStrip count={4} />
     </Show>
 
     <Show when={model.data && !model.error}>
-      {/* KPI strip — persistent across all tabs */}
-      <div class="ops-kpi-strip">
-        {/* Autopilot status is read-only here. Authority policies, switches,
-            and sliders live on the Autopilot page only — this card links there. */}
-        <Link to="/tenants/$slug/health" params={{ slug: params().slug }} class="ops-kpi-link">
-          <KpiCard
-            label="Autopilot"
-            tone={kpiTone(autopilot()?.runtime_enabled ? 'good' : 'muted')}
-            class={kpiClass(autopilot()?.runtime_enabled ? 'good' : 'muted')}
-            value={autopilot()?.runtime_enabled ? 'on' : 'off'}
-            sub={`${autopilot()?.queued_actions ?? 0} queued · manage →`}
-          />
-        </Link>
+      {/* Four numbers, not seven. "Opportunities" repeated the tab badge and
+          the worklist's own section count, "Outreach" repeated the Outreach
+          tab, and "Autopilot 24h" is a report on the Autopilot page rather
+          than something today's work turns on. What is left answers the two
+          questions this page exists for: is anything mine, and is anything
+          broken. */}
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         <KpiCard
-          label="Needs you"
+          label="Waiting for you"
           tone={kpiTone(hasAttention() ? 'warn' : 'good')}
           class={kpiClass(hasAttention() ? 'warn' : 'good')}
           value={needsYouCount() + awaitingApproval()}
-          sub={needsYouCount() > 0 ? `${needsYouCount()} approval(s)` : awaitingApproval() > 0 ? `${awaitingApproval()} awaiting` : 'all clear'}
+          sub={needsYouCount() + awaitingApproval() > 0 ? 'decide below' : 'nothing to decide'}
         />
         <KpiCard
           label="Health"
           tone={kpiTone(deadJobs() > 0 ? 'bad' : healthTone() === 'good' ? 'good' : healthTone() === 'warn' ? 'warn' : undefined)}
           class={kpiClass(deadJobs() > 0 ? 'bad' : healthTone() === 'warn' ? 'warn' : undefined)}
           value={healthLabel()}
-          sub={deadJobs() > 0 ? `${deadJobs()} dead` : `${summary()?.http.p95_ms ?? 0}ms p95`}
+          sub={deadJobs() > 0 ? `${deadJobs()} stuck deliveries` : 'everything is moving'}
         />
-        <KpiCard label="Opportunities" value={metric(opCount())} sub="awaiting decision" />
         <KpiCard
           label="Growth delivered"
           value={metric(growth()?.totals.delivered)}
-          sub={`${metric(growth()?.totals.pending)} pending`}
+          sub={`${metric(growth()?.totals.pending)} still to send`}
         />
-        <KpiCard
-          label="Outreach"
-          value={metric(growth()?.outreach.active_opportunities)}
-          sub={`${metric(growth()?.outreach.awaiting_reply)} awaiting reply`}
-        />
-        {/* Ten failures against zero successes rendered as a neutral card with
-            a red footnote. If nothing landed and the failures outnumber the
-            successes, that is the state of the card, not a caption on it. */}
-        <KpiCard
-          label="Autopilot 24h"
-          tone={kpiTone(autopilotTone())}
-          class={kpiClass(autopilotTone())}
-          value={metric(autopilot()?.succeeded_24h)}
-          sub={autopilot() ? (
-            autopilot()!.failed_24h > 0
-              ? <span class="text-destructive">{autopilot()!.failed_24h} failed</span>
-              : `${autopilot()!.failed_24h} failed`
-          ) : '—'}
-        />
+        {/* Autopilot is read-only here. Its switches and policies live on one
+            page, and this card is the way there. */}
+        <Link to="/tenants/$slug/health" params={{ slug: params().slug }} class="block transition-opacity hover:opacity-80">
+          <KpiCard
+            label="Autopilot"
+            tone={kpiTone(autopilot()?.runtime_enabled ? 'good' : 'muted')}
+            class={kpiClass(autopilot()?.runtime_enabled ? 'good' : 'muted')}
+            value={autopilot()?.runtime_enabled ? 'on' : 'off'}
+            sub={`${autopilot()?.queued_actions ?? 0} queued · change settings`}
+          />
+        </Link>
       </div>
 
-      {/* Attention banner — persistent */}
-      <Show when={hasAttention()}>
-        <div class="flex items-center gap-3 p-3 px-4 mb-4 rounded-md border border-border bg-warning/10 border-warning/20 text-warning">
-          <div class="text-warning">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-              <line x1="12" y1="9" x2="12" y2="13" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-          </div>
-          <div class="flex flex-col gap-0.5">
-            <strong class="text-sm text-foreground">Operator attention required</strong>
-            <span class="text-sm text-secondary-foreground">
-              <Show when={needsYouCount() > 0}>{needsYouCount()} pending approval(s) · </Show>
-              <Show when={awaitingApproval() > 0}>{awaitingApproval()} opportunity(ies) awaiting · </Show>
-              <Show when={deadJobs() > 0}>{deadJobs()} dead delivery item(s)</Show>
-            </span>
-          </div>
-        </div>
-      </Show>
+      {/* The attention banner used to sit here restating the card directly
+          above it — same counts, same page, twice. The card carries the count
+          and its tone; the worklist below carries the work. */}
     </Show>
 
     {/* Tab bar — static, renders immediately. Count callbacks return 0
