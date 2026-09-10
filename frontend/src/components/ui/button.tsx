@@ -13,13 +13,18 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-primary text-white hover:bg-primary-hover active:bg-primary-active',
-        destructive: 'bg-destructive text-white hover:bg-destructive/90',
+        // White on these fills is unreadable: measured against the tokens this
+        // app actually paints, white lands at 2.93:1 on `primary`, 2.88:1 on
+        // `destructive` and 1.78:1 on `success` — all under the 4.5:1 body
+        // minimum, and the success case is barely visible at all. The same
+        // fills take the page's own near-black at 6.7:1, 6.8:1 and 11:1.
+        default: 'bg-primary text-background hover:bg-primary-hover active:bg-primary-active',
+        destructive: 'bg-destructive text-background hover:bg-destructive/90',
         'destructive-ghost': 'border border-destructive/30 text-destructive hover:bg-destructive/10',
         outline: 'border border-border bg-transparent text-foreground hover:bg-surface-3',
         ghost: 'text-secondary-foreground hover:bg-surface-3 hover:text-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
-        success: 'bg-success text-white hover:bg-success/90',
+        success: 'bg-success text-background hover:bg-success/90',
       },
       size: {
         default: 'h-9 px-4 text-sm',
