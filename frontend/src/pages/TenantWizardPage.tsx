@@ -224,25 +224,25 @@ export function TenantWizardPage() {
   }
   const prevStep = () => { if (step() > 1) setStep(step() - 1) }
 
-  return <PageShell class="wizard-page">
+  return <PageShell>
     <PageHeader
       eyebrow="ONBOARDING WIZARD"
       title="New tenant"
       description="Configure identity, products, growth goal, and fanbase sources. The brain adapts its strategy to the selected goal."
     />
 
-    <div class="wizard-steps">
-      <div class="wizard-step-indicator" classList={{ active: step() >= 1, current: step() === 1 }}>1. Identity + Region</div>
-      <div class="wizard-step-indicator" classList={{ active: step() >= 2, current: step() === 2 }}>2. Products</div>
-      <div class="wizard-step-indicator" classList={{ active: step() >= 3, current: step() === 3 }}>3. Goal</div>
-      <div class="wizard-step-indicator" classList={{ active: step() >= 4, current: step() === 4 }}>4. Fanbase Sources</div>
-      <div class="wizard-step-indicator" classList={{ active: step() >= 5, current: step() === 5 }}>5. Deploy</div>
+    <div class="flex items-center gap-2 flex-wrap">
+      <div class={cn('flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', step() >= 1 ? 'bg-primary/10 text-primary' : 'text-muted-foreground', step() === 1 && 'ring-1 ring-primary/30')}>1. Identity + Region</div>
+      <div class={cn('flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', step() >= 2 ? 'bg-primary/10 text-primary' : 'text-muted-foreground', step() === 2 && 'ring-1 ring-primary/30')}>2. Products</div>
+      <div class={cn('flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', step() >= 3 ? 'bg-primary/10 text-primary' : 'text-muted-foreground', step() === 3 && 'ring-1 ring-primary/30')}>3. Goal</div>
+      <div class={cn('flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', step() >= 4 ? 'bg-primary/10 text-primary' : 'text-muted-foreground', step() === 4 && 'ring-1 ring-primary/30')}>4. Fanbase Sources</div>
+      <div class={cn('flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', step() >= 5 ? 'bg-primary/10 text-primary' : 'text-muted-foreground', step() === 5 && 'ring-1 ring-primary/30')}>5. Deploy</div>
     </div>
 
     <Show when={step() === 1}>
-      <div class="wizard-card">
-        <div class="form-section-head"><div><h2 class="text-lg font-semibold text-foreground">Identity + region</h2></div><Show when={overview.error}><StatusBadge status="Provisioner status unavailable" tone="bad" /></Show><Show when={!overview.error}><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></Show></div>
-        <p class="wizard-intro">Identity is permanent once the tenant exists; the regional block is what the runtime reads instead of guessing from a browser or an IP address.</p>
+      <div class="rounded-lg border border-border bg-card p-5 space-y-4">
+        <div class="flex items-center justify-between gap-2 flex-wrap"><div><h2 class="text-lg font-semibold text-foreground">Identity + region</h2></div><Show when={overview.error}><StatusBadge status="Provisioner status unavailable" tone="bad" /></Show><Show when={!overview.error}><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></Show></div>
+        <p class="text-sm text-muted-foreground leading-relaxed">Identity is permanent once the tenant exists; the regional block is what the runtime reads instead of guessing from a browser or an IP address.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           <label><span>Slug</span><Input value={slug()} onInput={(e) => setSlug(e.currentTarget.value.toLowerCase())} placeholder="future-metal" autocomplete="off" /><small>Lowercase, used in URLs, container names and API paths. It cannot be changed later.</small></label>
           <label><span>Display name</span><Input value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="Future Metal" /><small>The band or label as people write it. Shown across the console and in operator-facing alerts.</small></label>
@@ -256,8 +256,8 @@ export function TenantWizardPage() {
           <label><span>Date format</span><select class={selectClass} value={profile().dateFormat} onChange={e=>setRegional('dateFormat',e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></select><small>How dates are printed to fans and operators of this tenant.</small></label>
           <label><span>Number format</span><select class={selectClass} value={profile().numberFormat} onChange={e=>setRegional('numberFormat',e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></select><small>Thousands and decimal separators for counts and prices.</small></label>
         </div>
-        <div class="form-section-head"><div><h2 class="text-lg font-semibold text-foreground">First account for the team</h2></div></div>
-        <p class="wizard-intro">Optional. Creates one login scoped to this tenant so the band or their manager can work without a platform admin. You can add more later from the tenant page.</p>
+        <div class="flex items-center justify-between gap-2"><div><h2 class="text-lg font-semibold text-foreground">First account for the team</h2></div></div>
+        <p class="text-sm text-muted-foreground leading-relaxed">Optional. Creates one login scoped to this tenant so the band or their manager can work without a platform admin. You can add more later from the tenant page.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           <label>Operator username<Input value={opUsername()} onInput={(e) => setOpUsername(e.currentTarget.value.toLowerCase())} placeholder="future-metal-op" autocomplete="off" /><small>Optional. Sees only this tenant; leave blank to skip.</small></label>
           <label>Operator password<Input type="password" value={opPassword()} onInput={(e) => setOpPassword(e.currentTarget.value)} placeholder="min 12 characters" autocomplete="new-password" /><small>Handed to the team once — hashed with argon2id, never shown again.</small></label>
@@ -280,29 +280,29 @@ export function TenantWizardPage() {
     </Show>
 
     <Show when={step() === 2}>
-      <div class="wizard-card">
-        <div class="form-section-head"><div><h2 class="text-lg font-semibold text-foreground">Products</h2></div></div>
-        <p class="wizard-intro">Choose which products to enable for this tenant. Each product can be toggled independently.</p>
-        <div class="product-cards">
-          <label class="product-card" classList={{ selected: signalEnabled() }}>
-            <input type="checkbox" checked={signalEnabled()} onChange={(e) => setSignalEnabled(e.currentTarget.checked)} />
-            <div class="product-card-body">
-              <strong>Signal mobile app</strong>
-              <small>Push notifications, fan engagement, and event alerts. The brain's signal-inviter worker is only dispatched when this is enabled.</small>
+      <div class="rounded-lg border border-border bg-card p-5 space-y-4">
+        <div class="flex items-center justify-between gap-2"><div><h2 class="text-lg font-semibold text-foreground">Products</h2></div></div>
+        <p class="text-sm text-muted-foreground leading-relaxed">Choose which products to enable for this tenant. Each product can be toggled independently.</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <label class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', signalEnabled() ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+            <input type="checkbox" class="mt-1" checked={signalEnabled()} onChange={(e) => setSignalEnabled(e.currentTarget.checked)} />
+            <div>
+              <strong class="text-sm text-foreground">Signal mobile app</strong>
+              <small class="block text-xs text-muted-foreground mt-1">Push notifications, fan engagement, and event alerts. The brain's signal-inviter worker is only dispatched when this is enabled.</small>
             </div>
           </label>
-          <label class="product-card" classList={{ selected: synesthesiaEnabled() }}>
-            <input type="checkbox" checked={synesthesiaEnabled()} onChange={(e) => setSynesthesiaEnabled(e.currentTarget.checked)} />
-            <div class="product-card-body">
-              <strong>Synesthesia</strong>
-              <small>Interactive album experience with leaderboard and game mechanics. Originally a Virya-exclusive product.</small>
+          <label class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', synesthesiaEnabled() ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+            <input type="checkbox" class="mt-1" checked={synesthesiaEnabled()} onChange={(e) => setSynesthesiaEnabled(e.currentTarget.checked)} />
+            <div>
+              <strong class="text-sm text-foreground">Synesthesia</strong>
+              <small class="block text-xs text-muted-foreground mt-1">Interactive album experience with leaderboard and game mechanics. Originally a Virya-exclusive product.</small>
             </div>
           </label>
-          <label class="product-card" classList={{ selected: areaEnabled() }}>
-            <input type="checkbox" checked={areaEnabled()} onChange={(e) => setAreaEnabled(e.currentTarget.checked)} />
-            <div class="product-card-body">
-              <strong>AREA game</strong>
-              <small>Location-based fan engagement with drops, challenges, and claims.</small>
+          <label class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', areaEnabled() ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+            <input type="checkbox" class="mt-1" checked={areaEnabled()} onChange={(e) => setAreaEnabled(e.currentTarget.checked)} />
+            <div>
+              <strong class="text-sm text-foreground">AREA game</strong>
+              <small class="block text-xs text-muted-foreground mt-1">Location-based fan engagement with drops, challenges, and claims.</small>
             </div>
           </label>
         </div>
@@ -310,8 +310,8 @@ export function TenantWizardPage() {
           <div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-muted-foreground">Signal is disabled. The brain goal step will not offer "Signal fans" as a north star option. Signal base URL is not required for deployment.</div>
         </Show>
         <Show when={signalEnabled() || synesthesiaEnabled()}>
-          <div class="form-section-head"><div><h2 class="text-lg font-semibold text-foreground">Play Store URLs (optional)</h2></div></div>
-          <p class="wizard-intro">Set the Google Play Store URL for each enabled mobile app. Leave blank if the app is not yet published — you can add it later from the tenant page.</p>
+          <div class="flex items-center justify-between gap-2"><div><h2 class="text-lg font-semibold text-foreground">Play Store URLs (optional)</h2></div></div>
+          <p class="text-sm text-muted-foreground leading-relaxed">Set the Google Play Store URL for each enabled mobile app. Leave blank if the app is not yet published — you can add it later from the tenant page.</p>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             <Show when={signalEnabled()}>
               <label>Signal Play Store URL<Input value={signalPlayStoreUrl()} onInput={(e) => setSignalPlayStoreUrl(e.currentTarget.value)} placeholder={`https://play.google.com/store/apps/details?id=music.${slug() || 'tenant'}.signal`} /></label>
@@ -329,16 +329,16 @@ export function TenantWizardPage() {
     </Show>
 
     <Show when={step() === 3}>
-      <div class="wizard-card">
-        <div class="form-section-head"><div><h2 class="text-lg font-semibold text-foreground">Growth goal</h2></div></div>
-        <p class="wizard-intro">The brain optimizes its deterministic strategy around this metric. Fan aggregation is always active regardless of this choice.</p>
-        <div class="goal-cards">
+      <div class="rounded-lg border border-border bg-card p-5 space-y-4">
+        <div class="flex items-center justify-between gap-2"><div><h2 class="text-lg font-semibold text-foreground">Growth goal</h2></div></div>
+        <p class="text-sm text-muted-foreground leading-relaxed">The brain optimizes its deterministic strategy around this metric. Fan aggregation is always active regardless of this choice.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           <For each={availableNorthStars()}>{ns =>
-            <label class="goal-card" classList={{ selected: northStar() === ns.value }}>
-              <input type="radio" name="northstar" value={ns.value} checked={northStar() === ns.value} onChange={() => setNorthStar(ns.value)} />
-              <div class="goal-card-body">
-                <strong>{ns.label}</strong>
-                <small>{ns.description}</small>
+            <label class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', northStar() === ns.value ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+              <input type="radio" class="mt-1" name="northstar" value={ns.value} checked={northStar() === ns.value} onChange={() => setNorthStar(ns.value)} />
+              <div>
+                <strong class="text-sm text-foreground">{ns.label}</strong>
+                <small class="block text-xs text-muted-foreground mt-1">{ns.description}</small>
               </div>
             </label>
           }</For>
@@ -351,16 +351,16 @@ export function TenantWizardPage() {
     </Show>
 
     <Show when={step() === 4}>
-      <div class="wizard-card">
-        <div class="form-section-head"><div><h2 class="text-lg font-semibold text-foreground">Fanbase sources</h2></div></div>
-        <p class="wizard-intro">Select which platforms the discovery worker should search for fan communities. These are upserted into the audience graph.</p>
-        <div class="source-cards">
+      <div class="rounded-lg border border-border bg-card p-5 space-y-4">
+        <div class="flex items-center justify-between gap-2"><div><h2 class="text-lg font-semibold text-foreground">Fanbase sources</h2></div></div>
+        <p class="text-sm text-muted-foreground leading-relaxed">Select which platforms the discovery worker should search for fan communities. These are upserted into the audience graph.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           <For each={fanbaseSources}>{src =>
-            <label class="source-card" classList={{ selected: selectedSources().includes(src.value) }}>
-              <input type="checkbox" checked={selectedSources().includes(src.value)} onChange={() => toggleSource(src.value)} />
-              <div class="source-card-body">
-                <strong>{src.label}</strong>
-                <small>{src.description}</small>
+            <label class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', selectedSources().includes(src.value) ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+              <input type="checkbox" class="mt-1" checked={selectedSources().includes(src.value)} onChange={() => toggleSource(src.value)} />
+              <div>
+                <strong class="text-sm text-foreground">{src.label}</strong>
+                <small class="block text-xs text-muted-foreground mt-1">{src.description}</small>
               </div>
             </label>
           }</For>
@@ -373,34 +373,34 @@ export function TenantWizardPage() {
     </Show>
 
     <Show when={step() === 5}>
-      <div class="wizard-card">
-        <div class="form-section-head"><div><h2 class="text-lg font-semibold text-foreground">Review + deploy</h2></div></div>
-        <div class="wizard-summary">
-          <div class="summary-row"><span>Slug</span><strong>{slug()}</strong></div>
-          <div class="summary-row"><span>Display name</span><strong>{name()}</strong></div>
-          <div class="summary-row"><span>Region</span><strong>{profile().locale} · {profile().timezone} · {profile().dataRegion.toUpperCase()}</strong></div>
-          <div class="summary-row"><span>Signal</span><strong classList={{ on: signalEnabled(), off: !signalEnabled() }}>{signalEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
-          <div class="summary-row"><span>Synesthesia</span><strong classList={{ on: synesthesiaEnabled(), off: !synesthesiaEnabled() }}>{synesthesiaEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
-          <div class="summary-row"><span>AREA game</span><strong classList={{ on: areaEnabled(), off: !areaEnabled() }}>{areaEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
+      <div class="rounded-lg border border-border bg-card p-5 space-y-4">
+        <div class="flex items-center justify-between gap-2"><div><h2 class="text-lg font-semibold text-foreground">Review + deploy</h2></div></div>
+        <div class="rounded-lg border border-border bg-surface-1 p-4 space-y-2">
+          <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Slug</span><strong class="text-sm text-foreground">{slug()}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Display name</span><strong class="text-sm text-foreground">{name()}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Region</span><strong class="text-sm text-foreground">{profile().locale} · {profile().timezone} · {profile().dataRegion.toUpperCase()}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Signal</span><strong class={cn('text-sm', signalEnabled() ? 'text-success' : 'text-muted-foreground')}>{signalEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Synesthesia</span><strong class={cn('text-sm', synesthesiaEnabled() ? 'text-success' : 'text-muted-foreground')}>{synesthesiaEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">AREA game</span><strong class={cn('text-sm', areaEnabled() ? 'text-success' : 'text-muted-foreground')}>{areaEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
           <Show when={signalEnabled() && signalPlayStoreUrl().trim()}>
-            <div class="summary-row"><span>Signal Play URL</span><strong>{signalPlayStoreUrl().trim()}</strong></div>
+            <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Signal Play URL</span><strong class="text-sm text-foreground break-all">{signalPlayStoreUrl().trim()}</strong></div>
           </Show>
           <Show when={synesthesiaEnabled() && synesthesiaPlayStoreUrl().trim()}>
-            <div class="summary-row"><span>Synesthesia Play URL</span><strong>{synesthesiaPlayStoreUrl().trim()}</strong></div>
+            <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Synesthesia Play URL</span><strong class="text-sm text-foreground break-all">{synesthesiaPlayStoreUrl().trim()}</strong></div>
           </Show>
-          <div class="summary-row"><span>Brain goal</span><strong>{northStars.find(n => n.value === effectiveNorthStar())?.label ?? effectiveNorthStar()}</strong></div>
-          <div class="summary-row"><span>Fanbase sources</span><strong>{selectedSources().length > 0 ? selectedSources().join(', ') : 'None selected'}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Brain goal</span><strong class="text-sm text-foreground">{northStars.find(n => n.value === effectiveNorthStar())?.label ?? effectiveNorthStar()}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Fanbase sources</span><strong class="text-sm text-foreground">{selectedSources().length > 0 ? selectedSources().join(', ') : 'None selected'}</strong></div>
           <Show when={deployNow()}>
-            <div class="summary-row"><span>CrowdRelay URL</span><strong>{crowdrelayBaseUrl() || 'not set'}</strong></div>
+            <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">CrowdRelay URL</span><strong class="text-sm text-foreground break-all">{crowdrelayBaseUrl() || 'not set'}</strong></div>
             <Show when={signalEnabled()}>
-              <div class="summary-row"><span>Signal URL</span><strong>{signalBaseUrl() || 'not set'}</strong></div>
+              <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Signal URL</span><strong class="text-sm text-foreground break-all">{signalBaseUrl() || 'not set'}</strong></div>
             </Show>
-            <div class="summary-row"><span>Release SHA</span><strong>{desiredVersion() || overview.data?.provisionerDefaultImageTag || 'server default'}</strong></div>
+            <div class="flex items-center justify-between gap-3 py-1"><span class="text-sm text-muted-foreground">Release SHA</span><strong class="text-sm text-foreground">{desiredVersion() || overview.data?.provisionerDefaultImageTag || 'server default'}</strong></div>
           </Show>
         </div>
 
         <Show when={deployNow()}>
-          <div class="form-section-head"><div><h2 class="text-lg font-semibold text-foreground">Deploy URLs</h2></div></div>
+          <div class="flex items-center justify-between gap-2"><div><h2 class="text-lg font-semibold text-foreground">Deploy URLs</h2></div></div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             <label>CrowdRelay API base URL<Input value={crowdrelayBaseUrl()} onInput={(e) => setCrowdrelayBaseUrl(e.currentTarget.value)} placeholder="https://api.future-metal.example" /></label>
             <Show when={signalEnabled()}>
@@ -410,7 +410,7 @@ export function TenantWizardPage() {
           </div>
 
           {/* Optional provider API keys — collapsible, only shown when deploying */}
-          <Button variant="ghost" size="sm" class="provider-keys-toggle" onClick={() => setShowProviderKeys(!showProviderKeys())}>
+          <Button variant="ghost" size="sm" onClick={() => setShowProviderKeys(!showProviderKeys())}>
             {showProviderKeys() ? '▾' : '▸'} Optional: Provider API keys
           </Button>
           <Show when={showProviderKeys()}>
