@@ -121,7 +121,7 @@ function TenantSwitcher(props: {
   }
 
   return <div class="relative">
-    <button type="button" class="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-surface-1 transition-colors" onClick={() => props.onToggle()} title={current()?.displayName} aria-expanded={props.open} aria-haspopup="listbox" aria-label="Select tenant">
+    <button type="button" class={cn('flex w-full items-center gap-2 rounded-md py-2 text-left text-sm hover:bg-surface-1 transition-colors', props.collapsed ? 'justify-center' : 'px-2')} onClick={() => props.onToggle()} title={current()?.displayName} aria-expanded={props.open} aria-haspopup="listbox" aria-label="Select tenant">
       <Show when={current()} fallback={<span class="w-2 h-2 rounded-full bg-muted-foreground flex-shrink-0" />}>
         {t => <span class={cn('w-2 h-2 rounded-full flex-shrink-0', {
           'bg-success': healthDot(t()) === 'good',
@@ -365,17 +365,17 @@ export const Shell: Component = () => {
 
         {/* Global nav */}
         <nav class="flex flex-col gap-0.5 p-2">
-          <Link to="/" activeProps={{ class: 'bg-surface-1 text-foreground' }} activeOptions={{ exact: true }} title="Overview" class="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors">
+          <Link to="/" activeProps={{ class: 'bg-surface-1 text-foreground' }} activeOptions={{ exact: true }} title="Overview" class={cn('flex items-center gap-2.5 rounded-md py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors', collapsed() ? 'justify-center' : 'px-2.5')}>
             <NavIcon name="overview" />
             <Show when={!collapsed()}><span>Overview</span></Show>
           </Link>
           <Show when={isPlatformLevel()}>
-            <Link to="/tenants" activeProps={{ class: 'bg-surface-1 text-foreground' }} activeOptions={{ exact: true }} title="Tenants" class="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors">
+            <Link to="/tenants" activeProps={{ class: 'bg-surface-1 text-foreground' }} activeOptions={{ exact: true }} title="Tenants" class={cn('flex items-center gap-2.5 rounded-md py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors', collapsed() ? 'justify-center' : 'px-2.5')}>
               <NavIcon name="portfolio" />
               <Show when={!collapsed()}><span>Tenants</span></Show>
             </Link>
           </Show>
-          <Link to="/flow" activeProps={{ class: 'bg-surface-1 text-foreground' }} title="Process map" class="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors">
+          <Link to="/flow" activeProps={{ class: 'bg-surface-1 text-foreground' }} title="Process map" class={cn('flex items-center gap-2.5 rounded-md py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors', collapsed() ? 'justify-center' : 'px-2.5')}>
             <NavIcon name="flow" />
             <Show when={!collapsed()}><span>Process map</span></Show>
           </Link>
@@ -396,7 +396,7 @@ export const Shell: Component = () => {
               />}
             </Show>
             <Show when={!isPlatformLevel()}>
-              <div class="flex items-center gap-2 rounded-md px-2 py-2 text-sm text-muted-foreground" title={profile()?.tenantSlug ?? 'tenant'}>
+              <div class={cn('flex items-center gap-2 rounded-md py-2 text-sm text-muted-foreground', collapsed() ? 'justify-center' : 'px-2')} title={profile()?.tenantSlug ?? 'tenant'}>
                 <span class="w-2 h-2 rounded-full bg-success flex-shrink-0" />
                 <Show when={!collapsed()}><span class="truncate">{profile()?.tenantSlug ?? 'tenant'}</span></Show>
               </div>
@@ -415,7 +415,7 @@ export const Shell: Component = () => {
                       activeOptions={{ exact: item.exact }}
                       activeProps={{ class: 'bg-surface-1 text-foreground' }}
                       title={item.label}
-                      class="relative flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors"
+                      class={cn('relative flex items-center gap-2.5 rounded-md py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors', collapsed() ? 'justify-center' : 'px-2.5')}
                     >
                       <NavIcon name={item.icon} />
                       <Show when={!collapsed()}><span>{item.label}</span></Show>
