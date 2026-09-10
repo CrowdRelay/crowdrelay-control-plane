@@ -159,7 +159,18 @@ const COMMAND_CENTER_MAX_CONCURRENT: usize = 4;
 /// Per-section timeout. Each tenant's fan-out must complete within this window
 /// or the section is reported as `timeout` — the command center never hangs
 /// waiting for a single slow tenant.
-const COMMAND_CENTER_SECTION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(8);
+///
+/// Must exceed the transport's own `REQUEST_TIMEOUT`, and did not: both were
+/// eight seconds, so on a slow tenant the two deadlines expired together and
+/// which one fired first was a race. The same slowness surfaced as `timeout`
+/// on one load and `unreachable` on the next, and a transport that lost the
+/// race had its connection torn down mid-exchange rather than cleaned up.
+///
+/// The budget nests: CrowdRelay's own per-query timeout (5s) inside the
+/// transport's (8s) inside this one. Each layer must be able to report its own
+/// failure before the layer above gives up on it, or the outer layer's verdict
+/// is the only one anybody ever sees.
+const COMMAND_CENTER_SECTION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(11);
 
 /// `GET /command-center` — the operator's informational shell.
 ///

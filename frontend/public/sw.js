@@ -2,17 +2,20 @@
 //
 // Strategy:
 //   - App shell (index.html, CSS, fonts, JS chunks): precached on install,
-//     cache-first for navigations with network fallback.
-//   - Read API (GET /api/v1/*): network-first with 30s stale-while-revalidate
-//     fallback. Only 200 responses are cached. Mutations are never cached.
+//     network-first for navigations with cached shell fallback.
+//   - Read API (GET /api/v1/*): NOT intercepted. The backend has its own
+//     in-process read model cache and TanStack Query has its own client
+//     cache with placeholderData. SW caching of API responses served stale
+//     degraded data on network blips — the operator saw "upstream contract
+//     failed" persisted from a cached response and needed a hard refresh
+//     (Ctrl+Shift+R) to clear it. Removing the interception lets every
+//     API request go straight to the network.
 //   - Static assets (/assets/*, /fonts/*, /icons/*): cache-first, long TTL.
 //
 // No external dependencies. Vanilla service worker.
 
-const SHELL_CACHE = 'cp-shell-v2';
-const API_CACHE = 'cp-api-v2';
-const ASSET_CACHE = 'cp-assets-v2';
-const API_STALE_MS = 30_000;
+const SHELL_CACHE = 'cp-shell-v3';
+const ASSET_CACHE = 'cp-assets-v3';
 
 const SHELL_ASSETS = [
   '/',
@@ -34,11 +37,13 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
+  // Delete all old caches — including the retired cp-api-v2 and any v2
+  // shell/asset caches — so stale API responses are evicted on activation.
   event.waitUntil(
     caches.keys().then((names) =>
       Promise.all(
         names
-          .filter((name) => name !== SHELL_CACHE && name !== API_CACHE && name !== ASSET_CACHE)
+          .filter((name) => name !== SHELL_CACHE && name !== ASSET_CACHE)
           .map((name) => caches.delete(name)),
       ),
     ).then(() => self.clients.claim()),
@@ -69,11 +74,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Read API: network-first with stale-while-revalidate.
-  if (url.pathname.startsWith('/api/v1/')) {
-    event.respondWith(networkFirstApi(request, url));
-    return;
-  }
+  // Read API (GET /api/v1/*): not intercepted. See header comment.
 
   // Static assets: cache-first with network fallback.
   if (
@@ -90,39 +91,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 });
-
-async function networkFirstApi(request, url) {
-  const cache = await caches.open(API_CACHE);
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const copy = response.clone();
-      cache.put(request, copy);
-    }
-    return response;
-  } catch (networkError) {
-    const cached = await cache.match(request);
-    if (cached) {
-      // Enforce API_STALE_MS: a cached response older than the threshold is
-      // not served — it is treated as a miss so the caller sees the real
-      // network error instead of indefinitely stale data after a deploy.
-      const dateHeader = cached.headers.get('date');
-      if (dateHeader) {
-        const ageMs = Date.now() - new Date(dateHeader).getTime();
-        if (ageMs > API_STALE_MS) {
-          cache.delete(request).catch(() => {});
-          throw networkError;
-        }
-      }
-      // Stale-while-revalidate: return cached, kick off background refresh.
-      fetch(request).then((response) => {
-        if (response.ok) cache.put(request, response.clone());
-      }).catch(() => {});
-      return cached;
-    }
-    throw networkError;
-  }
-}
 
 async function cacheFirstAsset(request) {
   const cache = await caches.open(ASSET_CACHE);

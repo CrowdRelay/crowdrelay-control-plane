@@ -592,14 +592,6 @@ async fn request_authorized(
 
     let address = format_host_port(host, port);
 
-    // Try to reuse a pooled keep-alive connection. If none is available (or
-    // all are stale), open a fresh one. A pooled stream that fails to send
-    // is dropped and a new connection is attempted once.
-    let mut stream = match take_pooled_stream(pool, &address).await {
-        Some(s) => s,
-        None => connect(&address).await?,
-    };
-
     let body_text = body.map(Value::to_string).unwrap_or_default();
     let host_header = host_header(host, target.port(), port);
     let mut request = format!(
@@ -626,23 +618,73 @@ async fn request_authorized(
     request.push_str("\r\n");
     request.push_str(&body_text);
 
+    // Reuse a pooled keep-alive connection where one is available, and retry
+    // once on a fresh connection when a *reused* one fails.
+    //
+    // The retry used to cover only the write, which is the half that almost
+    // never fails. When a server closes an idle keep-alive connection, the
+    // client's write succeeds: the bytes go into the local socket send buffer
+    // and TCP has not yet learned the peer is gone. The failure surfaces on
+    // the read that follows — as zero bytes, or as a reset once the RST
+    // arrives. So the guarded half was the half that was fine, and the
+    // unguarded half produced the operator-visible symptoms: a 503 from
+    // `Unreachable`, or "the tenant answered in an unrecognised shape" from a
+    // zero-byte read classified as contract drift.
+    //
+    // Retrying is safe here and not in general. A reused connection that
+    // fails before a single response byte arrives either never delivered the
+    // request or delivered it to a socket the peer had already abandoned; a
+    // fresh connection is the only way to tell, and repeating is what every
+    // HTTP client with connection reuse does. Beyond that,
+    // `request_management` requires an Idempotency-Key on every mutation, so
+    // a repeat that *does* reach the tenant twice is absorbed there.
+    //
+    // A failure on a connection this function just opened is a real failure
+    // and is never retried — that would turn one dead tenant into two
+    // requests and hide the outage behind a longer wait.
     let exchange = async {
-        // If the write fails the pooled stream is stale — drop it and retry
-        // once with a fresh connection so a dead keep-alive socket does not
-        // surface as an Unreachable to the operator.
-        if stream.write_all(request.as_bytes()).await.is_err() {
-            stream = connect(&address).await?;
-            stream
-                .write_all(request.as_bytes())
-                .await
-                .map_err(|_| ApiError::Unreachable)?;
-        }
+        let mut reused = true;
+        let mut stream = match take_pooled_stream(pool, &address).await {
+            Some(stream) => stream,
+            None => {
+                reused = false;
+                connect(&address).await?
+            }
+        };
 
-        let (response, can_reuse) = read_framed_response(&mut stream).await?;
-        if can_reuse {
-            return_pooled_stream(pool, &address, stream).await;
+        loop {
+            let attempt = async {
+                stream
+                    .write_all(request.as_bytes())
+                    .await
+                    .map_err(|_| ApiError::Unreachable)?;
+                read_framed_response(&mut stream).await
+            }
+            .await;
+
+            match attempt {
+                Ok((response, can_reuse)) => {
+                    if can_reuse {
+                        return_pooled_stream(pool, &address, stream).await;
+                    }
+                    return parse_response(&response);
+                }
+                Err(error) if reused => {
+                    // The pooled socket was dead. Say so once at debug rather
+                    // than silently: a run of these means the upstream's idle
+                    // timeout is shorter than POOL_IDLE_TIMEOUT and the pool
+                    // is holding connections past their welcome.
+                    tracing::debug!(
+                        address,
+                        error = %error,
+                        "pooled upstream connection failed; retrying once on a fresh connection"
+                    );
+                    reused = false;
+                    stream = connect(&address).await?;
+                }
+                Err(error) => return Err(error),
+            }
         }
-        parse_response(&response)
     };
 
     timeout(REQUEST_TIMEOUT, exchange)
@@ -750,6 +792,21 @@ async fn read_framed_response(stream: &mut TcpStream) -> Result<(Vec<u8>, bool),
             .await
             .map_err(|_| ApiError::Unreachable)?;
         if read == 0 {
+            // Nothing at all versus a truncated header block are different
+            // facts and used to be the same error.
+            //
+            // Zero bytes at the very start is a connection that was already
+            // closed when we wrote to it — the ordinary end of a keep-alive
+            // socket, and the single most common outcome of reusing one. It
+            // was reported as `ContractMismatch`, which told the operator the
+            // tenant had answered in an unrecognised shape. The tenant had not
+            // answered at all.
+            //
+            // Bytes, then a close mid-headers, is a genuinely malformed
+            // response and keeps the old classification.
+            if buf.is_empty() {
+                return Err(ApiError::Unreachable);
+            }
             return Err(ApiError::ContractMismatch(
                 "upstream closed before sending complete headers",
             ));
@@ -1509,6 +1566,119 @@ mod tests {
         assert_eq!(
             parse_response(raw).expect("decoded"),
             serde_json::json!({"ok": true})
+        );
+    }
+
+    /// The bug this file existed to have: a keep-alive connection the server
+    /// has already closed.
+    ///
+    /// The server answers the first request, then closes. The second request
+    /// picks that socket out of the pool, writes to it successfully — the
+    /// bytes go into the local send buffer — and reads zero. Before the retry
+    /// that surfaced as `ContractMismatch`, which told the operator the tenant
+    /// had answered in an unrecognised shape. The tenant had not answered.
+    #[tokio::test]
+    async fn a_pooled_connection_the_server_closed_is_retried_not_reported() {
+        use tokio::io::AsyncWriteExt as _;
+        use tokio::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let address = listener.local_addr().expect("addr");
+        let served = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = std::sync::Arc::clone(&served);
+
+        tokio::spawn(async move {
+            loop {
+                let Ok((mut socket, _)) = listener.accept().await else {
+                    return;
+                };
+                let counter = std::sync::Arc::clone(&counter);
+                tokio::spawn(async move {
+                    // One response per connection, then close — exactly what an
+                    // upstream with a short keep-alive idle timeout does.
+                    let mut scratch = [0_u8; 4096];
+                    if socket.read(&mut scratch).await.unwrap_or(0) == 0 {
+                        return;
+                    }
+                    counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    let body = b"{\"ok\":true}";
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: keep-alive\r\n\r\n",
+                        body.len()
+                    );
+                    let _ = socket.write_all(response.as_bytes()).await;
+                    let _ = socket.write_all(body).await;
+                    let _ = socket.flush().await;
+                    // The close that makes the pooled socket a corpse.
+                    let _ = socket.shutdown().await;
+                });
+            }
+        });
+
+        let pool: ConnectionPool = Arc::new(Mutex::new(HashMap::new()));
+        let base = format!("http://{address}");
+        let call = || async {
+            request_authorized(
+                &pool,
+                &base,
+                "GET",
+                "/v1/control-plane/ops/summary",
+                None,
+                None,
+                None,
+                "token",
+            )
+            .await
+        };
+
+        call()
+            .await
+            .expect("the first call opens a fresh connection");
+        // The pooled socket from the first call is closed. Without the retry
+        // this is where the operator saw "answered in an unrecognised shape".
+        let second = call().await;
+        assert!(
+            second.is_ok(),
+            "a dead pooled connection must be retried, not reported: {second:?}"
+        );
+        assert_eq!(
+            served.load(std::sync::atomic::Ordering::SeqCst),
+            2,
+            "both calls must have been served, the second on a fresh connection"
+        );
+    }
+
+    /// A connection this function opened itself is never retried. Retrying it
+    /// would turn one dead tenant into two requests and hide the outage
+    /// behind a longer wait.
+    #[tokio::test]
+    async fn a_fresh_connection_that_fails_is_reported_immediately() {
+        use tokio::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let address = listener.local_addr().expect("addr");
+        tokio::spawn(async move {
+            while let Ok((socket, _)) = listener.accept().await {
+                // Accept and close without answering.
+                drop(socket);
+            }
+        });
+
+        let pool: ConnectionPool = Arc::new(Mutex::new(HashMap::new()));
+        let result = request_authorized(
+            &pool,
+            &format!("http://{address}"),
+            "GET",
+            "/v1/control-plane/ops/summary",
+            None,
+            None,
+            None,
+            "token",
+        )
+        .await;
+        assert!(
+            matches!(result, Err(ApiError::Unreachable)),
+            "a server that closes without answering is unreachable, not contract drift: {result:?}"
         );
     }
 }
