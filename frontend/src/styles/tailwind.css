@@ -590,7 +590,15 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
   .pm-zone-intel { fill: rgba(155, 135, 245, 0.04); stroke: rgba(155, 135, 245, 0.15); }
   .pm-zone-auth { fill: rgba(255, 166, 87, 0.05); stroke: rgba(255, 166, 87, 0.18); }
   .pm-zt { fill: #a7b3c8; font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em; }
-  .pm-edge { fill: none; stroke-width: 1.4; opacity: 0.7; }
+  .pm-edge { fill: none; stroke-width: 1.5; opacity: 0.65; transition: opacity 120ms; }
+  .pm-edge-src { stroke: #71dcff; }
+  .pm-edge-intel { stroke: var(--color-primary); }
+  .pm-edge-auth { stroke: #ffa657; }
+  .pm-edge-exec { stroke: var(--color-warning-light); }
+  .pm-edge-out { stroke: #ff6680; }
+  .pm-edge-learn { stroke: var(--color-success-light); stroke-dasharray: 6 4; opacity: 0.5; }
+  .pm-node-group:hover ~ .pm-edge,
+  .pm-edge:hover { opacity: 1; }
 
   /* ── Spinner ──────────────────────────────────────────────────────── */
   .spin {

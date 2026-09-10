@@ -44,7 +44,7 @@ const NODES: MapNode[] = [
   { id: 'spotify', x: 30, y: 162, w: 230, h: 52, zone: 'src', title: 'Spotify', desc: 'artist + track metrics', to: '/tenants/{slug}/intelligence' },
   { id: 'bandsintown', x: 30, y: 224, w: 230, h: 52, zone: 'src', title: 'Bandsintown', desc: 'show + tour signals', to: '/tenants/{slug}/portfolio' },
   { id: 'meta', x: 30, y: 286, w: 230, h: 52, zone: 'src', title: 'Meta · TikTok', desc: 'ad leads + social', to: '/tenants/{slug}/portfolio' },
-  { id: 'press', x: 30, y: 348, w: 230, h: 52, zone: 'src', title: 'Press · Beacons', desc: 'SubmitHub + CSV import', to: '/tenants/{slug}/beacons' },
+  { id: 'press', x: 30, y: 348, w: 230, h: 52, zone: 'src', title: 'Press · Beacons', desc: 'SubmitHub + CSV · Signal', to: '/tenants/{slug}/beacons' },
 
   // ── INTELLIGENCE (deterministic Rust) ──
   { id: 'intel', x: 315, y: 120, w: 270, h: 84, zone: 'intel', title: 'Autopilot decision', desc: 'deterministic policy\ncausal model + confidence', to: '/tenants/{slug}/operations' },
@@ -57,10 +57,11 @@ const NODES: MapNode[] = [
   { id: 'noaction', x: 660, y: 300, w: 220, h: 60, zone: 'auth', title: 'Observe · Deny', desc: 'recorded, never executed' },
 
   // ── EXECUTION ──
-  { id: 'workers', x: 955, y: 110, w: 290, h: 56, zone: 'exec', title: 'LLM workers', desc: 'scan · draft · pitch', to: '/tenants/{slug}/operations' },
-  { id: 'outbox', x: 955, y: 186, w: 290, h: 56, zone: 'exec', title: 'Outbox → n8n', desc: 'at-least-once delivery', to: '/tenants/{slug}/operations' },
-  { id: 'community', x: 955, y: 262, w: 290, h: 56, zone: 'exec', title: 'Community executor', desc: 'joins queue · posts via browser', to: '/tenants/{slug}/audience' },
-  { id: 'receipt', x: 955, y: 338, w: 290, h: 56, zone: 'exec', title: 'Receipt + action ledger', desc: 'reconciles unknown outcomes', to: '/tenants/{slug}/operations' },
+  { id: 'providers', x: 955, y: 100, w: 290, h: 48, zone: 'exec', title: 'AI providers', desc: 'configured LLM backends', to: '/tenants/{slug}/integrations' },
+  { id: 'workers', x: 955, y: 168, w: 290, h: 52, zone: 'exec', title: 'LLM workers', desc: 'scan · draft · pitch', to: '/tenants/{slug}/operations' },
+  { id: 'outbox', x: 955, y: 238, w: 290, h: 52, zone: 'exec', title: 'Outbox → n8n · Discord', desc: 'at-least-once delivery', to: '/tenants/{slug}/notifiers' },
+  { id: 'community', x: 955, y: 308, w: 290, h: 52, zone: 'exec', title: 'Community executor', desc: 'joins queue · posts via browser', to: '/tenants/{slug}/audience' },
+  { id: 'receipt', x: 955, y: 378, w: 290, h: 52, zone: 'exec', title: 'Receipt + action ledger', desc: 'reconciles unknown outcomes', to: '/tenants/{slug}/attention' },
 
   // ── OUTCOMES ──
   { id: 'fans', x: 1320, y: 110, w: 250, h: 58, zone: 'out', title: 'Fanbase', desc: 'aggregated + attributed', to: '/tenants/{slug}' },
@@ -87,6 +88,8 @@ const EDGES: Edge[] = [
   { from: 'auto', to: 'outbox', kind: 'auth' },
   { from: 'approval', to: 'outbox', kind: 'auth' },
   { from: 'approval', to: 'community', kind: 'auth' },
+  // Providers feed the workers — without a configured backend, nothing drafts.
+  { from: 'providers', to: 'workers', kind: 'exec' },
   // Dispatch becomes a receipt. Both executors report back; nothing counts as
   // executed until one of these lands.
   { from: 'outbox', to: 'receipt', kind: 'exec' },
@@ -150,17 +153,37 @@ export function ProcessMap(props: { slug: () => string }) {
 
   return (
     <div class="process-map-wrap">
-      <svg viewBox="0 0 1610 500" xmlns="http://www.w3.org/2000/svg" class="process-map" role="group" aria-label="Intelligence process map">
+      <svg viewBox="0 0 1610 520" xmlns="http://www.w3.org/2000/svg" class="process-map" role="group" aria-label="Intelligence process map">
+        <defs>
+          {/* Arrow markers — one per zone colour, so each edge reads as
+              flowing from its source zone, not as a generic grey arrow. */}
+          <For each={(['src','intel','auth','exec','out','learn'] as const)}>
+            {(zone) => (
+              <marker
+                id={`pm-arrow-${zone}`}
+                viewBox="0 0 10 10"
+                refX="8"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 1 L 8 5 L 0 9 z" fill={ZONE_STROKE[zone]} opacity="0.8" />
+              </marker>
+            )}
+          </For>
+        </defs>
+
         {/* zone backgrounds */}
-        <rect class="pm-zone" x="15" y="70" width="260" height="400" rx="14" />
+        <rect class="pm-zone" x="15" y="70" width="260" height="420" rx="14" />
         <text class="pm-zt" x="28" y="95">SOURCES</text>
-        <rect class="pm-zone pm-zone-intel" x="300" y="70" width="300" height="400" rx="14" />
+        <rect class="pm-zone pm-zone-intel" x="300" y="70" width="300" height="420" rx="14" />
         <text class="pm-zt" x="314" y="95">INTELLIGENCE</text>
-        <rect class="pm-zone pm-zone-auth" x="645" y="70" width="250" height="400" rx="14" />
+        <rect class="pm-zone pm-zone-auth" x="645" y="70" width="250" height="420" rx="14" />
         <text class="pm-zt" x="659" y="95">AUTHORITY</text>
-        <rect class="pm-zone" x="940" y="70" width="320" height="400" rx="14" />
+        <rect class="pm-zone" x="940" y="70" width="320" height="420" rx="14" />
         <text class="pm-zt" x="954" y="95">EXECUTION</text>
-        <rect class="pm-zone" x="1305" y="70" width="280" height="400" rx="14" />
+        <rect class="pm-zone" x="1305" y="70" width="280" height="420" rx="14" />
         <text class="pm-zt" x="1319" y="95">OUTCOMES</text>
 
         {/* edges — static, no animation */}
@@ -170,6 +193,7 @@ export function ProcessMap(props: { slug: () => string }) {
               class={`pm-edge pm-edge-${item.edge.kind}`}
               d={item.d}
               fill="none"
+              marker-end={`url(#pm-arrow-${item.edge.kind})`}
             />
           )}
         </For>
