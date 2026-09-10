@@ -8,6 +8,7 @@ import { SectionIcon } from './SectionIcon'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonSection } from './Skeleton'
 import { Card } from './ui/card'
+import { Badge } from './ui/badge'
 
 // `/operations/posture` reads and writes, and nothing in the console called
 // the writer: the one dial that moves all 22 authority policies together could
@@ -88,12 +89,12 @@ export function GrowthPosturePanel(props: { slug: string }) {
     apply.mutate(value)
   }
 
-  return <Card class="p-4 posture-panel">
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3">
+  return <Card class="p-5 posture-panel">
+    <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div>
         <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">POSTURE</span>
-        <h2><SectionIcon name="target" />How far the growth loop may go</h2>
-        <p>One dial over all 22 authority policies. Pick the posture the band is ready for; the brain applies the matching autonomy level to every context and records why the ceiling moved.</p>
+        <h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="target" />How far the growth loop may go</h2>
+        <p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">One dial over all 22 authority policies. Pick the posture the band is ready for; the brain applies the matching autonomy level to every context and records why the ceiling moved.</p>
       </div>
       <Show when={posture.data}>
         <StatusBadge
@@ -104,40 +105,43 @@ export function GrowthPosturePanel(props: { slug: string }) {
     </div>
 
     <Show when={posture.error}>
-      <div class="inherit-card"><p>Posture is unavailable on the connected CrowdRelay build. Authority policies below still work one at a time.</p></div>
+      <Card class="p-4 mt-2.5"><p class="m-0 text-sm text-muted-foreground">Posture is unavailable on the connected CrowdRelay build. Authority policies below still work one at a time.</p></Card>
     </Show>
 
     <Show when={!posture.error && posture.isPending}><SkeletonSection titleWidth="160px" lines={3} minHeight="140px" /></Show>
 
     <Show when={posture.data}>
       <Show when={!current()}>
-        <div class="inherit-card">
-          <p>No posture has been chosen, so each policy carries whatever it was last set to individually. Picking one here brings them into a state you can describe in a sentence.</p>
-        </div>
+        <Card class="p-4 mt-2.5">
+          <p class="m-0 text-sm text-muted-foreground">No posture has been chosen, so each policy carries whatever it was last set to individually. Picking one here brings them into a state you can describe in a sentence.</p>
+        </Card>
       </Show>
-      <div class="posture-options" role="radiogroup" aria-label="Growth posture">
+      <div class="grid gap-2.5 mt-3" role="radiogroup" aria-label="Growth posture">
         <For each={POSTURES}>{option => (
           <button
             type="button"
             role="radio"
             aria-checked={current() === option.value}
-            class="posture-option"
-            classList={{ selected: current() === option.value }}
+            class="text-left p-4 border rounded-md transition-colors cursor-pointer hover:border-primary/40"
+            classList={{
+              'border-primary bg-primary/5': current() === option.value,
+              'border-border bg-card': current() !== option.value,
+            }}
             disabled={apply.isPending}
             onClick={() => choose(option.value)}
           >
-            <span class="posture-option-head">
-              <strong>{option.label}</strong>
-              <Show when={current() === option.value}><span class="badge badge-good">current</span></Show>
-              <Show when={pending() === option.value}><span class="badge">applying…</span></Show>
+            <span class="flex items-center gap-2 flex-wrap">
+              <strong class="text-foreground">{option.label}</strong>
+              <Show when={current() === option.value}><Badge variant="success">current</Badge></Show>
+              <Show when={pending() === option.value}><Badge variant="muted">applying…</Badge></Show>
             </span>
-            <span class="posture-option-summary">{option.summary}</span>
-            <span class="posture-option-detail">{option.detail}</span>
+            <span class="block mt-1 text-sm text-secondary-foreground">{option.summary}</span>
+            <span class="block mt-1 text-sm text-muted-foreground leading-relaxed">{option.detail}</span>
           </button>
         )}</For>
       </div>
       <Show when={posture.data?.set_at}>
-        <p class="posture-set-at">Set {formatTimestamp(posture.data!.set_at!)} · policy version {posture.data!.expected_version}</p>
+        <p class="mt-3 text-sm text-muted-foreground">Set {formatTimestamp(posture.data!.set_at!)} · policy version {posture.data!.expected_version}</p>
       </Show>
     </Show>
   </Card>

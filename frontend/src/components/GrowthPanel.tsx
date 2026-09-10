@@ -92,12 +92,12 @@ export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; 
     }
   }
 
-  return <Card class="p-4 operations-panel">
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3 operations-title">
+  return <Card class="p-5 operations-panel">
+    <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div>
         <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">AUTOPILOT GROWTH</span>
-        <h2><SectionIcon name="trending-up" />Campaign delivery & outreach</h2>
-        <p>CrowdRelay queues consented growth campaigns; external n8n workers deliver them. These counters come from the delivery ledger, so a campaign that nobody is draining stays visible.</p>
+        <h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="trending-up" />Campaign delivery & outreach</h2>
+        <p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">CrowdRelay queues consented growth campaigns; external n8n workers deliver them. These counters come from the delivery ledger, so a campaign that nobody is draining stays visible.</p>
       </div>
       <StatusBadge status={deliveryLabel(growth.data)} tone={deliveryTone(growth.data)} />
     </div>
@@ -110,71 +110,71 @@ export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; 
 
       <Show when={growth.data} fallback={!growth.error ? <div class="mini-skeleton"/> : null}>{data => <>
         <Show when={data().totals.stalled_campaigns > 0}>
-          <div class="operations-attention">
-            <strong>Growth delivery is stalled</strong>
-            <span>{data().totals.stalled_campaigns} campaign(s) are due with recipients snapshotted but no delivery claimed. Check that the n8n growth delivery workflows are imported, active, and pointed at this tenant.</span>
+          <div class="rounded-md border border-destructive/30 bg-destructive/10 p-3 flex flex-col gap-1">
+            <strong class="text-destructive">Growth delivery is stalled</strong>
+            <span class="text-sm text-secondary-foreground">{data().totals.stalled_campaigns} campaign(s) are due with recipients snapshotted but no delivery claimed. Check that the n8n growth delivery workflows are imported, active, and pointed at this tenant.</span>
           </div>
         </Show>
         <Show when={!data().campaigns_enabled && data().totals.scheduled_campaigns > 0}>
-          <div class="operations-attention">
-            <strong>Campaign delivery is disabled</strong>
-            <span>{data().totals.scheduled_campaigns} scheduled growth campaign(s) cannot be delivered while <code>communication_campaigns_enabled</code> is off.</span>
+          <div class="rounded-md border border-destructive/30 bg-destructive/10 p-3 flex flex-col gap-1">
+            <strong class="text-destructive">Campaign delivery is disabled</strong>
+            <span class="text-sm text-secondary-foreground">{data().totals.scheduled_campaigns} scheduled growth campaign(s) cannot be delivered while <code>communication_campaigns_enabled</code> is off.</span>
           </div>
         </Show>
 
         {/* Actionable guidance — what to do when the badge is not "good". */}
         <Show when={needsAction()}>
-          <div class="growth-action-guidance">
-            <strong>What to do</strong>
-            <p>{actionGuidance()}</p>
+          <div class="mt-3 p-3.5 border border-warning/30 bg-warning/10 rounded-md">
+            <strong class="text-foreground">What to do</strong>
+            <p class="mt-1 m-0 text-sm text-secondary-foreground leading-relaxed">{actionGuidance()}</p>
           </div>
         </Show>
 
-        <div class="operations-metrics">
-          <div><span>Delivered</span><strong>{count(totals()?.delivered)}</strong><small>{count(totals()?.failed)} failed</small></div>
-          <div><span>Pending</span><strong>{count(totals()?.pending)}</strong><small>{count(totals()?.claimed)} claimed</small></div>
-          <div><span>Scheduled</span><strong>{count(totals()?.scheduled_campaigns)}</strong><small>{count(totals()?.completed_campaigns)} completed</small></div>
-          <div><span>Stalled</span><strong>{count(totals()?.stalled_campaigns)}</strong><small>no delivery claimed</small></div>
+        <div class="grid gap-2.5 mt-3">
+          <div><span class="block text-muted-foreground text-sm">Delivered</span><strong class="block my-1.5 text-foreground">{count(totals()?.delivered)}</strong><small class="block text-muted-foreground text-sm">{count(totals()?.failed)} failed</small></div>
+          <div><span class="block text-muted-foreground text-sm">Pending</span><strong class="block my-1.5 text-foreground">{count(totals()?.pending)}</strong><small class="block text-muted-foreground text-sm">{count(totals()?.claimed)} claimed</small></div>
+          <div><span class="block text-muted-foreground text-sm">Scheduled</span><strong class="block my-1.5 text-foreground">{count(totals()?.scheduled_campaigns)}</strong><small class="block text-muted-foreground text-sm">{count(totals()?.completed_campaigns)} completed</small></div>
+          <div><span class="block text-muted-foreground text-sm">Stalled</span><strong class="block my-1.5 text-foreground">{count(totals()?.stalled_campaigns)}</strong><small class="block text-muted-foreground text-sm">no delivery claimed</small></div>
         </div>
 
-        <section class="operations-section">
-          <div class="operations-section-head">
-            <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">OUTREACH</span><h3><SectionIcon name="megaphone" />Playlist & press pitching</h3><p>Opportunities are seeded from verified, consenting targets only. Reply counts are what stop automated follow-ups.</p></div>
+        <section class="mt-6 pt-6 border-t border-border">
+          <div class="flex justify-between gap-4 items-start">
+            <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">OUTREACH</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="megaphone" />Playlist & press pitching</h3><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Opportunities are seeded from verified, consenting targets only. Reply counts are what stop automated follow-ups.</p></div>
           </div>
-          <div class="autopilot-kpis">
-            <div><strong>{count(outreach()?.active_opportunities)}</strong><span>active opportunities</span></div>
-            <div><strong>{count(outreach()?.playlist_opportunities)}</strong><span>playlist pitches</span></div>
-            <div><strong>{count(outreach()?.awaiting_reply)}</strong><span>awaiting reply</span></div>
-            <div><strong>{count(outreach()?.replies_14d)}</strong><span>replies · 14d</span></div>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+            <div><strong class="block text-xl font-bold tabular-nums text-foreground">{count(outreach()?.active_opportunities)}</strong><span class="block text-xs text-muted-foreground">active opportunities</span></div>
+            <div><strong class="block text-xl font-bold tabular-nums text-foreground">{count(outreach()?.playlist_opportunities)}</strong><span class="block text-xs text-muted-foreground">playlist pitches</span></div>
+            <div><strong class="block text-xl font-bold tabular-nums text-foreground">{count(outreach()?.awaiting_reply)}</strong><span class="block text-xs text-muted-foreground">awaiting reply</span></div>
+            <div><strong class="block text-xl font-bold tabular-nums text-foreground">{count(outreach()?.replies_14d)}</strong><span class="block text-xs text-muted-foreground">replies · 14d</span></div>
           </div>
-          <div class="rum-grid">
-            <div><strong>{count(outreach()?.eligible_playlist_targets)}</strong><span>eligible playlist targets</span><small>active, verified, accepting outreach</small></div>
-            <div><strong>{count(outreach()?.suppressed_targets)}</strong><span>suppressed targets</span><small>never contacted automatically</small></div>
+          <div class="grid grid-cols-2 gap-3 mt-3">
+            <div class="p-3 border border-border rounded-md bg-card"><strong class="block text-lg font-bold tabular-nums text-foreground">{count(outreach()?.eligible_playlist_targets)}</strong><span class="block text-xs text-muted-foreground">eligible playlist targets</span><small class="block text-xs text-muted-foreground mt-1">active, verified, accepting outreach</small></div>
+            <div class="p-3 border border-border rounded-md bg-card"><strong class="block text-lg font-bold tabular-nums text-foreground">{count(outreach()?.suppressed_targets)}</strong><span class="block text-xs text-muted-foreground">suppressed targets</span><small class="block text-xs text-muted-foreground mt-1">never contacted automatically</small></div>
           </div>
           <Show when={outreach() && outreach()!.eligible_playlist_targets === 0 && outreach()!.playlist_opportunities === 0}>
-            <div class="inherit-card outreach-empty-state"><EmptyState label="No playlist targets" hint="The intelligence identifies eligible playlists for pitching. Targets appear here once the detector scans for them." /></div>
+            <Card class="p-4 mt-3"><EmptyState label="No playlist targets" hint="The intelligence identifies eligible playlists for pitching. Targets appear here once the detector scans for them." /></Card>
           </Show>
         </section>
 
-        <section class="operations-section">
-          <div class="operations-section-head">
-            <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">CAMPAIGNS</span><h3><SectionIcon name="megaphone" />Recent growth campaigns</h3></div>
+        <section class="mt-6 pt-6 border-t border-border">
+          <div class="flex justify-between gap-4 items-start">
+            <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">CAMPAIGNS</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="megaphone" />Recent growth campaigns</h3></div>
           </div>
-          <Show when={data().campaigns.length > 0} fallback={<div class="inherit-card"><EmptyState label="No growth campaigns" hint="Growth campaigns coordinate multi-step outreach. They appear here once the intelligence creates them." /></div>}>
-            <div class="flag-list">
-              <For each={data().campaigns}>{campaign => <div class="flag-row release-component-row">
-                <div>
-                  <strong>{campaign.name}</strong>
-                  <small>{templateLabel(campaign.template_key)} · {campaign.recipient_count.toLocaleString()} recipient(s) · {progressPercent(campaign)}% resolved</small>
-                  <small>
+          <Show when={data().campaigns.length > 0} fallback={<Card class="p-4 mt-3"><EmptyState label="No growth campaigns" hint="Growth campaigns coordinate multi-step outreach. They appear here once the intelligence creates them." /></Card>}>
+            <div class="flex flex-col mt-3">
+              <For each={data().campaigns}>{campaign => <div class="flex items-center justify-between gap-3.5 py-3 border-b border-border">
+                <div class="min-w-0 flex-1">
+                  <strong class="block text-foreground">{campaign.name}</strong>
+                  <small class="block text-muted-foreground text-sm">{templateLabel(campaign.template_key)} · {campaign.recipient_count.toLocaleString()} recipient(s) · {progressPercent(campaign)}% resolved</small>
+                  <small class="block text-muted-foreground text-sm">
                     {campaign.delivered_count.toLocaleString()} delivered · {campaign.failed_count.toLocaleString()} failed · {campaign.pending_count.toLocaleString()} pending
                     <Show when={campaign.claimed_count > 0}>{` · ${campaign.claimed_count.toLocaleString()} claimed`}</Show>
                   </small>
                   <Show when={formatTimestamp(campaign.completed_at) ?? formatTimestamp(campaign.scheduled_at)}>{when =>
-                    <small>{campaign.completed_at ? 'completed' : 'scheduled'} {when()}</small>
+                    <small class="block text-muted-foreground text-sm">{campaign.completed_at ? 'completed' : 'scheduled'} {when()}</small>
                   }</Show>
                 </div>
-                <div class="row-health">
+                <div class="flex items-center gap-2 flex-shrink-0">
                   <StatusBadge status={campaignStatus(campaign)} tone={campaignTone(campaign)} />
                 </div>
               </div>}</For>

@@ -4,6 +4,8 @@ import type { OpsAlert } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './EmptyState'
 import { SectionIcon } from './SectionIcon'
+import { Card } from './ui/card'
+import { Button } from './ui/button'
 
 // What each watchdog condition actually observes, and where an operator can act
 // on it. The upstream row carries a one-line summary and raw evidence; the
@@ -85,14 +87,11 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
   const recovered = () => props.alerts.filter(alert => !alert.active)
 
   return <>
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3">
+    <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div>
         <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">WATCHDOG</span>
-        <h3><SectionIcon name="alert-triangle" />Open alerts</h3>
-        {/* The counts on this page and on Operations come from these rows, so
-            state the cadence: an operator who fixed the cause should not read a
-            still-open alert as a second incident. */}
-        <p>Evaluated every 5 minutes. An alert closes itself once its condition is false.</p>
+        <h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="alert-triangle" />Open alerts</h3>
+        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Evaluated every 5 minutes. An alert closes itself once its condition is false.</p>
       </div>
       <StatusBadge
         status={open().length === 0 ? 'clear' : `${open().length} open`}
@@ -103,43 +102,43 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
     <For each={open()}>{alert => {
       const guide = () => GUIDE[alert.alert_key]
       return <div class={alert.severity === 'critical' ? 'rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive' : 'warning-card'}>
-        <div class="flex items-center justify-between gap-4 mt-6 mb-3">
+        <div class="flex items-start justify-between gap-4 mt-6 mb-3">
           <div>
-            <strong>{guide()?.title ?? alert.summary}</strong>
-            <p>{guide()?.cause ?? alert.summary}</p>
+            <strong class="text-foreground">{guide()?.title ?? alert.summary}</strong>
+            <p class="mt-1 text-sm text-secondary-foreground leading-relaxed">{guide()?.cause ?? alert.summary}</p>
           </div>
           <StatusBadge status={alert.severity} tone={alert.severity === 'critical' ? 'bad' : 'warn'} />
         </div>
-        <div class="alert-evidence">
-          <For each={Object.entries(alert.details)}>{([key, value]) => <span><em>{key}</em> {formatDetail(value)}</span>}</For>
-          <span><em>first seen</em> {formatTime(alert.first_seen_at)}</span>
-          <span><em>last confirmed</em> {formatTime(alert.last_seen_at)}</span>
+        <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
+          <For each={Object.entries(alert.details)}>{([key, value]) => <span><em class="not-italic font-medium">{key}</em> {formatDetail(value)}</span>}</For>
+          <span><em class="not-italic font-medium">first seen</em> {formatTime(alert.first_seen_at)}</span>
+          <span><em class="not-italic font-medium">last confirmed</em> {formatTime(alert.last_seen_at)}</span>
         </div>
-        <Show when={guide()?.action}>{action => <div class="alert-actions">
+        <Show when={guide()?.action}>{action => <div class="flex items-center gap-2 mt-3">
           <Show
             when={'operations' in action() ? null : (action() as { anchor: string }).anchor}
-            fallback={<Link class="ghost alert-action" to="/tenants/$slug" params={{ slug: props.slug }}>{action().label}</Link>}
+            fallback={<Link class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors h-8 px-3 text-xs text-secondary-foreground hover:bg-surface-3 hover:text-foreground" to="/tenants/$slug" params={{ slug: props.slug }}>{action().label}</Link>}
           >
-            {anchor => <button type="button" class="ghost alert-action" onClick={() => jumpTo(anchor())}>{action().label}</button>}
+            {anchor => <Button variant="ghost" size="sm" onClick={() => jumpTo(anchor())}>{action().label}</Button>}
           </Show>
         </div>}</Show>
       </div>
     }}</For>
 
     <Show when={open().length === 0}>
-      <div class="inherit-card"><EmptyState label="No open alerts" hint="The watchdog monitors runtime health. Open alerts appear here when the system detects issues." /></div>
+      <Card class="p-4 mt-2.5"><EmptyState label="No open alerts" hint="The watchdog monitors runtime health. Open alerts appear here when the system detects issues." /></Card>
     </Show>
 
     {/* Recovered rows stay for 24 hours so a cleared incident is visible as
         cleared rather than as an alert that silently disappeared. */}
     <Show when={recovered().length > 0}>
-      <div class="inherit-card watchdog-recovered">
-        <p><strong>Recovered in the last 24 hours</strong></p>
+      <Card class="p-4 mt-2.5">
+        <p class="m-0 text-sm text-foreground font-semibold">Recovered in the last 24 hours</p>
         <For each={recovered()}>{alert => {
           const guide = GUIDE[alert.alert_key]
-          return <p><strong>{guide?.title ?? alert.summary}</strong> · recovered {formatTime(alert.recovered_at)}</p>
+          return <p class="mt-1 text-sm text-muted-foreground"><strong class="text-secondary-foreground">{guide?.title ?? alert.summary}</strong> · recovered {formatTime(alert.recovered_at)}</p>
         }}</For>
-      </div>
+      </Card>
     </Show>
   </>
 }

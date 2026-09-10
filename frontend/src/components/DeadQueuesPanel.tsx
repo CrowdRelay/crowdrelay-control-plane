@@ -9,6 +9,8 @@ import { SkeletonRows } from './Skeleton'
 import { Spinner } from './Spinner'
 import { StatusBadge } from './StatusBadge'
 import { Card } from './ui/card'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
 
 const shortId = (value: string) => value.length > 16 ? `${value.slice(0, 8)}…${value.slice(-6)}` : value
 
@@ -161,110 +163,110 @@ export function DeadQueuesPanel(props: {
 
   return <>
     {/* ─── Dead Outbox ─────────────────────────────────────────── */}
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3" id="dead-outbox">
-      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DEAD OUTBOX</span><h3><SectionIcon name="alert-triangle" />Failed events</h3><p>Retry is idempotent.</p></div>
+    <div class="flex items-start justify-between gap-4 mt-6 mb-3" id="dead-outbox">
+      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DEAD OUTBOX</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="alert-triangle" />Failed events</h3><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Retry is idempotent.</p></div>
     </div>
     <Show when={props.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(props.error, 'Dead outbox unavailable')}</div></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
-    <For each={expandOutbox() ? (props.deadOutbox ?? []) : (props.deadOutbox ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
-      <div class="dead-event-head">
-        <div class="dead-event-info">
-          <div class="dead-event-title">
-            <span class="badge tone-warn mono-badge">{item.event_type}</span>
-            <span class="badge tone-muted">outbox</span>
+    <For each={expandOutbox() ? (props.deadOutbox ?? []) : (props.deadOutbox ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card">
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <Badge variant="warning" class="font-mono">{item.event_type}</Badge>
+            <Badge variant="muted">outbox</Badge>
           </div>
-          <p>{item.last_error_kind ?? 'unknown error'} · attempts {item.attempts}/{item.max_attempts} · dead {observed(item.dead_at)}</p>
+          <p class="mt-1.5 m-0 text-sm text-secondary-foreground">{item.last_error_kind ?? 'unknown error'} · attempts {item.attempts}/{item.max_attempts} · dead {observed(item.dead_at)}</p>
         </div>
-        <div class="dead-event-actions">
-          <button class="ghost dead-toggle-id" onClick={() => toggleRevealedId(`outbox:${item.id}`)}>{revealedId() === `outbox:${item.id}` ? 'Hide ID' : 'Details'}</button>
-          <button class="ghost" disabled={!!busy()} onClick={() => void retryOutbox(item.id)}>{busy() === `outbox:${item.id}` && <Spinner />} {busy() === `outbox:${item.id}` ? 'Retrying…' : 'Retry'}</button>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <Button variant="ghost" size="sm" onClick={() => toggleRevealedId(`outbox:${item.id}`)}>{revealedId() === `outbox:${item.id}` ? 'Hide ID' : 'Details'}</Button>
+          <Button variant="ghost" size="sm" disabled={!!busy()} onClick={() => void retryOutbox(item.id)}>{busy() === `outbox:${item.id}` && <Spinner />} {busy() === `outbox:${item.id}` ? 'Retrying…' : 'Retry'}</Button>
         </div>
       </div>
       <Show when={revealedId() === `outbox:${item.id}`}>
-        <small class="mono dead-event-id">Event ID · <span class="mono">{item.id}</span></small>
+        <small class="block mt-2 text-xs text-muted-foreground font-mono">Event ID · <span class="font-mono">{item.id}</span></small>
       </Show>
     </div>}</For>
     <Show when={(props.deadOutbox?.length ?? 0) > DEAD_PREVIEW}>
-      <button class="ghost dead-expand-btn" onClick={() => setExpandOutbox(!expandOutbox())}>
+      <Button variant="ghost" size="sm" class="mt-3" onClick={() => setExpandOutbox(!expandOutbox())}>
         {expandOutbox() ? 'Show fewer' : `Show all ${props.deadOutbox?.length ?? 0} (showing ${DEAD_PREVIEW})`}
-      </button>
+      </Button>
     </Show>
-    <Show when={!props.isLoading && (props.deadOutbox?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead outbox events" hint="Dead outbox events are messages that failed delivery after all retries. A clean queue means everything is flowing." /></div></Show>
+    <Show when={!props.isLoading && (props.deadOutbox?.length ?? 0) === 0}><Card class="p-4 mt-2.5"><EmptyState label="No dead outbox events" hint="Dead outbox events are messages that failed delivery after all retries. A clean queue means everything is flowing." /></Card></Show>
 
     {/* ─── Dead Webhook Deliveries ─────────────────────────────── */}
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3" id="dead-deliveries">
-      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DEAD WEBHOOK DELIVERIES</span><h3><SectionIcon name="alert-triangle" />Delivery failures</h3><p>Inspect attempt history before retrying.</p></div>
-      <button type="button" class={confirming() ? 'danger-ghost' : 'ghost'} disabled={(props.summary?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' && <Spinner />} {busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</button>
+    <div class="flex items-start justify-between gap-4 mt-6 mb-3" id="dead-deliveries">
+      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DEAD WEBHOOK DELIVERIES</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="alert-triangle" />Delivery failures</h3><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Inspect attempt history before retrying.</p></div>
+      <Button type="button" variant={confirming() ? 'destructive-ghost' : 'ghost'} size="sm" disabled={(props.summary?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' && <Spinner />} {busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</Button>
     </div>
     <Show when={props.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(props.error, 'Dead deliveries unavailable')}</div></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
-    <For each={expandDeliveries() ? (props.deadDeliveries ?? []) : (props.deadDeliveries ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
-      <div class="dead-event-head">
-        <div class="dead-event-info">
-          <div class="dead-event-title">
-            <span class="badge tone-warn mono-badge">{item.event_type}</span>
-            <span class="badge tone-muted">{item.endpoint_name}</span>
+    <For each={expandDeliveries() ? (props.deadDeliveries ?? []) : (props.deadDeliveries ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card">
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <Badge variant="warning" class="font-mono">{item.event_type}</Badge>
+            <Badge variant="muted">{item.endpoint_name}</Badge>
           </div>
-          <p>{item.last_error_kind ?? 'unknown error'} · HTTP {item.last_response_status ?? '—'} · attempts {item.attempt_count}/{item.max_attempts}</p>
+          <p class="mt-1.5 m-0 text-sm text-secondary-foreground">{item.last_error_kind ?? 'unknown error'} · HTTP {item.last_response_status ?? '—'} · attempts {item.attempt_count}/{item.max_attempts}</p>
         </div>
-        <div class="dead-event-actions">
-          <button class="ghost dead-toggle-id" onClick={() => toggleRevealedId(`delivery:${item.id}`)}>{revealedId() === `delivery:${item.id}` ? 'Hide ID' : 'Details'}</button>
-          <button class="ghost" disabled={!!busy()} onClick={() => void loadDeliveryDetails(item.id)}>Attempts</button>
-          <button class="ghost" disabled={!!busy()} onClick={() => void retryDelivery(item.id)}>{busy() === `delivery:${item.id}` && <Spinner />} {busy() === `delivery:${item.id}` ? 'Retrying…' : 'Retry'}</button>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <Button variant="ghost" size="sm" onClick={() => toggleRevealedId(`delivery:${item.id}`)}>{revealedId() === `delivery:${item.id}` ? 'Hide ID' : 'Details'}</Button>
+          <Button variant="ghost" size="sm" disabled={!!busy()} onClick={() => void loadDeliveryDetails(item.id)}>Attempts</Button>
+          <Button variant="ghost" size="sm" disabled={!!busy()} onClick={() => void retryDelivery(item.id)}>{busy() === `delivery:${item.id}` && <Spinner />} {busy() === `delivery:${item.id}` ? 'Retrying…' : 'Retry'}</Button>
         </div>
       </div>
       <Show when={revealedId() === `delivery:${item.id}`}>
-        <small class="mono dead-event-id">Delivery ID · <span class="mono">{item.id}</span></small>
+        <small class="block mt-2 text-xs text-muted-foreground font-mono">Delivery ID · <span class="font-mono">{item.id}</span></small>
       </Show>
     </div>}</For>
     <Show when={(props.deadDeliveries?.length ?? 0) > DEAD_PREVIEW}>
-      <button class="ghost dead-expand-btn" onClick={() => setExpandDeliveries(!expandDeliveries())}>
+      <Button variant="ghost" size="sm" class="mt-3" onClick={() => setExpandDeliveries(!expandDeliveries())}>
         {expandDeliveries() ? 'Show fewer' : `Show all ${props.deadDeliveries?.length ?? 0} (showing ${DEAD_PREVIEW})`}
-      </button>
+      </Button>
     </Show>
-    <Show when={!props.isLoading && (props.deadDeliveries?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead webhook deliveries" hint="Dead webhooks are deliveries that failed after all retries. A clean list means webhooks are reaching their destinations." /></div></Show>
+    <Show when={!props.isLoading && (props.deadDeliveries?.length ?? 0) === 0}><Card class="p-4 mt-2.5"><EmptyState label="No dead webhook deliveries" hint="Dead webhooks are deliveries that failed after all retries. A clean list means webhooks are reaching their destinations." /></Card></Show>
 
     <Show when={deliveryDetails()}>{details => <Card class="p-4">
-      <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DELIVERY DETAILS</span><h3><SectionIcon name="mail" />{details().delivery.endpoint_name}</h3><div class="dead-event-title"><span class="badge tone-warn mono-badge">{details().delivery.event_type}</span><span class="badge tone-muted">delivery</span></div></div><button class="ghost" onClick={() => setDeliveryDetails(null)}>Close</button></div>
-      <For each={details().attempts}>{attempt => <div class="warning-card"><strong>Attempt {attempt.attempt_number} · {attempt.outcome}</strong><p>HTTP {attempt.response_status ?? '—'} · {attempt.error_kind ?? 'no error kind'} · {attempt.duration_ms} ms · {observed(attempt.finished_at)}</p></div>}</For>
+      <div class="flex items-start justify-between gap-4 mt-6 mb-3"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DELIVERY DETAILS</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="mail" />{details().delivery.endpoint_name}</h3><div class="flex items-center gap-2 flex-wrap mt-1"><Badge variant="warning" class="font-mono">{details().delivery.event_type}</Badge><Badge variant="muted">delivery</Badge></div></div><Button variant="ghost" size="sm" onClick={() => setDeliveryDetails(null)}>Close</Button></div>
+      <For each={details().attempts}>{attempt => <div class="warning-card"><strong class="text-foreground">Attempt {attempt.attempt_number} · {attempt.outcome}</strong><p class="mt-1 m-0 text-sm text-secondary-foreground">HTTP {attempt.response_status ?? '—'} · {attempt.error_kind ?? 'no error kind'} · {attempt.duration_ms} ms · {observed(attempt.finished_at)}</p></div>}</For>
       <Show when={details().attempts.length === 0}><EmptyState label="No delivery attempts" hint="Delivery attempts are logged here once the outbox starts processing messages." /></Show>
     </Card>}</Show>
 
     {/* ─── Dead Push ───────────────────────────────────────────── */}
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3" id="dead-push">
-      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DEAD PUSH</span><h3><SectionIcon name="alert-triangle" />Failed push deliveries</h3><p>{pushFailureSummary()}</p></div>
+    <div class="flex items-start justify-between gap-4 mt-6 mb-3" id="dead-push">
+      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DEAD PUSH</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="alert-triangle" />Failed push deliveries</h3><p class="mt-1 text-sm text-muted-foreground leading-relaxed">{pushFailureSummary()}</p></div>
       <StatusBadge status={(props.summary?.push.dead ?? 0) > 0 ? 'dead' : 'clean'} tone={(props.summary?.push.dead ?? 0) > 0 ? 'bad' : 'good'} />
     </div>
     <Show when={props.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(props.error, 'Dead push unavailable')}</div></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
-    <For each={expandPush() ? (props.deadPush ?? []) : (props.deadPush ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card dead-event-card">
-      <div class="dead-event-head">
-        <div class="dead-event-info">
-          <div class="dead-event-title">
-            <span class="badge tone-warn mono-badge">{item.source_kind}</span>
-            <span class="badge tone-muted">push</span>
+    <For each={expandPush() ? (props.deadPush ?? []) : (props.deadPush ?? []).slice(0, DEAD_PREVIEW)}>{item => <div class="warning-card">
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <Badge variant="warning" class="font-mono">{item.source_kind}</Badge>
+            <Badge variant="muted">push</Badge>
           </div>
-          <p><strong>{item.title}</strong> — {pushFailureReason(item.error_code)} · attempts {item.attempt_count}</p>
+          <p class="mt-1.5 m-0 text-sm text-secondary-foreground"><strong class="text-foreground">{item.title}</strong> — {pushFailureReason(item.error_code)} · attempts {item.attempt_count}</p>
         </div>
-        <div class="dead-event-actions">
-          <button class="ghost dead-toggle-id" onClick={() => toggleRevealedId(`push:${item.id}`)}>{revealedId() === `push:${item.id}` ? 'Hide ID' : 'Details'}</button>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <Button variant="ghost" size="sm" onClick={() => toggleRevealedId(`push:${item.id}`)}>{revealedId() === `push:${item.id}` ? 'Hide ID' : 'Details'}</Button>
           <Show
             when={pushIsRetryable(item.error_code)}
-            fallback={<span class="text-muted-foreground push-no-retry">nothing to retry</span>}
+            fallback={<span class="text-sm text-muted-foreground">nothing to retry</span>}
           >
-            <button class="ghost" disabled={!!busy()} onClick={() => void retryPush(item.id)}>{busy() === `push:${item.id}` && <Spinner />} {busy() === `push:${item.id}` ? 'Retrying…' : 'Retry'}</button>
+            <Button variant="ghost" size="sm" disabled={!!busy()} onClick={() => void retryPush(item.id)}>{busy() === `push:${item.id}` && <Spinner />} {busy() === `push:${item.id}` ? 'Retrying…' : 'Retry'}</Button>
           </Show>
         </div>
       </div>
       <Show when={revealedId() === `push:${item.id}`}>
-        <small class="mono dead-event-id">Push ID · <span class="mono">{item.id}</span></small>
+        <small class="block mt-2 text-xs text-muted-foreground font-mono">Push ID · <span class="font-mono">{item.id}</span></small>
       </Show>
     </div>}</For>
     <Show when={(props.deadPush?.length ?? 0) > DEAD_PREVIEW}>
-      <button class="ghost dead-expand-btn" onClick={() => setExpandPush(!expandPush())}>
+      <Button variant="ghost" size="sm" class="mt-3" onClick={() => setExpandPush(!expandPush())}>
         {expandPush() ? 'Show fewer' : `Show all ${props.deadPush?.length ?? 0} (showing ${DEAD_PREVIEW})`}
-      </button>
+      </Button>
     </Show>
-    <Show when={!props.isLoading && (props.deadPush?.length ?? 0) === 0}><div class="inherit-card"><EmptyState label="No dead push deliveries" hint="Dead push notifications are deliveries that failed after all retries. A clean list means pushes are reaching devices." /></div></Show>
+    <Show when={!props.isLoading && (props.deadPush?.length ?? 0) === 0}><Card class="p-4 mt-2.5"><EmptyState label="No dead push deliveries" hint="Dead push notifications are deliveries that failed after all retries. A clean list means pushes are reaching devices." /></Card></Show>
   </>
 }

@@ -4,6 +4,10 @@ import { api } from '../lib/api'
 import type { PortfolioSettingsReadModel } from '../lib/types'
 import { SectionIcon } from './SectionIcon'
 import { ErrorCard, SectionTitle } from './layout'
+import { Card } from './ui/card'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
+import { Input } from './ui/input'
 
 const LABELS: Record<string, string> = {
   member_site_base_url: 'Member site base URL',
@@ -96,16 +100,16 @@ export function PortfolioSettingsPanel(props: {
     },
   }))
 
-  return <article class="rounded-lg border border-border bg-card text-foreground p-5">
+  return <Card class="p-5">
     <SectionTitle eyebrow="BRAND" title="Brand settings" icon={<SectionIcon name="settings" />} description="Where this tenant's fan-facing links point. Each field is live as soon as it is saved — the apps read these values directly." />
-    <p class="agent-section-intro">A field left empty runs the shipped default; <span class="badge tone-warn override-pill">override</span> marks the ones this tenant has replaced. Edit a field and its Save button appears beside it.</p>
-    <div class="form-grid">
+    <p class="text-sm text-muted-foreground leading-relaxed">A field left empty runs the shipped default; <Badge variant="warning">override</Badge> marks the ones this tenant has replaced. Edit a field and its Save button appears beside it.</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-4">
       <For each={keys()}>{key => (
-        <label>
-          <span>
+        <label class="flex flex-col gap-1.5">
+          <span class="text-sm text-foreground">
             {LABELS[key] ?? key}
             <Show when={props.model?.overridden.includes(key)}>
-              {' '}<span class="badge tone-warn override-pill">override</span>
+              {' '}<Badge variant="warning">override</Badge>
             </Show>
           </span>
           <Show
@@ -114,7 +118,7 @@ export function PortfolioSettingsPanel(props: {
               <Show
                 when={key === 'north_star_metric' && (goals.data?.options.length ?? 0) > 0}
                 fallback={
-                  <input
+                  <Input
                     value={drafts()[key] ?? props.model?.settings[key] ?? ''}
                     placeholder={HINTS[key]?.example}
                     onInput={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
@@ -122,6 +126,7 @@ export function PortfolioSettingsPanel(props: {
                 }
               >
                 <select
+                  class="h-9 px-3 rounded-md border border-border bg-card text-sm text-foreground"
                   value={drafts()[key] ?? props.model?.settings[key] ?? ''}
                   onChange={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
                 >
@@ -133,6 +138,7 @@ export function PortfolioSettingsPanel(props: {
             }
           >
             <select
+              class="h-9 px-3 rounded-md border border-border bg-card text-sm text-foreground"
               value={drafts()[key] ?? props.model?.settings[key] ?? 'false'}
               onChange={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
             >
@@ -140,17 +146,18 @@ export function PortfolioSettingsPanel(props: {
               <option value="false">Disabled</option>
             </select>
           </Show>
-          <Show when={HINTS[key]}>{h => <small>{h().hint}<Show when={!BOOLEAN_KEYS.has(key) && key !== 'north_star_metric'}> Example: <code>{h().example}</code></Show></small>}</Show>
+          <Show when={HINTS[key]}>{h => <small class="text-xs text-muted-foreground leading-relaxed">{h().hint}<Show when={!BOOLEAN_KEYS.has(key) && key !== 'north_star_metric'}> Example: <code class="font-mono text-xs">{h().example}</code></Show></small>}</Show>
           <Show when={dirty(key)} fallback={
-            <Show when={savedKey() === key}><small class="text-muted-foreground">Saved ✓</small></Show>
+            <Show when={savedKey() === key}><small class="text-xs text-muted-foreground">Saved ✓</small></Show>
           }>
-            <div class="portfolio-field-save">
-              <button
+            <div class="mt-1">
+              <Button
+                size="sm"
                 disabled={pendingKey() !== null}
                 onClick={() => save.mutate(key)}
               >
                 {pendingKey() === key ? 'Saving…' : 'Save'}
-              </button>
+              </Button>
             </div>
           </Show>
         </label>
@@ -159,5 +166,5 @@ export function PortfolioSettingsPanel(props: {
     <Show when={errorText()}>
       <ErrorCard>{errorText()}</ErrorCard>
     </Show>
-  </article>
+  </Card>
 }
