@@ -404,7 +404,7 @@ export function FanSourcesPanel(props: {
       </div>
     </div>
 
-    <Show when={notice()}><div class="notice-card" role="status">{notice()}</div></Show>
+    <Show when={notice()}><div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground" role="status">{notice()}</div></Show>
     <Show when={errorText()}>
       <ErrorCard>{errorText()}</ErrorCard>
     </Show>
@@ -506,144 +506,144 @@ export function FanSourcesPanel(props: {
       </div>
       {/* Discord connection form */}
       <Show when={connectingPlatform() === 'discord'}>
-        <div class="form-grid" style={{ 'margin-top': '12px' }}>
-          <label>Discord invite code<small>From discord.gg/ link (e.g. BBdDV6gVy)</small><input value={discordInviteCode()} onInput={e => setDiscordInviteCode(e.currentTarget.value)} placeholder="BBdDV6gVy" /></label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+          <label>Discord invite code<small>From discord.gg/ link (e.g. BBdDV6gVy)</small><Input value={discordInviteCode()} onInput={e => setDiscordInviteCode(e.currentTarget.value)} placeholder="BBdDV6gVy" /></label>
         </div>
-        <div class="form-actions">
+        <div class="flex justify-end gap-2">
           <Button size="sm" disabled={!discordInviteCode().trim() || connectDiscord.isPending} onClick={() => connectDiscord.mutate()}>{connectDiscord.isPending && <Spinner />}{connectDiscord.isPending ? 'Connecting…' : 'Connect Discord'}</Button>
           <Button variant="ghost" size="sm" onClick={() => setConnectingPlatform(null)}>Cancel</Button>
         </div>
       </Show>
       {/* Telegram connection form */}
       <Show when={connectingPlatform() === 'telegram'}>
-        <div class="form-grid" style={{ 'margin-top': '12px' }}>
-          <label>Telegram channel<small>Public channel username</small><input value={telegramChannel()} onInput={e => setTelegramChannel(e.currentTarget.value)} placeholder="@virya_music" /></label>
-          <label>Bot token<small>From @BotFather</small><input type="password" value={telegramBotToken()} onInput={e => setTelegramBotToken(e.currentTarget.value)} placeholder="123456:ABC-DEF…" /></label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+          <label>Telegram channel<small>Public channel username</small><Input value={telegramChannel()} onInput={e => setTelegramChannel(e.currentTarget.value)} placeholder="@virya_music" /></label>
+          <label>Bot token<small>From @BotFather</small><Input type="password" value={telegramBotToken()} onInput={e => setTelegramBotToken(e.currentTarget.value)} placeholder="123456:ABC-DEF…" /></label>
         </div>
-        <div class="form-actions">
+        <div class="flex justify-end gap-2">
           <Button size="sm" disabled={!telegramChannel().trim() || !telegramBotToken().trim() || connectTelegram.isPending} onClick={() => connectTelegram.mutate()}>{connectTelegram.isPending && <Spinner />}{connectTelegram.isPending ? 'Connecting…' : 'Connect Telegram'}</Button>
           <Button variant="ghost" size="sm" onClick={() => setConnectingPlatform(null)}>Cancel</Button>
         </div>
       </Show>
       {/* Last.fm connection form */}
       <Show when={connectingPlatform() === 'lastfm'}>
-        <div class="form-grid" style={{ 'margin-top': '12px' }}>
-          <label>Last.fm artist name<small>Canonical spelling as on last.fm</small><input value={lastfmArtist()} onInput={e => setLastfmArtist(e.currentTarget.value)} placeholder="Iron Maiden" /></label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+          <label>Last.fm artist name<small>Canonical spelling as on last.fm</small><Input value={lastfmArtist()} onInput={e => setLastfmArtist(e.currentTarget.value)} placeholder="Iron Maiden" /></label>
         </div>
-        <div class="form-actions">
+        <div class="flex justify-end gap-2">
           <Button size="sm" disabled={!lastfmArtist().trim() || connectLastfm.isPending} onClick={() => connectLastfm.mutate()}>{connectLastfm.isPending && <Spinner />}{connectLastfm.isPending ? 'Connecting…' : 'Connect Last.fm'}</Button>
           <Button variant="ghost" size="sm" onClick={() => setConnectingPlatform(null)}>Cancel</Button>
         </div>
       </Show>
       {/* Deezer connection form */}
       <Show when={connectingPlatform() === 'deezer'}>
-        <div class="form-grid" style={{ 'margin-top': '12px' }}>
-          <label>Deezer artist ID<small>Numeric ID from the Deezer artist page URL</small><input value={deezerArtistId()} onInput={e => setDeezerArtistId(e.currentTarget.value)} placeholder="13" /></label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+          <label>Deezer artist ID<small>Numeric ID from the Deezer artist page URL</small><Input value={deezerArtistId()} onInput={e => setDeezerArtistId(e.currentTarget.value)} placeholder="13" /></label>
         </div>
-        <div class="form-actions">
+        <div class="flex justify-end gap-2">
           <Button size="sm" disabled={!deezerArtistId().trim() || connectDeezer.isPending} onClick={() => connectDeezer.mutate()}>{connectDeezer.isPending && <Spinner />}{connectDeezer.isPending ? 'Connecting…' : 'Connect Deezer'}</Button>
           <Button variant="ghost" size="sm" onClick={() => setConnectingPlatform(null)}>Cancel</Button>
         </div>
       </Show>
       {/* Discogs connection form */}
       <Show when={connectingPlatform() === 'discogs'}>
-        <div class="form-grid" style={{ 'margin-top': '12px' }}>
-          <label>Discogs artist ID<small>Numeric ID from the Discogs artist page URL</small><input value={discogsArtistId()} onInput={e => setDiscogsArtistId(e.currentTarget.value)} placeholder="18839" /></label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+          <label>Discogs artist ID<small>Numeric ID from the Discogs artist page URL</small><Input value={discogsArtistId()} onInput={e => setDiscogsArtistId(e.currentTarget.value)} placeholder="18839" /></label>
         </div>
-        <div class="form-actions">
+        <div class="flex justify-end gap-2">
           <Button size="sm" disabled={!discogsArtistId().trim() || connectDiscogs.isPending} onClick={() => connectDiscogs.mutate()}>{connectDiscogs.isPending && <Spinner />}{connectDiscogs.isPending ? 'Connecting…' : 'Connect Discogs'}</Button>
           <Button variant="ghost" size="sm" onClick={() => setConnectingPlatform(null)}>Cancel</Button>
         </div>
       </Show>
       {/* Bluesky connection form */}
       <Show when={connectingPlatform() === 'bluesky'}>
-        <div class="form-grid" style={{ 'margin-top': '12px' }}>
-          <label>Bluesky handle<small>Full handle including domain</small><input value={blueskyHandle()} onInput={e => setBlueskyHandle(e.currentTarget.value)} placeholder="virya.bsky.social" /></label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+          <label>Bluesky handle<small>Full handle including domain</small><Input value={blueskyHandle()} onInput={e => setBlueskyHandle(e.currentTarget.value)} placeholder="virya.bsky.social" /></label>
         </div>
-        <div class="form-actions">
+        <div class="flex justify-end gap-2">
           <Button size="sm" disabled={!blueskyHandle().trim() || connectBluesky.isPending} onClick={() => connectBluesky.mutate()}>{connectBluesky.isPending && <Spinner />}{connectBluesky.isPending ? 'Connecting…' : 'Connect Bluesky'}</Button>
           <Button variant="ghost" size="sm" onClick={() => setConnectingPlatform(null)}>Cancel</Button>
         </div>
       </Show>
       {/* Bandcamp connection form */}
       <Show when={connectingPlatform() === 'bandcamp'}>
-        <div class="form-grid" style={{ 'margin-top': '12px' }}>
-          <label>Bandcamp subdomain<small>The part before .bandcamp.com</small><input value={bandcampSubdomain()} onInput={e => setBandcampSubdomain(e.currentTarget.value)} placeholder="virya" /></label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+          <label>Bandcamp subdomain<small>The part before .bandcamp.com</small><Input value={bandcampSubdomain()} onInput={e => setBandcampSubdomain(e.currentTarget.value)} placeholder="virya" /></label>
         </div>
-        <div class="form-actions">
+        <div class="flex justify-end gap-2">
           <Button size="sm" disabled={!bandcampSubdomain().trim() || connectBandcamp.isPending} onClick={() => connectBandcamp.mutate()}>{connectBandcamp.isPending && <Spinner />}{connectBandcamp.isPending ? 'Connecting…' : 'Connect Bandcamp'}</Button>
           <Button variant="ghost" size="sm" onClick={() => setConnectingPlatform(null)}>Cancel</Button>
         </div>
       </Show>
       {/* YouTube connection form */}
       <Show when={connectingPlatform() === 'youtube'}>
-        <div class="form-grid" style={{ 'margin-top': '12px' }}>
-          <label>YouTube channel ID<small>Starts with UC… (from the channel URL or API)</small><input value={youtubeChannelId()} onInput={e => setYoutubeChannelId(e.currentTarget.value)} placeholder="UCxxxxxxxxxxxxxxxxxxxxxx" /></label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+          <label>YouTube channel ID<small>Starts with UC… (from the channel URL or API)</small><Input value={youtubeChannelId()} onInput={e => setYoutubeChannelId(e.currentTarget.value)} placeholder="UCxxxxxxxxxxxxxxxxxxxxxx" /></label>
         </div>
-        <div class="form-actions">
+        <div class="flex justify-end gap-2">
           <Button size="sm" disabled={!youtubeChannelId().trim() || connectYoutube.isPending} onClick={() => connectYoutube.mutate()}>{connectYoutube.isPending && <Spinner />}{connectYoutube.isPending ? 'Connecting…' : 'Connect YouTube'}</Button>
           <Button variant="ghost" size="sm" onClick={() => { setConnectingPlatform(null); setVerificationNotice(null) }}>Cancel</Button>
         </div>
-        <Show when={verificationNotice()}><div class="notice-card" role="status">{verificationNotice()}</div></Show>
+        <Show when={verificationNotice()}><div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground" role="status">{verificationNotice()}</div></Show>
       </Show>
       {/* Facebook connection form */}
       <Show when={connectingPlatform() === 'facebook'}>
-        <div class="form-grid" style={{ 'margin-top': '12px' }}>
-          <label>Facebook Page ID<small>Numeric Page ID (from the page URL or Graph API)</small><input value={facebookPageId()} onInput={e => setFacebookPageId(e.currentTarget.value)} placeholder="1234567890" /></label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+          <label>Facebook Page ID<small>Numeric Page ID (from the page URL or Graph API)</small><Input value={facebookPageId()} onInput={e => setFacebookPageId(e.currentTarget.value)} placeholder="1234567890" /></label>
         </div>
-        <div class="form-actions">
+        <div class="flex justify-end gap-2">
           <Button size="sm" disabled={!facebookPageId().trim() || connectFacebook.isPending} onClick={() => connectFacebook.mutate()}>{connectFacebook.isPending && <Spinner />}{connectFacebook.isPending ? 'Connecting…' : 'Connect Facebook'}</Button>
           <Button variant="ghost" size="sm" onClick={() => { setConnectingPlatform(null); setVerificationNotice(null) }}>Cancel</Button>
         </div>
-        <Show when={verificationNotice()}><div class="notice-card" role="status">{verificationNotice()}</div></Show>
+        <Show when={verificationNotice()}><div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground" role="status">{verificationNotice()}</div></Show>
       </Show>
       {/* Instagram connection form */}
       <Show when={connectingPlatform() === 'instagram'}>
-        <div class="form-grid" style={{ 'margin-top': '12px' }}>
-          <label>Instagram Business account ID<small>Numeric IG Business account ID (from Graph API)</small><input value={instagramIgUserId()} onInput={e => setInstagramIgUserId(e.currentTarget.value)} placeholder="178414xxxxxxxxxx" /></label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+          <label>Instagram Business account ID<small>Numeric IG Business account ID (from Graph API)</small><Input value={instagramIgUserId()} onInput={e => setInstagramIgUserId(e.currentTarget.value)} placeholder="178414xxxxxxxxxx" /></label>
         </div>
-        <div class="form-actions">
+        <div class="flex justify-end gap-2">
           <Button size="sm" disabled={!instagramIgUserId().trim() || connectInstagram.isPending} onClick={() => connectInstagram.mutate()}>{connectInstagram.isPending && <Spinner />}{connectInstagram.isPending ? 'Connecting…' : 'Connect Instagram'}</Button>
           <Button variant="ghost" size="sm" onClick={() => { setConnectingPlatform(null); setVerificationNotice(null) }}>Cancel</Button>
         </div>
-        <Show when={verificationNotice()}><div class="notice-card" role="status">{verificationNotice()}</div></Show>
+        <Show when={verificationNotice()}><div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground" role="status">{verificationNotice()}</div></Show>
       </Show>
       {/* SoundCloud connection form */}
       <Show when={connectingPlatform() === 'soundcloud'}>
-        <div class="form-grid" style={{ 'margin-top': '12px' }}>
-          <label>SoundCloud permalink<small>The artist's permalink (e.g. "virya" or full URL)</small><input value={soundcloudPermalink()} onInput={e => setSoundcloudPermalink(e.currentTarget.value)} placeholder="virya" /></label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+          <label>SoundCloud permalink<small>The artist's permalink (e.g. "virya" or full URL)</small><Input value={soundcloudPermalink()} onInput={e => setSoundcloudPermalink(e.currentTarget.value)} placeholder="virya" /></label>
         </div>
-        <div class="form-actions">
+        <div class="flex justify-end gap-2">
           <Button size="sm" disabled={!soundcloudPermalink().trim() || connectSoundcloud.isPending} onClick={() => connectSoundcloud.mutate()}>{connectSoundcloud.isPending && <Spinner />}{connectSoundcloud.isPending ? 'Connecting…' : 'Connect SoundCloud'}</Button>
           <Button variant="ghost" size="sm" onClick={() => { setConnectingPlatform(null); setVerificationNotice(null) }}>Cancel</Button>
         </div>
-        <Show when={verificationNotice()}><div class="notice-card" role="status">{verificationNotice()}</div></Show>
+        <Show when={verificationNotice()}><div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground" role="status">{verificationNotice()}</div></Show>
       </Show>
       {/* Reddit connection form */}
       <Show when={connectingPlatform() === 'reddit'}>
-        <div class="form-grid" style={{ 'margin-top': '12px' }}>
-          <label>Subreddit name<small>The subreddit name (e.g. "Metal", "r/Metal")</small><input value={redditSubreddit()} onInput={e => setRedditSubreddit(e.currentTarget.value)} placeholder="Metal" /></label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+          <label>Subreddit name<small>The subreddit name (e.g. "Metal", "r/Metal")</small><Input value={redditSubreddit()} onInput={e => setRedditSubreddit(e.currentTarget.value)} placeholder="Metal" /></label>
         </div>
-        <div class="form-actions">
+        <div class="flex justify-end gap-2">
           <Button size="sm" disabled={!redditSubreddit().trim() || connectReddit.isPending} onClick={() => connectReddit.mutate()}>{connectReddit.isPending && <Spinner />}{connectReddit.isPending ? 'Connecting…' : 'Connect Reddit'}</Button>
           <Button variant="ghost" size="sm" onClick={() => { setConnectingPlatform(null); setVerificationNotice(null) }}>Cancel</Button>
         </div>
-        <Show when={verificationNotice()}><div class="notice-card" role="status">{verificationNotice()}</div></Show>
+        <Show when={verificationNotice()}><div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground" role="status">{verificationNotice()}</div></Show>
       </Show>
       </Show>
     </Card>
 
     <Show when={creating}>
       <p class="text-sm text-muted-foreground leading-relaxed mt-1" style={{ 'margin-top': '20px' }}>A source is one place fans arrive from. Naming it well matters — the name is what every ingestion row, attribution report and audit entry refers back to.</p>
-      <div class="form-grid">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
         <label>
           <span>Name</span>
-          <input value={name()} onInput={e => setName(e.currentTarget.value)} placeholder="e.g. Meta Lead Ads — Warsaw" />
+          <Input value={name()} onInput={e => setName(e.currentTarget.value)} placeholder="e.g. Meta Lead Ads — Warsaw" />
           <small>Yours to choose. Include the platform and the campaign or city, so two similar feeds stay tellable apart later.</small>
         </label>
         <label>
           <span>Source kind</span>
-          <select value={sourceKind()} onChange={e => setSourceKind(e.currentTarget.value)}>
+          <select class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={sourceKind()} onChange={e => setSourceKind(e.currentTarget.value)}>
             <For each={SOURCE_KINDS}>{k => <option value={k.value}>{k.label}</option>}</For>
           </select>
           <small>How fans reach the graph: a URL you import from, a batch you paste in, or a platform this tenant is connected to.</small>
@@ -651,19 +651,19 @@ export function FanSourcesPanel(props: {
         <Show when={sourceKind() === 'http_json_pull'}>
           <label>
             <span>Fetch URL</span>
-            <input value={fetchUrl()} onInput={e => setFetchUrl(e.currentTarget.value)} placeholder="https://…/candidates.json" />
+            <Input value={fetchUrl()} onInput={e => setFetchUrl(e.currentTarget.value)} placeholder="https://…/candidates.json" />
             <small>HTTPS endpoint returning the candidate list as JSON. The URL is stored for manual import; automatic polling is not yet wired.</small>
           </label>
         </Show>
         <Show when={needsAttestation()}>
           <label>
             <span>Consent attested by</span>
-            <input value={attestedBy()} onInput={e => setAttestedBy(e.currentTarget.value)} placeholder="operator@label" />
+            <Input value={attestedBy()} onInput={e => setAttestedBy(e.currentTarget.value)} placeholder="operator@label" />
             <small>This kind carries personal data, so a named operator has to attest that the fans consented. The name is stored with every batch it ingests.</small>
           </label>
         </Show>
       </div>
-      <div class="form-actions">
+      <div class="flex justify-end gap-2">
         <Button size="sm" disabled={!name() || (needsAttestation() && !attestedBy())}
           onClick={() => create.mutate()}>Create</Button>
         <Button variant="ghost" size="sm" onClick={() => setCreating(false)}>Cancel</Button>
@@ -688,7 +688,7 @@ export function FanSourcesPanel(props: {
               <td>{metric(fb.members)}</td>
               <td>
                 <Show when={fb.last_status} fallback={<span class="text-muted-foreground">never</span>}>
-                  <span class="row-health">
+                  <span class="flex items-center gap-2">
                     <StatusBadge status={fb.last_status ?? ''} tone={ingestionTone(fb.last_status)} />
                     <Show when={fb.last_imported_pending != null}>
                       <small>+{fb.last_imported_pending} pending</small>
@@ -720,7 +720,7 @@ export function FanSourcesPanel(props: {
                         </Show>
                       </Show>
                     </div>
-                    <div class="form-actions">
+                    <div class="flex justify-end gap-2">
                       <Button size="sm" disabled={!parseEntries()}
                         onClick={() => {
                           const parsed = parseEntries()
@@ -738,7 +738,7 @@ export function FanSourcesPanel(props: {
                     Delete
                   </Button>
                 }>
-                  <div class="row-health">
+                  <div class="flex items-center gap-2">
                     <Button variant="destructive-ghost" size="sm" disabled={remove.isPending}
                       onClick={() => remove.mutate(fb.id)}>
                       {remove.isPending && <Spinner />} {remove.isPending ? 'Deleting…' : 'Confirm'}

@@ -195,23 +195,14 @@
   /* ── Legacy component CSS (extracted from styles.css) ──
      These rules provide base styling for component-specific classes.
      The @apply rules below override these for migrated patterns. */
-.product-entitlement-row {display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center}
-.product-action-slot {display:flex;justify-content:flex-end;gap:8px}
-.product-status-slot {display:flex;justify-content:flex-end;min-width:90px}
 .trend-platform {font-size:var(--text-xs);color:var(--text-muted);margin-top:2px}
 .segment-desc {margin:4px 0 0;font-size:var(--text-sm);line-height:1.4}
 .detail-json {font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);display:block;word-break:break-all}
 .regional-profile-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
 .policy-enabled {display:flex;align-items:center;gap:8px}
 .policy-number input {width:80px;text-align:right}
-@media(max-width:900px) {
-  .tenant-row-meta {white-space:normal;word-break:break-word}
-}
 .outreach-empty-state {margin-top:var(--space-5)}
-.provision-job-head strong, .provision-job-head small {display:block}
-.provision-job-head small {color:var(--muted);margin-top:5px}
 .plan-preview {margin-top:16px}
-.area-editor {position:relative}
 .operations-title {margin-top:0}
 .operations-title p {margin:.45rem 0 0}
 .release-component-list {margin-top:var(--space-4)}
@@ -247,7 +238,7 @@
 .cmdk-foot kbd {font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--text-xs);background:var(--surface-3);border:1px solid var(--line);border-radius:var(--radius-sm);padding:1px 5px}
 .cmdk-busy {color:var(--accent)}
 /* Inline JSON batch editor inside a fan-source table row — same input
-   language as .form-grid without the two-column layout. */
+   language as the form utilities without the two-column layout. */
 .ingest-editor {display:flex;flex-direction:column;gap:10px;max-width:420px}
 .ingest-editor textarea {width:100%;min-height:90px;resize:vertical;background:var(--surface-0);border:1px solid var(--border-default);color:var(--text);padding:11px 12px;border-radius:var(--radius-md);outline:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--text-base)}
 .ingest-editor textarea:focus {border-color:var(--accent);box-shadow:0 0 0 3px var(--accent)26}
@@ -273,35 +264,10 @@
 .sidebar-nav-tenant a.active .nav-icon, .sidebar-nav-global a.active .nav-icon {opacity:1;color:#b9a9ff}
 .tenant-switcher-dot.good {background:var(--good)}
 .tenant-switcher-dot.warn {background:var(--warn)}
-/* Fan growth card — North Star KPIs on the tenant profile tab */
-.fan-growth-card {margin-bottom:24px}
-.fan-growth-value {font-size:1.75rem;font-weight:700;line-height:1;color:var(--text-primary)}
-.fan-growth-label {font-size:var(--text-xs);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
-.fan-growth-rate {display:flex;gap:16px;align-items:center;font-size:var(--text-sm);padding-top:8px;border-top:1px solid var(--border-subtle)}
-.fan-growth-delta {color:var(--good-light);font-weight:600}
-.fan-growth-unavailable {padding:24px}
-/* Service cards — compact health tiles */
-.service-grid {display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-bottom:32px}
-.service-card {padding:16px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-2);transition:border-color var(--t-smooth),box-shadow var(--t-smooth)}
-.service-card.healthy {border-left:3px solid var(--good)}
-.service-card.unhealthy {border-left:3px solid var(--bad)}
-.service-card-head {display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.service-card-head strong {font-size:var(--text-base);font-weight:700}
-.service-dot.good {background:var(--good)}
-.service-card-meta {display:flex;flex-wrap:wrap;gap:10px;font-size:var(--text-sm);color:var(--muted)}
-.service-card-meta .muted {color:var(--text-muted)}
 /* Tenant pulse — card grid instead of list */
 
 
 
-.tenant-pulse-dot.good {background:var(--good)}
-.tenant-pulse-dot.warn {background:var(--warn)}
-/* Section link — cleaner than raw anchor */
-.section-link {color:var(--accent-hover);font-size:var(--text-base);font-weight:600;transition:color var(--t-fast)}
-.section-link:hover {color:var(--accent-text)}
-.opportunity-rank {border-radius:var(--radius-sm);font-size:var(--text-xs)}
-.provision-job-head {display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.provision-job-badges {display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 /* Tenant switcher search */
 
 
@@ -403,10 +369,6 @@
 .premium-task-provider {font-size:var(--text-xs);color:var(--text-muted);flex-shrink:0}
 .premium-task-cost {font-size:var(--text-xs);color:var(--warn);flex-shrink:0}
 .premium-task-age {font-size:var(--text-xs);color:var(--text-muted);flex-shrink:0}
-.automation-event-head .time {margin-left:auto;font-size:var(--text-sm)}
-.severity-dot.warn {background:var(--warn)}
-.toggle-row {display:flex;align-items:center;gap:6px;font-size:var(--text-sm);color:var(--muted)}
-.toggle-row input {accent-color:var(--accent)}
 .free-chip {color:#6ee7b7;font-size:var(--text-xs);padding:1px 5px;border-radius:3px;text-transform:uppercase;letter-spacing:.04em}
 .llm-badge {color:var(--accent-light);font-size:var(--text-xs)}
 .agent-outcomes {padding:.75rem 1.25rem;border-bottom:1px solid var(--border-default)}
@@ -566,13 +528,6 @@
 .tone-warn {color:var(--warn)}
 .tone-muted {color:var(--muted)}
 /* Fleet health ring row (Overview page) */
-.fleet-health-row {display:flex;align-items:center;gap:18px;padding:14px 18px;margin-bottom:var(--space-4);border:1px solid var(--border-default);border-radius:var(--radius-lg);background:var(--surface-2)}
-.fleet-health-ring {flex:0 0 auto}
-.fleet-health-stats {display:flex;flex-direction:column;gap:2px}
-/* This slot carried a short uppercase caption; it now also carries a full
-   explanatory sentence, which uppercase makes unreadable. */
-.fleet-health-stats .muted {font-size:var(--text-base);line-height:1.5}
-.fleet-health-stats strong {font-size:var(--text-body);font-weight:700}
 /* Progress ring */
 
 
@@ -637,57 +592,6 @@
 .brain-evidence-row dt {flex:0 0 140px;font-size:var(--text-xs);color:var(--text-muted);text-transform:capitalize}
 .brain-evidence-row dd {flex:1;min-width:0;margin:0;font-size:var(--text-sm);color:var(--text-secondary);word-break:break-word}
 .json-line {display:block;white-space:pre-wrap;word-break:normal;overflow-wrap:anywhere}
-.learning-loop-head {display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);margin-bottom:var(--space-4)}
-.learning-loop-head h2 {margin:.3rem 0 0;font-size:var(--text-lg);font-weight:700;display:flex;align-items:center;gap:8px}
-.learning-loop-summary {display:flex;flex-wrap:wrap;gap:var(--space-3);margin-bottom:var(--space-4);padding:var(--space-3);border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface-1)}
-.learning-loop-stat {display:flex;flex-direction:column;gap:2px}
-.learning-loop-stat span {font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em}
-.learning-loop-stat strong {font-size:var(--text-md);font-weight:700}
-.learning-loop-stat-highlight {margin-left:auto;padding-left:var(--space-4);border-left:2px solid var(--good)}
-.learning-loop-stat-highlight strong {font-size:var(--text-lg);color:var(--good)}
-.learning-loop-list {display:flex;flex-direction:column;gap:var(--space-3)}
-.learning-loop-entry {display:flex;flex-direction:row;align-items:stretch;gap:var(--space-2);padding:var(--space-3);border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-1);transition:border-color var(--t-smooth),box-shadow var(--t-smooth)}
-.learning-loop-entry:hover {border-color:rgba(155,135,245,0.2);box-shadow:0 2px 12px rgba(0,0,0,0.2)}
-.learning-loop-stage-card {flex:1 1 0;min-width:0;padding:10px 14px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--surface-2);transition:border-color var(--t-smooth),background var(--t-smooth),transform var(--t-smooth);cursor:default}
-.learning-loop-stage-card:hover {border-color:rgba(155,135,245,0.25);background:var(--surface-3);transform:translateY(-2px)}
-.learning-loop-stage-decision .learning-loop-stage-label {color:var(--accent-light)}
-.learning-loop-stage-action .learning-loop-stage-label {color:var(--cyan)}
-.learning-loop-stage-outcome .learning-loop-stage-label {color:var(--warn)}
-.learning-loop-stage-learned .learning-loop-stage-label {color:var(--good)}
-.learning-loop-stage-label {display:block;font-size:var(--text-xs);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:6px}
-.learning-loop-stage-rows {display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px 12px}
-.learning-loop-stage-rows>div {display:flex;flex-direction:column;gap:1px}
-.learning-loop-stage-rows .muted {font-size:var(--text-xs);color:var(--text-muted)}
-.learning-loop-stage-rows strong {font-size:var(--text-sm);color:var(--text-primary)}
-.learning-loop-stage-rows span:not(.muted) {font-size:var(--text-sm);color:var(--text-secondary)}
-/* Confidence color coding — greener = higher confidence */
-
-
-/* Action status badges */
-
-
-.learning-loop-reason {margin:6px 0 0;font-size:var(--text-sm);color:var(--text-secondary);line-height:1.5}
-.learning-loop-arrow {display:flex;align-items:center;color:var(--text-muted);font-size:var(--text-base);flex:0 0 auto;transition:color var(--t-smooth)}
-.learning-loop-entry:hover .learning-loop-arrow {color:var(--accent-light)}
-.learning-loop-pending {margin:0;font-size:var(--text-sm);color:var(--text-muted);font-style:italic}
-.learning-loop-integrity-issue {margin:0;font-size:var(--text-sm);color:var(--bad);font-style:italic}
-@media(max-width:900px) {
-  .learning-loop-entry {flex-direction:column}
-  .learning-loop-arrow {justify-content:center;transform:rotate(90deg)}
-}
-/* Learning proof — one belief revision, its cause and what followed. Stacked
-   rather than the loop panel's left-to-right flow: a revision has a variable
-   number of causes and influenced decisions, so columns would collapse. */
-.learning-proof-list {display:flex;flex-direction:column;gap:var(--space-3)}
-.learning-proof-entry {padding:var(--space-3);border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-1);transition:border-color var(--t-smooth),box-shadow var(--t-smooth)}
-.learning-proof-entry:hover {border-color:rgba(155,135,245,0.2);box-shadow:0 2px 12px rgba(0,0,0,0.2)}
-.learning-proof-header {display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);font-size:var(--text-xs)}
-.learning-proof-header code {font-size:var(--text-xs);color:var(--text-secondary)}
-.learning-proof-summary {margin:8px 0 10px;font-size:var(--text-sm);color:var(--text-primary);line-height:1.5}
-.learning-proof-stage {padding:8px 12px;border-left:2px solid var(--border-subtle);margin-bottom:8px}
-.learning-proof-stage:last-child {margin-bottom:0}
-.learning-proof-cause, .learning-proof-influence {display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-2);font-size:var(--text-sm);padding:4px 0}
-.learning-proof-influence code {font-size:var(--text-xs);color:var(--text-secondary)}
 .attention-tier-urgent .attention-tier-head {color:var(--bad)}
 .attention-tier-review .attention-tier-head {color:var(--warn)}
 .attention-tier-informational .attention-tier-head {color:var(--text-muted)}
@@ -712,7 +616,6 @@
 .scorecard-result-card {padding:12px 14px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-2);display:flex;flex-direction:column;gap:4px;overflow:hidden}
 .scorecard-result-head {display:flex;align-items:center;gap:8px;justify-content:space-between;min-width:0}
 .scorecard-result-head strong {font-size:var(--text-base);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.scorecard-result-head .status-badge {flex-shrink:0;white-space:nowrap}
 .scorecard-result-card small {font-size:var(--text-sm);color:var(--text-muted)}
 .ops-kpi-card.tone-good {border-color:rgba(61,220,132,0.25)}
 .ops-kpi-card.tone-warn {border-color:rgba(245,185,66,0.25)}
@@ -784,10 +687,10 @@
 .opportunity-briefing-content {margin:0;display:flex;flex-direction:column;gap:0}
 .opportunity-briefing-content .brain-evidence-row {border-bottom:1px solid var(--border-subtle)}
 /* ── Card hover lift ─────────────────────────────────────────────────── */
-.service-card, .premium-connector-card, .metric, .intel-decision-card {
+.premium-connector-card, .intel-decision-card {
   transition:border-color var(--t-smooth),box-shadow var(--t-smooth),transform var(--t-smooth)
 }
-.service-card:hover, .premium-connector-card:hover, .metric:hover {
+.premium-connector-card:hover {
   border-color:var(--border-strong);
   box-shadow:var(--shadow-md)}
 .intel-decision-card:hover {
@@ -795,12 +698,12 @@
   box-shadow:var(--shadow-sm)
 }
 /* ── Form inputs v2 — glass bg, focus glow ─────────────────────────────── */
-.form-grid input, .form-grid select, .form-grid textarea, .provision-row input, .area-create-card input, .area-create-card select, .area-form-grid input, .area-form-grid select, .area-form-grid textarea, .area-custom-city input, .compact-field select, .compact-field input[type=number], .fan-search-bar input, .premium-key-input {
+.provision-row input, .compact-field select, .compact-field input[type=number], .fan-search-bar input, .premium-key-input {
   background:var(--surface-0);border:1px solid var(--border-default);
   color:white;padding:11px 12px;border-radius:var(--radius-md);outline:none;
   transition:border-color var(--t-fast),box-shadow var(--t-fast)
 }
-.form-grid input:focus, .form-grid select:focus, .form-grid textarea:focus, .provision-row input:focus, .area-create-card input:focus, .area-create-card select:focus, .area-form-grid input:focus, .area-form-grid select:focus, .area-form-grid textarea:focus, .area-custom-city input:focus, .compact-field select:focus, .compact-field input[type=number]:focus, .fan-search-bar input:focus, .premium-key-input:focus {
+.provision-row input:focus, .compact-field select:focus, .compact-field input[type=number]:focus, .fan-search-bar input:focus, .premium-key-input:focus {
   border-color:var(--accent);box-shadow:0 0 0 3px rgba(118,99,216,0.15),0 0 12px rgba(155,135,245,0.1)
 }
 /* Sidebar footer — glass-subtle */
@@ -815,8 +718,6 @@
 
 /* StatusBadge — flat semantic badges */
 
-.status-badge.good {background:rgba(61,220,132,0.12);color:var(--good);border-color:rgba(61,220,132,0.20)}
-.status-badge.warn {background:rgba(245,185,66,0.12);color:var(--warn);border-color:rgba(245,185,66,0.20)}
 .cmdk-input {background:transparent;border:none;border-bottom:1px solid var(--line);color:var(--text-primary);padding:12px 14px;outline:none;font-size:var(--text-body);width:100%}
 .cmdk-input:focus {border-color:var(--accent);box-shadow:0 1px 0 0 var(--accent)}
 /* Chat widget — flat floating panel */
@@ -868,25 +769,6 @@
 
 /* Agent suggestions — glass */
 .agent-suggestions {background:var(--surface-3);border:1px solid var(--border-subtle)}
-.wizard-steps {display:flex;gap:0;margin:18px 0 24px;flex-wrap:wrap}
-.wizard-step-indicator {flex:1;min-width:140px;padding:10px 14px;font-size:var(--text-sm);color:var(--text-muted);border-bottom:2px solid var(--border-subtle);transition:color var(--t-fast),border-color var(--t-fast);text-align:center}
-.wizard-step-indicator.current {font-weight:600;color:var(--accent);border-bottom-color:var(--accent)}
-.wizard-card {background:var(--surface-2);border:1px solid var(--border-default);border-radius:var(--radius-lg);padding:24px;box-shadow:var(--shadow-md)}
-.wizard-intro {color:var(--text-muted);font-size:var(--text-body);margin:0 0 18px}
-.product-cards, .goal-cards, .source-cards {display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
-.product-card, .goal-card, .source-card {display:flex;align-items:flex-start;gap:12px;padding:16px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-1);cursor:pointer;transition:border-color var(--t-fast),background var(--t-fast)}
-.product-card:hover, .goal-card:hover, .source-card:hover {border-color:var(--accent)}
-.product-card.selected, .goal-card.selected, .source-card.selected {border-color:var(--accent);background:rgba(46,89,132,0.15)}
-.product-card input, .goal-card input, .source-card input {flex-shrink:0}
-.product-card-body, .goal-card-body, .source-card-body {display:grid;gap:5px}
-.product-card-body strong, .goal-card-body strong, .source-card-body strong {font-size:var(--text-body);color:var(--text-primary)}
-.product-card-body small, .goal-card-body small, .source-card-body small {font-size:var(--text-sm);color:var(--text-muted);line-height:1.45}
-.wizard-summary {display:grid;gap:10px;margin-bottom:20px}
-.summary-row {display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--surface-1)}
-.summary-row span {color:var(--text-muted);font-size:var(--text-base)}
-.summary-row strong {font-size:var(--text-body)}
-.summary-row strong.on {color:var(--good-light)}
-.summary-row strong.off {color:var(--text-muted)}
 /* ═══════════════════════════════════════════════════════════════════════
    Phase 7 — Usability refinements
    Data density, hierarchies, micro-interactions, sticky headers
@@ -895,27 +777,12 @@
 /* Sticky table headers on long tables */
 .fan-table-wrap {max-height:600px;overflow-y:auto}
 .fan-table thead {position:sticky;top:0;z-index:2;background:var(--surface-3)}
-.tenant-row-info {min-width:0;overflow:hidden}
-.tenant-row-meta {display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;word-break:break-all}
-@media(max-width:900px) {
-  .tenant-row-meta {white-space:normal;word-break:break-word;text-overflow:clip;overflow:visible}
-}
 /* Tenant pulse — full-row list on overview */
-.tenant-pulse-list {display:flex;flex-direction:column;gap:8px}
-.tenant-pulse-row {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-2);text-decoration:none;color:inherit;transition:border-color var(--t-smooth),background var(--t-smooth),box-shadow var(--t-smooth),transform var(--t-smooth)}
-.tenant-pulse-row:hover {border-color:var(--border-accent);background:var(--surface-3);box-shadow:0 2px 8px #00000030;transform:translateY(-1px)}
 .tenant-pulse-row-left {display:flex;align-items:center;gap:12px;min-width:0}
 .tenant-pulse-row-left strong {font-size:var(--text-body);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .tenant-pulse-row-left .muted {font-size:var(--text-sm);color:var(--text-muted);white-space:nowrap}
-@media(prefers-reduced-motion:reduce) {
-  .tenant-pulse-row:hover {transform:none}
-}
 .tenant-pulse-row-right {display:flex;align-items:center;gap:8px;flex-shrink:0}
-@media(max-width:560px) {
-  .tenant-pulse-row {flex-direction:column;align-items:flex-start;gap:10px}
-}
 /* Service card — glass refinement */
-.service-card {background:var(--surface-3);border:1px solid var(--border-subtle)}
 /* Tenant pulse card — glass refinement */
 
 
@@ -942,7 +809,7 @@
 }
 /* Fields that clear the native ring on :focus outrank the generic rule above
    by specificity, so keyboard focus needs restating at the same weight. */
-.cmdk-input:focus-visible, .fan-search-bar input:focus-visible, .premium-key-input:focus-visible, .agent-field select:focus-visible, .agent-field textarea:focus-visible, .form-grid input:focus-visible, .form-grid select:focus-visible, .form-grid textarea:focus-visible, .provision-row input:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
+.cmdk-input:focus-visible, .fan-search-bar input:focus-visible, .premium-key-input:focus-visible, .agent-field select:focus-visible, .agent-field textarea:focus-visible, .provision-row input:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
 /* ═══════════════════════════════════════════════════════════════════════
    Finish pass
    ───────────────────────────────────────────────────────────────────────
@@ -954,14 +821,14 @@
 /* ── Numerals ──────────────────────────────────────────────────────────
    Every figure an operator scans column-wise. Proportional digits made
    values jitter between refreshes because `1` is narrower than `8`. */
-.metric strong, .fleet-health-stats strong, table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card small {
+table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card small {
   font-variant-numeric:tabular-nums;
   font-feature-settings:"tnum" 1,"cv05" 1
 }
 /* ── Surfaces ──────────────────────────────────────────────────────────
    One card treatment: soft radius, one hairline, a single shadow tier.
    The top highlight is what separates a card from a grey rectangle. */
-.panel, .metric, .service-card {
+.panel {
   position:relative;
   border-radius:var(--radius-lg);
   background:var(--surface-2);
@@ -972,8 +839,6 @@
 /* ── KPI cards ─────────────────────────────────────────────────────────*/
 
 
-.service-card {transition:transform var(--t-fast),border-color var(--t-fast),box-shadow var(--t-fast)}
-.service-card:hover {transform:translateY(-2px);border-color:var(--border-strong)}
 /* ── Segmented tabs — now handled by layout.tsx TabBar with Tailwind ── */
 
 
@@ -993,22 +858,7 @@
 .confirm-dialog-body {margin:0 0 var(--space-5);color:var(--muted);font-size:var(--text-base);line-height:1.55}
 .confirm-dialog-actions {display:flex;justify-content:flex-end;gap:var(--space-2)}
 /* Play Store badge link in product entitlement rows */
-.play-store-link {display:inline-flex;align-items:center;border-radius:var(--radius-sm);overflow:hidden}
-.play-store-link img {display:block;height:30px;width:auto}
 /* Mobile App Setup panel */
-.mobile-app-setup-panel .setup-checklist {display:grid;gap:var(--space-3);margin-bottom:var(--space-4)}
-.setup-step {display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default)}
-.setup-step.done {border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.04)}
-.setup-step.pending {border-color:var(--border-default);background:transparent}
-.setup-step-icon {font-size:1.2em;line-height:1.4;flex-shrink:0}
-.setup-step.done .setup-step-icon {color:var(--good)}
-.setup-step.pending .setup-step-icon {color:var(--muted)}
-.setup-step strong {display:block;font-size:var(--text-base)}
-.setup-step small {display:block;color:var(--muted);font-size:var(--text-sm);margin-top:2px;overflow-wrap:anywhere;word-break:break-word}
-.setup-step small a {color:var(--accent);overflow-wrap:anywhere;word-break:break-word}
-.onboard-command-card {padding:var(--space-4);border-radius:var(--radius-md);border:1px solid var(--border-default);background:var(--surface);margin-top:var(--space-3)}
-.onboard-command-card pre {margin:var(--space-2) 0 0;overflow-x:auto}
-.onboard-command-card code {font-size:var(--text-sm);color:var(--text-muted)}
 .community-platform {font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em}
 .community-genres {display:flex;gap:4px;flex-wrap:wrap}
 .genre-tag {font-size:var(--text-xs);padding:3px 9px;border-radius:999px;background:rgba(85,214,233,0.10);border:1px solid rgba(85,214,233,0.22);color:#8fdfec;font-weight:500}
@@ -1211,29 +1061,8 @@
 .section-failure-item.tone-muted .section-failure-state {background:var(--surface-4);color:var(--text-muted)}
 /* ── New tenant wizard ────────────────────────────────────────────────── */
 
-/* The component sets `active: step() >= n` on every step it has passed, and
-   nothing styled it — only `.current` had a rule. So a completed step looked
-   identical to one you had not reached, and a five-step wizard showed no
-   progress at all. Completed reads as done, current as where you are, the rest
-   as not yet. */
-.wizard-step-indicator {font-variant-numeric:tabular-nums}
-.wizard-step-indicator.active {color:var(--text-secondary);border-bottom-color:var(--border-accent)}
-.wizard-step-indicator.active.current {color:var(--accent);border-bottom-color:var(--accent)}
-.wizard-step-indicator.active:not(.current) {background:linear-gradient(180deg,transparent 60%,rgba(155,135,245,0.06))}
-/* A purple border over a blue fill. `--accent` is var(--accent); this tint was
-   rgba(46,89,132,…), which is nothing in the palette. */
-.product-card.selected, .goal-card.selected, .source-card.selected {background:rgba(155,135,245,0.10);box-shadow:inset 0 0 0 1px rgba(155,135,245,0.18)}
-/* Native checkboxes rendered in the browser's own blue, next to a purple
-   accent, on every product and source card in the wizard. */
-.product-card input[type="checkbox"], .goal-card input[type="checkbox"], .source-card input[type="checkbox"], .check-row input[type="checkbox"] {accent-color:var(--accent);width:16px;height:16px;cursor:pointer}
-.product-card input, .goal-card input, .source-card input {margin-top:2px}
 /* `<small>` inside a field label is a hint about the field, not part of its
    name — it was running straight on from the label text. */
-.form-grid label span small, .wizard-card label span small {margin-left:6px;font-size:var(--text-xs);color:var(--text-muted);letter-spacing:.02em}
-/* Summary rows are the last thing read before provisioning a tenant, so the
-   value is what should carry weight, not the label beside it. */
-.summary-row strong {font-variant-numeric:tabular-nums;color:var(--text-primary)}
-.summary-row:hover {border-color:var(--border-default)}
 /* JSON evidence is rendered as a plain <pre> with white-space:pre-wrap.
    The 4-space indent from JSON.stringify(value, null, 4) is preserved
    naturally — no per-line span padding/text-indent tricks needed. */
@@ -1244,31 +1073,10 @@
    half-finished next to the panels around them, which is exactly how an
    operator decides a screen is not to be trusted. */
 
-/* A tenant removal and a brand-colour edit were the same box. The one action
-   on this page that cannot be undone should not look like the rest of it. */
-.tenant-danger-zone {border-color:rgba(255,101,101,.28);background:linear-gradient(180deg,rgba(43,19,19,.30),var(--surface-2) 200px)}
-.tenant-danger-zone .eyebrow {color:var(--bad-light)}
-.tenant-danger-zone .section-title {margin-top:0;padding-bottom:12px;border-bottom:1px solid rgba(255,101,101,.18)}
-.tenant-danger-zone>p {color:var(--text-secondary);max-width:72ch}
-.tenant-opt-out {border-color:rgba(245,185,66,.22)}
-.tenant-opt-out .eyebrow {color:var(--warn-light)}
-.tenant-opt-out .section-title {margin-top:0;padding-bottom:12px;border-bottom:1px solid rgba(245,185,66,.16)}
-.tenant-opt-out>p {color:var(--text-secondary);max-width:72ch}
-/* The confirmation is typing the slug, so the field is one column wide and
-   monospaced — it is compared character by character, not read. */
-.tenant-danger-zone .form-grid, .tenant-opt-out .form-grid {grid-template-columns:minmax(0,360px)}
-@media(max-width:560px) {
-  .tenant-danger-zone .form-grid, .tenant-opt-out .form-grid {grid-template-columns:1fr}
-}
-.tenant-danger-zone .form-grid input, .tenant-opt-out .form-grid input {font-family:var(--font-mono);letter-spacing:.02em}
-.tenant-danger-zone .form-grid input:focus {border-color:var(--bad);box-shadow:0 0 0 3px rgba(255,101,101,.15)}
-.tenant-danger-zone code, .tenant-opt-out code {padding:1px 6px;border-radius:var(--radius-sm);background:var(--surface-3);color:var(--text-primary)}
-.tenant-danger-zone .form-actions, .tenant-opt-out .form-actions {border-top-color:var(--border-subtle)}
 .operator-create-actions {margin-bottom:24px}
 /* Three hooks the components ask for by name and the stylesheet never had:
    the readiness line under a form, the source/owner pair beside a notifier,
    and the "this is last-known, not live" note on the runtime panel. */
-.form-readiness {min-width:0}
 .provenance-badge {display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:var(--radius-sm);background:var(--surface-3);border:1px solid var(--border-subtle);white-space:nowrap}
 /* Ticket purchases sat directly against the tags block above them with no
    heading treatment, so the drawer read as one run of text. */
@@ -1305,8 +1113,6 @@
 .agent-result-header, .agent-result-meta, .agent-result-actions {border-color:var(--border-subtle)}
 .agent-result-meta {color:var(--text-muted)}
 .agent-result-content {color:var(--text-secondary)}
-.palette-field-name {color:var(--text-primary);font-size:var(--text-base);font-weight:600}
-.palette-field-role {color:var(--text-muted);font-size:var(--text-xs);line-height:1.45}
 /* A grid of tick boxes with no sentence above it: the operator had to infer
    that selecting nothing is the permissive default, not the empty one. */
 .check-row-lead {grid-column:1/-1;margin:0 0 2px;color:var(--text-secondary);font-size:var(--text-sm);line-height:1.55}
@@ -1333,16 +1139,8 @@
    that each rolled their own input. Buttons sit at 12px, so a field beside a
    button was visibly a different shape. One radius for anything you type into
    or pick from. */
-.form-grid input, .form-grid select, .form-grid textarea, .provision-row input, .compact-field select, .compact-field input[type=number], .area-create-card input, .area-create-card select, .area-form-grid input, .area-form-grid select, .area-form-grid textarea, .area-custom-city input, select, .automation-config-controls select, .agent-field select, .agent-field textarea, .premium-key-input, .ingest-editor textarea {border-radius:var(--radius-md)}
-/* Readiness line sits to the left of the actions it explains. */
-.form-actions .form-readiness {margin-right:auto}
+.provision-row input, .compact-field select, .compact-field input[type=number], select, .agent-field select, .agent-field textarea, .premium-key-input, .ingest-editor textarea {border-radius:var(--radius-md)}
 /* Issue 3: New Channel form beautify */
-.tenant-create-form {border:1px solid var(--border-default);background:linear-gradient(180deg,var(--surface-2) 0%,var(--surface-1) 100%);border-radius:var(--radius-lg);padding:var(--space-6);margin-bottom:var(--space-4);box-shadow:var(--shadow-md)}
-.tenant-create-form .form-section-head h2 {font-size:var(--text-lg)}
-.tenant-create-form .check-row-group {border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:16px;background:var(--surface-1)}
-.tenant-create-form .check-row-lead {margin:0 0 10px;font-size:var(--text-sm);color:var(--text-secondary);line-height:1.5}
-.tenant-create-form .check-row {padding:6px 10px;border-radius:var(--radius-sm);transition:background var(--t-fast)}
-.tenant-create-form .check-row:hover {background:var(--surface-3)}
 /* Issue 4: Premium hover on fan source connection rows — already covered above */
 
 /* Issue 5: Portfolio communities match communities tab visually */
@@ -1410,8 +1208,6 @@
 .opportunity-deadline-badge {border-color:rgba(245,185,66,.35);background:rgba(41,32,15,.6);color:#f5c468}
 /* A link that should read as the page's primary action. Same box as a button
    without nesting one control inside another. */
-.button-link {display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:.6rem 1rem;border-radius:var(--radius-md);background:var(--accent);color:var(--on-accent);font-weight:600;font-size:var(--text-base);text-decoration:none;white-space:nowrap;transition:background var(--t-fast)}
-.button-link:hover {background:var(--accent-hover);color:var(--on-accent)}
 .cos-kpi.tone-bad>strong {color:#ff9d9d}
 .cos-kpi.tone-warn>strong {color:#f5c468}
 .cos-block-intro {margin:0 0 8px;color:var(--text-muted);font-size:var(--text-sm);line-height:1.5}
@@ -1447,7 +1243,7 @@
    left border in the app should look the same: straight, not warped round.
    Squaring the left corners on every element that carries a border-left
    accent achieves this without pseudo-elements. */
-.service-card.healthy, .service-card.unhealthy, .brain-evidence-json, .learning-loop-stage-decision, .learning-loop-stage-action, .learning-loop-stage-outcome, .learning-loop-stage-learned, .error-card, .warning-card, .notice-card, .parked-banner, .inherit-card, .inline-stale-note, .route-note, .policy-legend, .release-component-missing, .cos-stopped {border-top-left-radius:0;border-bottom-left-radius:0}
+.brain-evidence-json, .error-card, .warning-card, .inherit-card, .inline-stale-note, .policy-legend, .release-component-missing, .cos-stopped {border-top-left-radius:0;border-bottom-left-radius:0}
 /* The receiver's own words on a failed attempt — a short JSON error object,
    shown as data rather than folded into the sentence above it. */
 .queue-attempt-response {display:block;margin-top:6px;padding:7px 9px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--surface-0);color:var(--text-secondary);font-size:var(--text-xs);line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:9em;overflow:auto}
@@ -1522,17 +1318,13 @@
   .growth-intelligence-panel,
   .posture-panel,
   .intel-transparency-panel,
-  .learning-loop-panel,
   .regional-profile-panel,
   .ecosystem-release-panel,
   .ai-usage-panel,
   .acquisition-panel,
   .premium-panel,
-  .products-panel,
   .mobile-app-setup-panel,
-  .provisioning-panel,
-  .dialog-panel,
-  .area-entitlement-panel {
+  .dialog-panel {
     @apply rounded-lg border border-border bg-card text-foreground p-4;
   }
   .panel-header {
@@ -1547,17 +1339,14 @@
 
   /* ── KPIs ─────────────────────────────────────────────────────────── */
   .kpi-grid,
-  .metric-grid,
   .skeleton-grid {
     @apply grid gap-3.5 mb-8;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   }
-  .kpi,
-  .metric {
+  .kpi {
     @apply rounded-lg border border-border bg-card p-5.5 text-foreground block no-underline transition-colors;
   }
-  .kpi strong,
-  .metric strong {
+  .kpi strong {
     @apply block mt-2.5 font-bold;
   }
   .skeleton-grid > div,
@@ -1593,14 +1382,8 @@
   .warning-card {
     @apply rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning;
   }
-  .notice-card {
-    @apply rounded-lg border border-border bg-surface-1 p-3 text-sm text-muted-foreground;
-  }
   .error-card {
     @apply rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive break-words;
-  }
-  .route-note {
-    @apply rounded-lg border border-border bg-surface-1 p-3 text-sm text-muted-foreground;
   }
   .confirm-card {
     @apply flex flex-col gap-2.5 my-3;
@@ -1631,9 +1414,6 @@
   .section-title-summary {
     @apply flex items-center justify-between gap-4 cursor-pointer;
   }
-  .command-center-grid {
-    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-5;
-  }
   .command-block {
     @apply rounded-lg border border-border bg-card p-4 text-foreground transition-colors hover:border-border-strong cursor-pointer;
   }
@@ -1642,24 +1422,11 @@
   }
 
   /* ── Data rows ────────────────────────────────────────────────────── */
-  .tenant-list {
-    @apply grid gap-2.5 border border-border rounded-lg overflow-hidden;
-  }
-  .tenant-row {
-    @apply flex items-center justify-between gap-5 px-4 py-3.5 border-b border-border last:border-0 transition-colors;
-  }
-  .tenant-row.large {
-    min-height: 78px;
-  }
-  .product-row,
   .audit-row {
     @apply flex items-center justify-between gap-3.5 py-3 border-b border-border last:border-0;
   }
   .flag-row {
     @apply flex items-center justify-between gap-3.5 py-3 border-b border-border last:border-0;
-  }
-  .detail-grid {
-    @apply grid grid-cols-2 gap-4 mb-4;
   }
   .data-table {
     @apply w-full text-sm border-collapse;
@@ -1681,38 +1448,8 @@
   }
 
   /* ── Forms ────────────────────────────────────────────────────────── */
-  .form-grid {
-    @apply grid grid-cols-1 md:grid-cols-2 gap-3.5;
-  }
-  .form-grid label {
-    @apply grid gap-1.75 text-muted-foreground text-sm;
-  }
-  .form-grid input,
-  .form-grid select,
-  .form-grid textarea {
-    @apply w-full bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors;
-  }
-  .form-grid input:focus,
-  .form-grid select:focus,
-  .form-grid textarea:focus {
-    @apply border-primary;
-    box-shadow: 0 0 0 3px rgba(155, 135, 245, 0.15);
-  }
-  .form-actions {
-    @apply flex gap-2;
-  }
-  .form-actions.right {
-    @apply justify-end mt-5;
-  }
   .form-section-head {
     @apply flex items-center justify-between gap-4.5 mb-5;
-  }
-  .check-row {
-    @apply flex items-start gap-3 my-4 text-foreground;
-  }
-  .check-row input {
-    @apply mt-0.75;
-    accent-color: var(--color-primary);
   }
   .check-row-group {
     @apply grid gap-2 my-3 p-3.5 border border-border-subtle rounded-md bg-surface-1;
@@ -1744,12 +1481,6 @@
   /* ── Misc ────────────────────────────────────────────────────────── */
   .mono, code {
     @apply font-mono;
-  }
-  .auth-dot {
-    @apply w-1.75 h-1.75 rounded-full bg-destructive;
-  }
-  .auth-dot.ok {
-    @apply bg-success;
   }
   .brand-mark {
     @apply rounded-md grid place-items-center bg-primary font-bold text-background;
@@ -1962,39 +1693,6 @@
   }
 
   /* ── Area ────────────────────────────────────────────────────────── */
-  .area-metrics {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-  .area-create-card {
-    @apply grid gap-3 p-4 mb-4 border border-border rounded-md bg-card;
-  }
-  .area-form-grid {
-    @apply grid grid-cols-1 md:grid-cols-2 gap-3.5;
-  }
-  .area-step-tabs {
-    @apply flex gap-1.75 flex-wrap mb-4;
-  }
-  .area-step-tabs button.active {
-    @apply border-primary text-white bg-surface-3;
-  }
-  .area-drop-table {
-    @apply grid;
-  }
-  .area-drop-head,
-  .area-drop-row {
-    @apply grid gap-3.5 items-center py-3 px-2.5;
-    grid-template-columns: 3rem 1fr auto auto auto auto;
-  }
-  .area-drop-head {
-    @apply text-muted-foreground text-xs uppercase border-b border-border;
-    letter-spacing: 0.08em;
-  }
-  .area-drop-row {
-    @apply border-b border-border last:border-0;
-  }
-  .area-entitlement-panel {
-    @apply flex items-center justify-between gap-6;
-  }
   .area-location-canvas {
     @apply border border-border rounded-lg overflow-hidden;
     background: radial-gradient(circle at 50% 50%, #191f29, var(--color-background));
@@ -2016,46 +1714,11 @@
   }
 
   /* ── Provisioning ─────────────────────────────────────────────────── */
-  .provision-job {
-    @apply mt-4 p-4 border border-border rounded-md bg-background;
-  }
   .provision-row {
     @apply flex gap-2.5;
   }
   .provision-row input {
     @apply bg-background border border-border-strong text-white px-3 py-2.5 rounded-md;
-  }
-  .deployment-target-grid {
-    @apply grid grid-cols-2 gap-2.5 my-4;
-  }
-  .deployment-target-grid > div {
-    @apply p-3 border border-border min-w-0;
-  }
-  .deployment-result dl {
-    @apply grid gap-2 my-3.5;
-    grid-template-columns: 1fr 2fr;
-  }
-  .deployment-result dt {
-    @apply text-muted-foreground;
-  }
-  .deployment-result dd {
-    @apply text-right;
-    overflow-wrap: anywhere;
-  }
-
-  /* ── Palette ───────────────────────────────────────────────────────── */
-  .palette-grid {
-    @apply grid gap-3 my-4;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-  .palette-grid label {
-    @apply text-muted-foreground text-sm;
-  }
-  .color-input {
-    @apply flex items-center gap-2 mt-1.5;
-  }
-  .color-input input {
-    @apply border-0 bg-transparent p-0;
   }
 
   /* ── Misc utility ─────────────────────────────────────────────────── */
@@ -2074,19 +1737,6 @@
     opacity: 0.55;
     pointer-events: none;
     transition: opacity 120ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  /* ── Fan growth ──────────────────────────────────────────────────── */
-  .fan-growth-grid {
-    @apply grid grid-cols-2 md:grid-cols-4 gap-3 mb-5;
-  }
-  .fan-growth-metric {
-    @apply rounded-lg border border-border bg-card p-4;
-  }
-
-  /* ── Wizard ───────────────────────────────────────────────────────── */
-  .wizard-page {
-    @apply mx-auto max-w-7xl px-4 md:px-6 py-6 pb-24 overflow-hidden;
   }
 
   /* ── Cmdk ─────────────────────────────────────────────────────────── */
@@ -2125,11 +1775,6 @@
     @apply text-muted-foreground text-sm;
   }
 
-  /* ── Row health ──────────────────────────────────────────────────── */
-  .row-health {
-    @apply flex flex-wrap items-center gap-2;
-  }
-
   /* ── Inherit card spacing ────────────────────────────────────────── */
   .inherit-card + .inherit-card,
   .error-card + .error-card {
@@ -2149,11 +1794,6 @@
     @apply mt-5;
   }
 
-  /* ── Warning card + form grid ────────────────────────────────────── */
-  .warning-card + .form-grid {
-    @apply mt-4;
-  }
-
   /* ── Alert ────────────────────────────────────────────────────────── */
   .alert-evidence {
     @apply flex flex-wrap gap-2 mt-2.5;
@@ -2162,13 +1802,6 @@
   /* ── Watchdog ─────────────────────────────────────────────────────── */
   .watchdog-recovered {
     @apply my-3.5 mb-7;
-  }
-
-  /* ── Provisioning panel ──────────────────────────────────────────── */
-  .provisioning-panel > p {
-    @apply m-0 mb-4 p-3.5 border-l-2 border-primary-active bg-surface-1 text-secondary-foreground;
-    border-radius: 0 10px 10px 0;
-    line-height: 1.65;
   }
 
   /* ── Premium ──────────────────────────────────────────────────────── */
@@ -2259,14 +1892,6 @@
     @apply font-mono text-xs;
   }
 
-  /* ── Learning loop ────────────────────────────────────────────────── */
-  .learning-loop-stage-decision,
-  .learning-loop-stage-action,
-  .learning-loop-stage-outcome,
-  .learning-loop-stage-learned {
-    @apply rounded-r-md;
-  }
-
   /* ── Release component ───────────────────────────────────────────── */
   .release-component-missing {
     @apply rounded-r-md;
@@ -2282,11 +1907,6 @@
 
   /* ── Inline stale note ───────────────────────────────────────────── */
   .inline-stale-note {
-    @apply rounded-r-md;
-  }
-
-  /* ── Parked banner ───────────────────────────────────────────────── */
-  .parked-banner {
     @apply rounded-r-md;
   }
 
@@ -2312,11 +1932,6 @@
     @apply min-w-0 p-3 border border-border rounded-md bg-surface-3;
   }
 
-  /* ── Readiness message ───────────────────────────────────────────── */
-  .readiness-message {
-    @apply inline-flex items-center gap-2 text-muted-foreground text-sm;
-  }
-
   /* ── Regional profile footer ─────────────────────────────────────── */
   .regional-profile-footer {
     @apply flex items-center justify-between gap-4 mt-5 pt-4 border-t border-border;
@@ -2328,42 +1943,6 @@
   }
 
   /* ── Area custom city ─────────────────────────────────────────────── */
-  .area-custom-city {
-    @apply grid gap-2.5 p-3.5 border-t border-border;
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  /* ── Area content grid ────────────────────────────────────────────── */
-  .area-content-grid textarea {
-    min-height: 150px;
-  }
-
-  /* ── Area location editor ────────────────────────────────────────── */
-  .area-location-editor {
-    @apply grid gap-3.5;
-  }
-
-  /* ── Area editor footer ───────────────────────────────────────────── */
-  .area-editor-footer {
-    @apply flex gap-2.5;
-  }
-
-  /* ── Area duplicate card ──────────────────────────────────────────── */
-  .area-duplicate-card {
-    @apply rounded-lg border border-border bg-card p-4;
-  }
-
-  /* ── Area review ──────────────────────────────────────────────────── */
-  .area-review {
-    @apply rounded-lg border border-border bg-card p-4;
-  }
-
-  /* ── Area confirm row ─────────────────────────────────────────────── */
-  .area-confirm-row {
-    @apply flex items-center gap-3;
-  }
-
   /* ── Attention inbox ──────────────────────────────────────────────── */
   .attention-inbox {
     @apply rounded-lg border border-border bg-card;
@@ -2513,10 +2092,7 @@
     @apply font-mono text-sm;
   }
 
-  /* ── Alert action ─────────────────────────────────────────────────── */
-  .alert-action {
-    @apply inline-flex items-center gap-1.5;
-  }
+  /* ── Alert actions ─────────────────────────────────────────────────── */
   .alert-actions {
     @apply flex items-center gap-2;
   }
@@ -2578,52 +2154,9 @@
 
   /* ── Responsive ───────────────────────────────────────────────────── */
   @media (max-width: 900px) {
-    .form-grid,
-    .deployment-target-grid {
-      grid-template-columns: 1fr;
-    }
-    .form-section-head {
-      @apply flex-col items-start;
-    }
-    .area-drop-head,
-    .area-drop-row {
-      grid-template-columns: 1fr;
-      gap: 8px;
-    }
-    .area-metrics {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .area-create-card {
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }
-    .area-custom-city {
-      grid-template-columns: 1fr;
-    }
-    .area-entitlement-panel {
-      @apply flex-col items-start gap-3;
-    }
-    .area-editor-footer {
-      @apply flex-col gap-2.5;
-    }
-    .area-editor-footer .form-actions {
-      @apply justify-stretch;
-    }
-    .area-editor-footer .form-actions button {
-      @apply flex-1;
-    }
     .autopilot-policy-row {
       grid-template-columns: 1fr;
       gap: 8px;
-    }
-    .detail-grid {
-      grid-template-columns: 1fr;
-    }
-    .deployment-result dl {
-      grid-template-columns: 1fr;
-    }
-    .deployment-result dd {
-      @apply text-left;
     }
     .section-title,
     .operations-section-head,
@@ -2660,12 +2193,6 @@
     }
     .operations-split > .operations-section:first-child .flag-list {
       grid-template-columns: 1fr;
-    }
-    .provisioning-panel > p {
-      @apply mb-4;
-    }
-    .provisioning-panel .provision-row {
-      @apply flex-col;
     }
     .opportunity-row {
       @apply flex-col items-start;
@@ -2731,9 +2258,6 @@
   .operations-section-head button,
   .panel-header-actions button,
   .agent-section-head button,
-  .row-health button,
-  .row-health a.ghost,
-  .form-actions button,
   .queue-row-actions button {
     @apply whitespace-nowrap;
   }
@@ -2741,11 +2265,8 @@
   /* ── Radius removal for cards that sit inside section titles ─────── */
   .error-card,
   .warning-card,
-  .notice-card,
-  .parked-banner,
   .inherit-card,
   .inline-stale-note,
-  .route-note,
   .policy-legend,
   .release-component-missing,
   .cos-stopped {
