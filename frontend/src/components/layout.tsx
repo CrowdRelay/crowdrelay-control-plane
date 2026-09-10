@@ -266,6 +266,53 @@ export function SectionTitle(props: {
   )
 }
 
+// ─── Section ───────────────────────────────────────────────────────────
+// A titled band inside a page, separated by a heading and a hairline rule
+// rather than by another box.
+//
+// Panels used to be `Card`s stacked inside the page's own `Card`: same fill,
+// same width, one hairline between them. Adjacent panels read as a single
+// undifferentiated slab, and a rounded corner in the middle of that slab reads
+// as a hole rather than as an edge. Nesting a box inside a box of the same
+// colour cannot express hierarchy — only a heading can.
+//
+// `count` is for "how many are in here", which is the question a collapsed
+// section has to answer before the operator decides to open it.
+
+export function Section(props: {
+  title: string
+  description?: JSX.Element
+  icon?: JSX.Element
+  count?: number
+  /** Right-aligned controls that act on the whole section. */
+  action?: JSX.Element
+  /** Drop the top rule — for the first section under a tab bar. */
+  flush?: boolean
+  children: JSX.Element
+  class?: string
+}) {
+  return (
+    <section class={cn(props.flush ? 'pt-1' : 'mt-8 border-t border-border pt-5', props.class)}>
+      <div class="mb-3 flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <h2 class="flex items-center gap-2 text-base font-semibold text-foreground">
+            <Show when={props.icon}><span class="text-muted-foreground">{props.icon}</span></Show>
+            {props.title}
+            <Show when={props.count != null && props.count > 0}>
+              <span class="rounded-full bg-surface-3 px-2 py-0.5 text-xs font-bold tabular-nums text-secondary-foreground">{props.count}</span>
+            </Show>
+          </h2>
+          <Show when={props.description}>
+            <p class="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">{props.description}</p>
+          </Show>
+        </div>
+        <Show when={props.action}><div class="flex shrink-0 items-center gap-2">{props.action}</div></Show>
+      </div>
+      {props.children}
+    </section>
+  )
+}
+
 // ─── CommandBlock ──────────────────────────────────────────────────────
 // Replaces the hand-rolled `.command-block` CSS class. A card-like link
 // with an eyebrow, a big metric, and detail text. Used on the overview page

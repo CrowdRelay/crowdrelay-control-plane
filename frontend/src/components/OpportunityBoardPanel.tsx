@@ -1,13 +1,12 @@
 import { For, Show, createSignal } from 'solid-js'
 import type { OpportunityBoardEntry } from '../lib/types'
 import { api } from '../lib/api'
-import { StatusBadge } from './StatusBadge'
 import { errorMessage } from '../lib/format'
 import { SkeletonOpportunityBoard } from './Skeleton'
 import { CONTEXT_LABELS, SUBJECT_KIND_LABELS, RANK_FACTOR_LABELS, VALUE_TIER_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
 import { SectionIcon } from './SectionIcon'
+import { Section } from './layout'
 import { Spinner } from './Spinner'
-import { Card } from './ui/card'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
@@ -98,158 +97,212 @@ export function OpportunityBoardPanel(props: {
     }
   }
 
-  const doIt = (entry: OpportunityBoardEntry) => {
+  const approve = (entry: OpportunityBoardEntry) => {
     if (!entry.action_id) return
     void decide(`do:${entry.decision_id}`, () => api.approveOpportunityAction(props.slug, entry.action_id!))
+  }
+
+  // Reject used to live in the separate decision panel above this one, which
+  // showed the same top entry. Merging the two panels would have dropped the
+  // only way to cancel a parked action, so it moves here.
+  const reject = (entry: OpportunityBoardEntry) => {
+    if (!entry.action_id) return
+    void decide(`reject:${entry.decision_id}`, () => api.cancelOpportunityAction(props.slug, entry.action_id!))
   }
 
   const doneOurselves = (entry: OpportunityBoardEntry) =>
     void decide(`done:${entry.decision_id}`, () => api.markOpportunityHandledExternally(props.slug, entry.decision_id))
 
-  return <Card class="p-5">
-    <div class="flex items-start justify-between gap-4 mt-6 mb-3">
-      <div>
-        <h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="target" />Found for you — decide</h2>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Everything the agent found and parked — approve the action or record that you handled it yourself.</p>
-      </div>
-      <StatusBadge status={board.data ? `${board.data.length} queued` : 'loading'} tone={board.error ? 'bad' : 'muted'} />
-    </div>
+  const all = () => board.data ?? []
+  // One list, grouped by the only question the operator is asking: is this
+  // mine to do? Everything else is reference.
+  const needsYou = () => all().filter(isApprovable)
+  const ranAlone = () => all().filter(e => e.authority === 'auto_executing')
+  const forInfo = () => all().filter(e => !isApprovable(e) && e.authority !== 'auto_executing')
 
+  return <>
     <Show when={board.error}>
-      <Alert tone="warning" class="mt-4" role="status">
+      <Alert tone="warning" role="status">
         {errorMessage(board.error, 'Opportunity queue is temporarily unavailable.')}
       </Alert>
     </Show>
 
     <Show when={mutationError()}>
-      {message => <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive operations-error" role="alert">{message()}</div>}
+      {message => <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{message()}</div>}
     </Show>
 
     <Show when={board.data} fallback={!board.error ? <SkeletonOpportunityBoard /> : null}>{data => <>
       <Show when={data().length === 0}>
-        <div class="p-4 mt-2.5"><p class="m-0 text-sm text-muted-foreground">The agent has nothing parked right now. Findings appear here the moment a detector raises them.</p></div>
+        <Section flush title="Nothing waiting" icon={<SectionIcon name="target" />}>
+          <p class="text-sm text-muted-foreground">
+            The autopilot has found nothing that needs a decision. Anything it finds appears here the moment it raises it.
+          </p>
+        </Section>
       </Show>
-      <Show when={data().length > 0}>
-        <details class="mb-4">
-          <summary class="cursor-pointer text-sm text-muted-foreground py-2 border-b border-border hover:text-secondary-foreground">How to decide</summary>
-          <div class="mt-2.5 p-3.5 border border-border rounded-lg bg-surface-1">
-            <p class="m-0 text-sm text-muted-foreground leading-relaxed"><strong class="text-foreground">Do it</strong> — the agent found something with an executable step. Clicking approves it through CrowdRelay's normal action path. <strong class="text-foreground">Done ourselves</strong> — you handled it outside the system (sent the message manually, made the call, etc.). This records a success and stops the agent from re-raising it. If you're unsure, leave it — the approval will expire on its own and the agent will re-evaluate next cycle.</p>
+
+      <Show when={needsYou().length > 0}>
+        <Section
+          flush
+          title="Needs you now"
+          icon={<SectionIcon name="target" />}
+          count={needsYou().length}
+          description="The autopilot prepared these and stopped, because its policy says to ask you first. Approve, reject, or record that you did it yourself."
+        >
+          <div class="border-t border-border">
+            <For each={needsYou()}>{entry => <Row entry={entry} expanded />}</For>
           </div>
-        </details>
+        </Section>
       </Show>
-      <Show when={data().length > 0}>
-        <div class="grid gap-2.5">
-          <For each={showAll() ? data() : data().slice(0, MAX_VISIBLE)}>{entry => (
-            <div class="flex justify-between items-start gap-4 p-3.5 border border-border rounded-lg bg-card hover:border-primary/40 hover:bg-surface-3 transition-colors">
-              <div class="min-w-0 flex-1 flex flex-col gap-1.5">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="inline-flex items-center justify-center min-w-[26px] h-[22px] px-1.5 rounded-sm bg-surface-4 text-primary-foreground font-bold text-xs flex-shrink-0">#{entry.position}</span>
-                  <strong class="text-sm leading-snug text-foreground">{entryTitle(entry)}</strong>
-                </div>
-                <p class="m-0 text-sm text-secondary-foreground leading-relaxed">{entry.reason}</p>
-                <div class="flex items-center gap-2 flex-wrap">
-                  <StatusBadge status={authorityLabel(entry)} tone={authorityTone(entry)} />
-                  <Badge variant="muted">confidence {confidencePercent(entry.confidence)}</Badge>
-                  <Show when={formatDue(entry.due_at)}>
-                    {due => <Badge variant="warning">deadline {due()}</Badge>}
-                  </Show>
-                  <Show when={entry.decision_kind?.startsWith('agent.')}>
-                    <Badge variant="outline">LLM</Badge>
-                  </Show>
-                </div>
-                {/* Secondary facts — collapsed */}
-                <details class="mt-1">
-                  <summary class="cursor-pointer text-xs text-muted-foreground font-medium py-0.5 list-none">More</summary>
-                  <div class="flex items-center gap-2 flex-wrap mt-1">
-                    <Badge variant="outline">{labelOr(CONTEXT_LABELS, entry.context)}</Badge>
-                    <Badge variant="outline">{labelOr(SUBJECT_KIND_LABELS, entry.subject_kind)}</Badge>
-                    <Badge variant="outline">{RANK_FACTOR_LABELS[entry.ranked_by] ?? entry.ranked_by}</Badge>
-                    <Show when={entry.value_tier}>
-                      {tier => <Badge variant="outline">{VALUE_TIER_LABELS[tier()] ?? tier()} value</Badge>}
-                    </Show>
-                    <Show when={deviationLabel(entry)}>
-                      {label => <Badge variant="outline">{label()}</Badge>}
-                    </Show>
-                  </div>
-                </details>
-                <Show when={formatDue(entry.due_at)}>
-                  {due => <small class="text-sm text-warning">deadline {due()}</small>}
-                </Show>
-                {/* Same contradiction as the decision panel: an entry the
-                    autopilot already ran does not have a consequence for
-                    inaction, because inaction is no longer possible. */}
-                <Show when={entry.consequence && entry.authority !== 'auto_executing'}>
-                  <small class="text-xs text-warning-light">If nobody acts: {entry.consequence}</small>
-                </Show>
-                <Show when={entry.briefing}>
-                  {briefing => (
-                    <details class="mt-1.5 border-t border-border-subtle pt-2">
-                      <summary class="cursor-pointer text-sm text-muted-foreground font-medium list-none">Details</summary>
-                      <p class="m-0 mb-2 text-sm text-secondary-foreground leading-relaxed mt-1">{briefing().why_it_matters}</p>
-                      <Show when={briefing().steps.length > 0}>
-                        <ol class="m-0 mb-2 pl-4.5 text-sm text-secondary-foreground leading-relaxed list-decimal">
-                          <For each={briefing().steps}>{step => (
-                            <li class="mb-1"><strong class="text-foreground">{step.what_to_do}</strong> — {step.why_it_matters}</li>
-                          )}</For>
-                        </ol>
-                      </Show>
-                      <Show when={briefing().content.length > 0}>
-                        <dl class="m-0 flex flex-col gap-0">
-                          <For each={briefing().content}>{field => (
-                            <div class="flex gap-3 items-baseline py-1 border-b border-border-subtle">
-                              <dt class="text-xs text-muted-foreground capitalize">{field.label}</dt>
-                              <dd class="flex-1 min-w-0 m-0 text-sm text-secondary-foreground break-words">{field.value}</dd>
-                            </div>
-                          )}</For>
-                        </dl>
-                      </Show>
-                    </details>
-                  )}
-                </Show>
-              </div>
-              <div class="flex flex-row items-center gap-2 flex-shrink-0 flex-wrap">
-                <Show
-                  when={isApprovable(entry)}
-                  fallback={
-                    <span class="max-w-[170px] text-right text-muted-foreground text-sm leading-snug">
-                      {NOT_APPROVABLE_NOTE[entry.authority] ?? 'nothing here can run this — handle it yourself'}
-                    </span>
-                  }
-                >
-                  <Button
-                    type="button"
-                    size="sm"
-                    classList={{ 'confirm-danger': confirming() === `do:${entry.decision_id}` }}
-                    disabled={pendingMutation() !== null}
-                    onClick={() => doIt(entry)}
-                  >
-                    {pendingMutation() === `do:${entry.decision_id}` && <Spinner />} {pendingMutation() === `do:${entry.decision_id}` ? 'Approving…' : confirming() === `do:${entry.decision_id}` ? 'Confirm approval' : 'Do it'}
-                  </Button>
-                </Show>
-                {/* "Done ourselves" records that a human did the work instead of
-                    the agent. On an entry the autopilot already ran, that claim
-                    is false and the button only invites the operator to file it. */}
-                <Show when={entry.authority !== 'auto_executing'}>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={pendingMutation() !== null}
-                    onClick={() => doneOurselves(entry)}
-                  >
-                    {pendingMutation() === `done:${entry.decision_id}` && <Spinner />} {pendingMutation() === `done:${entry.decision_id}` ? 'Recording…' : confirming() === `done:${entry.decision_id}` ? 'Confirm done' : 'I did this myself'}
-                  </Button>
-                </Show>
-              </div>
-            </div>
-          )}</For>
-        </div>
-        <Show when={data().length > MAX_VISIBLE}>
-          <Button variant="ghost" class="mt-3 w-full" onClick={() => setShowAll(s => !s)}>
-            {showAll() ? 'Show fewer' : `Show all ${data().length}`}
-          </Button>
-        </Show>
+
+      <Show when={ranAlone().length > 0}>
+        <Section
+          title="Ran on its own"
+          icon={<SectionIcon name="zap" />}
+          count={ranAlone().length}
+          description="Already done under a policy you set to act without asking. Here so you can see what it did."
+        >
+          <div class="border-t border-border">
+            <For each={showAll() ? ranAlone() : ranAlone().slice(0, MAX_VISIBLE)}>{entry => <Row entry={entry} />}</For>
+          </div>
+          <Show when={ranAlone().length > MAX_VISIBLE}>
+            <Button variant="ghost" size="sm" class="mt-2" onClick={() => setShowAll(v => !v)}>
+              {showAll() ? 'Show fewer' : `Show all ${ranAlone().length}`}
+            </Button>
+          </Show>
+        </Section>
+      </Show>
+
+      <Show when={forInfo().length > 0}>
+        <Section
+          title="Noted, no action taken"
+          icon={<SectionIcon name="inbox" />}
+          count={forInfo().length}
+          description="Advice and measurements the autopilot recorded. Nothing was prepared, so there is nothing to approve."
+        >
+          <div class="border-t border-border">
+            <For each={forInfo()}>{entry => <Row entry={entry} />}</For>
+          </div>
+        </Section>
       </Show>
     </>}</Show>
-  </Card>
+  </>
+
+  // ── One row ──────────────────────────────────────────────────────────
+  // Rows are separated by a hairline, not by a box each. A bordered box per
+  // row inside a bordered panel inside a bordered page is three edges spent
+  // on one list.
+  function Row(rowProps: { entry: OpportunityBoardEntry; expanded?: boolean }) {
+    const entry = () => rowProps.entry
+    const busy = (key: string) => pendingMutation() === key
+    return (
+      <div class="flex flex-col gap-2 border-b border-border-subtle py-3.5 last:border-0 md:flex-row md:items-start md:justify-between md:gap-6">
+        <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+          <strong class="text-sm leading-snug text-foreground">{entryTitle(entry())}</strong>
+          <p class="m-0 text-sm leading-relaxed text-secondary-foreground">{entry().reason}</p>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <Badge variant="muted">confidence {confidencePercent(entry().confidence)}</Badge>
+            <Show when={formatDue(entry().due_at)}>
+              {due => <Badge variant="warning">by {due()}</Badge>}
+            </Show>
+            <Show when={entry().decision_kind?.startsWith('agent.')}>
+              <Badge variant="outline">written by AI</Badge>
+            </Show>
+          </div>
+
+          <Show when={entry().consequence && entry().authority !== 'auto_executing'}>
+            <small class="text-xs text-warning-light">If nobody acts: {entry().consequence}</small>
+          </Show>
+
+          {/* Everything below is reference. It opens on demand so a list of
+              twenty does not become twenty essays. */}
+          <details class="mt-0.5" open={rowProps.expanded && !!entry().briefing}>
+            <summary class="cursor-pointer list-none text-xs font-medium text-muted-foreground hover:text-secondary-foreground">
+              Why this, and what it involves
+            </summary>
+            <div class="mt-2 flex flex-col gap-2 border-l-2 border-border pl-3">
+              <div class="flex flex-wrap items-center gap-2">
+                <Badge variant="outline">{labelOr(CONTEXT_LABELS, entry().context)}</Badge>
+                <Badge variant="outline">{labelOr(SUBJECT_KIND_LABELS, entry().subject_kind)}</Badge>
+                <Badge variant="outline">top of the list because {RANK_FACTOR_LABELS[entry().ranked_by] ?? entry().ranked_by}</Badge>
+                <Show when={entry().value_tier}>
+                  {tier => <Badge variant="outline">{VALUE_TIER_LABELS[tier()] ?? tier()} value</Badge>}
+                </Show>
+                <Show when={deviationLabel(entry())}>
+                  {label => <Badge variant="outline">{label()}</Badge>}
+                </Show>
+              </div>
+              <Show when={entry().briefing}>
+                {briefing => (
+                  <>
+                    <p class="m-0 text-sm leading-relaxed text-secondary-foreground">{briefing().why_it_matters}</p>
+                    <Show when={briefing().steps.length > 0}>
+                      <ol class="m-0 list-decimal pl-4.5 text-sm leading-relaxed text-secondary-foreground">
+                        <For each={briefing().steps}>{step => (
+                          <li class="mb-1"><strong class="text-foreground">{step.what_to_do}</strong> — {step.why_it_matters}</li>
+                        )}</For>
+                      </ol>
+                    </Show>
+                    <Show when={briefing().content.length > 0}>
+                      <dl class="m-0 flex flex-col">
+                        <For each={briefing().content}>{field => (
+                          <div class="flex items-baseline gap-3 border-b border-border-subtle py-1 last:border-0">
+                            <dt class="text-xs capitalize text-muted-foreground">{field.label}</dt>
+                            <dd class="m-0 min-w-0 flex-1 break-words text-sm text-secondary-foreground">{field.value}</dd>
+                          </div>
+                        )}</For>
+                      </dl>
+                    </Show>
+                  </>
+                )}
+              </Show>
+            </div>
+          </details>
+        </div>
+
+        <div class="flex shrink-0 flex-wrap items-center gap-2">
+          <Show
+            when={isApprovable(entry())}
+            fallback={
+              <span class="text-sm text-muted-foreground">
+                {NOT_APPROVABLE_NOTE[entry().authority] ?? 'nothing here can run this — handle it yourself'}
+              </span>
+            }
+          >
+            <Button
+              type="button"
+              size="sm"
+              disabled={pendingMutation() !== null}
+              onClick={() => approve(entry())}
+            >
+              {busy(`do:${entry().decision_id}`) && <Spinner />}
+              {busy(`do:${entry().decision_id}`) ? 'Approving…' : confirming() === `do:${entry().decision_id}` ? 'Yes, approve' : 'Approve'}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive-ghost"
+              size="sm"
+              disabled={pendingMutation() !== null}
+              onClick={() => reject(entry())}
+            >
+              {busy(`reject:${entry().decision_id}`) && <Spinner />}
+              {busy(`reject:${entry().decision_id}`) ? 'Rejecting…' : confirming() === `reject:${entry().decision_id}` ? 'Yes, reject' : 'Reject'}
+            </Button>
+          </Show>
+          <Show when={entry().authority !== 'auto_executing'}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={pendingMutation() !== null}
+              onClick={() => doneOurselves(entry())}
+            >
+              {busy(`done:${entry().decision_id}`) && <Spinner />}
+              {busy(`done:${entry().decision_id}`) ? 'Recording…' : confirming() === `done:${entry().decision_id}` ? 'Yes, I did it' : 'I did this myself'}
+            </Button>
+          </Show>
+        </div>
+      </div>
+    )
+  }
 }

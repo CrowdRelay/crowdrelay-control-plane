@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/solid-query'
 import { Link, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
-import { BrainDecisionPanel } from '../components/BrainDecisionPanel'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
 import { OutreachPipelinePanel } from '../components/OutreachPipelinePanel'
 import { PressRoomPanel } from '../components/PressRoomPanel'
@@ -75,8 +74,6 @@ export function TenantOperationsPage() {
   const awaitingApproval = () => d()?.opportunities?.filter(o => o.authority === 'awaiting_approval').length ?? 0
   const hasAttention = () => needsYouCount() > 0 || awaitingApproval() > 0 || deadJobs() > 0
 
-  const topOpportunity = () => d()?.opportunities?.[0] ?? null
-  const lastDecisionAt = () => d()?.opportunities?.[0]?.due_at ?? null
 
   return <PageShell>
     <PageHeader
@@ -206,14 +203,13 @@ export function TenantOperationsPage() {
 
     {/* ── Opportunities tab ── */}
     <TabPanel active={activeTab()} id="opportunities" visited={isVisited('opportunities')}>
+      {/* `BrainDecisionPanel` used to sit here, rendering the top opportunity
+          in full above a board that listed the same entry again — two panels of
+          identical width and fill, saying the same thing, and disagreeing about
+          whether the operator had anything to do. The board is now one ranked
+          worklist grouped by that question, and it carries Reject, which only
+          the decision panel used to offer. */}
       <Show when={d()} fallback={<SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />}>
-        <BrainDecisionPanel
-          slug={params().slug}
-          opportunity={topOpportunity()}
-          degraded={d()?.degraded.includes('opportunities') ?? false}
-          lastDecisionAt={lastDecisionAt()}
-          refresh={refresh}
-        />
         <OpportunityBoardPanel
           slug={params().slug}
           opportunities={d()?.opportunities ?? null}
