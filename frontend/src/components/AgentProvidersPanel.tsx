@@ -11,6 +11,8 @@ import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Input } from './ui/input'
 import { Spinner } from './Spinner'
+import { Card } from './ui/card'
+import { KpiCard } from './layout'
 import type { AgentProvider, AgentCredential, AgentModel } from '../lib/types'
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -402,31 +404,29 @@ export function AgentProvidersPanel(props: {
         </Show>
 
         {/* ─── Compact budget + status strip ─────────────────────── */}
+        {/* These were the only KPI tiles in the console still hand-rolled:
+            rounded on a page of square panels, with uppercase letter-spaced
+            labels where every other strip uses sentence case at the same size.
+            Same four numbers, through the shared primitive. */}
         <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
-            <span class="text-xs text-muted-foreground uppercase tracking-wider">Monthly spend</span>
-            <strong class="text-lg font-bold text-foreground tabular-nums">{formatUsd(usage.data!.monthly_spend_micro_usd)}</strong>
-            <span class="text-xs text-muted-foreground">of {formatUsd(usage.data!.budget_micro_usd)}</span>
-          </div>
-          <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
-            <span class="text-xs text-muted-foreground uppercase tracking-wider">Connected</span>
-            <strong class="text-lg font-bold text-foreground tabular-nums">{connectedCount()}</strong>
-            <span class="text-xs text-muted-foreground">providers</span>
-          </div>
-          <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
-            <span class="text-xs text-muted-foreground uppercase tracking-wider">Models</span>
-            <strong class="text-lg font-bold text-foreground tabular-nums">{availableModelCount()}</strong>
-            <span class="text-xs text-muted-foreground">available</span>
-          </div>
-          <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
-            <span class="text-xs text-muted-foreground uppercase tracking-wider">Tasks (30d)</span>
-            <strong class="text-lg font-bold text-foreground tabular-nums">{usage.data!.tasks.length}</strong>
+          <KpiCard
+            label="Spent this month"
+            value={formatUsd(usage.data!.monthly_spend_micro_usd)}
+            sub={`of ${formatUsd(usage.data!.budget_micro_usd)}`}
+            tone={budgetPctValue() > 80 ? 'warn' : 'default'}
+          />
+          <KpiCard label="Connected" value={connectedCount()} sub="providers" />
+          <KpiCard label="Models" value={availableModelCount()} sub="available" />
+          <Card class="p-4">
+            <div class="text-xs text-muted-foreground">Tasks run</div>
+            <div class="mt-1 text-2xl font-bold tabular-nums text-foreground">{usage.data!.tasks.length}</div>
+            <div class="text-xs text-muted-foreground">in the last 30 days</div>
             <Show when={dailyCostSeries().some(v => v > 0)}>
-              <div class="mt-0.5 h-5 opacity-80">
+              <div class="mt-1 h-5 opacity-80">
                 <Sparkline data={dailyCostSeries()} width={80} height={20} color={budgetPctValue() > 80 ? 'var(--color-warning)' : 'var(--color-primary)'} />
               </div>
             </Show>
-          </div>
+          </Card>
         </section>
 
         <Show when={error()}>
@@ -599,8 +599,13 @@ export function AgentProvidersPanel(props: {
                               </Button>
                             </div>
                           </Show>
+                          {/* Ten provider cards each offered a primary
+                              "Connect with API Key". Connecting any one of them
+                              is an ordinary choice among ten, not the page's
+                              headline action, and ten filled buttons in a grid
+                              spend emphasis on nothing. */}
                           <Show when={showKeyInputFor() !== provider.id}>
-                            <Button size="sm" onClick={() => setShowKeyInputFor(provider.id)}>
+                            <Button variant="outline" size="sm" onClick={() => setShowKeyInputFor(provider.id)}>
                               <KeyIcon size={13} /> Connect with API Key
                             </Button>
                           </Show>
