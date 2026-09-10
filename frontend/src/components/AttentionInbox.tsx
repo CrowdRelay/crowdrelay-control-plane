@@ -152,10 +152,15 @@ export function AttentionInbox(props: {
   return <div class="rounded-lg border border-border bg-card">
     <div class="flex items-center justify-between gap-2 p-3.5 border-b border-border">
       <div>
+        {/* A zero in a dark pill on a dark header read as a smudge, and the
+            row said "0 items need your attention" where the panel below already
+            says nothing does. The count appears when there is a count. */}
         <div class="text-muted-foreground text-sm flex items-center gap-2">
           <SectionIcon name="inbox" />
-          <span class="bg-surface-4 text-primary-foreground text-xs rounded-full px-1.5 font-bold">{total()}</span>
-          <span>item{total() !== 1 ? 's' : ''} need{total() === 1 ? 's' : ''} your attention</span>
+          <Show when={total() > 0} fallback={<span>Nothing needs you right now</span>}>
+            <span class="bg-primary/20 text-primary-light text-xs rounded-full px-1.5 font-bold tabular-nums">{total()}</span>
+            <span>item{total() !== 1 ? 's' : ''} need{total() === 1 ? 's' : ''} your attention</span>
+          </Show>
         </div>
       </div>
     </div>

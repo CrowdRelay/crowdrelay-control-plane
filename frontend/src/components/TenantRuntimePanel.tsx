@@ -6,8 +6,30 @@ import type { RuntimeHealth, TenantRuntimeSnapshot } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
 import { Card } from './ui/card'
+import { cn } from '../lib/cn'
 
 const runtimeTone = (health: RuntimeHealth) => health === 'healthy' ? 'good' : health === 'degraded' ? 'bad' : health === 'stale' ? 'warn' : 'muted'
+
+// A runtime fact the operator can act on: a name in their vocabulary, an answer
+// in words, and colour only where the answer is bad. `undefined` is "the tenant
+// did not report this", which is not the same as `false` and must not read like it.
+const healthWord = (value: boolean | null | undefined, good: string, bad: string) =>
+  value == null ? 'No report' : value ? good : bad
+
+const healthTone = (value: boolean | null | undefined): 'good' | 'bad' | undefined =>
+  value == null ? undefined : value ? 'good' : 'bad'
+
+function RuntimeFact(props: { label: string; value: string; tone?: 'good' | 'warn' | 'bad'; title?: string }) {
+  return (
+    <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1" title={props.title}>
+      <span class="text-xs text-muted-foreground uppercase tracking-wider">{props.label}</span>
+      <span class={cn(
+        'text-sm font-medium',
+        props.tone === 'good' ? 'text-success' : props.tone === 'warn' ? 'text-warning' : props.tone === 'bad' ? 'text-destructive' : 'text-foreground',
+      )}>{props.value}</span>
+    </div>
+  )
+}
 
 export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntimeSnapshot }) {
   // This query is deliberately owned by the smallest live surface. The tenant
@@ -29,6 +51,13 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
   }))
   const snapshot = () => runtime.data ?? props.initial
 
+  // Every measured field absent means the tenant has not reported, whatever
+  // timestamp the check itself carries.
+  const neverReported = () => {
+    const r = snapshot().runtime
+    return !r || (r.apiHealthy == null && r.workerHealthy == null && r.schemaVersion == null && r.deployedSha == null && r.outboxPending == null)
+  }
+
   return <Card class="p-4" aria-busy={runtime.isFetching && !runtime.data}>
     <div class="flex items-center justify-between gap-4 mt-6 mb-3">
       {/* Named for its source. Plain "Health" read as a contradiction next to
@@ -44,31 +73,31 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
     <Show when={snapshot().runtimeHealth === 'stale'}>
       <p class="mb-4 px-4 py-3 border border-border-subtle rounded-md bg-surface-1 text-muted-foreground text-base leading-[1.55]">The runtime reporter has stopped sending fresh telemetry. Optional products and app-store distribution do not affect this status.</p>
     </Show>
+    {/* This grid printed `String(apiHealthy)` — the words "true", "false" and
+        "unknown" — under headings named after the code that produced them
+        ("Deploy SHA", "Schema", "Outbox pending"). Six cells, none of which
+        told the person reading them whether anything was wrong. Same six
+        facts, named for what they mean and answered in words. */}
     <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mt-4">
-      <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
-        <span class="text-xs text-muted-foreground uppercase tracking-wider">API</span>
-        <span class="text-sm font-medium text-foreground">{String(snapshot().runtime?.apiHealthy ?? 'unknown')}</span>
-      </div>
-      <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
-        <span class="text-xs text-muted-foreground uppercase tracking-wider">Worker</span>
-        <span class="text-sm font-medium text-foreground">{String(snapshot().runtime?.workerHealthy ?? 'unknown')}</span>
-      </div>
-      <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
-        <span class="text-xs text-muted-foreground uppercase tracking-wider">Schema</span>
-        <span class="text-sm font-medium text-foreground">{snapshot().runtime?.schemaVersion ?? '—'}</span>
-      </div>
-      <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
-        <span class="text-xs text-muted-foreground uppercase tracking-wider">Deploy SHA</span>
-        <span class="text-sm font-medium text-foreground">{snapshot().runtime?.deployedSha?.slice(0, 8) ?? '—'}</span>
-      </div>
-      <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
-        <span class="text-xs text-muted-foreground uppercase tracking-wider">Outbox pending</span>
-        <span class="text-sm font-medium text-foreground">{snapshot().runtime?.outboxPending ?? '—'}</span>
-      </div>
-      <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
-        <span class="text-xs text-muted-foreground uppercase tracking-wider">Heartbeat</span>
-        <span class="text-sm font-medium text-foreground">{formatTimestamp(snapshot().runtime?.lastHeartbeatAt)}</span>
-      </div>
+      <RuntimeFact label="Fan-facing API" value={healthWord(snapshot().runtime?.apiHealthy, 'Answering', 'Not answering')} tone={healthTone(snapshot().runtime?.apiHealthy)} />
+      <RuntimeFact label="Background jobs" value={healthWord(snapshot().runtime?.workerHealthy, 'Running', 'Stopped')} tone={healthTone(snapshot().runtime?.workerHealthy)} />
+      <RuntimeFact label="Database version" value={snapshot().runtime?.schemaVersion != null ? String(snapshot().runtime!.schemaVersion) : 'No report'} />
+      <RuntimeFact
+        label="Running build"
+        value={snapshot().runtime?.deployedSha?.slice(0, 8) ?? 'No report'}
+        title={snapshot().runtime?.deployedSha ?? undefined}
+      />
+      <RuntimeFact
+        label="Events waiting to send"
+        value={snapshot().runtime?.outboxPending != null ? String(snapshot().runtime!.outboxPending) : 'No report'}
+        tone={(snapshot().runtime?.outboxPending ?? 0) > 0 ? 'warn' : undefined}
+      />
+      {/* The runtime endpoint fills `lastHeartbeatAt` with the time it ran the
+          check, not with a heartbeat, so a tenant that has never reported one
+          showed a timestamp from seconds ago under "Last report" — directly
+          under the sentence saying it has never reported. When nothing else in
+          the snapshot came back, that timestamp is our clock, not theirs. */}
+      <RuntimeFact label="Last report" value={neverReported() ? 'Never' : formatTimestamp(snapshot().runtime?.lastHeartbeatAt)} />
     </div>
   </Card>
 }

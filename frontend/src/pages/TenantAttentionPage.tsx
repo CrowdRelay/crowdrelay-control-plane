@@ -163,7 +163,7 @@ export function TenantAttentionPage() {
             <h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="refresh-cw" />Ecosystem reconciliation</h3>
             <p class="text-sm text-muted-foreground mt-1 leading-relaxed">Consistency pass across feature flags, Bandsintown sync, and open findings. Run it first, then work through what it finds.</p>
           </div>
-          <Button variant={confirmingReconcile() ? 'default' : 'ghost'} size="sm" class={confirmingReconcile() ? 'flex gap-2 items-center mt-2' : ''} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' && <Spinner />} {busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Confirm reconciliation' : 'Run reconciliation'}</Button>
+          <Button variant={confirmingReconcile() ? 'default' : 'outline'} size="sm" class={confirmingReconcile() ? 'flex gap-2 items-center mt-2' : ''} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' && <Spinner />} {busy() === 'reconcile' ? 'Reconciling…' : confirmingReconcile() ? 'Confirm reconciliation' : 'Run reconciliation'}</Button>
         </div>
         <Show when={attention.data?.ecosystem}><div class="grid gap-2.5">
           <Card class="p-3.5 hover:border-border-strong transition-colors">
