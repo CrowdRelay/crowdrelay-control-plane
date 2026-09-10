@@ -211,8 +211,6 @@
 .ingest-format-help>summary {cursor:pointer;color:var(--text-muted);font-size:var(--text-xs);font-weight:600;list-style:none}
 .ingest-format-help>summary::-webkit-details-marker {display:none}
 .ingest-format-help pre {margin:6px 0 2px;padding:10px 12px;background:var(--surface-0);border:1px solid var(--border-default);border-radius:var(--radius-sm);overflow-x:auto;font-size:var(--text-xs)}
-.data-table td.actions {display:flex;gap:8px;flex-wrap:wrap}
-.actions {display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .cmdk-list .cmdk-item.danger:not(:last-child) {margin-bottom:4px}
 /* Provider icons */
 .provider-icon {flex-shrink:0;opacity:.85}
@@ -407,8 +405,6 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
 /* ── Segmented tabs — now handled by layout.tsx TabBar with Tailwind ── */
 
 
-/* Sticky table headers — stay visible while scrolling long lists */
-.data-table thead th {position:sticky;top:0;z-index:1;background:var(--surface-2);backdrop-filter:none}
 /* ── Dialogs ─────────────────────────────────────────────────────────────
    One overlay treatment for every modal surface, so the focus trap and the
    look arrive together instead of per-panel. */
@@ -504,18 +500,8 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
 }
 /* ── Shared primitive refresh ─────────────────────────────────────────────
    These classes carry most of the app — `.badge` appears 32 times, `.muted`
-   131, `.data-table` 17 — so they are fixed here rather than page by page.
-   Appended deliberately: this file has grown append-only and several of these
-   selectors are already defined twice at different line numbers, so the last
-   definition is the one that renders. Editing an earlier copy would have
-   changed nothing. */
+   131 — so they are fixed here rather than page by page. */
 
-/* A table cell is not a flex container. `display:flex` on `td.actions` took
-   the cell out of table layout, so its buttons stopped sharing the row's
-   baseline and sat low against the text beside them. */
-.data-table td.actions {display:table-cell;white-space:nowrap;vertical-align:middle}
-.data-table td.actions > * {display:inline-flex;vertical-align:middle}
-.data-table td.actions > * + * {margin-left:8px}
 /* Two badge systems existed side by side — `badge-good` bordered and legible,
    `tone-good` flat and dimmer — and pages picked whichever. Give `tone-*` the
    same construction so a status reads the same wherever it appears. */
@@ -684,24 +670,6 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
   }
   .flag-row {
     @apply flex items-center justify-between gap-3.5 py-3 border-b border-border last:border-0;
-  }
-  .data-table {
-    @apply w-full text-sm border-collapse;
-  }
-  .data-table thead th {
-    @apply text-left text-xs font-medium uppercase tracking-wider text-muted-foreground border-b border-border pb-2 pt-1 px-2 first:pl-0 last:pr-0;
-  }
-  .data-table tbody td {
-    @apply border-b border-border-subtle py-2.5 px-2 first:pl-0 last:pr-0 text-foreground;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .data-table tbody tr:last-child td {
-    @apply border-b-0;
-  }
-  .data-table tbody tr:hover td {
-    @apply bg-surface-1;
   }
 
   /* ── Forms ────────────────────────────────────────────────────────── */
