@@ -467,7 +467,8 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
         "POST" => {
             matches!(
                 path,
-                "/v1/control-plane/ops/deliveries/dead/clear"
+                "/v1/control-plane/autopilot/beacon-press-assets"
+                    | "/v1/control-plane/ops/deliveries/dead/clear"
                     | "/v1/control-plane/ecosystem/reconcile"
                     | "/v1/control-plane/autopilot/objectives"
                     | "/v1/control-plane/autopilot/posture"

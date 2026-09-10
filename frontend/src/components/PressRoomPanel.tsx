@@ -11,6 +11,7 @@ import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 import { NativeSelect } from './ui/native-select'
+import { Input } from './ui/input'
 
 const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (status) {
@@ -43,6 +44,15 @@ export function PressRoomPanel(props: { slug: string }) {
   const [showAllAssets, setShowAllAssets] = createSignal(false)
   const [showAllEngagements, setShowAllEngagements] = createSignal(false)
   const [showAllCoverage, setShowAllCoverage] = createSignal(false)
+  const [adding, setAdding] = createSignal(false)
+  const [saving, setSaving] = createSignal(false)
+  const [draft, setDraft] = createSignal({
+    assetKey: '',
+    assetKind: 'photo',
+    labelEn: '',
+    labelPl: '',
+    url: '',
+  })
   const MAX_VISIBLE = 10
 
   // One consolidated read model replaces four separate proxy round-trips.
@@ -89,6 +99,40 @@ export function PressRoomPanel(props: { slug: string }) {
     } finally {
       setResolving(null)
     }
+  }
+
+  const saveAsset = async () => {
+    const input = draft()
+    setSaving(true)
+    setError(null)
+    try {
+      await api.upsertBeaconPressAsset(props.slug, {
+        assetKey: input.assetKey.trim(),
+        assetKind: input.assetKind,
+        labelEn: input.labelEn.trim(),
+        // The backend requires both labels. Falling back to the English one
+        // keeps a single-language operator from having to type it twice.
+        labelPl: (input.labelPl.trim() || input.labelEn.trim()),
+        url: input.url.trim(),
+      })
+      setDraft({ assetKey: '', assetKind: 'photo', labelEn: '', labelPl: '', url: '' })
+      setAdding(false)
+      refreshQueries(['press-overview', props.slug])
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to save the press asset'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Enough to save: a key, a label, and an https URL Meta can fetch.
+  const draftIsComplete = () => {
+    const input = draft()
+    return (
+      /^[a-z][a-z0-9_-]{1,63}$/.test(input.assetKey.trim())
+      && input.labelEn.trim().length > 0
+      && /^https:\/\//.test(input.url.trim())
+    )
   }
 
   return <Card class="p-4">
@@ -159,8 +203,59 @@ export function PressRoomPanel(props: { slug: string }) {
 
     <Show when={tab() === 'assets'}>
       <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
+      <div class="mb-3 flex items-center justify-between gap-4">
+        <p class="text-sm text-muted-foreground">
+          Photos and logos here are what Instagram posts use, least recently published first.
+          With none active, every Instagram post is held.
+        </p>
+        <Button variant="ghost" size="sm" onClick={() => setAdding(a => !a)}>
+          {adding() ? 'Cancel' : 'Add asset'}
+        </Button>
+      </div>
+
+      <Show when={adding()}>
+        <div class="mb-4 grid gap-2 rounded-lg border border-border p-3 sm:grid-cols-2">
+          <Input
+            placeholder="Key (band_photo_01)"
+            value={draft().assetKey}
+            onInput={(e) => setDraft(d => ({ ...d, assetKey: e.currentTarget.value }))}
+          />
+          <NativeSelect
+            value={draft().assetKind}
+            onChange={(e) => setDraft(d => ({ ...d, assetKind: e.currentTarget.value }))}
+          >
+            <option value="photo">photo</option>
+            <option value="logo">logo</option>
+            <option value="epk">epk</option>
+            <option value="bio">bio</option>
+            <option value="video">video</option>
+          </NativeSelect>
+          <Input
+            placeholder="Label"
+            value={draft().labelEn}
+            onInput={(e) => setDraft(d => ({ ...d, labelEn: e.currentTarget.value }))}
+          />
+          <Input
+            placeholder="Label (PL, optional)"
+            value={draft().labelPl}
+            onInput={(e) => setDraft(d => ({ ...d, labelPl: e.currentTarget.value }))}
+          />
+          <Input
+            class="sm:col-span-2"
+            placeholder="https://… (must be public — Meta fetches it)"
+            value={draft().url}
+            onInput={(e) => setDraft(d => ({ ...d, url: e.currentTarget.value }))}
+          />
+          <div class="sm:col-span-2">
+            <Button size="sm" disabled={!draftIsComplete() || saving()} onClick={saveAsset}>
+              {saving() ? 'Saving…' : 'Save asset'}
+            </Button>
+          </div>
+        </div>
+      </Show>
+
       <Show when={model.data} fallback={<SkeletonBlock height="100px" radius="10px" />}>
-        <Show when={assets().length > 0} fallback={<EmptyState label="No press assets" hint="Press assets are media materials (photos, bios, EPKs) available for outreach. Upload them through the tenant content pipeline." />}>
+        <Show when={assets().length > 0} fallback={<EmptyState label="No press assets" hint="Photos, logos, bios and EPKs for outreach. Instagram picks its image from the active photo and logo rows, so add at least one to publish there." />}>
           <Table>
             <TableHeader>
               <TableRow>

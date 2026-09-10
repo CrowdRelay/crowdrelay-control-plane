@@ -596,6 +596,24 @@ export const api = {
       headers: { 'idempotency-key': crypto.randomUUID() },
       body: JSON.stringify(body),
     }),
+  upsertBeaconPressAsset: (
+    slug: string,
+    body: {
+      assetKey: string
+      assetKind: string
+      labelPl: string
+      labelEn: string
+      url: string
+      eventId?: string
+      sortOrder?: number
+      active?: boolean
+    },
+  ) =>
+    request<{ assetId: string }>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-press-assets`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify(body),
+    }),
   beaconPressAssets: (slug: string) =>
     request<BeaconPressAssetsResponse>(`/tenants/${encodeURIComponent(slug)}/operations/beacon-press-assets`),
   beaconSignalEngagements: (slug: string) =>

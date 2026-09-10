@@ -348,7 +348,7 @@ pub fn router() -> Router<AppState> {
         )
         .route(
             "/tenants/{slug}/operations/beacon-press-assets",
-            get(beacon_press_assets),
+            get(beacon_press_assets).post(upsert_beacon_press_asset),
         )
         .route(
             "/tenants/{slug}/operations/beacon-signal-engagements",
@@ -2822,6 +2822,53 @@ async fn beacon_press_assets(
     )
     .await?;
     object_no_store(value, "beacon press assets")
+}
+
+/// Records a press asset — a photo, logo or EPK link the tenant owns.
+///
+/// The only writable path to `viryaos_beacon_press_assets` outside the admin
+/// API. It matters beyond the press kit: the Instagram publisher picks its
+/// image from the active `photo` and `logo` rows here, so a tenant with none
+/// has every Instagram post held for want of something to post.
+async fn upsert_beacon_press_asset(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Response, ApiError> {
+    // The upstream transport requires one for every mutation, so a missing
+    // header fails here with a message about the header rather than upstream
+    // with a message about the transport.
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: "/v1/control-plane/autopilot/beacon-press-assets",
+                body: Some(&body),
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.press_asset.upserted",
+        "workspace",
+        &slug,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "beacon press asset")
 }
 
 async fn beacon_signal_engagements(
