@@ -284,25 +284,31 @@ export function TenantPage() {
             <SectionTitle eyebrow="MOBILE APPS" title="Google Play setup" icon={<SectionIcon name="play" />} />
             <p class="text-sm text-muted-foreground leading-relaxed">Onboard this tenant's mobile apps for Google Play. Each step is automated by the onboarding script in the virya-signal repo.</p>
             <div class="space-y-2 mt-3">
-              <div class="flex items-start gap-3 p-3 rounded-md bg-surface-1">
-                <span class={cn('flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold', t.brandingPalette ? 'bg-success/20 text-success' : 'border border-border text-muted-foreground')}>{t.brandingPalette ? '✓' : '○'}</span>
+              <div class="flex items-start gap-3 p-3 rounded-lg bg-surface-1">
+                <span class={cn('flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold', t.brandingPalette ? 'bg-success/20 text-success' : 'border border-border text-muted-foreground')}>
+                  <Show when={t.brandingPalette} fallback={<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="5" r="3.5"/></svg>}>✓</Show>
+                </span>
                 <div><strong class="text-sm text-foreground">Branding palette</strong><small class="block text-xs text-muted-foreground">{t.brandingPalette ? 'Custom palette configured' : 'Using product defaults — set a palette for custom app icons'}</small></div>
               </div>
               <Show when={t.signalEnabled}>
-                <div class="flex items-start gap-3 p-3 rounded-md bg-surface-1">
-                  <span class={cn('flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold', t.signalPlayStoreUrl ? 'bg-success/20 text-success' : 'border border-border text-muted-foreground')}>{t.signalPlayStoreUrl ? '✓' : '○'}</span>
+                <div class="flex items-start gap-3 p-3 rounded-lg bg-surface-1">
+                  <span class={cn('flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold', t.signalPlayStoreUrl ? 'bg-success/20 text-success' : 'border border-border text-muted-foreground')}>
+                    <Show when={t.signalPlayStoreUrl} fallback={<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="5" r="3.5"/></svg>}>✓</Show>
+                  </span>
                   <div><strong class="text-sm text-foreground">Signal app published</strong><small class="block text-xs text-muted-foreground">{t.signalPlayStoreUrl ? <a href={t.signalPlayStoreUrl!} target="_blank" rel="noopener noreferrer" class="text-primary hover:text-primary/80">{t.signalPlayStoreUrl}</a> : `Package: music.${t.slug}.signal — run the onboarding script to build and publish`}</small></div>
                 </div>
               </Show>
               <Show when={t.synesthesiaEnabled}>
-                <div class="flex items-start gap-3 p-3 rounded-md bg-surface-1">
-                  <span class={cn('flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold', t.synesthesiaPlayStoreUrl ? 'bg-success/20 text-success' : 'border border-border text-muted-foreground')}>{t.synesthesiaPlayStoreUrl ? '✓' : '○'}</span>
+                <div class="flex items-start gap-3 p-3 rounded-lg bg-surface-1">
+                  <span class={cn('flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold', t.synesthesiaPlayStoreUrl ? 'bg-success/20 text-success' : 'border border-border text-muted-foreground')}>
+                    <Show when={t.synesthesiaPlayStoreUrl} fallback={<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="5" r="3.5"/></svg>}>✓</Show>
+                  </span>
                   <div><strong class="text-sm text-foreground">Synesthesia app published</strong><small class="block text-xs text-muted-foreground">{t.synesthesiaPlayStoreUrl ? <a href={t.synesthesiaPlayStoreUrl!} target="_blank" rel="noopener noreferrer" class="text-primary hover:text-primary/80">{t.synesthesiaPlayStoreUrl}</a> : `Package: music.${t.slug}.synesthesia — run the onboarding script in the synesthesia repo`}</small></div>
                 </div>
               </Show>
             </div>
             <Show when={!t.signalPlayStoreUrl && t.signalEnabled}>
-              <div class="mt-3 p-3 rounded-md bg-surface-2 border border-border">
+              <div class="mt-3 p-3 rounded-lg bg-surface-2 border border-border">
                 <p class="text-sm text-muted-foreground mb-2">Run in the virya-signal repo to onboard the Signal app:</p>
                 <pre class="text-xs text-foreground overflow-x-auto"><code>bash scripts/onboard-tenant-app.sh \<br/>  --tenant {t.slug} \<br/>  --control-plane-url {window.location.origin.replace(/:\d+$/, '')} \<br/>  --token $CONTROL_PLANE_ADMIN_TOKEN \<br/>  --version 0.1.0 --version-code 1</code></pre>
               </div>

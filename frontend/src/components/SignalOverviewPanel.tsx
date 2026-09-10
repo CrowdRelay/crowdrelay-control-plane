@@ -5,6 +5,8 @@ import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
 import { SkeletonSignalOverview } from './Skeleton'
 import { Alert } from './ui/alert'
+import { SectionTitle } from './layout'
+import { Card } from './ui/card'
 
 export function SignalOverviewPanel(props: { slug: string }) {
   const signal = useQuery(() => ({
@@ -19,30 +21,30 @@ export function SignalOverviewPanel(props: { slug: string }) {
       <SkeletonSignalOverview />
     </Show>
     <Show when={signal.error}>
-      <div class="flex items-center justify-between gap-4 mt-6 mb-3" id="signal-overview">
-        <div><h3><SectionIcon name="activity" />App audience health</h3></div>
-      </div>
+      <SectionTitle title="App audience health" icon={<SectionIcon name="activity" />} />
       <Alert tone="warning"><p>Signal overview unavailable: {signal.error instanceof Error ? signal.error.message : 'channel error'}</p></Alert>
     </Show>
     <Show when={signal.data}>{data => <>
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3" id="signal-overview">
-      <div><h3><SectionIcon name="activity" />App audience health</h3><p>Aggregate-only view of Virya Signal fans, activity and top cities.</p></div>
-      <StatusBadge status={data().unavailable_sources.length > 0 ? 'degraded' : 'healthy'} tone={data().unavailable_sources.length > 0 ? 'warn' : 'good'} />
-    </div>
-    <div class="operations-metrics">
-      <div><span>Total fans</span><strong>{data().summary.total_fans.toLocaleString()}</strong><small>{data().summary.active_fans.toLocaleString()} active</small></div>
-      <div><span>Pending</span><strong>{data().summary.pending_fans.toLocaleString()}</strong><small>{data().summary.unsubscribed_fans.toLocaleString()} unsubscribed</small></div>
-      <div><span>Marketing opt-in</span><strong>{data().summary.marketing_opted_in.toLocaleString()}</strong><small>{data().summary.nearby_enabled.toLocaleString()} nearby</small></div>
-      <div><span>Suppressed</span><strong>{data().summary.suppressed_fans.toLocaleString()}</strong><small>preference-disabled</small></div>
-      <div><span>New (7d)</span><strong>{data().activity.new_fans_7d.toLocaleString()}</strong><small>{data().activity.new_fans_30d.toLocaleString()} in 30d</small></div>
-      <div><span>Referrals</span><strong>{data().activity.referral_attributions_total.toLocaleString()}</strong><small>{data().activity.referral_attributions_30d.toLocaleString()} in 30d</small></div>
-      <div><span>Event interests</span><strong>{data().activity.event_interests_total.toLocaleString()}</strong><small>{data().activity.event_interests_30d.toLocaleString()} in 30d</small></div>
-      <div><span>Nearby (30d)</span><strong>{data().activity.nearby_notifications_30d.toLocaleString()}</strong><small>{data().activity.pending_city_requests.toLocaleString()} city requests</small></div>
+    <SectionTitle
+      title="App audience health"
+      description="Aggregate-only view of Virya Signal fans, activity and top cities."
+      icon={<SectionIcon name="activity" />}
+      action={<StatusBadge status={data().unavailable_sources.length > 0 ? 'degraded' : 'healthy'} tone={data().unavailable_sources.length > 0 ? 'warn' : 'good'} />}
+    />
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <Card class="p-3.5"><span class="block text-xs text-muted-foreground">Total fans</span><strong class="block text-xl font-bold tabular-nums mt-1">{data().summary.total_fans.toLocaleString()}</strong><small class="block text-xs text-muted-foreground mt-1">{data().summary.active_fans.toLocaleString()} active</small></Card>
+      <Card class="p-3.5"><span class="block text-xs text-muted-foreground">Pending</span><strong class="block text-xl font-bold tabular-nums mt-1">{data().summary.pending_fans.toLocaleString()}</strong><small class="block text-xs text-muted-foreground mt-1">{data().summary.unsubscribed_fans.toLocaleString()} unsubscribed</small></Card>
+      <Card class="p-3.5"><span class="block text-xs text-muted-foreground">Marketing opt-in</span><strong class="block text-xl font-bold tabular-nums mt-1">{data().summary.marketing_opted_in.toLocaleString()}</strong><small class="block text-xs text-muted-foreground mt-1">{data().summary.nearby_enabled.toLocaleString()} nearby</small></Card>
+      <Card class="p-3.5"><span class="block text-xs text-muted-foreground">Suppressed</span><strong class="block text-xl font-bold tabular-nums mt-1">{data().summary.suppressed_fans.toLocaleString()}</strong><small class="block text-xs text-muted-foreground mt-1">preference-disabled</small></Card>
+      <Card class="p-3.5"><span class="block text-xs text-muted-foreground">New (7d)</span><strong class="block text-xl font-bold tabular-nums mt-1">{data().activity.new_fans_7d.toLocaleString()}</strong><small class="block text-xs text-muted-foreground mt-1">{data().activity.new_fans_30d.toLocaleString()} in 30d</small></Card>
+      <Card class="p-3.5"><span class="block text-xs text-muted-foreground">Referrals</span><strong class="block text-xl font-bold tabular-nums mt-1">{data().activity.referral_attributions_total.toLocaleString()}</strong><small class="block text-xs text-muted-foreground mt-1">{data().activity.referral_attributions_30d.toLocaleString()} in 30d</small></Card>
+      <Card class="p-3.5"><span class="block text-xs text-muted-foreground">Event interests</span><strong class="block text-xl font-bold tabular-nums mt-1">{data().activity.event_interests_total.toLocaleString()}</strong><small class="block text-xs text-muted-foreground mt-1">{data().activity.event_interests_30d.toLocaleString()} in 30d</small></Card>
+      <Card class="p-3.5"><span class="block text-xs text-muted-foreground">Nearby (30d)</span><strong class="block text-xl font-bold tabular-nums mt-1">{data().activity.nearby_notifications_30d.toLocaleString()}</strong><small class="block text-xs text-muted-foreground mt-1">{data().activity.pending_city_requests.toLocaleString()} city requests</small></Card>
     </div>
     <Show when={data().top_cities.length > 0}>
-      <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h3><SectionIcon name="map-pin" />By active fans</h3></div></div>
-      <div class="operations-metrics">
-        <For each={data().top_cities.slice(0, 6)}>{city => <div><span>{city.name}</span><strong>{city.active_fans.toLocaleString()}</strong><small>{city.country_code}</small></div>}</For>
+      <SectionTitle title="By active fans" icon={<SectionIcon name="map-pin" />} />
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <For each={data().top_cities.slice(0, 6)}>{city => <Card class="p-3.5"><span class="block text-xs text-muted-foreground">{city.name}</span><strong class="block text-xl font-bold tabular-nums mt-1">{city.active_fans.toLocaleString()}</strong><small class="block text-xs text-muted-foreground mt-1">{city.country_code}</small></Card>}</For>
       </div>
     </Show>
     <Show when={data().unavailable_sources.length > 0}><Alert tone="warning"><p>Unavailable sources: {data().unavailable_sources.join(', ')}</p></Alert></Show>

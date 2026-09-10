@@ -16,7 +16,7 @@ import { DeadQueuesPanel } from '../components/DeadQueuesPanel'
 import { SkeletonSection, SkeletonKpiStrip, SkeletonRows } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
 import { Spinner } from '../components/Spinner'
-import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, ErrorCard, SectionPanel } from '../components/layout'
+import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, ErrorCard, SectionPanel, SectionTitle } from '../components/layout'
 import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -24,6 +24,14 @@ import { Badge } from '../components/ui/badge'
 
 const totalDead = (summary: OperationsSummary) => summary.outbox.dead + summary.deliveries.dead + summary.push.dead
 const staleAreaReservations = (summary: OperationsSummary) => summary.area.stale_voucher_reservations + summary.area.stale_ticket_reward_reservations
+
+/** Format a Postgres server_version_num (e.g. 190000 → "19.0"). */
+const formatPgVersion = (num: number | null | undefined): string => {
+  if (num == null) return '—'
+  const major = Math.floor(num / 10000)
+  const minor = Math.floor((num % 10000) / 100)
+  return minor === 0 ? `${major}` : `${major}.${minor}`
+}
 
 export function TenantAttentionPage() {
   const params = useParams({ from: '/tenants/$slug/attention' })
@@ -209,57 +217,57 @@ export function TenantAttentionPage() {
         <ErrorCard>Runtime summary unavailable: {errorMessage(summary.error, 'We couldn\'t reach the runtime. Try refreshing — if it persists, the tenant may be down.')}</ErrorCard>
       </Show>
       {/* Section headings are static — show them immediately, skeleton only the data cards */}
-      <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="database" />Database health</h3></div><Show when={summary.data}>{data => <StatusBadge status={data().database.async_io_active ? 'async I/O active' : 'check I/O'} tone={data().database.async_io_active ? 'good' : 'warn'} />}</Show></div>
+      <SectionTitle title="Database health" icon={<SectionIcon name="database" />} action={<Show when={summary.data}>{data => <StatusBadge status={data().database.async_io_active ? 'async I/O active' : 'check I/O'} tone={data().database.async_io_active ? 'good' : 'warn'} />}</Show>} />
       <Show when={!summary.error && summary.data} fallback={<Show when={!summary.error}><SkeletonRows count={4} /></Show>}>
         {data => <>
-          <div class="grid gap-2.5">
-            <Card class="p-3.5 hover:border-border-strong transition-colors">
-              <span class="block text-sm text-muted-foreground">Pool</span>
-              <strong class="block text-xl font-bold tabular-nums my-1.5">{data().database.pool_size}/{data().database.pool_max}</strong>
-              <small class="block text-sm text-muted-foreground">{data().database.pool_idle} idle</small>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Card class="p-3.5">
+              <span class="block text-xs text-muted-foreground">Pool</span>
+              <strong class="block text-xl font-bold tabular-nums mt-1">{data().database.pool_size}/{data().database.pool_max}</strong>
+              <small class="block text-xs text-muted-foreground mt-1">{data().database.pool_idle} idle</small>
             </Card>
-            <Card class="p-3.5 hover:border-border-strong transition-colors">
-              <span class="block text-sm text-muted-foreground">Postgres</span>
-              <strong class="block text-xl font-bold tabular-nums my-1.5">{data().database.server_version_num}</strong>
-              <small class="block text-sm text-muted-foreground">{data().database.io_method ?? 'I/O method unknown'}</small>
+            <Card class="p-3.5">
+              <span class="block text-xs text-muted-foreground">Postgres</span>
+              <strong class="block text-xl font-bold tabular-nums mt-1">{formatPgVersion(data().database.server_version_num)}</strong>
+              <small class="block text-xs text-muted-foreground mt-1">{data().database.io_method ?? 'I/O method unknown'}</small>
             </Card>
-            <Card class="p-3.5 hover:border-border-strong transition-colors">
-              <span class="block text-sm text-muted-foreground">Effective I/O concurrency</span>
-              <strong class="block text-xl font-bold tabular-nums my-1.5">{data().database.effective_io_concurrency ?? '—'}</strong>
-              <small class="block text-sm text-muted-foreground">workers {data().database.io_workers ?? '—'}</small>
+            <Card class="p-3.5">
+              <span class="block text-xs text-muted-foreground">Effective I/O concurrency</span>
+              <strong class="block text-xl font-bold tabular-nums mt-1">{data().database.effective_io_concurrency ?? '—'}</strong>
+              <small class="block text-xs text-muted-foreground mt-1">workers {data().database.io_workers ?? '—'}</small>
             </Card>
-            <Card class="p-3.5 hover:border-border-strong transition-colors">
-              <span class="block text-sm text-muted-foreground">Maintenance I/O</span>
-              <strong class="block text-xl font-bold tabular-nums my-1.5">{data().database.maintenance_io_concurrency ?? '—'}</strong>
-              <small class="block text-sm text-muted-foreground">max concurrency {data().database.io_max_concurrency ?? '—'}</small>
+            <Card class="p-3.5">
+              <span class="block text-xs text-muted-foreground">Maintenance I/O</span>
+              <strong class="block text-xl font-bold tabular-nums mt-1">{data().database.maintenance_io_concurrency ?? '—'}</strong>
+              <small class="block text-xs text-muted-foreground mt-1">max {data().database.io_max_concurrency ?? '—'}</small>
             </Card>
           </div>
         </>}
       </Show>
 
-      <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="map-pin" />Reservation maintenance</h3></div><Show when={summary.data}>{data => <StatusBadge status={staleAreaReservations(data()) > 0 ? `${staleAreaReservations(data())} stale` : 'clean'} tone={staleAreaReservations(data()) > 0 ? 'bad' : 'good'} />}</Show></div>
+      <SectionTitle title="Reservation maintenance" icon={<SectionIcon name="map-pin" />} action={<Show when={summary.data}>{data => <StatusBadge status={staleAreaReservations(data()) > 0 ? `${staleAreaReservations(data())} stale` : 'clean'} tone={staleAreaReservations(data()) > 0 ? 'bad' : 'good'} />}</Show>} />
       <Show when={!summary.error && summary.data} fallback={<Show when={!summary.error}><SkeletonRows count={4} /></Show>}>
         {data => <>
-          <div class="grid gap-2.5">
-            <Card class="p-3.5 hover:border-border-strong transition-colors">
-              <span class="block text-sm text-muted-foreground">Stale vouchers</span>
-              <strong class="block text-xl font-bold tabular-nums my-1.5">{data().area.stale_voucher_reservations}</strong>
-              <small class="block text-sm text-muted-foreground">{data().area.vouchers_issued} issued</small>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Card class="p-3.5">
+              <span class="block text-xs text-muted-foreground">Stale vouchers</span>
+              <strong class="block text-xl font-bold tabular-nums mt-1">{data().area.stale_voucher_reservations}</strong>
+              <small class="block text-xs text-muted-foreground mt-1">{data().area.vouchers_issued} issued</small>
             </Card>
-            <Card class="p-3.5 hover:border-border-strong transition-colors">
-              <span class="block text-sm text-muted-foreground">Stale ticket rewards</span>
-              <strong class="block text-xl font-bold tabular-nums my-1.5">{data().area.stale_ticket_reward_reservations}</strong>
-              <small class="block text-sm text-muted-foreground">{data().area.ticket_rewards_issued} issued</small>
+            <Card class="p-3.5">
+              <span class="block text-xs text-muted-foreground">Stale ticket rewards</span>
+              <strong class="block text-xl font-bold tabular-nums mt-1">{data().area.stale_ticket_reward_reservations}</strong>
+              <small class="block text-xs text-muted-foreground mt-1">{data().area.ticket_rewards_issued} issued</small>
             </Card>
-            <Card class="p-3.5 hover:border-border-strong transition-colors">
-              <span class="block text-sm text-muted-foreground">Credits</span>
-              <strong class="block text-xl font-bold tabular-nums my-1.5">{data().area.credits_total}</strong>
-              <small class="block text-sm text-muted-foreground">current total</small>
+            <Card class="p-3.5">
+              <span class="block text-xs text-muted-foreground">Credits</span>
+              <strong class="block text-xl font-bold tabular-nums mt-1">{data().area.credits_total}</strong>
+              <small class="block text-xs text-muted-foreground mt-1">current total</small>
             </Card>
-            <Card class="p-3.5 hover:border-border-strong transition-colors">
-              <span class="block text-sm text-muted-foreground">Legacy imports</span>
-              <strong class="block text-xl font-bold tabular-nums my-1.5">{data().area.legacy_imported_players}</strong>
-              <small class="block text-sm text-muted-foreground">players migrated</small>
+            <Card class="p-3.5">
+              <span class="block text-xs text-muted-foreground">Legacy imports</span>
+              <strong class="block text-xl font-bold tabular-nums mt-1">{data().area.legacy_imported_players}</strong>
+              <small class="block text-xs text-muted-foreground mt-1">players migrated</small>
             </Card>
           </div>
         </>}

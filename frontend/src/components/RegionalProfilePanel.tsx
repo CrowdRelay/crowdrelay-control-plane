@@ -1,4 +1,4 @@
-import { Show, createEffect, createSignal, on } from 'solid-js'
+import { Show, createEffect, createSignal, on, type JSX } from 'solid-js'
 import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { RegionalProfile, TenantSummary } from '../lib/types'
@@ -12,6 +12,16 @@ import { cn } from '../lib/cn'
 import { NativeSelect } from './ui/native-select'
 
 type Props = { tenant: TenantSummary }
+
+/** Small hoverable question mark that shows help text via native title tooltip. */
+const HelpDot = (props: { text: string }): JSX.Element => (
+  <span
+    class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[10px] font-bold cursor-help align-middle ml-1"
+    title={props.text}
+    aria-label={props.text}
+    role="img"
+  >?</span>
+)
 
 const empty = (): RegionalProfile => ({
   countryCode: '', region: 'eu', locale: '', timezone: '', currency: '',
@@ -64,12 +74,12 @@ export function RegionalProfilePanel(props: Props) {
     <div class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
       <label>Country code<Input required maxlength="2" autocomplete="country" class={cn(!countryValid() && draft().countryCode && 'border-destructive')} aria-invalid={!countryValid()} value={draft().countryCode} onInput={e=>set('countryCode', e.currentTarget.value.toUpperCase())} placeholder="DE"/></label>
       <label>Market region<NativeSelect value={draft().region} onChange={e=>set('region', e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></NativeSelect></label>
-      <label>Locale<Input required maxlength="35" class={cn(!localeValid() && draft().locale && 'border-destructive')} aria-invalid={!localeValid()} value={draft().locale} onInput={e=>set('locale', e.currentTarget.value)} placeholder="de-DE"/><small>BCP-47 tag, e.g. de-DE.</small></label>
+      <label>Locale<HelpDot text="BCP-47 tag, e.g. de-DE. Decides the language and formatting of fan-facing copy." /><Input required maxlength="35" class={cn(!localeValid() && draft().locale && 'border-destructive')} aria-invalid={!localeValid()} value={draft().locale} onInput={e=>set('locale', e.currentTarget.value)} placeholder="de-DE"/><small>BCP-47 tag, e.g. de-DE.</small></label>
       <label>Timezone<Input required maxlength="64" class={cn(!timezoneValid() && draft().timezone && 'border-destructive')} aria-invalid={!timezoneValid()} value={draft().timezone} onInput={e=>set('timezone', e.currentTarget.value)} placeholder="Europe/Berlin"/><small>IANA timezone, e.g. Europe/Berlin.</small></label>
       <label>Currency<Input required maxlength="3" class={cn(!currencyValid() && draft().currency && 'border-destructive')} aria-invalid={!currencyValid()} value={draft().currency} onInput={e=>set('currency', e.currentTarget.value.toUpperCase())} placeholder="EUR"/></label>
       <label>Date format<NativeSelect value={draft().dateFormat} onChange={e=>set('dateFormat', e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></NativeSelect></label>
       <label>Number format<NativeSelect value={draft().numberFormat} onChange={e=>set('numberFormat', e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></NativeSelect></label>
-      <label>Data region<NativeSelect disabled={Boolean(props.tenant.regionalProfile)}  value={draft().dataRegion} onChange={e=>set('dataRegion', e.currentTarget.value as 'eu'|'us')}><option value="eu">EU residency</option><option value="us">US residency</option></NativeSelect><small>{props.tenant.regionalProfile ? 'Residency changes require an explicit migration, not ordinary editing.' : 'Choose before deployment. Normal editing cannot silently move data later.'}</small></label>
+      <label>Data region<HelpDot text={props.tenant.regionalProfile ? 'Residency changes require an explicit migration, not ordinary editing.' : 'Choose before deployment. Normal editing cannot silently move data later.'} /><NativeSelect disabled={Boolean(props.tenant.regionalProfile)}  value={draft().dataRegion} onChange={e=>set('dataRegion', e.currentTarget.value as 'eu'|'us')}><option value="eu">EU residency</option><option value="us">US residency</option></NativeSelect><small>{props.tenant.regionalProfile ? 'Residency changes require an explicit migration, not ordinary editing.' : 'Choose before deployment. Normal editing cannot silently move data later.'}</small></label>
     </div>
     <Show when={update.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{update.error instanceof Error ? update.error.message : 'Regional profile update failed'}</div></Show>
     <div class="flex items-center justify-between gap-4 mt-5 pt-4 border-t border-border">
