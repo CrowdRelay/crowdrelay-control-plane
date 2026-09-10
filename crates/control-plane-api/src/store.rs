@@ -147,6 +147,23 @@ pub struct NotifierOutboxRow {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WaitlistRow {
+    pub id: Uuid,
+    pub email: String,
+    pub status: String,
+    pub role: Option<String>,
+    pub roster_size: Option<String>,
+    pub fan_sources: Value,
+    pub newsletter_opt_in: bool,
+    pub referral_code: String,
+    pub referred_by: Option<Uuid>,
+    pub qualified_at: Option<chrono::DateTime<Utc>>,
+    pub created_at: chrono::DateTime<Utc>,
+    pub updated_at: chrono::DateTime<Utc>,
+}
+
 impl Store {
     pub fn new(pool: PgPool, runtime_stale_after_seconds: i64) -> Self {
         Self {
@@ -2567,6 +2584,118 @@ impl Store {
         .await?;
         Ok(result.rows_affected())
     }
+
+    // ── Waitlist ───────────────────────────────────────────────────
+
+    pub async fn create_waitlist_applicant(
+        &self,
+        email: &str,
+        newsletter_opt_in: bool,
+        referred_by: Option<Uuid>,
+    ) -> Result<WaitlistRow, ApiError> {
+        let id = Uuid::new_v4();
+        let email_hash = Sha256::digest(email.to_lowercase().as_bytes()).to_vec();
+        let referral_code = generate_referral_code();
+        let row = sqlx::query_as::<_, WaitlistRow>(
+            r#"INSERT INTO control_plane_waitlist
+                 (id, email, email_hash, newsletter_opt_in, referral_code, referred_by)
+               VALUES ($1, $2, $3, $4, $5, $6)
+               ON CONFLICT (email_hash) DO UPDATE SET updated_at = now()
+               RETURNING id, email, status, role, roster_size, fan_sources,
+                         newsletter_opt_in, referral_code, referred_by,
+                         qualified_at, created_at, updated_at"#,
+        )
+        .bind(id)
+        .bind(email)
+        .bind(&email_hash)
+        .bind(newsletter_opt_in)
+        .bind(&referral_code)
+        .bind(referred_by)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    pub async fn get_waitlist_applicant_by_id(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<WaitlistRow>, ApiError> {
+        let row = sqlx::query_as::<_, WaitlistRow>(
+            r#"SELECT id, email, status, role, roster_size, fan_sources,
+                      newsletter_opt_in, referral_code, referred_by,
+                      qualified_at, created_at, updated_at
+               FROM control_plane_waitlist WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    pub async fn get_waitlist_applicant_by_referral(
+        &self,
+        code: &str,
+    ) -> Result<Option<WaitlistRow>, ApiError> {
+        let row = sqlx::query_as::<_, WaitlistRow>(
+            r#"SELECT id, email, status, role, roster_size, fan_sources,
+                      newsletter_opt_in, referral_code, referred_by,
+                      qualified_at, created_at, updated_at
+               FROM control_plane_waitlist WHERE referral_code = $1"#,
+        )
+        .bind(code)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    pub async fn qualify_waitlist_applicant(
+        &self,
+        id: Uuid,
+        role: &str,
+        roster_size: &str,
+        fan_sources: &[String],
+    ) -> Result<WaitlistRow, ApiError> {
+        let row = sqlx::query_as::<_, WaitlistRow>(
+            r#"UPDATE control_plane_waitlist
+               SET role = $2, roster_size = $3, fan_sources = $4,
+                   status = 'qualified', qualified_at = now(), updated_at = now()
+               WHERE id = $1
+               RETURNING id, email, status, role, roster_size, fan_sources,
+                         newsletter_opt_in, referral_code, referred_by,
+                         qualified_at, created_at, updated_at"#,
+        )
+        .bind(id)
+        .bind(role)
+        .bind(roster_size)
+        .bind(serde_json::to_value(fan_sources)?)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    pub async fn count_confirmed_referrals(&self, referrer_id: Uuid) -> Result<i64, ApiError> {
+        let row: (i64,) = sqlx::query_as(
+            r#"SELECT count(*) FROM control_plane_waitlist
+               WHERE referred_by = $1 AND status IN ('qualified', 'invited')"#,
+        )
+        .bind(referrer_id)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.0)
+    }
+}
+
+/// 8-char lowercase alphanumeric referral code. Collisions are astronomically
+/// unlikely for a waitlist (36^8 ≈ 2.8 trillion), and the UNIQUE constraint
+/// catches one if it ever happens — the caller retries.
+fn generate_referral_code() -> String {
+    use rand_core::{OsRng, RngCore};
+    const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+    let mut buf = [0u8; 8];
+    OsRng.fill_bytes(&mut buf);
+    buf.iter()
+        .map(|b| CHARSET[(*b as usize) % CHARSET.len()] as char)
+        .collect()
 }
 
 fn deployment_plan(

@@ -240,7 +240,9 @@ fn the_operator_surface_is_authenticated_as_one_router() {
     // Only these routers may be merged directly into the public `api`,
     // and each is either public by design or carries a machine-authority
     // guard of its own. The billing router authenticates via its own
-    // shared-secret header check, not the platform admin token.
+    // shared-secret header check, not the platform admin token. The
+    // waitlist router is public by design (landing page signup) and
+    // CORS-gated to the landing origin.
     let api = MAIN
         .split_once("let api = Router::new()")
         .expect("main.rs builds the api router")
@@ -261,7 +263,8 @@ fn the_operator_surface_is_authenticated_as_one_router() {
             "telemetry_api",
             "provisioner_api",
             "automation_api",
-            "routes::billing_router("
+            "routes::billing_router(",
+            "waitlist_api",
         ],
         "a router merged into `api` bypasses auth::authenticate unless it \
          carries its own machine-authority guard"

@@ -17,6 +17,7 @@ mod runtime_routes;
 mod store;
 mod tenant_area_client;
 mod validation;
+mod waitlist_routes;
 
 use std::{sync::Arc, time::Duration};
 
@@ -77,6 +78,11 @@ pub struct AppState {
     /// Secret for the billing webhook endpoint. When set, payment
     /// notifications can auto-unpark a tenant.
     billing_webhook_secret: Option<Arc<str>>,
+    /// Comma-separated allow-list of origins permitted to call the public
+    /// waitlist endpoints (e.g. "https://crowdrelay.music"). The CORS
+    /// middleware on the waitlist router checks the Origin header against
+    /// this list.
+    allowed_landing_origins: Arc<[String]>,
     /// Short-lived TTL cache for read model responses. Reduces upstream
     /// fan-out load when multiple operators view the same tenant or when
     /// an auto-refresh cycle re-fetches the same model.
@@ -198,6 +204,7 @@ async fn main() -> anyhow::Result<()> {
         github_deploy_repo: config.github_deploy_repo.map(Arc::from),
         github_deploy_cooldown_seconds: config.github_deploy_cooldown_seconds,
         billing_webhook_secret: config.billing_webhook_secret.map(Arc::from),
+        allowed_landing_origins: Arc::from(config.allowed_landing_origins.as_slice()),
         read_model_cache: read_models::new_read_model_cache(),
         start_time: std::time::Instant::now(),
     };
@@ -355,13 +362,19 @@ async fn main() -> anyhow::Result<()> {
     let automation_api = automation_routes::ingestion_router().route_layer(
         middleware::from_fn_with_state(state.clone(), auth::require_automation),
     );
+    // Public waitlist endpoints: no auth, CORS-enabled for the landing origin.
+    let waitlist_api = waitlist_routes::router().route_layer(middleware::from_fn_with_state(
+        state.clone(),
+        waitlist_routes::cors_middleware,
+    ));
     let api = Router::new()
         .merge(auth_api)
         .merge(admin_api)
         .merge(telemetry_api)
         .merge(provisioner_api)
         .merge(automation_api)
-        .merge(routes::billing_router());
+        .merge(routes::billing_router())
+        .merge(waitlist_api);
 
     let index = config.frontend_dist.join("index.html");
     let static_files = ServeDir::new(&config.frontend_dist).fallback(ServeFile::new(index));

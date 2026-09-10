@@ -80,6 +80,9 @@ pub struct Config {
     /// When set, a payment notification can auto-unpark a tenant. Without
     /// it, the webhook endpoint refuses all requests.
     pub billing_webhook_secret: Option<String>,
+    /// Comma-separated allow-list of origins permitted to call the public
+    /// waitlist endpoints (e.g. "https://crowdrelay.music,http://localhost:4321").
+    pub allowed_landing_origins: Vec<String>,
 }
 
 impl Config {
@@ -333,6 +336,9 @@ impl Config {
             .transpose()?
             .unwrap_or(60),
             billing_webhook_secret: optional_secret("CONTROL_PLANE_BILLING_WEBHOOK_SECRET")?,
+            allowed_landing_origins: parse_landing_origins(optional_env(
+                "CONTROL_PLANE_ALLOWED_LANDING_ORIGINS",
+            )?)?,
         };
         // Both or neither: half-configured bootstrap is a deployment typo,
         // not a feature.
@@ -454,6 +460,40 @@ fn parse_redirect_origins(raw: Option<String>) -> Result<Vec<String>> {
             .with_context(|| format!("redirect origin has no host: {entry}"))?;
         // `Url::port()` is None for the scheme's default port, which is
         // exactly how the request side builds its origin.
+        let origin = match parsed.port() {
+            Some(port) => format!("{}://{host}:{port}", parsed.scheme()),
+            None => format!("{}://{host}", parsed.scheme()),
+        };
+        if !origins.contains(&origin) {
+            origins.push(origin);
+        }
+    }
+    Ok(origins)
+}
+
+/// Same validation as `parse_redirect_origins` but for the public waitlist
+/// CORS allow-list. Defaults to the production landing origin when unset.
+fn parse_landing_origins(raw: Option<String>) -> Result<Vec<String>> {
+    let Some(raw) = raw else {
+        return Ok(vec!["https://crowdrelay.music".to_owned()]);
+    };
+    let mut origins = Vec::new();
+    for entry in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+        let parsed = url::Url::parse(entry).with_context(|| {
+            format!("CONTROL_PLANE_ALLOWED_LANDING_ORIGINS entry is not a URL: {entry}")
+        })?;
+        anyhow::ensure!(
+            matches!(parsed.scheme(), "http" | "https")
+                && parsed.username().is_empty()
+                && parsed.password().is_none()
+                && parsed.query().is_none()
+                && parsed.fragment().is_none()
+                && matches!(parsed.path(), "" | "/"),
+            "CONTROL_PLANE_ALLOWED_LANDING_ORIGINS entry must be a bare scheme://host[:port] origin: {entry}"
+        );
+        let host = parsed
+            .host_str()
+            .with_context(|| format!("landing origin has no host: {entry}"))?;
         let origin = match parsed.port() {
             Some(port) => format!("{}://{host}:{port}", parsed.scheme()),
             None => format!("{}://{host}", parsed.scheme()),
