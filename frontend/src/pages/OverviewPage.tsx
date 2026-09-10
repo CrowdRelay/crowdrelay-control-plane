@@ -2,6 +2,7 @@ import { For, Match, Show, Switch, createMemo } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
+import { fetchOperationsAttention } from '../lib/attention'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import { healthLabel, healthTone, platformStatusMessage } from '../lib/health-tone'
 import { authState } from '../lib/auth'
@@ -54,9 +55,61 @@ export function OverviewPage() {
   })
 
   const cc = (): CommandCenterReadModel | undefined => commandCenter.data
+
   const platformServices = createMemo<PlatformHealthEntry[]>(() => cc()?.system.platformServices ?? [])
   const healthyServices = createMemo(() => platformServices().filter(service => service.healthy).length)
   const ccTenants = createMemo(() => cc()?.perTenant ?? [])
+
+  // Drafted posts waiting for a person to publish them.
+  //
+  // Every outbound channel drafts and waits — Reddit is read-only by policy,
+  // Telegram, Discord and social default to manual — so this is the one queue
+  // where the system is blocked on the operator rather than the reverse, and a
+  // draft nobody publishes reaches nobody. It is spent work sitting still, and
+  // until now the platform overview could not see it at all.
+  //
+  // The command centre read model does not carry a draft count, so this asks
+  // each tenant's attention model. One request per tenant, and there is
+  // normally one tenant. `enabled` keeps it from firing before the tenant list
+  // has arrived.
+  const drafts = useQuery(() => ({
+    queryKey: ['overview-unpublished-drafts', ccTenants().map(t => t.slug).join(',')],
+    queryFn: async () => {
+      const results = await Promise.all(
+        ccTenants().map(async tenant => {
+          try {
+            const model = await fetchOperationsAttention(tenant.slug)
+            const channels = model.unpublished_drafts ?? []
+            return {
+              slug: tenant.slug,
+              displayName: tenant.displayName,
+              total: channels.reduce((sum, channel) => sum + channel.drafts, 0),
+              channels,
+            }
+          } catch {
+            // A tenant that cannot answer is not a tenant with zero drafts.
+            return null
+          }
+        }),
+      )
+      return results.filter((r): r is NonNullable<typeof r> => r !== null)
+    },
+    enabled: ccTenants().length > 0,
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+  }))
+
+  const draftTotal = createMemo(() => (drafts.data ?? []).reduce((sum, t) => sum + t.total, 0))
+  const firstDraftTenant = createMemo(() => (drafts.data ?? []).find(t => t.total > 0))
+  const draftChannels = createMemo(() => {
+    const counts = new Map<string, number>()
+    for (const tenant of drafts.data ?? []) {
+      for (const channel of tenant.channels) {
+        if (channel.drafts > 0) counts.set(channel.channel, (counts.get(channel.channel) ?? 0) + channel.drafts)
+      }
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])
+  })
 
   const firstNeedsYouTenant = createMemo(() => ccTenants().find(t => t.attention.available && t.attention.needsYou > 0))
   const firstAutopilotTenant = createMemo(() => ccTenants().find(t => t.autopilot.available && (t.autopilot.queuedActions > 0 || t.autopilot.processingActions > 0)))
@@ -227,6 +280,32 @@ export function OverviewPage() {
               }
             />
           </Link>
+
+          {/* WAITING ON YOU TO PUBLISH — only when there is something. An
+              always-present card reading zero is furniture; this one appears
+              because there is work sitting still. */}
+          <Show when={draftTotal() > 0}>
+            <Link
+              to={firstDraftTenant() ? '/tenants/$slug/attention' : '/tenants'}
+              params={firstDraftTenant() ? { slug: firstDraftTenant()!.slug } : {}}
+              class="block"
+            >
+              <CommandBlock
+                eyebrow="WAITING ON YOU"
+                metric={fmt(draftTotal())}
+                label={draftTotal() === 1 ? 'post to publish' : 'posts to publish'}
+                tone="warn"
+                detail={
+                  <>
+                    <For each={draftChannels().slice(0, 3)}>
+                      {([channel, count]) => <span>{fmt(count)} on {channel}</span>}
+                    </For>
+                    <span>Written and ready — nobody has posted them.</span>
+                  </>
+                }
+              />
+            </Link>
+          </Show>
 
           {/* AUTOPILOT TODAY */}
           <Link
