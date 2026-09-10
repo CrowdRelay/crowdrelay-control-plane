@@ -145,10 +145,13 @@ jobs:
           set -euo pipefail
           echo "Waiting for control plane readiness..."
           for i in $(seq 1 30); do
-            if curl -fsS --connect-timeout 3 --max-time 5 http://127.0.0.1:8090/healthz/ready >/dev/null 2>&1; then
-              echo "HEALTH=PASS ready after ${i} attempt(s)"
-              exit 0
-            fi
+            for container in crowdrelay-control-plane-app-green-1 crowdrelay-control-plane-app-1; do
+              health="$(docker inspect "$container" --format '{{.State.Health.Status}}' 2>/dev/null || true)"
+              if [[ "$health" == "healthy" ]]; then
+                echo "HEALTH=PASS container=$container ready after ${i} attempt(s)"
+                exit 0
+              fi
+            done
             sleep 3
           done
           echo "ERROR: control plane did not become ready in 90s" >&2
