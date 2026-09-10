@@ -70,8 +70,7 @@ export function ReplyTriagePanel() {
   return <Card class="p-4">
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div>
-        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">REPLY TRIAGE</span>
-        <h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="inbox" />Replies needing a human</h2>
+        <h2 class="text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="inbox" />Replies needing a human</h2>
         <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Inbound replies the classifier could not resolve automatically. Read the text, then decide.</p>
       </div>
       <Show when={data()}>
@@ -122,9 +121,9 @@ export function ReplyTriagePanel() {
       </div>
 
       {/* Needs human */}
-      <section class="mt-6 pt-6 border-t border-border">
+      <section class="mt-6 pt-4 border-t border-border">
         <div class="flex justify-between gap-4 items-start">
-          <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">NEEDS HUMAN</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="mail" />Read these</h3></div>
+          <div><h3 class="text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="mail" />Read these</h3></div>
         </div>
         <Show
           when={d().needs_human.length > 0}
@@ -143,9 +142,9 @@ export function ReplyTriagePanel() {
 
       {/* Recent auto */}
       <Show when={d().recent_auto.length > 0}>
-        <section class="mt-6 pt-6 border-t border-border">
+        <section class="mt-6 pt-4 border-t border-border">
           <div class="flex justify-between gap-4 items-start">
-            <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">RECENT AUTO</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="zap" />Classified without a human</h3></div>
+            <div><h3 class="text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="zap" />Classified without a human</h3></div>
           </div>
           <div class="flex flex-col mt-3">
             <For each={showAllRecentAuto() ? d().recent_auto : d().recent_auto.slice(0, MAX_VISIBLE)}>{entry => <ReplyRow entry={entry} slug={params().slug} />}</For>

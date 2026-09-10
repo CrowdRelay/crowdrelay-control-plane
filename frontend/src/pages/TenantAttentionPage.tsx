@@ -18,6 +18,7 @@ import { Spinner } from '../components/Spinner'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, ErrorCard, SectionPanel } from '../components/layout'
 import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
+import { Input } from '../components/ui/input'
 import { Badge } from '../components/ui/badge'
 
 const totalDead = (summary: OperationsSummary) => summary.outbox.dead + summary.deliveries.dead + summary.push.dead
@@ -147,9 +148,8 @@ export function TenantAttentionPage() {
 
       {/* Reconciliation findings */}
       <Show when={!summary.error && summary.data}>{data => <>
-        <div class="flex items-center justify-between gap-4 mt-8 mb-4" id="reconciliation-findings">
+        <div class="flex items-center justify-between gap-4 mt-6 mb-3" id="reconciliation-findings">
           <div>
-            <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">RECONCILIATION</span>
             <h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="refresh-cw" />Ecosystem reconciliation</h3>
             <p class="text-sm text-muted-foreground mt-1 leading-relaxed">Consistency pass across feature flags, Bandsintown sync, and open findings. Run it first, then work through what it finds.</p>
           </div>
@@ -172,10 +172,10 @@ export function TenantAttentionPage() {
             <small class="block text-sm text-muted-foreground">{attention.data!.ecosystem!.bandsintown_sync?.in_progress ? 'sync in progress' : 'idle'}</small>
           </Card>
         </div></Show>
-        <For each={attention.data?.findings ?? []}>{finding => <div class={finding.severity === 'critical' ? 'rounded-lg border border-destructive/25 border-l-2 border-l-destructive bg-destructive/10 p-3.5 px-4 my-3 text-sm text-destructive leading-relaxed' : 'rounded-lg border border-warning/30 border-l-2 border-l-warning bg-warning/10 p-3.5 px-4 my-3 text-sm text-warning-light leading-relaxed'}>
-          <div class="flex items-center justify-between gap-4 mt-8 mb-4"><div><strong>{finding.summary}</strong><small class="block text-sm text-muted-foreground">{finding.severity} · {finding.kind} · {finding.entity_label ?? finding.entity_type}</small><Show when={finding.suggested_action}><p class="text-sm text-muted-foreground mt-1 leading-relaxed">{finding.suggested_action}</p></Show></div><StatusBadge status={finding.severity} tone={finding.severity === 'critical' ? 'bad' : finding.severity === 'warning' ? 'warn' : 'muted'} /></div>
+        <For each={attention.data?.findings ?? []}>{finding => <div class={finding.severity === 'critical' ? 'rounded-lg border border-destructive/30 bg-destructive/10 p-3.5 my-3 text-sm text-destructive leading-relaxed' : 'rounded-lg border border-warning/30 bg-warning/10 p-3.5 my-3 text-sm text-warning-light leading-relaxed'}>
+          <div class="flex items-center justify-between gap-4"><div><strong>{finding.summary}</strong><small class="block text-sm text-muted-foreground">{finding.severity} · {finding.kind} · {finding.entity_label ?? finding.entity_type}</small><Show when={finding.suggested_action}><p class="text-sm text-muted-foreground mt-1 leading-relaxed">{finding.suggested_action}</p></Show></div><StatusBadge status={finding.severity} tone={finding.severity === 'critical' ? 'bad' : finding.severity === 'warning' ? 'warn' : 'muted'} /></div>
         </div>}</For>
-        <Show when={findingsCount() === 0}><div class="p-4 border border-border-subtle border-l-2 border-l-primary rounded-lg bg-surface-1 text-left"><EmptyState label="No reconciliation findings" hint="The reconciliation engine checks for state mismatches between systems. Findings appear here when discrepancies are detected." /></div></Show>
+        <Show when={findingsCount() === 0}><div class="p-4 border border-border-subtle rounded-lg bg-surface-1 text-left"><EmptyState label="No reconciliation findings" hint="The reconciliation engine checks for state mismatches between systems. Findings appear here when discrepancies are detected." /></div></Show>
       </>}</Show>
     </TabPanel>
 
@@ -197,7 +197,7 @@ export function TenantAttentionPage() {
     <TabPanel active={activeTab()} id="runtime" visited={isVisited('runtime')}>
       <Show when={!summary.error && summary.data} fallback={<SkeletonSection titleWidth="180px" lines={4} minHeight="140px" />}>
         {data => <>
-          <div class="flex items-center justify-between gap-4 mt-8 mb-4"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">POSTGRES RUNTIME</span><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="database" />Database health</h3></div><StatusBadge status={data().database.async_io_active ? 'async I/O active' : 'check I/O'} tone={data().database.async_io_active ? 'good' : 'warn'} /></div>
+          <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="database" />Database health</h3></div><StatusBadge status={data().database.async_io_active ? 'async I/O active' : 'check I/O'} tone={data().database.async_io_active ? 'good' : 'warn'} /></div>
           <div class="grid gap-2.5">
             <Card class="p-3.5 hover:border-border-strong transition-colors">
               <span class="block text-sm text-muted-foreground">Pool</span>
@@ -221,7 +221,7 @@ export function TenantAttentionPage() {
             </Card>
           </div>
 
-          <div class="flex items-center justify-between gap-4 mt-8 mb-4"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">AREA RUNTIME</span><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="map-pin" />Reservation maintenance</h3></div><StatusBadge status={staleAreaReservations(data()) > 0 ? `${staleAreaReservations(data())} stale` : 'clean'} tone={staleAreaReservations(data()) > 0 ? 'bad' : 'good'} /></div>
+          <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="map-pin" />Reservation maintenance</h3></div><StatusBadge status={staleAreaReservations(data()) > 0 ? `${staleAreaReservations(data())} stale` : 'clean'} tone={staleAreaReservations(data()) > 0 ? 'bad' : 'good'} /></div>
           <div class="grid gap-2.5">
             <Card class="p-3.5 hover:border-border-strong transition-colors">
               <span class="block text-sm text-muted-foreground">Stale vouchers</span>
@@ -252,12 +252,12 @@ export function TenantAttentionPage() {
 
     {/* ─── Trace Tab ─────────────────────────────────────────────── */}
     <TabPanel active={activeTab()} id="trace" visited={isVisited('trace')}>
-      <div class="flex items-center justify-between gap-4 mt-8 mb-4"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">REQUEST TIMELINE</span><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="history" />Correlation trace</h3><p class="text-sm text-muted-foreground mt-1 leading-relaxed">Metadata-only trace across audit, outbox, delivery and operator actions.</p></div></div>
+      <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="history" />Correlation trace</h3><p class="text-sm text-muted-foreground mt-1 leading-relaxed">Metadata-only trace across audit, outbox, delivery and operator actions.</p></div></div>
       <div class="flex gap-2.5 items-stretch">
-        <input class="mono bg-surface-1 border border-border rounded-md text-foreground px-3 py-2.5 min-h-10" value={timelineInput()} onInput={(event) => setTimelineInput(event.currentTarget.value)} placeholder="Request or correlation ID" aria-label="Request or correlation ID" />
+        <Input class="min-h-10" value={timelineInput()} onInput={(event) => setTimelineInput(event.currentTarget.value)} placeholder="Request or correlation ID" aria-label="Request or correlation ID" />
         <Button variant="ghost" size="sm" disabled={!timelineInput().trim() || !!busy()} onClick={() => void lookupTimeline()}>{busy() === 'timeline' ? 'Tracing…' : 'Trace request'}</Button>
       </div>
-      <Show when={timeline()}>{result => <SectionPanel><div class="flex items-center justify-between gap-4 mt-8 mb-4"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">REQUEST TIMELINE</span><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="history" />{result().events.length} timeline event(s)</h3><Button variant="ghost" size="sm" class="text-xs py-1.5 px-2.5" onClick={() => toggleRevealedId('timeline')}>{revealedId() === 'timeline' ? 'Hide ID' : 'Details'}</Button><Show when={revealedId() === 'timeline'}><small class="mono block p-1.5 px-2.5 rounded-sm bg-background border border-border-subtle text-muted-foreground text-xs break-all">Request ID · <span class="mono">{result().request_id}</span></small></Show></div><Button variant="ghost" size="sm" onClick={() => setTimeline(null)}>Close</Button></div><For each={result().events}>{event => <div class="rounded-lg border border-warning/30 border-l-2 border-l-warning bg-warning/10 p-3.5 px-4 my-3 text-sm text-warning-light leading-relaxed"><div class="flex gap-1.5 flex-wrap items-center"><Badge variant="muted" class="font-mono text-xs font-semibold px-2 py-0.5 rounded-full">{event.source}</Badge><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.kind}</Badge></div><p class="mt-1.5">{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'}</p></div>}</For></SectionPanel>}</Show>
+      <Show when={timeline()}>{result => <SectionPanel><div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="history" />{result().events.length} timeline event(s)</h3><Button variant="ghost" size="sm" class="text-xs py-1.5 px-2.5" onClick={() => toggleRevealedId('timeline')}>{revealedId() === 'timeline' ? 'Hide ID' : 'Details'}</Button><Show when={revealedId() === 'timeline'}><small class="mono block p-1.5 px-2.5 rounded-sm bg-background border border-border-subtle text-muted-foreground text-xs break-all">Request ID · <span class="mono">{result().request_id}</span></small></Show></div><Button variant="ghost" size="sm" onClick={() => setTimeline(null)}>Close</Button></div><For each={result().events}>{event => <div class="rounded-lg border border-warning/30 bg-warning/10 p-3.5 px-4 my-3 text-sm text-warning-light leading-relaxed"><div class="flex gap-1.5 flex-wrap items-center"><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.source}</Badge><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.kind}</Badge></div><p class="mt-1.5">{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'}</p></div>}</For></SectionPanel>}</Show>
     </TabPanel>
   </PageShell>
 }

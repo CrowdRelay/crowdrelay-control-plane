@@ -51,25 +51,24 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
   return <Card class="p-5">
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div>
-        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">ACQUISITION</span>
-        <h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="users" />Where the fans came from</h2>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">Signups by the channel that produced them, and how many of those were still active 30 days later. A channel that brings people who never come back is not working, however big the first number is.</p>
+        <h2 class="text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="users" />Where the fans came from</h2>
+        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Signups by the channel that produced them, and how many of those were still active 30 days later. A channel that brings people who never come back is not working, however big the first number is.</p>
       </div>
     </div>
 
     <Show when={model.error}>
-      <Card class="p-4 mt-2.5"><p class="m-0 text-sm text-muted-foreground">Acquisition attribution is not available on the connected CrowdRelay build. The funnel below still reports totals.</p></Card>
+      <div class="p-4 mt-2.5 rounded-lg border border-border bg-surface-1"><p class="m-0 text-sm text-muted-foreground">Acquisition attribution is not available on the connected CrowdRelay build. The funnel below still reports totals.</p></div>
     </Show>
 
     <Show when={!model.error && model.isPending}><SkeletonSection titleWidth="200px" lines={4} minHeight="160px" /></Show>
 
     <Show when={d()}>{data => <>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-        <div class="p-3 border border-border rounded-md bg-card"><span class="block text-xs text-muted-foreground">Signups</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().total_signups.toLocaleString()}</strong></div>
-        <div class="p-3 border border-border rounded-md bg-card"><span class="block text-xs text-muted-foreground">Activated · 30d</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().total_activated_30d.toLocaleString()}</strong></div>
-        <div class="p-3 border border-border rounded-md bg-card"><span class="block text-xs text-muted-foreground">Active · 30d</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().active_30d.toLocaleString()}</strong></div>
-        <div class="p-3 border border-border rounded-md bg-card"><span class="block text-xs text-muted-foreground">Retained · 30d</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().retained_30d.toLocaleString()}</strong></div>
-        <div class="p-3 border border-border rounded-md bg-card"><span class="block text-xs text-muted-foreground">Reachable</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().reachable_consented.toLocaleString()}</strong><small class="block text-xs text-muted-foreground mt-0.5">consented to be contacted</small></div>
+        <div class="p-3 border border-border rounded-lg bg-card"><span class="block text-xs text-muted-foreground">Signups</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().total_signups.toLocaleString()}</strong></div>
+        <div class="p-3 border border-border rounded-lg bg-card"><span class="block text-xs text-muted-foreground">Activated · 30d</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().total_activated_30d.toLocaleString()}</strong></div>
+        <div class="p-3 border border-border rounded-lg bg-card"><span class="block text-xs text-muted-foreground">Active · 30d</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().active_30d.toLocaleString()}</strong></div>
+        <div class="p-3 border border-border rounded-lg bg-card"><span class="block text-xs text-muted-foreground">Retained · 30d</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().retained_30d.toLocaleString()}</strong></div>
+        <div class="p-3 border border-border rounded-lg bg-card"><span class="block text-xs text-muted-foreground">Reachable</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().reachable_consented.toLocaleString()}</strong><small class="block text-xs text-muted-foreground mt-0.5">consented to be contacted</small></div>
       </div>
 
       <Show
@@ -81,7 +80,7 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
       >
         <ul class="grid gap-2.5 m-0 p-0 list-none mt-4">
           <For each={showAllChannels() ? data().channels : data().channels.slice(0, MAX_VISIBLE_CHANNELS)}>{channel => (
-            <li class="grid items-center gap-3 p-3 border border-border-subtle rounded-md bg-surface-1 grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto]">
+            <li class="grid items-center gap-3 p-3 border border-border-subtle rounded-lg bg-surface-1 grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto]">
               <div class="min-w-0">
                 <strong class="block text-base capitalize text-foreground">{channelName(channel)}</strong>
                 <small class="block text-sm text-muted-foreground mt-0.5">{channelDetail(channel)}</small>
@@ -108,7 +107,7 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
       </Show>
 
       <Show when={data().unattributed.length > 0}>
-        <section class="mt-6 pt-6 border-t border-border">
+        <section class="mt-6 pt-4 border-t border-border">
           <h3 class="text-sm font-semibold text-foreground">Signups the system could not attribute</h3>
           <p class="m-0 mt-1 text-sm text-muted-foreground leading-relaxed">Each row says what to instrument so the next batch lands in a channel above.</p>
           <ul class="grid gap-2 m-0 p-0 list-none mt-3">

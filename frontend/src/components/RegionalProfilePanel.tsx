@@ -48,7 +48,7 @@ export function RegionalProfilePanel(props: Props) {
 
   return <Card class="p-4 regional-profile-panel">
     <div class="flex items-center justify-between gap-4 mt-6 mb-3">
-      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">REGIONALIZATION</span><h2><SectionIcon name="globe" />Explicit tenant profile</h2></div>
+      <div><h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="globe" />Explicit tenant profile</h2></div>
       <StatusBadge
         status={props.tenant.regionalProfile ? `${props.tenant.regionalProfile.dataRegion.toUpperCase()} classified` : 'legacy / unclassified'}
         tone={props.tenant.regionalProfile ? 'good' : 'warn'}

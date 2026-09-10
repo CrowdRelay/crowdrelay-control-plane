@@ -162,7 +162,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
 
     {/* Funnel visualization */}
     <Show when={funnel.data}>
-      <div class="p-4 mt-6 pt-6 border-t border-border">
+      <div class="p-4 mt-6 pt-4 border-t border-border">
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-sm font-semibold text-foreground"><FunnelIcon size={18} /> Growth Funnel</h3>
         </div>
@@ -185,7 +185,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
 
     {/* Worker run breakdown */}
     <Show when={funnel.data && Object.keys(funnel.data!.worker_runs).length > 0}>
-      <div class="p-4 mt-6 pt-6 border-t border-border">
+      <div class="p-4 mt-6 pt-4 border-t border-border">
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-sm font-semibold text-foreground">Worker run breakdown</h3>
         </div>
@@ -224,7 +224,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
 
     {/* Recent worker runs */}
     <Show when={funnel.data && funnel.data!.recent_worker_runs.length > 0}>
-      <div class="p-4 mt-6 pt-6 border-t border-border">
+      <div class="p-4 mt-6 pt-4 border-t border-border">
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-sm font-semibold text-foreground">Recent worker runs</h3>
           <span class="text-muted-foreground">last {funnel.data!.recent_worker_runs.length}</span>

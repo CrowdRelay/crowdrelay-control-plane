@@ -137,7 +137,7 @@ export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; 
           <div><span class="block text-muted-foreground text-sm">Stalled</span><strong class="block my-1.5 text-foreground">{count(totals()?.stalled_campaigns)}</strong><small class="block text-muted-foreground text-sm">no delivery claimed</small></div>
         </div>
 
-        <section class="mt-6 pt-6 border-t border-border">
+        <section class="mt-6 pt-4 border-t border-border">
           <div class="flex justify-between gap-4 items-start">
             <div><h3 class="text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="megaphone" />Playlist & press pitching</h3><p class="mt-1 text-sm text-muted-foreground">Opportunities from verified, consenting targets only.</p></div>
           </div>
@@ -156,7 +156,7 @@ export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; 
           </Show>
         </section>
 
-        <section class="mt-6 pt-6 border-t border-border">
+        <section class="mt-6 pt-4 border-t border-border">
           <div class="flex justify-between gap-4 items-start">
             <div><h3 class="text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="megaphone" />Recent growth campaigns</h3></div>
           </div>

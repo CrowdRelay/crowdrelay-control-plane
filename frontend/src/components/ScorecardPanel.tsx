@@ -136,7 +136,7 @@ export function ScorecardPanel(props: { slug: string }) {
         <div class="flex items-center gap-2 flex-wrap mt-4">
           <span class="text-xs text-muted-foreground font-medium">Live capabilities</span>
           <div class="flex items-center gap-1.5 flex-wrap">
-            <For each={d().status.live_capabilities}>{cap => <Badge variant="muted" class="rounded-full font-mono px-2.5 py-1 leading-relaxed border border-border text-secondary-foreground">{cap}</Badge>}</For>
+            <For each={d().status.live_capabilities}>{cap => <Badge variant="muted" class="rounded-full px-2.5 py-1 leading-relaxed border border-border text-secondary-foreground">{cap.replace(/_/g, ' ')}</Badge>}</For>
           </div>
         </div>
       </Show>
@@ -151,9 +151,9 @@ export function ScorecardPanel(props: { slug: string }) {
       </Show>
 
       {/* Week summary */}
-      <section class="mt-6 pt-6 border-t border-border">
+      <section class="mt-6 pt-4 border-t border-border">
         <div class="flex justify-between gap-4 items-start">
-          <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">THIS WEEK</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="zap" />Actions</h3></div>
+          <div><h3 class="text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="zap" />Actions</h3></div>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mt-3">
           <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Executed</span>{num(d().week.executed)}<small class="block text-muted-foreground text-sm">{count(d().week.succeeded)} succeeded · {count(d().week.failed)} failed</small></div>
@@ -172,9 +172,9 @@ export function ScorecardPanel(props: { slug: string }) {
       </section>
 
       {/* Track record */}
-      <section class="mt-6 pt-6 border-t border-border">
+      <section class="mt-6 pt-4 border-t border-border">
         <div class="flex justify-between gap-4 items-start">
-          <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">TRACK RECORD</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="history" />Did it work?</h3></div>
+          <div><h3 class="text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="history" />Did it work?</h3></div>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
           <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Improved</span><strong class="block my-1.5 text-foreground">{count(d().track_record.improved)}</strong><small class="block text-sm text-success">measured wins</small></div>
@@ -219,12 +219,12 @@ export function ScorecardPanel(props: { slug: string }) {
 
       {/* By context */}
       <Show when={d().by_context.length > 0}>
-        <section class="mt-6 pt-6 border-t border-border">
+        <section class="mt-6 pt-4 border-t border-border">
           <div class="flex justify-between gap-4 items-start">
-            <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">BY CONTEXT</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="target" />Which parts are producing</h3></div>
+            <div><h3 class="text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="target" />Which parts are producing</h3></div>
           </div>
           <div class="grid gap-2.5 mt-3" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-            <For each={showAllByContext() ? d().by_context : d().by_context.slice(0, MAX_VISIBLE_BY_CONTEXT)}>{ctx => <div class="p-3 border border-border rounded-md bg-card flex flex-col gap-1">
+            <For each={showAllByContext() ? d().by_context : d().by_context.slice(0, MAX_VISIBLE_BY_CONTEXT)}>{ctx => <div class="p-3 border border-border rounded-lg bg-card flex flex-col gap-1">
               <strong class="text-foreground">{contextLabel(ctx.context)}</strong>
               <small class="text-muted-foreground text-sm">{count(ctx.executed)} executed · {count(ctx.succeeded)} succeeded · {count(ctx.failed)} failed</small>
               <Show when={ctx.parked > 0}><small class="text-muted-foreground text-sm">{count(ctx.parked)} parked</small></Show>
@@ -239,20 +239,20 @@ export function ScorecardPanel(props: { slug: string }) {
       </Show>
 
       {/* Recent results */}
-      <section class="mt-6 pt-6 border-t border-border">
+      <section class="mt-6 pt-4 border-t border-border">
         <div class="flex justify-between gap-4 items-start">
-          <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">RECENT RESULTS</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="list-checks" />Last 10 completed actions</h3></div>
+          <div><h3 class="text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="list-checks" />Last 10 completed actions</h3></div>
         </div>
-        <Show when={d().recent_results.length > 0} fallback={<Card class="p-4 mt-3"><p class="m-0 text-sm text-muted-foreground">The agent has not completed any actions yet.</p></Card>}>
+        <Show when={d().recent_results.length > 0} fallback={<div class="p-4 mt-3 rounded-lg border border-border bg-surface-1"><p class="m-0 text-sm text-muted-foreground">The agent has not completed any actions yet.</p></div>}>
           <div class="grid gap-2.5 mt-3" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-            <For each={showAllRecent() ? d().recent_results : d().recent_results.slice(0, MAX_VISIBLE_RECENT)}>{result => <div class="p-3 border border-border rounded-md bg-card flex flex-col gap-1">
+            <For each={showAllRecent() ? d().recent_results : d().recent_results.slice(0, MAX_VISIBLE_RECENT)}>{result => <div class="p-3 border border-border rounded-lg bg-card flex flex-col gap-1">
               <div class="flex items-center justify-between gap-2">
                 <strong class="text-foreground text-sm">{actionLabel(result.action_kind)}</strong>
                 <StatusBadge status={outcomeLabel(result.outcome)} tone={outcomeTone(result.outcome)} />
               </div>
               <small class="text-muted-foreground text-sm">{contextLabel(result.context)} · {subjectLabel(result.subject_kind)}</small>
-              <Show when={result.metric_key}><small class="text-muted-foreground text-sm">metric: {result.metric_key}</small></Show>
-              <small class="text-muted-foreground text-sm">{timeAgo(result.completed_at)}<Show when={result.executor_id}>{` · ${result.executor_id}`}</Show></small>
+              <Show when={result.metric_key}><small class="text-muted-foreground text-sm">{result.metric_key!.replace(/_/g, ' ')}</small></Show>
+              <small class="text-muted-foreground text-sm">{timeAgo(result.completed_at)}</small>
             </div>}</For>
           </div>
           <Show when={d().recent_results.length > MAX_VISIBLE_RECENT}>

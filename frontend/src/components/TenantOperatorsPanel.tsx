@@ -43,7 +43,7 @@ export function TenantOperatorsPanel(props: { slug: string }) {
   }))
 
   return <Show when={isAdmin()}><Card class="p-4">
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">TEAM ACCESS</span><h2><SectionIcon name="users" />Operator accounts</h2></div><small>{accounts.data?.items.length ?? 0} account(s)</small></div>
+    <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="users" />Operator accounts</h2></div><small>{accounts.data?.items.length ?? 0} account(s)</small></div>
     <p class="rounded-lg border border-border bg-surface-1 p-3 text-sm text-muted-foreground">These operators sign in with username + password and see only <strong>{props.slug}</strong>. The platform admin keeps full access via its separate credential.</p>
     <div class="form-grid">
       <label>
@@ -62,7 +62,7 @@ export function TenantOperatorsPanel(props: { slug: string }) {
     <Show when={remove.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(remove.error, 'Operator removal failed')}</div></Show>
     <Show when={accounts.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(accounts.error, 'Could not load operator accounts')}</div></Show>
     <Show when={(accounts.data?.items.length ?? 0) === 0 && !accounts.isPending && !accounts.error}>
-      <Card class="p-4 mt-2.5"><EmptyState label="No operator accounts yet" hint="Only the platform admin can reach this tenant right now. Create an account above to give the team its own scoped login." /></Card>
+      <div class="p-4 mt-2.5 rounded-lg border border-border bg-surface-1"><EmptyState label="No operator accounts yet" hint="Only the platform admin can reach this tenant right now. Create an account above to give the team its own scoped login." /></div>
     </Show>
     <div class="grid gap-2.5 mt-4"><For each={accounts.data?.items ?? []}>{account =>
       <div class="flex items-center justify-between gap-3 py-2.5 border-b border-border">

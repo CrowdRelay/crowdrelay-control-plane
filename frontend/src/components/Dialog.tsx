@@ -60,10 +60,10 @@ const DialogPanel: Component<Omit<DialogProps, 'open'>> = (props) => {
     })
   })
 
-  return <div class={props.overlayClass ?? 'dialog-overlay'} onClick={() => props.onClose()}>
+  return <div class={props.overlayClass ?? 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4'} onClick={() => props.onClose()}>
     <div
       ref={panel}
-      class={props.class ?? 'dialog-panel'}
+      class={props.class ?? 'w-full max-w-md rounded-lg border border-border bg-card p-5 shadow-xl'}
       role="dialog"
       aria-modal="true"
       aria-label={props.label}
@@ -120,12 +120,12 @@ function settle(ok: boolean) {
 export function ConfirmHost(): JSX.Element {
   return <Show when={pending()} keyed>
     {request => (
-      <Dialog open onClose={() => settle(false)} label={request.title} description={request.body} class="dialog-panel confirm-dialog">
-        <h3 class="confirm-dialog-title">{request.title}</h3>
+      <Dialog open onClose={() => settle(false)} label={request.title} description={request.body} class="w-full max-w-md rounded-lg border border-border bg-card p-5 shadow-xl">
+        <h3 class="text-lg font-semibold text-foreground">{request.title}</h3>
         <Show when={request.body}>
-          <p id={`${request.title}-desc`} class="confirm-dialog-body">{request.body}</p>
+          <p id={`${request.title}-desc`} class="mt-2 text-sm text-muted-foreground leading-relaxed">{request.body}</p>
         </Show>
-        <div class="confirm-dialog-actions">
+        <div class="mt-5 flex justify-end gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={() => settle(false)}>
             {request.cancelLabel ?? 'Cancel'}
           </Button>

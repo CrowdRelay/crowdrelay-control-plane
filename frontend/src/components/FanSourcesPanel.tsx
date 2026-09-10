@@ -395,7 +395,7 @@ export function FanSourcesPanel(props: {
 
   return <Card class="p-5">
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
-      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">FAN SOURCES</span><h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="globe" />Fanbases</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">First-class audience blocks with a swappable acquisition origin. Every ingest lands candidates as pending double opt-in — active fans are never downgraded and opt-outs are never resurrected.</p></div>
+      <div><h2 class="text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="globe" />Fanbases</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed">First-class audience blocks with a swappable acquisition origin. Every ingest lands candidates as pending double opt-in — active fans are never downgraded and opt-outs are never resurrected.</p></div>
       <div class="flex items-center gap-2 flex-wrap">
         <Show when={!creating}>
           <Button size="sm" onClick={() => { setCreating(true); setNotice(null) }}>+ New fanbase</Button>
@@ -414,8 +414,8 @@ export function FanSourcesPanel(props: {
       <div class="flex items-center justify-between gap-4">
         <h3>Platform connections</h3>
         <Show when={connections.data && connections.data!.length > 0}>
-          <span class="agent-connection-summary">
-            <span class="agent-connection-dot ok" />
+          <span class="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <span class="w-2 h-2 rounded-full bg-success inline-block" />
             {connections.data!.length} connected
           </span>
         </Show>
@@ -423,12 +423,12 @@ export function FanSourcesPanel(props: {
       <p class="text-sm text-muted-foreground leading-relaxed mt-1">Connected audience and music platforms. Each connection syncs follower and engagement metrics on the growth schedule. Disconnect to revoke access.</p>
       <Show when={connections.error}><ErrorCard>Fan source connections unavailable: {errorMessage(connections.error, 'Service unreachable')}</ErrorCard></Show>
       <Show when={!connections.isFetching} fallback={<SkeletonRows count={3} />}>
-      <div class="agent-providers">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         <For each={OAUTH_PLATFORMS}>{(plat) => {
           const conn = () => connections.data?.find(c => c.platform === plat.value)
           return (
             <div class="fanbase-connection-card" classList={{ connected: !!conn() }}>
-              <div class="agent-provider-logo">
+              <div class="w-9 h-9 flex items-center justify-center rounded-md border border-border bg-surface-1">
                 <FanbaseIcon sourceKind={plat.icon as never} size={28} />
               </div>
               <div class="fanbase-connection-info">

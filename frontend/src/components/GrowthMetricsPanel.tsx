@@ -261,7 +261,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
 
         {/* ── Conversion (downstream) section ── */}
         <Show when={grouped().downstream.length > 0}>
-          <div class="mt-6 pt-6 border-t border-border">
+          <div class="mt-6 pt-4 border-t border-border">
             <div class="flex items-center gap-2 mb-2">
               <strong class="text-base font-bold text-foreground">Conversion</strong>
               <span class="text-sm text-muted-foreground">{grouped().downstream.length} metrics</span>

@@ -244,7 +244,7 @@ export function SectionTitle(props: {
           </Show>
           <h2 class="text-lg font-semibold text-foreground">{props.title}</h2>
           <Show when={props.description}>
-            <p class="text-sm text-muted-foreground mt-1 max-w-prose">{props.description}</p>
+            <p class="text-sm text-muted-foreground mt-1">{props.description}</p>
           </Show>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { Show, createSignal } from 'solid-js'
 import type { Component } from 'solid-js'
 import { reauthState, submitReauth, cancelReauth } from '../lib/reauth'
 import { Button } from './ui/button'
+import { Input } from './ui/input'
 
 /// Modal that prompts for the operator's password before a destructive
 /// mutation from a mobile session. Triggered by `requireReauth()` in
@@ -24,16 +25,15 @@ export const ReauthModal: Component = () => {
 
   return (
     <Show when={reauthState.pending()}>
-      <div class="dialog-overlay" onClick={cancel}>
-        <div class="dialog-panel reauth-panel" role="dialog" aria-modal="true" aria-label="Confirm your identity" onClick={(e) => e.stopPropagation()}>
-          <h2 class="confirm-dialog-title">Confirm your identity</h2>
-          <div class="confirm-dialog-body">
-            <p class="reauth-description">{reauthState.pending()?.description}</p>
-            <p class="reauth-hint">Enter your password to authorize this action from your mobile device.</p>
-            <form class="reauth-form" onSubmit={submit}>
-              <input
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={cancel}>
+        <div class="w-full max-w-sm rounded-lg border border-border bg-card p-5 shadow-xl" role="dialog" aria-modal="true" aria-label="Confirm your identity" onClick={(e) => e.stopPropagation()}>
+          <h2 class="text-lg font-semibold text-foreground">Confirm your identity</h2>
+          <div class="mt-2">
+            <p class="text-sm text-muted-foreground leading-relaxed">{reauthState.pending()?.description}</p>
+            <p class="mt-1 text-xs text-muted-foreground">Enter your password to authorize this action from your mobile device.</p>
+            <form class="mt-4 flex flex-col gap-3" onSubmit={submit}>
+              <Input
                 type="password"
-                class="reauth-input"
                 placeholder="Password"
                 autocomplete="current-password"
                 value={password()}
@@ -42,9 +42,9 @@ export const ReauthModal: Component = () => {
                 autofocus
               />
               <Show when={reauthState.error()}>
-                <div class="reauth-error" role="alert">{reauthState.error()}</div>
+                <div class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{reauthState.error()}</div>
               </Show>
-              <div class="confirm-dialog-actions">
+              <div class="flex justify-end gap-2">
                 <Button type="button" variant="ghost" size="sm" onClick={cancel} disabled={reauthState.busy()}>
                   Cancel
                 </Button>

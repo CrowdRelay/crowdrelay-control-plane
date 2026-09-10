@@ -172,7 +172,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
               const approveKey = `approve:${action.id}`
               const rejectKey = `reject:${action.id}`
               return (
-                <div class="flex items-start justify-between gap-4 p-3.5 border border-border rounded-md bg-card">
+                <div class="flex items-start justify-between gap-4 p-3.5 border border-border rounded-lg bg-card">
                   <div class="min-w-0 flex-1 flex flex-col gap-1.5">
                     <div class="flex items-center gap-2 flex-wrap">
                       <Badge>{actionKindLabel(action.action_kind)}</Badge>
@@ -190,7 +190,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
                           <Badge variant="success">r/{String((action.payload as Record<string, unknown>).subreddit)}</Badge>
                         </Show>
                         <Show when={(action.payload as Record<string, unknown>).body}>
-                          <pre class="text-xs text-muted-foreground whitespace-pre-wrap font-mono m-0">{String((action.payload as Record<string, unknown>).body)}</pre>
+                          <pre class="text-xs text-muted-foreground whitespace-pre-wrap m-0">{String((action.payload as Record<string, unknown>).body)}</pre>
                         </Show>
                       </div>
                     </Show>
@@ -238,7 +238,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
       </section>
 
       {/* Autonomy controls — growth_intelligence policy */}
-      <section class="mt-6 pt-6 border-t border-border">
+      <section class="mt-6 pt-4 border-t border-border">
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-sm font-semibold text-foreground">Autonomy controls</h3>
         </div>
@@ -265,7 +265,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
       </section>
 
       {/* Brain-dispatched worker runs */}
-      <section class="mt-6 pt-6 border-t border-border">
+      <section class="mt-6 pt-4 border-t border-border">
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-sm font-semibold text-foreground">Worker runs</h3>
           <Show when={overview.data}>
@@ -311,8 +311,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
         open={viewingWorkflow() !== null}
         onClose={() => setViewingWorkflow(null)}
         label="Workflow detail"
-        overlayClass="agent-result-overlay"
-        class="agent-result-modal"
+        class="w-full max-w-2xl rounded-lg border border-border bg-card p-5 shadow-xl max-h-[80vh] overflow-y-auto"
       >
         <>
             <div class="flex justify-between items-center pb-4 border-b border-border">
@@ -350,13 +349,11 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
               <div class="py-3 border-b border-border">
                 <h4 class="text-sm font-semibold text-muted-foreground mb-2">Sub-tasks</h4>
                 <table class="w-full text-sm">
-                  <thead><tr><th>Slot</th><th>Role</th><th>Template</th><th>Status</th><th></th></tr></thead>
+                  <thead><tr><th>Role</th><th>Status</th><th></th></tr></thead>
                   <tbody>
                     <For each={showAllSubTasks() ? workflowTasks() : workflowTasks().slice(0, MAX_VISIBLE_SUB_TASKS)}>{(t) => (
                       <tr>
-                        <td>{t.slot}</td>
                         <td><Badge variant={t.role === 'brain' ? 'success' : 'destructive'}>{t.role}</Badge></td>
-                        <td>{t.task_template_id}</td>
                         <td><StatusBadge status={t.task_status} tone={workflowStatusTone(t.task_status)} /></td>
                         <td><Show when={t.task_error}><span class="inline-block rounded-md border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-xs text-destructive" title={t.task_error!}>error</span></Show></td>
                       </tr>

@@ -160,7 +160,7 @@ export function AutomationPage() {
             </Card>
           )}</For>
           <Show when={configs.data!.items.length === 0}>
-            <Card class="p-4"><EmptyState label="No workflow events" hint="Workflow events appear here when automation rules fire. Connect event sources to start tracking." /></Card>
+            <div class="p-4 rounded-lg border border-border bg-surface-1"><EmptyState label="No workflow events" hint="Workflow events appear here when automation rules fire. Connect event sources to start tracking." /></div>
           </Show>
         </div>
       </Show>
@@ -224,7 +224,7 @@ export function AutomationPage() {
             )
           }}</For>
           <Show when={events.data!.items.length === 0}>
-            <Card class="p-4"><EmptyState label="No events match this filter" hint="Try adjusting the event type or time range filter." /></Card>
+            <div class="p-4 rounded-lg border border-border bg-surface-1"><EmptyState label="No events match this filter" hint="Try adjusting the event type or time range filter." /></div>
           </Show>
         </div>
       </Show>

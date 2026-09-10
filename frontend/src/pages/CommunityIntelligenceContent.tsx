@@ -7,6 +7,7 @@ import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, SectionTitle, Er
 import { toast } from '../lib/toast'
 import { errorMessage } from '../lib/format'
 import { Button } from '../components/ui/button'
+import { Input } from '../components/ui/input'
 
 /**
  * Community Intelligence content — the Communities tab inside the Audience page.
@@ -300,17 +301,17 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
           <form class="form-grid" onSubmit={submit}>
             <label>
               Kind
-              <select value={kind()} onChange={event => setKind(event.currentTarget.value)}>
+              <select class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={kind()} onChange={event => setKind(event.currentTarget.value)}>
                 <For each={PLACE_KINDS}>{value => <option value={value}>{value.replaceAll('_', ' ')}</option>}</For>
               </select>
             </label>
             <label>
               Name <small>as people refer to it, e.g. r/progmetal</small>
-              <input value={name()} onInput={event => setName(event.currentTarget.value)} required maxlength={200} />
+              <Input value={name()} onInput={event => setName(event.currentTarget.value)} required maxlength={200} />
             </label>
             <label>
               URL <small>identity is the platform and URL together</small>
-              <input value={url()} onInput={event => setUrl(event.currentTarget.value)} required type="url" maxlength={512} />
+              <Input value={url()} onInput={event => setUrl(event.currentTarget.value)} required type="url" maxlength={512} />
             </label>
             <div class="form-actions right">
               <Button size="sm" type="submit" disabled={saving() || !name().trim() || !url().trim()}>
@@ -323,7 +324,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
         {/* ── Import form ── */}
         <Show when={importing()}>
           <form onSubmit={runImport}>
-            <label class="import-label">
+            <label class="flex flex-col gap-1 text-sm text-muted-foreground">
               Paste a scan
               <small>
                 A JSON array of {'{ placeKind, platform, name, url }'} — genres, memberCount, notes and
@@ -331,7 +332,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                 duplicating it.
               </small>
               <textarea
-                class="import-area"
+                class="w-full text-sm font-mono p-3 rounded-md border border-border bg-background text-foreground"
                 rows={8}
                 spellcheck={false}
                 value={importText()}
@@ -348,11 +349,11 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
         </Show>
 
         <Show when={notice()}>
-          {value => <p class={`notice ${value().tone}`}>{value().message}</p>}
+          {value => <p class={`p-3 rounded-md text-sm ${value().tone === 'good' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>{value().message}</p>}
         </Show>
 
         {/* ── Community intelligence ── */}
-        <div class="community-actions-row">
+        <div class="flex items-center gap-2 mt-4 mb-4">
           <Button variant="ghost" size="sm" onClick={() => { setImporting(false); setAdding(value => !value) }}>
             {adding() ? 'Cancel' : 'Add a community'}
           </Button>
@@ -372,12 +373,12 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
         </Show>
 
         <Show when={communities.data}>
-          <div class="community-queue-summary">
+          <div class="flex flex-wrap items-center gap-3 mt-3 mb-4">
             <For each={MEMBERSHIP_ORDER}>
               {(state) => (
                 <Show when={countBy(communities.data?.items ?? [], state) > 0}>
-                  <span class="community-count" data-state={state}>
-                    <strong>{countBy(communities.data?.items ?? [], state)}</strong> {MEMBERSHIP_LABEL[state]}
+                  <span class="inline-flex items-center gap-1 text-sm text-muted-foreground" data-state={state}>
+                    <strong class="font-bold text-foreground">{countBy(communities.data?.items ?? [], state)}</strong> {MEMBERSHIP_LABEL[state]}
                   </span>
                 </Show>
               )}
@@ -385,7 +386,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
           </div>
 
           <Show when={(communities.data?.items ?? []).length === 0}>
-            <p class="empty-state">
+            <p class="p-4 text-sm text-muted-foreground">
               Nothing tracked yet. The reddit-scanner and audience-research agents add
               communities as they find them; give them a cycle. Or use <strong>Add a community</strong>
               above to register one manually.
@@ -400,68 +401,68 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
               const hasMore = () => items.length > visible().length
 
               return (
-                <div class="community-platform-group" data-platform={platform}>
+                <div class="mb-4" data-platform={platform}>
                   <button
-                    class="community-platform-group-header"
+                    class="flex items-center gap-2 w-full text-left cursor-pointer py-2 px-3 rounded-lg hover:bg-surface-1 transition-colors"
                     onClick={() => toggleCollapse(platform)}
                     aria-expanded={!isCollapsed()}
                   >
-                    <span class="community-platform-group-chevron" aria-hidden="true">
+                    <span class="text-muted-foreground text-xs" aria-hidden="true">
                       {isCollapsed() ? '▸' : '▾'}
                     </span>
-                    <span class="community-platform-badge" data-platform={platform}>
+                    <span class="text-sm font-semibold text-foreground" data-platform={platform}>
                       {PLATFORM_LABEL[platform] ?? platform}
                     </span>
-                    <span class="community-platform-group-count">
+                    <span class="text-xs text-muted-foreground">
                       {items.length} {items.length === 1 ? 'community' : 'communities'}
                     </span>
                     <Show when={countBy(items, 'not_joined') > 0}>
-                      <span class="community-platform-group-pending">
+                      <span class="text-xs text-warning font-medium">
                         {countBy(items, 'not_joined')} to join
                       </span>
                     </Show>
                   </button>
 
                   <Show when={!isCollapsed()}>
-                    <div class="community-card-grid">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       <For each={visible()}>
                         {(item: CommunityItem) => (
-                          <article class="community-card" data-state={item.membershipState}>
-                            <header class="community-card-head">
+                          <article class="flex flex-col gap-2 p-4 rounded-lg border border-border bg-card" data-state={item.membershipState}>
+                            <header class="flex items-start justify-between gap-2">
                               <div>
-                                <a class="community-card-name" href={item.url} target="_blank" rel="noreferrer noopener">
+                                <a class="text-sm font-semibold text-foreground hover:text-primary transition-colors" href={item.url} target="_blank" rel="noreferrer noopener">
                                   {item.name}
                                 </a>
-                                <div class="community-card-sub">
+                                <div class="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                                   <span class="community-platform" data-platform={item.platform}>{item.placeKind.replaceAll('_', ' ')}</span>
                                   <Show when={item.memberCount}>
-                                    <span><span class="community-card-members tabular-nums">{item.memberCount!.toLocaleString()}</span> members</span>
+                                    <span><span class="font-medium text-foreground tabular-nums">{item.memberCount!.toLocaleString()}</span> members</span>
                                   </Show>
                                   <Show when={item.countryCode}><span>· {item.countryCode}</span></Show>
                                 </div>
                               </div>
-                              <span class="community-state-badge" data-state={item.membershipState}>
+                              <span class="text-xs font-medium px-2 py-0.5 rounded-full {item.membershipState === 'not_joined' ? 'bg-warning/10 text-warning' : item.membershipState === 'joining' ? 'bg-primary/10 text-primary' : item.membershipState === 'joined' ? 'bg-success/10 text-success' : item.membershipState === 'rejected' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}" data-state={item.membershipState}>
                                 {MEMBERSHIP_LABEL[item.membershipState] ?? item.membershipState}
                               </span>
                             </header>
 
                             <Show when={item.genres.length > 0}>
-                              <div class="community-genres">
-                                <For each={item.genres.slice(0, 5)}>{(g) => <span class="genre-tag">{g}</span>}</For>
+                              <div class="flex flex-wrap gap-1.5 mt-1">
+                                <For each={item.genres.slice(0, 5)}>{(g) => <span class="text-xs px-2 py-0.5 rounded-full bg-surface-3 text-muted-foreground border border-border">{g}</span>}</For>
                               </div>
                             </Show>
 
                             <Show when={item.membershipNote}>
-                              <p class="community-card-note">{item.membershipNote}</p>
+                              <p class="text-xs text-muted-foreground italic mt-1">{item.membershipNote}</p>
                             </Show>
 
-                            <footer class="community-card-actions">
+                            <footer class="flex items-center gap-2 flex-wrap mt-2 pt-2 border-t border-border">
                               <a class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors" href={item.url} target="_blank" rel="noreferrer noopener">
-                                Open<span class="external-mark" aria-hidden="true">↗</span>
+                                Open<span class="text-xs" aria-hidden="true">↗</span>
                               </a>
-                              <Button variant="ghost" size="sm" class="draft-intro" onClick={() => loadDraft(item.placeId)}>Draft intro</Button>
+                              <Button variant="ghost" size="sm" onClick={() => loadDraft(item.placeId)}>Draft intro</Button>
                               <select
-                                class="community-state-select"
+                                class="text-xs rounded-md border border-border bg-surface-1 px-2 py-1 text-foreground"
                                 value={item.membershipState}
                                 onChange={(e) => setMembership(item.placeId, e.currentTarget.value)}
                               >
@@ -473,11 +474,11 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                             </footer>
 
                             <Show when={draftFor() === item.placeId}>
-                              <div class="community-draft">
+                              <div class="mt-3 p-3 rounded-lg border border-border bg-surface-1">
                                 <Show when={draft.isFetching && !draft.data}><p class="text-muted-foreground">Reading what was observed here…</p></Show>
                                 <Show when={draft.data}>
                                   <Show when={!draft.data!.grounded}>
-                                    <p class="notice warn">
+                                    <p class="p-3 rounded-md text-sm bg-warning/10 text-warning">
                                       Nothing observed here yet, so this is a blank rather than a draft.
                                     </p>
                                   </Show>
@@ -486,7 +487,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                                       Overlaps on {draft.data!.sharedGenres.join(', ')}.
                                     </p>
                                   </Show>
-                                  <textarea class="community-draft-text" rows={10} readonly>{draft.data!.draft}</textarea>
+                                  <textarea class="w-full text-sm font-mono p-2 rounded-md border border-border bg-background text-foreground" rows={10} readonly>{draft.data!.draft}</textarea>
                                   <Button variant="ghost" size="sm" onClick={() => navigator.clipboard?.writeText(draft.data!.draft)}>
                                     Copy
                                   </Button>
@@ -514,7 +515,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
       {/* ─── Intelligence Tab ────────────────────────────────────── */}
       <TabPanel active={activeTab()} id="intelligence" visited={isVisited('intelligence')}>
         <Show when={!selectedPlaceId()}>
-          <p class="empty-state">Select a community from the Communities tab to view its observation history and extracted entities.</p>
+          <p class="p-4 text-sm text-muted-foreground">Select a community from the Communities tab to view its observation history and extracted entities.</p>
         </Show>
 
         <Show when={selectedPlaceId()}>
@@ -527,24 +528,24 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
           </Show>
           <Show when={detail.data}>
             <Show when={observations().length === 0}>
-              <p class="empty-state">No observations recorded yet. The worker will fetch on the next sweep.</p>
+              <p class="p-4 text-sm text-muted-foreground">No observations recorded yet. The worker will fetch on the next sweep.</p>
             </Show>
-            <div class="observation-list">
+            <div class="flex flex-col gap-2 mt-3">
               <For each={observations()}>
                 {(obs: CommunityObservationItem) => (
-                  <div class="observation-row">
-                    <div class="observation-header">
-                      <span class="observation-source">{obs.source}</span>
-                      <span class="observation-quality" data-quality={qualityLabel(obs.observationQuality)}>
+                  <div class="p-3 rounded-lg border border-border bg-surface-1">
+                    <div class="flex items-center gap-2 text-xs">
+                      <span class="font-medium text-foreground">{obs.source}</span>
+                      <span class="text-xs font-medium px-2 py-0.5 rounded-full {(() => { const q = qualityLabel(obs.observationQuality); return q === 'high' ? 'bg-success/10 text-success' : q === 'medium' ? 'bg-warning/10 text-warning' : 'bg-muted text-muted-foreground'; })()}" data-quality={qualityLabel(obs.observationQuality)}>
                         {qualityLabel(obs.observationQuality)}
                       </span>
-                      <time class="observation-time">{formatTime(obs.observedAt)}</time>
+                      <time class="text-muted-foreground ml-auto">{formatTime(obs.observedAt)}</time>
                     </div>
-                    <div class="observation-meta">
+                    <div class="text-xs text-muted-foreground mt-1">
                       <span>collector: {obs.collectorVersion}</span>
                     </div>
                     <Show when={obs.rawActivityMetrics}>
-                      <pre class="observation-raw">{JSON.stringify(obs.rawActivityMetrics, null, 2)}</pre>
+                      <pre class="text-xs text-muted-foreground whitespace-pre-wrap font-mono mt-2 p-2 rounded-md bg-background border border-border">{JSON.stringify(obs.rawActivityMetrics, null, 2)}</pre>
                     </Show>
                   </div>
                 )}
@@ -559,18 +560,18 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
           </Show>
           <Show when={detail.data}>
             <Show when={entities().length === 0}>
-              <p class="empty-state">No entities extracted from the latest observation.</p>
+              <p class="p-4 text-sm text-muted-foreground">No entities extracted from the latest observation.</p>
             </Show>
-            <div class="entity-list">
+            <div class="flex flex-col gap-2 mt-3">
               <For each={entities()}>
                 {(entity: CommunityEntityItem) => (
-                  <div class="entity-row">
-                    <span class="entity-type">{entity.entityType}</span>
-                    <span class="entity-ref">{entity.entityRef}</span>
-                    <div class="entity-strength-bar">
-                      <div class="entity-strength-fill" style={{ width: `${(entity.strength / 10000) * 100}%` }} />
+                  <div class="flex items-center gap-3 p-3 rounded-lg border border-border bg-surface-1">
+                    <span class="text-xs font-medium text-foreground">{entity.entityType}</span>
+                    <span class="text-sm text-muted-foreground flex-1 min-w-0">{entity.entityRef}</span>
+                    <div class="flex-1 h-1.5 rounded-full bg-border overflow-hidden max-w-32">
+                      <div class="h-full rounded-full bg-primary transition-all" style={{ width: `${(entity.strength / 10000) * 100}%` }} />
                     </div>
-                    <span class="entity-strength-value tabular-nums">{entity.strength}</span>
+                    <span class="text-xs text-muted-foreground tabular-nums">{entity.strength}</span>
                   </div>
                 )}
               </For>

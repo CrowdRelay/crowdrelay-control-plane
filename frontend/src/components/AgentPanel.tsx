@@ -13,6 +13,7 @@ import { EmptyState } from './EmptyState'
 import { SkeletonGrid, SkeletonRows } from './Skeleton'
 import { Button } from './ui/button'
 import { Card } from './ui/card'
+import { Input } from './ui/input'
 import type { AgentTaskResult, TaskSuggestion, AgentOutcome } from '../lib/types'
 
 // --- Ant icon (agent service mascot) ---
@@ -231,11 +232,11 @@ export function AgentPanel(props: { slug: string }) {
   const templateName = (id: string) => templates().find(t => t.id === id)?.name ?? id
 
   return (
-    <div class="agent-panel">
+    <div class="flex flex-col gap-4">
       {/* Service-unavailable banner — shown once at the top when the agent
           service is down, instead of repeating errors in each sub-panel. */}
       <Show when={isServiceDown()}>
-        <div class="agent-service-down">
+        <div class="flex items-start gap-3 p-4 rounded-lg border border-warning/30 bg-warning/10 text-warning-light">
           <AntIcon size={20} />
           <div>
             <strong>Agent service is temporarily unavailable</strong>
@@ -285,7 +286,7 @@ export function AgentPanel(props: { slug: string }) {
           <div class="grid gap-2.5 mt-3 grid-cols-1 md:grid-cols-2">
             <For each={suggestions().slice(0, 4)}>
               {(s) => (
-                <button type="button" class="agent-suggestion-card" onClick={() => runSuggestion(s)}>
+                <button type="button" class="text-left text-sm rounded-md border border-border px-3 py-2 text-muted-foreground hover:bg-surface-1 hover:text-foreground hover:border-border-strong transition-colors w-full" onClick={() => runSuggestion(s)}>
                   <div class="flex items-center justify-between gap-2 mb-1">
                     <span class="font-semibold text-sm text-foreground text-left">{s.title}</span>
                     <StatusBadge status={s.priority} tone={priorityTone(s.priority)} />
@@ -309,22 +310,22 @@ export function AgentPanel(props: { slug: string }) {
         </div>
         <p class="text-sm text-muted-foreground mt-1">Pick a template, choose a model, and describe the work.</p>
         <Show when={tasksOverview.data} fallback={<SkeletonGrid count={4} minCardHeight='120px' />}>
-          <div class="agent-template-grid">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <For each={templates()}>
               {(template) => (
                 <button
                   type="button"
-                  class={`agent-template-card ${selectedTemplate() === template.id ? 'selected' : ''}`}
+                  class={`rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-border-strong cursor-pointer ${selectedTemplate() === template.id ? 'border-primary/40 bg-primary/5' : ''}`}
                   onClick={() => setSelectedTemplate(template.id)}
                 >
-                  <div class="agent-template-header">
-                    <span class="agent-template-name">{template.name}</span>
+                  <div class="flex items-center justify-between gap-2 mb-1">
+                    <span class="font-semibold text-base text-foreground">{template.name}</span>
                     <StatusBadge status={template.category} tone={categoryTone(template.category)} />
                   </div>
-                  <p class="agent-template-desc">{template.description}</p>
-                  <div class="agent-template-models">
+                  <p class="text-sm text-muted-foreground leading-relaxed mb-2">{template.description}</p>
+                  <div class="flex gap-1 flex-wrap">
                     <For each={template.recommendedModels.slice(0, 2)}>
-                      {(model) => <span class="agent-model-tag">{model}</span>}
+                      {(model) => <span class="text-xs px-2 py-0.5 rounded-full bg-surface-3 text-muted-foreground border border-border">{model}</span>}
                     </For>
                   </div>
                 </button>
@@ -342,9 +343,9 @@ export function AgentPanel(props: { slug: string }) {
             <Button variant="ghost" size="sm" onClick={() => setSelectedTemplate(null)}>Choose another template</Button>
           </div>
           <p class="text-sm text-muted-foreground mt-1">Free models cost nothing; paid models bill against the AI budget.</p>
-          <label class="agent-field">
+          <label class="flex flex-col gap-1 text-sm text-muted-foreground">
             <span>Model</span>
-            <select value={selectedModel()} onChange={(e) => setSelectedModel(e.currentTarget.value)}>
+            <select class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={selectedModel()} onChange={(e) => setSelectedModel(e.currentTarget.value)}>
               <For each={models()?.models ?? []}>
                 {(model) => (
                   <option value={model.id}>
@@ -354,9 +355,10 @@ export function AgentPanel(props: { slug: string }) {
               </For>
             </select>
           </label>
-          <label class="agent-field">
+          <label class="flex flex-col gap-1 text-sm text-muted-foreground">
             <span>Describe what you want the agent to do</span>
             <textarea
+              class="w-full text-sm p-2 rounded-md border border-border bg-background text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               value={prompt()}
               onInput={(e) => setPrompt(e.currentTarget.value)}
               placeholder="e.g. Write a press pitch for the Sep 5 Sanity Check Tour show targeting Polish metal blogs and zines"
@@ -364,7 +366,7 @@ export function AgentPanel(props: { slug: string }) {
               maxlength={8000}
             />
           </label>
-          <div class="agent-actions">
+          <div class="flex items-center gap-2 mt-2">
             <Button
               size="sm"
               disabled={submitting() || !prompt().trim()}
@@ -373,7 +375,7 @@ export function AgentPanel(props: { slug: string }) {
               {submitting() ? 'Starting…' : 'Run Agent'}
             </Button>
             <Show when={error()}>
-              <span class="agent-error">{error()}</span>
+              <span class="text-sm text-destructive">{error()}</span>
             </Show>
           </div>
         </Card>
@@ -391,16 +393,16 @@ export function AgentPanel(props: { slug: string }) {
         </div>
         <p class="text-sm text-muted-foreground mt-1">Recurring tasks run automatically. Results land in Recent tasks.</p>
         <Show when={creatingSchedule()}>
-          <div class="agent-schedule-form">
-            <label class="agent-field">
+          <div class="flex flex-col gap-3 mt-4 p-4 rounded-lg border border-border bg-surface-1">
+            <label class="flex flex-col gap-1 text-sm text-muted-foreground">
               <span>Interval (minutes)</span>
-              <input type="number" min="60" max="10080" value={scheduleInterval()} onInput={(e) => setScheduleInterval(parseInt(e.currentTarget.value, 10) || 1440)} />
-              <small class="agent-field-hint">Between 60 (hourly) and 10080 (weekly). 1440 is once a day.</small>
+              <Input type="number" min="60" max="10080" value={scheduleInterval()} onInput={(e) => setScheduleInterval(parseInt(e.currentTarget.value, 10) || 1440)} />
+              <small class="text-xs text-muted-foreground">Between 60 (hourly) and 10080 (weekly). 1440 is once a day.</small>
             </label>
             <Show when={!selectedTemplate() || !prompt().trim()}>
-              <p class="agent-field-hint">A schedule repeats the task above, so pick a template and write its prompt first — this form only adds the interval.</p>
+              <p class="text-xs text-muted-foreground">A schedule repeats the task above, so pick a template and write its prompt first — this form only adds the interval.</p>
             </Show>
-            <div class="agent-actions">
+            <div class="flex items-center gap-2 mt-2">
               <Button size="sm" disabled={submitting() || !selectedTemplate() || !prompt().trim()} onClick={createSchedule}>
                 {submitting() ? 'Creating…' : 'Create schedule'}
               </Button>
@@ -410,7 +412,7 @@ export function AgentPanel(props: { slug: string }) {
         </Show>
         <Show when={tasksOverview.data?.schedules && '__error' in tasksOverview.data!.schedules}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Agent schedules unavailable: {errorMessage(tasksOverview.error, 'Service unreachable')}</div></Show>
         <Show when={schedules().length > 0}>
-          <table class="agent-task-table">
+          <table class="w-full text-sm mt-4">
             <thead><tr><th>Template</th><th>Interval</th><th>Enabled</th><th>Last run</th><th>Next run</th><th></th></tr></thead>
             <tbody>
               <For each={schedules()}>
@@ -448,7 +450,7 @@ export function AgentPanel(props: { slug: string }) {
             <SkeletonRows count={4} />
           </Show>
         }>
-          <table class="agent-task-table">
+          <table class="w-full text-sm mt-4">
             <thead>
               <tr>
                 <th>Template</th>
@@ -469,7 +471,7 @@ export function AgentPanel(props: { slug: string }) {
                         <Button variant="ghost" size="sm" onClick={() => viewResult(task.id)}>View →</Button>
                       </Show>
                       <Show when={task.status === 'failed'}>
-                        <span class="agent-error" title={task.error ?? ''}>failed</span>
+                        <span class="text-sm text-destructive" title={task.error ?? ''}>failed</span>
                       </Show>
                     </td>
                   </tr>
@@ -486,14 +488,14 @@ export function AgentPanel(props: { slug: string }) {
         onClose={() => setViewingResult(null)}
         label="Agent task result"
         overlayClass="agent-result-overlay"
-        class="agent-result-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       >
         <>
-            <div class="agent-result-header">
+            <div class="flex justify-between items-center p-4 border-b border-border">
               <h3>Result</h3>
               <Button variant="ghost" size="sm" onClick={() => setViewingResult(null)}>Close</Button>
             </div>
-            <div class="agent-result-meta">
+            <div class="flex gap-4 px-4 py-2 text-sm text-muted-foreground border-b border-border">
               <span>Model: {viewingResult()?.model_used}</span>
               <Show when={viewingResult()?.duration_ms}>
                 <span>Duration: {Math.round((viewingResult()?.duration_ms ?? 0) / 1000)}s</span>
@@ -503,24 +505,24 @@ export function AgentPanel(props: { slug: string }) {
               </Show>
             </div>
             <Show when={viewingResult()?.outcomes && viewingResult()!.outcomes!.length > 0}>
-              <div class="agent-outcomes">
+              <div class="flex flex-col gap-2 p-4">
                 <h4>Structured outcomes</h4>
                 <For each={viewingResult()!.outcomes}>{(outcome: AgentOutcome) => (
-                  <div class="agent-outcome-card">
-                    <div class="agent-outcome-head">
+                  <div class="p-3 rounded-lg border border-border bg-surface-1">
+                    <div class="flex items-center gap-2 mb-2">
                       <span class="badge">{outcome.kind.replaceAll('_', ' ')}</span>
                       <span class="badge">confidence {Math.round(outcome.confidence_basis_points / 100)}%</span>
                     </div>
                     <p class="text-muted-foreground">{outcome.rationale}</p>
                     <Show when={outcome.item}>
-                      <pre class="agent-outcome-item">{JSON.stringify(outcome.item, null, 2)}</pre>
+                      <pre class="text-xs text-muted-foreground whitespace-pre-wrap font-mono m-0">{JSON.stringify(outcome.item, null, 2)}</pre>
                     </Show>
                   </div>
                 )}</For>
               </div>
             </Show>
-            <pre class="agent-result-content">{viewingResult()?.content}</pre>
-            <div class="agent-result-actions">
+            <pre class="flex-1 overflow-auto p-4 whitespace-pre-wrap text-sm text-foreground leading-relaxed m-0 max-h-[60vh]">{viewingResult()?.content}</pre>
+            <div class="flex gap-2 p-3 border-t border-border">
               <button onClick={() => navigator.clipboard.writeText(viewingResult()?.content ?? '')}>
                 Copy
               </button>

@@ -118,7 +118,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
 
     {/* Cost-ROI per template */}
     <Show when={templateRoi().length > 0}>
-      <div class="mt-6 pt-6 border-t border-border">
+      <div class="mt-6 pt-4 border-t border-border">
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-sm font-semibold text-foreground">Cost vs Outcome ROI</h3>
           <span class="text-muted-foreground">this month</span>
@@ -156,7 +156,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
 
     {/* Model routing analytics */}
     <Show when={modelAnalytics().length > 0}>
-      <div class="mt-6 pt-6 border-t border-border">
+      <div class="mt-6 pt-4 border-t border-border">
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-sm font-semibold text-foreground">Model performance</h3>
           <span class="text-muted-foreground">last 30 days</span>
@@ -189,7 +189,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
 
     {/* Daily spend chart */}
     <Show when={dailySpend().length > 0}>
-      <div class="mt-6 pt-6 border-t border-border">
+      <div class="mt-6 pt-4 border-t border-border">
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-sm font-semibold text-foreground">Daily spend trend</h3>
           <span class="text-muted-foreground">last 30 days</span>
@@ -236,7 +236,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
 
     {/* Model routing preview — shows the intelligence's fallback chain */}
     <Show when={data.data && (data.data!.available_models.length > 0 || modelAnalytics().length > 0)}>
-      <div class="mt-6 pt-6 border-t border-border">
+      <div class="mt-6 pt-4 border-t border-border">
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-sm font-semibold text-foreground">Model routing preview</h3>
           <span class="text-muted-foreground">intelligence fallback chain</span>

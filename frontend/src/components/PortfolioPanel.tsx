@@ -8,6 +8,7 @@ import { KpiValue } from './KpiValue'
 import { EmptyState } from './EmptyState'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
+import { Input } from './ui/input'
 import { Badge } from './ui/badge'
 
 const STATUS_TONE: Record<PortfolioConsentStatus, 'good' | 'warn' | 'bad' | 'muted'> = {
@@ -101,7 +102,7 @@ export function PortfolioPanel(props: {
 
   return <Card class="p-4">
     <div class="flex items-center justify-between gap-4 mt-6 mb-3">
-      <div><h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="megaphone" />Roster & amplification</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">Route one artist's release or show in front of another artist's consenting fans, per edge.</p></div>
+      <div><h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="megaphone" />Roster & amplification</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Route one artist's release or show in front of another artist's consenting fans, per edge.</p></div>
       <div class="flex flex-wrap items-center gap-2">
         <StatusBadge status={boardLabel()} tone={boardTone()} />
       </div>
@@ -115,7 +116,7 @@ export function PortfolioPanel(props: {
       <div class="rounded-lg border border-border bg-card p-4 text-foreground flex flex-col gap-1"><KpiValue value={metric(overview.deliveriesLast30d)} /><span class="text-muted-foreground">Amplified · 30d</span></div>
     </div>}</Show>
 
-    <div class="mt-6 pt-6 border-t border-border"><h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><SectionIcon name="link" />Amplification edges</h3></div>
+    <div class="mt-6 pt-4 border-t border-border"><h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><SectionIcon name="link" />Amplification edges</h3></div>
     <Show when={sortedEdges().length}>
       <div class="overflow-x-auto"><table class="data-table" aria-label="Amplification edges">
         <thead><tr>
@@ -127,8 +128,8 @@ export function PortfolioPanel(props: {
             <>
             <tr>
               <td>{PURPOSE_LABEL[edge.purpose]}</td>
-              <td title={edge.from_workspace_id}>{shortWs(edge.from_workspace_id)}…</td>
-              <td title={edge.to_workspace_id}>{shortWs(edge.to_workspace_id)}…</td>
+              <td>{shortWs(edge.from_workspace_id)}</td>
+              <td>{shortWs(edge.to_workspace_id)}</td>
               <td>
                 <span class="flex flex-wrap items-center gap-2">
                   <StatusBadge status={STATUS_LABEL[edge.status]} tone={STATUS_TONE[edge.status]} />
@@ -163,14 +164,14 @@ export function PortfolioPanel(props: {
                     <Show when={edge.status === 'proposed'}>
                       <label class="grid gap-1.5 text-muted-foreground text-sm">
                         <span>Approving operator</span>
-                        <input class="w-full bg-surface-0 border border-border text-foreground px-3 py-2.5 rounded-md" value={rowActor()} onInput={e => setRowActor(e.currentTarget.value)} placeholder="operator@label" />
+                        <Input value={rowActor()} onInput={e => setRowActor(e.currentTarget.value)} placeholder="operator@label" />
                         <small class="text-xs text-muted-foreground">Recorded against the edge in the audit trail.</small>
                       </label>
                     </Show>
                     <Show when={edge.status === 'proposed' || edge.status === 'active' || edge.status === 'paused'}>
                       <label class="grid gap-1.5 text-muted-foreground text-sm">
                         <span>Reason</span>
-                        <input class="w-full bg-surface-0 border border-border text-foreground px-3 py-2.5 rounded-md" value={rowReason()} onInput={e => setRowReason(e.currentTarget.value)} placeholder="duplicate edge / artist withdrew consent" />
+                        <Input value={rowReason()} onInput={e => setRowReason(e.currentTarget.value)} placeholder="duplicate edge / artist withdrew consent" />
                         <small class="text-xs text-muted-foreground">Required for revocation. Stored with the decision.</small>
                       </label>
                     </Show>

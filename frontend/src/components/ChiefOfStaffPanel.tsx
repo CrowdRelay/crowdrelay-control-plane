@@ -96,7 +96,7 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div>
         <h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="activity" />What the autopilot did</h2>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">Its own report: what ran, what it stopped, and what is waiting on you.</p>
+        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Its own report: what ran, what it stopped, and what is waiting on you.</p>
       </div>
       <Show when={d()}>
         <StatusBadge
@@ -142,7 +142,7 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
       </div>
 
       <Show when={data().stopped.length > 0}>
-        <section class="mt-6 pt-6 border-t border-border">
+        <section class="mt-6 pt-4 border-t border-border">
           <h3 class="text-sm font-semibold text-foreground">Stopped itself</h3>
           <p class="mt-1 text-sm text-muted-foreground">Work the autopilot refused to finish. These do not retry on their own.</p>
           <ul class="m-0 p-0 mt-3 flex flex-col gap-2 list-none">
@@ -160,7 +160,7 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
       </Show>
 
       <Show when={data().objectives_at_risk.length > 0}>
-        <section class="mt-6 pt-6 border-t border-border">
+        <section class="mt-6 pt-4 border-t border-border">
           <h3 class="text-sm font-semibold text-foreground">Objectives at risk</h3>
           <ul class="m-0 p-0 mt-3 flex flex-col gap-2 list-none">
             <For each={data().objectives_at_risk}>{item => (
@@ -180,7 +180,7 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
       </Show>
 
       <Show when={data().attention_items.length > 0}>
-        <section class="mt-6 pt-6 border-t border-border">
+        <section class="mt-6 pt-4 border-t border-border">
           <h3 class="text-sm font-semibold text-foreground">Asking for you by name</h3>
           <ul class="m-0 p-0 mt-3 flex flex-col gap-2 list-none">
             <For each={data().attention_items}>{item => (
@@ -200,7 +200,7 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
       </Show>
 
       <Show when={data().top_opportunities.length > 0}>
-        <section class="mt-6 pt-6 border-t border-border">
+        <section class="mt-6 pt-4 border-t border-border">
           <h3 class="text-sm font-semibold text-foreground">Best it has found</h3>
           <ul class="m-0 p-0 mt-3 flex flex-col gap-2 list-none">
             <For each={data().top_opportunities}>{item => (
@@ -220,9 +220,9 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
       </Show>
 
       <Show when={measured() > 0} fallback={
-        <p class="mt-6 pt-6 border-t border-border text-sm text-muted-foreground">Nothing it did in the last week has been measured yet.</p>
+        <p class="mt-6 pt-4 border-t border-border text-sm text-muted-foreground">Nothing it did in the last week has been measured yet.</p>
       }>
-        <div class="mt-6 pt-6 border-t border-border">
+        <div class="mt-6 pt-4 border-t border-border">
           <div class="mt-2 flex h-3 rounded-full overflow-hidden bg-surface-3" role="img" aria-label={`${data().measured_improved_7d} improved, ${data().measured_neutral_7d} neutral, ${data().measured_worsened_7d} worsened`}>
             <span class="bg-success" style={{ width: `${(data().measured_improved_7d / measured()) * 100}%` }} />
             <span class="bg-muted" style={{ width: `${(data().measured_neutral_7d / measured()) * 100}%` }} />
@@ -235,7 +235,7 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
       </Show>
 
       <Show when={data().moved.length > 0}>
-        <section class="mt-6 pt-6 border-t border-border">
+        <section class="mt-6 pt-4 border-t border-border">
           <h3 class="text-sm font-semibold text-foreground">What moved</h3>
           <ul class="m-0 p-0 mt-3 flex flex-col gap-2 list-none">
             <For each={data().moved}>{item => (
@@ -260,7 +260,7 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
       </Show>
 
       <Show when={data().show_tasks.length > 0}>
-        <section class="mt-6 pt-6 border-t border-border">
+        <section class="mt-6 pt-4 border-t border-border">
           <h3 class="text-sm font-semibold text-foreground">Show tasks it is tracking</h3>
           <ul class="m-0 p-0 mt-3 flex flex-col gap-2 list-none">
             <For each={data().show_tasks}>{item => (

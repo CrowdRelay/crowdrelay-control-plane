@@ -122,9 +122,9 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
           const pct = stateProgress(obj.state)
           const overTarget = observed > obj.target_value
           return (
-            <div class="p-4 border border-border rounded-md bg-card">
+            <div class="p-4 border border-border rounded-lg bg-card">
               <div class="flex items-center justify-between gap-3">
-                <strong class="text-sm font-semibold text-foreground">{obj.platform} · {obj.metric_key}</strong>
+                <strong class="text-sm font-semibold text-foreground">{obj.platform} · {obj.metric_key.replace(/_/g, ' ')}</strong>
                 <div class="flex items-center gap-2">
                   <Badge variant={toneVariant(stateTone(obj.state))}>{stateLabel(obj.state)}</Badge>
                   <Button

@@ -109,11 +109,11 @@ export function RunBrainCyclePanel(props: { slug: string }) {
             </p>
 
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-              <div class="p-3 border border-border rounded-md bg-card flex flex-col gap-1">
+              <div class="p-3 border border-border rounded-lg bg-card flex flex-col gap-1">
                 <span class="block text-xs text-muted-foreground uppercase tracking-wider">Fans</span>
                 <strong class="block text-xl font-bold tabular-nums text-foreground">{number(data().totalFans)}</strong>
               </div>
-              <div class="p-3 border border-border rounded-md bg-card flex flex-col gap-1">
+              <div class="p-3 border border-border rounded-lg bg-card flex flex-col gap-1">
                 <span class="block text-xs text-muted-foreground uppercase tracking-wider">Reachable audience</span>
                 <strong class="block text-xl font-bold tabular-nums text-foreground">{number(data().offPlatformAudience)}</strong>
                 <small class="block text-xs text-muted-foreground">+{number(data().offPlatformAudienceThisMonth)} this month</small>
@@ -122,7 +122,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                   editable where it is displayed rather than hidden in a
                   settings screen. Before this it could only be chosen in the
                   creation wizard and never changed again. */}
-              <div class="p-3 border border-border rounded-md bg-card flex flex-col gap-1">
+              <div class="p-3 border border-border rounded-lg bg-card flex flex-col gap-1">
                 <label class="block text-xs text-muted-foreground uppercase tracking-wider" for="north-star-select">Goal</label>
                 <select
                   id="north-star-select"
@@ -141,7 +141,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                 <strong class="block text-xl font-bold tabular-nums text-foreground">{number(data().northStarCurrent)}</strong>
                 <small class="block text-xs text-muted-foreground">+{number(data().northStarThisMonth)} this month</small>
               </div>
-              <div class="p-3 border border-border rounded-md bg-card flex flex-col gap-1">
+              <div class="p-3 border border-border rounded-lg bg-card flex flex-col gap-1">
                 <span class="block text-xs text-muted-foreground uppercase tracking-wider">Platforms</span>
                 <strong class="block text-xl font-bold tabular-nums text-foreground">{data().freshPlatforms} / {data().connectedPlatforms}</strong>
                 <small class="block text-xs text-muted-foreground">fresh / connected</small>
@@ -164,7 +164,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
               </p>
             </Show>
 
-            <section class="mt-6 pt-6 border-t border-border">
+            <section class="mt-6 pt-4 border-t border-border">
               <h3 class="text-sm font-semibold text-foreground mb-2.5">Worker pipeline — brain dispatches in this order</h3>
               <div class="flex flex-wrap items-center gap-1.5">
                 <For each={data().templatePriority}>

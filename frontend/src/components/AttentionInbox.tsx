@@ -150,7 +150,6 @@ export function AttentionInbox(props: {
   return <div class="attention-inbox">
     <div class="attention-inbox-head">
       <div>
-        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">ATTENTION</span>
         <div class="attention-inbox-count">
           <SectionIcon name="inbox" />
           <span class="attention-inbox-count-badge">{total()}</span>

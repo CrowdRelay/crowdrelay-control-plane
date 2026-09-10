@@ -171,7 +171,7 @@ export function AreaPage() {
         <div class="metric"><span>Drafts</span><strong>{o().drafts}</strong></div>
         <div class="metric"><span>Paused / ended</span><strong>{o().paused + o().ended}</strong></div>
       </div>
-      <SectionPanel class="area-entitlement-panel"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">ENTITLEMENT</span><h2><SectionIcon name="map-pin" />Tenant AREA</h2><p>Disabling AREA hides the public game but preserves drops, claims and audit history.</p></div><Button variant={o().entitled ? 'destructive-ghost' : 'default'} size="sm" disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Disable AREA' : 'Enable AREA'}</Button></SectionPanel>
+      <SectionPanel class="area-entitlement-panel"><div><h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="map-pin" />Tenant AREA</h2><p>Disabling AREA hides the public game but preserves drops, claims and audit history.</p></div><Button variant={o().entitled ? 'destructive-ghost' : 'default'} size="sm" disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Disable AREA' : 'Enable AREA'}</Button></SectionPanel>
     </>}</Show>
 
     <SectionPanel>
@@ -199,7 +199,7 @@ export function AreaPage() {
         <For each={drops.data?.items ?? []}>{item => <div class="area-drop-row">
           <code>{item.number}</code><div><strong>{item.city}</strong><small>rev {item.revision}{item.hasDraft ? ' · draft' : ''}</small></div><StatusBadge status={item.status} tone={statusTone(item.status)} /><span>{item.claimCount} / {item.maxClaims}</span><small>{formatDate(item.startsAt)}<br/>{formatDate(item.endsAt)}</small><Button variant="ghost" size="sm" onClick={()=>{setSelectedId(item.id);setEditorStep('city')}}>Edit</Button>
         </div>}</For>
-        <Show when={!drops.isPending && (drops.data?.items.length ?? 0)===0}><Card class="p-4"><EmptyState label="No AREA locations" hint="AREA locations define geographic targeting for fan discovery. Create the first location draft above." /></Card></Show>
+        <Show when={!drops.isPending && (drops.data?.items.length ?? 0)===0}><div class="p-4 rounded-lg border border-border bg-surface-1"><EmptyState label="No AREA locations" hint="AREA locations define geographic targeting for fan discovery. Create the first location draft above." /></div></Show>
       </div>
     </SectionPanel>
 

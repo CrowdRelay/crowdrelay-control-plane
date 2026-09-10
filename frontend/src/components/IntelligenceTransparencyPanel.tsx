@@ -235,7 +235,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                             <tbody>
                               <For each={expandedTasks().has(decision.id) ? decision.tasks : decision.tasks.slice(0, MAX_VISIBLE_TASKS)}>{(task: IntelligenceDecisionTask) => (
                                 <tr>
-                                  <td>{task.slot}</td>
+                                  <td>{String(task.slot).replace(/_/g, ' ')}</td>
                                   <td><Badge variant={task.role === 'brain' ? 'success' : 'warning'}>{task.role}</Badge></td>
                                   <td>{templateLabel(task.template_id)}</td>
                                   <td><StatusBadge status={task.status} tone={taskStatusTone(task.status)} /></td>

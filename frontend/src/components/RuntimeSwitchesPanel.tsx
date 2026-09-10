@@ -78,7 +78,7 @@ export function RuntimeSwitchesPanel(props: {
 
   return <Card class="p-5 operations-panel">
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
-      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">OPERATIONS</span><h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="activity" />Runtime switches</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">Feature flags, health metrics and redeploy. Changes are tenant-scoped and audited.</p></div>
+      <div><h2 class="text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="activity" />Runtime switches</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Feature flags, health metrics and redeploy. Changes are tenant-scoped and audited.</p></div>
       <div class="flex items-center gap-2 flex-wrap">
         <Show when={props.canRedeploy !== false}>
           <Show when={confirming() === 'redeploy'}><Button variant="ghost" size="sm" onClick={() => setConfirming(null)}>Cancel</Button></Show>
@@ -129,9 +129,9 @@ export function RuntimeSwitchesPanel(props: {
       </div>
     </Show>
 
-    <section class="mt-6 pt-6 border-t border-border">
+    <section class="mt-6 pt-4 border-t border-border">
       <details open>
-        <summary class="flex items-center justify-between gap-4 cursor-pointer list-none"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">FEATURES</span><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="settings" />Runtime switches</h3></div><small class="text-xs text-muted-foreground">{flags.data?.length ?? 0} declared</small></summary>
+        <summary class="flex items-center justify-between gap-4 cursor-pointer list-none"><div><h3 class="text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="settings" />Runtime switches</h3></div><small class="text-xs text-muted-foreground">{flags.data?.length ?? 0} declared</small></summary>
         <Show when={flags.data} fallback={
           <Show when={flags.error} fallback={<SkeletonFlagList />}>
             <SectionFailureCard error={flags.error} fallback="Feature flags unavailable" onRetry={() => void flags.refetch()} />

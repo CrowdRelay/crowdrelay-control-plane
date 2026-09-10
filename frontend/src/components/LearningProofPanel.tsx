@@ -99,7 +99,7 @@ export function LearningProofPanel(props: { slug: string }) {
                   {entry.changed_a_decision ? 'Changed a decision' : 'Not yet acted on'}
                 </Badge>
                 <span class="text-muted-foreground">{moduleLabel(entry.module)}</span>
-                <code>{entry.belief_key}</code>
+                <span class="text-muted-foreground">{entry.belief_key.replace(/_/g, ' ')}</span>
                 <span class="text-muted-foreground">{timeAgo(entry.recorded_at)}</span>
               </div>
 
@@ -148,7 +148,7 @@ export function LearningProofPanel(props: { slug: string }) {
                     <div class="learning-proof-influence">
                       <strong>{influence.decision_kind.replaceAll('_', ' ')}</strong>
                       <Show when={influence.template_id}>
-                        <code>{influence.template_id}</code>
+                        <span class="text-muted-foreground">{influence.template_id!.replace(/_/g, ' ')}</span>
                       </Show>
                       <Show when={influence.strategy_source === 'posterior'} fallback={
                         <span class="text-muted-foreground">

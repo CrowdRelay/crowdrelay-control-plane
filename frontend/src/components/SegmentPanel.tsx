@@ -57,7 +57,7 @@ export function SegmentPanel(props: {
             <Show when={previewSlug() === segment.slug}>
               <div class="segment-preview">
                 <Show when={loading}><SkeletonBlock height="18px" width="120px" /></Show>
-                <Show when={error}><span class="agent-error">{error()}</span></Show>
+                <Show when={error}><span class="text-sm text-destructive">{error()}</span></Show>
                 <Show when={!loading && !error && previewCount() != null}>
                   <span class="text-muted-foreground">~{previewCount()} fans in this segment</span>
                 </Show>

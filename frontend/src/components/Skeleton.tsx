@@ -152,21 +152,21 @@ export const SkeletonScorecard: Component = () => (
   <>
     <div class="grid gap-2.5">
       {Array.from({ length: 3 }, () => (
-        <div class="p-3.5 border border-border rounded-md bg-card">
+        <div class="p-3.5 border border-border rounded-lg bg-card">
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] mb-2 w-[70px]" />
           <div class="rounded-lg bg-surface-3 border border-border h-[22px] rounded-[6px] mb-1.5 w-[50px]" />
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] w-[90px]" />
         </div>
       ))}
     </div>
-    <section class="mt-6 pt-6 border-t border-border">
+    <section class="mt-6 pt-4 border-t border-border">
       <div class="flex justify-between gap-4 items-start">
         <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px] rounded-[5px] mb-1.5" />
         <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[120px] rounded-[6px]" />
       </div>
       <div class="grid gap-2.5">
         {Array.from({ length: 4 }, () => (
-          <div class="p-3.5 border border-border rounded-md bg-card">
+          <div class="p-3.5 border border-border rounded-lg bg-card">
             <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] mb-2 w-[60px]" />
             <div class="rounded-lg bg-surface-3 border border-border h-[22px] rounded-[6px] mb-1.5 w-[40px]" />
             <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] w-[80px]" />
@@ -174,14 +174,14 @@ export const SkeletonScorecard: Component = () => (
         ))}
       </div>
     </section>
-    <section class="mt-6 pt-6 border-t border-border">
+    <section class="mt-6 pt-4 border-t border-border">
       <div class="flex justify-between gap-4 items-start">
         <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px] rounded-[5px] mb-1.5" />
         <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[100px] rounded-[6px]" />
       </div>
       <div class="grid gap-2.5">
         {Array.from({ length: 4 }, () => (
-          <div class="p-3.5 border border-border rounded-md bg-card">
+          <div class="p-3.5 border border-border rounded-lg bg-card">
             <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] mb-2 w-[60px]" />
             <div class="rounded-lg bg-surface-3 border border-border h-[22px] rounded-[6px] mb-1.5 w-[40px]" />
             <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] w-[80px]" />
@@ -197,7 +197,7 @@ export const SkeletonReplyTriage: Component = () => (
   <>
     <div class="grid gap-2.5">
       {Array.from({ length: 3 }, () => (
-        <div class="p-3.5 border border-border rounded-md bg-card">
+        <div class="p-3.5 border border-border rounded-lg bg-card">
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] mb-2 w-[70px]" />
           <div class="rounded-lg bg-surface-3 border border-border h-[22px] rounded-[6px] mb-1.5 w-[40px]" />
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] w-[80px]" />
@@ -215,7 +215,7 @@ export const SkeletonReplyTriage: Component = () => (
 /** Skeleton for LearningLoopPanel — summary line + entry cards */
 export const SkeletonLearningLoop: Component = () => (
   <>
-    <div class="flex flex-wrap gap-3 mb-4 p-3 border border-border-subtle rounded-md bg-surface-1">
+    <div class="flex flex-wrap gap-3 mb-4 p-3 border border-border-subtle rounded-lg bg-surface-1">
       {Array.from({ length: 4 }, () => (
         <div class="flex flex-col gap-0.5">
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] w-[60px] mb-1.5" />
@@ -235,7 +235,7 @@ export const SkeletonLearningLoop: Component = () => (
 export const SkeletonOpportunityBoard: Component = () => (
   <div class="grid gap-2.5">
     {Array.from({ length: 3 }, () => (
-      <div class="flex justify-between items-start gap-4 p-3.5 border border-border rounded-md bg-card">
+      <div class="flex justify-between items-start gap-4 p-3.5 border border-border rounded-lg bg-card">
         <div class="min-w-0 flex-1 flex flex-col gap-1.5">
           <div class="rounded-lg bg-surface-3 border border-border h-4 w-3/5 rounded-[6px] mb-1.5" />
           <div class="rounded-lg bg-surface-3 border border-border h-[12px] w-2/5 rounded-[5px]" style={{ 'margin-bottom': '4px' }} />
@@ -266,7 +266,7 @@ export const SkeletonFlagList: Component = () => (
 export const SkeletonAutopilotKpis: Component = () => (
   <div class="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2.5 mt-4">
     {Array.from({ length: 4 }, () => (
-      <div class="p-3.5 border border-border rounded-md bg-card">
+      <div class="p-3.5 border border-border rounded-lg bg-card">
         <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] mb-2 w-[60px]" />
         <div class="rounded-lg bg-surface-3 border border-border h-[22px] rounded-[6px] mb-1.5 w-[40px]" />
         <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] w-[80px]" />
@@ -358,7 +358,7 @@ export const SkeletonSignalOverview: Component = () => (
     </div>
     <div class="grid gap-2.5">
       {Array.from({ length: 8 }, () => (
-        <div class="p-3.5 border border-border rounded-md bg-card">
+        <div class="p-3.5 border border-border rounded-lg bg-card">
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] mb-2 w-[70px]" />
           <div class="rounded-lg bg-surface-3 border border-border h-[22px] rounded-[6px] mb-1.5 w-[50px]" />
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] w-[80px]" />

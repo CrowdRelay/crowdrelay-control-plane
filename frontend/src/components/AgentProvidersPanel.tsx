@@ -9,6 +9,8 @@ import { EmptyState } from './EmptyState'
 import { Sparkline } from './Sparkline'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
+import { Input } from './ui/input'
+import { Spinner } from './Spinner'
 import type { AgentProvider, AgentCredential, AgentModel } from '../lib/types'
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -368,39 +370,39 @@ export function AgentProvidersPanel(props: {
     <Show
       when={usage.data}
       fallback={
-        <div class="premium-panel">
+        <div class="flex flex-col gap-4">
           <Show when={isServiceDown()}>
-            <div class="premium-service-down">
-              <div class="premium-service-down-icon">
+            <div class="flex items-start gap-3 p-4 rounded-lg border border-warning/30 bg-warning/10 text-warning-light">
+              <div class="flex-shrink-0 text-warning mt-0.5">
                 <SparkIcon size={28} />
               </div>
-              <div class="premium-service-down-text">
-                <strong>AI service is temporarily unavailable</strong>
-                <span>Free models continue to work. Premium features will return shortly — no action needed.</span>
+              <div class="flex flex-col gap-1">
+                <strong class="text-sm text-warning-light">AI service is temporarily unavailable</strong>
+                <span class="text-sm text-muted-foreground leading-relaxed">Free models continue to work. Premium features will return shortly — no action needed.</span>
               </div>
             </div>
           </Show>
           <Show when={error() && !isServiceDown()}>
-            <div class="premium-error">{error()}</div>
+            <div class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error()}</div>
           </Show>
           <Show when={!isServiceDown()}>
-            <div class="premium-skeleton-hero" />
-            <div class="premium-skeleton-grid">
-              <div class="premium-skeleton-card" />
-              <div class="premium-skeleton-card" />
-              <div class="premium-skeleton-card" />
+            <div class="h-20 rounded-lg border border-border bg-surface-1 animate-pulse" />
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+              <div class="h-32 rounded-lg border border-border bg-surface-1 animate-pulse" />
+              <div class="h-32 rounded-lg border border-border bg-surface-1 animate-pulse" />
+              <div class="h-32 rounded-lg border border-border bg-surface-1 animate-pulse" />
             </div>
           </Show>
         </div>
       }
     >
-      <div class="premium-panel">
+      <div class="flex flex-col gap-4">
         {/* ─── Free models banner ──────────────────────────────────── */}
         <Show when={connectedCount() === 0}>
-          <div class="premium-free-banner">
-            <div class="premium-free-banner-text">
-              <strong>Free models are active</strong>
-              <span>Free models (Laguna, Gemini Flash, Groq) need no key. Connect a provider below to unlock frontier models.</span>
+          <div class="flex items-center gap-3 p-4 rounded-lg border border-primary/20 bg-primary/5">
+            <div class="flex flex-col gap-1">
+              <strong class="text-sm font-semibold text-foreground">Free models are active</strong>
+              <span class="text-xs text-muted-foreground">Free models (Laguna, Gemini Flash, Groq) need no key. Connect a provider below to unlock frontier models.</span>
             </div>
           </div>
         </Show>
@@ -434,35 +436,35 @@ export function AgentProvidersPanel(props: {
         </section>
 
         <Show when={error()}>
-          <div class="premium-error">{error()}</div>
+          <div class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error()}</div>
         </Show>
 
         {/* ─── Free Models (no key needed) ───────────────────────── */}
         <Show when={freeProviders().length > 0}>
-          <section class="premium-section">
-            <div class="premium-section-head">
-              <h3><SparkIcon size={16} /> Free Models <span class="badge free-chip">no key needed</span></h3>
+          <section class="rounded-lg border border-border bg-card p-5">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="flex items-center gap-2 m-0 text-base font-semibold text-foreground"><SparkIcon size={16} /> Free Models <span class="inline-flex items-center text-xs font-medium text-success bg-success/10 rounded-full px-2 py-0.5">no key needed</span></h3>
             </div>
-            <div class="premium-connector-grid">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               <For each={freeProviders()}>
                 {(provider) => {
                   const cred = () => credentials().find((c: AgentCredential) => c.provider === provider.id)
                   const isConnected = () => cred()?.status === 'active'
                   return (
-                    <div class="premium-connector-card" classList={{ connected: isConnected() }}>
-                      <div class="premium-connector-top">
-                        <div class="premium-connector-logo">
+                    <div class="flex flex-col gap-2 p-4 rounded-lg border border-border bg-surface-1" classList={{ 'border-primary/40': isConnected() }}>
+                      <div class="flex items-center gap-2">
+                        <div class="w-9 h-9 flex items-center justify-center rounded-md border border-border bg-surface-1">
                           <LlmProviderIconWithTier providerId={provider.id} tier={provider.tier} connected={isConnected()} size={28} />
                         </div>
-                        <div class="premium-connector-info">
-                          <div class="premium-connector-name">{provider.name}</div>
-                          <div class="premium-connector-models">{provider.modelCount} models</div>
+                        <div class="flex-1 min-w-0">
+                          <div class="font-semibold text-sm text-foreground">{provider.name}</div>
+                          <div class="text-xs text-muted-foreground">{provider.modelCount} models</div>
                         </div>
                         <Show when={provider.authMethod === 'none'}>
-                          <span class="badge free-chip">free</span>
+                          <span class="inline-flex items-center text-xs font-medium text-success bg-success/10 rounded-full px-2 py-0.5">free</span>
                         </Show>
                       </div>
-                      <div class="premium-connector-desc">{provider.description}</div>
+                      <div class="text-sm text-muted-foreground leading-relaxed">{provider.description}</div>
                     </div>
                   )
                 }}
@@ -472,72 +474,72 @@ export function AgentProvidersPanel(props: {
         </Show>
 
         {/* ─── API Key Providers ──────────────────────────────────── */}
-        <section class="premium-section">
-          <div class="premium-section-head">
-            <h3><KeyIcon size={16} /> AI Provider API Keys</h3>
+        <section class="rounded-lg border border-border bg-card p-5">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="flex items-center gap-2 m-0 text-base font-semibold text-foreground"><KeyIcon size={16} /> AI Provider API Keys</h3>
             <Show when={connectedCount() > 0}>
-              <span class="premium-connection-summary">
-                <span class="agent-connection-dot ok" />
+              <span class="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <span class="w-2 h-2 rounded-full bg-success inline-block" />
                 {connectedCount()} of {apiKeyProviders().length} connected
               </span>
             </Show>
           </div>
-          <p class="premium-section-intro">
+          <p class="text-sm text-muted-foreground leading-relaxed mb-3">
             Connect your AI accounts to unlock models for the autopilot intelligence.
             Paste an API key from each provider's developer console. Keys are encrypted at rest.
           </p>
 
-          <div class="premium-connector-grid">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <For each={apiKeyProviders()}>
               {(provider) => {
                 const cred = () => credentials().find((c: AgentCredential) => c.provider === provider.id)
                 const isConnected = () => cred()?.status === 'active'
                 return (
-                  <div class="premium-connector-card" classList={{ connected: isConnected() }}>
-                    <div class="premium-connector-top">
-                      <div class="premium-connector-logo">
+                  <div class="flex flex-col gap-2 p-4 rounded-lg border border-border bg-surface-1" classList={{ 'border-primary/40': isConnected() }}>
+                    <div class="flex items-center gap-2">
+                      <div class="w-9 h-9 flex items-center justify-center rounded-md border border-border bg-surface-1">
                         <LlmProviderIconWithTier providerId={provider.id} tier={provider.tier} connected={isConnected()} size={28} />
                       </div>
-                      <div class="premium-connector-info">
-                        <div class="premium-connector-name">{provider.name}</div>
-                        <div class="premium-connector-models">{provider.modelCount} models</div>
+                      <div class="flex-1 min-w-0">
+                        <div class="font-semibold text-sm text-foreground">{provider.name}</div>
+                        <div class="text-xs text-muted-foreground">{provider.modelCount} models</div>
                       </div>
                       <Show when={isConnected()}>
-                        <span class="premium-connected-badge">
+                        <span class="inline-flex items-center gap-1 text-xs font-medium text-success">
                           <CheckIcon size={12} /> Connected
                         </span>
                       </Show>
                     </div>
 
-                    <div class="premium-connector-desc">{provider.description}</div>
+                    <div class="text-sm text-muted-foreground leading-relaxed">{provider.description}</div>
 
                     {/* Model recommendation — shows which templates benefit from this provider */}
                     <Show when={!isConnected()}>
-                      <div class="premium-recommendation">
+                      <div class="mt-1">
                         <Show when={provider.id === 'openai'}>
-                          <span class="premium-rec-text">Unlocks GPT-4o for press-pitch (deep reasoning) and o3 for campaign-analysis</span>
+                          <span class="text-xs text-muted-foreground italic">Unlocks GPT-4o for press-pitch (deep reasoning) and o3 for campaign-analysis</span>
                         </Show>
                         <Show when={provider.id === 'anthropic'}>
-                          <span class="premium-rec-text">Unlocks Claude Sonnet for social-post (nuanced writing) and audience-research</span>
+                          <span class="text-xs text-muted-foreground italic">Unlocks Claude Sonnet for social-post (nuanced writing) and audience-research</span>
                         </Show>
                         <Show when={provider.id === 'google'}>
-                          <span class="premium-rec-text">Unlocks Gemini 2.5 Pro for growth-strategist (long context) and Gemini Flash for fast scanning</span>
+                          <span class="text-xs text-muted-foreground italic">Unlocks Gemini 2.5 Pro for growth-strategist (long context) and Gemini Flash for fast scanning</span>
                         </Show>
                         <Show when={provider.id === 'xai'}>
-                          <span class="premium-rec-text">Unlocks Grok for community-engager (real-time social context)</span>
+                          <span class="text-xs text-muted-foreground italic">Unlocks Grok for community-engager (real-time social context)</span>
                         </Show>
                         <Show when={provider.id === 'openrouter'}>
-                          <span class="premium-rec-text">Unlocks 100+ models via one API key — flexible routing for all templates</span>
+                          <span class="text-xs text-muted-foreground italic">Unlocks 100+ models via one API key — flexible routing for all templates</span>
                         </Show>
                         <Show when={provider.id !== 'openai' && provider.id !== 'anthropic' && provider.id !== 'google' && provider.id !== 'xai' && provider.id !== 'openrouter'}>
-                          <span class="premium-rec-text">Adds {provider.modelCount} models to the intelligence's routing pool</span>
+                          <span class="text-xs text-muted-foreground italic">Adds {provider.modelCount} models to the intelligence's routing pool</span>
                         </Show>
                       </div>
                     </Show>
 
                     {/* Health + method badges — wrapped for consistent middle height */}
                     <Show when={isConnected()}>
-                      <div class="premium-connector-middle">
+                      <div class="flex items-center gap-2 flex-wrap">
                         <Show when={usage.data}>
                           <Show when={usage.data!.tasks.filter((t: PremiumTask) => t.model_provider === provider.id).length > 0}
                             fallback={<Badge variant="muted">no tasks yet</Badge>}>
@@ -553,24 +555,23 @@ export function AgentProvidersPanel(props: {
                           </Show>
                         </Show>
 
-                        <div class="premium-method-badge apikey">
-                          <span class="premium-method-icon" title="Connected via API key">API Key</span>
+                        <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                          <span class="font-bold uppercase tracking-wide text-xs" title="Connected via API key">API Key</span>
                           <Show when={cred()?.provider_account}>
-                            <span class="premium-method-account">{cred()!.provider_account?.slice(0, 8)}…</span>
+                            <span class="opacity-80 font-normal">{cred()!.provider_account?.slice(0, 8)}…</span>
                           </Show>
                         </div>
                       </div>
                     </Show>
 
                     {/* Connection actions — API key is the only connection method */}
-                    <div class="premium-connector-actions">
+                    <div class="flex items-center gap-2 flex-wrap mt-2">
                       <Show when={!isConnected()}>
                         <Show when={provider.supportsApiKeyPaste}>
                           <Show when={showKeyInputFor() === provider.id}>
-                            <div class="premium-key-row">
-                              <input
-                                class="premium-key-input"
-                                classList={{ 'premium-key-error': !!error() && connectingProvider() !== provider.id }}
+                            <div class="flex flex-col gap-2 w-full">
+                              <Input
+                                class={error() && connectingProvider() !== provider.id ? 'border-destructive' : ''}
                                 type="password"
                                 placeholder="Paste API key…"
                                 aria-label={`${provider.name} API key`}
@@ -579,9 +580,8 @@ export function AgentProvidersPanel(props: {
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleConnectApiKey(provider.id) }}
                               />
                               <Show when={provider.id === 'cognition'}>
-                                <input
-                                  class="premium-key-input"
-                                  classList={{ 'premium-key-error': !!error() && connectingProvider() !== provider.id }}
+                                <Input
+                                  class={error() && connectingProvider() !== provider.id ? 'border-destructive' : ''}
                                   type="password"
                                   placeholder="Organization ID (org-…)"
                                   aria-label={`${provider.name} organization ID`}
@@ -596,7 +596,7 @@ export function AgentProvidersPanel(props: {
                                 onClick={() => handleConnectApiKey(provider.id)}
                               >
                                 <Show when={connectingProvider() === provider.id}>
-                                  <span class="premium-spinner" />
+                                  <Spinner size={16} />
                                 </Show>
                                 {connectingProvider() === provider.id ? 'Validating…' : 'Connect'}
                               </Button>
@@ -635,13 +635,13 @@ export function AgentProvidersPanel(props: {
                     <Show when={isConnected()}>
                       <Show when={testResult()[provider.id]}>
                         {(result) => (
-                          <div class={`premium-test-result ${result().ok ? 'ok' : 'bad'}`}>
+                          <div class={`text-xs mt-2 ${result().ok ? 'text-success' : 'text-destructive'}`}>
                             {result().message}
                           </div>
                         )}
                       </Show>
                       <Show when={!testResult()[provider.id] && cred()?.last_validated_at}>
-                        <div class="premium-test-result muted">
+                        <div class="text-xs mt-2 text-muted-foreground">
                           Last checked {formatIsoAge(cred()!.last_validated_at!)}
                           <Show when={cred()?.last_validation_error}>: {cred()!.last_validation_error}</Show>
                         </div>
@@ -656,34 +656,34 @@ export function AgentProvidersPanel(props: {
         </section>
 
         {/* ─── Connected Premium Models ──────────────────────────── */}
-        <section class="premium-section">
-          <div class="premium-section-head">
-            <h3><SparkIcon size={16} /> Connected Premium Models</h3>
-            <span class="premium-count-chip">{usage.data!.premium_models.length}</span>
+        <section class="rounded-lg border border-border bg-card p-5">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="flex items-center gap-2 m-0 text-base font-semibold text-foreground"><SparkIcon size={16} /> Connected Premium Models</h3>
+            <span class="text-xs text-muted-foreground bg-surface-3 border border-border rounded-md px-2 py-0.5">{usage.data!.premium_models.length}</span>
           </div>
           <Show
             when={usage.data!.premium_models.length > 0}
             fallback={
-              <div class="premium-empty">
+              <div class="p-4">
                 <EmptyState label="No premium models active" hint="Premium AI models provide higher quality output for critical worker tasks. Configure API keys to enable them." />
               </div>
             }
           >
-            <div class="premium-model-grid">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               <For each={usage.data!.premium_models}>
                 {(model) => (
-                  <div class="premium-model-card">
-                    <div class="premium-model-header">
+                  <div class="flex flex-col gap-1.5 p-3 rounded-lg border border-border bg-surface-1">
+                    <div class="flex items-center gap-2">
                       <ModelIcon modelId={model.id} providerId={model.provider} paid size={18} />
-                      <span class="premium-model-name">{model.name}</span>
+                      <span class="font-semibold text-sm text-foreground">{model.name}</span>
                       <Show when={model.agentic}>
-                        <span class="premium-agentic-chip">
+                        <span class="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-surface-3 rounded-full px-2 py-0.5">
                           <RobotIcon size={11} /> agentic
                         </span>
                       </Show>
                     </div>
-                    <div class="premium-model-best">{model.best_for}</div>
-                    <div class="premium-model-pricing">
+                    <div class="text-xs text-muted-foreground">{model.best_for}</div>
+                    <div class="flex gap-3 text-xs text-muted-foreground">
                       <span>${model.price_input_per_mtok}/M in</span>
                       <span>${model.price_output_per_mtok}/M out</span>
                     </div>
@@ -695,30 +695,30 @@ export function AgentProvidersPanel(props: {
         </section>
 
         {/* ─── Recent Premium Tasks ──────────────────────────────── */}
-        <section class="premium-section">
-          <div class="premium-section-head">
-            <h3>Recent premium tasks</h3>
-            <span class="premium-count-chip">{usage.data!.tasks.length}</span>
+        <section class="rounded-lg border border-border bg-card p-5">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="flex items-center gap-2 m-0 text-base font-semibold text-foreground">Recent premium tasks</h3>
+            <span class="text-xs text-muted-foreground bg-surface-3 border border-border rounded-md px-2 py-0.5">{usage.data!.tasks.length}</span>
           </div>
           <Show
             when={usage.data!.tasks.length > 0}
             fallback={
-              <div class="premium-empty-sm">
+              <div class="p-3 text-sm text-muted-foreground">
                 No premium tasks yet. The intelligence routes complex tasks here automatically.
               </div>
             }
           >
-            <div class="premium-task-list">
+            <div class="flex flex-col">
               <For each={usage.data!.tasks.slice(0, 10)}>
                 {(task) => (
-                  <div class="premium-task-row">
+                  <div class="flex items-center gap-3 text-sm py-2 border-b border-border">
                     <StatusBadge status={task.status} tone={taskStatusTone(task.status)} />
-                    <span class="premium-task-template">{task.template_id}</span>
-                    <span class="premium-task-provider">{task.model_provider ?? '—'}</span>
+                    <span class="font-medium text-foreground">{task.template_id}</span>
+                    <span class="text-muted-foreground">{task.model_provider ?? '—'}</span>
                     <Show when={task.cost_micro_usd > 0}>
-                      <span class="premium-task-cost">{formatUsd(task.cost_micro_usd)}</span>
+                      <span class="text-muted-foreground tabular-nums">{formatUsd(task.cost_micro_usd)}</span>
                     </Show>
-                    <span class="premium-task-age">{formatIsoAge(task.created_at)}</span>
+                    <span class="text-muted-foreground text-xs">{formatIsoAge(task.created_at)}</span>
                   </div>
                 )}
               </For>

@@ -8,6 +8,7 @@ import { SkeletonBlock } from './Skeleton'
 import { KpiStrip, KpiCard } from './layout'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
+import { Input } from './ui/input'
 import { Badge } from './ui/badge'
 
 type Tone = 'good' | 'warn' | 'bad' | 'muted'
@@ -126,11 +127,10 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
     }
   }
 
-  return <div class="mt-6 pt-6 border-t border-border">
+  return <div class="mt-6 pt-4 border-t border-border">
     <div class="flex items-start justify-between gap-4 mb-3">
       <div>
-        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">RELEASE CAMPAIGNS</span>
-        <h3 class="mt-1 text-base font-semibold text-foreground">Release campaigns</h3>
+        <h3 class="text-base font-semibold text-foreground">Release campaigns</h3>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
         <Show when={campaigns.data}>
@@ -151,22 +151,22 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
       <form class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4" onSubmit={event => { event.preventDefault(); void createCampaign() }}>
         <label class="flex flex-col gap-1">
           <span class="text-sm font-medium text-foreground">Title <small class="text-muted-foreground font-normal">what the beacon sees</small></span>
-          <input class="bg-surface-0 border border-border rounded-md px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" value={form().title} maxlength={200} required
+          <Input value={form().title} maxlength={200} required
                  onInput={e => setForm({ ...form(), title: e.currentTarget.value })} />
         </label>
         <label class="flex flex-col gap-1">
           <span class="text-sm font-medium text-foreground">Slug <small class="text-muted-foreground font-normal">lowercase, used in links</small></span>
-          <input class="bg-surface-0 border border-border rounded-md px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" value={form().slug} maxlength={100} required
+          <Input value={form().slug} maxlength={100} required
                  onInput={e => setForm({ ...form(), slug: e.currentTarget.value })} />
         </label>
         <label class="flex flex-col gap-1">
           <span class="text-sm font-medium text-foreground">SKU <small class="text-muted-foreground font-normal">the physical item being sent</small></span>
-          <input class="bg-surface-0 border border-border rounded-md px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" value={form().sku} maxlength={100} required
+          <Input value={form().sku} maxlength={100} required
                  onInput={e => setForm({ ...form(), sku: e.currentTarget.value })} />
         </label>
         <label class="flex flex-col gap-1">
           <span class="text-sm font-medium text-foreground">Claim deadline <small class="text-muted-foreground font-normal">must be in the future</small></span>
-          <input class="bg-surface-0 border border-border rounded-md px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" type="datetime-local" value={form().claimDeadline} required
+          <Input type="datetime-local" value={form().claimDeadline} required
                  onInput={e => setForm({ ...form(), claimDeadline: e.currentTarget.value })} />
         </label>
         <div class="flex justify-end md:col-span-2">

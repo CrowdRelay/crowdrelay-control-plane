@@ -102,8 +102,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
   return <Card class="p-4">
     <div class="flex items-center justify-between gap-4 mt-6 mb-3">
       <div>
-        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">QUEUES</span>
-        <h2><SectionIcon name="list-checks" />What is stuck, and why</h2>
+        <h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="list-checks" />What is stuck, and why</h2>
         <p>The outbox holds events leaving this system; deliveries are the webhook attempts against your endpoints. A dead row has used every attempt and will not move again on its own — read one before retrying the rest, because a bulk retry reproduces a bad payload as fast as it reproduces a blip.</p>
       </div>
     </div>
@@ -149,7 +148,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
       >
         <div class="grid gap-2">
           <For each={rows()}>{item => (
-            <div class="flex justify-between items-center gap-3.5 p-3 border border-border-subtle rounded-md bg-surface-1 transition-colors hover:border-border">
+            <div class="flex justify-between items-center gap-3.5 p-3 border border-border-subtle rounded-lg bg-surface-1 transition-colors hover:border-border">
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
                   <strong>{item.event_type}</strong>
@@ -180,9 +179,9 @@ export function QueueInspectorPanel(props: { slug: string }) {
       </div>
     )}</Show>
 
-    <Dialog open={detail() !== null} onClose={() => setDetail(null)} label="Delivery attempts" class="dialog-panel queue-detail-dialog">
+    <Dialog open={detail() !== null} onClose={() => setDetail(null)} label="Delivery attempts" class="w-full max-w-2xl rounded-lg border border-border bg-card p-5 shadow-xl max-h-[80vh] overflow-y-auto">
       <Show when={detail()}>{data => <>
-        <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">DELIVERY</span><h2>{data().delivery.event_type}</h2></div>
+        <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h2 class="text-lg font-semibold text-foreground">{data().delivery.event_type.replace(/_/g, ' ')}</h2></div>
           <StatusBadge status={data().delivery.status} tone={statusTone(data().delivery.status)} /></div>
         <p class="m-0 mb-3 text-sm text-muted-foreground">
           {data().delivery.endpoint_name}

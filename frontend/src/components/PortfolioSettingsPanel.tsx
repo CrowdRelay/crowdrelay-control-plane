@@ -126,7 +126,7 @@ export function PortfolioSettingsPanel(props: {
                 }
               >
                 <select
-                  class="h-9 px-3 rounded-md border border-border bg-card text-sm text-foreground"
+                  class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   value={drafts()[key] ?? props.model?.settings[key] ?? ''}
                   onChange={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
                 >
@@ -138,7 +138,7 @@ export function PortfolioSettingsPanel(props: {
             }
           >
             <select
-              class="h-9 px-3 rounded-md border border-border bg-card text-sm text-foreground"
+              class="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               value={drafts()[key] ?? props.model?.settings[key] ?? 'false'}
               onChange={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
             >
@@ -146,7 +146,7 @@ export function PortfolioSettingsPanel(props: {
               <option value="false">Disabled</option>
             </select>
           </Show>
-          <Show when={HINTS[key]}>{h => <small class="text-xs text-muted-foreground leading-relaxed">{h().hint}<Show when={!BOOLEAN_KEYS.has(key) && key !== 'north_star_metric'}> Example: <code class="font-mono text-xs">{h().example}</code></Show></small>}</Show>
+          <Show when={HINTS[key]}>{h => <small class="text-xs text-muted-foreground leading-relaxed">{h().hint}<Show when={!BOOLEAN_KEYS.has(key) && key !== 'north_star_metric'}> Example: <code class="text-xs">{h().example}</code></Show></small>}</Show>
           <Show when={dirty(key)} fallback={
             <Show when={savedKey() === key}><small class="text-xs text-muted-foreground">Saved ✓</small></Show>
           }>

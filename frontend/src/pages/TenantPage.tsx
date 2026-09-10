@@ -13,6 +13,7 @@ import { SectionIcon } from '../components/SectionIcon'
 import { TenantAuditPanel } from '../components/TenantAuditPanel'
 import { TenantOperatorsPanel } from '../components/TenantOperatorsPanel'
 import { OperationsPanel } from '../components/OperationsPanel'
+import { Dialog } from '../components/Dialog'
 import { SkeletonTenantPage, SkeletonSection } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, ErrorCard, SectionPanel, SectionTitle, SkeletonBlock } from '../components/layout'
 import { Spinner } from '../components/Spinner'
@@ -159,7 +160,7 @@ export function TenantPage() {
       <PageHeader
         eyebrow="CONTROL"
         title={t.displayName}
-        description={`${t.defaultCountryCode} · ${t.workspaceId ? 'Workspace ready' : 'Workspace mapping pending'}`}
+        description={`${t.defaultCountryCode} · ${t.workspaceId ? 'Workspace ready' : 'Workspace pending'}`}
         actions={<div class="row-health"><StatusBadge status={t.status} tone={t.status === 'active' ? 'good' : t.status === 'suspended' ? 'bad' : t.status === 'parked' ? 'warn' : 'warn'} /><Show when={capabilities()?.canPark}><Button variant="ghost" size="sm" disabled={park.isPending} onClick={() => park.mutate('non-payment')} aria-label={park.isPending ? 'Parking tenant' : 'Park tenant'}>{park.isPending && <Spinner />} {park.isPending ? 'Parking…' : 'Park'}</Button></Show><Show when={capabilities()?.canUnpark}><Button size="sm" disabled={unpark.isPending} onClick={() => unpark.mutate()} aria-label={unpark.isPending ? 'Resuming tenant' : 'Resume tenant'}>{unpark.isPending && <Spinner />} {unpark.isPending ? 'Resuming…' : 'Resume'}</Button></Show><Show when={capabilities()?.canSuspend !== false && t.status !== 'parked'}><Button variant="ghost" size="sm" disabled={status.isPending} onClick={() => status.mutate(t.status === 'suspended' ? 'resume' : 'suspend')} aria-label={status.isPending ? 'Updating status' : (t.status === 'suspended' ? 'Resume tenant' : 'Suspend tenant')}>{status.isPending && <Spinner />} {status.isPending ? 'Updating…' : t.status === 'suspended' ? 'Resume' : 'Suspend'}</Button></Show></div>}
       />
       <Show when={status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error}>
@@ -306,21 +307,19 @@ export function TenantPage() {
         </Show>
 
         <Show when={editingMobileApps()}>
-          <div class="dialog-overlay" onClick={() => setEditingMobileApps(false)}>
-            <div class="dialog-panel" onClick={(e) => e.stopPropagation()}>
+          <Dialog open onClose={() => setEditingMobileApps(false)} label="Google Play Store URLs" class="w-full max-w-lg rounded-lg border border-border bg-card p-5 shadow-xl">
               <SectionTitle eyebrow="MOBILE APPS" title="Google Play Store URLs" icon={<SectionIcon name="play" />} />
-              <p class="wizard-intro">Set the Google Play Store URL for each tenant mobile app. Leave blank if the app is not yet published.</p>
-              <div class="form-grid">
+              <p class="text-sm text-muted-foreground mt-1 leading-relaxed">Set the Google Play Store URL for each tenant mobile app. Leave blank if the app is not yet published.</p>
+              <div class="form-grid mt-4">
                 <label>Signal Play Store URL<input value={signalPlayUrl()} onInput={(e) => setSignalPlayUrl(e.currentTarget.value)} placeholder="https://play.google.com/store/apps/details?id=music.{t.slug}.signal" /></label>
                 <label>Synesthesia Play Store URL<input value={synesthesiaPlayUrl()} onInput={(e) => setSynesthesiaPlayUrl(e.currentTarget.value)} placeholder="https://play.google.com/store/apps/details?id=music.{t.slug}.synesthesia" /></label>
               </div>
               <Show when={mobileApps.error}><ErrorCard>{mobileApps.error instanceof Error ? mobileApps.error.message : 'Failed to update Play Store URLs'}</ErrorCard></Show>
-              <div class="form-actions right">
+              <div class="flex justify-end gap-2 mt-5">
                 <Button variant="ghost" size="sm" onClick={() => setEditingMobileApps(false)}>Cancel</Button>
-                <button onClick={() => mobileApps.mutate({ signalPlayStoreUrl: signalPlayUrl().trim() || null, synesthesiaPlayStoreUrl: synesthesiaPlayUrl().trim() || null })} disabled={mobileApps.isPending}>{mobileApps.isPending && <Spinner />} {mobileApps.isPending ? 'Saving…' : 'Save URLs'}</button>
+                <Button size="sm" onClick={() => mobileApps.mutate({ signalPlayStoreUrl: signalPlayUrl().trim() || null, synesthesiaPlayStoreUrl: synesthesiaPlayUrl().trim() || null })} disabled={mobileApps.isPending}>{mobileApps.isPending && <Spinner />} {mobileApps.isPending ? 'Saving…' : 'Save URLs'}</Button>
               </div>
-            </div>
-          </div>
+          </Dialog>
         </Show>
       </TabPanel>
 

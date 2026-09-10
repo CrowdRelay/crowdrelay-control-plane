@@ -16,6 +16,7 @@ import { PageShell, PageHeader, ErrorCard, SectionPanel } from '../components/la
 import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
+import { Input } from '../components/ui/input'
 
 const kindLabel = (k: NotifierChannel['kind']) => k === 'discord' ? 'Discord app' : k === 'webhook' ? 'Webhook' : 'Email (relay)'
 const evLabel = (e: string) => NOTIFIER_EVENT_LABELS[e as NotifierEvent] ?? e.replaceAll('.', ' ')
@@ -108,7 +109,6 @@ export function TenantNotifiersPage() {
       <div class="flex items-center gap-2 mb-1">
         <SectionIcon name="bell" />
         <div>
-          <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">NEW CHANNEL</span>
           <h2 class="text-lg font-bold text-foreground">Add a destination</h2>
         </div>
       </div>
@@ -127,12 +127,12 @@ export function TenantNotifiersPage() {
           </label>
           <label class="grid gap-1.5 text-muted-foreground text-sm">
             <span>Label</span>
-            <input class="w-full bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15" value={label()} onInput={(e) => setLabel(e.currentTarget.value)} placeholder="Ops Discord" />
+            <Input value={label()} onInput={(e) => setLabel(e.currentTarget.value)} placeholder="Ops Discord" />
             <small class="text-xs text-muted-foreground">Your name for this destination — it is what the rows above and the delivery log show.</small>
           </label>
           <label class="grid gap-1.5 text-muted-foreground text-sm md:col-span-2">
             <span>{targetLabel()}</span>
-            <input class="w-full bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15" value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPh()} />
+            <Input value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPh()} />
             <small class="text-xs text-muted-foreground">{targetHint()}</small>
           </label>
         </div>
@@ -164,7 +164,6 @@ export function TenantNotifiersPage() {
           <div class="flex items-center gap-2">
             <SectionIcon name="bell" />
             <div>
-              <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{`TENANT / ${slug().toUpperCase()}`}</span>
               <h2 class="text-lg font-semibold text-foreground">Active destinations</h2>
             </div>
           </div>
@@ -226,7 +225,6 @@ export function TenantNotifiersPage() {
             <div class="flex items-center gap-2">
               <SectionIcon name="server" />
               <div>
-                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">PLATFORM / CONTROL PLANE</span>
                 <h2 class="text-lg font-semibold text-foreground">Platform notification config</h2>
               </div>
             </div>
@@ -278,7 +276,6 @@ export function TenantNotifiersPage() {
             <div class="flex items-center gap-2">
               <SectionIcon name="workflow" />
               <div>
-                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">AUTOMATION / N8N</span>
                 <h2 class="text-lg font-semibold text-foreground">Workflow routing configs</h2>
               </div>
             </div>
@@ -336,7 +333,6 @@ export function TenantNotifiersPage() {
       <div class="flex items-center gap-2 mb-3">
         <SectionIcon name="link" />
         <div>
-          <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">CROWDRELAY</span>
           <h2 class="text-lg font-semibold text-foreground">Discovered webhook endpoints</h2>
         </div>
       </div>
@@ -349,7 +345,6 @@ export function TenantNotifiersPage() {
           <div class="flex items-center gap-2 mb-2">
             <SectionIcon name="link" />
             <div>
-              <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">CROWDRELAY</span>
               <h2 class="text-lg font-semibold text-foreground">Discovered webhook endpoints</h2>
             </div>
           </div>

@@ -34,7 +34,7 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
       {/* Named for its source. Plain "Health" read as a contradiction next to
           the Operations page, which reports CrowdRelay's own HTTP health from
           a different feed: this one is the heartbeat the tenant pushes here. */}
-      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">RUNTIME</span><h2><SectionIcon name="heartbeat" />Heartbeat</h2></div>
+      <div><h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="heartbeat" />Heartbeat</h2></div>
       <StatusBadge status={snapshot().runtimeHealth} tone={runtimeTone(snapshot().runtimeHealth)} />
     </div>
     <Show when={runtime.error}><div class="inline-stale-note" role="status">Live refresh failed. Showing the last known runtime snapshot.</div></Show>
@@ -59,7 +59,7 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
       </div>
       <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
         <span class="text-xs text-muted-foreground uppercase tracking-wider">Deploy SHA</span>
-        <span class="text-sm font-mono text-foreground">{snapshot().runtime?.deployedSha?.slice(0, 12) ?? '—'}</span>
+        <span class="text-sm font-medium text-foreground">{snapshot().runtime?.deployedSha?.slice(0, 8) ?? '—'}</span>
       </div>
       <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
         <span class="text-xs text-muted-foreground uppercase tracking-wider">Outbox pending</span>

@@ -8,6 +8,7 @@ import { SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
+import { Input } from './ui/input'
 import { Badge } from './ui/badge'
 
 // The beacon roster, and everything you can do to it.
@@ -264,7 +265,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
         <form class="grid grid-cols-1 md:grid-cols-2 gap-3.5 rounded-lg border border-border bg-card p-4" onSubmit={addBeacon}>
           <label class="grid gap-1.75 text-muted-foreground text-sm">
             Name <small class="text-xs text-muted-foreground">venue, shop or person</small>
-            <input class="w-full bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15" value={form().displayName} required maxlength={200}
+            <Input value={form().displayName} required maxlength={200}
                    onInput={e => setForm({ ...form(), displayName: e.currentTarget.value })} />
           </label>
           <label class="grid gap-1.75 text-muted-foreground text-sm">
@@ -276,12 +277,12 @@ export function BeaconConsolePanel(props: { slug: string }) {
           </label>
           <label class="grid gap-1.75 text-muted-foreground text-sm">
             City slug <small class="text-xs text-muted-foreground">as the public city list returns it</small>
-            <input class="w-full bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15" value={form().citySlug} maxlength={100}
+            <Input value={form().citySlug} maxlength={100}
                    onInput={e => setForm({ ...form(), citySlug: e.currentTarget.value })} />
           </label>
           <label class="grid gap-1.75 text-muted-foreground text-sm">
             Contact email <small class="text-xs text-muted-foreground">needed before they can be invited</small>
-            <input type="email" class="w-full bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15" value={form().contactEmail} maxlength={320}
+            <Input type="email" value={form().contactEmail} maxlength={320}
                    onInput={e => setForm({ ...form(), contactEmail: e.currentTarget.value })} />
           </label>
           <div class="flex gap-2 justify-end mt-5 md:col-span-2">
