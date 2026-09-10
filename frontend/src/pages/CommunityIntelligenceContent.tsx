@@ -456,7 +456,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                             </Show>
 
                             <footer class="community-card-actions">
-                              <a class="ghost" href={item.url} target="_blank" rel="noreferrer noopener">
+                              <a class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors" href={item.url} target="_blank" rel="noreferrer noopener">
                                 Open<span class="external-mark" aria-hidden="true">↗</span>
                               </a>
                               <Button variant="ghost" size="sm" class="draft-intro" onClick={() => loadDraft(item.placeId)}>Draft intro</Button>
@@ -499,9 +499,9 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                     </div>
 
                     <Show when={hasMore()}>
-                      <button class="community-show-more" onClick={() => showMore(platform)}>
+                      <Button variant="ghost" size="sm" onClick={() => showMore(platform)}>
                         Show {Math.min(GROUP_PAGE_SIZE, items.length - visible().length)} more
-                      </button>
+                      </Button>
                     </Show>
                   </Show>
                 </div>

@@ -7,6 +7,8 @@ import { StatusBadge } from './StatusBadge'
 import { LlmProviderIconWithTier, ModelIcon } from './ProviderIcon'
 import { EmptyState } from './EmptyState'
 import { Sparkline } from './Sparkline'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
 import type { AgentProvider, AgentCredential, AgentModel } from '../lib/types'
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -58,6 +60,11 @@ const taskStatusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
   status === 'completed' ? 'good' :
   status === 'running' ? 'warn' :
   status === 'failed' ? 'bad' : 'muted'
+
+const toneToBadgeVariant = (tone: 'good' | 'warn' | 'bad' | 'muted'): 'success' | 'warning' | 'destructive' | 'muted' =>
+  tone === 'good' ? 'success' :
+  tone === 'warn' ? 'warning' :
+  tone === 'bad' ? 'destructive' : 'muted'
 
 // ─── Icons ──────────────────────────────────────────────────────────────
 
@@ -554,7 +561,7 @@ export function AgentProvidersPanel(props: {
                       <div class="premium-connector-middle">
                         <Show when={usage.data}>
                           <Show when={usage.data!.tasks.filter((t: PremiumTask) => t.model_provider === provider.id).length > 0}
-                            fallback={<span class="badge tone-muted">no tasks yet</span>}>
+                            fallback={<Badge variant="muted">no tasks yet</Badge>}>
                             {(() => {
                               const providerTasks = usage.data!.tasks.filter((t: PremiumTask) => t.model_provider === provider.id)
                               const completed = providerTasks.filter((t: PremiumTask) => t.status === 'completed').length
@@ -562,7 +569,7 @@ export function AgentProvidersPanel(props: {
                               const total = providerTasks.length
                               const successRate = total > 0 ? Math.round((completed / total) * 100) : null
                               const tone = successRate == null ? 'muted' : successRate >= 90 ? 'good' : successRate >= 75 ? 'warn' : 'bad'
-                              return <span class={`badge tone-${tone}`}>{successRate ?? '—'}% success · {total} tasks</span>
+                              return <Badge variant={toneToBadgeVariant(tone)}>{successRate ?? '—'}% success · {total} tasks</Badge>
                             })()}
                           </Show>
                         </Show>
@@ -604,8 +611,8 @@ export function AgentProvidersPanel(props: {
                                   onKeyDown={(e) => { if (e.key === 'Enter') handleConnectApiKey(provider.id) }}
                                 />
                               </Show>
-                              <button
-                                class="premium-btn-connect"
+                              <Button
+                                size="sm"
                                 disabled={connectingProvider() === provider.id || !apiKeyInput().trim() || (provider.id === 'cognition' && !orgIdInput().trim())}
                                 onClick={() => handleConnectApiKey(provider.id)}
                               >
@@ -613,33 +620,33 @@ export function AgentProvidersPanel(props: {
                                   <span class="premium-spinner" />
                                 </Show>
                                 {connectingProvider() === provider.id ? 'Validating…' : 'Connect'}
-                              </button>
-                              <button class="premium-btn-cancel" onClick={() => { setShowKeyInputFor(null); setApiKeyInput(''); setOrgIdInput(''); setError(null) }}>
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => { setShowKeyInputFor(null); setApiKeyInput(''); setOrgIdInput(''); setError(null) }}>
                                 Cancel
-                              </button>
+                              </Button>
                             </div>
                           </Show>
                           <Show when={showKeyInputFor() !== provider.id}>
-                            <button class="premium-btn-connect" onClick={() => setShowKeyInputFor(provider.id)}>
+                            <Button size="sm" onClick={() => setShowKeyInputFor(provider.id)}>
                               <KeyIcon size={13} /> Connect with API Key
-                            </button>
+                            </Button>
                           </Show>
                         </Show>
                       </Show>
 
                       {/* Disconnect when connected */}
                       <Show when={isConnected()}>
-                        <button
-                          type="button"
-                          class="agent-btn"
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           disabled={testingProvider() === provider.id}
                           onClick={() => handleTestCredential(provider.id)}
                         >
                           {testingProvider() === provider.id ? 'Checking…' : 'Test key'}
-                        </button>
-                        <button type="button" class="agent-btn-danger" onClick={() => handleDisconnect(provider.id)}>
+                        </Button>
+                        <Button variant="destructive-ghost" size="sm" onClick={() => handleDisconnect(provider.id)}>
                           Disconnect
-                        </button>
+                        </Button>
                       </Show>
                     </div>
                     {/* Inline test result — per-provider, no shared error signal.

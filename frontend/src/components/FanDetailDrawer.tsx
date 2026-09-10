@@ -3,6 +3,8 @@ import type { FanDetail, FanJourneyEntry } from '../lib/types'
 import { EmptyState } from './EmptyState'
 import { SkeletonRows } from './Skeleton'
 import { Dialog } from './Dialog'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
 
 const formatDateTime = (iso: string | null) => {
   if (!iso) return '—'
@@ -45,11 +47,11 @@ export function FanDetailDrawer(props: {
               <span class="text-muted-foreground">{props.fan!.fan.email}</span>
             </Show>
           </div>
-          <button class="link" onClick={props.onClose}>Close</button>
+          <Button variant="ghost" size="sm" onClick={props.onClose}>Close</Button>
         </div>
         <div class="fan-drawer-body">
           <div class="fan-drawer-meta">
-            <div><span class="text-muted-foreground">Status</span><span class={`badge tone-${props.fan!.fan.status === 'active' ? 'good' : 'muted'}`}>{props.fan!.fan.status}</span></div>
+            <div><span class="text-muted-foreground">Status</span><Badge variant={props.fan!.fan.status === 'active' ? 'success' : 'muted'}>{props.fan!.fan.status}</Badge></div>
             <div><span class="text-muted-foreground">Locale</span><span>{props.fan!.fan.locale ?? '—'}</span></div>
             <div><span class="text-muted-foreground">Activation</span><span>{props.fan!.fan.activation_state}</span></div>
             <div><span class="text-muted-foreground">Joined</span><span>{formatDateTime(props.fan!.fan.created_at)}</span></div>

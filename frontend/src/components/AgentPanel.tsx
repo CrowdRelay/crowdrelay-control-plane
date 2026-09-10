@@ -283,7 +283,7 @@ export function AgentPanel(props: { slug: string }) {
           <div class="agent-suggestions">
             <For each={suggestions().slice(0, 4)}>
               {(s) => (
-                <button class="agent-suggestion-card" onClick={() => runSuggestion(s)}>
+                <button type="button" class="agent-suggestion-card" onClick={() => runSuggestion(s)}>
                   <div class="agent-suggestion-head">
                     <span class="agent-suggestion-title">{s.title}</span>
                     <StatusBadge status={s.priority} tone={priorityTone(s.priority)} />
@@ -309,6 +309,7 @@ export function AgentPanel(props: { slug: string }) {
             <For each={templates()}>
               {(template) => (
                 <button
+                  type="button"
                   class={`agent-template-card ${selectedTemplate() === template.id ? 'selected' : ''}`}
                   onClick={() => setSelectedTemplate(template.id)}
                 >
@@ -334,7 +335,7 @@ export function AgentPanel(props: { slug: string }) {
         <Card class="p-4">
           <div class="flex items-center justify-between gap-4">
             <h3>Run: {templates().find(t => t.id === selectedTemplate())?.name ?? 'task'}</h3>
-            <button class="agent-btn" onClick={() => setSelectedTemplate(null)}>Choose another template</button>
+            <Button variant="ghost" size="sm" onClick={() => setSelectedTemplate(null)}>Choose another template</Button>
           </div>
           <p class="text-sm text-muted-foreground leading-relaxed mt-1">Free models cost nothing and are always available; paid models bill against the AI budget on the Usage tab. The prompt is the only thing the template does not already know — name the show, the city, the audience, the deadline.</p>
           <label class="agent-field">
@@ -379,9 +380,9 @@ export function AgentPanel(props: { slug: string }) {
         <div class="flex items-center justify-between gap-4">
           <h3>Schedules</h3>
           <Show when={!creatingSchedule()}>
-            <button class="agent-btn" onClick={() => { setCreatingSchedule(true); setError(null) }}>
+            <Button variant="ghost" size="sm" onClick={() => { setCreatingSchedule(true); setError(null) }}>
               + New schedule
-            </button>
+            </Button>
           </Show>
         </div>
         <p class="text-sm text-muted-foreground leading-relaxed mt-1">Recurring agent tasks run automatically on the configured interval. Each run is a normal task — results land in Recent Tasks and structured outcomes flow to the opportunity board.</p>
@@ -414,13 +415,13 @@ export function AgentPanel(props: { slug: string }) {
                     <td>{sched.template_id}</td>
                     <td>{sched.interval_minutes}m</td>
                     <td>
-                      <button class="link" disabled={scheduleBusy() === sched.id} onClick={() => toggleSchedule(sched.id, !sched.enabled)}>
+                      <Button variant="ghost" size="sm" disabled={scheduleBusy() === sched.id} onClick={() => toggleSchedule(sched.id, !sched.enabled)}>
                         {scheduleBusy() === sched.id ? '…' : sched.enabled ? '✓ enabled' : 'disabled'}
-                      </button>
+                      </Button>
                     </td>
                     <td class="text-muted-foreground">{sched.last_run_at ? formatIsoAge(sched.last_run_at) : 'never'}</td>
                     <td class="text-muted-foreground">{sched.next_run_at ? formatIsoAge(sched.next_run_at) : '—'}</td>
-                    <td><button class="agent-btn-danger" disabled={scheduleBusy() === sched.id} onClick={() => deleteSchedule(sched.id)}>Delete</button></td>
+                    <td><Button variant="destructive-ghost" size="sm" disabled={scheduleBusy() === sched.id} onClick={() => deleteSchedule(sched.id)}>Delete</Button></td>
                   </tr>
                 )}
               </For>
@@ -461,7 +462,7 @@ export function AgentPanel(props: { slug: string }) {
                     <td class="text-muted-foreground">{formatIsoAge(task.created_at)}</td>
                     <td>
                       <Show when={task.status === 'completed'}>
-                        <button class="link" onClick={() => viewResult(task.id)}>View →</button>
+                        <Button variant="ghost" size="sm" onClick={() => viewResult(task.id)}>View →</Button>
                       </Show>
                       <Show when={task.status === 'failed'}>
                         <span class="agent-error" title={task.error ?? ''}>failed</span>
@@ -486,7 +487,7 @@ export function AgentPanel(props: { slug: string }) {
         <>
             <div class="agent-result-header">
               <h3>Result</h3>
-              <button class="link" onClick={() => setViewingResult(null)}>Close</button>
+              <Button variant="ghost" size="sm" onClick={() => setViewingResult(null)}>Close</Button>
             </div>
             <div class="agent-result-meta">
               <span>Model: {viewingResult()?.model_used}</span>

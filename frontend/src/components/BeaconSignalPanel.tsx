@@ -180,7 +180,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
                   <For each={network.data!.discoveryRuns}>{(r) => (
                     <tr>
                       <td>{r.countryCode}</td>
-                      <td><span class={`badge tone-${r.status === 'completed' ? 'good' : r.status === 'failed' ? 'bad' : 'muted'}`}>{r.status}</span></td>
+                      <td><Badge variant={r.status === 'completed' ? 'success' : r.status === 'failed' ? 'destructive' : 'muted'}>{r.status}</Badge></td>
                       <td>{r.discoveredCount}</td>
                       <td>{r.targetCount}</td>
                       <td>{formatTimestamp(r.requestedAt)}</td>

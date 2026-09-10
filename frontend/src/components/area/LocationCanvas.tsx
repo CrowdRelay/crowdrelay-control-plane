@@ -1,5 +1,6 @@
 import { createMemo, createSignal } from 'solid-js'
 import type { Component } from 'solid-js'
+import { Button } from '../ui/button'
 
 type Props = {
   publicLat: number
@@ -48,7 +49,7 @@ export const LocationCanvas: Component<Props> = (props) => {
   }
 
   return <div class="area-location-canvas">
-    <div class="form-actions"><button type="button" class={mode()==='world' ? '' : 'ghost'} onClick={()=>setMode('world')}>World</button><button type="button" class={mode()==='local' ? '' : 'ghost'} onClick={centerLocal}>Local refine</button>{mode()==='local' && <select value={String(localSpanKm())} onChange={e=>setLocalSpanKm(Number(e.currentTarget.value))}><option value="6">6 km</option><option value="25">25 km</option><option value="100">100 km</option></select>}</div>
+    <div class="form-actions"><Button type="button" variant={mode()==='world' ? 'default' : 'ghost'} size="sm" onClick={()=>setMode('world')}>World</Button><Button type="button" variant={mode()==='local' ? 'default' : 'ghost'} size="sm" onClick={centerLocal}>Local refine</Button>{mode()==='local' && <select value={String(localSpanKm())} onChange={e=>setLocalSpanKm(Number(e.currentTarget.value))}><option value="6">6 km</option><option value="25">25 km</option><option value="100">100 km</option></select>}</div>
     <svg viewBox="0 0 100 100" role="application" aria-label={mode()==='world' ? 'Private global AREA location picker' : 'Private local AREA location refinement'} onClick={pick}>
       <defs><pattern id="area-grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" stroke-width="0.35" /></pattern></defs>
       <rect width="100" height="100" class="area-grid-fill" />
