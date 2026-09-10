@@ -414,14 +414,6 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
 /* ── Surfaces ──────────────────────────────────────────────────────────
    One card treatment: soft radius, one hairline, a single shadow tier.
    The top highlight is what separates a card from a grey rectangle. */
-.panel {
-  position:relative;
-  border-radius:var(--radius-lg);
-  background:var(--surface-2);
-  border:1px solid var(--border-subtle);
-  box-shadow:0 1px 2px rgba(0,0,0,.28),0 8px 24px -12px rgba(0,0,0,.45);
-  transition:border-color var(--t-fast),box-shadow var(--t-fast)
-}
 /* ── KPI cards ─────────────────────────────────────────────────────────*/
 
 
@@ -666,27 +658,6 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
     @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 text-primary underline-offset-4 hover:underline;
   }
 
-  /* ── Panels / Cards ──────────────────────────────────────────────── */
-  .panel {
-    @apply rounded-lg border border-border bg-card text-foreground p-4;
-  }
-  .operations-panel,
-  .agent-panel,
-  .queue-panel,
-  .runtime-panel,
-  .brain-decision-panel,
-  .chief-of-staff-panel,
-  .growth-funnel-panel,
-  .growth-intelligence-panel,
-  .posture-panel,
-  .intel-transparency-panel,
-  .regional-profile-panel,
-  .ecosystem-release-panel,
-  .ai-usage-panel,
-  .acquisition-panel,
-  .premium-panel,
-  .mobile-app-setup-panel,
-
   /* ── KPIs ─────────────────────────────────────────────────────────── */
   .kpi-grid,
   .kpi {
@@ -716,40 +687,8 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
   }
 
   /* ── Cards (semantic) ────────────────────────────────────────────── */
-  .warning-card {
-    @apply rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning;
-  }
   .error-card {
     @apply rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive break-words;
-  }
-
-  /* ── Layout ───────────────────────────────────────────────────────── */
-  .page {
-    @apply mx-auto max-w-7xl px-4 md:px-6 py-6 pb-24 overflow-hidden;
-  }
-  .page-head {
-    @apply flex items-start justify-between gap-6 mb-5;
-  }
-  .page-head h1 {
-    @apply text-2xl font-bold tracking-tight text-foreground mt-1 break-words;
-  }
-  .page-head-meta {
-    @apply text-sm text-muted-foreground;
-  }
-  .section-title {
-    @apply flex items-center justify-between gap-4 mt-6 mb-3;
-  }
-  .section-title h2 {
-    @apply text-lg font-semibold text-foreground m-0;
-  }
-  .section-title a {
-    @apply text-primary hover:text-primary-hover;
-  }
-  .command-block {
-    @apply rounded-lg border border-border bg-card p-4 text-foreground transition-colors hover:border-border-strong cursor-pointer;
-  }
-  .eyebrow {
-    @apply text-xs font-medium uppercase tracking-wider text-muted-foreground;
   }
 
   /* ── Data rows ────────────────────────────────────────────────────── */
@@ -1112,118 +1051,5 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
     }
   }
 
-  /* ── Responsive ───────────────────────────────────────────────────── */
-  @media (max-width: 900px) {
-    .autopilot-policy-row {
-      grid-template-columns: 1fr;
-      gap: 8px;
-    }
-    .section-title,
-    .operations-section-head,
-    .agent-section-head,
-    .panel-header {
-      @apply flex-col items-start gap-2.5;
-    }
-    .section-title > div:last-child:not(:only-child),
-    .operations-section-head > div:last-child:not(:only-child) {
-      @apply w-full;
-    }
-    .page {
-      @apply px-4;
-      padding-left: calc(18px + env(safe-area-inset-left));
-      padding-right: calc(18px + env(safe-area-inset-right));
-    }
-    .rum-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .regional-profile-footer {
-      @apply flex-col items-start;
-    }
-    .cos-kpis {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .cos-grid {
-      grid-template-columns: 1fr;
-    }
-    .posture-options {
-      grid-template-columns: 1fr;
-    }
-    .acq-kpis {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-    .operations-split > .operations-section:first-child .flag-list {
-      grid-template-columns: 1fr;
-    }
-    .opportunity-row {
-      @apply flex-col items-start;
-    }
-    .opportunity-actions {
-      @apply w-full justify-start;
-    }
-    .queue-row {
-      @apply flex-col items-start;
-    }
-    .queue-controls {
-      @apply flex-col items-stretch;
-    }
-  }
-
-  @media (max-width: 760px) {
-    .acq-kpis {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .acq-row {
-      grid-template-columns: 1fr;
-    }
-    .acq-row-numbers {
-      @apply flex-wrap;
-      white-space: normal;
-    }
-  }
-
-  @media (max-width: 560px) {
-    .rum-grid {
-      grid-template-columns: 1fr;
-    }
-    .cos-kpis {
-      grid-template-columns: 1fr;
-    }
-    .cos-risk-list li {
-      @apply flex-col items-start gap-1.5;
-    }
-    .login-card {
-      @apply p-6 px-5;
-    }
-  }
-
-  @media (max-width: 640px) {
-    .operations-attention .attention-items {
-      @apply ml-0 w-full;
-    }
-    .operations-attention strong {
-      flex-shrink: 1;
-      min-width: 0;
-    }
-  }
-
-  @media (max-width: 480px) {
-    .login-card {
-      @apply p-6 px-5;
-    }
-  }
-
-  /* ── White-space preservation for buttons in tight rows ──────────── */
-  .section-title button,
-  .section-title a.ghost,
-  .operations-section-head button,
-  .panel-header-actions button,
-  .agent-section-head button,
-
-  /* ── Radius removal for cards that sit inside section titles ─────── */
-  .error-card,
-  .warning-card,
-  .inherit-card,
-  .inline-stale-note,
-  .policy-legend,
-  .release-component-missing,
 }
+

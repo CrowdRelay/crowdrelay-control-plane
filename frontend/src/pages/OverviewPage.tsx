@@ -68,7 +68,7 @@ export function OverviewPage() {
       eyebrow="NORTH STAR"
       title="Fan growth command center"
       description="Aggregate real fans, grow them through genuine engagement, convert through tickets, merch and attendance. Each block drills into the page that owns the detail."
-      actions={<Show when={lastRefresh()}><span class="text-muted-foreground page-head-meta">Last refresh {lastRefresh()}</span></Show>}
+      actions={<Show when={lastRefresh()}><span class="text-sm text-muted-foreground">Last refresh {lastRefresh()}</span></Show>}
     />
 
     {/* ── North Star fan KPI strip ────────────────────────────────── */}

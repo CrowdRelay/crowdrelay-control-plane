@@ -301,8 +301,8 @@ export function BeaconConsolePanel(props: { slug: string }) {
           {/* Placeholder text disappears the moment you type, so it is not a
               name: the field announced itself as "edit text" to a screen
               reader. Same for the filter beside it. */}
-          <input
-            class="flex-1 min-w-[200px] bg-background border border-border text-foreground px-3 py-2.5 rounded-md outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15"
+          <Input
+            class="flex-1 min-w-[200px]"
             type="search"
             aria-label="Search beacons"
             placeholder="Search name, city, email or kind…"

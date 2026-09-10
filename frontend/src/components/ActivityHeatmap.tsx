@@ -90,7 +90,7 @@ export const ActivityHeatmap: Component<{
         </div>
         <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span>less</span>
-          <div class="w-20 h-2 rounded-sm bg-[linear-gradient(90deg,rgba(155,135,245,0.08),rgba(155,135,245,0.5),#9b87f5)]" />
+          <div class="w-20 h-2 rounded-sm" style={{ background: 'linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 8%, transparent), color-mix(in srgb, var(--color-primary) 50%, transparent), var(--color-primary))' }} />
           <span>more</span>
         </div>
       </div>

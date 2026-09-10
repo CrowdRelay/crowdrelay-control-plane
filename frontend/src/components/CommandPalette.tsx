@@ -225,7 +225,7 @@ export const CommandPalette: Component = () => {
 
   return <Show when={open()}>
     <div class="fixed inset-0 z-50 bg-black/50" onClick={close}>
-      <div class="fixed left-1/2 top-4 z-50 -translate-x-1/2 w-full max-w-xl rounded-lg border border-border bg-popover shadow-xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Command palette" onClick={event => event.stopPropagation()}>
+      <div class="fixed left-1/2 top-[15vh] z-50 -translate-x-1/2 w-full max-w-xl rounded-lg border border-border bg-popover shadow-xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Command palette" onClick={event => event.stopPropagation()}>
         <input
           ref={inputRef}
           class="w-full bg-transparent border-none border-b border-border px-3.5 py-3 text-sm outline-none focus:border-primary focus:ring-0"
@@ -239,7 +239,7 @@ export const CommandPalette: Component = () => {
           onInput={event => { setQuery(event.currentTarget.value); setArmed(null) }}
           spellcheck={false}
         />
-        <div class="cmdk-list overflow-y-auto overscroll-contain p-2" id="cmdk-listbox" role="listbox" aria-label="Command results">
+        <div class="cmdk-list overflow-y-auto overscroll-contain p-2 max-h-[50vh]" id="cmdk-listbox" role="listbox" aria-label="Command results">
           <For each={filtered()} fallback={<div class="px-4 py-3 text-muted-foreground text-sm">Nothing matches “{query()}”.</div>}>
             {(cmd, i) => (
               <button
@@ -248,10 +248,18 @@ export const CommandPalette: Component = () => {
                 role="option"
                 aria-selected={i() === index()}
                 class={cn(
-                  'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-surface-1',
-                  i() === index() && 'bg-surface-1 text-foreground',
-                  Boolean(cmd.confirm) && armed() !== cmd.id && 'text-destructive',
-                  armed() === cmd.id && 'bg-destructive/10 text-destructive border border-destructive/30',
+                  'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors',
+                  // Non-danger items: standard foreground + surface hover.
+                  !cmd.confirm && 'text-foreground hover:bg-surface-1',
+                  // Danger items: bright red text + subtle red tint so they're
+                  // scannable and readable, not washed-out dark red.
+                  Boolean(cmd.confirm) && armed() !== cmd.id && 'text-destructive-light hover:bg-destructive/10',
+                  // Active highlight — preserve the danger tint for confirm
+                  // items instead of overriding to white.
+                  i() === index() && !cmd.confirm && 'bg-surface-1 text-foreground',
+                  i() === index() && cmd.confirm && armed() !== cmd.id && 'bg-destructive/15 text-destructive-light',
+                  // Armed (second Enter pending): strong red background.
+                  armed() === cmd.id && 'bg-destructive/20 text-destructive-light border border-destructive/40 font-semibold',
                 )}
                 classList={{
                   'cmdk-item': true,
