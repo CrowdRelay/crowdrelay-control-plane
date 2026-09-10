@@ -4,7 +4,7 @@
 # control plane app can reach the CrowdRelay API directly on crowdrelay-shared.
 # The virya-area-tunnel Caddy container was removed: it was a pure pass-through
 # proxy that duplicated the path allowlist already enforced in
-# tenant_area_client.rs. The app now calls crowdrelay-api-1:8080 directly.
+# tenant_area_client.rs. The app now calls crowdrelay-api-active:8080 directly.
 services:
   app:
     environment:

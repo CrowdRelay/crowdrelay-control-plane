@@ -180,7 +180,7 @@ if not isinstance(master, str) or not master:
     raise SystemExit("effective app config is missing CONTROL_PLANE_MANAGEMENT_MASTER_KEY")
 if area_master == master:
     raise SystemExit("effective management masters must be distinct")
-if url != "http://crowdrelay-api-1:8080":
+if url != "http://crowdrelay-api-active:8080":
     raise SystemExit("effective app config has invalid CONTROL_PLANE_VIRYA_MANAGEMENT_URL")
 ' || fail 'effective compose management wiring is invalid'
 printf 'MANAGEMENT_WIRING=PASS semantic=true\n'
@@ -283,7 +283,7 @@ management_url="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_VIRYA_
 [[ -n "$area_master" ]] || fail 'runtime AREA management master is missing'
 [[ -n "$management_master" ]] || fail 'runtime operations management master is missing'
 [[ "$area_master" != "$management_master" ]] || fail 'runtime management masters are not distinct'
-[[ "$management_url" == "http://crowdrelay-api-1:8080" ]] || fail "unexpected management URL: $management_url"
+[[ "$management_url" == "http://crowdrelay-api-active:8080" ]] || fail "unexpected management URL: $management_url"
 unset runtime_env area_master management_master management_url
 
 published="$(docker port crowdrelay-control-plane-app-1 8090/tcp | head -n1)"
@@ -326,15 +326,26 @@ unset admin
 printf 'MANAGEMENT_E2E=PASS area=200 summary=200 flags=200 autopilot=200 attention=200\n'
 
 # Cross-service connectivity: verify the control plane can actually reach
-# the CrowdRelay API at crowdrelay-api-1:8080 via crowdrelay-shared.
+# the CrowdRelay API at crowdrelay-api-active:8080 via crowdrelay-shared.
 # This catches the 503 AllSectionsFailed issue where the API container
 # is healthy but not on the crowdrelay-shared network.
 cp_api_sha="$(docker exec crowdrelay-control-plane-app-1 \
-  wget -qO- --timeout=5 http://crowdrelay-api-1:8080/v1/meta 2>/dev/null \
+  wget -qO- --timeout=5 http://crowdrelay-api-active:8080/v1/meta 2>/dev/null \
   | python3 -c 'import json,sys; print(json.load(sys.stdin).get("gitSha",""))' 2>/dev/null || true)"
 [[ -n "$cp_api_sha" ]] || \
-  fail "control plane cannot reach CrowdRelay API at crowdrelay-api-1:8080 — API may not be on crowdrelay-shared network"
+  fail "control plane cannot reach CrowdRelay API at crowdrelay-api-active:8080 — API may not be on crowdrelay-shared network"
 printf 'CROSS_SERVICE=PASS control_plane_reaches_api=true api_sha=%s\n' "$cp_api_sha"
+
+# Management URL health: verify the control plane's MANAGEMENT_URL env var
+# actually points to a reachable container. This catches the specific bug
+# where blue/green swap renames the API container but the env var still
+# references the old name — the cross-service check above passes (it uses
+# the alias directly), but every /operations/* endpoint 503s because the
+# management URL in the app's env is stale.
+mgmt_url="$(docker exec crowdrelay-control-plane-app-1 printenv CONTROL_PLANE_VIRYA_MANAGEMENT_URL 2>/dev/null || true)"
+[[ "$mgmt_url" == "http://crowdrelay-api-active:8080" ]] || \
+  fail "CONTROL_PLANE_VIRYA_MANAGEMENT_URL is '$mgmt_url' — must be http://crowdrelay-api-active:8080 (blue/green alias), not a concrete container name"
+printf 'MANAGEMENT_URL=PASS url=%s\n' "$mgmt_url"
 
 rm -rf -- "$backup_dir"
 backup_dir=""

@@ -129,7 +129,7 @@ if not isinstance(operations,str) or not operations:
     raise SystemExit("recovery refused: effective operations management master is missing; run just bootstrap-management")
 if area == operations:
     raise SystemExit("recovery refused: management masters must be distinct")
-if url != "http://crowdrelay-api-1:8080":
+if url != "http://crowdrelay-api-active:8080":
     raise SystemExit("recovery refused: management URL is not canonical")
 print("CONTROL_PLANE_RECOVERY_PREFLIGHT=PASS management_wiring=complete")
 ' || fail 'release unit recovery preflight failed before mutation'
@@ -160,7 +160,7 @@ management_url="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_VIRYA_
 [[ -n "$area_master" ]] || fail 'Control Plane AREA management master is missing from runtime'
 [[ -n "$management_master" ]] || fail 'Control Plane operations management master is missing from runtime'
 [[ "$area_master" != "$management_master" ]] || fail 'Control Plane management masters are not distinct'
-[[ "$management_url" == "http://crowdrelay-api-1:8080" ]] || fail "Control Plane management URL drifted: $management_url"
+[[ "$management_url" == "http://crowdrelay-api-active:8080" ]] || fail "Control Plane management URL drifted: $management_url"
 unset runtime_env area_master management_master management_url
 published="$(docker port "$app" 8090/tcp | head -n1)"
 [[ -n "$published" ]] || fail 'Control Plane app has no published endpoint'

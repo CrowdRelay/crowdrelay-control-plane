@@ -62,7 +62,7 @@ management_url="$(printf '%s\n' "$runtime_env" | sed -n 's/^CONTROL_PLANE_VIRYA_
 [[ -n "$area_master" ]] || fail 'Control Plane AREA management master missing from runtime; run just bootstrap-management'
 [[ -n "$management_master" ]] || fail 'Control Plane operations management master missing from runtime; run just bootstrap-management'
 [[ "$area_master" != "$management_master" ]] || fail 'Control Plane management masters must be distinct'
-[[ "$management_url" == "http://crowdrelay-api-1:8080" ]] || fail 'Control Plane management URL is not canonical'
+[[ "$management_url" == "http://crowdrelay-api-active:8080" ]] || fail 'Control Plane management URL is not canonical'
 published="$(docker port "$app" 8090/tcp | head -n1)"
 [[ -n "$published" ]] || fail 'Control Plane app has no published endpoint'
 base="http://${published}"
@@ -104,8 +104,8 @@ fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 for command in docker sha256sum; do command -v "$command" >/dev/null 2>&1 || fail "missing Oracle command: $command"; done
 env_file="deploy/.env.production"
 [[ -f "$env_file" && ! -L "$env_file" ]] || fail 'Oracle production env missing or unsafe'
-runtime_env="$(docker inspect crowdrelay-api-1 --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null || docker inspect crowdrelay-api-green-1 --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null || true)"
-[[ -n "$runtime_env" ]] || fail 'no CrowdRelay API container running (tried crowdrelay-api-1 and crowdrelay-api-green-1)'
+runtime_env="$(docker inspect crowdrelay-api-blue-1 --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null || docker inspect crowdrelay-api-green-1 --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null || true)"
+[[ -n "$runtime_env" ]] || fail 'no CrowdRelay API container running (tried crowdrelay-api-blue-1 and crowdrelay-api-green-1)'
 runtime_area="$(printf '%s\n' "$runtime_env" | sed -n 's/^CROWDRELAY_CONTROL_PLANE_AREA_API_KEY=//p')"
 runtime_management="$(printf '%s\n' "$runtime_env" | sed -n 's/^CROWDRELAY_CONTROL_PLANE_API_KEY=//p')"
 persisted_area="$(sed -n 's/^CROWDRELAY_CONTROL_PLANE_AREA_API_KEY=//p' "$env_file" | tail -n1)"
@@ -183,7 +183,7 @@ if not management or management in reserved or management == area:
     management=fresh(reserved | {area})
 text=upsert(text,'CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY',area)
 text=upsert(text,'CONTROL_PLANE_MANAGEMENT_MASTER_KEY',management)
-text=upsert(text,'CONTROL_PLANE_VIRYA_MANAGEMENT_URL','http://crowdrelay-api-1:8080')
+text=upsert(text,'CONTROL_PLANE_VIRYA_MANAGEMENT_URL','http://crowdrelay-api-active:8080')
 tmp=path.with_name('.env.management-bootstrap.tmp')
 tmp.write_text(text)
 os.chmod(tmp,0o600); os.chown(tmp,st.st_uid,st.st_gid); os.replace(tmp,path)
@@ -260,8 +260,8 @@ tmp=path.with_name(path.name+'.management-bootstrap.tmp'); tmp.write_text(text)
 os.chmod(tmp,stat.S_IMODE(st.st_mode)); os.chown(tmp,st.st_uid,st.st_gid); os.replace(tmp,path)
 PY
 rm -f -- "$payload"
-running_image="$(docker inspect crowdrelay-api-1 --format '{{.Config.Image}}' 2>/dev/null || docker inspect crowdrelay-api-green-1 --format '{{.Config.Image}}' 2>/dev/null || true)"
-[[ -n "$running_image" ]] || fail 'no CrowdRelay API container running (tried crowdrelay-api-1 and crowdrelay-api-green-1)'
+running_image="$(docker inspect crowdrelay-api-blue-1 --format '{{.Config.Image}}' 2>/dev/null || docker inspect crowdrelay-api-green-1 --format '{{.Config.Image}}' 2>/dev/null || true)"
+[[ -n "$running_image" ]] || fail 'no CrowdRelay API container running (tried crowdrelay-api-blue-1 and crowdrelay-api-green-1)'
 current_sha="${running_image##*:sha-}"
 [[ "$current_sha" =~ ^[0-9a-f]{40}$ ]] || fail "current API image is not immutable: $running_image"
 [[ -f .crowdrelay.local.sh && ! -L .crowdrelay.local.sh ]] || fail 'CrowdRelay local config missing or unsafe'
@@ -283,9 +283,9 @@ fi
 compose() { docker compose "${compose_args[@]}" "$@"; }
 compose config --quiet || fail 'Oracle effective compose invalid after credential persistence'
 compose up -d --no-deps --force-recreate --wait --wait-timeout "${CROWDRELAY_DEPLOY_WAIT_TIMEOUT_SECONDS:-180}" api
-new_image="$(docker inspect crowdrelay-api-1 --format '{{.Config.Image}}' 2>/dev/null || docker inspect crowdrelay-api-green-1 --format '{{.Config.Image}}' 2>/dev/null || true)"
+new_image="$(docker inspect crowdrelay-api-blue-1 --format '{{.Config.Image}}' 2>/dev/null || docker inspect crowdrelay-api-green-1 --format '{{.Config.Image}}' 2>/dev/null || true)"
 [[ "$new_image" == "$running_image" ]] || fail "credential reload changed CrowdRelay release: before=$running_image after=$new_image"
-image_id="$(docker inspect crowdrelay-api-1 --format '{{.Image}}' 2>/dev/null || docker inspect crowdrelay-api-green-1 --format '{{.Image}}' 2>/dev/null || true)"
+image_id="$(docker inspect crowdrelay-api-blue-1 --format '{{.Image}}' 2>/dev/null || docker inspect crowdrelay-api-green-1 --format '{{.Image}}' 2>/dev/null || true)"
 revision="$(docker image inspect "$image_id" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
 [[ "$revision" == "$current_sha" ]] || fail 'CrowdRelay runtime revision changed during credential reload'
 printf 'ORACLE_CREDENTIAL_RELOAD=PASS release_unchanged=true api_sha=%s worker=untouched proxy=untouched\n' "$current_sha"
