@@ -116,13 +116,13 @@ export function GrowthPosturePanel(props: { slug: string }) {
           <p class="m-0 text-sm text-muted-foreground">No posture has been chosen, so each policy carries whatever it was last set to individually. Picking one here brings them into a state you can describe in a sentence.</p>
         </Card>
       </Show>
-      <div class="grid gap-2.5 mt-3" role="radiogroup" aria-label="Growth posture">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3" role="radiogroup" aria-label="Growth posture">
         <For each={POSTURES}>{option => (
           <button
             type="button"
             role="radio"
             aria-checked={current() === option.value}
-            class="text-left p-4 border rounded-md transition-colors cursor-pointer hover:border-primary/40"
+            class="text-left p-4 border rounded-md transition-colors cursor-pointer hover:border-primary/40 flex flex-col gap-1.5"
             classList={{
               'border-primary bg-primary/5': current() === option.value,
               'border-border bg-card': current() !== option.value,
@@ -135,8 +135,8 @@ export function GrowthPosturePanel(props: { slug: string }) {
               <Show when={current() === option.value}><Badge variant="success">current</Badge></Show>
               <Show when={pending() === option.value}><Badge variant="muted">applying…</Badge></Show>
             </span>
-            <span class="block mt-1 text-sm text-secondary-foreground">{option.summary}</span>
-            <span class="block mt-1 text-sm text-muted-foreground leading-relaxed">{option.detail}</span>
+            <span class="text-sm text-secondary-foreground">{option.summary}</span>
+            <span class="text-sm text-muted-foreground leading-relaxed">{option.detail}</span>
           </button>
         )}</For>
       </div>

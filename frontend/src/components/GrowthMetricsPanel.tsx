@@ -233,17 +233,17 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                   <strong class="text-base font-bold text-foreground">{platformLabel(platform)}</strong>
                   <span class="text-sm text-muted-foreground">{items.length} series</span>
                 </div>
-                <div class="grid gap-1.5" style={{ 'grid-template-columns': 'minmax(120px,1.2fr) minmax(60px,2fr) 4.5rem 3.25rem' }}>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1.5">
                   <For each={expandedPlatforms().has(platform) ? items : items.slice(0, MAX_VISIBLE_PLATFORM_BARS)}>{(trend: GrowthMetricTrendView) => {
                     const delta = trend.delta_7d ?? trend.delta_24h ?? trend.delta_28d
                     const dir = trendDirection(delta)
                     return (
-                      <div class="contents" title={trend.display_name}>
-                        <span class="text-sm text-secondary-foreground whitespace-nowrap overflow-hidden text-ellipsis cursor-help">{trend.display_name}</span>
-                        <Bar value={trend.latest_value} max={max()} color={color} />
-                        <span class="text-base font-semibold text-foreground whitespace-nowrap text-right">{compactNumber(trend.latest_value)}</span>
+                      <div class="flex items-center gap-2 min-w-0" title={trend.display_name}>
+                        <span class="text-sm text-secondary-foreground whitespace-nowrap overflow-hidden text-ellipsis cursor-help shrink-0 max-w-[40%]">{trend.display_name}</span>
+                        <div class="flex-1 min-w-0"><Bar value={trend.latest_value} max={max()} color={color} /></div>
+                        <span class="text-sm font-semibold text-foreground whitespace-nowrap text-right shrink-0">{compactNumber(trend.latest_value)}</span>
                         <Show when={delta != null}>
-                          <span class="text-sm font-medium text-right" classList={{ 'text-success': dir === 'up', 'text-destructive': dir === 'down', 'text-muted-foreground': dir === 'flat' || dir === 'unknown' }}>{delta! > 0 ? '+' : ''}{compactNumber(delta!)}</span>
+                          <span class="text-sm font-medium text-right shrink-0" classList={{ 'text-success': dir === 'up', 'text-destructive': dir === 'down', 'text-muted-foreground': dir === 'flat' || dir === 'unknown' }}>{delta! > 0 ? '+' : ''}{compactNumber(delta!)}</span>
                         </Show>
                       </div>
                     )

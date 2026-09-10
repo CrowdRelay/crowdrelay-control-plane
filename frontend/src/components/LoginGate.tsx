@@ -2,6 +2,7 @@ import { Show, createSignal, onMount } from 'solid-js'
 import type { Component, JSX } from 'solid-js'
 import { authState } from '../lib/auth'
 import { SkeletonBlock } from './layout'
+import { Button } from './ui/button'
 
 export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
   const [username, setUsername] = createSignal('')
@@ -53,7 +54,7 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
             </div>
           </label>
           <Show when={error()}><div class="login-error" role="alert">{error()}</div></Show>
-          <button type="submit" disabled={busy() || !username().trim() || !password()}>{busy() ? 'Signing in…' : 'Sign in'}</button>
+          <Button type="submit" disabled={busy() || !username().trim() || !password()}>{busy() ? 'Signing in…' : 'Sign in'}</Button>
         </form>
         <div class="login-security"><span class="auth-dot ok"/><span>Session lives in an HttpOnly cookie — credentials never touch browser storage.</span></div>
       </section>

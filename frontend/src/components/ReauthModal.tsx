@@ -1,6 +1,7 @@
 import { Show, createSignal } from 'solid-js'
 import type { Component } from 'solid-js'
 import { reauthState, submitReauth, cancelReauth } from '../lib/reauth'
+import { Button } from './ui/button'
 
 /// Modal that prompts for the operator's password before a destructive
 /// mutation from a mobile session. Triggered by `requireReauth()` in
@@ -44,12 +45,12 @@ export const ReauthModal: Component = () => {
                 <div class="reauth-error" role="alert">{reauthState.error()}</div>
               </Show>
               <div class="confirm-dialog-actions">
-                <button type="button" class="ghost" onClick={cancel} disabled={reauthState.busy()}>
+                <Button type="button" variant="ghost" size="sm" onClick={cancel} disabled={reauthState.busy()}>
                   Cancel
-                </button>
-                <button type="submit" disabled={reauthState.busy() || !password().trim()}>
+                </Button>
+                <Button type="submit" size="sm" disabled={reauthState.busy() || !password().trim()}>
                   {reauthState.busy() ? 'Verifying…' : 'Authorize'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>

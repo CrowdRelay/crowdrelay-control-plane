@@ -196,14 +196,14 @@ export function AreaPage() {
       <div class="area-drop-table">
         <div class="area-drop-head"><span>#</span><span>City</span><span>Status</span><span>Claims</span><span>Window</span><span/></div>
         <For each={drops.data?.items ?? []}>{item => <div class="area-drop-row">
-          <code>{item.number}</code><div><strong>{item.city}</strong><small>{item.id} · rev {item.revision}{item.hasDraft ? ' · draft' : ''}</small></div><StatusBadge status={item.status} tone={statusTone(item.status)} /><span>{item.claimCount} / {item.maxClaims}</span><small>{formatDate(item.startsAt)}<br/>{formatDate(item.endsAt)}</small><Button variant="ghost" size="sm" onClick={()=>{setSelectedId(item.id);setEditorStep('city')}}>Edit</Button>
+          <code>{item.number}</code><div><strong>{item.city}</strong><small>rev {item.revision}{item.hasDraft ? ' · draft' : ''}</small></div><StatusBadge status={item.status} tone={statusTone(item.status)} /><span>{item.claimCount} / {item.maxClaims}</span><small>{formatDate(item.startsAt)}<br/>{formatDate(item.endsAt)}</small><Button variant="ghost" size="sm" onClick={()=>{setSelectedId(item.id);setEditorStep('city')}}>Edit</Button>
         </div>}</For>
         <Show when={!drops.isPending && (drops.data?.items.length ?? 0)===0}><Card class="p-4"><EmptyState label="No AREA locations" hint="AREA locations define geographic targeting for fan discovery. Create the first location draft above." /></Card></Show>
       </div>
     </SectionPanel>
 
     <Show when={selectedId()}><SectionPanel class="area-editor">
-      <SectionTitle eyebrow="PRIVATE EDITOR" title={selectedId()!} action={<Button variant="ghost" size="sm" onClick={closeEditor}>Close & purge coordinates</Button>} />
+      <SectionTitle eyebrow="PRIVATE EDITOR" title={detail.data?.summary ? `${detail.data.summary.city} · #${detail.data.summary.number}` : 'Loading…'} action={<Button variant="ghost" size="sm" onClick={closeEditor}>Close & purge coordinates</Button>} />
       <p class="text-sm text-muted-foreground -mt-1 mb-4">Single-drop response only · <code>Cache-Control: private, no-store</code></p>
       <Show when={detail.data && draft()} fallback={<SkeletonRows count={4} />}>{_ready => <>
         <div class="area-step-tabs"><For each={['city','location','content','schedule','review'] as const}>{step=><Button variant="ghost" size="sm" class={editorStep()===step?'active':''} onClick={()=>setEditorStep(step)}>{step}</Button>}</For></div>

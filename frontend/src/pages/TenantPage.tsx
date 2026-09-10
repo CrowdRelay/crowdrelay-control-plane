@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link, useNavigate, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage, formatTimestamp } from '../lib/format'
+import { errorMessage } from '../lib/format'
 import type { Palette, ProvisioningJob } from '../lib/types'
 import { ReleaseConvergencePanel } from '../components/ReleaseConvergencePanel'
 import { StatusBadge } from '../components/StatusBadge'
@@ -41,8 +41,6 @@ const provisionTone = (status: ProvisioningJob['status']) => status === 'succeed
 // "it happened" (completed). The domain status (planned/approved/running/
 // succeeded/failed/cancelled) stays for backward compat; the phase is the
 // universal semantic layer that prevents mistaking a trigger for a result.
-const phaseTone = (phase: ProvisioningJob['phase']): 'good' | 'warn' | 'bad' | 'muted' =>
-  phase === 'completed' ? 'good' : phase === 'failed' ? 'bad' : phase === 'unknown' ? 'muted' : 'warn'
 const provisionFailures: Record<string, { title: string; guidance: string; retryable: boolean }> = {
   image_revision_mismatch: { title: 'Image was built from a different commit', guidance: 'The published image does not carry the git SHA this release asked for. The tag was rebuilt or overwritten. Do not retry until the release is republished from the intended commit.', retryable: false },
   image_revision_missing: { title: 'Image is missing its provenance label', guidance: 'The image does not publish org.opencontainers.image.revision, so its origin cannot be verified. Republish it from CrowdRelay CI.', retryable: false },
@@ -339,27 +337,25 @@ export function TenantPage() {
               <div><span>Public API</span><strong>{t.crowdrelayBaseUrl ?? 'not configured'}</strong></div>
               <div><span>Signal / site</span><strong>{t.signalBaseUrl ?? 'not configured'}</strong></div>
               <div><span>Provisioner</span><strong>{platform()?.provisionerConfigured ? 'configured' : 'not configured'}</strong></div>
-              <div><span>Default release</span><strong class="mono">{platform()?.provisionerDefaultImageTag?.slice(0, 16) ?? 'not configured'}</strong></div>
             </div>
             <div class="provision-row">
-              <input class={!releaseReady() && desiredVersion().trim() ? 'input-invalid mono' : 'mono'} value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={platform()?.provisionerDefaultImageTag ?? 'sha-<40-char commit>'} aria-label="Desired release version" aria-invalid={!releaseReady() && Boolean(desiredVersion().trim())} />
+              <input class={!releaseReady() && desiredVersion().trim() ? 'input-invalid' : ''} value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder="Leave blank for latest release" aria-label="Desired release version" aria-invalid={!releaseReady() && Boolean(desiredVersion().trim())} />
               <Button variant="ghost" size="sm" onClick={() => plan.mutate()} disabled={plan.isPending || deploymentBusy() || !releaseReady()}>Preview</Button>
               <button onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || !releaseReady() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl}>{latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</button>
             </div>
             <Show when={deploy.error}><ErrorCard>{deploy.error instanceof Error ? deploy.error.message : 'Deployment request failed'}</ErrorCard></Show>
             <Show when={preview()}>{job => <div class="plan-preview"><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">PLAN PREVIEW</span><pre>{JSON.stringify(job().plan, null, 2)}</pre></div>}</Show>
             <Show when={latestJob()}>{job => <div class="provision-job">
-              <div class="provision-job-head"><div><strong>{job().desiredVersion ?? 'default release'}</strong><small>attempt {job().attemptCount} · created {new Date(job().createdAt).toLocaleString()}</small></div><div class="provision-job-badges"><StatusBadge status={job().status} tone={provisionTone(job().status)} /><StatusBadge status={`phase: ${job().phase}`} tone={phaseTone(job().phase)} /></div></div>
+              <div class="provision-job-head"><div><strong>{job().status === 'succeeded' ? 'Deployed' : job().status === 'failed' ? 'Deployment failed' : job().status === 'running' ? 'Deploying…' : job().status === 'approved' ? 'Queued' : 'Planned'}</strong><small>attempt {job().attemptCount} · {new Date(job().createdAt).toLocaleString()}</small></div><div class="provision-job-badges"><StatusBadge status={job().status} tone={provisionTone(job().status)} /></div></div>
               <Show when={job().status === 'approved'}><p>Queued for the provisioner agent. No Docker mutation happens in the HTTP request.</p></Show>
-              <Show when={job().status === 'running'}><p>Claimed by <code>{job().claimedBy ?? 'provisioner'}</code>. Lease expires {formatTimestamp(job().leaseExpiresAt)}.</p></Show>
-              <Show when={job().status === 'succeeded'}><div class="deployment-result"><dl><dt>Local API</dt><dd><code>{job().result?.localApiUrl ?? '—'}</code></dd><dt>Host port</dt><dd>{job().result?.apiPort ?? '—'}</dd><dt>Workspace</dt><dd class="mono">{job().result?.workspaceId ?? t.workspaceId ?? '—'}</dd><dt>Schema</dt><dd>{job().result?.schemaVersion ?? '—'}</dd><dt>Provisioner</dt><dd><code>{job().result?.provisionerWorkerId ?? job().claimedBy ?? '—'}</code></dd></dl><p class="route-note">The instance is healthy locally. Route <code>{t.crowdrelayBaseUrl}</code> at the edge to this host port to expose it publicly.</p></div></Show>
+              <Show when={job().status === 'running'}><p>The provisioner agent is deploying. This typically takes 2–5 minutes.</p></Show>
+              <Show when={job().status === 'succeeded'}><div class="deployment-result"><dl><dt>Local API</dt><dd><code>{job().result?.localApiUrl ?? '—'}</code></dd><dt>Host port</dt><dd>{job().result?.apiPort ?? '—'}</dd><dt>Schema</dt><dd>{job().result?.schemaVersion ?? '—'}</dd></dl><p class="route-note">The instance is healthy locally. Route <code>{t.crowdrelayBaseUrl}</code> at the edge to this host port to expose it publicly.</p></div></Show>
               <Show when={job().status === 'failed' ? (job().errorCode ?? 'provisioning_failed') : undefined}>{code => <ErrorCard>
-                <strong>{provisionFailures[code()]?.title ?? code()}</strong>
+                <strong>{provisionFailures[code()]?.title ?? 'Deployment failed'}</strong>
                 <Show when={provisionFailures[code()]}>{failure => <>
                   <p>{failure().guidance}</p>
                   <Show when={!failure().retryable}><p class="route-note">Retrying will not help until the underlying cause is fixed.</p></Show>
                 </>}</Show>
-                <small class="mono">{code()}{job().errorDetail ? ` · ${job().errorDetail}` : ''}</small>
               </ErrorCard>}</Show>
               <Show when={['planned','approved'].includes(job().status)}><Button variant="destructive-ghost" size="sm" onClick={() => cancel.mutate()} disabled={cancel.isPending}>Cancel queued deployment</Button></Show>
             </div>}</Show>

@@ -1,4 +1,5 @@
 import { Show, createSignal, onCleanup, onMount, type Component, type JSX } from 'solid-js'
+import { Button } from './ui/button'
 
 // Shared modal shell. Overlays used to be plain divs with a click-to-close
 // backdrop: no dialog role, no Escape, no focus trap, and focus left behind on
@@ -125,16 +126,17 @@ export function ConfirmHost(): JSX.Element {
           <p id={`${request.title}-desc`} class="confirm-dialog-body">{request.body}</p>
         </Show>
         <div class="confirm-dialog-actions">
-          <button type="button" class="ghost" onClick={() => settle(false)}>
+          <Button type="button" variant="ghost" size="sm" onClick={() => settle(false)}>
             {request.cancelLabel ?? 'Cancel'}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            class={request.destructive ? 'danger' : ''}
+            variant={request.destructive ? 'destructive' : 'default'}
+            size="sm"
             onClick={() => settle(true)}
           >
             {request.confirmLabel ?? 'Confirm'}
-          </button>
+          </Button>
         </div>
       </Dialog>
     )}

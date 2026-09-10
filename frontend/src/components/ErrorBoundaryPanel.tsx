@@ -1,4 +1,5 @@
 import { ErrorBoundary, createEffect, type Component, type JSX } from 'solid-js'
+import { Button } from './ui/button'
 
 // A render throw anywhere in a page used to blank the whole console: there was
 // no boundary between the router outlet and the panels. This keeps the failure
@@ -30,7 +31,7 @@ export const ErrorBoundaryPanel: Component<{
       <p>The rest of the Control Plane is unaffected. Retry re-renders this section.</p>
       <small class="font-mono">{detail}</small>
       <div class="mt-5 pt-4 border-t border-border-subtle flex items-center">
-        <button type="button" class="ghost" onClick={() => retry()}>Retry</button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => retry()}>Retry</Button>
       </div>
     </div>
   }}>

@@ -360,13 +360,13 @@ export function AgentPanel(props: { slug: string }) {
             />
           </label>
           <div class="agent-actions">
-            <button
-              class="primary"
+            <Button
+              size="sm"
               disabled={submitting() || !prompt().trim()}
               onClick={submit}
             >
               {submitting() ? 'Starting…' : 'Run Agent'}
-            </button>
+            </Button>
             <Show when={error()}>
               <span class="agent-error">{error()}</span>
             </Show>
@@ -396,10 +396,10 @@ export function AgentPanel(props: { slug: string }) {
               <p class="agent-field-hint">A schedule repeats the task above, so pick a template and write its prompt first — this form only adds the interval.</p>
             </Show>
             <div class="agent-actions">
-              <button class="primary" disabled={submitting() || !selectedTemplate() || !prompt().trim()} onClick={createSchedule}>
+              <Button size="sm" disabled={submitting() || !selectedTemplate() || !prompt().trim()} onClick={createSchedule}>
                 {submitting() ? 'Creating…' : 'Create schedule'}
-              </button>
-              <button class="link" onClick={() => setCreatingSchedule(false)}>Cancel</button>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setCreatingSchedule(false)}>Cancel</Button>
             </div>
           </div>
         </Show>

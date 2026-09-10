@@ -2,6 +2,7 @@ import { For, Show } from 'solid-js'
 import { ApiError, errorHeading } from '../lib/api'
 import type { SectionVerdict } from '../lib/types'
 import { cn } from '../lib/cn'
+import { Button } from './ui/button'
 
 // When every section of a read-model fan-out fails, the backend returns a
 // structured 503 with per-section verdicts (state + remediation). The old
@@ -57,7 +58,7 @@ export function SectionFailureCard(props: { error: unknown; fallback: string; on
     <Show when={isAllSectionsFailed()} fallback={
       <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
         {errorHeading(error(), props.fallback)}
-        <Show when={props.onRetry}><button class="ghost mt-2.5 text-sm" onClick={() => props.onRetry!()}>Retry</button></Show>
+        <Show when={props.onRetry}><Button variant="ghost" size="sm" class="mt-2.5" onClick={() => props.onRetry!()}>Retry</Button></Show>
       </div>
     }>
       <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
@@ -83,7 +84,7 @@ export function SectionFailureCard(props: { error: unknown; fallback: string; on
             )}
           </For>
         </ul>
-        <Show when={props.onRetry}><button class="ghost mt-2.5 text-sm" onClick={() => props.onRetry!()}>Retry</button></Show>
+        <Show when={props.onRetry}><Button variant="ghost" size="sm" class="mt-2.5" onClick={() => props.onRetry!()}>Retry</Button></Show>
       </div>
     </Show>
   </Show>

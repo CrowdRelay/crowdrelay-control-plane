@@ -2,6 +2,7 @@ import { Show, createEffect, createSignal } from 'solid-js'
 import type { AutopilotPolicy, AutonomyLevel } from '../lib/types'
 import { CONTEXT_LABELS, labelOr } from '../lib/opportunity-labels'
 import { StatusBadge } from './StatusBadge'
+import { Button } from './ui/button'
 
 // Shared autopilot policy editor — used by both AuthorityPoliciesPanel
 // and GrowthIntelligencePanel. The two copies had already drifted in
@@ -85,8 +86,10 @@ export function PolicyEditor(props: {
       <span>Max / 24h</span>
       <input disabled={props.pending} type="number" min="1" max="1000" step="1" value={maxActions()} onInput={(event) => setMaxActions(event.currentTarget.valueAsNumber)} />
     </label>
-    <button
-      class="ghost policy-save"
+    <Button
+      variant="ghost"
+      size="sm"
+      class="policy-save"
       disabled={!dirty() || !valid() || props.pending}
       onClick={() => props.onSave({
         enabled: enabled(),
@@ -94,6 +97,6 @@ export function PolicyEditor(props: {
         minimum_confidence: confidenceBasisPoints(),
         max_actions_24h: maxActions(),
       })}
-    >{props.pending ? 'Saving…' : 'Apply'}</button>
+    >{props.pending ? 'Saving…' : 'Apply'}</Button>
   </div>
 }
