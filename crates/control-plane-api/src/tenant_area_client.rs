@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
-    sync::Mutex,
+    sync::{Mutex, Semaphore},
     time::timeout,
 };
 use url::Url;
@@ -23,9 +23,18 @@ const AREA_NAMESPACE: &[u8] = b"crowdrelay-area-admin-v1:";
 const CONTROL_PLANE_NAMESPACE: &[u8] = b"crowdrelay-control-plane-v1:";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 
-/// Maximum idle connections kept per upstream target (host:port). Matches the
-/// command center's concurrency semaphore — enough for the worst-case fan-out
-/// without holding idle file descriptors open indefinitely.
+/// Maximum idle connections kept per upstream target (host:port), and the
+/// maximum number of upstream requests this client will have in flight at once.
+///
+/// One number for both on purpose. A fan-out wider than the pool cannot be
+/// served from it: the surplus requests each open a fresh connection, and on
+/// the way back only `POOL_MAX_PER_TARGET` fit, so the rest are dropped. Every
+/// page load then opened and discarded connections in a burst — which is churn
+/// the upstream sees as a connection storm, and is what turned a nine-section
+/// page into four sections that answered and five that did not.
+///
+/// Holding them equal makes the fan-out exactly fillable from the pool: the
+/// same connections are reused, returned, and reused again.
 const POOL_MAX_PER_TARGET: usize = 4;
 
 /// A connection idle longer than this is closed when next encountered. Sweeping
@@ -75,6 +84,13 @@ pub struct TenantAreaClient {
     master_key: Option<Arc<str>>,
     management_master_key: Option<Arc<str>>,
     pool: ConnectionPool,
+    /// Caps in-flight upstream requests at the pool size.
+    ///
+    /// On the client rather than at each fan-out, because the failure this
+    /// prevents is a property of the transport and the call sites cannot see
+    /// it. Six fan-outs exist and several were wider than the pool; bounding
+    /// them one at a time would leave the seventh to rediscover the bug.
+    in_flight: Arc<Semaphore>,
 }
 
 pub(crate) struct ManagementRequest<'a> {
@@ -93,6 +109,7 @@ impl TenantAreaClient {
             master_key: master_key.map(Arc::from),
             management_master_key: None,
             pool: Arc::new(Mutex::new(HashMap::new())),
+            in_flight: Arc::new(Semaphore::new(POOL_MAX_PER_TARGET)),
         }
     }
 
@@ -105,6 +122,7 @@ impl TenantAreaClient {
             master_key: master_key.map(Arc::from),
             management_master_key: management_master_key.map(Arc::from),
             pool: Arc::new(Mutex::new(HashMap::new())),
+            in_flight: Arc::new(Semaphore::new(POOL_MAX_PER_TARGET)),
         }
     }
 
@@ -180,6 +198,8 @@ impl TenantAreaClient {
             ));
         }
         let token = self.derived_token(tenant_id)?;
+        // Held for the whole exchange. See `POOL_MAX_PER_TARGET`.
+        let _permit = self.in_flight.acquire().await;
         request_authorized(
             &self.pool,
             base_url,
@@ -220,6 +240,8 @@ impl TenantAreaClient {
             return Err(ApiError::InvalidInput("invalid Idempotency-Key".to_owned()));
         }
         let token = self.derived_management_token(tenant_id)?;
+        // Held for the whole exchange. See `POOL_MAX_PER_TARGET`.
+        let _permit = self.in_flight.acquire().await;
         request_authorized(
             &self.pool,
             base_url,
@@ -1679,6 +1701,79 @@ mod tests {
         assert!(
             matches!(result, Err(ApiError::Unreachable)),
             "a server that closes without answering is unreachable, not contract drift: {result:?}"
+        );
+    }
+
+    /// A fan-out wider than the pool must not open a connection per section.
+    ///
+    /// The operations page fetches nine sections at once against a pool of
+    /// four. Unbounded, five of them opened fresh connections every load and
+    /// only four could be returned, so the rest were discarded — a connection
+    /// storm on every page view, and the reason a nine-section page came back
+    /// as four that answered and five that did not.
+    #[tokio::test]
+    async fn a_fan_out_wider_than_the_pool_does_not_open_a_connection_per_request() {
+        use tokio::io::AsyncWriteExt as _;
+        use tokio::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let address = listener.local_addr().expect("addr");
+        let accepted = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = std::sync::Arc::clone(&accepted);
+
+        tokio::spawn(async move {
+            loop {
+                let Ok((mut socket, _)) = listener.accept().await else {
+                    return;
+                };
+                counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                tokio::spawn(async move {
+                    // Keep-alive: answer every request on the same connection,
+                    // which is what the pool exists to take advantage of.
+                    let mut scratch = [0_u8; 4096];
+                    while socket.read(&mut scratch).await.unwrap_or(0) > 0 {
+                        let body = b"{\"ok\":true}";
+                        let response = format!(
+                            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: keep-alive\r\n\r\n",
+                            body.len()
+                        );
+                        if socket.write_all(response.as_bytes()).await.is_err() {
+                            return;
+                        }
+                        let _ = socket.write_all(body).await;
+                    }
+                });
+            }
+        });
+
+        let client = TenantAreaClient::with_management(None, Some("0".repeat(32)));
+        let base = format!("http://{address}");
+        let tenant = Uuid::nil();
+
+        // Nine at once, exactly as the operations page does.
+        let calls = (0..9).map(|_| {
+            client.request_management(
+                tenant,
+                &base,
+                ManagementRequest {
+                    method: "GET",
+                    path: "/v1/control-plane/ops/summary",
+                    body: None,
+                    correlation_id: None,
+                    idempotency_key: None,
+                },
+            )
+        });
+        let results = futures_util::future::join_all(calls).await;
+        assert!(
+            results.iter().all(Result::is_ok),
+            "every section must answer: {results:?}"
+        );
+        let opened = accepted.load(std::sync::atomic::Ordering::SeqCst);
+        assert!(
+            opened <= POOL_MAX_PER_TARGET,
+            "nine concurrent sections opened {opened} connections against a pool of \
+             {POOL_MAX_PER_TARGET}; the fan-out is not bounded by the pool"
         );
     }
 }
