@@ -124,7 +124,7 @@ export function ScorecardPanel(props: { slug: string }) {
           <small class="block text-muted-foreground text-sm">{timeAgo(d().status.last_action_at)} last action</small>
         </div>
         <Show when={d().status.parked_capabilities.length > 0}>
-          <div class="rounded-md border border-destructive/30 bg-destructive/10 p-3 flex flex-col gap-1">
+          <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 flex flex-col gap-1">
             <strong class="text-destructive">Execution gap</strong>
             <span class="text-sm text-secondary-foreground">{d().status.parked_capabilities.length === 1 ? 'One job is' : `${d().status.parked_capabilities.length} jobs are`} queued with nothing able to run them: {d().status.parked_capabilities.map(cap => labelOr(CAPABILITY_LABELS, cap)).join(', ')}</span>
           </div>
@@ -202,7 +202,7 @@ export function ScorecardPanel(props: { slug: string }) {
                     && d().track_record.unmeasured > 0}>
           <details class="mt-3">
             <summary class="cursor-pointer text-sm text-warning font-medium">Low measurement coverage — click for details</summary>
-            <div class="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 flex flex-col gap-1">
+            <div class="mt-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 flex flex-col gap-1">
               <strong class="text-destructive">Low measurement coverage</strong>
               <span class="text-sm text-secondary-foreground">{d().track_record.unmeasured} executed action(s) have no measurement scheduled, so their effect can never be judged. This excludes anything still inside its measurement horizon.</span>
             </div>

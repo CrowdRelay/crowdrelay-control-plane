@@ -424,7 +424,7 @@ export function FanSourcesPanel(props: {
         </Show>
       </div>
       <p class="text-sm text-muted-foreground leading-relaxed mt-1">Connected audience and music platforms. Each connection syncs follower and engagement metrics on the growth schedule. Disconnect to revoke access.</p>
-      <Show when={connections.error}><ErrorCard>Fan source connections unavailable: {errorMessage(connections.error, 'Service unreachable')}</ErrorCard></Show>
+      <Show when={connections.error}><ErrorCard>Fan source connections unavailable: {errorMessage(connections.error, 'We couldn\'t reach the fan source service. Try refreshing — if it persists, the tenant runtime may be down.')}</ErrorCard></Show>
       <Show when={connections.data} fallback={<Show when={connections.isPending}><SkeletonRows count={3} /></Show>}>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         <For each={OAUTH_PLATFORMS}>{(plat) => {
@@ -509,7 +509,7 @@ export function FanSourcesPanel(props: {
       </div>
       {/* Discord connection form */}
       <Show when={connectingPlatform() === 'discord'}>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-3">
           <label>Discord invite code<small>From discord.gg/ link (e.g. BBdDV6gVy)</small><Input value={discordInviteCode()} onInput={e => setDiscordInviteCode(e.currentTarget.value)} placeholder="BBdDV6gVy" /></label>
         </div>
         <div class="flex justify-end gap-2">
@@ -519,7 +519,7 @@ export function FanSourcesPanel(props: {
       </Show>
       {/* Telegram connection form */}
       <Show when={connectingPlatform() === 'telegram'}>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-3">
           <label>Telegram channel<small>Public channel username</small><Input value={telegramChannel()} onInput={e => setTelegramChannel(e.currentTarget.value)} placeholder="@virya_music" /></label>
           <label>Bot token<small>From @BotFather</small><Input type="password" value={telegramBotToken()} onInput={e => setTelegramBotToken(e.currentTarget.value)} placeholder="123456:ABC-DEF…" /></label>
         </div>
@@ -530,7 +530,7 @@ export function FanSourcesPanel(props: {
       </Show>
       {/* Last.fm connection form */}
       <Show when={connectingPlatform() === 'lastfm'}>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-3">
           <label>Last.fm artist name<small>Canonical spelling as on last.fm</small><Input value={lastfmArtist()} onInput={e => setLastfmArtist(e.currentTarget.value)} placeholder="Iron Maiden" /></label>
         </div>
         <div class="flex justify-end gap-2">
@@ -540,7 +540,7 @@ export function FanSourcesPanel(props: {
       </Show>
       {/* Deezer connection form */}
       <Show when={connectingPlatform() === 'deezer'}>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-3">
           <label>Deezer artist ID<small>Numeric ID from the Deezer artist page URL</small><Input value={deezerArtistId()} onInput={e => setDeezerArtistId(e.currentTarget.value)} placeholder="13" /></label>
         </div>
         <div class="flex justify-end gap-2">
@@ -550,7 +550,7 @@ export function FanSourcesPanel(props: {
       </Show>
       {/* Discogs connection form */}
       <Show when={connectingPlatform() === 'discogs'}>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-3">
           <label>Discogs artist ID<small>Numeric ID from the Discogs artist page URL</small><Input value={discogsArtistId()} onInput={e => setDiscogsArtistId(e.currentTarget.value)} placeholder="18839" /></label>
         </div>
         <div class="flex justify-end gap-2">
@@ -560,7 +560,7 @@ export function FanSourcesPanel(props: {
       </Show>
       {/* Bluesky connection form */}
       <Show when={connectingPlatform() === 'bluesky'}>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-3">
           <label>Bluesky handle<small>Full handle including domain</small><Input value={blueskyHandle()} onInput={e => setBlueskyHandle(e.currentTarget.value)} placeholder="virya.bsky.social" /></label>
         </div>
         <div class="flex justify-end gap-2">
@@ -570,7 +570,7 @@ export function FanSourcesPanel(props: {
       </Show>
       {/* Bandcamp connection form */}
       <Show when={connectingPlatform() === 'bandcamp'}>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-3">
           <label>Bandcamp subdomain<small>The part before .bandcamp.com</small><Input value={bandcampSubdomain()} onInput={e => setBandcampSubdomain(e.currentTarget.value)} placeholder="virya" /></label>
         </div>
         <div class="flex justify-end gap-2">
@@ -580,7 +580,7 @@ export function FanSourcesPanel(props: {
       </Show>
       {/* YouTube connection form */}
       <Show when={connectingPlatform() === 'youtube'}>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-3">
           <label>YouTube channel ID<small>Starts with UC… (from the channel URL or API)</small><Input value={youtubeChannelId()} onInput={e => setYoutubeChannelId(e.currentTarget.value)} placeholder="UCxxxxxxxxxxxxxxxxxxxxxx" /></label>
         </div>
         <div class="flex justify-end gap-2">
@@ -591,7 +591,7 @@ export function FanSourcesPanel(props: {
       </Show>
       {/* Facebook connection form */}
       <Show when={connectingPlatform() === 'facebook'}>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-3">
           <label>Facebook Page ID<small>Numeric Page ID (from the page URL or Graph API)</small><Input value={facebookPageId()} onInput={e => setFacebookPageId(e.currentTarget.value)} placeholder="1234567890" /></label>
         </div>
         <div class="flex justify-end gap-2">
@@ -602,7 +602,7 @@ export function FanSourcesPanel(props: {
       </Show>
       {/* Instagram connection form */}
       <Show when={connectingPlatform() === 'instagram'}>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-3">
           <label>Instagram Business account ID<small>Numeric IG Business account ID (from Graph API)</small><Input value={instagramIgUserId()} onInput={e => setInstagramIgUserId(e.currentTarget.value)} placeholder="178414xxxxxxxxxx" /></label>
         </div>
         <div class="flex justify-end gap-2">
@@ -613,7 +613,7 @@ export function FanSourcesPanel(props: {
       </Show>
       {/* SoundCloud connection form */}
       <Show when={connectingPlatform() === 'soundcloud'}>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-3">
           <label>SoundCloud permalink<small>The artist's permalink (e.g. "virya" or full URL)</small><Input value={soundcloudPermalink()} onInput={e => setSoundcloudPermalink(e.currentTarget.value)} placeholder="virya" /></label>
         </div>
         <div class="flex justify-end gap-2">
@@ -624,7 +624,7 @@ export function FanSourcesPanel(props: {
       </Show>
       {/* Reddit connection form */}
       <Show when={connectingPlatform() === 'reddit'}>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" style={{ 'margin-top': '12px' }}>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-3">
           <label>Subreddit name<small>The subreddit name (e.g. "Metal", "r/Metal")</small><Input value={redditSubreddit()} onInput={e => setRedditSubreddit(e.currentTarget.value)} placeholder="Metal" /></label>
         </div>
         <div class="flex justify-end gap-2">
@@ -637,7 +637,7 @@ export function FanSourcesPanel(props: {
     </Card>
 
     <Show when={creating}>
-      <p class="text-sm text-muted-foreground leading-relaxed mt-1" style={{ 'margin-top': '20px' }}>A source is one place fans arrive from. Naming it well matters — the name is what every ingestion row, attribution report and audit entry refers back to.</p>
+      <p class="text-sm text-muted-foreground leading-relaxed mt-5">A source is one place fans arrive from. Naming it well matters — the name is what every ingestion row, attribution report and audit entry refers back to.</p>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
         <label>
           <span>Name</span>

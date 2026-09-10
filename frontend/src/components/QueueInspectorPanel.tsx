@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { errorMessage, formatTimestamp } from '../lib/format'
+import { errorMessage, formatTimestamp, relativeTime } from '../lib/format'
 import { toast } from './ui/toast'
 import { Dialog } from './Dialog'
 import { EmptyState } from './ui/empty-state'
@@ -94,7 +94,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
     try {
       setDetail(await api.deliveryDetails(props.slug, item.id))
     } catch (error) {
-      toast.error(errorMessage(error, 'Could not load the delivery'))
+      toast.error(errorMessage(error, 'We couldn\'t load the delivery details. Try refreshing.'))
     } finally {
       setBusy(null)
     }
@@ -106,6 +106,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
         <h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="list-checks" />What is stuck, and why</h2>
         <p>The outbox holds events leaving this system; deliveries are the webhook attempts against your endpoints. A dead row has used every attempt and will not move again on its own — read one before retrying the rest, because a bulk retry reproduces a bad payload as fast as it reproduces a blip.</p>
       </div>
+      <Show when={model.dataUpdatedAt}><span class="text-xs text-muted-foreground whitespace-nowrap">Updated {relativeTime(model.dataUpdatedAt)}</span></Show>
     </div>
 
     <div class="flex items-end gap-3 flex-wrap">

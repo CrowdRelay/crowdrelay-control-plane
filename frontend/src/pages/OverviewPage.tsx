@@ -10,7 +10,8 @@ import { StatusBadge } from '../components/StatusBadge'
 import { ProgressRing } from '../components/ProgressRing'
 import { EmptyState } from '../components/ui/empty-state'
 import { SectionIcon } from '../components/SectionIcon'
-import { PageShell, PageHeader, KpiStrip, KpiCard, SectionTitle, ErrorCard, CommandBlock, SkeletonBlock } from '../components/layout'
+import { PageShell, PageHeader, KpiStrip, KpiCard, SectionTitle, ErrorCard, CommandBlock } from '../components/layout'
+import { SkeletonKpiStrip } from '../components/Skeleton'
 import { cn } from '../lib/cn'
 
 const formatLatency = (ms: number | null | undefined) => {
@@ -74,14 +75,10 @@ export function OverviewPage() {
     {/* ── North Star fan KPI strip ────────────────────────────────── */}
     <Switch>
       <Match when={commandCenter.isError}>
-        <ErrorCard>{errorMessage(commandCenter.error, 'Command center unavailable')}</ErrorCard>
+        <ErrorCard>{errorMessage(commandCenter.error, 'We couldn\'t reach the command center. Try refreshing.')}</ErrorCard>
       </Match>
       <Match when={!cc()}>
-        <KpiStrip>
-          {Array.from({ length: 4 }, () => (
-            <SkeletonBlock style={{ 'min-height': '80px' }} />
-          ))}
-        </KpiStrip>
+        <SkeletonKpiStrip count={4} />
       </Match>
       <Match when={cc()}>
         <KpiStrip>
@@ -102,7 +99,11 @@ export function OverviewPage() {
       <Match when={!cc()}>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           {Array.from({ length: 3 }, () => (
-            <SkeletonBlock style={{ 'min-height': '120px' }} />
+            <div class="rounded-lg border border-border bg-card p-4">
+              <div class="h-[11px] w-[80px] rounded bg-surface-3 mb-3" />
+              <div class="h-7 w-[60px] rounded bg-surface-3 mb-2" />
+              <div class="h-[11px] w-full rounded bg-surface-3" />
+            </div>
           ))}
         </div>
       </Match>
@@ -186,12 +187,16 @@ export function OverviewPage() {
     <SectionTitle eyebrow="OPERATIONS" title="Operations signal" icon={<SectionIcon name="activity" />} />
     <Switch>
       <Match when={commandCenter.isError}>
-        <ErrorCard>{errorMessage(commandCenter.error, 'Command center unavailable')}</ErrorCard>
+        <ErrorCard>{errorMessage(commandCenter.error, 'We couldn\'t reach the command center. Try refreshing.')}</ErrorCard>
       </Match>
       <Match when={!cc()}>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           {Array.from({ length: 5 }, () => (
-            <SkeletonBlock style={{ 'min-height': '120px' }} />
+            <div class="rounded-lg border border-border bg-card p-4">
+              <div class="h-[11px] w-[80px] rounded bg-surface-3 mb-3" />
+              <div class="h-7 w-[60px] rounded bg-surface-3 mb-2" />
+              <div class="h-[11px] w-full rounded bg-surface-3" />
+            </div>
           ))}
         </div>
       </Match>
@@ -328,8 +333,8 @@ export function OverviewPage() {
 
     {/* ── KPI strip (fleet summary) ──────────────────────────────── */}
     <Switch>
-      <Match when={!tenants.data && !tenants.isError}><KpiStrip>{Array.from({ length: 4 }, () => <SkeletonBlock style={{ 'min-height': '80px' }} />)}</KpiStrip></Match>
-      <Match when={tenants.isError}><ErrorCard>{errorMessage(tenants.error, 'Tenant registry unavailable')}</ErrorCard></Match>
+      <Match when={!tenants.data && !tenants.isError}><SkeletonKpiStrip count={4} /></Match>
+      <Match when={tenants.isError}><ErrorCard>{errorMessage(tenants.error, 'We couldn\'t reach the tenant registry. Try refreshing.')}</ErrorCard></Match>
       <Match when={tenants.data}>
         <KpiStrip>
           <KpiCard label="Tenants" value={fmt(items().length)} sub={<>{fmt(activeCount())} active<Show when={parkedCount() > 0}> · {fmt(parkedCount())} parked</Show><Show when={suspendedCount() > 0}> · {fmt(suspendedCount())} suspended</Show></>} />

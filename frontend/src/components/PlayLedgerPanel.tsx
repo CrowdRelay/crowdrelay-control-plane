@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { formatTimestamp, errorMessage } from '../lib/format'
+import { formatTimestamp, errorMessage, relativeTime } from '../lib/format'
 import type { PlayKindStanding } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
@@ -110,14 +110,17 @@ export function PlayLedgerPanel(props: { slug: string }) {
   return <Card class="p-4">
     <div class="flex items-center justify-between gap-4">
       <h3 class="text-base font-semibold text-foreground m-0">Play ledger</h3>
-      <Show when={ledger.data}>
-        <span class="text-muted-foreground">{ledger.data!.plays.length} plays · {ledger.data!.standings.length} kinds</span>
-      </Show>
+      <div class="flex items-center gap-3">
+        <Show when={ledger.data}>
+          <span class="text-muted-foreground">{ledger.data!.plays.length} plays · {ledger.data!.standings.length} kinds</span>
+        </Show>
+        <Show when={ledger.dataUpdatedAt}><span class="text-xs text-muted-foreground">Updated {relativeTime(ledger.dataUpdatedAt)}</span></Show>
+      </div>
     </div>
     <p class="text-muted-foreground text-sm leading-relaxed mt-2">What the agent committed to, what it did, and what each number is allowed to prove. Each play is a structured experiment with claims, evidence, and effect assessment.</p>
 
     <Show when={ledger.error}>
-      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Play ledger unavailable: {errorMessage(ledger.error, 'Service unreachable')}</div>
+      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Play ledger unavailable: {errorMessage(ledger.error, 'We couldn\'t reach the play ledger. Try refreshing.')}</div>
     </Show>
     <Show when={ledger.data} fallback={<SkeletonRows count={3} />}>
       <Show when={ledger.data!.standings.length > 0}>

@@ -1,6 +1,7 @@
 import { Show, createMemo, For, type JSX } from 'solid-js'
 import { useQueryClient, useIsFetching } from '@tanstack/solid-query'
 import { REFRESH_INTERVALS, refreshInterval, setRefreshInterval, triggerRefresh } from '../lib/refresh'
+import { relativeTime } from '../lib/format'
 import { NativeSelect } from './ui/native-select'
 
 // Grafana-style refresh control: an interval dropdown + a manual refresh button.
@@ -11,17 +12,6 @@ import { NativeSelect } from './ui/native-select'
 // operator sees when data is actually being loaded — not just when a button
 // was clicked. The `loading` prop is kept as an override for pages that want
 // to force the spinner for non-query work (e.g. a mutation in flight).
-
-const relativeTime = (timestamp: number | undefined): string => {
-  if (!timestamp) return '—'
-  const seconds = Math.floor((Date.now() - timestamp) / 1000)
-  if (seconds < 5) return 'just now'
-  if (seconds < 60) return `${seconds}s ago`
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  return `${hours}h ago`
-}
 
 export function RefreshControl(props: {
   updatedAt?: number

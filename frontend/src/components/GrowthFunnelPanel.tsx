@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { errorMessage, formatIsoAge } from '../lib/format'
+import { errorMessage, formatIsoAge, relativeTime } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import { FunnelChart } from './FunnelChart'
 import { EmptyState } from './ui/empty-state'
@@ -61,7 +61,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
         setError(null)
         return await api.growthFunnel(props.slug, days())
       } catch (err) {
-        setError(errorMessage(err, 'Failed to load growth funnel'))
+        setError(errorMessage(err, 'We couldn\'t load the growth funnel. Try refreshing.'))
         return null
       }
     },
@@ -166,6 +166,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     <div class="p-4 mt-6 pt-4 border-t border-border">
       <div class="flex items-center justify-between gap-4">
         <h3 class="text-sm font-semibold text-foreground"><FunnelIcon size={18} /> Growth Funnel</h3>
+        <Show when={funnel.dataUpdatedAt}><span class="text-xs text-muted-foreground">Updated {relativeTime(funnel.dataUpdatedAt)}</span></Show>
       </div>
       <p class="mt-1 text-sm text-muted-foreground">The fan growth journey from community discovery to conversion.</p>
 

@@ -206,7 +206,7 @@ export function TenantAttentionPage() {
     {/* ─── Runtime Tab ───────────────────────────────────────────── */}
     <TabPanel active={activeTab()} id="runtime" visited={isVisited('runtime')}>
       <Show when={summary.error}>
-        <ErrorCard>Runtime summary unavailable: {errorMessage(summary.error, 'Service unreachable')}</ErrorCard>
+        <ErrorCard>Runtime summary unavailable: {errorMessage(summary.error, 'We couldn\'t reach the runtime. Try refreshing — if it persists, the tenant may be down.')}</ErrorCard>
       </Show>
       {/* Section headings are static — show them immediately, skeleton only the data cards */}
       <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="database" />Database health</h3></div><Show when={summary.data}>{data => <StatusBadge status={data().database.async_io_active ? 'async I/O active' : 'check I/O'} tone={data().database.async_io_active ? 'good' : 'warn'} />}</Show></div>

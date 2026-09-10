@@ -89,7 +89,7 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
       await api.retireGrowthObjective(props.slug, objective.objective_id)
       refreshQueries(['growth-objectives', props.slug])
     } catch (err) {
-      setError(objectiveErrorMessage(err, 'Failed to retire objective'))
+      setError(objectiveErrorMessage(err, 'We couldn\'t retire that objective. Try again.'))
     } finally {
       setRetiring(null)
     }
@@ -108,7 +108,7 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
       <div class="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{error()}</div>
     </Show>
 
-    <Show when={objectives.error}><div class="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Growth objectives unavailable: {objectiveErrorMessage(objectives.error, 'Service unreachable')}</div></Show>
+    <Show when={objectives.error}><div class="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Growth objectives unavailable: {objectiveErrorMessage(objectives.error, 'We couldn\'t reach the growth objectives. Try refreshing.')}</div></Show>
     <Show when={objectives.data && objectives.data!.length > 0} fallback={
       <Show when={objectives.isFetching} fallback={
         <EmptyState label="No growth objectives declared" hint="Declare a target metric and deadline to start tracking progress. The intelligence measures every action against active objectives." />

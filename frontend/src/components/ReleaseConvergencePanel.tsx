@@ -73,14 +73,14 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
     <Show when={ledger()} fallback={<div class="p-4 rounded-lg border border-border bg-surface-1"><p class="m-0 text-sm text-muted-foreground">Production release convergence is currently unavailable for this tenant.</p></div>}>
       {current => <>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-          <div class="p-3 border border-border rounded-md bg-card"><span class="block text-xs text-muted-foreground">reported components</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{current().components.length}</strong></div>
-          <div class="p-3 border border-border rounded-md bg-card"><span class="block text-xs text-muted-foreground">missing</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{current().missing_components.length}</strong></div>
-          <div class="p-3 border border-border rounded-md bg-card"><span class="block text-xs text-muted-foreground">stale</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{stale().length}</strong></div>
-          <div class="p-3 border border-border rounded-md bg-card"><span class="block text-xs text-muted-foreground">active executors</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{current().active_executor_count}</strong></div>
+          <div class="p-3 border border-border rounded-lg bg-card"><span class="block text-xs text-muted-foreground">reported components</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{current().components.length}</strong></div>
+          <div class="p-3 border border-border rounded-lg bg-card"><span class="block text-xs text-muted-foreground">missing</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{current().missing_components.length}</strong></div>
+          <div class="p-3 border border-border rounded-lg bg-card"><span class="block text-xs text-muted-foreground">stale</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{stale().length}</strong></div>
+          <div class="p-3 border border-border rounded-lg bg-card"><span class="block text-xs text-muted-foreground">active executors</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{current().active_executor_count}</strong></div>
         </div>
 
         <Show when={current().backend_sha_drift || current().executor_manifest_drift || current().missing_components.length > 0 || stale().length > 0}>
-          <div class="mt-3 p-3 border border-warning/30 rounded-md bg-warning/5 flex flex-col gap-1">
+          <div class="mt-3 p-3 border border-warning/30 rounded-lg bg-warning/5 flex flex-col gap-1">
             <strong class="text-sm font-semibold text-foreground">Release reconciliation needs attention</strong>
             <span class="text-sm text-muted-foreground">{[
               current().backend_sha_drift ? 'API/worker SHA drift' : '',
@@ -134,9 +134,9 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
         <div class="mt-6 pt-6 border-t border-border">
           <h3 class="text-sm font-semibold text-foreground">Runtime attestation</h3>
           <div class="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div class="p-3 border border-border rounded-md bg-card"><strong class="block text-sm text-foreground">{current().team_email_live ? 'live' : 'not live'}</strong><span class="block text-xs text-muted-foreground">team.email</span><small class="block text-xs text-muted-foreground mt-0.5">{current().active_team_email_executor_count} capable executor(s)</small></div>
-            <div class="p-3 border border-border rounded-md bg-card"><strong class="block text-sm text-foreground">{current().n8n_attestation_ready ? 'verified' : 'missing'}</strong><span class="block text-xs text-muted-foreground">n8n attestation</span><small class="block text-xs text-muted-foreground mt-0.5">{current().guarded_executor_count} guarded executor(s)</small></div>
-            <div class="p-3 border border-border rounded-md bg-card"><strong class="block text-sm text-foreground">{current().active_executor_manifest_shas.length}</strong><span class="block text-xs text-muted-foreground">executor manifests</span><small class="block text-xs text-muted-foreground mt-0.5">{current().executor_manifest_drift ? 'drift detected' : 'converged'}</small></div>
+            <div class="p-3 border border-border rounded-lg bg-card"><strong class="block text-sm text-foreground">{current().team_email_live ? 'live' : 'not live'}</strong><span class="block text-xs text-muted-foreground">team.email</span><small class="block text-xs text-muted-foreground mt-0.5">{current().active_team_email_executor_count} capable executor(s)</small></div>
+            <div class="p-3 border border-border rounded-lg bg-card"><strong class="block text-sm text-foreground">{current().n8n_attestation_ready ? 'verified' : 'missing'}</strong><span class="block text-xs text-muted-foreground">n8n attestation</span><small class="block text-xs text-muted-foreground mt-0.5">{current().guarded_executor_count} guarded executor(s)</small></div>
+            <div class="p-3 border border-border rounded-lg bg-card"><strong class="block text-sm text-foreground">{current().active_executor_manifest_shas.length}</strong><span class="block text-xs text-muted-foreground">executor manifests</span><small class="block text-xs text-muted-foreground mt-0.5">{current().executor_manifest_drift ? 'drift detected' : 'converged'}</small></div>
           </div>
         </div>
       </>}

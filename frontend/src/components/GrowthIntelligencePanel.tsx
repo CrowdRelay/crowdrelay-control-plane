@@ -133,7 +133,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
       setViewingWorkflow(data.workflow)
       setWorkflowTasks(data.tasks)
     } catch (err) {
-      setError(errorMessage(err, 'Failed to load workflow detail'))
+      setError(errorMessage(err, 'We couldn\'t load the workflow detail. Try refreshing.'))
     }
   }
 
@@ -155,7 +155,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           </Show>
         </div>
         <p class="mt-1 text-sm text-muted-foreground">Actions the intelligence has queued for your approval. Community posts, press pitches, and other growth actions appear here with rich detail before they're executed.</p>
-        <Show when={overview.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth intelligence overview unavailable: {errorMessage(overview.error, 'Service unreachable')}</div></Show>
+        <Show when={overview.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth intelligence overview unavailable: {errorMessage(overview.error, 'We couldn\'t reach the growth intelligence overview. Try refreshing.')}</div></Show>
         <Show when={pendingGrowthActions().length > 0} fallback={
           <Show when={overview.isFetching} fallback={
             <Show when={overview.data} fallback={
@@ -281,7 +281,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           </Show>
         </div>
         <p class="mt-1 text-sm text-muted-foreground">Worker runs dispatched by the intelligence. Each workflow is a growth plan: the intelligence decides what to research, draft, or analyse, then dispatches LLM workers to execute.</p>
-        <Show when={workflows.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth workflows unavailable: {errorMessage(workflows.error, 'Service unreachable')}</div></Show>
+        <Show when={workflows.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth workflows unavailable: {errorMessage(workflows.error, 'We couldn\'t reach the growth workflows. Try refreshing.')}</div></Show>
         <Show when={workflows.data && workflows.data!.length > 0} fallback={
           <Show when={workflows.data} fallback={<SkeletonGrid count={3} minCardHeight='100px' />}>
             <EmptyState label="No worker runs" hint="Worker runs are LLM agent executions dispatched by the intelligence. They appear here once the autopilot starts dispatching." />

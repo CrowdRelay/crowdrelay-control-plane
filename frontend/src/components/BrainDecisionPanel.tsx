@@ -352,7 +352,7 @@ export function BrainDecisionPanel(props: {
 
         <Show when={showEvidence()}>
           <>
-            <Show when={evidence.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Brain decision evidence unavailable: {errorMessage(evidence.error, 'Service unreachable')}</div></Show>
+            <Show when={evidence.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Brain decision evidence unavailable: {errorMessage(evidence.error, 'We couldn\'t reach the brain decision evidence. Try refreshing.')}</div></Show>
             <Show when={evidence.isFetching}>
               <SkeletonRows count={3} />
             </Show>

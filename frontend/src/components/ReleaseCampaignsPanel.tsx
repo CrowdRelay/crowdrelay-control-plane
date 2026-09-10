@@ -178,7 +178,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
       </form>
     </Show>
 
-    <Show when={campaigns.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Release campaigns unavailable: {errorMessage(campaigns.error, 'Service unreachable')}</div></Show>
+    <Show when={campaigns.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Release campaigns unavailable: {errorMessage(campaigns.error, 'We couldn\'t reach the release campaigns. Try refreshing.')}</div></Show>
     <Show when={campaigns.data} fallback={<SkeletonRows count={3} />}>
       <Show when={campaigns.data!.pool.active_release_latarnicy > 0 || campaigns.data!.pool.missing_email > 0}>
         <KpiStrip>
@@ -232,7 +232,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
               </div>
 
               <Show when={selectedCampaign() === c.id}>
-                <Show when={recipients.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Campaign recipients unavailable: {errorMessage(recipients.error, 'Service unreachable')}</div></Show>
+                <Show when={recipients.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Campaign recipients unavailable: {errorMessage(recipients.error, 'We couldn\'t reach the campaign recipients. Try refreshing.')}</div></Show>
                 <Show when={recipients.data} fallback={<SkeletonRows count={3} />}>
                   <Table class="mt-3">
                     <TableHeader>

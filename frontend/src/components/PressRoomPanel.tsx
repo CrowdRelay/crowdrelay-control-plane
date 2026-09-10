@@ -2,7 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { refreshQueries } from '../lib/refresh'
-import { errorMessage, formatTimestamp } from '../lib/format'
+import { errorMessage, formatTimestamp, relativeTime } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { TabBar } from './layout'
@@ -138,6 +138,7 @@ export function PressRoomPanel(props: { slug: string }) {
   return <Card class="p-4">
     <div class="flex items-center justify-between gap-4">
       <h3 class="text-sm font-semibold text-foreground">Press room</h3>
+      <Show when={model.dataUpdatedAt}><span class="text-xs text-muted-foreground">Updated {relativeTime(model.dataUpdatedAt)}</span></Show>
     </div>
     <p class="mt-1 text-sm text-muted-foreground">Press requests from beacons, press assets for distribution, event engagements, and earned media coverage.</p>
     <TabBar
@@ -156,7 +157,7 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'requests'}>
-      <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
+      <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'We couldn\'t reach the press room. Try refreshing.')}</div></Show>
       <Show when={model.data} fallback={<SkeletonRows count={3} />}>
         <Show when={requests().length > 0} fallback={<EmptyState label="No press requests" hint="Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches." />}>
           <Table>
@@ -202,7 +203,7 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'assets'}>
-      <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
+      <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'We couldn\'t reach the press room. Try refreshing.')}</div></Show>
       <div class="mb-3 flex items-center justify-between gap-4">
         <p class="text-sm text-muted-foreground">
           Photos and logos here are what Instagram posts use, least recently published first.
@@ -290,7 +291,7 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'engagements'}>
-      <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
+      <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'We couldn\'t reach the press room. Try refreshing.')}</div></Show>
       <Show when={model.data} fallback={<SkeletonRows count={3} />}>
         <Show when={engagements().length > 0} fallback={<EmptyState label="No event engagements" hint="Event engagements track press interactions for specific shows and releases." />}>
           <Table>
@@ -352,7 +353,7 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'coverage'}>
-      <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'Service unreachable')}</div></Show>
+      <Show when={model.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Press room unavailable: {errorMessage(model.error, 'We couldn\'t reach the press room. Try refreshing.')}</div></Show>
       <Show when={model.data} fallback={<SkeletonRows count={3} />}>
         <Show when={coverage().length > 0} fallback={<EmptyState label="No earned media coverage" hint="Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage." />}>
           <Table>

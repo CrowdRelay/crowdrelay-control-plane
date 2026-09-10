@@ -336,7 +336,7 @@ export function TenantNotifiersPage() {
           <h2 class="text-lg font-semibold text-foreground">Discovered webhook endpoints</h2>
         </div>
       </div>
-      <div class="p-4 rounded-lg border border-border bg-surface-1"><p class="text-sm text-muted-foreground">CrowdRelay webhook endpoints unavailable: {errorMessage(discovered.error, 'read failed')}</p></div>
+      <div class="p-4 rounded-lg border border-border bg-surface-1"><p class="text-sm text-muted-foreground">CrowdRelay webhook endpoints unavailable: {errorMessage(discovered.error, 'We couldn\'t read the webhook endpoints. Try refreshing.')}</p></div>
     </SectionPanel></Show>
     <Show when={!discovered.error && !discovered.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={discovered.data && discovered.data.endpoints.length > 0}>

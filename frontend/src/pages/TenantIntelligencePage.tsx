@@ -15,7 +15,7 @@ import { AcquisitionChannelsPanel } from '../components/AcquisitionChannelsPanel
 import { GrowthFunnelPanel } from '../components/GrowthFunnelPanel'
 import { StatusBadge } from '../components/StatusBadge'
 import { SkeletonBrainGroup, SkeletonSection } from '../components/Skeleton'
-import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
+import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, SectionTitle } from '../components/layout'
 import { SectionIcon } from '../components/SectionIcon'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 
@@ -111,9 +111,7 @@ export function TenantIntelligencePage() {
       {/* ── Overview tab — what it knows ── */}
       <TabPanel active={activeTab()} id="overview" visited={isVisited('overview')}>
         <div class="mb-6">
-          <div class="flex items-center gap-3 mb-3 pb-2 border-b border-border-subtle">
-            <h3 class="m-0 text-md font-semibold text-foreground flex items-center gap-2"><SectionIcon name="brain" />Scorecard & objectives</h3>
-          </div>
+          <SectionTitle title="Scorecard & objectives" icon={<SectionIcon name="brain" />} />
           <ScorecardPanel slug={params().slug} />
           <GrowthObjectivesPanel slug={params().slug} />
         </div>
@@ -122,9 +120,7 @@ export function TenantIntelligencePage() {
       {/* ── Growth Intelligence tab — what it believes ── */}
       <TabPanel active={activeTab()} id="growth" visited={isVisited('growth')}>
         <div class="mb-6">
-          <div class="flex items-center gap-3 mb-3 pb-2 border-b border-border-subtle">
-            <h3 class="m-0 text-md font-semibold text-foreground flex items-center gap-2"><SectionIcon name="trending-up" />Growth intelligence</h3>
-          </div>
+          <SectionTitle title="Growth intelligence" icon={<SectionIcon name="trending-up" />} />
           <GrowthPosturePanel slug={params().slug} />
           <RunBrainCyclePanel slug={params().slug} />
           <GrowthIntelligencePanel slug={params().slug} />
@@ -134,9 +130,7 @@ export function TenantIntelligencePage() {
       {/* ── Growth Funnel tab — where the audience is and how it converts ── */}
       <TabPanel active={activeTab()} id="funnel" visited={isVisited('funnel')}>
         <div class="mb-6">
-          <div class="flex items-center gap-3 mb-3 pb-2 border-b border-border-subtle">
-            <h3 class="m-0 text-md font-semibold text-foreground flex items-center gap-2"><SectionIcon name="trending-up" />Growth metrics & funnel</h3>
-          </div>
+          <SectionTitle title="Growth metrics & funnel" icon={<SectionIcon name="trending-up" />} />
           <GrowthMetricsPanel slug={params().slug} />
           <AcquisitionChannelsPanel slug={params().slug} />
           <GrowthFunnelPanel slug={params().slug} />
@@ -146,9 +140,7 @@ export function TenantIntelligencePage() {
       {/* ── Decisions tab — what it decided ── */}
       <TabPanel active={activeTab()} id="decisions" visited={isVisited('decisions')}>
         <div class="mb-6">
-          <div class="flex items-center gap-3 mb-3 pb-2 border-b border-border-subtle">
-            <h3 class="m-0 text-md font-semibold text-foreground flex items-center gap-2"><SectionIcon name="history" />Decision timeline</h3>
-          </div>
+          <SectionTitle title="Decision timeline" icon={<SectionIcon name="history" />} />
           <IntelligenceTransparencyPanel slug={params().slug} />
         </div>
       </TabPanel>
@@ -156,9 +148,7 @@ export function TenantIntelligencePage() {
       {/* ── Learning tab — what it learned ── */}
       <TabPanel active={activeTab()} id="learning" visited={isVisited('learning')}>
         <div class="mb-6">
-          <div class="flex items-center gap-3 mb-3 pb-2 border-b border-border-subtle">
-            <h3 class="m-0 text-md font-semibold text-foreground flex items-center gap-2"><SectionIcon name="refresh-cw" />Decision → Action → Outcome → Learning</h3>
-          </div>
+          <SectionTitle title="Decision → Action → Outcome → Learning" icon={<SectionIcon name="refresh-cw" />} />
           <LearningLoopPanel slug={params().slug} />
           <LearningProofPanel slug={params().slug} />
         </div>

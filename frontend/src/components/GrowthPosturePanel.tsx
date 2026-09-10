@@ -121,6 +121,7 @@ export function GrowthPosturePanel(props: { slug: string }) {
             type="button"
             role="radio"
             aria-checked={current() === option.value}
+            title={`${option.label}: ${option.summary}`}
             class="text-left p-4 border rounded-lg transition-colors cursor-pointer hover:border-primary/40 flex flex-col gap-1.5"
             classList={{
               'border-primary bg-primary/5': current() === option.value,

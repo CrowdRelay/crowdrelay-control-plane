@@ -165,7 +165,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
       </Show>
     </div>
 
-    <Show when={coverage.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth coverage unavailable: {errorMessage(coverage.error, 'Service unreachable')}</div></Show>
+    <Show when={coverage.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth coverage unavailable: {errorMessage(coverage.error, 'We couldn\'t reach the growth coverage data. Try refreshing.')}</div></Show>
     <Show
       when={coverage.data && hasFeeds()}
       fallback={
@@ -207,7 +207,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
         </Show>
       </div>
 
-      <Show when={trends.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth trends unavailable: {errorMessage(trends.error, 'Service unreachable')}</div></Show>
+      <Show when={trends.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth trends unavailable: {errorMessage(trends.error, 'We couldn\'t reach the growth trends. Try refreshing.')}</div></Show>
       <Show when={trends.data && trends.data!.length > 0} fallback={
         <Show when={trends.isFetching} fallback={
           <Show when={hasLive()} fallback={<EmptyState label="No live feeds yet" hint="Trends appear once data starts flowing." />}>

@@ -65,6 +65,19 @@ export const formatIsoAge = (iso: string) => {
   return `${Math.floor(hours / 24)}d ago`
 }
 
+/// Formats a epoch-ms timestamp as a relative age string ("just now", "5m ago").
+/// Used for per-panel "Updated Xm ago" labels from query.dataUpdatedAt.
+export const relativeTime = (timestamp: number | undefined): string => {
+  if (!timestamp) return '—'
+  const seconds = Math.floor((Date.now() - timestamp) / 1000)
+  if (seconds < 5) return 'just now'
+  if (seconds < 60) return `${seconds}s ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  return `${hours}h ago`
+}
+
 export const oldestQueueAge = (summary: {
   outbox: { oldest_pending_seconds: number }
   deliveries: { oldest_pending_seconds: number }

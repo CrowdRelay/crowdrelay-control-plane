@@ -1,7 +1,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { errorMessage, formatTimestamp } from '../lib/format'
+import { errorMessage, formatTimestamp, relativeTime } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonPanel } from './Skeleton'
@@ -227,6 +227,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
               {roster.data!.total} total · {roster.data!.active} active · {roster.data!.invited} invited
             </span>
           </Show>
+          <Show when={roster.dataUpdatedAt}><span class="text-xs text-muted-foreground">Updated {relativeTime(roster.dataUpdatedAt)}</span></Show>
           <Show when={(network.data?.researchedAvailable ?? 0) > 0}>
             <Button
               variant="ghost"
@@ -262,7 +263,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
 
       <Show when={roster.isPending}><SkeletonPanel /></Show>
       <Show when={roster.error}>
-        <p class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Could not load the roster: {errorMessage(roster.error, 'unknown error')}</p>
+        <p class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Could not load the roster: {errorMessage(roster.error, 'We couldn\'t load the beacon roster. Try refreshing.')}</p>
       </Show>
 
       <Show when={adding()}>

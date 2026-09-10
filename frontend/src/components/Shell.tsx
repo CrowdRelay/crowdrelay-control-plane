@@ -7,7 +7,7 @@ import { api } from '../lib/api'
 import { ToastContainer } from './ui/toast'
 import { RefreshControl } from './RefreshControl'
 import { ChatWidget } from './ChatWidget'
-import { SkeletonPage } from './Skeleton'
+
 import { ErrorBoundaryPanel } from './ErrorBoundaryPanel'
 import { ConfirmHost } from './Dialog'
 import { ReauthModal } from './ReauthModal'
@@ -248,6 +248,20 @@ export const Shell: Component = () => {
     reconcile: 'id',
   }))
 
+  // Attention count for the nav badge — uses the same query key as OverviewPage
+  // so the data is shared, not re-fetched.
+  const commandCenter = useQuery(() => ({
+    queryKey: ['command-center'],
+    queryFn: () => api.commandCenter(),
+    staleTime: 10_000,
+    refetchOnWindowFocus: false,
+  }))
+  const attentionCount = () => {
+    const cc = commandCenter.data
+    if (!cc) return 0
+    return cc.attention.needsYou + cc.attention.awaitingApproval + cc.attention.criticalAlerts
+  }
+
   const selectTenant = (newSlug: string) => {
     const current = slug()
     if (current) {
@@ -401,10 +415,16 @@ export const Shell: Component = () => {
                       activeOptions={{ exact: item.exact }}
                       activeProps={{ class: 'bg-surface-1 text-foreground' }}
                       title={item.label}
-                      class="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors"
+                      class="relative flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors"
                     >
                       <NavIcon name={item.icon} />
                       <Show when={!collapsed()}><span>{item.label}</span></Show>
+                      <Show when={!collapsed() && item.icon === 'attention' && attentionCount() > 0}>
+                        <span class="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-warning/20 text-warning-light text-xs font-bold">{attentionCount()}</span>
+                      </Show>
+                      <Show when={collapsed() && item.icon === 'attention' && attentionCount() > 0}>
+                        <span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-warning" />
+                      </Show>
                     </Link>
                   )}</For>
                 </nav>
@@ -460,7 +480,27 @@ export const Shell: Component = () => {
             a remount which resets Suspense + ErrorBoundary state per page. */}
         <div class="flex-1 overflow-auto" data-key={pathname()}>
           <ErrorBoundaryPanel resetKey={pathname()} title="This page failed to render">
-            <Suspense fallback={<SkeletonPage />}>
+            <Suspense fallback={
+              <section class="px-4 md:px-6 py-6 pb-24 space-y-6">
+                <div class="flex justify-between items-start gap-6 mb-5">
+                  <div>
+                    <div class="h-[12px] w-[120px] rounded bg-surface-3 mb-2.5" />
+                    <div class="h-7 w-[280px] rounded bg-surface-3 mb-2" />
+                    <div class="h-[14px] w-[420px] rounded bg-surface-3" />
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {Array.from({ length: 4 }, () => (
+                    <div class="border border-border rounded-lg bg-card p-4">
+                      <div class="h-[11px] w-[70px] rounded bg-surface-3 mb-2" />
+                      <div class="h-[22px] w-[50px] rounded bg-surface-3 mb-1.5" />
+                      <div class="h-[11px] w-[90px] rounded bg-surface-3" />
+                    </div>
+                  ))}
+                </div>
+                <div class="border border-border rounded-lg bg-card p-4 h-[180px]" />
+              </section>
+            }>
               <Outlet />
             </Suspense>
           </ErrorBoundaryPanel>

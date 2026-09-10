@@ -61,9 +61,9 @@ const SkeletonPageHead: Component = () => (
 
 /** KPI strip skeleton — row of metric cards */
 export const SkeletonKpiStrip: Component<{ count?: number }> = (props) => (
-  <div class="grid grid-cols-7 gap-2.5 mb-6">
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
     {Array.from({ length: props.count ?? 3 }, () => (
-      <div class="flex flex-col border border-border rounded-md bg-card p-4 gap-1">
+      <div class="flex flex-col border border-border rounded-lg bg-card p-4 gap-1">
         <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] mb-2 w-[70px]" />
         <div class="rounded-lg bg-surface-3 border border-border h-[22px] rounded-[6px] mb-1.5 w-[50px]" />
         <div class="rounded-lg bg-surface-3 border border-border h-[11px] rounded-[5px] w-[90px]" />

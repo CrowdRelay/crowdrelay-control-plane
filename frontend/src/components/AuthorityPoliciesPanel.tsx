@@ -148,6 +148,7 @@ export function AuthorityPoliciesPanel(props: {
               size="sm"
               disabled={pendingMutation() !== null}
               aria-label="Enable all Autopilot policies"
+              title="Turn on every policy at its current mode and confidence threshold. Takes effect on the next cycle."
               onClick={() => setConfirming('autopilot-enable')}
             >{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirming() === 'autopilot-enable' ? 'Cancel' : 'Full auto: enable all'}</Button>
           }>
@@ -156,6 +157,7 @@ export function AuthorityPoliciesPanel(props: {
               size="sm"
               disabled={pendingMutation() !== null}
               aria-label={confirming() === 'autopilot-disable' ? 'Cancel bulk action' : 'Disable all Autopilot policies'}
+              title="Stop every autopilot action immediately. Queued actions stay parked until you re-enable."
               onClick={() => setConfirming(confirming()?.startsWith('autopilot') ? null : 'autopilot-disable')}
             >{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirming() === 'autopilot-disable' ? 'Cancel' : 'Kill switch: disable all'}</Button>
           </Show>
