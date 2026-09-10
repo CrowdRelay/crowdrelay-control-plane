@@ -105,8 +105,45 @@ export const VALUE_TIER_LABELS: Record<string, string> = {
   downstream: 'downstream',
 }
 
+// Machine enums arrive in two shapes: snake_case (`outreach_supply`) and
+// dotted (`agent.content`). Splitting on underscores alone left the dotted ones
+// as "Agent.content" on the scorecard — still the machine's word, only
+// capitalised. Both separators are word boundaries here.
 const humanize = (value: string) =>
-  value.split('_').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')
+  value
+    .split(/[._]/)
+    .filter(Boolean)
+    .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(' ')
+
+/** What the autopilot is allowed to do, named as a job rather than as the
+ *  executor's registration key. The scorecard shows these to an operator
+ *  deciding whether the autopilot is doing enough — "agent.content" does not
+ *  answer that question and "Agent Content" barely does. */
+export const CAPABILITY_LABELS: Record<string, string> = {
+  'agent.content': 'Draft content',
+  'community.engage': 'Post in communities',
+  'signal.push': 'Send Signal pushes',
+  'outreach': 'Contact outreach targets',
+  'outreach.discovery': 'Find outreach targets',
+  'beacon.discovery': 'Find beacons',
+  'beacon.outreach': 'Contact beacons',
+  'beacon.invite_batch': 'Invite beacons',
+  'booking.outreach': 'Contact venues',
+  'booking.target_discovery': 'Find venues',
+  'ticket.price': 'Adjust ticket prices',
+  'ticket.capacity': 'Adjust ticket capacity',
+  'merch.price': 'Adjust merch prices',
+  'merch.reorder': 'Reorder merch',
+  'merch.bundle': 'Create merch bundles',
+  'fan.lifecycle.message': 'Message fans',
+  'audience.campaign': 'Run audience campaigns',
+  'promotion.budget_change': 'Move promotion budget',
+  'release.milestone': 'Execute release milestones',
+  'experiment.allocation': 'Adjust experiments',
+  'referral.code': 'Issue referral codes',
+  'play.step': 'Run play steps',
+}
 
 export const labelOr = (map: Record<string, string>, value: string) =>
   map[value] ?? humanize(value)

@@ -74,7 +74,17 @@ export function FanTablePanel(props: {
         aria-label="Search fans"
       />
     </div>
-    <Show when={filtered().length > 0} fallback={<EmptyState label="No fans match this search" hint="Try adjusting your search query or filters." />}>
+    {/* An empty search box matching nothing is not a search result, it is an
+        empty fanbase — and telling the operator to adjust a query they never
+        typed sends them to fix the wrong thing. */}
+    <Show when={filtered().length > 0} fallback={
+      <Show
+        when={search().trim()}
+        fallback={<EmptyState label="No fans yet" hint="Fans appear here once a connected source completes its first ingestion." />}
+      >
+        <EmptyState label={`Nothing matches “${search().trim()}”`} hint="Search covers name, email and locale." />
+      </Show>
+    }>
       <div class="overflow-auto border border-border rounded-md max-h-[600px]">
         <Table>
           <TableHeader>

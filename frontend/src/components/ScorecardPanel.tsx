@@ -11,7 +11,7 @@ import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { SectionTitle } from './layout'
-import { CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
+import { CAPABILITY_LABELS, CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 
 const count = (value: number | undefined | null) =>
   value == null ? '—' : value.toLocaleString()
@@ -126,7 +126,7 @@ export function ScorecardPanel(props: { slug: string }) {
         <Show when={d().status.parked_capabilities.length > 0}>
           <div class="rounded-md border border-destructive/30 bg-destructive/10 p-3 flex flex-col gap-1">
             <strong class="text-destructive">Execution gap</strong>
-            <span class="text-sm text-secondary-foreground">{d().status.parked_capabilities.length} capability(ies) have parked actions but no executor: {d().status.parked_capabilities.join(', ')}</span>
+            <span class="text-sm text-secondary-foreground">{d().status.parked_capabilities.length === 1 ? 'One job is' : `${d().status.parked_capabilities.length} jobs are`} queued with nothing able to run them: {d().status.parked_capabilities.map(cap => labelOr(CAPABILITY_LABELS, cap)).join(', ')}</span>
           </div>
         </Show>
       </div>
@@ -136,7 +136,7 @@ export function ScorecardPanel(props: { slug: string }) {
         <div class="flex items-center gap-2 flex-wrap mt-4">
           <span class="text-xs text-muted-foreground font-medium">Live capabilities</span>
           <div class="flex items-center gap-1.5 flex-wrap">
-            <For each={d().status.live_capabilities}>{cap => <Badge variant="muted" class="rounded-full px-2.5 py-1 leading-relaxed border border-border text-secondary-foreground">{cap.replace(/_/g, ' ')}</Badge>}</For>
+            <For each={d().status.live_capabilities}>{cap => <Badge variant="muted" title={cap} class="rounded-full px-2.5 py-1 leading-relaxed border border-border text-secondary-foreground">{labelOr(CAPABILITY_LABELS, cap)}</Badge>}</For>
           </div>
         </div>
       </Show>

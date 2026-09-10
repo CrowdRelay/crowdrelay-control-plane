@@ -14,7 +14,7 @@ import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 import type { AutopilotOverview, AutopilotPolicy, PendingAutopilotAction, AgentWorkflow, AgentWorkflowTask } from '../lib/types'
-import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
+import { CAPABILITY_LABELS, DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 
 // --- Intelligence icon (deterministic Rust autopilot) ---
 const IntelligenceIcon = (props: { size?: number }) => (
@@ -195,10 +195,14 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
                         </Show>
                       </div>
                     </Show>
+                    {/* "Executor not ready — requires capability
+                        \"community.engage\"" told the operator two machine
+                        words and left them to guess whether approving was safe.
+                        Say what is missing and what approving will actually do. */}
                     <Show when={!action.executor_ready && action.required_capability}>
-                      <div class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
-                        <strong>Executor not ready</strong>
-                        <span>Requires capability "{action.required_capability}" — no live executor advertises it. Approving will queue the action but nothing will execute it.</span>
+                      <div class="flex flex-col gap-1 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning" title={action.required_capability ?? undefined}>
+                        <strong>Nothing can run this yet</strong>
+                        <span>“{labelOr(CAPABILITY_LABELS, action.required_capability!)}” has no worker running. You can approve it — it will wait in the queue until one starts.</span>
                       </div>
                     </Show>
                   </div>

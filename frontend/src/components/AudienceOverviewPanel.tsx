@@ -10,8 +10,6 @@ import { buttonVariants } from './ui/button'
 
 const fmt = (value: number | undefined) => value == null ? '—' : compactNumber(value)
 
-const ghostLinkClass =
-  buttonVariants({ variant: 'ghost', size: 'sm' })
 
 export function AudienceOverviewPanel(props: { slug: string; overview?: AudienceOverview }) {
   // Seven cards reading 0 is a true answer to a question nobody asked. A
@@ -25,18 +23,12 @@ export function AudienceOverviewPanel(props: { slug: string; overview?: Audience
     </div>
     <div class="mt-4">
       <Show when={props.overview} fallback={<EmptyState label="Audience overview unavailable" hint="The audience overview could not be loaded. This may be a temporary issue — try refreshing." />}>
-        <Show when={empty()}>
-          <Card class="p-4">
-            <strong>No fans aggregated yet</strong>
-            <p class="text-sm text-muted-foreground mt-1">Fans arrive from connected platforms, from the communities the brain scans, and from the people carrying a release into a new city. Start one of those and the counters below fill on the next ingestion.</p>
-            <div class="flex flex-col gap-2 mt-3">
-              <Link class={ghostLinkClass} to="/tenants/$slug/portfolio" params={{ slug: props.slug }}>Connect a fan source</Link>
-              <Link class={ghostLinkClass} to="/tenants/$slug/audience" params={{ slug: props.slug }}>Work the communities queue</Link>
-              <Link class={ghostLinkClass} to="/tenants/$slug/beacons" params={{ slug: props.slug }}>Add beacons</Link>
-            </div>
-          </Card>
-        </Show>
-        <KpiStrip>
+        {/* The three starting points replace the zeros rather than sitting above
+            them. Rendering both said "here is what to do" and then answered the
+            unasked question seven times underneath. They are also buttons now:
+            as stacked full-width ghosts they read as centred body text, which is
+            the one thing a call to action must not look like. */}
+        <Show when={empty()} fallback={<KpiStrip>
           <KpiCard label="Active fans" value={<KpiValue value={fmt(props.overview!.active_fans)} />} />
           <KpiCard label="Marketing consented" value={<KpiValue value={fmt(props.overview!.marketing_consented_fans)} />} />
           <KpiCard label="Ticket buyers" value={<KpiValue value={fmt(props.overview!.ticket_buyers)} />} />
@@ -44,7 +36,17 @@ export function AudienceOverviewPanel(props: { slug: string; overview?: Audience
           <KpiCard label="Synesthesia participants" value={<KpiValue value={fmt(props.overview!.synesthesia_participants)} />} />
           <KpiCard label="Qualified referrals" value={<KpiValue value={fmt(props.overview!.qualified_referrals)} />} />
           <KpiCard label="Paid ticket orders" value={<KpiValue value={fmt(props.overview!.paid_ticket_orders)} />} />
-        </KpiStrip>
+        </KpiStrip>}>
+          <div class="py-2">
+            <strong class="text-foreground">No fans aggregated yet</strong>
+            <p class="text-sm text-muted-foreground mt-1 max-w-2xl leading-relaxed">Fans arrive from connected platforms, from the communities the brain scans, and from the people carrying a release into a new city. Start one of those and the counters here fill on the next ingestion.</p>
+            <div class="flex flex-wrap gap-2 mt-4">
+              <Link class={buttonVariants({ size: 'sm' })} to="/tenants/$slug/portfolio" params={{ slug: props.slug }}>Connect a fan source</Link>
+              <Link class={buttonVariants({ variant: 'outline', size: 'sm' })} to="/tenants/$slug/audience" params={{ slug: props.slug }}>Work the communities queue</Link>
+              <Link class={buttonVariants({ variant: 'outline', size: 'sm' })} to="/tenants/$slug/beacons" params={{ slug: props.slug }}>Add beacons</Link>
+            </div>
+          </div>
+        </Show>
       </Show>
     </div>
   </Card>

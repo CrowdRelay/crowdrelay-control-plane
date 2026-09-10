@@ -188,6 +188,17 @@
   }
   button, input, select, textarea { font: inherit; }
   a { color: inherit; text-decoration: none; }
+
+  /* Twenty-one headings across the panels carry no classes and were rendering
+     at the browser's default size and weight — visibly larger than the styled
+     `text-sm font-semibold` heading in the card beside them, and carrying the
+     UA's own margins. This gives the bare ones the console's scale.
+     A heading that sets its own size still wins: utilities outrank base. */
+  h1 { font-size: var(--text-2xl); font-weight: 700; letter-spacing: -0.01em; }
+  h2 { font-size: var(--text-lg); font-weight: 600; }
+  h3 { font-size: var(--text-base); font-weight: 600; }
+  h4 { font-size: var(--text-sm); font-weight: 600; }
+  h1, h2, h3, h4 { color: var(--color-foreground); }
 }
 
 /* ── Component styles (override legacy) ────────────────────────────── */
