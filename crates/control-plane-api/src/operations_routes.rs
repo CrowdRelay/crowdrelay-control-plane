@@ -252,6 +252,13 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/learning-loop",
             get(learning_loop),
         )
+        // Learning proof: the belief revisions themselves — what the brain
+        // changed, what changed it, and which later decisions acted on the
+        // change. Read-only proxy to CrowdRelay's learning proof read model.
+        .route(
+            "/tenants/{slug}/operations/learning-proof",
+            get(learning_proof),
+        )
         // ── Audience intelligence (read-only proxies) ───────────────────
         .route("/tenants/{slug}/audience/overview", get(audience_overview))
         .route("/tenants/{slug}/audience/fans", get(audience_fans))
@@ -1062,6 +1069,31 @@ async fn learning_loop(
     )
     .await?;
     array_no_store(value, "learning loop")
+}
+
+/// Learning proof: the belief revisions, what caused each, and the decisions
+/// taken afterwards while holding the changed belief. Read-only proxy to
+/// CrowdRelay's learning proof read model.
+///
+/// Where `learning_loop` shows decision → action → outcome, this shows the
+/// fourth link — outcome → belief → later decision — which is the only one
+/// that says the loop closed rather than merely ran.
+async fn learning_proof(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/learning-proof",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "learning proof")
 }
 
 #[derive(Debug, Deserialize)]

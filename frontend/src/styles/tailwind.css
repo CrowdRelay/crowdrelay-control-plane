@@ -675,6 +675,19 @@
   .learning-loop-entry {flex-direction:column}
   .learning-loop-arrow {justify-content:center;transform:rotate(90deg)}
 }
+/* Learning proof — one belief revision, its cause and what followed. Stacked
+   rather than the loop panel's left-to-right flow: a revision has a variable
+   number of causes and influenced decisions, so columns would collapse. */
+.learning-proof-list {display:flex;flex-direction:column;gap:var(--space-3)}
+.learning-proof-entry {padding:var(--space-3);border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-1);transition:border-color var(--t-smooth),box-shadow var(--t-smooth)}
+.learning-proof-entry:hover {border-color:rgba(155,135,245,0.2);box-shadow:0 2px 12px rgba(0,0,0,0.2)}
+.learning-proof-header {display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);font-size:var(--text-xs)}
+.learning-proof-header code {font-size:var(--text-xs);color:var(--text-secondary)}
+.learning-proof-summary {margin:8px 0 10px;font-size:var(--text-sm);color:var(--text-primary);line-height:1.5}
+.learning-proof-stage {padding:8px 12px;border-left:2px solid var(--border-subtle);margin-bottom:8px}
+.learning-proof-stage:last-child {margin-bottom:0}
+.learning-proof-cause, .learning-proof-influence {display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-2);font-size:var(--text-sm);padding:4px 0}
+.learning-proof-influence code {font-size:var(--text-xs);color:var(--text-secondary)}
 .attention-tier-urgent .attention-tier-head {color:var(--bad)}
 .attention-tier-review .attention-tier-head {color:var(--warn)}
 .attention-tier-informational .attention-tier-head {color:var(--text-muted)}

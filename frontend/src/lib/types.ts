@@ -2162,6 +2162,55 @@ export type LearningLoopEntry = {
   }
 }
 
+/// One belief the brain changed, what changed it, and what it did afterwards.
+///
+/// The learning loop shows decision → action → outcome. This shows the link
+/// that follows: outcome → belief → later decision. `changed_a_decision` is
+/// the claim — a revision where it is false is a belief that moved and has
+/// not yet altered anything the brain did, which is a real state and not a
+/// rendering gap.
+export type LearningProofEntry = {
+  revision_id: string
+  module: string
+  belief_key: string
+  change_summary: string
+  previous_value: Record<string, unknown>
+  current_value: Record<string, unknown>
+  recorded_at: string
+  caused_by: {
+    action_id: string
+    action_kind: string | null
+    decision_id: string | null
+    trace_id: string | null
+    decision_reason: string | null
+    decided_at: string | null
+    effect_assessment: string | null
+    metric_key: string | null
+    delta_basis_points: number | null
+    observed_at: string | null
+  }[]
+  then_influenced: {
+    decision_id: string
+    decision_kind: string
+    context: string
+    trace_id: string | null
+    evaluated_at: string
+    strategy_prior: string | null
+    strategy_applied: string | null
+    strategy_source: string | null
+    template_id: string | null
+  }[]
+  changed_a_decision: boolean
+}
+
+export type LearningProof = {
+  entries: LearningProofEntry[]
+  /// True when the ledger holds nothing yet. Separates "the brain has not
+  /// changed a belief" from "the endpoint returned nothing" — an empty array
+  /// cannot tell those apart.
+  no_revisions_recorded: boolean
+}
+
 /// What a full autopilot cycle would decide right now, without running one.
 export interface CyclePreview {
   strategy: string

@@ -7,6 +7,7 @@ import { GrowthIntelligencePanel } from '../components/GrowthIntelligencePanel'
 import { RunBrainCyclePanel } from '../components/RunBrainCyclePanel'
 import { GrowthObjectivesPanel } from '../components/GrowthObjectivesPanel'
 import { LearningLoopPanel } from '../components/LearningLoopPanel'
+import { LearningProofPanel } from '../components/LearningProofPanel'
 import { ScorecardPanel } from '../components/ScorecardPanel'
 import { GrowthPosturePanel } from '../components/GrowthPosturePanel'
 import { GrowthMetricsPanel } from '../components/GrowthMetricsPanel'
@@ -158,6 +159,7 @@ export function TenantIntelligencePage() {
             <h3 class="m-0 text-md font-semibold text-foreground flex items-center gap-2"><SectionIcon name="refresh-cw" />Decision → Action → Outcome → Learning</h3>
           </div>
           <LearningLoopPanel slug={params().slug} />
+          <LearningProofPanel slug={params().slug} />
         </div>
       </TabPanel>
     </>}</Show>

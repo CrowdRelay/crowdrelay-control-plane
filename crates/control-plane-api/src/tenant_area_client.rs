@@ -404,6 +404,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/beacon-release-campaigns"
                     | "/v1/control-plane/autopilot/plays"
                     | "/v1/control-plane/autopilot/learning-loop"
+                    | "/v1/control-plane/autopilot/learning-proof"
                     | "/v1/control-plane/portfolio/overview"
                     | "/v1/control-plane/portfolio/amplification"
                     | "/v1/control-plane/tenant-settings"
