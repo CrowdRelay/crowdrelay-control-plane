@@ -6,7 +6,7 @@ import { prefersReducedMotion } from '../lib/format'
 //
 // Usage:
 //   <Sparkline data={[3, 7, 2, 8, 5, 10]} />
-//   <Sparkline data={points} width={120} height={32} color="var(--good)" />
+//   <Sparkline data={points} width={120} height={32} color="var(--color-success)" />
 
 
 export const Sparkline: Component<{
@@ -19,7 +19,7 @@ export const Sparkline: Component<{
 }> = (props) => {
   const w = () => props.width ?? 100
   const h = () => props.height ?? 28
-  const color = () => props.color ?? 'var(--accent)'
+  const color = () => props.color ?? 'var(--color-primary)'
   const fillOpacity = () => props.fillOpacity ?? 0.12
   const strokeWidth = () => props.strokeWidth ?? 1.5
   const pad = 2

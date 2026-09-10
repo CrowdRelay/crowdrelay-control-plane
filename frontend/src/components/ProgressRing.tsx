@@ -19,9 +19,9 @@ const toneForValue = (v: number): 'good' | 'warn' | 'bad' => {
 }
 
 const toneColor: Record<string, string> = {
-  good: 'var(--good)',
-  warn: 'var(--warn)',
-  bad: 'var(--bad)',
+  good: 'var(--color-success)',
+  warn: 'var(--color-warning)',
+  bad: 'var(--color-destructive)',
   // "We have no reading" is not "everything is on fire": a fleet that has
   // never reported must not render in the same red as a failing one.
   muted: 'var(--text-muted)',
@@ -49,7 +49,7 @@ export const ProgressRing: Component<{
   const circumference = () => 2 * Math.PI * r()
   const clamped = () => Math.max(0, Math.min(100, props.value))
   const tone = () => props.tone ?? toneForValue(clamped())
-  const color = () => toneColor[tone()] ?? 'var(--accent)'
+  const color = () => toneColor[tone()] ?? 'var(--color-primary)'
   const glow = () => toneGlow[tone()] ?? 'rgba(155,135,245,0.3)'
   const showValue = () => props.showValue ?? true
 

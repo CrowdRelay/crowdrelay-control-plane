@@ -62,11 +62,11 @@ export const FunnelChart: Component<{
 
   const animate = !prefersReducedMotion()
   const stageColors = [
-    'var(--accent)',
-    'var(--accent-2, var(--accent))',
-    'var(--good)',
-    'var(--warn)',
-    'var(--bad)',
+    'var(--color-primary)',
+    'var(--accent-2, var(--color-primary))',
+    'var(--color-success)',
+    'var(--color-warning)',
+    'var(--color-destructive)',
   ]
 
   const gid = `funnel-${Math.random().toString(36).slice(2, 8)}`
@@ -75,9 +75,9 @@ export const FunnelChart: Component<{
     <svg width={W()} height={H() + 24} viewBox={`0 0 ${W()} ${H() + 24}`} fill="none" style={{ width: '100%', 'max-width': `${W()}px` }} role="img" aria-label="Growth funnel chart">
       <defs>
         <linearGradient id={gid} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.25" />
-          <stop offset="50%" stop-color="var(--accent)" stop-opacity="0.45" />
-          <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.25" />
+          <stop offset="0%" stop-color="var(--color-primary)" stop-opacity="0.25" />
+          <stop offset="50%" stop-color="var(--color-primary)" stop-opacity="0.45" />
+          <stop offset="100%" stop-color="var(--color-primary)" stop-opacity="0.25" />
         </linearGradient>
       </defs>
       <For each={props.stages}>{(stage, i) => (
@@ -89,7 +89,7 @@ export const FunnelChart: Component<{
           <path
             d={trapezoid(i())}
             fill={`url(#${gid})`}
-            stroke={stageColors[i() % stageColors.length] ?? 'var(--accent)'}
+            stroke={stageColors[i() % stageColors.length] ?? 'var(--color-primary)'}
             stroke-width="1"
             stroke-opacity="0.5"
           />

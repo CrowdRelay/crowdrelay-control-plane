@@ -200,20 +200,12 @@
 @media(max-width:900px) {
   .opportunity-no-action {max-width:none;text-align:left}
 }
-.cmdk-input {width:100%;border-bottom:1px solid var(--line)}
 .cmdk-list {overflow-y:auto;overscroll-behavior:contain;padding:8px}
 .cmdk-item.danger:not(.armed) .cmdk-label::after {content:" ⚠";color:var(--warn)}
 .cmdk-item.armed .cmdk-label {font-weight:700}
 .cmdk-label {flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cmdk-hint {color:var(--muted);font-size:var(--text-sm)}
-.cmdk-group {margin-left:auto;flex:none;font-size:var(--text-xs);letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
-.cmdk-empty, .cmdk-foot {padding:13px 16px;color:var(--muted);font-size:var(--text-sm)}
-.cmdk-foot {border-top:1px solid var(--line);display:flex;gap:12px;align-items:center;justify-content:space-between}
-.cmdk-foot-hints {display:flex;gap:8px;align-items:center}
-.cmdk-foot-hint {display:flex;align-items:center;gap:3px}
-.cmdk-foot-sep {color:var(--text-muted)}
+.cmdk-foot {padding:13px 16px;color:var(--muted);font-size:var(--text-sm);border-top:1px solid var(--line);display:flex;gap:12px;align-items:center;justify-content:space-between}
 .cmdk-foot kbd {font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--text-xs);background:var(--surface-3);border:1px solid var(--line);border-radius:var(--radius-sm);padding:1px 5px}
-.cmdk-busy {color:var(--accent)}
 /* Inline JSON batch editor inside a fan-source table row — same input
    language as the form utilities without the two-column layout. */
 .ingest-format-help>summary {cursor:pointer;color:var(--text-muted);font-size:var(--text-xs);font-weight:600;list-style:none}
@@ -345,8 +337,6 @@
 
 /* StatusBadge — flat semantic badges */
 
-.cmdk-input {background:transparent;border:none;border-bottom:1px solid var(--line);color:var(--text-primary);padding:12px 14px;outline:none;font-size:var(--text-body);width:100%}
-.cmdk-input:focus {border-color:var(--accent);box-shadow:0 1px 0 0 var(--accent)}
 /* Chat widget — flat floating panel */
 
 
@@ -393,9 +383,6 @@
 @media(max-width:640px) {
   .ops-attention-banner {flex-direction:column;align-items:flex-start;gap:var(--space-2)}
 }
-/* Fields that clear the native ring on :focus outrank the generic rule above
-   by specificity, so keyboard focus needs restating at the same weight. */
-.cmdk-input:focus-visible, .premium-key-input:focus-visible, .agent-field select:focus-visible, .agent-field textarea:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
 /* ═══════════════════════════════════════════════════════════════════════
    Finish pass
    ───────────────────────────────────────────────────────────────────────
@@ -860,24 +847,10 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
   }
 
   /* ── Cmdk ─────────────────────────────────────────────────────────── */
-  .cmdk-backdrop {
-    @apply fixed inset-0 z-50 bg-black/50;
-  }
-  .cmdk {
-    @apply fixed left-1/2 top-4 z-50 -translate-x-1/2 w-full max-w-xl rounded-lg border border-border bg-popover shadow-xl overflow-hidden;
-  }
-  .cmdk-item {
-    @apply flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-surface-1;
-  }
-  .cmdk-item.active {
-    @apply bg-surface-1 text-foreground;
-  }
-  .cmdk-item.danger:not(.armed) {
-    @apply text-destructive;
-  }
-  .cmdk-item.armed {
-    @apply bg-destructive/10 text-destructive border border-destructive/30;
-  }
+  /* cmdk-item, danger, and armed class names are kept for descendant
+     selectors (::after warning symbol, font-weight, margin). The actual
+     visual styling is provided by cn() utilities in CommandPalette.tsx
+     which override @layer components. */
 
   /* ── Fan drawer ───────────────────────────────────────────────────── */
   .fan-drawer {
@@ -1035,14 +1008,6 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
     .premium-skeleton-card,
     .spin,
     .btn-spinner,
-    .premium-spinner,
-    .ops-degraded-dot,
-    .ops-freshness-dot,
-    .kpi-value.kpi-flash,
-    .premium-connector-card.connected,
-    .premium-connected-badge,
-    .cmdk-backdrop,
-    .cmdk,
     .fan-drawer {
       animation: none !important;
     }

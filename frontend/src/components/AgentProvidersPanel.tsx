@@ -429,7 +429,7 @@ export function AgentProvidersPanel(props: {
             <strong class="text-lg font-bold text-foreground tabular-nums">{usage.data!.tasks.length}</strong>
             <Show when={dailyCostSeries().some(v => v > 0)}>
               <div class="mt-0.5 h-5 opacity-80">
-                <Sparkline data={dailyCostSeries()} width={80} height={20} color={budgetPctValue() > 80 ? 'var(--warn)' : 'var(--accent)'} />
+                <Sparkline data={dailyCostSeries()} width={80} height={20} color={budgetPctValue() > 80 ? 'var(--color-warning)' : 'var(--color-primary)'} />
               </div>
             </Show>
           </div>

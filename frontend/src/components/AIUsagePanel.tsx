@@ -96,7 +96,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
             <strong>{formatUsd(budget()!.monthly_spend_micro_usd)} / {formatUsd(budget()!.budget_micro_usd)}</strong>
           </div>
           <div class="h-2.5 rounded-sm bg-surface-3 overflow-hidden">
-            <div class="h-full rounded-sm" style={{ width: `${budgetPct()}%`, background: 'linear-gradient(90deg, var(--accent), var(--cyan))' }} />
+            <div class="h-full rounded-sm" style={{ width: `${budgetPct()}%`, background: 'linear-gradient(90deg, var(--color-primary), var(--cyan))' }} />
           </div>
           <div class="flex gap-4 mt-1.5 text-sm">
             <span class="text-muted-foreground">{budgetPct()}% used</span>
@@ -109,7 +109,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
                 data={dailySpend().map(d => d.paid_cost_micro_usd + d.free_cost_micro_usd)}
                 width={200}
                 height={32}
-                color={budgetPct() > 80 ? 'var(--warn)' : 'var(--accent)'}
+                color={budgetPct() > 80 ? 'var(--color-warning)' : 'var(--color-primary)'}
               />
             </div>
           </Show>
@@ -213,8 +213,8 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
                 <div class="w-full max-w-[14px] rounded-t-sm min-h-[3px]" style={{
                   height: `${heightPct}%`,
                   background: paidPct > 0
-                    ? `linear-gradient(to top, var(--accent) ${100 - paidPct}%, var(--warn) ${100 - paidPct}%)`
-                    : 'var(--accent)',
+                    ? `linear-gradient(to top, var(--color-primary) ${100 - paidPct}%, var(--color-warning) ${100 - paidPct}%)`
+                    : 'var(--color-primary)',
                 }} />
                 <span class="text-xs text-muted-foreground mt-1 whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{dayLabel}</span>
               </div>
