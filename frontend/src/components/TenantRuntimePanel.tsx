@@ -7,8 +7,8 @@ import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
 import { Card } from './ui/card'
 import { cn } from '../lib/cn'
+import { healthLabel, healthTone as runtimeHealthTone } from '../lib/health-tone'
 
-const runtimeTone = (health: RuntimeHealth) => health === 'healthy' ? 'good' : health === 'degraded' ? 'bad' : health === 'stale' ? 'warn' : 'muted'
 
 // A runtime fact the operator can act on: a name in their vocabulary, an answer
 // in words, and colour only where the answer is bad. `undefined` is "the tenant
@@ -64,7 +64,7 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
           the Operations page, which reports CrowdRelay's own HTTP health from
           a different feed: this one is the heartbeat the tenant pushes here. */}
       <div><h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="heartbeat" />Heartbeat</h2></div>
-      <StatusBadge status={snapshot().runtimeHealth} tone={runtimeTone(snapshot().runtimeHealth)} />
+      <StatusBadge status={healthLabel(snapshot().runtimeHealth)} tone={runtimeHealthTone(snapshot().runtimeHealth)} />
     </div>
     <Show when={runtime.error}><div class="rounded-r-md rounded-l-none" role="status">Live refresh failed. Showing the last known runtime snapshot.</div></Show>
     <Show when={snapshot().runtimeHealth === 'unknown'}>

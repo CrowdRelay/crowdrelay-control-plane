@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { errorMessage, formatTimestamp } from '../lib/format'
-import { healthTone, platformStatusMessage } from '../lib/health-tone'
+import { healthLabel, healthTone, platformStatusMessage } from '../lib/health-tone'
 import { authState } from '../lib/auth'
 import type { CommandCenterReadModel, CommandCenterTenantSummary, PlatformHealthEntry, RuntimeHealth, TenantSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
@@ -376,7 +376,7 @@ export function OverviewPage() {
             <span class="text-xs text-muted-foreground">{tenant.slug}</span>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
-            <StatusBadge status={tenant.runtimeHealth} tone={healthTone(tenant.runtimeHealth)} />
+            <StatusBadge status={healthLabel(tenant.runtimeHealth)} tone={healthTone(tenant.runtimeHealth)} />
             <StatusBadge status={tenant.status} tone={tenant.status === 'active' ? 'good' : tenant.status === 'suspended' ? 'bad' : tenant.status === 'parked' ? 'warn' : 'warn'} />
           </div>
         </Link>
