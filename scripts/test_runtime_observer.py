@@ -48,6 +48,7 @@ class RuntimeObserverTests(unittest.TestCase):
         self.assertEqual(report["workerHealthy"], True)
         self.assertEqual(report["schemaVersion"], 207)
         self.assertEqual(report["deployedSha"], "a" * 40)
+        self.assertIn("lastHeartbeatAt", report)
 
     def test_failed_api_probe_reports_degraded_without_stale_identity(self):
         completed = [
@@ -64,6 +65,10 @@ class RuntimeObserverTests(unittest.TestCase):
         self.assertEqual(report["workerHealthy"], False)
         self.assertNotIn("schemaVersion", report)
         self.assertNotIn("deployedSha", report)
+        # No heartbeat on a failed probe. The control plane bounds freshness by
+        # `min(checked_at, lastHeartbeatAt)`; sending our own clock here kept an
+        # unreachable tenant permanently fresh, so it never went stale.
+        self.assertNotIn("lastHeartbeatAt", report)
 
     def test_outbox_pending_is_parsed_from_metrics(self):
         metrics = (

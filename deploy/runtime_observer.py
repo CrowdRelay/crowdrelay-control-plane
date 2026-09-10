@@ -187,8 +187,26 @@ def build_report(config: Config) -> dict[str, Any]:
     report: dict[str, Any] = {
         "apiHealthy": api_healthy,
         "workerHealthy": worker_healthy(config),
-        "lastHeartbeatAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
+    # A heartbeat is the tenant's, not ours.
+    #
+    # This used to stamp our own clock on every report, including reports where
+    # the probe above had failed. The control plane derives freshness from
+    # `min(checked_at, lastHeartbeatAt)` precisely so that a reporter cannot
+    # launder its own liveness into the tenant's — but both clocks were ours,
+    # so a tenant that had been unreachable for hours stayed permanently fresh
+    # and never crossed the stale threshold. "Runtime is treated as stale after
+    # a missed heartbeat" was unenforceable for exactly the tenants it was
+    # written for.
+    #
+    # A failed probe still reports `apiHealthy: false`, so an outage still reads
+    # as degraded straight away. What changes is that the stored heartbeat now
+    # ages: after the configured stale window, an outage nobody has resolved
+    # reads as stale rather than as a degradation somebody is watching.
+    if api_healthy:
+        report["lastHeartbeatAt"] = (
+            datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        )
     if schema_version is not None:
         report["schemaVersion"] = schema_version
     if deployed_sha is not None:
