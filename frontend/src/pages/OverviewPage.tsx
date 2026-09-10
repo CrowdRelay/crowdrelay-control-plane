@@ -11,6 +11,7 @@ import { ProgressRing } from '../components/ProgressRing'
 import { EmptyState } from '../components/EmptyState'
 import { SectionIcon } from '../components/SectionIcon'
 import { PageShell, PageHeader, KpiStrip, KpiCard, SectionTitle, ErrorCard, CommandBlock, SkeletonBlock } from '../components/layout'
+import { cn } from '../lib/cn'
 
 const formatLatency = (ms: number | null | undefined) => {
   if (ms == null) return null
@@ -99,14 +100,14 @@ export function OverviewPage() {
     {/* ── North Star command blocks (Aggregate → Engage → Convert) ── */}
     <Switch>
       <Match when={!cc()}>
-        <div class="command-center-grid">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           {Array.from({ length: 3 }, () => (
             <SkeletonBlock style={{ 'min-height': '120px' }} />
           ))}
         </div>
       </Match>
       <Match when={cc()}>
-        <div class="command-center-grid">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           {/* AGGREGATE */}
           <Link
             to={firstFanTenant() ? '/tenants/$slug/audience' : '/tenants'}
@@ -188,14 +189,14 @@ export function OverviewPage() {
         <ErrorCard>{errorMessage(commandCenter.error, 'Command center unavailable')}</ErrorCard>
       </Match>
       <Match when={!cc()}>
-        <div class="command-center-grid">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           {Array.from({ length: 5 }, () => (
             <SkeletonBlock style={{ 'min-height': '120px' }} />
           ))}
         </div>
       </Match>
       <Match when={cc()}>
-        <div class="command-center-grid">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           {/* ATTENTION */}
           <Link
             to={firstNeedsYouTenant() ? '/tenants/$slug/attention' : '/tenants'}
@@ -333,33 +334,33 @@ export function OverviewPage() {
     </Switch>
 
     {/* Fleet health ring + Tenant pulse — the fleet at a glance, first */}
-    <SectionTitle eyebrow="PULSE" title="Tenant pulse" icon={<SectionIcon name="heartbeat" />} action={<Show when={authState.isPlatformLevel()}><Link to="/tenants" class="section-link">Manage tenants →</Link></Show>} />
+    <SectionTitle eyebrow="PULSE" title="Tenant pulse" icon={<SectionIcon name="heartbeat" />} action={<Show when={authState.isPlatformLevel()}><Link to="/tenants" class="text-sm text-primary hover:text-primary/80">Manage tenants →</Link></Show>} />
     <Show when={items().length > 0}>
-      <div class="fleet-health-row">
-        <div class="fleet-health-ring">
+      <div class="flex items-center gap-4 p-4 rounded-lg border border-border bg-surface-1">
+        <div class="flex-shrink-0">
           <ProgressRing value={healthyPct()} size={72} strokeWidth={6} tone={fleetTone()} showValue={reportingCount() > 0} />
         </div>
-        <div class="fleet-health-stats">
-          <strong>
+        <div class="flex flex-col gap-1">
+          <strong class="text-sm text-foreground">
             {fmt(healthyCount())} healthy · {fmt(needsAttention())} need attention
             <Show when={unknownCount() > 0}> · {fmt(unknownCount())} not reporting</Show>
             {' '}· {fmt(items().length)} total
           </strong>
           <Show when={reportingCount() === 0}>
-            <span class="text-muted-foreground">No tenant has sent a runtime heartbeat yet, so there is nothing to score.</span>
+            <span class="text-sm text-muted-foreground">No tenant has sent a runtime heartbeat yet, so there is nothing to score.</span>
           </Show>
         </div>
       </div>
     </Show>
-    <div class="tenant-pulse-list">
+    <div class="space-y-2">
       <For each={items()}>{tenant => (
-        <Link to="/tenants/$slug" params={{ slug: tenant.slug }} class="tenant-pulse-row">
-          <div class="tenant-pulse-row-left">
-            <span class={`tenant-pulse-dot ${healthTone(tenant.runtimeHealth)}`} />
-            <strong>{tenant.displayName}</strong>
-            <span class="text-muted-foreground">{tenant.slug}</span>
+        <Link to="/tenants/$slug" params={{ slug: tenant.slug }} class="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 hover:border-border-strong transition-colors">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class={cn('inline-block w-2 h-2 rounded-full flex-shrink-0', healthTone(tenant.runtimeHealth) === 'good' ? 'bg-success' : healthTone(tenant.runtimeHealth) === 'bad' ? 'bg-destructive' : healthTone(tenant.runtimeHealth) === 'warn' ? 'bg-warning' : 'bg-muted-foreground')} />
+            <strong class="text-sm text-foreground">{tenant.displayName}</strong>
+            <span class="text-xs text-muted-foreground">{tenant.slug}</span>
           </div>
-          <div class="tenant-pulse-row-right">
+          <div class="flex items-center gap-2 flex-shrink-0">
             <StatusBadge status={tenant.runtimeHealth} tone={healthTone(tenant.runtimeHealth)} />
             <StatusBadge status={tenant.status} tone={tenant.status === 'active' ? 'good' : tenant.status === 'suspended' ? 'bad' : tenant.status === 'parked' ? 'warn' : 'warn'} />
           </div>
@@ -374,17 +375,17 @@ export function OverviewPage() {
         own tenants are the first thing they see. */}
     <Show when={platformServices().length > 0}>
       <SectionTitle eyebrow="SERVICES" title="Platform services" icon={<SectionIcon name="server" />} />
-      <div class="service-grid">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         <For each={platformServices()}>{(svc: PlatformHealthEntry) => (
-          <div class="service-card" classList={{ healthy: svc.healthy, unhealthy: !svc.healthy }}>
-            <div class="service-card-head">
-              <span class={`service-dot ${svc.healthy ? 'good' : 'bad'}`} />
-              <strong>{svc.label}</strong>
+          <div class={cn('p-4 rounded-lg border', svc.healthy ? 'border-border bg-surface-1' : 'border-destructive/30 bg-destructive/5')}>
+            <div class="flex items-center gap-2">
+              <span class={cn('inline-block w-2 h-2 rounded-full', svc.healthy ? 'bg-success' : 'bg-destructive')} />
+              <strong class="text-sm text-foreground">{svc.label}</strong>
             </div>
-            <div class="service-card-meta">
+            <div class="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
               <Show when={formatLatency(svc.latencyMs)}>{lat => <span class="tabular-nums">{lat()}</span>}</Show>
-              <Show when={!svc.healthy && svc.lastStatus}><span class="text-muted-foreground">{svc.lastStatus}</span></Show>
-              <span class="text-muted-foreground">{svc.url.replace(/^https?:\/\//, '')}</span>
+              <Show when={!svc.healthy && svc.lastStatus}><span>{svc.lastStatus}</span></Show>
+              <span class="break-all">{svc.url.replace(/^https?:\/\//, '')}</span>
             </div>
           </div>
         )}</For>
