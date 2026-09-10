@@ -2,6 +2,7 @@ import { For, Show, Suspense, createSignal, type Component, type JSX } from 'sol
 import { Card } from './ui/card'
 import { CollapsibleSection as UICollapsible } from './ui/collapsible'
 import { cn } from '../lib/cn'
+import { SkeletonTabContent } from './Skeleton'
 
 // ─── PageHeader ─────────────────────────────────────────────────────────
 // Every page starts with the same structure: eyebrow + title + description
@@ -134,6 +135,10 @@ export function TabBar(props: {
   tabs: Tab[]
   active: string
   onChange: (id: string) => void
+  /** Mount a tab's panel hidden before it is selected. Wire this to
+   *  `useTabPanels().prefetch` so pointing at a tab starts its queries; the
+   *  click then reveals data instead of starting the wait. */
+  onPrefetch?: (id: string) => void
 }) {
   return (
     <div class="flex items-center gap-1 border-b border-border overflow-x-auto scrollbar-none mb-4" role="tablist">
@@ -146,6 +151,8 @@ export function TabBar(props: {
               : 'border-transparent text-muted-foreground hover:text-foreground',
           )}
           onClick={() => props.onChange(tab.id)}
+          onPointerEnter={() => props.onPrefetch?.(tab.id)}
+          onFocus={() => props.onPrefetch?.(tab.id)}
           role="tab"
           id={`tab-${tab.id}`}
           aria-selected={props.active === tab.id}
@@ -177,7 +184,7 @@ export function TabPanel(props: {
         id={`tabpanel-${props.id}`}
         tabindex={props.active === props.id ? 0 : -1}
       >
-        <Suspense fallback={<div class="py-8 text-sm text-muted-foreground">Loading…</div>}>
+        <Suspense fallback={<SkeletonTabContent />}>
           {props.children}
         </Suspense>
       </div>
@@ -188,11 +195,16 @@ export function TabPanel(props: {
 export function useTabPanels(initial: string) {
   const [activeTab, setActiveTab] = createSignal(initial)
   const [visited, setVisited] = createSignal<Set<string>>(new Set([initial]))
+  const visit = (id: string) => setVisited(prev => prev.has(id) ? prev : new Set([...prev, id]))
   const switchTab = (id: string) => {
     setActiveTab(id)
-    setVisited(prev => prev.has(id) ? prev : new Set([...prev, id]))
+    visit(id)
   }
-  return { activeTab, switchTab, visited, isVisited: (id: string) => visited().has(id) }
+  // Mount the panel without selecting it. `TabPanel` renders a visited panel
+  // hidden, so its queries start on hover and the click has nothing left to
+  // wait for. A tab the operator never points at still costs nothing.
+  const prefetch = (id: string) => visit(id)
+  return { activeTab, switchTab, prefetch, visited, isVisited: (id: string) => visited().has(id) }
 }
 
 // ─── ErrorCard ─────────────────────────────────────────────────────────

@@ -68,7 +68,7 @@ const provisionFailures: Record<string, { title: string; guidance: string; retry
 export function TenantPage() {
   const params = useParams({ from: '/tenants/$slug' })
   const queryClient = useQueryClient()
-  const { activeTab, switchTab, isVisited } = useTabPanels('profile')
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('profile')
 
   // Base read model — tenant identity, provisioning, audit, platform caps.
   // This is all the Profile and Access tabs need. The Deployment tab has
@@ -177,6 +177,7 @@ export function TenantPage() {
       <TabBar
         active={activeTab()}
         onChange={switchTab}
+      onPrefetch={prefetch}
         tabs={[
           { id: 'profile', label: 'Profile' },
           { id: 'deployment', label: 'Deployment' },

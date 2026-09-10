@@ -27,7 +27,7 @@ const staleAreaReservations = (summary: OperationsSummary) => summary.area.stale
 
 export function TenantAttentionPage() {
   const params = useParams({ from: '/tenants/$slug/attention' })
-  const { activeTab, switchTab, isVisited } = useTabPanels('inbox')
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('inbox')
   const attention = useQuery(() => ({
     queryKey: ['tenant-operator-attention-snapshot', params().slug],
     queryFn: () => fetchOperationsAttention(params().slug),
@@ -108,6 +108,7 @@ export function TenantAttentionPage() {
     <TabBar
       active={activeTab()}
       onChange={switchTab}
+      onPrefetch={prefetch}
       tabs={[
         { id: 'inbox', label: 'Inbox' },
         { id: 'queues', label: 'Queues', count: deadCount() > 0 ? () => deadCount() : undefined },

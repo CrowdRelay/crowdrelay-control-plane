@@ -19,13 +19,14 @@ import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../compon
 /// past the roster.
 export function BeaconsPage() {
   const params = useParams({ from: '/tenants/$slug/beacons' })
-  const { activeTab, switchTab, isVisited } = useTabPanels('roster')
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('roster')
 
   return <PageShell>
     <PageHeader eyebrow="AUDIENCE" title="Beacons" description="People who carry a release or a show into a city the band has no audience in — venues, promoters, shops, radio. Invite them to Signal, record what they say, and pause the ones who go quiet." />
     <TabBar
       active={activeTab()}
       onChange={switchTab}
+      onPrefetch={prefetch}
       tabs={[
         { id: 'roster', label: 'Roster' },
         { id: 'signal', label: 'Signal' },

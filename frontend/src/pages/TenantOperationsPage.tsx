@@ -41,7 +41,7 @@ const kpiClass = (tone: string | undefined): string => {
 
 export function TenantOperationsPage() {
   const params = useParams({ from: '/tenants/$slug/operations' })
-  const { activeTab, switchTab, isVisited } = useTabPanels('opportunities')
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('opportunities')
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
@@ -188,6 +188,7 @@ export function TenantOperationsPage() {
     <TabBar
       active={activeTab()}
       onChange={switchTab}
+      onPrefetch={prefetch}
       tabs={[
         { id: 'opportunities', label: 'Opportunities', count: () => opCount() },
         { id: 'outreach', label: 'Outreach' },

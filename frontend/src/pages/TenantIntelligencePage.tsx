@@ -27,7 +27,7 @@ import { SectionFailureCard } from '../components/SectionFailureCard'
  */
 export function TenantIntelligencePage() {
   const params = useParams({ from: '/tenants/$slug/intelligence' })
-  const { activeTab, switchTab, isVisited } = useTabPanels('overview')
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('overview')
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
@@ -88,6 +88,7 @@ export function TenantIntelligencePage() {
     <TabBar
       active={activeTab()}
       onChange={switchTab}
+      onPrefetch={prefetch}
       tabs={[
         { id: 'overview', label: 'Overview' },
         { id: 'growth', label: 'Growth Intelligence' },

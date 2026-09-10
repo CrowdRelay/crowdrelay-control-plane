@@ -110,7 +110,7 @@ function formatTime(iso: string): string {
 }
 
 export function CommunityIntelligenceContent(props: { slug: string }) {
-  const { activeTab, switchTab, isVisited } = useTabPanels('communities')
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('communities')
   const [selectedPlaceId, setSelectedPlaceId] = createSignal<string | null>(null)
   const [draftFor, setDraftFor] = createSignal<string | null>(null)
   const [collapsed, setCollapsed] = createSignal<Set<string>>(new Set())
@@ -290,6 +290,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
       <TabBar
         active={activeTab()}
         onChange={switchTab}
+      onPrefetch={prefetch}
         tabs={[
           { id: 'communities', label: 'Communities' },
           { id: 'intelligence', label: 'Intelligence' },

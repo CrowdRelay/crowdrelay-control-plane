@@ -21,7 +21,7 @@ const statusTone = (status: string): 'success' | 'warning' | 'destructive' | 'mu
 }
 
 export function BeaconSignalPanel(props: { slug: string }) {
-  const { activeTab, switchTab, isVisited } = useTabPanels('profiles')
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('profiles')
   const dashboard = useQuery(() => ({
     queryKey: ['beacon-signal-dashboard', props.slug],
     queryFn: () => api.beaconSignalDashboard(props.slug),
@@ -70,6 +70,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
       <TabBar
         active={activeTab()}
         onChange={switchTab}
+      onPrefetch={prefetch}
         tabs={[
           { id: 'profiles', label: 'Profiles', count: () => dashboard.data?.profiles.length ?? 0 },
           { id: 'candidates', label: 'Candidates', count: () => candidates.data?.candidates.length ?? 0 },

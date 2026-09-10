@@ -333,11 +333,14 @@ export const Shell: Component = () => {
             <a href="https://crowdrelay.music" target="_blank" rel="noreferrer noopener" aria-label="CrowdRelay landing page" class="flex-shrink-0">
               <img src="/crowdrelay-brand-mark.png" alt="" width="32" height="32" class="rounded-lg" />
             </a>
+            {/* Three stacked lines did not fit the 56px header that aligns with
+                the topbar, so the third was clipped and the first two read as one
+                run-on word. Two lines fit; the tenant's public site already has a
+                link in the tenant switcher directly below. */}
             <Show when={!collapsed()}>
-              <div class="flex flex-col min-w-0">
-                <strong class="text-sm font-bold text-foreground leading-tight">CrowdRelay</strong>
-                <small class="text-xs text-muted-foreground leading-tight">Control Plane</small>
-                <a href="https://virya.music" target="_blank" rel="noreferrer noopener" class="text-xs text-primary hover:text-primary-hover">virya.music ↗</a>
+              <div class="flex flex-col min-w-0 leading-tight">
+                <strong class="truncate text-sm font-bold text-foreground">CrowdRelay</strong>
+                <small class="truncate text-xs text-muted-foreground">Control Plane</small>
               </div>
             </Show>
           </div>

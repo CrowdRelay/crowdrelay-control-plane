@@ -53,7 +53,7 @@ const priorityTone = (p: string): 'good' | 'warn' | 'muted' =>
   p === 'high' ? 'good' : p === 'medium' ? 'warn' : 'muted'
 
 export function AgentPanel(props: { slug: string }) {
-  const { activeTab, switchTab, isVisited } = useTabPanels('providers')
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('providers')
   const tab = () => activeTab() as 'providers' | 'tasks' | 'growth' | 'usage' | 'intel'
 
   const [selectedTemplate, setSelectedTemplate] = createSignal<string | null>(null)
@@ -253,6 +253,7 @@ export function AgentPanel(props: { slug: string }) {
       <TabBar
         active={activeTab()}
         onChange={switchTab}
+      onPrefetch={prefetch}
         tabs={[
           { id: 'providers', label: 'AI Providers' },
           { id: 'tasks', label: 'Tasks' },
@@ -525,9 +526,9 @@ export function AgentPanel(props: { slug: string }) {
             </Show>
             <pre class="flex-1 overflow-auto p-4 whitespace-pre-wrap text-sm text-foreground leading-relaxed m-0 max-h-[60vh]">{viewingResult()?.content}</pre>
             <div class="flex gap-2 p-3 border-t border-border">
-              <button onClick={() => navigator.clipboard.writeText(viewingResult()?.content ?? '')}>
+              <Button variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText(viewingResult()?.content ?? '')}>
                 Copy
-              </button>
+              </Button>
             </div>
         </>
       </Dialog>

@@ -31,7 +31,7 @@ function DegradedSections(props: { degraded: string[] }) {
 
 export function AudiencePage() {
   const params = useParams({ from: '/tenants/$slug/audience' })
-  const { activeTab, switchTab, isVisited } = useTabPanels('fans')
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('fans')
   const model = useQuery(() => ({
     queryKey: ['tenant-audience', params().slug],
     queryFn: () => api.audienceModel(params().slug),
@@ -48,6 +48,7 @@ export function AudiencePage() {
     <TabBar
       active={activeTab()}
       onChange={switchTab}
+      onPrefetch={prefetch}
       tabs={[
         { id: 'fans', label: 'Fans' },
         { id: 'communities', label: 'Communities' },

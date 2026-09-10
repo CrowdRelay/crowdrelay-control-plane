@@ -16,7 +16,7 @@ import type { TenantOperationsReadModel } from '../lib/types'
 
 export function TenantHealthPage() {
   const params = useParams({ from: '/tenants/$slug/health' })
-  const { activeTab, switchTab, isVisited } = useTabPanels('policies')
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('policies')
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
@@ -76,6 +76,7 @@ export function TenantHealthPage() {
       <TabBar
         active={activeTab()}
         onChange={switchTab}
+      onPrefetch={prefetch}
         tabs={[
           { id: 'policies', label: 'Policies' },
           { id: 'runtime', label: 'Runtime' },

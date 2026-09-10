@@ -6,6 +6,7 @@ import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { Card } from './ui/card'
+import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { cn } from '../lib/cn'
 import { NativeSelect } from './ui/native-select'
@@ -75,7 +76,7 @@ export function RegionalProfilePanel(props: Props) {
       <div class="min-w-0" aria-live="polite">
         <Show when={!ready()} fallback={<span class="inline-flex items-center gap-2 text-muted-foreground text-sm"><span class="w-1.75 h-1.75 rounded-full bg-success"/>Profile is complete and ready to save.</span>}><span class="inline-flex items-center gap-2 text-muted-foreground text-sm"><span class="w-1.75 h-1.75 rounded-full bg-destructive"/>Complete country, locale, timezone and currency to continue.</span></Show>
       </div>
-      <button type="button" onClick={()=>update.mutate()} disabled={update.isPending || !ready()}>{update.isPending && <Spinner />} {update.isPending ? 'Saving…' : props.tenant.regionalProfile ? 'Save regional profile' : 'Classify tenant'}</button>
+      <Button type="button" onClick={()=>update.mutate()} disabled={update.isPending || !ready()}>{update.isPending && <Spinner />} {update.isPending ? 'Saving…' : props.tenant.regionalProfile ? 'Save regional profile' : 'Classify tenant'}</Button>
     </div>
   </Card>
 }
