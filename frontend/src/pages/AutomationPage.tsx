@@ -11,6 +11,7 @@ import { SectionIcon } from '../components/SectionIcon'
 import { PageShell, PageHeader, KpiStrip, KpiCard, ErrorCard, SectionTitle } from '../components/layout'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
+import { cn } from '../lib/cn'
 
 const severityTone = (s: string) => s === 'error' ? 'bad' : s === 'warn' ? 'warn' : 'muted'
 const statusTone = (s: string) => s === 'new' ? 'bad' : s === 'acknowledged' ? 'warn' : s === 'retried' ? 'warn' : 'muted'
@@ -121,14 +122,14 @@ export function AutomationPage() {
       <p class="text-sm text-muted-foreground -mt-1 mb-4 leading-relaxed">One row per n8n workflow, deciding what its events do when they arrive. <strong>Category</strong> sorts the event — only <em>real work</em> is worth waking someone for. <strong>Discord</strong> forwards it to the crew channel. <strong>Muted</strong> keeps the events recorded but stops them counting as new. Changes save as you make them.</p>
       <Show when={configs.error}><ErrorCard>{errorMessage(configs.error, 'Automation routing could not be loaded')}</ErrorCard></Show>
       <Show when={configsReady()} fallback={!configs.error ? <SkeletonRows count={3} /> : null}>
-        <div class="automation-config-list">
+        <div class="space-y-2">
           <For each={configs.data!.items}>{(cfg: AutomationWorkflowConfig) => (
-            <Card class="p-4 automation-config-row">
-              <div class="automation-config-info">
-                <strong>{cfg.label}</strong>
-                <small>{cfg.workflowId}</small>
+            <Card class="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div class="flex flex-col gap-0.5">
+                <strong class="text-sm text-foreground">{cfg.label}</strong>
+                <small class="text-xs text-muted-foreground">{cfg.workflowId}</small>
               </div>
-              <div class="automation-config-controls">
+              <div class="flex items-center gap-3 flex-wrap">
                 <select
                   class="flex h-9 rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   value={cfg.category}
@@ -139,7 +140,7 @@ export function AutomationPage() {
                   <option value="real_work">Real work</option>
                   <option value="system">System</option>
                 </select>
-                <label class="toggle-row">
+                <label class="flex items-center gap-2 text-sm text-foreground">
                   <input
                     type="checkbox"
                     disabled={busyId() !== null}
@@ -148,7 +149,7 @@ export function AutomationPage() {
                   />
                   <span>Discord</span>
                 </label>
-                <label class="toggle-row">
+                <label class="flex items-center gap-2 text-sm text-foreground">
                   <input
                     type="checkbox"
                     disabled={busyId() !== null}
@@ -191,34 +192,34 @@ export function AutomationPage() {
 
       <Show when={events.error}><ErrorCard>{errorMessage(events.error, 'Automation events could not be loaded')}</ErrorCard></Show>
       <Show when={eventsReady()} fallback={!events.error ? <SkeletonRows count={5} /> : null}>
-        <div class="automation-event-list">
+        <div class="space-y-2">
           <For each={events.data!.items}>{(ev: AutomationEvent) => {
             const cfg = configMap().get(ev.workflowId)
             return (
-              <Card class="p-4 automation-event-row" classList={{ 'automation-event-new': ev.status === 'new' }}>
-                <div class="automation-event-head">
-                  <span class={`severity-dot ${severityTone(ev.severity)}`} />
-                  <strong>{ev.workflowName}</strong>
-                  <span class="text-muted-foreground">{ev.eventKind}</span>
-                  <Show when={cfg}><span class={`category-badge ${cfg!.category}`}>{categoryLabel(cfg!.category)}</span></Show>
-                  <span class="text-muted-foreground time">{formatTime(ev.occurredAt)}</span>
+              <Card class={cn('p-4 space-y-2', ev.status === 'new' && 'ring-1 ring-primary/30')}>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class={cn('inline-block w-2 h-2 rounded-full', severityTone(ev.severity) === 'bad' ? 'bg-destructive' : severityTone(ev.severity) === 'warn' ? 'bg-warning' : 'bg-muted-foreground')} />
+                  <strong class="text-sm text-foreground">{ev.workflowName}</strong>
+                  <span class="text-xs text-muted-foreground">{ev.eventKind}</span>
+                  <Show when={cfg}><span class={cn('inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium', cfg!.category === 'real_work' ? 'bg-primary/10 text-primary' : cfg!.category === 'system' ? 'bg-surface-3 text-muted-foreground' : 'bg-surface-2 text-muted-foreground')}>{categoryLabel(cfg!.category)}</span></Show>
+                  <span class="text-xs text-muted-foreground ml-auto">{formatTime(ev.occurredAt)}</span>
                 </div>
-                <div class="automation-event-body">
-                  <p>{ev.message}</p>
-                  <Show when={ev.nodeName}><small class="text-muted-foreground">Node: {ev.nodeName}</small></Show>
-                  <Show when={ev.executionId}><small class="text-muted-foreground">Execution: {ev.executionId}</small></Show>
+                <div class="space-y-1">
+                  <p class="text-sm text-foreground">{ev.message}</p>
+                  <Show when={ev.nodeName}><small class="block text-xs text-muted-foreground">Node: {ev.nodeName}</small></Show>
+                  <Show when={ev.executionId}><small class="block text-xs text-muted-foreground">Execution: {ev.executionId}</small></Show>
                 </div>
-                <div class="automation-event-actions">
-                  <span class={`status-badge ${statusTone(ev.status)}`}>{ev.status}</span>
-                  <Show when={ev.retryCount > 0}><span class="text-muted-foreground">retried {ev.retryCount}×</span></Show>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class={cn('inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium', statusTone(ev.status) === 'bad' ? 'bg-destructive/10 text-destructive' : statusTone(ev.status) === 'warn' ? 'bg-warning/10 text-warning' : 'bg-surface-2 text-muted-foreground')}>{ev.status}</span>
+                  <Show when={ev.retryCount > 0}><span class="text-xs text-muted-foreground">retried {ev.retryCount}×</span></Show>
                   <Show when={ev.status === 'new'}>
-                    <Button variant="ghost" size="sm" class="alert-action" disabled={busyId() === ev.id} onClick={() => handleAck(ev.id)}>Ack</Button>
+                    <Button variant="ghost" size="sm" disabled={busyId() === ev.id} onClick={() => handleAck(ev.id)}>Ack</Button>
                   </Show>
                   <Show when={ev.executionId && ev.status !== 'retried'}>
-                    <Button variant="ghost" size="sm" class="alert-action" disabled={busyId() === ev.id} onClick={() => handleRetry(ev.id)}>Retry</Button>
+                    <Button variant="ghost" size="sm" disabled={busyId() === ev.id} onClick={() => handleRetry(ev.id)}>Retry</Button>
                   </Show>
                   <Show when={ev.status !== 'resolved'}>
-                    <Button variant="ghost" size="sm" class="alert-action" disabled={busyId() === ev.id} onClick={() => handleResolve(ev.id)}>Resolve</Button>
+                    <Button variant="ghost" size="sm" disabled={busyId() === ev.id} onClick={() => handleResolve(ev.id)}>Resolve</Button>
                   </Show>
                 </div>
               </Card>
