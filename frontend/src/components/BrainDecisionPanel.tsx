@@ -47,14 +47,13 @@ const VALUE_TIER_LABELS: Record<string, string> = {
 }
 
 const RANK_FACTOR_LABELS: Record<string, string> = {
-  authority: 'authority state',
-  deadline: 'deadline proximity',
-  value_tier: 'value tier',
-  measured_effect: 'measured effect',
-  confidence: 'confidence',
-  magnitude: 'deviation magnitude',
-  objective: 'objective target',
-  tie: 'stable tie-break',
+  authority: 'it is waiting on you',
+  deadline: 'its deadline is closest',
+  value_tier: 'it moves a real number, not a vanity one',
+  measured_effect: 'this kind of action has worked before',
+  confidence: 'the brain is most sure about it',
+  magnitude: 'it is furthest off target',
+  tie: 'nothing separated it from the rest',
 }
 
 // Render input_snapshot as key/value evidence. The snapshot is raw JSON from
@@ -277,8 +276,10 @@ export function BrainDecisionPanel(props: {
               </div>
             </Show>
             <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-lg bg-surface-3 min-w-[80px]">
-              <span class="text-xs text-muted-foreground uppercase tracking-wider">Ranked by</span>
-              <strong class="text-sm font-bold text-foreground">{RANK_FACTOR_LABELS[e.ranked_by] ?? e.ranked_by}</strong>
+              {/* "Ranked by: stable tie-break" describes the sort function.
+                  The operator's question is why this one is at the top. */}
+              <span class="text-xs text-muted-foreground uppercase tracking-wider">Top of the list because</span>
+              <strong class="text-sm font-medium text-foreground leading-snug">{RANK_FACTOR_LABELS[e.ranked_by] ?? e.ranked_by}</strong>
             </div>
             <Show when={e.deviation_basis_points != null}>
               <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-lg bg-surface-3 min-w-[80px]">
@@ -291,9 +292,19 @@ export function BrainDecisionPanel(props: {
 
         {/* WHAT IT WILL/DID DO — action state */}
         <div class="flex flex-col gap-2 pt-3 border-t border-border-subtle">
+          {/* The fallback ignored `authority`, so a decision the brain had
+              already run itself rendered "No executable step — handle it
+              yourself" under an "auto executing" badge, above "if ignored: the
+              action proceeds without you". Three answers to one question, all
+              different. Authority decides the sentence; "if ignored" is only
+              meaningful while the decision is still waiting on somebody. */}
           <div class="flex items-center justify-between gap-3 flex-wrap">
             <Show when={e.action_id} fallback={
-              <span class="text-sm text-muted-foreground">No executable step — handle it yourself</span>
+              <span class="text-sm text-muted-foreground">
+                {e.authority === 'auto_executing'
+                  ? 'The autopilot handled this — nothing for you to do'
+                  : 'Nothing here can run this — handle it yourself'}
+              </span>
             }>
               <span class="font-semibold text-secondary-foreground">
                 {e.authority === 'awaiting_approval'
@@ -303,12 +314,12 @@ export function BrainDecisionPanel(props: {
                     : 'Ready to execute'}
               </span>
             </Show>
-            <Show when={e.due_at}>
+            <Show when={e.due_at && e.authority !== 'auto_executing'}>
               <span class="text-sm font-semibold text-warning">deadline {new Date(e.due_at!).toLocaleDateString()}</span>
             </Show>
           </div>
-          <Show when={e.consequence}>
-            <small class="text-xs text-muted-foreground leading-relaxed">if ignored: {e.consequence}</small>
+          <Show when={e.consequence && e.authority !== 'auto_executing'}>
+            <small class="text-xs text-muted-foreground leading-relaxed">If nobody acts: {e.consequence}</small>
           </Show>
 
           {/* Approve / Reject / Inspect */}

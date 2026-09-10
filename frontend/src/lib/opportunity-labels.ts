@@ -90,13 +90,14 @@ export const SUBJECT_KIND_LABELS: Record<string, string> = {
 }
 
 export const RANK_FACTOR_LABELS: Record<string, string> = {
-  authority: 'authority state',
-  deadline: 'deadline proximity',
-  value_tier: 'value tier',
-  measured_effect: 'measured effect',
-  confidence: 'confidence',
-  magnitude: 'deviation magnitude',
-  tie: 'stable tie-break',
+  authority: 'it is waiting on you',
+  deadline: 'its deadline is closest',
+  value_tier: 'it moves a real number, not a vanity one',
+  measured_effect: 'this kind of action has worked before',
+  confidence: 'the brain is most sure about it',
+  magnitude: 'it is furthest off target',
+  objective: 'it serves the current objective',
+  tie: 'nothing separated it from the rest',
 }
 
 export const VALUE_TIER_LABELS: Record<string, string> = {

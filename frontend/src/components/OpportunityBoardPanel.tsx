@@ -175,7 +175,12 @@ export function OpportunityBoardPanel(props: {
                 <Show when={formatDue(entry.due_at)}>
                   {due => <small class="text-sm text-warning">deadline {due()}</small>}
                 </Show>
-                <small class="text-xs text-warning-light">if ignored: {entry.consequence}</small>
+                {/* Same contradiction as the decision panel: an entry the
+                    autopilot already ran does not have a consequence for
+                    inaction, because inaction is no longer possible. */}
+                <Show when={entry.consequence && entry.authority !== 'auto_executing'}>
+                  <small class="text-xs text-warning-light">If nobody acts: {entry.consequence}</small>
+                </Show>
                 <Show when={entry.briefing}>
                   {briefing => (
                     <details class="mt-1.5 border-t border-border-subtle pt-2">
@@ -207,7 +212,7 @@ export function OpportunityBoardPanel(props: {
                   when={isApprovable(entry)}
                   fallback={
                     <span class="max-w-[170px] text-right text-muted-foreground text-sm leading-snug">
-                      {NOT_APPROVABLE_NOTE[entry.authority] ?? 'no executable step — handle it yourself'}
+                      {NOT_APPROVABLE_NOTE[entry.authority] ?? 'nothing here can run this — handle it yourself'}
                     </span>
                   }
                 >
@@ -221,15 +226,20 @@ export function OpportunityBoardPanel(props: {
                     {pendingMutation() === `do:${entry.decision_id}` && <Spinner />} {pendingMutation() === `do:${entry.decision_id}` ? 'Approving…' : confirming() === `do:${entry.decision_id}` ? 'Confirm approval' : 'Do it'}
                   </Button>
                 </Show>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={pendingMutation() !== null}
-                  onClick={() => doneOurselves(entry)}
-                >
-                  {pendingMutation() === `done:${entry.decision_id}` && <Spinner />} {pendingMutation() === `done:${entry.decision_id}` ? 'Recording…' : confirming() === `done:${entry.decision_id}` ? 'Confirm done' : 'Done ourselves'}
-                </Button>
+                {/* "Done ourselves" records that a human did the work instead of
+                    the agent. On an entry the autopilot already ran, that claim
+                    is false and the button only invites the operator to file it. */}
+                <Show when={entry.authority !== 'auto_executing'}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={pendingMutation() !== null}
+                    onClick={() => doneOurselves(entry)}
+                  >
+                    {pendingMutation() === `done:${entry.decision_id}` && <Spinner />} {pendingMutation() === `done:${entry.decision_id}` ? 'Recording…' : confirming() === `done:${entry.decision_id}` ? 'Confirm done' : 'I did this myself'}
+                  </Button>
+                </Show>
               </div>
             </div>
           )}</For>
