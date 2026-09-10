@@ -14,6 +14,15 @@ export const queryClient = new QueryClient({
       gcTime: 5 * 60_000,
       retry: 1,
       refetchOnWindowFocus: false,
+      // The global refresh control (lib/refresh.ts) is the only mechanism that
+      // should auto-refetch queries on a cadence. Without this, a momentary
+      // network blip triggers TanStack Query's default reconnect refetch,
+      // which re-fans-out every stale query on the page — so an operator who
+      // set refresh to Off still sees the Operations page flicker from
+      // "degraded" to "available" as the reconnect refetch lands. The global
+      // timer, manual refresh button, and mutation invalidations still drive
+      // intentional refetches.
+      refetchOnReconnect: false,
       refetchIntervalInBackground: false,
       placeholderData: (prev: unknown) => prev,
       // Default every query to a structural merge, so a refetch that returns
