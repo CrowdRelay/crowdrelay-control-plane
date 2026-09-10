@@ -95,7 +95,7 @@ export function TenantsPage() {
       eyebrow="TENANT REGISTRY"
       title={isPlatformLevel() ? 'Teams on the platform' : 'Your tenant'}
       description={isPlatformLevel()
-        ? 'Create an isolated CrowdRelay + Signal tenant with an explicit regional profile. Browser locale/IP never silently decides currency, timezone or data residency.'
+        ? 'Create an isolated CrowdRelay + Signal tenant with an explicit regional profile.'
         : 'Your tenant on the platform. Regional profile, runtime health and deployment state.'}
       actions={<Show when={isAdmin()}><Link class="button-link" to="/tenants/new">+ New tenant</Link></Show>}
     />
@@ -104,29 +104,29 @@ export function TenantsPage() {
     <Show when={tenants.error || overview.error}><ErrorCard>{tenants.error instanceof Error ? tenants.error.message : overview.error instanceof Error ? overview.error.message : 'Control Plane data could not be loaded'}</ErrorCard></Show>
     <Show when={isAdmin() && creating()}>
       <form class="tenant-create-form" onSubmit={(event) => { event.preventDefault(); createTenant.mutate() }}>
-        <div class="form-section-head"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">NEW TENANT</span><h2>Identity + region</h2></div><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></div>
+        <div class="form-section-head"><div><h2>Identity + region</h2></div><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></div>
         <div class="form-grid">
           <label>Slug<input value={slug()} onInput={(e) => setSlug(e.currentTarget.value.toLowerCase())} placeholder="future-metal" autocomplete="off" maxlength="60" /></label>
           <label>Display name<input value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="Future Metal" maxlength="120" /></label>
-          <label>Regional preset<select onChange={e=>applyPreset(e.currentTarget.value as Preset)}><option value="PL">Poland</option><option value="DE">Germany</option><option value="CZ">Czechia</option><option value="US">United States</option></select><small>Preset fills persisted fields; runtime never infers from it.</small></label>
+          <label>Regional preset<select onChange={e=>applyPreset(e.currentTarget.value as Preset)}><option value="PL">Poland</option><option value="DE">Germany</option><option value="CZ">Czechia</option><option value="US">United States</option></select><small>Fills fields below; can be overridden.</small></label>
           <label>Country<input maxlength="2" value={profile().countryCode} onInput={e=>setRegional('countryCode',e.currentTarget.value.toUpperCase())}/></label>
           <label>Locale<input value={profile().locale} onInput={e=>setRegional('locale',e.currentTarget.value)} placeholder="de-DE"/></label>
-          <label>Timezone<input value={profile().timezone} onInput={e=>setRegional('timezone',e.currentTarget.value)} placeholder={profile().countryCode === 'US' ? 'America/Chicago (choose explicitly)' : 'Europe/Berlin'}/><small>{profile().countryCode === 'US' ? 'Required: US preset intentionally has no hidden timezone default.' : 'Explicit IANA timezone.'}</small></label>
+          <label>Timezone<input value={profile().timezone} onInput={e=>setRegional('timezone',e.currentTarget.value)} placeholder={profile().countryCode === 'US' ? 'America/Chicago (choose explicitly)' : 'Europe/Berlin'}/><small>{profile().countryCode === 'US' ? 'Required: US preset has no hidden timezone default.' : 'Explicit timezone.'}</small></label>
           <label>Currency<input maxlength="3" value={profile().currency} onInput={e=>setRegional('currency',e.currentTarget.value.toUpperCase())}/></label>
           <label>Market region<select value={profile().region} onChange={e=>setRegional('region',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></select></label>
-          <label>Data residency<select value={profile().dataRegion} onChange={e=>setRegional('dataRegion',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></select><small>Persisted and enforced by the regional provisioner pool.</small></label>
+          <label>Data residency<select value={profile().dataRegion} onChange={e=>setRegional('dataRegion',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></select><small>Enforced by the regional provisioner pool.</small></label>
           <label>Date format<select value={profile().dateFormat} onChange={e=>setRegional('dateFormat',e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></select></label>
           <label>Number format<select value={profile().numberFormat} onChange={e=>setRegional('numberFormat',e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></select></label>
           <label>CrowdRelay API base URL<input value={crowdrelayBaseUrl()} onInput={(e) => setCrowdrelayBaseUrl(e.currentTarget.value)} placeholder="https://api.future-metal.example" /></label>
           <label>Signal / public site URL<input value={signalBaseUrl()} onInput={(e) => setSignalBaseUrl(e.currentTarget.value)} placeholder="https://future-metal.example" /></label>
           <label>Release SHA <small>optional if server default is configured</small><input value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={overview.data?.provisionerDefaultImageTag ?? 'sha-<40-char CrowdRelay commit>'} /></label>
         </div>
-        <div class="form-section-head"><div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">TENANT OPERATOR</span><h2>First account for the team</h2></div></div>
+        <div class="form-section-head"><div><h2>First account for the team</h2></div></div>
         <div class="form-grid">
           <label>Operator username<input value={opUsername()} onInput={(e) => setOpUsername(e.currentTarget.value.toLowerCase())} placeholder="future-metal-op" autocomplete="off" /><small>Optional. Sees only this tenant; leave blank to skip.</small></label>
-          <label>Operator password<input type="password" value={opPassword()} onInput={(e) => setOpPassword(e.currentTarget.value)} placeholder="min 12 characters" autocomplete="new-password" /><small>Handed to the team once — hashed with argon2id, never shown again.</small></label>
+          <label>Operator password<input type="password" value={opPassword()} onInput={(e) => setOpPassword(e.currentTarget.value)} placeholder="min 12 characters" autocomplete="new-password" /><small>Hashed securely, never shown again.</small></label>
         </div>
-        <label class="check-row"><input type="checkbox" checked={deployNow()} onChange={(e) => setDeployNow(e.currentTarget.checked)} /><span><strong>Deploy isolated CrowdRelay instance now</strong><small>Only an agent for the selected data region may claim this schema-v4 job.</small></span></label>
+        <label class="check-row"><input type="checkbox" checked={deployNow()} onChange={(e) => setDeployNow(e.currentTarget.checked)} /><span><strong>Deploy isolated CrowdRelay instance now</strong><small>Only an agent for the selected data region may claim this job.</small></span></label>
         <Show when={createTenant.error}><ErrorCard>{createTenant.error instanceof Error ? createTenant.error.message : 'Tenant creation failed'}</ErrorCard></Show>
         <div class="flex justify-end gap-2 mt-5"><Button variant="ghost" size="sm" type="button" onClick={() => { setCreating(false); resetForm() }}>Cancel</Button><Button type="submit" size="sm" disabled={createTenant.isPending || slug().length < 2 || name().length < 2 || !regionalReady() || !deployFieldsReady() || !operatorFieldsReady()}>{createTenant.isPending && <Spinner />} {createTenant.isPending ? 'Creating…' : deployNow() ? 'Create & deploy' : 'Create tenant'}</Button></div>
       </form>

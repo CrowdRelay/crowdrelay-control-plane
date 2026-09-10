@@ -167,7 +167,7 @@ export function TenantPage() {
       </Show>
       <Show when={t.status === 'parked'}>
         <div class="parked-banner" role="status">
-          <strong>Tenant is parked.</strong> The autopilot brain is stopped — no new tasks, no decisions, no outreach. Pending deliveries still drain. Click <em>Resume</em> to restore operations instantly.
+          <strong>Tenant is parked.</strong> The autopilot is stopped — no new tasks or outreach. Pending deliveries still drain. Click <em>Resume</em> to restore.
         </div>
       </Show>
       <TabBar
@@ -272,7 +272,7 @@ export function TenantPage() {
           </SectionPanel>
         </div>
         <RegionalProfilePanel tenant={t} />
-        <SectionPanel><SectionTitle eyebrow="BRANDING" title="CrowdRelay + Signal palette" icon={<SectionIcon name="palette" />} action={t.brandingPalette ? <Button variant="ghost" size="sm" disabled={branding.isPending} onClick={() => branding.mutate(null)}>{branding.isPending && <Spinner />} Reset to product defaults</Button> : <StatusBadge status="Inherits current product defaults" />} /><Show when={t.brandingPalette || editingPalette()} fallback={<Card class="p-4"><p>No palette is stored for this tenant. CrowdRelay and Signal therefore keep their own current default colors with zero theming lookup required.</p><Button variant="ghost" size="sm" onClick={() => setEditingPalette(true)}>Create custom palette</Button></Card>}><p>Ten colours, sent to this tenant's CrowdRelay and Signal builds. Nothing changes for fans until you save; resetting removes the override and both apps fall back to the product defaults.</p><div class="palette-grid"><For each={paletteFields}>{field => <label><span class="palette-field-name">{paletteLabels[field].label}</span><span class="palette-field-role">{paletteLabels[field].role}</span><div class="color-input"><input type="color" aria-label={paletteLabels[field].label} value={palette()[field]} onInput={(e) => setPalette(current => ({ ...current, [field]: e.currentTarget.value }))}/><code>{palette()[field]}</code></div></label>}</For></div><Button size="sm" onClick={() => branding.mutate(palette())} disabled={branding.isPending}>{branding.isPending && <Spinner />} {branding.isPending ? 'Saving…' : 'Save custom palette'}</Button></Show></SectionPanel>
+        <SectionPanel><SectionTitle eyebrow="BRANDING" title="CrowdRelay + Signal palette" icon={<SectionIcon name="palette" />} action={t.brandingPalette ? <Button variant="ghost" size="sm" disabled={branding.isPending} onClick={() => branding.mutate(null)}>{branding.isPending && <Spinner />} Reset to product defaults</Button> : <StatusBadge status="Inherits current product defaults" />} /><Show when={t.brandingPalette || editingPalette()} fallback={<div class="p-4"><p>No custom palette stored. Both apps use their default colors.</p><Button variant="ghost" size="sm" onClick={() => setEditingPalette(true)}>Create custom palette</Button></div>}><p>Ten colours sent to this tenant's CrowdRelay and Signal builds. Nothing changes until you save; resetting removes the override.</p><div class="palette-grid"><For each={paletteFields}>{field => <label><span class="palette-field-name">{paletteLabels[field].label}</span><span class="palette-field-role">{paletteLabels[field].role}</span><div class="color-input"><input type="color" aria-label={paletteLabels[field].label} value={palette()[field]} onInput={(e) => setPalette(current => ({ ...current, [field]: e.currentTarget.value }))}/><code>{palette()[field]}</code></div></label>}</For></div><Button size="sm" onClick={() => branding.mutate(palette())} disabled={branding.isPending}>{branding.isPending && <Spinner />} {branding.isPending ? 'Saving…' : 'Save custom palette'}</Button></Show></SectionPanel>
 
         <Show when={t.signalEnabled || t.synesthesiaEnabled}>
           <SectionPanel class="mobile-app-setup-panel">
@@ -298,8 +298,7 @@ export function TenantPage() {
             </div>
             <Show when={!t.signalPlayStoreUrl && t.signalEnabled}>
               <div class="onboard-command-card">
-                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">QUICK START</span>
-                <p>Run this in the virya-signal repo to onboard the Signal app end-to-end:</p>
+                <p>Run in the virya-signal repo to onboard the Signal app:</p>
                 <pre><code>bash scripts/onboard-tenant-app.sh \<br/>  --tenant {t.slug} \<br/>  --control-plane-url {window.location.origin.replace(/:\d+$/, '')} \<br/>  --token $CONTROL_PLANE_ADMIN_TOKEN \<br/>  --version 0.1.0 --version-code 1</code></pre>
               </div>
             </Show>
@@ -331,8 +330,8 @@ export function TenantPage() {
         <Show when={operations.error}><ErrorCard>{errorMessage(operations.error, 'Operations read model unavailable')}</ErrorCard></Show>
         <SectionPanel class="provisioning-panel">
           <SectionTitle eyebrow="PROVISIONING" title="CrowdRelay instance" icon={<SectionIcon name="server" />} action={<Show when={latestJob()}>{job => <StatusBadge status={job().status} tone={provisionTone(job().status)} />}</Show>} />
-          <Show when={capabilities()?.canProvision !== false} fallback={<Card class="p-4"><p>This tenant stays on its existing production CrowdRelay deployment. The tenant provisioner intentionally refuses to create a second stack for it.</p></Card>}>
-            <p>The browser only requests desired state. A separately authenticated host agent claims the job and runs a fixed Docker Compose recipe; the Control Plane API never receives Docker access.</p>
+          <Show when={capabilities()?.canProvision !== false} fallback={<div class="p-4"><p>This tenant stays on its existing production CrowdRelay deployment.</p></div>}>
+            <p>The browser only requests desired state. A separately authenticated host agent claims the job and runs the deployment.</p>
             <div class="deployment-target-grid">
               <div><span>Public API</span><strong>{t.crowdrelayBaseUrl ?? 'not configured'}</strong></div>
               <div><span>Signal / site</span><strong>{t.signalBaseUrl ?? 'not configured'}</strong></div>
@@ -344,7 +343,7 @@ export function TenantPage() {
               <button onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || !releaseReady() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl}>{latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</button>
             </div>
             <Show when={deploy.error}><ErrorCard>{deploy.error instanceof Error ? deploy.error.message : 'Deployment request failed'}</ErrorCard></Show>
-            <Show when={preview()}>{job => <div class="plan-preview"><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">PLAN PREVIEW</span><pre>{JSON.stringify(job().plan, null, 2)}</pre></div>}</Show>
+            <Show when={preview()}>{job => <div class="plan-preview"><pre>{JSON.stringify(job().plan, null, 2)}</pre></div>}</Show>
             <Show when={latestJob()}>{job => <div class="provision-job">
               <div class="provision-job-head"><div><strong>{job().status === 'succeeded' ? 'Deployed' : job().status === 'failed' ? 'Deployment failed' : job().status === 'running' ? 'Deploying…' : job().status === 'approved' ? 'Queued' : 'Planned'}</strong><small>attempt {job().attemptCount} · {new Date(job().createdAt).toLocaleString()}</small></div><div class="provision-job-badges"><StatusBadge status={job().status} tone={provisionTone(job().status)} /></div></div>
               <Show when={job().status === 'approved'}><p>Queued for the provisioner agent. No Docker mutation happens in the HTTP request.</p></Show>
@@ -395,10 +394,7 @@ export function TenantPage() {
             <Show when={optOutDone()} fallback={
               <>
                 <p>
-                  If you want to leave the platform, request an opt-out here. Your request is
-                  recorded and sent to the crew. They will contact you at the email on file to
-                  confirm, then remove your tenant, operators, and all control-plane data.
-                  Your CrowdRelay workspace keeps running until it is shut down separately.
+                  Request an opt-out to leave the platform. Your request is recorded and sent to the crew, who will contact you to confirm before removing your tenant data. Your CrowdRelay workspace keeps running until shut down separately.
                 </p>
                 <p class="route-note">
                   To expedite, also email <a href="mailto:virya.crew@gmail.com?subject=Opt%20out%3A%20{encodeURIComponent(t.displayName)}&body=Tenant%3A%20{encodeURIComponent(t.slug)}%0A%0AI%20want%20to%20opt%20out%20of%20the%20CrowdRelay%20platform.%20Please%20remove%20my%20tenant%20data.">virya.crew@gmail.com</a>.
@@ -447,10 +443,7 @@ export function TenantPage() {
           <SectionPanel class="tenant-danger-zone">
             <SectionTitle eyebrow="DANGER ZONE" title="Remove tenant" icon={<SectionIcon name="alert-triangle" />} />
             <p>
-              Unregisters <strong>{t.displayName}</strong> from the control plane: its operators,
-              runtime status and provisioning history here are deleted and cannot be restored from
-              this screen. The tenant's own CrowdRelay data is not touched — that workspace keeps
-              running until it is shut down separately. The audit trail survives this removal.
+              Unregisters <strong>{t.displayName}</strong> from the control plane: operators, runtime status, and provisioning history are deleted. The tenant's CrowdRelay workspace is not touched — it keeps running until shut down separately. The audit trail survives.
             </p>
             <Show when={remove.isError}>
               <ErrorCard>{errorMessage(remove.error, 'Tenant removal failed')}</ErrorCard>
