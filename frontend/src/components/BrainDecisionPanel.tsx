@@ -11,6 +11,7 @@ import { CONTEXT_LABELS, SUBJECT_KIND_LABELS, labelOr, opportunityTitle } from '
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { Card } from './ui/card'
+import { Alert } from './ui/alert'
 import { Button } from './ui/button'
 
 // The flagship decision surface. Shows the single most important current
@@ -241,10 +242,10 @@ export function BrainDecisionPanel(props: {
     </div>
 
     <Show when={props.degraded && !hasDecision()}>
-      <div class="warning-card" role="status">
+      <Alert tone="warning" role="status">
         The decision channel is temporarily unavailable. The brain's latest
         decision will appear here once the channel recovers.
-      </div>
+      </Alert>
     </Show>
 
     <Show when={!hasDecision() && !props.degraded}>
@@ -351,10 +352,10 @@ export function BrainDecisionPanel(props: {
               <SkeletonRows count={3} />
             </Show>
             <Show when={!evidence.isFetching && evidence.data === null}>
-              <div class="warning-card" role="status">
+              <Alert tone="warning" role="status">
                 Evidence not available for this decision. The decision row may
                 predate the evidence endpoint, or the channel is temporarily unavailable.
-              </div>
+              </Alert>
             </Show>
             <Show when={evidence.data} keyed>{(data) => renderEvidenceDetail(data as DecisionEvidence)}</Show>
           </>

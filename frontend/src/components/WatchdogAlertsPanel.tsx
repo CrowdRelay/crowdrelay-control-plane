@@ -5,6 +5,7 @@ import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './EmptyState'
 import { SectionIcon } from './SectionIcon'
 import { Card } from './ui/card'
+import { Alert } from './ui/alert'
 import { Button } from './ui/button'
 
 // What each watchdog condition actually observes, and where an operator can act
@@ -101,7 +102,7 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
 
     <For each={open()}>{alert => {
       const guide = () => GUIDE[alert.alert_key]
-      return <div class={alert.severity === 'critical' ? 'rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive' : 'warning-card'}>
+      return <Alert tone={alert.severity === 'critical' ? 'destructive' : 'warning'}>
         <div class="flex items-start justify-between gap-4 mt-6 mb-3">
           <div>
             <strong class="text-foreground">{guide()?.title ?? alert.summary}</strong>
@@ -122,7 +123,7 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
             {anchor => <Button variant="ghost" size="sm" onClick={() => jumpTo(anchor())}>{action().label}</Button>}
           </Show>
         </div>}</Show>
-      </div>
+      </Alert>
     }}</For>
 
     <Show when={open().length === 0}>

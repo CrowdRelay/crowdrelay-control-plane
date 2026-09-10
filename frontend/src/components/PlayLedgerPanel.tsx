@@ -124,7 +124,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
         <h4 class="text-sm font-semibold text-foreground flex items-center gap-2 mt-6 pt-6 border-t border-border"><SectionIcon name="list-checks" />Kind Standings</h4>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 mb-4">
           <For each={showAllStandings() ? ledger.data!.standings : ledger.data!.standings.slice(0, MAX_VISIBLE_STANDINGS)}>{(s) => (
-            <Card class={`p-4 border-l-2 ${toneBorder(standingTone(s))}`}>
+            <div class={`p-4 rounded-lg border border-border border-l-2 ${toneBorder(standingTone(s))} bg-card`}>
               <div class="flex justify-between items-center mb-1.5">
                 <strong class="text-foreground">{kindLabel(s.kind)}</strong>
                 <Badge variant={toneVariant(standingTone(s))}>{s.standing.standing}</Badge>
@@ -141,7 +141,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
               <div class="text-sm text-muted-foreground mt-1">
                 <span>Recipient cap per step: {s.effective_max_recipients_per_step}</span>
               </div>
-            </Card>
+            </div>
           )}</For>
         </div>
         <Show when={ledger.data!.standings.length > MAX_VISIBLE_STANDINGS}>
@@ -155,7 +155,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
         <h4 class="text-sm font-semibold text-foreground flex items-center gap-2 mt-6 pt-6 border-t border-border"><SectionIcon name="play" />Plays</h4>
         <div class="flex flex-col gap-3 mt-3">
           <For each={showAllPlays() ? ledger.data!.plays : ledger.data!.plays.slice(0, MAX_VISIBLE_PLAYS)}>{(p) => (
-            <Card class={`p-4 border-l-2 ${toneBorder(stateTone(p.state))}`}>
+            <div class={`p-4 rounded-lg border border-border border-l-2 ${toneBorder(stateTone(p.state))} bg-card`}>
               <div class="flex justify-between items-center mb-2">
                 <strong class="text-foreground">{kindLabel(p.kind)}</strong>
                 <Badge variant={toneVariant(stateTone(p.state))}>{p.state}</Badge>
@@ -192,7 +192,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
                   </Button>
                 </Show>
               </Show>
-            </Card>
+            </div>
           )}</For>
         </div>
         <Show when={ledger.data!.plays.length > MAX_VISIBLE_PLAYS}>

@@ -9,6 +9,7 @@ import { RedditCookieUploader } from '../components/RedditCookieUploader'
 import { SkeletonPortfolio, SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { PageShell, PageHeader } from '../components/layout'
+import { Alert } from '../components/ui/alert'
 import type { TenantPortfolioSection } from '../lib/types'
 
 const SECTION_LABEL: Record<TenantPortfolioSection, string> = {
@@ -25,11 +26,11 @@ const SECTION_LABEL: Record<TenantPortfolioSection, string> = {
 function DegradedSections(props: { degraded: TenantPortfolioSection[] }) {
   return <Show when={props.degraded.length}>
     <For each={props.degraded}>{section => (
-      <div class="warning-card" role="status">
+      <Alert tone="warning" role="status">
         <strong>{SECTION_LABEL[section]}</strong> aren't available on the connected CrowdRelay build right
         now. The rest of the page keeps working; ship a newer CrowdRelay release and this lights up on the
         next refresh.
-      </div>
+      </Alert>
     )}</For>
   </Show>
 }

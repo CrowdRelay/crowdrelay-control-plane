@@ -9,6 +9,7 @@ import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { Card } from './ui/card'
+import { Alert } from './ui/alert'
 import { Button } from './ui/button'
 
 const seconds = (value: number) => value <= 0 ? '—' : formatAge(value)
@@ -152,7 +153,7 @@ export function OperationsPanel(props: {
     </div>
 
     <Show when={confirming() ? confirmCopy(confirming(), deadJobs()) : null} keyed>{copy =>
-      <div class="warning-card confirm-card" role="alertdialog" aria-label={copy.title}>
+      <Alert tone="warning" class="confirm-card" role="alertdialog" aria-label={copy.title}>
         <strong>{copy.title}</strong>
         <span>{copy.body}</span>
         <div class="flex items-center gap-2 flex-wrap">
@@ -168,7 +169,7 @@ export function OperationsPanel(props: {
             }}
           >{pendingMutation() !== null && <Spinner />} {copy.action}</Button>
         </div>
-      </div>
+      </Alert>
     }</Show>
 
     <Show when={unavailable() || props.degraded.length > 0}>

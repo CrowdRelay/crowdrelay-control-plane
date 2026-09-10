@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
 import { SkeletonSignalOverview } from './Skeleton'
+import { Alert } from './ui/alert'
 
 export function SignalOverviewPanel(props: { slug: string }) {
   const signal = useQuery(() => ({
@@ -21,7 +22,7 @@ export function SignalOverviewPanel(props: { slug: string }) {
       <div class="flex items-center justify-between gap-4 mt-6 mb-3" id="signal-overview">
         <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">SIGNAL OVERVIEW</span><h3><SectionIcon name="activity" />App audience health</h3></div>
       </div>
-      <div class="warning-card"><p>Signal overview unavailable: {signal.error instanceof Error ? signal.error.message : 'channel error'}</p></div>
+      <Alert tone="warning"><p>Signal overview unavailable: {signal.error instanceof Error ? signal.error.message : 'channel error'}</p></Alert>
     </Show>
     <Show when={signal.data}>{data => <>
     <div class="flex items-center justify-between gap-4 mt-6 mb-3" id="signal-overview">
@@ -44,7 +45,7 @@ export function SignalOverviewPanel(props: { slug: string }) {
         <For each={data().top_cities.slice(0, 6)}>{city => <div><span>{city.name}</span><strong>{city.active_fans.toLocaleString()}</strong><small>{city.country_code}</small></div>}</For>
       </div>
     </Show>
-    <Show when={data().unavailable_sources.length > 0}><div class="warning-card"><p>Unavailable sources: {data().unavailable_sources.join(', ')}</p></div></Show>
+    <Show when={data().unavailable_sources.length > 0}><Alert tone="warning"><p>Unavailable sources: {data().unavailable_sources.join(', ')}</p></Alert></Show>
   </>}</Show>
   </>
 }

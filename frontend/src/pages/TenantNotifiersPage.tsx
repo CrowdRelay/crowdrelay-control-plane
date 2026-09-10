@@ -98,7 +98,7 @@ export function TenantNotifiersPage() {
   const visibleRoutingItems = () => showAllRouting() ? routingItems() : routingItems().slice(0, MAX_VISIBLE_ROUTING)
 
   return <PageShell>
-    <PageHeader eyebrow="SYSTEM" title="Notification topology" description="Where this tenant's alerts land and how they get there. Three layers: tenant channels, platform config, and automation routing. Delivery is best-effort with bounded retries; endpoints belong to your own infrastructure." />
+    <PageHeader eyebrow="SYSTEM" title="Notification topology" description="Where this tenant's alerts land. Three layers: channels, platform config, and automation routing." />
 
     {/* ── Create form ────────────────────────────────────────────── */}
     <Show when={channels.error}><ErrorCard>{errorMessage(channels.error, 'Channels could not be loaded')}</ErrorCard></Show>
@@ -112,7 +112,7 @@ export function TenantNotifiersPage() {
           <h2 class="text-lg font-bold text-foreground">Add a destination</h2>
         </div>
       </div>
-      <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Adds one place this tenant's alerts are delivered to. Send a test straight after saving — a wrong URL is accepted here and only fails at delivery time.</p>
+      <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Add a destination for this tenant's alerts. Send a test after saving — a wrong URL only fails at delivery time.</p>
 
       <form onSubmit={(e) => { e.preventDefault(); create.mutate() }}>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-4">
@@ -211,7 +211,7 @@ export function TenantNotifiersPage() {
             )}</For>
           </div>
         }>
-          <Card class="p-4 mt-4"><EmptyState label="No notification channels" hint="Add a destination above to start receiving operational alerts." /></Card>
+          <div class="p-4 mt-4 rounded-lg border border-border bg-surface-1"><EmptyState label="No notification channels" hint="Add a destination above to start receiving operational alerts." /></div>
         </Show>
       </SectionPanel>
     </Show>
@@ -340,7 +340,7 @@ export function TenantNotifiersPage() {
           <h2 class="text-lg font-semibold text-foreground">Discovered webhook endpoints</h2>
         </div>
       </div>
-      <Card class="p-4"><p class="text-sm text-muted-foreground">CrowdRelay webhook endpoints unavailable: {errorMessage(discovered.error, 'read failed')}</p></Card>
+      <div class="p-4 rounded-lg border border-border bg-surface-1"><p class="text-sm text-muted-foreground">CrowdRelay webhook endpoints unavailable: {errorMessage(discovered.error, 'read failed')}</p></div>
     </SectionPanel></Show>
     <Show when={!discovered.error && !discovered.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={discovered.data && discovered.data.endpoints.length > 0}>

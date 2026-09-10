@@ -5,6 +5,7 @@ import { EmptyState } from './EmptyState'
 import { errorMessage } from '../lib/format'
 import { SectionIcon } from './SectionIcon'
 import { Card } from './ui/card'
+import { Alert } from './ui/alert'
 
 // CrowdRelay only queues growth campaigns; the sends happen in external n8n
 // workers. The panel therefore reports whether those workers are draining the
@@ -103,9 +104,9 @@ export function GrowthPanel(props: { growth: GrowthOverview | null | undefined; 
     </div>
 
       <Show when={growth.error}>
-        <div class="warning-card operations-warning" role="status">
+        <Alert tone="warning" class="operations-warning" role="status">
           {errorMessage(growth.error, 'Growth delivery telemetry is temporarily unavailable.')}
-        </div>
+        </Alert>
       </Show>
 
       <Show when={growth.data} fallback={!growth.error ? <div class="mini-skeleton"/> : null}>{data => <>

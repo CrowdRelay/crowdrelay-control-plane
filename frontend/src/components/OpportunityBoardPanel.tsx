@@ -8,6 +8,7 @@ import { CONTEXT_LABELS, SUBJECT_KIND_LABELS, RANK_FACTOR_LABELS, VALUE_TIER_LAB
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { Card } from './ui/card'
+import { Alert } from './ui/alert'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 
@@ -116,9 +117,9 @@ export function OpportunityBoardPanel(props: {
     </div>
 
     <Show when={board.error}>
-      <div class="warning-card operations-warning" role="status">
+      <Alert tone="warning" class="operations-warning" role="status">
         {errorMessage(board.error, 'Opportunity queue is temporarily unavailable.')}
-      </div>
+      </Alert>
     </Show>
 
     <Show when={mutationError()}>

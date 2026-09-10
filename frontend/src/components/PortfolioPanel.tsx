@@ -5,6 +5,7 @@ import type { PortfolioConsent, PortfolioConsentStatus, PortfolioOverview } from
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
 import { KpiValue } from './KpiValue'
+import { EmptyState } from './EmptyState'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
@@ -100,7 +101,7 @@ export function PortfolioPanel(props: {
 
   return <Card class="p-4">
     <div class="flex items-center justify-between gap-4 mt-6 mb-3">
-      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">PORTFOLIO</span><h2 class="mt-1 text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="megaphone" />Roster & amplification</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">One artist's release or show routed in front of another artist's consenting fans. Approvals are per edge, tenant-scoped and audited; fans never leave their home workspace.</p></div>
+      <div><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">PORTFOLIO</span><h2 class="mt-1 text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="megaphone" />Roster & amplification</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">Route one artist's release or show in front of another artist's consenting fans. Approvals are per edge; fans never leave their home workspace.</p></div>
       <div class="flex flex-wrap items-center gap-2">
         <StatusBadge status={boardLabel()} tone={boardTone()} />
       </div>
@@ -205,39 +206,14 @@ export function PortfolioPanel(props: {
         With fewer than two artists amplification cannot exist at all, and
         explaining an approval workflow to someone who has nothing to approve
         reads as a broken feature rather than an inapplicable one. */}
-    <Show when={!edges().length}><Card class="p-4 grid gap-2.5">
+    <Show when={!edges().length}>
       <Show
         when={(props.overview?.workspaceCount ?? 0) >= 2}
-        fallback={
-          <>
-            <p class="m-0 text-muted-foreground leading-relaxed"><strong class="text-foreground">Amplification needs at least two artists. This tenant has {props.overview?.workspaceCount ?? 0}.</strong></p>
-            <p class="m-0 text-muted-foreground leading-relaxed">
-              Amplification lends one artist's audience to another: a release or show is
-              routed in front of a different artist's consenting fans, who stay in their
-              own workspace throughout. With a single artist there is no second audience
-              to borrow, so there is nothing for this panel to do yet.
-            </p>
-            <p class="m-0 text-muted-foreground leading-relaxed">
-              It becomes available when a second artist is added to the roster. Until then
-              this is not something to configure — it is a feature waiting on a roster,
-              not on you.
-            </p>
-          </>
-        }
+        fallback={<EmptyState label="No amplification yet" hint="Amplification needs at least two artists on the roster. It becomes available when a second artist is added." />}
       >
-        <p class="m-0 text-muted-foreground leading-relaxed"><strong class="text-foreground">No amplification edges yet.</strong></p>
-        <p class="m-0 text-muted-foreground leading-relaxed">
-          An edge routes one artist's release or show in front of another artist's
-          consenting fans. Create one from either artist's workspace page — it arrives
-          here as <em>proposed</em>, and routing only starts once you approve it.
-        </p>
-        <p class="m-0 text-muted-foreground leading-relaxed">
-          This panel is the approval gate: approve, pause or revoke. Fans never leave
-          their home workspace, and every decision is recorded against the operator who
-          made it.
-        </p>
+        <EmptyState label="No amplification edges" hint="Create an edge from either artist's workspace. It arrives here as proposed, and routing starts once you approve it." />
       </Show>
-    </Card></Show>
+    </Show>
     <Show when={errorText()}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorText()}</div></Show>
   </Card>
 }

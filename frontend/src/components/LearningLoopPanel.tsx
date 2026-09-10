@@ -7,6 +7,7 @@ import { SkeletonLearningLoop } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 import { Card } from './ui/card'
+import { Alert } from './ui/alert'
 
 // The learning loop panel — shows the real decision → action → outcome chain.
 // Uses the learning-loop endpoint which joins viryaos_autopilot_decisions,
@@ -88,9 +89,9 @@ export function LearningLoopPanel(props: { slug: string }) {
     </div>
 
     <Show when={model.error}>
-      <div class="warning-card" role="status">
+      <Alert tone="warning" role="status">
         Learning loop data is temporarily unavailable.
-      </div>
+      </Alert>
     </Show>
 
     <Show when={!model.error && model.isPending}>

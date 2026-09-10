@@ -228,6 +228,8 @@ export function AgentPanel(props: { slug: string }) {
     })
   }
 
+  const templateName = (id: string) => templates().find(t => t.id === id)?.name ?? id
+
   return (
     <div class="agent-panel">
       {/* Service-unavailable banner — shown once at the top when the agent
@@ -279,7 +281,7 @@ export function AgentPanel(props: { slug: string }) {
           <div class="flex items-center justify-between gap-4">
             <h3><IntelligenceIcon size={18} /> From the Autopilot Intelligence</h3>
           </div>
-          <p class="text-sm text-muted-foreground leading-relaxed mt-1">Data-driven task suggestions based on your events, fan growth, and campaign performance. Click to pre-fill and run.</p>
+          <p class="text-sm text-muted-foreground leading-relaxed mt-1">Data-driven suggestions based on your events and campaign performance. Click to run.</p>
           <div class="agent-suggestions">
             <For each={suggestions().slice(0, 4)}>
               {(s) => (
@@ -303,7 +305,7 @@ export function AgentPanel(props: { slug: string }) {
           <h3>Agent tasks</h3>
           <Show when={templates().length > 0}><span class="text-muted-foreground">{templates().length} templates</span></Show>
         </div>
-        <p class="text-sm text-muted-foreground leading-relaxed mt-1">A template is a pre-written job — research, drafting, analysis — with the prompt scaffolding already in place. Pick one, choose a model, describe the specific work in your own words, and run it. Results appear under Recent tasks, usually within a minute.</p>
+        <p class="text-sm text-muted-foreground leading-relaxed mt-1">Pick a template, choose a model, describe the work, and run. Results appear under Recent tasks.</p>
         <Show when={tasksOverview.data} fallback={<SkeletonGrid count={4} minCardHeight='120px' />}>
           <div class="agent-template-grid">
             <For each={templates()}>
@@ -337,7 +339,7 @@ export function AgentPanel(props: { slug: string }) {
             <h3>Run: {templates().find(t => t.id === selectedTemplate())?.name ?? 'task'}</h3>
             <Button variant="ghost" size="sm" onClick={() => setSelectedTemplate(null)}>Choose another template</Button>
           </div>
-          <p class="text-sm text-muted-foreground leading-relaxed mt-1">Free models cost nothing and are always available; paid models bill against the AI budget on the Usage tab. The prompt is the only thing the template does not already know — name the show, the city, the audience, the deadline.</p>
+          <p class="text-sm text-muted-foreground leading-relaxed mt-1">Free models cost nothing; paid models bill against the AI budget. The prompt is the only thing the template doesn't already know.</p>
           <label class="agent-field">
             <span>Model</span>
             <select value={selectedModel()} onChange={(e) => setSelectedModel(e.currentTarget.value)}>
@@ -385,7 +387,7 @@ export function AgentPanel(props: { slug: string }) {
             </Button>
           </Show>
         </div>
-        <p class="text-sm text-muted-foreground leading-relaxed mt-1">Recurring agent tasks run automatically on the configured interval. Each run is a normal task — results land in Recent Tasks and structured outcomes flow to the opportunity board.</p>
+        <p class="text-sm text-muted-foreground leading-relaxed mt-1">Recurring tasks run automatically on the configured interval. Results land in Recent Tasks.</p>
         <Show when={creatingSchedule()}>
           <div class="agent-schedule-form">
             <label class="agent-field">
@@ -412,7 +414,7 @@ export function AgentPanel(props: { slug: string }) {
               <For each={schedules()}>
                 {(sched) => (
                   <tr>
-                    <td>{sched.template_id}</td>
+                    <td>{templateName(sched.template_id)}</td>
                     <td>{sched.interval_minutes}m</td>
                     <td>
                       <Button variant="ghost" size="sm" disabled={scheduleBusy() === sched.id} onClick={() => toggleSchedule(sched.id, !sched.enabled)}>
@@ -438,7 +440,7 @@ export function AgentPanel(props: { slug: string }) {
           <h3>Recent tasks</h3>
           <Show when={tasks().length > 0}><span class="text-muted-foreground">last {Math.min(tasks().length, 10)}</span></Show>
         </div>
-        <p class="text-sm text-muted-foreground leading-relaxed mt-1">Every run, whether started here or by a schedule. <strong>Queued</strong> and <strong>running</strong> refresh on their own; <strong>completed</strong> opens the full output with a copy button. A failed run charges nothing — hover it for the reason.</p>
+        <p class="text-sm text-muted-foreground leading-relaxed mt-1">Every run, started here or by a schedule. Queued and running refresh automatically; completed opens the full output.</p>
         <Show when={tasksOverview.data} fallback={
           <Show when={tasksOverview.isFetching} fallback={<EmptyState label="No tasks yet" hint="Tasks are individual worker runs. They appear here once the intelligence or a schedule dispatches them." />}>
             <SkeletonRows count={4} />
@@ -457,7 +459,7 @@ export function AgentPanel(props: { slug: string }) {
               <For each={tasks().slice(0, 10)}>
                 {(task) => (
                   <tr>
-                    <td>{task.template_id}</td>
+                    <td>{templateName(task.template_id)}</td>
                     <td><StatusBadge status={task.status} tone={statusTone(task.status)} /></td>
                     <td class="text-muted-foreground">{formatIsoAge(task.created_at)}</td>
                     <td>

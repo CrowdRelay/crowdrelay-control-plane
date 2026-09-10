@@ -12,6 +12,7 @@ import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { SectionFailureCard } from './SectionFailureCard'
 import { Card } from './ui/card'
+import { Alert } from './ui/alert'
 import { Button } from './ui/button'
 
 const flagLabel = (key: string) => key
@@ -88,7 +89,7 @@ export function RuntimeSwitchesPanel(props: {
     </div>
 
     <Show when={confirming() ? confirmCopy(confirming(), deadJobs()) : null} keyed>{copy =>
-      <div class="warning-card mt-3" role="alertdialog" aria-label={copy.title}>
+      <Alert tone="warning" class="mt-3" role="alertdialog" aria-label={copy.title}>
         <strong class="text-warning">{copy.title}</strong>
         <span class="block mt-1 text-sm text-secondary-foreground">{copy.body}</span>
         <div class="flex items-center gap-2 mt-3">
@@ -102,7 +103,7 @@ export function RuntimeSwitchesPanel(props: {
             }}
           >{pendingMutation() !== null && <Spinner />} {copy.action}</Button>
         </div>
-      </div>
+      </Alert>
     }</Show>
 
     <Show when={mutationError()}>{message => <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{message()}</div>}</Show>

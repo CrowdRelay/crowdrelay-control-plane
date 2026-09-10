@@ -8,6 +8,7 @@ import { SegmentPanel } from '../components/SegmentPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
+import { Alert } from '../components/ui/alert'
 import { CommunityIntelligenceContent } from './CommunityIntelligenceContent'
 
 const SECTION_LABEL: Record<string, string> = {
@@ -19,11 +20,11 @@ const SECTION_LABEL: Record<string, string> = {
 function DegradedSections(props: { degraded: string[] }) {
   return <Show when={props.degraded.length}>
     <For each={props.degraded}>{section => (
-      <div class="warning-card" role="status">
+      <Alert tone="warning" role="status">
         <strong>{SECTION_LABEL[section] ?? section}</strong> aren't available on the connected CrowdRelay build right
         now. The rest of the page keeps working; ship a newer CrowdRelay release and this lights up on the
         next refresh.
-      </div>
+      </Alert>
     )}</For>
   </Show>
 }
