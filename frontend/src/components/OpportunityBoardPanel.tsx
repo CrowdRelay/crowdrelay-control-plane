@@ -3,7 +3,7 @@ import type { OpportunityBoardEntry } from '../lib/types'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { SkeletonOpportunityBoard } from './Skeleton'
-import { CONTEXT_LABELS, SUBJECT_KIND_LABELS, RANK_FACTOR_LABELS, VALUE_TIER_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
+import { APPROVE_EFFECT, CONTEXT_LABELS, SUBJECT_KIND_LABELS, RANK_FACTOR_LABELS, VALUE_TIER_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
 import { SectionIcon } from './SectionIcon'
 import { Section } from './layout'
 import { Spinner } from './Spinner'
@@ -56,6 +56,44 @@ const confidencePercent = (basisPoints: number) => `${Math.round(basisPoints / 1
 // Basis points are the queue's only magnitude; percent is what a human reads.
 const deviationLabel = (entry: OpportunityBoardEntry) =>
   entry.deviation_basis_points == null ? null : `${(entry.deviation_basis_points / 100).toFixed(1)}% measured movement`
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/
+
+/** Split a field value that is really a list of addresses. */
+const asRecipients = (value: string): string[] => {
+  const parts = value.split(/[,;]\s*/).map(part => part.trim()).filter(Boolean)
+  return parts.length > 0 && parts.every(part => EMAIL.test(part)) ? parts : []
+}
+
+// A briefing field whose whole value is a record id. The backend emits these
+// for events, campaigns and tasks — `event_id.to_string()` and friends — and
+// they are the row an operator most wants gone: a UUID answers no question they
+// can ask, and it is the widest thing on the line.
+const isOpaqueId = (field: { label: string; value: string }) => UUID.test(field.value.trim())
+
+/** Addresses, truncated. Thirty of them is not context, it is a wall. */
+function Recipients(props: { addresses: string[] }) {
+  const [expanded, setExpanded] = createSignal(false)
+  const PREVIEW = 2
+  const hidden = () => Math.max(0, props.addresses.length - PREVIEW)
+  return (
+    <span class="break-words">
+      {(expanded() ? props.addresses : props.addresses.slice(0, PREVIEW)).join(', ')}
+      <Show when={hidden() > 0}>
+        {' '}
+        <Show when={!expanded()}>…{' '}</Show>
+        <button
+          type="button"
+          class="text-primary underline-offset-2 hover:underline"
+          onClick={() => setExpanded(v => !v)}
+        >
+          {expanded() ? 'show fewer' : `(${hidden()} more)`}
+        </button>
+      </Show>
+    </span>
+  )
+}
 
 const entryTitle = opportunityTitle
 
@@ -243,12 +281,21 @@ export function OpportunityBoardPanel(props: {
                         )}</For>
                       </ol>
                     </Show>
-                    <Show when={briefing().content.length > 0}>
+                    {/* Fields whose entire value is a record id are dropped.
+                        The backend puts `event_id`, `campaign_id` and `task_id`
+                        in here as bare UUIDs; they identify a row an operator
+                        cannot look up and they are the widest thing on the
+                        line. Everything an operator can act on stays. */}
+                    <Show when={briefing().content.some(field => !isOpaqueId(field))}>
                       <dl class="m-0 flex flex-col">
-                        <For each={briefing().content}>{field => (
+                        <For each={briefing().content.filter(field => !isOpaqueId(field))}>{field => (
                           <div class="flex items-baseline gap-3 border-b border-border-subtle py-1 last:border-0">
                             <dt class="text-xs capitalize text-muted-foreground">{field.label}</dt>
-                            <dd class="m-0 min-w-0 flex-1 break-words text-sm text-secondary-foreground">{field.value}</dd>
+                            <dd class="m-0 min-w-0 flex-1 break-words text-sm text-secondary-foreground">
+                              <Show when={asRecipients(field.value).length > 0} fallback={field.value}>
+                                <Recipients addresses={asRecipients(field.value)} />
+                              </Show>
+                            </dd>
                           </div>
                         )}</For>
                       </dl>
@@ -269,6 +316,13 @@ export function OpportunityBoardPanel(props: {
               </span>
             }
           >
+            {/* Every row's buttons look the same, but approving an outreach
+                request sends a message to somebody outside the band while
+                approving a price change edits a number. Say which before the
+                click, not in a briefing written in another language. */}
+            <Show when={APPROVE_EFFECT[entry().decision_kind]}>
+              {effect => <span class="w-full text-xs text-muted-foreground md:w-auto md:max-w-[13rem] md:text-right">{effect()}</span>}
+            </Show>
             <Button
               type="button"
               size="sm"

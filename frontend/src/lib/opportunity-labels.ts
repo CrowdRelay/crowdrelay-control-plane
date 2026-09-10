@@ -160,3 +160,29 @@ export const opportunityTitle = (entry: {
   if (entry.recommended_action) return humanize(entry.recommended_action)
   return humanize(entry.decision_kind)
 }
+
+/** What clicking Approve actually does, per decision kind.
+ *
+ *  The board's buttons are the same shape for every entry, but approving an
+ *  outreach request sends a message to somebody outside the band while
+ *  approving a price change edits a number. An operator deciding in three
+ *  seconds should not have to know which is which from the title, and the
+ *  briefing that would have told them is written in Polish.
+ *
+ *  Only kinds that reach a person are listed. Anything absent is an internal
+ *  change and needs no warning.
+ */
+export const APPROVE_EFFECT: Record<string, string> = {
+  'outreach.request': 'Sends the message to this contact.',
+  'outreach.discovery.request': 'Starts looking for contacts. Sends nothing.',
+  'beacon.outreach.request': 'Sends the message to this beacon.',
+  'beacon.invite_batch.request': 'Emails a Signal invite to each beacon listed.',
+  'booking.outreach.request': 'Sends the message to this venue.',
+  'fan.lifecycle.message.request': 'Sends the message to the fans listed.',
+  'audience.campaign.request': 'Starts the campaign and begins messaging fans.',
+  'team.assignment.email': 'Emails the assignment to the person listed.',
+  'signal.push.request': 'Sends a push notification to the fans listed.',
+  'content.artifact.request': 'Drafts the content. Nothing is published.',
+  'agent.content.request': 'Drafts the content. Nothing is published.',
+  'community.engage.request': 'Posts to the community.',
+}
