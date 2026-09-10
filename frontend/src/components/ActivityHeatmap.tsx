@@ -79,27 +79,27 @@ export const ActivityHeatmap: Component<{
   const activeDays = () => cells().filter(c => c.count > 0).length
 
   return (
-    <div class="ops-heatmap">
-      <div class="ops-heatmap-head">
+    <div class="flex flex-col gap-1.5 px-4.5 py-3.5 border border-border rounded-lg bg-card mt-4">
+      <div class="flex items-center justify-between gap-3">
         <div>
-          <span class="eyebrow">ACTIVITY HEATMAP</span>
-          <div class="ops-heatmap-summary">
+          <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">ACTIVITY HEATMAP</span>
+          <div class="mt-0.5">
             <strong>{totalActivity()}</strong>
             <span class="text-muted-foreground">events in {weeks()} weeks · {activeDays()} active days</span>
           </div>
         </div>
-        <div class="ops-heatmap-legend">
+        <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span>less</span>
-          <div class="ops-heatmap-legend-bar" />
+          <div class="w-20 h-2 rounded-sm bg-[linear-gradient(90deg,rgba(155,135,245,0.08),rgba(155,135,245,0.5),#9b87f5)]" />
           <span>more</span>
         </div>
       </div>
-      <div class="ops-heatmap-grid" style={{ 'grid-template-columns': `repeat(${grid().length}, 13px)` }}>
+      <div class="flex gap-0.75 overflow-x-auto pb-1" style={{ 'grid-template-columns': `repeat(${grid().length}, 13px)` }}>
         <For each={grid()}>{(week) => (
-          <div class="ops-heatmap-col">
+          <div class="flex flex-col gap-0.75">
             <For each={week}>{(cell) => (
               <div
-                class="ops-heatmap-cell"
+                class="w-2.5 h-2.5 rounded-[2px] transition-transform duration-[120ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.4] hover:z-[1]"
                 style={{ background: cellColor(cell) }}
                 title={cell ? `${cell.date}: ${cell.count} event${cell.count !== 1 ? 's' : ''}` : ''}
               />

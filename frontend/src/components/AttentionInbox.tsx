@@ -5,6 +5,7 @@ import { EmptyState } from './EmptyState'
 import { SectionIcon } from './SectionIcon'
 import { CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 import { Button } from './ui/button'
+import { cn } from '../lib/cn'
 
 // The attention inbox — converts the operator-attention experience from an
 // informational banner into a real action-oriented surface.
@@ -147,12 +148,12 @@ export function AttentionInbox(props: {
     onCleanup(() => clearTimeout(t))
   })
 
-  return <div class="attention-inbox">
-    <div class="attention-inbox-head">
+  return <div class="rounded-lg border border-border bg-card">
+    <div class="flex items-center justify-between gap-2 p-3.5 border-b border-border">
       <div>
-        <div class="attention-inbox-count">
+        <div class="text-muted-foreground text-sm flex items-center gap-2">
           <SectionIcon name="inbox" />
-          <span class="attention-inbox-count-badge">{total()}</span>
+          <span class="bg-surface-4 text-primary-foreground text-xs rounded-full px-1.5 font-bold">{total()}</span>
           <span>item{total() !== 1 ? 's' : ''} need{total() === 1 ? 's' : ''} your attention</span>
         </div>
       </div>
@@ -166,27 +167,27 @@ export function AttentionInbox(props: {
     </Show>
 
     <Show when={urgent().length > 0}>
-      <div class="attention-tier attention-tier-urgent">
-        <div class="attention-tier-head">
-          Urgent <span class="attention-tier-count">{urgent().length}</span>
+      <div class="border-b border-border last:border-0">
+        <div class="flex items-center gap-2 p-3.5 pb-2 text-destructive">
+          Urgent <span class="bg-destructive/15 text-destructive text-xs rounded-full px-2 py-0.5 font-bold">{urgent().length}</span>
         </div>
         <For each={urgent()}>{item => <AttentionItemRow item={item} />}</For>
       </div>
     </Show>
 
     <Show when={review().length > 0}>
-      <div class="attention-tier attention-tier-review">
-        <div class="attention-tier-head">
-          Review <span class="attention-tier-count">{review().length}</span>
+      <div class="border-b border-border last:border-0">
+        <div class="flex items-center gap-2 p-3.5 pb-2 text-warning">
+          Review <span class="bg-warning/15 text-warning text-xs rounded-full px-2 py-0.5 font-bold">{review().length}</span>
         </div>
         <For each={review()}>{item => <AttentionItemRow item={item} />}</For>
       </div>
     </Show>
 
     <Show when={informational().length > 0}>
-      <div class="attention-tier attention-tier-informational">
-        <div class="attention-tier-head">
-          Informational <span class="attention-tier-count">{informational().length}</span>
+      <div class="border-b border-border last:border-0">
+        <div class="flex items-center gap-2 p-3.5 pb-2 text-muted-foreground">
+          Informational <span class="bg-surface-3 text-muted-foreground text-xs rounded-full px-2 py-0.5 font-bold">{informational().length}</span>
         </div>
         <For each={informational()}>{item => <AttentionItemRow item={item} />}</For>
       </div>
@@ -196,16 +197,16 @@ export function AttentionInbox(props: {
 
 function AttentionItemRow(props: { item: AttentionItem }) {
   const tierClass = () => `attention-action-${props.item.tier}`
-  return <div id={`attention-item-${props.item.id}`} class={`attention-item attention-item-${props.item.tier}`}>
-    <div class="attention-item-body">
-      <strong>{props.item.title}</strong>
-      <small>{props.item.detail}</small>
+  return <div id={`attention-item-${props.item.id}`} class={cn('flex items-start justify-between gap-3 px-3.5 py-3 border-b border-border-subtle last:border-0 border-l-2', props.item.tier === 'urgent' && 'border-l-destructive/50', props.item.tier === 'review' && 'border-l-warning/50', props.item.tier === 'informational' && 'border-l-border')}>
+    <div class="flex-1 min-w-0 flex flex-col gap-0.75">
+      <strong class="text-sm font-semibold text-foreground">{props.item.title}</strong>
+      <small class="text-xs text-muted-foreground leading-[1.4]">{props.item.detail}</small>
       <Show when={props.item.consequence}>
-        <small class="attention-item-consequence">{props.item.consequence}</small>
+        <small class="text-xs text-warning font-medium leading-[1.4]">{props.item.consequence}</small>
       </Show>
     </div>
     <Show when={props.item.action}>
-      <div class="attention-item-actions">
+      <div class="flex gap-2 shrink-0 items-center flex-wrap">
         <Show when={props.item.action!.to} fallback={
           <Button size="sm" variant={props.item.tier === 'urgent' ? 'destructive' : 'ghost'}>{props.item.action!.label}</Button>
         }>

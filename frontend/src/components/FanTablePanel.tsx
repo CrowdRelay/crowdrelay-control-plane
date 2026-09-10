@@ -73,7 +73,7 @@ export function FanTablePanel(props: {
       />
     </div>
     <Show when={filtered().length > 0} fallback={<EmptyState label="No fans match this search" hint="Try adjusting your search query or filters." />}>
-      <div class="fan-table-wrap">
+      <div class="overflow-auto border border-border rounded-md max-h-[600px]">
         <table class="data-table fan-table">
           <thead>
             <tr>

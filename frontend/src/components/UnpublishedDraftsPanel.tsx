@@ -3,6 +3,7 @@ import type { UnpublishedDraftChannel } from '../lib/attention'
 import { SectionIcon } from './SectionIcon'
 import { Card } from './ui/card'
 import { Badge } from './ui/badge'
+import { cn } from '../lib/cn'
 
 // Drafted posts waiting for a person to publish them.
 //
@@ -61,44 +62,42 @@ export function UnpublishedDraftsPanel(props: {
     return ages.length > 0 ? Math.max(...ages) : null
   }
 
-  return <Card class="p-4 unpublished-drafts-panel">
-    <div class="learning-loop-head">
-      <div>
-        <h2><SectionIcon name="inbox" />Waiting on you to publish</h2>
-        <p class="text-muted-foreground text-sm">
-          The brain drafted these. Nobody has posted them, so they have reached nobody.
-        </p>
-      </div>
+  return <Card class="p-4 space-y-4">
+    <div>
+      <h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="inbox" />Waiting on you to publish</h2>
+      <p class="text-muted-foreground text-sm mt-1">
+        The brain drafted these. Nobody has posted them, so they have reached nobody.
+      </p>
     </div>
 
     <Show when={reported()} fallback={
-      <p class="learning-loop-pending">This tenant does not report the draft queue.</p>
+      <p class="text-sm text-muted-foreground italic">This tenant does not report the draft queue.</p>
     }>
       <Show when={total() > 0} fallback={
         <p class="text-muted-foreground text-sm">No drafts waiting. Everything the brain wrote is published.</p>
       }>
-        <div class="learning-loop-summary">
-          <div class="learning-loop-stat">
-            <span>Drafts waiting</span>
-            <strong>{total()}</strong>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
+            <span class="text-xs text-muted-foreground">Drafts waiting</span>
+            <strong class="text-lg tabular-nums text-foreground">{total()}</strong>
           </div>
           <Show when={oldestDays() !== null}>
-            <div class="learning-loop-stat learning-loop-stat-highlight">
-              <span>Oldest</span>
-              <strong>{oldestDays()}d</strong>
+            <div class="flex flex-col gap-1 p-3 rounded-md bg-warning/5 ring-1 ring-warning/20">
+              <span class="text-xs text-warning">Oldest</span>
+              <strong class="text-lg tabular-nums text-warning">{oldestDays()}d</strong>
             </div>
           </Show>
         </div>
 
-        <div class="learning-proof-list">
+        <div class="space-y-2">
           <For each={props.drafts}>{(channel) => {
             const age = ageInDays(channel.oldest_drafted_at)
             const stale = age !== null && age >= STALE_AFTER_DAYS
-            return <div class="learning-proof-cause">
+            return <div class="flex items-center gap-2 flex-wrap text-sm">
               <Badge variant={stale ? 'warning' : 'muted'}>{channelLabel(channel.channel)}</Badge>
-              <strong>{channel.drafts} draft{channel.drafts === 1 ? '' : 's'}</strong>
+              <strong class="text-foreground">{channel.drafts} draft{channel.drafts === 1 ? '' : 's'}</strong>
               <Show when={age !== null}>
-                <span class={stale ? 'learning-loop-outcome-worsened' : 'text-muted-foreground'}>
+                <span class={cn(stale ? 'text-destructive' : 'text-muted-foreground')}>
                   oldest {age}d
                 </span>
               </Show>

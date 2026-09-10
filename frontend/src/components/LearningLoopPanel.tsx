@@ -8,6 +8,7 @@ import { SectionIcon } from './SectionIcon'
 import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 import { Card } from './ui/card'
 import { Alert } from './ui/alert'
+import { cn } from '../lib/cn'
 
 // The learning loop panel — shows the real decision → action → outcome chain.
 // Uses the learning-loop endpoint which joins viryaos_autopilot_decisions,
@@ -19,21 +20,21 @@ import { Alert } from './ui/alert'
 
 const confidencePercent = (basisPoints: number) => `${Math.round(basisPoints / 100)}%`
 
-// Confidence level → CSS class for color-coded confidence display.
+// Confidence level → text color class for color-coded confidence display.
 // High (≥80%) = green, medium (≥50%) = accent, low = muted.
 const confidenceClass = (basisPoints: number) => {
   const pct = basisPoints / 100
-  if (pct >= 80) return 'learning-loop-conf-high'
-  if (pct >= 50) return 'learning-loop-conf-medium'
-  return 'learning-loop-conf-low'
+  if (pct >= 80) return 'text-success'
+  if (pct >= 50) return 'text-primary'
+  return 'text-muted-foreground'
 }
 
-// Action status → tone class for colored status badge.
+// Action status → text color class for colored status badge.
 const actionStatusClass = (status: string) => {
-  if (status === 'succeeded') return 'learning-loop-status-succeeded'
-  if (status === 'failed') return 'learning-loop-status-failed'
-  if (status === 'pending' || status === 'in_progress') return 'learning-loop-status-pending'
-  return 'learning-loop-status-neutral'
+  if (status === 'succeeded') return 'text-success'
+  if (status === 'failed') return 'text-destructive'
+  if (status === 'pending' || status === 'in_progress') return 'text-warning'
+  return 'text-muted-foreground'
 }
 
 const dispositionLabel = (disposition: string) =>
@@ -50,9 +51,9 @@ const timeAgo = (iso: string): string => {
 }
 
 const outcomeClass = (assessment: string): string => {
-  if (assessment === 'improved') return 'learning-loop-outcome-improved'
-  if (assessment === 'worsened') return 'learning-loop-outcome-worsened'
-  return 'learning-loop-outcome-neutral'
+  if (assessment === 'improved') return 'text-success'
+  if (assessment === 'worsened') return 'text-destructive'
+  return 'text-muted-foreground'
 }
 
 const outcomeLabel = (assessment: string): string =>
@@ -80,11 +81,9 @@ export function LearningLoopPanel(props: { slug: string }) {
     return Math.round((improved / measured.length) * 100)
   }
 
-  return <Card class="p-4 learning-loop-panel">
-    <div class="learning-loop-head">
-      <div>
-        <h2><SectionIcon name="book-open" />Decision → Action → Outcome → Learning</h2>
-      </div>
+  return <Card class="p-4 space-y-4">
+    <div>
+      <h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="book-open" />Decision → Action → Outcome → Learning</h2>
     </div>
 
     <Show when={model.error}>
@@ -106,92 +105,92 @@ export function LearningLoopPanel(props: { slug: string }) {
       }>
         {/* Summary line — computed from real data. The positive outcome
             rate is the headline metric, so it gets visual emphasis. */}
-        <div class="learning-loop-summary">
-          <div class="learning-loop-stat">
-            <span>Decisions</span>
-            <strong>{total()}</strong>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
+            <span class="text-xs text-muted-foreground">Decisions</span>
+            <strong class="text-lg tabular-nums text-foreground">{total()}</strong>
           </div>
-          <div class="learning-loop-stat">
-            <span>Actions created</span>
-            <strong>{actionsCreated()}</strong>
+          <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
+            <span class="text-xs text-muted-foreground">Actions created</span>
+            <strong class="text-lg tabular-nums text-foreground">{actionsCreated()}</strong>
           </div>
-          <div class="learning-loop-stat">
-            <span>Executed</span>
-            <strong>{executed()}</strong>
+          <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
+            <span class="text-xs text-muted-foreground">Executed</span>
+            <strong class="text-lg tabular-nums text-foreground">{executed()}</strong>
           </div>
-          <div class="learning-loop-stat">
-            <span>Outcomes measured</span>
-            <strong>{withOutcome()}</strong>
+          <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
+            <span class="text-xs text-muted-foreground">Outcomes measured</span>
+            <strong class="text-lg tabular-nums text-foreground">{withOutcome()}</strong>
           </div>
-          <div class="learning-loop-stat">
-            <span>Positive outcomes</span>
-            <strong>{positiveOutcomes()}</strong>
+          <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
+            <span class="text-xs text-muted-foreground">Positive outcomes</span>
+            <strong class="text-lg tabular-nums text-foreground">{positiveOutcomes()}</strong>
           </div>
-          <div class="learning-loop-stat learning-loop-stat-highlight">
-            <span>Positive outcome rate</span>
-            <strong>{positiveOutcomeRate() != null ? `${positiveOutcomeRate()}%` : '—'}</strong>
+          <div class="flex flex-col gap-1 p-3 rounded-md bg-primary/5 ring-1 ring-primary/20">
+            <span class="text-xs text-primary">Positive outcome rate</span>
+            <strong class="text-lg tabular-nums text-primary">{positiveOutcomeRate() != null ? `${positiveOutcomeRate()}%` : '—'}</strong>
           </div>
         </div>
 
         {/* Decision chain entries — left → right flow */}
-        <div class="learning-loop-list">
+        <div class="space-y-3">
           <For each={entries().slice(0, 10)}>{(entry) => (
-            <div class="learning-loop-entry">
+            <div class="flex items-stretch gap-2 flex-wrap md:flex-nowrap">
               {/* DECISION */}
-              <div class="learning-loop-stage-card learning-loop-stage-decision">
-                <span class="learning-loop-stage-label">Decision</span>
-                <div class="learning-loop-stage-rows">
-                  <div><span class="text-muted-foreground">Kind</span><strong>{entry.decision_kind.replaceAll('_', ' ')}</strong></div>
-                  <div><span class="text-muted-foreground">Disposition</span><strong>{dispositionLabel(entry.disposition)}</strong></div>
-                  <div><span class="text-muted-foreground">Confidence</span><strong class={confidenceClass(entry.confidence_basis_points)}>{confidencePercent(entry.confidence_basis_points)}</strong></div>
-                  <div><span class="text-muted-foreground">Evaluated</span><span>{timeAgo(entry.evaluated_at)}</span></div>
+              <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-surface-1 space-y-2">
+                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Decision</span>
+                <div class="space-y-1 text-sm">
+                  <div class="flex justify-between gap-2"><span class="text-muted-foreground">Kind</span><strong class="text-foreground">{entry.decision_kind.replaceAll('_', ' ')}</strong></div>
+                  <div class="flex justify-between gap-2"><span class="text-muted-foreground">Disposition</span><strong class="text-foreground">{dispositionLabel(entry.disposition)}</strong></div>
+                  <div class="flex justify-between gap-2"><span class="text-muted-foreground">Confidence</span><strong class={confidenceClass(entry.confidence_basis_points)}>{confidencePercent(entry.confidence_basis_points)}</strong></div>
+                  <div class="flex justify-between gap-2"><span class="text-muted-foreground">Evaluated</span><span class="text-foreground">{timeAgo(entry.evaluated_at)}</span></div>
                 </div>
                 <Show when={entry.reason}>
-                  <p class="learning-loop-reason">{entry.reason}</p>
+                  <p class="text-xs text-muted-foreground italic border-t border-border pt-2">{entry.reason}</p>
                 </Show>
               </div>
 
-              <div class="learning-loop-arrow">→</div>
+              <div class="flex items-center text-muted-foreground px-1">→</div>
 
               {/* ACTION */}
-              <div class="learning-loop-stage-card learning-loop-stage-action">
-                <span class="learning-loop-stage-label">Action</span>
+              <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-surface-1 space-y-2">
+                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Action</span>
                 <Show when={entry.action} fallback={
                   <Show when={entry.data_integrity?.action} fallback={
-                    <p class="learning-loop-pending">No action — {dispositionLabel(entry.disposition)} decision</p>
+                    <p class="text-xs text-muted-foreground italic">No action — {dispositionLabel(entry.disposition)} decision</p>
                   }>
-                    <p class="learning-loop-integrity-issue" title="A stage that should exist but has a broken reference in the data.">Data integrity issue</p>
+                    <p class="text-xs text-destructive italic" title="A stage that should exist but has a broken reference in the data.">Data integrity issue</p>
                   </Show>
                 }>
                   {action => (
-                    <div class="learning-loop-stage-rows">
-                      <div><span class="text-muted-foreground">Kind</span><strong>{labelOr(DECISION_KIND_LABELS, action().action_kind)}</strong></div>
-                      <div><span class="text-muted-foreground">Status</span><strong class={actionStatusClass(action().status)}>{action().status.replaceAll('_', ' ')}</strong></div>
+                    <div class="space-y-1 text-sm">
+                      <div class="flex justify-between gap-2"><span class="text-muted-foreground">Kind</span><strong class="text-foreground">{labelOr(DECISION_KIND_LABELS, action().action_kind)}</strong></div>
+                      <div class="flex justify-between gap-2"><span class="text-muted-foreground">Status</span><strong class={actionStatusClass(action().status)}>{action().status.replaceAll('_', ' ')}</strong></div>
                       <Show when={action().finished_at}>
-                        <div><span class="text-muted-foreground">Finished</span><span>{timeAgo(action().finished_at!)}</span></div>
+                        <div class="flex justify-between gap-2"><span class="text-muted-foreground">Finished</span><span class="text-foreground">{timeAgo(action().finished_at!)}</span></div>
                       </Show>
                     </div>
                   )}
                 </Show>
               </div>
 
-              <div class="learning-loop-arrow">→</div>
+              <div class="flex items-center text-muted-foreground px-1">→</div>
 
               {/* OUTCOME */}
-              <div class="learning-loop-stage-card learning-loop-stage-outcome">
-                <span class="learning-loop-stage-label">Outcome</span>
+              <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-surface-1 space-y-2">
+                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Outcome</span>
                 <Show when={entry.outcome} fallback={
                   <Show when={entry.data_integrity?.outcome} fallback={
-                    <p class="learning-loop-pending">Not yet measured</p>
+                    <p class="text-xs text-muted-foreground italic">Not yet measured</p>
                   }>
-                    <p class="learning-loop-integrity-issue" title="A stage that should exist but has a broken reference in the data.">Data integrity issue</p>
+                    <p class="text-xs text-destructive italic" title="A stage that should exist but has a broken reference in the data.">Data integrity issue</p>
                   </Show>
                 }>
                   {outcome => (
-                    <div class="learning-loop-stage-rows">
-                      <div><span class="text-muted-foreground">Assessment</span><strong class={outcomeClass(outcome().effect_assessment)}>{outcomeLabel(outcome().effect_assessment)}</strong></div>
-                      <div><span class="text-muted-foreground">Metric</span><span>{outcome().metric_key.replaceAll('_', ' ')}</span></div>
-                      <div><span class="text-muted-foreground">Delta</span><strong class={outcomeClass(outcome().effect_assessment)}>{outcome().delta_basis_points > 0 ? '+' : ''}{(outcome().delta_basis_points / 100).toFixed(1)}%</strong></div>
+                    <div class="space-y-1 text-sm">
+                      <div class="flex justify-between gap-2"><span class="text-muted-foreground">Assessment</span><strong class={outcomeClass(outcome().effect_assessment)}>{outcomeLabel(outcome().effect_assessment)}</strong></div>
+                      <div class="flex justify-between gap-2"><span class="text-muted-foreground">Metric</span><span class="text-foreground">{outcome().metric_key.replaceAll('_', ' ')}</span></div>
+                      <div class="flex justify-between gap-2"><span class="text-muted-foreground">Delta</span><strong class={outcomeClass(outcome().effect_assessment)}>{outcome().delta_basis_points > 0 ? '+' : ''}{(outcome().delta_basis_points / 100).toFixed(1)}%</strong></div>
                     </div>
                   )}
                 </Show>
@@ -199,10 +198,10 @@ export function LearningLoopPanel(props: { slug: string }) {
 
               {/* LEARNING — derived from outcome, not fabricated */}
               <Show when={entry.outcome}>
-                <div class="learning-loop-arrow">→</div>
-                <div class="learning-loop-stage-card learning-loop-stage-learned">
-                  <span class="learning-loop-stage-label">Learned</span>
-                  <p class={outcomeClass(entry.outcome!.effect_assessment)}>
+                <div class="flex items-center text-muted-foreground px-1">→</div>
+                <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-surface-1 space-y-2">
+                  <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Learned</span>
+                  <p class={cn('text-sm', outcomeClass(entry.outcome!.effect_assessment))}>
                     <Show when={entry.outcome!.effect_assessment === 'improved'} fallback={
                       <Show when={entry.outcome!.effect_assessment === 'worsened'} fallback={
                         <>No change detected on {entry.outcome!.metric_key.replaceAll('_', ' ')}</>

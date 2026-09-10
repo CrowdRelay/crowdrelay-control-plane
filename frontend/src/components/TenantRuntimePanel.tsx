@@ -29,7 +29,7 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
   }))
   const snapshot = () => runtime.data ?? props.initial
 
-  return <Card class="p-4 runtime-panel" aria-busy={runtime.isFetching && !runtime.data}>
+  return <Card class="p-4" aria-busy={runtime.isFetching && !runtime.data}>
     <div class="flex items-center justify-between gap-4 mt-6 mb-3">
       {/* Named for its source. Plain "Health" read as a contradiction next to
           the Operations page, which reports CrowdRelay's own HTTP health from
@@ -37,12 +37,12 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
       <div><h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="heartbeat" />Heartbeat</h2></div>
       <StatusBadge status={snapshot().runtimeHealth} tone={runtimeTone(snapshot().runtimeHealth)} />
     </div>
-    <Show when={runtime.error}><div class="inline-stale-note" role="status">Live refresh failed. Showing the last known runtime snapshot.</div></Show>
+    <Show when={runtime.error}><div class="rounded-r-md rounded-l-none" role="status">Live refresh failed. Showing the last known runtime snapshot.</div></Show>
     <Show when={snapshot().runtimeHealth === 'unknown'}>
-      <p class="runtime-unknown-note">This tenant has never reported a runtime heartbeat, so there is nothing to score here yet. Service health measured inside CrowdRelay is on the Operations page.</p>
+      <p class="mb-4 px-4 py-3 border border-border-subtle rounded-md bg-surface-1 text-muted-foreground text-base leading-[1.55]">This tenant has never reported a runtime heartbeat, so there is nothing to score here yet. Service health measured inside CrowdRelay is on the Operations page.</p>
     </Show>
     <Show when={snapshot().runtimeHealth === 'stale'}>
-      <p class="runtime-unknown-note">The runtime reporter has stopped sending fresh telemetry. Optional products and app-store distribution do not affect this status.</p>
+      <p class="mb-4 px-4 py-3 border border-border-subtle rounded-md bg-surface-1 text-muted-foreground text-base leading-[1.55]">The runtime reporter has stopped sending fresh telemetry. Optional products and app-store distribution do not affect this status.</p>
     </Show>
     <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mt-4">
       <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">

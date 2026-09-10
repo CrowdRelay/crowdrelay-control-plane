@@ -7,6 +7,7 @@ import { SectionIcon } from './SectionIcon'
 import { Card } from './ui/card'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
+import { cn } from '../lib/cn'
 
 // The learning proof panel — what the brain changed, because of what.
 //
@@ -40,9 +41,9 @@ const MODULE_LABELS: Record<string, string> = {
 const moduleLabel = (module: string) => MODULE_LABELS[module] ?? module.replaceAll('_', ' ')
 
 const outcomeClass = (assessment: string | null): string => {
-  if (assessment === 'improved') return 'learning-loop-outcome-improved'
-  if (assessment === 'worsened') return 'learning-loop-outcome-worsened'
-  return 'learning-loop-outcome-neutral'
+  if (assessment === 'improved') return 'text-success'
+  if (assessment === 'worsened') return 'text-destructive'
+  return 'text-muted-foreground'
 }
 
 export function LearningProofPanel(props: { slug: string }) {
@@ -57,14 +58,12 @@ export function LearningProofPanel(props: { slug: string }) {
   const entries = (): LearningProofEntry[] => model.data?.entries ?? []
   const provenChains = () => entries().filter(entry => entry.changed_a_decision).length
 
-  return <Card class="p-4 learning-proof-panel">
-    <div class="learning-loop-head">
-      <div>
-        <h2><SectionIcon name="git-branch" />Outcome → Belief → Next decision</h2>
-        <p class="text-muted-foreground text-sm">
-          What the brain changed its mind about, and what changed it.
-        </p>
-      </div>
+  return <Card class="p-4 space-y-4">
+    <div>
+      <h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="git-branch" />Outcome → Belief → Next decision</h2>
+      <p class="text-muted-foreground text-sm mt-1">
+        What the brain changed its mind about, and what changed it.
+      </p>
     </div>
 
     <Show when={model.error}>
@@ -80,56 +79,56 @@ export function LearningProofPanel(props: { slug: string }) {
           hint="A revision is written when measured outcomes move the strategy posterior or a template's lifecycle state. Until outcomes resolve, there is nothing to record."
         />
       }>
-        <div class="learning-loop-summary">
-          <div class="learning-loop-stat">
-            <span>Beliefs changed</span>
-            <strong>{entries().length}</strong>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
+            <span class="text-xs text-muted-foreground">Beliefs changed</span>
+            <strong class="text-lg tabular-nums text-foreground">{entries().length}</strong>
           </div>
-          <div class="learning-loop-stat learning-loop-stat-highlight">
-            <span>Changed a later decision</span>
-            <strong>{provenChains()}</strong>
+          <div class="flex flex-col gap-1 p-3 rounded-md bg-primary/5 ring-1 ring-primary/20">
+            <span class="text-xs text-primary">Changed a later decision</span>
+            <strong class="text-lg tabular-nums text-primary">{provenChains()}</strong>
           </div>
         </div>
 
-        <div class="learning-proof-list">
+        <div class="space-y-3">
           <For each={entries()}>{(entry) => (
-            <div class="learning-proof-entry">
-              <div class="learning-proof-header">
+            <div class="p-3 rounded-lg border border-border bg-surface-1 space-y-3">
+              <div class="flex items-center gap-2 flex-wrap">
                 <Badge variant={entry.changed_a_decision ? 'success' : 'muted'}>
                   {entry.changed_a_decision ? 'Changed a decision' : 'Not yet acted on'}
                 </Badge>
-                <span class="text-muted-foreground">{moduleLabel(entry.module)}</span>
-                <span class="text-muted-foreground">{entry.belief_key.replace(/_/g, ' ')}</span>
-                <span class="text-muted-foreground">{timeAgo(entry.recorded_at)}</span>
+                <span class="text-xs text-muted-foreground">{moduleLabel(entry.module)}</span>
+                <span class="text-xs text-muted-foreground">{entry.belief_key.replace(/_/g, ' ')}</span>
+                <span class="text-xs text-muted-foreground ml-auto">{timeAgo(entry.recorded_at)}</span>
               </div>
 
-              <p class="learning-proof-summary">{entry.change_summary}</p>
+              <p class="text-sm text-foreground">{entry.change_summary}</p>
 
               {/* WHAT HAPPENED — the ledger's own citation, not a timestamp match */}
-              <div class="learning-proof-stage">
-                <span class="learning-loop-stage-label">Because of</span>
+              <div class="space-y-1">
+                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Because of</span>
                 <Show when={entry.caused_by.length > 0} fallback={
-                  <p class="learning-loop-pending">
+                  <p class="text-xs text-muted-foreground italic">
                     The cited actions are no longer readable.
                   </p>
                 }>
                   <For each={entry.caused_by}>{(cause) => (
-                    <div class="learning-proof-cause">
-                      <strong>{(cause.action_kind ?? 'action').replaceAll('_', ' ')}</strong>
+                    <div class="flex items-center gap-2 flex-wrap text-sm">
+                      <strong class="text-foreground">{(cause.action_kind ?? 'action').replaceAll('_', ' ')}</strong>
                       <Show when={cause.decision_reason}>
-                        <span class="text-muted-foreground">{cause.decision_reason}</span>
+                        <span class="text-xs text-muted-foreground">{cause.decision_reason}</span>
                       </Show>
                       <Show when={cause.effect_assessment} fallback={
-                        <span class="learning-loop-pending">no assessed outcome recorded</span>
+                        <span class="text-xs text-muted-foreground italic">no assessed outcome recorded</span>
                       }>
-                        <span class={outcomeClass(cause.effect_assessment)}>
+                        <span class={cn('text-xs', outcomeClass(cause.effect_assessment))}>
                           {cause.effect_assessment} on {(cause.metric_key ?? '').replaceAll('_', ' ')}
                           <Show when={cause.delta_basis_points != null}>
                             {' '}({cause.delta_basis_points! > 0 ? '+' : ''}{(cause.delta_basis_points! / 100).toFixed(1)}%)
                           </Show>
                         </span>
                       </Show>
-                      <span class="text-muted-foreground">{timeAgo(cause.observed_at ?? cause.decided_at)}</span>
+                      <span class="text-xs text-muted-foreground">{timeAgo(cause.observed_at ?? cause.decided_at)}</span>
                     </div>
                   )}</For>
                 </Show>
@@ -137,29 +136,29 @@ export function LearningProofPanel(props: { slug: string }) {
 
               {/* WHAT CHANGED AFTERWARDS — matched on what each decision itself
                   recorded at decision time, never re-derived now */}
-              <div class="learning-proof-stage">
-                <span class="learning-loop-stage-label">So the brain then</span>
+              <div class="space-y-1">
+                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">So the brain then</span>
                 <Show when={entry.then_influenced.length > 0} fallback={
-                  <p class="learning-loop-pending">
+                  <p class="text-xs text-muted-foreground italic">
                     Has not taken a decision on this belief yet.
                   </p>
                 }>
                   <For each={entry.then_influenced}>{(influence) => (
-                    <div class="learning-proof-influence">
-                      <strong>{influence.decision_kind.replaceAll('_', ' ')}</strong>
+                    <div class="flex items-center gap-2 flex-wrap text-sm">
+                      <strong class="text-foreground">{influence.decision_kind.replaceAll('_', ' ')}</strong>
                       <Show when={influence.template_id}>
-                        <span class="text-muted-foreground">{influence.template_id!.replace(/_/g, ' ')}</span>
+                        <span class="text-xs text-muted-foreground">{influence.template_id!.replace(/_/g, ' ')}</span>
                       </Show>
                       <Show when={influence.strategy_source === 'posterior'} fallback={
-                        <span class="text-muted-foreground">
+                        <span class="text-xs text-muted-foreground">
                           strategy {influence.strategy_applied ?? '—'} (operator rules agreed)
                         </span>
                       }>
-                        <span class="learning-loop-outcome-improved">
+                        <span class="text-xs text-success">
                           strategy {influence.strategy_prior ?? '—'} → {influence.strategy_applied ?? '—'} because of what was measured
                         </span>
                       </Show>
-                      <span class="text-muted-foreground">{timeAgo(influence.evaluated_at)}</span>
+                      <span class="text-xs text-muted-foreground">{timeAgo(influence.evaluated_at)}</span>
                     </div>
                   )}</For>
                 </Show>

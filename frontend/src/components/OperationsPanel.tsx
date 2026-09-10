@@ -11,6 +11,7 @@ import { Spinner } from './Spinner'
 import { Card } from './ui/card'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
+import { cn } from '../lib/cn'
 
 const seconds = (value: number) => value <= 0 ? '—' : formatAge(value)
 
@@ -139,7 +140,7 @@ export function OperationsPanel(props: {
   // mis-click never flips every policy or redeploys an app by accident.
   const [confirming, setConfirming] = createSignal<'autopilot-disable' | 'autopilot-enable' | 'redeploy' | 'replay-dead' | null>(null)
 
-  return <Card class="p-5 operations-panel">
+  return <Card class="p-5">
     <Show when={showHealth()}>
     <div class="flex items-start justify-between gap-4 mt-6 mb-3">
       <div><h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="activity" />Health & controls</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Live CrowdRelay telemetry and bounded runtime controls.</p></div>
@@ -153,7 +154,7 @@ export function OperationsPanel(props: {
     </div>
 
     <Show when={confirming() ? confirmCopy(confirming(), deadJobs()) : null} keyed>{copy =>
-      <Alert tone="warning" class="confirm-card" role="alertdialog" aria-label={copy.title}>
+      <Alert tone="warning" class="flex flex-col gap-2.5 my-3" role="alertdialog" aria-label={copy.title}>
         <strong>{copy.title}</strong>
         <span>{copy.body}</span>
         <div class="flex items-center gap-2 flex-wrap">
@@ -173,21 +174,21 @@ export function OperationsPanel(props: {
     }</Show>
 
     <Show when={unavailable() || props.degraded.length > 0}>
-      <div class="ops-degraded-badge" role={untrusted() ? 'alert' : 'status'}>
-        <span class="ops-degraded-dot" />
+      <div class={cn('flex items-center gap-2 mt-3 px-3.5 py-2 border rounded-sm text-sm', untrusted() ? 'border-[#5a2a20] bg-[rgba(58,26,18,0.85)] text-[#e0a08c]' : 'border-[rgba(101,80,38,0.3)] bg-[rgba(41,32,15,0.4)] text-[#d4c878]')} role={untrusted() ? 'alert' : 'status'}>
+        <span class="inline-block w-2 h-2 rounded-full bg-current" />
         <span>
           <Show
             when={degradedReasons().length > 0}
             fallback="Operational channel partially unavailable"
           >
             <For each={degradedReasons()}>{entry =>
-              <span class="ops-degraded-reason"><strong>{entry.name}</strong>: {entry.copy}</span>
+              <span class="[overflow-wrap:anywhere]"><strong>{entry.name}</strong>: {entry.copy}</span>
             }</For>
           </Show>
         </span>
       </div>
     </Show>
-    <Show when={mutationError()}>{message => <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive operations-error" role="alert">{message()}</div>}</Show>
+    <Show when={mutationError()}>{message => <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive mt-4" role="alert">{message()}</div>}</Show>
 
     {/* Freshness — the Control Plane distinguishes "live" (upstream timestamp
         within stale threshold) from "stale" from "unknown" (no upstream
@@ -196,19 +197,19 @@ export function OperationsPanel(props: {
         one section is stale or unknown; "live" and "assembled" are the
         default and don't need a visible badge. */}
     <Show when={worstFreshness() && worstFreshness() !== 'live' && worstFreshness() !== 'assembled'}>
-      <div class={`ops-freshness-badge tone-${FRESHNESS_TONE[worstFreshness()!]}`} role="status">
-        <span class="ops-freshness-dot" />
+      <div class={cn('flex items-center gap-2 mt-3 px-3.5 py-2 border rounded-sm text-sm', FRESHNESS_TONE[worstFreshness()!] === 'warn' && 'border-[rgba(245,185,66,0.3)] bg-[rgba(41,32,15,0.4)] text-warning-light', FRESHNESS_TONE[worstFreshness()!] === 'good' && 'border-[rgba(40,90,64,0.3)] bg-[rgba(16,37,26,0.4)] text-success-light', FRESHNESS_TONE[worstFreshness()!] === 'muted' && 'border-border-subtle bg-card text-muted-foreground')} role="status">
+        <span class={cn('inline-block w-2 h-2 rounded-full', FRESHNESS_TONE[worstFreshness()!] === 'warn' && 'bg-warning', FRESHNESS_TONE[worstFreshness()!] === 'good' && 'bg-success', FRESHNESS_TONE[worstFreshness()!] === 'muted' && 'bg-muted-foreground')} />
         <span>
           <Show when={staleSections().length > 0} fallback={`Data ${FRESHNESS_LABEL[worstFreshness()!]}`}>
             <For each={staleSections()}>{entry =>
-              <span class="ops-freshness-reason">
+              <span class="[overflow-wrap:anywhere] break-words">
                 <strong>{entry.name}</strong>: {FRESHNESS_LABEL[entry.classification]}{freshnessAge(entry.observedAt)}
               </span>
             }</For>
           </Show>
         </span>
         <Show when={props.fetchedAt}>
-          {ts => <small class="ops-freshness-fetched">assembled {formatTimestamp(ts())}</small>}
+          {ts => <small class="ml-auto whitespace-nowrap text-muted-foreground text-xs">assembled {formatTimestamp(ts())}</small>}
         </Show>
       </div>
     </Show>

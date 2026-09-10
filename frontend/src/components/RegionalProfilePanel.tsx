@@ -6,6 +6,7 @@ import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { Card } from './ui/card'
+import { cn } from '../lib/cn'
 
 type Props = { tenant: TenantSummary }
 
@@ -46,7 +47,7 @@ export function RegionalProfilePanel(props: Props) {
   const currencyValid = () => /^[A-Z]{3}$/.test(draft().currency.trim())
   const ready = () => countryValid() && localeValid() && timezoneValid() && currencyValid()
 
-  return <Card class="p-4 regional-profile-panel">
+  return <Card class="p-4">
     <div class="flex items-center justify-between gap-4 mt-6 mb-3">
       <div><h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="globe" />Explicit tenant profile</h2></div>
       <StatusBadge
@@ -55,22 +56,22 @@ export function RegionalProfilePanel(props: Props) {
       />
     </div>
     <Show when={!props.tenant.regionalProfile}>
-      <div class="warning-card">No persisted regional profile. Runtime must not infer locale, currency, timezone or data residency from IP/browser settings. Classify this tenant before the next deployment.</div>
+      <div class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">No persisted regional profile. Runtime must not infer locale, currency, timezone or data residency from IP/browser settings. Classify this tenant before the next deployment.</div>
     </Show>
-    <div class="form-grid regional-profile-grid">
-      <label>Country code<input required maxlength="2" autocomplete="country" class={!countryValid() && draft().countryCode ? 'input-invalid' : ''} aria-invalid={!countryValid()} value={draft().countryCode} onInput={e=>set('countryCode', e.currentTarget.value.toUpperCase())} placeholder="DE"/></label>
+    <div class="form-grid grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
+      <label>Country code<input required maxlength="2" autocomplete="country" class={cn(!countryValid() && draft().countryCode && 'border-destructive')} aria-invalid={!countryValid()} value={draft().countryCode} onInput={e=>set('countryCode', e.currentTarget.value.toUpperCase())} placeholder="DE"/></label>
       <label>Market region<select value={draft().region} onChange={e=>set('region', e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></select></label>
-      <label>Locale<input required maxlength="35" class={!localeValid() && draft().locale ? 'input-invalid' : ''} aria-invalid={!localeValid()} value={draft().locale} onInput={e=>set('locale', e.currentTarget.value)} placeholder="de-DE"/><small>BCP-47 tag, e.g. de-DE.</small></label>
-      <label>Timezone<input required maxlength="64" class={!timezoneValid() && draft().timezone ? 'input-invalid' : ''} aria-invalid={!timezoneValid()} value={draft().timezone} onInput={e=>set('timezone', e.currentTarget.value)} placeholder="Europe/Berlin"/><small>IANA timezone, e.g. Europe/Berlin.</small></label>
-      <label>Currency<input required maxlength="3" class={!currencyValid() && draft().currency ? 'input-invalid' : ''} aria-invalid={!currencyValid()} value={draft().currency} onInput={e=>set('currency', e.currentTarget.value.toUpperCase())} placeholder="EUR"/></label>
+      <label>Locale<input required maxlength="35" class={cn(!localeValid() && draft().locale && 'border-destructive')} aria-invalid={!localeValid()} value={draft().locale} onInput={e=>set('locale', e.currentTarget.value)} placeholder="de-DE"/><small>BCP-47 tag, e.g. de-DE.</small></label>
+      <label>Timezone<input required maxlength="64" class={cn(!timezoneValid() && draft().timezone && 'border-destructive')} aria-invalid={!timezoneValid()} value={draft().timezone} onInput={e=>set('timezone', e.currentTarget.value)} placeholder="Europe/Berlin"/><small>IANA timezone, e.g. Europe/Berlin.</small></label>
+      <label>Currency<input required maxlength="3" class={cn(!currencyValid() && draft().currency && 'border-destructive')} aria-invalid={!currencyValid()} value={draft().currency} onInput={e=>set('currency', e.currentTarget.value.toUpperCase())} placeholder="EUR"/></label>
       <label>Date format<select value={draft().dateFormat} onChange={e=>set('dateFormat', e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></select></label>
       <label>Number format<select value={draft().numberFormat} onChange={e=>set('numberFormat', e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></select></label>
       <label>Data region<select disabled={Boolean(props.tenant.regionalProfile)} value={draft().dataRegion} onChange={e=>set('dataRegion', e.currentTarget.value as 'eu'|'us')}><option value="eu">EU residency</option><option value="us">US residency</option></select><small>{props.tenant.regionalProfile ? 'Residency changes require an explicit migration, not ordinary editing.' : 'Choose before deployment. Normal editing cannot silently move data later.'}</small></label>
     </div>
     <Show when={update.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{update.error instanceof Error ? update.error.message : 'Regional profile update failed'}</div></Show>
-    <div class="regional-profile-footer">
-      <div class="form-readiness" aria-live="polite">
-        <Show when={!ready()} fallback={<span class="readiness-message"><span class="auth-dot ok"/>Profile is complete and ready to save.</span>}><span class="readiness-message"><span class="auth-dot"/>Complete country, locale, timezone and currency to continue.</span></Show>
+    <div class="flex items-center justify-between gap-4 mt-5 pt-4 border-t border-border">
+      <div class="min-w-0" aria-live="polite">
+        <Show when={!ready()} fallback={<span class="inline-flex items-center gap-2 text-muted-foreground text-sm"><span class="w-1.75 h-1.75 rounded-full bg-success"/>Profile is complete and ready to save.</span>}><span class="inline-flex items-center gap-2 text-muted-foreground text-sm"><span class="w-1.75 h-1.75 rounded-full bg-destructive"/>Complete country, locale, timezone and currency to continue.</span></Show>
       </div>
       <button type="button" onClick={()=>update.mutate()} disabled={update.isPending || !ready()}>{update.isPending && <Spinner />} {update.isPending ? 'Saving…' : props.tenant.regionalProfile ? 'Save regional profile' : 'Classify tenant'}</button>
     </div>
