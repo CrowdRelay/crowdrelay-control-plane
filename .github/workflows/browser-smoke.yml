@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   browser:
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, arm64]
     timeout-minutes: 15
     env:
       CONTROL_PLANE_BASE_URL: ${{ vars.CONTROL_PLANE_PRODUCTION_BASE_URL || 'https://control.crowdrelay.music' }}
