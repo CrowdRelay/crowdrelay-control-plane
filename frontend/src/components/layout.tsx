@@ -1,4 +1,4 @@
-import { For, Show, Suspense, createSignal, type Component, type JSX } from 'solid-js'
+import { For, Match, Show, Suspense, Switch, createSignal, type Component, type JSX } from 'solid-js'
 import { Card } from './ui/card'
 import { CollapsibleSection as UICollapsible } from './ui/collapsible'
 import { cn } from '../lib/cn'
@@ -292,10 +292,56 @@ export function CommandBlock(props: {
         <span class="text-2xl font-bold tabular-nums text-foreground">{props.metric}</span>
         <span class="text-xs text-muted-foreground">{props.label}</span>
       </div>
+      {/* Callers pass a fragment of sibling `<span>`s. `space-y-*` sets margins
+          on block children only, so inline spans ran together into one string —
+          "4 unknownNo actions in flight". Flex makes every child its own line
+          whatever element the caller chose. */}
       <Show when={props.detail}>
-        <div class="mt-2 text-xs text-muted-foreground space-y-0.5">{props.detail}</div>
+        <div class="mt-2 flex flex-col gap-0.5 text-xs text-muted-foreground">{props.detail}</div>
       </Show>
     </Card>
+  )
+}
+
+// ─── QueryBoundary ─────────────────────────────────────────────────────
+// A panel that guards its body with `<Show when={query.data}>` and no fallback
+// renders its heading over an empty rectangle for as long as the request takes.
+// On a tunnelled tenant read that is routinely a second or more, and an empty
+// card is indistinguishable from a card whose answer is "nothing" — the two
+// readings lead an operator to opposite actions.
+//
+// This states all four outcomes explicitly: pending, failed, empty, loaded.
+//
+//   <QueryBoundary query={model} skeleton={<SkeletonRows count={3} />}
+//                  error="Learning proof is unavailable"
+//                  empty={<EmptyState label="No belief changes yet" />}
+//                  isEmpty={d => d.entries.length === 0}>
+//     {data => <Table>…</Table>}
+//   </QueryBoundary>
+
+export function QueryBoundary<T>(props: {
+  query: { data: T | undefined; isPending: boolean; error: unknown }
+  skeleton: JSX.Element
+  /** Shown instead of the body when the request failed. */
+  error: JSX.Element
+  /** Shown when the request succeeded but `isEmpty` says there is nothing. */
+  empty?: JSX.Element
+  isEmpty?: (data: T) => boolean
+  children: (data: T) => JSX.Element
+}) {
+  return (
+    <Switch fallback={props.skeleton}>
+      <Match when={props.query.error}>
+        <ErrorCard>{props.error}</ErrorCard>
+      </Match>
+      <Match when={props.query.data !== undefined}>
+        {(() => {
+          const data = props.query.data as T
+          const blank = props.empty && props.isEmpty?.(data)
+          return blank ? props.empty : props.children(data)
+        })()}
+      </Match>
+    </Switch>
   )
 }
 

@@ -8,6 +8,7 @@ import { Card } from './ui/card'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
 import { cn } from '../lib/cn'
+import { SkeletonRows } from './Skeleton'
 
 // The learning proof panel — what the brain changed, because of what.
 //
@@ -70,6 +71,13 @@ export function LearningProofPanel(props: { slug: string }) {
       <Alert tone="warning" role="status">
         Learning proof data is temporarily unavailable.
       </Alert>
+    </Show>
+
+    {/* Without this the card showed its heading over empty space for the whole
+        request, which reads the same as "the brain has changed its mind about
+        nothing" — the opposite conclusion. */}
+    <Show when={model.isPending && !model.error}>
+      <SkeletonRows count={3} />
     </Show>
 
     <Show when={model.data}>

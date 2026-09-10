@@ -2,8 +2,8 @@ import { For, Match, Show, Switch, createMemo } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
-import { errorMessage } from '../lib/format'
-import { healthTone } from '../lib/health-tone'
+import { errorMessage, formatTimestamp } from '../lib/format'
+import { healthTone, platformStatusMessage } from '../lib/health-tone'
 import { authState } from '../lib/auth'
 import type { CommandCenterReadModel, CommandCenterTenantSummary, PlatformHealthEntry, RuntimeHealth, TenantSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
@@ -240,7 +240,10 @@ export function OverviewPage() {
                   <Show when={cc()!.autopilot.processingActions > 0}><span>{fmt(cc()!.autopilot.processingActions)} processing</span></Show>
                   <Show when={cc()!.autopilot.succeeded24h > 0}><span class="text-success-foreground">{fmt(cc()!.autopilot.succeeded24h)} succeeded (24h)</span></Show>
                   <Show when={cc()!.autopilot.failed24h > 0}><span class="text-destructive">{fmt(cc()!.autopilot.failed24h)} failed (24h)</span></Show>
-                  <Show when={cc()!.autopilot.unknownActions > 0}><span>{fmt(cc()!.autopilot.unknownActions)} unknown</span></Show>
+                  {/* "4 unknown" told the operator a count and nothing else.
+                      The backend counts recent actions whose outcome has not
+                      been measured yet, so say that. */}
+                  <Show when={cc()!.autopilot.unknownActions > 0}><span>{fmt(cc()!.autopilot.unknownActions)} finished, outcome not measured yet</span></Show>
                   <Show when={cc()!.autopilot.queuedActions === 0 && cc()!.autopilot.processingActions === 0}>
                     <span>No actions in flight</span>
                   </Show>
@@ -263,7 +266,7 @@ export function OverviewPage() {
               detail={
                 <>
                   <Show when={cc()!.outcomes.waitingForObservation > 0}><span>{fmt(cc()!.outcomes.waitingForObservation)} waiting for observation</span></Show>
-                  <Show when={cc()!.outcomes.unknown > 0}><span>{fmt(cc()!.outcomes.unknown)} unknown</span></Show>
+                  <Show when={cc()!.outcomes.unknown > 0}><span>{fmt(cc()!.outcomes.unknown)} ran with no measurable result</span></Show>
                   <Show when={cc()!.outcomes.resolved === 0 && cc()!.outcomes.unknown === 0 && cc()!.outcomes.waitingForObservation === 0}>
                     <span>No outcomes yet</span>
                   </Show>
@@ -279,9 +282,21 @@ export function OverviewPage() {
               metric={platformServices().length === 0 ? '—' : fmt(healthyServices())}
               label={`of ${platformServices().length || '—'} services healthy`}
               detail={
-                <Show when={items().length > 0}>
-                  <span>{fmt(healthyCount())} healthy · {fmt(needsAttention())} need attention<Show when={unknownCount() > 0}> · {fmt(unknownCount())} not reporting</Show></span>
-                </Show>
+                <>
+                  {/* The metric counts platform services; this line counts
+                      tenants. Unlabelled, "1 of 2 services healthy" sitting
+                      above "0 healthy · 1 not reporting" read as the block
+                      contradicting itself. Name the population. */}
+                  <Show when={platformServices().length > healthyServices()}>
+                    <span class="text-destructive-light">
+                      {fmt(platformServices().length - healthyServices())} service
+                      {platformServices().length - healthyServices() === 1 ? '' : 's'} not answering
+                    </span>
+                  </Show>
+                  <Show when={items().length > 0}>
+                    <span>Tenants: {fmt(healthyCount())} healthy · {fmt(needsAttention())} need attention<Show when={unknownCount() > 0}> · {fmt(unknownCount())} not reporting</Show></span>
+                  </Show>
+                </>
               }
             />
           </Link>
@@ -382,10 +397,21 @@ export function OverviewPage() {
               <span class={cn('inline-block w-2 h-2 rounded-full', svc.healthy ? 'bg-success' : 'bg-destructive')} />
               <strong class="text-sm text-foreground">{svc.label}</strong>
             </div>
-            <div class="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-              <Show when={formatLatency(svc.latencyMs)}>{lat => <span class="tabular-nums">{lat()}</span>}</Show>
-              <Show when={!svc.healthy && svc.lastStatus}><span>{svc.lastStatus}</span></Show>
-              <span class="break-all">{svc.url.replace(/^https?:\/\//, '')}</span>
+            {/* The probe address is a private container name and helps nobody
+                reading this card, so it moves to the title attribute where an
+                operator on the phone to an engineer can still read it out. */}
+            <div class="mt-2 flex flex-col gap-1 text-xs text-muted-foreground" title={svc.url}>
+              {/* On a failed probe the latency is how long the connection took
+                  to be refused, so printing it read as "Answered in 4ms. Not
+                  answering." Timing only means something when there was an
+                  answer to time. */}
+              <Show when={svc.healthy && formatLatency(svc.latencyMs)}>{lat => <span class="tabular-nums">Answered in {lat()}</span>}</Show>
+              <Show when={!svc.healthy && platformStatusMessage(svc.lastStatus)}>
+                {message => <span class="text-destructive-light leading-snug">{message()}</span>}
+              </Show>
+              <Show when={svc.lastHealthyAt && !svc.healthy}>
+                <span>Last healthy {formatTimestamp(svc.lastHealthyAt!)}</span>
+              </Show>
             </div>
           </div>
         )}</For>

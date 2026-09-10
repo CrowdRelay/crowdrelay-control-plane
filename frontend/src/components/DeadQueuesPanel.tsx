@@ -12,7 +12,11 @@ import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 
-const shortId = (value: string) => value.length > 16 ? `${value.slice(0, 8)}…${value.slice(-6)}` : value
+// Confirmations used to name the row by its UUID — "Outbox 3f2a19c8…7be104 is
+// back in the pending queue". An operator cannot match that against anything on
+// screen, because the row shows an event type and a destination, not an id.
+// The caller passes the same words the row shows.
+const humanEvent = (eventType: string) => eventType.replace(/_/g, ' ')
 
 // Push failures in words, and whether retrying can possibly help.
 //
@@ -104,12 +108,12 @@ export function DeadQueuesPanel(props: {
     }
   }
 
-  const retryOutbox = async (id: string) => {
+  const retryOutbox = async (id: string, eventType: string) => {
     if (busy()) return
     setBusy(`outbox:${id}`)
     try {
       await api.retryOutbox(props.slug, id)
-      toast.success(`Outbox ${shortId(id)} is back in the pending queue.`)
+      toast.success(`“${humanEvent(eventType)}” is back in the pending queue.`)
       props.onRefresh()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Outbox retry failed')
@@ -118,12 +122,12 @@ export function DeadQueuesPanel(props: {
     }
   }
 
-  const retryDelivery = async (id: string) => {
+  const retryDelivery = async (id: string, label: string) => {
     if (busy()) return
     setBusy(`delivery:${id}`)
     try {
       await api.retryDelivery(props.slug, id)
-      toast.success(`Delivery ${shortId(id)} is back in the pending queue.`)
+      toast.success(`Delivery to ${label} is back in the pending queue.`)
       setDeliveryDetails(null)
       props.onRefresh()
     } catch (error) {
@@ -133,12 +137,12 @@ export function DeadQueuesPanel(props: {
     }
   }
 
-  const retryPush = async (id: string) => {
+  const retryPush = async (id: string, label: string) => {
     if (busy()) return
     setBusy(`push:${id}`)
     try {
       await api.retryPush(props.slug, id)
-      toast.success(`Push ${shortId(id)} is back in the queue.`)
+      toast.success(`Push to ${label} is back in the queue.`)
       props.onRefresh()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Push retry failed')
@@ -176,7 +180,7 @@ export function DeadQueuesPanel(props: {
           <p class="mt-1.5 m-0 text-sm text-secondary-foreground">{item.last_error_kind ?? 'unknown error'} · attempts {item.attempts}/{item.max_attempts} · dead {observed(item.dead_at)}</p>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
-          <Button variant="ghost" size="sm" disabled={!!busy()} onClick={() => void retryOutbox(item.id)}>{busy() === `outbox:${item.id}` && <Spinner />} {busy() === `outbox:${item.id}` ? 'Retrying…' : 'Retry'}</Button>
+          <Button variant="ghost" size="sm" disabled={!!busy()} onClick={() => void retryOutbox(item.id, item.event_type)}>{busy() === `outbox:${item.id}` && <Spinner />} {busy() === `outbox:${item.id}` ? 'Retrying…' : 'Retry'}</Button>
         </div>
       </div>
     </Card>}</For>
@@ -205,7 +209,7 @@ export function DeadQueuesPanel(props: {
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
           <Button variant="ghost" size="sm" disabled={!!busy()} onClick={() => void loadDeliveryDetails(item.id)}>Attempts</Button>
-          <Button variant="ghost" size="sm" disabled={!!busy()} onClick={() => void retryDelivery(item.id)}>{busy() === `delivery:${item.id}` && <Spinner />} {busy() === `delivery:${item.id}` ? 'Retrying…' : 'Retry'}</Button>
+          <Button variant="ghost" size="sm" disabled={!!busy()} onClick={() => void retryDelivery(item.id, item.endpoint_name)}>{busy() === `delivery:${item.id}` && <Spinner />} {busy() === `delivery:${item.id}` ? 'Retrying…' : 'Retry'}</Button>
         </div>
       </div>
     </Card>}</For>
@@ -243,7 +247,7 @@ export function DeadQueuesPanel(props: {
             when={pushIsRetryable(item.error_code)}
             fallback={<span class="text-sm text-muted-foreground">nothing to retry</span>}
           >
-            <Button variant="ghost" size="sm" disabled={!!busy()} onClick={() => void retryPush(item.id)}>{busy() === `push:${item.id}` && <Spinner />} {busy() === `push:${item.id}` ? 'Retrying…' : 'Retry'}</Button>
+            <Button variant="ghost" size="sm" disabled={!!busy()} onClick={() => void retryPush(item.id, item.title)}>{busy() === `push:${item.id}` && <Spinner />} {busy() === `push:${item.id}` ? 'Retrying…' : 'Retry'}</Button>
           </Show>
         </div>
       </div>
