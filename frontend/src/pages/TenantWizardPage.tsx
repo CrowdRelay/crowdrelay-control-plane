@@ -3,10 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useNavigate } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import type { RegionalProfile } from '../lib/types'
+import { cn } from '../lib/cn'
 import { StatusBadge } from '../components/StatusBadge'
 import { Spinner } from '../components/Spinner'
 import { PageShell, PageHeader, ErrorCard } from '../components/layout'
 import { Button } from '../components/ui/button'
+import { Input } from '../components/ui/input'
 
 type Preset = 'PL' | 'DE' | 'CZ' | 'US'
 const presets: Record<Preset, RegionalProfile> = {
@@ -69,6 +71,8 @@ const fanbaseSources: { value: FanbaseSource; label: string; description: string
   { value: 'reddit', label: 'Reddit (post-only)', description: 'Reddit discovery is already integrated. Posting only — scraping is broken.' },
   { value: 'x', label: 'X (Twitter)', description: 'Discover X curators and music communities via browser-scraped search.' },
 ]
+
+const selectClass = 'flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
 
 export function TenantWizardPage() {
   const queryClient = useQueryClient()
@@ -239,36 +243,38 @@ export function TenantWizardPage() {
       <div class="wizard-card">
         <div class="form-section-head"><div><h2 class="text-lg font-semibold text-foreground">Identity + region</h2></div><Show when={overview.error}><StatusBadge status="Provisioner status unavailable" tone="bad" /></Show><Show when={!overview.error}><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></Show></div>
         <p class="wizard-intro">Identity is permanent once the tenant exists; the regional block is what the runtime reads instead of guessing from a browser or an IP address.</p>
-        <div class="form-grid">
-          <label><span>Slug</span><input value={slug()} onInput={(e) => setSlug(e.currentTarget.value.toLowerCase())} placeholder="future-metal" autocomplete="off" /><small>Lowercase, used in URLs, container names and API paths. It cannot be changed later.</small></label>
-          <label><span>Display name</span><input value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="Future Metal" /><small>The band or label as people write it. Shown across the console and in operator-facing alerts.</small></label>
-          <label>Regional preset<select onChange={e=>applyPreset(e.currentTarget.value as Preset)}><option value="PL">Poland</option><option value="DE">Germany</option><option value="CZ">Czechia</option><option value="US">United States</option></select><small>Fills the six fields below in one go. Nothing is inferred from it afterwards — edit any of them freely.</small></label>
-          <label><span>Country</span><input maxlength="2" value={profile().countryCode} onInput={e=>setRegional('countryCode',e.currentTarget.value.toUpperCase())}/><small>Two-letter ISO code, e.g. PL. The tenant's home market, not where the servers are.</small></label>
-          <label><span>Locale</span><input value={profile().locale} onInput={e=>setRegional('locale',e.currentTarget.value)} placeholder="de-DE"/><small>BCP-47 tag. Decides the language and formatting of fan-facing copy.</small></label>
-          <label>Timezone<input value={profile().timezone} onInput={e=>setRegional('timezone',e.currentTarget.value)} placeholder={profile().countryCode === 'US' ? 'America/Chicago (choose explicitly)' : 'Europe/Berlin'}/><small>{profile().countryCode === 'US' ? 'Required: US preset intentionally has no hidden timezone default.' : 'Explicit IANA timezone.'}</small></label>
-          <label><span>Currency</span><input maxlength="3" value={profile().currency} onInput={e=>setRegional('currency',e.currentTarget.value.toUpperCase())}/><small>Three-letter ISO code, e.g. PLN. Ticket and merch amounts are stored and shown in it.</small></label>
-          <label><span>Market region</span><select value={profile().region} onChange={e=>setRegional('region',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></select><small>Which market the growth strategy plays in. Separate from data residency below.</small></label>
-          <label>Data residency<select value={profile().dataRegion} onChange={e=>setRegional('dataRegion',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></select><small>Persisted and enforced by the regional provisioner pool.</small></label>
-          <label><span>Date format</span><select value={profile().dateFormat} onChange={e=>setRegional('dateFormat',e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></select><small>How dates are printed to fans and operators of this tenant.</small></label>
-          <label><span>Number format</span><select value={profile().numberFormat} onChange={e=>setRegional('numberFormat',e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></select><small>Thousands and decimal separators for counts and prices.</small></label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <label><span>Slug</span><Input value={slug()} onInput={(e) => setSlug(e.currentTarget.value.toLowerCase())} placeholder="future-metal" autocomplete="off" /><small>Lowercase, used in URLs, container names and API paths. It cannot be changed later.</small></label>
+          <label><span>Display name</span><Input value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="Future Metal" /><small>The band or label as people write it. Shown across the console and in operator-facing alerts.</small></label>
+          <label>Regional preset<select class={selectClass} onChange={e=>applyPreset(e.currentTarget.value as Preset)}><option value="PL">Poland</option><option value="DE">Germany</option><option value="CZ">Czechia</option><option value="US">United States</option></select><small>Fills the six fields below in one go. Nothing is inferred from it afterwards — edit any of them freely.</small></label>
+          <label><span>Country</span><Input maxlength="2" value={profile().countryCode} onInput={e=>setRegional('countryCode',e.currentTarget.value.toUpperCase())}/><small>Two-letter ISO code, e.g. PL. The tenant's home market, not where the servers are.</small></label>
+          <label><span>Locale</span><Input value={profile().locale} onInput={e=>setRegional('locale',e.currentTarget.value)} placeholder="de-DE"/><small>BCP-47 tag. Decides the language and formatting of fan-facing copy.</small></label>
+          <label>Timezone<Input value={profile().timezone} onInput={e=>setRegional('timezone',e.currentTarget.value)} placeholder={profile().countryCode === 'US' ? 'America/Chicago (choose explicitly)' : 'Europe/Berlin'}/><small>{profile().countryCode === 'US' ? 'Required: US preset intentionally has no hidden timezone default.' : 'Explicit IANA timezone.'}</small></label>
+          <label><span>Currency</span><Input maxlength="3" value={profile().currency} onInput={e=>setRegional('currency',e.currentTarget.value.toUpperCase())}/><small>Three-letter ISO code, e.g. PLN. Ticket and merch amounts are stored and shown in it.</small></label>
+          <label><span>Market region</span><select class={selectClass} value={profile().region} onChange={e=>setRegional('region',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></select><small>Which market the growth strategy plays in. Separate from data residency below.</small></label>
+          <label>Data residency<select class={selectClass} value={profile().dataRegion} onChange={e=>setRegional('dataRegion',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></select><small>Persisted and enforced by the regional provisioner pool.</small></label>
+          <label><span>Date format</span><select class={selectClass} value={profile().dateFormat} onChange={e=>setRegional('dateFormat',e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></select><small>How dates are printed to fans and operators of this tenant.</small></label>
+          <label><span>Number format</span><select class={selectClass} value={profile().numberFormat} onChange={e=>setRegional('numberFormat',e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></select><small>Thousands and decimal separators for counts and prices.</small></label>
         </div>
         <div class="form-section-head"><div><h2 class="text-lg font-semibold text-foreground">First account for the team</h2></div></div>
         <p class="wizard-intro">Optional. Creates one login scoped to this tenant so the band or their manager can work without a platform admin. You can add more later from the tenant page.</p>
-        <div class="form-grid">
-          <label>Operator username<input value={opUsername()} onInput={(e) => setOpUsername(e.currentTarget.value.toLowerCase())} placeholder="future-metal-op" autocomplete="off" /><small>Optional. Sees only this tenant; leave blank to skip.</small></label>
-          <label>Operator password<input type="password" value={opPassword()} onInput={(e) => setOpPassword(e.currentTarget.value)} placeholder="min 12 characters" autocomplete="new-password" /><small>Handed to the team once — hashed with argon2id, never shown again.</small></label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <label>Operator username<Input value={opUsername()} onInput={(e) => setOpUsername(e.currentTarget.value.toLowerCase())} placeholder="future-metal-op" autocomplete="off" /><small>Optional. Sees only this tenant; leave blank to skip.</small></label>
+          <label>Operator password<Input type="password" value={opPassword()} onInput={(e) => setOpPassword(e.currentTarget.value)} placeholder="min 12 characters" autocomplete="new-password" /><small>Handed to the team once — hashed with argon2id, never shown again.</small></label>
         </div>
         {/* The Next button just went grey. Say which field is still holding
             it, in the order the form asks for them. */}
-        <div class="form-actions">
-          <div class="form-readiness" aria-live="polite">
-            <span class="readiness-message">
-              <span class="auth-dot" classList={{ ok: step1Ready() && operatorFieldsReady() }} />
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <div class="text-sm" aria-live="polite">
+            <span class="flex items-center gap-2">
+              <span class={cn('inline-block w-2 h-2 rounded-full', step1Ready() && operatorFieldsReady() ? 'bg-success' : 'bg-muted-foreground')} />
               {step1Blocker() ?? 'Identity and region are complete.'}
             </span>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => navigate({ to: '/tenants' })}>Cancel</Button>
-          <Button size="sm" onClick={nextStep} disabled={!step1Ready() || !operatorFieldsReady()}>Next: Products →</Button>
+          <div class="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate({ to: '/tenants' })}>Cancel</Button>
+            <Button size="sm" onClick={nextStep} disabled={!step1Ready() || !operatorFieldsReady()}>Next: Products →</Button>
+          </div>
         </div>
       </div>
     </Show>
@@ -301,21 +307,21 @@ export function TenantWizardPage() {
           </label>
         </div>
         <Show when={!signalEnabled()}>
-          <div class="notice-card">Signal is disabled. The brain goal step will not offer "Signal fans" as a north star option. Signal base URL is not required for deployment.</div>
+          <div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-muted-foreground">Signal is disabled. The brain goal step will not offer "Signal fans" as a north star option. Signal base URL is not required for deployment.</div>
         </Show>
         <Show when={signalEnabled() || synesthesiaEnabled()}>
           <div class="form-section-head"><div><h2 class="text-lg font-semibold text-foreground">Play Store URLs (optional)</h2></div></div>
           <p class="wizard-intro">Set the Google Play Store URL for each enabled mobile app. Leave blank if the app is not yet published — you can add it later from the tenant page.</p>
-          <div class="form-grid">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             <Show when={signalEnabled()}>
-              <label>Signal Play Store URL<input value={signalPlayStoreUrl()} onInput={(e) => setSignalPlayStoreUrl(e.currentTarget.value)} placeholder={`https://play.google.com/store/apps/details?id=music.${slug() || 'tenant'}.signal`} /></label>
+              <label>Signal Play Store URL<Input value={signalPlayStoreUrl()} onInput={(e) => setSignalPlayStoreUrl(e.currentTarget.value)} placeholder={`https://play.google.com/store/apps/details?id=music.${slug() || 'tenant'}.signal`} /></label>
             </Show>
             <Show when={synesthesiaEnabled()}>
-              <label>Synesthesia Play Store URL<input value={synesthesiaPlayStoreUrl()} onInput={(e) => setSynesthesiaPlayStoreUrl(e.currentTarget.value)} placeholder={`https://play.google.com/store/apps/details?id=music.${slug() || 'tenant'}.synesthesia`} /></label>
+              <label>Synesthesia Play Store URL<Input value={synesthesiaPlayStoreUrl()} onInput={(e) => setSynesthesiaPlayStoreUrl(e.currentTarget.value)} placeholder={`https://play.google.com/store/apps/details?id=music.${slug() || 'tenant'}.synesthesia`} /></label>
             </Show>
           </div>
         </Show>
-        <div class="form-actions right">
+        <div class="flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={prevStep}>← Back</Button>
           <Button size="sm" onClick={nextStep} disabled={!step2Ready()}>Next: Goal →</Button>
         </div>
@@ -337,7 +343,7 @@ export function TenantWizardPage() {
             </label>
           }</For>
         </div>
-        <div class="form-actions right">
+        <div class="flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={prevStep}>← Back</Button>
           <Button size="sm" onClick={nextStep} disabled={!step3Ready()}>Next: Fanbase Sources →</Button>
         </div>
@@ -359,7 +365,7 @@ export function TenantWizardPage() {
             </label>
           }</For>
         </div>
-        <div class="form-actions right">
+        <div class="flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={prevStep}>← Back</Button>
           <Button size="sm" onClick={nextStep} disabled={!step4Ready()}>Next: Deploy →</Button>
         </div>
@@ -395,12 +401,12 @@ export function TenantWizardPage() {
 
         <Show when={deployNow()}>
           <div class="form-section-head"><div><h2 class="text-lg font-semibold text-foreground">Deploy URLs</h2></div></div>
-          <div class="form-grid">
-            <label>CrowdRelay API base URL<input value={crowdrelayBaseUrl()} onInput={(e) => setCrowdrelayBaseUrl(e.currentTarget.value)} placeholder="https://api.future-metal.example" /></label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            <label>CrowdRelay API base URL<Input value={crowdrelayBaseUrl()} onInput={(e) => setCrowdrelayBaseUrl(e.currentTarget.value)} placeholder="https://api.future-metal.example" /></label>
             <Show when={signalEnabled()}>
-              <label>Signal / public site URL<input value={signalBaseUrl()} onInput={(e) => setSignalBaseUrl(e.currentTarget.value)} placeholder="https://future-metal.example" /></label>
+              <label>Signal / public site URL<Input value={signalBaseUrl()} onInput={(e) => setSignalBaseUrl(e.currentTarget.value)} placeholder="https://future-metal.example" /></label>
             </Show>
-            <label>Release SHA <small>optional if server default is configured</small><input value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={overview.data?.provisionerDefaultImageTag ?? 'sha-<40-char CrowdRelay commit>'} /></label>
+            <label>Release SHA <small>optional if server default is configured</small><Input value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={overview.data?.provisionerDefaultImageTag ?? 'sha-<40-char CrowdRelay commit>'} /></label>
           </div>
 
           {/* Optional provider API keys — collapsible, only shown when deploying */}
@@ -408,33 +414,35 @@ export function TenantWizardPage() {
             {showProviderKeys() ? '▾' : '▸'} Optional: Provider API keys
           </Button>
           <Show when={showProviderKeys()}>
-            <div class="form-grid provider-keys-section">
-              <label>Bandsintown API key<input value={bandsintownKey()} onInput={(e) => setBandsintownKey(e.currentTarget.value)} placeholder="Optional" /></label>
-              <label>YouTube API key<input value={youtubeKey()} onInput={(e) => setYoutubeKey(e.currentTarget.value)} placeholder="Optional" /></label>
-              <label>Spotify client ID<input value={spotifyClientId()} onInput={(e) => setSpotifyClientId(e.currentTarget.value)} placeholder="Optional" /></label>
-              <label>Spotify client secret<input value={spotifyClientSecret()} onInput={(e) => setSpotifyClientSecret(e.currentTarget.value)} placeholder="Optional" type="password" /></label>
-              <label>Facebook page token<input value={facebookPageToken()} onInput={(e) => setFacebookPageToken(e.currentTarget.value)} placeholder="Optional" type="password" /></label>
-              <label>TikTok client key<input value={tiktokClientKey()} onInput={(e) => setTiktokClientKey(e.currentTarget.value)} placeholder="Optional" /></label>
-              <label>TikTok client secret<input value={tiktokClientSecret()} onInput={(e) => setTiktokClientSecret(e.currentTarget.value)} placeholder="Optional" type="password" /></label>
-              <label>Last.fm API key<input value={lastfmKey()} onInput={(e) => setLastfmKey(e.currentTarget.value)} placeholder="Optional" /></label>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <label>Bandsintown API key<Input value={bandsintownKey()} onInput={(e) => setBandsintownKey(e.currentTarget.value)} placeholder="Optional" /></label>
+              <label>YouTube API key<Input value={youtubeKey()} onInput={(e) => setYoutubeKey(e.currentTarget.value)} placeholder="Optional" /></label>
+              <label>Spotify client ID<Input value={spotifyClientId()} onInput={(e) => setSpotifyClientId(e.currentTarget.value)} placeholder="Optional" /></label>
+              <label>Spotify client secret<Input value={spotifyClientSecret()} onInput={(e) => setSpotifyClientSecret(e.currentTarget.value)} placeholder="Optional" type="password" /></label>
+              <label>Facebook page token<Input value={facebookPageToken()} onInput={(e) => setFacebookPageToken(e.currentTarget.value)} placeholder="Optional" type="password" /></label>
+              <label>TikTok client key<Input value={tiktokClientKey()} onInput={(e) => setTiktokClientKey(e.currentTarget.value)} placeholder="Optional" /></label>
+              <label>TikTok client secret<Input value={tiktokClientSecret()} onInput={(e) => setTiktokClientSecret(e.currentTarget.value)} placeholder="Optional" type="password" /></label>
+              <label>Last.fm API key<Input value={lastfmKey()} onInput={(e) => setLastfmKey(e.currentTarget.value)} placeholder="Optional" /></label>
             </div>
           </Show>
 
-          <label class="check-row"><input type="checkbox" checked={deployNow()} onChange={(e) => setDeployNow(e.currentTarget.checked)} /><span><strong>Deploy isolated CrowdRelay instance now</strong><small>Only an agent for the selected data region may claim this schema-v4 job.</small></span></label>
+          <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-1" checked={deployNow()} onChange={(e) => setDeployNow(e.currentTarget.checked)} /><span><strong>Deploy isolated CrowdRelay instance now</strong><small class="block text-muted-foreground">Only an agent for the selected data region may claim this schema-v4 job.</small></span></label>
         </Show>
 
         <Show when={createTenant.error}><ErrorCard>{createTenant.error instanceof Error ? createTenant.error.message : 'Tenant creation failed'}</ErrorCard></Show>
-        <div class="form-actions">
-          <div class="form-readiness" aria-live="polite">
-            <span class="readiness-message">
-              <span class="auth-dot" classList={{ ok: deployFieldsReady() }} />
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <div class="text-sm" aria-live="polite">
+            <span class="flex items-center gap-2">
+              <span class={cn('inline-block w-2 h-2 rounded-full', deployFieldsReady() ? 'bg-success' : 'bg-muted-foreground')} />
               {deployBlocker() ?? (deployNow() ? 'Ready to create the tenant and queue its deployment.' : 'Ready to create the tenant. Nothing is deployed yet.')}
             </span>
           </div>
-          <Button variant="ghost" size="sm" onClick={prevStep}>← Back</Button>
-          <Button size="sm" onClick={() => createTenant.mutate()} disabled={createTenant.isPending || !deployFieldsReady()}>
-            {createTenant.isPending && <Spinner />} {createTenant.isPending ? 'Creating…' : deployNow() ? 'Create & deploy' : 'Create tenant'}
-          </Button>
+          <div class="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={prevStep}>← Back</Button>
+            <Button size="sm" onClick={() => createTenant.mutate()} disabled={createTenant.isPending || !deployFieldsReady()}>
+              {createTenant.isPending && <Spinner />} {createTenant.isPending ? 'Creating…' : deployNow() ? 'Create & deploy' : 'Create tenant'}
+            </Button>
+          </div>
         </div>
       </div>
     </Show>

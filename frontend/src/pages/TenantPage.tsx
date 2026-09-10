@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { errorMessage } from '../lib/format'
+import { cn } from '../lib/cn'
 import type { Palette, ProvisioningJob } from '../lib/types'
 import { ReleaseConvergencePanel } from '../components/ReleaseConvergencePanel'
 import { StatusBadge } from '../components/StatusBadge'
@@ -19,6 +20,7 @@ import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, ErrorCard, Secti
 import { Spinner } from '../components/Spinner'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
+import { Input } from '../components/ui/input'
 
 const paletteFields: Array<keyof Palette> = ['primary','primaryContrast','accent','surface','surfaceElevated','text','textMuted','success','warning','danger']
 // The editor showed the raw struct field names — `primaryContrast`,
@@ -167,7 +169,7 @@ export function TenantPage() {
         <ErrorCard>{errorMessage(status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error, 'Control Plane operation failed')}</ErrorCard>
       </Show>
       <Show when={t.status === 'parked'}>
-        <div class="parked-banner" role="status">
+        <div class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-foreground" role="status">
           <strong>Tenant is parked.</strong> The autopilot is stopped — no new tasks or outreach. Pending deliveries still drain. Click <em>Resume</em> to restore.
         </div>
       </Show>
@@ -310,9 +312,9 @@ export function TenantPage() {
           <Dialog open onClose={() => setEditingMobileApps(false)} label="Google Play Store URLs" class="w-full max-w-lg rounded-lg border border-border bg-card p-5 shadow-xl">
               <SectionTitle eyebrow="MOBILE APPS" title="Google Play Store URLs" icon={<SectionIcon name="play" />} />
               <p class="text-sm text-muted-foreground mt-1 leading-relaxed">Set the Google Play Store URL for each tenant mobile app. Leave blank if the app is not yet published.</p>
-              <div class="form-grid mt-4">
-                <label>Signal Play Store URL<input value={signalPlayUrl()} onInput={(e) => setSignalPlayUrl(e.currentTarget.value)} placeholder="https://play.google.com/store/apps/details?id=music.{t.slug}.signal" /></label>
-                <label>Synesthesia Play Store URL<input value={synesthesiaPlayUrl()} onInput={(e) => setSynesthesiaPlayUrl(e.currentTarget.value)} placeholder="https://play.google.com/store/apps/details?id=music.{t.slug}.synesthesia" /></label>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-4">
+                <label>Signal Play Store URL<Input value={signalPlayUrl()} onInput={(e) => setSignalPlayUrl(e.currentTarget.value)} placeholder="https://play.google.com/store/apps/details?id=music.{t.slug}.signal" /></label>
+                <label>Synesthesia Play Store URL<Input value={synesthesiaPlayUrl()} onInput={(e) => setSynesthesiaPlayUrl(e.currentTarget.value)} placeholder="https://play.google.com/store/apps/details?id=music.{t.slug}.synesthesia" /></label>
               </div>
               <Show when={mobileApps.error}><ErrorCard>{mobileApps.error instanceof Error ? mobileApps.error.message : 'Failed to update Play Store URLs'}</ErrorCard></Show>
               <div class="flex justify-end gap-2 mt-5">
@@ -336,10 +338,10 @@ export function TenantPage() {
               <div><span>Signal / site</span><strong>{t.signalBaseUrl ?? 'not configured'}</strong></div>
               <div><span>Provisioner</span><strong>{platform()?.provisionerConfigured ? 'configured' : 'not configured'}</strong></div>
             </div>
-            <div class="provision-row">
-              <input class={!releaseReady() && desiredVersion().trim() ? 'input-invalid' : ''} value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder="Leave blank for latest release" aria-label="Desired release version" aria-invalid={!releaseReady() && Boolean(desiredVersion().trim())} />
+            <div class="flex gap-2 items-center">
+              <Input class={cn('flex-1', !releaseReady() && desiredVersion().trim() && 'border-destructive/50')} value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder="Leave blank for latest release" aria-label="Desired release version" aria-invalid={!releaseReady() && Boolean(desiredVersion().trim())} />
               <Button variant="ghost" size="sm" onClick={() => plan.mutate()} disabled={plan.isPending || deploymentBusy() || !releaseReady()}>Preview</Button>
-              <button onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || !releaseReady() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl}>{latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</button>
+              <Button onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || !releaseReady() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl}>{latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</Button>
             </div>
             <Show when={deploy.error}><ErrorCard>{deploy.error instanceof Error ? deploy.error.message : 'Deployment request failed'}</ErrorCard></Show>
             <Show when={preview()}>{job => <div class="plan-preview"><pre>{JSON.stringify(job().plan, null, 2)}</pre></div>}</Show>
@@ -401,10 +403,10 @@ export function TenantPage() {
                 <Show when={optOut.isError}>
                   <ErrorCard>{errorMessage(optOut.error, 'Opt-out request failed')}</ErrorCard>
                 </Show>
-                <div class="form-grid">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                   <label>
                     <span>Type <code>{t.slug}</code> to confirm</span>
-                    <input
+                    <Input
                       value={optOutConfirm()}
                       placeholder={t.slug}
                       autocomplete="off"
@@ -412,7 +414,7 @@ export function TenantPage() {
                     />
                   </label>
                 </div>
-                <div class="form-actions">
+                <div class="flex justify-end gap-2 mt-4">
                   <Button
                     variant="destructive-ghost"
                     size="sm"
@@ -424,7 +426,7 @@ export function TenantPage() {
                 </div>
               </>
             }>
-              <div class="notice-card">
+              <div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground">
                 <strong>Opt-out request received.</strong> The crew has been notified and will
                 contact you to confirm before removing your data. No further action is needed
                 from your side.
@@ -447,10 +449,10 @@ export function TenantPage() {
             <Show when={remove.isError}>
               <ErrorCard>{errorMessage(remove.error, 'Tenant removal failed')}</ErrorCard>
             </Show>
-            <div class="form-grid">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               <label>
                 <span>Type <code>{t.slug}</code> to confirm</span>
-                <input
+                <Input
                   value={removalConfirm()}
                   placeholder={t.slug}
                   autocomplete="off"
@@ -458,7 +460,7 @@ export function TenantPage() {
                 />
               </label>
             </div>
-            <div class="form-actions">
+            <div class="flex justify-end gap-2 mt-4">
               <Button
                 variant="destructive-ghost"
                 size="sm"

@@ -8,6 +8,7 @@ import { errorMessage, formatTimestamp as observed } from '../lib/format'
 import type { OperationsSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
+import { UnpublishedDraftsPanel } from '../components/UnpublishedDraftsPanel'
 import { AttentionInbox } from '../components/AttentionInbox'
 import { EmptyState } from '../components/EmptyState'
 import { SignalOverviewPanel } from '../components/SignalOverviewPanel'
@@ -132,6 +133,14 @@ export function TenantAttentionPage() {
           staleReservations={summary.data ? staleAreaReservations(summary.data) : 0}
           activeAlerts={summary.data?.watchdog.active_alerts ?? 0}
           awaitingApproval={attention.data?.awaiting_approval ?? 0}
+          notReported={attention.data?.not_reported ?? []}
+        />
+      </Show>
+
+      {/* The queue the operator, not the system, is blocking */}
+      <Show when={!attention.isLoading}>
+        <UnpublishedDraftsPanel
+          drafts={attention.data?.unpublished_drafts ?? []}
           notReported={attention.data?.not_reported ?? []}
         />
       </Show>

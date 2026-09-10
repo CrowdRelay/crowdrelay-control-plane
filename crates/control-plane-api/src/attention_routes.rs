@@ -140,6 +140,17 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
             not_reported.push("awaiting_approval");
             json!(0)
         });
+    // The drafted posts waiting on a person to publish them. Optional for the
+    // same reason as the sections above: a CrowdRelay that predates it serves
+    // a valid snapshot, and an empty list here would claim the queue is clear
+    // when the tenant never reported one.
+    let unpublished_drafts = snapshot
+        .get("unpublished_drafts")
+        .cloned()
+        .unwrap_or_else(|| {
+            not_reported.push("unpublished_drafts");
+            json!([])
+        });
 
     expect_object(summary, "summary")?;
     expect_array(&alerts, "alerts")?;
@@ -149,6 +160,7 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     expect_object(ecosystem, "ecosystem")?;
     expect_array(findings, "findings")?;
     expect_array(&needs_you, "needs_you")?;
+    expect_array(&unpublished_drafts, "unpublished_drafts")?;
 
     Ok(json!({
         // Stable identity so the browser patches this model in place on a
@@ -163,6 +175,7 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
         "findings": findings,
         "needs_you": needs_you,
         "awaiting_approval": awaiting_approval,
+        "unpublished_drafts": unpublished_drafts,
         // Sections whose value above is a placeholder, not a measurement.
         "not_reported": not_reported,
     }))
@@ -190,6 +203,9 @@ mod tests {
             "findings": [{"id": "f"}],
             "needs_you": [],
             "awaiting_approval": 0,
+            "unpublished_drafts": [
+                {"channel": "reddit", "drafts": 2, "oldest_drafted_at": "2026-09-01T10:00:00Z"}
+            ],
         })
     }
 

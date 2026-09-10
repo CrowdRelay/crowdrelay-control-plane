@@ -130,6 +130,7 @@ export function AutomationPage() {
               </div>
               <div class="automation-config-controls">
                 <select
+                  class="flex h-9 rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   value={cfg.category}
                   disabled={busyId() !== null}
                   onChange={(e) => handleConfigUpdate(cfg.workflowId, { category: e.currentTarget.value })}
@@ -178,7 +179,7 @@ export function AutomationPage() {
         title="Recent events"
         icon={<SectionIcon name="history" />}
         action={
-          <select value={statusFilter()} onChange={(e) => setStatusFilter(e.currentTarget.value)}>
+          <select class="flex h-9 rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={statusFilter()} onChange={(e) => setStatusFilter(e.currentTarget.value)}>
             <option value="">All statuses</option>
             <option value="new">New</option>
             <option value="acknowledged">Acknowledged</option>
