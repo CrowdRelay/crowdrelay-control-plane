@@ -86,7 +86,41 @@ jobs:
           revision="$(docker image inspect "${LOCAL_IMAGE}" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
           [[ "$architecture" == "arm64" ]] || { echo "ERROR: wrong architecture: $architecture" >&2; exit 1; }
           [[ "$revision" == "$IMAGE_SHA" ]] || { echo "ERROR: revision mismatch: $revision != $IMAGE_SHA" >&2; exit 1; }
-          echo "BUILD=PASS arch=$architecture revision=$revision"
+          # The digest the ecosystem deploy pins to.
+          #
+          # `4e782cd` split build and publish out of the cancellable CI
+          # workflow -- correctly, because a cancelled build corrupts a shared
+          # target directory -- but the immutable digest artifact went with it
+          # and was never re-added here. `scripts/deploy.sh` still requires it,
+          # so every ecosystem deploy has aborted at phase 2 since 2026-09-09
+          # with "validated CI run is missing immutable image digest
+          # artifact". This workflow kept working on its own, which is why it
+          # went unnoticed.
+          #
+          # It belongs here rather than back in CI: this is the job that builds
+          # and pushes, so it is the only one that can honestly attest what was
+          # published.
+          digest="$(docker image inspect "${LOCAL_IMAGE}" --format '{{index .RepoDigests 0}}' | cut -d@ -f2)"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "ERROR: no usable digest for ${LOCAL_IMAGE}: $digest" >&2
+            exit 1
+          }
+          mkdir -p image-digest
+          printf 'CONTROL_PLANE_RELEASE_SHA=%s\nCONTROL_PLANE_IMAGE_DIGEST=%s\n' \
+            "$IMAGE_SHA" "$digest" > image-digest/image.env
+          ( cd image-digest && sha256sum image.env > image.env.sha256 )
+          echo "BUILD=PASS arch=$architecture revision=$revision digest=$digest"
+
+      # Uploaded from the build job so the ecosystem deploy can pin to the
+      # exact image this run published, rather than to whatever `:main` points
+      # at by the time it looks.
+      - name: Upload immutable image digest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: control-plane-image-digest-${{ github.sha }}
+          path: image-digest/
+          retention-days: 30
+          if-no-files-found: error
 
       # ── Deploy ─────────────────────────────────────────────────────────
       - name: Configure SSH to production host
