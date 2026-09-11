@@ -186,6 +186,7 @@
     text-rendering: optimizeLegibility;
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
   body {
     margin: 0;
     min-width: 320px;
@@ -193,6 +194,7 @@
     color: var(--color-foreground);
     position: relative;
   }
+  #app { height: 100%; overflow: hidden; }
   button, input, select, textarea { font: inherit; }
   a { color: inherit; text-decoration: none; }
 
