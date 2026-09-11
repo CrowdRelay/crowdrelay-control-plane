@@ -3,7 +3,7 @@ import type { OpportunityBoardEntry } from '../lib/types'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { SkeletonOpportunityBoard } from './Skeleton'
-import { APPROVE_EFFECT, CONTEXT_LABELS, SUBJECT_KIND_LABELS, RANK_FACTOR_LABELS, VALUE_TIER_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
+import { APPROVE_EFFECT, CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, RANK_FACTOR_LABELS, VALUE_TIER_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
 import { SectionIcon } from './SectionIcon'
 import { Section } from './layout'
 import { Spinner } from './Spinner'
@@ -93,6 +93,133 @@ function Recipients(props: { addresses: string[] }) {
       </Show>
     </span>
   )
+}
+
+// ── The drafted message ────────────────────────────────────────────────
+//
+// The autopilot writes outbound copy in the recipient's language — Polish to a
+// Polish magazine, English to a radio station. The console is in the operator's
+// language. Those two are different things and were rendering as one: the
+// message arrived as a `key: value` blob joined with newlines, the newlines
+// collapsed in HTML, and the result was one paragraph carrying the body, the
+// follow-ups, a send date, a tone, a type and three UUIDs.
+//
+// A message to be sent is shown as a message: subject line, body with its line
+// breaks intact, and a note saying which language it is in and why. Everything
+// the operator is being asked to judge stays in their own language around it.
+
+const DRAFT_META_LABELS: Record<string, string> = {
+  tone: 'Tone',
+  type: 'Kind',
+  suggested_send_at: 'Suggested send date',
+  platform: 'Channel',
+  follow_ups: 'Follow-up plan',
+}
+
+/** Keys that carry the message itself rather than a fact about it. */
+const DRAFT_BODY_KEYS = new Set(['body', 'subject'])
+
+/** Keys whose value is a list of record ids — nothing an operator can use. */
+const DRAFT_ID_KEYS = new Set(['target_refs', 'task_id', 'template_id'])
+
+type ParsedDraft = {
+  subject?: string
+  body?: string
+  meta: { label: string; value: string }[]
+  recipients: number
+}
+
+/** `draft_to_text` emits `key: value` lines. Read them back apart. */
+function parseDraft(raw: string): ParsedDraft | null {
+  if (!raw.includes(':')) return null
+  const parsed: ParsedDraft = { meta: [], recipients: 0 }
+  let seen = 0
+  // Keys start a line; a value may run on, so split on the key pattern rather
+  // than on newlines the server may or may not have preserved.
+  const parts = raw.split(/(?:^|\s)(?=(?:body|subject|tone|type|platform|follow_ups|suggested_send_at|target_refs|task_id|template_id):)/)
+  for (const part of parts) {
+    const match = /^(\w+):\s*([\s\S]*)$/.exec(part.trim())
+    if (!match) continue
+    const [, key, value] = match as unknown as [string, string, string]
+    seen += 1
+    if (DRAFT_BODY_KEYS.has(key)) {
+      if (key === 'subject') parsed.subject = value.trim()
+      else parsed.body = value.trim()
+    } else if (DRAFT_ID_KEYS.has(key)) {
+      const ids = value.match(/[0-9a-f-]{8,}/gi)
+      if (key === 'target_refs' && ids) parsed.recipients = ids.length
+    } else {
+      const label = DRAFT_META_LABELS[key]
+      if (label) parsed.meta.push({ label, value: value.replace(/^\[|\]$/g, '').replace(/^"|"$/g, '').trim() })
+    }
+  }
+  return seen >= 2 && (parsed.body || parsed.subject) ? parsed : null
+}
+
+function DraftPreview(props: { draft: ParsedDraft; language?: string }) {
+  return (
+    <div class="flex flex-col gap-2">
+      <div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span class="font-medium text-secondary-foreground">The message, as it will be sent</span>
+        <Show when={props.draft.recipients > 0}>
+          <span>to {props.draft.recipients} {props.draft.recipients === 1 ? 'contact' : 'contacts'}</span>
+        </Show>
+        <span>Written in the recipient's language, not yours.</span>
+      </div>
+
+      <div class="border border-border bg-surface-1">
+        <Show when={props.draft.subject}>
+          <div class="border-b border-border-subtle px-3 py-2">
+            <span class="block text-xs text-muted-foreground">Subject</span>
+            <strong lang={props.language} class="text-sm text-foreground">{props.draft.subject}</strong>
+          </div>
+        </Show>
+        <Show when={props.draft.body}>
+          {/* `whitespace-pre-wrap`: the body arrives with its paragraph breaks
+              and the browser was collapsing them into one wall of text. */}
+          <p lang={props.language} class="m-0 whitespace-pre-wrap px-3 py-2 text-sm leading-relaxed text-secondary-foreground">
+            {props.draft.body}
+          </p>
+        </Show>
+      </div>
+
+      <Show when={props.draft.meta.length > 0}>
+        <dl class="m-0 flex flex-wrap gap-x-4 gap-y-1">
+          <For each={props.draft.meta}>{item => (
+            <div class="flex items-baseline gap-1.5">
+              <dt class="text-xs text-muted-foreground">{item.label}</dt>
+              <dd class="m-0 text-xs text-secondary-foreground">{item.value}</dd>
+            </div>
+          )}</For>
+        </dl>
+      </Show>
+    </div>
+  )
+}
+
+/** The parsed message inside a briefing, if it carries one. */
+const draftOf = (briefing: { content: { label: string; value: string }[] }): ParsedDraft | null => {
+  for (const field of briefing.content) {
+    const parsed = parseDraft(field.value)
+    if (parsed) return parsed
+  }
+  return null
+}
+
+/** Briefing rows worth showing: no record ids, and nothing the message preview
+ *  already renders in full.
+ *
+ *  The subject arrives twice — once as its own row under a label written in the
+ *  tenant's language ("Temat"), once inside the draft. The preview shows it
+ *  under an English label, so the duplicate goes. */
+const contentFields = (briefing: { content: { label: string; value: string }[] }) => {
+  const draft = draftOf(briefing)
+  return briefing.content.filter(field => {
+    if (isOpaqueId(field) || parseDraft(field.value)) return false
+    if (!draft) return true
+    const value = field.value.trim()
+    return value !== draft.subject?.trim() && !draft.subject?.trim().startsWith(value)
+  })
 }
 
 const entryTitle = opportunityTitle
@@ -235,7 +362,15 @@ export function OpportunityBoardPanel(props: {
     return (
       <div class="flex flex-col gap-2 border-b border-border-subtle py-3.5 last:border-0 md:flex-row md:items-start md:justify-between md:gap-6">
         <div class="flex min-w-0 flex-1 flex-col gap-1.5">
-          <strong class="text-sm leading-snug text-foreground">{entryTitle(entry())}</strong>
+          {/* `opportunityTitle` prefers `briefing.summary`, which the backend
+              writes in the tenant's language — a Polish heading on an English
+              card. Where the briefing carries a drafted message, the decision
+              kind names the same thing in the operator's language. */}
+          <strong class="text-sm leading-snug text-foreground">
+            {entry().briefing && draftOf(entry().briefing!)
+              ? labelOr(DECISION_KIND_LABELS, entry().decision_kind)
+              : entryTitle(entry())}
+          </strong>
           <p class="m-0 text-sm leading-relaxed text-secondary-foreground">{entry().reason}</p>
 
           <div class="flex flex-wrap items-center gap-2">
@@ -273,22 +408,36 @@ export function OpportunityBoardPanel(props: {
               <Show when={entry().briefing}>
                 {briefing => (
                   <>
-                    <p class="m-0 text-sm leading-relaxed text-secondary-foreground">{briefing().why_it_matters}</p>
-                    <Show when={briefing().steps.length > 0}>
-                      <ol class="m-0 list-decimal pl-4.5 text-sm leading-relaxed text-secondary-foreground">
-                        <For each={briefing().steps}>{step => (
-                          <li class="mb-1"><strong class="text-foreground">{step.what_to_do}</strong> — {step.why_it_matters}</li>
-                        )}</For>
-                      </ol>
+                    {/* The backend writes this prose in the tenant's language,
+                        so on a Polish tenant the operator met Polish
+                        instructions inside an English console — and they say
+                        the same thing the section header and the button
+                        already say in their own language. Where there is a
+                        drafted message, the message is the thing to read and
+                        these are noise; elsewhere they are all the context
+                        there is, so they stay. */}
+                    <Show when={!draftOf(briefing())}>
+                      <p class="m-0 text-sm leading-relaxed text-secondary-foreground">{briefing().why_it_matters}</p>
+                      <Show when={briefing().steps.length > 0}>
+                        <ol class="m-0 list-decimal pl-4.5 text-sm leading-relaxed text-secondary-foreground">
+                          <For each={briefing().steps}>{step => (
+                            <li class="mb-1"><strong class="text-foreground">{step.what_to_do}</strong> — {step.why_it_matters}</li>
+                          )}</For>
+                        </ol>
+                      </Show>
+                    </Show>
+
+                    <Show when={draftOf(briefing())}>
+                      {draft => <DraftPreview draft={draft()} />}
                     </Show>
                     {/* Fields whose entire value is a record id are dropped.
                         The backend puts `event_id`, `campaign_id` and `task_id`
                         in here as bare UUIDs; they identify a row an operator
                         cannot look up and they are the widest thing on the
                         line. Everything an operator can act on stays. */}
-                    <Show when={briefing().content.some(field => !isOpaqueId(field))}>
+                    <Show when={contentFields(briefing()).length > 0}>
                       <dl class="m-0 flex flex-col">
-                        <For each={briefing().content.filter(field => !isOpaqueId(field))}>{field => (
+                        <For each={contentFields(briefing())}>{field => (
                           <div class="flex items-baseline gap-3 border-b border-border-subtle py-1 last:border-0">
                             <dt class="text-xs capitalize text-muted-foreground">{field.label}</dt>
                             <dd class="m-0 min-w-0 flex-1 break-words text-sm text-secondary-foreground">

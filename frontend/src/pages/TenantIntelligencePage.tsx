@@ -43,7 +43,7 @@ export function TenantIntelligencePage() {
     <PageHeader
       eyebrow="BRAIN"
       title="Intelligence"
-      description="What the autopilot decided, what it handed to the AI workers, and how the growth numbers moved."
+      description="What the system decided to do, what it did, and how the growth numbers moved."
       actions={
         <Show when={!model.error && model.data}>
           <div class="flex items-center gap-2">
@@ -69,18 +69,18 @@ export function TenantIntelligencePage() {
           </marker>
         </defs>
         <rect x="20" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-core" />
-        <text x="100" y="55" text-anchor="middle" class="intel-loop-label">Intelligence</text>
-        <text x="100" y="72" text-anchor="middle" class="intel-loop-sub">Rust autopilot</text>
+        <text x="100" y="55" text-anchor="middle" class="intel-loop-label">Decides</text>
+        <text x="100" y="72" text-anchor="middle" class="intel-loop-sub">what to do</text>
         <line x1="180" y1="60" x2="290" y2="60" stroke="var(--color-primary)" stroke-width="1.5" marker-end="url(#intel-arrow)" />
         <rect x="300" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-worker" />
-        <text x="380" y="55" text-anchor="middle" class="intel-loop-label">Workers</text>
-        <text x="380" y="72" text-anchor="middle" class="intel-loop-sub">LLM agents</text>
+        <text x="380" y="55" text-anchor="middle" class="intel-loop-label">Does it</text>
+        <text x="380" y="72" text-anchor="middle" class="intel-loop-sub">research · draft · post</text>
         <line x1="460" y1="60" x2="570" y2="60" stroke="var(--color-primary)" stroke-width="1.5" marker-end="url(#intel-arrow)" />
         <rect x="580" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-outcome" />
-        <text x="660" y="55" text-anchor="middle" class="intel-loop-label">Outcomes</text>
+        <text x="660" y="55" text-anchor="middle" class="intel-loop-label">Measures</text>
         <text x="660" y="72" text-anchor="middle" class="intel-loop-sub">fans · engagement</text>
         <path d="M 660 90 Q 400 115, 100 90" fill="none" stroke="var(--color-success-light)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#intel-arrow)" />
-        <text x="380" y="115" text-anchor="middle" class="intel-loop-feedback">Learning loop</text>
+        <text x="380" y="115" text-anchor="middle" class="intel-loop-feedback">Gets smarter each time</text>
       </svg>
     </div>
 

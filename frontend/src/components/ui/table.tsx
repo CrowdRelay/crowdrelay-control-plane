@@ -55,7 +55,7 @@ export const TableHead: Component<JSX.ThHTMLAttributes<HTMLTableCellElement> & {
   return (
     <th
       class={cn(
-        'text-left text-xs font-medium uppercase tracking-wider text-muted-foreground border-b border-border py-1 px-2 first:pl-0 last:pr-0 sticky top-0 z-[1] bg-surface-2',
+        'text-left text-xs font-medium uppercase tracking-wider text-muted-foreground border-b border-border py-1 px-2 first:pl-3 last:pr-3 sticky top-0 z-[1] bg-surface-2',
         local.class,
       )}
       {...rest}
@@ -64,7 +64,7 @@ export const TableHead: Component<JSX.ThHTMLAttributes<HTMLTableCellElement> & {
 }
 
 const CELL_BASE =
-  'py-2.5 px-2 first:pl-0 last:pr-0 text-foreground overflow-hidden text-ellipsis whitespace-nowrap align-middle'
+  'py-2.5 px-2 first:pl-3 last:pr-3 text-foreground overflow-hidden text-ellipsis whitespace-nowrap align-middle'
 
 export const TableCell: Component<JSX.TdHTMLAttributes<HTMLTableCellElement> & { class?: string; numeric?: boolean }> = (props) => {
   const [local, rest] = splitProps(props, ['class', 'numeric'])
