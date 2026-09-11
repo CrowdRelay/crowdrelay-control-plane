@@ -59,8 +59,12 @@ export function KpiCard(props: {
 }
 
 export function KpiStrip(props: { children: JSX.Element; class?: string }) {
+  // `auto-fit` with `minmax(220px, 1fr)` makes the cards stretch to fill the
+  // row regardless of how many there are. A 3-card strip no longer leaves a
+  // gap in a 4-column grid; a 5-card strip wraps 4 + 1 with the lone card
+  // stretching full width instead of hugging the left edge.
   return (
-    <div data-kpi-strip="" class={cn('grid grid-cols-2 md:grid-cols-4 gap-3 mb-5', props.class)}>
+    <div data-kpi-strip="" class={cn('grid gap-3 mb-5 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]', props.class)}>
       {props.children}
     </div>
   )
