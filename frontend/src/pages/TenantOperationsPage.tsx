@@ -131,10 +131,16 @@ export function TenantOperationsPage() {
           sub={`${metric(growth()?.totals.pending)} still to send`}
         />
         {/* Autopilot is read-only here. Its switches and policies live on one
-            page, and this card is the way there. */}
+            page, and this card is the way there.
+
+            This card was labelled "Health", which is the label on the second
+            card in the same strip. Two tiles side by side under one name, one
+            reporting whether deliveries are moving and the other whether the
+            autopilot is running — and they disagree, because they measure
+            different things. This one has always been about the autopilot. */}
         <Link to="/tenants/$slug/health" params={{ slug: params().slug }} class="block transition-opacity hover:opacity-80">
           <KpiCard
-            label="Health"
+            label="Autopilot"
             tone={kpiTone(autopilot()?.runtime_enabled ? 'good' : 'muted')}
             class={kpiClass(autopilot()?.runtime_enabled ? 'good' : 'muted')}
             value={autopilot()?.runtime_enabled ? 'on' : 'off'}

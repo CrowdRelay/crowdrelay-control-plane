@@ -150,20 +150,22 @@ export function AttentionInbox(props: {
   })
 
   return <div class="rounded-lg border border-border bg-card">
-    <div class="flex items-center justify-between gap-2 p-3.5 border-b border-border">
-      <div>
-        {/* A zero in a dark pill on a dark header read as a smudge, and the
-            row said "0 items need your attention" where the panel below already
-            says nothing does. The count appears when there is a count. */}
+    {/* A zero in a dark pill on a dark header read as a smudge, and the row
+        said "0 items need your attention" where the panel below already says
+        nothing does. The count appears when there is a count — and so does the
+        header: with an empty inbox this printed "Nothing needs you right now"
+        directly above an empty state reading "Nothing needs attention", which
+        is the same sentence twice in two type sizes. The empty state carries
+        the better one, because it also says what would put something here. */}
+    <Show when={total() > 0}>
+      <div class="flex items-center justify-between gap-2 p-3.5 border-b border-border">
         <div class="text-muted-foreground text-sm flex items-center gap-2">
           <SectionIcon name="inbox" />
-          <Show when={total() > 0} fallback={<span>Nothing needs you right now</span>}>
-            <span class="bg-primary/20 text-primary-light text-xs rounded-full px-1.5 font-bold tabular-nums">{total()}</span>
-            <span>item{total() !== 1 ? 's' : ''} need{total() === 1 ? 's' : ''} your attention</span>
-          </Show>
+          <span class="bg-primary/20 text-primary-light text-xs rounded-full px-1.5 font-bold tabular-nums">{total()}</span>
+          <span>item{total() !== 1 ? 's' : ''} need{total() === 1 ? 's' : ''} your attention</span>
         </div>
       </div>
-    </div>
+    </Show>
 
     <Show when={total() === 0}>
       <EmptyState
