@@ -92,7 +92,7 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
           </div>
         </Show>
 
-        <div class="mt-6 pt-6 border-t border-border">
+        <div class="mt-6 pt-4 border-t border-border">
           <h3 class="text-sm font-semibold text-foreground">Release components</h3>
           <div class="mt-2">
             <For each={current().components}>{component => <div class="flex items-center justify-between gap-3 py-2 border-b border-border">
@@ -132,7 +132,7 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
           </div>
         </div>
 
-        <div class="mt-6 pt-6 border-t border-border">
+        <div class="mt-6 pt-4 border-t border-border">
           <h3 class="text-sm font-semibold text-foreground">Runtime attestation</h3>
           <div class="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
             <div class="p-3 border border-border rounded-lg bg-card"><strong class="block text-sm text-foreground">{current().team_email_live ? 'live' : 'not live'}</strong><span class="block text-xs text-muted-foreground">team.email</span><small class="block text-xs text-muted-foreground mt-0.5">{current().active_team_email_executor_count} capable executor(s)</small></div>

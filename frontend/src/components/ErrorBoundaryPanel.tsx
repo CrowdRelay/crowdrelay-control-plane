@@ -31,7 +31,7 @@ export const ErrorBoundaryPanel: Component<{
       <strong>{props.title ?? 'Something failed to render'}</strong>
       <p>The rest of the Control Plane is unaffected. Retry re-renders this section.</p>
       <small class="font-mono">{detail}</small>
-      <div class="mt-5 pt-4 border-t border-border-subtle flex items-center">
+      <div class="mt-6 pt-4 border-t border-border-subtle flex items-center">
         <Button type="button" variant="ghost" size="sm" onClick={() => retry()}>Retry</Button>
       </div>
     </ErrorCard>

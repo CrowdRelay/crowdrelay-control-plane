@@ -185,7 +185,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
               </div>
             </section>
 
-            <footer class="pt-3 mt-6 border-t border-border">
+            <footer class="mt-6 pt-4 border-t border-border">
               <p class="text-sm text-muted-foreground leading-relaxed mb-3">
                 Dispatches real outreach. Subject to the same autonomy policy and 24-hour action
                 cap as a scheduled cycle.
