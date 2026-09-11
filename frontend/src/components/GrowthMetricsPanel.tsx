@@ -60,6 +60,44 @@ const platformLabel = (key: string) => PLATFORM_CONFIG[key]?.label
   ?? key.split('_').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
 const platformColor = (key: string) => PLATFORM_CONFIG[key]?.color ?? '#9b87f5'
 
+// ── Series label ───────────────────────────────────────────────────────
+//
+// The server pre-formats `display_name` as "<Platform> <what> — <subject>", and
+// the row is already inside a section headed with that platform. So every line
+// read "Bandcamp supporters — virya" under a "Bandcamp" heading, and a screenful
+// of them was mostly the same nine words repeated down the left edge.
+//
+// Split it: what is counted carries the line, the subject follows in muted
+// text, and the platform — already the heading — is dropped.
+
+/** Entities survive the server's own formatting: a subreddit called
+ *  "news, reviews, videos &amp; discussion" arrives with the entity intact and
+ *  a text node renders it literally. */
+const decodeEntities = (value: string) =>
+  value
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+
+/** Some subreddit names already carry their own `r/`, so the server's prefix
+ *  produced `r//r/Metalcore`. */
+const tidySubject = (value: string) => decodeEntities(value).replace(/^r\/+r\//, 'r/')
+
+export function seriesLabel(trend: { platform: string; display_name: string }) {
+  const full = decodeEntities(trend.display_name)
+  const [metricPart, ...subjectParts] = full.split(' — ')
+  const platform = platformLabel(trend.platform)
+  // Strip the platform from the front of the metric, case-insensitively: the
+  // heading above the row already says it.
+  const metric = (metricPart ?? full)
+    .replace(new RegExp(`^${platform.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+`, 'i'), '')
+    .trim()
+  const subject = subjectParts.length > 0 ? tidySubject(subjectParts.join(' — ')) : undefined
+  return { metric: metric || metricPart || full, subject }
+}
+
 // ── Horizontal bar — scaled relative to the max value in the group ──
 const Bar: Component<{ value: number; max: number; color: string }> = (props) => {
   const pct = () => Math.max(2, Math.min(100, (props.value / props.max) * 100))
@@ -71,8 +109,6 @@ const Bar: Component<{ value: number; max: number; color: string }> = (props) =>
 }
 
 export function GrowthMetricsPanel(props: { slug: string }) {
-  const [showAllCoverage, setShowAllCoverage] = createSignal(false)
-  const MAX_VISIBLE_COVERAGE = 10
   const [expandedPlatforms, setExpandedPlatforms] = createSignal<Set<string>>(new Set())
   const MAX_VISIBLE_PLATFORM_BARS = 10
   const [showAllDownstream, setShowAllDownstream] = createSignal(false)
@@ -103,6 +139,20 @@ export function GrowthMetricsPanel(props: { slug: string }) {
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
+
+  // A platform's coverage state, but only when it is worth saying. Fully live
+  // is the expected case and needs no badge.
+  const degradedCoverage = (platform: string) => {
+    const entry = (coverage.data?.platforms ?? []).find(p => p.platform === platform)
+    if (!entry || entry.state === 'live') return null
+    return entry.state
+  }
+
+  // Platforms that report nothing have no section below, so they would vanish
+  // from the panel entirely. They keep a chip.
+  const unreportedPlatforms = createMemo(() =>
+    (coverage.data?.platforms ?? []).filter(p => p.live_series === 0),
+  )
 
   const totalSeries = () => (coverage.data?.platforms ?? []).reduce((sum, p) => sum + p.series, 0)
   const liveSeries = () => (coverage.data?.platforms ?? []).reduce((sum, p) => sum + p.live_series, 0)
@@ -161,7 +211,9 @@ export function GrowthMetricsPanel(props: { slug: string }) {
     <div class="flex items-center justify-between gap-4">
       <h3 class="text-sm font-semibold text-foreground">Growth metrics</h3>
       <Show when={coverage.data && hasFeeds()}>
-        <span class="text-muted-foreground">{liveSeries()} active series</span>
+        <span class="text-sm text-muted-foreground tabular-nums">
+          {liveSeries()}{liveSeries() === totalSeries() ? '' : ` / ${totalSeries()}`} feeds live
+        </span>
       </Show>
     </div>
 
@@ -185,27 +237,24 @@ export function GrowthMetricsPanel(props: { slug: string }) {
         </Show>
       }
     >
-      {/* Feed coverage */}
-      <div class="mb-4">
-        <div class="flex items-center justify-between gap-3 mb-2">
-          <span class="text-sm text-muted-foreground">Feed coverage</span>
-          <strong class="text-sm text-foreground">{liveSeries()} / {totalSeries()} series live</strong>
-        </div>
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-          <For each={showAllCoverage() ? coverage.data!.platforms : coverage.data!.platforms.slice(0, MAX_VISIBLE_COVERAGE)}>{(platform: FeedCoverage) => (
-            <div class="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-border bg-card min-h-9" classList={{ 'opacity-60': platform.state === 'missing' }}>
-              <Badge variant={feedStateVariant(platform.state)}>{feedStateLabel(platform.state)}</Badge>
-              <span class="text-sm font-medium text-secondary-foreground truncate flex-1">{platformLabel(platform.platform)}</span>
-              <span class="text-xs text-muted-foreground tabular-nums shrink-0">{platform.live_series}/{platform.series}</span>
-            </div>
+      {/* The coverage grid used to live here: one chip per platform, carrying a
+          state badge and an `n/n` count, directly above a list of sections
+          headed by those same platforms. Every platform on the screen twice,
+          and the healthy ones — which is most of them — said only that they
+          were healthy.
+
+          A platform whose feeds are all live needs no chip. One whose feeds are
+          stale or missing is worth flagging, and the flag belongs on its own
+          section heading, next to the rows it explains. Platforms reporting
+          nothing at all have no section, so those keep a chip. */}
+      <Show when={unreportedPlatforms().length > 0}>
+        <div class="mb-4 flex flex-wrap items-center gap-2">
+          <span class="text-sm text-muted-foreground">No data from</span>
+          <For each={unreportedPlatforms()}>{(platform: FeedCoverage) => (
+            <Badge variant={feedStateVariant(platform.state)}>{platformLabel(platform.platform)}</Badge>
           )}</For>
         </div>
-        <Show when={coverage.data!.platforms.length > MAX_VISIBLE_COVERAGE}>
-          <Button variant="ghost" size="sm" onClick={() => setShowAllCoverage(s => !s)}>
-            {showAllCoverage() ? 'Show less' : `Show all (${coverage.data!.platforms.length})`}
-          </Button>
-        </Show>
-      </div>
+      </Show>
 
       <Show when={trends.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth trends unavailable: {errorMessage(trends.error, 'We couldn\'t reach the growth trends. Try refreshing.')}</div></Show>
       <Show when={trends.data && trends.data!.length > 0} fallback={
@@ -228,10 +277,18 @@ export function GrowthMetricsPanel(props: { slug: string }) {
             const color = platformColor(platform)
             return (
               <div class="mb-4">
+                {/* "1 series" under a heading with one row beneath it is a
+                    caption counting to one. The count appears when counting
+                    is worth doing. */}
                 <div class="flex items-center gap-2 mb-2">
                   <span class="w-2 h-2 rounded-full shrink-0 opacity-90" style={{ background: color, 'box-shadow': `0 0 6px ${color}` }} />
                   <strong class="text-sm font-semibold text-foreground">{platformLabel(platform)}</strong>
-                  <span class="text-xs text-muted-foreground">{items.length} series</span>
+                  <Show when={items.length > 1}>
+                    <span class="text-xs text-muted-foreground tabular-nums">{items.length}</span>
+                  </Show>
+                  <Show when={degradedCoverage(platform)}>
+                    {state => <Badge variant={feedStateVariant(state())}>{feedStateLabel(state())}</Badge>}
+                  </Show>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1.5">
                   <For each={expandedPlatforms().has(platform) ? items : items.slice(0, MAX_VISIBLE_PLATFORM_BARS)}>{(trend: GrowthMetricTrendView) => {
@@ -239,12 +296,20 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                     const dir = trendDirection(delta)
                     return (
                       <div class="flex items-center gap-2 min-w-0" title={trend.display_name}>
-                        <span class="text-sm text-secondary-foreground whitespace-nowrap overflow-hidden text-ellipsis cursor-help shrink-0 max-w-[42%]">{trend.display_name}</span>
+                        <span class="flex min-w-0 shrink-0 basis-[42%] items-baseline gap-1.5 overflow-hidden whitespace-nowrap text-ellipsis">
+                          <span class="text-sm text-secondary-foreground">{seriesLabel(trend).metric}</span>
+                          <Show when={seriesLabel(trend).subject}>
+                            <span class="overflow-hidden text-ellipsis text-xs text-muted-foreground">{seriesLabel(trend).subject}</span>
+                          </Show>
+                        </span>
                         <div class="flex-1 min-w-0"><Bar value={trend.latest_value} max={max()} color={color} /></div>
                         <span class="text-sm font-semibold text-foreground whitespace-nowrap text-right shrink-0 tabular-nums">{compactNumber(trend.latest_value)}</span>
-                        <Show when={delta != null}>
-                          <span class="text-sm font-medium text-right shrink-0 tabular-nums" classList={{ 'text-success': dir === 'up', 'text-destructive': dir === 'down', 'text-muted-foreground': dir === 'flat' || dir === 'unknown' }}>{delta! > 0 ? '+' : ''}{compactNumber(delta!)}</span>
-                        </Show>
+                        {/* A column of "0" down the right edge is a column of
+                            nothing happening. A change is worth a glyph; no
+                            change is worth the space it frees. */}
+                        <span class="w-10 shrink-0 text-right text-sm font-medium tabular-nums" classList={{ 'text-success': dir === 'up', 'text-destructive': dir === 'down' }}>
+                          <Show when={delta != null && delta !== 0}>{delta! > 0 ? '+' : ''}{compactNumber(delta!)}</Show>
+                        </span>
                       </div>
                     )
                   }}</For>
