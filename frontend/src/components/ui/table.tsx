@@ -20,9 +20,15 @@ export const Table: Component<
   // this in a second scroller of their own. Pass `maxHeight` and the cap lands
   // here, where the header can use it; leave it off and the table does not
   // create a scroll container at all.
+  //
+  // `overflow-x-auto` without `maxHeight` still creates a vertical scroll
+  // container: per CSS spec, `overflow-x: auto` forces `overflow-y: visible`
+  // to compute to `auto`, so a tall table scrolls inside the page's own scroll
+  // container — two scrollbars. `overflow-x-clip` clips horizontal overflow
+  // without creating a scroll container, so the page remains the only scroller.
   return (
     <div
-      class={cn('w-full', local.maxHeight ? 'overflow-auto' : 'overflow-x-auto')}
+      class={cn('w-full', local.maxHeight ? 'overflow-auto' : 'overflow-x-clip')}
       style={local.maxHeight ? { 'max-height': local.maxHeight } : undefined}
     >
       <table class={cn('w-full text-sm border-collapse', local.class)} {...rest} />
