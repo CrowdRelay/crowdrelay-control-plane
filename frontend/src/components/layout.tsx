@@ -421,7 +421,15 @@ export function PanelTitle(props: {
       {props.children}
     </>
   )
-  const cls = cn('flex items-center gap-2 text-base font-semibold text-foreground', props.class)
+  // `as="h3"` changed the element and not the size, so a sub-heading rendered
+  // through this primitive was indistinguishable from the panel heading above
+  // it — while the eleven sub-headings still written by hand used `text-sm`.
+  // Two ranks, two sizes: h2 is `text-base`, h3 is `text-sm`.
+  const cls = cn(
+    'flex items-center gap-2 font-semibold text-foreground',
+    props.as === 'h3' ? 'text-sm' : 'text-base',
+    props.class,
+  )
   return (
     <Show when={props.as === 'h3'} fallback={<h2 class={cls}>{body}</h2>}>
       <h3 class={cls}>{body}</h3>

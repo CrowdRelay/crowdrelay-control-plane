@@ -148,7 +148,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
     {/* Decision timeline */}
     <Card class="p-4 mt-4">
       <div class="flex items-center justify-between gap-4">
-        <h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><IntelligenceIcon size={18} /> Decision Timeline</h3>
+        <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><IntelligenceIcon size={18} /> Decision Timeline</h3>
         <Show when={decisions().length > 0}>
           <span class="text-muted-foreground">{decisions().length} decisions</span>
         </Show>

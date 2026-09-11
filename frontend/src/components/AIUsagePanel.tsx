@@ -82,7 +82,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
     <Show when={budget()} fallback={<Show when={!data.isError}><SkeletonRows count={3} /></Show>}>
       <div class="mt-4">
         <div class="flex items-center justify-between gap-4">
-          <h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><CrownIcon size={16} /> AI Budget</h3>
+          <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><CrownIcon size={16} /> AI Budget</h3>
           <Button variant="ghost" size="sm" onClick={() => void data.refetch()} disabled={data.isFetching}>{data.isFetching ? 'Refreshing…' : 'Refresh'}</Button>
         </div>
         <div class="mt-3">

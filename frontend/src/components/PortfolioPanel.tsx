@@ -118,7 +118,7 @@ export function PortfolioPanel(props: {
       <div class="rounded-lg border border-border bg-card p-4 text-foreground flex flex-col gap-1"><KpiValue value={metric(overview.deliveriesLast30d)} /><span class="text-muted-foreground">Amplified · 30d</span></div>
     </div>}</Show>
 
-    <div class="mt-6 pt-4 border-t border-border"><h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><SectionIcon name="link" />Amplification edges</h3></div>
+    <div class="mt-6 pt-4 border-t border-border"><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="link" />Amplification edges</h3></div>
     <Show when={sortedEdges().length}>
       <Table aria-label="Amplification edges">
         <TableHeader><TableRow>

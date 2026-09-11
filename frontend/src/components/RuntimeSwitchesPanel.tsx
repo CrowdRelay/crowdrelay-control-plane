@@ -133,7 +133,7 @@ export function RuntimeSwitchesPanel(props: {
 
     <section class="mt-6 pt-4 border-t border-border">
       <details open>
-        <summary class="flex items-center justify-between gap-4 cursor-pointer list-none"><div><h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><SectionIcon name="settings" />Runtime switches</h3></div><small class="text-xs text-muted-foreground">{flags.data?.length ?? 0} declared</small></summary>
+        <summary class="flex items-center justify-between gap-4 cursor-pointer list-none"><div><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="settings" />Runtime switches</h3></div><small class="text-xs text-muted-foreground">{flags.data?.length ?? 0} declared</small></summary>
         <Show when={flags.data} fallback={
           <Show when={flags.error} fallback={<SkeletonFlagList />}>
             <SectionFailureCard error={flags.error} fallback="Feature flags unavailable" onRetry={() => void flags.refetch()} />

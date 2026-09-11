@@ -147,7 +147,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
       {/* Approval queue — pending growth intelligence actions */}
       <section class="mt-6">
         <div class="flex items-center justify-between gap-4">
-          <h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><IntelligenceIcon size={18} /> Approval Queue</h3>
+          <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><IntelligenceIcon size={18} /> Approval Queue</h3>
           <Show when={pendingGrowthActions().length > 0}>
             <span class="text-muted-foreground text-sm flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-warning" />

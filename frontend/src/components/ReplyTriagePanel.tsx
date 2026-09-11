@@ -122,7 +122,7 @@ export function ReplyTriagePanel() {
       {/* Needs human */}
       <section class="mt-6 pt-4 border-t border-border">
         <div class="flex justify-between gap-4 items-start">
-          <div><h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><SectionIcon name="mail" />Read these</h3></div>
+          <div><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="mail" />Read these</h3></div>
         </div>
         <Show
           when={d().needs_human.length > 0}
@@ -143,7 +143,7 @@ export function ReplyTriagePanel() {
       <Show when={d().recent_auto.length > 0}>
         <section class="mt-6 pt-4 border-t border-border">
           <div class="flex justify-between gap-4 items-start">
-            <div><h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><SectionIcon name="zap" />Classified without a human</h3></div>
+            <div><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="zap" />Classified without a human</h3></div>
           </div>
           <div class="flex flex-col mt-3">
             <For each={showAllRecentAuto() ? d().recent_auto : d().recent_auto.slice(0, MAX_VISIBLE)}>{entry => <ReplyRow entry={entry} slug={params().slug} />}</For>
