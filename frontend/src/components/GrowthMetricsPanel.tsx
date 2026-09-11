@@ -295,15 +295,6 @@ export function GrowthMetricsPanel(props: { slug: string }) {
           stale or missing is worth flagging, and the flag belongs on its own
           section heading, next to the rows it explains. Platforms reporting
           nothing at all have no section, so those keep a chip. */}
-      <Show when={unreportedPlatforms().length > 0}>
-        <div class="mb-4 flex flex-wrap items-center gap-2">
-          <span class="text-sm text-muted-foreground">No data from</span>
-          <For each={unreportedPlatforms()}>{(platform: FeedCoverage) => (
-            <Badge variant={feedStateVariant(platform.state)}>{platformLabel(platform.platform)}</Badge>
-          )}</For>
-        </div>
-      </Show>
-
       <Show when={trends.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth trends unavailable: {errorMessage(trends.error, 'We couldn\'t reach the growth trends. Try refreshing.')}</div></Show>
       <Show when={trends.data && trends.data!.length > 0} fallback={
         <Show when={trends.isFetching} fallback={
@@ -311,7 +302,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
             <EmptyState label="No growth metric trends available" hint="Trends require at least one live data feed. Connect a source (Reddit, Spotify, Meta) to start collecting metric series." />
           </Show>
         }>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
             <SkeletonBlock height="120px" radius="10px" />
             <SkeletonBlock height="120px" radius="10px" />
             <SkeletonBlock height="120px" radius="10px" />
@@ -414,7 +405,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
               <strong class="text-base font-bold text-foreground">Conversion</strong>
               <span class="text-sm text-muted-foreground">{grouped().downstream.length} metrics</span>
             </div>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
               <For each={showAllDownstream() ? grouped().downstream : grouped().downstream.slice(0, MAX_VISIBLE_DOWNSTREAM)}>{(trend: GrowthMetricTrendView) => {
                 const delta = trend.delta_7d ?? trend.delta_24h ?? trend.delta_28d
                 const dir = trendDirection(delta)

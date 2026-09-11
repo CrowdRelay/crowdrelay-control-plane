@@ -113,7 +113,7 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
     <Show when={!model.error && model.isPending}><SkeletonSection titleWidth="180px" lines={4} minHeight="160px" /></Show>
 
     <Show when={d()}>{data => <>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+      <div class="grid gap-3 mt-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
         <div class="p-3 border border-border rounded-lg bg-card"><span class="block text-xs text-muted-foreground">Executed</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().executed_24h}</strong><small class="block text-xs text-muted-foreground mt-0.5">{data().executor_confirmed_24h} confirmed finished</small></div>
         <div class="p-3 border border-border rounded-lg bg-card" classList={{ 'border-destructive/30': data().failed_24h > 0 }}><span class="block text-xs text-muted-foreground">Failed</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground" classList={{ 'text-destructive': data().failed_24h > 0 }}>{data().failed_24h}</strong><small class="block text-xs text-muted-foreground mt-0.5">{data().executor_failed_24h} broke while running</small></div>
         <div class="p-3 border border-border rounded-lg bg-card" classList={{ 'border-warning/30': data().needs_you > 0 }}><span class="block text-xs text-muted-foreground">Waiting on you</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground" classList={{ 'text-warning': data().needs_you > 0 }}>{data().needs_you}</strong><small class="block text-xs text-muted-foreground mt-0.5">parked until approved</small></div>
@@ -145,7 +145,7 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
         <section class="mt-6 pt-4 border-t border-border">
           <h3 class="text-sm font-semibold text-foreground">Stopped itself</h3>
           <p class="mt-1 text-sm text-muted-foreground">Work the autopilot refused to finish. These do not retry on their own.</p>
-          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-3">
+          <div class="grid gap-3 mt-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
             <For each={data().stopped}>{item => (
               <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
                 <div class="flex items-center gap-2">

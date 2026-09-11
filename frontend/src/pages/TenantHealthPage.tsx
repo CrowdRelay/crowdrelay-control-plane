@@ -16,7 +16,7 @@ import type { TenantOperationsReadModel } from '../lib/types'
 
 export function TenantHealthPage() {
   const params = useParams({ from: '/tenants/$slug/health' })
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('policies')
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('overview')
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
@@ -38,7 +38,7 @@ export function TenantHealthPage() {
   const _healthLabel = () => operationalLabel(summary())
 
   return <PageShell>
-    <PageHeader eyebrow="SYSTEM" title="Autopilot" description="Authority policies, system health, chief of staff summary, and delivery queue inspector." actions={
+    <PageHeader eyebrow="SYSTEM" title="Health" description="Authority policies, system health, chief of staff summary, and delivery queue inspector." actions={
       <Show when={model.data && !model.error}>
         <StatusBadge status={_healthLabel()} tone={_healthTone()} />
       </Show>
@@ -55,33 +55,37 @@ export function TenantHealthPage() {
     </Show>
 
     <Show when={model.data && !model.error}>
-      {/* Above the numbers on purpose: the numbers assume you already know
-          which ones are bad. This says what to do. */}
-      <SystemHealthPanel
-        slug={params().slug}
-        summary={d()?.summary ?? undefined}
-        onChanged={refresh}
-      />
-      {/* The autopilot's own account of the last day, which the API has
-          served all along and no screen rendered. */}
-      <ChiefOfStaffPanel slug={params().slug} />
-      {/* The dead-letter remediation above says "open Deliveries and read one
-          failure". This is Deliveries. */}
-      <QueueInspectorPanel slug={params().slug} />
-
-      {/* Autopilot controls — split into Runtime and Policies tabs so each
-          loads independently and the page does not become one long scroll.
-          This is the ONLY place autopilot authority switches and sliders
-          live. Operations shows read-only autopilot status and links here. */}
+      {/* Autopilot controls — split into Overview, Policies and Runtime tabs
+          so each loads independently and the page does not become one long
+          scroll. This is the ONLY place autopilot authority switches and
+          sliders live. Operations shows read-only autopilot status and links
+          here. */}
       <TabBar
         active={activeTab()}
         onChange={switchTab}
       onPrefetch={prefetch}
         tabs={[
+          { id: 'overview', label: 'Overview' },
           { id: 'policies', label: 'Policies' },
           { id: 'runtime', label: 'Runtime' },
         ]}
       />
+
+      <TabPanel active={activeTab()} id="overview" visited={isVisited('overview')}>
+        {/* Above the numbers on purpose: the numbers assume you already know
+            which ones are bad. This says what to do. */}
+        <SystemHealthPanel
+          slug={params().slug}
+          summary={d()?.summary ?? undefined}
+          onChanged={refresh}
+        />
+        {/* The autopilot's own account of the last day, which the API has
+            served all along and no screen rendered. */}
+        <ChiefOfStaffPanel slug={params().slug} />
+        {/* The dead-letter remediation above says "open Deliveries and read one
+            failure". This is Deliveries. */}
+        <QueueInspectorPanel slug={params().slug} />
+      </TabPanel>
 
       <TabPanel active={activeTab()} id="policies" visited={isVisited('policies')}>
         <AuthorityPoliciesPanel

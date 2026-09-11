@@ -125,7 +125,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
     <Show when={ledger.data} fallback={<SkeletonRows count={3} />}>
       <Show when={ledger.data!.standings.length > 0}>
         <h4 class="text-sm font-semibold text-foreground flex items-center gap-2 mt-6 pt-4 border-t border-border"><SectionIcon name="list-checks" />Kind Standings</h4>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 mb-4">
+        <div class="grid gap-3 mt-3 mb-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
           <For each={showAllStandings() ? ledger.data!.standings : ledger.data!.standings.slice(0, MAX_VISIBLE_STANDINGS)}>{(s) => (
             <div class={`p-4 rounded-lg border border-border ${toneBorder(standingTone(s))} bg-card`}>
               <div class="flex justify-between items-center mb-1.5">

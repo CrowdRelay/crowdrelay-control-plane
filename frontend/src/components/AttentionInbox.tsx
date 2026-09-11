@@ -173,7 +173,7 @@ export function AttentionInbox(props: {
     </Show>
 
     <Show when={urgent().length > 0}>
-      <div class="border-b border-border last:border-0">
+      <div class="border-b border-border-subtle last:border-0">
         <div class="flex items-center gap-2 p-3.5 pb-2 text-destructive">
           <span class="text-xs font-semibold uppercase tracking-wider">Urgent</span>
           <span class="bg-destructive/15 text-destructive text-xs rounded-full px-2 py-0.5 font-bold">{urgent().length}</span>
@@ -183,7 +183,7 @@ export function AttentionInbox(props: {
     </Show>
 
     <Show when={review().length > 0}>
-      <div class="border-b border-border last:border-0">
+      <div class="border-b border-border-subtle last:border-0">
         <div class="flex items-center gap-2 p-3.5 pb-2 text-warning">
           <span class="text-xs font-semibold uppercase tracking-wider">Review</span>
           <span class="bg-warning/15 text-warning text-xs rounded-full px-2 py-0.5 font-bold">{review().length}</span>
@@ -193,7 +193,7 @@ export function AttentionInbox(props: {
     </Show>
 
     <Show when={informational().length > 0}>
-      <div class="border-b border-border last:border-0">
+      <div class="last:border-0">
         <div class="flex items-center gap-2 p-3.5 pb-2 text-muted-foreground">
           <span class="text-xs font-semibold uppercase tracking-wider">Informational</span>
           <span class="bg-surface-3 text-muted-foreground text-xs rounded-full px-2 py-0.5 font-bold">{informational().length}</span>

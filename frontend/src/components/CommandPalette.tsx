@@ -37,7 +37,7 @@ const SUBPAGES: Array<{ suffix: string; label: string }> = [
   { suffix: '', label: 'Settings' },
   { suffix: '/attention', label: 'Attention' },
   { suffix: '/intelligence', label: 'Intelligence' },
-  { suffix: '/health', label: 'Autopilot' },
+  { suffix: '/health', label: 'Health' },
   { suffix: '/operations', label: 'Operations' },
   { suffix: '/integrations', label: 'AI Integrations' },
   { suffix: '/notifiers', label: 'Notifiers' },

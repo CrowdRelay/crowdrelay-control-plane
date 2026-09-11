@@ -31,7 +31,7 @@ export function SignalOverviewPanel(props: { slug: string }) {
       icon={<SectionIcon name="activity" />}
       action={<StatusBadge status={data().unavailable_sources.length > 0 ? 'degraded' : 'healthy'} tone={data().unavailable_sources.length > 0 ? 'warn' : 'good'} />}
     />
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
       <Card class="rounded-lg p-3.5"><span class="block text-xs text-muted-foreground">Total fans</span><strong class="block text-xl font-bold tabular-nums mt-1">{data().summary.total_fans.toLocaleString()}</strong><small class="block text-xs text-muted-foreground mt-1">{data().summary.active_fans.toLocaleString()} active</small></Card>
       <Card class="rounded-lg p-3.5"><span class="block text-xs text-muted-foreground">Pending</span><strong class="block text-xl font-bold tabular-nums mt-1">{data().summary.pending_fans.toLocaleString()}</strong><small class="block text-xs text-muted-foreground mt-1">{data().summary.unsubscribed_fans.toLocaleString()} unsubscribed</small></Card>
       <Card class="rounded-lg p-3.5"><span class="block text-xs text-muted-foreground">Marketing opt-in</span><strong class="block text-xl font-bold tabular-nums mt-1">{data().summary.marketing_opted_in.toLocaleString()}</strong><small class="block text-xs text-muted-foreground mt-1">{data().summary.nearby_enabled.toLocaleString()} nearby</small></Card>

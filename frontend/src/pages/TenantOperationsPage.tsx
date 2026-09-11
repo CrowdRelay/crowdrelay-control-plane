@@ -134,7 +134,7 @@ export function TenantOperationsPage() {
             page, and this card is the way there. */}
         <Link to="/tenants/$slug/health" params={{ slug: params().slug }} class="block transition-opacity hover:opacity-80">
           <KpiCard
-            label="Autopilot"
+            label="Health"
             tone={kpiTone(autopilot()?.runtime_enabled ? 'good' : 'muted')}
             class={kpiClass(autopilot()?.runtime_enabled ? 'good' : 'muted')}
             value={autopilot()?.runtime_enabled ? 'on' : 'off'}

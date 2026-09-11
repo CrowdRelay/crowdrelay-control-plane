@@ -111,8 +111,10 @@ export function ScorecardPanel(props: { slug: string }) {
     <Show when={!model.error && model.isPending}><SkeletonScorecard /></Show>
 
     <Show when={data()}>{d => <>
-      {/* Status row — horizontal KPI strip */}
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+      {/* Status row — horizontal KPI strip. `auto-fit` stretches the cards
+          to fill the row regardless of how many there are, so 3 cards no
+          longer leave a gap in a 4-column grid. */}
+      <div class="grid gap-3 mt-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
         <div class="rounded-lg border border-border bg-card p-3">
           <span class="block text-xs text-muted-foreground">Agent</span>
           <strong class="block mt-1 text-lg font-bold text-foreground">{d().status.agent_enabled ? 'on' : 'off'}</strong>
@@ -151,7 +153,7 @@ export function ScorecardPanel(props: { slug: string }) {
         <div class="flex justify-between gap-4 items-start">
           <div><h3 class="text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="zap" />Actions</h3></div>
         </div>
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mt-3">
+        <div class="grid gap-3 mt-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
           <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Executed</span>{num(d().week.executed)}<small class="block text-muted-foreground text-sm">{count(d().week.succeeded)} succeeded · {count(d().week.failed)} failed</small></div>
           <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Success rate</span>
             <Show when={d().week.success_rate_basis_points != null} fallback={<strong class="block my-1.5 text-foreground">—</strong>}>
@@ -172,7 +174,7 @@ export function ScorecardPanel(props: { slug: string }) {
         <div class="flex justify-between gap-4 items-start">
           <div><h3 class="text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="history" />Did it work?</h3></div>
         </div>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+        <div class="grid gap-3 mt-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
           <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Improved</span><strong class="block my-1.5 text-foreground">{count(d().track_record.improved)}</strong><small class="block text-sm text-success">measured wins</small></div>
           <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Worsened</span><strong class="block my-1.5 text-foreground">{count(d().track_record.worsened)}</strong><small class="block text-sm text-destructive">measured losses</small></div>
           <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Neutral</span><strong class="block my-1.5 text-foreground">{count(d().track_record.neutral)}</strong><small class="block text-muted-foreground text-sm">no change</small></div>

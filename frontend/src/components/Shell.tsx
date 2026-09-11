@@ -68,7 +68,7 @@ const TENANT_NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
-      { path: '/tenants/$slug/health', label: 'Autopilot', exact: false, icon: 'sliders' },
+      { path: '/tenants/$slug/health', label: 'Health', exact: false, icon: 'sliders' },
       { path: '/tenants/$slug/portfolio', label: 'Portfolio', exact: false, icon: 'portfolio' },
     ],
   },

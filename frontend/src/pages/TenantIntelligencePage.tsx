@@ -68,7 +68,7 @@ export function TenantIntelligencePage() {
       tabs={[
         { id: 'overview', label: 'Overview' },
         { id: 'growth', label: 'Growth Intelligence' },
-        { id: 'funnel', label: 'Growth Funnel' },
+        { id: 'funnel', label: 'Growth metrics' },
         { id: 'decisions', label: 'Decisions' },
         { id: 'learning', label: 'Learning' },
       ]}
@@ -106,7 +106,7 @@ export function TenantIntelligencePage() {
       {/* ── Growth Funnel tab — where the audience is and how it converts ── */}
       <TabPanel active={activeTab()} id="funnel" visited={isVisited('funnel')}>
         <div class="mb-6">
-          <SectionTitle title="Growth metrics & funnel" icon={<SectionIcon name="trending-up" />} />
+          <SectionTitle title="Growth metrics" icon={<SectionIcon name="trending-up" />} />
           <GrowthMetricsPanel slug={params().slug} />
           <AcquisitionChannelsPanel slug={params().slug} />
           <GrowthFunnelPanel slug={params().slug} />

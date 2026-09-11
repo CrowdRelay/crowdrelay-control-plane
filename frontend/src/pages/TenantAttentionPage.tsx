@@ -198,7 +198,7 @@ export function TenantAttentionPage() {
         <For each={attention.data?.findings ?? []}>{finding => <div class={finding.severity === 'critical' ? 'rounded-lg border border-destructive/30 bg-destructive/10 p-3.5 my-3 text-sm text-destructive leading-relaxed' : 'rounded-lg border border-warning/30 bg-warning/10 p-3.5 my-3 text-sm text-warning-light leading-relaxed'}>
           <div class="flex items-center justify-between gap-4"><div><strong>{finding.summary}</strong><small class="block text-sm text-muted-foreground">{finding.severity} · {finding.kind} · {finding.entity_label ?? finding.entity_type}</small><Show when={finding.suggested_action}><p class="text-sm text-muted-foreground mt-1 leading-relaxed">{finding.suggested_action}</p></Show></div><StatusBadge status={finding.severity} tone={finding.severity === 'critical' ? 'bad' : finding.severity === 'warning' ? 'warn' : 'muted'} /></div>
         </div>}</For>
-        <Show when={findingsCount() === 0}><div class="p-4 border border-border-subtle rounded-lg bg-surface-1 text-left"><EmptyState label="Nothing disagrees" hint="The last check found no difference between what this console believes and what the tenant reports. Differences appear here when it finds one." /></div></Show>
+        <Show when={findingsCount() === 0}><div class="mt-4 p-4 border border-border-subtle rounded-lg bg-surface-1 text-left"><EmptyState label="Nothing disagrees" hint="The last check found no difference between what this console believes and what the tenant reports. Differences appear here when it finds one." /></div></Show>
       </>}</Show>
     </TabPanel>
 

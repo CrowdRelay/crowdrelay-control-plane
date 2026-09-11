@@ -135,7 +135,7 @@ export function AuthorityPoliciesPanel(props: {
     }>{data => <>
       {/* These were rounded tiles on a page where every other surface is
           square, with labels lifted from the field names — "executor fail". */}
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 my-4">
+      <div class="grid gap-3 my-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
         <KpiCard label="Waiting on you" value={data().needs_you.length} sub="decisions parked" tone={data().needs_you.length > 0 ? 'warn' : 'default'} />
         <KpiCard label="Queued" value={data().queued_actions} sub="about to run" />
         <KpiCard label="Failed today" value={data().failed_24h} sub="in the last 24 hours" />

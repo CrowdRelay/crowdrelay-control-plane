@@ -63,7 +63,7 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
     <Show when={!model.error && model.isPending}><SkeletonSection titleWidth="200px" lines={4} minHeight="160px" /></Show>
 
     <Show when={d()}>{data => <>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+      <div class="grid gap-3 mt-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
         <div class="p-3 border border-border rounded-lg bg-card"><span class="block text-xs text-muted-foreground">Signups</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().total_signups.toLocaleString()}</strong></div>
         <div class="p-3 border border-border rounded-lg bg-card"><span class="block text-xs text-muted-foreground">Activated · 30d</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().total_activated_30d.toLocaleString()}</strong></div>
         <div class="p-3 border border-border rounded-lg bg-card"><span class="block text-xs text-muted-foreground">Active · 30d</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{data().active_30d.toLocaleString()}</strong></div>

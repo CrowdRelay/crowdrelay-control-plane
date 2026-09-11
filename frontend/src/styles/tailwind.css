@@ -517,7 +517,8 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
  .error-card {border-top-left-radius:0;border-bottom-left-radius:0}
 
   .ops-kpi-strip {
-    @apply grid grid-cols-2 md:grid-cols-4 gap-3 mb-5;
+    @apply grid gap-3 mb-5;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
   .ops-kpi-link {
     @apply block no-underline transition-colors hover:opacity-80;

@@ -48,7 +48,7 @@ export function KpiCard(props: {
   class?: string
 }) {
   return (
-    <Card class={cn('p-4', props.tone === 'good' && 'border-success/30', props.tone === 'warn' && 'border-warning/30', props.class)}>
+    <Card class={cn('rounded-lg p-4', props.tone === 'good' && 'border-success/30', props.tone === 'warn' && 'border-warning/30', props.class)}>
       <div class="text-xs text-muted-foreground">{props.label}</div>
       <div class="text-2xl font-bold tabular-nums text-foreground mt-1">{props.value}</div>
       <Show when={props.sub}>
