@@ -520,7 +520,7 @@ export const Shell: Component = () => {
       </aside>
 
       <main class={cn('flex-1 flex flex-col h-screen min-w-0 overflow-hidden md:ml-60', collapsed() && 'md:ml-16')} id="main-content">
-        <header class="h-14 border-b border-border bg-card flex items-center gap-3 px-4 flex-shrink-0 overflow-x-hidden sticky top-0 z-30">
+        <header class="h-14 border-b border-border bg-card flex items-center gap-3 px-4 flex-shrink-0 z-30">
           <button
             type="button"
             class="md:hidden p-2 -ml-2 rounded-md text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors"
