@@ -133,16 +133,22 @@ export function LearningLoopPanel(props: { slug: string }) {
           </div>
         </div>
 
+        {/* The four stages were headed with the table's own nouns — Decision,
+            Action, Outcome — which name rows in `viryaos_autopilot_*` rather
+            than anything the operator asked. The public site heads the same
+            four with what each one answers, and reading them in order is a
+            sentence: what it saw, why that mattered, what it did, what
+            happened. Same data, same order, no schema vocabulary. */}
         {/* Decision chain entries — left → right flow */}
         <div class="space-y-3">
           <For each={entries().slice(0, 10)}>{(entry) => (
             <div class="flex items-stretch gap-2 flex-wrap md:flex-nowrap">
               {/* DECISION */}
               <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-surface-1 space-y-2">
-                <Eyebrow>Decision</Eyebrow>
+                <Eyebrow>What it saw</Eyebrow>
                 <div class="space-y-1 text-sm">
-                  <div class="flex justify-between gap-2"><span class="text-muted-foreground">Kind</span><strong class="text-foreground">{entry.decision_kind.replaceAll('_', ' ')}</strong></div>
-                  <div class="flex justify-between gap-2"><span class="text-muted-foreground">Disposition</span><strong class="text-foreground">{dispositionLabel(entry.disposition)}</strong></div>
+                  <div class="flex justify-between gap-2"><span class="text-muted-foreground">Finding</span><strong class="text-foreground">{entry.decision_kind.replaceAll('_', ' ')}</strong></div>
+                  <div class="flex justify-between gap-2"><span class="text-muted-foreground">Decided to</span><strong class="text-foreground">{dispositionLabel(entry.disposition)}</strong></div>
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">Confidence</span><strong class={confidenceClass(entry.confidence_basis_points)}>{confidencePercent(entry.confidence_basis_points)}</strong></div>
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">Evaluated</span><span class="text-foreground">{timeAgo(entry.evaluated_at)}</span></div>
                 </div>
@@ -155,7 +161,7 @@ export function LearningLoopPanel(props: { slug: string }) {
 
               {/* ACTION */}
               <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-surface-1 space-y-2">
-                <Eyebrow>Action</Eyebrow>
+                <Eyebrow>What it did</Eyebrow>
                 <Show when={entry.action} fallback={
                   <Show when={entry.data_integrity?.action} fallback={
                     <p class="text-xs text-muted-foreground italic">No action — {dispositionLabel(entry.disposition)} decision</p>
@@ -179,7 +185,7 @@ export function LearningLoopPanel(props: { slug: string }) {
 
               {/* OUTCOME */}
               <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-surface-1 space-y-2">
-                <Eyebrow>Outcome</Eyebrow>
+                <Eyebrow>What happened</Eyebrow>
                 <Show when={entry.outcome} fallback={
                   <Show when={entry.data_integrity?.outcome} fallback={
                     <p class="text-xs text-muted-foreground italic">Not yet measured</p>
@@ -189,7 +195,7 @@ export function LearningLoopPanel(props: { slug: string }) {
                 }>
                   {outcome => (
                     <div class="space-y-1 text-sm">
-                      <div class="flex justify-between gap-2"><span class="text-muted-foreground">Assessment</span><strong class={outcomeClass(outcome().effect_assessment)}>{outcomeLabel(outcome().effect_assessment)}</strong></div>
+                      <div class="flex justify-between gap-2"><span class="text-muted-foreground">Verdict</span><strong class={outcomeClass(outcome().effect_assessment)}>{outcomeLabel(outcome().effect_assessment)}</strong></div>
                       <div class="flex justify-between gap-2"><span class="text-muted-foreground">Metric</span><span class="text-foreground">{outcome().metric_key.replaceAll('_', ' ')}</span></div>
                       <div class="flex justify-between gap-2"><span class="text-muted-foreground">Delta</span><strong class={outcomeClass(outcome().effect_assessment)}>{outcome().delta_basis_points > 0 ? '+' : ''}{(outcome().delta_basis_points / 100).toFixed(1)}%</strong></div>
                     </div>

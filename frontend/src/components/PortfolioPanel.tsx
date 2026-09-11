@@ -104,7 +104,7 @@ export function PortfolioPanel(props: {
 
   return <Card flat class="p-4">
     <div class="flex items-center justify-between gap-4 mb-3">
-      <div><PanelTitle icon={<SectionIcon name="megaphone" />}>Roster & amplification</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Route one artist's release or show in front of another artist's consenting fans, per edge.</p></div>
+      <div><PanelTitle icon={<SectionIcon name="megaphone" />}>Roster & amplification</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Route one artist's release or show in front of another artist's consenting fans, per edge. Not a shared list — a permission, <strong class="font-medium text-secondary-foreground">capped, revocable and audited</strong>, with a record of every time it was used.</p></div>
       <div class="flex flex-wrap items-center gap-2">
         <StatusBadge status={boardLabel()} tone={boardTone()} />
       </div>

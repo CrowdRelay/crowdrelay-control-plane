@@ -1,10 +1,10 @@
 import { Show, createEffect, createSignal } from 'solid-js'
+import { AuthorityScale, type AuthorityRung } from './ui/authority-scale'
 import type { AutopilotPolicy, AutonomyLevel } from '../lib/types'
 import { CONTEXT_LABELS, labelOr } from '../lib/opportunity-labels'
 import { StatusBadge } from './StatusBadge'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
-import { NativeSelect } from './ui/native-select'
 import { Switch } from './ui/switch'
 
 // Shared autopilot policy editor — used by both AuthorityPoliciesPanel
@@ -26,6 +26,14 @@ import { Switch } from './ui/switch'
 // dissolves the wrapper divs on desktop so their children become grid items.
 
 const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
+
+/** The four rungs, cautious to trusting. Order is the ladder. */
+const AUTHORITY_RUNGS: readonly AuthorityRung<AutonomyLevel>[] = [
+  { value: 'observe', label: 'Watch', detail: 'Records what it would have done. Nothing leaves the workspace.' },
+  { value: 'recommend', label: 'Suggest', detail: 'Puts the work on your board. You start it.' },
+  { value: 'require_approval', label: 'Ask', detail: 'Prepares the action and waits for your approval.' },
+  { value: 'bounded_auto', label: 'Alone', detail: 'Acts without asking, inside the confidence floor and the daily cap.' },
+] as const
 
 /** Column track shared by `PolicyHeader` and every `PolicyEditor` row. */
 export const POLICY_GRID =
@@ -93,23 +101,23 @@ export function PolicyEditor(props: {
       />
     </div>
 
-    {/* Mode select — labeled row on mobile, column 3 on desktop */}
+    {/* Authority ladder — labeled row on mobile, column 3 on desktop.
+
+        This was a `<select>`, so the operator saw one rung at a time and could
+        not tell there are four, which end is cautious, or how far along it this
+        context already sits. Those are the questions being asked. The public
+        site draws the same four as a scale; this is that, with the console's
+        own wording, which says what the operator is agreeing to rather than
+        naming the authority model. */}
     <div class="flex flex-col gap-1 md:contents">
       <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground md:hidden">How far it may go</span>
-      {/* Enum names described the machine's authority model. These describe what
-          the operator is agreeing to let it do. */}
-      <NativeSelect
-        size="sm"
-        disabled={props.pending || !enabled()}
+      <AuthorityScale
+        rungs={AUTHORITY_RUNGS}
         value={level()}
-        aria-label={`${contextLabel(props.policy.context)} — how far it may go`}
-        onChange={(event) => setLevel(event.currentTarget.value as AutonomyLevel)}
-      >
-        <option value="observe">Only watch</option>
-        <option value="recommend">Suggest it</option>
-        <option value="require_approval">Ask me first</option>
-        <option value="bounded_auto">Do it alone</option>
-      </NativeSelect>
+        disabled={props.pending || !enabled()}
+        label={`${contextLabel(props.policy.context)} — how far it may go`}
+        onChange={setLevel}
+      />
     </div>
 
     {/* Confidence slider — labeled row on mobile, column 4 on desktop */}
