@@ -30,7 +30,16 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 COLOURED = re.compile(r"crowdrelay-api-(?:\d+|green|blue)(?:-\d+)?\b")
 
 # Files whose contents become runtime configuration.
-CHECKED_DIRS = ("migrations",)
+#
+# The deploy scripts are checked too. The gate covered migrations and compose
+# defaults only, so `ensure-virya-management-credentials.sh` could inspect
+# `crowdrelay-api-blue-1` and `crowdrelay-api-green-1` by name and pass. It
+# did, and production runs neither — the container is `crowdrelay-api-1` — so
+# the credential preflight reported "no CrowdRelay API container running"
+# against a healthy API and blocked the Control Plane phase of the ecosystem
+# deploy. A script that looks a container up by colour is the same defect as a
+# config file that names one.
+CHECKED_DIRS = ("migrations", "scripts")
 CHECKED_FILES = (
     "docker-compose.yml",
     ".env.example",
@@ -56,7 +65,7 @@ def _shipped_config_files():
         if not os.path.isdir(full):
             continue
         for name in sorted(os.listdir(full)):
-            if name.endswith(".sql"):
+            if name.endswith((".sql", ".sh")):
                 paths.append(os.path.join(full, name))
     for name in CHECKED_FILES:
         full = os.path.join(REPO, name)
