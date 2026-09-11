@@ -1,4 +1,5 @@
 import { Show, createSignal } from 'solid-js'
+import { PanelTitle } from './layout'
 import type { Component } from 'solid-js'
 import { reauthState, submitReauth, cancelReauth } from '../lib/reauth'
 import { Button } from './ui/button'
@@ -27,7 +28,7 @@ export const ReauthModal: Component = () => {
     <Show when={reauthState.pending()}>
       <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={cancel}>
         <div class="w-full max-w-sm rounded-lg border border-border bg-card p-5 shadow-xl" role="dialog" aria-modal="true" aria-label="Confirm your identity" onClick={(e) => e.stopPropagation()}>
-          <h2 class="text-lg font-semibold text-foreground">Confirm your identity</h2>
+          <PanelTitle>Confirm your identity</PanelTitle>
           <div class="mt-2">
             <p class="text-sm text-muted-foreground leading-relaxed">{reauthState.pending()?.description}</p>
             <p class="mt-1 text-xs text-muted-foreground">Enter your password to authorize this action from your mobile device.</p>

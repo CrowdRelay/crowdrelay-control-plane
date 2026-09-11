@@ -273,7 +273,7 @@ export function SectionTitle(props: {
           <Show when={props.eyebrow}>
             <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</span>
           </Show>
-          <h2 class="text-lg font-semibold text-foreground">{props.title}</h2>
+          <h2 class="flex items-center gap-2 text-base font-semibold text-foreground">{props.title}</h2>
           <Show when={props.description}>
             <p class="text-sm text-muted-foreground mt-1">{props.description}</p>
           </Show>
@@ -348,15 +348,29 @@ export function Section(props: {
   action?: JSX.Element
   /** Drop the top rule — for the first section under a tab bar. */
   flush?: boolean
+  /** The one section on the page that answers its question.
+   *
+   *  Every panel carried the same weight: same heading size, same rule, same
+   *  fill. A screen where nothing is emphasised is a screen where the operator
+   *  has to read all of it to find the part that matters, every time. A lead
+   *  section gets a larger heading and a primary-tinted rule — one per page,
+   *  because two of them is none. */
+  lead?: boolean
   children: JSX.Element
   class?: string
 }) {
   return (
-    <section class={cn(props.flush ? 'pt-1' : 'mt-8 border-t border-border pt-5', props.class)}>
+    <section
+      class={cn(
+        props.flush ? 'pt-1' : 'mt-8 border-t pt-5',
+        !props.flush && (props.lead ? 'border-primary/40' : 'border-border'),
+        props.class,
+      )}
+    >
       <div class="mb-3 flex items-start justify-between gap-4">
         <div class="min-w-0">
-          <h2 class="flex items-center gap-2 text-base font-semibold text-foreground">
-            <Show when={props.icon}><span class="text-muted-foreground">{props.icon}</span></Show>
+          <h2 class={cn('flex items-center gap-2 font-semibold text-foreground', props.lead ? 'text-lg' : 'text-base')}>
+            <Show when={props.icon}><span class={props.lead ? 'text-primary' : 'text-muted-foreground'}>{props.icon}</span></Show>
             {props.title}
             <Show when={props.count != null && props.count > 0}>
               <span class="rounded-full bg-surface-3 px-2 py-0.5 text-xs font-bold tabular-nums text-secondary-foreground">{props.count}</span>
@@ -370,6 +384,49 @@ export function Section(props: {
       </div>
       {props.children}
     </section>
+  )
+}
+
+// ─── PanelTitle / Eyebrow ──────────────────────────────────────────────
+// The heading a panel puts above its own content, and the small uppercase
+// label above a value.
+//
+// The heading class string appeared inline 53 times in four different type
+// scales — `text-lg font-bold`, `text-lg font-semibold`, `text-base
+// font-semibold`, `text-sm font-semibold` — for the same rank of heading, so
+// two adjacent panels routinely disagreed about how big a panel title is.
+// The eyebrow appeared 21 times. Both are one line of markup, which is exactly
+// why they were copied rather than imported, and exactly how they drifted.
+//
+// The icon goes in a muted span: at full foreground weight it competes with
+// the words it introduces.
+
+export function PanelTitle(props: {
+  children: JSX.Element
+  icon?: JSX.Element
+  /** `h3` for a heading nested under another panel heading. Default `h2`. */
+  as?: 'h2' | 'h3'
+  class?: string
+}) {
+  const body = (
+    <>
+      <Show when={props.icon}><span class="text-muted-foreground">{props.icon}</span></Show>
+      {props.children}
+    </>
+  )
+  const cls = cn('flex items-center gap-2 text-base font-semibold text-foreground', props.class)
+  return (
+    <Show when={props.as === 'h3'} fallback={<h2 class={cls}>{body}</h2>}>
+      <h3 class={cls}>{body}</h3>
+    </Show>
+  )
+}
+
+export function Eyebrow(props: { children: JSX.Element; class?: string }) {
+  return (
+    <span class={cn('text-xs font-medium uppercase tracking-wider text-muted-foreground', props.class)}>
+      {props.children}
+    </span>
   )
 }
 

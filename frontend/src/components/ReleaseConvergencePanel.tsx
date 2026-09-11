@@ -1,4 +1,5 @@
 import { For, Show } from 'solid-js'
+import { Eyebrow, PanelTitle } from './layout'
 import type { ReleaseLedgerOverview } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
@@ -63,8 +64,8 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
   return <Card flat class="p-4">
     <div class="flex items-center justify-between gap-4 mb-3">
       <div>
-        <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">ECOSYSTEM RELEASE</span>
-        <h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="git-branch" />Production convergence</h2>
+        <Eyebrow>ECOSYSTEM RELEASE</Eyebrow>
+        <PanelTitle icon={<SectionIcon name="git-branch" />}>Production convergence</PanelTitle>
         <p class="mt-1 text-sm text-muted-foreground leading-relaxed max-w-prose">Every expected production component reports its own release receipt. Missing or stale receipts stay visible until the ecosystem converges.</p>
       </div>
       <StatusBadge status={releaseLabel(ledger())} tone={releaseTone(ledger())} />
@@ -94,7 +95,7 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
         <div class="mt-6 pt-6 border-t border-border">
           <h3 class="text-sm font-semibold text-foreground">Release components</h3>
           <div class="mt-2">
-            <For each={current().components}>{component => <div class="flex items-center justify-between gap-3 py-2.5 border-b border-border">
+            <For each={current().components}>{component => <div class="flex items-center justify-between gap-3 py-2 border-b border-border">
               <div class="min-w-0 flex flex-col gap-1">
                 <div class="flex items-center gap-2 flex-wrap">
                   <strong class="text-sm text-foreground">{component.component_key}</strong>
@@ -113,7 +114,7 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
                 <StatusBadge status={component.stale ? 'stale' : 'current'} tone={component.stale ? 'warn' : 'good'} />
               </div>
             </div>}</For>
-            <For each={current().missing_components}>{componentKey => <div class="flex items-center justify-between gap-3 py-2.5 border-b border-border">
+            <For each={current().missing_components}>{componentKey => <div class="flex items-center justify-between gap-3 py-2 border-b border-border">
               <div class="min-w-0 flex flex-col gap-1">
                 <div class="flex items-center gap-2 flex-wrap">
                   <strong class="text-sm text-foreground">{componentKey}</strong>

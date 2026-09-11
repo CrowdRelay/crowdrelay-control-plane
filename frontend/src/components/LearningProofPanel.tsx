@@ -1,4 +1,5 @@
 import { For, Show } from 'solid-js'
+import { Eyebrow, PanelTitle } from './layout'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { EmptyState } from './ui/empty-state'
@@ -61,7 +62,7 @@ export function LearningProofPanel(props: { slug: string }) {
 
   return <Card flat class="p-4 space-y-4">
     <div>
-      <h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="git-branch" />Outcome → Belief → Next decision</h2>
+      <PanelTitle icon={<SectionIcon name="git-branch" />}>Outcome → Belief → Next decision</PanelTitle>
       <p class="text-muted-foreground text-sm mt-1">
         What the brain changed its mind about, and what changed it.
       </p>
@@ -114,7 +115,7 @@ export function LearningProofPanel(props: { slug: string }) {
 
               {/* WHAT HAPPENED — the ledger's own citation, not a timestamp match */}
               <div class="space-y-1">
-                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Because of</span>
+                <Eyebrow>Because of</Eyebrow>
                 <Show when={entry.caused_by.length > 0} fallback={
                   <p class="text-xs text-muted-foreground italic">
                     The cited actions are no longer readable.
@@ -145,7 +146,7 @@ export function LearningProofPanel(props: { slug: string }) {
               {/* WHAT CHANGED AFTERWARDS — matched on what each decision itself
                   recorded at decision time, never re-derived now */}
               <div class="space-y-1">
-                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">So the brain then</span>
+                <Eyebrow>So the brain then</Eyebrow>
                 <Show when={entry.then_influenced.length > 0} fallback={
                   <p class="text-xs text-muted-foreground italic">
                     Has not taken a decision on this belief yet.

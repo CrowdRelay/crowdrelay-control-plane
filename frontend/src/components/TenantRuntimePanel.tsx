@@ -1,4 +1,5 @@
 import { Show } from 'solid-js'
+import { PanelTitle } from './layout'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { formatTimestamp } from '../lib/format'
@@ -63,7 +64,7 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
       {/* Named for its source. Plain "Health" read as a contradiction next to
           the Operations page, which reports CrowdRelay's own HTTP health from
           a different feed: this one is the heartbeat the tenant pushes here. */}
-      <div><h2 class="flex items-center gap-2 text-base font-semibold text-foreground"><span class="text-muted-foreground"><SectionIcon name="heartbeat" /></span>Heartbeat</h2></div>
+      <div><PanelTitle icon={<SectionIcon name="heartbeat" />}>Heartbeat</PanelTitle></div>
       <StatusBadge status={healthLabel(snapshot().runtimeHealth)} tone={runtimeHealthTone(snapshot().runtimeHealth)} />
     </div>
     <Show when={runtime.error}><div class="rounded-r-md rounded-l-none" role="status">Live refresh failed. Showing the last known runtime snapshot.</div></Show>

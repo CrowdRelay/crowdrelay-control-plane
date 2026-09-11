@@ -1,4 +1,5 @@
 import { For, type Component } from 'solid-js'
+import { Eyebrow } from './layout'
 
 // GitHub-style activity heatmap from timestamped entries.
 // Groups entries by day and renders a grid of colored cells.
@@ -82,7 +83,7 @@ export const ActivityHeatmap: Component<{
     <div class="flex flex-col gap-1.5 px-4 py-3.5 border border-border rounded-lg bg-card mt-4">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">ACTIVITY HEATMAP</span>
+          <Eyebrow>ACTIVITY HEATMAP</Eyebrow>
           <div class="mt-0.5">
             <strong>{totalActivity()}</strong>
             <span class="text-muted-foreground">events in {weeks()} weeks · {activeDays()} active days</span>

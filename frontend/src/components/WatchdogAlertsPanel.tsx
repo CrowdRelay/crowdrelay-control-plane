@@ -1,4 +1,5 @@
 import { For, Show } from 'solid-js'
+import { PanelTitle } from './layout'
 import { Link } from '@tanstack/solid-router'
 import type { OpsAlert } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
@@ -91,7 +92,7 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
   return <>
     <div class="flex items-start justify-between gap-4 mb-3">
       <div>
-        <h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="alert-triangle" />Open alerts</h3>
+        <PanelTitle as="h3" icon={<SectionIcon name="alert-triangle" />}>Open alerts</PanelTitle>
         <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Checked every 5 minutes. An alert closes itself as soon as the problem it is watching goes away — you do not have to dismiss it.</p>
       </div>
       <StatusBadge

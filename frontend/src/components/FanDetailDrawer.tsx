@@ -45,14 +45,14 @@ export function FanDetailDrawer(props: {
     <>
         <div class="flex flex-col gap-5">
           <div class="fan-drawer-meta flex flex-col gap-2">
-            <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Status</span><Badge variant={props.fan!.fan.status === 'active' ? 'success' : 'muted'}>{props.fan!.fan.status}</Badge></div>
-            <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Locale</span><span>{props.fan!.fan.locale ?? '—'}</span></div>
-            <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Activation</span><span>{props.fan!.fan.activation_state}</span></div>
-            <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Joined</span><span>{formatDateTime(props.fan!.fan.created_at)}</span></div>
-            <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Last activity</span><span>{formatDateTime(props.fan!.fan.last_activity_at)}</span></div>
-            <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Consented</span><span>{props.fan!.fan.consented ? 'Yes' : 'No'}</span></div>
-            <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Qualified referrals</span><span>{props.fan!.fan.qualified_referrals}</span></div>
-            <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Paid ticket orders</span><span>{props.fan!.fan.paid_ticket_orders}</span></div>
+            <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-muted-foreground">Status</span><Badge variant={props.fan!.fan.status === 'active' ? 'success' : 'muted'}>{props.fan!.fan.status}</Badge></div>
+            <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-muted-foreground">Locale</span><span>{props.fan!.fan.locale ?? '—'}</span></div>
+            <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-muted-foreground">Activation</span><span>{props.fan!.fan.activation_state}</span></div>
+            <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-muted-foreground">Joined</span><span>{formatDateTime(props.fan!.fan.created_at)}</span></div>
+            <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-muted-foreground">Last activity</span><span>{formatDateTime(props.fan!.fan.last_activity_at)}</span></div>
+            <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-muted-foreground">Consented</span><span>{props.fan!.fan.consented ? 'Yes' : 'No'}</span></div>
+            <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-muted-foreground">Qualified referrals</span><span>{props.fan!.fan.qualified_referrals}</span></div>
+            <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-muted-foreground">Paid ticket orders</span><span>{props.fan!.fan.paid_ticket_orders}</span></div>
           </div>
           <Show when={props.fan!.tags.length > 0}>
             <div class="fan-drawer-tags">

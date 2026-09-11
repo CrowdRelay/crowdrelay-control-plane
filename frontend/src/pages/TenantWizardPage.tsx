@@ -6,7 +6,7 @@ import type { RegionalProfile } from '../lib/types'
 import { cn } from '../lib/cn'
 import { StatusBadge } from '../components/StatusBadge'
 import { Spinner } from '../components/Spinner'
-import { PageShell, PageHeader, ErrorCard } from '../components/layout'
+import { ErrorCard, PageHeader, PageShell, PanelTitle } from '../components/layout'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { NativeSelect } from '../components/ui/native-select'
@@ -241,7 +241,7 @@ export function TenantWizardPage() {
 
     <Show when={step() === 1}>
       <div class="rounded-lg border border-border bg-card p-5 space-y-4">
-        <div class="flex items-center justify-between gap-2 flex-wrap"><div><h2 class="text-lg font-semibold text-foreground">Identity + region</h2></div><Show when={overview.error}><StatusBadge status="Provisioner status unavailable" tone="bad" /></Show><Show when={!overview.error}><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></Show></div>
+        <div class="flex items-center justify-between gap-2 flex-wrap"><div><PanelTitle>Identity + region</PanelTitle></div><Show when={overview.error}><StatusBadge status="Provisioner status unavailable" tone="bad" /></Show><Show when={!overview.error}><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></Show></div>
         <p class="text-sm text-muted-foreground leading-relaxed">Identity is permanent once the tenant exists; the regional block is what the runtime reads instead of guessing from a browser or an IP address.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           <label><span>Slug</span><Input value={slug()} onInput={(e) => setSlug(e.currentTarget.value.toLowerCase())} placeholder="future-metal" autocomplete="off" /><small>Lowercase, used in URLs and API paths. It cannot be changed later.</small></label>
@@ -256,7 +256,7 @@ export function TenantWizardPage() {
           <label><span>Date format</span><NativeSelect value={profile().dateFormat} onChange={e=>setRegional('dateFormat',e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></NativeSelect><small>How dates are printed to fans and operators of this tenant.</small></label>
           <label><span>Number format</span><NativeSelect value={profile().numberFormat} onChange={e=>setRegional('numberFormat',e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></NativeSelect><small>Thousands and decimal separators for counts and prices.</small></label>
         </div>
-        <div class="flex items-center justify-between gap-2"><div><h2 class="text-lg font-semibold text-foreground">First account for the team</h2></div></div>
+        <div class="flex items-center justify-between gap-2"><div><PanelTitle>First account for the team</PanelTitle></div></div>
         <p class="text-sm text-muted-foreground leading-relaxed">Optional. Creates one login scoped to this tenant so the band or their manager can work without a platform admin. You can add more later from the tenant page.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           <label>Operator username<Input value={opUsername()} onInput={(e) => setOpUsername(e.currentTarget.value.toLowerCase())} placeholder="future-metal-op" autocomplete="off" /><small>Optional. Sees only this tenant; leave blank to skip.</small></label>
@@ -281,7 +281,7 @@ export function TenantWizardPage() {
 
     <Show when={step() === 2}>
       <div class="rounded-lg border border-border bg-card p-5 space-y-4">
-        <div class="flex items-center justify-between gap-2"><div><h2 class="text-lg font-semibold text-foreground">Products</h2></div></div>
+        <div class="flex items-center justify-between gap-2"><div><PanelTitle>Products</PanelTitle></div></div>
         <p class="text-sm text-muted-foreground leading-relaxed">Choose which products to enable for this tenant. Each product can be toggled independently.</p>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <label class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', signalEnabled() ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
@@ -310,7 +310,7 @@ export function TenantWizardPage() {
           <div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-muted-foreground">Signal is disabled. The brain goal step will not offer "Signal fans" as a north star option. Signal base URL is not required for deployment.</div>
         </Show>
         <Show when={signalEnabled() || synesthesiaEnabled()}>
-          <div class="flex items-center justify-between gap-2"><div><h2 class="text-lg font-semibold text-foreground">Play Store URLs (optional)</h2></div></div>
+          <div class="flex items-center justify-between gap-2"><div><PanelTitle>Play Store URLs (optional)</PanelTitle></div></div>
           <p class="text-sm text-muted-foreground leading-relaxed">Set the Google Play Store URL for each enabled mobile app. Leave blank if the app is not yet published — you can add it later from the tenant page.</p>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             <Show when={signalEnabled()}>
@@ -330,7 +330,7 @@ export function TenantWizardPage() {
 
     <Show when={step() === 3}>
       <div class="rounded-lg border border-border bg-card p-5 space-y-4">
-        <div class="flex items-center justify-between gap-2"><div><h2 class="text-lg font-semibold text-foreground">Growth goal</h2></div></div>
+        <div class="flex items-center justify-between gap-2"><div><PanelTitle>Growth goal</PanelTitle></div></div>
         <p class="text-sm text-muted-foreground leading-relaxed">The brain optimizes its deterministic strategy around this metric. Fan aggregation is always active regardless of this choice.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           <For each={availableNorthStars()}>{ns =>
@@ -352,7 +352,7 @@ export function TenantWizardPage() {
 
     <Show when={step() === 4}>
       <div class="rounded-lg border border-border bg-card p-5 space-y-4">
-        <div class="flex items-center justify-between gap-2"><div><h2 class="text-lg font-semibold text-foreground">Fanbase sources</h2></div></div>
+        <div class="flex items-center justify-between gap-2"><div><PanelTitle>Fanbase sources</PanelTitle></div></div>
         <p class="text-sm text-muted-foreground leading-relaxed">Select which platforms the discovery worker should search for fan communities. These are upserted into the audience graph.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           <For each={fanbaseSources}>{src =>
@@ -374,33 +374,33 @@ export function TenantWizardPage() {
 
     <Show when={step() === 5}>
       <div class="rounded-lg border border-border bg-card p-5 space-y-4">
-        <div class="flex items-center justify-between gap-2"><div><h2 class="text-lg font-semibold text-foreground">Review + deploy</h2></div></div>
+        <div class="flex items-center justify-between gap-2"><div><PanelTitle>Review + deploy</PanelTitle></div></div>
         <div class="rounded-lg border border-border bg-surface-1 p-4 space-y-2">
-          <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Slug</span><strong class="text-sm text-foreground">{slug()}</strong></div>
-          <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Display name</span><strong class="text-sm text-foreground">{name()}</strong></div>
-          <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Region</span><strong class="text-sm text-foreground">{profile().locale} · {profile().timezone} · {profile().dataRegion.toUpperCase()}</strong></div>
-          <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Signal</span><strong class={cn('text-sm', signalEnabled() ? 'text-success' : 'text-muted-foreground')}>{signalEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
-          <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Synesthesia</span><strong class={cn('text-sm', synesthesiaEnabled() ? 'text-success' : 'text-muted-foreground')}>{synesthesiaEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
-          <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">AREA game</span><strong class={cn('text-sm', areaEnabled() ? 'text-success' : 'text-muted-foreground')}>{areaEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Slug</span><strong class="text-sm text-foreground">{slug()}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Display name</span><strong class="text-sm text-foreground">{name()}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Region</span><strong class="text-sm text-foreground">{profile().locale} · {profile().timezone} · {profile().dataRegion.toUpperCase()}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Signal</span><strong class={cn('text-sm', signalEnabled() ? 'text-success' : 'text-muted-foreground')}>{signalEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Synesthesia</span><strong class={cn('text-sm', synesthesiaEnabled() ? 'text-success' : 'text-muted-foreground')}>{synesthesiaEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">AREA game</span><strong class={cn('text-sm', areaEnabled() ? 'text-success' : 'text-muted-foreground')}>{areaEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
           <Show when={signalEnabled() && signalPlayStoreUrl().trim()}>
-            <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Signal Play URL</span><strong class="text-sm text-foreground break-all">{signalPlayStoreUrl().trim()}</strong></div>
+            <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Signal Play URL</span><strong class="text-sm text-foreground break-all">{signalPlayStoreUrl().trim()}</strong></div>
           </Show>
           <Show when={synesthesiaEnabled() && synesthesiaPlayStoreUrl().trim()}>
-            <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Synesthesia Play URL</span><strong class="text-sm text-foreground break-all">{synesthesiaPlayStoreUrl().trim()}</strong></div>
+            <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Synesthesia Play URL</span><strong class="text-sm text-foreground break-all">{synesthesiaPlayStoreUrl().trim()}</strong></div>
           </Show>
-          <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Brain goal</span><strong class="text-sm text-foreground">{northStars.find(n => n.value === effectiveNorthStar())?.label ?? effectiveNorthStar()}</strong></div>
-          <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Fanbase sources</span><strong class="text-sm text-foreground">{selectedSources().length > 0 ? selectedSources().join(', ') : 'None selected'}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Brain goal</span><strong class="text-sm text-foreground">{northStars.find(n => n.value === effectiveNorthStar())?.label ?? effectiveNorthStar()}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Fanbase sources</span><strong class="text-sm text-foreground">{selectedSources().length > 0 ? selectedSources().join(', ') : 'None selected'}</strong></div>
           <Show when={deployNow()}>
-            <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">CrowdRelay URL</span><strong class="text-sm text-foreground break-all">{crowdrelayBaseUrl() || 'not set'}</strong></div>
+            <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">CrowdRelay URL</span><strong class="text-sm text-foreground break-all">{crowdrelayBaseUrl() || 'not set'}</strong></div>
             <Show when={signalEnabled()}>
-              <div class="flex items-center justify-between gap-3 py-1 border-b border-border"><span class="text-sm text-muted-foreground">Signal URL</span><strong class="text-sm text-foreground break-all">{signalBaseUrl() || 'not set'}</strong></div>
+              <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Signal URL</span><strong class="text-sm text-foreground break-all">{signalBaseUrl() || 'not set'}</strong></div>
             </Show>
             <div class="flex items-center justify-between gap-3 py-1"><span class="text-sm text-muted-foreground">Release SHA</span><strong class="text-sm text-foreground">{desiredVersion() || overview.data?.provisionerDefaultImageTag || 'server default'}</strong></div>
           </Show>
         </div>
 
         <Show when={deployNow()}>
-          <div class="flex items-center justify-between gap-2"><div><h2 class="text-lg font-semibold text-foreground">Deploy URLs</h2></div></div>
+          <div class="flex items-center justify-between gap-2"><div><PanelTitle>Deploy URLs</PanelTitle></div></div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             <label>CrowdRelay API base URL<Input value={crowdrelayBaseUrl()} onInput={(e) => setCrowdrelayBaseUrl(e.currentTarget.value)} placeholder="https://api.future-metal.example" /></label>
             <Show when={signalEnabled()}>

@@ -7,7 +7,7 @@ import { triggerRefresh, refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
-import { ErrorCard } from './layout'
+import { ErrorCard, PanelTitle } from './layout'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
@@ -90,7 +90,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
   return (
     <Card class="p-4">
       <header class="flex items-center justify-between gap-4 mb-3">
-        <h2 class="flex items-center gap-2 text-lg font-bold text-foreground"><CycleIcon /> Run a growth cycle</h2>
+        <PanelTitle><CycleIcon /> Run a growth cycle</PanelTitle>
         <Button variant="ghost" size="sm" onClick={() => void preview.refetch()} disabled={preview.isFetching}>
           Refresh preview
         </Button>

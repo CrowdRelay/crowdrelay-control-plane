@@ -1,4 +1,5 @@
 import { Show, type JSX } from 'solid-js'
+import { Eyebrow } from '../layout'
 import { cn } from '~/lib/cn'
 
 /**
@@ -77,7 +78,7 @@ export function ReadField(props: {
 }) {
   return (
     <div class={cn('flex min-w-0 flex-col gap-1', props.class)}>
-      <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.label}</span>
+      <Eyebrow>{props.label}</Eyebrow>
       <span class="break-words text-sm font-medium text-foreground">{props.children}</span>
       <Show when={props.hint}><span class="text-xs leading-relaxed text-muted-foreground">{props.hint}</span></Show>
     </div>

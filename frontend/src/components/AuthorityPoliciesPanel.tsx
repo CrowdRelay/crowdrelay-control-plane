@@ -11,7 +11,7 @@ import { SectionFailureCard } from './SectionFailureCard'
 import { PolicyEditor, PolicyHeader } from './PolicyEditor'
 import { CONTEXT_LABELS, labelOr } from '../lib/opportunity-labels'
 import { Card } from './ui/card'
-import { KpiCard, ErrorCard } from './layout'
+import { ErrorCard, KpiCard, PanelTitle } from './layout'
 import { Button } from './ui/button'
 
 const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
@@ -111,7 +111,7 @@ export function AuthorityPoliciesPanel(props: {
 
   return <Card flat class="p-4">
     <div class="flex items-start justify-between gap-4 mb-3">
-      <div><h2 class="text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="shield" />Authority policies</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed">One row per kind of work the autopilot does. This is the only place these controls live.</p></div>
+      <div><PanelTitle icon={<SectionIcon name="shield" />}>Authority policies</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">One row per kind of work the autopilot does. This is the only place these controls live.</p></div>
       <div class="flex flex-wrap items-center gap-2">
         <StatusBadge status={autopilot.data?.runtime_enabled ? 'runtime on' : 'runtime off'} tone={autopilot.data?.runtime_enabled ? 'good' : 'muted'} />
       </div>

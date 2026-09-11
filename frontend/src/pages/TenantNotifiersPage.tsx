@@ -12,7 +12,7 @@ import { EmptyState } from '../components/ui/empty-state'
 import { SkeletonNotifiersPage, SkeletonSection } from '../components/Skeleton'
 import { confirmAction } from '../components/Dialog'
 import { Spinner } from '../components/Spinner'
-import { PageShell, PageHeader, ErrorCard, SectionPanel } from '../components/layout'
+import { ErrorCard, PageHeader, PageShell, PanelTitle, SectionPanel } from '../components/layout'
 import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Switch } from '../components/ui/switch'
@@ -112,7 +112,7 @@ export function TenantNotifiersPage() {
       <div class="flex items-center gap-2 mb-1">
         <SectionIcon name="bell" />
         <div>
-          <h2 class="text-lg font-bold text-foreground">Add a destination</h2>
+          <PanelTitle>Add a destination</PanelTitle>
         </div>
       </div>
       <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Add a destination for this tenant's alerts. Send a test after saving — a wrong URL only fails at delivery time.</p>
@@ -167,7 +167,7 @@ export function TenantNotifiersPage() {
           <div class="flex items-center gap-2">
             <SectionIcon name="bell" />
             <div>
-              <h2 class="text-lg font-semibold text-foreground">Active destinations</h2>
+              <PanelTitle>Active destinations</PanelTitle>
             </div>
           </div>
           <Show when={items().length > 0}><small class="text-sm text-muted-foreground">{items().length} configured</small></Show>
@@ -225,7 +225,7 @@ export function TenantNotifiersPage() {
             <div class="flex items-center gap-2">
               <SectionIcon name="server" />
               <div>
-                <h2 class="text-lg font-semibold text-foreground">Platform notification config</h2>
+                <PanelTitle>Platform notification config</PanelTitle>
               </div>
             </div>
           </summary>
@@ -276,7 +276,7 @@ export function TenantNotifiersPage() {
             <div class="flex items-center gap-2">
               <SectionIcon name="workflow" />
               <div>
-                <h2 class="text-lg font-semibold text-foreground">Workflow routing configs</h2>
+                <PanelTitle>Workflow routing configs</PanelTitle>
               </div>
             </div>
             <div class="flex items-center gap-2">
@@ -331,7 +331,7 @@ export function TenantNotifiersPage() {
       <div class="flex items-center gap-2 mb-3">
         <SectionIcon name="link" />
         <div>
-          <h2 class="text-lg font-semibold text-foreground">Discovered webhook endpoints</h2>
+          <PanelTitle>Discovered webhook endpoints</PanelTitle>
         </div>
       </div>
       <div class="p-4 rounded-lg border border-border bg-surface-1"><p class="text-sm text-muted-foreground">CrowdRelay webhook endpoints unavailable: {errorMessage(discovered.error, 'We couldn\'t read the webhook endpoints. Try refreshing.')}</p></div>
@@ -343,7 +343,7 @@ export function TenantNotifiersPage() {
           <div class="flex items-center gap-2 mb-2">
             <SectionIcon name="link" />
             <div>
-              <h2 class="text-lg font-semibold text-foreground">Discovered webhook endpoints</h2>
+              <PanelTitle>Discovered webhook endpoints</PanelTitle>
             </div>
           </div>
           <p class="text-sm text-muted-foreground">Outbound webhook delivery targets already configured in this tenant's CrowdRelay instance.</p>

@@ -11,7 +11,7 @@ import { StatusBadge } from './StatusBadge'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
-import { ErrorCard } from './layout'
+import { ErrorCard, PanelTitle } from './layout'
 
 // Confirmations used to name the row by its UUID — "Outbox 3f2a19c8…7be104 is
 // back in the pending queue". An operator cannot match that against anything on
@@ -167,7 +167,7 @@ export function DeadQueuesPanel(props: {
   return <>
     {/* ─── Dead Outbox ─────────────────────────────────────────── */}
     <div class="flex items-start justify-between gap-4 mb-3" id="dead-outbox">
-      <div><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="alert-triangle" />Failed events</h3><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Retry is idempotent.</p></div>
+      <div><PanelTitle as="h3" icon={<SectionIcon name="alert-triangle" />}>Failed events</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Retry is idempotent.</p></div>
     </div>
     <Show when={props.error}><ErrorCard>{errorMessage(props.error, 'Dead outbox unavailable')}</ErrorCard></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
@@ -194,7 +194,7 @@ export function DeadQueuesPanel(props: {
 
     {/* ─── Dead Webhook Deliveries ─────────────────────────────── */}
     <div class="flex items-start justify-between gap-4 mb-3" id="dead-deliveries">
-      <div><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="alert-triangle" />Delivery failures</h3><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Inspect attempt history before retrying.</p></div>
+      <div><PanelTitle as="h3" icon={<SectionIcon name="alert-triangle" />}>Delivery failures</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Inspect attempt history before retrying.</p></div>
       <Button type="button" variant={confirming() ? 'destructive-ghost' : 'ghost'} size="sm" disabled={(props.summary?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' && <Spinner />} {busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</Button>
     </div>
     <Show when={props.error}><ErrorCard>{errorMessage(props.error, 'Dead deliveries unavailable')}</ErrorCard></Show>
@@ -222,14 +222,14 @@ export function DeadQueuesPanel(props: {
     <Show when={!props.isLoading && (props.deadDeliveries?.length ?? 0) === 0}><div class="p-4 mt-2.5"><EmptyState label="No dead webhook deliveries" hint="Deliveries that failed after all retries — a clean list means webhooks are reaching their destinations." /></div></Show>
 
     <Show when={deliveryDetails()}>{details => <Card class="p-4">
-      <div class="flex items-start justify-between gap-4 mb-3"><div><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="mail" />{details().delivery.endpoint_name}</h3><div class="flex items-center gap-2 flex-wrap mt-1"><Badge variant="warning">{details().delivery.event_type.replace(/_/g, ' ')}</Badge><Badge variant="muted">delivery</Badge></div></div><Button variant="ghost" size="sm" onClick={() => setDeliveryDetails(null)}>Close</Button></div>
+      <div class="flex items-start justify-between gap-4 mb-3"><div><PanelTitle as="h3" icon={<SectionIcon name="mail" />}>{details().delivery.endpoint_name}</PanelTitle><div class="flex items-center gap-2 flex-wrap mt-1"><Badge variant="warning">{details().delivery.event_type.replace(/_/g, ' ')}</Badge><Badge variant="muted">delivery</Badge></div></div><Button variant="ghost" size="sm" onClick={() => setDeliveryDetails(null)}>Close</Button></div>
       <For each={details().attempts}>{attempt => <div class="rounded-lg border border-warning/30 bg-warning/10 p-4"><strong class="text-foreground">Attempt {attempt.attempt_number} · {attempt.outcome}</strong><p class="mt-1 m-0 text-sm text-secondary-foreground">HTTP {attempt.response_status ?? '—'} · {attempt.error_kind ?? 'no error kind'} · {attempt.duration_ms} ms · {observed(attempt.finished_at)}</p></div>}</For>
       <Show when={details().attempts.length === 0}><EmptyState label="No delivery attempts" hint="Delivery attempts are logged here once the outbox starts processing messages." /></Show>
     </Card>}</Show>
 
     {/* ─── Dead Push ───────────────────────────────────────────── */}
     <div class="flex items-start justify-between gap-4 mb-3" id="dead-push">
-      <div><h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="alert-triangle" />Failed push deliveries</h3><p class="mt-1 text-sm text-muted-foreground leading-relaxed">{pushFailureSummary()}</p></div>
+      <div><PanelTitle as="h3" icon={<SectionIcon name="alert-triangle" />}>Failed push deliveries</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">{pushFailureSummary()}</p></div>
       <StatusBadge status={(props.summary?.push.dead ?? 0) > 0 ? 'dead' : 'clean'} tone={(props.summary?.push.dead ?? 0) > 0 ? 'bad' : 'good'} />
     </div>
     <Show when={props.error}><ErrorCard>{errorMessage(props.error, 'Dead push unavailable')}</ErrorCard></Show>

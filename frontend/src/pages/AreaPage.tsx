@@ -10,7 +10,7 @@ import { EmptyState } from '../components/ui/empty-state'
 import { SkeletonRows } from '../components/Skeleton'
 import { confirmAction } from '../components/Dialog'
 import { SectionIcon } from '../components/SectionIcon'
-import { PageShell, PageHeader, ErrorCard, SectionTitle, SectionPanel } from '../components/layout'
+import { ErrorCard, PageHeader, PageShell, PanelTitle, SectionPanel, SectionTitle } from '../components/layout'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Alert } from '../components/ui/alert'
@@ -183,7 +183,7 @@ export function AreaPage() {
       </div>
       <SectionPanel class="flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0">
-          <h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="map-pin" />Tenant AREA</h2>
+          <PanelTitle icon={<SectionIcon name="map-pin" />}>Tenant AREA</PanelTitle>
           <p class="text-sm text-muted-foreground mt-1 max-w-2xl leading-relaxed">Turning AREA off hides the public game from fans. Drops, claims and audit history are kept, and come back exactly as they were when you turn it on again.</p>
           {/* Two switches, one name. This page writes the control plane's, the
               tenant's own app reports the other, and they drift while a deploy

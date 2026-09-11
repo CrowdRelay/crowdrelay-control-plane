@@ -16,7 +16,7 @@ import { TenantOperatorsPanel } from '../components/TenantOperatorsPanel'
 import { OperationsPanel } from '../components/OperationsPanel'
 import { Dialog } from '../components/Dialog'
 import { SkeletonTenantPage, SkeletonSection } from '../components/Skeleton'
-import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, ErrorCard, Section, SkeletonBlock } from '../components/layout'
+import { ErrorCard, Eyebrow, PageHeader, PageShell, Section, SkeletonBlock, TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { Spinner } from '../components/Spinner'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -203,6 +203,7 @@ export function TenantPage() {
         }>
           <Section
             flush
+            lead
             title="Fan growth"
             icon={<SectionIcon name="users" />}
             description="The north star. Everything else on this page exists to move these six numbers."
@@ -221,7 +222,7 @@ export function TenantPage() {
                   <span class="text-xl font-bold tabular-nums text-foreground">
                     <Show when={kpi.value != null} fallback={<span class="text-muted-foreground">—</span>}>{kpi.value!.toLocaleString()}</Show>
                   </span>
-                  <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{kpi.label}</span>
+                  <Eyebrow>{kpi.label}</Eyebrow>
                 </div>
               )}</For>
             </div>

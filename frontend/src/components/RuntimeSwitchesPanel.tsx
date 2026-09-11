@@ -11,7 +11,7 @@ import { SkeletonFlagList } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { SectionFailureCard } from './SectionFailureCard'
-import { ErrorCard } from './layout'
+import { ErrorCard, PanelTitle } from './layout'
 import { Card } from './ui/card'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
@@ -80,7 +80,7 @@ export function RuntimeSwitchesPanel(props: {
 
   return <Card flat class="p-5">
     <div class="flex items-start justify-between gap-4 mb-3">
-      <div><h2 class="text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="activity" />Runtime switches</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Feature flags, health metrics and redeploy. Changes are tenant-scoped and audited.</p></div>
+      <div><PanelTitle icon={<SectionIcon name="activity" />}>Runtime switches</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Feature flags, health metrics and redeploy. Changes are tenant-scoped and audited.</p></div>
       <div class="flex items-center gap-2 flex-wrap">
         <Show when={props.canRedeploy !== false}>
           <Show when={confirming() === 'redeploy'}><Button variant="ghost" size="sm" onClick={() => setConfirming(null)}>Cancel</Button></Show>
@@ -139,7 +139,7 @@ export function RuntimeSwitchesPanel(props: {
             <SectionFailureCard error={flags.error} fallback="Feature flags unavailable" onRetry={() => void flags.refetch()} />
           </Show>
         }>{items => <div class="flex flex-col mt-3">
-          <For each={items()}>{flag => <div class="flex items-center justify-between gap-3 py-2.5 border-b border-border">
+          <For each={items()}>{flag => <div class="flex items-center justify-between gap-3 py-2 border-b border-border">
             <div class="min-w-0"><strong class="block text-sm text-foreground">{flagLabel(flag.key)}</strong><small class="block text-xs text-muted-foreground">{flagReason(flag)}</small></div>
             <Switch
               checked={flagEnabled(flag)}

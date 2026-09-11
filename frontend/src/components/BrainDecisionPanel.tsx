@@ -13,7 +13,7 @@ import { Spinner } from './Spinner'
 import { Card } from './ui/card'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
-import { ErrorCard } from './layout'
+import { ErrorCard, PanelTitle } from './layout'
 
 // The flagship decision surface. Shows the single most important current
 // decision (opportunity board position #1) in a structured narrative:
@@ -224,7 +224,7 @@ export function BrainDecisionPanel(props: {
   return <Card flat class="p-5">
     <div class="flex items-start justify-between gap-4 mb-4">
       <div>
-        <h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="brain" />What the system decided</h2>
+        <PanelTitle icon={<SectionIcon name="brain" />}>What the system decided</PanelTitle>
       </div>
       <Show when={hasDecision()} fallback={
         <StatusBadge status="idle" tone="muted" />

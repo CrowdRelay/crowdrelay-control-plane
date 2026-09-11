@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
+import { PanelTitle } from './layout'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage, formatTimestamp } from '../lib/format'
@@ -92,7 +93,7 @@ export function GrowthPosturePanel(props: { slug: string }) {
   return <Card flat class="p-5">
     <div class="flex items-start justify-between gap-4 mb-3">
       <div>
-        <h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="target" />How far the growth loop may go</h2>
+        <PanelTitle icon={<SectionIcon name="target" />}>How far the growth loop may go</PanelTitle>
         <p class="mt-1 text-sm text-muted-foreground leading-relaxed">One dial over all 22 authority policies — pick the posture the band is ready for and the brain applies the matching autonomy level everywhere.</p>
       </div>
       <Show when={posture.data}>

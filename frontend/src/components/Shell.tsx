@@ -1,4 +1,5 @@
 import { Link, Outlet, useParams, useNavigate, useRouter } from '@tanstack/solid-router'
+import { Eyebrow } from './layout'
 import { Show, For, createSignal, createEffect, lazy, onMount, onCleanup, Suspense, type Component, type JSX } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { authState } from '../lib/auth'
@@ -536,7 +537,7 @@ export const Shell: Component = () => {
           {/* Breadcrumb, not a second copy of the page heading: it says where
               you are, while the page below says what it is. */}
           <div class="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
-            <Show when={slug()} fallback={<><span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">PLATFORM</span><strong class="text-sm font-semibold text-foreground truncate">{currentPageLabel(pathname(), undefined)}</strong></>}>
+            <Show when={slug()} fallback={<><Eyebrow>PLATFORM</Eyebrow><strong class="text-sm font-semibold text-foreground truncate">{currentPageLabel(pathname(), undefined)}</strong></>}>
               {s => <>
                 <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground truncate">{(tenants.data?.items.find(t => t.slug === s())?.displayName ?? s()).toUpperCase()}</span>
                 <strong class="text-sm font-semibold text-foreground truncate">{currentPageLabel(pathname(), s())}</strong>

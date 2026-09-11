@@ -1,4 +1,5 @@
 import { For, Show } from 'solid-js'
+import { Eyebrow } from './layout'
 import { confidencePercent } from '../lib/format'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
@@ -138,7 +139,7 @@ export function LearningLoopPanel(props: { slug: string }) {
             <div class="flex items-stretch gap-2 flex-wrap md:flex-nowrap">
               {/* DECISION */}
               <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-surface-1 space-y-2">
-                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Decision</span>
+                <Eyebrow>Decision</Eyebrow>
                 <div class="space-y-1 text-sm">
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">Kind</span><strong class="text-foreground">{entry.decision_kind.replaceAll('_', ' ')}</strong></div>
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">Disposition</span><strong class="text-foreground">{dispositionLabel(entry.disposition)}</strong></div>
@@ -154,7 +155,7 @@ export function LearningLoopPanel(props: { slug: string }) {
 
               {/* ACTION */}
               <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-surface-1 space-y-2">
-                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Action</span>
+                <Eyebrow>Action</Eyebrow>
                 <Show when={entry.action} fallback={
                   <Show when={entry.data_integrity?.action} fallback={
                     <p class="text-xs text-muted-foreground italic">No action — {dispositionLabel(entry.disposition)} decision</p>
@@ -178,7 +179,7 @@ export function LearningLoopPanel(props: { slug: string }) {
 
               {/* OUTCOME */}
               <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-surface-1 space-y-2">
-                <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Outcome</span>
+                <Eyebrow>Outcome</Eyebrow>
                 <Show when={entry.outcome} fallback={
                   <Show when={entry.data_integrity?.outcome} fallback={
                     <p class="text-xs text-muted-foreground italic">Not yet measured</p>
@@ -200,7 +201,7 @@ export function LearningLoopPanel(props: { slug: string }) {
               <Show when={entry.outcome}>
                 <div class="flex items-center text-muted-foreground px-1">→</div>
                 <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-surface-1 space-y-2">
-                  <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Learned</span>
+                  <Eyebrow>Learned</Eyebrow>
                   <p class={cn('text-sm', outcomeClass(entry.outcome!.effect_assessment))}>
                     <Show when={entry.outcome!.effect_assessment === 'improved'} fallback={
                       <Show when={entry.outcome!.effect_assessment === 'worsened'} fallback={

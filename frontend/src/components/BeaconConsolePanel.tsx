@@ -14,7 +14,7 @@ import { NativeSelect } from './ui/native-select'
 import { buttonVariants } from './ui/button'
 import { cn } from '../lib/cn'
 import { EmptyState } from './ui/empty-state'
-import { ErrorCard } from './layout'
+import { ErrorCard, PanelTitle } from './layout'
 
 // The beacon roster, and everything you can do to it.
 //
@@ -221,7 +221,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
   return (
     <Card flat class="p-4">
       <header class="flex items-center justify-between gap-4 mb-3">
-        <h2 class="text-lg font-semibold text-foreground">Beacons</h2>
+        <PanelTitle>Beacons</PanelTitle>
         <div class="flex items-center gap-2">
           <Show when={roster.data}>
             <span class="text-muted-foreground">

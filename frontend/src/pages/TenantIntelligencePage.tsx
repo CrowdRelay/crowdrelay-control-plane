@@ -22,7 +22,7 @@ import { SectionFailureCard } from '../components/SectionFailureCard'
 /**
  * Intelligence subpage — tabbed view for the deterministic Rust autopilot.
  *
- * Tabs: Overview | Growth Intelligence | Growth Funnel | Decisions | Learning
+ * Tabs: Where we stand | What it believes | What it decided | What moved | What it learned
  * Each tab groups related panels thematically.
  */
 export function TenantIntelligencePage() {
@@ -60,17 +60,23 @@ export function TenantIntelligencePage() {
       <SectionFailureCard error={model.error} fallback="Intelligence channel unavailable" onRetry={() => void model.refetch()} />
     </Show>
 
-    {/* Tab bar — static, renders immediately */}
+    {/* Tab bar — static, renders immediately.
+
+        These read "Overview / Growth Intelligence / Growth metrics /
+        Decisions / Learning" — five names from the architecture, three of
+        which contain the word the page is already titled with, and none of
+        which tell a non-technical operator which one answers his question.
+        They now say what each one holds, in the order the loop runs. */}
     <TabBar
       active={activeTab()}
       onChange={switchTab}
       onPrefetch={prefetch}
       tabs={[
-        { id: 'overview', label: 'Overview' },
-        { id: 'growth', label: 'Growth Intelligence' },
-        { id: 'funnel', label: 'Growth metrics' },
-        { id: 'decisions', label: 'Decisions' },
-        { id: 'learning', label: 'Learning' },
+        { id: 'overview', label: 'Where we stand' },
+        { id: 'growth', label: 'What it believes' },
+        { id: 'decisions', label: 'What it decided' },
+        { id: 'funnel', label: 'What moved' },
+        { id: 'learning', label: 'What it learned' },
       ]}
     />
 
@@ -87,7 +93,7 @@ export function TenantIntelligencePage() {
       {/* ── Overview tab — what it knows ── */}
       <TabPanel active={activeTab()} id="overview" visited={isVisited('overview')}>
         <div class="mb-6">
-          <SectionTitle title="Scorecard & objectives" icon={<SectionIcon name="brain" />} />
+          <SectionTitle title="Scorecard & objectives" icon={<SectionIcon name="brain" />} description="How the growth loop is performing against the targets you set." />
           <ScorecardPanel slug={params().slug} />
           <GrowthObjectivesPanel slug={params().slug} />
         </div>
@@ -96,7 +102,7 @@ export function TenantIntelligencePage() {
       {/* ── Growth Intelligence tab — what it believes ── */}
       <TabPanel active={activeTab()} id="growth" visited={isVisited('growth')}>
         <div class="mb-6">
-          <SectionTitle title="Growth intelligence" icon={<SectionIcon name="trending-up" />} />
+          <SectionTitle title="Posture & plan" icon={<SectionIcon name="trending-up" />} description="How far the loop may go on its own, and what it intends to do next." />
           <GrowthPosturePanel slug={params().slug} />
           <RunBrainCyclePanel slug={params().slug} />
           <GrowthIntelligencePanel slug={params().slug} />
@@ -106,7 +112,7 @@ export function TenantIntelligencePage() {
       {/* ── Growth Funnel tab — where the audience is and how it converts ── */}
       <TabPanel active={activeTab()} id="funnel" visited={isVisited('funnel')}>
         <div class="mb-6">
-          <SectionTitle title="Growth metrics" icon={<SectionIcon name="trending-up" />} />
+          <SectionTitle title="Metrics & funnel" icon={<SectionIcon name="trending-up" />} description="Which numbers moved, where the fans came from, and where the funnel narrows." />
           <GrowthMetricsPanel slug={params().slug} />
           <AcquisitionChannelsPanel slug={params().slug} />
           <GrowthFunnelPanel slug={params().slug} />
@@ -116,7 +122,7 @@ export function TenantIntelligencePage() {
       {/* ── Decisions tab — what it decided ── */}
       <TabPanel active={activeTab()} id="decisions" visited={isVisited('decisions')}>
         <div class="mb-6">
-          <SectionTitle title="Decision timeline" icon={<SectionIcon name="history" />} />
+          <SectionTitle title="Decision timeline" icon={<SectionIcon name="history" />} description="Every decision the autopilot reached, with the evidence it used." />
           <IntelligenceTransparencyPanel slug={params().slug} />
         </div>
       </TabPanel>
@@ -146,7 +152,7 @@ export function TenantIntelligencePage() {
               <text x="380" y="115" text-anchor="middle" class="intel-loop-feedback">Gets smarter each time</text>
             </svg>
           </div>
-          <SectionTitle title="Decision → Action → Outcome → Learning" icon={<SectionIcon name="refresh-cw" />} />
+          <SectionTitle title="Decision → Action → Outcome" icon={<SectionIcon name="refresh-cw" />} description="Each decision followed through to what it actually changed. A belief only counts once an outcome measures it." />
           <LearningLoopPanel slug={params().slug} />
           <LearningProofPanel slug={params().slug} />
         </div>

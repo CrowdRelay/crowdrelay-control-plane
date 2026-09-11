@@ -250,7 +250,7 @@ export const SkeletonOpportunityBoard: Component = () => (
 export const SkeletonFlagList: Component = () => (
   <div class="grid grid-cols-2 gap-6">
     {Array.from({ length: 4 }, () => (
-      <div class="flex justify-between items-center py-3.5 border-b border-surface-3">
+      <div class="flex items-center justify-between gap-3 py-2 border-b border-border">
         <div>
           <div class="rounded-lg bg-surface-3 border border-border h-[14px] w-[120px] mb-1.5" />
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[180px]" />

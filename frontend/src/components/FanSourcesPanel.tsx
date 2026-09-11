@@ -350,6 +350,7 @@ export function FanSourcesPanel(props: {
 
   return <>
     <Section
+      lead
       title="Platform connections"
       icon={<SectionIcon name="globe" />}
       description="Where this tenant's fans already are. Each connection syncs follower and engagement metrics on the growth schedule."

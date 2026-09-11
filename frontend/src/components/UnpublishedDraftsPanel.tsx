@@ -1,4 +1,5 @@
 import { For, Show } from 'solid-js'
+import { PanelTitle } from './layout'
 import type { UnpublishedDraftChannel } from '../lib/attention'
 import { SectionIcon } from './SectionIcon'
 import { Card } from './ui/card'
@@ -64,7 +65,7 @@ export function UnpublishedDraftsPanel(props: {
 
   return <Card flat class="p-4 space-y-4">
     <div>
-      <h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="inbox" />Waiting on you to publish</h2>
+      <PanelTitle icon={<SectionIcon name="inbox" />}>Waiting on you to publish</PanelTitle>
       <p class="text-muted-foreground text-sm mt-1">
         The brain drafted these. Nobody has posted them, so they have reached nobody.
       </p>

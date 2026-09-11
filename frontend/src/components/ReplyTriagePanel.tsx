@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
+import { PanelTitle } from './layout'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -68,7 +69,7 @@ export function ReplyTriagePanel() {
   return <Card flat class="p-4">
     <div class="flex items-start justify-between gap-4 mb-3">
       <div>
-        <h2 class="text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="inbox" />Replies needing a human</h2>
+        <PanelTitle icon={<SectionIcon name="inbox" />}>Replies needing a human</PanelTitle>
         <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Inbound replies the classifier could not resolve automatically. Read the text, then decide.</p>
       </div>
       <Show when={data()}>

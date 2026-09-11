@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
+import { PanelTitle } from './layout'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
@@ -158,7 +159,7 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
       {/* This sat at 14px directly above a sibling `<h2>` at 20px, so two
           headings of the same rank on the same page read as different ranks. */}
       <header class="flex items-center justify-between gap-4 mb-3">
-        <h2 class="text-lg font-semibold text-foreground">What needs attention</h2>
+        <PanelTitle>What needs attention</PanelTitle>
       </header>
 
       <Show when={props.summary} fallback={<p class="text-muted-foreground">Waiting for the operations summary…</p>}>

@@ -1,4 +1,5 @@
 import { For, Show } from 'solid-js'
+import { PanelTitle } from './layout'
 import { confidencePercent } from '../lib/format'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
@@ -96,7 +97,7 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
   return <Card flat class="p-5">
     <div class="flex items-start justify-between gap-4 mb-3">
       <div>
-        <h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="activity" />What the autopilot did</h2>
+        <PanelTitle icon={<SectionIcon name="activity" />}>What the autopilot did</PanelTitle>
         <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Its own report: what ran, what it stopped, and what is waiting on you.</p>
       </div>
       <Show when={d()}>

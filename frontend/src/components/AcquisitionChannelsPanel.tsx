@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
+import { PanelTitle } from './layout'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { SectionIcon } from './SectionIcon'
@@ -51,7 +52,7 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
   return <Card flat class="p-5">
     <div class="flex items-start justify-between gap-4 mb-3">
       <div>
-        <h2 class="text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="users" />Where the fans came from</h2>
+        <PanelTitle icon={<SectionIcon name="users" />}>Where the fans came from</PanelTitle>
         <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Signups by the channel that produced them, and how many of those were still active 30 days later. A channel that brings people who never come back is not working, however big the first number is.</p>
       </div>
     </div>

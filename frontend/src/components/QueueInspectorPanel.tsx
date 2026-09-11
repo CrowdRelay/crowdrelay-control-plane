@@ -11,7 +11,7 @@ import { StatusBadge } from './StatusBadge'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
-import { TabBar, ErrorCard } from './layout'
+import { ErrorCard, PanelTitle, TabBar } from './layout'
 import type { DeliveryDetails, DeliveryItem, OutboxItem } from '../lib/types'
 import { NativeSelect } from './ui/native-select'
 
@@ -103,7 +103,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
   return <Card flat class="p-4">
     <div class="flex items-center justify-between gap-4 mb-3">
       <div>
-        <h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="list-checks" />What is stuck, and why</h2>
+        <PanelTitle icon={<SectionIcon name="list-checks" />}>What is stuck, and why</PanelTitle>
         <p>The outbox holds events leaving this system; deliveries are the attempts to send them. A dead row has used every attempt and will not move again on its own — read one before retrying the rest, because a bulk retry reproduces a bad one as fast as it reproduces a blip.</p>
       </div>
       <Show when={model.dataUpdatedAt}><span class="text-xs text-muted-foreground whitespace-nowrap">Updated {relativeTime(model.dataUpdatedAt)}</span></Show>

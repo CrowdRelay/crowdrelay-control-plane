@@ -1,4 +1,5 @@
 import { Show, type Component, type JSX, createSignal, splitProps } from 'solid-js'
+import { Eyebrow } from '../layout'
 import { Collapsible as CollapsiblePrimitive } from '@kobalte/core'
 import { cn } from '~/lib/cn'
 
@@ -42,7 +43,7 @@ export function CollapsibleSection(props: {
       <CollapsibleTrigger class="flex w-full items-center justify-between gap-4 p-4 text-left">
         <div class="flex flex-col gap-1">
           <Show when={props.eyebrow}>
-            <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</span>
+            <Eyebrow>{props.eyebrow}</Eyebrow>
           </Show>
           <h3 class="text-sm font-semibold text-foreground">{props.title}</h3>
         </div>
