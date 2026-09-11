@@ -237,7 +237,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           </div>
           <Show when={pendingGrowthActions().length > MAX_VISIBLE_APPROVALS}>
             <Button variant="ghost" size="sm" class="mt-3 w-full" onClick={() => setShowAllApprovals(s => !s)}>
-              {showAllApprovals() ? 'Show less' : `Show all (${pendingGrowthActions().length})`}
+              {showAllApprovals() ? 'Show fewer' : `Show all ${pendingGrowthActions().length}`}
             </Button>
           </Show>
         </Show>
@@ -306,7 +306,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           </div>
           <Show when={workflows.data!.length > MAX_VISIBLE_WORKFLOWS}>
             <Button variant="ghost" size="sm" class="mt-3 w-full" onClick={() => setShowAllWorkflows(s => !s)}>
-              {showAllWorkflows() ? 'Show less' : `Show all (${workflows.data!.length})`}
+              {showAllWorkflows() ? 'Show fewer' : `Show all ${workflows.data!.length}`}
             </Button>
           </Show>
         </Show>
@@ -344,7 +344,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
               </div>
               <Show when={viewingWorkflow()!.plan!.length > MAX_VISIBLE_PLAN}>
                 <Button variant="ghost" size="sm" class="mt-3 w-full" onClick={() => setShowAllPlan(s => !s)}>
-                  {showAllPlan() ? 'Show less' : `Show all (${viewingWorkflow()!.plan!.length})`}
+                  {showAllPlan() ? 'Show fewer' : `Show all ${viewingWorkflow()!.plan!.length}`}
                 </Button>
               </Show>
             </Show>
@@ -365,7 +365,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
                 </Table>
                 <Show when={workflowTasks().length > MAX_VISIBLE_SUB_TASKS}>
                   <Button variant="ghost" size="sm" class="mt-3 w-full" onClick={() => setShowAllSubTasks(s => !s)}>
-                    {showAllSubTasks() ? 'Show less' : `Show all (${workflowTasks().length})`}
+                    {showAllSubTasks() ? 'Show fewer' : `Show all ${workflowTasks().length}`}
                   </Button>
                 </Show>
               </div>

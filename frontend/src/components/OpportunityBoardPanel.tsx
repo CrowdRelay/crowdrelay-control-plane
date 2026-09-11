@@ -1,7 +1,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import type { OpportunityBoardEntry } from '../lib/types'
 import { api } from '../lib/api'
-import { errorMessage } from '../lib/format'
+import { confidencePercent, errorMessage } from '../lib/format'
 import { SkeletonOpportunityBoard } from './Skeleton'
 import { APPROVE_EFFECT, CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, RANK_FACTOR_LABELS, VALUE_TIER_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
 import { SectionIcon } from './SectionIcon'
@@ -51,14 +51,6 @@ const NOT_APPROVABLE_NOTE: Record<string, string> = {
   observed: 'recorded for measurement — no action was parked',
 }
 
-// Basis points are the queue's only magnitude; percent is what a human reads.
-// A value under 1% still rounds to 0% with `Math.round`, which reads as "no
-// confidence" when it is really "low confidence" — so show `< 1%` instead.
-const confidencePercent = (basisPoints: number) => {
-  const percent = basisPoints / 100
-  if (percent > 0 && percent < 1) return '< 1%'
-  return `${Math.round(percent)}%`
-}
 
 // Basis points are the queue's only magnitude; percent is what a human reads.
 const deviationLabel = (entry: OpportunityBoardEntry) =>

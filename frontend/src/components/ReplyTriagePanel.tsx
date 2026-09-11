@@ -2,7 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
-import { errorMessage } from '../lib/format'
+import { confidencePercent, errorMessage } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { EmptyState } from './ui/empty-state'
 import type { ReplyTriageEntry } from '../lib/types'
@@ -48,8 +48,6 @@ const reasonLabel = (reason: string | null) => {
 const targetKindLabel = (kind: string) =>
   kind.replace(/_/g, ' ')
 
-const confidencePercent = (bps: number) =>
-  `${(bps / 100).toFixed(0)}%`
 
 export function ReplyTriagePanel() {
   const params = useParams({ from: '/tenants/$slug/operations' })
@@ -134,7 +132,7 @@ export function ReplyTriagePanel() {
           </div>
           <Show when={d().needs_human.length > MAX_VISIBLE}>
             <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllNeedsHuman(s => !s)}>
-              {showAllNeedsHuman() ? 'Show less' : `Show all (${d().needs_human.length})`}
+              {showAllNeedsHuman() ? 'Show fewer' : `Show all ${d().needs_human.length}`}
             </Button>
           </Show>
         </Show>
@@ -151,7 +149,7 @@ export function ReplyTriagePanel() {
           </div>
           <Show when={d().recent_auto.length > MAX_VISIBLE}>
             <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllRecentAuto(s => !s)}>
-              {showAllRecentAuto() ? 'Show less' : `Show all (${d().recent_auto.length})`}
+              {showAllRecentAuto() ? 'Show fewer' : `Show all ${d().recent_auto.length}`}
             </Button>
           </Show>
         </section>

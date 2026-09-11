@@ -132,7 +132,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
           </Table>
           <Show when={booking.data!.length > MAX_VISIBLE}>
             <Button variant="ghost" size="sm" onClick={() => setShowAllBooking(s => !s)}>
-              {showAllBooking() ? 'Show less' : `Show all (${booking.data!.length})`}
+              {showAllBooking() ? 'Show fewer' : `Show all ${booking.data!.length}`}
             </Button>
           </Show>
         </Show>
@@ -180,7 +180,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
           </Table>
           <Show when={outreach.data!.length > MAX_VISIBLE}>
             <Button variant="ghost" size="sm" onClick={() => setShowAllOutreach(s => !s)}>
-              {showAllOutreach() ? 'Show less' : `Show all (${outreach.data!.length})`}
+              {showAllOutreach() ? 'Show fewer' : `Show all ${outreach.data!.length}`}
             </Button>
           </Show>
         </Show>

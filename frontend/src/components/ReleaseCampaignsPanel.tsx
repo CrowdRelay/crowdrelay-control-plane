@@ -265,7 +265,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
         </div>
         <Show when={campaigns.data!.campaigns.length > MAX_VISIBLE}>
           <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllCampaigns(s => !s)}>
-            {showAllCampaigns() ? 'Show less' : `Show all (${campaigns.data!.campaigns.length})`}
+            {showAllCampaigns() ? 'Show fewer' : `Show all ${campaigns.data!.campaigns.length}`}
           </Button>
         </Show>
       </Show>

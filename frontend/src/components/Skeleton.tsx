@@ -149,7 +149,7 @@ export const SkeletonPage: Component = () => (
 /** Skeleton for ScorecardPanel — status metrics row + week summary + track record */
 export const SkeletonScorecard: Component = () => (
   <>
-    <div class="grid gap-2.5">
+    <div class="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
       {Array.from({ length: 3 }, () => (
         <div class="p-3.5 border border-border rounded-lg bg-card">
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] mb-2 w-[70px]" />
@@ -163,7 +163,7 @@ export const SkeletonScorecard: Component = () => (
         <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px] mb-1.5" />
         <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[120px]" />
       </div>
-      <div class="grid gap-2.5">
+      <div class="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
         {Array.from({ length: 4 }, () => (
           <div class="p-3.5 border border-border rounded-lg bg-card">
             <div class="rounded-lg bg-surface-3 border border-border h-[11px] mb-2 w-[60px]" />
@@ -178,7 +178,7 @@ export const SkeletonScorecard: Component = () => (
         <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px] mb-1.5" />
         <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[100px]" />
       </div>
-      <div class="grid gap-2.5">
+      <div class="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
         {Array.from({ length: 4 }, () => (
           <div class="p-3.5 border border-border rounded-lg bg-card">
             <div class="rounded-lg bg-surface-3 border border-border h-[11px] mb-2 w-[60px]" />
@@ -194,7 +194,7 @@ export const SkeletonScorecard: Component = () => (
 /** Skeleton for ReplyTriagePanel — summary metrics + reply rows */
 export const SkeletonReplyTriage: Component = () => (
   <>
-    <div class="grid gap-2.5">
+    <div class="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
       {Array.from({ length: 3 }, () => (
         <div class="p-3.5 border border-border rounded-lg bg-card">
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] mb-2 w-[70px]" />
@@ -232,7 +232,7 @@ export const SkeletonLearningLoop: Component = () => (
 
 /** Skeleton for OpportunityBoardPanel — opportunity list rows */
 export const SkeletonOpportunityBoard: Component = () => (
-  <div class="grid gap-2.5">
+  <div class="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
     {Array.from({ length: 3 }, () => (
       <div class="flex justify-between items-start gap-4 p-3.5 border border-border rounded-lg bg-card">
         <div class="min-w-0 flex-1 flex flex-col gap-1.5">
@@ -355,7 +355,7 @@ export const SkeletonSignalOverview: Component = () => (
         <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[180px]" />
       </div>
     </div>
-    <div class="grid gap-2.5">
+    <div class="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
       {Array.from({ length: 8 }, () => (
         <div class="p-3.5 border border-border rounded-lg bg-card">
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] mb-2 w-[70px]" />

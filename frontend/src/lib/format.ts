@@ -101,3 +101,25 @@ export const formatUsd = (microUsd: number): string => {
   if (usd < 0.01) return `$${usd.toFixed(4)}`
   return `$${usd.toFixed(2)}`
 }
+
+/** Confidence the operator reads, from the basis points the autopilot stores.
+ *
+ *  The scale is 0–10000, so a percentage is basis points over 100. The naive
+ *  `Math.round` collapses everything under half a percent to `0%`, and `0%`
+ *  does not mean "very low" — it means "none", which is the one thing the
+ *  autopilot never records. Agent proposals in particular are written at
+ *  exactly 1 basis point (`AGENT_PROPOSAL_EVIDENCE_BASIS_POINTS`), because
+ *  they carry no measured evidence yet; printing that as `0%` told the
+ *  operator the brain had no confidence in a suggestion it had just made.
+ *
+ *  This lived as four separate copies plus two inline ternaries, and one copy
+ *  still used `toFixed(0)` — so the same number read `< 1%` on the opportunity
+ *  board and `0%` in reply triage.
+ */
+export const confidencePercent = (basisPoints: number): string => {
+  if (!Number.isFinite(basisPoints) || basisPoints <= 0) return '0%'
+  const percent = basisPoints / 100
+  if (percent < 1) return '< 1%'
+  if (percent > 99 && percent < 100) return '> 99%'
+  return `${Math.round(percent)}%`
+}

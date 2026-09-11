@@ -222,7 +222,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                         </div>
                         <Show when={decision.plan.length > MAX_VISIBLE_PLAN}>
                           <Button variant="ghost" size="sm" class="mt-2" onClick={() => togglePlan(decision.id)}>
-                            {expandedPlans().has(decision.id) ? 'Show less' : `Show all (${decision.plan.length})`}
+                            {expandedPlans().has(decision.id) ? 'Show fewer' : `Show all ${decision.plan.length}`}
                           </Button>
                         </Show>
                       </Show>
@@ -254,7 +254,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                           </Table>
                           <Show when={decision.tasks.length > MAX_VISIBLE_TASKS}>
                             <Button variant="ghost" size="sm" class="mt-2" onClick={() => toggleTasks(decision.id)}>
-                              {expandedTasks().has(decision.id) ? 'Show less' : `Show all (${decision.tasks.length})`}
+                              {expandedTasks().has(decision.id) ? 'Show fewer' : `Show all ${decision.tasks.length}`}
                             </Button>
                           </Show>
                         </div>
@@ -307,7 +307,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
             </div>
             <Show when={decisions().length > MAX_VISIBLE_DECISIONS}>
               <Button variant="ghost" size="sm" class="mt-2" onClick={() => setShowAllDecisions(s => !s)}>
-                {showAllDecisions() ? 'Show less' : `Show all (${decisions().length})`}
+                {showAllDecisions() ? 'Show fewer' : `Show all ${decisions().length}`}
               </Button>
             </Show>
           </Show>

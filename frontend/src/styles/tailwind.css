@@ -51,13 +51,22 @@
   --color-primary-foreground: #ddd7ff;
 
   /* ── Status colours (semantic only) ──────────────────────────────── */
+  /* `success-foreground` and `destructive-hover` were used by name in four
+     places and declared in none, so `text-success-foreground` on the three
+     "succeeded (24h)" counters and `hover:bg-destructive-hover` on the chat
+     stop button compiled to nothing at all. A utility for an undeclared
+     `@theme` key is not an error — it is simply absent, which is why these
+     survived: the counters rendered in inherited body colour and the button
+     had no hover state, and neither looks broken enough to report. */
   --color-success: #3ddc84;
   --color-success-light: #9ff0bd;
+  --color-success-foreground: #9ff0bd;
   --color-success-border: #2d4a2d;
   --color-success-bg: #1a2e1a;
   --color-warning: #f5b942;
   --color-warning-light: #f5c468;
   --color-destructive: #ff6565;
+  --color-destructive-hover: #ff8080;
   --color-destructive-light: #ff9d9d;
   --color-destructive-foreground: #e899b8;
   --color-destructive-bg: #38201f;
@@ -602,12 +611,56 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
   .area-map-legend {
     @apply flex gap-4 flex-wrap p-2.5 border-t border-border text-muted-foreground text-sm;
   }
+  /* The canvas container was styled and everything drawn inside it was not:
+     `area-grid-fill`, `area-axis`, `area-public-point`, `area-exact-point` and
+     `area-radius` were all referenced by LocationCanvas and defined nowhere.
+     An SVG shape with no fill and no stroke rule paints black-on-dark, so the
+     AREA location picker rendered as an empty gradient box — clickable, and
+     giving no feedback about where the operator had clicked. */
+  .area-location-canvas svg {
+    @apply block w-full cursor-crosshair;
+    color: var(--color-border-strong);
+    aspect-ratio: 2 / 1;
+  }
+  .area-grid-fill { fill: url(#area-grid); }
+  .area-axis { stroke: var(--color-border); stroke-width: 0.4; fill: none; }
+  .area-public-point {
+    fill: var(--color-muted-foreground);
+    stroke: var(--color-background);
+    stroke-width: 0.5;
+  }
+  .area-exact-point {
+    fill: var(--color-primary);
+    stroke: var(--color-background);
+    stroke-width: 0.6;
+  }
+  .area-radius {
+    fill: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    stroke: var(--color-primary);
+    stroke-width: 0.4;
+    stroke-dasharray: 1.5 1.2;
+  }
+  .area-map-legend .dot {
+    @apply inline-block h-2 w-2 rounded-full align-middle;
+    margin-right: 6px;
+  }
+  .area-map-legend .dot.public { background: var(--color-muted-foreground); }
+  .area-map-legend .dot.exact { background: var(--color-primary); }
 
   /* ── Autopilot policy ────────────────────────────────────────────── */
 
   /* ── Provisioning ─────────────────────────────────────────────────── */
 
   /* ── Misc utility ─────────────────────────────────────────────────── */
+  /* The tab bar asks for `scrollbar-none` so a row of tabs that overflows
+     scrolls without drawing a bar under them. Tailwind has no such utility
+     and the class was never defined, so every tab bar narrow enough to
+     overflow drew a scrollbar across its own bottom border. */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
   [data-refreshing="true"] {
     opacity: 0.55;
     pointer-events: none;

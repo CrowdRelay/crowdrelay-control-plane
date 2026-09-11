@@ -165,7 +165,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     {/* Funnel visualization — header is static, chart waits for data */}
     <div class="mt-6 border-t border-border pt-5">
       <div class="flex items-center justify-between gap-4">
-        <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><span class="text-muted-foreground"><FunnelIcon size={18} /></span>Growth metrics</h3>
+        <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><span class="text-muted-foreground"><FunnelIcon size={18} /></span>Discovery to conversion</h3>
         <Show when={funnel.dataUpdatedAt}><span class="text-xs text-muted-foreground">Updated {relativeTime(funnel.dataUpdatedAt)}</span></Show>
       </div>
       <p class="mt-1 text-sm text-muted-foreground">The fan growth journey from community discovery to conversion.</p>

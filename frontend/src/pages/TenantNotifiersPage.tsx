@@ -317,7 +317,7 @@ export function TenantNotifiersPage() {
               </div>
               <Show when={routingItems().length > MAX_VISIBLE_ROUTING}>
                 <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllRouting(s => !s)}>
-                  {showAllRouting() ? 'Show less' : `Show all (${routingItems().length})`}
+                  {showAllRouting() ? 'Show fewer' : `Show all ${routingItems().length}`}
                 </Button>
               </Show>
             </Show>

@@ -195,7 +195,7 @@ export function PressRoomPanel(props: { slug: string }) {
           </Table>
           <Show when={requests().length > MAX_VISIBLE}>
             <Button variant="ghost" size="sm" onClick={() => setShowAllRequests(s => !s)}>
-              {showAllRequests() ? 'Show less' : `Show all (${requests().length})`}
+              {showAllRequests() ? 'Show fewer' : `Show all ${requests().length}`}
             </Button>
           </Show>
         </Show>
@@ -283,7 +283,7 @@ export function PressRoomPanel(props: { slug: string }) {
           </Table>
           <Show when={assets().length > MAX_VISIBLE}>
             <Button variant="ghost" size="sm" onClick={() => setShowAllAssets(s => !s)}>
-              {showAllAssets() ? 'Show less' : `Show all (${assets().length})`}
+              {showAllAssets() ? 'Show fewer' : `Show all ${assets().length}`}
             </Button>
           </Show>
         </Show>
@@ -345,7 +345,7 @@ export function PressRoomPanel(props: { slug: string }) {
           </Table>
           <Show when={engagements().length > MAX_VISIBLE}>
             <Button variant="ghost" size="sm" onClick={() => setShowAllEngagements(s => !s)}>
-              {showAllEngagements() ? 'Show less' : `Show all (${engagements().length})`}
+              {showAllEngagements() ? 'Show fewer' : `Show all ${engagements().length}`}
             </Button>
           </Show>
         </Show>
@@ -382,7 +382,7 @@ export function PressRoomPanel(props: { slug: string }) {
           </Table>
           <Show when={coverage().length > MAX_VISIBLE}>
             <Button variant="ghost" size="sm" onClick={() => setShowAllCoverage(s => !s)}>
-              {showAllCoverage() ? 'Show less' : `Show all (${coverage().length})`}
+              {showAllCoverage() ? 'Show fewer' : `Show all ${coverage().length}`}
             </Button>
           </Show>
         </Show>

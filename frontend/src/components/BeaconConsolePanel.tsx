@@ -428,7 +428,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
           </Table>
           <Show when={visible().length > MAX_VISIBLE}>
             <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAll(s => !s)}>
-              {showAll() ? 'Show less' : `Show all (${visible().length})`}
+              {showAll() ? 'Show fewer' : `Show all ${visible().length}`}
             </Button>
           </Show>
         </Show>

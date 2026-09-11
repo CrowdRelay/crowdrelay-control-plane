@@ -1,7 +1,7 @@
 import { For, Show, createEffect, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api, request, ApiError } from '../lib/api'
-import { errorMessage, formatIsoAge } from '../lib/format'
+import { confidencePercent, errorMessage, formatIsoAge } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { Dialog } from './Dialog'
@@ -522,7 +522,7 @@ export function AgentPanel(props: { slug: string }) {
                   <div class="p-3 rounded-lg border border-border bg-surface-1">
                     <div class="flex items-center gap-2 mb-2">
                       <Badge>{outcome.kind.replaceAll('_', ' ')}</Badge>
-                      <Badge>confidence {outcome.confidence_basis_points > 0 && outcome.confidence_basis_points < 100 ? '< 1%' : `${Math.round(outcome.confidence_basis_points / 100)}%`}</Badge>
+                      <Badge>confidence {confidencePercent(outcome.confidence_basis_points)}</Badge>
                     </div>
                     <p class="text-muted-foreground">{outcome.rationale}</p>
                     <Show when={outcome.item}>

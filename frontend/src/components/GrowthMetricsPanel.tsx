@@ -87,15 +87,25 @@ const decodeEntities = (value: string) =>
  *  produced `r//r/Metalcore`. */
 const tidySubject = (value: string) => decodeEntities(value).replace(/^r\/+r\//, 'r/')
 
+/** There are ~25 platform names and potentially hundreds of series, so the
+ *  prefix pattern is built once per platform rather than once per call. */
+const platformPrefix = new Map<string, RegExp>()
+const prefixFor = (platform: string) => {
+  let pattern = platformPrefix.get(platform)
+  if (!pattern) {
+    pattern = new RegExp(`^${platform.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+`, 'i')
+    platformPrefix.set(platform, pattern)
+  }
+  return pattern
+}
+
 export function seriesLabel(trend: { platform: string; display_name: string }) {
   const full = decodeEntities(trend.display_name)
   const [metricPart, ...subjectParts] = full.split(' — ')
   const platform = platformLabel(trend.platform)
   // Strip the platform from the front of the metric, case-insensitively: the
   // heading above the row already says it.
-  const metric = (metricPart ?? full)
-    .replace(new RegExp(`^${platform.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+`, 'i'), '')
-    .trim()
+  const metric = (metricPart ?? full).replace(prefixFor(platform), '').trim()
   const subject = subjectParts.length > 0 ? tidySubject(subjectParts.join(' — ')) : undefined
   return { metric: metric || metricPart || full, subject }
 }
@@ -245,6 +255,12 @@ export function GrowthMetricsPanel(props: { slug: string }) {
     return max
   })
 
+  // Sorted once. `For` keys on identity, so building this list inline in the
+  // template handed it a brand-new array of brand-new tuples on every read.
+  const sortedGroups = createMemo(() =>
+    Object.entries(grouped().groups).sort((a, b) => platformLabel(a[0]).localeCompare(platformLabel(b[0]))),
+  )
+
   // Group downstream by platform
   const downstreamGrouped = createMemo(() => {
     const groups: Record<string, GrowthMetricTrendView[]> = {}
@@ -258,7 +274,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
 
   return <Card flat class="p-4">
     <div class="flex items-center justify-between gap-4">
-      <h3 class="text-sm font-semibold text-foreground">Growth metrics</h3>
+      <h3 class="text-sm font-semibold text-foreground">Metrics by platform</h3>
       <Show when={coverage.data && hasFeeds()}>
         <span class="text-sm text-muted-foreground tabular-nums">
           {liveSeries()}{liveSeries() === totalSeries() ? '' : ` / ${totalSeries()}`} feeds live
@@ -270,19 +286,24 @@ export function GrowthMetricsPanel(props: { slug: string }) {
     <Show
       when={coverage.data && hasFeeds()}
       fallback={
-        <Show when={coverage.isFetching} fallback={
-          <Show when={coverage.data} fallback={
-            <EmptyState
-              icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 14l4-4 4 4 6-6" /></svg>}
-              label="No metric feeds connected"
-              hint="Connect Spotify, YouTube, Bandsintown, or social feeds to start tracking growth trends. The intelligence needs metric data to measure whether actions are moving the needle."
-            />
-          }>
-            <SkeletonRows count={4} />
-          </Show>
+        // The two branches of the inner `Show` were the wrong way round: it
+        // rendered `SkeletonRows` when `coverage.data` was present and the
+        // empty state when it was absent. So a tenant that had answered
+        // correctly with zero connected feeds — the exact case the empty state
+        // was written for — sat on four skeleton rows forever, and the empty
+        // state could only ever appear in the moment before the first response.
+        // A permanent skeleton reads as a backend that never replied.
+        <Show when={coverage.data} fallback={
+          <Show when={coverage.error} fallback={<>
+            <SkeletonBlock height="80px" radius="10px" />
+            <SkeletonRows count={3} />
+          </>}>{null}</Show>
         }>
-          <SkeletonBlock height="80px" radius="10px" />
-          <SkeletonRows count={3} />
+          <EmptyState
+            icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 14l4-4 4 4 6-6" /></svg>}
+            label="No metric feeds connected"
+            hint="Connect Spotify, YouTube, Bandsintown, or social feeds to start tracking growth trends. The intelligence needs metric data to measure whether actions are moving the needle."
+          />
         </Show>
       }
     >
@@ -329,7 +350,12 @@ export function GrowthMetricsPanel(props: { slug: string }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            <For each={Object.entries(grouped().groups).sort((a, b) => platformLabel(a[0]).localeCompare(platformLabel(b[0])))}>
+            {/* `Object.entries(...).sort(...)` written inline here is a new
+                array of new tuples on every read of `grouped()`, so `For` saw
+                a fresh identity for every group and tore down and rebuilt
+                every row beneath it — on each refetch, each expand, each
+                coverage tick. Sorted once, in a memo. */}
+            <For each={sortedGroups()}>
               {([platform, items]) => {
                 const color = platformColor(platform)
                 const visible = () => expandedPlatforms().has(platform) ? items : items.slice(0, MAX_VISIBLE_PLATFORM_BARS)
@@ -352,15 +378,22 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                     </TableCell>
                   </TableRow>
                   <For each={visible()}>{(trend: GrowthMetricTrendView) => {
-                    const delta = () => rowDelta(trend)
-                    const dir = () => trendDirection(delta())
+                    // A row's label, delta and direction do not change while
+                    // the row exists — the series is immutable data. These were
+                    // accessors, and `seriesLabel` was called three times per
+                    // row, each call compiling a fresh `RegExp` from the
+                    // platform name. On a tenant with a hundred series that is
+                    // three hundred regex compilations per render pass.
+                    const label = seriesLabel(trend)
+                    const delta = rowDelta(trend)
+                    const dir = trendDirection(delta)
                     return (
                       <TableRow>
                         <TableCell class="pl-6" title={trend.display_name}>
                           <span class="flex items-baseline gap-1.5 overflow-hidden">
-                            <span class="text-secondary-foreground">{seriesLabel(trend).metric}</span>
-                            <Show when={seriesLabel(trend).subject}>
-                              <span class="overflow-hidden text-ellipsis text-xs text-muted-foreground">{seriesLabel(trend).subject}</span>
+                            <span class="text-secondary-foreground">{label.metric}</span>
+                            <Show when={label.subject}>
+                              <span class="overflow-hidden text-ellipsis text-xs text-muted-foreground">{label.subject}</span>
                             </Show>
                           </span>
                         </TableCell>
@@ -368,13 +401,13 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                         {/* A column of "0" down the right edge is a column of
                             nothing happening. A change is worth a glyph; no
                             change is worth the space it frees. */}
-                        <TableCell numeric classList={{ 'text-success': dir() === 'up', 'text-destructive': dir() === 'down' }}>
-                          <Show when={delta() != null && delta() !== 0} fallback={<span class="text-muted-foreground">—</span>}>
-                            {delta()! > 0 ? '+' : ''}{compactNumber(delta()!)}
+                        <TableCell numeric classList={{ 'text-success': dir === 'up', 'text-destructive': dir === 'down' }}>
+                          <Show when={delta != null && delta !== 0} fallback={<span class="text-muted-foreground">—</span>}>
+                            {delta! > 0 ? '+' : ''}{compactNumber(delta!)}
                           </Show>
                         </TableCell>
                         <Show when={movementScale() > 0}>
-                          <TableCell><MovementBar delta={delta()} max={movementScale()} /></TableCell>
+                          <TableCell><MovementBar delta={delta} max={movementScale()} /></TableCell>
                         </Show>
                       </TableRow>
                     )
@@ -441,7 +474,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
             </div>
             <Show when={grouped().downstream.length > MAX_VISIBLE_DOWNSTREAM}>
               <Button variant="ghost" size="sm" onClick={() => setShowAllDownstream(s => !s)}>
-                {showAllDownstream() ? 'Show less' : `Show all (${grouped().downstream.length})`}
+                {showAllDownstream() ? 'Show fewer' : `Show all ${grouped().downstream.length}`}
               </Button>
             </Show>
           </div>

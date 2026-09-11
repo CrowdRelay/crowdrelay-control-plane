@@ -150,7 +150,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
         </div>
         <Show when={ledger.data!.standings.length > MAX_VISIBLE_STANDINGS}>
           <Button variant="ghost" size="sm" onClick={() => setShowAllStandings(s => !s)}>
-            {showAllStandings() ? 'Show less' : `Show all (${ledger.data!.standings.length})`}
+            {showAllStandings() ? 'Show fewer' : `Show all ${ledger.data!.standings.length}`}
           </Button>
         </Show>
       </Show>
@@ -192,7 +192,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
                 </div>
                 <Show when={p.claims.length > MAX_VISIBLE_CLAIMS}>
                   <Button variant="ghost" size="sm" class="mt-2" onClick={() => toggleClaims(p.play_id)}>
-                    {expandedClaims().has(p.play_id) ? 'Show less' : `Show all (${p.claims.length})`}
+                    {expandedClaims().has(p.play_id) ? 'Show fewer' : `Show all ${p.claims.length}`}
                   </Button>
                 </Show>
               </Show>
@@ -201,7 +201,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
         </div>
         <Show when={ledger.data!.plays.length > MAX_VISIBLE_PLAYS}>
           <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllPlays(s => !s)}>
-            {showAllPlays() ? 'Show less' : `Show all (${ledger.data!.plays.length})`}
+            {showAllPlays() ? 'Show fewer' : `Show all ${ledger.data!.plays.length}`}
           </Button>
         </Show>
       </Show>

@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 import { toast } from './ui/toast'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './ui/empty-state'
-import { errorMessage } from '../lib/format'
+import { confidencePercent, errorMessage } from '../lib/format'
 import { SkeletonRows } from './Skeleton'
 import { CONTEXT_LABELS, SUBJECT_KIND_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
 import { SectionIcon } from './SectionIcon'
@@ -29,11 +29,6 @@ import { ErrorCard } from './layout'
 // The input_snapshot is rendered as key/value evidence, not as invented
 // model explanations.
 
-const confidencePercent = (basisPoints: number) => {
-  const percent = basisPoints / 100
-  if (percent > 0 && percent < 1) return '< 1%'
-  return `${Math.round(percent)}%`
-}
 
 const dispositionLabel = (disposition: string) =>
   disposition.replaceAll('_', ' ')

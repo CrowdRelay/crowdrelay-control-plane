@@ -23,7 +23,7 @@ export function TenantAuditPanel(props: { items: AuditEntry[] }) {
       icon={<SectionIcon name="history" />}
       action={<Show when={hasMore()}>
         <Button type="button" variant="ghost" size="sm" onClick={() => setExpanded(e => !e)}>
-          {expanded() ? 'Show less' : `Show all (${props.items.length})`}
+          {expanded() ? 'Show fewer' : `Show all ${props.items.length}`}
         </Button>
       </Show>}
     />

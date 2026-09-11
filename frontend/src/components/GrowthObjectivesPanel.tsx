@@ -154,7 +154,7 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
       </div>
       <Show when={objectives.data!.length > MAX_VISIBLE}>
         <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAll(s => !s)}>
-          {showAll() ? 'Show less' : `Show all (${objectives.data!.length})`}
+          {showAll() ? 'Show fewer' : `Show all ${objectives.data!.length}`}
         </Button>
       </Show>
     </Show>

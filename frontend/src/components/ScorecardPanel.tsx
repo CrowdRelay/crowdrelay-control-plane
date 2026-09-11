@@ -230,7 +230,7 @@ export function ScorecardPanel(props: { slug: string }) {
           </div>
           <Show when={d().by_context.length > MAX_VISIBLE_BY_CONTEXT}>
             <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllByContext(s => !s)}>
-              {showAllByContext() ? 'Show less' : `Show all (${d().by_context.length})`}
+              {showAllByContext() ? 'Show fewer' : `Show all ${d().by_context.length}`}
             </Button>
           </Show>
         </section>
@@ -255,7 +255,7 @@ export function ScorecardPanel(props: { slug: string }) {
           </div>
           <Show when={d().recent_results.length > MAX_VISIBLE_RECENT}>
             <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllRecent(s => !s)}>
-              {showAllRecent() ? 'Show less' : `Show all (${d().recent_results.length})`}
+              {showAllRecent() ? 'Show fewer' : `Show all ${d().recent_results.length}`}
             </Button>
           </Show>
         </Show>

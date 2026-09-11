@@ -1,4 +1,5 @@
 import { For, Show } from 'solid-js'
+import { confidencePercent } from '../lib/format'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { SectionIcon } from './SectionIcon'
@@ -211,7 +212,7 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
                   <Show when={item.confidence > 0}>
-                    <Badge variant="muted">confidence {item.confidence < 100 ? '< 1%' : `${Math.round(item.confidence / 100)}%`}</Badge>
+                    <Badge variant="muted">confidence {confidencePercent(item.confidence)}</Badge>
                   </Show>
                   <Show when={item.needs_approval}><Badge variant="warning">needs approval</Badge></Show>
                 </div>

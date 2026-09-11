@@ -1,4 +1,5 @@
 import { For, Show } from 'solid-js'
+import { confidencePercent } from '../lib/format'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { EmptyState } from './ui/empty-state'
@@ -18,11 +19,6 @@ import { cn } from '../lib/cn'
 // The summary line (N decisions → M actions → K outcomes → success %) is
 // computed from the returned data, not invented.
 
-const confidencePercent = (basisPoints: number) => {
-  const percent = basisPoints / 100
-  if (percent > 0 && percent < 1) return '< 1%'
-  return `${Math.round(percent)}%`
-}
 
 // Confidence level → text color class for color-coded confidence display.
 // High (≥80%) = green, medium (≥50%) = accent, low = muted.
@@ -85,11 +81,11 @@ export function LearningLoopPanel(props: { slug: string }) {
     return Math.round((improved / measured.length) * 100)
   }
 
+  {/* The Learning tab prints this exact sentence as its own section heading
+      immediately above this panel, so the operator read the same seven words
+      twice, in two different type sizes, with two different icons. The page
+      owns the heading; the panel owns the data. */}
   return <Card flat class="p-4 space-y-4">
-    <div>
-      <h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="book-open" />Decision → Action → Outcome → Learning</h2>
-    </div>
-
     <Show when={model.error}>
       <Alert tone="warning" role="status">
         Learning loop data is temporarily unavailable.
