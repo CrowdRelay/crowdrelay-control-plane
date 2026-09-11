@@ -18,7 +18,7 @@ export function PageHeader(props: {
   class?: string
 }) {
   return (
-    <div class={cn('flex items-start justify-between gap-6 mb-5', props.class)}>
+    <div class={cn('flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6 mb-5', props.class)}>
       <div class="min-w-0">
         <Show when={props.eyebrow}>
           <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</span>
@@ -29,7 +29,7 @@ export function PageHeader(props: {
         </Show>
       </div>
       <Show when={props.actions}>
-        <div class="flex items-center gap-2 flex-shrink-0">{props.actions}</div>
+        <div class="flex items-center gap-2 sm:flex-shrink-0">{props.actions}</div>
       </Show>
     </div>
   )
@@ -374,7 +374,7 @@ export function Section(props: {
         props.class,
       )}
     >
-      <div class="mb-3 flex items-start justify-between gap-4">
+      <div class="mb-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
         <div class="min-w-0">
           <h2 class={cn('flex items-center gap-2 font-semibold text-foreground', props.lead ? 'text-lg' : 'text-base')}>
             <Show when={props.icon}><span class={props.lead ? 'text-primary' : 'text-muted-foreground'}>{props.icon}</span></Show>
@@ -387,7 +387,7 @@ export function Section(props: {
             <p class="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">{props.description}</p>
           </Show>
         </div>
-        <Show when={props.action}><div class="flex shrink-0 items-center gap-2">{props.action}</div></Show>
+        <Show when={props.action}><div class="flex shrink-0 items-center gap-2 sm:shrink-0">{props.action}</div></Show>
       </div>
       {props.children}
     </section>

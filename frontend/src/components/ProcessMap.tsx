@@ -140,6 +140,17 @@ const ZONE_STROKE: Record<Zone, string> = {
   learn: 'var(--color-success-light)',
 }
 
+const ZONE_LABEL: Record<Zone, string> = {
+  src: 'Sources',
+  intel: 'Intelligence',
+  auth: 'Authority',
+  exec: 'Execution',
+  out: 'Outcomes',
+  learn: 'Learning',
+}
+
+const ZONE_ORDER: Zone[] = ['src', 'intel', 'auth', 'exec', 'out']
+
 // Pre-compute edge paths once — no reactive overhead.
 const EDGES_RENDERED = EDGES.map(edge => ({ edge, d: edgePath(edge) }))
 
@@ -153,7 +164,40 @@ export function ProcessMap(props: { slug: () => string }) {
 
   return (
     <div class="process-map-wrap">
-      <svg viewBox="0 0 1610 520" xmlns="http://www.w3.org/2000/svg" class="process-map" role="group" aria-label="Intelligence process map">
+      {/* Mobile: simplified vertical list of zones with clickable nodes */}
+      <div class="flex flex-col gap-3 md:hidden">
+        <For each={ZONE_ORDER}>{(zone) => (
+          <div class="rounded-lg border border-border bg-card p-3">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: ZONE_STROKE[zone] }} />
+              <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{ZONE_LABEL[zone]}</span>
+            </div>
+            <div class="flex flex-col gap-1">
+              <For each={NODES.filter(n => n.zone === zone)}>{(node) => (
+                <Show when={node.to} fallback={
+                  <div class="flex items-center gap-2 px-2 py-1.5 text-sm text-foreground">
+                    <span class="text-muted-foreground">•</span>
+                    <span>{node.title}</span>
+                    <Show when={node.desc}><span class="text-xs text-muted-foreground">— {node.desc}</span></Show>
+                  </div>
+                }>
+                  <button
+                    type="button"
+                    class="flex items-center gap-2 px-2 py-1.5 text-left text-sm text-foreground rounded-md hover:bg-surface-1 transition-colors"
+                    onClick={() => open(node)}
+                  >
+                    <span class="text-muted-foreground">•</span>
+                    <span>{node.title}</span>
+                    <Show when={node.desc}><span class="text-xs text-muted-foreground">— {node.desc}</span></Show>
+                  </button>
+                </Show>
+              )}</For>
+            </div>
+          </div>
+        )}</For>
+      </div>
+      {/* Desktop: full SVG diagram */}
+      <svg viewBox="0 0 1610 520" xmlns="http://www.w3.org/2000/svg" class="process-map hidden md:block" role="group" aria-label="Intelligence process map">
         <defs>
           {/* Arrow markers — one per zone colour, so each edge reads as
               flowing from its source zone, not as a generic grey arrow. */}

@@ -40,7 +40,7 @@ export const Dialog: Component<DialogProps> = (props) => (
       />
       <DialogPrimitive.Content
         class={cn(
-          'fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100vh-4rem)] w-full max-w-md -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border border-border bg-card shadow-xl',
+          'fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100vh-4rem)] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border border-border bg-card shadow-xl',
           props.class,
         )}
       >
@@ -98,7 +98,7 @@ export function ConfirmHost(): JSX.Element {
     <DialogPrimitive.Root open={pending() !== null} onOpenChange={(open) => { if (!open) settle(false) }}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay class="fixed inset-0 z-50 bg-black/50" />
-        <DialogPrimitive.Content class="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-5 shadow-xl">
+        <DialogPrimitive.Content class="fixed left-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-5 shadow-xl">
           <Show when={pending()} keyed>
             {request => (
               <>

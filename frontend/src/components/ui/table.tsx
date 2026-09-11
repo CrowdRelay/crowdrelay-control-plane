@@ -21,14 +21,12 @@ export const Table: Component<
   // here, where the header can use it; leave it off and the table does not
   // create a scroll container at all.
   //
-  // `overflow-x-auto` without `maxHeight` still creates a vertical scroll
-  // container: per CSS spec, `overflow-x: auto` forces `overflow-y: visible`
-  // to compute to `auto`, so a tall table scrolls inside the page's own scroll
-  // container — two scrollbars. `overflow-x-clip` clips horizontal overflow
-  // without creating a scroll container, so the page remains the only scroller.
+  // `overflow-x-auto` lets wide tables scroll horizontally on mobile instead of
+  // silently clipping. The first column is sticky so the row label stays
+  // visible while panning. On desktop the table fits and nothing scrolls.
   return (
     <div
-      class={cn('w-full', local.maxHeight ? 'overflow-auto' : 'overflow-x-clip')}
+      class={cn('w-full overflow-x-auto', local.maxHeight && 'overflow-auto')}
       style={local.maxHeight ? { 'max-height': local.maxHeight } : undefined}
     >
       <table class={cn('w-full text-sm border-collapse', local.class)} {...rest} />
@@ -46,7 +44,7 @@ export const TableBody: Component<JSX.HTMLAttributes<HTMLTableSectionElement> & 
   return <tbody class={cn('[&_tr:last-child]:border-0', local.class)} {...rest} />
 }
 
-const ROW_BASE = 'border-b border-border-subtle transition-colors hover:bg-surface-1'
+const ROW_BASE = 'group border-b border-border-subtle transition-colors hover:bg-surface-1'
 
 export const TableRow: Component<JSX.HTMLAttributes<HTMLTableRowElement> & { class?: string }> = (props) => {
   const [local, rest] = splitProps(props, ['class'])
@@ -61,7 +59,7 @@ export const TableHead: Component<JSX.ThHTMLAttributes<HTMLTableCellElement> & {
   return (
     <th
       class={cn(
-        'text-left text-xs font-medium uppercase tracking-wider text-muted-foreground border-b border-border py-1 px-2 first:pl-3 last:pr-3 sticky top-0 z-[1] bg-surface-2',
+        'text-left text-xs font-medium uppercase tracking-wider text-muted-foreground border-b border-border py-1 px-2 first:pl-3 last:pr-3 sticky top-0 z-[1] bg-surface-2 first:left-0 first:z-[2]',
         local.class,
       )}
       {...rest}
@@ -70,7 +68,7 @@ export const TableHead: Component<JSX.ThHTMLAttributes<HTMLTableCellElement> & {
 }
 
 const CELL_BASE =
-  'py-2.5 px-2 first:pl-3 last:pr-3 text-foreground overflow-hidden text-ellipsis whitespace-nowrap align-middle'
+  'py-2.5 px-2 first:pl-3 last:pr-3 text-foreground overflow-hidden text-ellipsis whitespace-nowrap align-middle first:sticky first:left-0 first:z-[1] first:bg-card first:group-hover:bg-surface-1'
 
 export const TableCell: Component<JSX.TdHTMLAttributes<HTMLTableCellElement> & { class?: string; numeric?: boolean }> = (props) => {
   const [local, rest] = splitProps(props, ['class', 'numeric'])

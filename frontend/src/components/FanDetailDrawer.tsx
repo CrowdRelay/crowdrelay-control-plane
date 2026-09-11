@@ -66,7 +66,7 @@ export function FanDetailDrawer(props: {
             <div class="fan-drawer-section">
               <h4>Ticket purchases</h4>
               <For each={props.fan!.ticket_purchases}>{(purchase) => (
-                <div class="flex items-center gap-2.5 px-3 py-2 rounded-sm">
+                <div class="flex flex-wrap items-center gap-2.5 px-3 py-2 rounded-sm">
                   <span class="text-sm text-muted-foreground whitespace-nowrap">{formatDateTime(purchase.paid_at)}</span>
                   <Badge>{purchase.event_title}</Badge>
                   <span class="text-muted-foreground">{purchase.status} · {purchase.currency} {purchase.amount_gross_minor / 100}</span>
@@ -84,7 +84,7 @@ export function FanDetailDrawer(props: {
             <Show when={!props.loading && !props.error && props.journey.length > 0}>
               <div class="flex flex-col gap-2">
                 <For each={props.journey}>{(event) => (
-                  <div class="flex items-center gap-2.5 px-3 py-2 rounded-sm">
+                  <div class="flex flex-wrap items-center gap-2.5 px-3 py-2 rounded-sm">
                     <span class="text-sm text-muted-foreground whitespace-nowrap">{formatDateTime(event.occurred_at)}</span>
                     <Badge>{journeyKindLabel(event.kind)}</Badge>
                     <span class="text-muted-foreground">{event.title}</span>

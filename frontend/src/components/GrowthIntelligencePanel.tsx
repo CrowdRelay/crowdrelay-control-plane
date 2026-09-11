@@ -174,7 +174,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
               const approveKey = `approve:${action.id}`
               const rejectKey = `reject:${action.id}`
               return (
-                <div class="flex items-start justify-between gap-4 p-3.5 border border-border rounded-lg bg-card">
+                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 p-3.5 border border-border rounded-lg bg-card">
                   <div class="min-w-0 flex-1 flex flex-col gap-1.5">
                     <div class="flex items-center gap-2 flex-wrap">
                       <Badge>{actionKindLabel(action.action_kind)}</Badge>
@@ -321,7 +321,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
         footer={<Button variant="ghost" size="sm" onClick={() => setViewingWorkflow(null)}>Close</Button>}
       >
         <>
-            <div class="flex gap-4 pb-2 text-sm border-b border-border">
+            <div class="flex flex-wrap gap-4 pb-2 text-sm border-b border-border">
               <span>Brain: {viewingWorkflow()?.brain_template}</span>
               <Show when={viewingWorkflow()?.brain_model}>
                 <span>Model: {viewingWorkflow()?.brain_model}</span>

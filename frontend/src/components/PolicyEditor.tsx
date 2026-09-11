@@ -19,16 +19,21 @@ import { Switch } from './ui/switch'
 //
 // One shared header, one row per policy, full width. `POLICY_GRID` is exported
 // so the header and the rows cannot drift out of alignment.
+//
+// On mobile the 6-column grid overflows (28.5rem minimum > 375px screen), so
+// each policy collapses to a stacked card: context + switch on top, then mode,
+// then confidence slider, then cap + save — all full-width. `md:contents`
+// dissolves the wrapper divs on desktop so their children become grid items.
 
 const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
 
 /** Column track shared by `PolicyHeader` and every `PolicyEditor` row. */
 export const POLICY_GRID =
-  'grid items-center gap-x-4 grid-cols-[minmax(0,1.6fr)_auto_11rem_minmax(8rem,1fr)_5rem_4.5rem]'
+  'flex flex-col gap-3 md:grid md:items-center md:gap-x-4 md:grid-cols-[minmax(0,1.6fr)_auto_11rem_minmax(8rem,1fr)_5rem_4.5rem]'
 
 export function PolicyHeader() {
   return (
-    <div class={`${POLICY_GRID} border-b border-border px-1 pb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground`}>
+    <div class="hidden md:grid md:items-center md:gap-x-4 md:grid-cols-[minmax(0,1.6fr)_auto_11rem_minmax(8rem,1fr)_5rem_4.5rem] border-b border-border px-1 pb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
       <span>Kind of work</span>
       <span>On</span>
       <span>How far it may go</span>
@@ -66,82 +71,95 @@ export function PolicyEditor(props: {
   const guarded = () => props.policy.guarded_until && new Date(props.policy.guarded_until).getTime() > Date.now()
 
   return <div class={`${POLICY_GRID} border-b border-border-subtle px-1 py-2.5 last:border-0`}>
-    <div class="min-w-0">
-      <div class="flex flex-wrap items-center gap-2">
-        <strong class="text-sm text-foreground">{contextLabel(props.policy.context)}</strong>
-        <Show when={guarded()}><StatusBadge status="held" tone="warn" /></Show>
+    {/* Context label + switch — header row on mobile, columns 1-2 on desktop */}
+    <div class="flex items-center justify-between gap-2 md:contents">
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <strong class="text-sm text-foreground">{contextLabel(props.policy.context)}</strong>
+          <Show when={guarded()}><StatusBadge status="held" tone="warn" /></Show>
+        </div>
+        {/* The version number was the only thing on this line for most rows, and
+            "v1" tells an operator nothing. The guardrail reason is why a policy is
+            held, which is the one thing here worth reading. */}
+        <Show when={props.policy.guardrail_reason}>
+          <small class="mt-0.5 block text-xs text-warning">{props.policy.guardrail_reason}</small>
+        </Show>
       </div>
-      {/* The version number was the only thing on this line for most rows, and
-          "v1" tells an operator nothing. The guardrail reason is why a policy is
-          held, which is the one thing here worth reading. */}
-      <Show when={props.policy.guardrail_reason}>
-        <small class="mt-0.5 block text-xs text-warning">{props.policy.guardrail_reason}</small>
+      <Switch
+        checked={enabled()}
+        label={`${contextLabel(props.policy.context)} enabled`}
+        disabled={props.pending}
+        onChange={() => setEnabled((current) => !current)}
+      />
+    </div>
+
+    {/* Mode select — labeled row on mobile, column 3 on desktop */}
+    <div class="flex flex-col gap-1 md:contents">
+      <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground md:hidden">How far it may go</span>
+      {/* Enum names described the machine's authority model. These describe what
+          the operator is agreeing to let it do. */}
+      <NativeSelect
+        size="sm"
+        disabled={props.pending || !enabled()}
+        value={level()}
+        aria-label={`${contextLabel(props.policy.context)} — how far it may go`}
+        onChange={(event) => setLevel(event.currentTarget.value as AutonomyLevel)}
+      >
+        <option value="observe">Only watch</option>
+        <option value="recommend">Suggest it</option>
+        <option value="require_approval">Ask me first</option>
+        <option value="bounded_auto">Do it alone</option>
+      </NativeSelect>
+    </div>
+
+    {/* Confidence slider — labeled row on mobile, column 4 on desktop */}
+    <div class="flex flex-col gap-1 md:contents">
+      <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground md:hidden">Confidence needed</span>
+      <div class="flex items-center gap-2">
+        <input
+          class="min-w-0 flex-1 accent-primary"
+          disabled={props.pending || !enabled()}
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value={confidence()}
+          onInput={(event) => setConfidence(event.currentTarget.valueAsNumber)}
+          aria-label={`${contextLabel(props.policy.context)} minimum confidence`}
+        />
+        <strong class="w-9 shrink-0 text-right text-sm tabular-nums text-foreground">{Math.round(confidence())}%</strong>
+      </div>
+    </div>
+
+    {/* Cap + save — footer row on mobile, columns 5-6 on desktop */}
+    <div class="flex items-center gap-2 md:contents">
+      <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground md:hidden shrink-0">Cap / day</span>
+      <Input
+        class="h-8 w-full text-right text-sm"
+        disabled={props.pending || !enabled()}
+        type="number"
+        min="1"
+        max="1000"
+        step="1"
+        value={maxActions()}
+        aria-label={`${contextLabel(props.policy.context)} — most actions per day`}
+        onInput={(event) => setMaxActions(event.currentTarget.valueAsNumber)}
+      />
+      {/* A permanently disabled ghost button is indistinguishable from a label.
+          The row has nothing to save until it is edited, so it offers nothing
+          until then. */}
+      <Show when={dirty()} fallback={<span />}>
+        <Button
+          size="sm"
+          disabled={!valid() || props.pending}
+          onClick={() => props.onSave({
+            enabled: enabled(),
+            autonomy_level: level(),
+            minimum_confidence: confidenceBasisPoints(),
+            max_actions_24h: maxActions(),
+          })}
+        >{props.pending ? 'Saving…' : 'Save'}</Button>
       </Show>
     </div>
-
-    <Switch
-      checked={enabled()}
-      label={`${contextLabel(props.policy.context)} enabled`}
-      disabled={props.pending}
-      onChange={() => setEnabled((current) => !current)}
-    />
-
-    {/* Enum names described the machine's authority model. These describe what
-        the operator is agreeing to let it do. */}
-    <NativeSelect
-      size="sm"
-      disabled={props.pending || !enabled()}
-      value={level()}
-      aria-label={`${contextLabel(props.policy.context)} — how far it may go`}
-      onChange={(event) => setLevel(event.currentTarget.value as AutonomyLevel)}
-    >
-      <option value="observe">Only watch</option>
-      <option value="recommend">Suggest it</option>
-      <option value="require_approval">Ask me first</option>
-      <option value="bounded_auto">Do it alone</option>
-    </NativeSelect>
-
-    <div class="flex items-center gap-2">
-      <input
-        class="min-w-0 flex-1 accent-primary"
-        disabled={props.pending || !enabled()}
-        type="range"
-        min="0"
-        max="100"
-        step="1"
-        value={confidence()}
-        onInput={(event) => setConfidence(event.currentTarget.valueAsNumber)}
-        aria-label={`${contextLabel(props.policy.context)} minimum confidence`}
-      />
-      <strong class="w-9 shrink-0 text-right text-sm tabular-nums text-foreground">{Math.round(confidence())}%</strong>
-    </div>
-
-    <Input
-      class="h-8 w-full text-right text-sm"
-      disabled={props.pending || !enabled()}
-      type="number"
-      min="1"
-      max="1000"
-      step="1"
-      value={maxActions()}
-      aria-label={`${contextLabel(props.policy.context)} — most actions per day`}
-      onInput={(event) => setMaxActions(event.currentTarget.valueAsNumber)}
-    />
-
-    {/* A permanently disabled ghost button is indistinguishable from a label.
-        The row has nothing to save until it is edited, so it offers nothing
-        until then. */}
-    <Show when={dirty()} fallback={<span />}>
-      <Button
-        size="sm"
-        disabled={!valid() || props.pending}
-        onClick={() => props.onSave({
-          enabled: enabled(),
-          autonomy_level: level(),
-          minimum_confidence: confidenceBasisPoints(),
-          max_actions_24h: maxActions(),
-        })}
-      >{props.pending ? 'Saving…' : 'Save'}</Button>
-    </Show>
   </div>
 }

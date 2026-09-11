@@ -171,7 +171,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
             <div class="flex flex-col gap-2.5 mt-4">
               <For each={showAllDecisions() ? decisions() : decisions().slice(0, MAX_VISIBLE_DECISIONS)}>{(decision: IntelligenceDecision) => (
                 <div class="overflow-hidden shadow-sm transition-colors hover:border-border-strong">
-                  <Button variant="ghost" size="sm" class="w-full h-auto p-4 flex items-center justify-between gap-3" onClick={() => toggleExpand(decision.id)}>
+                  <Button variant="ghost" size="sm" class="w-full h-auto p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3" onClick={() => toggleExpand(decision.id)}>
                     <div class="flex items-center gap-2.5">
                       <strong>{templateLabel(decision.brain_template)}</strong>
                       <span class="text-muted-foreground">{formatIsoAge(decision.created_at)}</span>
