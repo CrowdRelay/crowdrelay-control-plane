@@ -9,6 +9,7 @@ import { SectionIcon } from './SectionIcon'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
+import { ErrorCard } from './layout'
 
 const kindLabel = (kind: string): string => {
   switch (kind) {
@@ -109,7 +110,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
 
   return <Card flat class="p-4">
     <div class="flex items-center justify-between gap-4">
-      <h3 class="text-base font-semibold text-foreground m-0">Play ledger</h3>
+      <h3 class="text-sm font-semibold text-foreground m-0">Play ledger</h3>
       <div class="flex items-center gap-3">
         <Show when={ledger.data}>
           <span class="text-muted-foreground">{ledger.data!.plays.length} plays · {ledger.data!.standings.length} kinds</span>
@@ -120,7 +121,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
     <p class="text-muted-foreground text-sm leading-relaxed mt-2">What the agent committed to, what it did, and what each number is allowed to prove. Each play is a structured experiment with claims, evidence, and effect assessment.</p>
 
     <Show when={ledger.error}>
-      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Play ledger unavailable: {errorMessage(ledger.error, 'We couldn\'t reach the play ledger. Try refreshing.')}</div>
+      <ErrorCard>Play ledger unavailable: {errorMessage(ledger.error, 'We couldn\'t reach the play ledger. Try refreshing.')}</ErrorCard>
     </Show>
     <Show when={ledger.data} fallback={<SkeletonRows count={3} />}>
       <Show when={ledger.data!.standings.length > 0}>

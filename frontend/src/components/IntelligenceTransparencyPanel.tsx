@@ -5,7 +5,7 @@ import { errorMessage, formatIsoAge } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonRows } from './Skeleton'
 import { EmptyState } from './ui/empty-state'
-import { KpiStrip, KpiCard } from './layout'
+import { KpiStrip, KpiCard, ErrorCard } from './layout'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
@@ -101,7 +101,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
 
   return <div class="flex flex-col gap-4">
     <Show when={error()}>
-      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error()}</div>
+      <ErrorCard>{error()}</ErrorCard>
     </Show>
 
     {/* Time range selector */}

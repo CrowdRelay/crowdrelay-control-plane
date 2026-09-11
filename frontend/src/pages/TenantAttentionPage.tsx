@@ -168,7 +168,7 @@ export function TenantAttentionPage() {
       <Show when={!summary.error && summary.data}>{data => <>
         <div class="flex items-center justify-between gap-4 mb-3" id="reconciliation-findings">
           <div>
-            <h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="refresh-cw" />Cross-check against the tenant</h3>
+            <h3 class="text-sm font-semibold flex items-center gap-1.5"><SectionIcon name="refresh-cw" />Cross-check against the tenant</h3>
             <p class="text-sm text-muted-foreground mt-1 leading-relaxed">Compares what this console believes about the tenant with what the tenant actually reports — feature switches, Bandsintown sync, and anything already flagged. It only reads. Run it first, then work through whatever it disagrees about.</p>
           </div>
           <Button variant={confirmingReconcile() ? 'default' : 'outline'} size="sm" class={confirmingReconcile() ? 'flex gap-2 items-center mt-2' : ''} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' && <Spinner />} {busy() === 'reconcile' ? 'Checking…' : confirmingReconcile() ? 'Yes, run the check' : 'Run the check'}</Button>
@@ -195,9 +195,17 @@ export function TenantAttentionPage() {
             tone={(attention.data!.ecosystem!.bandsintown_sync?.consecutive_failures ?? 0) > 0 ? 'warn' : 'default'}
           />
         </div></Show>
-        <For each={attention.data?.findings ?? []}>{finding => <div class={finding.severity === 'critical' ? 'rounded-lg border border-destructive/30 bg-destructive/10 p-3.5 my-3 text-sm text-destructive leading-relaxed' : 'rounded-lg border border-warning/30 bg-warning/10 p-3.5 my-3 text-sm text-warning-light leading-relaxed'}>
-          <div class="flex items-center justify-between gap-4"><div><strong>{finding.summary}</strong><small class="block text-sm text-muted-foreground">{finding.severity} · {finding.kind} · {finding.entity_label ?? finding.entity_type}</small><Show when={finding.suggested_action}><p class="text-sm text-muted-foreground mt-1 leading-relaxed">{finding.suggested_action}</p></Show></div><StatusBadge status={finding.severity} tone={finding.severity === 'critical' ? 'bad' : finding.severity === 'warning' ? 'warn' : 'muted'} /></div>
-        </div>}</For>
+        <For each={attention.data?.findings ?? []}>{finding =>
+          <Show when={finding.severity === 'critical'} fallback={
+            <div class="rounded-lg border border-warning/30 bg-warning/10 p-3.5 my-3 text-sm text-warning-light leading-relaxed">
+              <div class="flex items-center justify-between gap-4"><div><strong>{finding.summary}</strong><small class="block text-sm text-muted-foreground">{finding.severity} · {finding.kind} · {finding.entity_label ?? finding.entity_type}</small><Show when={finding.suggested_action}><p class="text-sm text-muted-foreground mt-1 leading-relaxed">{finding.suggested_action}</p></Show></div><StatusBadge status={finding.severity} tone={finding.severity === 'critical' ? 'bad' : finding.severity === 'warning' ? 'warn' : 'muted'} /></div>
+            </div>
+          }>
+            <ErrorCard class="p-3.5 my-3 leading-relaxed">
+              <div class="flex items-center justify-between gap-4"><div><strong>{finding.summary}</strong><small class="block text-sm text-muted-foreground">{finding.severity} · {finding.kind} · {finding.entity_label ?? finding.entity_type}</small><Show when={finding.suggested_action}><p class="text-sm text-muted-foreground mt-1 leading-relaxed">{finding.suggested_action}</p></Show></div><StatusBadge status={finding.severity} tone={finding.severity === 'critical' ? 'bad' : finding.severity === 'warning' ? 'warn' : 'muted'} /></div>
+            </ErrorCard>
+          </Show>
+        }</For>
         <Show when={findingsCount() === 0}><div class="mt-4 p-4 border border-border-subtle rounded-lg bg-surface-1 text-left"><EmptyState label="Nothing disagrees" hint="The last check found no difference between what this console believes and what the tenant reports. Differences appear here when it finds one." /></div></Show>
       </>}</Show>
     </TabPanel>
@@ -283,12 +291,12 @@ export function TenantAttentionPage() {
 
     {/* ─── Trace Tab ─────────────────────────────────────────────── */}
     <TabPanel active={activeTab()} id="trace" visited={isVisited('trace')}>
-      <div class="flex items-center justify-between gap-4 mb-3"><div><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="history" />Correlation trace</h3><p class="text-sm text-muted-foreground mt-1 leading-relaxed">Metadata-only trace across audit, outbox, delivery and operator actions.</p></div></div>
+      <div class="flex items-center justify-between gap-4 mb-3"><div><h3 class="text-sm font-semibold flex items-center gap-1.5"><SectionIcon name="history" />Correlation trace</h3><p class="text-sm text-muted-foreground mt-1 leading-relaxed">Metadata-only trace across audit, outbox, delivery and operator actions.</p></div></div>
       <div class="flex gap-2.5 items-stretch">
         <Input class="min-h-10" value={timelineInput()} onInput={(event) => setTimelineInput(event.currentTarget.value)} placeholder="Request or correlation ID" aria-label="Request or correlation ID" />
         <Button variant="ghost" size="sm" disabled={!timelineInput().trim() || !!busy()} onClick={() => void lookupTimeline()}>{busy() === 'timeline' ? 'Tracing…' : 'Trace request'}</Button>
       </div>
-      <Show when={timeline()}>{result => <SectionPanel><div class="flex items-center justify-between gap-4 mb-3"><div><h3 class="text-base font-bold flex items-center gap-1.5"><SectionIcon name="history" />{result().events.length} timeline event(s)</h3><Button variant="ghost" size="sm" class="text-xs py-1.5 px-2.5" onClick={() => toggleRevealedId('timeline')}>{revealedId() === 'timeline' ? 'Hide ID' : 'Details'}</Button><Show when={revealedId() === 'timeline'}><small class="font-mono block p-1.5 px-2.5 rounded-sm bg-background border border-border-subtle text-muted-foreground text-xs break-all">Request ID · <span class="font-mono">{result().request_id}</span></small></Show></div><Button variant="ghost" size="sm" onClick={() => setTimeline(null)}>Close</Button></div><For each={result().events}>{event => <div class="rounded-lg border border-warning/30 bg-warning/10 p-3.5 px-4 my-3 text-sm text-warning-light leading-relaxed"><div class="flex gap-1.5 flex-wrap items-center"><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.source}</Badge><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.kind}</Badge></div><p class="mt-1.5">{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'}</p></div>}</For></SectionPanel>}</Show>
+      <Show when={timeline()}>{result => <SectionPanel><div class="flex items-center justify-between gap-4 mb-3"><div><h3 class="text-sm font-semibold flex items-center gap-1.5"><SectionIcon name="history" />{result().events.length} timeline event(s)</h3><Button variant="ghost" size="sm" class="text-xs py-1.5 px-2.5" onClick={() => toggleRevealedId('timeline')}>{revealedId() === 'timeline' ? 'Hide ID' : 'Details'}</Button><Show when={revealedId() === 'timeline'}><small class="font-mono block p-1.5 px-2.5 rounded-sm bg-background border border-border-subtle text-muted-foreground text-xs break-all">Request ID · <span class="font-mono">{result().request_id}</span></small></Show></div><Button variant="ghost" size="sm" onClick={() => setTimeline(null)}>Close</Button></div><For each={result().events}>{event => <div class="rounded-lg border border-warning/30 bg-warning/10 p-3.5 px-4 my-3 text-sm text-warning-light leading-relaxed"><div class="flex gap-1.5 flex-wrap items-center"><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.source}</Badge><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.kind}</Badge></div><p class="mt-1.5">{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'}</p></div>}</For></SectionPanel>}</Show>
     </TabPanel>
   </PageShell>
 }

@@ -5,6 +5,7 @@ import { SkeletonRows } from './Skeleton'
 import { Dialog } from './Dialog'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
+import { ErrorCard } from './layout'
 
 const formatDateTime = (iso: string | null) => {
   if (!iso) return '—'
@@ -57,7 +58,7 @@ export function FanDetailDrawer(props: {
             <div class="fan-drawer-tags">
               <h4 class="text-sm text-muted-foreground uppercase tracking-wider mb-2">Tags</h4>
               <div class="flex flex-wrap gap-1.5">
-                <For each={props.fan!.tags}>{tag => <Badge class="free-chip text-emerald-300 text-xs px-1 rounded-sm uppercase tracking-wider">{tag}</Badge>}</For>
+                <For each={props.fan!.tags}>{tag => <Badge class="free-chip text-success-light text-xs px-1 rounded-sm uppercase tracking-wider">{tag}</Badge>}</For>
               </div>
             </div>
           </Show>
@@ -76,7 +77,7 @@ export function FanDetailDrawer(props: {
           <div class="fan-drawer-journey">
             <h4 class="text-sm text-muted-foreground uppercase tracking-wider mb-2">Journey</h4>
             <Show when={props.loading}><SkeletonRows count={3} /></Show>
-            <Show when={props.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{props.error}</div></Show>
+            <Show when={props.error}><ErrorCard>{props.error}</ErrorCard></Show>
             <Show when={!props.loading && !props.error && props.journey.length === 0}>
               <EmptyState label="No journey events" hint="Journey events track fan interactions over time. They appear here once the fan engages with the platform." />
             </Show>

@@ -11,6 +11,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Badge } from './ui/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { ErrorCard } from './layout'
 
 const STATUS_TONE: Record<PortfolioConsentStatus, 'good' | 'warn' | 'bad' | 'muted'> = {
   proposed: 'warn',
@@ -163,7 +164,7 @@ export function PortfolioPanel(props: {
             <Show when={expandedRow() === edge.id}>
               <TableRow class="p-0 border-t-0">
                 <TableCell colspan="7" class="p-0 border-t-0">
-                  <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3.5 items-end px-4.5 py-4 bg-surface-1 border border-primary/30 rounded-b-lg -mt-px">
+                  <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3.5 items-end px-4 py-4 bg-surface-1 border border-primary/30 rounded-b-lg -mt-px">
                     <Show when={edge.status === 'proposed'}>
                       <label class="grid gap-1.5 text-muted-foreground text-sm">
                         <span>Approving operator</span>
@@ -218,6 +219,6 @@ export function PortfolioPanel(props: {
         <EmptyState label="No amplification edges" hint="Create an edge from either artist's workspace to start routing." />
       </Show>
     </Show>
-    <Show when={errorText()}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorText()}</div></Show>
+    <Show when={errorText()}><ErrorCard>{errorText()}</ErrorCard></Show>
   </Card>
 }

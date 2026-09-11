@@ -46,7 +46,7 @@ export const Dialog: Component<DialogProps> = (props) => (
       >
         <Show when={props.title !== false}>
           <div class="flex flex-col gap-1.5 border-b border-border px-5 py-4">
-            <DialogPrimitive.Title class="text-base font-semibold text-foreground">
+            <DialogPrimitive.Title class="text-sm font-semibold text-foreground">
               {props.title ?? props.label}
             </DialogPrimitive.Title>
             <Show when={props.description}>
@@ -102,7 +102,7 @@ export function ConfirmHost(): JSX.Element {
           <Show when={pending()} keyed>
             {request => (
               <>
-                <DialogPrimitive.Title class="text-lg font-semibold text-foreground">{request.title}</DialogPrimitive.Title>
+                <DialogPrimitive.Title class="text-sm font-semibold text-foreground">{request.title}</DialogPrimitive.Title>
                 <Show when={request.body}>
                   <DialogPrimitive.Description class="mt-2 text-sm text-muted-foreground leading-relaxed">
                     {request.body}

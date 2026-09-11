@@ -13,6 +13,7 @@ import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { ErrorCard } from './layout'
 import type { AutopilotOverview, AutopilotPolicy, PendingAutopilotAction, AgentWorkflow, AgentWorkflowTask } from '../lib/types'
 import { CAPABILITY_LABELS, DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 
@@ -140,7 +141,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
   return (
     <Card class="p-5">
       <Show when={error()}>
-        <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error()}</div>
+        <ErrorCard>{error()}</ErrorCard>
       </Show>
 
       {/* Approval queue — pending growth intelligence actions */}
@@ -155,7 +156,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           </Show>
         </div>
         <p class="mt-1 text-sm text-muted-foreground">Actions the intelligence has queued for your approval. Community posts, press pitches, and other growth actions appear here with rich detail before they're executed.</p>
-        <Show when={overview.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth intelligence overview unavailable: {errorMessage(overview.error, 'We couldn\'t reach the growth intelligence overview. Try refreshing.')}</div></Show>
+        <Show when={overview.error}><ErrorCard>Growth intelligence overview unavailable: {errorMessage(overview.error, 'We couldn\'t reach the growth intelligence overview. Try refreshing.')}</ErrorCard></Show>
         <Show when={pendingGrowthActions().length > 0} fallback={
           <Show when={overview.isFetching} fallback={
             <Show when={overview.data} fallback={
@@ -281,7 +282,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           </Show>
         </div>
         <p class="mt-1 text-sm text-muted-foreground">Each of these is a growth plan the autopilot decided on: what to research, draft or analyse. It then hands the work to an AI worker and records what came back.</p>
-        <Show when={workflows.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth workflows unavailable: {errorMessage(workflows.error, 'We couldn\'t reach the growth workflows. Try refreshing.')}</div></Show>
+        <Show when={workflows.error}><ErrorCard>Growth workflows unavailable: {errorMessage(workflows.error, 'We couldn\'t reach the growth workflows. Try refreshing.')}</ErrorCard></Show>
         <Show when={workflows.data && workflows.data!.length > 0} fallback={
           <Show when={workflows.data} fallback={<SkeletonGrid count={3} minCardHeight='100px' />}>
             <EmptyState label="No AI work yet" hint="When the autopilot decides something needs researching, drafting or analysing, it hands the job to an AI worker and the run appears here." />

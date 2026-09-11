@@ -6,6 +6,7 @@ import { errorMessage } from '../lib/format'
 import { compactNumber } from '../lib/charts'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
+import { ErrorCard } from './layout'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
@@ -105,10 +106,10 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
     <p class="mt-1 text-sm text-muted-foreground">Declared growth targets with progress tracking. Each objective freezes a baseline and measures progress toward the target value by the deadline.</p>
 
     <Show when={error()}>
-      <div class="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{error()}</div>
+      <ErrorCard class="mt-3">{error()}</ErrorCard>
     </Show>
 
-    <Show when={objectives.error}><div class="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Growth objectives unavailable: {objectiveErrorMessage(objectives.error, 'We couldn\'t reach the growth objectives. Try refreshing.')}</div></Show>
+    <Show when={objectives.error}><ErrorCard class="mt-3">Growth objectives unavailable: {objectiveErrorMessage(objectives.error, 'We couldn\'t reach the growth objectives. Try refreshing.')}</ErrorCard></Show>
     <Show when={objectives.data && objectives.data!.length > 0} fallback={
       <Show when={objectives.isFetching} fallback={
         <EmptyState label="No growth objectives declared" hint="Declare a target metric and deadline to start tracking progress. The intelligence measures every action against active objectives." />

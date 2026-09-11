@@ -11,6 +11,7 @@ import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { ErrorCard } from './layout'
 
 const feedStateLabel = (state: string): string =>
   state === 'live' ? 'Live' : state === 'stale' ? 'Stale' : 'Missing'
@@ -265,7 +266,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
       </Show>
     </div>
 
-    <Show when={coverage.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth coverage unavailable: {errorMessage(coverage.error, 'We couldn\'t reach the growth coverage data. Try refreshing.')}</div></Show>
+    <Show when={coverage.error}><ErrorCard>Growth coverage unavailable: {errorMessage(coverage.error, 'We couldn\'t reach the growth coverage data. Try refreshing.')}</ErrorCard></Show>
     <Show
       when={coverage.data && hasFeeds()}
       fallback={
@@ -295,7 +296,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
           stale or missing is worth flagging, and the flag belongs on its own
           section heading, next to the rows it explains. Platforms reporting
           nothing at all have no section, so those keep a chip. */}
-      <Show when={trends.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Growth trends unavailable: {errorMessage(trends.error, 'We couldn\'t reach the growth trends. Try refreshing.')}</div></Show>
+      <Show when={trends.error}><ErrorCard>Growth trends unavailable: {errorMessage(trends.error, 'We couldn\'t reach the growth trends. Try refreshing.')}</ErrorCard></Show>
       <Show when={trends.data && trends.data!.length > 0} fallback={
         <Show when={trends.isFetching} fallback={
           <Show when={hasLive()} fallback={<EmptyState label="No live feeds yet" hint="Trends appear once data starts flowing." />}>
@@ -402,7 +403,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
         <Show when={grouped().downstream.length > 0}>
           <div class="mt-6 pt-4 border-t border-border">
             <div class="flex items-center gap-2 mb-2">
-              <strong class="text-base font-bold text-foreground">Conversion</strong>
+              <strong class="text-sm font-semibold text-foreground">Conversion</strong>
               <span class="text-sm text-muted-foreground">{grouped().downstream.length} metrics</span>
             </div>
             <div class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">

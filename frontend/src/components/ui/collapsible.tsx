@@ -44,7 +44,7 @@ export function CollapsibleSection(props: {
           <Show when={props.eyebrow}>
             <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</span>
           </Show>
-          <h3 class="text-base font-semibold text-foreground">{props.title}</h3>
+          <h3 class="text-sm font-semibold text-foreground">{props.title}</h3>
         </div>
         <div class="flex items-center gap-2">
           <Show when={props.badge}>

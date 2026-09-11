@@ -5,7 +5,7 @@ import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { Dialog } from './Dialog'
-import { TabBar, TabPanel, useTabPanels } from './layout'
+import { TabBar, TabPanel, useTabPanels, ErrorCard } from './layout'
 import { AgentProvidersPanel } from './AgentProvidersPanel'
 import { AIUsagePanel } from './AIUsagePanel'
 import { IntelligenceTransparencyPanel } from './IntelligenceTransparencyPanel'
@@ -288,7 +288,7 @@ export function AgentPanel(props: { slug: string }) {
 
       <TabPanel active={activeTab()} id="tasks" visited={isVisited('tasks')}>
       {/* Autopilot intelligence → agent suggestions — the bridge between operations data and LLM execution */}
-      <Show when={tasksOverview.data?.suggestions && '__error' in tasksOverview.data!.suggestions}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Agent suggestions unavailable: {errorMessage(tasksOverview.error, 'We couldn\'t reach the agent service. Try refreshing.')}</div></Show>
+      <Show when={tasksOverview.data?.suggestions && '__error' in tasksOverview.data!.suggestions}><ErrorCard>Agent suggestions unavailable: {errorMessage(tasksOverview.error, 'We couldn\'t reach the agent service. Try refreshing.')}</ErrorCard></Show>
       <Show when={suggestions().length > 0}>
         <Card class="p-4">
           <div class="flex items-center justify-between gap-4">
@@ -421,7 +421,7 @@ export function AgentPanel(props: { slug: string }) {
             </div>
           </div>
         </Show>
-        <Show when={tasksOverview.data?.schedules && '__error' in tasksOverview.data!.schedules}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Agent schedules unavailable: {errorMessage(tasksOverview.error, 'We couldn\'t reach the agent service. Try refreshing.')}</div></Show>
+        <Show when={tasksOverview.data?.schedules && '__error' in tasksOverview.data!.schedules}><ErrorCard>Agent schedules unavailable: {errorMessage(tasksOverview.error, 'We couldn\'t reach the agent service. Try refreshing.')}</ErrorCard></Show>
         <Show when={schedules().length > 0}>
           <Table class="mt-4">
             <TableHeader><TableRow><TableHead>Template</TableHead><TableHead>Interval</TableHead><TableHead>Enabled</TableHead><TableHead>Last run</TableHead><TableHead>Next run</TableHead><TableHead></TableHead></TableRow></TableHeader>

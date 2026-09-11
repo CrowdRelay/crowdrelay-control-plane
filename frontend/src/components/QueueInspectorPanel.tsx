@@ -11,7 +11,7 @@ import { StatusBadge } from './StatusBadge'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
-import { TabBar } from './layout'
+import { TabBar, ErrorCard } from './layout'
 import type { DeliveryDetails, DeliveryItem, OutboxItem } from '../lib/types'
 import { NativeSelect } from './ui/native-select'
 
@@ -131,7 +131,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
     </div>
 
     <Show when={model.error}>
-      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(model.error, 'The queue could not be read')}</div>
+      <ErrorCard>{errorMessage(model.error, 'The queue could not be read')}</ErrorCard>
     </Show>
 
     {/* Skeletons only before the first result. A tab or status change swaps the

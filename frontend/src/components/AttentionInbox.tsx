@@ -206,7 +206,7 @@ export function AttentionInbox(props: {
 
 function AttentionItemRow(props: { item: AttentionItem }) {
   return <div id={`attention-item-${props.item.id}`} class={cn('flex items-start justify-between gap-3 px-3.5 py-3 border-b border-border-subtle last:border-0 border-l-2', props.item.tier === 'urgent' && 'border-l-destructive/50', props.item.tier === 'review' && 'border-l-warning/50', props.item.tier === 'informational' && 'border-l-border')}>
-    <div class="flex-1 min-w-0 flex flex-col gap-0.75">
+    <div class="flex-1 min-w-0 flex flex-col gap-1">
       <strong class="text-sm font-semibold text-foreground">{props.item.title}</strong>
       <small class="text-xs text-muted-foreground leading-[1.4]">{props.item.detail}</small>
       <Show when={props.item.consequence}>

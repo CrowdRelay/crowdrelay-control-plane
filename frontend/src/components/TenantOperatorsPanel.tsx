@@ -6,7 +6,7 @@ import { errorMessage } from '../lib/format'
 import { confirmAction } from './Dialog'
 import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
-import { SectionTitle } from './layout'
+import { SectionTitle, ErrorCard } from './layout'
 import { Spinner } from './Spinner'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
@@ -69,9 +69,9 @@ export function TenantOperatorsPanel(props: { slug: string }) {
       <div class="flex justify-end mt-3"><Button size="sm" disabled={create.isPending || !/^[a-z0-9][a-z0-9-_.]{2,31}$/.test(username().trim()) || password().length < 12} onClick={() => create.mutate()}>{create.isPending && <Spinner />} {create.isPending ? 'Creating…' : 'Create operator'}</Button></div>
     </div>
 
-    <Show when={create.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive mt-3" role="alert">{errorMessage(create.error, 'Operator creation failed')}</div></Show>
-    <Show when={remove.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive mt-3" role="alert">{errorMessage(remove.error, 'Operator removal failed')}</div></Show>
-    <Show when={accounts.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive mt-3" role="alert">{errorMessage(accounts.error, 'Could not load operator accounts')}</div></Show>
+    <Show when={create.error}><ErrorCard class="mt-3">{errorMessage(create.error, 'Operator creation failed')}</ErrorCard></Show>
+    <Show when={remove.error}><ErrorCard class="mt-3">{errorMessage(remove.error, 'Operator removal failed')}</ErrorCard></Show>
+    <Show when={accounts.error}><ErrorCard class="mt-3">{errorMessage(accounts.error, 'Could not load operator accounts')}</ErrorCard></Show>
     <Show when={(accounts.data?.items.length ?? 0) === 0 && !accounts.isPending && !accounts.error}>
       <div class="p-4 mt-4 rounded-lg border border-border bg-surface-1"><EmptyState label="No operator accounts yet" hint="Only the platform admin can reach this tenant right now. Create an account above to give the team its own scoped login." /></div>
     </Show>

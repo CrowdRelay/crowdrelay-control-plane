@@ -7,6 +7,7 @@ import { triggerRefresh, refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
+import { ErrorCard } from './layout'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
@@ -98,7 +99,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
       <Show when={preview.isFetching}><SkeletonPanel /></Show>
 
       <Show when={preview.error}>
-        <p class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Could not read what the brain believes: {errorMessage(preview.error, 'unknown error')}</p>
+        <ErrorCard>Could not read what the brain believes: {errorMessage(preview.error, 'unknown error')}</ErrorCard>
       </Show>
 
       <Show when={preview.data}>

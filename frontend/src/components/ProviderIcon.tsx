@@ -448,7 +448,7 @@ export function TierBadge(props: { tier: 'free' | 'premium' | 'connected' | 'bet
   const s = props.size ?? 10
   if (props.tier === 'connected') {
     return (
-      <span class="absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-surface-3 flex items-center justify-center leading-none bg-emerald-500 text-white" style={{ width: `${s}px`, height: `${s}px` }} aria-label="connected">
+      <span class="absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-surface-3 flex items-center justify-center leading-none bg-success text-background" style={{ width: `${s}px`, height: `${s}px` }} aria-label="connected">
         <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M20 6L9 17l-5-5" />
         </svg>

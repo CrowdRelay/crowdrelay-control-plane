@@ -11,7 +11,7 @@ import { SectionFailureCard } from './SectionFailureCard'
 import { PolicyEditor, PolicyHeader } from './PolicyEditor'
 import { CONTEXT_LABELS, labelOr } from '../lib/opportunity-labels'
 import { Card } from './ui/card'
-import { KpiCard } from './layout'
+import { KpiCard, ErrorCard } from './layout'
 import { Button } from './ui/button'
 
 const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
@@ -117,7 +117,7 @@ export function AuthorityPoliciesPanel(props: {
       </div>
     </div>
 
-    <Show when={mutationError()}>{message => <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{message()}</div>}</Show>
+    <Show when={mutationError()}>{message => <ErrorCard>{message()}</ErrorCard>}</Show>
 
     <Show when={confirming()?.startsWith('autopilot')}><div class="rounded-md border border-warning/30 bg-warning/10 p-4 text-sm text-warning flex flex-col gap-2.5 my-3" role="alertdialog" aria-label="Bulk Autopilot change">
       <strong>{confirmCopy()!.title}</strong>

@@ -13,7 +13,7 @@ import { Input } from './ui/input'
 import { Spinner } from './Spinner'
 import { Card } from './ui/card'
 import { Hint } from './ui/hint'
-import { KpiCard } from './layout'
+import { KpiCard, ErrorCard } from './layout'
 import type { AgentProvider, AgentCredential, AgentModel } from '../lib/types'
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -538,7 +538,7 @@ export function AgentProvidersPanel(props: {
                           </Show>
                         </Show>
 
-                        <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                        <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-warning/10 text-warning-light border border-warning/20">
                           <span class="font-bold uppercase tracking-wide text-xs" title="Connected via API key">API Key</span>
                           <Show when={cred()?.provider_account}>
                             <span class="opacity-80 font-normal">{cred()!.provider_account?.slice(0, 8)}…</span>
@@ -659,7 +659,7 @@ export function AgentProvidersPanel(props: {
             </div>
           </Show>
           <Show when={error() && !isServiceDown()}>
-            <div class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error()}</div>
+            <ErrorCard class="rounded-md p-3">{error()}</ErrorCard>
           </Show>
           <Show when={!isServiceDown()}>
             <div class="h-20 rounded-lg border border-border bg-surface-1 animate-pulse" />
@@ -694,7 +694,7 @@ export function AgentProvidersPanel(props: {
           <KpiCard label="Models" value={availableModelCount()} sub="available" />
           <Card class="p-4">
             <div class="text-xs text-muted-foreground">Tasks run</div>
-            <div class="mt-1 text-2xl font-bold tabular-nums text-foreground">{usage.data!.tasks.length}</div>
+            <div class="mt-1 text-xl font-bold tabular-nums text-foreground">{usage.data!.tasks.length}</div>
             <div class="text-xs text-muted-foreground">in the last 30 days</div>
             <Show when={dailyCostSeries().some(v => v > 0)}>
               <div class="mt-1 h-5 opacity-80">
@@ -705,7 +705,7 @@ export function AgentProvidersPanel(props: {
         </section>
 
         <Show when={error()}>
-          <div class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error()}</div>
+          <ErrorCard class="rounded-md p-3">{error()}</ErrorCard>
         </Show>
 
         </Show>

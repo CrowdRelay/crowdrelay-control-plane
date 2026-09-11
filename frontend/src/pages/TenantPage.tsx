@@ -218,7 +218,7 @@ export function TenantPage() {
                 { label: 'Marketing consented', value: operations.data?.audience?.marketing_consented_fans },
               ]}>{kpi => (
                 <div class="flex flex-col gap-1">
-                  <span class="text-2xl font-bold tabular-nums text-foreground">
+                  <span class="text-xl font-bold tabular-nums text-foreground">
                     <Show when={kpi.value != null} fallback={<span class="text-muted-foreground">—</span>}>{kpi.value!.toLocaleString()}</Show>
                   </span>
                   <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{kpi.label}</span>

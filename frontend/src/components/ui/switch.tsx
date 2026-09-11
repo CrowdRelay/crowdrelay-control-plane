@@ -47,7 +47,7 @@ export const Switch: Component<SwitchProps> = (props) => {
       <span
         aria-hidden="true"
         class={cn(
-          'pointer-events-none block h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform',
+          'pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
           local.checked ? 'translate-x-6' : 'translate-x-0.5',
         )}
       />

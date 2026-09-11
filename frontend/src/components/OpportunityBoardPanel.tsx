@@ -5,7 +5,7 @@ import { errorMessage } from '../lib/format'
 import { SkeletonOpportunityBoard } from './Skeleton'
 import { APPROVE_EFFECT, CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, RANK_FACTOR_LABELS, VALUE_TIER_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
 import { SectionIcon } from './SectionIcon'
-import { Section } from './layout'
+import { Section, ErrorCard } from './layout'
 import { Spinner } from './Spinner'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
@@ -316,7 +316,7 @@ export function OpportunityBoardPanel(props: {
     </Show>
 
     <Show when={mutationError()}>
-      {message => <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{message()}</div>}
+      {message => <ErrorCard>{message()}</ErrorCard>}
     </Show>
 
     <Show when={board.data} fallback={!board.error ? <SkeletonOpportunityBoard /> : null}>{data => <>

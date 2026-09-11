@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { toast } from './ui/toast'
 import { cn } from '../lib/cn'
+import { ErrorCard } from './layout'
 import { Button } from './ui/button'
 
 /**
@@ -216,11 +217,11 @@ export function RedditCookieUploader(props: { slug: string }) {
       </Show>
 
       <Show when={fileError()}>
-        <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{fileError()}</div>
+        <ErrorCard>{fileError()}</ErrorCard>
       </Show>
 
       <Show when={status.isError}>
-        <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Could not load cookie status: {errorMessage(status.error, 'unknown error')}</div>
+        <ErrorCard>Could not load cookie status: {errorMessage(status.error, 'unknown error')}</ErrorCard>
       </Show>
     </div>
   )

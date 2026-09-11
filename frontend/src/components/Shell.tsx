@@ -11,7 +11,6 @@ import { ChatWidget } from './ChatWidget'
 import { ErrorBoundaryPanel } from './ErrorBoundaryPanel'
 import { ConfirmHost } from './Dialog'
 import { ReauthModal } from './ReauthModal'
-import { MobileTabBar } from './MobileTabBar'
 import { Button } from './ui/button'
 import type { TenantSummary } from '../lib/types'
 import { cn } from '../lib/cn'
@@ -586,7 +585,6 @@ export const Shell: Component = () => {
         <ToastContainer />
         <ConfirmHost />
       </main>
-      <MobileTabBar />
       <ReauthModal />
       <Show when={slug()}>{(s) => <ChatWidget slug={s()} />}</Show>
     </div>

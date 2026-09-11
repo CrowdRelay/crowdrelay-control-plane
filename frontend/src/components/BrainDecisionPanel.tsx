@@ -13,6 +13,7 @@ import { Spinner } from './Spinner'
 import { Card } from './ui/card'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
+import { ErrorCard } from './layout'
 
 // The flagship decision surface. Shows the single most important current
 // decision (opportunity board position #1) in a structured narrative:
@@ -356,7 +357,7 @@ export function BrainDecisionPanel(props: {
 
         <Show when={showEvidence()}>
           <>
-            <Show when={evidence.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Brain decision evidence unavailable: {errorMessage(evidence.error, 'We couldn\'t reach the brain decision evidence. Try refreshing.')}</div></Show>
+            <Show when={evidence.error}><ErrorCard>Brain decision evidence unavailable: {errorMessage(evidence.error, 'We couldn\'t reach the brain decision evidence. Try refreshing.')}</ErrorCard></Show>
             <Show when={evidence.isFetching}>
               <SkeletonRows count={3} />
             </Show>

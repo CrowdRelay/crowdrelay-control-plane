@@ -10,7 +10,7 @@ import { SectionIcon } from './SectionIcon'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
-import { SectionTitle } from './layout'
+import { SectionTitle, ErrorCard } from './layout'
 import { CAPABILITY_LABELS, CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 
 const count = (value: number | undefined | null) =>
@@ -131,10 +131,10 @@ export function ScorecardPanel(props: { slug: string }) {
           <small class="block text-xs text-muted-foreground mt-0.5">{d().status.live_capabilities.length === 0 ? 'none active' : 'running'}</small>
         </div>
         <Show when={d().status.parked_capabilities.length > 0}>
-          <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 flex flex-col gap-1">
+          <ErrorCard class="p-3 flex flex-col gap-1">
             <strong class="text-destructive text-sm">Execution gap</strong>
             <span class="text-xs text-secondary-foreground">{d().status.parked_capabilities.length === 1 ? 'One job is' : `${d().status.parked_capabilities.length} jobs are`} queued with nothing able to run them: {d().status.parked_capabilities.map(cap => labelOr(CAPABILITY_LABELS, cap)).join(', ')}</span>
-          </div>
+          </ErrorCard>
         </Show>
       </div>
 
@@ -151,7 +151,7 @@ export function ScorecardPanel(props: { slug: string }) {
       {/* Week summary */}
       <section class="mt-6 pt-4 border-t border-border">
         <div class="flex justify-between gap-4 items-start">
-          <div><h3 class="text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="zap" />Actions</h3></div>
+          <div><h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><SectionIcon name="zap" />Actions</h3></div>
         </div>
         <div class="grid gap-3 mt-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
           <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Executed</span>{num(d().week.executed)}<small class="block text-muted-foreground text-sm">{count(d().week.succeeded)} succeeded · {count(d().week.failed)} failed</small></div>
@@ -172,7 +172,7 @@ export function ScorecardPanel(props: { slug: string }) {
       {/* Track record */}
       <section class="mt-6 pt-4 border-t border-border">
         <div class="flex justify-between gap-4 items-start">
-          <div><h3 class="text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="history" />Did it work?</h3></div>
+          <div><h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><SectionIcon name="history" />Did it work?</h3></div>
         </div>
         <div class="grid gap-3 mt-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
           <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Improved</span><strong class="block my-1.5 text-foreground">{count(d().track_record.improved)}</strong><small class="block text-sm text-success">measured wins</small></div>
@@ -200,10 +200,10 @@ export function ScorecardPanel(props: { slug: string }) {
                     && d().track_record.unmeasured > 0}>
           <details class="mt-3">
             <summary class="cursor-pointer text-sm text-warning font-medium">Low measurement coverage — click for details</summary>
-            <div class="mt-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 flex flex-col gap-1">
+            <ErrorCard class="mt-2 p-3 flex flex-col gap-1">
               <strong class="text-destructive">Low measurement coverage</strong>
               <span class="text-sm text-secondary-foreground">{d().track_record.unmeasured} executed action(s) have no measurement scheduled, so their effect can never be judged. This excludes anything still inside its measurement horizon.</span>
-            </div>
+            </ErrorCard>
           </details>
         </Show>
         <Show when={(d().track_record.awaiting_measurement ?? 0) > 0
@@ -219,7 +219,7 @@ export function ScorecardPanel(props: { slug: string }) {
       <Show when={d().by_context.length > 0}>
         <section class="mt-6 pt-4 border-t border-border">
           <div class="flex justify-between gap-4 items-start">
-            <div><h3 class="text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="target" />Which parts are producing</h3></div>
+            <div><h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><SectionIcon name="target" />Which parts are producing</h3></div>
           </div>
           <div class="grid gap-2.5 mt-3" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(200px, 1fr))' }}>
             <For each={showAllByContext() ? d().by_context : d().by_context.slice(0, MAX_VISIBLE_BY_CONTEXT)}>{ctx => <div class="p-3 border border-border rounded-lg bg-card flex flex-col gap-1">
@@ -239,7 +239,7 @@ export function ScorecardPanel(props: { slug: string }) {
       {/* Recent results */}
       <section class="mt-6 pt-4 border-t border-border">
         <div class="flex justify-between gap-4 items-start">
-          <div><h3 class="text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="list-checks" />Last 10 completed actions</h3></div>
+          <div><h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><SectionIcon name="list-checks" />Last 10 completed actions</h3></div>
         </div>
         <Show when={d().recent_results.length > 0} fallback={<div class="p-4 mt-3 rounded-lg border border-border bg-surface-1"><p class="m-0 text-sm text-muted-foreground">The agent has not completed any actions yet.</p></div>}>
           <div class="grid gap-2.5 mt-3" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))' }}>

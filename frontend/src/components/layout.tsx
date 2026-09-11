@@ -50,7 +50,7 @@ export function KpiCard(props: {
   return (
     <Card class={cn('rounded-lg p-4', props.tone === 'good' && 'border-success/30', props.tone === 'warn' && 'border-warning/30', props.class)}>
       <div class="text-xs text-muted-foreground">{props.label}</div>
-      <div class="text-2xl font-bold tabular-nums text-foreground mt-1">{props.value}</div>
+      <div class="text-xl font-bold tabular-nums text-foreground mt-1">{props.value}</div>
       <Show when={props.sub}>
         <div class="text-xs text-muted-foreground mt-1">{props.sub}</div>
       </Show>
@@ -396,7 +396,7 @@ export function CommandBlock(props: {
     <Card class={cn('p-4 transition-colors hover:border-border-strong cursor-pointer', toneClass[props.tone ?? 'default'], props.class)}>
       <div class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</div>
       <div class="mt-2 flex items-baseline gap-2">
-        <span class="text-2xl font-bold tabular-nums text-foreground">{props.metric}</span>
+        <span class="text-xl font-bold tabular-nums text-foreground">{props.metric}</span>
         <span class="text-xs text-muted-foreground">{props.label}</span>
       </div>
       {/* Callers pass a fragment of sibling `<span>`s. `space-y-*` sets margins

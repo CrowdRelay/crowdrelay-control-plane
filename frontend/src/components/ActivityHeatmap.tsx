@@ -79,7 +79,7 @@ export const ActivityHeatmap: Component<{
   const activeDays = () => cells().filter(c => c.count > 0).length
 
   return (
-    <div class="flex flex-col gap-1.5 px-4.5 py-3.5 border border-border rounded-lg bg-card mt-4">
+    <div class="flex flex-col gap-1.5 px-4 py-3.5 border border-border rounded-lg bg-card mt-4">
       <div class="flex items-center justify-between gap-3">
         <div>
           <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">ACTIVITY HEATMAP</span>
@@ -94,9 +94,9 @@ export const ActivityHeatmap: Component<{
           <span>more</span>
         </div>
       </div>
-      <div class="flex gap-0.75 overflow-x-auto pb-1" style={{ 'grid-template-columns': `repeat(${grid().length}, 13px)` }}>
+      <div class="flex gap-1 overflow-x-auto pb-1" style={{ 'grid-template-columns': `repeat(${grid().length}, 13px)` }}>
         <For each={grid()}>{(week) => (
-          <div class="flex flex-col gap-0.75">
+          <div class="flex flex-col gap-1">
             <For each={week}>{(cell) => (
               <div
                 class="w-2.5 h-2.5 rounded-[2px] transition-transform duration-[120ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.4] hover:z-[1]"

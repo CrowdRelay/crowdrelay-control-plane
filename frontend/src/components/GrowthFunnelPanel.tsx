@@ -6,7 +6,7 @@ import { StatusBadge } from './StatusBadge'
 import { FunnelChart } from './FunnelChart'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock, SkeletonRows } from './Skeleton'
-import { KpiStrip, KpiCard } from './layout'
+import { KpiStrip, KpiCard, ErrorCard } from './layout'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
@@ -130,7 +130,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
 
   return <Card flat class="p-5">
     <Show when={error()}>
-      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error()}</div>
+      <ErrorCard>{error()}</ErrorCard>
     </Show>
 
     {/* Time range selector */}

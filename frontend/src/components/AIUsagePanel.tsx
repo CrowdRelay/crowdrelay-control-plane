@@ -7,6 +7,7 @@ import { Sparkline } from './Sparkline'
 import type { TemplateRoi, ModelAnalytics } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
+import { ErrorCard } from './layout'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
@@ -74,7 +75,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
 
   return <Card flat class="p-5">
     <Show when={data.isError}>
-      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{errorMessage(data.error, 'Failed to load usage analytics')}</div>
+      <ErrorCard>{errorMessage(data.error, 'Failed to load usage analytics')}</ErrorCard>
     </Show>
 
     {/* Budget header */}

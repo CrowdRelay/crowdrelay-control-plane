@@ -11,6 +11,7 @@ import { SkeletonFlagList } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { SectionFailureCard } from './SectionFailureCard'
+import { ErrorCard } from './layout'
 import { Card } from './ui/card'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
@@ -107,7 +108,7 @@ export function RuntimeSwitchesPanel(props: {
       </Alert>
     }</Show>
 
-    <Show when={mutationError()}>{message => <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{message()}</div>}</Show>
+    <Show when={mutationError()}>{message => <ErrorCard>{message()}</ErrorCard>}</Show>
 
     <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
       <div><span class="block text-xs text-muted-foreground">HTTP p95</span><strong class="block mt-1 text-lg font-bold tabular-nums text-foreground">{metric(props.summary?.http.p95_ms, ' ms')}</strong><small class="block text-xs text-muted-foreground">p50 {metric(props.summary?.http.p50_ms, ' ms')}</small></div>
@@ -132,7 +133,7 @@ export function RuntimeSwitchesPanel(props: {
 
     <section class="mt-6 pt-4 border-t border-border">
       <details open>
-        <summary class="flex items-center justify-between gap-4 cursor-pointer list-none"><div><h3 class="text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="settings" />Runtime switches</h3></div><small class="text-xs text-muted-foreground">{flags.data?.length ?? 0} declared</small></summary>
+        <summary class="flex items-center justify-between gap-4 cursor-pointer list-none"><div><h3 class="text-sm font-semibold text-foreground flex items-center gap-2"><SectionIcon name="settings" />Runtime switches</h3></div><small class="text-xs text-muted-foreground">{flags.data?.length ?? 0} declared</small></summary>
         <Show when={flags.data} fallback={
           <Show when={flags.error} fallback={<SkeletonFlagList />}>
             <SectionFailureCard error={flags.error} fallback="Feature flags unavailable" onRetry={() => void flags.refetch()} />

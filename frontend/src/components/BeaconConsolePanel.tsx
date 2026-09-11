@@ -14,6 +14,7 @@ import { NativeSelect } from './ui/native-select'
 import { buttonVariants } from './ui/button'
 import { cn } from '../lib/cn'
 import { EmptyState } from './ui/empty-state'
+import { ErrorCard } from './layout'
 
 // The beacon roster, and everything you can do to it.
 //
@@ -263,29 +264,29 @@ export function BeaconConsolePanel(props: { slug: string }) {
 
       <Show when={roster.isPending}><SkeletonPanel /></Show>
       <Show when={roster.error}>
-        <p class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">Could not load the roster: {errorMessage(roster.error, 'We couldn\'t load the beacon roster. Try refreshing.')}</p>
+        <ErrorCard>Could not load the roster: {errorMessage(roster.error, 'We couldn\'t load the beacon roster. Try refreshing.')}</ErrorCard>
       </Show>
 
       <Show when={adding()}>
         <form class="grid grid-cols-1 md:grid-cols-2 gap-3.5 rounded-lg border border-border bg-card p-4" onSubmit={addBeacon}>
-          <label class="grid gap-1.75 text-muted-foreground text-sm">
+          <label class="grid gap-1.5 text-muted-foreground text-sm">
             Name <small class="text-xs text-muted-foreground">venue, shop or person</small>
             <Input value={form().displayName} required maxlength={200}
                    onInput={e => setForm({ ...form(), displayName: e.currentTarget.value })} />
           </label>
-          <label class="grid gap-1.75 text-muted-foreground text-sm">
+          <label class="grid gap-1.5 text-muted-foreground text-sm">
             Kind <small class="text-xs text-muted-foreground">what they are to the band, not their job title</small>
             <NativeSelect value={form().beaconKind}
                     onChange={e => setForm({ ...form(), beaconKind: e.currentTarget.value })}>
               <For each={KINDS}>{kind => <option value={kind}>{KIND_LABEL[kind]}</option>}</For>
             </NativeSelect>
           </label>
-          <label class="grid gap-1.75 text-muted-foreground text-sm">
+          <label class="grid gap-1.5 text-muted-foreground text-sm">
             City slug <small class="text-xs text-muted-foreground">as the public city list returns it</small>
             <Input value={form().citySlug} maxlength={100}
                    onInput={e => setForm({ ...form(), citySlug: e.currentTarget.value })} />
           </label>
-          <label class="grid gap-1.75 text-muted-foreground text-sm">
+          <label class="grid gap-1.5 text-muted-foreground text-sm">
             Contact email <small class="text-xs text-muted-foreground">needed before they can be invited</small>
             <Input type="email" value={form().contactEmail} maxlength={320}
                    onInput={e => setForm({ ...form(), contactEmail: e.currentTarget.value })} />

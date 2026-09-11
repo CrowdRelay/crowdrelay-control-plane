@@ -5,7 +5,7 @@ import { refreshQueries } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
-import { KpiStrip, KpiCard } from './layout'
+import { KpiStrip, KpiCard, ErrorCard } from './layout'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -131,7 +131,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
   return <div class="mt-6 pt-4 border-t border-border">
     <div class="flex items-start justify-between gap-4 mb-3">
       <div>
-        <h3 class="text-base font-semibold text-foreground">Release campaigns</h3>
+        <h3 class="text-sm font-semibold text-foreground">Release campaigns</h3>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
         <Show when={campaigns.data}>
@@ -145,7 +145,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
     <p class="text-sm text-muted-foreground leading-relaxed">Physical release delivery to beacon recipients. Launch a campaign to notify eligible beacons; close when all parcels are delivered.</p>
 
     <Show when={error()}>
-      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{error()}</div>
+      <ErrorCard>{error()}</ErrorCard>
     </Show>
 
     <Show when={creating()}>
@@ -178,7 +178,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
       </form>
     </Show>
 
-    <Show when={campaigns.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Release campaigns unavailable: {errorMessage(campaigns.error, 'We couldn\'t reach the release campaigns. Try refreshing.')}</div></Show>
+    <Show when={campaigns.error}><ErrorCard>Release campaigns unavailable: {errorMessage(campaigns.error, 'We couldn\'t reach the release campaigns. Try refreshing.')}</ErrorCard></Show>
     <Show when={campaigns.data} fallback={<SkeletonRows count={3} />}>
       <Show when={campaigns.data!.pool.active_release_latarnicy > 0 || campaigns.data!.pool.missing_email > 0}>
         <KpiStrip>
@@ -232,7 +232,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
               </div>
 
               <Show when={selectedCampaign() === c.id}>
-                <Show when={recipients.error}><div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">Campaign recipients unavailable: {errorMessage(recipients.error, 'We couldn\'t reach the campaign recipients. Try refreshing.')}</div></Show>
+                <Show when={recipients.error}><ErrorCard>Campaign recipients unavailable: {errorMessage(recipients.error, 'We couldn\'t reach the campaign recipients. Try refreshing.')}</ErrorCard></Show>
                 <Show when={recipients.data} fallback={<SkeletonRows count={3} />}>
                   <Table class="mt-3">
                     <TableHeader>

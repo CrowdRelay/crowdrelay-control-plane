@@ -2,6 +2,7 @@ import { For, Show } from 'solid-js'
 import { ApiError, errorHeading } from '../lib/api'
 import type { SectionVerdict } from '../lib/types'
 import { cn } from '../lib/cn'
+import { ErrorCard } from './layout'
 import { Button } from './ui/button'
 
 // When every section of a read-model fan-out fails, the backend returns a
@@ -56,12 +57,12 @@ export function SectionFailureCard(props: { error: unknown; fallback: string; on
   // old `<div class="error-card">{error.message}</div>` pattern.
   return <Show when={error()}>
     <Show when={isAllSectionsFailed()} fallback={
-      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
+      <ErrorCard>
         {errorHeading(error(), props.fallback)}
         <Show when={props.onRetry}><Button variant="ghost" size="sm" class="mt-2.5" onClick={() => props.onRetry!()}>Retry</Button></Show>
-      </div>
+      </ErrorCard>
     }>
-      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
+      <ErrorCard>
         <strong class="block mb-1">{errorHeading(error(), props.fallback)}</strong>
         <Show when={channel()}>
           {ch => <p class="m-0 mb-2 text-sm text-muted-foreground">Channel: <code class="text-destructive-light">{ch()}</code></p>}
@@ -69,7 +70,7 @@ export function SectionFailureCard(props: { error: unknown; fallback: string; on
         <ul class="list-none m-2 mt-0 p-0 flex flex-col gap-1.5">
           <For each={Object.entries(sections() ?? {})}>
             {([name, verdict]) => (
-              <li class="flex flex-wrap items-baseline gap-x-3 gap-y-1.5 p-2 rounded-sm bg-black/20">
+              <li class="flex flex-wrap items-baseline gap-x-3 gap-y-1.5 p-2 rounded-sm bg-surface-1">
                 <span class="font-bold text-sm uppercase tracking-tight text-foreground">{name}</span>
                 <span class={cn(
                   'text-xs px-2 py-0.5 rounded-sm font-semibold whitespace-nowrap',
@@ -85,7 +86,7 @@ export function SectionFailureCard(props: { error: unknown; fallback: string; on
           </For>
         </ul>
         <Show when={props.onRetry}><Button variant="ghost" size="sm" class="mt-2.5" onClick={() => props.onRetry!()}>Retry</Button></Show>
-      </div>
+      </ErrorCard>
     </Show>
   </Show>
 }

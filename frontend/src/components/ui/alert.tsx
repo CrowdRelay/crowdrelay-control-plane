@@ -35,8 +35,7 @@ export const Alert: Component<
     <div
       role={role()}
       class={cn(
-        // Square, like every other surface in the console.
-        'border p-4 text-sm break-words',
+        'rounded-lg border p-4 text-sm break-words',
         toneStyles[tone()],
         local.class,
       )}

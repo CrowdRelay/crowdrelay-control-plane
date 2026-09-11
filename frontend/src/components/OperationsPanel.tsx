@@ -12,6 +12,7 @@ import { Card } from './ui/card'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
 import { cn } from '../lib/cn'
+import { ErrorCard } from './layout'
 
 const seconds = (value: number) => value <= 0 ? '—' : formatAge(value)
 
@@ -188,7 +189,7 @@ export function OperationsPanel(props: {
         </span>
       </div>
     </Show>
-    <Show when={mutationError()}>{message => <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive mt-4" role="alert">{message()}</div>}</Show>
+    <Show when={mutationError()}>{message => <ErrorCard class="mt-4">{message()}</ErrorCard>}</Show>
 
     {/* Freshness — the Control Plane distinguishes "live" (upstream timestamp
         within stale threshold) from "stale" from "unknown" (no upstream
@@ -227,7 +228,7 @@ export function OperationsPanel(props: {
     </div>
 
     <Show when={summary.data && (deadJobs() > 0 || summary.data.watchdog.critical_alerts > 0)}>
-      <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 flex items-center justify-between gap-3 flex-wrap mt-4">
+      <ErrorCard class="p-3 flex items-center justify-between gap-3 flex-wrap mt-4">
         <div><strong class="text-destructive">Operator attention required</strong><br /><span class="text-sm text-secondary-foreground">{deadJobs()} dead queue item(s) · {summary.data?.watchdog.critical_alerts ?? 0} critical watchdog alert(s)</span></div>
         <Show when={confirming() === 'replay-dead'}>
           <div class="flex items-center gap-2"><Button variant="ghost" size="sm" onClick={() => setConfirming(null)}>Cancel</Button><Button size="sm" disabled={pendingMutation() !== null} onClick={() => { setConfirming(null); void replayDead() }}>{pendingMutation() === 'replay-dead' && <Spinner />} Confirm replay</Button></div>
@@ -235,7 +236,7 @@ export function OperationsPanel(props: {
         <Show when={confirming() !== 'replay-dead' && summary.data && summary.data.deliveries.dead > 0}>
           <Button variant="ghost" size="sm" disabled={pendingMutation() !== null} onClick={() => setConfirming('replay-dead')}>Replay dead deliveries</Button>
         </Show>
-      </div>
+      </ErrorCard>
     </Show>
     </Show>
   </Card>

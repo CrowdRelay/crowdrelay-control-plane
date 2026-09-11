@@ -53,7 +53,7 @@ export function Hint(props: {
           id={id}
           role="tooltip"
           class={cn(
-            'absolute top-6 z-50 w-64 border border-border bg-popover p-3 text-xs font-normal leading-relaxed text-secondary-foreground shadow-lg',
+            'absolute top-6 z-50 w-64 rounded-lg border border-border bg-popover p-3 text-xs font-normal leading-relaxed text-secondary-foreground shadow-lg',
             props.align === 'right' ? 'right-0' : 'left-0',
           )}
         >
