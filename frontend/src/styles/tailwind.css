@@ -43,12 +43,41 @@
   --color-muted-foreground: #9aa1ae;
   --color-disabled-foreground: #4a5060;
 
-  /* ── Accent (single accent: purple) ──────────────────────────────── */
-  --color-primary: #9b87f5;
-  --color-primary-hover: #ae9df8;
-  --color-primary-active: #8a78ed;
-  --color-primary-light: #c4b5fd;
+  /* ── Accent (single accent: purple) ──────────────────────────────────
+     The violet ramp from crowdrelay.music, so the console and the public site
+     are recognisably the same product. The hand-picked lavenders here were
+     close to it by eye and off it by value.
+
+     Two primaries, because a dark console needs two. `primary` is the mark
+     drawn ON the dark page — text, borders, focus rings, the tint behind a
+     badge — and has to be light enough to read there: violet-400 lands at
+     4.8:1 on the page background. `primary-solid` is the fill, violet-600,
+     dark enough that near-white sits on it at 8:1.
+
+     Conflating them is what forced `text-background` onto every filled
+     button: the old primary was light, so the only legible text on it was
+     dark, and a filled button ended up reading as an inverted chip. */
+  --violet-50: #f5f2ff;
+  --violet-100: #eae4ff;
+  --violet-200: #d6cbff;
+  --violet-300: #b7a4ff;
+  --violet-400: #8e6cff;
+  --violet-500: #7650f0;
+  --violet-600: #6039d6;
+  --violet-700: #4b2aae;
+  --violet-800: #372080;
+  --violet-900: #251655;
+
+  --color-primary: var(--violet-400);
+  --color-primary-hover: var(--violet-300);
+  --color-primary-active: var(--violet-500);
+  --color-primary-light: var(--violet-300);
   --color-primary-foreground: #ddd7ff;
+  /* Filled surfaces, and the text that goes on them. */
+  --color-primary-solid: var(--violet-600);
+  --color-primary-solid-hover: var(--violet-700);
+  --color-primary-solid-active: var(--violet-800);
+  --color-primary-on: #fafafa;
 
   /* ── Status colours (semantic only) ──────────────────────────────── */
   /* `success-foreground` and `destructive-hover` were used by name in four
@@ -74,9 +103,12 @@
   --color-destructive-bg-deep: #3b1d2e;
 
   /* ── Radius ──────────────────────────────────────────────────────── */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 8px;
+  /* The public site's scale. The console sat at 6/8/8 against the site's
+     2/4/6, which is the difference between a rounded product and a sharp one —
+     and they are one product. */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
   --radius-xl: 8px;
 
   /* ── Shadows (one elevation step) ───────────────────────────────── */

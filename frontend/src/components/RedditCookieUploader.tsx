@@ -201,7 +201,7 @@ export function RedditCookieUploader(props: { slug: string }) {
         <label class="cursor-pointer flex flex-col gap-2 items-center">
           <input type="file" accept=".txt,text/plain" onChange={onFileInput} disabled={upload.isPending} class="absolute w-px h-px opacity-0 pointer-events-none" />
           <span class={cn(
-            'inline-block px-5 py-2 rounded-lg bg-primary text-background font-semibold text-sm cursor-pointer transition-opacity hover:opacity-85',
+            'inline-block px-5 py-2 rounded-lg bg-primary-solid text-primary-on font-semibold text-sm cursor-pointer transition-opacity hover:opacity-85',
             upload.isPending && 'opacity-50 cursor-wait',
           )}>
             {upload.isPending ? 'Uploading…' : 'Choose cookies.txt file'}

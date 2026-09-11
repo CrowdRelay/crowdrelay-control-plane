@@ -13,12 +13,17 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // White on these fills is unreadable: measured against the tokens this
-        // app actually paints, white lands at 2.93:1 on `primary`, 2.88:1 on
-        // `destructive` and 1.78:1 on `success` — all under the 4.5:1 body
-        // minimum, and the success case is barely visible at all. The same
-        // fills take the page's own near-black at 6.7:1, 6.8:1 and 11:1.
-        default: 'bg-primary text-background hover:bg-primary-hover active:bg-primary-active',
+        // `destructive` and `success` are light fills: white lands at 2.88:1 and
+        // 1.78:1 on them, under the 4.5:1 body minimum, so both take the page's
+        // own near-black instead, at 6.8:1 and 11:1.
+        //
+        // `primary` used to be in that list — a light lavender that forced the
+        // same inversion, so the console's main button read as a pale chip with
+        // dark text on it. It is now violet-600 from the public site's ramp,
+        // which is a fill: near-white sits on it at 8:1 and the button looks
+        // like a button. See the accent block in tailwind.css for why there are
+        // two primaries.
+        default: 'bg-primary-solid text-primary-on hover:bg-primary-solid-hover active:bg-primary-solid-active',
         destructive: 'bg-destructive text-background hover:bg-destructive/90',
         'destructive-ghost': 'border border-destructive/30 text-destructive hover:bg-destructive/10',
         outline: 'border border-border bg-transparent text-foreground hover:bg-surface-3',

@@ -39,7 +39,7 @@ export const Switch: Component<SwitchProps> = (props) => {
         'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         'disabled:cursor-not-allowed disabled:opacity-45',
-        local.checked ? 'border-primary bg-primary' : 'border-border-strong bg-surface-3',
+        local.checked ? 'border-primary-solid bg-primary-solid' : 'border-border-strong bg-surface-3',
         local.class,
       )}
       {...rest}

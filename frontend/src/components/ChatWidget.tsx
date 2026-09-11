@@ -474,7 +474,7 @@ export function ChatWidget(props: { slug: string }) {
       {/* Floating button */}
       <Show when={!open()}>
         <button
-          class="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full bg-primary text-background px-4 py-3 shadow-lg hover:bg-primary-hover transition-colors"
+          class="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full bg-primary-solid text-primary-on px-4 py-3 shadow-lg hover:bg-primary-solid-hover transition-colors"
           onClick={() => setOpen(true)}
           title="Ask AI Assistant"
           aria-label="Open AI Assistant"
@@ -525,7 +525,7 @@ export function ChatWidget(props: { slug: string }) {
                 <div class={cn('flex flex-col gap-1', msg.role === 'user' ? 'items-end' : 'items-start')}>
                   <Show
                     when={isStreamingMsg()}
-                    fallback={<div class={cn('max-w-[80%] rounded-lg px-3.5 py-2.5 text-sm leading-relaxed', msg.role === 'user' ? 'rounded-br-sm bg-primary text-background' : 'rounded-bl-sm bg-surface-2 text-foreground')} innerHTML={renderMarkdown(msg.content, props.slug)} />}
+                    fallback={<div class={cn('max-w-[80%] rounded-lg px-3.5 py-2.5 text-sm leading-relaxed', msg.role === 'user' ? 'rounded-br-sm bg-primary-solid text-primary-on' : 'rounded-bl-sm bg-surface-2 text-foreground')} innerHTML={renderMarkdown(msg.content, props.slug)} />}
                   >
                     {/* During streaming, render as a text node so the text
                         grows smoothly without DOM rebuilds / blinking.
@@ -592,7 +592,7 @@ export function ChatWidget(props: { slug: string }) {
               </Show>
               <Show when={!streaming()}>
                 <button
-                  class="flex-shrink-0 w-9 h-9 rounded-md bg-primary text-background flex items-center justify-center hover:bg-primary-hover transition-colors disabled:opacity-50"
+                  class="flex-shrink-0 w-9 h-9 rounded-md bg-primary-solid text-primary-on flex items-center justify-center hover:bg-primary-solid-hover transition-colors disabled:opacity-50"
                   disabled={loading() || !input().trim()}
                   onClick={() => send()}
                   aria-label="Send message"
