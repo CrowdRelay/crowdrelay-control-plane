@@ -539,6 +539,24 @@ if [[ -n "$agent_tag" ]]; then
         || fail "could not point .env at agent tag ${agent_tag}"
       agent_compose_args=(-f compose.production.yml -f compose.area.yml)
       [[ -f compose.agents.yml ]] && agent_compose_args+=(-f compose.agents.yml)
+      # A container created outside compose carries no compose labels, so
+      # compose does not recognise it as this project's and tries to Create
+      # rather than Recreate. Docker then refuses the name as taken, the step
+      # fails, and the deploy rolls back — permanently, because the offending
+      # container is still there on the next run. That is exactly how this
+      # deploy failed: the agent-service on the host had an empty
+      # com.docker.compose.project label.
+      #
+      # `--force-recreate` does not help: compose has to own the container
+      # before it can recreate it. Remove an unowned squatter by name, and only
+      # an unowned one — a container compose already manages is left alone for
+      # compose to replace in the usual way.
+      agent_owner="$(docker inspect "$agent_container" \
+        --format '{{index .Config.Labels "com.docker.compose.project"}}' 2>/dev/null || true)"
+      if [[ -n "$(docker ps -aq --filter "name=^/${agent_container}$")" && -z "$agent_owner" ]]; then
+        printf 'AGENT_SERVICE=ADOPTING container=%s reason=no-compose-project-label\n' "$agent_container"
+        docker rm -f "$agent_container" >/dev/null 2>&1 || true
+      fi
       docker compose "${agent_compose_args[@]}" \
         up -d --no-deps --force-recreate agent-service
       agent_health=""
