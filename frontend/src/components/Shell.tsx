@@ -214,6 +214,33 @@ const currentPageLabel = (pathname: string, slug: string | undefined) => {
 export const Shell: Component = () => {
   const params = useParams({ strict: false })
   const slug = () => (params() as { slug?: string }).slug
+
+  // The tenant nav used to vanish the moment the operator clicked Overview,
+  // Tenants or Process map, because it was gated on the route's own `slug`.
+  // Leaving a tenant's page is not leaving the tenant — the whole column of
+  // links they were working in disappeared and came back only after they had
+  // navigated into one again.
+  //
+  // Remembered per tab rather than globally: two windows open on two tenants
+  // should not fight over whose nav is showing.
+  const LAST_TENANT_KEY = 'cp-last-tenant'
+  const [lastTenant, setLastTenant] = createSignal<string | undefined>(
+    (() => {
+      try { return sessionStorage.getItem(LAST_TENANT_KEY) ?? undefined } catch { return undefined }
+    })(),
+  )
+  createEffect(() => {
+    const current = slug()
+    if (!current || current === lastTenant()) return
+    setLastTenant(current)
+    try { sessionStorage.setItem(LAST_TENANT_KEY, current) } catch {}
+  })
+
+  // What the sidebar renders: the tenant the operator is in, or the last one
+  // they were in. `Link`'s own active matching runs against the real location,
+  // so nothing in this column lights up while they are on a platform page —
+  // the links are reachable, not pretending to be where you are.
+  const navSlug = () => slug() ?? lastTenant()
   const profile = () => authState.profile()
   const navigate = useNavigate()
   const router = useRouter()
@@ -418,12 +445,12 @@ export const Shell: Component = () => {
         </nav>
 
         {/* Tenant switcher + grouped tenant nav */}
-        <Show when={slug()}>
+        <Show when={navSlug()}>
           <div class="flex-1 overflow-y-auto px-2 pb-2">
             <Show when={isPlatformLevel() && tenants.data}>
               {(data) => <TenantSwitcher
                 tenants={data().items}
-                currentSlug={slug()}
+                currentSlug={navSlug()}
                 onSelect={selectTenant}
                 open={switcherOpen()}
                 onToggle={() => setSwitcherOpen(o => !o)}
@@ -460,7 +487,7 @@ export const Shell: Component = () => {
                   <For each={group.items}>{item => (
                     <Link
                       to={item.path as any}
-                      params={{ slug: slug()! } as any}
+                      params={{ slug: navSlug()! } as any}
                       activeOptions={{ exact: item.exact }}
                       activeProps={{ class: 'bg-surface-1 text-foreground' }}
                       title={item.label}
