@@ -10,6 +10,7 @@ import type { FeedCoverage, GrowthMetricTrendView } from '../lib/types'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 
 const feedStateLabel = (state: string): string =>
   state === 'live' ? 'Live' : state === 'stale' ? 'Stale' : 'Missing'
@@ -98,15 +99,47 @@ export function seriesLabel(trend: { platform: string; display_name: string }) {
   return { metric: metric || metricPart || full, subject }
 }
 
-// ── Horizontal bar — scaled relative to the max value in the group ──
-const Bar: Component<{ value: number; max: number; color: string }> = (props) => {
-  const pct = () => Math.max(2, Math.min(100, (props.value / props.max) * 100))
+// ── Movement bar ────────────────────────────────────────────────────────
+//
+// The bar here used to be length-proportional to the metric's own value,
+// scaled against the largest value in its platform group. Those groups are not
+// comparable quantities: Spotify reports followers in the tens of thousands and
+// playlist adds in single digits, so the adds row drew a 2% stub next to a full
+// bar, every time, whatever either number did. The bar encoded "is this the
+// platform's biggest number", which is not a question anyone asks, and it
+// encoded it about quantities that cannot be ranked against each other.
+//
+// What is comparable across every row on the screen is movement: a metric went
+// up by some amount, or down, or did nothing. That is also the question the
+// panel exists to answer. So the bar is zero-centred and scaled to the largest
+// absolute change in the panel — right for growth, left for loss, and nothing
+// at all for a series that did not move.
+const MovementBar: Component<{ delta: number | null; max: number }> = (props) => {
+  const half = () => {
+    if (props.delta == null || props.delta === 0 || props.max <= 0) return 0
+    // Floor at 2% so a real but tiny change stays visible as a mark.
+    return Math.max(2, Math.min(50, (Math.abs(props.delta) / props.max) * 50))
+  }
+  const up = () => (props.delta ?? 0) > 0
   return (
-    <div class="h-1.5 bg-surface-1 rounded-sm overflow-hidden" title={compactNumber(props.value)}>
-      <div class="h-full rounded-sm transition-[width] duration-[400ms] ease-out" style={{ width: `${pct()}%`, background: props.color }} />
+    <div class="relative h-1.5 w-full min-w-16 rounded-sm bg-surface-1" aria-hidden="true">
+      <div class="absolute inset-y-0 left-1/2 w-px bg-border-strong" />
+      <Show when={half() > 0}>
+        <div
+          class="absolute inset-y-0 rounded-sm transition-[width] duration-[400ms] ease-out"
+          classList={{ 'bg-success': up(), 'bg-destructive': !up() }}
+          style={up()
+            ? { left: '50%', width: `${half()}%` }
+            : { right: '50%', width: `${half()}%` }}
+        />
+      </Show>
     </div>
   )
 }
+
+/** The change a row reports, newest window first. */
+const rowDelta = (trend: GrowthMetricTrendView) =>
+  trend.delta_7d ?? trend.delta_24h ?? trend.delta_28d ?? null
 
 export function GrowthMetricsPanel(props: { slug: string }) {
   const [expandedPlatforms, setExpandedPlatforms] = createSignal<Set<string>>(new Set())
@@ -196,6 +229,21 @@ export function GrowthMetricsPanel(props: { slug: string }) {
     return { groups, downstream }
   })
 
+  // The largest absolute change anywhere in the panel. Every movement bar is
+  // drawn against this one number, so a bar in the Spotify group means the same
+  // thing as a bar in the Reddit group. Zero means nothing moved, and the
+  // column is dropped rather than drawn empty for every row.
+  const movementScale = createMemo(() => {
+    let max = 0
+    for (const items of Object.values(grouped().groups)) {
+      for (const trend of items) {
+        const delta = rowDelta(trend)
+        if (delta != null) max = Math.max(max, Math.abs(delta))
+      }
+    }
+    return max
+  })
+
   // Group downstream by platform
   const downstreamGrouped = createMemo(() => {
     const groups: Record<string, GrowthMetricTrendView[]> = {}
@@ -270,59 +318,94 @@ export function GrowthMetricsPanel(props: { slug: string }) {
           </div>
         </Show>
       }>
-        {/* ── Platform sections with bar charts ── */}
-        <For each={Object.entries(grouped().groups).sort((a, b) => platformLabel(a[0]).localeCompare(platformLabel(b[0])))}>
-          {([platform, items]) => {
-            const max = () => Math.max(...items.map(t => t.latest_value), 1)
-            const color = platformColor(platform)
-            return (
-              <div class="mb-4">
-                {/* "1 series" under a heading with one row beneath it is a
-                    caption counting to one. The count appears when counting
-                    is worth doing. */}
-                <div class="flex items-center gap-2 mb-2">
-                  <span class="w-2 h-2 rounded-full shrink-0 opacity-90" style={{ background: color, 'box-shadow': `0 0 6px ${color}` }} />
-                  <strong class="text-sm font-semibold text-foreground">{platformLabel(platform)}</strong>
-                  <Show when={items.length > 1}>
-                    <span class="text-xs text-muted-foreground tabular-nums">{items.length}</span>
-                  </Show>
-                  <Show when={degradedCoverage(platform)}>
-                    {state => <Badge variant={feedStateVariant(state())}>{feedStateLabel(state())}</Badge>}
-                  </Show>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1.5">
-                  <For each={expandedPlatforms().has(platform) ? items : items.slice(0, MAX_VISIBLE_PLATFORM_BARS)}>{(trend: GrowthMetricTrendView) => {
-                    const delta = trend.delta_7d ?? trend.delta_24h ?? trend.delta_28d
-                    const dir = trendDirection(delta)
+        {/* ── One table, grouped by platform ──
+            Each platform used to draw its own two-column grid with its own
+            column widths, so no value on the screen lined up with any other
+            value and the panel read as nine small charts rather than as one
+            list of metrics. This is a single grid: platform names are group
+            rows inside it, and every number sits in the same column as every
+            other number. */}
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Metric</TableHead>
+              <TableHead class="text-right">Now</TableHead>
+              <TableHead class="text-right">Change</TableHead>
+              <Show when={movementScale() > 0}>
+                <TableHead class="w-[28%]">Movement</TableHead>
+              </Show>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <For each={Object.entries(grouped().groups).sort((a, b) => platformLabel(a[0]).localeCompare(platformLabel(b[0])))}>
+              {([platform, items]) => {
+                const color = platformColor(platform)
+                const visible = () => expandedPlatforms().has(platform) ? items : items.slice(0, MAX_VISIBLE_PLATFORM_BARS)
+                return <>
+                  <TableRow class="hover:bg-transparent">
+                    <TableCell colSpan={movementScale() > 0 ? 4 : 3} class="whitespace-normal pt-4">
+                      <span class="flex items-center gap-2">
+                        <span class="h-2 w-2 shrink-0 rounded-full opacity-90" style={{ background: color, 'box-shadow': `0 0 6px ${color}` }} />
+                        <strong class="text-sm font-semibold text-foreground">{platformLabel(platform)}</strong>
+                        {/* "1 series" above a single row is a caption counting
+                            to one. The count appears when counting is worth
+                            doing. */}
+                        <Show when={items.length > 1}>
+                          <span class="text-xs tabular-nums text-muted-foreground">{items.length}</span>
+                        </Show>
+                        <Show when={degradedCoverage(platform)}>
+                          {state => <Badge variant={feedStateVariant(state())}>{feedStateLabel(state())}</Badge>}
+                        </Show>
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                  <For each={visible()}>{(trend: GrowthMetricTrendView) => {
+                    const delta = () => rowDelta(trend)
+                    const dir = () => trendDirection(delta())
                     return (
-                      <div class="flex items-center gap-2 min-w-0" title={trend.display_name}>
-                        <span class="flex min-w-0 shrink-0 basis-[42%] items-baseline gap-1.5 overflow-hidden whitespace-nowrap text-ellipsis">
-                          <span class="text-sm text-secondary-foreground">{seriesLabel(trend).metric}</span>
-                          <Show when={seriesLabel(trend).subject}>
-                            <span class="overflow-hidden text-ellipsis text-xs text-muted-foreground">{seriesLabel(trend).subject}</span>
-                          </Show>
-                        </span>
-                        <div class="flex-1 min-w-0"><Bar value={trend.latest_value} max={max()} color={color} /></div>
-                        <span class="text-sm font-semibold text-foreground whitespace-nowrap text-right shrink-0 tabular-nums">{compactNumber(trend.latest_value)}</span>
+                      <TableRow>
+                        <TableCell class="pl-6" title={trend.display_name}>
+                          <span class="flex items-baseline gap-1.5 overflow-hidden">
+                            <span class="text-secondary-foreground">{seriesLabel(trend).metric}</span>
+                            <Show when={seriesLabel(trend).subject}>
+                              <span class="overflow-hidden text-ellipsis text-xs text-muted-foreground">{seriesLabel(trend).subject}</span>
+                            </Show>
+                          </span>
+                        </TableCell>
+                        <TableCell numeric class="font-semibold">{compactNumber(trend.latest_value)}</TableCell>
                         {/* A column of "0" down the right edge is a column of
                             nothing happening. A change is worth a glyph; no
                             change is worth the space it frees. */}
-                        <span class="w-10 shrink-0 text-right text-sm font-medium tabular-nums" classList={{ 'text-success': dir === 'up', 'text-destructive': dir === 'down' }}>
-                          <Show when={delta != null && delta !== 0}>{delta! > 0 ? '+' : ''}{compactNumber(delta!)}</Show>
-                        </span>
-                      </div>
+                        <TableCell numeric classList={{ 'text-success': dir() === 'up', 'text-destructive': dir() === 'down' }}>
+                          <Show when={delta() != null && delta() !== 0} fallback={<span class="text-muted-foreground">—</span>}>
+                            {delta()! > 0 ? '+' : ''}{compactNumber(delta()!)}
+                          </Show>
+                        </TableCell>
+                        <Show when={movementScale() > 0}>
+                          <TableCell><MovementBar delta={delta()} max={movementScale()} /></TableCell>
+                        </Show>
+                      </TableRow>
                     )
                   }}</For>
-                </div>
-                <Show when={items.length > MAX_VISIBLE_PLATFORM_BARS}>
-                  <Button variant="ghost" size="sm" onClick={() => togglePlatform(platform)}>
-                    {expandedPlatforms().has(platform) ? 'Show less' : `Show all (${items.length})`}
-                  </Button>
-                </Show>
-              </div>
-            )
-          }}
-        </For>
+                  <Show when={items.length > MAX_VISIBLE_PLATFORM_BARS}>
+                    <TableRow class="hover:bg-transparent">
+                      <TableCell colSpan={movementScale() > 0 ? 4 : 3} class="pl-6">
+                        <Button variant="ghost" size="sm" onClick={() => togglePlatform(platform)}>
+                          {expandedPlatforms().has(platform) ? 'Show fewer' : `Show all ${items.length}`}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  </Show>
+                </>
+              }}
+            </For>
+          </TableBody>
+        </Table>
+        <Show when={movementScale() === 0}>
+          <p class="mt-2 text-xs text-muted-foreground">
+            No series has moved in the reported window, so there is no movement to chart.
+          </p>
+        </Show>
 
         {/* ── Conversion (downstream) section ── */}
         <Show when={grouped().downstream.length > 0}>

@@ -75,7 +75,7 @@ export const SkeletonKpiStrip: Component<{ count?: number }> = (props) => (
 /** Panel skeleton — section title + body lines */
 export const SkeletonSection: Component<{ titleWidth?: string; lines?: number; minHeight?: string }> = (props) => (
   <Card class="p-4" style={{ 'min-height': props.minHeight ?? 'auto' }}>
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3 mb-4">
+    <div class="flex items-center justify-between gap-4 mb-3 mb-4">
       <div>
         <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px] rounded-[5px] mb-1.5" />
         <div class="rounded-lg bg-surface-3 border border-border h-[18px] rounded-[6px]" style={{ width: props.titleWidth ?? '200px' }} />
@@ -299,7 +299,7 @@ export const SkeletonPortfolio: Component = () => (
   <>
     {/* Portfolio panel — KPI grid + edges table */}
     <Card class="p-4">
-      <div class="flex items-center justify-between gap-4 mt-6 mb-3 mb-4">
+      <div class="flex items-center justify-between gap-4 mb-3 mb-4">
         <div>
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px] rounded-[5px] mb-1.5" />
           <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[200px] rounded-[6px]" />
@@ -317,7 +317,7 @@ export const SkeletonPortfolio: Component = () => (
     </Card>
     {/* Fan sources panel */}
     <Card class="p-4 mt-4">
-      <div class="flex items-center justify-between gap-4 mt-6 mb-3 mb-4">
+      <div class="flex items-center justify-between gap-4 mb-3 mb-4">
         <div>
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px] rounded-[5px] mb-1.5" />
           <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[160px] rounded-[6px]" />
@@ -331,7 +331,7 @@ export const SkeletonPortfolio: Component = () => (
     </Card>
     {/* Settings panel */}
     <Card class="p-4 mt-4">
-      <div class="flex items-center justify-between gap-4 mt-6 mb-3 mb-4">
+      <div class="flex items-center justify-between gap-4 mb-3 mb-4">
         <div>
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[60px] rounded-[5px] mb-1.5" />
           <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[140px] rounded-[6px]" />
@@ -350,7 +350,7 @@ export const SkeletonPortfolio: Component = () => (
  *  section title + metrics row + cities row. */
 export const SkeletonSignalOverview: Component = () => (
   <>
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3" id="signal-overview">
+    <div class="flex items-center justify-between gap-4 mb-3" id="signal-overview">
       <div>
         <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[120px] rounded-[5px] mb-1.5" />
         <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[180px] rounded-[6px]" />

@@ -15,30 +15,51 @@ type DialogProps = {
   open: boolean
   onClose: () => void
   label: string
-  description?: string
+  description?: JSX.Element
+  /** Visible heading. Defaults to `label`; pass `false` to draw your own. */
+  title?: JSX.Element | false
+  /** Right-aligned action row, separated from the body by a rule. */
+  footer?: JSX.Element
   class?: string
   overlayClass?: string
   children: JSX.Element
 }
 
+// Title and description are rendered by the primitive rather than passed as an
+// `aria-label` string, so the modal announces the same heading the operator
+// reads. A dialog taller than the viewport scrolls its own body — the console
+// has forms with eight fields and a hint under each.
 export const Dialog: Component<DialogProps> = (props) => (
   <DialogPrimitive.Root open={props.open} onOpenChange={(open) => { if (!open) props.onClose() }}>
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay
         class={cn(
-          'fixed inset-0 z-50 bg-black/50',
+          'fixed inset-0 z-50 bg-black/60',
           props.overlayClass,
         )}
       />
       <DialogPrimitive.Content
         class={cn(
-          'fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-5 shadow-xl',
+          'fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100vh-4rem)] w-full max-w-md -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border border-border bg-card shadow-xl',
           props.class,
         )}
-        aria-label={props.label}
-        aria-describedby={props.description ? `${props.label}-desc` : undefined}
       >
-        {props.children}
+        <Show when={props.title !== false}>
+          <div class="flex flex-col gap-1.5 border-b border-border px-5 py-4">
+            <DialogPrimitive.Title class="text-base font-semibold text-foreground">
+              {props.title ?? props.label}
+            </DialogPrimitive.Title>
+            <Show when={props.description}>
+              <DialogPrimitive.Description class="text-sm leading-relaxed text-muted-foreground">
+                {props.description}
+              </DialogPrimitive.Description>
+            </Show>
+          </div>
+        </Show>
+        <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">{props.children}</div>
+        <Show when={props.footer}>
+          <div class="flex flex-wrap items-center justify-end gap-2 border-t border-border px-5 py-3.5">{props.footer}</div>
+        </Show>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   </DialogPrimitive.Root>

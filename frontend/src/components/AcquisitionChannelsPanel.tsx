@@ -6,7 +6,7 @@ import { EmptyState } from './ui/empty-state'
 import { SkeletonSection } from './Skeleton'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
-import { Badge } from './ui/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 import type { ChannelPerformance } from '../lib/types'
 
 // `/operations/acquisition-channels` answers the question the north star
@@ -49,7 +49,7 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
   }
 
   return <Card flat class="p-5">
-    <div class="flex items-start justify-between gap-4 mt-6 mb-3">
+    <div class="flex items-start justify-between gap-4 mb-3">
       <div>
         <h2 class="text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="users" />Where the fans came from</h2>
         <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Signups by the channel that produced them, and how many of those were still active 30 days later. A channel that brings people who never come back is not working, however big the first number is.</p>
@@ -78,30 +78,50 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
           hint="A channel appears here once a fan arrives carrying its attribution — a tracked link, a community post, or a campaign creative. Until then the funnel counts them, but cannot say who sent them."
         />}
       >
-        <ul class="grid gap-2.5 m-0 p-0 list-none mt-4">
-          <For each={showAllChannels() ? data().channels : data().channels.slice(0, MAX_VISIBLE_CHANNELS)}>{channel => (
-            <li class="grid items-center gap-3 p-3 border border-border-subtle rounded-lg bg-surface-1 grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto]">
-              <div class="min-w-0">
-                <strong class="block text-base capitalize text-foreground">{channelName(channel)}</strong>
-                <small class="block text-sm text-muted-foreground mt-0.5">{channelDetail(channel)}</small>
-              </div>
-              <div class="bg-surface-3 rounded-full min-w-15 h-2 overflow-hidden" aria-hidden="true">
-                <span class="bg-primary rounded-full block h-full" style={{ width: `${best() > 0 ? (channel.signups / best()) * 100 : 0}%` }} />
-              </div>
-              <div class="flex items-center gap-3 text-sm text-muted-foreground whitespace-nowrap">
-                <span><strong class="text-foreground">{channel.signups.toLocaleString()}</strong> signups</span>
-                <span><strong class="text-foreground">{channel.activated_30d.toLocaleString()}</strong> activated</span>
-                <span class="text-secondary-foreground">{pct(channel.activation_basis_points)} activation</span>
-              </div>
+        {/* These were bordered list items with their own three-column grid,
+            directly above a table on the same page with different column
+            widths and a different row height. Same data shape, same table. */}
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Channel</TableHead>
+              <TableHead class="w-[18%]">Share</TableHead>
+              <TableHead class="text-right">Signups</TableHead>
+              <TableHead class="text-right">Activated</TableHead>
+              <TableHead class="text-right">Activation</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <For each={showAllChannels() ? data().channels : data().channels.slice(0, MAX_VISIBLE_CHANNELS)}>{channel => <>
+              <TableRow class={channel.best_action ? 'border-b-0' : undefined}>
+                <TableCell class="whitespace-normal">
+                  <strong class="capitalize text-foreground">{channelName(channel)}</strong>
+                  <small class="mt-0.5 block text-xs text-muted-foreground">{channelDetail(channel)}</small>
+                </TableCell>
+                <TableCell>
+                  {/* Signups across channels are the same unit, so length here
+                      does mean something: this channel's share of the biggest. */}
+                  <div class="h-1.5 w-full min-w-12 overflow-hidden rounded-sm bg-surface-1" aria-hidden="true">
+                    <span class="block h-full rounded-sm bg-primary" style={{ width: `${best() > 0 ? (channel.signups / best()) * 100 : 0}%` }} />
+                  </div>
+                </TableCell>
+                <TableCell numeric class="font-semibold">{channel.signups.toLocaleString()}</TableCell>
+                <TableCell numeric>{channel.activated_30d.toLocaleString()}</TableCell>
+                <TableCell numeric class="text-secondary-foreground">{pct(channel.activation_basis_points)}</TableCell>
+              </TableRow>
               <Show when={channel.best_action}>
-                <p class="col-span-full mt-1.5 pt-2 border-t border-border-subtle text-secondary-foreground text-sm leading-relaxed m-0">{channel.best_action}</p>
+                <TableRow>
+                  <TableCell colSpan={5} class="whitespace-normal pb-3 pt-0 text-sm leading-relaxed text-secondary-foreground">
+                    {channel.best_action}
+                  </TableCell>
+                </TableRow>
               </Show>
-            </li>
-          )}</For>
-        </ul>
+            </>}</For>
+          </TableBody>
+        </Table>
         <Show when={data().channels.length > MAX_VISIBLE_CHANNELS}>
           <Button variant="ghost" size="sm" onClick={() => setShowAllChannels(s => !s)}>
-            {showAllChannels() ? 'Show less' : `Show all (${data().channels.length})`}
+            {showAllChannels() ? 'Show fewer' : `Show all ${data().channels.length}`}
           </Button>
         </Show>
       </Show>
@@ -110,23 +130,30 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
         <section class="mt-6 pt-4 border-t border-border">
           <h3 class="text-sm font-semibold text-foreground">Signups the system could not attribute</h3>
           <p class="m-0 mt-1 text-sm text-muted-foreground leading-relaxed">Each row says what to instrument so the next batch lands in a channel above.</p>
-          <ul class="grid gap-2 m-0 p-0 list-none mt-3">
-            <For each={showAllUnattributed() ? data().unattributed : data().unattributed.slice(0, MAX_VISIBLE_UNATTRIBUTED)}>{item => (
-              <li class="flex items-center justify-between gap-3 py-2.5 border-b border-border last:border-0">
-                <div class="min-w-0">
-                  <strong class="block text-foreground">{item.reason.replace(/_/g, ' ')}</strong>
-                  <small class="block text-sm text-muted-foreground mt-0.5">{item.remedy}</small>
-                </div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <Badge variant="muted">{item.signups.toLocaleString()} signups</Badge>
-                  <Badge variant="muted">{item.activated_30d.toLocaleString()} activated</Badge>
-                </div>
-              </li>
-            )}</For>
-          </ul>
+          <Table class="mt-3">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Why it could not be attributed</TableHead>
+                <TableHead class="text-right">Signups</TableHead>
+                <TableHead class="text-right">Activated</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <For each={showAllUnattributed() ? data().unattributed : data().unattributed.slice(0, MAX_VISIBLE_UNATTRIBUTED)}>{item => (
+                <TableRow>
+                  <TableCell class="whitespace-normal">
+                    <strong class="text-foreground">{item.reason.replace(/_/g, ' ')}</strong>
+                    <small class="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{item.remedy}</small>
+                  </TableCell>
+                  <TableCell numeric>{item.signups.toLocaleString()}</TableCell>
+                  <TableCell numeric>{item.activated_30d.toLocaleString()}</TableCell>
+                </TableRow>
+              )}</For>
+            </TableBody>
+          </Table>
           <Show when={data().unattributed.length > MAX_VISIBLE_UNATTRIBUTED}>
             <Button variant="ghost" size="sm" onClick={() => setShowAllUnattributed(s => !s)}>
-              {showAllUnattributed() ? 'Show less' : `Show all (${data().unattributed.length})`}
+              {showAllUnattributed() ? 'Show fewer' : `Show all ${data().unattributed.length}`}
             </Button>
           </Show>
         </section>

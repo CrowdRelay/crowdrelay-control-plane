@@ -134,10 +134,10 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     </Show>
 
     {/* Time range selector */}
-    <div class="flex flex-wrap gap-3 items-end mb-5">
-      <label class="grid gap-1.5 text-muted-foreground text-sm">
-        <span>Time range</span>
-        <NativeSelect value={days()} onChange={(e) => setDays(Number(e.currentTarget.value))}>
+    <div class="mb-5 flex flex-wrap items-end gap-3">
+      <label class="grid gap-1.5">
+        <span class="text-sm font-medium leading-none text-foreground">Time range</span>
+        <NativeSelect class="w-auto" value={days()} onChange={(e) => setDays(Number(e.currentTarget.value))}>
           <option value={7}>Last 7 days</option>
           <option value={30}>Last 30 days</option>
           <option value={90}>Last 90 days</option>
@@ -163,9 +163,9 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     </Show>
 
     {/* Funnel visualization — header is static, chart waits for data */}
-    <div class="p-4 mt-6 pt-4 border-t border-border">
+    <div class="mt-6 border-t border-border pt-5">
       <div class="flex items-center justify-between gap-4">
-        <h3 class="text-sm font-semibold text-foreground"><FunnelIcon size={18} /> Growth Funnel</h3>
+        <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><span class="text-muted-foreground"><FunnelIcon size={18} /></span>Growth Funnel</h3>
         <Show when={funnel.dataUpdatedAt}><span class="text-xs text-muted-foreground">Updated {relativeTime(funnel.dataUpdatedAt)}</span></Show>
       </div>
       <p class="mt-1 text-sm text-muted-foreground">The fan growth journey from community discovery to conversion.</p>
@@ -189,7 +189,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
 
     {/* Worker run breakdown */}
     <Show when={funnel.data && Object.keys(funnel.data!.worker_runs).length > 0}>
-      <div class="p-4 mt-6 pt-4 border-t border-border">
+      <div class="mt-6 border-t border-border pt-5">
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-sm font-semibold text-foreground">Worker run breakdown</h3>
         </div>
@@ -220,7 +220,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
         </div>
         <Show when={Object.keys(funnel.data!.worker_runs).length > MAX_VISIBLE_WORKER_STATS}>
           <Button variant="ghost" size="sm" onClick={() => setShowAllWorkerStats(s => !s)}>
-            {showAllWorkerStats() ? 'Show less' : `Show all (${Object.keys(funnel.data!.worker_runs).length})`}
+            {showAllWorkerStats() ? 'Show fewer' : `Show all ${Object.keys(funnel.data!.worker_runs).length}`}
           </Button>
         </Show>
       </div>
@@ -228,34 +228,50 @@ export function GrowthFunnelPanel(props: { slug: string }) {
 
     {/* Recent worker runs */}
     <Show when={funnel.data && funnel.data!.recent_worker_runs.length > 0}>
-      <div class="p-4 mt-6 pt-4 border-t border-border">
+      <div class="mt-6 border-t border-border pt-5">
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-sm font-semibold text-foreground">Recent worker runs</h3>
           <span class="text-muted-foreground">last {funnel.data!.recent_worker_runs.length}</span>
         </div>
         <p class="mt-1 text-sm text-muted-foreground">The most recent worker runs dispatched by the intelligence.</p>
-        <div class="flex flex-col gap-2 mt-3">
-          <For each={showAllRecentRuns() ? funnel.data!.recent_worker_runs : funnel.data!.recent_worker_runs.slice(0, MAX_VISIBLE_RECENT_RUNS)}>{(run: FunnelRecentWorkerRun) => (
-            <div class="p-3 md:p-4 border border-border rounded-lg bg-surface-3 transition-colors">
-              <div class="flex items-center gap-3">
-                <strong class="text-sm flex-shrink-0">{templateLabel(run.template_id)}</strong>
-                <StatusBadge status={run.status} tone={runStatusTone(run.status)} />
-                <span class="ml-auto text-sm text-muted-foreground">{formatIsoAge(run.created_at)}</span>
-              </div>
-              <div class="flex items-center gap-3 mt-2 text-sm pl-0.5">
-                <Show when={run.has_outcome}>
-                  <Badge variant="success">outcome: {run.outcome_kind ?? 'structured'}</Badge>
-                </Show>
-                <Show when={run.tokens_in > 0 || run.tokens_out > 0}>
-                  <span class="ml-auto text-muted-foreground">{run.tokens_in} in · {run.tokens_out} out tokens</span>
-                </Show>
-              </div>
-            </div>
-          )}</For>
+        {/* A stack of bordered boxes, each holding two rows of a four-field
+            record, directly under a table of the same records aggregated.
+            Same shape, same table. */}
+        <div class="mt-3">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Template</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Outcome</TableHead>
+                <TableHead class="text-right">Tokens</TableHead>
+                <TableHead class="text-right">When</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <For each={showAllRecentRuns() ? funnel.data!.recent_worker_runs : funnel.data!.recent_worker_runs.slice(0, MAX_VISIBLE_RECENT_RUNS)}>{(run: FunnelRecentWorkerRun) => (
+                <TableRow>
+                  <TableCell><strong>{templateLabel(run.template_id)}</strong></TableCell>
+                  <TableCell><StatusBadge status={run.status} tone={runStatusTone(run.status)} /></TableCell>
+                  <TableCell>
+                    <Show when={run.has_outcome} fallback={<span class="text-muted-foreground">—</span>}>
+                      <Badge variant="success">{run.outcome_kind ?? 'structured'}</Badge>
+                    </Show>
+                  </TableCell>
+                  <TableCell numeric class="text-muted-foreground">
+                    <Show when={run.tokens_in > 0 || run.tokens_out > 0} fallback="—">
+                      {run.tokens_in} in · {run.tokens_out} out
+                    </Show>
+                  </TableCell>
+                  <TableCell numeric class="text-muted-foreground">{formatIsoAge(run.created_at)}</TableCell>
+                </TableRow>
+              )}</For>
+            </TableBody>
+          </Table>
         </div>
         <Show when={funnel.data!.recent_worker_runs.length > MAX_VISIBLE_RECENT_RUNS}>
           <Button variant="ghost" size="sm" onClick={() => setShowAllRecentRuns(s => !s)}>
-            {showAllRecentRuns() ? 'Show less' : `Show all (${funnel.data!.recent_worker_runs.length})`}
+            {showAllRecentRuns() ? 'Show fewer' : `Show all ${funnel.data!.recent_worker_runs.length}`}
           </Button>
         </Show>
       </div>

@@ -68,7 +68,7 @@ export function ReplyTriagePanel() {
   const MAX_VISIBLE = 10
 
   return <Card flat class="p-4">
-    <div class="flex items-start justify-between gap-4 mt-6 mb-3">
+    <div class="flex items-start justify-between gap-4 mb-3">
       <div>
         <h2 class="text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="inbox" />Replies needing a human</h2>
         <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Inbound replies the classifier could not resolve automatically. Read the text, then decide.</p>

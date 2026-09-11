@@ -316,14 +316,11 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
         open={viewingWorkflow() !== null}
         onClose={() => setViewingWorkflow(null)}
         label="Workflow detail"
-        class="w-full max-w-2xl rounded-lg border border-border bg-card p-5 shadow-xl max-h-[80vh] overflow-y-auto"
+        class="max-w-2xl"
+        footer={<Button variant="ghost" size="sm" onClick={() => setViewingWorkflow(null)}>Close</Button>}
       >
         <>
-            <div class="flex justify-between items-center pb-4 border-b border-border">
-              <h3 class="text-sm font-semibold text-foreground">Workflow detail</h3>
-              <Button variant="link" size="sm" onClick={() => setViewingWorkflow(null)}>Close</Button>
-            </div>
-            <div class="flex gap-4 py-2 text-sm border-b border-border">
+            <div class="flex gap-4 pb-2 text-sm border-b border-border">
               <span>Brain: {viewingWorkflow()?.brain_template}</span>
               <Show when={viewingWorkflow()?.brain_model}>
                 <span>Model: {viewingWorkflow()?.brain_model}</span>

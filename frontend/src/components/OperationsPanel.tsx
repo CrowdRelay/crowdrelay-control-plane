@@ -142,8 +142,8 @@ export function OperationsPanel(props: {
 
   return <Card flat class="p-5">
     <Show when={showHealth()}>
-    <div class="flex items-start justify-between gap-4 mt-6 mb-3">
-      <div><h2 class="mt-1 text-lg font-bold text-foreground flex items-center gap-2"><SectionIcon name="activity" />Health & controls</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Live health and runtime controls.</p></div>
+    <div class="flex items-start justify-between gap-4 mb-3">
+      <div><h2 class="flex items-center gap-2 text-base font-semibold text-foreground"><span class="text-muted-foreground"><SectionIcon name="activity" /></span>Health & controls</h2><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Live health and runtime controls.</p></div>
       <div class="flex items-center gap-2 flex-wrap">
         <Show when={props.canRedeploy !== false}>
           <Show when={confirming() === 'redeploy'}><Button variant="ghost" size="sm" onClick={() => setConfirming(null)}>Cancel</Button></Show>
@@ -214,13 +214,16 @@ export function OperationsPanel(props: {
       </div>
     </Show>
 
-    <div class="grid gap-2.5">
-      <div><span class="block text-muted-foreground text-sm">Slowest requests</span><strong class="block my-1.5 text-foreground">{metric(summary.data?.http.p95_ms, ' ms')}</strong><small class="block text-muted-foreground text-sm">typical {metric(summary.data?.http.p50_ms, ' ms')}</small></div>
-      <div><span class="block text-muted-foreground text-sm">Outbox pending</span><strong class="block my-1.5 text-foreground">{metric(summary.data?.outbox.pending)}</strong><small class="block text-muted-foreground text-sm">{summary.data ? `${summary.data.outbox.processing} processing` : '—'}</small></div>
-      <div><span class="block text-muted-foreground text-sm">Delivery pending</span><strong class="block my-1.5 text-foreground">{metric(summary.data?.deliveries.pending)}</strong><small class="block text-muted-foreground text-sm">{summary.data ? `${summary.data.deliveries.dead} dead` : '—'}</small></div>
-      <div><span class="block text-muted-foreground text-sm">Push pending</span><strong class="block my-1.5 text-foreground">{metric(summary.data?.push.pending)}</strong><small class="block text-muted-foreground text-sm">{summary.data ? `${summary.data.push.dead} dead` : '—'}</small></div>
-      <div><span class="block text-muted-foreground text-sm">Oldest queue</span><strong class="block my-1.5 text-foreground">{summary.data ? seconds(oldestQueueAge(summary.data)) : '—'}</strong><small class="block text-muted-foreground text-sm">across async queues</small></div>
-      <div><span class="block text-muted-foreground text-sm">Watchdog</span><strong class="block my-1.5 text-foreground">{metric(summary.data?.watchdog.active_alerts)}</strong><small class="block text-muted-foreground text-sm">{summary.data ? `${summary.data.watchdog.critical_alerts} critical` : '—'}</small></div>
+    {/* `grid` on its own is a one-column grid, so these six figures rendered
+        as a single tall stack of label-over-number-over-caption — eighteen
+        lines down the left edge where a six-tile strip was intended. */}
+    <div class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+      <div><span class="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Slowest requests</span><strong class="block my-1 text-xl font-bold tabular-nums text-foreground">{metric(summary.data?.http.p95_ms, ' ms')}</strong><small class="block text-xs text-muted-foreground">typical {metric(summary.data?.http.p50_ms, ' ms')}</small></div>
+      <div><span class="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Outbox pending</span><strong class="block my-1 text-xl font-bold tabular-nums text-foreground">{metric(summary.data?.outbox.pending)}</strong><small class="block text-xs text-muted-foreground">{summary.data ? `${summary.data.outbox.processing} processing` : '—'}</small></div>
+      <div><span class="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Delivery pending</span><strong class="block my-1 text-xl font-bold tabular-nums text-foreground">{metric(summary.data?.deliveries.pending)}</strong><small class="block text-xs text-muted-foreground">{summary.data ? `${summary.data.deliveries.dead} dead` : '—'}</small></div>
+      <div><span class="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Push pending</span><strong class="block my-1 text-xl font-bold tabular-nums text-foreground">{metric(summary.data?.push.pending)}</strong><small class="block text-xs text-muted-foreground">{summary.data ? `${summary.data.push.dead} dead` : '—'}</small></div>
+      <div><span class="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Oldest queue</span><strong class="block my-1 text-xl font-bold tabular-nums text-foreground">{summary.data ? seconds(oldestQueueAge(summary.data)) : '—'}</strong><small class="block text-xs text-muted-foreground">across async queues</small></div>
+      <div><span class="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Watchdog</span><strong class="block my-1 text-xl font-bold tabular-nums text-foreground">{metric(summary.data?.watchdog.active_alerts)}</strong><small class="block text-xs text-muted-foreground">{summary.data ? `${summary.data.watchdog.critical_alerts} critical` : '—'}</small></div>
     </div>
 
     <Show when={summary.data && (deadJobs() > 0 || summary.data.watchdog.critical_alerts > 0)}>

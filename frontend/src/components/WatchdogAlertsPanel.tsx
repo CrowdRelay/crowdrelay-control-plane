@@ -89,7 +89,7 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
   const recovered = () => props.alerts.filter(alert => !alert.active)
 
   return <>
-    <div class="flex items-start justify-between gap-4 mt-6 mb-3">
+    <div class="flex items-start justify-between gap-4 mb-3">
       <div>
         <h3 class="mt-1 text-base font-semibold text-foreground flex items-center gap-2"><SectionIcon name="alert-triangle" />Open alerts</h3>
         <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Checked every 5 minutes. An alert closes itself as soon as the problem it is watching goes away — you do not have to dismiss it.</p>
@@ -103,7 +103,7 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
     <For each={open()}>{alert => {
       const guide = () => GUIDE[alert.alert_key]
       return <Alert tone={alert.severity === 'critical' ? 'destructive' : 'warning'}>
-        <div class="flex items-start justify-between gap-4 mt-6 mb-3">
+        <div class="flex items-start justify-between gap-4 mb-3">
           <div>
             <strong class="text-foreground">{guide()?.title ?? alert.summary}</strong>
             <p class="mt-1 text-sm text-secondary-foreground leading-relaxed">{guide()?.cause ?? alert.summary}</p>

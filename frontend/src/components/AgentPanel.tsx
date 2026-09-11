@@ -498,14 +498,15 @@ export function AgentPanel(props: { slug: string }) {
         open={viewingResult() !== null}
         onClose={() => setViewingResult(null)}
         label="Agent task result"
-        class="w-full max-w-2xl max-h-[80vh] overflow-y-auto"
+        title="Result"
+        class="max-w-2xl"
+        footer={<>
+          <Button variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText(viewingResult()?.content ?? '')}>Copy</Button>
+          <Button variant="ghost" size="sm" onClick={() => setViewingResult(null)}>Close</Button>
+        </>}
       >
         <>
-            <div class="flex justify-between items-center p-4 border-b border-border">
-              <h3>Result</h3>
-              <Button variant="ghost" size="sm" onClick={() => setViewingResult(null)}>Close</Button>
-            </div>
-            <div class="flex gap-4 px-4 py-2 text-sm text-muted-foreground border-b border-border">
+            <div class="flex gap-4 pb-2 text-sm text-muted-foreground border-b border-border">
               <span>Model: {viewingResult()?.model_used}</span>
               <Show when={viewingResult()?.duration_ms}>
                 <span>Duration: {Math.round((viewingResult()?.duration_ms ?? 0) / 1000)}s</span>
@@ -515,7 +516,7 @@ export function AgentPanel(props: { slug: string }) {
               </Show>
             </div>
             <Show when={viewingResult()?.outcomes && viewingResult()!.outcomes!.length > 0}>
-              <div class="flex flex-col gap-2 p-4">
+              <div class="flex flex-col gap-2 py-4">
                 <h4>Structured outcomes</h4>
                 <For each={viewingResult()!.outcomes}>{(outcome: AgentOutcome) => (
                   <div class="p-3 rounded-lg border border-border bg-surface-1">
@@ -531,12 +532,7 @@ export function AgentPanel(props: { slug: string }) {
                 )}</For>
               </div>
             </Show>
-            <pre class="flex-1 overflow-auto p-4 whitespace-pre-wrap text-sm text-foreground leading-relaxed m-0 max-h-[60vh]">{viewingResult()?.content}</pre>
-            <div class="flex gap-2 p-3 border-t border-border">
-              <Button variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText(viewingResult()?.content ?? '')}>
-                Copy
-              </Button>
-            </div>
+            <pre class="whitespace-pre-wrap pt-4 text-sm text-foreground leading-relaxed m-0">{viewingResult()?.content}</pre>
         </>
       </Dialog>
     </div>

@@ -36,19 +36,13 @@ export function FanDetailDrawer(props: {
     open={props.fan !== null}
     onClose={props.onClose}
     label={`Fan detail: ${props.fan?.fan.display_name ?? 'Unknown fan'}`}
-    class="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-card border-l border-border rounded-none p-0 translate-x-0 translate-y-0 left-auto top-0"
+    title={props.fan?.fan.display_name ?? 'Unknown fan'}
+    description={props.fan?.fan.email ?? undefined}
+    footer={<Button variant="ghost" size="sm" onClick={props.onClose}>Close</Button>}
+    class="inset-y-0 right-0 left-auto top-0 max-h-none max-w-md translate-x-0 translate-y-0 rounded-none border-0 border-l"
   >
     <>
-        <div class="flex justify-between items-start p-4 px-5 border-b border-border sticky top-0 z-1">
-          <div>
-            <h3>{props.fan!.fan.display_name ?? 'Unknown fan'}</h3>
-            <Show when={props.fan!.fan.email}>
-              <span class="text-muted-foreground">{props.fan!.fan.email}</span>
-            </Show>
-          </div>
-          <Button variant="ghost" size="sm" onClick={props.onClose}>Close</Button>
-        </div>
-        <div class="p-4 px-5 flex flex-col gap-5">
+        <div class="flex flex-col gap-5">
           <div class="fan-drawer-meta flex flex-col gap-2">
             <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Status</span><Badge variant={props.fan!.fan.status === 'active' ? 'success' : 'muted'}>{props.fan!.fan.status}</Badge></div>
             <div class="flex justify-between items-center py-1.5 border-b border-surface-3"><span class="text-muted-foreground">Locale</span><span>{props.fan!.fan.locale ?? '—'}</span></div>

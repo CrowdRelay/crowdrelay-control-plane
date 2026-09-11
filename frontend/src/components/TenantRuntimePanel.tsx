@@ -59,11 +59,11 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
   }
 
   return <Card flat class="p-4" aria-busy={runtime.isFetching && !runtime.data}>
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3">
+    <div class="flex items-center justify-between gap-4 mb-3">
       {/* Named for its source. Plain "Health" read as a contradiction next to
           the Operations page, which reports CrowdRelay's own HTTP health from
           a different feed: this one is the heartbeat the tenant pushes here. */}
-      <div><h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="heartbeat" />Heartbeat</h2></div>
+      <div><h2 class="flex items-center gap-2 text-base font-semibold text-foreground"><span class="text-muted-foreground"><SectionIcon name="heartbeat" /></span>Heartbeat</h2></div>
       <StatusBadge status={healthLabel(snapshot().runtimeHealth)} tone={runtimeHealthTone(snapshot().runtimeHealth)} />
     </div>
     <Show when={runtime.error}><div class="rounded-r-md rounded-l-none" role="status">Live refresh failed. Showing the last known runtime snapshot.</div></Show>

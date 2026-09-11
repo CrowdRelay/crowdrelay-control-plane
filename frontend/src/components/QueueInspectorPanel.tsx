@@ -101,7 +101,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
   }
 
   return <Card flat class="p-4">
-    <div class="flex items-center justify-between gap-4 mt-6 mb-3">
+    <div class="flex items-center justify-between gap-4 mb-3">
       <div>
         <h2 class="text-lg font-semibold text-foreground flex items-center gap-2"><SectionIcon name="list-checks" />What is stuck, and why</h2>
         <p>The outbox holds events leaving this system; deliveries are the attempts to send them. A dead row has used every attempt and will not move again on its own — read one before retrying the rest, because a bulk retry reproduces a bad one as fast as it reproduces a blip.</p>
@@ -184,10 +184,21 @@ export function QueueInspectorPanel(props: { slug: string }) {
       </div>
     )}</Show>
 
-    <Dialog open={detail() !== null} onClose={() => setDetail(null)} label="Delivery attempts" class="w-full max-w-2xl rounded-lg border border-border bg-card p-5 shadow-xl max-h-[80vh] overflow-y-auto">
+    <Dialog
+      open={detail() !== null}
+      onClose={() => setDetail(null)}
+      label="Delivery attempts"
+      title={<span class="flex items-center gap-2">
+        {detail()?.delivery.event_type.replace(/_/g, ' ')}
+        <Show when={detail()}>{data => <StatusBadge status={data().delivery.status} tone={statusTone(data().delivery.status)} />}</Show>
+      </span>}
+      class="max-w-2xl"
+      footer={<>
+        <Button variant="ghost" size="sm" onClick={() => setDetail(null)}>Close</Button>
+        <Show when={detail()}>{data => <Button size="sm" disabled={busy() !== null} onClick={() => { void retry(data().delivery); setDetail(null) }}>Retry this delivery</Button>}</Show>
+      </>}
+    >
       <Show when={detail()}>{data => <>
-        <div class="flex items-center justify-between gap-4 mt-6 mb-3"><div><h2 class="text-lg font-semibold text-foreground">{data().delivery.event_type.replace(/_/g, ' ')}</h2></div>
-          <StatusBadge status={data().delivery.status} tone={statusTone(data().delivery.status)} /></div>
         <p class="m-0 mb-3 text-sm text-muted-foreground">
           {data().delivery.endpoint_name}
           {data().delivery.endpoint_active ? '' : ' · endpoint disabled'}
@@ -214,10 +225,6 @@ export function QueueInspectorPanel(props: { slug: string }) {
             )}</For>
           </ol>
         </Show>
-        <div class="flex gap-2 justify-end mt-5">
-          <Button variant="ghost" size="sm" onClick={() => setDetail(null)}>Close</Button>
-          <Button size="sm" disabled={busy() !== null} onClick={() => { void retry(data().delivery); setDetail(null) }}>Retry this delivery</Button>
-        </div>
       </>}</Show>
     </Dialog>
   </Card>
