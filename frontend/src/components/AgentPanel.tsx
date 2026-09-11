@@ -522,7 +522,7 @@ export function AgentPanel(props: { slug: string }) {
                   <div class="p-3 rounded-lg border border-border bg-surface-1">
                     <div class="flex items-center gap-2 mb-2">
                       <Badge>{outcome.kind.replaceAll('_', ' ')}</Badge>
-                      <Badge>confidence {Math.round(outcome.confidence_basis_points / 100)}%</Badge>
+                      <Badge>confidence {outcome.confidence_basis_points > 0 && outcome.confidence_basis_points < 100 ? '< 1%' : `${Math.round(outcome.confidence_basis_points / 100)}%`}</Badge>
                     </div>
                     <p class="text-muted-foreground">{outcome.rationale}</p>
                     <Show when={outcome.item}>

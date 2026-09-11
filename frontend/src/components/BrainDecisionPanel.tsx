@@ -28,7 +28,11 @@ import { Button } from './ui/button'
 // The input_snapshot is rendered as key/value evidence, not as invented
 // model explanations.
 
-const confidencePercent = (basisPoints: number) => `${Math.round(basisPoints / 100)}%`
+const confidencePercent = (basisPoints: number) => {
+  const percent = basisPoints / 100
+  if (percent > 0 && percent < 1) return '< 1%'
+  return `${Math.round(percent)}%`
+}
 
 const dispositionLabel = (disposition: string) =>
   disposition.replaceAll('_', ' ')

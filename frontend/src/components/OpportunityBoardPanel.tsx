@@ -51,7 +51,14 @@ const NOT_APPROVABLE_NOTE: Record<string, string> = {
   observed: 'recorded for measurement — no action was parked',
 }
 
-const confidencePercent = (basisPoints: number) => `${Math.round(basisPoints / 100)}%`
+// Basis points are the queue's only magnitude; percent is what a human reads.
+// A value under 1% still rounds to 0% with `Math.round`, which reads as "no
+// confidence" when it is really "low confidence" — so show `< 1%` instead.
+const confidencePercent = (basisPoints: number) => {
+  const percent = basisPoints / 100
+  if (percent > 0 && percent < 1) return '< 1%'
+  return `${Math.round(percent)}%`
+}
 
 // Basis points are the queue's only magnitude; percent is what a human reads.
 const deviationLabel = (entry: OpportunityBoardEntry) =>

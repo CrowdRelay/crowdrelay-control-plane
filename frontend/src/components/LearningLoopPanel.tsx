@@ -18,7 +18,11 @@ import { cn } from '../lib/cn'
 // The summary line (N decisions → M actions → K outcomes → success %) is
 // computed from the returned data, not invented.
 
-const confidencePercent = (basisPoints: number) => `${Math.round(basisPoints / 100)}%`
+const confidencePercent = (basisPoints: number) => {
+  const percent = basisPoints / 100
+  if (percent > 0 && percent < 1) return '< 1%'
+  return `${Math.round(percent)}%`
+}
 
 // Confidence level → text color class for color-coded confidence display.
 // High (≥80%) = green, medium (≥50%) = accent, low = muted.

@@ -210,7 +210,9 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
                   <small class="block text-xs text-muted-foreground">{labelOr(CONTEXT_LABELS, item.context)} · {item.reason}</small>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
-                  <Badge variant="muted">confidence {Math.round(item.confidence / 100)}%</Badge>
+                  <Show when={item.confidence > 0}>
+                    <Badge variant="muted">confidence {item.confidence < 100 ? '< 1%' : `${Math.round(item.confidence / 100)}%`}</Badge>
+                  </Show>
                   <Show when={item.needs_approval}><Badge variant="warning">needs approval</Badge></Show>
                 </div>
               </li>
