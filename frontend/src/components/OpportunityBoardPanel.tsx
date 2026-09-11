@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from 'solid-js'
+import { For, Show, createMemo, createSignal } from 'solid-js'
 import type { OpportunityBoardEntry } from '../lib/types'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
@@ -283,7 +283,23 @@ export function OpportunityBoardPanel(props: {
   // mine to do? Everything else is reference.
   const needsYou = () => all().filter(isApprovable)
   const ranAlone = () => all().filter(e => e.authority === 'auto_executing')
-  const forInfo = () => all().filter(e => !isApprovable(e) && e.authority !== 'auto_executing')
+  // The autopilot re-raises a standing finding every cycle, so "Agent Insight —
+  // Analysed fan growth metrics…" arrived five times with identical wording and
+  // an identical confidence. Five rows of the same sentence is not five
+  // findings; it is one finding nobody has closed. Collapse on what the
+  // operator reads — the kind and the reason — and keep the newest, carrying a
+  // count so the repetition itself stays visible.
+  const forInfo = createMemo(() => {
+    const seen = new Map<string, OpportunityBoardEntry & { repeats: number }>()
+    for (const entry of all()) {
+      if (isApprovable(entry) || entry.authority === 'auto_executing') continue
+      const key = `${entry.decision_kind}|${entry.reason}`
+      const existing = seen.get(key)
+      if (existing) existing.repeats += 1
+      else seen.set(key, { ...entry, repeats: 1 })
+    }
+    return [...seen.values()]
+  })
 
   return <>
     <Show when={board.error}>
@@ -374,7 +390,14 @@ export function OpportunityBoardPanel(props: {
           <p class="m-0 text-sm leading-relaxed text-secondary-foreground">{entry().reason}</p>
 
           <div class="flex flex-wrap items-center gap-2">
-            <Badge variant="muted">confidence {confidencePercent(entry().confidence)}</Badge>
+            {/* A finding the autopilot raised with no confidence in it is not
+                a 0% finding, it is one that never scored itself. */}
+            <Show when={entry().confidence > 0}>
+              <Badge variant="muted">confidence {confidencePercent(entry().confidence)}</Badge>
+            </Show>
+            <Show when={(entry() as { repeats?: number }).repeats! > 1}>
+              <Badge variant="outline">raised {(entry() as { repeats?: number }).repeats} times</Badge>
+            </Show>
             <Show when={formatDue(entry().due_at)}>
               {due => <Badge variant="warning">by {due()}</Badge>}
             </Show>
@@ -397,7 +420,14 @@ export function OpportunityBoardPanel(props: {
               <div class="flex flex-wrap items-center gap-2">
                 <Badge variant="outline">{labelOr(CONTEXT_LABELS, entry().context)}</Badge>
                 <Badge variant="outline">{labelOr(SUBJECT_KIND_LABELS, entry().subject_kind)}</Badge>
-                <Badge variant="outline">top of the list because {RANK_FACTOR_LABELS[entry().ranked_by] ?? entry().ranked_by}</Badge>
+                {/* `ranked_by` is what separates this entry from the one
+                    below it, not a claim about the whole queue — so "top of the
+                    list because it is waiting on you" appeared on entry #2,
+                    which is not top of anything. Only position 1 is. */}
+                <Badge variant="outline">
+                  {entry().position === 1 ? 'top of the list because ' : 'ranked here because '}
+                  {RANK_FACTOR_LABELS[entry().ranked_by] ?? entry().ranked_by}
+                </Badge>
                 <Show when={entry().value_tier}>
                   {tier => <Badge variant="outline">{VALUE_TIER_LABELS[tier()] ?? tier()} value</Badge>}
                 </Show>
