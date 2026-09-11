@@ -57,11 +57,26 @@ wait_for_ci() {
       gh run watch "$run_id" --repo "$REPO" --exit-status
       printf 'CI=PASS sha=%s\n' "$TARGET"
 
+      # The digest artifact is published by the workflow that builds and
+      # pushes the image, which is Deploy, not CI. `4e782cd` split build out
+      # of the cancellable CI run for good reasons and this download kept
+      # pointing at CI, so it looked for an artifact on a run that never
+      # produces one. Resolve the owning run by artifact name instead, the
+      # same way the ecosystem script's phase 0c already does -- that way it
+      # keeps working wherever the build job eventually lives.
+      artifact_name="control-plane-image-digest-${TARGET}"
+      artifact_run="$(gh api -H 'Accept: application/vnd.github+json' \
+        "/repos/${REPO}/actions/artifacts?name=${artifact_name}&per_page=100" \
+        --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | reverse | .[0].workflow_run.id // empty' \
+        2>/dev/null || true)"
+      [[ -n "$artifact_run" ]] || fail "no unexpired ${artifact_name} artifact for $TARGET"
+      printf 'DIGEST_RUN=%s\n' "$artifact_run"
+
       artifact_dir="$(mktemp -d)"
-      if ! gh run download "$run_id" --repo "$REPO" \
-        --name "control-plane-image-digest-${TARGET}" --dir "$artifact_dir"; then
+      if ! gh run download "$artifact_run" --repo "$REPO" \
+        --name "$artifact_name" --dir "$artifact_dir"; then
         rm -rf -- "$artifact_dir"
-        fail "validated CI run is missing immutable image digest artifact for $TARGET"
+        fail "validated run is missing immutable image digest artifact for $TARGET"
       fi
       [[ -f "$artifact_dir/image.env" && -f "$artifact_dir/image.env.sha256" ]] || {
         rm -rf -- "$artifact_dir"
