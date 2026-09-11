@@ -9,10 +9,22 @@ import { cn } from '~/lib/cn'
  * truncation in cells, sticky headers, edge-aligned first/last columns.
  */
 
-export const Table: Component<JSX.HTMLAttributes<HTMLTableElement> & { class?: string }> = (props) => {
-  const [local, rest] = splitProps(props, ['class'])
+export const Table: Component<
+  JSX.HTMLAttributes<HTMLTableElement> & { class?: string; maxHeight?: string }
+> = (props) => {
+  const [local, rest] = splitProps(props, ['class', 'maxHeight'])
+  // A sticky header resolves against its nearest scrolling ancestor. This
+  // wrapper used to be `overflow-auto` with no height cap, which makes it that
+  // ancestor without ever scrolling — so `TableHead`'s `sticky top-0` had
+  // nothing to stick to, and callers that wanted a scrolling table wrapped
+  // this in a second scroller of their own. Pass `maxHeight` and the cap lands
+  // here, where the header can use it; leave it off and the table does not
+  // create a scroll container at all.
   return (
-    <div class="w-full overflow-auto">
+    <div
+      class={cn('w-full', local.maxHeight ? 'overflow-auto' : 'overflow-x-auto')}
+      style={local.maxHeight ? { 'max-height': local.maxHeight } : undefined}
+    >
       <table class={cn('w-full text-sm border-collapse', local.class)} {...rest} />
     </div>
   )
@@ -28,14 +40,14 @@ export const TableBody: Component<JSX.HTMLAttributes<HTMLTableSectionElement> & 
   return <tbody class={cn('[&_tr:last-child]:border-0', local.class)} {...rest} />
 }
 
+const ROW_BASE = 'border-b border-border-subtle transition-colors hover:bg-surface-1'
+
 export const TableRow: Component<JSX.HTMLAttributes<HTMLTableRowElement> & { class?: string }> = (props) => {
   const [local, rest] = splitProps(props, ['class'])
-  return (
-    <tr
-      class={cn('border-b border-border-subtle transition-colors hover:bg-surface-1', local.class)}
-      {...rest}
-    />
-  )
+  // `cn` runs `twMerge`, which parses every class string it is given. A table
+  // calls this once per row and once per cell, so the common case — no caller
+  // class to merge — skips the parse and hands over the constant.
+  return <tr class={local.class ? cn(ROW_BASE, local.class) : ROW_BASE} {...rest} />
 }
 
 export const TableHead: Component<JSX.ThHTMLAttributes<HTMLTableCellElement> & { class?: string }> = (props) => {
@@ -51,15 +63,18 @@ export const TableHead: Component<JSX.ThHTMLAttributes<HTMLTableCellElement> & {
   )
 }
 
+const CELL_BASE =
+  'py-2.5 px-2 first:pl-0 last:pr-0 text-foreground overflow-hidden text-ellipsis whitespace-nowrap align-middle'
+
 export const TableCell: Component<JSX.TdHTMLAttributes<HTMLTableCellElement> & { class?: string; numeric?: boolean }> = (props) => {
   const [local, rest] = splitProps(props, ['class', 'numeric'])
   return (
     <td
-      class={cn(
-        'py-2.5 px-2 first:pl-0 last:pr-0 text-foreground overflow-hidden text-ellipsis whitespace-nowrap align-middle',
-        local.numeric && 'text-right tabular-nums',
-        local.class,
-      )}
+      class={
+        local.class || local.numeric
+          ? cn(CELL_BASE, local.numeric && 'text-right tabular-nums', local.class)
+          : CELL_BASE
+      }
       {...rest}
     />
   )

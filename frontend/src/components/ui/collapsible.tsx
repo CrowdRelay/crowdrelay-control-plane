@@ -16,6 +16,15 @@ export const CollapsibleContent = CollapsiblePrimitive.Content
 // This preserves the existing import shape so callers don't need to change
 // until the page migration phase.
 
+// Hoisted: this was rebuilt on every render of every collapsible on the page,
+// to answer a four-way lookup that never changes.
+const BADGE_TONE_CLASS: Record<string, string> = {
+  good: 'text-success',
+  warn: 'text-warning',
+  bad: 'text-destructive',
+  muted: 'text-muted-foreground',
+}
+
 export function CollapsibleSection(props: {
   eyebrow?: string
   title: string
@@ -26,16 +35,10 @@ export function CollapsibleSection(props: {
   children: JSX.Element
 }) {
   const [open, setOpen] = createSignal(props.defaultOpen ?? false)
-
-  const badgeToneClass: Record<string, string> = {
-    good: 'text-success',
-    warn: 'text-warning',
-    bad: 'text-destructive',
-    muted: 'text-muted-foreground',
-  }
+  const badgeToneClass = BADGE_TONE_CLASS
 
   return (
-    <Collapsible open={open()} onOpenChange={setOpen} class={cn('rounded-lg border border-border bg-card', props.class)}>
+    <Collapsible open={open()} onOpenChange={setOpen} class={cn('border border-border bg-card', props.class)}>
       <CollapsibleTrigger class="flex w-full items-center justify-between gap-4 p-4 text-left">
         <div class="flex flex-col gap-1">
           <Show when={props.eyebrow}>
@@ -63,10 +66,16 @@ export function CollapsibleSection(props: {
           </svg>
         </div>
       </CollapsibleTrigger>
+      {/* Kobalte keeps collapsed content mounted. On a page carrying a dozen
+          of these, that is a dozen panels' worth of queries and DOM built for
+          sections nobody has opened. `Show` mounts a body the first time it is
+          opened and unmounts it when closed. */}
       <CollapsibleContent class="overflow-hidden">
-        <div class="p-4 pt-0">
-          {props.children}
-        </div>
+        <Show when={open()}>
+          <div class="p-4 pt-0">
+            {props.children}
+          </div>
+        </Show>
       </CollapsibleContent>
     </Collapsible>
   )

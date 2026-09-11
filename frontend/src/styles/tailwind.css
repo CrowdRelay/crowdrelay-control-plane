@@ -19,6 +19,13 @@
   --color-background: #0a0b0e;
   --color-surface-1: #0f1116;
   --color-card: #14171e;
+  /* The scale is 1,2,3,4 and `surface-2` was the one nobody defined, so every
+     `bg-surface-2` in the app compiled to nothing and rendered transparent —
+     sticky table headers with rows scrolling visibly under their text, chat
+     bubbles with no bubble, a segment list with no selected state. It is the
+     card fill, which is what the legacy `--surface-2` alias below already
+     pointed at. */
+  --color-surface-2: #14171e;
   --color-popover: #14171e;
   --color-surface-3: #1a1e27;
   --color-muted: #1a1e27;

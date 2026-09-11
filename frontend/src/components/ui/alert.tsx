@@ -25,12 +25,19 @@ export const Alert: Component<
   }
 > = (props) => {
   const [local, rest] = splitProps(props, ['class', 'tone', 'title', 'children'])
+  // `role="alert"` is assertive: a screen reader abandons what it was saying to
+  // read it. That is right for a failure and wrong for "3 items synced", and
+  // every tone was getting it. Only the two tones that mean something went
+  // wrong interrupt; the rest are announced politely when the user gets there.
+  const tone = () => local.tone ?? 'warning'
+  const role = () => (tone() === 'destructive' || tone() === 'warning' ? 'alert' : 'status')
   return (
     <div
-      role="alert"
+      role={role()}
       class={cn(
-        'rounded-lg border p-4 text-sm break-words',
-        toneStyles[local.tone ?? 'warning'],
+        // Square, like every other surface in the console.
+        'border p-4 text-sm break-words',
+        toneStyles[tone()],
         local.class,
       )}
       {...rest}

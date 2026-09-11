@@ -85,8 +85,11 @@ export function FanTablePanel(props: {
         <EmptyState label={`Nothing matches “${search().trim()}”`} hint="Search covers name, email and locale." />
       </Show>
     }>
-      <div class="overflow-auto border border-border rounded-md max-h-[600px]">
-        <Table>
+      {/* The height cap belongs on the table's own wrapper. Here it created a
+          second scroll container around one that already scrolled, so the
+          sticky header resolved against the inner wrapper and never stuck. */}
+      <div class="border border-border rounded-md">
+        <Table maxHeight="600px">
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
