@@ -12,7 +12,10 @@ export const CONTEXT_LABELS: Record<string, string> = {
   booking_opportunity: 'Booking',
   outreach: 'Outreach',
   content_supply: 'Content Supply',
-  promotion_budget: 'Promotion Budget',
+  // The policy bucket that governs promotional actions. It is named after a
+  // budget in the schema, which put "Promotion Budget" under a press pitch
+  // that spends no money — the operator read it as the subject of the work.
+  promotion_budget: 'Promotion',
   experimentation: 'Experimentation',
   show_operations: 'Show Operations',
   release: 'Release',
@@ -87,6 +90,10 @@ export const SUBJECT_KIND_LABELS: Record<string, string> = {
   outreach_target: 'Outreach Target',
   target_community: 'Community',
   workspace: 'Workspace',
+  // Written by an LLM worker rather than by the deterministic brain. The
+  // fallback title-cased this to "Agent Outcome", which names a row in a
+  // table; this names where the suggestion came from.
+  agent_outcome: 'Drafted by the agent',
 }
 
 export const RANK_FACTOR_LABELS: Record<string, string> = {
