@@ -7,7 +7,7 @@ import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './ui/empty-state'
 import { confidencePercent, errorMessage } from '../lib/format'
 import { SkeletonRows } from './Skeleton'
-import { CONTEXT_LABELS, SUBJECT_KIND_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
+import { CONTEXT_LABELS, RANK_FACTOR_LABELS, SUBJECT_KIND_LABELS, VALUE_TIER_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { Card } from './ui/card'
@@ -38,22 +38,6 @@ const dispositionTone = (authority: string): 'good' | 'warn' | 'bad' | 'muted' =
   if (authority === 'awaiting_approval') return 'warn'
   if (authority === 'recommended') return 'good'
   return 'muted'
-}
-
-const VALUE_TIER_LABELS: Record<string, string> = {
-  vanity: 'vanity',
-  intermediate: 'intermediate',
-  downstream: 'downstream',
-}
-
-const RANK_FACTOR_LABELS: Record<string, string> = {
-  authority: 'it is waiting on you',
-  deadline: 'its deadline is closest',
-  value_tier: 'it moves a real number, not a vanity one',
-  measured_effect: 'this kind of action has worked before',
-  confidence: 'the brain is most sure about it',
-  magnitude: 'it is furthest off target',
-  tie: 'nothing separated it from the rest',
 }
 
 // Render input_snapshot as key/value evidence. The snapshot is raw JSON from

@@ -362,7 +362,14 @@ export function Section(props: {
   return (
     <section
       class={cn(
-        props.flush ? 'pt-1' : 'mt-8 border-t pt-5',
+        // `Section` and `Card flat` are the console's two panel wrappers and
+        // they disagreed about spacing: a flat card is `pt-6` with no top
+        // margin, a section was `mt-8 pt-5`. Inside `PageShell`'s `space-y-6`
+        // that is 48px of lead-in for one and 76px for the other, so a page
+        // mixing them — which every page does — had two rhythms down it. They
+        // now produce the same gap, and the first panel on a page drops both
+        // the rule and the padding exactly as a flat card does.
+        props.flush ? 'pt-1' : 'border-t pt-6 first:border-t-0 first:pt-0',
         !props.flush && (props.lead ? 'border-primary/40' : 'border-border'),
         props.class,
       )}
