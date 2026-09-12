@@ -1,4 +1,4 @@
-import { For, Match, Show, Switch, createMemo } from 'solid-js'
+import { For, Match, Show, Switch, createMemo, type JSX } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -14,6 +14,7 @@ import { SectionIcon } from '../components/SectionIcon'
 import { PageShell, PageHeader, KpiStrip, KpiCard, SectionTitle, ErrorCard, CommandBlock } from '../components/layout'
 import { SkeletonKpiStrip } from '../components/Skeleton'
 import { cn } from '../lib/cn'
+import { whileIncomplete, hasUnavailableTenant } from '../lib/incomplete'
 
 const formatLatency = (ms: number | null | undefined) => {
   if (ms == null) return null
@@ -29,7 +30,16 @@ const fmt = (n: number | null | undefined): string => {
 
 export function OverviewPage() {
   const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, refetchOnWindowFocus: false, reconcile: 'id', staleTime: 15_000 }))
-  const commandCenter = useQuery(() => ({ queryKey: ['command-center'], queryFn: api.commandCenter, refetchOnWindowFocus: false, staleTime: 10_000 }))
+  // A command centre that reports a tenant as unavailable is not an answer,
+  // and it arrives as 200 so nothing retries it. Keep asking until the
+  // sections land, so the fan counts fill in rather than staying dashes.
+  const commandCenter = useQuery(() => ({
+    queryKey: ['command-center'],
+    queryFn: api.commandCenter,
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+    refetchInterval: whileIncomplete(hasUnavailableTenant),
+  }))
 
   const items = createMemo(() => tenants.data?.items ?? [])
   const count = (health: RuntimeHealth) => items().filter(t => t.runtimeHealth === health).length
@@ -117,6 +127,19 @@ export function OverviewPage() {
   const firstLearningTenant = createMemo(() => ccTenants().find(t => t.learning.available && t.learning.totalOutcomes > 0))
   const firstFanTenant = createMemo(() => ccTenants().find(t => t.fans.available && t.fans.activeFans != null))
 
+  // Tenants that answered nothing this time round. The dash on a fan KPI is
+  // the same glyph whether nobody has any fans, nobody reports them, or the
+  // tenant simply did not answer — and only the last of those is going to fix
+  // itself. `whileIncomplete` on the query is asking again; this says so,
+  // rather than leaving "No audience data yet" on screen over a number that is
+  // seconds away.
+  const silentTenants = createMemo(() => ccTenants().filter(t => !t.available).length)
+  const waitingNote = () => silentTenants() === 1
+    ? 'the tenant has not answered yet — still asking'
+    : `${silentTenants()} tenants have not answered yet — still asking`
+  const fanSub = (value: number | null | undefined, settled: JSX.Element): JSX.Element =>
+    value == null && silentTenants() > 0 ? waitingNote() : settled
+
   return <PageShell>
     <PageHeader
       eyebrow="NORTH STAR"
@@ -136,13 +159,14 @@ export function OverviewPage() {
       <Match when={cc()}>
         <KpiStrip>
           <KpiCard label="Active fans" value={fmt(cc()!.fans.activeFans)} tone="good" sub={
-            <Show when={cc()!.fans.reportingTenants > 0} fallback="no tenants reporting">
-              across {cc()!.fans.reportingTenants} {cc()!.fans.reportingTenants === 1 ? 'tenant' : 'tenants'}
-            </Show>
+            fanSub(cc()!.fans.activeFans,
+              <Show when={cc()!.fans.reportingTenants > 0} fallback="no tenants reporting">
+                across {cc()!.fans.reportingTenants} {cc()!.fans.reportingTenants === 1 ? 'tenant' : 'tenants'}
+              </Show>)
           } />
-          <KpiCard label="Ticket buyers" value={fmt(cc()!.fans.ticketBuyers)} sub="conversion signal" />
-          <KpiCard label="Attendees" value={fmt(cc()!.fans.attendees)} sub="live show conversion" />
-          <KpiCard label="Paid ticket orders" value={fmt(cc()!.fans.paidTicketOrders)} sub="revenue signal" />
+          <KpiCard label="Ticket buyers" value={fmt(cc()!.fans.ticketBuyers)} sub={fanSub(cc()!.fans.ticketBuyers, 'conversion signal')} />
+          <KpiCard label="Attendees" value={fmt(cc()!.fans.attendees)} sub={fanSub(cc()!.fans.attendees, 'live show conversion')} />
+          <KpiCard label="Paid ticket orders" value={fmt(cc()!.fans.paidTicketOrders)} sub={fanSub(cc()!.fans.paidTicketOrders, 'revenue signal')} />
         </KpiStrip>
       </Match>
     </Switch>
@@ -178,7 +202,7 @@ export function OverviewPage() {
                     <span>{cc()!.tenants.total - cc()!.fans.reportingTenants} tenants not reporting audience</span>
                   </Show>
                   <Show when={cc()!.fans.reportingTenants === 0}>
-                    <span>No audience data yet</span>
+                    <span>{silentTenants() > 0 ? waitingNote() : 'No audience data yet'}</span>
                   </Show>
                   <Show when={cc()!.fans.reportingTenants === cc()!.tenants.total && cc()!.fans.activeFans != null}>
                     <span>All tenants reporting</span>

@@ -412,7 +412,17 @@ async fn fetch_tenant_command_summary(
     let slug = &tenant.tenant.slug;
     let target = match crate::area_routes::target(state, slug).await {
         Ok((_tenant, target)) => target,
-        Err(_) => {
+        Err(error) => {
+            // Every section of this tenant is about to be reported as
+            // unavailable, and the operator sees that as a dash on the command
+            // centre. Swallowing the reason made it undiagnosable: production
+            // returned a fully unavailable model in 0.5s with nothing in the
+            // log to say why.
+            tracing::warn!(
+                tenant = %slug,
+                error = %error,
+                "command-center: no management target; every section will read unavailable",
+            );
             return TenantCommandData::default();
         }
     };
@@ -469,6 +479,20 @@ async fn fetch_tenant_command_summary(
     let learning = learning.map_err(|_| ApiError::Timeout).and_then(|r| r);
     let outcomes = outcomes.map_err(|_| ApiError::Timeout).and_then(|r| r);
     let audience = audience.map_err(|_| ApiError::Timeout).and_then(|r| r);
+
+    // A tenant that answered none of its five sections is the shape the
+    // operator reads as "no fans", so say why once, with the first reason.
+    // Per-section noise is not wanted — one failed section among five is
+    // normal and the model already names it.
+    if let (Err(first), Err(_), Err(_), Err(_), Err(_)) =
+        (&attention, &autopilot, &learning, &outcomes, &audience)
+    {
+        tracing::warn!(
+            tenant = %slug,
+            error = %first,
+            "command-center: every section failed; this tenant will read unavailable",
+        );
+    }
 
     TenantCommandData {
         attention: attention.as_ref().ok().and_then(|v| v.as_object()).cloned(),

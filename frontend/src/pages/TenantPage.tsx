@@ -24,6 +24,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { Field, FieldGrid, ReadField, Unset } from '../components/ui/field'
 import { buttonVariants } from '../components/ui/button'
 import { writeGuard } from '../lib/read-only'
+import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
 const paletteFields: Array<keyof Palette> = ['primary','primaryContrast','accent','surface','surfaceElevated','text','textMuted','success','warning','danger']
 // The editor showed the raw struct field names — `primaryContrast`,
@@ -99,6 +100,10 @@ export function TenantPage() {
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
+    // A section the tenant could not answer lands here as 200 with the
+    // section named in `degraded`, so nothing retries it and the panel
+    // stays empty for the life of the tab. Keep asking until it fills.
+    refetchInterval: whileIncomplete(hasDegradedSections),
   }))
   const [palette, setPalette] = createSignal<Palette>(defaultPalette)
   const [editingPalette, setEditingPalette] = createSignal(false)

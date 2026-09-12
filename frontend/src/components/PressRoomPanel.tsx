@@ -13,6 +13,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { NativeSelect } from './ui/native-select'
 import { Input } from './ui/input'
 import { writeGuard } from '../lib/read-only'
+import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
 const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (status) {
@@ -64,6 +65,10 @@ export function PressRoomPanel(props: { slug: string }) {
     queryFn: () => api.pressOverview(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
+    // A section the tenant could not answer lands here as 200 with the
+    // section named in `degraded`, so nothing retries it and the panel
+    // stays empty for the life of the tab. Keep asking until it fills.
+    refetchInterval: whileIncomplete(hasDegradedSections),
   }))
 
   const requests = () => model.data?.requests?.requests ?? []

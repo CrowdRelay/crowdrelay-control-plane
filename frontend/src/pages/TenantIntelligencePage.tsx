@@ -18,6 +18,7 @@ import { SkeletonBrainGroup, SkeletonSection } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, SectionTitle } from '../components/layout'
 import { SectionIcon } from '../components/SectionIcon'
 import { SectionFailureCard } from '../components/SectionFailureCard'
+import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
 /**
  * Intelligence subpage — tabbed view for the deterministic Rust autopilot.
@@ -34,6 +35,10 @@ export function TenantIntelligencePage() {
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
+    // A section the tenant could not answer lands here as 200 with the
+    // section named in `degraded`, so nothing retries it and the panel
+    // stays empty for the life of the tab. Keep asking until it fills.
+    refetchInterval: whileIncomplete(hasDegradedSections),
   }))
 
   const d = () => model.data

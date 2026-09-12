@@ -13,6 +13,7 @@ import { SectionFailureCard } from '../components/SectionFailureCard'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
 import type { TenantOperationsReadModel } from '../lib/types'
+import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
 export function TenantHealthPage() {
   const params = useParams({ from: '/tenants/$slug/health' })
@@ -23,6 +24,10 @@ export function TenantHealthPage() {
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
+    // A section the tenant could not answer lands here as 200 with the
+    // section named in `degraded`, so nothing retries it and the panel
+    // stays empty for the life of the tab. Keep asking until it fills.
+    refetchInterval: whileIncomplete(hasDegradedSections),
   }))
   const overview = useQuery(() => ({
     queryKey: ['tenant-overview', params().slug],

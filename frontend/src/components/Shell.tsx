@@ -15,6 +15,7 @@ import { ReauthModal } from './ReauthModal'
 import { Button } from './ui/button'
 import type { TenantSummary } from '../lib/types'
 import { cn } from '../lib/cn'
+import { whileIncomplete, hasUnavailableTenant } from '../lib/incomplete'
 
 // The palette component loads on first invocation; the shortcut lives here so
 // Ctrl/⌘-K works before that chunk exists.
@@ -307,6 +308,10 @@ export const Shell: Component = () => {
     queryFn: () => api.commandCenter(),
     staleTime: 10_000,
     refetchOnWindowFocus: false,
+    // Same key as OverviewPage, so it must carry the same retry rule —
+    // otherwise whichever observer mounts first decides whether an
+    // incomplete answer is ever asked about again.
+    refetchInterval: whileIncomplete(hasUnavailableTenant),
   }))
   const attentionCount = () => {
     const cc = commandCenter.data

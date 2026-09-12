@@ -10,6 +10,7 @@ import { SectionFailureCard } from '../components/SectionFailureCard'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
 import { Alert } from '../components/ui/alert'
 import { CommunityIntelligenceContent } from './CommunityIntelligenceContent'
+import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
 const SECTION_LABEL: Record<string, string> = {
   overview: 'Audience KPIs',
@@ -38,6 +39,10 @@ export function AudiencePage() {
     reconcile: 'id' as const,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
+    // A section the tenant could not answer lands here as 200 with the
+    // section named in `degraded`, so nothing retries it and the panel
+    // stays empty for the life of the tab. Keep asking until it fills.
+    refetchInterval: whileIncomplete(hasDegradedSections),
   }))
   const refresh = () => model.refetch()
 

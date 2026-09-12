@@ -11,6 +11,7 @@ import { SectionFailureCard } from '../components/SectionFailureCard'
 import { PageShell, PageHeader } from '../components/layout'
 import { Alert } from '../components/ui/alert'
 import type { TenantPortfolioSection } from '../lib/types'
+import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
 const SECTION_LABEL: Record<TenantPortfolioSection, string> = {
   overview: 'Roster KPIs',
@@ -46,6 +47,10 @@ export function PortfolioPage() {
     reconcile: 'id' as const,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
+    // A section the tenant could not answer lands here as 200 with the
+    // section named in `degraded`, so nothing retries it and the panel
+    // stays empty for the life of the tab. Keep asking until it fills.
+    refetchInterval: whileIncomplete(hasDegradedSections),
   }))
   // Mutations stay on their own routes and refresh this one model afterwards.
   const refresh = () => model.refetch()

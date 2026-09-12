@@ -14,6 +14,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
 import type { TenantOperationsReadModel } from '../lib/types'
+import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
 const metric = (value: number | undefined | null, suffix = '') =>
   value == null ? '—' : `${value.toLocaleString()}${suffix}`
@@ -47,6 +48,10 @@ export function TenantOperationsPage() {
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
+    // A section the tenant could not answer lands here as 200 with the
+    // section named in `degraded`, so nothing retries it and the panel
+    // stays empty for the life of the tab. Keep asking until it fills.
+    refetchInterval: whileIncomplete(hasDegradedSections),
   }))
   const refresh = () => model.refetch()
 
