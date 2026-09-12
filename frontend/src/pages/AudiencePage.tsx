@@ -79,7 +79,7 @@ export function AudiencePage() {
           <AudienceOverviewPanel slug={params().slug} overview={data.overview ?? undefined} />
         </Show>
         <Show when={!data.degraded.includes('fans')}>
-          <FanTablePanel slug={params().slug} fans={data.fans ?? []} />
+          <FanTablePanel slug={params().slug} fans={data.fans ?? []} onImported={() => void refresh()} />
         </Show>
         <Show when={!data.degraded.includes('segments')}>
           <SegmentPanel slug={params().slug} segments={data.segments ?? []} />
