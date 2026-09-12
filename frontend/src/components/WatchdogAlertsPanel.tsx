@@ -138,6 +138,11 @@ export function WatchdogAlertsPanel(props: {
       />
     </div>
 
+    {/* Adjacent alerts shared an edge, so two open alerts read as one box
+        with a rule through it. The gap lives on the list rather than as a
+        margin on each alert: an alert is used in a dozen other places where
+        it is the only thing on screen and needs no trailing space. */}
+    <div class="flex flex-col gap-3">
     <For each={open()}>{alert => {
       const guide = () => GUIDE[alert.alert_key]
       return <Alert tone={alert.severity === 'critical' ? 'destructive' : 'warning'}>
@@ -163,6 +168,7 @@ export function WatchdogAlertsPanel(props: {
         </div>}</Show>
       </Alert>
     }}</For>
+    </div>
 
     <Show when={open().length === 0}>
       <div class="p-4 mt-2.5"><EmptyState label="No open alerts" hint="The watchdog monitors runtime health and shows open alerts here." /></div>
@@ -173,10 +179,12 @@ export function WatchdogAlertsPanel(props: {
     <Show when={recovered().length > 0}>
       <Card class="p-4 mt-2.5">
         <p class="m-0 text-sm text-foreground font-semibold">Recovered in the last 24 hours</p>
-        <For each={recovered()}>{alert => {
-          const guide = GUIDE[alert.alert_key]
-          return <p class="mt-1 text-sm text-muted-foreground"><strong class="text-secondary-foreground">{guide?.title ?? alert.summary}</strong> · recovered {formatTime(alert.recovered_at)}</p>
-        }}</For>
+        <div class="mt-2 flex flex-col gap-1.5">
+          <For each={recovered()}>{alert => {
+            const guide = GUIDE[alert.alert_key]
+            return <p class="m-0 text-sm text-muted-foreground"><strong class="text-secondary-foreground">{guide?.title ?? alert.summary}</strong> · recovered {formatTime(alert.recovered_at)}</p>
+          }}</For>
+        </div>
       </Card>
     </Show>
   </>
