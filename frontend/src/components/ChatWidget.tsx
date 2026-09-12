@@ -5,6 +5,7 @@ import { errorMessage } from '../lib/format'
 import { cn } from '../lib/cn'
 import { Textarea } from './ui/textarea'
 import type { ChatMessage, ChatAction } from '../lib/types'
+import { READ_ONLY_REASON, readOnly, writeGuard } from '../lib/read-only'
 
 // Distinguishes a server-sent SSE error from a JSON parse failure on a
 // keepalive/heartbeat line. The catch block uses `instanceof StreamError`
@@ -202,6 +203,12 @@ export function ChatWidget(props: { slug: string }) {
     setError(null)
     setInput('')
 
+    // This posts with a raw `fetch` to read the stream, so it never passes
+    // through `request` and its read-only guard. Refuse here instead.
+    if (readOnly()) {
+      setError(READ_ONLY_REASON)
+      return
+    }
     const newMessages: ChatMessage[] = [...messages(), { role: 'user', content: msg }]
     setMessages(newMessages)
     setLoading(true)
@@ -540,6 +547,7 @@ export function ChatWidget(props: { slug: string }) {
                             class="text-xs rounded-md border border-border px-2.5 py-1.5 text-foreground hover:bg-surface-1 transition-colors"
                             disabled={!!executingAction()}
                             onClick={() => executeAction(action)}
+                            {...writeGuard()}
                           >
                             {executingAction() === action.label ? 'Working…' : action.label}
                           </button>
@@ -577,6 +585,7 @@ export function ChatWidget(props: { slug: string }) {
                 }}
                 rows={1}
                 maxlength={4000}
+                {...writeGuard()}
               />
               <Show when={streaming()}>
                 <button
@@ -596,6 +605,7 @@ export function ChatWidget(props: { slug: string }) {
                   disabled={loading() || !input().trim()}
                   onClick={() => send()}
                   aria-label="Send message"
+                  {...writeGuard()}
                 >
                   <SendIcon />
                 </button>

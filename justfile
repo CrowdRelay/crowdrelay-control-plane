@@ -109,6 +109,11 @@ test:
 # Signs in as the seeded platform_viewer and asserts that every write control is
 # disabled, that the palette drops its mutating commands, and that the server
 # still refuses a write that reaches it anyway.
+#
+# Runs against :8090, the built SPA, and must: the Vite dev server on :4173
+# injects an admin bearer on every /api request, so no session it hosts is ever
+# read-only. Rebuild the frontend into the API container before running this
+# after a frontend change.
 test-viewer:
     cd playwright && CONTROL_PLANE_BASE_URL=http://127.0.0.1:8090 CONTROL_PLANE_TEST_USER="$(grep '^CONTROL_PLANE_BOOTSTRAP_VIEWER_USERNAME=' ../.env | cut -d= -f2)" CONTROL_PLANE_TEST_PASS="$(grep '^CONTROL_PLANE_BOOTSTRAP_VIEWER_PASSWORD=' ../.env | cut -d= -f2)" npx playwright test --grep @viewer
 
