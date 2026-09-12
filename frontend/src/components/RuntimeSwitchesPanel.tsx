@@ -11,7 +11,7 @@ import { SkeletonFlagList } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { SectionFailureCard } from './SectionFailureCard'
-import { ErrorCard, PanelTitle } from './layout'
+import { ErrorCard, KpiCard, PanelTitle } from './layout'
 import { Card } from './ui/card'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
@@ -111,12 +111,12 @@ export function RuntimeSwitchesPanel(props: {
     <Show when={mutationError()}>{message => <ErrorCard>{message()}</ErrorCard>}</Show>
 
     <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
-      <div><span class="block text-xs text-muted-foreground">HTTP p95</span><strong class="block mt-1 text-lg font-bold tabular-nums text-foreground">{metric(props.summary?.http.p95_ms, ' ms')}</strong><small class="block text-xs text-muted-foreground">p50 {metric(props.summary?.http.p50_ms, ' ms')}</small></div>
-      <div><span class="block text-xs text-muted-foreground">Outbox pending</span><strong class="block mt-1 text-lg font-bold tabular-nums text-foreground">{metric(props.summary?.outbox.pending)}</strong><small class="block text-xs text-muted-foreground">{props.summary ? `${props.summary.outbox.processing} processing` : '—'}</small></div>
-      <div><span class="block text-xs text-muted-foreground">Delivery pending</span><strong class="block mt-1 text-lg font-bold tabular-nums text-foreground">{metric(props.summary?.deliveries.pending)}</strong><small class="block text-xs text-muted-foreground">{props.summary ? `${props.summary.deliveries.dead} dead` : '—'}</small></div>
-      <div><span class="block text-xs text-muted-foreground">Push pending</span><strong class="block mt-1 text-lg font-bold tabular-nums text-foreground">{metric(props.summary?.push.pending)}</strong><small class="block text-xs text-muted-foreground">{props.summary ? `${props.summary.push.dead} dead` : '—'}</small></div>
-      <div><span class="block text-xs text-muted-foreground">Oldest queue</span><strong class="block mt-1 text-lg font-bold tabular-nums text-foreground">{props.summary ? seconds(oldestQueueAge(props.summary)) : '—'}</strong><small class="block text-xs text-muted-foreground">across async queues</small></div>
-      <div><span class="block text-xs text-muted-foreground">Watchdog</span><strong class="block mt-1 text-lg font-bold tabular-nums text-foreground">{metric(props.summary?.watchdog.active_alerts)}</strong><small class="block text-xs text-muted-foreground">{props.summary ? `${props.summary.watchdog.critical_alerts} critical` : '—'}</small></div>
+      <KpiCard label="Slowest requests" value={metric(props.summary?.http.p95_ms, ' ms')} sub={`typical ${metric(props.summary?.http.p50_ms, ' ms')}`} />
+      <KpiCard label="Outbox pending" value={metric(props.summary?.outbox.pending)} sub={props.summary ? `${props.summary.outbox.processing} processing` : '—'} />
+      <KpiCard label="Delivery pending" value={metric(props.summary?.deliveries.pending)} sub={props.summary ? `${props.summary.deliveries.dead} dead` : '—'} />
+      <KpiCard label="Push pending" value={metric(props.summary?.push.pending)} sub={props.summary ? `${props.summary.push.dead} dead` : '—'} />
+      <KpiCard label="Oldest queue" value={props.summary ? seconds(oldestQueueAge(props.summary)) : '—'} sub="across async queues" />
+      <KpiCard label="Watchdog" value={metric(props.summary?.watchdog.active_alerts)} sub={props.summary ? `${props.summary.watchdog.critical_alerts} critical` : '—'} tone={(props.summary?.watchdog.critical_alerts ?? 0) > 0 ? 'bad' : 'default'} />
     </div>
 
     <Show when={props.summary && (deadJobs() > 0 || props.summary.watchdog.critical_alerts > 0)}>

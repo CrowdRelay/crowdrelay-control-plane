@@ -11,7 +11,7 @@ import { SectionFailureCard } from './SectionFailureCard'
 import { PolicyEditor, PolicyHeader } from './PolicyEditor'
 import { CONTEXT_LABELS, labelOr } from '../lib/opportunity-labels'
 import { Card } from './ui/card'
-import { ErrorCard, KpiCard, PanelTitle } from './layout'
+import { ErrorCard, KpiCard, KpiStrip, PanelTitle } from './layout'
 import { Button } from './ui/button'
 
 const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
@@ -135,12 +135,12 @@ export function AuthorityPoliciesPanel(props: {
     }>{data => <>
       {/* These were rounded tiles on a page where every other surface is
           square, with labels lifted from the field names — "executor fail". */}
-      <div class="grid gap-3 my-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
+      <KpiStrip class="my-4">
         <KpiCard label="Waiting on you" value={data().needs_you.length} sub="decisions parked" tone={data().needs_you.length > 0 ? 'warn' : 'default'} />
         <KpiCard label="Queued" value={data().queued_actions} sub="about to run" />
-        <KpiCard label="Failed today" value={data().failed_24h} sub="in the last 24 hours" />
-        <KpiCard label="Nothing could run them" value={data().executor_failed_24h} sub="nothing was running to do it" />
-      </div>
+        <KpiCard label="Failed today" value={data().failed_24h} sub="in the last 24 hours" tone={data().failed_24h > 0 ? 'bad' : 'default'} />
+        <KpiCard label="Nothing could run them" value={data().executor_failed_24h} sub="nothing was running to do it" tone={data().executor_failed_24h > 0 ? 'bad' : 'default'} />
+      </KpiStrip>
       {/* Killswitch / full-enable: one switch, one confirmation.
           Right-aligned, directly above the policy list so the operator's
           eye lands on the master control before the per-context rows. */}
@@ -219,7 +219,16 @@ export function AuthorityPoliciesPanel(props: {
       />}</For>
       <Show when={data().rum_metrics_24h.length > 0}>
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 mt-4">
-          <For each={data().rum_metrics_24h.slice(0, 6)}>{rum => <div class="min-w-0 p-3 border border-border rounded-lg bg-surface-3"><strong>{contextLabel(rum.metric_key)}</strong><span>{rum.surface} · {rum.samples_24h} samples</span><small>p75 {rum.p75.toFixed(1)} · p95 {rum.p95.toFixed(1)}</small></div>}</For>
+          {/* Three inline elements in a row with no display rule ran together
+              as one line of text: the metric name, its surface and its
+              percentiles read as a sentence rather than as a card. */}
+          <For each={data().rum_metrics_24h.slice(0, 6)}>{rum => (
+            <div class="min-w-0 p-3 border border-border rounded-lg bg-surface-3">
+              <strong class="block truncate text-sm text-foreground" title={contextLabel(rum.metric_key)}>{contextLabel(rum.metric_key)}</strong>
+              <span class="mt-0.5 block truncate text-xs text-muted-foreground">{rum.surface} · {rum.samples_24h} samples</span>
+              <small class="mt-1 block text-xs tabular-nums text-secondary-foreground">p75 {rum.p75.toFixed(1)} · p95 {rum.p95.toFixed(1)}</small>
+            </div>
+          )}</For>
         </div>
       </Show>
     </>}</Show>

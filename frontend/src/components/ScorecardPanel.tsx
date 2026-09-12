@@ -10,7 +10,7 @@ import { SectionIcon } from './SectionIcon'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
-import { SectionTitle, ErrorCard } from './layout'
+import { SectionTitle, ErrorCard, KpiCard, KpiStrip } from './layout'
 import { CAPABILITY_LABELS, CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 
 const count = (value: number | undefined | null) =>
@@ -111,37 +111,40 @@ export function ScorecardPanel(props: { slug: string }) {
     <Show when={!model.error && model.isPending}><SkeletonScorecard /></Show>
 
     <Show when={data()}>{d => <>
-      {/* Status row — horizontal KPI strip. `auto-fit` stretches the cards
-          to fill the row regardless of how many there are, so 3 cards no
-          longer leave a gap in a 4-column grid. */}
-      <div class="grid gap-3 mt-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
-        <div class="rounded-lg border border-border bg-card p-3">
-          <span class="block text-xs text-muted-foreground">Agent</span>
-          <strong class="block mt-1 text-lg font-bold text-foreground">{d().status.agent_enabled ? 'on' : 'off'}</strong>
-          <small class="block text-xs text-muted-foreground mt-0.5">{d().status.dry_run ? 'dry run' : postureLabel(d().status.posture)}</small>
-        </div>
-        <div class="rounded-lg border border-border bg-card p-3">
-          <span class="block text-xs text-muted-foreground">Last decision</span>
-          <strong class="block mt-1 text-lg font-bold text-foreground">{timeAgo(d().status.last_decision_at)}</strong>
-          <small class="block text-xs text-muted-foreground mt-0.5">{timeAgo(d().status.last_action_at)} last action</small>
-        </div>
-        <div class="rounded-lg border border-border bg-card p-3">
-          <span class="block text-xs text-muted-foreground">Live capabilities</span>
-          <strong class="block mt-1 text-lg font-bold text-foreground">{d().status.live_capabilities.length}</strong>
-          <small class="block text-xs text-muted-foreground mt-0.5">{d().status.live_capabilities.length === 0 ? 'none active' : 'running'}</small>
-        </div>
+      {/* Status row. `KpiStrip`/`KpiCard` carry the console's one KPI
+          treatment; this panel used to hand-roll the same box at a smaller
+          type scale, so the scorecard's figures read a step quieter than
+          every other strip on the page. */}
+      <KpiStrip class="mt-4 mb-0">
+        <KpiCard
+          label="Agent"
+          value={d().status.agent_enabled ? 'on' : 'off'}
+          sub={d().status.dry_run ? 'dry run' : postureLabel(d().status.posture)}
+        />
+        <KpiCard
+          label="Last decision"
+          value={timeAgo(d().status.last_decision_at)}
+          sub={`${timeAgo(d().status.last_action_at)} last action`}
+        />
+        <KpiCard
+          label="Capabilities live"
+          value={d().status.live_capabilities.length}
+          sub={d().status.live_capabilities.length === 0 ? 'none active' : 'running'}
+        />
         <Show when={d().status.parked_capabilities.length > 0}>
           <ErrorCard class="p-3 flex flex-col gap-1">
             <strong class="text-destructive text-sm">Execution gap</strong>
             <span class="text-xs text-secondary-foreground">{d().status.parked_capabilities.length === 1 ? 'One job is' : `${d().status.parked_capabilities.length} jobs are`} queued with nothing able to run them: {d().status.parked_capabilities.map(cap => labelOr(CAPABILITY_LABELS, cap)).join(', ')}</span>
           </ErrorCard>
         </Show>
-      </div>
+      </KpiStrip>
 
-      {/* Live capabilities as chips — spans the full row */}
+      {/* The chips naming those capabilities. The card above counts them, so
+          this row is titled for what it adds — which ones — rather than
+          repeating "Live capabilities" directly under a card of that name. */}
       <Show when={d().status.live_capabilities.length > 0}>
         <div class="flex items-center gap-2 flex-wrap mt-3">
-          <span class="text-xs text-muted-foreground font-medium">Live capabilities</span>
+          <span class="text-xs text-muted-foreground font-medium">Running now</span>
           <div class="flex items-center gap-1.5 flex-wrap">
             <For each={d().status.live_capabilities}>{cap => <Badge variant="muted" title={cap} class="rounded-full px-2.5 py-1 leading-relaxed border border-border text-secondary-foreground">{labelOr(CAPABILITY_LABELS, cap)}</Badge>}</For>
           </div>
@@ -153,20 +156,23 @@ export function ScorecardPanel(props: { slug: string }) {
         <div class="flex justify-between gap-4 items-start">
           <div><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="zap" />Actions</h3></div>
         </div>
-        <div class="grid gap-3 mt-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
-          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Executed</span>{num(d().week.executed)}<small class="block text-muted-foreground text-sm">{count(d().week.succeeded)} succeeded · {count(d().week.failed)} failed</small></div>
-          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Success rate</span>
-            <Show when={d().week.success_rate_basis_points != null} fallback={<strong class="block my-1.5 text-foreground">—</strong>}>
-              <ProgressRing value={Math.round((d().week.success_rate_basis_points as number) / 100)} size={44} strokeWidth={4} showValue />
-            </Show>
-            <small class="block text-muted-foreground text-sm">of actions that resolved</small>
-          </div>
+        <KpiStrip class="mt-3 mb-0">
+          <KpiCard label="Executed" value={num(d().week.executed)} sub={`${count(d().week.succeeded)} succeeded · ${count(d().week.failed)} failed`} />
+          <KpiCard
+            label="Success rate"
+            value={
+              <Show when={d().week.success_rate_basis_points != null} fallback={<>—</>}>
+                <ProgressRing value={Math.round((d().week.success_rate_basis_points as number) / 100)} size={44} strokeWidth={4} showValue />
+              </Show>
+            }
+            sub="of actions that resolved"
+          />
           <Show when={(d().week.unknown ?? 0) > 0}>
-            <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Unknown</span>{num(d().week.unknown ?? 0)}<small class="block text-muted-foreground text-sm">outcome not established — excluded from the rate</small></div>
+            <KpiCard label="Unknown" value={num(d().week.unknown ?? 0)} sub="outcome not established — excluded from the rate" />
           </Show>
-          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Parked</span>{num(d().week.parked)}<small class="block text-muted-foreground text-sm">nothing was running to do it</small></div>
-          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Awaiting approval</span>{num(d().week.awaiting_approval)}<small class="block text-muted-foreground text-sm">requires operator review</small></div>
-        </div>
+          <KpiCard label="Parked" value={num(d().week.parked)} sub="nothing was running to do it" />
+          <KpiCard label="Awaiting approval" value={num(d().week.awaiting_approval)} sub="requires operator review" />
+        </KpiStrip>
       </section>
 
       {/* Track record */}
@@ -174,23 +180,29 @@ export function ScorecardPanel(props: { slug: string }) {
         <div class="flex justify-between gap-4 items-start">
           <div><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="history" />Did it work?</h3></div>
         </div>
-        <div class="grid gap-3 mt-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
-          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Improved</span><strong class="block my-1.5 text-foreground">{count(d().track_record.improved)}</strong><small class="block text-sm text-success">measured wins</small></div>
-          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Worsened</span><strong class="block my-1.5 text-foreground">{count(d().track_record.worsened)}</strong><small class="block text-sm text-destructive">measured losses</small></div>
-          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Neutral</span><strong class="block my-1.5 text-foreground">{count(d().track_record.neutral)}</strong><small class="block text-muted-foreground text-sm">no change</small></div>
-          <div class="rounded-lg border border-border bg-card p-3"><span class="block text-muted-foreground text-sm">Unmeasured</span><strong class="block my-1.5 text-foreground">{count(d().track_record.unmeasured)}</strong><small class="block text-muted-foreground text-sm">{bpsToPercent(d().track_record.measurement_coverage_basis_points)} coverage</small></div>
+        <KpiStrip class="mt-3 mb-0">
+          <KpiCard label="Improved" value={count(d().track_record.improved)} sub={<span class="text-success">measured wins</span>} />
+          <KpiCard label="Worsened" value={count(d().track_record.worsened)} sub={<span class="text-destructive">measured losses</span>} />
+          <KpiCard label="Neutral" value={count(d().track_record.neutral)} sub="no change" />
+          {/* With no coverage reading this printed "— coverage", which reads as
+              a broken template rather than as an absent measurement. */}
+          <KpiCard
+            label="Unmeasured"
+            value={count(d().track_record.unmeasured)}
+            sub={d().track_record.measurement_coverage_basis_points == null
+              ? 'no coverage reading yet'
+              : `${bpsToPercent(d().track_record.measurement_coverage_basis_points)} coverage`}
+          />
           <Show when={(d().track_record.awaiting_measurement ?? 0) > 0}>
-            <div class="rounded-lg border border-border bg-card p-3">
-              <span class="block text-muted-foreground text-sm">Awaiting</span>
-              <strong class="block my-1.5 text-foreground">{count(d().track_record.awaiting_measurement ?? 0)}</strong>
-              <small class="block text-muted-foreground text-sm">{
-                d().track_record.next_measurement_due_at
-                  ? `first result ${formatTimestamp(d().track_record.next_measurement_due_at as string)}`
-                  : 'horizon not elapsed'
-              }</small>
-            </div>
+            <KpiCard
+              label="Awaiting"
+              value={count(d().track_record.awaiting_measurement ?? 0)}
+              sub={d().track_record.next_measurement_due_at
+                ? `first result ${formatTimestamp(d().track_record.next_measurement_due_at as string)}`
+                : 'horizon not elapsed'}
+            />
           </Show>
-        </div>
+        </KpiStrip>
         {/* Only warn about work that can never be judged. Actions still inside
             a 7, 14 or 30 day horizon are not a coverage failure, and warning
             about them told the operator the system was blind days before its

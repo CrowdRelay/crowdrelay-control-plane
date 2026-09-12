@@ -12,7 +12,7 @@ import { Card } from './ui/card'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
 import { cn } from '../lib/cn'
-import { ErrorCard, PanelTitle } from './layout'
+import { ErrorCard, KpiCard, PanelTitle } from './layout'
 
 const seconds = (value: number) => value <= 0 ? '—' : formatAge(value)
 
@@ -219,12 +219,12 @@ export function OperationsPanel(props: {
         as a single tall stack of label-over-number-over-caption — eighteen
         lines down the left edge where a six-tile strip was intended. */}
     <div class="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-      <div><span class="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Slowest requests</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{metric(summary.data?.http.p95_ms, ' ms')}</strong><small class="block text-xs text-muted-foreground">typical {metric(summary.data?.http.p50_ms, ' ms')}</small></div>
-      <div><span class="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Outbox pending</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{metric(summary.data?.outbox.pending)}</strong><small class="block text-xs text-muted-foreground">{summary.data ? `${summary.data.outbox.processing} processing` : '—'}</small></div>
-      <div><span class="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Delivery pending</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{metric(summary.data?.deliveries.pending)}</strong><small class="block text-xs text-muted-foreground">{summary.data ? `${summary.data.deliveries.dead} dead` : '—'}</small></div>
-      <div><span class="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Push pending</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{metric(summary.data?.push.pending)}</strong><small class="block text-xs text-muted-foreground">{summary.data ? `${summary.data.push.dead} dead` : '—'}</small></div>
-      <div><span class="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Oldest queue</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{summary.data ? seconds(oldestQueueAge(summary.data)) : '—'}</strong><small class="block text-xs text-muted-foreground">across async queues</small></div>
-      <div><span class="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Watchdog</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{metric(summary.data?.watchdog.active_alerts)}</strong><small class="block text-xs text-muted-foreground">{summary.data ? `${summary.data.watchdog.critical_alerts} critical` : '—'}</small></div>
+      <KpiCard label="Slowest requests" value={metric(summary.data?.http.p95_ms, ' ms')} sub={`typical ${metric(summary.data?.http.p50_ms, ' ms')}`} />
+      <KpiCard label="Outbox pending" value={metric(summary.data?.outbox.pending)} sub={summary.data ? `${summary.data.outbox.processing} processing` : '—'} />
+      <KpiCard label="Delivery pending" value={metric(summary.data?.deliveries.pending)} sub={summary.data ? `${summary.data.deliveries.dead} dead` : '—'} />
+      <KpiCard label="Push pending" value={metric(summary.data?.push.pending)} sub={summary.data ? `${summary.data.push.dead} dead` : '—'} />
+      <KpiCard label="Oldest queue" value={summary.data ? seconds(oldestQueueAge(summary.data)) : '—'} sub="across async queues" />
+      <KpiCard label="Watchdog" value={metric(summary.data?.watchdog.active_alerts)} sub={summary.data ? `${summary.data.watchdog.critical_alerts} critical` : '—'} tone={(summary.data?.watchdog.critical_alerts ?? 0) > 0 ? 'bad' : 'default'} />
     </div>
 
     <Show when={summary.data && (deadJobs() > 0 || summary.data.watchdog.critical_alerts > 0)}>

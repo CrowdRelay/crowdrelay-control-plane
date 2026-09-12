@@ -21,7 +21,7 @@ export function PageHeader(props: {
     <div class={cn('flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6 mb-5', props.class)}>
       <div class="min-w-0">
         <Show when={props.eyebrow}>
-          <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</span>
+          <span data-slot="eyebrow" class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</span>
         </Show>
         <h1 class="text-2xl font-bold tracking-tight text-foreground mt-1 break-words">{props.title}</h1>
         <Show when={props.description}>
@@ -40,17 +40,35 @@ export function PageHeader(props: {
 // supporting metrics are compact. Replaces the hand-rolled `.kpi-card`
 // and `.kpi-strip` CSS classes.
 
+// `tone` colours the card's edge — the reading is worth noticing. It also
+// colours the figure, because a bordered card whose number stayed default-grey
+// read as decoration rather than as the thing that changed.
+const KPI_BORDER_TONE = {
+  default: '',
+  good: 'border-success/30',
+  warn: 'border-warning/30',
+  bad: 'border-destructive/30',
+} as const
+
+const KPI_VALUE_TONE = {
+  default: 'text-foreground',
+  good: 'text-success',
+  warn: 'text-warning',
+  bad: 'text-destructive',
+} as const
+
 export function KpiCard(props: {
   label: string
   value: JSX.Element
   sub?: JSX.Element
-  tone?: 'default' | 'good' | 'warn'
+  tone?: 'default' | 'good' | 'warn' | 'bad'
   class?: string
 }) {
+  const tone = () => props.tone ?? 'default'
   return (
-    <Card class={cn('rounded-lg p-4', props.tone === 'good' && 'border-success/30', props.tone === 'warn' && 'border-warning/30', props.class)}>
+    <Card class={cn('rounded-lg p-4', KPI_BORDER_TONE[tone()], props.class)}>
       <div class="text-xs text-muted-foreground">{props.label}</div>
-      <div class="text-xl font-bold tabular-nums text-foreground mt-1">{props.value}</div>
+      <div class={cn('text-xl font-bold tabular-nums mt-1', KPI_VALUE_TONE[tone()])}>{props.value}</div>
       <Show when={props.sub}>
         <div class="text-xs text-muted-foreground mt-1">{props.sub}</div>
       </Show>
@@ -199,6 +217,12 @@ export function TabPanel(props: {
     <Show when={props.visited}>
       <div
         classList={{ hidden: props.active !== props.id }}
+        // The end-to-end suite counts mounted tab panels to prove the lazy
+        // mount. It used to find them by `.page-tab-content`, a presentation
+        // class the Tailwind migration deleted — so the assertion stopped
+        // finding anything and the tests timed out rather than failing loudly.
+        // `data-slot` is not a style hook, so restyling cannot remove it.
+        data-slot="tab-panel"
         role="tabpanel"
         aria-labelledby={`tab-${props.id}`}
         id={`tabpanel-${props.id}`}
@@ -293,7 +317,7 @@ export function SectionTitle(props: {
         </Show>
         <div>
           <Show when={props.eyebrow}>
-            <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</span>
+            <span data-slot="eyebrow" class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</span>
           </Show>
           <h2 class="flex items-center gap-2 text-base font-semibold text-foreground">{props.title}</h2>
           <Show when={props.description}>
@@ -487,8 +511,8 @@ export function CommandBlock(props: {
     good: 'border-success/40',
   }
   return (
-    <Card class={cn('p-4 transition-colors hover:border-border-strong cursor-pointer', toneClass[props.tone ?? 'default'], props.class)}>
-      <div class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</div>
+    <Card data-slot="command-block" class={cn('p-4 transition-colors hover:border-border-strong cursor-pointer', toneClass[props.tone ?? 'default'], props.class)}>
+      <div data-slot="eyebrow" class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</div>
       <div class="mt-2 flex items-baseline gap-2">
         <span class="text-xl font-bold tabular-nums text-foreground">{props.metric}</span>
         <span class="text-xs text-muted-foreground">{props.label}</span>
