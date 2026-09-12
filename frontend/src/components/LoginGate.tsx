@@ -36,7 +36,7 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
 
   return <Show when={authState.profile()} fallback={
     <Show when={!authState.hydrated()} fallback={
-    <main class="flex min-h-screen items-center justify-center bg-background p-4">
+    <main class="flex min-h-viewport items-center justify-center bg-background p-4">
       <section class="w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-lg" aria-labelledby="control-plane-login-title">
         <div class="flex items-center gap-3 mb-6">
           <a href="https://crowdrelay.music" target="_blank" rel="noreferrer noopener" aria-label="CrowdRelay landing page">
@@ -78,7 +78,7 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
       {/* Hydrating from the HttpOnly session cookie — show a minimal
           loading state so the login form does not flash for authenticated
           operators on page refresh. */}
-      <main class="flex min-h-screen items-center justify-center bg-background p-4">
+      <main class="flex min-h-viewport items-center justify-center bg-background p-4">
         <div class="flex flex-col items-center gap-3" aria-label="Loading">
           <SkeletonBlock style={{ width: '48px', height: '48px', 'border-radius': '12px' }} />
           <SkeletonBlock style={{ width: '180px', height: '16px', 'border-radius': '8px' }} />

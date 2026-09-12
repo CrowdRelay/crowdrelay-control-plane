@@ -227,7 +227,22 @@
     text-rendering: optimizeLegibility;
   }
   * { box-sizing: border-box; }
-  html, body { height: 100%; overflow: hidden; }
+  /* `height: 100%` on the root resolves against the initial containing block,
+     which on a phone is the LARGE viewport — the one you get with the URL bar
+     retracted. The bar is showing when the page loads, so the bottom ~60-100px
+     of the app sits under it. The body cannot scroll (`overflow: hidden`) and
+     the inner pane's own scrollbar ends where 100vh ends, so whatever falls in
+     that band is unreachable: on the Health page's Runtime tab the switch list
+     stopped dead partway down and would not scroll further.
+
+     `100dvh` is the visible box, and it follows the bar as it retracts. The
+     `100vh` line above it is the fallback for anything that does not know
+     `dvh`; the second declaration simply wins where it is understood. */
+  html, body {
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
   body {
     margin: 0;
     min-width: 320px;
@@ -688,6 +703,18 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
      scrolls without drawing a bar under them. Tailwind has no such utility
      and the class was never defined, so every tab bar narrow enough to
      overflow drew a scrollbar across its own bottom border. */
+  /* The shell's full-height boxes. Same fallback pair as the root above:
+     `h-screen` would pin them to the large viewport and push their bottom
+     under the browser's own chrome. */
+  .h-viewport {
+    height: 100vh;
+    height: 100dvh;
+  }
+  .min-h-viewport {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
   .scrollbar-none {
     scrollbar-width: none;
     -ms-overflow-style: none;

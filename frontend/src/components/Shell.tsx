@@ -393,7 +393,7 @@ export const Shell: Component = () => {
         scrolled at the same time as the pane inside `main` — two scrollbars, and
         a wheel gesture that moved whichever one the pointer happened to be over.
         The pane inside `main` is the only thing that scrolls. */}
-    <div class="flex h-screen overflow-hidden bg-background">
+    <div class="flex h-viewport overflow-hidden bg-background">
       <Show when={mobileNavOpen()}>
         <div class="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setMobileNavOpen(false)} aria-hidden="true" />
       </Show>
@@ -524,7 +524,7 @@ export const Shell: Component = () => {
         </div>
       </aside>
 
-      <main class={cn('flex-1 flex flex-col h-screen min-w-0 overflow-hidden md:ml-60', collapsed() && 'md:ml-16')} id="main-content">
+      <main class={cn('flex-1 flex flex-col h-viewport min-w-0 overflow-hidden md:ml-60', collapsed() && 'md:ml-16')} id="main-content">
         <header class="h-14 border-b border-border bg-card flex items-center gap-3 px-4 flex-shrink-0 z-30">
           <button
             type="button"
