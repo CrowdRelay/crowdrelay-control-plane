@@ -10,6 +10,7 @@ import { StatusBadge } from './StatusBadge'
 import { SkeletonSection } from './Skeleton'
 import { Card } from './ui/card'
 import { Badge } from './ui/badge'
+import { writeGuard } from '../lib/read-only'
 
 // `/operations/posture` reads and writes, and nothing in the console called
 // the writer: the one dial that moves all 22 authority policies together could
@@ -130,6 +131,7 @@ export function GrowthPosturePanel(props: { slug: string }) {
             }}
             disabled={apply.isPending}
             onClick={() => choose(option.value)}
+            {...writeGuard()}
           >
             <span class="flex items-center gap-2 flex-wrap">
               <strong class="text-foreground">{option.label}</strong>

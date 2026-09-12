@@ -40,7 +40,7 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
       <section class="w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-lg" aria-labelledby="control-plane-login-title">
         <div class="flex items-center gap-3 mb-6">
           <a href="https://crowdrelay.music" target="_blank" rel="noreferrer noopener" aria-label="CrowdRelay landing page">
-            <img src="/crowdrelay-brand-mark.png" alt="" width="36" height="36" class="rounded-lg" />
+            <img src="/crowdrelay-logo.svg" alt="" width="36" height="36" />
           </a>
           <div class="flex flex-col">
             <strong class="text-sm font-bold text-foreground leading-tight">CrowdRelay</strong>

@@ -118,7 +118,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
                   <TableCell><Badge variant={toneToVariant(statusTone(c.status))}>{c.status}</Badge></TableCell>
                   <TableCell>
                     <Show when={c.status !== 'refused' && c.status !== 'promoted'}>
-                      <Button
+                      <Button writes
                         variant="ghost"
                         size="sm"
                         disabled={confirming() === c.candidate_id}
@@ -166,7 +166,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
                   <TableCell><Badge variant={toneToVariant(statusTone(c.status))}>{c.status}</Badge></TableCell>
                   <TableCell>
                     <Show when={c.status !== 'refused' && c.status !== 'promoted'}>
-                      <Button
+                      <Button writes
                         variant="ghost"
                         size="sm"
                         disabled={confirming() === c.id}

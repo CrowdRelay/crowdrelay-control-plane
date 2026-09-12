@@ -137,7 +137,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
         <Show when={campaigns.data}>
           <span class="text-muted-foreground">{campaigns.data!.campaigns.length} campaigns · {campaigns.data!.pool.contactable_latarnicy} contactable</span>
         </Show>
-        <Button variant="ghost" size="sm" onClick={() => setCreating(v => !v)}>
+        <Button writes variant="ghost" size="sm" onClick={() => setCreating(v => !v)}>
           {creating() ? 'Cancel' : 'Add release campaign'}
         </Button>
       </div>
@@ -171,7 +171,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
                  onInput={e => setForm({ ...form(), claimDeadline: e.currentTarget.value })} />
         </label>
         <div class="flex justify-end md:col-span-2">
-          <Button size="sm" type="submit" disabled={acting() === 'create'}>
+          <Button writes size="sm" type="submit" disabled={acting() === 'create'}>
             {acting() === 'create' ? 'Creating…' : 'Create campaign'}
           </Button>
         </div>
@@ -215,14 +215,14 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
                   {selectedCampaign() === c.id ? 'Hide recipients' : 'Show recipients'}
                 </Button>
                 <Show when={c.phase === 'draft' || c.phase === 'ready'}>
-                  <Button
+                  <Button writes
                     size="sm"
                     disabled={acting() === c.id}
                     onClick={() => launchCampaign(c.id)}
                   >{acting() === c.id ? 'Launching…' : 'Launch'}</Button>
                 </Show>
                 <Show when={c.phase !== 'closed' && c.phase !== 'cancelled' && c.launched_at != null}>
-                  <Button
+                  <Button writes
                     variant="ghost"
                     size="sm"
                     disabled={acting() === c.id}

@@ -106,7 +106,9 @@ export function RegionalProfilePanel(props: Props) {
           status={classified() ? `${profile()!.dataRegion.toUpperCase()} classified` : 'unclassified'}
           tone={classified() ? 'good' : 'warn'}
         />
-        <Button variant={classified() ? 'ghost' : 'default'} size="sm" onClick={open}>
+        {/* The opener is marked, not the eight fields behind it: a viewer that
+            can reach the form fills it in and then finds Save dead. */}
+        <Button variant={classified() ? 'ghost' : 'default'} size="sm" writes onClick={open}>
           {classified() ? 'Edit' : 'Classify tenant'}
         </Button>
       </>}
@@ -145,7 +147,7 @@ export function RegionalProfilePanel(props: Props) {
             {ready() ? 'Ready to save.' : 'Country, locale, timezone and currency are required.'}
           </span>
           <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
-          <Button size="sm" onClick={() => update.mutate()} disabled={update.isPending || !ready()}>
+          <Button size="sm" writes onClick={() => update.mutate()} disabled={update.isPending || !ready()}>
             {update.isPending && <Spinner />} {update.isPending ? 'Saving…' : classified() ? 'Save profile' : 'Classify tenant'}
           </Button>
         </>}

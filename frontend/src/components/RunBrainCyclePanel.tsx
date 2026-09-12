@@ -12,6 +12,7 @@ import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { NativeSelect } from './ui/native-select'
+import { writeGuard } from '../lib/read-only'
 
 const CycleIcon = (props: { size?: number }) => (
   <svg width={props.size ?? 18} height={props.size ?? 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -132,6 +133,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                   value={data().northStar}
                   disabled={savingGoal() || goals.isFetching}
                   onChange={event => void changeGoal(event.currentTarget.value)}
+                  {...writeGuard()}
                 >
                   <Show when={goals.error}>
                     <option value={data().northStar}>{strategyLabel(data().northStar)}</option>
@@ -190,7 +192,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                 Dispatches real outreach. Subject to the same autonomy policy and 24-hour action
                 cap as a scheduled cycle.
               </p>
-              <Button size="sm" onClick={() => void runCycle()} disabled={running() || !data().hasAnyConnectedPlatform}>
+              <Button size="sm" writes onClick={() => void runCycle()} disabled={running() || !data().hasAnyConnectedPlatform}>
                 {running() && <Spinner />} {running() ? 'Requesting…' : 'Run cycle now'}
               </Button>
             </footer>

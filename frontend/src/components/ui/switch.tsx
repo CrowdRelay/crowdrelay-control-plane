@@ -1,5 +1,6 @@
 import { type Component, type JSX, splitProps } from 'solid-js'
 import { cn } from '~/lib/cn'
+import { READ_ONLY_REASON, readOnly } from '~/lib/read-only'
 
 /**
  * Switch — on/off toggle for a boolean the operator flips directly
@@ -21,16 +22,25 @@ export type SwitchProps = Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, 'onC
   label: string
   onChange?: () => void
   class?: string
+  /**
+   * Defaults to true, unlike `Button`: every switch in this console flips
+   * something the server stores. A switch that only drives local UI state
+   * passes `writes={false}`.
+   */
+  writes?: boolean
 }
 
 export const Switch: Component<SwitchProps> = (props) => {
-  const [local, rest] = splitProps(props, ['checked', 'label', 'onChange', 'class'])
+  const [local, rest] = splitProps(props, ['checked', 'label', 'onChange', 'class', 'writes', 'disabled', 'title'])
+  const blocked = () => local.writes !== false && readOnly()
   return (
     <button
       type="button"
       role="switch"
       aria-checked={local.checked}
       aria-label={local.label}
+      disabled={blocked() || local.disabled}
+      title={blocked() ? READ_ONLY_REASON : local.title}
       onClick={() => local.onChange?.()}
       class={cn(
         // 20px tall was smaller than every other control in the row and a poor

@@ -181,7 +181,7 @@ export function DeadQueuesPanel(props: {
           <p class="mt-1.5 m-0 text-sm text-secondary-foreground">{item.last_error_kind ?? 'unknown error'} · attempts {item.attempts}/{item.max_attempts} · dead {observed(item.dead_at)}</p>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
-          <Button variant="ghost" size="sm" disabled={!!busy()} onClick={() => void retryOutbox(item.id, item.event_type)}>{busy() === `outbox:${item.id}` && <Spinner />} {busy() === `outbox:${item.id}` ? 'Retrying…' : 'Retry'}</Button>
+          <Button writes variant="ghost" size="sm" disabled={!!busy()} onClick={() => void retryOutbox(item.id, item.event_type)}>{busy() === `outbox:${item.id}` && <Spinner />} {busy() === `outbox:${item.id}` ? 'Retrying…' : 'Retry'}</Button>
         </div>
       </div>
     </Card>}</For>
@@ -195,7 +195,7 @@ export function DeadQueuesPanel(props: {
     {/* ─── Dead Webhook Deliveries ─────────────────────────────── */}
     <div class="flex items-start justify-between gap-4 mb-3" id="dead-deliveries">
       <div><PanelTitle as="h3" icon={<SectionIcon name="alert-triangle" />}>Delivery failures</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Inspect attempt history before retrying.</p></div>
-      <Button type="button" variant={confirming() ? 'destructive-ghost' : 'ghost'} size="sm" disabled={(props.summary?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' && <Spinner />} {busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</Button>
+      <Button writes type="button" variant={confirming() ? 'destructive-ghost' : 'ghost'} size="sm" disabled={(props.summary?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' && <Spinner />} {busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</Button>
     </div>
     <Show when={props.error}><ErrorCard>{errorMessage(props.error, 'Dead deliveries unavailable')}</ErrorCard></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
@@ -210,7 +210,7 @@ export function DeadQueuesPanel(props: {
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
           <Button variant="ghost" size="sm" disabled={!!busy()} onClick={() => void loadDeliveryDetails(item.id)}>Attempts</Button>
-          <Button variant="ghost" size="sm" disabled={!!busy()} onClick={() => void retryDelivery(item.id, item.endpoint_name)}>{busy() === `delivery:${item.id}` && <Spinner />} {busy() === `delivery:${item.id}` ? 'Retrying…' : 'Retry'}</Button>
+          <Button writes variant="ghost" size="sm" disabled={!!busy()} onClick={() => void retryDelivery(item.id, item.endpoint_name)}>{busy() === `delivery:${item.id}` && <Spinner />} {busy() === `delivery:${item.id}` ? 'Retrying…' : 'Retry'}</Button>
         </div>
       </div>
     </Card>}</For>
@@ -248,7 +248,7 @@ export function DeadQueuesPanel(props: {
             when={pushIsRetryable(item.error_code)}
             fallback={<span class="text-sm text-muted-foreground">nothing to retry</span>}
           >
-            <Button variant="ghost" size="sm" disabled={!!busy()} onClick={() => void retryPush(item.id, item.title)}>{busy() === `push:${item.id}` && <Spinner />} {busy() === `push:${item.id}` ? 'Retrying…' : 'Retry'}</Button>
+            <Button writes variant="ghost" size="sm" disabled={!!busy()} onClick={() => void retryPush(item.id, item.title)}>{busy() === `push:${item.id}` && <Spinner />} {busy() === `push:${item.id}` ? 'Retrying…' : 'Retry'}</Button>
           </Show>
         </div>
       </div>

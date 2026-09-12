@@ -1,5 +1,5 @@
 import { createSignal } from 'solid-js'
-import { api, setUnauthorizedHandler } from './api'
+import { api, setUnauthorizedHandler, setReadOnlyCheck } from './api'
 import { queryClient } from './queryClient'
 import type { Profile } from './types'
 
@@ -23,6 +23,18 @@ export const authState = {
   isPlatformLevel: () => profile()?.role === 'platform_admin' || profile()?.role === 'platform_viewer',
   /** Full mutation authority. Viewer is read-only. */
   isAdmin: () => profile()?.role === 'platform_admin',
+  /**
+   * This account may read and nothing else.
+   *
+   * `platform_viewer` is the only read-only role: the `authenticate`
+   * middleware refuses every non-GET it sends, before any handler runs. A
+   * tenant operator writes freely inside its own tenant, so it is not this.
+   *
+   * The console used to leave every write control enabled for a viewer, who
+   * found out what their account could do by pressing a button and reading a
+   * 403. A control the session cannot use is disabled and says why.
+   */
+  readOnly: () => profile()?.role === 'platform_viewer',
   async hydrate() {
     try {
       const profile = await api.session()
@@ -51,3 +63,8 @@ export const authState = {
     }
   },
 }
+
+// The last line of defence. A write control that nobody marked, a keyboard
+// shortcut, a retry a component fires on its own — all of them end at
+// `request`, and none of them reach the network on a read-only session.
+setReadOnlyCheck(() => authState.readOnly())

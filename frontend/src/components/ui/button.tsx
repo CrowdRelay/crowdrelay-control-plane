@@ -1,6 +1,7 @@
 import { type Component, type JSX, splitProps } from 'solid-js'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '~/lib/cn'
+import { READ_ONLY_REASON, readOnly } from '~/lib/read-only'
 
 /**
  * Button — vendored from the shadcn-solid pattern, adapted to Tailwind v4.
@@ -49,13 +50,25 @@ const buttonVariants = cva(
 export type ButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> &
   VariantProps<typeof buttonVariants> & {
     class?: string
+    /**
+     * This button changes something on the server.
+     *
+     * Marked buttons disable themselves for a read-only account and say why.
+     * The API refuses the write regardless — see `request` in lib/api.ts — so
+     * an unmarked write button is a cosmetic miss, not a hole: the viewer gets
+     * an error toast instead of a control that was never offered.
+     */
+    writes?: boolean
   }
 
 export const Button: Component<ButtonProps> = (props) => {
-  const [local, rest] = splitProps(props, ['class', 'variant', 'size'])
+  const [local, rest] = splitProps(props, ['class', 'variant', 'size', 'writes', 'disabled', 'title'])
+  const blocked = () => local.writes === true && readOnly()
   return (
     <button
       class={cn(buttonVariants({ variant: local.variant, size: local.size }), local.class)}
+      disabled={blocked() || local.disabled}
+      title={blocked() ? READ_ONLY_REASON : local.title}
       {...rest}
     />
   )

@@ -384,7 +384,7 @@ export function FanSourcesPanel(props: {
                   </div>
                   <span class="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{spec.label}</span>
                   <Show when={conn()} fallback={
-                    <Button
+                    <Button writes
                       class="shrink-0"
                       variant="outline"
                       size="sm"
@@ -421,7 +421,7 @@ export function FanSourcesPanel(props: {
                 </Show>
                 <Show when={conn()}>
                   <div class="mt-auto pt-1">
-                    <Button variant="destructive-ghost" size="sm" onClick={() => disconnectConnection(conn()!.id)}>Disconnect</Button>
+                    <Button writes variant="destructive-ghost" size="sm" onClick={() => disconnectConnection(conn()!.id)}>Disconnect</Button>
                   </div>
                 </Show>
               </div>
@@ -454,7 +454,7 @@ export function FanSourcesPanel(props: {
       icon={<SectionIcon name="users" />}
       count={blocks().length}
       description="An audience block with a swappable acquisition origin. Every ingest lands candidates as pending double opt-in — active fans are never downgraded and opt-outs are never resurrected."
-      action={<Button size="sm" onClick={() => { setCreating(true); setNotice(null) }}>New fanbase</Button>}
+      action={<Button writes size="sm" onClick={() => { setCreating(true); setNotice(null) }}>New fanbase</Button>}
     >
       <Show when={blocks().length} fallback={
         <p class="text-sm leading-relaxed text-muted-foreground">
@@ -483,20 +483,20 @@ export function FanSourcesPanel(props: {
                   </Show>
                 </TableCell>
                 <TableCell>
-                  <Button size="sm" variant="outline" disabled={pendingFor() !== null}
+                  <Button writes size="sm" variant="outline" disabled={pendingFor() !== null}
                     onClick={() => { setIngestingId(fb.id); setIngestJson(EMPTY_INGEST) }}>
                     Ingest batch…
                   </Button>
                 </TableCell>
                 <TableCell>
                   <Show when={confirmingDelete() === fb.id} fallback={
-                    <Button variant="destructive-ghost" size="sm" disabled={pendingFor() !== null || remove.isPending}
+                    <Button writes variant="destructive-ghost" size="sm" disabled={pendingFor() !== null || remove.isPending}
                       onClick={() => setConfirmingDelete(fb.id)}>
                       Delete
                     </Button>
                   }>
                     <div class="flex items-center gap-2">
-                      <Button variant="destructive-ghost" size="sm" disabled={remove.isPending}
+                      <Button writes variant="destructive-ghost" size="sm" disabled={remove.isPending}
                         onClick={() => remove.mutate(fb.id)}>
                         {remove.isPending && <Spinner />} {remove.isPending ? 'Deleting…' : 'Confirm'}
                       </Button>
@@ -520,7 +520,7 @@ export function FanSourcesPanel(props: {
       description={connecting()?.provides}
       footer={<>
         <Button variant="ghost" size="sm" onClick={() => setConnecting(null)}>Cancel</Button>
-        <Button size="sm" disabled={!connectReady() || connect.isPending} onClick={() => connect.mutate()}>
+        <Button writes size="sm" disabled={!connectReady() || connect.isPending} onClick={() => connect.mutate()}>
           {connect.isPending && <Spinner />} {connect.isPending ? 'Connecting…' : `Connect ${connecting()?.label ?? ''}`}
         </Button>
       </>}
@@ -558,7 +558,7 @@ export function FanSourcesPanel(props: {
           </span>
         </Show>
         <Button variant="ghost" size="sm" onClick={() => setCreating(false)}>Cancel</Button>
-        <Button size="sm" disabled={!name() || (needsAttestation() && !attestedBy()) || create.isPending} onClick={() => create.mutate()}>
+        <Button writes size="sm" disabled={!name() || (needsAttestation() && !attestedBy()) || create.isPending} onClick={() => create.mutate()}>
           {create.isPending && <Spinner />} {create.isPending ? 'Creating…' : 'Create fanbase'}
         </Button>
       </>}
@@ -600,7 +600,7 @@ export function FanSourcesPanel(props: {
       class="max-w-lg"
       footer={<>
         <Button variant="ghost" size="sm" onClick={() => setIngestingId(null)}>Cancel</Button>
-        <Button size="sm" disabled={!parseEntries() || ingest.isPending}
+        <Button writes size="sm" disabled={!parseEntries() || ingest.isPending}
           onClick={() => {
             const parsed = parseEntries()
             const id = ingestingId()

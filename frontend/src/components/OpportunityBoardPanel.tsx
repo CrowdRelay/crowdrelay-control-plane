@@ -506,6 +506,7 @@ export function OpportunityBoardPanel(props: {
               size="sm"
               disabled={pendingMutation() !== null}
               onClick={() => approve(entry())}
+              writes
             >
               {busy(`do:${entry().decision_id}`) && <Spinner />}
               {busy(`do:${entry().decision_id}`) ? 'Approving…' : confirming() === `do:${entry().decision_id}` ? 'Yes, approve' : 'Approve'}
@@ -516,6 +517,7 @@ export function OpportunityBoardPanel(props: {
               size="sm"
               disabled={pendingMutation() !== null}
               onClick={() => reject(entry())}
+              writes
             >
               {busy(`reject:${entry().decision_id}`) && <Spinner />}
               {busy(`reject:${entry().decision_id}`) ? 'Rejecting…' : confirming() === `reject:${entry().decision_id}` ? 'Yes, reject' : 'Reject'}
@@ -528,6 +530,7 @@ export function OpportunityBoardPanel(props: {
               size="sm"
               disabled={pendingMutation() !== null}
               onClick={() => doneOurselves(entry())}
+              writes
             >
               {busy(`done:${entry().decision_id}`) && <Spinner />}
               {busy(`done:${entry().decision_id}`) ? 'Recording…' : confirming() === `done:${entry().decision_id}` ? 'Yes, I did it' : 'I did this myself'}

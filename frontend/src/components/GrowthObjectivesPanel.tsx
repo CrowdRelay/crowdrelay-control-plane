@@ -131,6 +131,7 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
                   <Button
                     variant="ghost"
                     size="sm"
+                    writes
                     disabled={retiring() === obj.objective_id}
                     onClick={() => retireObjective(obj)}
                   >{retiring() === obj.objective_id ? 'Retiring…' : 'Retire'}</Button>

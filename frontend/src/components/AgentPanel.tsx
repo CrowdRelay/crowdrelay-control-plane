@@ -378,7 +378,7 @@ export function AgentPanel(props: { slug: string }) {
             />
           </label>
           <div class="flex items-center gap-2 mt-2">
-            <Button
+            <Button writes
               size="sm"
               disabled={submitting() || !prompt().trim()}
               onClick={submit}
@@ -397,7 +397,7 @@ export function AgentPanel(props: { slug: string }) {
         <div class="flex items-center justify-between gap-4">
           <h3>Schedules</h3>
           <Show when={!creatingSchedule()}>
-            <Button variant="ghost" size="sm" onClick={() => { setCreatingSchedule(true); setError(null) }}>
+            <Button writes variant="ghost" size="sm" onClick={() => { setCreatingSchedule(true); setError(null) }}>
               + New schedule
             </Button>
           </Show>
@@ -414,7 +414,7 @@ export function AgentPanel(props: { slug: string }) {
               <p class="text-xs text-muted-foreground">A schedule repeats the task above, so pick a template and write its prompt first — this form only adds the interval.</p>
             </Show>
             <div class="flex items-center gap-2 mt-2">
-              <Button size="sm" disabled={submitting() || !selectedTemplate() || !prompt().trim()} onClick={createSchedule}>
+              <Button writes size="sm" disabled={submitting() || !selectedTemplate() || !prompt().trim()} onClick={createSchedule}>
                 {submitting() ? 'Creating…' : 'Create schedule'}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setCreatingSchedule(false)}>Cancel</Button>
@@ -432,13 +432,13 @@ export function AgentPanel(props: { slug: string }) {
                     <TableCell>{templateName(sched.template_id)}</TableCell>
                     <TableCell>{sched.interval_minutes}m</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm" disabled={scheduleBusy() === sched.id} onClick={() => toggleSchedule(sched.id, !sched.enabled)}>
+                      <Button writes variant="ghost" size="sm" disabled={scheduleBusy() === sched.id} onClick={() => toggleSchedule(sched.id, !sched.enabled)}>
                         {scheduleBusy() === sched.id ? '…' : sched.enabled ? '✓ enabled' : 'disabled'}
                       </Button>
                     </TableCell>
                     <TableCell class="text-muted-foreground">{sched.last_run_at ? formatIsoAge(sched.last_run_at) : 'never'}</TableCell>
                     <TableCell class="text-muted-foreground">{sched.next_run_at ? formatIsoAge(sched.next_run_at) : '—'}</TableCell>
-                    <TableCell><Button variant="destructive-ghost" size="sm" disabled={scheduleBusy() === sched.id} onClick={() => deleteSchedule(sched.id)}>Delete</Button></TableCell>
+                    <TableCell><Button writes variant="destructive-ghost" size="sm" disabled={scheduleBusy() === sched.id} onClick={() => deleteSchedule(sched.id)}>Delete</Button></TableCell>
                   </TableRow>
                 )}
               </For>

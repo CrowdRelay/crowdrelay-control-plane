@@ -173,7 +173,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
                 <Show when={isDelivery(item)}>
                   <Button variant="ghost" size="sm" disabled={busy() === item.id} onClick={() => inspect(item as DeliveryItem)}>Inspect</Button>
                 </Show>
-                <Button variant="ghost" size="sm" disabled={busy() === item.id} onClick={() => retry(item)}>
+                <Button writes variant="ghost" size="sm" disabled={busy() === item.id} onClick={() => retry(item)}>
                   {busy() === item.id ? 'Working…' : 'Retry'}
                 </Button>
               </div>
@@ -195,7 +195,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
       class="max-w-2xl"
       footer={<>
         <Button variant="ghost" size="sm" onClick={() => setDetail(null)}>Close</Button>
-        <Show when={detail()}>{data => <Button size="sm" disabled={busy() !== null} onClick={() => { void retry(data().delivery); setDetail(null) }}>Retry this delivery</Button>}</Show>
+        <Show when={detail()}>{data => <Button writes size="sm" disabled={busy() !== null} onClick={() => { void retry(data().delivery); setDetail(null) }}>Retry this delivery</Button>}</Show>
       </>}
     >
       <Show when={detail()}>{data => <>

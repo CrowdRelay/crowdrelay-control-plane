@@ -180,7 +180,7 @@ export function RedditCookieUploader(props: { slug: string }) {
       </Show>
 
       <Show when={status.data?.status === 'active' || status.data?.status === 'failed'}>
-        <Button
+        <Button writes
           variant="outline"
           onClick={() => validate.mutate()}
           disabled={validate.isPending}

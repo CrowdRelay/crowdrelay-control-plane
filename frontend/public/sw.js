@@ -23,6 +23,7 @@ const SHELL_ASSETS = [
   '/manifest.webmanifest',
   '/favicon.ico',
   '/crowdrelay-brand-mark.png',
+  '/crowdrelay-logo.svg',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/fonts/Inter-Regular.woff2',

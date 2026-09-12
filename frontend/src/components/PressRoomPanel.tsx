@@ -181,7 +181,7 @@ export function PressRoomPanel(props: { slug: string }) {
                   <TableCell>{formatTimestamp(r.createdAt)}</TableCell>
                   <TableCell>
                     <Show when={r.status === 'pending' || r.status === 'open'}>
-                      <Button
+                      <Button writes
                         variant="ghost"
                         size="sm"
                         disabled={resolving() === r.id}
@@ -209,7 +209,7 @@ export function PressRoomPanel(props: { slug: string }) {
           Photos and logos here are what Instagram posts use, least recently published first.
           With none active, every Instagram post is held.
         </p>
-        <Button variant="ghost" size="sm" onClick={() => setAdding(a => !a)}>
+        <Button writes variant="ghost" size="sm" onClick={() => setAdding(a => !a)}>
           {adding() ? 'Cancel' : 'Add asset'}
         </Button>
       </div>
@@ -248,7 +248,7 @@ export function PressRoomPanel(props: { slug: string }) {
             onInput={(e) => setDraft(d => ({ ...d, url: e.currentTarget.value }))}
           />
           <div class="sm:col-span-2">
-            <Button type="submit" size="sm" disabled={!draftIsComplete() || saving()}>
+            <Button writes type="submit" size="sm" disabled={!draftIsComplete() || saving()}>
               {saving() ? 'Saving…' : 'Save asset'}
             </Button>
           </div>
@@ -331,6 +331,7 @@ export function PressRoomPanel(props: { slug: string }) {
                           event.currentTarget.value = ''
                           if (disposition) void recordReply(e.beaconId, e.eventId, disposition)
                         }}
+                        {...writeGuard()}
                       >
                         <option value="">Record…</option>
                         <For each={REPLY_DISPOSITIONS}>{option =>

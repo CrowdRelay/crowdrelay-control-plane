@@ -230,7 +230,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
           </Show>
           <Show when={roster.dataUpdatedAt}><span class="text-xs text-muted-foreground">Updated {relativeTime(roster.dataUpdatedAt)}</span></Show>
           <Show when={(network.data?.researchedAvailable ?? 0) > 0}>
-            <Button
+            <Button writes
               variant="ghost"
               size="sm"
               disabled={busy() !== null}
@@ -256,7 +256,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
               onChange={importSubmithub}
             />
           </label>
-          <Button variant={adding() ? 'ghost' : 'default'} size="sm" onClick={() => setAdding(value => !value)}>
+          <Button writes variant={adding() ? 'ghost' : 'default'} size="sm" onClick={() => setAdding(value => !value)}>
             {adding() ? 'Cancel' : 'Add beacon'}
           </Button>
         </div>
@@ -292,7 +292,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
                    onInput={e => setForm({ ...form(), contactEmail: e.currentTarget.value })} />
           </label>
           <div class="flex gap-2 justify-end mt-5 md:col-span-2">
-            <Button size="sm" type="submit" disabled={busy() !== null || !form().displayName.trim()}>
+            <Button writes size="sm" type="submit" disabled={busy() !== null || !form().displayName.trim()}>
               {busy() === 'add' && <Spinner />} {busy() === 'add' ? 'Adding…' : 'Add beacon'}
             </Button>
           </div>
@@ -330,7 +330,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
               ? 'Clear selection'
               : `Select all ${visible().length} filtered`}
           </Button>
-          <Button
+          <Button writes
             size="sm"
             disabled={selected().size === 0 || busy() !== null}
             onClick={inviteSelected}
@@ -402,13 +402,13 @@ export function BeaconConsolePanel(props: { slug: string }) {
                     <TableCell>
                       <div class="flex gap-1.5 justify-end">
                         <Show when={profile.status !== 'unverified' && profile.status !== 'paused' && profile.status !== 'revoked'}>
-                          <Button variant="ghost" size="sm" disabled={busy() !== null}
+                          <Button writes variant="ghost" size="sm" disabled={busy() !== null}
                                   onClick={() => setState(profile.beaconId, 'paused')}>
                             {busy() === `state:${profile.beaconId}` && <Spinner />} Pause
                           </Button>
                         </Show>
                         <Show when={profile.status === 'paused'}>
-                          <Button variant="ghost" size="sm" disabled={busy() !== null}
+                          <Button writes variant="ghost" size="sm" disabled={busy() !== null}
                                   onClick={() => setState(profile.beaconId, 'active')}>
                             {busy() === `state:${profile.beaconId}` && <Spinner />} Resume
                           </Button>

@@ -201,7 +201,7 @@ function ReplyRow(props: { entry: ReplyTriageEntry; slug: string; actionable?: b
       />
       <Show when={props.actionable}>
         <div class="flex gap-1.5 flex-wrap justify-end">
-          <Button
+          <Button writes
             variant="ghost"
             size="sm"
             class="text-success"
@@ -209,7 +209,7 @@ function ReplyRow(props: { entry: ReplyTriageEntry; slug: string; actionable?: b
             onClick={() => resolve('positive')}
             title="Mark as positive — the contact is interested"
           >{busy() === 'positive' ? '…' : 'Positive'}</Button>
-          <Button
+          <Button writes
             variant="ghost"
             size="sm"
             class="text-warning"
@@ -217,7 +217,7 @@ function ReplyRow(props: { entry: ReplyTriageEntry; slug: string; actionable?: b
             onClick={() => resolve('declined')}
             title="Mark as declined — the contact said no"
           >{busy() === 'declined' ? '…' : 'Declined'}</Button>
-          <Button
+          <Button writes
             variant="ghost"
             size="sm"
             class="text-destructive"

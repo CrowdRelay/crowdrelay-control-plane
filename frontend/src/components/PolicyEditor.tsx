@@ -6,6 +6,7 @@ import { StatusBadge } from './StatusBadge'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Switch } from './ui/switch'
+import { readOnly, writeGuard } from '../lib/read-only'
 
 // Shared autopilot policy editor — used by both AuthorityPoliciesPanel
 // and GrowthIntelligencePanel. The two copies had already drifted in
@@ -114,7 +115,7 @@ export function PolicyEditor(props: {
       <AuthorityScale
         rungs={AUTHORITY_RUNGS}
         value={level()}
-        disabled={props.pending || !enabled()}
+        disabled={props.pending || !enabled() || readOnly()}
         label={`${contextLabel(props.policy.context)} — how far it may go`}
         onChange={setLevel}
       />
@@ -127,6 +128,7 @@ export function PolicyEditor(props: {
         <input
           class="min-w-0 flex-1 accent-primary"
           disabled={props.pending || !enabled()}
+          {...writeGuard()}
           type="range"
           min="0"
           max="100"
@@ -145,6 +147,7 @@ export function PolicyEditor(props: {
       <Input
         class="h-8 w-full text-right text-sm"
         disabled={props.pending || !enabled()}
+        {...writeGuard()}
         type="number"
         min="1"
         max="1000"
@@ -159,6 +162,7 @@ export function PolicyEditor(props: {
       <Show when={dirty()} fallback={<span />}>
         <Button
           size="sm"
+          writes
           disabled={!valid() || props.pending}
           onClick={() => props.onSave({
             enabled: enabled(),

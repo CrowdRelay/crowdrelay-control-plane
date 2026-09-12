@@ -312,6 +312,7 @@ export function BrainDecisionPanel(props: {
               <Button
                 type="button"
                 size="sm"
+                writes
                 disabled={pendingMutation() !== null}
                 onClick={() => approve(e)}
               >
@@ -321,6 +322,7 @@ export function BrainDecisionPanel(props: {
                 type="button"
                 variant="destructive-ghost"
                 size="sm"
+                writes
                 classList={{ 'confirm-danger': confirming() === `reject:${e.decision_id}` }}
                 disabled={pendingMutation() !== null}
                 onClick={() => reject(e)}

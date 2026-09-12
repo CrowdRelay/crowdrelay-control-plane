@@ -188,7 +188,7 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
                 </ol>
                 <Show when={condition.action}>
                   {action => (
-                    <Button
+                    <Button writes
                       size="sm"
                       class="mt-4"
                       disabled={running() !== null}

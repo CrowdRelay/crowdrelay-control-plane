@@ -12,6 +12,7 @@ import { Input } from './ui/input'
 import { Badge } from './ui/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 import { ErrorCard, PanelTitle } from './layout'
+import { writeGuard } from '../lib/read-only'
 
 const STATUS_TONE: Record<PortfolioConsentStatus, 'good' | 'warn' | 'bad' | 'muted'> = {
   proposed: 'warn',
@@ -144,16 +145,16 @@ export function PortfolioPanel(props: {
               <TableCell class="whitespace-nowrap">
                 <div class="flex gap-2 flex-wrap">
                   <Show when={edge.status === 'proposed'}>
-                    <Button size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Approve</Button>
-                    <Button variant="destructive" size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Decline</Button>
+                    <Button writes size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Approve</Button>
+                    <Button writes variant="destructive" size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Decline</Button>
                   </Show>
                   <Show when={edge.status === 'active'}>
-                    <Button size="sm" disabled={pendingId() !== null} onClick={() => decide.mutate({ id: edge.id, action: 'pause' })}>Pause</Button>
-                    <Button variant="destructive" size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Revoke</Button>
+                    <Button writes size="sm" disabled={pendingId() !== null} onClick={() => decide.mutate({ id: edge.id, action: 'pause' })}>Pause</Button>
+                    <Button writes variant="destructive" size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Revoke</Button>
                   </Show>
                   <Show when={edge.status === 'paused'}>
-                    <Button size="sm" disabled={pendingId() !== null} onClick={() => decide.mutate({ id: edge.id, action: 'resume' })}>Resume</Button>
-                    <Button variant="destructive" size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Revoke</Button>
+                    <Button writes size="sm" disabled={pendingId() !== null} onClick={() => decide.mutate({ id: edge.id, action: 'resume' })}>Resume</Button>
+                    <Button writes variant="destructive" size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Revoke</Button>
                   </Show>
                   <Show when={edge.status === 'revoked'}><span class="text-muted-foreground">closed</span></Show>
                 </div>
@@ -168,30 +169,30 @@ export function PortfolioPanel(props: {
                     <Show when={edge.status === 'proposed'}>
                       <label class="grid gap-1.5 text-muted-foreground text-sm">
                         <span>Approving operator</span>
-                        <Input value={rowActor()} onInput={e => setRowActor(e.currentTarget.value)} placeholder="operator@label" />
+                        <Input value={rowActor()} onInput={e => setRowActor(e.currentTarget.value)} placeholder="operator@label" {...writeGuard()} />
                         <small class="text-xs text-muted-foreground">Recorded against the edge in the audit trail.</small>
                       </label>
                     </Show>
                     <Show when={edge.status === 'proposed' || edge.status === 'active' || edge.status === 'paused'}>
                       <label class="grid gap-1.5 text-muted-foreground text-sm">
                         <span>Reason</span>
-                        <Input value={rowReason()} onInput={e => setRowReason(e.currentTarget.value)} placeholder="duplicate edge / artist withdrew consent" />
+                        <Input value={rowReason()} onInput={e => setRowReason(e.currentTarget.value)} placeholder="duplicate edge / artist withdrew consent" {...writeGuard()} />
                         <small class="text-xs text-muted-foreground">Required for revocation. Stored with the decision.</small>
                       </label>
                     </Show>
                     <div class="flex items-center gap-2 flex-wrap">
                       <Show when={edge.status === 'proposed'}>
-                        <Button size="sm" disabled={pendingId() !== null || !canSubmit('approve')}
+                        <Button writes size="sm" disabled={pendingId() !== null || !canSubmit('approve')}
                           onClick={() => decide.mutate({ id: edge.id, action: 'approve', actor: rowActor(), reason: rowReason() })}>
                           {pendingId() === edge.id ? 'Approving…' : 'Confirm approve'}
                         </Button>
-                        <Button variant="destructive" size="sm" disabled={pendingId() !== null || !canSubmit('revoke')}
+                        <Button writes variant="destructive" size="sm" disabled={pendingId() !== null || !canSubmit('revoke')}
                           onClick={() => decide.mutate({ id: edge.id, action: 'revoke', actor: rowActor(), reason: rowReason() })}>
                           {pendingId() === edge.id ? 'Declining…' : 'Confirm decline'}
                         </Button>
                       </Show>
                       <Show when={edge.status === 'active' || edge.status === 'paused'}>
-                        <Button variant="destructive" size="sm" disabled={pendingId() !== null || !canSubmit('revoke')}
+                        <Button writes variant="destructive" size="sm" disabled={pendingId() !== null || !canSubmit('revoke')}
                           onClick={() => decide.mutate({ id: edge.id, action: 'revoke', actor: rowActor(), reason: rowReason() })}>
                           {pendingId() === edge.id ? 'Revoking…' : 'Confirm revoke'}
                         </Button>

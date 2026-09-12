@@ -573,7 +573,7 @@ export function AgentProvidersPanel(props: {
                                   onKeyDown={(e) => { if (e.key === 'Enter') handleConnectApiKey(provider.id) }}
                                 />
                               </Show>
-                              <Button
+                              <Button writes
                                 size="sm"
                                 disabled={connectingProvider() === provider.id || !apiKeyInput().trim() || (provider.id === 'cognition' && !orgIdInput().trim())}
                                 onClick={() => handleConnectApiKey(provider.id)}
@@ -597,7 +597,7 @@ export function AgentProvidersPanel(props: {
                               has a credential, so "Connect" is the wrong verb —
                               the operator is replacing one, not adding one. */}
                           <Show when={showKeyInputFor() !== provider.id}>
-                            <Button variant="outline" size="sm" onClick={() => setShowKeyInputFor(provider.id)}>
+                            <Button writes variant="outline" size="sm" onClick={() => setShowKeyInputFor(provider.id)}>
                               <KeyIcon size={13} /> {cred() ? 'Replace key' : 'Connect with API Key'}
                             </Button>
                           </Show>
@@ -606,7 +606,7 @@ export function AgentProvidersPanel(props: {
 
                       {/* Disconnect when connected */}
                       <Show when={isConnected()}>
-                        <Button
+                        <Button writes
                           variant="ghost"
                           size="sm"
                           disabled={testingProvider() === provider.id}
@@ -614,7 +614,7 @@ export function AgentProvidersPanel(props: {
                         >
                           {testingProvider() === provider.id ? 'Checking…' : 'Test key'}
                         </Button>
-                        <Button variant="destructive-ghost" size="sm" onClick={() => handleDisconnect(provider.id)}>
+                        <Button writes variant="destructive-ghost" size="sm" onClick={() => handleDisconnect(provider.id)}>
                           Disconnect
                         </Button>
                       </Show>

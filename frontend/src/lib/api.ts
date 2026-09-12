@@ -44,7 +44,34 @@ export const setUnauthorizedHandler = (handler: () => void) => {
   unauthorizedHandler = handler
 }
 
+// Registered by lib/auth.ts. Kept as a predicate rather than an import so this
+// module stays the one nothing else in `lib` depends on.
+let readOnlyCheck: (() => boolean) | null = null
+export const setReadOnlyCheck = (check: () => boolean) => {
+  readOnlyCheck = check
+}
+
+/** Methods the backend lets a read-only account send. */
+const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // Refuse a write from a read-only session here rather than letting the
+  // server refuse it. The `authenticate` middleware returns the same 403 for
+  // the same reason, so this changes no authority — it only means a viewer
+  // reads an explanation instead of an HTTP error, and that nothing is sent
+  // that could still take effect if the middleware were ever weakened.
+  // `/auth/*` is exempt, and must be: logging out is a DELETE and stepping up
+  // is a POST. Both are public on the server for the same reason — they act on
+  // the session, not on the tenant. A viewer that cannot log out is a worse
+  // bug than the one this guard fixes.
+  const method = (init?.method ?? 'GET').toUpperCase()
+  if (!READ_METHODS.has(method) && !path.startsWith('/auth/') && readOnlyCheck?.()) {
+    throw new ApiError(
+      403,
+      'This account can only read. Ask a platform admin to make the change.',
+      'forbidden',
+    )
+  }
   const response = await fetch(`/api/v1${path}`, {
     ...init,
     credentials: 'same-origin',

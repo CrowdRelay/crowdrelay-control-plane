@@ -401,7 +401,7 @@ export const Shell: Component = () => {
         <div class="flex flex-col border-b border-border px-3 py-3 gap-2">
           <div class={cn('flex items-center gap-2 min-w-0', collapsed() && 'justify-center')}>
             <a href="https://crowdrelay.music" target="_blank" rel="noreferrer noopener" aria-label="CrowdRelay landing page" class="flex-shrink-0">
-              <img src="/crowdrelay-brand-mark.png" alt="" width="32" height="32" class="rounded-lg" />
+              <img src="/crowdrelay-logo.svg" alt="" width="32" height="32" />
             </a>
             {/* Three stacked lines did not fit the 56px header that aligns with
                 the topbar, so the third was clipped and the first two read as one

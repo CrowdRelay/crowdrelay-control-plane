@@ -211,21 +211,21 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
                     <Show when={confirming() === approveKey} fallback={
                       <Show when={confirming() === rejectKey} fallback={
                         <>
-                          <Button size="sm" disabled={pendingMutation()} onClick={() => setConfirming(approveKey)}>
+                          <Button size="sm" writes disabled={pendingMutation()} onClick={() => setConfirming(approveKey)}>
                             Approve
                           </Button>
-                          <Button variant="destructive" size="sm" disabled={pendingMutation()} onClick={() => setConfirming(rejectKey)}>
+                          <Button variant="destructive" size="sm" writes disabled={pendingMutation()} onClick={() => setConfirming(rejectKey)}>
                             Reject
                           </Button>
                         </>
                       }>
-                        <Button variant="destructive" size="sm" disabled={pendingMutation()} onClick={() => cancelAction(action)}>
+                        <Button variant="destructive" size="sm" writes disabled={pendingMutation()} onClick={() => cancelAction(action)}>
                           {pendingMutation() && <Spinner />} {pendingMutation() ? 'Rejecting…' : 'Confirm rejection'}
                         </Button>
                         <Button variant="ghost" size="sm" disabled={pendingMutation()} onClick={() => setConfirming(null)}>Back</Button>
                       </Show>
                     }>
-                      <Button size="sm" disabled={pendingMutation()} onClick={() => approveAction(action)}>
+                      <Button size="sm" writes disabled={pendingMutation()} onClick={() => approveAction(action)}>
                         {pendingMutation() && <Spinner />} {pendingMutation() ? 'Approving…' : 'Confirm approval'}
                       </Button>
                       <Button variant="ghost" size="sm" disabled={pendingMutation()} onClick={() => setConfirming(null)}>Cancel</Button>

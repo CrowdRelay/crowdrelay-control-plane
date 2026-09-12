@@ -9,6 +9,7 @@ import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Input } from './ui/input'
 import { NativeSelect } from './ui/native-select'
+import { writeGuard } from '../lib/read-only'
 
 const LABELS: Record<string, string> = {
   member_site_base_url: 'Member site base URL',
@@ -128,11 +129,13 @@ export function PortfolioSettingsPanel(props: {
                     value={drafts()[key] ?? props.model?.settings[key] ?? ''}
                     placeholder={HINTS[key]?.example}
                     onInput={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
+                    {...writeGuard()}
                   />
                 }
               >
                 <NativeSelect value={drafts()[key] ?? props.model?.settings[key] ?? ''}
                   onChange={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
+                  {...writeGuard()}
                 >
                   <For each={goals.data!.options}>{option =>
                     <option value={option.value}>{option.label}</option>
@@ -143,6 +146,7 @@ export function PortfolioSettingsPanel(props: {
           >
             <NativeSelect value={drafts()[key] ?? props.model?.settings[key] ?? 'false'}
               onChange={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
+              {...writeGuard()}
             >
               <option value="true">Enabled</option>
               <option value="false">Disabled</option>
@@ -155,6 +159,7 @@ export function PortfolioSettingsPanel(props: {
             <div class="mt-1">
               <Button
                 size="sm"
+                writes
                 disabled={pendingKey() !== null}
                 onClick={() => save.mutate(key)}
               >

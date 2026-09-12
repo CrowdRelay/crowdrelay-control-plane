@@ -124,7 +124,7 @@ export function AuthorityPoliciesPanel(props: {
       <span>{confirmCopy()!.body}</span>
       <div class="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" onClick={() => setConfirming(null)}>Cancel</Button>
-        <Button variant={confirming() === 'autopilot-disable' ? 'destructive-ghost' : 'default'} size="sm" disabled={pendingMutation() !== null} onClick={() => { const enable = confirming() === 'autopilot-enable'; setConfirming(null); void bulkAutopilot(enable) }}>{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirmCopy()!.action}</Button>
+        <Button writes variant={confirming() === 'autopilot-disable' ? 'destructive-ghost' : 'default'} size="sm" disabled={pendingMutation() !== null} onClick={() => { const enable = confirming() === 'autopilot-enable'; setConfirming(null); void bulkAutopilot(enable) }}>{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirmCopy()!.action}</Button>
       </div>
     </div></Show>
 
@@ -147,7 +147,7 @@ export function AuthorityPoliciesPanel(props: {
       <Show when={data().policies.length > 0}>
         <div class="flex flex-wrap items-center justify-end gap-2">
           <Show when={data().policies.some(policy => policy.enabled)} fallback={
-            <Button
+            <Button writes
               size="sm"
               disabled={pendingMutation() !== null}
               aria-label="Enable all Autopilot policies"
@@ -155,7 +155,7 @@ export function AuthorityPoliciesPanel(props: {
               onClick={() => setConfirming('autopilot-enable')}
             >{pendingMutation() === 'autopilot-bulk' && <Spinner />} {confirming() === 'autopilot-enable' ? 'Cancel' : 'Full auto: enable all'}</Button>
           }>
-            <Button
+            <Button writes
               variant={confirming() === 'autopilot-disable' ? 'ghost' : 'destructive-ghost'}
               size="sm"
               disabled={pendingMutation() !== null}

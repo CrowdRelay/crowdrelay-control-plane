@@ -313,6 +313,7 @@ function AttentionItemRow(props: {
       <Show when={props.item.run}>{run =>
         <Button
           size="sm"
+          writes
           variant={props.item.tier === 'urgent' ? 'destructive' : 'default'}
           disabled={props.disabled || props.busy}
           onClick={props.onRun}
