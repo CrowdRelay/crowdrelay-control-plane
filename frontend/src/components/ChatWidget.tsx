@@ -478,10 +478,13 @@ export function ChatWidget(props: { slug: string }) {
 
   return (
     <>
-      {/* Floating button */}
+      {/* Floating button. 16px from the edge is right on a phone, where
+          the screen is the window; on a desktop the same 16px reads as
+          stuck to the browser frame. The panel below moves with it so
+          the two stay on one corner. */}
       <Show when={!open()}>
         <button
-          class="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full bg-primary-solid text-primary-on px-4 py-3 shadow-lg hover:bg-primary-solid-hover transition-colors"
+          class="fixed bottom-4 right-4 lg:bottom-6 lg:right-6 z-40 flex items-center gap-2 rounded-full bg-primary-solid text-primary-on px-4 py-3 shadow-lg hover:bg-primary-solid-hover transition-colors"
           onClick={() => setOpen(true)}
           title="Ask AI Assistant"
           aria-label="Open AI Assistant"
@@ -494,7 +497,7 @@ export function ChatWidget(props: { slug: string }) {
       {/* Chat panel */}
       <Show when={open()}>
         <div class="fixed inset-0 z-40 bg-black/50" onClick={() => setOpen(false)} />
-        <div class="fixed bottom-4 right-4 z-50 w-96 max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100vh-2rem)] rounded-lg border border-border bg-card shadow-xl flex flex-col overflow-hidden" ref={panelRef} role="dialog" aria-modal="true" aria-label="AI assistant">
+        <div class="fixed bottom-4 right-4 lg:bottom-6 lg:right-6 z-50 w-96 max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100vh-2rem)] rounded-lg border border-border bg-card shadow-xl flex flex-col overflow-hidden" ref={panelRef} role="dialog" aria-modal="true" aria-label="AI assistant">
           <div class="flex items-center justify-between gap-2 border-b border-border px-4 py-3 flex-shrink-0">
             <div class="flex items-center gap-2 min-w-0">
               <SparkIcon />
