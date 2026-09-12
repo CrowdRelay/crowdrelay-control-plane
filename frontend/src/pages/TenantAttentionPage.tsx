@@ -35,7 +35,10 @@ const formatPgVersion = (num: number | null | undefined): string => {
 
 export function TenantAttentionPage() {
   const params = useParams({ from: '/tenants/$slug/attention' })
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('inbox')
+  const { activeTab, switchTab, prefetch, revealAnchor, isVisited } = useTabPanels('inbox')
+  // Which tab owns which anchor. The failed-queue sections live in Queues;
+  // everything else an alert or inbox item points at is on the Inbox tab.
+  const reveal = (anchor: string) => revealAnchor(anchor.startsWith('dead-') ? 'queues' : 'inbox', anchor)
   const attention = useQuery(() => ({
     queryKey: ['tenant-operator-attention-snapshot', params().slug],
     queryFn: () => fetchOperationsAttention(params().slug),
@@ -129,7 +132,7 @@ export function TenantAttentionPage() {
     <TabPanel active={activeTab()} id="inbox" visited={isVisited('inbox')}>
       {/* Critical watchdog alerts */}
       <Show when={!attention.isLoading} fallback={<SkeletonSection titleWidth="180px" lines={2} minHeight="80px" />}>
-        <WatchdogAlertsPanel alerts={attention.data?.alerts ?? []} slug={params().slug} />
+        <WatchdogAlertsPanel alerts={attention.data?.alerts ?? []} slug={params().slug} onReveal={reveal} />
       </Show>
 
       {/* Attention Inbox — tiered action center */}
@@ -143,6 +146,8 @@ export function TenantAttentionPage() {
           activeAlerts={summary.data?.watchdog.active_alerts ?? 0}
           awaitingApproval={attention.data?.awaiting_approval ?? 0}
           notReported={attention.data?.not_reported ?? []}
+          onRefresh={refreshMaintenance}
+          onReveal={revealAnchor}
         />
       </Show>
 

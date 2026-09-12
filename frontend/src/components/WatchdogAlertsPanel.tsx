@@ -83,14 +83,22 @@ const formatTime = (value: string | null) => {
   return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString()
 }
 const formatDetail = (value: unknown) => typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)
-const jumpTo = (anchor: string) => document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
-export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string }) {
+export function WatchdogAlertsPanel(props: {
+  alerts: OpsAlert[]
+  slug: string
+  /// Show the section an alert points at. This used to be a local
+  /// `scrollIntoView` by element id, which found nothing whenever the target
+  /// sat in another tab — the failed-queue anchors all do, and an inactive tab
+  /// panel is hidden or not mounted. The page knows which tab owns which
+  /// anchor, so it does the reveal.
+  onReveal: (anchor: string) => void
+}) {
   const open = () => props.alerts.filter(alert => alert.active)
   const recovered = () => props.alerts.filter(alert => !alert.active)
 
   return <>
-    <div class="flex items-start justify-between gap-4 mb-3">
+    <div id="watchdog-alerts" class="flex items-start justify-between gap-4 mb-3">
       <div>
         <PanelTitle as="h3" icon={<SectionIcon name="alert-triangle" />}>Open alerts</PanelTitle>
         <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Checked every 5 minutes. An alert closes itself as soon as the problem it is watching goes away — you do not have to dismiss it.</p>
@@ -121,7 +129,7 @@ export function WatchdogAlertsPanel(props: { alerts: OpsAlert[]; slug: string })
             when={'operations' in action() ? null : (action() as { anchor: string }).anchor}
             fallback={<Link class={buttonVariants({ variant: 'ghost', size: 'sm' })} to="/tenants/$slug" params={{ slug: props.slug }}>{action().label}</Link>}
           >
-            {anchor => <Button variant="ghost" size="sm" onClick={() => jumpTo(anchor())}>{action().label}</Button>}
+            {anchor => <Button variant="ghost" size="sm" onClick={() => props.onReveal(anchor())}>{action().label}</Button>}
           </Show>
         </div>}</Show>
       </Alert>

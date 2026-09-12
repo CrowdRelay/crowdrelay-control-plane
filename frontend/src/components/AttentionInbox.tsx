@@ -1,10 +1,14 @@
-import { For, Show, onMount, onCleanup } from 'solid-js'
+import { For, Show, createSignal, onMount, onCleanup } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
 import type { PendingActionSummary } from '../lib/types'
+import { api } from '../lib/api'
+import { errorMessage } from '../lib/format'
+import { toast } from './ui/toast'
 import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
 import { CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 import { Button } from './ui/button'
+import { Spinner } from './Spinner'
 import { cn } from '../lib/cn'
 import { buttonVariants } from './ui/button'
 
@@ -24,7 +28,24 @@ export type AttentionItem = {
   title: string
   detail: string
   consequence?: string
-  action?: { label: string; to?: string; hash?: string }
+  /// Carried out here, in the inbox. Two clicks: the first arms the button,
+  /// the second sends. An item that can be finished from the inbox must be,
+  /// because sending the operator to another page to press the same button is
+  /// the inbox admitting it is a list of links rather than a queue of work.
+  run?: {
+    label: string
+    /// Shown after the first click.
+    confirmLabel: string
+    pendingLabel: string
+    success: string
+    execute: () => Promise<unknown>
+  }
+  /// Somewhere else on this page. Switches to the owning tab, then scrolls —
+  /// a plain `#anchor` cannot, because an inactive tab panel is hidden or not
+  /// mounted at all.
+  goto?: { label: string; tab: string; anchor?: string }
+  /// Another page. Only for what genuinely lives on one.
+  action?: { label: string; to?: string }
 }
 
 export function AttentionInbox(props: {
@@ -39,9 +60,42 @@ export function AttentionInbox(props: {
   /// not zero, so the inbox says so instead of staying quiet — "nothing needs
   /// you" and "this build cannot tell you" are different answers.
   notReported?: readonly string[]
+  /// Refetch the attention snapshot after an item is carried out.
+  onRefresh: () => Promise<unknown>
+  /// Show a section of this page, switching tab first if it owns one.
+  onReveal: (tab: string, anchor?: string) => void
 }) {
   const unreported = (name: string) => (props.notReported ?? []).includes(name)
   const opsPath = () => `/tenants/${props.slug}/operations`
+
+  const [busy, setBusy] = createSignal<string | null>(null)
+  const [confirming, setConfirming] = createSignal<string | null>(null)
+  // Actions approved in this session. An id leaves the set as soon as the
+  // tenant stops listing it, so the row cannot reappear during the refresh lag
+  // and the "and N more" count below is never subtracted twice.
+  const [approved, setApproved] = createSignal<Set<string>>(new Set())
+  const stillListed = () => props.needsYou.filter(action => approved().has(action.id)).length
+  const queue = () => props.needsYou.filter(action => !approved().has(action.id))
+
+  const carryOut = async (item: AttentionItem) => {
+    const job = item.run
+    if (!job || busy() !== null) return
+    if (confirming() !== item.id) {
+      setConfirming(item.id)
+      return
+    }
+    setConfirming(null)
+    setBusy(item.id)
+    try {
+      await job.execute()
+      await props.onRefresh()
+      toast.success(job.success)
+    } catch (error) {
+      toast.error(errorMessage(error, 'That did not go through'))
+    } finally {
+      setBusy(null)
+    }
+  }
 
   const items = (): AttentionItem[] => {
     const list: AttentionItem[] = []
@@ -54,7 +108,7 @@ export function AttentionInbox(props: {
         title: `${props.deadJobs} dead queue item(s)`,
         detail: 'Dead outbox, webhook, or push deliveries that failed after all retries.',
         consequence: 'Events are not reaching their destinations.',
-        action: { label: 'Retry', to: opsPath(), hash: '#dead-outbox' },
+        goto: { label: 'Open queues', tab: 'queues', anchor: 'dead-outbox' },
       })
     }
     if (props.criticalAlerts > 0) {
@@ -64,7 +118,7 @@ export function AttentionInbox(props: {
         title: `${props.criticalAlerts} critical watchdog alert(s)`,
         detail: 'Watchdog has raised critical alerts requiring immediate attention.',
         consequence: 'System health may be compromised.',
-        action: { label: 'Inspect', to: opsPath(), hash: '#watchdog' },
+        goto: { label: 'Inspect', tab: 'inbox', anchor: 'watchdog-alerts' },
       })
     }
     if (props.staleReservations > 0) {
@@ -74,12 +128,13 @@ export function AttentionInbox(props: {
         title: `${props.staleReservations} stale AREA reservation(s)`,
         detail: 'Voucher or ticket reward reservations that have been held too long.',
         consequence: 'Reservations may need to be released.',
-        action: { label: 'Inspect', to: opsPath(), hash: '#reconciliation-findings' },
+        goto: { label: 'Inspect', tab: 'inbox', anchor: 'reconciliation-findings' },
       })
     }
 
     // REVIEW: pending approvals, opportunities awaiting
-    for (const action of props.needsYou.slice(0, 5)) {
+    const shown = queue().slice(0, 5)
+    for (const action of shown) {
       list.push({
         id: `approval-${action.id}`,
         tier: 'review',
@@ -91,7 +146,21 @@ export function AttentionInbox(props: {
         consequence: action.approval_expires_at
           ? `Approval expires ${new Date(action.approval_expires_at).toLocaleDateString()}`
           : undefined,
-        action: { label: 'Review', to: opsPath() },
+        // The approval is the whole item. It used to be a link to the
+        // operations board, which meant the one thing the inbox exists to
+        // collect was the one thing it could not do.
+        run: {
+          label: 'Approve',
+          confirmLabel: 'Yes, approve',
+          pendingLabel: 'Approving…',
+          success: 'Approved — the action is executing',
+          execute: async () => {
+            await api.approveOpportunityAction(props.slug, action.id)
+            setApproved(prev => new Set(prev).add(action.id))
+          },
+        },
+        // Secondary, for the evidence behind the decision.
+        action: { label: 'Details', to: opsPath() },
       })
     }
     if (unreported('awaiting_approval') || unreported('needs_you')) {
@@ -103,14 +172,20 @@ export function AttentionInbox(props: {
         consequence: 'Work may be parked awaiting your decision without appearing here.',
         action: { label: 'Open operations', to: opsPath() },
       })
-    } else if (props.awaitingApproval > 0) {
-      list.push({
-        id: 'awaiting-approval',
-        tier: 'review',
-        title: `${props.awaitingApproval} opportunity(ies) awaiting decision`,
-        detail: 'The brain has found opportunities that need your decision.',
-        action: { label: 'Review', to: opsPath() },
-      })
+    } else {
+      // Only what is not already a row above. The count and the rows come from
+      // the same query, so printing both in full said "3 awaiting decision"
+      // directly under the three of them.
+      const rest = Math.max(0, props.awaitingApproval - stillListed() - shown.length)
+      if (rest > 0) {
+        list.push({
+          id: 'awaiting-approval',
+          tier: 'review',
+          title: `${rest} more opportunity(ies) awaiting decision`,
+          detail: 'The brain has found more than this inbox lists. The board shows all of them.',
+          action: { label: 'Open board', to: opsPath() },
+        })
+      }
     }
 
     // INFORMATIONAL: active (non-critical) alerts
@@ -120,12 +195,23 @@ export function AttentionInbox(props: {
         tier: 'informational',
         title: `${props.activeAlerts} active watchdog alert(s)`,
         detail: 'Non-critical alerts that may indicate emerging issues.',
-        action: { label: 'Inspect', to: opsPath(), hash: '#watchdog' },
+        goto: { label: 'Inspect', tab: 'inbox', anchor: 'watchdog-alerts' },
       })
     }
 
     return list
   }
+
+  // One row shape for all three tiers. Only one item runs at a time, so every
+  // other button goes disabled while it does.
+  const row = (item: AttentionItem) => <AttentionItemRow
+    item={item}
+    busy={busy() === item.id}
+    disabled={busy() !== null && busy() !== item.id}
+    confirming={confirming() === item.id}
+    onRun={() => void carryOut(item)}
+    onReveal={props.onReveal}
+  />
 
   const total = () => items().length
   const urgent = () => items().filter(i => i.tier === 'urgent')
@@ -180,7 +266,7 @@ export function AttentionInbox(props: {
           <span class="text-xs font-semibold uppercase tracking-wider">Urgent</span>
           <span class="bg-destructive/15 text-destructive text-xs rounded-full px-2 py-0.5 font-bold">{urgent().length}</span>
         </div>
-        <For each={urgent()}>{item => <AttentionItemRow item={item} />}</For>
+        <For each={urgent()}>{row}</For>
       </div>
     </Show>
 
@@ -190,7 +276,7 @@ export function AttentionInbox(props: {
           <span class="text-xs font-semibold uppercase tracking-wider">Review</span>
           <span class="bg-warning/15 text-warning text-xs rounded-full px-2 py-0.5 font-bold">{review().length}</span>
         </div>
-        <For each={review()}>{item => <AttentionItemRow item={item} />}</For>
+        <For each={review()}>{row}</For>
       </div>
     </Show>
 
@@ -200,13 +286,21 @@ export function AttentionInbox(props: {
           <span class="text-xs font-semibold uppercase tracking-wider">Informational</span>
           <span class="bg-surface-3 text-muted-foreground text-xs rounded-full px-2 py-0.5 font-bold">{informational().length}</span>
         </div>
-        <For each={informational()}>{item => <AttentionItemRow item={item} />}</For>
+        <For each={informational()}>{row}</For>
       </div>
     </Show>
   </div>
 }
 
-function AttentionItemRow(props: { item: AttentionItem }) {
+function AttentionItemRow(props: {
+  item: AttentionItem
+  busy: boolean
+  disabled: boolean
+  confirming: boolean
+  onRun: () => void
+  onReveal: (tab: string, anchor?: string) => void
+}) {
+  const tone = () => props.item.tier === 'urgent' ? 'destructive' as const : 'ghost' as const
   return <div id={`attention-item-${props.item.id}`} class={cn('flex items-start justify-between gap-3 px-3.5 py-3 border-b border-border-subtle last:border-0 border-l-2', props.item.tier === 'urgent' && 'border-l-destructive/50', props.item.tier === 'review' && 'border-l-warning/50', props.item.tier === 'informational' && 'border-l-border')}>
     <div class="flex-1 min-w-0 flex flex-col gap-1">
       <strong class="text-sm font-semibold text-foreground">{props.item.title}</strong>
@@ -215,14 +309,28 @@ function AttentionItemRow(props: { item: AttentionItem }) {
         <small class="text-xs text-warning font-medium leading-[1.4]">{props.item.consequence}</small>
       </Show>
     </div>
-    <Show when={props.item.action}>
-      <div class="flex gap-2 shrink-0 items-center flex-wrap">
-        <Show when={props.item.action!.to} fallback={
-          <Button size="sm" variant={props.item.tier === 'urgent' ? 'destructive' : 'ghost'}>{props.item.action!.label}</Button>
-        }>
-          <Link class={buttonVariants({ variant: props.item.tier === 'urgent' ? 'destructive' : 'ghost', size: 'sm' })} to={props.item.action!.to!}>{props.item.action!.label}</Link>
+    <div class="flex gap-2 shrink-0 items-center flex-wrap">
+      <Show when={props.item.run}>{run =>
+        <Button
+          size="sm"
+          variant={props.item.tier === 'urgent' ? 'destructive' : 'default'}
+          disabled={props.disabled || props.busy}
+          onClick={props.onRun}
+        >
+          <Show when={props.busy}><Spinner /></Show>
+          {props.busy ? run().pendingLabel : props.confirming ? run().confirmLabel : run().label}
+        </Button>
+      }</Show>
+      <Show when={props.item.goto}>{destination =>
+        <Button size="sm" variant={props.item.run ? 'ghost' : tone()} onClick={() => props.onReveal(destination().tab, destination().anchor)}>
+          {destination().label}
+        </Button>
+      }</Show>
+      <Show when={props.item.action}>{action =>
+        <Show when={action().to} fallback={<Button size="sm" variant="ghost">{action().label}</Button>}>
+          {to => <Link class={buttonVariants({ variant: props.item.run ? 'ghost' : tone(), size: 'sm' })} to={to()}>{action().label}</Link>}
         </Show>
-      </div>
-    </Show>
+      }</Show>
+    </div>
   </div>
 }

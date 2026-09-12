@@ -224,7 +224,29 @@ export function useTabPanels(initial: string) {
   // hidden, so its queries start on hover and the click has nothing left to
   // wait for. A tab the operator never points at still costs nothing.
   const prefetch = (id: string) => visit(id)
-  return { activeTab, switchTab, prefetch, visited, isVisited: (id: string) => visited().has(id) }
+  // Jump to something on this page that may be inside another tab.
+  //
+  // A bare `#anchor` link cannot do this: an unvisited panel is not in the DOM
+  // at all, and a visited-but-inactive one is `hidden`, so `scrollIntoView`
+  // finds nothing or scrolls to a zero-height box. Switching the tab first is
+  // the whole fix — but the panel may be mounting for the first time, so the
+  // element still does not exist on this frame. Retry for a few frames, then
+  // give up rather than spin.
+  const revealAnchor = (id: string, anchor?: string) => {
+    switchTab(id)
+    if (!anchor) return
+    let attempts = 0
+    const scroll = () => {
+      const element = document.getElementById(anchor)
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } else if (attempts++ < 10) {
+        requestAnimationFrame(scroll)
+      }
+    }
+    requestAnimationFrame(scroll)
+  }
+  return { activeTab, switchTab, prefetch, revealAnchor, visited, isVisited: (id: string) => visited().has(id) }
 }
 
 // ─── ErrorCard ─────────────────────────────────────────────────────────
