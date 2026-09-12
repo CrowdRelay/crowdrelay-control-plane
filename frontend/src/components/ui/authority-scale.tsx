@@ -52,11 +52,11 @@ export function AuthorityScale<T extends string>(props: {
   }
 
   return (
-    <div class={cn('flex min-w-0 flex-col gap-1', props.class)}>
+    <div class={cn('flex flex-col gap-1', props.class)}>
       <div
         role="radiogroup"
         aria-label={props.label}
-        class={cn('flex w-full overflow-hidden rounded-md border border-border', props.disabled && 'opacity-45')}
+        class={cn('flex overflow-hidden rounded-md border border-border', props.disabled && 'opacity-45')}
         onKeyDown={event => {
           if (event.key === 'ArrowRight' || event.key === 'ArrowDown') { event.preventDefault(); move(1) }
           if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') { event.preventDefault(); move(-1) }
@@ -79,7 +79,11 @@ export function AuthorityScale<T extends string>(props: {
               disabled={props.disabled}
               onClick={() => !props.disabled && props.onChange(rung.value)}
               class={cn(
-                'min-w-0 flex-1 border-r border-border px-1 py-1 text-xs font-medium transition-colors last:border-r-0',
+                // `min-w-0` let a rung shrink below its own label, so the
+                // longest word overflowed its button and ran into the next
+                // one. The rungs size to their content and share the slack
+                // evenly instead.
+                'flex-1 whitespace-nowrap border-r border-border px-2 py-1 text-xs font-medium transition-colors last:border-r-0',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary',
                 reached() ? 'bg-primary/15 text-primary-light' : 'text-muted-foreground',
                 selected() && 'bg-primary/30 font-semibold text-foreground',

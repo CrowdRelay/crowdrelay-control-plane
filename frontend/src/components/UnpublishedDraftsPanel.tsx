@@ -90,19 +90,26 @@ export function UnpublishedDraftsPanel(props: {
           </Show>
         </div>
 
-        <div class="space-y-2">
+        {/* One row per channel, each in its own box. As four inline spans on
+            a shared baseline they wrapped into a single paragraph, so where
+            one channel ended and the next began was invisible — and the
+            reason, the longest of the four, decided where every other row
+            broke. The reason now has its own line under the counts. */}
+        <div class="flex flex-col gap-2">
           <For each={props.drafts}>{(channel) => {
             const age = ageInDays(channel.oldest_drafted_at)
             const stale = age !== null && age >= STALE_AFTER_DAYS
-            return <div class="flex items-center gap-2 flex-wrap text-sm">
-              <Badge variant={stale ? 'warning' : 'muted'}>{channelLabel(channel.channel)}</Badge>
-              <strong class="text-foreground">{channel.drafts} draft{channel.drafts === 1 ? '' : 's'}</strong>
-              <Show when={age !== null}>
-                <span class={cn(stale ? 'text-destructive' : 'text-muted-foreground')}>
-                  oldest {age}d
-                </span>
-              </Show>
-              <span class="text-muted-foreground">
+            return <div class="flex flex-col gap-1 rounded-md border border-border-subtle bg-surface-1 px-3 py-2 text-sm">
+              <div class="flex items-center gap-2 flex-wrap">
+                <Badge variant={stale ? 'warning' : 'muted'}>{channelLabel(channel.channel)}</Badge>
+                <strong class="text-foreground">{channel.drafts} draft{channel.drafts === 1 ? '' : 's'}</strong>
+                <Show when={age !== null}>
+                  <span class={cn('text-xs', stale ? 'text-destructive' : 'text-muted-foreground')}>
+                    oldest {age}d
+                  </span>
+                </Show>
+              </div>
+              <span class="text-xs leading-relaxed text-muted-foreground">
                 {CHANNEL_REASONS[channel.channel] ?? 'awaiting an operator'}
               </span>
             </div>

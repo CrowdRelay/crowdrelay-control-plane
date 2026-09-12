@@ -218,7 +218,7 @@ export function OperationsPanel(props: {
     {/* `grid` on its own is a one-column grid, so these six figures rendered
         as a single tall stack of label-over-number-over-caption — eighteen
         lines down the left edge where a six-tile strip was intended. */}
-    <div class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+    <div class="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
       <div><span class="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Slowest requests</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{metric(summary.data?.http.p95_ms, ' ms')}</strong><small class="block text-xs text-muted-foreground">typical {metric(summary.data?.http.p50_ms, ' ms')}</small></div>
       <div><span class="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Outbox pending</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{metric(summary.data?.outbox.pending)}</strong><small class="block text-xs text-muted-foreground">{summary.data ? `${summary.data.outbox.processing} processing` : '—'}</small></div>
       <div><span class="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Delivery pending</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{metric(summary.data?.deliveries.pending)}</strong><small class="block text-xs text-muted-foreground">{summary.data ? `${summary.data.deliveries.dead} dead` : '—'}</small></div>

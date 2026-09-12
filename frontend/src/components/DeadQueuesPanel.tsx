@@ -171,7 +171,7 @@ export function DeadQueuesPanel(props: {
     </div>
     <Show when={props.error}><ErrorCard>{errorMessage(props.error, 'Dead outbox unavailable')}</ErrorCard></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
-    <For each={expandOutbox() ? (props.deadOutbox ?? []) : (props.deadOutbox ?? []).slice(0, DEAD_PREVIEW)}>{item => <Card class="border-warning/30 bg-warning/10 p-4">
+    <For each={expandOutbox() ? (props.deadOutbox ?? []) : (props.deadOutbox ?? []).slice(0, DEAD_PREVIEW)}>{item => <Card class="mb-2.5 border-warning/30 bg-warning/10 p-4 last:mb-0">
       <div class="flex items-start justify-between gap-3 flex-wrap">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 flex-wrap">
@@ -193,13 +193,13 @@ export function DeadQueuesPanel(props: {
     <Show when={!props.isLoading && (props.deadOutbox?.length ?? 0) === 0}><div class="p-4 mt-2.5"><EmptyState label="No dead outbox events" hint="Messages that failed delivery after all retries — a clean queue means everything is flowing." /></div></Show>
 
     {/* ─── Dead Webhook Deliveries ─────────────────────────────── */}
-    <div class="flex items-start justify-between gap-4 mb-3" id="dead-deliveries">
+    <div class="flex items-start justify-between gap-4 mb-3 mt-6" id="dead-deliveries">
       <div><PanelTitle as="h3" icon={<SectionIcon name="alert-triangle" />}>Delivery failures</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Inspect attempt history before retrying.</p></div>
       <Button writes type="button" variant={confirming() ? 'destructive-ghost' : 'ghost'} size="sm" disabled={(props.summary?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' && <Spinner />} {busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</Button>
     </div>
     <Show when={props.error}><ErrorCard>{errorMessage(props.error, 'Dead deliveries unavailable')}</ErrorCard></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
-    <For each={expandDeliveries() ? (props.deadDeliveries ?? []) : (props.deadDeliveries ?? []).slice(0, DEAD_PREVIEW)}>{item => <Card class="border-warning/30 bg-warning/10 p-4">
+    <For each={expandDeliveries() ? (props.deadDeliveries ?? []) : (props.deadDeliveries ?? []).slice(0, DEAD_PREVIEW)}>{item => <Card class="mb-2.5 border-warning/30 bg-warning/10 p-4 last:mb-0">
       <div class="flex items-start justify-between gap-3 flex-wrap">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 flex-wrap">
@@ -228,13 +228,13 @@ export function DeadQueuesPanel(props: {
     </Card>}</Show>
 
     {/* ─── Dead Push ───────────────────────────────────────────── */}
-    <div class="flex items-start justify-between gap-4 mb-3" id="dead-push">
+    <div class="flex items-start justify-between gap-4 mb-3 mt-6" id="dead-push">
       <div><PanelTitle as="h3" icon={<SectionIcon name="alert-triangle" />}>Failed push deliveries</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">{pushFailureSummary()}</p></div>
       <StatusBadge status={(props.summary?.push.dead ?? 0) > 0 ? 'dead' : 'clean'} tone={(props.summary?.push.dead ?? 0) > 0 ? 'bad' : 'good'} />
     </div>
     <Show when={props.error}><ErrorCard>{errorMessage(props.error, 'Dead push unavailable')}</ErrorCard></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
-    <For each={expandPush() ? (props.deadPush ?? []) : (props.deadPush ?? []).slice(0, DEAD_PREVIEW)}>{item => <Card class="border-warning/30 bg-warning/10 p-4">
+    <For each={expandPush() ? (props.deadPush ?? []) : (props.deadPush ?? []).slice(0, DEAD_PREVIEW)}>{item => <Card class="mb-2.5 border-warning/30 bg-warning/10 p-4 last:mb-0">
       <div class="flex items-start justify-between gap-3 flex-wrap">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 flex-wrap">

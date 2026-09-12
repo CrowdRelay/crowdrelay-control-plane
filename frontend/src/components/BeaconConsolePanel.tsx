@@ -224,9 +224,15 @@ export function BeaconConsolePanel(props: { slug: string }) {
       <header class="flex items-center justify-between gap-4 mb-3">
         <PanelTitle>Beacons</PanelTitle>
         <div class="flex items-center gap-2">
+          {/* Three counts at body size, in the header row, read as a second
+              heading competing with the panel's own. They are a caption: the
+              same size as the "Updated" stamp beside them, and the numbers
+              carry the emphasis rather than the words. */}
           <Show when={roster.data}>
-            <span class="text-muted-foreground">
-              {roster.data!.total} total · {roster.data!.active} active · {roster.data!.invited} invited
+            <span class="text-xs text-muted-foreground">
+              <strong class="font-semibold tabular-nums text-foreground">{roster.data!.total}</strong> total
+              {' · '}<strong class="font-semibold tabular-nums text-foreground">{roster.data!.active}</strong> active
+              {' · '}<strong class="font-semibold tabular-nums text-foreground">{roster.data!.invited}</strong> invited
             </span>
           </Show>
           <Show when={roster.dataUpdatedAt}><span class="text-xs text-muted-foreground">Updated {relativeTime(roster.dataUpdatedAt)}</span></Show>

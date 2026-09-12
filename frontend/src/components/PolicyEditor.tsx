@@ -23,7 +23,7 @@ import { readOnly, writeGuard } from '../lib/read-only'
 //
 // On mobile the 6-column grid overflows (28.5rem minimum > 375px screen), so
 // each policy collapses to a stacked card: context + switch on top, then mode,
-// then confidence slider, then cap + save — all full-width. `md:contents`
+// then confidence slider, then cap + save — all full-width. `lg:contents`
 // dissolves the wrapper divs on desktop so their children become grid items.
 
 const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
@@ -36,13 +36,27 @@ const AUTHORITY_RUNGS: readonly AuthorityRung<AutonomyLevel>[] = [
   { value: 'bounded_auto', label: 'Alone', detail: 'Acts without asking, inside the confidence floor and the daily cap.' },
 ] as const
 
-/** Column track shared by `PolicyHeader` and every `PolicyEditor` row. */
+/** Column track shared by `PolicyHeader` and every `PolicyEditor` row.
+ *
+ *  The authority column was a fixed `11rem`. Four rungs inside it came out at
+ *  44px each while "Suggest" needed 47, so every label overflowed its own
+ *  button and ran into the next one — at any window size, because the column
+ *  never grew. It is `auto` now: the ladder is exactly as wide as its widest
+ *  label, and a longer word in a future rung widens the column instead of
+ *  spilling out of it.
+ *
+ *  The row also switches to the grid at `lg`, not `md`. Six columns with two
+ *  fixed and one a ladder need more than 768px; between the two breakpoints
+ *  the stacked card is the honest layout. */
+/*  Written out twice rather than built from a shared constant: Tailwind scans
+ *  source text for class names, so a class assembled at runtime is never
+ *  generated and the column track silently disappears. */
 export const POLICY_GRID =
-  'flex flex-col gap-3 md:grid md:items-center md:gap-x-4 md:grid-cols-[minmax(0,1.6fr)_auto_11rem_minmax(8rem,1fr)_5rem_4.5rem]'
+  'flex flex-col gap-3 lg:grid lg:items-center lg:gap-x-4 lg:grid-cols-[minmax(0,1.4fr)_auto_auto_minmax(7rem,1fr)_4.5rem_4.5rem]'
 
 export function PolicyHeader() {
   return (
-    <div class="hidden md:grid md:items-center md:gap-x-4 md:grid-cols-[minmax(0,1.6fr)_auto_11rem_minmax(8rem,1fr)_5rem_4.5rem] border-b border-border px-1 pb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+    <div class="hidden lg:grid lg:items-center lg:gap-x-4 lg:grid-cols-[minmax(0,1.4fr)_auto_auto_minmax(7rem,1fr)_4.5rem_4.5rem] border-b border-border px-1 pb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
       <span>Kind of work</span>
       <span>On</span>
       <span>How far it may go</span>
@@ -81,7 +95,7 @@ export function PolicyEditor(props: {
 
   return <div class={`${POLICY_GRID} border-b border-border-subtle px-1 py-2.5 last:border-0`}>
     {/* Context label + switch — header row on mobile, columns 1-2 on desktop */}
-    <div class="flex items-center justify-between gap-2 md:contents">
+    <div class="flex items-center justify-between gap-2 lg:contents">
       <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-2">
           <strong class="text-sm text-foreground">{contextLabel(props.policy.context)}</strong>
@@ -110,8 +124,8 @@ export function PolicyEditor(props: {
         site draws the same four as a scale; this is that, with the console's
         own wording, which says what the operator is agreeing to rather than
         naming the authority model. */}
-    <div class="flex flex-col gap-1 md:contents">
-      <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground md:hidden">How far it may go</span>
+    <div class="flex flex-col gap-1 lg:contents">
+      <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground lg:hidden">How far it may go</span>
       <AuthorityScale
         rungs={AUTHORITY_RUNGS}
         value={level()}
@@ -122,8 +136,8 @@ export function PolicyEditor(props: {
     </div>
 
     {/* Confidence slider — labeled row on mobile, column 4 on desktop */}
-    <div class="flex flex-col gap-1 md:contents">
-      <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground md:hidden">Confidence needed</span>
+    <div class="flex flex-col gap-1 lg:contents">
+      <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground lg:hidden">Confidence needed</span>
       <div class="flex items-center gap-2">
         <input
           class="min-w-0 flex-1 accent-primary"
@@ -142,8 +156,8 @@ export function PolicyEditor(props: {
     </div>
 
     {/* Cap + save — footer row on mobile, columns 5-6 on desktop */}
-    <div class="flex items-center gap-2 md:contents">
-      <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground md:hidden shrink-0">Cap / day</span>
+    <div class="flex items-center gap-2 lg:contents">
+      <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground lg:hidden shrink-0">Cap / day</span>
       <Input
         class="h-8 w-full text-right text-sm"
         disabled={props.pending || !enabled()}
