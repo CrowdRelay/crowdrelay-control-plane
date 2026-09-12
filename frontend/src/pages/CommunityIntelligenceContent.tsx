@@ -10,6 +10,7 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
 import { NativeSelect } from '../components/ui/native-select'
+import { writeGuard } from '../lib/read-only'
 
 /**
  * Community Intelligence content — the Communities tab inside the Audience page.
@@ -317,7 +318,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
               <Input value={url()} onInput={event => setUrl(event.currentTarget.value)} required type="url" maxlength={512} />
             </label>
             <div class="form-actions right">
-              <Button size="sm" type="submit" disabled={saving() || !name().trim() || !url().trim()}>
+              <Button writes size="sm" type="submit" disabled={saving() || !name().trim() || !url().trim()}>
                 {saving() ? 'Registering…' : 'Register'}
               </Button>
             </div>
@@ -344,7 +345,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
               />
             </label>
             <div class="form-actions right">
-              <Button size="sm" type="submit" disabled={saving() || !importText().trim()}>
+              <Button writes size="sm" type="submit" disabled={saving() || !importText().trim()}>
                 {saving() ? 'Importing…' : 'Import'}
               </Button>
             </div>
@@ -357,10 +358,10 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
 
         {/* ── Community intelligence ── */}
         <div class="flex items-center gap-2 mt-4 mb-4">
-          <Button variant="ghost" size="sm" onClick={() => { setImporting(false); setAdding(value => !value) }}>
+          <Button writes variant="ghost" size="sm" onClick={() => { setImporting(false); setAdding(value => !value) }}>
             {adding() ? 'Cancel' : 'Add a community'}
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => { setAdding(false); setImporting(value => !value) }}>
+          <Button writes variant="ghost" size="sm" onClick={() => { setAdding(false); setImporting(value => !value) }}>
             {importing() ? 'Cancel' : 'Import a list'}
           </Button>
         </div>
@@ -467,6 +468,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                               <NativeSelect size="sm" class="w-auto"
                                 value={item.membershipState}
                                 onChange={(e) => setMembership(item.placeId, e.currentTarget.value)}
+                                {...writeGuard()}
                               >
                                 <For each={MEMBERSHIP_ORDER}>
                                   {(s) => <option value={s}>{MEMBERSHIP_LABEL[s]}</option>}

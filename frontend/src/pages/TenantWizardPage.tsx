@@ -439,7 +439,7 @@ export function TenantWizardPage() {
           </div>
           <div class="flex gap-2">
             <Button variant="ghost" size="sm" onClick={prevStep}>← Back</Button>
-            <Button size="sm" onClick={() => createTenant.mutate()} disabled={createTenant.isPending || !deployFieldsReady()}>
+            <Button writes size="sm" onClick={() => createTenant.mutate()} disabled={createTenant.isPending || !deployFieldsReady()}>
               {createTenant.isPending && <Spinner />} {createTenant.isPending ? 'Creating…' : deployNow() ? 'Create & deploy' : 'Create tenant'}
             </Button>
           </div>

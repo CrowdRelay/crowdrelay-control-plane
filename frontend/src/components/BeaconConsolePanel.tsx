@@ -15,6 +15,7 @@ import { buttonVariants } from './ui/button'
 import { cn } from '../lib/cn'
 import { EmptyState } from './ui/empty-state'
 import { ErrorCard, PanelTitle } from './layout'
+import { writeGuard } from '../lib/read-only'
 
 // The beacon roster, and everything you can do to it.
 //
@@ -254,6 +255,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
               style={{ display: 'none' }}
               disabled={busy() !== null}
               onChange={importSubmithub}
+              {...writeGuard()}
             />
           </label>
           <Button writes variant={adding() ? 'ghost' : 'default'} size="sm" onClick={() => setAdding(value => !value)}>

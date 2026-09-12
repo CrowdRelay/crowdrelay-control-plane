@@ -155,7 +155,7 @@ export function TenantNotifiersPage() {
 
         <Show when={create.error}><div class="mt-3"><ErrorCard>{errorMessage(create.error, 'Channel creation failed')}</ErrorCard></div></Show>
         <div class="flex justify-end mt-5">
-          <Button type="submit" size="sm" disabled={create.isPending || !formReady()}>{create.isPending && <Spinner />} {create.isPending ? 'Adding…' : 'Add channel'}</Button>
+          <Button writes type="submit" size="sm" disabled={create.isPending || !formReady()}>{create.isPending && <Spinner />} {create.isPending ? 'Adding…' : 'Add channel'}</Button>
         </div>
       </form>
     </Card>
@@ -189,14 +189,14 @@ export function TenantNotifiersPage() {
                   </div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
-                  <Button variant="ghost" size="sm" disabled={test.isPending} onClick={() => test.mutateAsync(ch.id)}>Send test</Button>
+                  <Button writes variant="ghost" size="sm" disabled={test.isPending} onClick={() => test.mutateAsync(ch.id)}>Send test</Button>
                   <Switch
                     checked={ch.enabled}
                     label={`${ch.label} enabled`}
                     disabled={update.isPending}
                     onChange={() => update.mutate({ id: ch.id, enabled: !ch.enabled })}
                   />
-                  <Button variant="destructive-ghost" size="sm" disabled={remove.isPending} onClick={async () => {
+                  <Button writes variant="destructive-ghost" size="sm" disabled={remove.isPending} onClick={async () => {
                     const ok = await confirmAction({
                       title: `Delete channel "${ch.label}"?`,
                       body: 'Alerts routed to this channel stop being delivered.',
@@ -281,7 +281,7 @@ export function TenantNotifiersPage() {
             </div>
             <div class="flex items-center gap-2">
               <Show when={routingItems().length > 0}><small class="text-sm text-muted-foreground">{routingItems().length} workflows</small></Show>
-              <Button variant="ghost" size="sm" disabled={syncRouting.isPending} onClick={(e) => { e.preventDefault(); syncRouting.mutate() }}>{syncRouting.isPending && <Spinner />} {syncRouting.isPending ? 'Syncing…' : 'Sync from n8n'}</Button>
+              <Button writes variant="ghost" size="sm" disabled={syncRouting.isPending} onClick={(e) => { e.preventDefault(); syncRouting.mutate() }}>{syncRouting.isPending && <Spinner />} {syncRouting.isPending ? 'Syncing…' : 'Sync from n8n'}</Button>
             </div>
           </summary>
 

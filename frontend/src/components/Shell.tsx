@@ -552,6 +552,15 @@ export const Shell: Component = () => {
             <Button variant="ghost" size="sm" type="button" onClick={() => { void authState.logout() }}>Log out</Button>
           </div>
         </header>
+        {/* A viewer meets a console where most controls are greyed out. Say why
+            once, at the top, rather than leaving them to infer it from a
+            tooltip on the first button they try. */}
+        <Show when={authState.readOnly()}>
+          <div class="flex items-center gap-2 border-b border-warning/30 bg-warning/10 px-4 py-2 text-xs text-warning-light" role="status">
+            <strong class="font-semibold">Read-only session.</strong>
+            <span>This account can look at everything and change nothing. Controls that would write are disabled.</span>
+          </div>
+        </Show>
         {/* Keyed on the route so a thrown page recovers by navigating away
             instead of leaving the console permanently blank. The key forces
             a remount which resets Suspense + ErrorBoundary state per page. */}

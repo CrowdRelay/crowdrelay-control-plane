@@ -23,6 +23,7 @@ import { Input } from '../components/ui/input'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
 import { Field, FieldGrid, ReadField, Unset } from '../components/ui/field'
 import { buttonVariants } from '../components/ui/button'
+import { writeGuard } from '../lib/read-only'
 
 const paletteFields: Array<keyof Palette> = ['primary','primaryContrast','accent','surface','surfaceElevated','text','textMuted','success','warning','danger']
 // The editor showed the raw struct field names — `primaryContrast`,
@@ -165,7 +166,7 @@ export function TenantPage() {
         eyebrow="CONTROL"
         title={t.displayName}
         description={`${t.defaultCountryCode} · ${t.workspaceId ? 'Workspace ready' : 'Workspace pending'}`}
-        actions={<div class="flex items-center gap-2"><StatusBadge status={t.status} tone={t.status === 'active' ? 'good' : t.status === 'suspended' ? 'bad' : t.status === 'parked' ? 'warn' : 'warn'} /><Show when={capabilities()?.canPark}><Button variant="ghost" size="sm" disabled={park.isPending} onClick={() => park.mutate('non-payment')} aria-label={park.isPending ? 'Parking tenant' : 'Park tenant'}>{park.isPending && <Spinner />} {park.isPending ? 'Parking…' : 'Park'}</Button></Show><Show when={capabilities()?.canUnpark}><Button size="sm" disabled={unpark.isPending} onClick={() => unpark.mutate()} aria-label={unpark.isPending ? 'Resuming tenant' : 'Resume tenant'}>{unpark.isPending && <Spinner />} {unpark.isPending ? 'Resuming…' : 'Resume'}</Button></Show><Show when={capabilities()?.canSuspend !== false && t.status !== 'parked'}><Button variant="ghost" size="sm" disabled={status.isPending} onClick={() => status.mutate(t.status === 'suspended' ? 'resume' : 'suspend')} aria-label={status.isPending ? 'Updating status' : (t.status === 'suspended' ? 'Resume tenant' : 'Suspend tenant')}>{status.isPending && <Spinner />} {status.isPending ? 'Updating…' : t.status === 'suspended' ? 'Resume' : 'Suspend'}</Button></Show></div>}
+        actions={<div class="flex items-center gap-2"><StatusBadge status={t.status} tone={t.status === 'active' ? 'good' : t.status === 'suspended' ? 'bad' : t.status === 'parked' ? 'warn' : 'warn'} /><Show when={capabilities()?.canPark}><Button writes variant="ghost" size="sm" disabled={park.isPending} onClick={() => park.mutate('non-payment')} aria-label={park.isPending ? 'Parking tenant' : 'Park tenant'}>{park.isPending && <Spinner />} {park.isPending ? 'Parking…' : 'Park'}</Button></Show><Show when={capabilities()?.canUnpark}><Button writes size="sm" disabled={unpark.isPending} onClick={() => unpark.mutate()} aria-label={unpark.isPending ? 'Resuming tenant' : 'Resume tenant'}>{unpark.isPending && <Spinner />} {unpark.isPending ? 'Resuming…' : 'Resume'}</Button></Show><Show when={capabilities()?.canSuspend !== false && t.status !== 'parked'}><Button writes variant="ghost" size="sm" disabled={status.isPending} onClick={() => status.mutate(t.status === 'suspended' ? 'resume' : 'suspend')} aria-label={status.isPending ? 'Updating status' : (t.status === 'suspended' ? 'Resume tenant' : 'Suspend tenant')}>{status.isPending && <Spinner />} {status.isPending ? 'Updating…' : t.status === 'suspended' ? 'Resume' : 'Suspend'}</Button></Show></div>}
       />
       <Show when={status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error}>
         <ErrorCard>{errorMessage(status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error, 'Control Plane operation failed')}</ErrorCard>
@@ -245,7 +246,7 @@ export function TenantPage() {
           title="Products"
           icon={<SectionIcon name="shield" />}
           description="Which apps this tenant is entitled to, and where each one is published."
-          action={<Button variant="ghost" size="sm" onClick={() => setEditingMobileApps(true)}>Edit Play Store URLs</Button>}
+          action={<Button writes variant="ghost" size="sm" onClick={() => setEditingMobileApps(true)}>Edit Play Store URLs</Button>}
         >
           {/* Four hand-built three-column CSS grids, each declaring its own
               template inline, is a table that has not admitted it is one. */}
@@ -289,13 +290,13 @@ export function TenantPage() {
           icon={<SectionIcon name="palette" />}
           description="Ten colours sent to this tenant's CrowdRelay and Signal builds. Nothing changes until you save; resetting removes the override and both apps fall back to product defaults."
           action={t.brandingPalette
-            ? <Button variant="ghost" size="sm" disabled={branding.isPending} onClick={() => branding.mutate(null)}>{branding.isPending && <Spinner />} Reset to defaults</Button>
+            ? <Button writes variant="ghost" size="sm" disabled={branding.isPending} onClick={() => branding.mutate(null)}>{branding.isPending && <Spinner />} Reset to defaults</Button>
             : <StatusBadge status="product defaults" />}
         >
           <Show when={t.brandingPalette || editingPalette()} fallback={
             <div class="flex flex-wrap items-center gap-3">
               <p class="m-0 text-sm text-muted-foreground">No custom palette stored. Both apps use their own default colours.</p>
-              <Button variant="outline" size="sm" onClick={() => setEditingPalette(true)}>Create custom palette</Button>
+              <Button writes variant="outline" size="sm" onClick={() => setEditingPalette(true)}>Create custom palette</Button>
             </div>
           }>
             <div class="grid grid-cols-2 gap-4 md:grid-cols-5">
@@ -310,7 +311,7 @@ export function TenantPage() {
                 </label>
               )}</For>
             </div>
-            <Button size="sm" class="mt-4" onClick={() => branding.mutate(palette())} disabled={branding.isPending}>{branding.isPending && <Spinner />} {branding.isPending ? 'Saving…' : 'Save custom palette'}</Button>
+            <Button writes size="sm" class="mt-4" onClick={() => branding.mutate(palette())} disabled={branding.isPending}>{branding.isPending && <Spinner />} {branding.isPending ? 'Saving…' : 'Save custom palette'}</Button>
           </Show>
         </Section>
 
@@ -377,7 +378,7 @@ export function TenantPage() {
           class="max-w-lg"
           footer={<>
             <Button variant="ghost" size="sm" onClick={() => setEditingMobileApps(false)}>Cancel</Button>
-            <Button size="sm" onClick={() => mobileApps.mutate({ signalPlayStoreUrl: signalPlayUrl().trim() || null, synesthesiaPlayStoreUrl: synesthesiaPlayUrl().trim() || null })} disabled={mobileApps.isPending}>{mobileApps.isPending && <Spinner />} {mobileApps.isPending ? 'Saving…' : 'Save URLs'}</Button>
+            <Button writes size="sm" onClick={() => mobileApps.mutate({ signalPlayStoreUrl: signalPlayUrl().trim() || null, synesthesiaPlayStoreUrl: synesthesiaPlayUrl().trim() || null })} disabled={mobileApps.isPending}>{mobileApps.isPending && <Spinner />} {mobileApps.isPending ? 'Saving…' : 'Save URLs'}</Button>
           </>}
         >
           <Show when={mobileApps.error}><ErrorCard class="mb-4">{mobileApps.error instanceof Error ? mobileApps.error.message : 'Failed to update Play Store URLs'}</ErrorCard></Show>
@@ -386,10 +387,10 @@ export function TenantPage() {
               field suggested a URL with a brace in it. */}
           <div class="flex flex-col gap-4">
             <Field label="Signal Play Store URL">
-              <Input value={signalPlayUrl()} onInput={(e) => setSignalPlayUrl(e.currentTarget.value)} placeholder={`https://play.google.com/store/apps/details?id=music.${t.slug}.signal`} />
+              <Input value={signalPlayUrl()} onInput={(e) => setSignalPlayUrl(e.currentTarget.value)} placeholder={`https://play.google.com/store/apps/details?id=music.${t.slug}.signal`} {...writeGuard()} />
             </Field>
             <Field label="Synesthesia Play Store URL">
-              <Input value={synesthesiaPlayUrl()} onInput={(e) => setSynesthesiaPlayUrl(e.currentTarget.value)} placeholder={`https://play.google.com/store/apps/details?id=music.${t.slug}.synesthesia`} />
+              <Input value={synesthesiaPlayUrl()} onInput={(e) => setSynesthesiaPlayUrl(e.currentTarget.value)} placeholder={`https://play.google.com/store/apps/details?id=music.${t.slug}.synesthesia`} {...writeGuard()} />
             </Field>
           </div>
         </Dialog>
@@ -431,8 +432,8 @@ export function TenantPage() {
                 />
               </Field>
               <div class="flex gap-2 pb-6">
-                <Button variant="ghost" size="sm" onClick={() => plan.mutate()} disabled={plan.isPending || deploymentBusy() || !releaseReady()}>Preview</Button>
-                <Button size="sm" onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || !releaseReady() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl}>{latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</Button>
+                <Button writes variant="ghost" size="sm" onClick={() => plan.mutate()} disabled={plan.isPending || deploymentBusy() || !releaseReady()}>Preview</Button>
+                <Button writes size="sm" onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || !releaseReady() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl}>{latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</Button>
               </div>
             </div>
             <Show when={deploy.error}><ErrorCard>{deploy.error instanceof Error ? deploy.error.message : 'Deployment request failed'}</ErrorCard></Show>
@@ -456,7 +457,7 @@ export function TenantPage() {
                   <Show when={!failure().retryable}><p class="mt-1 text-xs italic text-muted-foreground">Retrying will not help until the underlying cause is fixed.</p></Show>
                 </>}</Show>
               </ErrorCard>}</Show>
-              <Show when={['planned','approved'].includes(job().status)}><Button variant="destructive-ghost" size="sm" class="mt-3" onClick={() => cancel.mutate()} disabled={cancel.isPending}>Cancel queued deployment</Button></Show>
+              <Show when={['planned','approved'].includes(job().status)}><Button writes variant="destructive-ghost" size="sm" class="mt-3" onClick={() => cancel.mutate()} disabled={cancel.isPending}>Cancel queued deployment</Button></Show>
             </div>}</Show>
           </Show>
         </Section>
@@ -517,7 +518,7 @@ export function TenantPage() {
                   </Field>
                 </div>
                 <div class="mt-4 flex justify-end gap-2">
-                  <Button
+                  <Button writes
                     variant="destructive-ghost"
                     size="sm"
                     disabled={optOutConfirm().trim() !== t.slug || optOut.isPending}
@@ -562,7 +563,7 @@ export function TenantPage() {
               </Field>
             </div>
             <div class="mt-4 flex justify-end gap-2">
-              <Button
+              <Button writes
                 variant="destructive-ghost"
                 size="sm"
                 disabled={removalConfirm().trim() !== t.slug || remove.isPending}

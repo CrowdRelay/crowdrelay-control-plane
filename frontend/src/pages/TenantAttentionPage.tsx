@@ -176,7 +176,7 @@ export function TenantAttentionPage() {
             <h3 class="text-sm font-semibold flex items-center gap-1.5"><SectionIcon name="refresh-cw" />Cross-check against the tenant</h3>
             <p class="text-sm text-muted-foreground mt-1 leading-relaxed">Compares what this console believes about the tenant with what the tenant actually reports — feature switches, Bandsintown sync, and anything already flagged. It only reads. Run it first, then work through whatever it disagrees about.</p>
           </div>
-          <Button variant={confirmingReconcile() ? 'default' : 'outline'} size="sm" class={confirmingReconcile() ? 'flex gap-2 items-center mt-2' : ''} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' && <Spinner />} {busy() === 'reconcile' ? 'Checking…' : confirmingReconcile() ? 'Yes, run the check' : 'Run the check'}</Button>
+          <Button writes variant={confirmingReconcile() ? 'default' : 'outline'} size="sm" class={confirmingReconcile() ? 'flex gap-2 items-center mt-2' : ''} disabled={!!busy()} onClick={() => void reconcile()}>{busy() === 'reconcile' && <Spinner />} {busy() === 'reconcile' ? 'Checking…' : confirmingReconcile() ? 'Yes, run the check' : 'Run the check'}</Button>
         </div>
         {/* `grid gap-2.5` with no column count stacked three stat cards full
             width, one under the other, so a row of numbers read as three more

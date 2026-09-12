@@ -66,6 +66,7 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
 // Open state lives in command-palette-state.ts so Shell can toggle the
 // palette without this component being in the entry bundle.
 import { commandPaletteOpen, setCommandPaletteOpen, toggleCommandPalette } from './command-palette-state'
+import { readOnly } from '../lib/read-only'
 
 export const CommandPalette: Component = () => {
   const open = commandPaletteOpen
@@ -158,11 +159,17 @@ export const CommandPalette: Component = () => {
     return list
   })
 
+  // A read-only account cannot run any of these, and the palette is a list of
+  // things you can do — an entry that always fails is worse than no entry.
+  // Every command already declares its `kind`, so nothing new is needed to
+  // tell the two apart.
+  const runnable = createMemo(() => readOnly() ? commands().filter(cmd => cmd.kind !== 'mutate') : commands())
+
   const filtered = createMemo(() => {
     const q = query().trim().toLowerCase()
-    if (!q) return commands()
+    if (!q) return runnable()
     const terms = q.split(/\s+/)
-    return commands().filter(cmd => {
+    return runnable().filter(cmd => {
       const haystack = `${cmd.label} ${cmd.keywords ?? ''}`.toLowerCase()
       return terms.every(term => haystack.includes(term))
     })

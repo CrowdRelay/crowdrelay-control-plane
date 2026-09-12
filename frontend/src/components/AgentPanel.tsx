@@ -19,6 +19,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { Textarea } from './ui/textarea'
 import type { AgentTaskResult, TaskSuggestion, AgentOutcome } from '../lib/types'
 import { NativeSelect } from './ui/native-select'
+import { writeGuard } from '../lib/read-only'
 
 // --- Ant icon (agent service mascot) ---
 const AntIcon = (props: { size?: number }) => (
@@ -357,7 +358,7 @@ export function AgentPanel(props: { slug: string }) {
           <p class="text-sm text-muted-foreground mt-1">Free models cost nothing; paid models bill against the AI budget.</p>
           <label class="flex flex-col gap-1 text-sm text-muted-foreground">
             <span>Model</span>
-            <NativeSelect value={selectedModel()} onChange={(e) => setSelectedModel(e.currentTarget.value)}>
+            <NativeSelect value={selectedModel()} onChange={(e) => setSelectedModel(e.currentTarget.value)} {...writeGuard()}>
               <For each={models()?.models ?? []}>
                 {(model) => (
                   <option value={model.id}>
@@ -375,6 +376,7 @@ export function AgentPanel(props: { slug: string }) {
               placeholder="e.g. Write a press pitch for the Sep 5 Sanity Check Tour show targeting Polish metal blogs and zines"
               rows={4}
               maxlength={8000}
+              {...writeGuard()}
             />
           </label>
           <div class="flex items-center gap-2 mt-2">

@@ -13,6 +13,7 @@ import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { cn } from '../lib/cn'
 import { NativeSelect } from '../components/ui/native-select'
+import { writeGuard } from '../lib/read-only'
 
 const severityTone = (s: string) => s === 'error' ? 'bad' : s === 'warn' ? 'warn' : 'muted'
 const statusTone = (s: string) => s === 'new' ? 'bad' : s === 'acknowledged' ? 'warn' : s === 'retried' ? 'warn' : 'muted'
@@ -135,6 +136,7 @@ export function AutomationPage() {
                   value={cfg.category}
                   disabled={busyId() !== null}
                   onChange={(e) => handleConfigUpdate(cfg.workflowId, { category: e.currentTarget.value })}
+                  {...writeGuard()}
                 >
                   <option value="status">Status</option>
                   <option value="real_work">Real work</option>
@@ -146,6 +148,7 @@ export function AutomationPage() {
                     disabled={busyId() !== null}
                     checked={cfg.discordEnabled}
                     onChange={(e) => handleConfigUpdate(cfg.workflowId, { discordEnabled: e.currentTarget.checked })}
+                    {...writeGuard()}
                   />
                   <span>Discord</span>
                 </label>
@@ -155,6 +158,7 @@ export function AutomationPage() {
                     disabled={busyId() !== null}
                     checked={cfg.muted}
                     onChange={(e) => handleConfigUpdate(cfg.workflowId, { muted: e.currentTarget.checked })}
+                    {...writeGuard()}
                   />
                   <span>Muted</span>
                 </label>
@@ -213,13 +217,13 @@ export function AutomationPage() {
                   <span class={cn('inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium', statusTone(ev.status) === 'bad' ? 'bg-destructive/10 text-destructive' : statusTone(ev.status) === 'warn' ? 'bg-warning/10 text-warning' : 'bg-surface-2 text-muted-foreground')}>{ev.status}</span>
                   <Show when={ev.retryCount > 0}><span class="text-xs text-muted-foreground">retried {ev.retryCount}×</span></Show>
                   <Show when={ev.status === 'new'}>
-                    <Button variant="ghost" size="sm" disabled={busyId() === ev.id} onClick={() => handleAck(ev.id)}>Ack</Button>
+                    <Button writes variant="ghost" size="sm" disabled={busyId() === ev.id} onClick={() => handleAck(ev.id)}>Ack</Button>
                   </Show>
                   <Show when={ev.executionId && ev.status !== 'retried'}>
-                    <Button variant="ghost" size="sm" disabled={busyId() === ev.id} onClick={() => handleRetry(ev.id)}>Retry</Button>
+                    <Button writes variant="ghost" size="sm" disabled={busyId() === ev.id} onClick={() => handleRetry(ev.id)}>Retry</Button>
                   </Show>
                   <Show when={ev.status !== 'resolved'}>
-                    <Button variant="ghost" size="sm" disabled={busyId() === ev.id} onClick={() => handleResolve(ev.id)}>Resolve</Button>
+                    <Button writes variant="ghost" size="sm" disabled={busyId() === ev.id} onClick={() => handleResolve(ev.id)}>Resolve</Button>
                   </Show>
                 </div>
               </Card>

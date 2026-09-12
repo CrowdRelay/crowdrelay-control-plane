@@ -12,6 +12,7 @@ import { Badge } from './ui/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 import { NativeSelect } from './ui/native-select'
 import { Input } from './ui/input'
+import { writeGuard } from '../lib/read-only'
 
 const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (status) {

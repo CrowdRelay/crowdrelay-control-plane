@@ -18,6 +18,7 @@ import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
 import { cn } from '../lib/cn'
 import { NativeSelect } from '../components/ui/native-select'
+import { readOnly } from '../lib/read-only'
 
 
 const statusTone = (status: AreaStatus) => status === 'LIVE' ? 'good' : status === 'SCHEDULED' || status === 'DRAFT' ? 'warn' : status === 'ARCHIVED' ? 'muted' : status === 'PAUSED' ? 'bad' : 'muted'
@@ -196,12 +197,12 @@ export function AreaPage() {
             <p class="text-sm text-warning mt-2 leading-relaxed">AREA is off here, but this tenant's app is still showing the game to fans. It stops at its next deploy or sync.</p>
           </Show>
         </div>
-        <Button variant={o().entitled ? 'destructive-ghost' : 'default'} size="sm" disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Turn AREA off' : 'Turn AREA on'}</Button>
+        <Button writes variant={o().entitled ? 'destructive-ghost' : 'default'} size="sm" disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Turn AREA off' : 'Turn AREA on'}</Button>
       </SectionPanel>
     </>}</Show>
 
     <SectionPanel>
-      <SectionTitle eyebrow="LOCATIONS" title="Published state + drafts" icon={<SectionIcon name="map-pin" />} action={<Button size="sm" disabled={!overview.data?.entitled} onClick={() => setCreating(v=>!v)}>+ New location</Button>} />
+      <SectionTitle eyebrow="LOCATIONS" title="Published state + drafts" icon={<SectionIcon name="map-pin" />} action={<Button writes size="sm" disabled={!overview.data?.entitled} onClick={() => setCreating(v=>!v)}>+ New location</Button>} />
       <Show when={creating()}><div class="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
         <label>Search city<small class="block text-xs text-muted-foreground">Type to filter the canonical list.</small><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></label>
         <label>Canonical city<small class="block text-xs text-muted-foreground">Where the drop lives. Missing city? Create one below.</small><NativeSelect value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></NativeSelect></label>
@@ -209,7 +210,7 @@ export function AreaPage() {
         {/* The button was enabled without a drop number and the mutation threw
             "Drop number must contain 1–3 digits" only after the click. Same
             rule, checked where the operator can still act on it. */}
-        <div class="flex justify-end gap-2"><Button variant="ghost" size="sm" onClick={()=>setCreateCityOpen(v=>!v)}>Create custom city</Button><Button size="sm" disabled={createDrop.isPending || !newCityId() || !/^\d{1,3}$/.test(newNumber().trim())} onClick={()=>createDrop.mutate()}>Create draft</Button></div>
+        <div class="flex justify-end gap-2"><Button writes variant="ghost" size="sm" onClick={()=>setCreateCityOpen(v=>!v)}>Create custom city</Button><Button writes size="sm" disabled={createDrop.isPending || !newCityId() || !/^\d{1,3}$/.test(newNumber().trim())} onClick={()=>createDrop.mutate()}>Create draft</Button></div>
         <Show when={createCityOpen()}><div class="rounded-md border border-border bg-surface-2 p-3 space-y-3">
           <label>Name<Input required value={newCity().name} onInput={e=>setNewCity(v=>({...v,name:e.currentTarget.value}))}/></label>
           <label>Slug<Input required value={newCity().slug} onInput={e=>setNewCity(v=>({...v,slug:e.currentTarget.value}))}/></label>
@@ -217,7 +218,7 @@ export function AreaPage() {
           <label>Region<Input required value={newCity().region} onInput={e=>setNewCity(v=>({...v,region:e.currentTarget.value}))}/></label>
           <label>Public latitude<Input required type="number" step="0.000001" value={newCity().latitude} onInput={e=>setNewCity(v=>({...v,latitude:e.currentTarget.value}))}/></label>
           <label>Public longitude<Input required type="number" step="0.000001" value={newCity().longitude} onInput={e=>setNewCity(v=>({...v,longitude:e.currentTarget.value}))}/></label>
-          <Button size="sm" disabled={createCity.isPending} onClick={()=>createCity.mutate()}>Save canonical city</Button>
+          <Button writes size="sm" disabled={createCity.isPending} onClick={()=>createCity.mutate()}>Save canonical city</Button>
         </div></Show>
       </div></Show>
       <div class="rounded-lg border border-border overflow-hidden">
@@ -241,6 +242,13 @@ export function AreaPage() {
       <p class="text-sm text-muted-foreground -mt-1 mb-4">Single-drop response only · not cached.</p>
       <Show when={detail.data && draft()} fallback={<SkeletonRows count={4} />}>{_ready => <>
         <div class="flex gap-1 flex-wrap"><For each={['city','location','content','schedule','review'] as const}>{step=><Button variant="ghost" size="sm" class={cn(editorStep()===step && 'bg-primary/10 text-primary')} onClick={()=>setEditorStep(step)}>{step}</Button>}</For></div>
+
+        {/* One fieldset instead of a `writes` prop on forty controls: a
+            disabled fieldset disables every form control under it, which is
+            exactly the rule for a read-only account. `display: contents` keeps
+            the layout identical. The step nav stays outside it — moving
+            between steps is reading, and a viewer must keep that. */}
+        <fieldset class="contents" disabled={readOnly()}>
 
         <Show when={editorStep()==='city'}><p class="text-sm text-muted-foreground leading-relaxed mt-1">Which city this drop belongs to and where it sits in the list fans see. Nothing here is secret — the exact spot is set on the next step.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -318,6 +326,7 @@ export function AreaPage() {
             if (ok) lifecycle.mutate('delete')
           }}>Delete draft</Button></Show></div>
         </div>
+        </fieldset>
       </>}</Show>
     </SectionPanel></Show>
   </PageShell>
