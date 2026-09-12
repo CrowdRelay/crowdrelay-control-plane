@@ -95,6 +95,11 @@ const GUIDE: Record<string, AlertGuide> = {
     cause: 'One platform\'s last sync attempt failed while the others still work. Nothing is lost yet — the brain keeps working through the remaining channels — but that platform contributes nothing until its credential or connection is repaired.',
     action: { label: 'Check system health', operations: true },
   },
+  'publishing.orphaned_draft': {
+    title: 'A post was approved but nothing published it',
+    cause: 'The system recorded the publishing action as successful, yet no executor ever produced the post — so the draft exists, the action says it is done, and the audience never saw anything. It means no executor recognises this kind of draft as its work: the agent task\'s template and the draft\'s platform fall outside every executor\'s claim.',
+    action: { label: 'Check system health', operations: true },
+  },
   'growth.stuck_ungeocoded_cities': {
     title: 'Fan-requested cities could not be placed on the map',
     cause: 'Geocoding gave up on cities fans asked for, so the fans behind them are unreachable by the nearby-show notification — the one thing that reopens an installed app on its own. Nothing recovers this without a person: either the geocoding worker is disabled, or the provider does not recognise the names.',
