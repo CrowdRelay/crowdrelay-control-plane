@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 import { toast } from '../components/ui/toast'
 import { fetchOperationsAttention } from '../lib/attention'
 import { errorMessage, formatTimestamp as observed } from '../lib/format'
-import type { OperationsSummary } from '../lib/types'
+import type { OperationsSummary, ReconciliationFinding } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
 import { UnpublishedDraftsPanel } from '../components/UnpublishedDraftsPanel'
@@ -31,6 +31,26 @@ const formatPgVersion = (num: number | null | undefined): string => {
   const major = Math.floor(num / 10000)
   const minor = Math.floor((num % 10000) / 100)
   return minor === 0 ? `${major}` : `${major}.${minor}`
+}
+
+/** One reconciliation finding. The surround says how loud it is; this says
+ *  what it is, and is the same either way. */
+function FindingBody(props: { finding: ReconciliationFinding }) {
+  return (
+    <div class="flex items-start justify-between gap-4">
+      <div class="min-w-0">
+        <strong class="text-foreground">{props.finding.summary}</strong>
+        <small class="block text-sm text-muted-foreground">{props.finding.severity} · {props.finding.kind} · {props.finding.entity_label ?? props.finding.entity_type}</small>
+        <Show when={props.finding.suggested_action}>
+          <p class="text-sm text-muted-foreground mt-1 leading-relaxed">{props.finding.suggested_action}</p>
+        </Show>
+      </div>
+      <StatusBadge
+        status={props.finding.severity}
+        tone={props.finding.severity === 'critical' ? 'bad' : props.finding.severity === 'warning' ? 'warn' : 'muted'}
+      />
+    </div>
+  )
 }
 
 export function TenantAttentionPage() {
@@ -200,14 +220,17 @@ export function TenantAttentionPage() {
             tone={(attention.data!.ecosystem!.bandsintown_sync?.consecutive_failures ?? 0) > 0 ? 'warn' : 'default'}
           />
         </div></Show>
+        {/* Both branches rendered a byte-identical body; only the surround
+            differed. The copy in the fallback also still asked whether the
+            severity was critical, in the branch that only runs when it is not. */}
         <For each={attention.data?.findings ?? []}>{finding =>
           <Show when={finding.severity === 'critical'} fallback={
             <div class="rounded-lg border border-warning/30 bg-warning/10 p-3.5 my-3 text-sm text-warning-light leading-relaxed">
-              <div class="flex items-center justify-between gap-4"><div><strong>{finding.summary}</strong><small class="block text-sm text-muted-foreground">{finding.severity} · {finding.kind} · {finding.entity_label ?? finding.entity_type}</small><Show when={finding.suggested_action}><p class="text-sm text-muted-foreground mt-1 leading-relaxed">{finding.suggested_action}</p></Show></div><StatusBadge status={finding.severity} tone={finding.severity === 'critical' ? 'bad' : finding.severity === 'warning' ? 'warn' : 'muted'} /></div>
+              <FindingBody finding={finding} />
             </div>
           }>
             <ErrorCard class="p-3.5 my-3 leading-relaxed">
-              <div class="flex items-center justify-between gap-4"><div><strong>{finding.summary}</strong><small class="block text-sm text-muted-foreground">{finding.severity} · {finding.kind} · {finding.entity_label ?? finding.entity_type}</small><Show when={finding.suggested_action}><p class="text-sm text-muted-foreground mt-1 leading-relaxed">{finding.suggested_action}</p></Show></div><StatusBadge status={finding.severity} tone={finding.severity === 'critical' ? 'bad' : finding.severity === 'warning' ? 'warn' : 'muted'} /></div>
+              <FindingBody finding={finding} />
             </ErrorCard>
           </Show>
         }</For>

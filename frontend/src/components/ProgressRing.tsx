@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onCleanup, type Component } from 'solid-js'
+import { createEffect, createSignal, onCleanup, untrack, type Component } from 'solid-js'
 import { prefersReducedMotion } from '../lib/format'
 
 // SVG progress ring with animated stroke-dashoffset.
@@ -67,7 +67,11 @@ export const ProgressRing: Component<{
       return
     }
 
-    const startVal = animatedValue()
+    // Untracked: the frame loop writes this signal, so reading it as a
+    // dependency made every frame re-enter the effect, cancel the animation
+    // and restart it from `now` — the 800ms duration and the easing curve
+    // never applied, and the ring crept toward its value instead of sweeping.
+    const startVal = untrack(animatedValue)
     const delta = target - startVal
     if (delta === 0) return
 

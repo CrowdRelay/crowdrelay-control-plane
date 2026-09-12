@@ -75,6 +75,30 @@ const GUIDE: Record<string, AlertGuide> = {
     cause: 'A routine check found that part of the system is in a state that should not exist — a mismatch between what the records say and what the services report. These findings stay open until the underlying issue is fixed.',
     action: { label: 'Show findings', anchor: 'reconciliation-findings' },
   },
+  // Four conditions the tenant raises that had no entry here, so they fell
+  // through to the raw upstream summary — accurate, but with nothing telling
+  // the operator what it costs or where to act. The learning one matters most:
+  // a refused outcome is fail-closed and correct, which is exactly why a broken
+  // verifier reads as a quiet system rather than as a stopped one.
+  'learning.outcomes_unverified': {
+    title: 'Nothing the agent did can be checked, so nothing is being kept',
+    cause: 'Every agent outcome in the last day was refused because no grounding check ran on it. Refusing an unchecked outcome is the correct, safe behaviour — but while it stands nothing downstream works: no post is drafted, nothing is published, and no evidence resolves, so the system stops learning. The usual cause is the verifier model failing or being out of quota.',
+    action: { label: 'Open Autopilot controls', operations: true },
+  },
+  'growth.all_feeds_failing': {
+    title: 'Every growth feed is failing',
+    cause: 'No connected platform is syncing, so the brain has no channel left to discover through and will not plan discovery at all. Fix at least one feed and the top of the funnel restarts.',
+    action: { label: 'Check system health', operations: true },
+  },
+  'growth.feed_failing': {
+    title: 'A growth feed stopped syncing',
+    cause: 'One platform\'s last sync attempt failed while the others still work. Nothing is lost yet — the brain keeps working through the remaining channels — but that platform contributes nothing until its credential or connection is repaired.',
+    action: { label: 'Check system health', operations: true },
+  },
+  'growth.stuck_ungeocoded_cities': {
+    title: 'Fan-requested cities could not be placed on the map',
+    cause: 'Geocoding gave up on cities fans asked for, so the fans behind them are unreachable by the nearby-show notification — the one thing that reopens an installed app on its own. Nothing recovers this without a person: either the geocoding worker is disabled, or the provider does not recognise the names.',
+  },
 }
 
 const formatTime = (value: string | null) => {

@@ -43,7 +43,12 @@ export function SegmentPanel(props: {
       <span class="text-muted-foreground">{props.segments.length} segments</span>
     </div>
     <p class="text-sm text-muted-foreground leading-relaxed mt-1">Audience segments group fans by behaviour, source, or lifecycle stage. Click a segment to preview its size.</p>
-    <Show when={props.segments.length > 0} fallback={<EmptyState label="No segments defined" hint="Segments group fans by behavior, source, or engagement level. Define segments to target outreach effectively." />}>
+    {/* The panel's own description already says what a segment is. Repeating
+        it here — in the other spelling, and promising a "define segments"
+        control this panel does not have — read as two different screens
+        arguing. The empty state says the one thing the description cannot:
+        why there is nothing here yet. */}
+    <Show when={props.segments.length > 0} fallback={<EmptyState label="No segments yet" hint="The audience model derives segments once fans are landing. Connect a source and they appear on the next ingestion." />}>
       <div class="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
         <For each={props.segments}>{(segment) => (
           <button

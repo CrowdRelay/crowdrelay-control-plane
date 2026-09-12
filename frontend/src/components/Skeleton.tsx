@@ -304,7 +304,7 @@ export const SkeletonPortfolio: Component = () => (
           <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[200px]" />
         </div>
       </div>
-      <div class="grid grid-cols-5 gap-3.5 mb-8">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 mb-8">
         {Array.from({ length: 5 }, () => (
           <div>
             <div class="rounded-lg bg-surface-3 border border-border h-6 w-[60px] mb-1.5" />
