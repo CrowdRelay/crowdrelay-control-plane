@@ -109,8 +109,13 @@ export function QueueInspectorPanel(props: { slug: string }) {
       <Show when={model.dataUpdatedAt}><span class="text-xs text-muted-foreground whitespace-nowrap">Updated {relativeTime(model.dataUpdatedAt)}</span></Show>
     </div>
 
+    {/* The bar and the filter share a row, so the bar's own `mb-4` became
+        trailing space inside a container that already sets `gap`, and the
+        select carried a matching `mb-4` purely to keep its baseline aligned
+        with the bar's underline. Neither needs the margin. */}
     <div class="flex items-end gap-3 flex-wrap">
       <TabBar
+        class="mb-0"
         tabs={[
           { id: 'deliveries', label: 'Deliveries' },
           { id: 'outbox', label: 'Outbox' },
@@ -123,7 +128,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
         value={status()}
         onChange={event => setStatus(event.currentTarget.value)}
         aria-label="Filter by status"
-        class="mb-4 w-auto min-w-[120px]"
+        class="w-auto min-w-[120px]"
       >
         <option value="">Any status</option>
         <For each={STATUSES}>{value => <option value={value}>{value}</option>}</For>

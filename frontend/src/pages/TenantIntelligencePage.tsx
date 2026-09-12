@@ -97,7 +97,7 @@ export function TenantIntelligencePage() {
 
       {/* ── Overview tab — what it knows ── */}
       <TabPanel active={activeTab()} id="overview" visited={isVisited('overview')}>
-        <div class="mb-6">
+        <div>
           <SectionTitle title="Scorecard & objectives" icon={<SectionIcon name="brain" />} description="How the growth loop is performing against the targets you set." />
           <ScorecardPanel slug={params().slug} />
           <GrowthObjectivesPanel slug={params().slug} />
@@ -106,7 +106,7 @@ export function TenantIntelligencePage() {
 
       {/* ── Growth Intelligence tab — what it believes ── */}
       <TabPanel active={activeTab()} id="growth" visited={isVisited('growth')}>
-        <div class="mb-6">
+        <div>
           <SectionTitle title="Posture & plan" icon={<SectionIcon name="trending-up" />} description="How far the loop may go on its own, and what it intends to do next." />
           <GrowthPosturePanel slug={params().slug} />
           <RunBrainCyclePanel slug={params().slug} />
@@ -116,7 +116,7 @@ export function TenantIntelligencePage() {
 
       {/* ── Growth Funnel tab — where the audience is and how it converts ── */}
       <TabPanel active={activeTab()} id="funnel" visited={isVisited('funnel')}>
-        <div class="mb-6">
+        <div>
           <SectionTitle title="Metrics & funnel" icon={<SectionIcon name="trending-up" />} description="Which numbers moved, where the fans came from, and where the funnel narrows." />
           <GrowthMetricsPanel slug={params().slug} />
           <AcquisitionChannelsPanel slug={params().slug} />
@@ -126,7 +126,7 @@ export function TenantIntelligencePage() {
 
       {/* ── Decisions tab — what it decided ── */}
       <TabPanel active={activeTab()} id="decisions" visited={isVisited('decisions')}>
-        <div class="mb-6">
+        <div>
           <SectionTitle title="Decision timeline" icon={<SectionIcon name="history" />} description="Every decision the autopilot reached, with the evidence it used." />
           <IntelligenceTransparencyPanel slug={params().slug} />
         </div>
@@ -134,7 +134,7 @@ export function TenantIntelligencePage() {
 
       {/* ── Learning tab — what it learned ── */}
       <TabPanel active={activeTab()} id="learning" visited={isVisited('learning')}>
-        <div class="mb-6">
+        <div>
           <div class="mb-4 p-3 rounded-lg border border-border bg-card">
             <svg viewBox="0 0 800 120" xmlns="http://www.w3.org/2000/svg" class="intel-loop-svg" aria-hidden="true">
               <defs>

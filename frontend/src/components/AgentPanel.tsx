@@ -252,9 +252,10 @@ export function AgentPanel(props: { slug: string }) {
 
       {/* Tab navigation */}
       <TabBar
+        class="mb-0"
         active={activeTab()}
         onChange={switchTab}
-      onPrefetch={prefetch}
+        onPrefetch={prefetch}
         tabs={[
           { id: 'providers', label: 'AI Providers' },
           { id: 'library', label: 'Add a provider' },

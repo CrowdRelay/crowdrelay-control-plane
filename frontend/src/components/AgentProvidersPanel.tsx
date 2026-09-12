@@ -13,7 +13,7 @@ import { Input } from './ui/input'
 import { Spinner } from './Spinner'
 import { Card } from './ui/card'
 import { Hint } from './ui/hint'
-import { KpiCard, ErrorCard } from './layout'
+import { KpiCard, KpiStrip, ErrorCard } from './layout'
 import type { AgentProvider, AgentCredential, AgentModel } from '../lib/types'
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -683,7 +683,7 @@ export function AgentProvidersPanel(props: {
             rounded on a page of square panels, with uppercase letter-spaced
             labels where every other strip uses sentence case at the same size.
             Same four numbers, through the shared primitive. */}
-        <section class="grid gap-3 mb-6 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
+        <KpiStrip class="mb-0">
           <KpiCard
             label="Spent this month"
             value={formatUsd(usage.data!.monthly_spend_micro_usd)}
@@ -702,7 +702,7 @@ export function AgentProvidersPanel(props: {
               </div>
             </Show>
           </Card>
-        </section>
+        </KpiStrip>
 
         <Show when={error()}>
           <ErrorCard class="rounded-md p-3">{error()}</ErrorCard>

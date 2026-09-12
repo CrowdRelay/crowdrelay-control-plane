@@ -149,10 +149,21 @@ export function CollapsiblePanel(props: {
 // No overflow property here at all. `main` guards the horizontal axis, and the
 // two elements that are genuinely wider than the page — the fan table and the
 // process map — carry their own `overflow-auto`.
+//
+// `space-y-5`, not `-6`. Tailwind v4 writes `space-y-*` as a zero-specificity
+// `:where()` rule, so any child carrying its own `mb-*` beats it — and most of
+// the page-level primitives carry `mb-5`. The page therefore ran at 20px
+// between the children that set a margin and 24px between the ones that did
+// not, which is the mixed vertical rhythm an operator reads as sloppiness.
+// Matching the shell to the primitives makes every gap 20px whichever wins.
+//
+// The bottom padding clears the chat launcher, which stands 59px off the
+// viewport floor. It was `pb-24` — 96px, 37px more than the launcher needs,
+// and enough to make a short page scroll for nothing.
 
 export function PageShell(props: { children: JSX.Element; class?: string }) {
   return (
-    <section class={cn('px-4 md:px-6 py-6 pb-24 space-y-6', props.class)}>
+    <section class={cn('px-4 md:px-6 py-6 pb-20 space-y-5', props.class)}>
       {props.children}
     </section>
   )
@@ -177,9 +188,14 @@ export function TabBar(props: {
    *  `useTabPanels().prefetch` so pointing at a tab starts its queries; the
    *  click then reveals data instead of starting the wait. */
   onPrefetch?: (id: string) => void
+  /** The bar carries its own `mb-4`, which is right when it sits directly
+   *  above its panels. Inside a flex column that already sets `gap`, that
+   *  margin adds to the gap and the tabs float away from their content —
+   *  pass `mb-0` there and let the container do the spacing. */
+  class?: string
 }) {
   return (
-    <div class="flex items-center gap-1 border-b border-border overflow-x-auto scrollbar-none mb-4" role="tablist">
+    <div class={cn('flex items-center gap-1 border-b border-border overflow-x-auto scrollbar-none mb-4', props.class)} role="tablist">
       <For each={props.tabs}>{tab => (
         <button
           class={cn(
