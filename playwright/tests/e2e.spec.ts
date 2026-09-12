@@ -282,8 +282,8 @@ test.describe('Control Plane E2E @e2e', () => {
     // <a> link for drill-down navigation.
     const blockEyebrows = ['ATTENTION', 'AUTOPILOT TODAY', 'OUTCOMES', 'SYSTEM', 'LEARNING']
     for (const label of blockEyebrows) {
-      const block = page.locator('.command-block').filter({
-        has: page.locator('.eyebrow', { hasText: label }),
+      const block = page.locator('[data-slot="command-block"]').filter({
+        has: page.locator('[data-slot="eyebrow"]', { hasText: label }),
       })
       await expect(block).toBeVisible({ timeout: 10_000 })
       // Each block is wrapped in a link (drill-down)

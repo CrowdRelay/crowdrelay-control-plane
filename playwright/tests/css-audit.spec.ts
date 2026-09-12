@@ -89,14 +89,19 @@ async function checkLayoutIssues(page: Page, pageName: string): Promise<LayoutIs
   }
 
   // 3. Check for text that is clipped or has zero height.
-  //    Skip elements inside hidden tab panels (.tab-hidden) — those are
-  //    intentionally display:none and their text is expected to have zero
-  //    height until the tab is activated.
+  //    Only for text that is actually on screen. This used to skip one class
+  //    name, `.tab-hidden`, which is how an unselected tab panel was hidden
+  //    before the Tailwind migration; panels now use the `hidden` utility, and
+  //    the process map hides itself below `md` in favour of a mobile fallback.
+  //    Neither is a layout fault — text inside `display: none` is *supposed* to
+  //    measure zero. Ask whether the element renders at all instead of naming
+  //    the classes that hide it, and the check stops breaking every time one
+  //    of those names changes.
   const clippedText = await page.evaluate(() => {
     const results: { selector: string; issue: string; detail: string }[] = []
-    const els = document.querySelectorAll<HTMLElement>('h1, h2, h3, h4, .eyebrow, .pm-title, .pm-desc')
+    const els = document.querySelectorAll<HTMLElement>('h1, h2, h3, h4, [data-slot="eyebrow"], .pm-title, .pm-desc')
     for (const el of els) {
-      if (el.closest('.tab-hidden')) continue
+      if (typeof el.checkVisibility === 'function' && !el.checkVisibility()) continue
       const rect = el.getBoundingClientRect()
       if (rect.height === 0 && el.textContent && el.textContent.trim().length > 0) {
         results.push({
