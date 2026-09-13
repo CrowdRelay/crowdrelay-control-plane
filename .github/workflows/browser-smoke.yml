@@ -2,6 +2,11 @@ name: Browser smoke
 
 on:
   workflow_dispatch:
+  # Fire automatically once a deploy has completed — a deploy is only done
+  # when the browser still works, not when the container is merely healthy.
+  workflow_run:
+    workflows: ["Deploy"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -14,6 +19,8 @@ concurrency:
 jobs:
   browser:
     runs-on: [self-hosted, arm64]
+    # Manual runs always execute; workflow_run only on a successful deploy.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     timeout-minutes: 15
     env:
       CONTROL_PLANE_BASE_URL: ${{ vars.CONTROL_PLANE_PRODUCTION_BASE_URL || 'https://control.crowdrelay.music' }}
@@ -60,6 +67,21 @@ jobs:
         shell: bash
         run: npx playwright test e2e/control-plane.spec.ts --workers=1 --reporter=line
 
+      # The regression suite's @smoke subset — same pinned browser, same
+      # secret (user:pass split into the two vars the suite reads). This is
+      # the only place the tagged suite runs against a live build; without
+      # it, selector and state regressions only surface on a local `just test`.
+      - name: Run tagged smoke suite against production
+        if: steps.preflight.outputs.enabled == 'true'
+        working-directory: playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false --ignore-scripts @playwright/test@1.62.1
+          export CONTROL_PLANE_TEST_USER="${CONTROL_PLANE_SMOKE_LOGIN%%:*}"
+          export CONTROL_PLANE_TEST_PASS="${CONTROL_PLANE_SMOKE_LOGIN#*:}"
+          npx playwright test --grep @smoke --workers=1 --reporter=line
+
       - name: Purge stale artifacts before upload
         if: always() && steps.preflight.outputs.enabled == 'true'
         continue-on-error: true
@@ -82,5 +104,7 @@ jobs:
           path: |
             frontend/test-results
             frontend/playwright-report
+            playwright/test-results
+            playwright/html-report
           if-no-files-found: ignore
           retention-days: 7

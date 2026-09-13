@@ -189,8 +189,6 @@ function SiliconFlowIcon(props: IconProps) {
   )
 }
 
-// Hugging Face — the official hugging-face emoji mark (simple-icons path)
-// in HF yellow. Single path, filled.
 // Hugging Face — the official mark's hugging hands are intricate subpixel
 // paths that read as noise at 20-36px, so this keeps just the iconic face:
 // brand-yellow circle with the smiling eyes, open smile, and cheek dots

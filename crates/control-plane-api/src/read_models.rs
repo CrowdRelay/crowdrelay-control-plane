@@ -1506,7 +1506,11 @@ async fn audience(
 
     let (overview, fans, segments) = tokio::join!(
         section("/v1/control-plane/audience/overview"),
-        section("/v1/control-plane/audience/fans?limit=50"),
+        // Upstream caps list responses at MAX_LIST_LIMIT (100). A tenant with
+        // more fans than that gets the first hundred only — the panel labels
+        // the list as capped when it returns full, rather than looking
+        // complete when it is not.
+        section("/v1/control-plane/audience/fans?limit=100"),
         section("/v1/control-plane/audience/segments"),
     );
 

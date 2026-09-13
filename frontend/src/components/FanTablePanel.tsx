@@ -24,6 +24,11 @@ const fanStatusTone = (status: string): 'success' | 'warning' | 'destructive' | 
   status === 'unsubscribed' || status === 'suppressed' ? 'muted' :
   status === 'bounced' || status === 'invalid' ? 'destructive' : 'muted'
 
+// Matches `MAX_LIST_LIMIT` on the upstream `/v1/control-plane/audience/fans`
+// endpoint — the read model asks for the cap and this is how the panel knows
+// a full-length answer is a truncated one.
+const FAN_LIST_CAP = 100
+
 const formatDate = (iso: string | null) => {
   if (!iso) return '—'
   const d = new Date(iso)
@@ -152,7 +157,15 @@ export function FanTablePanel(props: {
   return <Card flat>
     <div class="flex items-center justify-between gap-4">
       <h3>Fan list</h3>
-      <span class="text-muted-foreground">{filtered().length} fans</span>
+      <span class="text-muted-foreground">
+        {filtered().length} fans
+        {/* The upstream fan list is capped (100 rows); a full-length answer
+            means there may be more fans than are shown. Say so — a table
+            that looks complete but is not is worse than an honest cap. */}
+        <Show when={props.fans.length >= FAN_LIST_CAP}>
+          {' '}· first {FAN_LIST_CAP} — search or export CSV to reach the rest
+        </Show>
+      </span>
     </div>
     {/* The search box owned this row on its own. The two CSV controls sit
         beside it as ghosts rather than as buttons: moving the list in or out

@@ -18,6 +18,15 @@ export function AgentProvidersPanel(props: {
   slug: string
   providers?: AgentProvider[]
   credentials?: AgentCredential[]
+  /** Section failure from the consolidated read model, when that section
+   *  could not be answered at all. While set, the panel shows a degraded
+   *  card instead of an empty state — "cannot reach the provider list" must
+   *  never render as "no providers connected". */
+  providersError?: string | null
+  credentialsError?: string | null
+  /** Parent query still in flight — the sections below render skeletons, not
+   *  the "nothing connected" empty state, until the first answer arrives. */
+  sectionsLoading?: boolean
   /** `in-use` shows the pool the router picks from. `library` shows what is
    *  not connected yet. They are separate tabs so an operator opening this
    *  page sees their own providers, not a catalogue. */
@@ -159,9 +168,17 @@ export function AgentProvidersPanel(props: {
     ).length
   )
 
-  const availableModelCount = createMemo(() =>
-    (models()?.models ?? []).filter((m: AgentModel) => m.paid).length
-  )
+  const availableModelCount = createMemo(() => {
+    const all = models()?.models ?? []
+    // `available` means dispatchable right now — its provider is connected or
+    // platform-keyed. Older agent-service builds omit the flag; there the
+    // honest proxy is "provider has a credential in the response".
+    if (all.every(m => m.available === undefined)) {
+      const connected = new Set(models()?.connectedProviders ?? [])
+      return all.filter(m => connected.has(m.providerId)).length
+    }
+    return all.filter(m => m.available === true).length
+  })
 
   // Memoize budget percentage so it's computed once per render, not 5x.
   // ─── Connect / disconnect handlers ──────────────────────────────────
@@ -303,49 +320,54 @@ export function AgentProvidersPanel(props: {
     onDisconnect: (id) => { void handleDisconnect(id) },
   }
 
+  // Whether the provider/credential sections have a verdict at all — a
+  // resolved list or a section error. Neither yet means still loading.
+  const providersResolved = () =>
+    !props.sectionsLoading &&
+    (props.providersError != null || props.providers !== undefined || fallbackProviders.data !== undefined)
+
   return (
-    <Show
-      when={usage.data}
-      fallback={
-        <div class="flex flex-col gap-4">
-          <Show when={isServiceDown()}>
-            <div class="flex items-start gap-3 p-4 rounded-lg border border-warning/30 bg-warning/10 text-warning-light">
-              <div class="flex-shrink-0 text-warning mt-0.5">
-                <SparkIcon size={28} />
-              </div>
-              <div class="flex flex-col gap-1">
-                <strong class="text-sm text-warning-light">AI service is temporarily unavailable</strong>
-                <span class="text-sm text-muted-foreground leading-relaxed">Free models continue to work. Premium features will return shortly — no action needed.</span>
-              </div>
-            </div>
-          </Show>
-          <Show when={error() && !isServiceDown()}>
-            <ErrorCard class="rounded-md p-3">{error()}</ErrorCard>
-          </Show>
-          <Show when={!isServiceDown()}>
-            <div class="h-20 rounded-lg border border-border bg-surface-3" />
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
-              <div class="h-32 rounded-lg border border-border bg-surface-3" />
-              <div class="h-32 rounded-lg border border-border bg-surface-3" />
-              <div class="h-32 rounded-lg border border-border bg-surface-3" />
-            </div>
-          </Show>
+    <div class="flex flex-col gap-4">
+      <Show when={isServiceDown()}>
+        <div class="flex items-start gap-3 p-4 rounded-lg border border-warning/30 bg-warning/10 text-warning-light">
+          <div class="flex-shrink-0 text-warning mt-0.5">
+            <SparkIcon size={28} />
+          </div>
+          <div class="flex flex-col gap-1">
+            <strong class="text-sm text-warning-light">AI service is temporarily unavailable</strong>
+            <span class="text-sm text-muted-foreground leading-relaxed">Free models continue to work. Premium features will return shortly — no action needed.</span>
+          </div>
         </div>
-      }
-    >
+      </Show>
+      <Show when={error() && !isServiceDown()}>
+        <ErrorCard class="rounded-md p-3">{error()}</ErrorCard>
+      </Show>
+
+      {/* A failed read-model section is a degraded surface, not an empty
+          one — name it, and let whileIncomplete refill it. */}
+      <Show when={props.providersError}>{msg => <ErrorCard>Provider list unavailable: {msg()}. Retrying automatically.</ErrorCard>}</Show>
+      <Show when={props.credentialsError}>{msg => <ErrorCard>Credential status unavailable: {msg()}. Retrying automatically.</ErrorCard>}</Show>
+
+      {/* The spend strip describes what this tenant is doing. It gates only
+          itself — a failed usage read must not hide the provider controls. */}
+      <Show when={props.mode !== 'library'}>
+        <Show when={usage.data} fallback={
+          <Show when={!isServiceDown() && !error()}>
+            <div class="h-20 rounded-lg border border-border bg-surface-3" />
+          </Show>
+        }>
+          <UsageKpiStrip usage={usage.data!} connectedCount={connectedCount()} availableModelCount={availableModelCount()} />
+        </Show>
+      </Show>
+
+      <Show when={providersResolved()} fallback={
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="h-32 rounded-lg border border-border bg-surface-3" />
+          <div class="h-32 rounded-lg border border-border bg-surface-3" />
+          <div class="h-32 rounded-lg border border-border bg-surface-3" />
+        </div>
+      }>
       <div class="flex flex-col gap-4">
-
-        {/* The spend strip, the model list and the task list describe what
-            this tenant is doing. The catalogue tab is a list of things it is
-            not doing yet, so none of them belong there. */}
-        <Show when={props.mode !== 'library'}>
-        <UsageKpiStrip usage={usage.data!} connectedCount={connectedCount()} availableModelCount={availableModelCount()} />
-
-        <Show when={error()}>
-          <ErrorCard class="rounded-md p-3">{error()}</ErrorCard>
-        </Show>
-
-        </Show>
 
         {/* ─── Not working ─────────────────────────────────────────
             A connected provider that buys nothing is worse than an unconnected
@@ -376,7 +398,7 @@ export function AgentProvidersPanel(props: {
             operator find their own two every time they open the page. */}
         {/* Nothing connected is a normal starting state, not an error. It
             says what happens meanwhile and where to go. */}
-        <Show when={props.mode !== 'library' && inUseProviders().length === 0 && brokenProviders().length === 0}>
+        <Show when={props.mode !== 'library' && inUseProviders().length === 0 && brokenProviders().length === 0 && !props.providersError && !props.credentialsError}>
           <section>
             <div class="mb-1 flex items-center gap-2">
               <h3 class="m-0 flex items-center gap-2 text-base font-semibold text-foreground">
@@ -437,7 +459,7 @@ export function AgentProvidersPanel(props: {
             </p>
             <Show
               when={libraryProviders().length > 0}
-              fallback={<EmptyState label="Everything is connected" hint="Every provider we support already has a key on this tenant." />}
+              fallback={props.providersError ? null : <EmptyState label="Everything is connected" hint="Every provider we support already has a key on this tenant." />}
             >
               <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                 <For each={libraryProviders()}>{provider => <ProviderCard provider={provider} ctx={cardCtx} />}</For>
@@ -447,11 +469,12 @@ export function AgentProvidersPanel(props: {
         </Show>
 
 
-        <Show when={props.mode !== 'library'}>
+        <Show when={props.mode !== 'library' && usage.data}>
         <PremiumModelsSection usage={usage.data!} />
         <PremiumTasksSection usage={usage.data!} />
         </Show>
       </div>
-    </Show>
+      </Show>
+    </div>
   )
 }

@@ -1,4 +1,4 @@
-import { For, Show } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
 import { Eyebrow } from './layout'
 import { confidencePercent } from '../lib/format'
 import { useQuery } from '@tanstack/solid-query'
@@ -11,6 +11,9 @@ import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 import { Card } from './ui/card'
 import { Alert } from './ui/alert'
 import { cn } from '../lib/cn'
+import { Button } from './ui/button'
+
+const MAX_VISIBLE_ENTRIES = 10
 
 // The learning loop panel — shows the real decision → action → outcome chain.
 // Uses the learning-loop endpoint which joins viryaos_autopilot_decisions,
@@ -61,6 +64,7 @@ const outcomeLabel = (assessment: string): string =>
   assessment.replaceAll('_', ' ')
 
 export function LearningLoopPanel(props: { slug: string }) {
+  const [showAll, setShowAll] = createSignal(false)
   const model = useQuery(() => ({
     queryKey: ['learning-loop', props.slug],
     queryFn: () => api.learningLoop(props.slug),
@@ -141,7 +145,7 @@ export function LearningLoopPanel(props: { slug: string }) {
             happened. Same data, same order, no schema vocabulary. */}
         {/* Decision chain entries — left → right flow */}
         <div class="space-y-3">
-          <For each={entries().slice(0, 10)}>{(entry) => (
+          <For each={showAll() ? entries() : entries().slice(0, MAX_VISIBLE_ENTRIES)}>{(entry) => (
             <div class="flex items-stretch gap-2 flex-wrap md:flex-nowrap">
               {/* DECISION */}
               <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-surface-1 space-y-2">
@@ -224,6 +228,11 @@ export function LearningLoopPanel(props: { slug: string }) {
             </div>
           )}</For>
         </div>
+        <Show when={entries().length > MAX_VISIBLE_ENTRIES}>
+          <Button variant="ghost" size="sm" onClick={() => setShowAll(s => !s)}>
+            {showAll() ? 'Show fewer' : `Show all ${entries().length}`}
+          </Button>
+        </Show>
       </Show>
     </Show>
   </Card>

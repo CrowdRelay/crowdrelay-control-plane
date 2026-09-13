@@ -20,6 +20,7 @@ import { Textarea } from './ui/textarea'
 import type { AgentTaskResult, TaskSuggestion, AgentOutcome } from '../lib/types'
 import { NativeSelect } from './ui/native-select'
 import { writeGuard } from '../lib/read-only'
+import { whileIncomplete, hasErrorSections } from '../lib/incomplete'
 
 // --- Ant icon (agent service mascot) ---
 const AntIcon = (props: { size?: number }) => (
@@ -53,9 +54,12 @@ const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
 const priorityTone = (p: string): 'good' | 'warn' | 'muted' =>
   p === 'high' ? 'good' : p === 'medium' ? 'warn' : 'muted'
 
+const MAX_VISIBLE_SUGGESTIONS = 4
+const MAX_VISIBLE_TASKS = 10
+
 export function AgentPanel(props: { slug: string }) {
   const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('providers')
-  const tab = () => activeTab() as 'providers' | 'tasks' | 'growth' | 'usage' | 'intel'
+  const tab = () => activeTab() as 'providers' | 'library' | 'tasks' | 'growth' | 'usage' | 'intel'
 
   const [selectedTemplate, setSelectedTemplate] = createSignal<string | null>(null)
   const [selectedModel, setSelectedModel] = createSignal<string>('laguna-s-2.1-free')
@@ -63,6 +67,8 @@ export function AgentPanel(props: { slug: string }) {
   const [submitting, setSubmitting] = createSignal(false)
   const [error, setError] = createSignal<string | null>(null)
   const [viewingResult, setViewingResult] = createSignal<AgentTaskResult | null>(null)
+  const [showAllSuggestions, setShowAllSuggestions] = createSignal(false)
+  const [showAllTasks, setShowAllTasks] = createSignal(false)
 
   // Consolidated Tasks-tab read model — one round-trip replaces the five
   // separate queries (templates, tasks, models, suggestions, schedules).
@@ -74,6 +80,9 @@ export function AgentPanel(props: { slug: string }) {
     enabled: tab() === 'tasks',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
+    // A failed section arrives as `{ __error: … }` inside a 200 — cached and
+    // never retried without this. Same rule as the `degraded[]` models.
+    refetchInterval: whileIncomplete(hasErrorSections),
   }))
 
   // Consolidated Providers-tab read model — one round-trip replaces the
@@ -81,14 +90,25 @@ export function AgentPanel(props: { slug: string }) {
   const providersOverview = useQuery(() => ({
     queryKey: ['agent-providers-overview', props.slug],
     queryFn: () => api.agentProvidersOverview(props.slug),
-    enabled: tab() === 'providers',
+    // The library tab renders the same provider data — keep the query live
+    // there so a degraded section keeps retrying instead of freezing.
+    enabled: tab() === 'providers' || tab() === 'library',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
+    refetchInterval: whileIncomplete(hasErrorSections),
   }))
 
   // Derive individual sections from the consolidated responses. Each
   // section is either the upstream JSON object or `{ __error: string }`
-  // when that section's endpoint failed.
+  // when that section's endpoint failed. `sectionErr` surfaces that failure —
+  // a section that errored must render as degraded, never as an empty list:
+  // "no providers" and "cannot reach providers" are different facts.
+  const sectionErr = (d: unknown): string | null => {
+    if (d && typeof d === 'object' && '__error' in d) {
+      return String((d as Record<string, unknown>).__error)
+    }
+    return null
+  }
   const templates = () => {
     const d = tasksOverview.data?.templates
     return d && !('__error' in d) ? d.templates : []
@@ -97,7 +117,14 @@ export function AgentPanel(props: { slug: string }) {
     const d = tasksOverview.data?.tasks
     return d && !('__error' in d) ? d.tasks : []
   }
-  const modelsData = () => tasksOverview.data?.models ?? providersOverview.data?.models
+  // Both consolidated models carry a `models` section. `??` does not fall
+  // through on a truthy `__error` object, so a failed tasks-section would
+  // mask a healthy providers-section copy — prefer whichever is not an error.
+  const modelsData = () => {
+    const a = tasksOverview.data?.models
+    if (a && !('__error' in a)) return a
+    return providersOverview.data?.models
+  }
   const models = () => {
     const d = modelsData()
     return d && !('__error' in d) ? d : null
@@ -118,6 +145,19 @@ export function AgentPanel(props: { slug: string }) {
     const d = providersOverview.data?.credentials
     return d && !('__error' in d) ? d.credentials : []
   }
+  const providersSectionError = () => sectionErr(providersOverview.data?.providers)
+  const credentialsSectionError = () => sectionErr(providersOverview.data?.credentials)
+  const templatesSectionError = () => sectionErr(tasksOverview.data?.templates)
+  const tasksSectionError = () => sectionErr(tasksOverview.data?.tasks)
+  // A models error only matters when both copies failed — the dropdown is
+  // populated from whichever section answered, so flagging one dead copy while
+  // the list renders would be an error card over working data.
+  const modelsSectionError = () =>
+    models() === null
+      ? (sectionErr(tasksOverview.data?.models) ?? sectionErr(providersOverview.data?.models))
+      : null
+  const suggestionsSectionError = () => sectionErr(tasksOverview.data?.suggestions)
+  const schedulesSectionError = () => sectionErr(tasksOverview.data?.schedules)
 
   // When models load, ensure selectedModel is valid — if the current selection
   // isn't in the list (e.g. it was set by a suggestion using a model that no
@@ -271,13 +311,13 @@ export function AgentPanel(props: { slug: string }) {
           page-wide skeleton. Queries are gated by `enabled: tab() === ...`
           so hidden tabs don't refetch on the global refresh tick. */}
       <TabPanel active={activeTab()} id="providers" visited={isVisited('providers')}>
-        <AgentProvidersPanel mode="in-use" slug={props.slug} providers={providers()} credentials={credentials()} refetchCreds={() => refreshQueries(['agent-providers-overview', props.slug])} active={activeTab() === 'providers'} models={models()} />
+        <AgentProvidersPanel mode="in-use" slug={props.slug} providers={providers()} credentials={credentials()} providersError={providersSectionError()} credentialsError={credentialsSectionError()} sectionsLoading={providersOverview.isPending} refetchCreds={() => refreshQueries(['agent-providers-overview', props.slug])} active={activeTab() === 'providers'} models={models()} />
       </TabPanel>
 
       {/* The catalogue is its own tab. Ten cards where two are yours makes an
           operator find their own two every time they open the page. */}
       <TabPanel active={activeTab()} id="library" visited={isVisited('library')}>
-        <AgentProvidersPanel mode="library" slug={props.slug} providers={providers()} credentials={credentials()} refetchCreds={() => refreshQueries(['agent-providers-overview', props.slug])} active={activeTab() === 'library'} models={models()} />
+        <AgentProvidersPanel mode="library" slug={props.slug} providers={providers()} credentials={credentials()} providersError={providersSectionError()} credentialsError={credentialsSectionError()} sectionsLoading={providersOverview.isPending} refetchCreds={() => refreshQueries(['agent-providers-overview', props.slug])} active={activeTab() === 'library'} models={models()} />
       </TabPanel>
 
       <TabPanel active={activeTab()} id="usage" visited={isVisited('usage')}>
@@ -290,7 +330,7 @@ export function AgentPanel(props: { slug: string }) {
 
       <TabPanel active={activeTab()} id="tasks" visited={isVisited('tasks')}>
       {/* Autopilot intelligence → agent suggestions — the bridge between operations data and LLM execution */}
-      <Show when={tasksOverview.data?.suggestions && '__error' in tasksOverview.data!.suggestions}><ErrorCard>Agent suggestions unavailable: {errorMessage(tasksOverview.error, 'We couldn\'t reach the agent service. Try refreshing.')}</ErrorCard></Show>
+      <Show when={suggestionsSectionError()}>{msg => <ErrorCard>Agent suggestions unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
       <Show when={suggestions().length > 0}>
         <Card class="p-4">
           <div class="flex items-center justify-between gap-4">
@@ -298,7 +338,7 @@ export function AgentPanel(props: { slug: string }) {
           </div>
           <p class="text-sm text-muted-foreground mt-1">Data-driven suggestions based on your events and campaign performance. Click to run.</p>
           <div class="grid gap-2.5 mt-3 grid-cols-1 md:grid-cols-2">
-            <For each={suggestions().slice(0, 4)}>
+            <For each={showAllSuggestions() ? suggestions() : suggestions().slice(0, MAX_VISIBLE_SUGGESTIONS)}>
               {(s) => (
                 <button type="button" class="text-left text-sm rounded-md border border-border px-3 py-2 text-muted-foreground hover:bg-surface-1 hover:text-foreground hover:border-border-strong transition-colors w-full" onClick={() => runSuggestion(s)}>
                   <div class="flex items-center justify-between gap-2 mb-1">
@@ -313,6 +353,11 @@ export function AgentPanel(props: { slug: string }) {
               )}
             </For>
           </div>
+          <Show when={suggestions().length > MAX_VISIBLE_SUGGESTIONS}>
+            <Button variant="ghost" size="sm" class="mt-2" onClick={() => setShowAllSuggestions(s => !s)}>
+              {showAllSuggestions() ? 'Show fewer' : `Show all ${suggestions().length}`}
+            </Button>
+          </Show>
         </Card>
       </Show>
 
@@ -323,7 +368,9 @@ export function AgentPanel(props: { slug: string }) {
           <Show when={templates().length > 0}><span class="text-muted-foreground">{templates().length} templates</span></Show>
         </div>
         <p class="text-sm text-muted-foreground mt-1">Pick a template, choose a model, and describe the work.</p>
-        <Show when={tasksOverview.data} fallback={<SkeletonGrid count={4} minCardHeight='120px' />}>
+        <Show when={templatesSectionError()}>{msg => <ErrorCard>Task templates unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
+        <Show when={modelsSectionError()}>{msg => <ErrorCard>Model list unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
+        <Show when={tasksOverview.data && !templatesSectionError()} fallback={<SkeletonGrid count={4} minCardHeight='120px' />}>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <For each={templates()}>
               {(template) => (
@@ -424,7 +471,7 @@ export function AgentPanel(props: { slug: string }) {
             </div>
           </div>
         </Show>
-        <Show when={tasksOverview.data?.schedules && '__error' in tasksOverview.data!.schedules}><ErrorCard>Agent schedules unavailable: {errorMessage(tasksOverview.error, 'We couldn\'t reach the agent service. Try refreshing.')}</ErrorCard></Show>
+        <Show when={schedulesSectionError()}>{msg => <ErrorCard>Agent schedules unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
         <Show when={schedules().length > 0}>
           <Table class="mt-4">
             <TableHeader><TableRow><TableHead>Template</TableHead><TableHead>Interval</TableHead><TableHead>Enabled</TableHead><TableHead>Last run</TableHead><TableHead>Next run</TableHead><TableHead></TableHead></TableRow></TableHeader>
@@ -448,7 +495,7 @@ export function AgentPanel(props: { slug: string }) {
             </TableBody>
           </Table>
         </Show>
-        <Show when={schedules().length === 0}>
+        <Show when={schedules().length === 0 && !schedulesSectionError()}>
           <EmptyState label="No schedules configured" hint="Automate recurring intelligence tasks." />
         </Show>
       </Card>
@@ -456,14 +503,16 @@ export function AgentPanel(props: { slug: string }) {
       <Card class="p-4">
         <div class="flex items-center justify-between gap-4">
           <h3>Recent tasks</h3>
-          <Show when={tasks().length > 0}><span class="text-muted-foreground">last {Math.min(tasks().length, 10)}</span></Show>
+          <Show when={tasks().length > 0}><span class="text-muted-foreground">{showAllTasks() ? `${tasks().length} shown` : `last ${Math.min(tasks().length, MAX_VISIBLE_TASKS)}`}</span></Show>
         </div>
         <p class="text-sm text-muted-foreground mt-1">Every run, started here or by a schedule. Completed tasks show full output.</p>
-        <Show when={tasksOverview.data} fallback={
-          <Show when={tasksOverview.isFetching} fallback={<EmptyState label="No tasks yet" hint="Tasks appear once the intelligence or a schedule dispatches them." />}>
+        <Show when={tasksSectionError()}>{msg => <ErrorCard>Task list unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
+        <Show when={tasksOverview.data && !tasksSectionError()} fallback={
+          <Show when={tasksOverview.isFetching || tasksSectionError()} fallback={<EmptyState label="No tasks yet" hint="Tasks appear once the intelligence or a schedule dispatches them." />}>
             <SkeletonRows count={4} />
           </Show>
         }>
+          <Show when={tasks().length > 0} fallback={<EmptyState label="No tasks yet" hint="Tasks appear once the intelligence or a schedule dispatches them." />}>
           <Table class="mt-4">
             <TableHeader>
               <TableRow>
@@ -474,7 +523,7 @@ export function AgentPanel(props: { slug: string }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <For each={tasks().slice(0, 10)}>
+              <For each={showAllTasks() ? tasks() : tasks().slice(0, MAX_VISIBLE_TASKS)}>
                 {(task) => (
                   <TableRow>
                     <TableCell>{templateName(task.template_id)}</TableCell>
@@ -493,6 +542,12 @@ export function AgentPanel(props: { slug: string }) {
               </For>
             </TableBody>
           </Table>
+          <Show when={tasks().length > MAX_VISIBLE_TASKS}>
+            <Button variant="ghost" size="sm" class="mt-2" onClick={() => setShowAllTasks(s => !s)}>
+              {showAllTasks() ? 'Show fewer' : `Show all ${tasks().length}`}
+            </Button>
+          </Show>
+          </Show>
         </Show>
       </Card>
       </TabPanel>

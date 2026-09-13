@@ -109,3 +109,15 @@ export const hasDegradedSections = (model: { degraded: readonly unknown[] }) => 
  */
 export const hasUnavailableTenant = (model: { perTenant: readonly { available: boolean }[] }) =>
   model.perTenant.some(tenant => !tenant.available)
+
+/**
+ * The consolidated agent read models use a different degraded channel: a
+ * section the agent service could not answer arrives as `{ __error: string }`
+ * where the section object would be (`agent_routes.rs` `section()` helper).
+ * It is still a 200 and it is still incomplete — scan the top-level sections
+ * for the marker.
+ */
+export const hasErrorSections = (model: object) =>
+  Object.values(model).some(
+    section => typeof section === 'object' && section !== null && '__error' in section,
+  )
