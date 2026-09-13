@@ -95,7 +95,7 @@ export function ProviderCard(props: { provider: AgentProvider; ctx: ProviderCard
             <span class="text-xs text-muted-foreground italic">Unlocks Claude Sonnet for social-post (nuanced writing) and audience-research</span>
           </Show>
           <Show when={provider.id === 'google'}>
-            <span class="text-xs text-muted-foreground italic">Unlocks Gemini 2.5 Pro for growth-strategist (long context) and Gemini Flash for fast scanning</span>
+            <span class="text-xs text-muted-foreground italic">Unlocks Gemini Flash for fast scanning — ~250 requests/day free</span>
           </Show>
           <Show when={provider.id === 'xai'}>
             <span class="text-xs text-muted-foreground italic">Unlocks Grok for community-engager (real-time social context)</span>

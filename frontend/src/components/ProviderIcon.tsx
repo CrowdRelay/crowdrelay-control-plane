@@ -119,6 +119,76 @@ function ZhipuIcon(props: IconProps) {
   )
 }
 
+// SambaNova — a stylised S-ribbon in the brand's coral red. SambaNova is not
+// in simple-icons, so this is drawn from the brand mark: two opposing curves
+// that meet in the middle like a dataflow graph.
+function SambaNovaIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="#F05133" class={props.class} aria-hidden="true">
+      <path d="M19.5 5.5c-1.8-2-4.5-3-7.5-3C7 2.5 3.5 6 3.5 10c0 1.5.4 2.9 1.2 4L8.5 11.5c-.5-.5-.8-1.2-.8-1.9C7.7 7.5 9.6 6 12 6c1.7 0 3.2.6 4.4 1.7l3.1-2.2z"/>
+      <path d="M4.5 18.5c1.8 2 4.5 3 7.5 3 5 0 8.5-3.5 8.5-7.5 0-1.5-.4-2.9-1.2-4l-3.8 2.5c.5.5.8 1.2.8 1.9 0 2.1-1.9 3.6-4.3 3.6-1.7 0-3.2-.6-4.4-1.7l-3.1 2.2z"/>
+    </svg>
+  )
+}
+
+// GitHub Models — the official GitHub mark (simple-icons path). Distinct
+// from the Copilot icon: Models runs on any PAT, no Copilot plan needed.
+function GitHubModelsIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
+      <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+    </svg>
+  )
+}
+
+// Cerebras — not in simple-icons. Drawn from the brand mark: a wafer square
+// with radiating compute spokes, in Cerebras orange.
+function CerebrasIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
+      <circle cx="12" cy="12" r="3.2" fill="#FF7043" />
+      <g stroke="#FF7043" stroke-width="1.8" stroke-linecap="round">
+        <path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M19.1 4.9l-2.8 2.8M7.7 16.3l-2.8 2.8" />
+      </g>
+    </svg>
+  )
+}
+
+// Mistral — the official pixel mark (simple-icons path) in Mistral orange.
+function MistralIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="#FA520F" class={props.class} aria-hidden="true">
+      <path d="M17.143 3.429v3.428h-3.429v3.429h-3.428V6.857H6.857V3.43H3.43v13.714H0v3.428h10.286v-3.428H6.857v-3.429h3.429v3.429h3.429v-3.429h3.428v3.429h-3.428v3.428H24v-3.428h-3.43V3.429z"/>
+    </svg>
+  )
+}
+
+// NVIDIA — the official eye mark (simple-icons path) in NVIDIA green.
+function NvidiaIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="#76B900" class={props.class} aria-hidden="true">
+      <path d="M8.948 8.798v-1.43a6.7 6.7 0 0 1 .424-.018c3.922-.124 6.493 3.374 6.493 3.374s-2.774 3.851-5.75 3.851c-.398 0-.787-.062-1.158-.185v-4.346c1.528.185 1.837.857 2.747 2.385l2.04-1.714s-1.492-1.952-4-1.952a6.016 6.016 0 0 0-.796.035m0-4.735v2.138l.424-.027c5.45-.185 9.01 4.47 9.01 4.47s-4.08 4.964-8.33 4.964c-.37 0-.733-.035-1.095-.097v1.325c.3.035.61.062.91.062 3.957 0 6.82-2.023 9.593-4.408.459.371 2.34 1.263 2.73 1.652-2.633 2.208-8.772 3.984-12.253 3.984-.335 0-.653-.018-.971-.053v1.864H24V4.063zm0 10.326v1.131c-3.657-.654-4.673-4.46-4.673-4.46s1.758-1.944 4.673-2.262v1.237H8.94c-1.528-.186-2.73 1.245-2.73 1.245s.68 2.412 2.739 3.11M2.456 10.9s2.164-3.197 6.5-3.533V6.201C4.153 6.59 0 10.653 0 10.653s2.35 6.802 8.948 7.42v-1.237c-4.84-.6-6.492-5.936-6.492-5.936z"/>
+    </svg>
+  )
+}
+
+// SiliconFlow — not in simple-icons. Drawn from the brand mark: two layered
+// flow bands forming an S, in SiliconFlow blue-violet.
+function SiliconFlowIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
+      <path d="M2 9c3.5-4 7-4 10 0s6.5 4 10 0" stroke="#7C6FF7" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+      <path d="M2 15c3.5-4 7-4 10 0s6.5 4 10 0" stroke="#4F8BF9" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    </svg>
+  )
+}
+
 // Cognition AI — a brain-spark mark in Cognition's deep indigo.
 function CognitionIcon(props: IconProps) {
   const s = props.size ?? 20
@@ -434,6 +504,12 @@ const LLM_PROVIDER_ICONS: Record<string, (props: IconProps) => JSX.Element> = {
   'github-copilot': GitHubCopilotIcon,
   'zhipu': ZhipuIcon,
   'cognition': CognitionIcon,
+  'sambanova': SambaNovaIcon,
+  'github-models': GitHubModelsIcon,
+  'cerebras': CerebrasIcon,
+  'mistral': MistralIcon,
+  'nvidia': NvidiaIcon,
+  'siliconflow': SiliconFlowIcon,
 }
 
 const NOTIFIER_ICONS: Record<string, (props: IconProps) => JSX.Element> = {
