@@ -25,6 +25,51 @@ env:
   ENV_FILE: control-plane.env
 
 jobs:
+  # ── Close repos — guaranteed, runs on every CI completion ─────────────
+  # Repos are flipped to public manually for free x64 CI minutes. This job
+  # flips them back to private after CI completes, whether it passed or
+  # failed. It runs in parallel with build-and-deploy (which only fires on
+  # success) so a failed CI still closes the repos.
+  close-repos:
+    name: Ensure repos are private
+    if: github.event.workflow_run.head_branch == github.event.repository.default_branch
+    runs-on: [self-hosted, arm64]
+    timeout-minutes: 5
+    steps:
+      - name: Flip all CrowdRelay repos to private
+        env:
+          GH_TOKEN: ${{ secrets.CROWDRELAY_PAT }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          repos=(
+            CrowdRelay/virya
+            CrowdRelay/virya-signal
+            CrowdRelay/synesthesia
+            CrowdRelay/crowdrelay
+            CrowdRelay/crowdrelay-control-plane
+          )
+          failed=0
+          for repo in "${repos[@]}"; do
+            current="$(gh api "/repos/$repo" --jq '.visibility' 2>/dev/null || echo "unknown")"
+            if [[ "$current" == "public" ]]; then
+              if gh api --method PATCH "/repos/$repo" -f visibility=private --silent 2>/dev/null; then
+                echo "  $repo: public -> private"
+              else
+                echo "  $repo: FAILED to close (was public)"
+                failed=$((failed + 1))
+              fi
+            else
+              echo "  $repo: already $current"
+            fi
+          done
+          echo ""
+          if [[ $failed -gt 0 ]]; then
+            echo "WARNING: $failed repo(s) failed to close. Fix immediately."
+          else
+            echo "REPO_VISIBILITY=PASS all repos private"
+          fi
+
   build-and-deploy:
     name: Build, deploy, cleanup
     # Only after CI succeeds on main. CI runs tests; this workflow builds
@@ -245,3 +290,33 @@ jobs:
             || gh api -X PATCH "/user/packages/container/crowdrelay-control-plane" \
             -f visibility=public 2>/dev/null \
             || echo "WARN: could not set visibility"
+
+      # Belt-and-suspenders: the close-repos job at the top of this workflow
+      # already closes repos on every CI completion. This step catches the
+      # edge case where this job ran long enough to open repos for a deploy
+      # window but the workflow was manually cancelled before close-repos
+      # could fire. `if: always()` means it runs on success, failure, AND
+      # cancellation of this job.
+      - name: Ensure all CrowdRelay repos are private
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.CROWDRELAY_PAT }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          repos=(
+            CrowdRelay/virya
+            CrowdRelay/virya-signal
+            CrowdRelay/synesthesia
+            CrowdRelay/crowdrelay
+            CrowdRelay/crowdrelay-control-plane
+          )
+          for repo in "${repos[@]}"; do
+            current="$(gh api "/repos/$repo" --jq '.visibility' 2>/dev/null || echo "unknown")"
+            if [[ "$current" == "public" ]]; then
+              gh api --method PATCH "/repos/$repo" -f visibility=private --silent 2>/dev/null \
+                && echo "  $repo: public -> private" \
+                || echo "  $repo: FAILED to close"
+            fi
+          done
