@@ -220,7 +220,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
   }
 
   return (
-    <Card flat class="p-4">
+    <Card flat>
       <header class="flex items-center justify-between gap-4 mb-3">
         <PanelTitle>Beacons</PanelTitle>
         <div class="flex items-center gap-2">
@@ -276,7 +276,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
       </Show>
 
       <Show when={adding()}>
-        <form class="grid grid-cols-1 md:grid-cols-2 gap-3.5 rounded-lg border border-border bg-card p-4" onSubmit={addBeacon}>
+        <form class="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-lg border border-border bg-card p-4" onSubmit={addBeacon}>
           <label class="grid gap-1.5 text-muted-foreground text-sm">
             Name <small class="text-xs text-muted-foreground">venue, shop or person</small>
             <Input value={form().displayName} required maxlength={200}
@@ -313,7 +313,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
             controls above the sentence telling the operator to add their first
             beacon. Nothing to search until there is something to search. */}
         <Show when={profiles().length > 0}>
-        <div class="flex gap-2.5 items-center flex-wrap my-3.5">
+        <div class="flex gap-2.5 items-center flex-wrap my-4">
           {/* Placeholder text disappears the moment you type, so it is not a
               name: the field announced itself as "edit text" to a screen
               reader. Same for the filter beside it. */}

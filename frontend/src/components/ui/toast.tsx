@@ -80,7 +80,7 @@ export function ToastContainer(): JSX.Element {
         <For each={toasts()}>{(item) => (
           <div
             class={cn(
-              'pointer-events-auto flex items-start gap-2.5 rounded-md border bg-card px-3.5 py-3 shadow-lg',
+              'pointer-events-auto flex items-start gap-2.5 rounded-md border bg-card px-4 py-3 shadow-lg',
               kindStyle[item.kind].border,
             )}
             role="status"

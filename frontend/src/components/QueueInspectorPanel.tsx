@@ -100,7 +100,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
     }
   }
 
-  return <Card flat class="p-4">
+  return <Card flat>
     <div class="flex items-center justify-between gap-4 mb-3">
       <div>
         <PanelTitle icon={<SectionIcon name="list-checks" />}>What is stuck, and why</PanelTitle>
@@ -158,7 +158,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
       >
         <div class="grid gap-2">
           <For each={rows()}>{item => (
-            <div class="flex justify-between items-center gap-3.5 p-3 border border-border-subtle rounded-lg bg-surface-1 transition-colors hover:border-border">
+            <div class="flex justify-between items-center gap-4 p-3 border border-border-subtle rounded-lg bg-surface-1 transition-colors hover:border-border">
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
                   <strong>{item.event_type}</strong>

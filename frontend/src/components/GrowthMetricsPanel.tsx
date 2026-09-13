@@ -272,7 +272,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
     return groups
   })
 
-  return <Card flat class="p-4">
+  return <Card flat>
     <div class="flex items-center justify-between gap-4">
       <h3 class="text-sm font-semibold text-foreground">Metrics by platform</h3>
       <Show when={coverage.data && hasFeeds()}>
@@ -452,7 +452,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                 }
                 const sparkColor = dir === 'up' ? 'var(--color-success)' : dir === 'down' ? 'var(--color-destructive)' : 'var(--color-muted-foreground)'
                 return (
-                  <div class="bg-surface-3 border border-border-subtle rounded-lg p-3.5 flex flex-col gap-1">
+                  <div class="bg-surface-3 border border-border-subtle rounded-lg p-4 flex flex-col gap-1">
                     <div class="flex justify-between items-center">
                       <span class="text-sm text-muted-foreground uppercase tracking-wide">{trend.display_name}</span>
                       <span classList={{ 'text-success': dir === 'up', 'text-destructive': dir === 'down', 'text-muted-foreground': dir === 'flat' || dir === 'unknown' }}>{trendArrow(dir)}</span>

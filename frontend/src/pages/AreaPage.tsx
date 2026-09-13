@@ -251,7 +251,7 @@ export function AreaPage() {
         <fieldset class="contents" disabled={readOnly()}>
 
         <Show when={editorStep()==='city'}><p class="text-sm text-muted-foreground leading-relaxed mt-1">Which city this drop belongs to and where it sits in the list fans see. Nothing here is secret — the exact spot is set on the next step.</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label>Search canonical city<small class="block text-xs text-muted-foreground">Filters the list below. Cities are shared across tenants; add one only if it is genuinely missing.</small><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder={detail.data!.summary.city}/></label>
           <label>Canonical city<NativeSelect value={draft()!.cityId} onChange={e=>{const id=e.currentTarget.value;const city=cities.data?.items.find(c=>c.id===id);setDraft(d=>d?({...d,cityId:id,approximateLat:city?.latitude ?? d.approximateLat,approximateLng:city?.longitude ?? d.approximateLng}):d)}}><Show when={!(cities.data?.items ?? []).some(city=>city.id===draft()!.cityId)}><option value={draft()!.cityId}>{detail.data!.summary.city} · current</option></Show><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name} · {city.countryCode}</option>}</For></NativeSelect></label>
           <label>Drop number<small class="block text-xs text-muted-foreground">Up to three digits. Fans see it as the drop's identity in the game, so it should not be reused within a city.</small><Input maxlength="3" value={draft()!.number} onInput={e=>mutateDraft({number:e.currentTarget.value.replace(/\D/g,'').slice(0,3)})}/></label>
@@ -264,7 +264,7 @@ export function AreaPage() {
           <Alert tone="warning"><strong>Secret location.</strong> The canvas below is rendered locally. It does not load map tiles or transmit exact coordinates to an external mapping provider.</Alert>
           <LocationCanvas publicLat={draft()!.approximateLat} publicLng={draft()!.approximateLng} exactLat={draft()!.exactLat} exactLng={draft()!.exactLng} radiusMeters={draft()!.radiusMeters} onPick={(lat,lng)=>mutateDraft({exactLat:lat,exactLng:lng})}/>
           <p class="text-sm text-muted-foreground leading-relaxed mt-1">Two coordinates, two audiences. The <strong>public</strong> pair is what the app shows everyone — keep it at neighbourhood level. The <strong>exact</strong> pair never leaves this editor; it is only used server-side to decide whether a fan standing there is close enough to claim. Click the canvas to set it.</p>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label>Public latitude<small class="block text-xs text-muted-foreground">Shown to fans. Round it — this is the hint, not the spot.</small><Input required type="number" step="0.000001" value={draft()!.approximateLat} onInput={e=>mutateDraft({approximateLat:finiteInput(e.currentTarget.value,draft()!.approximateLat)})}/></label>
             <label>Public longitude<small class="block text-xs text-muted-foreground">Shown to fans, same rounding.</small><Input required type="number" step="0.000001" value={draft()!.approximateLng} onInput={e=>mutateDraft({approximateLng:finiteInput(e.currentTarget.value,draft()!.approximateLng)})}/></label>
             <label>Exact latitude<small class="block text-xs text-muted-foreground">Never published. Leave blank and the drop cannot be claimed.</small><Input type="number" step="0.000001" value={draft()!.exactLat ?? ''} onInput={e=>mutateDraft({exactLat:nullableInput(e.currentTarget.value,draft()!.exactLat)})}/></label>
@@ -273,7 +273,7 @@ export function AreaPage() {
           </div>
         </div></Show>
 
-        <Show when={editorStep()==='content'}><div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <Show when={editorStep()==='content'}><div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label>Clue — Polski<Textarea maxlength="2000" value={draft()!.clue.pl} onInput={e=>mutateClue('pl',e.currentTarget.value)}/></label>
           <label>Clue — English<Textarea maxlength="2000" value={draft()!.clue.en} onInput={e=>mutateClue('en',e.currentTarget.value)}/></label>
           <label>Track<Input maxlength="256" value={draft()!.collectible.track} onInput={e=>mutateCollectible('track',e.currentTarget.value)}/></label>
@@ -282,7 +282,7 @@ export function AreaPage() {
           <label>Riddle<Input maxlength="256" value={draft()!.collectible.riddle} onInput={e=>mutateCollectible('riddle',e.currentTarget.value)}/></label>
         </div></Show>
 
-        <Show when={editorStep()==='schedule'}><div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <Show when={editorStep()==='schedule'}><div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label>Starts <small class="block text-xs text-muted-foreground">{Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone'}</small><Input required type="datetime-local" value={toLocalInput(draft()!.startsAt)} onInput={e=>mutateDraft({startsAt:fromLocalInput(e.currentTarget.value,draft()!.startsAt)})}/></label>
           <label>Ends <small class="block text-xs text-muted-foreground">{Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone'}</small><Input required type="datetime-local" value={toLocalInput(draft()!.endsAt)} onInput={e=>mutateDraft({endsAt:fromLocalInput(e.currentTarget.value,draft()!.endsAt)})}/></label>
           <label>Capacity<Input type="number" min="1" max="500" value={draft()!.maxClaims} onInput={e=>mutateDraft({maxClaims:finiteInput(e.currentTarget.value,draft()!.maxClaims)})}/></label>

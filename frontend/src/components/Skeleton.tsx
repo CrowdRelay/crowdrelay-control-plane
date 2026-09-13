@@ -151,7 +151,7 @@ export const SkeletonScorecard: Component = () => (
   <>
     <div class="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
       {Array.from({ length: 3 }, () => (
-        <div class="p-3.5 border border-border rounded-lg bg-card">
+        <div class="p-4 border border-border rounded-lg bg-card">
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] mb-2 w-[70px]" />
           <div class="rounded-lg bg-surface-3 border border-border h-[22px] mb-1.5 w-[50px]" />
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[90px]" />
@@ -165,7 +165,7 @@ export const SkeletonScorecard: Component = () => (
       </div>
       <div class="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
         {Array.from({ length: 4 }, () => (
-          <div class="p-3.5 border border-border rounded-lg bg-card">
+          <div class="p-4 border border-border rounded-lg bg-card">
             <div class="rounded-lg bg-surface-3 border border-border h-[11px] mb-2 w-[60px]" />
             <div class="rounded-lg bg-surface-3 border border-border h-[22px] mb-1.5 w-[40px]" />
             <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px]" />
@@ -180,7 +180,7 @@ export const SkeletonScorecard: Component = () => (
       </div>
       <div class="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
         {Array.from({ length: 4 }, () => (
-          <div class="p-3.5 border border-border rounded-lg bg-card">
+          <div class="p-4 border border-border rounded-lg bg-card">
             <div class="rounded-lg bg-surface-3 border border-border h-[11px] mb-2 w-[60px]" />
             <div class="rounded-lg bg-surface-3 border border-border h-[22px] mb-1.5 w-[40px]" />
             <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px]" />
@@ -196,7 +196,7 @@ export const SkeletonReplyTriage: Component = () => (
   <>
     <div class="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
       {Array.from({ length: 3 }, () => (
-        <div class="p-3.5 border border-border rounded-lg bg-card">
+        <div class="p-4 border border-border rounded-lg bg-card">
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] mb-2 w-[70px]" />
           <div class="rounded-lg bg-surface-3 border border-border h-[22px] mb-1.5 w-[40px]" />
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px]" />
@@ -234,7 +234,7 @@ export const SkeletonLearningLoop: Component = () => (
 export const SkeletonOpportunityBoard: Component = () => (
   <div class="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
     {Array.from({ length: 3 }, () => (
-      <div class="flex justify-between items-start gap-4 p-3.5 border border-border rounded-lg bg-card">
+      <div class="flex justify-between items-start gap-4 p-4 border border-border rounded-lg bg-card">
         <div class="min-w-0 flex-1 flex flex-col gap-1.5">
           <div class="rounded-lg bg-surface-3 border border-border h-4 w-3/5 mb-1.5" />
           <div class="rounded-lg bg-surface-3 border border-border h-[12px] w-2/5" style={{ 'margin-bottom': '4px' }} />
@@ -265,7 +265,7 @@ export const SkeletonFlagList: Component = () => (
 export const SkeletonAutopilotKpis: Component = () => (
   <div class="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2.5 mt-4">
     {Array.from({ length: 4 }, () => (
-      <div class="p-3.5 border border-border rounded-lg bg-card">
+      <div class="p-4 border border-border rounded-lg bg-card">
         <div class="rounded-lg bg-surface-3 border border-border h-[11px] mb-2 w-[60px]" />
         <div class="rounded-lg bg-surface-3 border border-border h-[22px] mb-1.5 w-[40px]" />
         <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px]" />
@@ -304,7 +304,7 @@ export const SkeletonPortfolio: Component = () => (
           <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[200px]" />
         </div>
       </div>
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 mb-8">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
         {Array.from({ length: 5 }, () => (
           <div>
             <div class="rounded-lg bg-surface-3 border border-border h-6 w-[60px] mb-1.5" />
@@ -357,7 +357,7 @@ export const SkeletonSignalOverview: Component = () => (
     </div>
     <div class="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
       {Array.from({ length: 8 }, () => (
-        <div class="p-3.5 border border-border rounded-lg bg-card">
+        <div class="p-4 border border-border rounded-lg bg-card">
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] mb-2 w-[70px]" />
           <div class="rounded-lg bg-surface-3 border border-border h-[22px] mb-1.5 w-[50px]" />
           <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px]" />

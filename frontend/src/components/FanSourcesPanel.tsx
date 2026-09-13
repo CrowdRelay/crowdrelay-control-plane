@@ -377,7 +377,7 @@ export function FanSourcesPanel(props: {
               // horizontal line, so "SoundCloud" broke across two lines inside
               // its own tile. The name gets the top row; everything that
               // explains it goes underneath at full tile width.
-              <div class="flex flex-col gap-2 border p-3.5" classList={{ 'border-success/30': !!conn(), 'border-border': !conn() }}>
+              <div class="flex flex-col gap-2 border p-4" classList={{ 'border-success/30': !!conn(), 'border-border': !conn() }}>
                 <div class="flex items-center gap-3">
                   <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-surface-1">
                     <FanbaseIcon sourceKind={spec.icon as never} size={28} />
@@ -435,7 +435,7 @@ export function FanSourcesPanel(props: {
           <button
             type="button"
             onClick={() => { setCreating(true); setNotice(null); setErrorText(null) }}
-            class="flex flex-col gap-2 border border-dashed border-border bg-transparent p-3.5 text-left transition-colors hover:border-border-strong hover:bg-surface-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            class="flex flex-col gap-2 border border-dashed border-border bg-transparent p-4 text-left transition-colors hover:border-border-strong hover:bg-surface-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <div class="flex items-center gap-3">
               <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground">

@@ -58,7 +58,7 @@ export const Dialog: Component<DialogProps> = (props) => (
         </Show>
         <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">{props.children}</div>
         <Show when={props.footer}>
-          <div class="flex flex-wrap items-center justify-end gap-2 border-t border-border px-5 py-3.5">{props.footer}</div>
+          <div class="flex flex-wrap items-center justify-end gap-2 border-t border-border px-5 py-4">{props.footer}</div>
         </Show>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>

@@ -302,7 +302,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
       <TabPanel active={activeTab()} id="communities" visited={isVisited('communities')}>
         {/* ── Add form ── */}
         <Show when={adding()}>
-          <form class="grid grid-cols-1 md:grid-cols-2 gap-3.5" onSubmit={submit}>
+          <form class="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={submit}>
             <label>
               Kind
               <NativeSelect value={kind()} onChange={event => setKind(event.currentTarget.value)}>

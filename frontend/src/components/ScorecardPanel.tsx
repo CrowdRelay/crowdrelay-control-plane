@@ -93,7 +93,7 @@ export function ScorecardPanel(props: { slug: string }) {
   const [showAllRecent, setShowAllRecent] = createSignal(false)
   const MAX_VISIBLE_RECENT = 10
 
-  return <Card flat class="p-5">
+  return <Card flat>
     <SectionTitle
       eyebrow="AGENT SCORECARD"
       title="Is it working?"

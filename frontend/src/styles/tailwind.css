@@ -578,7 +578,7 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
     min-width: 960px;
   }
   .process-map-legend {
-    @apply flex flex-wrap gap-3.5 my-3.5 text-muted-foreground text-sm;
+    @apply flex flex-wrap gap-4 my-4 text-muted-foreground text-sm;
   }
   .process-map-legend span {
     @apply inline-flex items-center gap-1.5;
@@ -764,7 +764,7 @@ table td, table th, .mono, code, .tenant-pulse-row-right, .scorecard-result-card
      separating anything. A connected source is worth marking; an unconnected
      one is a row. */
   .fanbase-connection-card {
-    @apply flex items-center gap-3 border border-border bg-surface-1 p-3.5;
+    @apply flex items-center gap-3 border border-border bg-surface-1 p-4;
   }
   .fanbase-connection-card.connected {
     @apply border-success/30;

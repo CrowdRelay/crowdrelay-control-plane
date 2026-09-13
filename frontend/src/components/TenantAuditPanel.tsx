@@ -17,7 +17,7 @@ export function TenantAuditPanel(props: { items: AuditEntry[] }) {
   const visible = () => expanded() ? props.items : props.items.slice(0, VISIBLE)
   const hasMore = () => props.items.length > VISIBLE
 
-  return <Card flat class="p-4">
+  return <Card flat>
     <SectionTitle
       title="Recent platform changes"
       icon={<SectionIcon name="history" />}
@@ -31,7 +31,7 @@ export function TenantAuditPanel(props: { items: AuditEntry[] }) {
       <ActivityHeatmap entries={props.items} timestampKey="createdAt" weeks={8} />
     </Show>
     <div class="grid gap-2 mt-4">
-      <For each={visible()}>{item => <div class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg border border-border bg-card">
+      <For each={visible()}>{item => <div class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border border-border bg-card">
         <div class="min-w-0">
           <strong class="block text-sm text-foreground">{item.action}</strong>
           <small class="block text-xs text-muted-foreground mt-0.5">{item.actor} · {formatTimestamp(item.createdAt)}</small>

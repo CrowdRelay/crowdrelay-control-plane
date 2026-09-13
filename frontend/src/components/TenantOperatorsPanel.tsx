@@ -55,7 +55,7 @@ export function TenantOperatorsPanel(props: { slug: string }) {
 
     {/* Create form — compact, self-contained card */}
     <div class="rounded-lg border border-border bg-surface-1 p-4 mt-4">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <label class="grid gap-1.5">
         <span class="text-sm font-medium text-foreground">New operator username</span>
         <Input value={username()} onInput={(e) => setUsername(e.currentTarget.value.toLowerCase())} placeholder="stage-op" autocomplete="off" {...writeGuard()} />
@@ -77,7 +77,7 @@ export function TenantOperatorsPanel(props: { slug: string }) {
       <div class="p-4 mt-4 rounded-lg border border-border bg-surface-1"><EmptyState label="No operator accounts yet" hint="Only the platform admin can reach this tenant right now. Create an account above to give the team its own scoped login." /></div>
     </Show>
     <div class="grid gap-2 mt-4"><For each={accounts.data?.items ?? []}>{account =>
-      <div class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg border border-border bg-card">
+      <div class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border border-border bg-card">
         <div class="grid gap-1"><strong class="text-sm text-foreground">{account.username}</strong><small class="text-xs text-muted-foreground">{account.active ? 'active' : 'disabled'} · <Badge variant="muted">tenant_operator</Badge></small></div>
         <Button writes variant="destructive-ghost" size="sm" disabled={remove.isPending} onClick={async () => {
           const ok = await confirmAction({

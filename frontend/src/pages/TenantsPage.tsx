@@ -109,7 +109,7 @@ export function TenantsPage() {
     <Show when={isAdmin() && creating()}>
       <form class="rounded-lg border border-border bg-card p-5 space-y-5" onSubmit={(event) => { event.preventDefault(); createTenant.mutate() }}>
         <div class="flex items-center justify-between gap-2"><div><PanelTitle>Identity + region</PanelTitle></div><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label>Slug<Input value={slug()} onInput={(e) => setSlug(e.currentTarget.value.toLowerCase())} placeholder="future-metal" autocomplete="off" maxlength="60" /></label>
           <label>Display name<Input value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="Future Metal" maxlength="120" /></label>
           <label>Regional preset<NativeSelect onChange={e=>applyPreset(e.currentTarget.value as Preset)}><option value="PL">Poland</option><option value="DE">Germany</option><option value="CZ">Czechia</option><option value="US">United States</option></NativeSelect><small>Fills fields below; can be overridden.</small></label>
@@ -126,7 +126,7 @@ export function TenantsPage() {
           <label>Release SHA <small>optional if server default is configured</small><Input value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={overview.data?.provisionerDefaultImageTag ?? 'sha-<40-char CrowdRelay commit>'} /></label>
         </div>
         <div class="flex items-center justify-between gap-2"><div><PanelTitle>First account for the team</PanelTitle></div></div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label>Operator username<Input value={opUsername()} onInput={(e) => setOpUsername(e.currentTarget.value.toLowerCase())} placeholder="future-metal-op" autocomplete="off" /><small>Optional. Sees only this tenant; leave blank to skip.</small></label>
           <label>Operator password<Input type="password" value={opPassword()} onInput={(e) => setOpPassword(e.currentTarget.value)} placeholder="min 12 characters" autocomplete="new-password" /><small>Hashed securely, never shown again.</small></label>
         </div>

@@ -109,7 +109,7 @@ export function AuthorityPoliciesPanel(props: {
     }
   }
 
-  return <Card flat class="p-4">
+  return <Card flat>
     <div class="flex items-start justify-between gap-4 mb-3">
       <div><PanelTitle icon={<SectionIcon name="shield" />}>Authority policies</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">One row per kind of work the autopilot does. This is the only place these controls live.</p></div>
       <div class="flex flex-wrap items-center gap-2">
@@ -166,7 +166,7 @@ export function AuthorityPoliciesPanel(props: {
           </Show>
         </div>
       </Show>
-      <details class="mb-3.5">
+      <details class="mb-4">
         <summary class="cursor-pointer text-muted-foreground text-sm font-semibold py-1.5 list-none [&::-webkit-details-marker]:hidden before:content-['ⓘ_'] before:mr-1 open:mb-2 open:text-secondary-foreground">How authority policies work</summary>
         <p class="text-sm leading-relaxed text-muted-foreground">
           One row per kind of work the autopilot does.{' '}

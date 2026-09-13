@@ -91,7 +91,7 @@ export function GrowthPosturePanel(props: { slug: string }) {
     apply.mutate(value)
   }
 
-  return <Card flat class="p-5">
+  return <Card flat>
     <div class="flex items-start justify-between gap-4 mb-3">
       <div>
         <PanelTitle icon={<SectionIcon name="target" />}>How far the growth loop may go</PanelTitle>

@@ -94,7 +94,7 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
       && data.parked_for_approval.length === 0 && data.stopped.length === 0
   }
 
-  return <Card flat class="p-5">
+  return <Card flat>
     <div class="flex items-start justify-between gap-4 mb-3">
       <div>
         <PanelTitle icon={<SectionIcon name="activity" />}>What the autopilot did</PanelTitle>

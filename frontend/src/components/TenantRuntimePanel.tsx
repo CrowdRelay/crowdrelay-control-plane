@@ -59,7 +59,7 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
     return !r || (r.apiHealthy == null && r.workerHealthy == null && r.schemaVersion == null && r.deployedSha == null && r.outboxPending == null)
   }
 
-  return <Card flat class="p-4" aria-busy={runtime.isFetching && !runtime.data}>
+  return <Card flat aria-busy={runtime.isFetching && !runtime.data}>
     <div class="flex items-center justify-between gap-4 mb-3">
       {/* Named for its source. Plain "Health" read as a contradiction next to
           the Operations page, which reports CrowdRelay's own HTTP health from
@@ -69,10 +69,10 @@ export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntime
     </div>
     <Show when={runtime.error}><div class="rounded-r-md rounded-l-none" role="status">Live refresh failed. Showing the last known runtime snapshot.</div></Show>
     <Show when={snapshot().runtimeHealth === 'unknown'}>
-      <p class="mb-4 px-4 py-3 border border-border-subtle rounded-md bg-surface-1 text-muted-foreground text-base leading-[1.55]">This tenant has never reported a runtime heartbeat, so there is nothing to score here yet. Service health measured inside CrowdRelay is on the Operations page.</p>
+      <p class="px-4 py-3 border border-border-subtle rounded-lg bg-surface-1 text-muted-foreground text-sm leading-relaxed">This tenant has never reported a runtime heartbeat, so there is nothing to score here yet. Service health measured inside CrowdRelay is on the Operations page.</p>
     </Show>
     <Show when={snapshot().runtimeHealth === 'stale'}>
-      <p class="mb-4 px-4 py-3 border border-border-subtle rounded-md bg-surface-1 text-muted-foreground text-base leading-[1.55]">Live data has stopped updating. Optional products and app-store distribution do not affect this status.</p>
+      <p class="px-4 py-3 border border-border-subtle rounded-lg bg-surface-1 text-muted-foreground text-sm leading-relaxed">Live data has stopped updating. Optional products and app-store distribution do not affect this status.</p>
     </Show>
     {/* This grid printed `String(apiHealthy)` — the words "true", "false" and
         "unknown" — under headings named after the code that produced them

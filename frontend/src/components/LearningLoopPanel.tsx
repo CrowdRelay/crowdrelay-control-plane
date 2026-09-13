@@ -86,7 +86,7 @@ export function LearningLoopPanel(props: { slug: string }) {
       immediately above this panel, so the operator read the same seven words
       twice, in two different type sizes, with two different icons. The page
       owns the heading; the panel owns the data. */}
-  return <Card flat class="p-4 space-y-4">
+  return <Card flat class="space-y-4">
     <Show when={model.error}>
       <Alert tone="warning" role="status">
         Learning loop data is temporarily unavailable.

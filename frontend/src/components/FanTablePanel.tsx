@@ -145,7 +145,7 @@ export function FanTablePanel(props: {
     }
   }
 
-  return <Card flat class="p-4">
+  return <Card flat>
     <div class="flex items-center justify-between gap-4">
       <h3>Fan list</h3>
       <span class="text-muted-foreground">{filtered().length} fans</span>

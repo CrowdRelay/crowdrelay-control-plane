@@ -174,7 +174,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
               const approveKey = `approve:${action.id}`
               const rejectKey = `reject:${action.id}`
               return (
-                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 p-3.5 border border-border rounded-lg bg-card">
+                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 p-4 border border-border rounded-lg bg-card">
                   <div class="min-w-0 flex-1 flex flex-col gap-1.5">
                     <div class="flex items-center gap-2 flex-wrap">
                       <Badge>{actionKindLabel(action.action_kind)}</Badge>

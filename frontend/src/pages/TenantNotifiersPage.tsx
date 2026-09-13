@@ -108,7 +108,7 @@ export function TenantNotifiersPage() {
     <Show when={channels.error}><ErrorCard>{errorMessage(channels.error, 'Channels could not be loaded')}</ErrorCard></Show>
     <Show when={!channels.error && !channels.data}><SkeletonNotifiersPage /></Show>
 
-    <Card flat class="p-5">
+    <Card flat>
       <div class="flex items-center gap-2 mb-1">
         <SectionIcon name="bell" />
         <div>
@@ -118,7 +118,7 @@ export function TenantNotifiersPage() {
       <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Add a destination for this tenant's alerts. Send a test after saving — a wrong URL only fails at delivery time.</p>
 
       <form onSubmit={(e) => { e.preventDefault(); create.mutate() }}>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           <label class="grid gap-1.5 text-muted-foreground text-sm">
             <span>Type</span>
             <NativeSelect value={kind()} onChange={(e) => { setKind(e.currentTarget.value as NotifierChannel['kind']); setTarget('') }}>
@@ -140,7 +140,7 @@ export function TenantNotifiersPage() {
           </label>
         </div>
 
-        <div class="mt-4 p-3.5 border border-border-subtle rounded-md bg-surface-1" role="group" aria-label="Subscribed events">
+        <div class="mt-4 p-4 border border-border-subtle rounded-md bg-surface-1" role="group" aria-label="Subscribed events">
           <p class="text-sm text-secondary-foreground leading-relaxed mb-2">Which events reach this destination. Leave every box clear to receive all of them — that is the default, and new event kinds are included automatically.</p>
           <div class="grid gap-2" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))' }}>
             <For each={[...NOTIFIER_EVENTS]}>{ev => (

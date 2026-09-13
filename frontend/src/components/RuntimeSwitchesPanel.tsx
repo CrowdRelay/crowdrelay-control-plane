@@ -78,7 +78,7 @@ export function RuntimeSwitchesPanel(props: {
 
   const [confirming, setConfirming] = createSignal<'redeploy' | 'replay-dead' | null>(null)
 
-  return <Card flat class="p-5">
+  return <Card flat>
     <div class="flex items-start justify-between gap-4 mb-3">
       <div><PanelTitle icon={<SectionIcon name="activity" />}>Runtime switches</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Feature flags, health metrics and redeploy. Changes are tenant-scoped and audited.</p></div>
       <div class="flex items-center gap-2 flex-wrap">
@@ -120,7 +120,7 @@ export function RuntimeSwitchesPanel(props: {
     </div>
 
     <Show when={props.summary && (deadJobs() > 0 || props.summary.watchdog.critical_alerts > 0)}>
-      <div class="mt-3 p-3.5 rounded-md border border-destructive/30 bg-destructive/10 flex items-center justify-between gap-3 flex-wrap">
+      <div class="mt-3 p-4 rounded-md border border-destructive/30 bg-destructive/10 flex items-center justify-between gap-3 flex-wrap">
         <div><strong class="text-destructive">Operator attention required</strong><br /><span class="text-sm text-secondary-foreground">{deadJobs()} dead queue item(s) · {props.summary?.watchdog.critical_alerts ?? 0} critical watchdog alert(s)</span></div>
         <Show when={confirming() === 'replay-dead'}>
           <div class="flex items-center gap-2"><Button variant="ghost" size="sm" onClick={() => setConfirming(null)}>Cancel</Button><Button writes size="sm" disabled={pendingMutation() !== null} onClick={() => { setConfirming(null); void replayDead() }}>{pendingMutation() === 'replay-dead' && <Spinner />} Confirm replay</Button></div>

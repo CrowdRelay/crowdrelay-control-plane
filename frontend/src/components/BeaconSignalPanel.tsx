@@ -50,7 +50,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
     staleTime: 10_000,
   }))
 
-  return <Card flat class="p-4">
+  return <Card flat>
     <div class="flex items-center justify-between gap-4">
       <h3>Beacon signal network</h3>
       <Show when={dashboard.data}>

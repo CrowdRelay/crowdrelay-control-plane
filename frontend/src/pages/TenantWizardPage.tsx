@@ -243,7 +243,7 @@ export function TenantWizardPage() {
       <div class="rounded-lg border border-border bg-card p-5 space-y-4">
         <div class="flex items-center justify-between gap-2 flex-wrap"><div><PanelTitle>Identity + region</PanelTitle></div><Show when={overview.error}><StatusBadge status="Provisioner status unavailable" tone="bad" /></Show><Show when={!overview.error}><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></Show></div>
         <p class="text-sm text-muted-foreground leading-relaxed">Identity is permanent once the tenant exists; the regional block is what the runtime reads instead of guessing from a browser or an IP address.</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label><span>Slug</span><Input value={slug()} onInput={(e) => setSlug(e.currentTarget.value.toLowerCase())} placeholder="future-metal" autocomplete="off" /><small>Lowercase, used in URLs and API paths. It cannot be changed later.</small></label>
           <label><span>Display name</span><Input value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="Future Metal" /><small>The band or label as people write it. Shown across the console and in operator-facing alerts.</small></label>
           <label>Regional preset<NativeSelect onChange={e=>applyPreset(e.currentTarget.value as Preset)}><option value="PL">Poland</option><option value="DE">Germany</option><option value="CZ">Czechia</option><option value="US">United States</option></NativeSelect><small>Fills the six fields below in one go. Nothing is inferred from it afterwards — edit any of them freely.</small></label>
@@ -258,7 +258,7 @@ export function TenantWizardPage() {
         </div>
         <div class="flex items-center justify-between gap-2"><div><PanelTitle>First account for the team</PanelTitle></div></div>
         <p class="text-sm text-muted-foreground leading-relaxed">Optional. Creates one login scoped to this tenant so the band or their manager can work without a platform admin. You can add more later from the tenant page.</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label>Operator username<Input value={opUsername()} onInput={(e) => setOpUsername(e.currentTarget.value.toLowerCase())} placeholder="future-metal-op" autocomplete="off" /><small>Optional. Sees only this tenant; leave blank to skip.</small></label>
           <label>Operator password<Input type="password" value={opPassword()} onInput={(e) => setOpPassword(e.currentTarget.value)} placeholder="min 12 characters" autocomplete="new-password" /><small>Handed to the team once — never shown again.</small></label>
         </div>
@@ -312,7 +312,7 @@ export function TenantWizardPage() {
         <Show when={signalEnabled() || synesthesiaEnabled()}>
           <div class="flex items-center justify-between gap-2"><div><PanelTitle>Play Store URLs (optional)</PanelTitle></div></div>
           <p class="text-sm text-muted-foreground leading-relaxed">Set the Google Play Store URL for each enabled mobile app. Leave blank if the app is not yet published — you can add it later from the tenant page.</p>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Show when={signalEnabled()}>
               <label>Signal Play Store URL<Input value={signalPlayStoreUrl()} onInput={(e) => setSignalPlayStoreUrl(e.currentTarget.value)} placeholder={`https://play.google.com/store/apps/details?id=music.${slug() || 'tenant'}.signal`} /></label>
             </Show>
@@ -401,7 +401,7 @@ export function TenantWizardPage() {
 
         <Show when={deployNow()}>
           <div class="flex items-center justify-between gap-2"><div><PanelTitle>Deploy URLs</PanelTitle></div></div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label>CrowdRelay API base URL<Input value={crowdrelayBaseUrl()} onInput={(e) => setCrowdrelayBaseUrl(e.currentTarget.value)} placeholder="https://api.future-metal.example" /></label>
             <Show when={signalEnabled()}>
               <label>Signal / public site URL<Input value={signalBaseUrl()} onInput={(e) => setSignalBaseUrl(e.currentTarget.value)} placeholder="https://future-metal.example" /></label>
@@ -414,7 +414,7 @@ export function TenantWizardPage() {
             {showProviderKeys() ? '▾' : '▸'} Optional: Provider API keys
           </Button>
           <Show when={showProviderKeys()}>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label>Bandsintown API key<Input value={bandsintownKey()} onInput={(e) => setBandsintownKey(e.currentTarget.value)} placeholder="Optional" /></label>
               <label>YouTube API key<Input value={youtubeKey()} onInput={(e) => setYoutubeKey(e.currentTarget.value)} placeholder="Optional" /></label>
               <label>Spotify client ID<Input value={spotifyClientId()} onInput={(e) => setSpotifyClientId(e.currentTarget.value)} placeholder="Optional" /></label>

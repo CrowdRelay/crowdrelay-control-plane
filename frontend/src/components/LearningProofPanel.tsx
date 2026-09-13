@@ -60,7 +60,7 @@ export function LearningProofPanel(props: { slug: string }) {
   const entries = (): LearningProofEntry[] => model.data?.entries ?? []
   const provenChains = () => entries().filter(entry => entry.changed_a_decision).length
 
-  return <Card flat class="p-4 space-y-4">
+  return <Card flat class="space-y-4">
     <div>
       <PanelTitle icon={<SectionIcon name="git-branch" />}>Outcome → Belief → Next decision</PanelTitle>
       <p class="text-muted-foreground text-sm mt-1">

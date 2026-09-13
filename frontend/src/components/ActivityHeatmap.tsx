@@ -80,7 +80,7 @@ export const ActivityHeatmap: Component<{
   const activeDays = () => cells().filter(c => c.count > 0).length
 
   return (
-    <div class="flex flex-col gap-1.5 px-4 py-3.5 border border-border rounded-lg bg-card mt-4">
+    <div class="flex flex-col gap-1.5 px-4 py-4 border border-border rounded-lg bg-card mt-4">
       <div class="flex items-center justify-between gap-3">
         <div>
           <Eyebrow>ACTIVITY HEATMAP</Eyebrow>

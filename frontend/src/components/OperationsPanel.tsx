@@ -141,7 +141,7 @@ export function OperationsPanel(props: {
   // mis-click never flips every policy or redeploys an app by accident.
   const [confirming, setConfirming] = createSignal<'autopilot-disable' | 'autopilot-enable' | 'redeploy' | 'replay-dead' | null>(null)
 
-  return <Card flat class="p-5">
+  return <Card flat>
     <Show when={showHealth()}>
     <div class="flex items-start justify-between gap-4 mb-3">
       <div><PanelTitle icon={<SectionIcon name="activity" />}>Health & controls</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Live health and runtime controls.</p></div>
@@ -175,7 +175,7 @@ export function OperationsPanel(props: {
     }</Show>
 
     <Show when={unavailable() || props.degraded.length > 0}>
-      <div class={cn('flex items-center gap-2 mt-3 px-3.5 py-2 border rounded-lg text-sm', untrusted() ? 'border-destructive/30 bg-destructive/10 text-destructive' : 'border-warning/30 bg-warning/10 text-warning')} role={untrusted() ? 'alert' : 'status'}>
+      <div class={cn('flex items-center gap-2 mt-3 px-4 py-2 border rounded-lg text-sm', untrusted() ? 'border-destructive/30 bg-destructive/10 text-destructive' : 'border-warning/30 bg-warning/10 text-warning')} role={untrusted() ? 'alert' : 'status'}>
         <span class="inline-block w-2 h-2 rounded-full bg-current" />
         <span>
           <Show
@@ -198,7 +198,7 @@ export function OperationsPanel(props: {
         one section is stale or unknown; "live" and "assembled" are the
         default and don't need a visible badge. */}
     <Show when={worstFreshness() && worstFreshness() !== 'live' && worstFreshness() !== 'assembled'}>
-      <div class={cn('flex items-center gap-2 mt-3 px-3.5 py-2 border rounded-sm text-sm', FRESHNESS_TONE[worstFreshness()!] === 'warn' && 'border-warning/30 bg-warning/10 text-warning-light', FRESHNESS_TONE[worstFreshness()!] === 'good' && 'border-success/30 bg-success/10 text-success-light', FRESHNESS_TONE[worstFreshness()!] === 'muted' && 'border-border-subtle bg-card text-muted-foreground')} role="status">
+      <div class={cn('flex items-center gap-2 mt-3 px-4 py-2 border rounded-sm text-sm', FRESHNESS_TONE[worstFreshness()!] === 'warn' && 'border-warning/30 bg-warning/10 text-warning-light', FRESHNESS_TONE[worstFreshness()!] === 'good' && 'border-success/30 bg-success/10 text-success-light', FRESHNESS_TONE[worstFreshness()!] === 'muted' && 'border-border-subtle bg-card text-muted-foreground')} role="status">
         <span class={cn('inline-block w-2 h-2 rounded-full', FRESHNESS_TONE[worstFreshness()!] === 'warn' && 'bg-warning', FRESHNESS_TONE[worstFreshness()!] === 'good' && 'bg-success', FRESHNESS_TONE[worstFreshness()!] === 'muted' && 'bg-muted-foreground')} />
         <span>
           <Show when={staleSections().length > 0} fallback={`Data ${FRESHNESS_LABEL[worstFreshness()!]}`}>

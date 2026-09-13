@@ -244,7 +244,7 @@ export function AttentionInbox(props: {
         is the same sentence twice in two type sizes. The empty state carries
         the better one, because it also says what would put something here. */}
     <Show when={total() > 0}>
-      <div class="flex items-center justify-between gap-2 p-3.5 border-b border-border">
+      <div class="flex items-center justify-between gap-2 p-4 border-b border-border">
         <div class="text-muted-foreground text-sm flex items-center gap-2">
           <SectionIcon name="inbox" />
           <span class="bg-primary/20 text-primary-light text-xs rounded-full px-1.5 font-bold tabular-nums">{total()}</span>
@@ -262,7 +262,7 @@ export function AttentionInbox(props: {
 
     <Show when={urgent().length > 0}>
       <div class="border-b border-border-subtle last:border-0">
-        <div class="flex items-center gap-2 p-3.5 pb-2 text-destructive">
+        <div class="flex items-center gap-2 p-4 pb-2 text-destructive">
           <span class="text-xs font-semibold uppercase tracking-wider">Urgent</span>
           <span class="bg-destructive/15 text-destructive text-xs rounded-full px-2 py-0.5 font-bold">{urgent().length}</span>
         </div>
@@ -272,7 +272,7 @@ export function AttentionInbox(props: {
 
     <Show when={review().length > 0}>
       <div class="border-b border-border-subtle last:border-0">
-        <div class="flex items-center gap-2 p-3.5 pb-2 text-warning">
+        <div class="flex items-center gap-2 p-4 pb-2 text-warning">
           <span class="text-xs font-semibold uppercase tracking-wider">Review</span>
           <span class="bg-warning/15 text-warning text-xs rounded-full px-2 py-0.5 font-bold">{review().length}</span>
         </div>
@@ -282,7 +282,7 @@ export function AttentionInbox(props: {
 
     <Show when={informational().length > 0}>
       <div class="last:border-0">
-        <div class="flex items-center gap-2 p-3.5 pb-2 text-muted-foreground">
+        <div class="flex items-center gap-2 p-4 pb-2 text-muted-foreground">
           <span class="text-xs font-semibold uppercase tracking-wider">Informational</span>
           <span class="bg-surface-3 text-muted-foreground text-xs rounded-full px-2 py-0.5 font-bold">{informational().length}</span>
         </div>
@@ -301,7 +301,7 @@ function AttentionItemRow(props: {
   onReveal: (tab: string, anchor?: string) => void
 }) {
   const tone = () => props.item.tier === 'urgent' ? 'destructive' as const : 'ghost' as const
-  return <div id={`attention-item-${props.item.id}`} class={cn('flex items-start justify-between gap-3 px-3.5 py-3 border-b border-border-subtle last:border-0 border-l-2', props.item.tier === 'urgent' && 'border-l-destructive/50', props.item.tier === 'review' && 'border-l-warning/50', props.item.tier === 'informational' && 'border-l-border')}>
+  return <div id={`attention-item-${props.item.id}`} class={cn('flex items-start justify-between gap-3 px-4 py-3 border-b border-border-subtle last:border-0 border-l-2', props.item.tier === 'urgent' && 'border-l-destructive/50', props.item.tier === 'review' && 'border-l-warning/50', props.item.tier === 'informational' && 'border-l-border')}>
     <div class="flex-1 min-w-0 flex flex-col gap-1">
       <strong class="text-sm font-semibold text-foreground">{props.item.title}</strong>
       <small class="text-xs text-muted-foreground leading-[1.4]">{props.item.detail}</small>

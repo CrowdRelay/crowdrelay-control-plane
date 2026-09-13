@@ -235,7 +235,7 @@ export const CommandPalette: Component = () => {
       <div class="fixed left-1/2 top-[15vh] z-50 -translate-x-1/2 w-[calc(100vw-2rem)] max-w-xl rounded-lg border border-border bg-popover shadow-xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Command palette" onClick={event => event.stopPropagation()}>
         <input
           ref={inputRef}
-          class="w-full bg-transparent border-none border-b border-border px-3.5 py-3 text-sm outline-none focus:border-primary focus:ring-0"
+          class="w-full bg-transparent border-none border-b border-border px-4 py-3 text-sm outline-none focus:border-primary focus:ring-0"
           placeholder="Type a page, tenant or action…"
           aria-label="Command palette search"
           role="combobox"

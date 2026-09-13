@@ -375,7 +375,7 @@ export function OpportunityBoardPanel(props: {
     const entry = () => rowProps.entry
     const busy = (key: string) => pendingMutation() === key
     return (
-      <div class="flex flex-col gap-2 border-b border-border-subtle py-3.5 last:border-0 md:flex-row md:items-start md:justify-between md:gap-6">
+      <div class="flex flex-col gap-2 border-b border-border-subtle py-4 last:border-0 md:flex-row md:items-start md:justify-between md:gap-6">
         <div class="flex min-w-0 flex-1 flex-col gap-1.5">
           {/* `opportunityTitle` prefers `briefing.summary`, which the backend
               writes in the tenant's language — a Polish heading on an English

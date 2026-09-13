@@ -128,7 +128,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     return Object.values(data.worker_runs).reduce((sum, r) => sum + r.failed, 0)
   }
 
-  return <Card flat class="p-5">
+  return <Card flat>
     <Show when={error()}>
       <ErrorCard>{error()}</ErrorCard>
     </Show>

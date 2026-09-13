@@ -225,11 +225,11 @@ export function TenantAttentionPage() {
             severity was critical, in the branch that only runs when it is not. */}
         <For each={attention.data?.findings ?? []}>{finding =>
           <Show when={finding.severity === 'critical'} fallback={
-            <div class="rounded-lg border border-warning/30 bg-warning/10 p-3.5 my-3 text-sm text-warning-light leading-relaxed">
+            <div class="rounded-lg border border-warning/30 bg-warning/10 p-4 my-3 text-sm text-warning-light leading-relaxed">
               <FindingBody finding={finding} />
             </div>
           }>
-            <ErrorCard class="p-3.5 my-3 leading-relaxed">
+            <ErrorCard class="p-4 my-3 leading-relaxed">
               <FindingBody finding={finding} />
             </ErrorCard>
           </Show>
@@ -262,22 +262,22 @@ export function TenantAttentionPage() {
       <Show when={!summary.error && summary.data} fallback={<Show when={!summary.error}><SkeletonRows count={4} /></Show>}>
         {data => <>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Card class="rounded-lg p-3.5">
+            <Card class="rounded-lg p-4">
               <span class="block text-xs text-muted-foreground">Pool</span>
               <strong class="block text-xl font-bold tabular-nums mt-1">{data().database.pool_size}/{data().database.pool_max}</strong>
               <small class="block text-xs text-muted-foreground mt-1">{data().database.pool_idle} idle</small>
             </Card>
-            <Card class="rounded-lg p-3.5">
+            <Card class="rounded-lg p-4">
               <span class="block text-xs text-muted-foreground">Postgres</span>
               <strong class="block text-xl font-bold tabular-nums mt-1">{formatPgVersion(data().database.server_version_num)}</strong>
               <small class="block text-xs text-muted-foreground mt-1">{data().database.io_method ?? 'I/O method unknown'}</small>
             </Card>
-            <Card class="rounded-lg p-3.5">
+            <Card class="rounded-lg p-4">
               <span class="block text-xs text-muted-foreground">Effective I/O concurrency</span>
               <strong class="block text-xl font-bold tabular-nums mt-1">{data().database.effective_io_concurrency ?? '—'}</strong>
               <small class="block text-xs text-muted-foreground mt-1">workers {data().database.io_workers ?? '—'}</small>
             </Card>
-            <Card class="rounded-lg p-3.5">
+            <Card class="rounded-lg p-4">
               <span class="block text-xs text-muted-foreground">Maintenance I/O</span>
               <strong class="block text-xl font-bold tabular-nums mt-1">{data().database.maintenance_io_concurrency ?? '—'}</strong>
               <small class="block text-xs text-muted-foreground mt-1">max {data().database.io_max_concurrency ?? '—'}</small>
@@ -290,22 +290,22 @@ export function TenantAttentionPage() {
       <Show when={!summary.error && summary.data} fallback={<Show when={!summary.error}><SkeletonRows count={4} /></Show>}>
         {data => <>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Card class="rounded-lg p-3.5">
+            <Card class="rounded-lg p-4">
               <span class="block text-xs text-muted-foreground">Stale vouchers</span>
               <strong class="block text-xl font-bold tabular-nums mt-1">{data().area.stale_voucher_reservations}</strong>
               <small class="block text-xs text-muted-foreground mt-1">{data().area.vouchers_issued} issued</small>
             </Card>
-            <Card class="rounded-lg p-3.5">
+            <Card class="rounded-lg p-4">
               <span class="block text-xs text-muted-foreground">Stale ticket rewards</span>
               <strong class="block text-xl font-bold tabular-nums mt-1">{data().area.stale_ticket_reward_reservations}</strong>
               <small class="block text-xs text-muted-foreground mt-1">{data().area.ticket_rewards_issued} issued</small>
             </Card>
-            <Card class="rounded-lg p-3.5">
+            <Card class="rounded-lg p-4">
               <span class="block text-xs text-muted-foreground">Credits</span>
               <strong class="block text-xl font-bold tabular-nums mt-1">{data().area.credits_total}</strong>
               <small class="block text-xs text-muted-foreground mt-1">current total</small>
             </Card>
-            <Card class="rounded-lg p-3.5">
+            <Card class="rounded-lg p-4">
               <span class="block text-xs text-muted-foreground">Legacy imports</span>
               <strong class="block text-xl font-bold tabular-nums mt-1">{data().area.legacy_imported_players}</strong>
               <small class="block text-xs text-muted-foreground mt-1">players migrated</small>
@@ -324,7 +324,7 @@ export function TenantAttentionPage() {
         <Input class="min-h-10" value={timelineInput()} onInput={(event) => setTimelineInput(event.currentTarget.value)} placeholder="Request or correlation ID" aria-label="Request or correlation ID" />
         <Button variant="ghost" size="sm" disabled={!timelineInput().trim() || !!busy()} onClick={() => void lookupTimeline()}>{busy() === 'timeline' ? 'Tracing…' : 'Trace request'}</Button>
       </div>
-      <Show when={timeline()}>{result => <SectionPanel><div class="flex items-center justify-between gap-4 mb-3"><div><h3 class="text-sm font-semibold flex items-center gap-1.5"><SectionIcon name="history" />{result().events.length} timeline event(s)</h3><Button variant="ghost" size="sm" class="text-xs py-1.5 px-2.5" onClick={() => toggleRevealedId('timeline')}>{revealedId() === 'timeline' ? 'Hide ID' : 'Details'}</Button><Show when={revealedId() === 'timeline'}><small class="font-mono block p-1.5 px-2.5 rounded-sm bg-background border border-border-subtle text-muted-foreground text-xs break-all">Request ID · <span class="font-mono">{result().request_id}</span></small></Show></div><Button variant="ghost" size="sm" onClick={() => setTimeline(null)}>Close</Button></div><For each={result().events}>{event => <div class="rounded-lg border border-warning/30 bg-warning/10 p-3.5 px-4 my-3 text-sm text-warning-light leading-relaxed"><div class="flex gap-1.5 flex-wrap items-center"><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.source}</Badge><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.kind}</Badge></div><p class="mt-1.5">{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'}</p></div>}</For></SectionPanel>}</Show>
+      <Show when={timeline()}>{result => <SectionPanel><div class="flex items-center justify-between gap-4 mb-3"><div><h3 class="text-sm font-semibold flex items-center gap-1.5"><SectionIcon name="history" />{result().events.length} timeline event(s)</h3><Button variant="ghost" size="sm" class="text-xs py-1.5 px-2.5" onClick={() => toggleRevealedId('timeline')}>{revealedId() === 'timeline' ? 'Hide ID' : 'Details'}</Button><Show when={revealedId() === 'timeline'}><small class="font-mono block p-1.5 px-2.5 rounded-sm bg-background border border-border-subtle text-muted-foreground text-xs break-all">Request ID · <span class="font-mono">{result().request_id}</span></small></Show></div><Button variant="ghost" size="sm" onClick={() => setTimeline(null)}>Close</Button></div><For each={result().events}>{event => <div class="rounded-lg border border-warning/30 bg-warning/10 p-4 px-4 my-3 text-sm text-warning-light leading-relaxed"><div class="flex gap-1.5 flex-wrap items-center"><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.source}</Badge><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.kind}</Badge></div><p class="mt-1.5">{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'}</p></div>}</For></SectionPanel>}</Show>
     </TabPanel>
   </PageShell>
 }

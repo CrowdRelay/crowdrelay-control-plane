@@ -130,7 +130,7 @@ export function RedditCookieUploader(props: { slug: string }) {
         <h3>Reddit Session Cookies</h3>
         <span class={cn('text-xs uppercase tracking-tight px-2.5 py-0.5 rounded-sm bg-surface-3 border border-border-subtle text-muted-foreground font-semibold', statusLabel().class)}>{statusLabel().text}</span>
       </div>
-      <p class="text-sm text-muted-foreground leading-relaxed m-0 mb-3.5">
+      <p class="text-sm text-muted-foreground leading-relaxed m-0 mb-4">
         Upload a Netscape <code>cookies.txt</code> file from a logged-in Reddit session.
         Only <code>reddit.com</code> cookies are extracted — other domains are ignored.
         This is the recovery path when Reddit blocks the browser login.
@@ -148,27 +148,27 @@ export function RedditCookieUploader(props: { slug: string }) {
       </Show>
 
       <Show when={status.data?.status === 'expired'}>
-        <div class="p-3.5 my-3 border border-warning/30 rounded-lg bg-warning/10 text-warning-light leading-relaxed">
+        <div class="p-4 my-3 border border-warning/30 rounded-lg bg-warning/10 text-warning-light leading-relaxed">
           Cookies have expired. Upload a fresh <code>cookies.txt</code> to restore Reddit feeds.
         </div>
       </Show>
 
       <Show when={status.data?.status === 'failed'}>
-        <div class="p-3.5 my-3 border border-destructive/30 rounded-lg bg-destructive/10 text-destructive-light leading-relaxed">
+        <div class="p-4 my-3 border border-destructive/30 rounded-lg bg-destructive/10 text-destructive-light leading-relaxed">
           Reddit rejected the cookies (403). The account may be shadow-blocked or the datacenter IP is flagged.
           Upload fresh cookies from a residential IP, then test them.
         </div>
       </Show>
 
       <Show when={status.data?.status === 'missing'}>
-        <div class="p-3.5 my-3 border border-border-subtle rounded-lg bg-surface-1 text-muted-foreground leading-relaxed">
+        <div class="p-4 my-3 border border-border-subtle rounded-lg bg-surface-1 text-muted-foreground leading-relaxed">
           No Reddit cookies stored. Reddit feeds will fail until cookies are uploaded or the browser login succeeds.
         </div>
       </Show>
 
       <Show when={validateResult()}>
         <div class={cn(
-          'p-3.5 my-3 border rounded-lg leading-relaxed',
+          'p-4 my-3 border rounded-lg leading-relaxed',
           validateResult()!.valid
             ? 'border-success/30 bg-success/10 text-success-light'
             : 'border-destructive/30 bg-destructive/10 text-destructive-light',
@@ -211,7 +211,7 @@ export function RedditCookieUploader(props: { slug: string }) {
       </div>
 
       <Show when={uploadResult()}>
-        <div class="p-3.5 my-3 border border-success/30 rounded-md bg-success/10 text-success-light leading-relaxed">
+        <div class="p-4 my-3 border border-success/30 rounded-md bg-success/10 text-success-light leading-relaxed">
           <strong>{uploadResult()!.cookie_count}</strong> Reddit cookies stored. {formatExpiry(uploadResult()!.expires_at)}
         </div>
       </Show>

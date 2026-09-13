@@ -205,7 +205,7 @@ export function BrainDecisionPanel(props: {
     void decide(`reject:${e.decision_id}`, () => api.cancelOpportunityAction(props.slug, e.action_id!), 'Decision rejected — action cancelled')
   }
 
-  return <Card flat class="p-5">
+  return <Card flat>
     <div class="flex items-start justify-between gap-4 mb-4">
       <div>
         <PanelTitle icon={<SectionIcon name="brain" />}>What the system decided</PanelTitle>

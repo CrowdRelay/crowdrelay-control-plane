@@ -326,7 +326,7 @@ export function SectionTitle(props: {
   class?: string
 }) {
   return (
-    <div class={cn('flex items-center justify-between gap-4 mt-6 mb-3', props.class)}>
+    <div class={cn('flex items-center justify-between gap-4 mt-6 mb-3 first:mt-0', props.class)}>
       <div class="flex items-center gap-2">
         <Show when={props.icon}>
           <span class="text-muted-foreground">{props.icon}</span>
@@ -596,7 +596,7 @@ export function DataRow(props: {
   last?: boolean
 }) {
   return (
-    <div class={cn('flex items-center justify-between gap-3.5 py-3', !props.last && 'border-b border-border', props.class)}>
+    <div class={cn('flex items-center justify-between gap-4 py-3', !props.last && 'border-b border-border', props.class)}>
       {props.children}
     </div>
   )
@@ -607,7 +607,7 @@ export function DataRow(props: {
 
 export function FormGrid(props: { children: JSX.Element; class?: string }) {
   return (
-    <div class={cn('grid grid-cols-1 md:grid-cols-2 gap-3.5', props.class)}>
+    <div class={cn('grid grid-cols-1 md:grid-cols-2 gap-4', props.class)}>
       {props.children}
     </div>
   )

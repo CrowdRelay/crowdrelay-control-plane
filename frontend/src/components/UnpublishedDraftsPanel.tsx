@@ -63,7 +63,7 @@ export function UnpublishedDraftsPanel(props: {
     return ages.length > 0 ? Math.max(...ages) : null
   }
 
-  return <Card flat class="p-4 space-y-4">
+  return <Card flat class="space-y-4">
     <div>
       <PanelTitle icon={<SectionIcon name="inbox" />}>Waiting on you to publish</PanelTitle>
       <p class="text-muted-foreground text-sm mt-1">

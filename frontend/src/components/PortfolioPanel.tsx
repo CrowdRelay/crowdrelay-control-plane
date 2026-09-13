@@ -103,7 +103,7 @@ export function PortfolioPanel(props: {
     setRowReason('')
   }
 
-  return <Card flat class="p-4">
+  return <Card flat>
     <div class="flex items-center justify-between gap-4 mb-3">
       <div><PanelTitle icon={<SectionIcon name="megaphone" />}>Roster & amplification</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Route one artist's release or show in front of another artist's consenting fans, per edge. Not a shared list — a permission, <strong class="font-medium text-secondary-foreground">capped, revocable and audited</strong>, with a record of every time it was used.</p></div>
       <div class="flex flex-wrap items-center gap-2">
@@ -165,7 +165,7 @@ export function PortfolioPanel(props: {
             <Show when={expandedRow() === edge.id}>
               <TableRow class="p-0 border-t-0">
                 <TableCell colspan="7" class="p-0 border-t-0">
-                  <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3.5 items-end px-4 py-4 bg-surface-1 border border-primary/30 rounded-b-lg -mt-px">
+                  <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end px-4 py-4 bg-surface-1 border border-primary/30 rounded-b-lg -mt-px">
                     <Show when={edge.status === 'proposed'}>
                       <label class="grid gap-1.5 text-muted-foreground text-sm">
                         <span>Approving operator</span>
