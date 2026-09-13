@@ -128,7 +128,18 @@ services:
       start_period: 10s
     # Playwright/Chromium needs more memory than a pure API service.
     # The browser is used for Reddit scraping (6h cycle) and posting (on demand).
-    mem_limit: 512m
+    #
+    # 512m was not enough and failed in the worst possible way. Measured in
+    # production at that limit, with only about:blank open: Node 157 MiB, Xvfb
+    # 55 MiB, the Chromium browser process 131 MiB, plus GPU, network, storage
+    # and zygote helpers — 416 MiB of 512 MiB before a single Reddit page. Each
+    # subreddit page then adds a ~78 MiB renderer, which the cgroup killed.
+    # Playwright reports that as "Target crashed", the join fell through to a
+    # Join button on a dead page, and the worker's only symptom was
+    # "operation timed out" for hours while 41 communities stayed unjoined.
+    # The host has ~9 GiB free and every other container is capped well below
+    # its need, so headroom here is cheap and the alternative is silent.
+    mem_limit: 1536m
     cpus: 1.0
     # read_only is relaxed because Playwright writes to the profile directory
     # and needs to create temp files during browser operation.
