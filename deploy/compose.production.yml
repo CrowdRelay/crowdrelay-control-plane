@@ -94,6 +94,19 @@ services:
       virya-edge:
         aliases: [control-plane, control-plane-active]
 
+  # WARNING: production does not run this block.
+  #
+  # `/srv/crowdrelay-control-plane` on the host is not a git checkout. It is a
+  # hand-maintained operator directory, and the live agent-service is defined by
+  # an untracked `compose.agents.yml` there — `deploy-bluegreen.sh` even says so
+  # ("compose.agents.yml is optional"). The host's own `compose.production.yml`
+  # has no agent-service block at all.
+  #
+  # So editing anything here — image, environment, mem_limit — changes nothing
+  # that runs. Verified the hard way on 2026-09-13: a memory limit was raised
+  # here, committed, deployed, and production still reported 512 MiB. This is
+  # the same shape as the city_geocoding config that sat in a file no container
+  # reads. Change the host file, and treat this one as a reference only.
   agent-service:
     image: ghcr.io/crowdrelay/crowdrelay-agents:${AGENT_SERVICE_IMAGE_TAG:?AGENT_SERVICE_IMAGE_TAG required}
     restart: unless-stopped
