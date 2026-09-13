@@ -449,6 +449,18 @@ for soak_attempt in $(seq 1 6); do
   fi
   # Immediate rollback on deterministic critical probe failure
   [[ "$code" == "200" ]] || fail "candidate soak critical probe failed attempt=$soak_attempt status=${code:-transport}"
+  # The alias probe proves the candidate answers on the docker network; this
+  # one proves the public edge actually routes to it. A stale upstream list or
+  # a detached edge bind mount fails here while the alias check keeps passing —
+  # counted, not fatal: a single reload blip should not roll back a deploy.
+  public_code="$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 3 --max-time 10 \
+    'https://control.crowdrelay.music/healthz/ready' || true)"
+  soak_total=$((soak_total + 1))
+  if [[ "$public_code" =~ ^5 ]] || [[ -z "$public_code" ]] || [[ "$public_code" == "000" ]]; then
+    soak_errors=$((soak_errors + 1))
+    printf 'SOAK_ERROR attempt=%s path=public-edge status=%s total=%s errors=%s\n' \
+      "$soak_attempt" "${public_code:-transport}" "$soak_total" "$soak_errors" >&2
+  fi
   # Error-rate threshold check: 2% with >=50 samples, or absolute floor of 3
   # when sample size is too small for a meaningful rate (early in the soak).
   if [[ "$soak_total" -ge 50 ]]; then
