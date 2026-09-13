@@ -1,89 +1,15 @@
 import { Show, For, createSignal, createEffect, onCleanup } from 'solid-js'
 import { useNavigate, useLocation } from '@tanstack/solid-router'
-import { request, ApiError } from '../lib/api'
+import { ApiError } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { cn } from '../lib/cn'
 import { Textarea } from './ui/textarea'
 import type { ChatMessage, ChatAction } from '../lib/types'
 import { READ_ONLY_REASON, readOnly, writeGuard } from '../lib/read-only'
-
-// Distinguishes a server-sent SSE error from a JSON parse failure on a
-// keepalive/heartbeat line. The catch block uses `instanceof StreamError`
-// to propagate real errors while silently ignoring unparseable non-JSON
-// lines. String-matching the message (the old approach) swallowed every
-// server error whose text happened to contain "JSON".
-class StreamError extends Error {}
-
-// --- Icons ---
-const ChatIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-  </svg>
-)
-
-const CloseIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-  </svg>
-)
-
-const SendIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
-  </svg>
-)
-
-const SparkIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M12 2v6m0 8v6M4.93 4.93l4.24 4.24m5.66 5.66l4.24 4.24M2 12h6m8 0h6M4.93 19.07l4.24-4.24m5.66-5.66l4.24-4.24" />
-  </svg>
-)
-
-const SUGGESTIONS = [
-  "What can I do here?",
-  "Help me set up a daily press pitch",
-  "How do I connect OpenAI?",
-  "Show me how to enable autopilot",
-  "What free AI models are available?",
-]
-
-const ACTIONS_DELIMITER = ':::actions'
-
-/** Strip the :::actions block from displayed text. */
-function stripActions(raw: string): string {
-  const idx = raw.indexOf(ACTIONS_DELIMITER)
-  return idx === -1 ? raw : raw.slice(0, idx).trimEnd()
-}
-
-/**
- * Turns a model-supplied navigate target into a path we are willing to follow.
- *
- * A path from a language model is untrusted input, and this one was being
- * handed straight to the router. Two things go wrong with that.
- *
- * The one that bit: the prompt documents routes as `/tenants/{slug}/...`, and
- * the model copied the placeholder through literally, so the app navigated to
- * `/tenants/%7Bslug%7D/intelligence` and the API answered "slug must be 2-63
- * lowercase letters, digits or internal hyphens". Substituting it here fixes
- * that for every phrasing the model might produce, rather than hoping the
- * prompt is followed.
- *
- * The one that had not bit yet: nothing checked the target was in-app. A model
- * that emitted an absolute URL would have been followed off-site. Anything not
- * starting with a single `/` is refused.
- */
-export function resolveNavigatePath(raw: unknown, slug: string): string | null {
-  if (typeof raw !== 'string') return null
-  let path = raw.trim().replace(/\{slug\}|:slug|\{SLUG\}|%7Bslug%7D/gi, slug)
-  // `//host` is protocol-relative and leaves the app, so one leading slash only.
-  if (!path.startsWith('/') || path.startsWith('//')) return null
-  // The model frequently hallucinates a wrong tenant slug (e.g. "kumo"
-  // instead of "virya"). Force-replace the slug segment in any
-  // /tenants/<slug>/... path so navigation always stays inside the
-  // tenant the operator is actually viewing.
-  path = path.replace(/^\/tenants\/[^/]+(\/|$)/, `/tenants/${slug}$1`)
-  return path
-}
+import { SparkIcon, CloseIcon, SendIcon } from './chat-icons'
+import { renderMarkdown } from '../lib/chat-markdown'
+import { CHAT_SUGGESTIONS, readChatStream, stripActions } from '../lib/chat-stream'
+import { runChatAction } from '../lib/chat-actions'
 
 export function ChatWidget(props: { slug: string }) {
   const [open, setOpen] = createSignal(false)
@@ -245,56 +171,17 @@ export function ChatWidget(props: { slug: string }) {
       const reader = response.body?.getReader()
       if (!reader) throw new Error('No response stream')
 
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let actions: ChatAction[] = []
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-
-        // Process complete SSE events (separated by \n\n)
-        const events = buffer.split('\n\n')
-        buffer = events.pop() ?? ''
-
-        for (const event of events) {
-          const line = event.trim()
-          if (!line.startsWith('data: ')) continue
-          const payload = line.slice(6)
-          try {
-            const raw = JSON.parse(payload)
-            if (typeof raw !== 'object' || raw === null || typeof (raw as Record<string, unknown>).type !== 'string') {
-              continue
-            }
-            const data = raw as { type: string; text?: unknown; actions?: unknown; error?: unknown }
-            if (data.type === 'token' && typeof data.text === 'string') {
-              accumulated += data.text
-              // Update a dedicated signal — NOT the messages array.
-              // This lets the streaming text grow as a smooth text node
-              // instead of re-setting innerHTML on every token (which
-              // causes the browser to rebuild the DOM and blink).
-              setStreamingContent(accumulated)
-            } else if (data.type === 'actions' && Array.isArray(data.actions)) {
-              actions = data.actions as ChatAction[]
-            } else if (data.type === 'error') {
-              throw new StreamError(typeof data.error === 'string' ? data.error : 'stream error')
-            }
-            // 'done' type — stream is complete, nothing extra to do.
-          } catch (e) {
-            // Only the parse of a malformed line is ignorable — keepalive and
-            // heartbeat lines are not JSON. An error the server sent us is a
-            // real failure and has to reach the caller.
-            //
-            // This used to tell the two apart by string-matching the message
-            // ("does it mention JSON?"), which swallowed every server error
-            // whose text happened to contain the word — "model returned
-            // invalid JSON" and friends surfaced to the operator as the
-            // assistant replying "(no response)".
-            if (e instanceof StreamError) throw e
-          }
-        }
-      }
+      // Update a dedicated signal — NOT the messages array — so the
+      // streaming text grows as a smooth text node instead of re-setting
+      // innerHTML on every token (which rebuilds the DOM and blinks).
+      // `accumulated` is kept in sync so the catch blocks still see the
+      // partial reply if the stream dies halfway.
+      const result = await readChatStream(reader, (a) => {
+        accumulated = a
+        setStreamingContent(a)
+      })
+      accumulated = result.text
+      const actions = result.actions
 
       // Finalize: strip the :::actions block from displayed text, attach actions.
       const cleanReply = stripActions(accumulated)
@@ -350,114 +237,10 @@ export function ChatWidget(props: { slug: string }) {
     setError(null)
 
     try {
-      switch (action.type) {
-        case 'navigate': {
-          const path = resolveNavigatePath(action.params.path, props.slug)
-          if (path) navigate({ to: path })
-          setOpen(false)
-          break
-        }
-        case 'run_task': {
-          await request(`/tenants/${encodeURIComponent(props.slug)}/agents/tasks`, {
-            method: 'POST',
-            body: JSON.stringify({
-              template_id: action.params.template_id,
-              model_id: action.params.model_id ?? 'laguna-s-2.1-free',
-              prompt: action.params.prompt,
-            }),
-          })
-          setMessages(m => [...m, { role: 'assistant', content: `Task started! You can check the result on the [Integrations page](/tenants/${props.slug}/integrations).` }])
-          break
-        }
-        case 'create_schedule': {
-          await request(`/tenants/${encodeURIComponent(props.slug)}/agents/schedules`, {
-            method: 'POST',
-            body: JSON.stringify({
-              template_id: action.params.template_id,
-              model_id: action.params.model_id ?? 'laguna-s-2.1-free',
-              prompt: action.params.prompt,
-              interval_minutes: action.params.interval_minutes ?? 1440,
-            }),
-          })
-          setMessages(m => [...m, { role: 'assistant', content: 'Schedule created! It will run automatically on the configured interval.' }])
-          break
-        }
-        case 'toggle_autopilot': {
-          await request(`/tenants/${encodeURIComponent(props.slug)}/operations/autopilot/bulk`, {
-            method: 'POST',
-            headers: { 'idempotency-key': crypto.randomUUID() },
-            body: JSON.stringify({ enabled: action.params.enabled }),
-          })
-          setMessages(m => [...m, { role: 'assistant', content: `Autopilot ${action.params.enabled ? 'enabled' : 'disabled'} for all contexts.` }])
-          break
-        }
-        case 'paste_api_key': {
-          navigate({ to: `/tenants/${props.slug}/integrations` })
-          setOpen(false)
-          break
-        }
-        case 'create_notifier': {
-          await request(`/tenants/${encodeURIComponent(props.slug)}/notifiers`, {
-            method: 'POST',
-            body: JSON.stringify({
-              kind: action.params.kind ?? 'discord',
-              label: action.params.label ?? 'AI-created notifier',
-              events: ['delivery.failed', 'outbox.dead'],
-              enabled: true,
-            }),
-          })
-          setMessages(m => [...m, { role: 'assistant', content: 'Notifier channel created! You can configure it on the Notifiers page.' }])
-          break
-        }
-        case 'create_fanbase': {
-          await request(`/tenants/${encodeURIComponent(props.slug)}/portfolio/fanbases`, {
-            method: 'POST',
-            headers: { 'idempotency-key': crypto.randomUUID() },
-            body: JSON.stringify({
-              name: action.params.name ?? 'New fanbase',
-              sourceKind: action.params.sourceKind ?? 'manual_import',
-            }),
-          })
-          setMessages(m => [...m, { role: 'assistant', content: 'Fanbase created! You can add fans to it on the Portfolio page.' }])
-          break
-        }
-        case 'enable_area': {
-          await request(`/tenants/${encodeURIComponent(props.slug)}/area/settings`, {
-            method: 'PATCH',
-            body: JSON.stringify({ enabled: action.params.enabled ?? true }),
-          })
-          setMessages(m => [...m, { role: 'assistant', content: `AREA ${action.params.enabled ? 'enabled' : 'disabled'}.` }])
-          break
-        }
-        case 'deploy_tenant': {
-          await request(`/tenants/${encodeURIComponent(props.slug)}/provisioning/deploy`, {
-            method: 'POST',
-            body: JSON.stringify({}),
-          })
-          setMessages(m => [...m, { role: 'assistant', content: 'Deploy requested — accepted by GitHub. Watch the Actions tab for completion.' }])
-          break
-        }
-        case 'retry_dead_deliveries': {
-          await request(`/tenants/${encodeURIComponent(props.slug)}/operations/dead-deliveries/clear`, {
-            method: 'POST',
-            headers: { 'idempotency-key': crypto.randomUUID() },
-            body: '{}',
-          })
-          setMessages(m => [...m, { role: 'assistant', content: 'Dead deliveries replayed!' }])
-          break
-        }
-        case 'run_reconciliation': {
-          await request(`/tenants/${encodeURIComponent(props.slug)}/operations/reconcile`, {
-            method: 'POST',
-            headers: { 'idempotency-key': crypto.randomUUID() },
-            body: '{}',
-          })
-          setMessages(m => [...m, { role: 'assistant', content: 'Reconciliation started!' }])
-          break
-        }
-        default:
-          setError('Unknown action type')
-      }
+      const result = await runChatAction(action, props.slug, (to) => navigate({ to }))
+      if (result.closePanel) setOpen(false)
+      if (result.error) setError(result.error)
+      if (result.reply) setMessages(m => [...m, { role: 'assistant', content: result.reply! }])
     } catch (err) {
       setError(errorMessage(err, 'Action failed'))
       setMessages(m => [...m, { role: 'assistant', content: `That action failed: ${errorMessage(err, 'unknown error')}` }])
@@ -518,7 +301,7 @@ export function ChatWidget(props: { slug: string }) {
                 <h3>AI Assistant</h3>
                 <p>Ask about operations, growth metrics, autopilot, or platform health. Try one of these to start:</p>
                 <div class="flex flex-col gap-2 w-full max-w-xs">
-                  <For each={SUGGESTIONS}>
+                  <For each={CHAT_SUGGESTIONS}>
                     {(s) => (
                       <button class="text-left text-sm rounded-md border border-border px-3 py-2 text-muted-foreground hover:bg-surface-1 hover:text-foreground hover:border-border-strong transition-colors" onClick={() => send(s)}>{s}</button>
                     )}
@@ -619,54 +402,4 @@ export function ChatWidget(props: { slug: string }) {
       </Show>
     </>
   )
-}
-
-// Only relative in-app paths may reach an href. The reply text is model
-// output seeded with tenant data that itself came from outside (Reddit
-// threads, press mail, fan display names), so a link target here is
-// untrusted input, not our own string. The model also hallucinates absolute
-// URLs with wrong domains (crowdrelay.music, control.crowdrelay.music) and
-// non-existent tenants — those must never become clickable links. Only
-// paths starting with a single `/` (no `//protocol-relative`) are allowed;
-// everything else is rendered as plain text.
-function safeHref(url: string, slug: string): string | null {
-  const trimmed = url.trim()
-  if (!trimmed.startsWith('/') || trimmed.startsWith('//')) return null
-  // Reject anything that looks like it has a scheme after the slash
-  if (/^\/[^/]*:/.test(trimmed)) return null
-  // Force the correct tenant slug — the model hallucinates wrong ones.
-  return trimmed.replace(/^\/tenants\/[^/]+(\/|$)/, `/tenants/${slug}$1`)
-}
-
-// Escaping `<`, `>` and `&` is not enough for a value interpolated inside an
-// attribute: an unescaped quote closes href="…" early and everything after it
-// becomes markup, which is how an event handler gets in.
-function escapeAttribute(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-}
-
-// Minimal markdown → HTML (bold, italic, code, links, line breaks)
-// The slug is needed to force-correct hallucinated tenant slugs in links.
-function renderMarkdown(text: string, slug: string): string {
-  const esc = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-  return esc
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code>$1</code>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (whole, label: string, url: string) => {
-      // The URL group still carries the `&amp;` escaping applied above; undo
-      // it before parsing so query strings round-trip intact.
-      const href = safeHref(url.replace(/&amp;/g, '&'), slug)
-      if (!href) return whole
-      return `<a href="${escapeAttribute(href)}">${label}</a>`
-    })
-    .replace(/\n/g, '<br>')
 }

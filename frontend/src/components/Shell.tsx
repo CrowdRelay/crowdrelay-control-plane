@@ -1,6 +1,6 @@
 import { Link, Outlet, useParams, useNavigate, useRouter } from '@tanstack/solid-router'
 import { Eyebrow } from './layout'
-import { Show, For, createSignal, createEffect, lazy, onMount, onCleanup, Suspense, type Component, type JSX } from 'solid-js'
+import { Show, For, createSignal, createEffect, lazy, onMount, onCleanup, Suspense, type Component } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { authState } from '../lib/auth'
 import { commandPaletteOpen, toggleCommandPalette } from './command-palette-state'
@@ -12,9 +12,11 @@ import { ErrorBoundaryPanel } from './ErrorBoundaryPanel'
 import { ConfirmHost } from './Dialog'
 import { ReauthModal } from './ReauthModal'
 import { Button } from './ui/button'
-import type { TenantSummary } from '../lib/types'
 import { cn } from '../lib/cn'
 import { whileIncomplete, hasUnavailableTenant } from '../lib/incomplete'
+import { NavIcon } from './NavIcon'
+import { TenantSwitcher } from './TenantSwitcher'
+import { TENANT_NAV_GROUPS, currentPageLabel, type NavGroup } from '../lib/nav'
 
 // The palette component loads on first invocation; the shortcut lives here so
 // Ctrl/⌘-K works before that chunk exists.
@@ -23,197 +25,6 @@ const CommandPalette = lazy(() => import('./CommandPalette').then(m => ({ defaul
 // its markdown renderer — and it only exists on tenant pages. Lazy so the
 // overview and login do not pay for it.
 const ChatWidget = lazy(() => import('./ChatWidget').then(m => ({ default: m.ChatWidget })))
-
-const healthDot = (tenant: TenantSummary) => {
-  if (tenant.status === 'suspended') return 'bad'
-  if (tenant.status === 'parked') return 'warn'
-  if (tenant.runtimeHealth === 'healthy') return 'good'
-  if (tenant.runtimeHealth === 'degraded') return 'warn'
-  if (tenant.runtimeHealth === 'stale') return 'warn'
-  return 'muted'
-}
-
-const healthLabel = (tenant: TenantSummary) => {
-  if (tenant.status === 'suspended') return 'suspended'
-  if (tenant.status === 'parked') return 'parked'
-  if (tenant.runtimeHealth === 'healthy') return 'healthy'
-  if (tenant.runtimeHealth === 'degraded') return 'degraded'
-  if (tenant.runtimeHealth === 'stale') return 'stopped reporting'
-  return 'not reporting'
-}
-
-// Tenant-scoped nav, grouped by the operator's mental model:
-//   CONTROL — what needs your attention right now (overview, incidents)
-//   BRAIN — the deterministic autopilot's intelligence and learning
-//   EXECUTION — live operations, integrations, and alert channels
-//   AUDIENCE — who you're reaching and how (portfolio, fans, beacons, AREA)
-type NavItem = { path: string; label: string; exact: boolean; icon: string }
-type NavGroup = { label: string; items: NavItem[]; defaultOpen: boolean }
-
-// Fourteen links, four groups, all expanded, was the whole product laid out
-// as a menu. Somebody who books shows opens this to do one thing: work today's
-// list. The daily group is always visible; the rest — set-up, deeper reports —
-// sits behind one disclosure that remembers whether it was left open.
-//
-// Nothing was removed. `defaultOpen` decides what an operator has to look at
-// before finding the work.
-const TENANT_NAV_GROUPS: NavGroup[] = [
-  {
-    label: 'Every day',
-    defaultOpen: true,
-    items: [
-      { path: '/tenants/$slug/operations', label: 'Operations', exact: false, icon: 'operations' },
-      { path: '/tenants/$slug/attention', label: 'Attention', exact: false, icon: 'attention' },
-      { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
-    ],
-  },
-  {
-    label: 'How it is going',
-    defaultOpen: false,
-    items: [
-      { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
-      { path: '/tenants/$slug/health', label: 'Health', exact: false, icon: 'sliders' },
-      { path: '/tenants/$slug/portfolio', label: 'Portfolio', exact: false, icon: 'portfolio' },
-    ],
-  },
-  {
-    label: 'Set up once',
-    defaultOpen: false,
-    items: [
-      { path: '/tenants/$slug/beacons', label: 'Beacons', exact: false, icon: 'beacons' },
-      { path: '/tenants/$slug/area', label: 'AREA', exact: false, icon: 'area' },
-      { path: '/tenants/$slug/notifiers', label: 'Notifiers', exact: false, icon: 'notifiers' },
-      { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
-      { path: '/tenants/$slug/automation', label: 'Automation', exact: false, icon: 'automation' },
-      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings' },
-    ],
-  },
-]
-
-// Small inline nav icons — 16px, currentColor, no external deps.
-function NavIcon(props: { name: string }) {
-  const icons: Record<string, JSX.Element> = {
-    overview: <><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>,
-    operations: <><path d="M3 12h4l2-7 4 14 2-7h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></>,
-    intelligence: <><path d="M9 3a3 3 0 0 0-3 3 3 3 0 0 0-1 5.8A3 3 0 0 0 7 17a3 3 0 0 0 2 4 3 3 0 0 0 3-3V3a3 3 0 0 0-3 0z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3a3 3 0 0 1 3 3 3 3 0 0 1 1 5.8A3 3 0 0 1 17 17a3 3 0 0 1-2 4 3 3 0 0 1-3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/></>,
-    attention: <><path d="M12 2L1 21h22L12 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1"/></>,
-    portfolio: <><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 9h18M9 9v12" fill="none" stroke="currentColor" stroke-width="2"/></>,
-    notifiers: <><path d="M18 8a6 6 0 0 1-12 0M18 8a6 6 0 0 0-12 0M18 8v5a6 6 0 0 1-12 0V8M12 14v3M10 19h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></>,
-    area: <><circle cx="12" cy="10" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></>,
-    'fan-intel': <><path d="M12 3 C9.5 3 7.5 4.2 7 6.5 C5.8 6.8 5 8 5.3 9.5 C4.3 10 4 11.2 4.8 12.2 C4 12.8 4 14 5 14.8 C4.8 16 5.8 17.5 7.5 18 C8.2 19 9.5 19.5 10.5 19.3 L12 19 L12 3 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M7 8 C8 8.4 9 8.4 9.8 8 M6 11 C7 11.4 8.5 11.4 9.5 11 M6.5 14 C7.5 14.3 8.8 14.3 9.8 14" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.55"/><path d="M12 3 C14.5 3 16.5 4.2 17 6.5 C18.2 6.8 19 8 18.7 9.5 C19.7 10 20 11.2 19.2 12.2 C20 12.8 20 14 19 14.8 C19.2 16 18.2 17.5 16.5 18 C15.8 19 14.5 19.5 13.5 19.3 L12 19 L12 3 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="15.2" cy="10" r="1" fill="currentColor"/><path d="M14 14 C14.8 14.5 15.5 14.5 16 14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></>,
-    integrations: <><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1l2.1-2.1M17 7l2.1-2.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></>,
-    automation: <><circle cx="6" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 6h7M9 8l2 7M15 8l-2 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></>,
-    flow: <><circle cx="5" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="19" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 6h4l3 8M17 6h-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></>,
-    beacons: <><path d="M9.5 21h5l-.9-10h-3.2zM9.9 11h4.2l-.5-3h-3.2zM8 6.5 5 5M16 6.5 19 5M8 9 5 9.5M16 9l3 .5M7.5 21h9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></>,
-    sliders: <><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12M18 18h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="8" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="16" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/></>,
-    settings: <><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></>,
-  }
-  return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="nav-icon flex-shrink-0 opacity-60" aria-hidden="true">{icons[props.name] ?? icons.overview}</svg>
-}
-
-function TenantSwitcher(props: {
-  tenants: TenantSummary[]
-  currentSlug: string | undefined
-  onSelect: (slug: string) => void
-  open: boolean
-  onToggle: () => void
-  onClose: () => void
-  collapsed: boolean
-}) {
-  const [search, setSearch] = createSignal('')
-  const current = () => props.tenants.find(t => t.slug === props.currentSlug)
-  const sorted = () => [...props.tenants].sort((a, b) => a.displayName.localeCompare(b.displayName))
-  const filtered = () => {
-    const q = search().trim().toLowerCase()
-    if (!q) return sorted()
-    return sorted().filter(t => t.displayName.toLowerCase().includes(q) || t.slug.toLowerCase().includes(q))
-  }
-
-  return <div class="relative">
-    <button type="button" class={cn('flex w-full items-center gap-2 rounded-md py-2 text-left text-sm hover:bg-surface-1 transition-colors', props.collapsed ? 'justify-center' : 'px-2')} onClick={() => props.onToggle()} title={current()?.displayName} aria-expanded={props.open} aria-haspopup="listbox" aria-label="Select tenant">
-      <Show when={current()} fallback={<span class="w-2 h-2 rounded-full bg-muted-foreground flex-shrink-0" />}>
-        {t => <span class={cn('w-2 h-2 rounded-full flex-shrink-0', {
-          'bg-success': healthDot(t()) === 'good',
-          'bg-warning': healthDot(t()) === 'warn',
-          'bg-destructive': healthDot(t()) === 'bad',
-          'bg-muted-foreground': healthDot(t()) === 'muted',
-        })} />}
-      </Show>
-      <Show when={!props.collapsed}>
-        <span class="flex-1 truncate font-medium text-foreground">{current()?.displayName ?? 'Select tenant'}</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class={cn('text-muted-foreground transition-transform', props.open && 'rotate-180')} aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-      </Show>
-    </button>
-    <Show when={props.open && !props.collapsed}>
-      <div class="absolute left-0 right-0 top-full z-50 mt-1 rounded-md border border-border bg-popover shadow-lg max-h-80 overflow-auto" role="listbox">
-        <Show when={props.tenants.length > 5}>
-          <input
-            class="w-full border-b border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
-            placeholder="Filter tenants…"
-            aria-label="Filter tenants"
-            value={search()}
-            onInput={(e) => setSearch(e.currentTarget.value)}
-            onClick={(e) => e.stopPropagation()}
-            spellcheck={false}
-          />
-        </Show>
-        <For each={filtered()}>{tenant => (
-          <button
-            type="button"
-            class={cn('flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-surface-1 transition-colors', tenant.slug === props.currentSlug && 'bg-surface-1')}
-            onClick={() => { props.onClose(); props.onSelect(tenant.slug) }}
-          >
-            <span class={cn('w-2 h-2 rounded-full flex-shrink-0', {
-              'bg-success': healthDot(tenant) === 'good',
-              'bg-warning': healthDot(tenant) === 'warn',
-              'bg-destructive': healthDot(tenant) === 'bad',
-              'bg-muted-foreground': healthDot(tenant) === 'muted',
-            })} />
-            <span class="flex flex-col min-w-0">
-              <strong class="truncate text-foreground">{tenant.displayName}</strong>
-              <small class="text-xs text-muted-foreground">{tenant.slug} · {healthLabel(tenant)}</small>
-            </span>
-          </button>
-        )}</For>
-        <Show when={filtered().length === 0}>
-          <div class="px-3 py-4 text-sm text-muted-foreground">No tenants match “{search()}”.</div>
-        </Show>
-      </div>
-    </Show>
-  </div>
-}
-
-// Global nav, declared once so the topbar breadcrumb can name the current
-// page instead of repeating the tenant name the page heading already shows.
-// Ordered the way the work is read: what is happening, who it is for, what is
-// running, what needs a person, then the map that explains the rest.
-// `New tenant` stays beside Tenants — it is that page's action, not a sixth
-// destination.
-const GLOBAL_NAV: NavItem[] = [
-  { path: '/', label: 'Overview', exact: true, icon: 'overview' },
-  { path: '/tenants', label: 'Tenants', exact: true, icon: 'portfolio' },
-  { path: '/tenants/new', label: 'New tenant', exact: true, icon: 'portfolio' },
-  { path: '/flow', label: 'Process map', exact: false, icon: 'flow' },
-]
-
-// Longest tenant suffix wins so `/operations` never matches before a deeper
-// child route added later.
-const TENANT_NAV_ITEMS = TENANT_NAV_GROUPS.flatMap(group => group.items)
-  .slice()
-  .sort((a, b) => b.path.length - a.path.length)
-
-const currentPageLabel = (pathname: string, slug: string | undefined) => {
-  if (slug) {
-    const base = `/tenants/${slug}`
-    const suffix = pathname.slice(base.length)
-    const match = TENANT_NAV_ITEMS.find(item => {
-      const itemSuffix = item.path.replace('/tenants/$slug', '')
-      return itemSuffix ? suffix.startsWith(itemSuffix) : suffix === ''
-    })
-    return match?.label ?? 'Overview'
-  }
-  return GLOBAL_NAV.find(item => item.exact ? pathname === item.path : pathname.startsWith(item.path))?.label ?? 'Overview'
-}
 
 export const Shell: Component = () => {
   const params = useParams({ strict: false })

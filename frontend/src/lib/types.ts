@@ -1009,6 +1009,36 @@ export interface AgentModel {
   providerName: string
 }
 
+export interface PremiumModel {
+  id: string
+  provider: string
+  name: string
+  best_for: string
+  agentic: boolean
+  price_input_per_mtok: number
+  price_output_per_mtok: number
+}
+
+export interface PremiumTask {
+  id: string
+  template_id: string
+  model_id: string
+  model_provider: string | null
+  tier: string
+  cost_micro_usd: number
+  status: string
+  created_at: string
+  completed_at: string | null
+}
+
+export interface PremiumUsage {
+  connected_providers: string[]
+  premium_models: PremiumModel[]
+  monthly_spend_micro_usd: number
+  budget_micro_usd: number
+  tasks: PremiumTask[]
+}
+
 export interface AgentTask {
   id: string
   template_id: string
