@@ -21,40 +21,35 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   // substring-matches "Password" and strict mode sees two elements.
   await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  // After login, the shell redirects to the operator's default tenant
-  // (/tenants/virya) so the tenant-scoped nav is immediately available.
-  // The test verifies the tenant landing, then navigates to the tenants list.
-  await expect(page.getByRole('heading', { name: 'Virya' })).toBeVisible()
+  // After login, the shell redirects to the operator's default tenant's
+  // Operations page — the worklist, not the profile. Verify the landing by
+  // URL and heading rather than the tenant name (which lives in the header
+  // of the profile page, not here).
+  await expect(page).toHaveURL(/\/tenants\/[^/]+\/operations/)
+  await expect(page.getByRole('heading', { name: 'Operations' })).toBeVisible()
 
   await page.getByRole('link', { name: 'Tenants' }).first().click()
   await expect(page.getByRole('heading', { name: 'Teams on the platform' })).toBeVisible()
-  const virya = page.locator('a.tenant-row').filter({ hasText: /virya/i }).first()
+  const virya = page.locator('[data-slot="tenant-row"]').filter({ hasText: /virya/i }).first()
   await expect(virya).toBeVisible()
   await virya.click()
-  await expect(page.locator('.runtime-panel')).toBeVisible()
+  // The tenant profile page opens on the profile tab; the Heartbeat panel is
+  // the live-polled surface this journey exists to watch.
+  await expect(page.getByRole('heading', { name: 'Heartbeat' })).toBeVisible()
 
-  const tenantHeading = page.locator('.page-head h1').first()
+  const tenantHeading = page.locator('h1').first()
   const headingHandle = await tenantHeading.elementHandle()
   if (!headingHandle) throw new Error('tenant heading element handle missing')
   const originalHeading = await tenantHeading.textContent()
   const originalURL = page.url()
 
-  // Use a deliberately incomplete SHA so no mutation can become actionable.
-  // The value exists only to prove the parent page is not remounted by the 15s
-  // runtime poll.
-  const desiredVersion = page.locator('.provision-row input').first()
-  if (await desiredVersion.count()) {
-    await desiredVersion.fill('sha-e2e-stability-probe')
-  }
-
+  // The 15s runtime poll must not remount the page — a remount detaches the
+  // heading node and resets any in-progress edit. Wait past one poll cycle.
   await page.waitForTimeout(17_000)
   expect(page.url()).toBe(originalURL)
   expect(await headingHandle.evaluate((node) => node.isConnected)).toBe(true)
   expect(await tenantHeading.textContent()).toBe(originalHeading)
-  if (await desiredVersion.count()) {
-    await expect(desiredVersion).toHaveValue('sha-e2e-stability-probe')
-  }
-  await expect(page.locator('.runtime-panel')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Heartbeat' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Log out' }).click()
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
