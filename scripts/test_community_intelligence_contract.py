@@ -44,13 +44,20 @@ class ControlPlaneSide(unittest.TestCase):
         self.assertIn(f'"{BASE}"', source)
         self.assertIn(f"{BASE}/{{place_id}}/observations", source)
         self.assertIn(f"{BASE}/{{place_id}}/entities", source)
+        self.assertIn(f"{BASE}/{{place_id}}/membership", source)
+        self.assertIn(f"{BASE}/{{place_id}}/intro-draft", source)
 
-    def test_proxy_allowlist_covers_all_three_paths(self) -> None:
+    def test_proxy_allowlist_covers_all_paths(self) -> None:
+        """Every forwarded path needs a POST or GET arm entry — the allowlist is
+        the third place a route must be added, and membership shipped without
+        one: the Joined button answered "invalid tenant operations request"."""
         source = read(AREA_CLIENT)
         self.assertIn(f'"{BASE}"', source)
         self.assertIn(f'"{BASE}/"', source)
         self.assertIn('"/observations"', source)
         self.assertIn('"/entities"', source)
+        self.assertIn('"/membership"', source)
+        self.assertIn('"/intro-draft"', source)
 
     def test_legacy_admin_spelling_is_gone(self) -> None:
         for path in (OPERATIONS_ROUTES, AREA_CLIENT):
@@ -84,6 +91,8 @@ class CrowdRelaySide(unittest.TestCase):
         self.assertIn(f'"{BASE}/"', body)
         self.assertIn('"/observations"', body)
         self.assertIn('"/entities"', body)
+        self.assertIn('"/membership"', body)
+        self.assertIn('"/intro-draft"', body)
 
 
 if __name__ == "__main__":

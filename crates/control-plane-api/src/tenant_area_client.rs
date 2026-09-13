@@ -605,6 +605,15 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || one_safe_segment(path, "/v1/control-plane/tenant-settings/")
                 || path == "/v1/control-plane/fanbases"
                 || path == "/v1/control-plane/fanbases/connections"
+                // Recording membership (joined, rejected, …) was refused here
+                // even though the route and the upstream handler both existed —
+                // the same third-place failure the intro-draft comment above
+                // describes, one endpoint over.
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/community-intelligence/communities/",
+                    "/membership",
+                )
                 // Registering a community used to require psql against the
                 // tenant database: the capability lived only under /v1/admin,
                 // which this proxy deliberately cannot reach.
@@ -1477,6 +1486,10 @@ mod tests {
         assert!(valid_operations_request(
             "POST",
             &format!("/v1/control-plane/ops/deliveries/{id}/retry")
+        ));
+        assert!(valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/community-intelligence/communities/{id}/membership")
         ));
         // Query-string list endpoints are now valid for paginated browsing.
         assert!(valid_operations_request(
