@@ -176,7 +176,7 @@ export const api = {
   setCommunityMembership: (slug: string, placeId: string, state: string, note?: string) =>
     request<{ placeId: string; membershipState: string }>(
       `/tenants/${encodeURIComponent(slug)}/portfolio/communities/${encodeURIComponent(placeId)}/membership`,
-      { method: 'POST', body: JSON.stringify({ state, note: note ?? null }) },
+      { method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify({ state, note: note ?? null }) },
     ),
 
   communityIntroDraft: (slug: string, placeId: string) =>

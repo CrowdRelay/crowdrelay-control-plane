@@ -3475,9 +3475,19 @@ async fn set_community_membership(
     Json(body): Json<Value>,
 ) -> Result<Response, ApiError> {
     uuid_segment(&place_id)?;
+    let idempotency = idempotency_key(&headers)?.to_owned();
     let path =
         format!("/v1/control-plane/community-intelligence/communities/{place_id}/membership");
-    let (_, value) = call(&state, &slug, "POST", &path, Some(&body), &headers, None).await?;
+    let (_, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "community membership")
 }

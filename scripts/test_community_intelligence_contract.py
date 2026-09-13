@@ -59,6 +59,22 @@ class ControlPlaneSide(unittest.TestCase):
         self.assertIn('"/membership"', source)
         self.assertIn('"/intro-draft"', source)
 
+    def test_post_proxies_forward_an_idempotency_key(self) -> None:
+        """request_management rejects every POST whose key is None. The
+        membership handler passed None, so the Joined button would have
+        failed at the second wall even once the path was allowlisted."""
+        import re
+
+        for match in re.finditer(r"call\((.*?)\)\s*\.await", read(OPERATIONS_ROUTES), re.DOTALL):
+            block = match.group(1)
+            if '"POST"' in block:
+                self.assertNotRegex(
+                    block,
+                    r",\s*None\s*$",
+                    "a POST proxy passes None for the idempotency key — "
+                    "request_management rejects it before it leaves the control plane",
+                )
+
     def test_legacy_admin_spelling_is_gone(self) -> None:
         for path in (OPERATIONS_ROUTES, AREA_CLIENT):
             self.assertNotIn(
