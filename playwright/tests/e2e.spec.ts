@@ -291,8 +291,9 @@ test.describe('Control Plane E2E @e2e', () => {
       await expect(link).toBeVisible({ timeout: 5_000 })
     }
 
-    // No error cards should be visible on the overview
-    const errorCards = await page.locator('[data-error-card], .error-card').count()
+    // No error surfaces should be visible on the overview. `role="alert"`
+    // covers both ErrorCard and SectionFailureCard.
+    const errorCards = await page.locator('[role="alert"]').count()
     expect(errorCards).toBe(0)
   })
 })

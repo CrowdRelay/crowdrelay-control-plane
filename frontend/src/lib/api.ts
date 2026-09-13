@@ -72,9 +72,15 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
       'forbidden',
     )
   }
+  // Client-side timeout above the server's own 8s request cap: a wedged
+  // connection otherwise hangs the query forever — no error, no retry, a
+  // spinner for the life of the tab. AbortSignal.any keeps a caller's own
+  // signal working alongside it.
+  const timeoutSignal = AbortSignal.timeout(15_000)
   const response = await fetch(`/api/v1${path}`, {
     ...init,
     credentials: 'same-origin',
+    signal: init?.signal ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal,
     headers: {
       'content-type': 'application/json',
       'x-request-id': crypto.randomUUID(),

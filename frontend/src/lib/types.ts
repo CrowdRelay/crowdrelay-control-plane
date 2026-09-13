@@ -2334,6 +2334,11 @@ export type CommandCenterTenantAttention = {
   openFindings: number
   criticalAlerts: number
   deadDeliveries: number
+  /// Drafted posts waiting for a person to publish, summed across channels.
+  /// null when the tenant does not report the queue — not the same as zero.
+  unpublishedDrafts: number | null
+  /// Per-channel breakdown behind `unpublishedDrafts`, for the card detail.
+  unpublishedDraftChannels: { channel: string; drafts: number; oldest_drafted_at: string | null }[] | null
   brain: {
     state?: string
     needsAttention?: boolean
@@ -2370,6 +2375,48 @@ export type CommandCenterTenantOutcomes = {
   waitingForObservation: number
 }
 
+/// Per-tenant momentum projection — direction behind the magnitudes.
+/// All deltas null when the trends section or the series does not report.
+export type CommandCenterTenantMomentum = {
+  available: boolean
+  seriesCount: number | null
+  staleSeriesCount: number | null
+  /// Delta of the tenant's declared north-star series, matched by the
+  /// "{platform}_{metric_key}" composite. Aggregate north stars
+  /// (total_audience, signal_installs) match nothing — for those the
+  /// brain's state label is the direction signal.
+  northStarLatest: number | null
+  northStarDelta7d: number | null
+  northStarDelta28d: number | null
+  northStarStale: boolean | null
+  northStarDisplayName: string | null
+  /// Sum of non-stale downstream-tier series deltas — tickets, orders,
+  /// attendance. A count of conversions, never community sizes.
+  conversionDelta7d: number | null
+  conversionDelta28d: number | null
+}
+
+/// Per-tenant objective pacing — "are we on track" against declared
+/// targets. `state` is derived upstream; counts here are tag counts.
+export type CommandCenterTenantObjectives = {
+  available: boolean
+  total: number | null
+  met: number
+  onTrack: number
+  behind: number
+  missed: number
+  unmeasurable: number
+  /// The objectives actually in trouble, soonest deadline first (max 3).
+  atRisk: {
+    platform: string | null
+    metricKey: string | null
+    observedValue: number | null
+    targetValue: number | null
+    deadline: string | null
+    state: string | null
+  }[]
+}
+
 /// One tenant's contribution to the command center.
 export type CommandCenterTenantSummary = {
   slug: string
@@ -2393,6 +2440,8 @@ export type CommandCenterTenantSummary = {
     qualifiedReferrals: number | null
     synesthesiaParticipants: number | null
   }
+  momentum: CommandCenterTenantMomentum
+  objectives: CommandCenterTenantObjectives
 }
 
 /// The global command-center read model — the first screen an operator sees.
@@ -2446,6 +2495,28 @@ export type CommandCenterReadModel = {
     attendees: number | null
     paidTicketOrders: number | null
     reportingTenants: number
+  }
+  // Direction behind the magnitudes. conversionDelta* sums non-stale
+  // downstream-tier series across tenants; northStar* counts the brain's
+  // own verdict on each tenant's 60-day north-star series, which is the
+  // direction signal for aggregate north stars too.
+  momentum: {
+    reportingTenants: number
+    conversionDelta7d: number | null
+    conversionDelta28d: number | null
+    northStarImproving: number
+    northStarRegressing: number
+    northStarReporting: number
+  }
+  // Pacing against declared objectives across the fleet — "are we on
+  // track", not just "which way did we move".
+  objectives: {
+    reportingTenants: number
+    total: number
+    met: number
+    onTrack: number
+    behind: number
+    missed: number
   }
   perTenant: CommandCenterTenantSummary[]
 }

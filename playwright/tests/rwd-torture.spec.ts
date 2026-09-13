@@ -37,8 +37,10 @@ const PAGES = [
 // Inject worst-case content: long strings that could cause overflow.
 async function injectWorstCaseContent(page: Page) {
   await page.evaluate(() => {
-    // Long tenant names in any tenant row/card
-    const tenantNames = document.querySelectorAll<HTMLElement>('.tenant-row strong, .tenant-row-info strong, .topbar strong, h1')
+    // Long tenant names in any tenant row/card. `[data-slot="tenant-row"]`
+    // is the stable hook the Tailwind-migrated list emits; `.topbar` and
+    // `h1` cover the header surfaces.
+    const tenantNames = document.querySelectorAll<HTMLElement>('[data-slot="tenant-row"] strong, .topbar strong, h1')
     for (const el of tenantNames) {
       if (el.textContent && el.textContent.length < 80) {
         el.textContent = el.textContent + ' — A Very Long Tenant Display Name That Could Cause Overflow Issues On Mobile Devices'
@@ -51,16 +53,17 @@ async function injectWorstCaseContent(page: Page) {
       el.textContent = 'This is a very long error message that describes a complex failure scenario involving multiple sections of the read model fan-out, including timeout, unreachable, and contract mismatch states, with remediation steps that go on for quite some time and could potentially cause horizontal overflow on narrow viewports if the word-break and overflow-wrap properties are not properly set.'
     }
 
-    // Long IDs/SHA values in mono elements
-    const monos = document.querySelectorAll<HTMLElement>('.mono, code')
+    // Long IDs/SHA values in mono elements. The Tailwind migration renamed
+    // `.mono` to the `font-mono` utility.
+    const monos = document.querySelectorAll<HTMLElement>('.font-mono, code')
     for (const el of monos) {
       if (el.textContent && el.textContent.length < 60) {
         el.textContent = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
       }
     }
 
-    // Long chat messages
-    const chatMessages = document.querySelectorAll<HTMLElement>('.chat-msg-content')
+    // Long chat messages — only present when the chat widget is open
+    const chatMessages = document.querySelectorAll<HTMLElement>('[data-slot="chat-message"]')
     for (const el of chatMessages) {
       el.textContent = 'This is a very long chat message that goes on and on and on, describing a complex operational scenario with many details about the tenant, the autopilot, the growth funnel, the outreach pipeline, and various other aspects of the control plane that could potentially cause horizontal overflow if the chat widget does not properly wrap text on narrow viewports.'
     }

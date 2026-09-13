@@ -1,8 +1,7 @@
 import { For, Match, Show, Switch, createMemo, type JSX } from 'solid-js'
-import { useQuery } from '@tanstack/solid-query'
+import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
-import { fetchOperationsAttention } from '../lib/attention'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import { healthLabel, healthTone, platformStatusMessage } from '../lib/health-tone'
 import { authState } from '../lib/auth'
@@ -14,7 +13,7 @@ import { SectionIcon } from '../components/SectionIcon'
 import { PageShell, PageHeader, KpiStrip, KpiCard, SectionTitle, ErrorCard, CommandBlock } from '../components/layout'
 import { SkeletonKpiStrip } from '../components/Skeleton'
 import { cn } from '../lib/cn'
-import { whileIncomplete, hasUnavailableTenant } from '../lib/incomplete'
+import { whileIncomplete, hasUnavailableTenant, stillAsking } from '../lib/incomplete'
 
 const formatLatency = (ms: number | null | undefined) => {
   if (ms == null) return null
@@ -26,6 +25,15 @@ const formatLatency = (ms: number | null | undefined) => {
 const fmt = (n: number | null | undefined): string => {
   if (n == null) return '—'
   return n.toLocaleString('en-US')
+}
+
+/** Signed delta chip — "+12 this week" / "−3 this week". null stays null:
+ * a missing series is "we don't know", not "0 growth". */
+const deltaChip = (delta: number | null | undefined, window: string): JSX.Element | null => {
+  if (delta == null) return null
+  const cls = delta > 0 ? 'text-success-foreground' : delta < 0 ? 'text-destructive' : 'text-muted-foreground'
+  const sign = delta > 0 ? '+' : delta < 0 ? '−' : ''
+  return <span class={cls}>{sign}{fmt(Math.abs(delta))} {window}</span>
 }
 
 export function OverviewPage() {
@@ -75,46 +83,17 @@ export function OverviewPage() {
   // Every outbound channel drafts and waits — Reddit is read-only by policy,
   // Telegram, Discord and social default to manual — so this is the one queue
   // where the system is blocked on the operator rather than the reverse, and a
-  // draft nobody publishes reaches nobody. It is spent work sitting still, and
-  // until now the platform overview could not see it at all.
-  //
-  // The command centre read model does not carry a draft count, so this asks
-  // each tenant's attention model. One request per tenant, and there is
-  // normally one tenant. `enabled` keeps it from firing before the tenant list
-  // has arrived.
-  const drafts = useQuery(() => ({
-    queryKey: ['overview-unpublished-drafts', ccTenants().map(t => t.slug).join(',')],
-    queryFn: async () => {
-      const results = await Promise.all(
-        ccTenants().map(async tenant => {
-          try {
-            const model = await fetchOperationsAttention(tenant.slug)
-            const channels = model.unpublished_drafts ?? []
-            return {
-              slug: tenant.slug,
-              displayName: tenant.displayName,
-              total: channels.reduce((sum, channel) => sum + channel.drafts, 0),
-              channels,
-            }
-          } catch {
-            // A tenant that cannot answer is not a tenant with zero drafts.
-            return null
-          }
-        }),
-      )
-      return results.filter((r): r is NonNullable<typeof r> => r !== null)
-    },
-    enabled: ccTenants().length > 0,
-    refetchOnWindowFocus: false,
-    staleTime: 30_000,
-  }))
-
-  const draftTotal = createMemo(() => (drafts.data ?? []).reduce((sum, t) => sum + t.total, 0))
-  const firstDraftTenant = createMemo(() => (drafts.data ?? []).find(t => t.total > 0))
+  // draft nobody publishes reaches nobody. The command center already fetches
+  // the attention model per tenant and projects the count, so the page reads
+  // it from there rather than re-asking each tenant itself.
+  const draftTotal = createMemo(() =>
+    ccTenants().reduce((sum, t) => sum + (t.attention.unpublishedDrafts ?? 0), 0),
+  )
+  const firstDraftTenant = createMemo(() => ccTenants().find(t => (t.attention.unpublishedDrafts ?? 0) > 0))
   const draftChannels = createMemo(() => {
     const counts = new Map<string, number>()
-    for (const tenant of drafts.data ?? []) {
-      for (const channel of tenant.channels) {
+    for (const tenant of ccTenants()) {
+      for (const channel of tenant.attention.unpublishedDraftChannels ?? []) {
         if (channel.drafts > 0) counts.set(channel.channel, (counts.get(channel.channel) ?? 0) + channel.drafts)
       }
     }
@@ -126,6 +105,19 @@ export function OverviewPage() {
   const firstOutcomesTenant = createMemo(() => ccTenants().find(t => t.outcomes.available && (t.outcomes.unknown > 0 || t.outcomes.waitingForObservation > 0)))
   const firstLearningTenant = createMemo(() => ccTenants().find(t => t.learning.available && t.learning.totalOutcomes > 0))
   const firstFanTenant = createMemo(() => ccTenants().find(t => t.fans.available && t.fans.activeFans != null))
+  // The objective most in need of a look, fleet-wide — behind or missed,
+  // soonest deadline first (the projection already sorts them).
+  const firstAtRiskObjective = createMemo(() =>
+    ccTenants()
+      .flatMap(t => (t.objectives?.atRisk ?? []).map(o => ({ tenant: t, objective: o })))
+      .sort((a, b) => (a.objective.deadline ?? '').localeCompare(b.objective.deadline ?? ''))
+      .at(0),
+  )
+
+  // Older control-plane builds don't report momentum/objectives — read the
+  // blocks as absent rather than crash on deploy skew or a stale page.
+  const momentum = createMemo(() => cc()?.momentum)
+  const objectives = createMemo(() => cc()?.objectives)
 
   // Tenants that answered nothing this time round. The dash on a fan KPI is
   // the same glyph whether nobody has any fans, nobody reports them, or the
@@ -134,9 +126,20 @@ export function OverviewPage() {
   // rather than leaving "No audience data yet" on screen over a number that is
   // seconds away.
   const silentTenants = createMemo(() => ccTenants().filter(t => !t.available).length)
-  const waitingNote = () => silentTenants() === 1
-    ? 'the tenant has not answered yet — still asking'
-    : `${silentTenants()} tenants have not answered yet — still asking`
+  // `whileIncomplete` gives up after a handful of tries; once it has, the
+  // copy must stop claiming a retry is still in flight. `stillAsking` reads
+  // the same counters the interval check does.
+  const qc = useQueryClient()
+  const waitingNote = () => {
+    const n = silentTenants()
+    const subject = n === 1 ? 'the tenant has' : `${n} tenants have`
+    // The attempt counters live on the Query's state, not the observer
+    // result — read the same numbers the interval check reads.
+    const query = qc.getQueryCache().find({ queryKey: ['command-center'] })
+    return !query || stillAsking(query.state)
+      ? `${subject} not answered yet — still asking`
+      : `${subject} not answered — refresh to ask again`
+  }
   const fanSub = (value: number | null | undefined, settled: JSX.Element): JSX.Element =>
     value == null && silentTenants() > 0 ? waitingNote() : settled
 
@@ -160,13 +163,32 @@ export function OverviewPage() {
         <KpiStrip>
           <KpiCard label="Active fans" value={fmt(cc()!.fans.activeFans)} tone="good" sub={
             fanSub(cc()!.fans.activeFans,
-              <Show when={cc()!.fans.reportingTenants > 0} fallback="no tenants reporting">
-                across {cc()!.fans.reportingTenants} {cc()!.fans.reportingTenants === 1 ? 'tenant' : 'tenants'}
-              </Show>)
+              <>
+                <Show when={cc()!.fans.reportingTenants > 0} fallback="no tenants reporting">
+                  across {cc()!.fans.reportingTenants} {cc()!.fans.reportingTenants === 1 ? 'tenant' : 'tenants'}
+                </Show>
+                {/* Direction, not just magnitude: the brain's verdict on each
+                    tenant's north-star series. Improving first because that's
+                    the thing the page exists to produce. */}
+                <Show when={(momentum()?.northStarImproving ?? 0) > 0}>
+                  {' · '}<span class="text-success-foreground">{momentum()!.northStarImproving} improving</span>
+                </Show>
+                <Show when={(momentum()?.northStarRegressing ?? 0) > 0}>
+                  {' · '}<span class="text-destructive">{momentum()!.northStarRegressing} regressing</span>
+                </Show>
+              </>)
           } />
           <KpiCard label="Ticket buyers" value={fmt(cc()!.fans.ticketBuyers)} sub={fanSub(cc()!.fans.ticketBuyers, 'conversion signal')} />
           <KpiCard label="Attendees" value={fmt(cc()!.fans.attendees)} sub={fanSub(cc()!.fans.attendees, 'live show conversion')} />
-          <KpiCard label="Paid ticket orders" value={fmt(cc()!.fans.paidTicketOrders)} sub={fanSub(cc()!.fans.paidTicketOrders, 'revenue signal')} />
+          <KpiCard label="Paid ticket orders" value={fmt(cc()!.fans.paidTicketOrders)} sub={
+            fanSub(cc()!.fans.paidTicketOrders,
+              <>
+                revenue signal
+                <Show when={momentum()?.conversionDelta7d != null}>
+                  {' · '}{deltaChip(momentum()!.conversionDelta7d, 'this week')}
+                </Show>
+              </>)
+          } />
         </KpiStrip>
       </Match>
     </Switch>
@@ -206,6 +228,26 @@ export function OverviewPage() {
                   </Show>
                   <Show when={cc()!.fans.reportingTenants === cc()!.tenants.total && cc()!.fans.activeFans != null}>
                     <span>All tenants reporting</span>
+                  </Show>
+                  {/* Which way the north star is moving, per the brain's own
+                      60-day verdict — works for aggregate north stars too,
+                      which have no single series to diff. */}
+                  <Show when={(momentum()?.northStarImproving ?? 0) > 0}>
+                    <span class="text-success-foreground">north star improving on {momentum()!.northStarImproving} {momentum()!.northStarImproving === 1 ? 'tenant' : 'tenants'}</span>
+                  </Show>
+                  <Show when={(momentum()?.northStarRegressing ?? 0) > 0}>
+                    <span class="text-destructive">north star regressing on {momentum()!.northStarRegressing} {momentum()!.northStarRegressing === 1 ? 'tenant' : 'tenants'}</span>
+                  </Show>
+                  {/* Pacing against declared targets — "are we on track",
+                      not just "which way did we move". */}
+                  <Show when={(objectives()?.onTrack ?? 0) > 0}>
+                    <span>{objectives()!.onTrack} {objectives()!.onTrack === 1 ? 'objective' : 'objectives'} on track</span>
+                  </Show>
+                  <Show when={((objectives()?.behind ?? 0) + (objectives()?.missed ?? 0)) > 0 && firstAtRiskObjective()}>
+                    <span class="text-warning">
+                      {(objectives()?.behind ?? 0) + (objectives()?.missed ?? 0)} {((objectives()?.behind ?? 0) + (objectives()?.missed ?? 0)) === 1 ? 'objective' : 'objectives'} {(objectives()?.missed ?? 0) > 0 ? 'behind/missed' : 'behind'}
+                      {firstAtRiskObjective()!.objective.metricKey ? ` — ${firstAtRiskObjective()!.objective.metricKey} ${fmt(firstAtRiskObjective()!.objective.observedValue)}/${fmt(firstAtRiskObjective()!.objective.targetValue)}` : ''}
+                    </span>
                   </Show>
                 </>
               }
@@ -247,8 +289,21 @@ export function OverviewPage() {
               tone={cc()!.fans.ticketBuyers != null && cc()!.fans.ticketBuyers! > 0 ? 'good' : 'default'}
               detail={
                 <>
+                  {/* The funnel rate is same-source first-party math —
+                      both counts come from the audience read model, so the
+                      ratio is honest where a cross-endpoint ratio would
+                      not be. */}
+                  <Show when={cc()!.fans.activeFans != null && cc()!.fans.activeFans! > 0 && cc()!.fans.ticketBuyers != null}>
+                    <span class="text-success-foreground">{Math.round((cc()!.fans.ticketBuyers! / cc()!.fans.activeFans!) * 100)}% of active fans bought tickets</span>
+                  </Show>
                   <Show when={cc()!.fans.attendees != null && cc()!.fans.attendees! > 0}><span>{fmt(cc()!.fans.attendees)} attendees</span></Show>
                   <Show when={cc()!.fans.paidTicketOrders != null && cc()!.fans.paidTicketOrders! > 0}><span>{fmt(cc()!.fans.paidTicketOrders)} paid orders</span></Show>
+                  {/* Conversion movement — summed downstream-tier series
+                      deltas, so this is "things that converted this week",
+                      not follower-count drift. */}
+                  <Show when={momentum()?.conversionDelta7d != null && momentum()!.conversionDelta7d !== 0}>
+                    <span>{deltaChip(momentum()!.conversionDelta7d, 'conversions this week')}</span>
+                  </Show>
                   <Show when={(cc()!.fans.ticketBuyers == null || cc()!.fans.ticketBuyers === 0) && (cc()!.fans.attendees == null || cc()!.fans.attendees === 0)}>
                     <span>No conversion data yet</span>
                   </Show>

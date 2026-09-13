@@ -21,8 +21,12 @@ async function checkLayoutIssues(page: Page, pageName: string): Promise<LayoutIs
   //    (common cause of sections butting against each other)
   const marginProblems = await page.evaluate(() => {
     const results: { selector: string; issue: string; detail: string }[] = []
+    // Block-level surfaces the page stacks vertically. `data-card` and
+    // `data-kpi-strip` are emitted by the shared layout primitives, `section`
+    // catches page/tab wrappers, `[role="alert"]` every error surface. These
+    // are data/role contracts, not class names — restyling cannot remove them.
     const visibleElements = document.querySelectorAll<HTMLElement>(
-      '.panel, .cockpit-section, .intel-section, .section-title, .page-head, .metric-grid, .ops-kpi-strip, .cockpit-primary, .inherit-card, .warning-card, .error-card, .ops-attention-banner'
+      '[data-card], [data-kpi-strip], section, [role="alert"]'
     )
 
     for (const el of visibleElements) {
@@ -49,6 +53,15 @@ async function checkLayoutIssues(page: Page, pageName: string): Promise<LayoutIs
         const parentGap = parent ? getComputedStyle(parent).gap : '0px'
         const parentGapValue = parseFloat(parentGap) || 0
         if (gap < 4 && gap >= 0 && parentGapValue < 4) {
+          // A zero gap is only a fault when nothing separates the two
+          // surfaces. A drawn top border IS the separator, and top/bottom
+          // padding means the content boxes never touch even though the
+          // border edges do.
+          const elBorderTop = parseFloat(style.borderTopWidth) || 0
+          const elPadTop = parseFloat(style.paddingTop) || 0
+          const prevPadBottom = parseFloat(prevStyle.paddingBottom) || 0
+          if (elBorderTop > 0 && style.borderTopStyle !== 'none') continue
+          if (elPadTop >= 4 || prevPadBottom >= 4) continue
           const sel = el.className
             ? `.${el.className.split(' ')[0]}`
             : el.tagName.toLowerCase()
@@ -70,7 +83,7 @@ async function checkLayoutIssues(page: Page, pageName: string): Promise<LayoutIs
   // 2. Check for elements overflowing horizontally
   const overflowProblems = await page.evaluate(() => {
     const results: { selector: string; issue: string; detail: string }[] = []
-    const els = document.querySelectorAll<HTMLElement>('.panel, .page, .cockpit-primary, .cockpit-growth-grid, .ops-kpi-strip, .metric-grid')
+    const els = document.querySelectorAll<HTMLElement>('[data-card], [data-kpi-strip], section, [role="alert"]')
     for (const el of els) {
       const rect = el.getBoundingClientRect()
       if (rect.right > window.innerWidth + 2) {
@@ -124,14 +137,14 @@ async function checkLayoutIssues(page: Page, pageName: string): Promise<LayoutIs
     const results: { selector: string; issue: string; detail: string }[] = []
     // Can't directly check pseudo-elements with querySelectorAll, but check
     // if panel content is behind the ::before overlay via getComputedStyle
-    const panels = document.querySelectorAll<HTMLElement>('.panel')
+    const panels = document.querySelectorAll<HTMLElement>('[data-card]')
     for (const el of panels) {
       const before = getComputedStyle(el, '::before')
       if (before.content !== 'none' && before.pointerEvents === 'none') {
         // OK — pointer-events:none means it won't block clicks
       } else if (before.content !== 'none' && before.pointerEvents !== 'none') {
         results.push({
-          selector: '.panel',
+          selector: '[data-card]',
           issue: 'pseudo-element-blocking',
           detail: `::before has pointer-events:${before.pointerEvents}`,
         })
@@ -154,12 +167,16 @@ async function checkLayoutIssues(page: Page, pageName: string): Promise<LayoutIs
 // window.innerWidth is a layout regression.
 const BOUNDED_OVERFLOW_SELECTORS = [
   '.process-map-wrap',
-  '.panel pre',
+  '[data-card] pre',
   'pre',
   '.queue-row',
-  '.area-drop-table',
-  '.area-drop-head',
-  '.area-drop-row',
+  // Any Tailwind horizontal scroller is bounded by definition — the ancestor
+  // check below confirms the computed style before crediting it.
+  '.overflow-x-auto',
+  '.overflow-x-scroll',
+  '.overflow-auto',
+  '.overflow-hidden',
+  '.overflow-x-hidden',
 ]
 
 const SUBPAGES = [

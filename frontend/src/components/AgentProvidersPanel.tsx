@@ -196,7 +196,9 @@ export function AgentProvidersPanel(props: {
       const data = await api.agentModels(props.slug)
       return data
     },
-    enabled: props.active !== false,
+    // Disabled when the parent supplies models — a disabled query never
+    // caches a null under this key for a later standalone mount to trip on.
+    enabled: props.active !== false && props.models === undefined,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -213,7 +215,7 @@ export function AgentProvidersPanel(props: {
       const data = await api.agentProviders(props.slug)
       return data.providers
     },
-    enabled: props.active !== false,
+    enabled: props.active !== false && props.providers === undefined,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -224,7 +226,7 @@ export function AgentProvidersPanel(props: {
       const data = await api.agentCredentials(props.slug)
       return data.credentials
     },
-    enabled: props.active !== false,
+    enabled: props.active !== false && props.credentials === undefined,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))

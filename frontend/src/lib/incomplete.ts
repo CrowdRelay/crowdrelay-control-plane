@@ -27,22 +27,50 @@
  */
 
 /** TanStack passes the query; only its last data is needed here. */
-type QueryLike<T> = { state: { data?: T; dataUpdateCount: number } }
+type QueryLike<T> = { state: { data?: T; dataUpdateCount: number; fetchFailureCount?: number } }
 
-/** How long to wait between attempts while a model is still incomplete. */
-const RETRY_EVERY_MS = 4_000
+/**
+ * How long to wait before the first retry while a model is still incomplete.
+ * Each subsequent attempt doubles it — a tenant that is down or rate-limiting
+ * us gets asked again more slowly, not more often. Without the backoff every
+ * open page retrying a degraded model feeds the very overload that degraded
+ * it: upstream starts rejecting, every section reads incomplete, and every
+ * observer piles on at a fixed four seconds.
+ */
+const RETRY_AFTER_MS = 4_000
+const RETRY_MAX_MS = 30_000
 
 /**
  * Stop after this many successful fetches have still come back incomplete.
  *
  * A tenant whose runtime is genuinely down will never fill in, and polling it
- * forever costs a request every four seconds per open tab for nothing. Eight
- * tries is roughly half a minute of a section being absent, which is long
- * enough to outlast a restart and short enough not to become a load source.
- * The count only matters while incomplete — a complete model stops the
- * interval on its own, whatever the count says.
+ * forever costs requests per open tab for nothing. Six tries with the backoff
+ * above is about two minutes of a section being absent, which is long enough
+ * to outlast a restart and short enough not to become a load source. The
+ * count only matters while incomplete — a complete model stops the interval
+ * on its own, whatever the count says.
  */
-const GIVE_UP_AFTER = 8
+const GIVE_UP_AFTER = 6
+
+/**
+ * Whether the give-up window is still open — the interval is actually armed.
+ * Counts fetch attempts, not just successes: `dataUpdateCount` only grows on
+ * a 200, so without `fetchFailureCount` a query whose every retry throws
+ * would poll forever.
+ *
+ * Both counters live on `Query.state`, not the `useQuery` result — a page
+ * reaches them through the cache:
+ * `qc.getQueryCache().find({ queryKey })?.state`. OverviewPage's
+ * `waitingNote` does exactly that to keep "still asking" copy honest.
+ */
+export const stillAsking = (state: { dataUpdateCount: number; fetchFailureCount?: number }): boolean =>
+  state.dataUpdateCount + (state.fetchFailureCount ?? 0) <= GIVE_UP_AFTER
+
+/** How long until the next attempt, backing off per failed attempt. */
+export const retryDelay = (state: { dataUpdateCount: number; fetchFailureCount?: number }): number => {
+  const attempts = state.dataUpdateCount + (state.fetchFailureCount ?? 0)
+  return Math.min(RETRY_AFTER_MS * 2 ** Math.max(0, attempts - 1), RETRY_MAX_MS)
+}
 
 /**
  * Build a `refetchInterval` that polls until `isIncomplete` returns false.
@@ -62,8 +90,8 @@ export function whileIncomplete<T>(isIncomplete: (data: T) => boolean) {
     const data = query.state.data
     if (data === undefined) return false // still loading; the fetch is in flight
     if (!isIncomplete(data)) return false
-    if (query.state.dataUpdateCount > GIVE_UP_AFTER) return false
-    return RETRY_EVERY_MS
+    if (!stillAsking(query.state)) return false
+    return retryDelay(query.state)
   }
 }
 

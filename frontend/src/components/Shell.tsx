@@ -7,7 +7,6 @@ import { commandPaletteOpen, toggleCommandPalette } from './command-palette-stat
 import { api } from '../lib/api'
 import { ToastContainer } from './ui/toast'
 import { RefreshControl } from './RefreshControl'
-import { ChatWidget } from './ChatWidget'
 
 import { ErrorBoundaryPanel } from './ErrorBoundaryPanel'
 import { ConfirmHost } from './Dialog'
@@ -20,6 +19,10 @@ import { whileIncomplete, hasUnavailableTenant } from '../lib/incomplete'
 // The palette component loads on first invocation; the shortcut lives here so
 // Ctrl/⌘-K works before that chunk exists.
 const CommandPalette = lazy(() => import('./CommandPalette').then(m => ({ default: m.CommandPalette })))
+// The chat widget is the heaviest component in the shell — 600+ lines plus
+// its markdown renderer — and it only exists on tenant pages. Lazy so the
+// overview and login do not pay for it.
+const ChatWidget = lazy(() => import('./ChatWidget').then(m => ({ default: m.ChatWidget })))
 
 const healthDot = (tenant: TenantSummary) => {
   if (tenant.status === 'suspended') return 'bad'

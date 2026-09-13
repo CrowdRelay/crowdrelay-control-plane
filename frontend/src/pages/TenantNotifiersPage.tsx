@@ -7,6 +7,7 @@ import type { NotifierChannel, NotifierEvent, DiscoveredEndpoint, PlatformConfig
 import { NOTIFIER_EVENTS, NOTIFIER_EVENT_LABELS } from '../lib/types'
 import { SectionIcon } from '../components/SectionIcon'
 import { errorMessage } from '../lib/format'
+import { whileIncomplete } from '../lib/incomplete'
 import { NotifierIcon } from '../components/ProviderIcon'
 import { EmptyState } from '../components/ui/empty-state'
 import { SkeletonNotifiersPage, SkeletonSection } from '../components/Skeleton'
@@ -43,7 +44,15 @@ export function TenantNotifiersPage() {
   const params = useParams({ from: '/tenants/$slug/notifiers' })
   const slug = () => params().slug
   const qc = useQueryClient()
-  const overview = useQuery(() => ({ queryKey: ['notifiers-overview', slug()], queryFn: () => api.notifiersOverview(slug()), refetchOnWindowFocus: false, staleTime: 20_000 }))
+  // Each section carries its own `error` inside a 200 — this model's degraded
+  // list — so a section that failed once is never retried without this.
+  const overview = useQuery(() => ({
+    queryKey: ['notifiers-overview', slug()],
+    queryFn: () => api.notifiersOverview(slug()),
+    refetchOnWindowFocus: false,
+    staleTime: 20_000,
+    refetchInterval: whileIncomplete((m: NotifiersOverview) => [m.channels, m.platformConfig, m.automationRouting, m.discovered].some(s => s?.error != null)),
+  }))
 
   const section = <T,>(pick: (o: NotifiersOverview) => { error?: string } | undefined, take: (o: NotifiersOverview) => T | undefined) => ({
     get data() { const o = overview.data; return o && !pick(o)?.error ? take(o) : undefined },

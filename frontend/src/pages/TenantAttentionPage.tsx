@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { toast } from '../components/ui/toast'
-import { fetchOperationsAttention } from '../lib/attention'
+import { fetchOperationsAttention, type TenantAttentionReadModel } from '../lib/attention'
+import { whileIncomplete } from '../lib/incomplete'
 import { errorMessage, formatTimestamp as observed } from '../lib/format'
 import type { OperationsSummary, ReconciliationFinding } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
@@ -65,6 +66,9 @@ export function TenantAttentionPage() {
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 20_000,
+    // `not_reported` is this model's degraded list: sections the tenant could
+    // not answer arrive inside a 200, so nothing retries them by default.
+    refetchInterval: whileIncomplete((m: TenantAttentionReadModel) => (m.not_reported ?? []).length > 0),
   }))
 
   const summary = {

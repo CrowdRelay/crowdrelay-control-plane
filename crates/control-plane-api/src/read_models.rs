@@ -271,6 +271,27 @@ async fn command_center(
     let mut fans_paid_orders: Option<u64> = None;
     let mut fans_reporting = 0u64;
 
+    // Momentum — direction behind the magnitudes. Conversion deltas sum
+    // only downstream-tier series (see the per-tenant projection for why
+    // vanity never enters). Brain state counts are the honest direction
+    // signal for tenants whose north star is an aggregate: the brain
+    // already knows which series its north star is, so counting its
+    // improving/regressing verdicts never guesses at a metric.
+    let mut conversion_delta_7d: Option<i64> = None;
+    let mut conversion_delta_28d: Option<i64> = None;
+    let mut momentum_reporting = 0u64;
+    let mut brain_improving = 0u64;
+    let mut brain_regressing = 0u64;
+    let mut brain_reporting = 0u64;
+
+    // Objective pacing — "are we on track" across the fleet.
+    let mut objectives_reporting = 0u64;
+    let mut objectives_total = 0u64;
+    let mut objectives_on_track = 0u64;
+    let mut objectives_behind = 0u64;
+    let mut objectives_missed = 0u64;
+    let mut objectives_met = 0u64;
+
     let mut total = 0u64;
     let mut active = 0u64;
     let mut healthy = 0u64;
@@ -310,6 +331,31 @@ async fn command_center(
         learning_rejected += t["learning"]["rejected"].as_u64().unwrap_or(0);
         if t["brain"]["needsAttention"].as_bool() == Some(true) {
             brain_needs_attention = true;
+        }
+        if let Some(state) = t["brain"]["state"].as_str() {
+            brain_reporting += 1;
+            match state {
+                "improving" => brain_improving += 1,
+                "regressing" => brain_regressing += 1,
+                _ => {}
+            }
+        }
+        if t["momentum"]["available"].as_bool() == Some(true) {
+            momentum_reporting += 1;
+            if let Some(d) = t["momentum"]["conversionDelta7d"].as_i64() {
+                conversion_delta_7d = Some(conversion_delta_7d.unwrap_or(0) + d);
+            }
+            if let Some(d) = t["momentum"]["conversionDelta28d"].as_i64() {
+                conversion_delta_28d = Some(conversion_delta_28d.unwrap_or(0) + d);
+            }
+        }
+        if t["objectives"]["available"].as_bool() == Some(true) {
+            objectives_reporting += 1;
+            objectives_total += t["objectives"]["total"].as_u64().unwrap_or(0);
+            objectives_on_track += t["objectives"]["onTrack"].as_u64().unwrap_or(0);
+            objectives_behind += t["objectives"]["behind"].as_u64().unwrap_or(0);
+            objectives_missed += t["objectives"]["missed"].as_u64().unwrap_or(0);
+            objectives_met += t["objectives"]["met"].as_u64().unwrap_or(0);
         }
         // North Star fan KPIs — sum only reported values, never collapse
         // missing to zero. A tenant with no audience endpoint contributes
@@ -377,6 +423,22 @@ async fn command_center(
             "paidTicketOrders": fans_paid_orders,
             "reportingTenants": fans_reporting,
         },
+        "momentum": {
+            "reportingTenants": momentum_reporting,
+            "conversionDelta7d": conversion_delta_7d,
+            "conversionDelta28d": conversion_delta_28d,
+            "northStarImproving": brain_improving,
+            "northStarRegressing": brain_regressing,
+            "northStarReporting": brain_reporting,
+        },
+        "objectives": {
+            "reportingTenants": objectives_reporting,
+            "total": objectives_total,
+            "met": objectives_met,
+            "onTrack": objectives_on_track,
+            "behind": objectives_behind,
+            "missed": objectives_missed,
+        },
         "perTenant": per_tenant,
     });
     cache_set(
@@ -400,9 +462,9 @@ fn system_block(platform_health: &[crate::model::PlatformHealthRow]) -> Value {
     json!({ "platformServices": platform_health })
 }
 
-/// Fetch one tenant's command-center sections: attention, autopilot, learning
-/// and outcomes, each with its own degradation state. A single slow or dead
-/// tenant never blocks the global response.
+/// Fetch one tenant's command-center sections: attention, autopilot, learning,
+/// outcomes, audience and metric trends, each with its own degradation state.
+/// A single slow or dead tenant never blocks the global response.
 async fn fetch_tenant_command_summary(
     state: &AppState,
     tenant: &crate::model::TenantSummary,
@@ -448,7 +510,7 @@ async fn fetch_tenant_command_summary(
         }
     };
 
-    let (attention, autopilot, learning, outcomes, audience) = tokio::join!(
+    let (attention, autopilot, learning, outcomes, audience, trends, objectives) = tokio::join!(
         tokio::time::timeout(
             per_section_timeout,
             section("/v1/control-plane/ops/attention")
@@ -472,6 +534,20 @@ async fn fetch_tenant_command_summary(
             per_section_timeout,
             section("/v1/control-plane/audience/overview")
         ),
+        // North Star direction: per-platform metric trend deltas. The
+        // audience overview is point-in-time counts, so this is the only
+        // numeric "which way is it moving" the command center can show.
+        tokio::time::timeout(
+            per_section_timeout,
+            section("/v1/control-plane/autopilot/growth-metrics/trends")
+        ),
+        // North Star pacing: declared objectives with their derived state
+        // (met/on_track/behind/missed) — "are we on track", not just
+        // "which way did we move".
+        tokio::time::timeout(
+            per_section_timeout,
+            section("/v1/control-plane/autopilot/objectives")
+        ),
     );
 
     let attention = attention.map_err(|_| ApiError::Timeout).and_then(|r| r);
@@ -479,14 +555,22 @@ async fn fetch_tenant_command_summary(
     let learning = learning.map_err(|_| ApiError::Timeout).and_then(|r| r);
     let outcomes = outcomes.map_err(|_| ApiError::Timeout).and_then(|r| r);
     let audience = audience.map_err(|_| ApiError::Timeout).and_then(|r| r);
+    let trends = trends.map_err(|_| ApiError::Timeout).and_then(|r| r);
+    let objectives = objectives.map_err(|_| ApiError::Timeout).and_then(|r| r);
 
-    // A tenant that answered none of its five sections is the shape the
+    // A tenant that answered none of its seven sections is the shape the
     // operator reads as "no fans", so say why once, with the first reason.
-    // Per-section noise is not wanted — one failed section among five is
+    // Per-section noise is not wanted — one failed section among seven is
     // normal and the model already names it.
-    if let (Err(first), Err(_), Err(_), Err(_), Err(_)) =
-        (&attention, &autopilot, &learning, &outcomes, &audience)
-    {
+    if let (Err(first), Err(_), Err(_), Err(_), Err(_), Err(_), Err(_)) = (
+        &attention,
+        &autopilot,
+        &learning,
+        &outcomes,
+        &audience,
+        &trends,
+        &objectives,
+    ) {
         tracing::warn!(
             tenant = %slug,
             error = %first,
@@ -500,6 +584,18 @@ async fn fetch_tenant_command_summary(
         learning: learning.as_ref().ok().and_then(|v| v.as_array()).cloned(),
         outcomes: outcomes.as_ref().ok().and_then(|v| v.as_object()).cloned(),
         audience: audience.as_ref().ok().and_then(|v| v.as_object()).cloned(),
+        trends: trends
+            .as_ref()
+            .ok()
+            .and_then(|v| v.get("series"))
+            .and_then(|v| v.as_array())
+            .cloned(),
+        objectives: objectives
+            .as_ref()
+            .ok()
+            .and_then(|v| v.get("objectives"))
+            .and_then(|v| v.as_array())
+            .cloned(),
     }
 }
 
@@ -516,7 +612,9 @@ fn build_per_tenant_summary(
         || data.autopilot.is_some()
         || data.learning.is_some()
         || data.outcomes.is_some()
-        || data.audience.is_some();
+        || data.audience.is_some()
+        || data.trends.is_some()
+        || data.objectives.is_some();
 
     // ── attention ──
     let att = data.attention.as_ref();
@@ -532,6 +630,15 @@ fn build_per_tenant_summary(
             }).count() as u64
         }).unwrap_or(0),
         "deadDeliveries": att.and_then(|a| a.get("dead_deliveries")).and_then(|v| v.as_array()).map(|a| a.len() as u64).unwrap_or(0),
+        // Drafted posts waiting for a person to publish them — the one queue
+        // blocked on the operator. The upstream attention model already
+        // carries the per-channel array; projecting it here saves the
+        // overview page a second per-tenant fetch. Absent field (an older
+        // CrowdRelay) stays null — "does not report" is not "zero drafts".
+        "unpublishedDrafts": att.and_then(|a| a.get("unpublished_drafts")).and_then(|v| v.as_array()).map(|channels| {
+            channels.iter().map(|c| c.get("drafts").and_then(|d| d.as_u64()).unwrap_or(0)).sum::<u64>()
+        }),
+        "unpublishedDraftChannels": att.and_then(|a| a.get("unpublished_drafts")).cloned().unwrap_or(Value::Null),
     });
 
     // ── autopilot ──
@@ -625,6 +732,135 @@ fn build_per_tenant_summary(
         "synesthesiaParticipants": aud.and_then(|a| a.get("synesthesia_participants")).and_then(|v| v.as_u64()),
     });
 
+    // ── momentum ──
+    // Direction behind the magnitudes. `brain` already carries the upstream
+    // verdict on the 60-day north-star series; this block adds the numbers,
+    // and only where the vocabulary makes a number honest:
+    //
+    // * A platform-scoped north star ("spotify_followers") matches the
+    //   series "{platform}_{metric_key}" — the same composite the wizard
+    //   writes. Aggregate north stars (total_audience, signal_installs)
+    //   match nothing and stay null: no sum of platform counts is
+    //   attempted here, because the platform → audience-metric vocabulary
+    //   lives in crowdrelay-domain, and guessing at it is how community
+    //   sizes got summed as fans once already.
+    // * conversionDelta* sums non-stale downstream-tier series only —
+    //   tickets, orders, attendance: counts of things that converted, so
+    //   a sum of deltas stays a count of conversions. Vanity-tier
+    //   community sizes never enter it.
+    // * A stale series counts toward coverage, never toward a delta.
+    let trends = data.trends.as_deref();
+    let north_star_metric = tenant.tenant.north_star_metric.as_str();
+    let north_star_series = trends.and_then(|list| {
+        list.iter().find(|s| {
+            let composite = format!(
+                "{}_{}",
+                s.get("platform")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default(),
+                s.get("metric_key")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default(),
+            );
+            composite == north_star_metric
+        })
+    });
+    let mut conversion_delta_7d: Option<i64> = None;
+    let mut conversion_delta_28d: Option<i64> = None;
+    let mut stale_series = 0u64;
+    if let Some(list) = trends {
+        for s in list {
+            if s.get("stale").and_then(|v| v.as_bool()) == Some(true) {
+                stale_series += 1;
+                continue;
+            }
+            if s.get("value_tier").and_then(|v| v.as_str()) == Some("downstream") {
+                if let Some(d) = s.get("delta_7d").and_then(|v| v.as_i64()) {
+                    conversion_delta_7d = Some(conversion_delta_7d.unwrap_or(0) + d);
+                }
+                if let Some(d) = s.get("delta_28d").and_then(|v| v.as_i64()) {
+                    conversion_delta_28d = Some(conversion_delta_28d.unwrap_or(0) + d);
+                }
+            }
+        }
+    }
+    let momentum = json!({
+        "available": trends.is_some(),
+        "seriesCount": trends.map(|list| list.len() as u64),
+        "staleSeriesCount": trends.map(|_| stale_series),
+        "northStarLatest": north_star_series.and_then(|s| s.get("latest_value")).and_then(|v| v.as_i64()),
+        "northStarDelta7d": north_star_series.and_then(|s| s.get("delta_7d")).and_then(|v| v.as_i64()),
+        "northStarDelta28d": north_star_series.and_then(|s| s.get("delta_28d")).and_then(|v| v.as_i64()),
+        "northStarStale": north_star_series.and_then(|s| s.get("stale")).and_then(|v| v.as_bool()),
+        "northStarDisplayName": north_star_series.and_then(|s| s.get("display_name")).cloned().unwrap_or(Value::Null),
+        "conversionDelta7d": conversion_delta_7d,
+        "conversionDelta28d": conversion_delta_28d,
+    });
+
+    // ── objectives ──
+    // Pacing against declared targets. `state` is a tagged union
+    // ({"state": "behind", ...}) derived upstream — counting the tags here
+    // keeps the dashboard's "are we on track" the same answer the
+    // objectives endpoint itself gives.
+    let objectives_raw = data.objectives.as_deref();
+    let count_state = |name: &str| -> u64 {
+        objectives_raw
+            .map(|list| {
+                list.iter()
+                    .filter(|o| {
+                        o.get("state")
+                            .and_then(|s| s.get("state"))
+                            .and_then(|v| v.as_str())
+                            == Some(name)
+                    })
+                    .count() as u64
+            })
+            .unwrap_or(0)
+    };
+    // The pacing detail: the objectives actually in trouble, soonest
+    // deadline first, so the card can name what is behind rather than
+    // only count it.
+    let behind_list: Vec<Value> = objectives_raw
+        .map(|list| {
+            let mut at_risk: Vec<&Value> = list
+                .iter()
+                .filter(|o| {
+                    matches!(
+                        o.get("state")
+                            .and_then(|s| s.get("state"))
+                            .and_then(|v| v.as_str()),
+                        Some("behind") | Some("missed")
+                    )
+                })
+                .collect();
+            at_risk.sort_by_key(|o| o.get("deadline").and_then(|v| v.as_str()).unwrap_or(""));
+            at_risk
+                .into_iter()
+                .take(3)
+                .map(|o| {
+                    json!({
+                        "platform": o.get("platform"),
+                        "metricKey": o.get("metric_key"),
+                        "observedValue": o.get("observed_value"),
+                        "targetValue": o.get("target_value"),
+                        "deadline": o.get("deadline"),
+                        "state": o.get("state").and_then(|s| s.get("state")),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let objectives = json!({
+        "available": objectives_raw.is_some(),
+        "total": objectives_raw.map(|list| list.len() as u64),
+        "met": count_state("met"),
+        "onTrack": count_state("on_track"),
+        "behind": count_state("behind"),
+        "missed": count_state("missed"),
+        "unmeasurable": count_state("unmeasurable"),
+        "atRisk": behind_list,
+    });
+
     json!({
         "slug": slug,
         "displayName": display_name,
@@ -636,6 +872,8 @@ fn build_per_tenant_summary(
         "outcomes": outcomes,
         "brain": brain,
         "fans": fans,
+        "momentum": momentum,
+        "objectives": objectives,
     })
 }
 
@@ -647,6 +885,8 @@ struct TenantCommandData {
     learning: Option<Vec<Value>>,
     outcomes: Option<serde_json::Map<String, Value>>,
     audience: Option<serde_json::Map<String, Value>>,
+    trends: Option<Vec<Value>>,
+    objectives: Option<Vec<Value>>,
 }
 
 fn correlation(headers: &HeaderMap) -> Option<&str> {
@@ -2354,12 +2594,15 @@ mod tests {
                 "findings": [{"id": "f1"}],
                 "alerts": [{"active": true, "severity": "critical"}, {"active": false, "severity": "critical"}],
                 "dead_deliveries": [{"id": "d1"}],
+                "unpublished_drafts": [{"channel": "reddit", "drafts": 4}, {"channel": "telegram", "drafts": 2}],
                 "ecosystem": {"brain": {"state": "ok"}},
             }).as_object().unwrap().clone()),
             autopilot: None,
             learning: None,
             outcomes: None,
             audience: None,
+            trends: None,
+            objectives: None,
         };
         let projected = build_per_tenant_summary(&mock_tenant(), &data);
         assert_eq!(projected["attention"]["needsYou"], json!(2));
@@ -2367,7 +2610,29 @@ mod tests {
         assert_eq!(projected["attention"]["openFindings"], json!(1));
         assert_eq!(projected["attention"]["criticalAlerts"], json!(1));
         assert_eq!(projected["attention"]["deadDeliveries"], json!(1));
+        assert_eq!(projected["attention"]["unpublishedDrafts"], json!(6));
         assert_eq!(projected["attention"]["available"], json!(true));
+    }
+
+    #[test]
+    fn command_center_unpublished_drafts_stays_null_when_unreported() {
+        // An older CrowdRelay does not publish the field — the projection must
+        // say "does not report" (null), not "zero drafts".
+        let data = TenantCommandData {
+            attention: Some(json!({"needs_you": []}).as_object().unwrap().clone()),
+            autopilot: None,
+            learning: None,
+            outcomes: None,
+            audience: None,
+            trends: None,
+            objectives: None,
+        };
+        let projected = build_per_tenant_summary(&mock_tenant(), &data);
+        assert_eq!(projected["attention"]["unpublishedDrafts"], Value::Null);
+        assert_eq!(
+            projected["attention"]["unpublishedDraftChannels"],
+            Value::Null
+        );
     }
 
     #[test]
@@ -2386,6 +2651,8 @@ mod tests {
             learning: None,
             outcomes: None,
             audience: None,
+            trends: None,
+            objectives: None,
         };
         let projected = build_per_tenant_summary(&mock_tenant(), &data);
         assert_eq!(projected["autopilot"]["queuedActions"], json!(5));
@@ -2409,6 +2676,8 @@ mod tests {
             ]),
             outcomes: None,
             audience: None,
+            trends: None,
+            objectives: None,
         };
         let projected = build_per_tenant_summary(&mock_tenant(), &data);
         assert_eq!(projected["learning"]["totalOutcomes"], json!(3));
@@ -2440,6 +2709,8 @@ mod tests {
                 .clone(),
             ),
             audience: None,
+            trends: None,
+            objectives: None,
         };
         let projected = build_per_tenant_summary(&mock_tenant(), &data);
         assert_eq!(projected["outcomes"]["resolved"], json!(10));
@@ -2487,6 +2758,8 @@ mod tests {
                 .unwrap()
                 .clone(),
             ),
+            trends: None,
+            objectives: None,
         };
         let projected = build_per_tenant_summary(&mock_tenant(), &data);
         assert_eq!(projected["fans"]["available"], json!(true));
@@ -2496,6 +2769,131 @@ mod tests {
         assert_eq!(projected["fans"]["paidTicketOrders"], json!(35));
         assert_eq!(projected["fans"]["qualifiedReferrals"], json!(12));
         assert_eq!(projected["fans"]["synesthesiaParticipants"], json!(5));
+    }
+
+    #[test]
+    fn command_center_momentum_matches_north_star_and_sums_downstream() {
+        let mut tenant = mock_tenant();
+        tenant.tenant.north_star_metric = "spotify_followers".to_owned();
+        let data = TenantCommandData {
+            trends: Some(vec![
+                // The declared north star — matched by the
+                // "{platform}_{metric_key}" composite the wizard writes.
+                json!({
+                    "platform": "spotify", "metric_key": "followers",
+                    "display_name": "Spotify followers", "value_tier": "vanity",
+                    "latest_value": 1000, "delta_7d": 24, "delta_28d": 90,
+                    "stale": false,
+                }),
+                // Downstream = banked conversions; its deltas sum.
+                json!({
+                    "platform": "ticketing", "metric_key": "ticket_sales",
+                    "display_name": "Ticket sales", "value_tier": "downstream",
+                    "latest_value": 300, "delta_7d": 12, "delta_28d": 40,
+                    "stale": false,
+                }),
+                // A stale downstream series counts toward coverage, never
+                // toward a delta.
+                json!({
+                    "platform": "merch", "metric_key": "orders",
+                    "display_name": "Orders", "value_tier": "downstream",
+                    "latest_value": 50, "delta_7d": 99, "delta_28d": 99,
+                    "stale": true,
+                }),
+                // Vanity-tier community sizes never enter the conversion sum.
+                json!({
+                    "platform": "social", "metric_key": "members",
+                    "display_name": "Community members", "value_tier": "vanity",
+                    "latest_value": 3_900_000, "delta_7d": 50_000, "delta_28d": 100_000,
+                    "stale": false,
+                }),
+            ]),
+            ..Default::default()
+        };
+        let projected = build_per_tenant_summary(&tenant, &data);
+        assert_eq!(projected["momentum"]["available"], json!(true));
+        assert_eq!(projected["momentum"]["seriesCount"], json!(4));
+        assert_eq!(projected["momentum"]["staleSeriesCount"], json!(1));
+        assert_eq!(projected["momentum"]["northStarDelta7d"], json!(24));
+        assert_eq!(projected["momentum"]["northStarDelta28d"], json!(90));
+        assert_eq!(projected["momentum"]["northStarLatest"], json!(1000));
+        assert_eq!(
+            projected["momentum"]["northStarDisplayName"],
+            json!("Spotify followers")
+        );
+        // Only the fresh downstream series contributes — the stale merch
+        // series and the vanity community series are both excluded.
+        assert_eq!(projected["momentum"]["conversionDelta7d"], json!(12));
+        assert_eq!(projected["momentum"]["conversionDelta28d"], json!(40));
+    }
+
+    #[test]
+    fn command_center_momentum_null_when_trends_absent_or_aggregate() {
+        // No trends section → momentum reports unavailable, not zero deltas.
+        let projected = build_per_tenant_summary(&mock_tenant(), &TenantCommandData::default());
+        assert_eq!(projected["momentum"]["available"], json!(false));
+        assert_eq!(projected["momentum"]["northStarDelta7d"], Value::Null);
+
+        // An aggregate north star ("total_audience") matches no series —
+        // the brain's state label is its direction signal, not a guessed
+        // sum over platform counts.
+        let mut tenant = mock_tenant();
+        tenant.tenant.north_star_metric = "total_audience".to_owned();
+        let data = TenantCommandData {
+            trends: Some(vec![json!({
+                "platform": "spotify", "metric_key": "followers",
+                "display_name": "Spotify followers", "value_tier": "vanity",
+                "latest_value": 1000, "delta_7d": 24, "delta_28d": 90,
+                "stale": false,
+            })]),
+            ..Default::default()
+        };
+        let projected = build_per_tenant_summary(&tenant, &data);
+        assert_eq!(projected["momentum"]["northStarDelta7d"], Value::Null);
+        assert_eq!(projected["momentum"]["conversionDelta7d"], Value::Null);
+    }
+
+    #[test]
+    fn command_center_objectives_counts_states_and_names_at_risk() {
+        let data = TenantCommandData {
+            objectives: Some(vec![
+                json!({
+                    "objective_id": "o1", "platform": "spotify",
+                    "metric_key": "followers", "scope_kind": "workspace",
+                    "baseline_value": 900, "target_value": 2000,
+                    "observed_value": 1000, "deadline": "2026-08-01T00:00:00Z",
+                    "state": {"state": "behind", "progress_basis_points": 1111},
+                }),
+                json!({
+                    "objective_id": "o2", "platform": "bandsintown",
+                    "metric_key": "trackers", "scope_kind": "workspace",
+                    "baseline_value": 100, "target_value": 300,
+                    "observed_value": 290, "deadline": "2026-06-01T00:00:00Z",
+                    "state": {"state": "missed", "progress_basis_points": 9666},
+                }),
+                json!({
+                    "objective_id": "o3", "platform": "youtube",
+                    "metric_key": "subscribers", "scope_kind": "workspace",
+                    "baseline_value": 5000, "target_value": 8000,
+                    "observed_value": 7000, "deadline": "2026-09-01T00:00:00Z",
+                    "state": {"state": "on_track", "progress_basis_points": 6666},
+                }),
+            ]),
+            ..Default::default()
+        };
+        let projected = build_per_tenant_summary(&mock_tenant(), &data);
+        assert_eq!(projected["objectives"]["available"], json!(true));
+        assert_eq!(projected["objectives"]["total"], json!(3));
+        assert_eq!(projected["objectives"]["behind"], json!(1));
+        assert_eq!(projected["objectives"]["missed"], json!(1));
+        assert_eq!(projected["objectives"]["onTrack"], json!(1));
+        // The at-risk list names what's wrong, soonest deadline first —
+        // the missed June objective sorts ahead of the behind August one.
+        let at_risk = projected["objectives"]["atRisk"].as_array().unwrap();
+        assert_eq!(at_risk.len(), 2);
+        assert_eq!(at_risk[0]["metricKey"], json!("trackers"));
+        assert_eq!(at_risk[0]["state"], json!("missed"));
+        assert_eq!(at_risk[1]["metricKey"], json!("followers"));
     }
 
     #[test]

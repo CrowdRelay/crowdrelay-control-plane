@@ -15,6 +15,7 @@ import { Spinner } from './Spinner'
 import { toast } from './ui/toast'
 import { writeGuard } from '../lib/read-only'
 import { downloadTextFile, fansToCsv, parseFanCsv, type FanCsvParse } from '../lib/fan-csv'
+import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 
 const fanStatusTone = (status: string): 'success' | 'warning' | 'destructive' | 'muted' =>
@@ -59,6 +60,9 @@ export function FanTablePanel(props: {
     enabled: importing(),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
+    // Shares the key with PortfolioPage — every observer of a shared key must
+    // carry the same retry rule, or whoever mounts first decides for both.
+    refetchInterval: whileIncomplete(hasDegradedSections),
   }))
 
   const importable = createMemo(() =>

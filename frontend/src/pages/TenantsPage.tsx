@@ -139,7 +139,7 @@ export function TenantsPage() {
 
     <Show when={tenants.isPending && !tenants.data}><SkeletonRows count={4} /></Show>
     <div class="space-y-2"><For each={tenants.data?.items ?? []}>{tenant =>
-      <Link to="/tenants/$slug" params={{ slug: tenant.slug }} class="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-4 hover:border-border-strong transition-colors">
+      <Link to="/tenants/$slug" params={{ slug: tenant.slug }} data-slot="tenant-row" class="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-4 hover:border-border-strong transition-colors">
         <div class="min-w-0"><strong class="text-foreground">{tenant.displayName}</strong><small class="block text-muted-foreground text-sm">{tenant.slug} · {tenant.regionalProfile ? `${tenant.regionalProfile.locale} · ${tenant.regionalProfile.timezone} · ${tenant.regionalProfile.dataRegion.toUpperCase()}` : 'no region set'}</small></div>
         <div class="flex items-center gap-2"><StatusBadge status={tenant.status} tone={tenant.status === 'active' ? 'good' : tenant.status === 'suspended' ? 'bad' : tenant.status === 'parked' ? 'warn' : 'warn'} /><StatusBadge status={healthLabel(tenant.runtimeHealth)} tone={healthTone(tenant.runtimeHealth)} /><StatusBadge status={tenant.regionalProfile ? `${tenant.regionalProfile.dataRegion.toUpperCase()} region` : 'no region set'} tone={tenant.regionalProfile ? 'good' : 'warn'} /><StatusBadge status={tenant.brandingPalette ? 'Custom palette' : 'Product defaults'} /></div>
       </Link>}
