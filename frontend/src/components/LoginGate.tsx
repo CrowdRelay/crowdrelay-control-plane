@@ -2,6 +2,7 @@ import { Show, createSignal, onMount } from 'solid-js'
 import type { Component, JSX } from 'solid-js'
 import { authState } from '../lib/auth'
 import { SkeletonBlock } from './layout'
+import { SignalField } from './SignalField'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
@@ -36,8 +37,9 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
 
   return <Show when={authState.profile()} fallback={
     <Show when={!authState.hydrated()} fallback={
-    <main class="flex min-h-viewport items-center justify-center bg-background p-4">
-      <section class="w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-lg" aria-labelledby="control-plane-login-title">
+    <main class="relative flex min-h-viewport items-center justify-center overflow-hidden bg-background p-4">
+      <SignalField />
+      <section class="relative w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-lg" aria-labelledby="control-plane-login-title">
         <div class="flex items-center gap-3 mb-6">
           <a href="https://crowdrelay.music" target="_blank" rel="noreferrer noopener" aria-label="CrowdRelay landing page">
             <img src="/crowdrelay-logo.svg" alt="" width="36" height="36" />
