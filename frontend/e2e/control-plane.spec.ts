@@ -17,7 +17,9 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   await page.goto(baseURL, { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
   await page.getByLabel('Username').fill(username)
-  await page.getByLabel('Password').fill(password)
+  // `exact` — the show/hide toggle's aria-label "Show password" otherwise
+  // substring-matches "Password" and strict mode sees two elements.
+  await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByRole('button', { name: 'Sign in' }).click()
   // After login, the shell redirects to the operator's default tenant
   // (/tenants/virya) so the tenant-scoped nav is immediately available.
