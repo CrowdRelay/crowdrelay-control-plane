@@ -198,7 +198,7 @@ export function OperationsPanel(props: {
         one section is stale or unknown; "live" and "assembled" are the
         default and don't need a visible badge. */}
     <Show when={worstFreshness() && worstFreshness() !== 'live' && worstFreshness() !== 'assembled'}>
-      <div class={cn('flex items-center gap-2 mt-3 px-4 py-2 border rounded-sm text-sm', FRESHNESS_TONE[worstFreshness()!] === 'warn' && 'border-warning/30 bg-warning/10 text-warning-light', FRESHNESS_TONE[worstFreshness()!] === 'good' && 'border-success/30 bg-success/10 text-success-light', FRESHNESS_TONE[worstFreshness()!] === 'muted' && 'border-border-subtle bg-card text-muted-foreground')} role="status">
+      <div class={cn('flex items-center gap-2 mt-3 px-4 py-2 border rounded-md text-sm', FRESHNESS_TONE[worstFreshness()!] === 'warn' && 'border-warning/30 bg-warning/10 text-warning-light', FRESHNESS_TONE[worstFreshness()!] === 'good' && 'border-success/30 bg-success/10 text-success-light', FRESHNESS_TONE[worstFreshness()!] === 'muted' && 'border-border-subtle bg-card text-muted-foreground')} role="status">
         <span class={cn('inline-block w-2 h-2 rounded-full', FRESHNESS_TONE[worstFreshness()!] === 'warn' && 'bg-warning', FRESHNESS_TONE[worstFreshness()!] === 'good' && 'bg-success', FRESHNESS_TONE[worstFreshness()!] === 'muted' && 'bg-muted-foreground')} />
         <span>
           <Show when={staleSections().length > 0} fallback={`Data ${FRESHNESS_LABEL[worstFreshness()!]}`}>

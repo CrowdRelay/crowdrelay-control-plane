@@ -160,17 +160,17 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
           <Show when={data.data} fallback={
             <div class="flex flex-col gap-2.5 mt-4">
               {Array.from({ length: 3 }, () => (
-                <div class="p-4" style={{ opacity: '0.8' }}>
-                  <div class="rounded-lg bg-surface-3 border border-border" style={{ height: '20px', width: '40%', 'border-radius': '8px', 'margin-bottom': '12px' }} />
-                  <div class="rounded-lg bg-surface-3 border border-border" style={{ height: '14px', width: '100%', 'border-radius': '6px', 'margin-bottom': '8px' }} />
-                  <div class="rounded-lg bg-surface-3 border border-border" style={{ height: '14px', width: '80%', 'border-radius': '6px' }} />
+                <div class="p-4 rounded-lg border border-border">
+                  <div class="rounded-lg bg-surface-3 border border-border h-5 w-2/5 mb-3" />
+                  <div class="rounded-lg bg-surface-3 border border-border h-[14px] w-full mb-2" />
+                  <div class="rounded-lg bg-surface-3 border border-border h-[14px] w-4/5" />
                 </div>
               ))}
             </div>
           }>
             <div class="flex flex-col gap-2.5 mt-4">
               <For each={showAllDecisions() ? decisions() : decisions().slice(0, MAX_VISIBLE_DECISIONS)}>{(decision: IntelligenceDecision) => (
-                <div class="overflow-hidden shadow-sm transition-colors hover:border-border-strong">
+                <div class="rounded-lg border border-border transition-colors hover:border-border-strong">
                   <Button variant="ghost" size="sm" class="w-full h-auto p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3" onClick={() => toggleExpand(decision.id)}>
                     <div class="flex items-center gap-2.5">
                       <strong>{templateLabel(decision.brain_template)}</strong>

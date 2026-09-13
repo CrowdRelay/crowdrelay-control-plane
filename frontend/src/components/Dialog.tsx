@@ -34,7 +34,7 @@ export const Dialog: Component<DialogProps> = (props) => (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay
         class={cn(
-          'fixed inset-0 z-50 bg-black/60',
+          'fixed inset-0 z-50 bg-black/50',
           props.overlayClass,
         )}
       />

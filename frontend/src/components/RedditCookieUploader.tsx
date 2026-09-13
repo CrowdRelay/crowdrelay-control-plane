@@ -128,7 +128,7 @@ export function RedditCookieUploader(props: { slug: string }) {
     <div class="bg-card border border-border rounded-lg p-5 shadow-md mb-4">
       <div class="flex justify-between items-center mb-3 min-w-0 gap-3 flex-wrap">
         <h3>Reddit Session Cookies</h3>
-        <span class={cn('text-xs uppercase tracking-tight px-2.5 py-0.5 rounded-sm bg-surface-3 border border-border-subtle text-muted-foreground font-semibold', statusLabel().class)}>{statusLabel().text}</span>
+        <span class={cn('text-xs uppercase tracking-tight px-2.5 py-0.5 rounded-md bg-surface-3 border border-border-subtle text-muted-foreground font-semibold', statusLabel().class)}>{statusLabel().text}</span>
       </div>
       <p class="text-sm text-muted-foreground leading-relaxed m-0 mb-4">
         Upload a Netscape <code>cookies.txt</code> file from a logged-in Reddit session.
@@ -138,11 +138,11 @@ export function RedditCookieUploader(props: { slug: string }) {
 
       <Show when={status.data?.status === 'active'}>
         <div class="flex gap-4 items-center my-3">
-          <span class="text-[13px] text-muted-foreground">
+          <span class="text-sm text-muted-foreground">
             <strong class="text-foreground">{formatExpiry(status.data?.expires_at ?? null)}</strong>
           </span>
           <Show when={status.data?.reddit_username}>
-            <span class="text-[13px] text-muted-foreground">u/{status.data?.reddit_username}</span>
+            <span class="text-sm text-muted-foreground">u/{status.data?.reddit_username}</span>
           </Show>
         </div>
       </Show>
@@ -191,7 +191,7 @@ export function RedditCookieUploader(props: { slug: string }) {
 
       <div
         class={cn(
-          'border-2 border-dashed border-border rounded-[10px] p-6 text-center my-3 transition-colors',
+          'border-2 border-dashed border-border rounded-lg p-6 text-center my-3 transition-colors',
           dragOver() && 'border-primary bg-surface-1',
         )}
         onDrop={onDrop}

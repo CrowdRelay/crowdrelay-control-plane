@@ -70,10 +70,10 @@ export function SectionFailureCard(props: { error: unknown; fallback: string; on
         <ul class="list-none m-2 mt-0 p-0 flex flex-col gap-1.5">
           <For each={Object.entries(sections() ?? {})}>
             {([name, verdict]) => (
-              <li class="flex flex-wrap items-baseline gap-x-3 gap-y-1.5 p-2 rounded-sm bg-surface-1">
+              <li class="flex flex-wrap items-baseline gap-x-3 gap-y-1.5 p-2 rounded-md bg-surface-1">
                 <span class="font-bold text-sm uppercase tracking-tight text-foreground">{name}</span>
                 <span class={cn(
-                  'text-xs px-2 py-0.5 rounded-sm font-semibold whitespace-nowrap',
+                  'text-xs px-2 py-0.5 rounded-md font-semibold whitespace-nowrap',
                   stateTone(verdict.state) === 'bad' && 'bg-destructive/15 text-destructive-light',
                   stateTone(verdict.state) === 'warn' && 'bg-warning/15 text-warning-light',
                   stateTone(verdict.state) === 'muted' && 'bg-surface-4 text-muted-foreground',

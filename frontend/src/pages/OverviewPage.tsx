@@ -177,9 +177,9 @@ export function OverviewPage() {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           {Array.from({ length: 3 }, () => (
             <div class="rounded-lg border border-border bg-card p-4">
-              <div class="h-[11px] w-[80px] rounded bg-surface-3 mb-3" />
-              <div class="h-7 w-[60px] rounded bg-surface-3 mb-2" />
-              <div class="h-[11px] w-full rounded bg-surface-3" />
+              <div class="h-[11px] w-[80px] rounded-lg bg-surface-3 border border-border mb-2" />
+              <div class="h-7 w-[60px] rounded-lg bg-surface-3 border border-border mb-2" />
+              <div class="h-[11px] w-full rounded-lg bg-surface-3 border border-border" />
             </div>
           ))}
         </div>
@@ -270,9 +270,9 @@ export function OverviewPage() {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           {Array.from({ length: 5 }, () => (
             <div class="rounded-lg border border-border bg-card p-4">
-              <div class="h-[11px] w-[80px] rounded bg-surface-3 mb-3" />
-              <div class="h-7 w-[60px] rounded bg-surface-3 mb-2" />
-              <div class="h-[11px] w-full rounded bg-surface-3" />
+              <div class="h-[11px] w-[80px] rounded-lg bg-surface-3 border border-border mb-2" />
+              <div class="h-7 w-[60px] rounded-lg bg-surface-3 border border-border mb-2" />
+              <div class="h-[11px] w-full rounded-lg bg-surface-3 border border-border" />
             </div>
           ))}
         </div>

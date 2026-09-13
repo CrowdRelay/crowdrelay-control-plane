@@ -61,7 +61,7 @@ function ActivityList(props: { items: ChiefOfStaffActivity[]; empty: string }) {
     <ul class="m-0 p-0 flex flex-col gap-1.5 list-none">
       <For each={props.items}>{item => (
         <li class="flex items-center gap-2.5">
-          <span class="inline-flex items-center justify-center min-w-[28px] h-[24px] px-1.5 rounded-sm bg-surface-4 text-primary-foreground font-bold text-xs">{item.count}</span>
+          <span class="inline-flex items-center justify-center min-w-[28px] h-[24px] px-1.5 rounded-md bg-surface-4 text-foreground font-bold text-xs">{item.count}</span>
           <span class="text-sm text-foreground">{labelOr(DECISION_KIND_LABELS, item.action_kind)}</span>
           <Show when={ACTION_CLASS_LABEL[item.action_class]}>
             <small class="text-xs text-muted-foreground">{ACTION_CLASS_LABEL[item.action_class]}</small>
@@ -151,7 +151,7 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
             <For each={data().stopped}>{item => (
               <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
                 <div class="flex items-center gap-2">
-                  <span class="inline-flex items-center justify-center min-w-[24px] h-[24px] px-1.5 rounded-sm bg-surface-4 text-primary-foreground font-bold text-xs flex-shrink-0">{item.count}</span>
+                  <span class="inline-flex items-center justify-center min-w-[24px] h-[24px] px-1.5 rounded-md bg-surface-4 text-foreground font-bold text-xs flex-shrink-0">{item.count}</span>
                   <strong class="text-sm text-foreground">{STOPPED_REASON_LABEL[item.reason] ?? item.reason.replace(/_/g, ' ')}</strong>
                 </div>
                 <small class="text-xs text-muted-foreground">{item.detail}</small>

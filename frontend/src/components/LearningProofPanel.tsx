@@ -91,11 +91,11 @@ export function LearningProofPanel(props: { slug: string }) {
         <div class="grid grid-cols-2 gap-3">
           <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
             <span class="text-xs text-muted-foreground">Beliefs changed</span>
-            <strong class="text-lg tabular-nums text-foreground">{entries().length}</strong>
+            <strong class="text-xl font-bold tabular-nums text-foreground">{entries().length}</strong>
           </div>
           <div class="flex flex-col gap-1 p-3 rounded-md bg-primary/5 ring-1 ring-primary/20">
             <span class="text-xs text-primary">Changed a later decision</span>
-            <strong class="text-lg tabular-nums text-primary">{provenChains()}</strong>
+            <strong class="text-xl font-bold tabular-nums text-primary">{provenChains()}</strong>
           </div>
         </div>
 

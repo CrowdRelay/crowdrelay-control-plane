@@ -105,7 +105,7 @@ function NavIcon(props: { name: string }) {
     sliders: <><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12M18 18h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="8" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="16" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/></>,
     settings: <><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></>,
   }
-  return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="nav-icon flex-shrink-0 opacity-65" aria-hidden="true">{icons[props.name] ?? icons.overview}</svg>
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="nav-icon flex-shrink-0 opacity-60" aria-hidden="true">{icons[props.name] ?? icons.overview}</svg>
 }
 
 function TenantSwitcher(props: {
@@ -572,20 +572,20 @@ export const Shell: Component = () => {
         <div class="flex-1 overflow-auto" data-key={pathname()}>
           <ErrorBoundaryPanel resetKey={pathname()} title="This page failed to render">
             <Suspense fallback={
-              <section class="px-4 md:px-6 py-6 pb-24 space-y-6">
-                <div class="flex justify-between items-start gap-6 mb-5">
+              <section class="px-4 md:px-6 py-6 pb-20 space-y-5">
+                <div class="flex justify-between items-start gap-6">
                   <div>
-                    <div class="h-[12px] w-[120px] rounded bg-surface-3 mb-2.5" />
-                    <div class="h-7 w-[280px] rounded bg-surface-3 mb-2" />
-                    <div class="h-[14px] w-[420px] rounded bg-surface-3" />
+                    <div class="h-[12px] w-[120px] rounded-lg bg-surface-3 border border-border mb-2.5" />
+                    <div class="h-7 w-[280px] rounded-lg bg-surface-3 border border-border mb-2" />
+                    <div class="h-[14px] w-[420px] rounded-lg bg-surface-3 border border-border" />
                   </div>
                 </div>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {Array.from({ length: 4 }, () => (
                     <div class="border border-border rounded-lg bg-card p-4">
-                      <div class="h-[11px] w-[70px] rounded bg-surface-3 mb-2" />
-                      <div class="h-[22px] w-[50px] rounded bg-surface-3 mb-1.5" />
-                      <div class="h-[11px] w-[90px] rounded bg-surface-3" />
+                      <div class="h-[11px] w-[70px] rounded-lg bg-surface-3 border border-border mb-2" />
+                      <div class="h-[22px] w-[50px] rounded-lg bg-surface-3 border border-border mb-1.5" />
+                      <div class="h-[11px] w-[90px] rounded-lg bg-surface-3 border border-border" />
                     </div>
                   ))}
                 </div>

@@ -12,6 +12,7 @@ import { ErrorCard, PageHeader, PageShell, PanelTitle } from '../components/layo
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { NativeSelect } from '../components/ui/native-select'
+import { Field, FieldGrid } from '../components/ui/field'
 import { buttonVariants } from '../components/ui/button'
 
 type Preset = 'PL' | 'DE' | 'CZ' | 'US'
@@ -109,27 +110,27 @@ export function TenantsPage() {
     <Show when={isAdmin() && creating()}>
       <form class="rounded-lg border border-border bg-card p-5 space-y-5" onSubmit={(event) => { event.preventDefault(); createTenant.mutate() }}>
         <div class="flex items-center justify-between gap-2"><div><PanelTitle>Identity + region</PanelTitle></div><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <label>Slug<Input value={slug()} onInput={(e) => setSlug(e.currentTarget.value.toLowerCase())} placeholder="future-metal" autocomplete="off" maxlength="60" /></label>
-          <label>Display name<Input value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="Future Metal" maxlength="120" /></label>
-          <label>Regional preset<NativeSelect onChange={e=>applyPreset(e.currentTarget.value as Preset)}><option value="PL">Poland</option><option value="DE">Germany</option><option value="CZ">Czechia</option><option value="US">United States</option></NativeSelect><small>Fills fields below; can be overridden.</small></label>
-          <label>Country<Input maxlength="2" value={profile().countryCode} onInput={e=>setRegional('countryCode',e.currentTarget.value.toUpperCase())}/></label>
-          <label>Locale<Input value={profile().locale} onInput={e=>setRegional('locale',e.currentTarget.value)} placeholder="de-DE"/></label>
-          <label>Timezone<Input value={profile().timezone} onInput={e=>setRegional('timezone',e.currentTarget.value)} placeholder={profile().countryCode === 'US' ? 'America/Chicago (choose explicitly)' : 'Europe/Berlin'}/><small>{profile().countryCode === 'US' ? 'Required: US preset has no hidden timezone default.' : 'Explicit timezone.'}</small></label>
-          <label>Currency<Input maxlength="3" value={profile().currency} onInput={e=>setRegional('currency',e.currentTarget.value.toUpperCase())}/></label>
-          <label>Market region<NativeSelect value={profile().region} onChange={e=>setRegional('region',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></NativeSelect></label>
-          <label>Data residency<NativeSelect value={profile().dataRegion} onChange={e=>setRegional('dataRegion',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></NativeSelect><small>Cannot be changed after deployment.</small></label>
-          <label>Date format<NativeSelect value={profile().dateFormat} onChange={e=>setRegional('dateFormat',e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></NativeSelect></label>
-          <label>Number format<NativeSelect value={profile().numberFormat} onChange={e=>setRegional('numberFormat',e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></NativeSelect></label>
-          <label>CrowdRelay API base URL<Input value={crowdrelayBaseUrl()} onInput={(e) => setCrowdrelayBaseUrl(e.currentTarget.value)} placeholder="https://api.future-metal.example" /></label>
-          <label>Signal / public site URL<Input value={signalBaseUrl()} onInput={(e) => setSignalBaseUrl(e.currentTarget.value)} placeholder="https://future-metal.example" /></label>
-          <label>Release SHA <small>optional if server default is configured</small><Input value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={overview.data?.provisionerDefaultImageTag ?? 'sha-<40-char CrowdRelay commit>'} /></label>
-        </div>
+        <FieldGrid min="220px">
+          <Field label="Slug"><Input value={slug()} onInput={(e) => setSlug(e.currentTarget.value.toLowerCase())} placeholder="future-metal" autocomplete="off" maxlength="60" /></Field>
+          <Field label="Display name"><Input value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="Future Metal" maxlength="120" /></Field>
+          <Field label="Regional preset" hint="Fills fields below; can be overridden."><NativeSelect onChange={e=>applyPreset(e.currentTarget.value as Preset)}><option value="PL">Poland</option><option value="DE">Germany</option><option value="CZ">Czechia</option><option value="US">United States</option></NativeSelect></Field>
+          <Field label="Country"><Input maxlength="2" value={profile().countryCode} onInput={e=>setRegional('countryCode',e.currentTarget.value.toUpperCase())}/></Field>
+          <Field label="Locale"><Input value={profile().locale} onInput={e=>setRegional('locale',e.currentTarget.value)} placeholder="de-DE"/></Field>
+          <Field label="Timezone" hint={profile().countryCode === 'US' ? 'Required: US preset has no hidden timezone default.' : 'Explicit timezone.'}><Input value={profile().timezone} onInput={e=>setRegional('timezone',e.currentTarget.value)} placeholder={profile().countryCode === 'US' ? 'America/Chicago (choose explicitly)' : 'Europe/Berlin'}/></Field>
+          <Field label="Currency"><Input maxlength="3" value={profile().currency} onInput={e=>setRegional('currency',e.currentTarget.value.toUpperCase())}/></Field>
+          <Field label="Market region"><NativeSelect value={profile().region} onChange={e=>setRegional('region',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></NativeSelect></Field>
+          <Field label="Data residency" hint="Cannot be changed after deployment."><NativeSelect value={profile().dataRegion} onChange={e=>setRegional('dataRegion',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></NativeSelect></Field>
+          <Field label="Date format"><NativeSelect value={profile().dateFormat} onChange={e=>setRegional('dateFormat',e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></NativeSelect></Field>
+          <Field label="Number format"><NativeSelect value={profile().numberFormat} onChange={e=>setRegional('numberFormat',e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></NativeSelect></Field>
+          <Field label="CrowdRelay API base URL"><Input value={crowdrelayBaseUrl()} onInput={(e) => setCrowdrelayBaseUrl(e.currentTarget.value)} placeholder="https://api.future-metal.example" /></Field>
+          <Field label="Signal / public site URL"><Input value={signalBaseUrl()} onInput={(e) => setSignalBaseUrl(e.currentTarget.value)} placeholder="https://future-metal.example" /></Field>
+          <Field label="Release SHA" hint="optional if server default is configured"><Input value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={overview.data?.provisionerDefaultImageTag ?? 'sha-<40-char CrowdRelay commit>'} /></Field>
+        </FieldGrid>
         <div class="flex items-center justify-between gap-2"><div><PanelTitle>First account for the team</PanelTitle></div></div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <label>Operator username<Input value={opUsername()} onInput={(e) => setOpUsername(e.currentTarget.value.toLowerCase())} placeholder="future-metal-op" autocomplete="off" /><small>Optional. Sees only this tenant; leave blank to skip.</small></label>
-          <label>Operator password<Input type="password" value={opPassword()} onInput={(e) => setOpPassword(e.currentTarget.value)} placeholder="min 12 characters" autocomplete="new-password" /><small>Hashed securely, never shown again.</small></label>
-        </div>
+        <FieldGrid min="220px">
+          <Field label="Operator username" hint="Optional. Sees only this tenant; leave blank to skip."><Input value={opUsername()} onInput={(e) => setOpUsername(e.currentTarget.value.toLowerCase())} placeholder="future-metal-op" autocomplete="off" /></Field>
+          <Field label="Operator password" hint="Hashed securely, never shown again."><Input type="password" value={opPassword()} onInput={(e) => setOpPassword(e.currentTarget.value)} placeholder="min 12 characters" autocomplete="new-password" /></Field>
+        </FieldGrid>
         <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-1" checked={deployNow()} onChange={(e) => setDeployNow(e.currentTarget.checked)} /><span><strong>Deploy isolated CrowdRelay instance now</strong><small class="block text-muted-foreground">Only an agent for the selected data region may claim this job.</small></span></label>
         <Show when={createTenant.error}><ErrorCard>{createTenant.error instanceof Error ? createTenant.error.message : 'Tenant creation failed'}</ErrorCard></Show>
         <div class="flex justify-end gap-2"><Button variant="ghost" size="sm" type="button" onClick={() => { setCreating(false); resetForm() }}>Cancel</Button><Button writes type="submit" size="sm" disabled={createTenant.isPending || slug().length < 2 || name().length < 2 || !regionalReady() || !deployFieldsReady() || !operatorFieldsReady()}>{createTenant.isPending && <Spinner />} {createTenant.isPending ? 'Creating…' : deployNow() ? 'Create & deploy' : 'Create tenant'}</Button></div>

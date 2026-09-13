@@ -109,27 +109,27 @@ export function LearningLoopPanel(props: { slug: string }) {
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
             <span class="text-xs text-muted-foreground">Decisions</span>
-            <strong class="text-lg tabular-nums text-foreground">{total()}</strong>
+            <strong class="text-xl font-bold tabular-nums text-foreground">{total()}</strong>
           </div>
           <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
             <span class="text-xs text-muted-foreground">Actions created</span>
-            <strong class="text-lg tabular-nums text-foreground">{actionsCreated()}</strong>
+            <strong class="text-xl font-bold tabular-nums text-foreground">{actionsCreated()}</strong>
           </div>
           <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
             <span class="text-xs text-muted-foreground">Executed</span>
-            <strong class="text-lg tabular-nums text-foreground">{executed()}</strong>
+            <strong class="text-xl font-bold tabular-nums text-foreground">{executed()}</strong>
           </div>
           <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
             <span class="text-xs text-muted-foreground">Outcomes measured</span>
-            <strong class="text-lg tabular-nums text-foreground">{withOutcome()}</strong>
+            <strong class="text-xl font-bold tabular-nums text-foreground">{withOutcome()}</strong>
           </div>
           <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
             <span class="text-xs text-muted-foreground">Positive outcomes</span>
-            <strong class="text-lg tabular-nums text-foreground">{positiveOutcomes()}</strong>
+            <strong class="text-xl font-bold tabular-nums text-foreground">{positiveOutcomes()}</strong>
           </div>
           <div class="flex flex-col gap-1 p-3 rounded-md bg-primary/5 ring-1 ring-primary/20">
             <span class="text-xs text-primary">Positive outcome rate</span>
-            <strong class="text-lg tabular-nums text-primary">{positiveOutcomeRate() != null ? `${positiveOutcomeRate()}%` : '—'}</strong>
+            <strong class="text-xl font-bold tabular-nums text-primary">{positiveOutcomeRate() != null ? `${positiveOutcomeRate()}%` : '—'}</strong>
           </div>
         </div>
 

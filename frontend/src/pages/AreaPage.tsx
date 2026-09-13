@@ -18,6 +18,7 @@ import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
 import { cn } from '../lib/cn'
 import { NativeSelect } from '../components/ui/native-select'
+import { Field } from '../components/ui/field'
 import { readOnly } from '../lib/read-only'
 
 
@@ -175,12 +176,12 @@ export function AreaPage() {
       </Show>
     }>{o => <>
       <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Locations</span><strong class="text-lg tabular-nums text-foreground">{o().total}</strong></div>
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Live</span><strong class="text-lg tabular-nums text-foreground">{o().live}</strong></div>
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Total claims</span><strong class="text-lg tabular-nums text-foreground">{o().totalClaims}</strong></div>
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Scheduled</span><strong class="text-lg tabular-nums text-foreground">{o().scheduled}</strong></div>
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Drafts</span><strong class="text-lg tabular-nums text-foreground">{o().drafts}</strong></div>
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Paused / ended</span><strong class="text-lg tabular-nums text-foreground">{o().paused + o().ended}</strong></div>
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Locations</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().total}</strong></div>
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Live</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().live}</strong></div>
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Total claims</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().totalClaims}</strong></div>
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Scheduled</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().scheduled}</strong></div>
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Drafts</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().drafts}</strong></div>
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Paused / ended</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().paused + o().ended}</strong></div>
       </div>
       <SectionPanel class="flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0">
@@ -204,20 +205,20 @@ export function AreaPage() {
     <SectionPanel>
       <SectionTitle eyebrow="LOCATIONS" title="Published state + drafts" icon={<SectionIcon name="map-pin" />} action={<Button writes size="sm" disabled={!overview.data?.entitled} onClick={() => setCreating(v=>!v)}>+ New location</Button>} />
       <Show when={creating()}><div class="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
-        <label>Search city<small class="block text-xs text-muted-foreground">Type to filter the canonical list.</small><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></label>
-        <label>Canonical city<small class="block text-xs text-muted-foreground">Where the drop lives. Missing city? Create one below.</small><NativeSelect value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></NativeSelect></label>
-        <label>Drop number<small class="block text-xs text-muted-foreground">1–3 digits, required. Padded to three for the id: 7 in Wrocław becomes <code>wro-007</code>.</small><Input inputmode="numeric" maxlength="3" value={newNumber()} onInput={e=>setNewNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></label>
+        <Field label="Search city" hint="Type to filter the canonical list."><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></Field>
+        <Field label="Canonical city" hint="Where the drop lives. Missing city? Create one below."><NativeSelect value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></NativeSelect></Field>
+        <Field label="Drop number" hint="1–3 digits, required. Padded to three for the id: 7 in Wrocław becomes wro-007."><Input inputmode="numeric" maxlength="3" value={newNumber()} onInput={e=>setNewNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></Field>
         {/* The button was enabled without a drop number and the mutation threw
             "Drop number must contain 1–3 digits" only after the click. Same
             rule, checked where the operator can still act on it. */}
         <div class="flex justify-end gap-2"><Button writes variant="ghost" size="sm" onClick={()=>setCreateCityOpen(v=>!v)}>Create custom city</Button><Button writes size="sm" disabled={createDrop.isPending || !newCityId() || !/^\d{1,3}$/.test(newNumber().trim())} onClick={()=>createDrop.mutate()}>Create draft</Button></div>
         <Show when={createCityOpen()}><div class="rounded-md border border-border bg-surface-2 p-3 space-y-3">
-          <label>Name<Input required value={newCity().name} onInput={e=>setNewCity(v=>({...v,name:e.currentTarget.value}))}/></label>
-          <label>Slug<Input required value={newCity().slug} onInput={e=>setNewCity(v=>({...v,slug:e.currentTarget.value}))}/></label>
-          <label>Country<Input required maxlength="2" value={newCity().countryCode} onInput={e=>setNewCity(v=>({...v,countryCode:e.currentTarget.value}))}/></label>
-          <label>Region<Input required value={newCity().region} onInput={e=>setNewCity(v=>({...v,region:e.currentTarget.value}))}/></label>
-          <label>Public latitude<Input required type="number" step="0.000001" value={newCity().latitude} onInput={e=>setNewCity(v=>({...v,latitude:e.currentTarget.value}))}/></label>
-          <label>Public longitude<Input required type="number" step="0.000001" value={newCity().longitude} onInput={e=>setNewCity(v=>({...v,longitude:e.currentTarget.value}))}/></label>
+          <Field label="Name"><Input required value={newCity().name} onInput={e=>setNewCity(v=>({...v,name:e.currentTarget.value}))}/></Field>
+          <Field label="Slug"><Input required value={newCity().slug} onInput={e=>setNewCity(v=>({...v,slug:e.currentTarget.value}))}/></Field>
+          <Field label="Country"><Input required maxlength="2" value={newCity().countryCode} onInput={e=>setNewCity(v=>({...v,countryCode:e.currentTarget.value}))}/></Field>
+          <Field label="Region"><Input required value={newCity().region} onInput={e=>setNewCity(v=>({...v,region:e.currentTarget.value}))}/></Field>
+          <Field label="Public latitude"><Input required type="number" step="0.000001" value={newCity().latitude} onInput={e=>setNewCity(v=>({...v,latitude:e.currentTarget.value}))}/></Field>
+          <Field label="Public longitude"><Input required type="number" step="0.000001" value={newCity().longitude} onInput={e=>setNewCity(v=>({...v,longitude:e.currentTarget.value}))}/></Field>
           <Button writes size="sm" disabled={createCity.isPending} onClick={()=>createCity.mutate()}>Save canonical city</Button>
         </div></Show>
       </div></Show>
@@ -252,12 +253,12 @@ export function AreaPage() {
 
         <Show when={editorStep()==='city'}><p class="text-sm text-muted-foreground leading-relaxed mt-1">Which city this drop belongs to and where it sits in the list fans see. Nothing here is secret — the exact spot is set on the next step.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <label>Search canonical city<small class="block text-xs text-muted-foreground">Filters the list below. Cities are shared across tenants; add one only if it is genuinely missing.</small><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder={detail.data!.summary.city}/></label>
-          <label>Canonical city<NativeSelect value={draft()!.cityId} onChange={e=>{const id=e.currentTarget.value;const city=cities.data?.items.find(c=>c.id===id);setDraft(d=>d?({...d,cityId:id,approximateLat:city?.latitude ?? d.approximateLat,approximateLng:city?.longitude ?? d.approximateLng}):d)}}><Show when={!(cities.data?.items ?? []).some(city=>city.id===draft()!.cityId)}><option value={draft()!.cityId}>{detail.data!.summary.city} · current</option></Show><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name} · {city.countryCode}</option>}</For></NativeSelect></label>
-          <label>Drop number<small class="block text-xs text-muted-foreground">Up to three digits. Fans see it as the drop's identity in the game, so it should not be reused within a city.</small><Input maxlength="3" value={draft()!.number} onInput={e=>mutateDraft({number:e.currentTarget.value.replace(/\D/g,'').slice(0,3)})}/></label>
-          <label>Sort order<small class="block text-xs text-muted-foreground">Position in the list. Lower comes first; ties fall back to the drop number.</small><Input type="number" value={draft()!.sortOrder} onInput={e=>mutateDraft({sortOrder:finiteInput(e.currentTarget.value,draft()!.sortOrder)})}/></label>
-          <label>Illustration X (advanced)<small class="block text-xs text-muted-foreground">Where the pin sits on the illustrated map, 0–100 left to right. Not a coordinate — it moves artwork, not the drop.</small><Input type="number" min="0" max="100" value={draft()!.mapX} onInput={e=>mutateDraft({mapX:finiteInput(e.currentTarget.value,draft()!.mapX)})}/></label>
-          <label>Illustration Y (advanced)<small class="block text-xs text-muted-foreground">Same, 0–100 top to bottom.</small><Input type="number" min="0" max="100" value={draft()!.mapY} onInput={e=>mutateDraft({mapY:finiteInput(e.currentTarget.value,draft()!.mapY)})}/></label>
+          <Field label="Search canonical city" hint="Filters the list below. Cities are shared across tenants; add one only if it is genuinely missing."><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder={detail.data!.summary.city}/></Field>
+          <Field label="Canonical city"><NativeSelect value={draft()!.cityId} onChange={e=>{const id=e.currentTarget.value;const city=cities.data?.items.find(c=>c.id===id);setDraft(d=>d?({...d,cityId:id,approximateLat:city?.latitude ?? d.approximateLat,approximateLng:city?.longitude ?? d.approximateLng}):d)}}><Show when={!(cities.data?.items ?? []).some(city=>city.id===draft()!.cityId)}><option value={draft()!.cityId}>{detail.data!.summary.city} · current</option></Show><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name} · {city.countryCode}</option>}</For></NativeSelect></Field>
+          <Field label="Drop number" hint="Up to three digits. Fans see it as the drop's identity in the game, so it should not be reused within a city."><Input maxlength="3" value={draft()!.number} onInput={e=>mutateDraft({number:e.currentTarget.value.replace(/\D/g,'').slice(0,3)})}/></Field>
+          <Field label="Sort order" hint="Position in the list. Lower comes first; ties fall back to the drop number."><Input type="number" value={draft()!.sortOrder} onInput={e=>mutateDraft({sortOrder:finiteInput(e.currentTarget.value,draft()!.sortOrder)})}/></Field>
+          <Field label="Illustration X (advanced)" hint="Where the pin sits on the illustrated map, 0–100 left to right. Not a coordinate — it moves artwork, not the drop."><Input type="number" min="0" max="100" value={draft()!.mapX} onInput={e=>mutateDraft({mapX:finiteInput(e.currentTarget.value,draft()!.mapX)})}/></Field>
+          <Field label="Illustration Y (advanced)" hint="Same, 0–100 top to bottom."><Input type="number" min="0" max="100" value={draft()!.mapY} onInput={e=>mutateDraft({mapY:finiteInput(e.currentTarget.value,draft()!.mapY)})}/></Field>
         </div></Show>
 
         <Show when={editorStep()==='location'}><div class="space-y-3">
@@ -265,27 +266,27 @@ export function AreaPage() {
           <LocationCanvas publicLat={draft()!.approximateLat} publicLng={draft()!.approximateLng} exactLat={draft()!.exactLat} exactLng={draft()!.exactLng} radiusMeters={draft()!.radiusMeters} onPick={(lat,lng)=>mutateDraft({exactLat:lat,exactLng:lng})}/>
           <p class="text-sm text-muted-foreground leading-relaxed mt-1">Two coordinates, two audiences. The <strong>public</strong> pair is what the app shows everyone — keep it at neighbourhood level. The <strong>exact</strong> pair never leaves this editor; it is only used server-side to decide whether a fan standing there is close enough to claim. Click the canvas to set it.</p>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label>Public latitude<small class="block text-xs text-muted-foreground">Shown to fans. Round it — this is the hint, not the spot.</small><Input required type="number" step="0.000001" value={draft()!.approximateLat} onInput={e=>mutateDraft({approximateLat:finiteInput(e.currentTarget.value,draft()!.approximateLat)})}/></label>
-            <label>Public longitude<small class="block text-xs text-muted-foreground">Shown to fans, same rounding.</small><Input required type="number" step="0.000001" value={draft()!.approximateLng} onInput={e=>mutateDraft({approximateLng:finiteInput(e.currentTarget.value,draft()!.approximateLng)})}/></label>
-            <label>Exact latitude<small class="block text-xs text-muted-foreground">Never published. Leave blank and the drop cannot be claimed.</small><Input type="number" step="0.000001" value={draft()!.exactLat ?? ''} onInput={e=>mutateDraft({exactLat:nullableInput(e.currentTarget.value,draft()!.exactLat)})}/></label>
-            <label>Exact longitude<small class="block text-xs text-muted-foreground">Never published, set together with the latitude.</small><Input type="number" step="0.000001" value={draft()!.exactLng ?? ''} onInput={e=>mutateDraft({exactLng:nullableInput(e.currentTarget.value,draft()!.exactLng)})}/></label>
-            <label>Claim radius (m)<small class="block text-xs text-muted-foreground">How close a fan must be to the exact point, 25–500 m. Tight is harder in a dense city; wide forgives GPS drift indoors.</small><Input type="number" min="25" max="500" value={draft()!.radiusMeters} onInput={e=>mutateDraft({radiusMeters:finiteInput(e.currentTarget.value,draft()!.radiusMeters)})}/></label>
+            <Field label="Public latitude" hint="Shown to fans. Round it — this is the hint, not the spot."><Input required type="number" step="0.000001" value={draft()!.approximateLat} onInput={e=>mutateDraft({approximateLat:finiteInput(e.currentTarget.value,draft()!.approximateLat)})}/></Field>
+            <Field label="Public longitude" hint="Shown to fans, same rounding."><Input required type="number" step="0.000001" value={draft()!.approximateLng} onInput={e=>mutateDraft({approximateLng:finiteInput(e.currentTarget.value,draft()!.approximateLng)})}/></Field>
+            <Field label="Exact latitude" hint="Never published. Leave blank and the drop cannot be claimed."><Input type="number" step="0.000001" value={draft()!.exactLat ?? ''} onInput={e=>mutateDraft({exactLat:nullableInput(e.currentTarget.value,draft()!.exactLat)})}/></Field>
+            <Field label="Exact longitude" hint="Never published, set together with the latitude."><Input type="number" step="0.000001" value={draft()!.exactLng ?? ''} onInput={e=>mutateDraft({exactLng:nullableInput(e.currentTarget.value,draft()!.exactLng)})}/></Field>
+            <Field label="Claim radius (m)" hint="How close a fan must be to the exact point, 25–500 m. Tight is harder in a dense city; wide forgives GPS drift indoors."><Input type="number" min="25" max="500" value={draft()!.radiusMeters} onInput={e=>mutateDraft({radiusMeters:finiteInput(e.currentTarget.value,draft()!.radiusMeters)})}/></Field>
           </div>
         </div></Show>
 
         <Show when={editorStep()==='content'}><div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <label>Clue — Polski<Textarea maxlength="2000" value={draft()!.clue.pl} onInput={e=>mutateClue('pl',e.currentTarget.value)}/></label>
-          <label>Clue — English<Textarea maxlength="2000" value={draft()!.clue.en} onInput={e=>mutateClue('en',e.currentTarget.value)}/></label>
-          <label>Track<Input maxlength="256" value={draft()!.collectible.track} onInput={e=>mutateCollectible('track',e.currentTarget.value)}/></label>
-          <label>Edition<Input maxlength="256" value={draft()!.collectible.edition} onInput={e=>mutateCollectible('edition',e.currentTarget.value)}/></label>
-          <label>Collectible line<Textarea maxlength="1000" value={draft()!.collectible.line} onInput={e=>mutateCollectible('line',e.currentTarget.value)}/></label>
-          <label>Riddle<Input maxlength="256" value={draft()!.collectible.riddle} onInput={e=>mutateCollectible('riddle',e.currentTarget.value)}/></label>
+          <Field label="Clue — Polski"><Textarea maxlength="2000" value={draft()!.clue.pl} onInput={e=>mutateClue('pl',e.currentTarget.value)}/></Field>
+          <Field label="Clue — English"><Textarea maxlength="2000" value={draft()!.clue.en} onInput={e=>mutateClue('en',e.currentTarget.value)}/></Field>
+          <Field label="Track"><Input maxlength="256" value={draft()!.collectible.track} onInput={e=>mutateCollectible('track',e.currentTarget.value)}/></Field>
+          <Field label="Edition"><Input maxlength="256" value={draft()!.collectible.edition} onInput={e=>mutateCollectible('edition',e.currentTarget.value)}/></Field>
+          <Field label="Collectible line"><Textarea maxlength="1000" value={draft()!.collectible.line} onInput={e=>mutateCollectible('line',e.currentTarget.value)}/></Field>
+          <Field label="Riddle"><Input maxlength="256" value={draft()!.collectible.riddle} onInput={e=>mutateCollectible('riddle',e.currentTarget.value)}/></Field>
         </div></Show>
 
         <Show when={editorStep()==='schedule'}><div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <label>Starts <small class="block text-xs text-muted-foreground">{Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone'}</small><Input required type="datetime-local" value={toLocalInput(draft()!.startsAt)} onInput={e=>mutateDraft({startsAt:fromLocalInput(e.currentTarget.value,draft()!.startsAt)})}/></label>
-          <label>Ends <small class="block text-xs text-muted-foreground">{Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone'}</small><Input required type="datetime-local" value={toLocalInput(draft()!.endsAt)} onInput={e=>mutateDraft({endsAt:fromLocalInput(e.currentTarget.value,draft()!.endsAt)})}/></label>
-          <label>Capacity<Input type="number" min="1" max="500" value={draft()!.maxClaims} onInput={e=>mutateDraft({maxClaims:finiteInput(e.currentTarget.value,draft()!.maxClaims)})}/></label>
+          <Field label="Starts" hint={Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone'}><Input required type="datetime-local" value={toLocalInput(draft()!.startsAt)} onInput={e=>mutateDraft({startsAt:fromLocalInput(e.currentTarget.value,draft()!.startsAt)})}/></Field>
+          <Field label="Ends" hint={Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone'}><Input required type="datetime-local" value={toLocalInput(draft()!.endsAt)} onInput={e=>mutateDraft({endsAt:fromLocalInput(e.currentTarget.value,draft()!.endsAt)})}/></Field>
+          <Field label="Capacity"><Input type="number" min="1" max="500" value={draft()!.maxClaims} onInput={e=>mutateDraft({maxClaims:finiteInput(e.currentTarget.value,draft()!.maxClaims)})}/></Field>
         </div></Show>
 
         <Show when={editorStep()==='review'}><div class="space-y-3">
@@ -300,9 +301,9 @@ export function AreaPage() {
 
         <Show when={duplicateOpen()}><div class="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
           <strong class="text-sm text-foreground">Duplicate as a new draft</strong><p class="text-sm text-muted-foreground">The collectible/content is copied, but the exact claim coordinates are deliberately cleared.</p>
-          <label>Search destination city<Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Search canonical cities"/></label>
-          <label>Destination city<NativeSelect value={duplicateCityId()} onChange={e=>setDuplicateCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''}</option>}</For></NativeSelect></label>
-          <label>New number<Input inputmode="numeric" maxlength="3" value={duplicateNumber()} onInput={e=>setDuplicateNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></label>
+          <Field label="Search destination city"><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Search canonical cities"/></Field>
+          <Field label="Destination city"><NativeSelect value={duplicateCityId()} onChange={e=>setDuplicateCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''}</option>}</For></NativeSelect></Field>
+          <Field label="New number"><Input inputmode="numeric" maxlength="3" value={duplicateNumber()} onInput={e=>setDuplicateNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></Field>
           <div class="flex justify-end gap-2"><Button variant="ghost" size="sm" onClick={()=>setDuplicateOpen(false)}>Cancel</Button><Button size="sm" disabled={duplicate.isPending || !duplicateCityId() || !duplicateNumber()} onClick={()=>duplicate.mutate()}>Create duplicate draft</Button></div>
         </div></Show>
 

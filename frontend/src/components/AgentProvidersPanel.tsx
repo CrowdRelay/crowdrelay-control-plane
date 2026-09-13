@@ -662,11 +662,11 @@ export function AgentProvidersPanel(props: {
             <ErrorCard class="rounded-md p-3">{error()}</ErrorCard>
           </Show>
           <Show when={!isServiceDown()}>
-            <div class="h-20 rounded-lg border border-border bg-surface-1 animate-pulse" />
+            <div class="h-20 rounded-lg border border-border bg-surface-3" />
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
-              <div class="h-32 rounded-lg border border-border bg-surface-1 animate-pulse" />
-              <div class="h-32 rounded-lg border border-border bg-surface-1 animate-pulse" />
-              <div class="h-32 rounded-lg border border-border bg-surface-1 animate-pulse" />
+              <div class="h-32 rounded-lg border border-border bg-surface-3" />
+              <div class="h-32 rounded-lg border border-border bg-surface-3" />
+              <div class="h-32 rounded-lg border border-border bg-surface-3" />
             </div>
           </Show>
         </div>
@@ -867,7 +867,7 @@ export function AgentProvidersPanel(props: {
             <div class="flex flex-col">
               <For each={usage.data!.tasks.slice(0, 10)}>
                 {(task) => (
-                  <div class="flex items-center gap-3 text-sm py-2 border-b border-border">
+                  <div class="flex items-center gap-3 text-sm py-2 border-b border-border last:border-0">
                     <StatusBadge status={task.status} tone={taskStatusTone(task.status)} />
                     <span class="font-medium text-foreground">{task.template_id}</span>
                     <span class="text-muted-foreground">{task.model_provider ?? '—'}</span>

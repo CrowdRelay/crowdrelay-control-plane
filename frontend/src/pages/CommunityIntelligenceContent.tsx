@@ -10,6 +10,7 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
 import { NativeSelect } from '../components/ui/native-select'
+import { Field } from '../components/ui/field'
 import { writeGuard } from '../lib/read-only'
 
 /**
@@ -303,21 +304,10 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
         {/* ── Add form ── */}
         <Show when={adding()}>
           <form class="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={submit}>
-            <label>
-              Kind
-              <NativeSelect value={kind()} onChange={event => setKind(event.currentTarget.value)}>
-                <For each={PLACE_KINDS}>{value => <option value={value}>{value.replaceAll('_', ' ')}</option>}</For>
-              </NativeSelect>
-            </label>
-            <label>
-              Name <small>as people refer to it, e.g. r/progmetal</small>
-              <Input value={name()} onInput={event => setName(event.currentTarget.value)} required maxlength={200} />
-            </label>
-            <label>
-              URL <small>identity is the platform and URL together</small>
-              <Input value={url()} onInput={event => setUrl(event.currentTarget.value)} required type="url" maxlength={512} />
-            </label>
-            <div class="form-actions right">
+            <Field label="Kind"><NativeSelect value={kind()} onChange={event => setKind(event.currentTarget.value)}><For each={PLACE_KINDS}>{value => <option value={value}>{value.replaceAll('_', ' ')}</option>}</For></NativeSelect></Field>
+            <Field label="Name" hint="as people refer to it, e.g. r/progmetal"><Input value={name()} onInput={event => setName(event.currentTarget.value)} required maxlength={200} /></Field>
+            <Field label="URL" hint="identity is the platform and URL together"><Input value={url()} onInput={event => setUrl(event.currentTarget.value)} required type="url" maxlength={512} /></Field>
+            <div class="flex justify-end mt-4">
               <Button writes size="sm" type="submit" disabled={saving() || !name().trim() || !url().trim()}>
                 {saving() ? 'Registering…' : 'Register'}
               </Button>
@@ -328,13 +318,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
         {/* ── Import form ── */}
         <Show when={importing()}>
           <form onSubmit={runImport}>
-            <label class="flex flex-col gap-1 text-sm text-muted-foreground">
-              Paste a scan
-              <small>
-                A JSON array of {'{ placeKind, platform, name, url }'} — genres, memberCount, notes and
-                country optional. Re-importing the same platform and URL refreshes it rather than
-                duplicating it.
-              </small>
+            <Field label="Paste a scan" hint="A JSON array of { placeKind, platform, name, url } — genres, memberCount, notes and country optional. Re-importing the same platform and URL refreshes it rather than duplicating it.">
               <Textarea
                 class="font-mono p-3"
                 rows={8}
@@ -343,8 +327,8 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                 onInput={event => setImportText(event.currentTarget.value)}
                 placeholder='[{"placeKind":"subreddit","platform":"reddit","name":"r/progmetal","url":"https://reddit.com/r/progmetal"}]'
               />
-            </label>
-            <div class="form-actions right">
+            </Field>
+            <div class="flex justify-end mt-4">
               <Button writes size="sm" type="submit" disabled={saving() || !importText().trim()}>
                 {saving() ? 'Importing…' : 'Import'}
               </Button>

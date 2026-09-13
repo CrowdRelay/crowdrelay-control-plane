@@ -602,32 +602,4 @@ export function DataRow(props: {
   )
 }
 
-// ─── FormGrid ──────────────────────────────────────────────────────────
-// A responsive 2-column form grid. Replaces `.form-grid`.
 
-export function FormGrid(props: { children: JSX.Element; class?: string }) {
-  return (
-    <div class={cn('grid grid-cols-1 md:grid-cols-2 gap-4', props.class)}>
-      {props.children}
-    </div>
-  )
-}
-
-// ─── KeyValueList ──────────────────────────────────────────────────────
-// A definition list with 2-column grid. Replaces `.panel dl`.
-
-export function KeyValueList(props: { children: JSX.Element; class?: string }) {
-  return (
-    <dl class={cn('grid grid-cols-2 gap-2.5 m-0', props.class)}>
-      {props.children}
-    </dl>
-  )
-}
-
-export function KeyValueTerm(props: { children: JSX.Element; class?: string }) {
-  return <dt class={cn('text-muted-foreground text-sm', props.class)}>{props.children}</dt>
-}
-
-export function KeyValueDesc(props: { children: JSX.Element; class?: string }) {
-  return <dd class={cn('text-right text-foreground text-sm break-words', props.class)}>{props.children}</dd>
-}

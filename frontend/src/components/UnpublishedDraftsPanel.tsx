@@ -80,12 +80,12 @@ export function UnpublishedDraftsPanel(props: {
         <div class="grid grid-cols-2 gap-3">
           <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
             <span class="text-xs text-muted-foreground">Drafts waiting</span>
-            <strong class="text-lg tabular-nums text-foreground">{total()}</strong>
+            <strong class="text-xl font-bold tabular-nums text-foreground">{total()}</strong>
           </div>
           <Show when={oldestDays() !== null}>
             <div class="flex flex-col gap-1 p-3 rounded-md bg-warning/5 ring-1 ring-warning/20">
               <span class="text-xs text-warning">Oldest</span>
-              <strong class="text-lg tabular-nums text-warning">{oldestDays()}d</strong>
+              <strong class="text-xl font-bold tabular-nums text-warning">{oldestDays()}d</strong>
             </div>
           </Show>
         </div>
