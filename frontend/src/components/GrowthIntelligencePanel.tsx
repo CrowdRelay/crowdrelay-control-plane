@@ -248,7 +248,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-sm font-semibold text-foreground">Autonomy controls</h3>
         </div>
-        <p class="mt-1 text-sm text-muted-foreground">How much freedom the intelligence has to act on what it finds. <strong>Observe</strong> only records the decision, <strong>recommend</strong> puts it on the opportunity board, <strong>require approval</strong> queues every action for your sign-off, <strong>bounded auto</strong> executes without asking. <strong>Min confidence</strong> is the floor an action has to clear before any of that happens, and <strong>Max / 24h</strong> caps how many run in a rolling day. Apply saves the row; the next cycle uses it.</p>
+        <p class="mt-1 text-sm text-muted-foreground">How much freedom the intelligence has to act on what it finds. <strong>Watch</strong> only records the decision, <strong>Suggest</strong> puts it on the opportunity board, <strong>Ask</strong> queues every action for your sign-off, <strong>Alone</strong> executes without asking. <strong>Min confidence</strong> is the floor an action has to clear before any of that happens, and <strong>Max / 24h</strong> caps how many run in a rolling day. Apply saves the row; the next cycle uses it.</p>
         <Show when={growthPolicy()} fallback={
           <Show when={overview.isFetching} fallback={
             <Show when={overview.data} fallback={

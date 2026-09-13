@@ -171,23 +171,23 @@ export function AuthorityPoliciesPanel(props: {
         <p class="text-sm leading-relaxed text-muted-foreground">
           One row per kind of work the autopilot does.{' '}
           <strong>Mode</strong> is how far it may go on its own —{' '}
-          <em>observe</em> records what it would do,{' '}
-          <em>recommend</em> surfaces it on the opportunity board,{' '}
-          <em>require approval</em> prepares the action and waits for you,{' '}
-          <em>bounded auto</em> executes without asking.{' '}
+          <em>Watch</em> records what it would do,{' '}
+          <em>Suggest</em> surfaces it on the opportunity board,{' '}
+          <em>Ask</em> prepares the action and waits for you,{' '}
+          <em>Alone</em> executes without asking.{' '}
           <strong>Min confidence</strong> is the score an action must reach before that mode applies; below it nothing happens.{' '}
           <strong>Max / 24h</strong> caps executions per rolling day, so a bad run stops itself.{' '}
           Changes take effect on the next cycle — <em>Apply</em> saves one row.
         </p>
         {/* The one piece of operating guidance the console never gave, and the
-            public site states plainly: the correct first move is observe, not
+            public site states plainly: the correct first move is Watch, not
             a confident guess at a level. Teams that skip it do not end up
             trusting the thing, because they never watched it be right. */}
         <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
           If you are setting these for the first time, leave everything on{' '}
-          <em>only watch</em>. Read what it would have done for a week, then
+          <em>Watch</em>. Read what it would have done for a week, then
           grant room where it was right. Starting a context at{' '}
-          <em>do it alone</em> skips the part where you find out whether you
+          <em>Alone</em> skips the part where you find out whether you
           agree with it.
         </p>
       </details>

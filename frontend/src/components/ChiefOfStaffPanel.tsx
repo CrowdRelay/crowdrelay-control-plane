@@ -124,7 +124,7 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
 
       <Show when={quiet()}>
         <div class="p-4 mt-3">
-          <p class="m-0 text-sm text-muted-foreground">The autopilot did nothing in the last day — expected when every policy is set to observe or the confidence floor is above what the cycle produced.</p>
+          <p class="m-0 text-sm text-muted-foreground">The autopilot did nothing in the last day — expected when every policy is set to Watch or the confidence floor is above what the cycle produced.</p>
         </div>
       </Show>
 
