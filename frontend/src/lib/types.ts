@@ -1007,6 +1007,12 @@ export interface AgentModel {
   paid: boolean
   providerId: string
   providerName: string
+  /**
+   * Whether the workspace can dispatch this model right now — its provider is
+   * connected, or it's a free model whose provider has a platform env key.
+   * Absent on older agent-service builds; treat undefined as unknown.
+   */
+  available?: boolean
 }
 
 export interface PremiumModel {

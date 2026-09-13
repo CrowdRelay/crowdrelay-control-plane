@@ -29,6 +29,42 @@ export interface ProviderCardContext {
   onDisconnect: (providerId: string) => void
 }
 
+/**
+ * One-line "why connect this" per provider. Keeps the card body identical
+ * across providers while still telling the operator what the key buys.
+ */
+const PROVIDER_HOOKS: Record<string, string> = {
+  openai: 'Unlocks GPT-4o for press-pitch (deep reasoning) and o3 for campaign-analysis',
+  anthropic: 'Unlocks Claude Sonnet for social-post (nuanced writing) and audience-research',
+  google: 'Unlocks Gemini Flash for fast scanning — ~250 requests/day free',
+  xai: 'Unlocks Grok for community-engager (real-time social context)',
+  openrouter: 'Unlocks 100+ models via one API key — flexible routing for all templates',
+  'github-models': 'Any GitHub token works — GPT-4o and DeepSeek-R1 with no new account',
+  cerebras: 'Fastest free inference anywhere — ~3,000 tokens/sec, 1M tokens/day',
+  mistral: 'Whole catalog free on the Experiment tier — no card required',
+  nvidia: 'Free developer key unlocks a 160+ model catalog on NVIDIA hardware',
+  siliconflow: 'Selected models billed at zero — long-context Qwen and GLM included',
+  huggingface: 'One token routes to dozens of backends — auto-picks the fastest',
+  cloudflare: '10K free Neurons/day on the edge — paste as ACCOUNT_ID:API_TOKEN',
+  pollinations: 'Free Pollen refills hourly — a fallback layer when quotas run dry',
+  zhipu: 'GLM flagships for premium tasks; two Flash models run free on the same key',
+  sambanova: 'Free DeepSeek and Llama on RDU hardware — no card required',
+  groq: 'Fastest free drafting — ~14K requests/day, no card required',
+}
+
+/**
+ * Input placeholder per provider — the credential format differs for
+ * providers whose key is composite (Cloudflare carries its account id).
+ */
+const KEY_PLACEHOLDERS: Record<string, string> = {
+  cloudflare: 'Paste ACCOUNT_ID:API_TOKEN…',
+  pollinations: 'Paste sk_… key…',
+  huggingface: 'Paste hf_… token…',
+  nvidia: 'Paste nvapi-… key…',
+  cognition: 'Paste cog_… key…',
+  'github-models': 'Paste GitHub token (ghp_… / github_pat_…)…',
+}
+
 // One provider card. It was inlined twice — once in a free-models grid and
 // once in an API-key grid — which is why the two drifted apart. One card,
 // rendered wherever a provider belongs.
@@ -88,24 +124,9 @@ export function ProviderCard(props: { provider: AgentProvider; ctx: ProviderCard
       {/* Model recommendation — shows which templates benefit from this provider */}
       <Show when={!isConnected()}>
         <div class="mt-1">
-          <Show when={provider.id === 'openai'}>
-            <span class="text-xs text-muted-foreground italic">Unlocks GPT-4o for press-pitch (deep reasoning) and o3 for campaign-analysis</span>
-          </Show>
-          <Show when={provider.id === 'anthropic'}>
-            <span class="text-xs text-muted-foreground italic">Unlocks Claude Sonnet for social-post (nuanced writing) and audience-research</span>
-          </Show>
-          <Show when={provider.id === 'google'}>
-            <span class="text-xs text-muted-foreground italic">Unlocks Gemini Flash for fast scanning — ~250 requests/day free</span>
-          </Show>
-          <Show when={provider.id === 'xai'}>
-            <span class="text-xs text-muted-foreground italic">Unlocks Grok for community-engager (real-time social context)</span>
-          </Show>
-          <Show when={provider.id === 'openrouter'}>
-            <span class="text-xs text-muted-foreground italic">Unlocks 100+ models via one API key — flexible routing for all templates</span>
-          </Show>
-          <Show when={provider.id !== 'openai' && provider.id !== 'anthropic' && provider.id !== 'google' && provider.id !== 'xai' && provider.id !== 'openrouter'}>
-            <span class="text-xs text-muted-foreground italic">Adds {provider.modelCount} models to the intelligence's routing pool</span>
-          </Show>
+          <span class="text-xs text-muted-foreground italic">
+            {PROVIDER_HOOKS[provider.id] ?? `Adds ${provider.modelCount} models to the intelligence's routing pool`}
+          </span>
         </div>
       </Show>
 
@@ -145,7 +166,7 @@ export function ProviderCard(props: { provider: AgentProvider; ctx: ProviderCard
                 <Input
                   class={ctx.error() && ctx.connectingProvider() !== provider.id ? 'border-destructive' : ''}
                   type="password"
-                  placeholder="Paste API key…"
+                  placeholder={KEY_PLACEHOLDERS[provider.id] ?? 'Paste API key…'}
                   aria-label={`${provider.name} API key`}
                   value={ctx.apiKeyInput()}
                   onInput={(e) => ctx.onApiKeyInput(e.currentTarget.value)}
