@@ -274,9 +274,13 @@ const ICONS: Record<IconName, JSX.Element> = {
 
 export function SectionIcon(props: { name: IconName; class?: string }) {
   const [local] = splitProps(props, ['name', 'class'])
+  // `pointer-events-none`: the icon is decoration (aria-hidden), so it should
+  // never be the :hover target. Any rule keyed on a hovered svg — injected by
+  // a dark-mode extension or a future stylesheet — would otherwise be able to
+  // restyle or hide it while the pointer is over the heading.
   return (
     <Show when={ICONS[local.name]} fallback={null}>
-      <span class={cn('inline-flex items-center text-muted-foreground flex-shrink-0 mr-1.5', local.class)} aria-hidden="true">
+      <span class={cn('inline-flex items-center text-muted-foreground flex-shrink-0 mr-1.5 pointer-events-none', local.class)} aria-hidden="true">
         {ICONS[local.name]}
       </span>
     </Show>
