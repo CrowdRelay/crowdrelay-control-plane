@@ -1,0 +1,16 @@
+# Build context hygiene — the Dockerfile COPYs frontend/, crates/,
+# migrations/ and scripts/ verbatim. Without this, host-resolved
+# node_modules (darwin bindings) overwrite the npm ci install inside
+# the image and the web build fails on a rolldown/napi mismatch.
+**/node_modules
+**/dist
+**/test-results
+**/playwright-report
+**/html-report
+**/target
+
+.git
+.env
+.env.*
+*.log
+.DS_Store
