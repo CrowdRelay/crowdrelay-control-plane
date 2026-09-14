@@ -214,13 +214,12 @@ impl Store {
                (id, tenant_id, status, plan, created_by, finished_at, result)
                SELECT gen_random_uuid(), t.id, 'succeeded',
                       '{"kind":"external_registration"}'::jsonb, 'ensure_virya', now(),
-                      jsonb_build_object('localApiUrl', $5::text)
+                      jsonb_build_object('localApiUrl', $1::text)
                FROM control_plane_tenants t
                WHERE t.slug = 'virya'
                ON CONFLICT (tenant_id) WHERE plan->>'kind' = 'external_registration'
                DO UPDATE SET result = EXCLUDED.result, updated_at = now()"#,
         )
-        .bind(Uuid::new_v4())
         .bind(management_url.unwrap_or(crowdrelay_url))
         .execute(&self.pool)
         .await?;
