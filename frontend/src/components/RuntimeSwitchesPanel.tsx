@@ -11,7 +11,7 @@ import { SkeletonFlagList } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { SectionFailureCard } from './SectionFailureCard'
-import { ErrorCard, KpiCard, PanelTitle } from './layout'
+import { ErrorCard, KpiCard, KpiStrip, PanelTitle } from './layout'
 import { Card } from './ui/card'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
@@ -110,14 +110,14 @@ export function RuntimeSwitchesPanel(props: {
 
     <Show when={mutationError()}>{message => <ErrorCard>{message()}</ErrorCard>}</Show>
 
-    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+    <KpiStrip class="mt-3 mb-0" min="8rem">
       <KpiCard label="Slowest requests" value={metric(props.summary?.http.p95_ms, ' ms')} sub={`typical ${metric(props.summary?.http.p50_ms, ' ms')}`} />
       <KpiCard label="Outbox pending" value={metric(props.summary?.outbox.pending)} sub={props.summary ? `${props.summary.outbox.processing} processing` : '—'} />
       <KpiCard label="Delivery pending" value={metric(props.summary?.deliveries.pending)} sub={props.summary ? `${props.summary.deliveries.dead} dead` : '—'} />
       <KpiCard label="Push pending" value={metric(props.summary?.push.pending)} sub={props.summary ? `${props.summary.push.dead} dead` : '—'} />
       <KpiCard label="Oldest queue" value={props.summary ? seconds(oldestQueueAge(props.summary)) : '—'} sub="across async queues" />
       <KpiCard label="Watchdog" value={metric(props.summary?.watchdog.active_alerts)} sub={props.summary ? `${props.summary.watchdog.critical_alerts} critical` : '—'} tone={(props.summary?.watchdog.critical_alerts ?? 0) > 0 ? 'bad' : 'default'} />
-    </div>
+    </KpiStrip>
 
     <Show when={props.summary && (deadJobs() > 0 || props.summary.watchdog.critical_alerts > 0)}>
       <div class="mt-3 p-4 rounded-md border border-destructive/30 bg-destructive/10 flex items-center justify-between gap-3 flex-wrap">

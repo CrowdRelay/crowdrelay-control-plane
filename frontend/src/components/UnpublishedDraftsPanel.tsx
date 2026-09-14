@@ -1,5 +1,5 @@
 import { For, Show } from 'solid-js'
-import { PanelTitle } from './layout'
+import { KpiCard, KpiStrip, PanelTitle } from './layout'
 import type { UnpublishedDraftChannel } from '../lib/attention'
 import { SectionIcon } from './SectionIcon'
 import { Card } from './ui/card'
@@ -77,18 +77,12 @@ export function UnpublishedDraftsPanel(props: {
       <Show when={total() > 0} fallback={
         <p class="text-muted-foreground text-sm">No drafts waiting. Everything the brain wrote is published.</p>
       }>
-        <div class="grid grid-cols-2 gap-3">
-          <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
-            <span class="text-xs text-muted-foreground">Drafts waiting</span>
-            <strong class="text-xl font-bold tabular-nums text-foreground">{total()}</strong>
-          </div>
+        <KpiStrip class="mb-0">
+          <KpiCard label="Drafts waiting" value={total()} />
           <Show when={oldestDays() !== null}>
-            <div class="flex flex-col gap-1 p-3 rounded-md bg-warning/5 ring-1 ring-warning/20">
-              <span class="text-xs text-warning">Oldest</span>
-              <strong class="text-xl font-bold tabular-nums text-warning">{oldestDays()}d</strong>
-            </div>
+            <KpiCard label="Oldest" value={`${oldestDays()}d`} tone="warn" />
           </Show>
-        </div>
+        </KpiStrip>
 
         {/* One row per channel, each in its own box. As four inline spans on
             a shared baseline they wrapped into a single paragraph, so where

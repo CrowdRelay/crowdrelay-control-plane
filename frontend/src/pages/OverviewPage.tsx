@@ -1,4 +1,4 @@
-import { For, Match, Show, Switch, createMemo, type JSX } from 'solid-js'
+import { For, Match, Show, Switch, createEffect, createMemo, createSignal, type JSX } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -143,6 +143,15 @@ export function OverviewPage() {
   const fanSub = (value: number | null | undefined, settled: JSX.Element): JSX.Element =>
     value == null && silentTenants() > 0 ? waitingNote() : settled
 
+  // A figure that turned up after the strip had already been read should say
+  // so. Once a tenant has gone silent on this page, every fan figure that
+  // lands afterwards fades in rather than replacing its dash in silence —
+  // otherwise the retry that `whileIncomplete` runs is invisible, and an
+  // operator who looked away reads a number they never saw arrive.
+  const [wasWaiting, setWasWaiting] = createSignal(false)
+  createEffect(() => { if (silentTenants() > 0) setWasWaiting(true) })
+  const arrived = (value: number | null | undefined) => wasWaiting() && value != null
+
   return <PageShell>
     <PageHeader
       eyebrow="NORTH STAR"
@@ -161,7 +170,7 @@ export function OverviewPage() {
       </Match>
       <Match when={cc()}>
         <KpiStrip>
-          <KpiCard label="Active fans" value={fmt(cc()!.fans.activeFans)} tone="good" sub={
+          <KpiCard label="Active fans" value={fmt(cc()!.fans.activeFans)} tone="good" fresh={arrived(cc()!.fans.activeFans)} sub={
             fanSub(cc()!.fans.activeFans,
               <>
                 <Show when={cc()!.fans.reportingTenants > 0} fallback="no tenants reporting">
@@ -178,9 +187,9 @@ export function OverviewPage() {
                 </Show>
               </>)
           } />
-          <KpiCard label="Ticket buyers" value={fmt(cc()!.fans.ticketBuyers)} sub={fanSub(cc()!.fans.ticketBuyers, 'conversion signal')} />
-          <KpiCard label="Attendees" value={fmt(cc()!.fans.attendees)} sub={fanSub(cc()!.fans.attendees, 'live show conversion')} />
-          <KpiCard label="Paid ticket orders" value={fmt(cc()!.fans.paidTicketOrders)} sub={
+          <KpiCard label="Ticket buyers" value={fmt(cc()!.fans.ticketBuyers)} fresh={arrived(cc()!.fans.ticketBuyers)} sub={fanSub(cc()!.fans.ticketBuyers, 'conversion signal')} />
+          <KpiCard label="Attendees" value={fmt(cc()!.fans.attendees)} fresh={arrived(cc()!.fans.attendees)} sub={fanSub(cc()!.fans.attendees, 'live show conversion')} />
+          <KpiCard label="Paid ticket orders" value={fmt(cc()!.fans.paidTicketOrders)} fresh={arrived(cc()!.fans.paidTicketOrders)} sub={
             fanSub(cc()!.fans.paidTicketOrders,
               <>
                 revenue signal

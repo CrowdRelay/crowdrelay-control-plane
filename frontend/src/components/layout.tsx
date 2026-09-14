@@ -1,5 +1,6 @@
 import { For, Match, Show, Suspense, Switch, createSignal, type Component, type JSX } from 'solid-js'
 import { Card } from './ui/card'
+import { Metric, MetricRow, type MetricTone } from './ui/metric'
 import { CollapsibleSection as UICollapsible } from './ui/collapsible'
 import { cn } from '../lib/cn'
 import { SkeletonTabContent } from './Skeleton'
@@ -36,56 +37,40 @@ export function PageHeader(props: {
 }
 
 // ─── KpiCard / KpiStrip ─────────────────────────────────────────────────
-// KPI cards with visual hierarchy: north-star metrics get emphasis,
-// supporting metrics are compact. Replaces the hand-rolled `.kpi-card`
-// and `.kpi-strip` CSS classes.
-
-// `tone` colours the card's edge — the reading is worth noticing. It also
-// colours the figure, because a bordered card whose number stayed default-grey
-// read as decoration rather than as the thing that changed.
-const KPI_BORDER_TONE = {
-  default: '',
-  good: 'border-success/30',
-  warn: 'border-warning/30',
-  bad: 'border-destructive/30',
-} as const
-
-const KPI_VALUE_TONE = {
-  default: 'text-foreground',
-  good: 'text-success',
-  warn: 'text-warning',
-  bad: 'text-destructive',
-} as const
+// Both are now thin names over `Metric` and `MetricRow` (components/ui/metric).
+// They stay because ninety-odd call sites read well as "KPI", and because the
+// pair carries one rule the primitive cannot enforce on its own: a `KpiCard`
+// belongs inside a `KpiStrip`, which is the `<dl>` its `<dt>`/`<dd>` need.
+//
+// What changed is the drawing. Each figure used to be a rounded, bordered,
+// filled box, so a five-number summary arrived as five objects competing with
+// the page under it. They are one reading now, divided by hairlines — the
+// shape the public site uses for exactly this, and the argument is its own:
+// the numbers introduce the section below them, they do not compete with it.
 
 export function KpiCard(props: {
   label: string
   value: JSX.Element
   sub?: JSX.Element
-  tone?: 'default' | 'good' | 'warn' | 'bad'
+  tone?: MetricTone
+  /** The figure arrived after the strip first rendered — fade it in once. */
+  fresh?: boolean
   class?: string
 }) {
-  const tone = () => props.tone ?? 'default'
   return (
-    <Card class={cn('rounded-lg p-4', KPI_BORDER_TONE[tone()], props.class)}>
-      <div class="text-xs text-muted-foreground">{props.label}</div>
-      <div class={cn('text-xl font-bold tabular-nums mt-1', KPI_VALUE_TONE[tone()])}>{props.value}</div>
-      <Show when={props.sub}>
-        <div class="text-xs text-muted-foreground mt-1">{props.sub}</div>
-      </Show>
-    </Card>
+    <Metric
+      label={props.label}
+      value={props.value}
+      sub={props.sub}
+      tone={props.tone}
+      fresh={props.fresh}
+      class={props.class}
+    />
   )
 }
 
-export function KpiStrip(props: { children: JSX.Element; class?: string }) {
-  // `auto-fit` with `minmax(220px, 1fr)` makes the cards stretch to fill the
-  // row regardless of how many there are. A 3-card strip no longer leaves a
-  // gap in a 4-column grid; a 5-card strip wraps 4 + 1 with the lone card
-  // stretching full width instead of hugging the left edge.
-  return (
-    <div data-kpi-strip="" class={cn('grid gap-3 mb-5 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]', props.class)}>
-      {props.children}
-    </div>
-  )
+export function KpiStrip(props: { children: JSX.Element; class?: string; min?: string }) {
+  return <MetricRow class={cn('mb-5', props.class)} min={props.min}>{props.children}</MetricRow>
 }
 
 // ─── SectionPanel ───────────────────────────────────────────────────────

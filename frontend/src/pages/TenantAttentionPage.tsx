@@ -17,7 +17,7 @@ import { DeadQueuesPanel } from '../components/DeadQueuesPanel'
 import { SkeletonSection, SkeletonKpiStrip, SkeletonRows } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
 import { Spinner } from '../components/Spinner'
-import { TabBar, TabPanel, useTabPanels, KpiCard, PageShell, PageHeader, ErrorCard, SectionPanel, SectionTitle } from '../components/layout'
+import { TabBar, TabPanel, useTabPanels, KpiCard, KpiStrip, PageShell, PageHeader, ErrorCard, SectionPanel, SectionTitle } from '../components/layout'
 import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -205,7 +205,7 @@ export function TenantAttentionPage() {
         {/* `grid gap-2.5` with no column count stacked three stat cards full
             width, one under the other, so a row of numbers read as three more
             panels. */}
-        <Show when={attention.data?.ecosystem}><div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <Show when={attention.data?.ecosystem}><KpiStrip class="mb-0">
           <KpiCard
             label="Open findings"
             value={attention.data!.ecosystem!.open_findings}
@@ -223,7 +223,7 @@ export function TenantAttentionPage() {
             sub={attention.data!.ecosystem!.bandsintown_sync?.in_progress ? 'running now' : 'failures in a row'}
             tone={(attention.data!.ecosystem!.bandsintown_sync?.consecutive_failures ?? 0) > 0 ? 'warn' : 'default'}
           />
-        </div></Show>
+        </KpiStrip></Show>
         {/* Both branches rendered a byte-identical body; only the surround
             differed. The copy in the fallback also still asked whether the
             severity was critical, in the branch that only runs when it is not. */}
@@ -265,56 +265,24 @@ export function TenantAttentionPage() {
       <SectionTitle title="Database health" icon={<SectionIcon name="database" />} action={<Show when={summary.data}>{data => <StatusBadge status={data().database.async_io_active ? 'async I/O active' : 'check I/O'} tone={data().database.async_io_active ? 'good' : 'warn'} />}</Show>} />
       <Show when={!summary.error && summary.data} fallback={<Show when={!summary.error}><SkeletonRows count={4} /></Show>}>
         {data => <>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Card class="rounded-lg p-4">
-              <span class="block text-xs text-muted-foreground">Pool</span>
-              <strong class="block text-xl font-bold tabular-nums mt-1">{data().database.pool_size}/{data().database.pool_max}</strong>
-              <small class="block text-xs text-muted-foreground mt-1">{data().database.pool_idle} idle</small>
-            </Card>
-            <Card class="rounded-lg p-4">
-              <span class="block text-xs text-muted-foreground">Postgres</span>
-              <strong class="block text-xl font-bold tabular-nums mt-1">{formatPgVersion(data().database.server_version_num)}</strong>
-              <small class="block text-xs text-muted-foreground mt-1">{data().database.io_method ?? 'I/O method unknown'}</small>
-            </Card>
-            <Card class="rounded-lg p-4">
-              <span class="block text-xs text-muted-foreground">Effective I/O concurrency</span>
-              <strong class="block text-xl font-bold tabular-nums mt-1">{data().database.effective_io_concurrency ?? '—'}</strong>
-              <small class="block text-xs text-muted-foreground mt-1">workers {data().database.io_workers ?? '—'}</small>
-            </Card>
-            <Card class="rounded-lg p-4">
-              <span class="block text-xs text-muted-foreground">Maintenance I/O</span>
-              <strong class="block text-xl font-bold tabular-nums mt-1">{data().database.maintenance_io_concurrency ?? '—'}</strong>
-              <small class="block text-xs text-muted-foreground mt-1">max {data().database.io_max_concurrency ?? '—'}</small>
-            </Card>
-          </div>
+          <KpiStrip class="mb-0" min="9rem">
+            <KpiCard label="Pool" value={`${data().database.pool_size}/${data().database.pool_max}`} sub={`${data().database.pool_idle} idle`} />
+            <KpiCard label="Postgres" value={formatPgVersion(data().database.server_version_num)} sub={data().database.io_method ?? 'I/O method unknown'} />
+            <KpiCard label="Effective I/O concurrency" value={data().database.effective_io_concurrency ?? '—'} sub={`workers ${data().database.io_workers ?? '—'}`} />
+            <KpiCard label="Maintenance I/O" value={data().database.maintenance_io_concurrency ?? '—'} sub={`max ${data().database.io_max_concurrency ?? '—'}`} />
+          </KpiStrip>
         </>}
       </Show>
 
       <SectionTitle title="Reservation maintenance" icon={<SectionIcon name="map-pin" />} action={<Show when={summary.data}>{data => <StatusBadge status={staleAreaReservations(data()) > 0 ? `${staleAreaReservations(data())} stale` : 'clean'} tone={staleAreaReservations(data()) > 0 ? 'bad' : 'good'} />}</Show>} />
       <Show when={!summary.error && summary.data} fallback={<Show when={!summary.error}><SkeletonRows count={4} /></Show>}>
         {data => <>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Card class="rounded-lg p-4">
-              <span class="block text-xs text-muted-foreground">Stale vouchers</span>
-              <strong class="block text-xl font-bold tabular-nums mt-1">{data().area.stale_voucher_reservations}</strong>
-              <small class="block text-xs text-muted-foreground mt-1">{data().area.vouchers_issued} issued</small>
-            </Card>
-            <Card class="rounded-lg p-4">
-              <span class="block text-xs text-muted-foreground">Stale ticket rewards</span>
-              <strong class="block text-xl font-bold tabular-nums mt-1">{data().area.stale_ticket_reward_reservations}</strong>
-              <small class="block text-xs text-muted-foreground mt-1">{data().area.ticket_rewards_issued} issued</small>
-            </Card>
-            <Card class="rounded-lg p-4">
-              <span class="block text-xs text-muted-foreground">Credits</span>
-              <strong class="block text-xl font-bold tabular-nums mt-1">{data().area.credits_total}</strong>
-              <small class="block text-xs text-muted-foreground mt-1">current total</small>
-            </Card>
-            <Card class="rounded-lg p-4">
-              <span class="block text-xs text-muted-foreground">Legacy imports</span>
-              <strong class="block text-xl font-bold tabular-nums mt-1">{data().area.legacy_imported_players}</strong>
-              <small class="block text-xs text-muted-foreground mt-1">players migrated</small>
-            </Card>
-          </div>
+          <KpiStrip class="mb-0" min="9rem">
+            <KpiCard label="Stale vouchers" value={data().area.stale_voucher_reservations} sub={`${data().area.vouchers_issued} issued`} tone={data().area.stale_voucher_reservations > 0 ? 'bad' : 'default'} />
+            <KpiCard label="Stale ticket rewards" value={data().area.stale_ticket_reward_reservations} sub={`${data().area.ticket_rewards_issued} issued`} tone={data().area.stale_ticket_reward_reservations > 0 ? 'bad' : 'default'} />
+            <KpiCard label="Credits" value={data().area.credits_total} sub="current total" />
+            <KpiCard label="Legacy imports" value={data().area.legacy_imported_players} sub="players migrated" />
+          </KpiStrip>
         </>}
       </Show>
 

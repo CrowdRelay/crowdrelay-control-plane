@@ -10,7 +10,7 @@ import { EmptyState } from '../components/ui/empty-state'
 import { SkeletonRows } from '../components/Skeleton'
 import { confirmAction } from '../components/Dialog'
 import { SectionIcon } from '../components/SectionIcon'
-import { ErrorCard, PageHeader, PageShell, PanelTitle, SectionPanel, SectionTitle } from '../components/layout'
+import { ErrorCard, KpiCard, KpiStrip, PageHeader, PageShell, PanelTitle, SectionPanel, SectionTitle } from '../components/layout'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Alert } from '../components/ui/alert'
@@ -290,7 +290,14 @@ export function AreaPage() {
         </div></Show>
 
         <Show when={editorStep()==='review'}><div class="space-y-3">
-          <div class="grid grid-cols-2 md:grid-cols-3 gap-3"><div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1"><span class="text-xs text-muted-foreground">City</span><strong class="text-sm text-foreground">{selectedCity()?.name ?? detail.data!.summary.city}</strong></div><div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1"><span class="text-xs text-muted-foreground">Revision</span><strong class="text-sm text-foreground">{detail.data!.summary.revision}</strong></div><div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1"><span class="text-xs text-muted-foreground">Exact location</span><strong class="text-sm text-foreground">{draft()!.exactLat != null && draft()!.exactLng != null ? 'configured' : 'missing'}</strong></div><div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1"><span class="text-xs text-muted-foreground">Radius / capacity</span><strong class="text-sm text-foreground">{draft()!.radiusMeters} m · {draft()!.maxClaims}</strong></div><div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1"><span class="text-xs text-muted-foreground">Starts</span><strong class="text-sm text-foreground">{formatDate(draft()!.startsAt)}</strong></div><div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1"><span class="text-xs text-muted-foreground">Ends</span><strong class="text-sm text-foreground">{formatDate(draft()!.endsAt)}</strong></div></div>
+          <KpiStrip class="mb-0" min="9rem">
+            <KpiCard label="City" value={<span class="text-sm">{selectedCity()?.name ?? detail.data!.summary.city}</span>} />
+            <KpiCard label="Revision" value={<span class="text-sm">{detail.data!.summary.revision}</span>} />
+            <KpiCard label="Exact location" value={<span class="text-sm">{draft()!.exactLat != null && draft()!.exactLng != null ? 'configured' : 'missing'}</span>} tone={draft()!.exactLat != null && draft()!.exactLng != null ? 'default' : 'warn'} />
+            <KpiCard label="Radius / capacity" value={<span class="text-sm">{draft()!.radiusMeters} m · {draft()!.maxClaims}</span>} />
+            <KpiCard label="Starts" value={<span class="text-sm">{formatDate(draft()!.startsAt)}</span>} />
+            <KpiCard label="Ends" value={<span class="text-sm">{formatDate(draft()!.endsAt)}</span>} />
+          </KpiStrip>
           <Show when={validation()}>{v=><>
             <Show when={hardIssues().length===0}><div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground">No blocking validation errors.</div></Show>
             <For each={hardIssues()}>{issue=><ErrorCard><strong>{issue.code}</strong><p>{issue.message}</p></ErrorCard>}</For>

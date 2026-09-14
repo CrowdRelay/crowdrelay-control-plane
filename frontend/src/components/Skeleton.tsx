@@ -63,13 +63,16 @@ const SkeletonPageHead: Component = () => (
 )
 
 /** KPI strip skeleton — row of metric cards */
+/** The loading shape of a `KpiStrip`: the same rail, the same hairlines, the
+ *  same three lines per cell. A skeleton that drew boxes where the loaded
+ *  state draws a divided row made the arrival of data look like a layout
+ *  change. */
 export const SkeletonKpiStrip: Component<{ count?: number }> = (props) => (
-  <div class="grid gap-3 mb-5 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
+  <div class="grid mb-5 border-y border-border [grid-template-columns:repeat(auto-fit,minmax(10rem,1fr))]">
     {Array.from({ length: props.count ?? 3 }, () => (
-      <div class="flex flex-col border border-border rounded-lg bg-card p-4 gap-1">
-        <div class="rounded-lg bg-surface-3 border border-border h-[11px] mb-2 w-[70px]" />
-        <div class="rounded-lg bg-surface-3 border border-border h-[22px] mb-1.5 w-[50px]" />
-        <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[90px]" />
+      <div class="flex flex-col gap-1.5 border-l border-border px-4 py-3.5 first:border-l-0 first:pl-0">
+        <div class="rounded bg-surface-3 h-[11px] w-[76px]" />
+        <div class="rounded bg-surface-3 h-5 w-[52px]" />
       </div>
     ))}
   </div>

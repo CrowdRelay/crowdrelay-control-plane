@@ -1,5 +1,5 @@
 import { For, Show } from 'solid-js'
-import { Eyebrow, PanelTitle } from './layout'
+import { Eyebrow, KpiCard, KpiStrip, PanelTitle } from './layout'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { EmptyState } from './ui/empty-state'
@@ -88,16 +88,10 @@ export function LearningProofPanel(props: { slug: string }) {
           hint="A revision is written when measured outcomes move the strategy posterior or a template's lifecycle state. Until outcomes resolve, there is nothing to record."
         />
       }>
-        <div class="grid grid-cols-2 gap-3">
-          <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
-            <span class="text-xs text-muted-foreground">Beliefs changed</span>
-            <strong class="text-xl font-bold tabular-nums text-foreground">{entries().length}</strong>
-          </div>
-          <div class="flex flex-col gap-1 p-3 rounded-md bg-primary/5 ring-1 ring-primary/20">
-            <span class="text-xs text-primary">Changed a later decision</span>
-            <strong class="text-xl font-bold tabular-nums text-primary">{provenChains()}</strong>
-          </div>
-        </div>
+        <KpiStrip class="mb-0">
+          <KpiCard label="Beliefs changed" value={entries().length} />
+          <KpiCard label="Changed a later decision" value={provenChains()} tone="primary" />
+        </KpiStrip>
 
         <div class="space-y-3">
           <For each={entries()}>{(entry) => (

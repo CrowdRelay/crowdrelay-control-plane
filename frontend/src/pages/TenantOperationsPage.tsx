@@ -9,7 +9,7 @@ import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { SkeletonKpiStrip, SkeletonSection } from '../components/Skeleton'
-import { KpiCard, PageShell, PageHeader, ErrorCard, TabBar, TabPanel, useTabPanels } from '../components/layout'
+import { KpiCard, KpiStrip, PageShell, PageHeader, ErrorCard, TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { StatusBadge } from '../components/StatusBadge'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
@@ -26,19 +26,6 @@ const fmt = (n: number | null | undefined): string => {
 }
 
 /** Map legacy tone values to the layout KpiCard's `tone` prop ('good' only). */
-const kpiTone = (tone: string | undefined): 'good' | undefined =>
-  tone === 'good' ? 'good' : undefined
-
-/** Map legacy warn/bad/muted tones to Tailwind classes for the `class` prop. */
-const kpiClass = (tone: string | undefined): string => {
-  switch (tone) {
-    case 'warn': return 'border-warning/25'
-    case 'bad': return 'border-destructive/25'
-    case 'muted': return 'opacity-70'
-    default: return ''
-  }
-}
-
 export function TenantOperationsPage() {
   const params = useParams({ from: '/tenants/$slug/operations' })
   const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('opportunities')
@@ -115,18 +102,16 @@ export function TenantOperationsPage() {
           than something today's work turns on. What is left answers the two
           questions this page exists for: is anything mine, and is anything
           broken. */}
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <KpiStrip>
         <KpiCard
           label="Waiting for you"
-          tone={kpiTone(hasAttention() ? 'warn' : 'good')}
-          class={kpiClass(hasAttention() ? 'warn' : 'good')}
+          tone={hasAttention() ? 'warn' : 'good'}
           value={needsYouCount() + awaitingApproval()}
           sub={needsYouCount() + awaitingApproval() > 0 ? 'decide below' : 'nothing to decide'}
         />
         <KpiCard
           label="Health"
-          tone={kpiTone(deadJobs() > 0 ? 'bad' : healthTone() === 'good' ? 'good' : healthTone() === 'warn' ? 'warn' : undefined)}
-          class={kpiClass(deadJobs() > 0 ? 'bad' : healthTone() === 'warn' ? 'warn' : undefined)}
+          tone={deadJobs() > 0 ? 'bad' : healthTone() === 'good' ? 'good' : healthTone() === 'warn' ? 'warn' : 'default'}
           value={healthLabel()}
           sub={deadJobs() > 0 ? `${deadJobs()} stuck deliveries` : 'everything is moving'}
         />
@@ -143,16 +128,18 @@ export function TenantOperationsPage() {
             reporting whether deliveries are moving and the other whether the
             autopilot is running — and they disagree, because they measure
             different things. This one has always been about the autopilot. */}
-        <Link to="/tenants/$slug/health" params={{ slug: params().slug }} class="block transition-opacity hover:opacity-80">
-          <KpiCard
-            label="Autopilot"
-            tone={kpiTone(autopilot()?.runtime_enabled ? 'good' : 'muted')}
-            class={kpiClass(autopilot()?.runtime_enabled ? 'good' : 'muted')}
-            value={autopilot()?.runtime_enabled ? 'on' : 'off'}
-            sub={`${autopilot()?.queued_actions ?? 0} queued · change settings`}
-          />
-        </Link>
-      </div>
+        <KpiCard
+          label="Autopilot"
+          tone={autopilot()?.runtime_enabled ? 'good' : 'default'}
+          value={autopilot()?.runtime_enabled ? 'on' : 'off'}
+          sub={<>
+            {autopilot()?.queued_actions ?? 0} queued ·{' '}
+            <Link to="/tenants/$slug/health" params={{ slug: params().slug }} class="text-primary underline-offset-4 hover:underline">
+              change settings
+            </Link>
+          </>}
+        />
+      </KpiStrip>
 
       {/* The attention banner used to sit here restating the card directly
           above it — same counts, same page, twice. The card carries the count

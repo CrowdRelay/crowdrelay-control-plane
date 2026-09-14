@@ -1,5 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
-import { Eyebrow } from './layout'
+import { Eyebrow, KpiCard, KpiStrip } from './layout'
 import { confidencePercent } from '../lib/format'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
@@ -110,32 +110,18 @@ export function LearningLoopPanel(props: { slug: string }) {
       }>
         {/* Summary line — computed from real data. The positive outcome
             rate is the headline metric, so it gets visual emphasis. */}
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
-            <span class="text-xs text-muted-foreground">Decisions</span>
-            <strong class="text-xl font-bold tabular-nums text-foreground">{total()}</strong>
-          </div>
-          <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
-            <span class="text-xs text-muted-foreground">Actions created</span>
-            <strong class="text-xl font-bold tabular-nums text-foreground">{actionsCreated()}</strong>
-          </div>
-          <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
-            <span class="text-xs text-muted-foreground">Executed</span>
-            <strong class="text-xl font-bold tabular-nums text-foreground">{executed()}</strong>
-          </div>
-          <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
-            <span class="text-xs text-muted-foreground">Outcomes measured</span>
-            <strong class="text-xl font-bold tabular-nums text-foreground">{withOutcome()}</strong>
-          </div>
-          <div class="flex flex-col gap-1 p-3 rounded-md bg-surface-1">
-            <span class="text-xs text-muted-foreground">Positive outcomes</span>
-            <strong class="text-xl font-bold tabular-nums text-foreground">{positiveOutcomes()}</strong>
-          </div>
-          <div class="flex flex-col gap-1 p-3 rounded-md bg-primary/5 ring-1 ring-primary/20">
-            <span class="text-xs text-primary">Positive outcome rate</span>
-            <strong class="text-xl font-bold tabular-nums text-primary">{positiveOutcomeRate() != null ? `${positiveOutcomeRate()}%` : '—'}</strong>
-          </div>
-        </div>
+        <KpiStrip class="mb-0" min="8rem">
+          <KpiCard label="Decisions" value={total()} />
+          <KpiCard label="Actions created" value={actionsCreated()} />
+          <KpiCard label="Executed" value={executed()} />
+          <KpiCard label="Outcomes measured" value={withOutcome()} />
+          <KpiCard label="Positive outcomes" value={positiveOutcomes()} />
+          <KpiCard
+            label="Positive outcome rate"
+            value={positiveOutcomeRate() != null ? `${positiveOutcomeRate()}%` : '—'}
+            tone="primary"
+          />
+        </KpiStrip>
 
         {/* The four stages were headed with the table's own nouns — Decision,
             Action, Outcome — which name rows in `viryaos_autopilot_*` rather
