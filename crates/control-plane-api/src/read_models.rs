@@ -739,8 +739,9 @@ fn build_per_tenant_summary(
     //
     // * A platform-scoped north star ("spotify_followers") matches the
     //   series "{platform}_{metric_key}" — the same composite the wizard
-    //   writes. Aggregate north stars (total_audience, signal_installs)
-    //   match nothing and stay null: no sum of platform counts is
+    //   writes. First-party north stars (total_audience, signal_installs,
+    //   activated_fans_30d) match nothing and stay null: no sum of platform
+    //   counts is
     //   attempted here, because the platform → audience-metric vocabulary
     //   lives in crowdrelay-domain, and guessing at it is how community
     //   sizes got summed as fans once already.

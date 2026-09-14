@@ -83,6 +83,8 @@ pub const NOTIFIER_EVENTS: &[&str] = &[
 pub const NORTH_STAR_METRICS: &[&str] = &[
     "signal_installs",
     "total_audience",
+    "weighted_audience",
+    "activated_fans_30d",
     "bandcamp_supporters",
     "bandsintown_trackers",
     "bluesky_followers",
@@ -121,15 +123,15 @@ pub fn north_star_metric(value: Option<String>, signal_enabled: bool) -> Result<
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .unwrap_or(if signal_enabled {
-            "signal_installs"
-        } else {
-            // `total_audience`, not `youtube_subscribers`: the fallback fires
-            // before anyone knows which platforms this tenant will connect, and
-            // handing a YouTube goal to a tenant with no YouTube channel means
-            // the brain optimizes a number that stays at zero forever.
-            "total_audience"
-        });
+        .unwrap_or(
+            // `activated_fans_30d`, not a platform metric: the fallback fires
+            // before anyone knows which platforms this tenant will connect,
+            // and handing a YouTube goal to a tenant with no YouTube channel
+            // means the brain optimizes a number that stays at zero forever.
+            // Activated fans are counted from our own tables, so the default
+            // is honest for every tenant regardless of connections or Signal.
+            "activated_fans_30d",
+        );
     if !NORTH_STAR_METRICS.contains(&value) {
         return Err(ApiError::InvalidInput(format!(
             "unknown northStarMetric: {value}"

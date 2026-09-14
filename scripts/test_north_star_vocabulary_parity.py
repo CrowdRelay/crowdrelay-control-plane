@@ -9,7 +9,8 @@ SoundCloud, because a TypeScript union had never heard of it, and the wizard
 quietly wrote a Signal-shaped default instead.
 
 So the copy is allowed, and checked. `NorthStarMetric::all()` is
-`SignalInstalls`, `TotalAudience`, and one entry per `MetricPlatform` that
+`SignalInstalls`, `TotalAudience`, `WeightedAudience`, `ActivatedFans30d`, and one entry per
+`MetricPlatform` that
 reports an audience size; this derives the same set from the Rust source and
 compares it to the wizard's union and option list.
 
@@ -34,7 +35,9 @@ MIGRATIONS = ROOT / "migrations"
 def rust_north_stars() -> set[str]:
     """Every value `NorthStarMetric::as_str` can return.
 
-    `SignalInstalls` and `TotalAudience` are literals on the enum; the rest come
+    `SignalInstalls`, `TotalAudience`, `WeightedAudience` and `ActivatedFans30d`
+    are literals on
+    the enum; the rest come
     from `MetricPlatform::north_star_key`, one per platform that has an audience
     metric key. Platforms without one return `""` and are filtered out by
     `all()`, so they are excluded here too.
@@ -47,7 +50,12 @@ def rust_north_stars() -> set[str]:
         without_audience.update(re.findall(r"Self::(\w+)", arm))
 
     keys = source.split("pub const fn north_star_key", 1)[1].split("\n    }", 1)[0]
-    values: set[str] = {"signal_installs", "total_audience"}
+    values: set[str] = {
+        "signal_installs",
+        "total_audience",
+        "weighted_audience",
+        "activated_fans_30d",
+    }
     for arm, key in re.findall(r"((?:Self::\w+\s*\|\s*)*Self::\w+)\s*=>\s*\"([a-z0-9_]*)\"", keys):
         if not key:
             continue
@@ -87,7 +95,7 @@ def database_check_list() -> set[str]:
     source = definitions[-1].read_text()
     start = source.index("ADD CONSTRAINT control_plane_tenant_north_star_ck")
     body = source[start : source.index(";", start)]
-    values = set(re.findall(r"'([a-z_]+)'", body))
+    values = set(re.findall(r"'([a-z0-9_]+)'", body))
     if not values:
         raise AssertionError("the north-star CHECK has no values; the parser is wrong")
     return values
@@ -203,11 +211,12 @@ class NorthStarVocabularyParity(unittest.TestCase):
 
         The wizard used to fall back to `youtube_subscribers` when Signal was
         off, handing a north star to tenants with no YouTube channel.
-        `total_audience` is the only metric that means something before anyone
-        knows which platforms this tenant will connect.
+        `activated_fans_30d` means something before anyone knows which
+        platforms this tenant will connect — it is counted from our own
+        tables, so it works with or without Signal.
         """
         source = WIZARD.read_text()
-        self.assertIn("createSignal<NorthStar>('total_audience')", source)
+        self.assertIn("createSignal<NorthStar>('activated_fans_30d')", source)
         self.assertNotIn("return 'youtube_subscribers' as NorthStar", source)
 
 

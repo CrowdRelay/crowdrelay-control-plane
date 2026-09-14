@@ -369,7 +369,7 @@ impl Store {
         .bind(input.synesthesia_enabled)
         .bind(input.area_enabled)
         .bind(input.signal_enabled)
-        .bind(input.north_star_metric.as_deref().unwrap_or("signal_installs"))
+        .bind(input.north_star_metric.as_deref().unwrap_or("activated_fans_30d"))
         .bind(&input.fanbase_sources)
         .bind(&input.signal_play_store_url)
         .bind(&input.synesthesia_play_store_url)

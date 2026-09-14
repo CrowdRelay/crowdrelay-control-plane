@@ -27,6 +27,8 @@ const presets: Record<Preset, RegionalProfile> = {
 type NorthStar =
   | 'signal_installs'
   | 'total_audience'
+  | 'weighted_audience'
+  | 'activated_fans_30d'
   | 'spotify_followers'
   | 'youtube_subscribers'
   | 'bandsintown_trackers'
@@ -46,7 +48,9 @@ type NorthStar =
 type FanbaseSource = 'discord' | 'facebook_group' | 'youtube' | 'forum' | 'reddit' | 'x'
 
 const northStars: { value: NorthStar; label: string; description: string; requiresSignal?: boolean }[] = [
-  { value: 'total_audience', label: 'Total audience', description: 'Optimize the whole connected portfolio — every platform summed. The right choice when reach is spread across accounts rather than concentrated in one.' },
+  { value: 'activated_fans_30d', label: 'Activated fans', description: 'Optimize real fans — people who signed up, consented, and did something meaningful within 30 days. The honest default: counted from your own fanbase, not a platform counter.' },
+  { value: 'total_audience', label: 'Every platform, added up', description: 'Optimize the whole connected portfolio — every platform summed, each follower counting once. The right choice when reach is spread across accounts rather than concentrated in one.' },
+  { value: 'weighted_audience', label: 'Everything, by what it is worth', description: 'Optimize every audience at once, but not equally: a fan you can reach counts for more than a follower you cannot, and a paying supporter more than a passing view. Reported in fans-you-can-reach, so the number means something.' },
   { value: 'signal_installs', label: 'Signal fans', description: 'Optimize for Signal mobile app installs. The brain prioritizes signal-inviter workers and conversion-focused content.', requiresSignal: true },
   { value: 'spotify_followers', label: 'Spotify followers', description: 'Optimize Spotify artist follower growth. The brain prioritizes playlist outreach and release content.' },
   { value: 'youtube_subscribers', label: 'YouTube subscribers', description: 'Optimize YouTube channel subscriber growth. The brain prioritizes video-led posts and community engagement.' },
@@ -99,7 +103,7 @@ export function TenantWizardPage() {
   const [synesthesiaPlayStoreUrl, setSynesthesiaPlayStoreUrl] = createSignal('')
 
   // Step 3: Goal
-  const [northStar, setNorthStar] = createSignal<NorthStar>('total_audience')
+  const [northStar, setNorthStar] = createSignal<NorthStar>('activated_fans_30d')
 
   // Step 4: Fanbase sources
   const [selectedSources, setSelectedSources] = createSignal<FanbaseSource[]>([])
@@ -145,7 +149,7 @@ export function TenantWizardPage() {
 
   const effectiveNorthStar = createMemo(() => {
     const ns = northStar()
-    if (ns === 'signal_installs' && !signalEnabled()) return 'total_audience' as NorthStar
+    if (ns === 'signal_installs' && !signalEnabled()) return 'activated_fans_30d' as NorthStar
     return ns
   })
 
