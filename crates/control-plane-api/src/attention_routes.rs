@@ -151,6 +151,16 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
             not_reported.push("unpublished_drafts");
             json!([])
         });
+    // The brain's self-assessment — verdict, quiet-cycle streak, and the
+    // reason the last quiet cycle stayed quiet. Optional: an older CrowdRelay
+    // does not publish it, and null-not-placeholder keeps "does not report"
+    // distinct from "reports a healthy brain". Passed through wholesale so a
+    // field the tenant adds next does not need a matching edit here to reach
+    // the console.
+    let brain = snapshot.get("brain").cloned().unwrap_or_else(|| {
+        not_reported.push("brain");
+        Value::Null
+    });
 
     expect_object(summary, "summary")?;
     expect_array(&alerts, "alerts")?;
@@ -161,6 +171,9 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     expect_array(findings, "findings")?;
     expect_array(&needs_you, "needs_you")?;
     expect_array(&unpublished_drafts, "unpublished_drafts")?;
+    if !brain.is_null() {
+        expect_object(&brain, "brain")?;
+    }
 
     Ok(json!({
         // Stable identity so the browser patches this model in place on a
@@ -176,6 +189,7 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
         "needs_you": needs_you,
         "awaiting_approval": awaiting_approval,
         "unpublished_drafts": unpublished_drafts,
+        "brain": brain,
         // Sections whose value above is a placeholder, not a measurement.
         "not_reported": not_reported,
     }))
@@ -206,6 +220,13 @@ mod tests {
             "unpublished_drafts": [
                 {"channel": "reddit", "drafts": 2, "oldest_drafted_at": "2026-09-01T10:00:00Z"}
             ],
+            "brain": {
+                "state": "improving",
+                "needs_attention": false,
+                "days_observed": 12,
+                "quiet_cycles": 3,
+                "latest_wait_reason": "WAIT wins: VOI=0.85 > best_action_value=0.00"
+            },
         })
     }
 
@@ -279,6 +300,19 @@ mod tests {
             json!(["needs_you", "awaiting_approval"]),
             "the placeholders must be distinguishable from measurements"
         );
+    }
+
+    #[test]
+    fn an_unpublished_brain_is_null_and_named_not_a_fake_verdict() {
+        // A CrowdRelay that predates the self-assessment reports no brain
+        // section. Rendering that as a healthy verdict is the panel claiming
+        // the brain is fine when nobody asked it — null + not_reported is
+        // the honest shape.
+        let mut older = snapshot();
+        older.as_object_mut().expect("object").remove("brain");
+        let projected = project("virya", &older).expect("a snapshot without brain still projects");
+        assert_eq!(projected["brain"], Value::Null);
+        assert_eq!(projected["not_reported"], json!(["brain"]));
     }
 
     #[test]

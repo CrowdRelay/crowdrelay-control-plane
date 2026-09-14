@@ -26,12 +26,41 @@ export type TenantAttentionReadModel = {
   /// reason as the fields above — absent means the tenant does not report the
   /// queue, which is not the same as reporting an empty one.
   unpublished_drafts?: UnpublishedDraftChannel[]
+  /// What the brain makes of its own recent performance, and — when it has
+  /// been doing nothing — why. `null` (or absent on an older tenant) means
+  /// the tenant does not report a self-assessment; the page prints
+  /// "not reported", never a healthy-looking verdict nobody measured.
+  brain?: BrainSelfAssessment | null
   /// Sections whose value above is a placeholder the Control Plane
   /// substituted, not something the tenant measured. An empty list next to a
   /// zero means the tenant really has nothing waiting; `awaiting_approval`
   /// listed here means it does not report approvals at all, and the zero
   /// beside it must not be shown as one.
   not_reported?: string[]
+}
+
+/// The brain's own verdict, and — when it chose to do nothing — its reason.
+///
+/// Field names are snake_case because the tenant emits them that way and the
+/// Control Plane passes the object through wholesale: a field the tenant adds
+/// reaches this page without a matching Control Plane deploy.
+export type BrainSelfAssessment = {
+  /// `improving`, `learning`, `stagnant`, `regressing`, or `initializing`.
+  state: string
+  /// True only for `regressing` and `stagnant` — the verdicts that ask for a
+  /// person. A flat young system is `learning`, not a fault.
+  needs_attention?: boolean
+  /// Distinct days of North Star readings behind the verdict.
+  days_observed?: number
+  /// Consecutive finished cycles that produced no actions, counting back from
+  /// the latest. The count is what makes a silent brain legible: quiet since
+  /// the last check and quiet for three days straight are different things.
+  quiet_cycles?: number
+  /// Why the most recent quiet cycle stayed quiet, in the brain's own words
+  /// ("WAIT wins: VOI=0.85 > best_action_value=0.00"). The system may do
+  /// nothing — this is where it says so. Absent when the latest cycle acted
+  /// or predates the field.
+  latest_wait_reason?: string | null
 }
 
 /// One channel's backlog of drafted-but-unpublished posts.

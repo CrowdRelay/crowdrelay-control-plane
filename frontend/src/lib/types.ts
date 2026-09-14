@@ -2404,10 +2404,19 @@ export type CommandCenterTenantAttention = {
   unpublishedDrafts: number | null
   /// Per-channel breakdown behind `unpublishedDrafts`, for the card detail.
   unpublishedDraftChannels: { channel: string; drafts: number; oldest_drafted_at: string | null }[] | null
+  /// The brain's self-assessment, passed through wholesale from the tenant —
+  /// snake_case keys, because the tenant emits them that way and the
+  /// projection must not rename what it does not own.
   brain: {
     state?: string
-    needsAttention?: boolean
-    daysObserved?: number
+    needs_attention?: boolean
+    days_observed?: number
+    /// Consecutive finished cycles that created no actions — the streak that
+    /// makes a silent brain legible.
+    quiet_cycles?: number
+    /// The brain's own words for the most recent quiet cycle, when it kept
+    /// one. "WAIT wins: VOI=0.85 > best_action_value=0.00".
+    latest_wait_reason?: string | null
   } | null
 }
 

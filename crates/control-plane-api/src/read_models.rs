@@ -329,7 +329,10 @@ async fn command_center(
         learning_total += t["learning"]["totalOutcomes"].as_u64().unwrap_or(0);
         learning_admitted += t["learning"]["admitted"].as_u64().unwrap_or(0);
         learning_rejected += t["learning"]["rejected"].as_u64().unwrap_or(0);
-        if t["brain"]["needsAttention"].as_bool() == Some(true) {
+        // The passthrough object keeps the tenant's snake_case keys —
+        // `needsAttention` here read a field that does not exist, so a
+        // regressing or stagnant brain never raised the flag.
+        if t["brain"]["needs_attention"].as_bool() == Some(true) {
             brain_needs_attention = true;
         }
         if let Some(state) = t["brain"]["state"].as_str() {
@@ -709,9 +712,15 @@ fn build_per_tenant_summary(
     });
 
     // ── brain ──
+    // The tenant's self-assessment lives at the top level of the attention
+    // snapshot (`state`, `needs_attention`, `days_observed`, `quiet_cycles`,
+    // `latest_wait_reason`). It used to be read out of `ecosystem`, which
+    // never contained it — every command-center brain counter silently read
+    // Null while the tenant was reporting. Pass the object through wholesale:
+    // new fields the tenant adds (the wait reason being the current one)
+    // must reach the console without a matching edit here.
     let brain = att
-        .and_then(|a| a.get("ecosystem"))
-        .and_then(|v| v.get("brain"))
+        .and_then(|a| a.get("brain"))
         .cloned()
         .unwrap_or(Value::Null);
 
@@ -2547,7 +2556,8 @@ mod tests {
                 "alerts": [{"active": true, "severity": "critical"}, {"active": false, "severity": "critical"}],
                 "dead_deliveries": [{"id": "d1"}],
                 "unpublished_drafts": [{"channel": "reddit", "drafts": 4}, {"channel": "telegram", "drafts": 2}],
-                "ecosystem": {"brain": {"state": "ok"}},
+                "brain": {"state": "improving", "needs_attention": false, "quiet_cycles": 0},
+                "ecosystem": {},
             }).as_object().unwrap().clone()),
             autopilot: None,
             learning: None,
@@ -2564,6 +2574,12 @@ mod tests {
         assert_eq!(projected["attention"]["deadDeliveries"], json!(1));
         assert_eq!(projected["attention"]["unpublishedDrafts"], json!(6));
         assert_eq!(projected["attention"]["available"], json!(true));
+        // The brain block passes through wholesale — including fields added
+        // after this projection was written (quiet_cycles, latest_wait_reason).
+        // It lives at the top level of the tenant snapshot; reading it out of
+        // `ecosystem` is how the command center silently saw Null for months.
+        assert_eq!(projected["brain"]["state"], json!("improving"));
+        assert_eq!(projected["brain"]["quiet_cycles"], json!(0));
     }
 
     #[test]

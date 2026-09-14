@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { toast } from '../components/ui/toast'
-import { fetchOperationsAttention, type TenantAttentionReadModel } from '../lib/attention'
+import { fetchOperationsAttention, type BrainSelfAssessment, type TenantAttentionReadModel } from '../lib/attention'
 import { whileIncomplete } from '../lib/incomplete'
 import { errorMessage, formatTimestamp as observed } from '../lib/format'
 import type { OperationsSummary, ReconciliationFinding } from '../lib/types'
@@ -49,6 +49,59 @@ function FindingBody(props: { finding: ReconciliationFinding }) {
         status={props.finding.severity}
         tone={props.finding.severity === 'critical' ? 'bad' : props.finding.severity === 'warning' ? 'warn' : 'muted'}
       />
+    </div>
+  )
+}
+
+/** The brain's own account of itself: its verdict, how many cycles in a row
+ *  it has done nothing, and the reason it recorded for the most recent one.
+ *  Doing nothing is a decision the brain makes every five minutes — this is
+ *  the surface where the decision explains itself, so a quiet system reads
+ *  as patience ("WAIT wins…") rather than absence. */
+function BrainPanel(props: { brain: BrainSelfAssessment | null | undefined; notReported: string[] }) {
+  const brain = () => props.brain
+  return (
+    <div class="mt-4">
+      <div class="flex items-center justify-between gap-4 mb-3">
+        <div>
+          <h3 class="text-sm font-semibold flex items-center gap-1.5"><SectionIcon name="brain" />The brain's account of itself</h3>
+          <p class="text-sm text-muted-foreground mt-1 leading-relaxed">What the brain thinks of its own recent performance — and, when it has been doing nothing, the reason it gave. A quiet streak is a decision, not an absence.</p>
+        </div>
+        <Show when={brain()}>{b => <StatusBadge
+          status={b().state ?? 'unknown'}
+          tone={b().needs_attention ? 'bad' : b().state === 'improving' ? 'good' : 'muted'}
+        />}</Show>
+      </div>
+      <Show
+        when={brain()}
+        fallback={
+          <div class="p-4 border border-border-subtle rounded-lg bg-surface-1 text-left">
+            <EmptyState
+              label={props.notReported.includes('brain') ? 'Not reported' : 'No self-assessment yet'}
+              hint={props.notReported.includes('brain')
+                ? 'This tenant does not publish a brain self-assessment — the console cannot show what it was never told.'
+                : 'The brain has not assessed itself yet. It forms a verdict once it has enough days of North Star readings.'}
+            />
+          </div>
+        }
+      >
+        {b => <div class="p-4 border border-border-subtle rounded-lg bg-surface-1 space-y-2">
+          <div class="flex items-center gap-3 flex-wrap text-sm">
+            <span class="text-muted-foreground">North star verdict over <strong class="text-foreground">{b().days_observed ?? 0}</strong> observed day{(b().days_observed ?? 0) === 1 ? '' : 's'}</span>
+            <Show when={(b().quiet_cycles ?? 0) > 0}>
+              <span class="text-muted-foreground">·</span>
+              <span class={b().needs_attention ? 'text-destructive' : 'text-warning-light'}>
+                quiet for <strong>{b().quiet_cycles}</strong> consecutive cycle{b().quiet_cycles === 1 ? '' : 's'}
+              </span>
+            </Show>
+          </div>
+          <Show when={b().latest_wait_reason}>
+            {reason => <p class="text-sm text-muted-foreground leading-relaxed">
+              Last quiet cycle explained itself: <span class="font-mono text-xs text-foreground">{reason()}</span>
+            </p>}
+          </Show>
+        </div>}
+      </Show>
     </div>
   )
 }
@@ -178,6 +231,16 @@ export function TenantAttentionPage() {
       <Show when={!attention.isLoading}>
         <UnpublishedDraftsPanel
           drafts={attention.data?.unpublished_drafts ?? []}
+          notReported={attention.data?.not_reported ?? []}
+        />
+      </Show>
+
+      {/* The system's own account of why it is or isn't acting — the sibling
+          of the queue above: drafts wait on a person, a quiet streak is the
+          brain deciding to wait on evidence. */}
+      <Show when={!attention.isLoading}>
+        <BrainPanel
+          brain={attention.data?.brain}
           notReported={attention.data?.not_reported ?? []}
         />
       </Show>
