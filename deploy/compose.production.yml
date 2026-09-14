@@ -119,6 +119,11 @@ services:
       AGENT_SERVICE_AUTH_KEY: "${AGENT_SERVICE_AUTH_KEY:?AGENT_SERVICE_AUTH_KEY required}"
       AGENT_SERVICE_ENCRYPTION_KEY: "${AGENT_SERVICE_ENCRYPTION_KEY:?AGENT_SERVICE_ENCRYPTION_KEY required}"
       REDDIT_BROWSER_PROFILE_DIR: "/data/reddit-browser-profile"
+      # --disable-dev-shm-usage relocates Chromium's shared memory to
+      # $TMPDIR. The /tmp tmpfs is 64m and a renderer's shm files on a real
+      # Reddit page outgrow it — "Target crashed" with no container OOM.
+      # Point temp at the disk-backed browser-state volume instead.
+      TMPDIR: "/data/tmp"
       OPENCODE_ZEN_TOKEN: "${OPENCODE_ZEN_TOKEN:-}"
       GOOGLE_API_KEY: "${GOOGLE_API_KEY:-}"
       GROQ_API_KEY: "${GROQ_API_KEY:-}"
