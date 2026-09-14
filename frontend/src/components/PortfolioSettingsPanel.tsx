@@ -9,6 +9,7 @@ import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Input } from './ui/input'
 import { NativeSelect } from './ui/native-select'
+import { northStarLabel, northStarMeaning } from '../lib/north-star'
 import { writeGuard } from '../lib/read-only'
 
 const LABELS: Record<string, string> = {
@@ -17,7 +18,7 @@ const LABELS: Record<string, string> = {
   synesthesia_campaign_slug: 'Synesthesia campaign slug',
   signal_enabled: 'Signal app',
   synesthesia_enabled: 'Synesthesia',
-  north_star_metric: 'North star metric',
+  north_star_metric: 'What the brain chases',
   social_auto_post: 'Social auto-posting',
 }
 
@@ -51,8 +52,8 @@ const HINTS: Record<string, { hint: string; example: string }> = {
     example: 'false',
   },
   north_star_metric: {
-    hint: 'The one number the brain optimises. Everything else is still aggregated — this only decides what it prioritises when it has to choose.',
-    example: 'total_audience',
+    hint: 'The one number the brain tries to move. It still records everything else — this only decides which way it goes when two good options pull apart.',
+    example: 'activated_fans_30d',
   },
   social_auto_post: {
     hint: 'When enabled, the social post executor publishes to Facebook Pages and Instagram through the Graph API instead of drafting for manual review. X always drafts. The publish guard still runs — a held post lands in the operator queue with its reason. Instagram needs at least one active photo press asset.',
@@ -138,7 +139,7 @@ export function PortfolioSettingsPanel(props: {
                   {...writeGuard()}
                 >
                   <For each={goals.data!.options}>{option =>
-                    <option value={option.value}>{option.label}</option>
+                    <option value={option.value}>{northStarLabel(option)}</option>
                   }</For>
                 </NativeSelect>
               </Show>
@@ -153,6 +154,17 @@ export function PortfolioSettingsPanel(props: {
             </NativeSelect>
           </Show>
           <Show when={HINTS[key]}>{h => <small class="text-xs text-muted-foreground leading-relaxed">{h().hint}<Show when={!BOOLEAN_KEYS.has(key) && key !== 'north_star_metric'}> Example: <code class="text-xs">{h().example}</code></Show></small>}</Show>
+          {/* What the selected goal means, under the selector that chose it.
+              The generic hint says what a north star is; this says what this
+              one commits the brain to. */}
+          <Show when={key === 'north_star_metric'}>
+            {(() => {
+              const meaning = () => northStarMeaning(drafts()[key] ?? props.model?.settings[key] ?? '')
+              return <Show when={meaning()}>
+                <small class="text-xs leading-relaxed text-secondary-foreground">{meaning()}</small>
+              </Show>
+            })()}
+          </Show>
           <Show when={dirty(key)} fallback={
             <Show when={savedKey() === key}><small class="text-xs text-muted-foreground">Saved ✓</small></Show>
           }>

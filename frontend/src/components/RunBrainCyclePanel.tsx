@@ -10,6 +10,7 @@ import { ErrorCard, PanelTitle } from './layout'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { NativeSelect } from './ui/native-select'
+import { northStarLabel, northStarMeaning } from '../lib/north-star'
 import { writeGuard } from '../lib/read-only'
 
 const CycleIcon = (props: { size?: number }) => (
@@ -124,7 +125,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                   settings screen. Before this it could only be chosen in the
                   creation wizard and never changed again. */}
               <div class="flex flex-col gap-1 border border-border bg-card p-3">
-                <label class="block text-xs text-muted-foreground" for="north-star-select">Goal</label>
+                <label class="block text-xs text-muted-foreground" for="north-star-select">What it is chasing</label>
                 <NativeSelect id="north-star-select"
                   size="sm"
                   class="font-semibold disabled:cursor-progress"
@@ -137,11 +138,16 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                     <option value={data().northStar}>{strategyLabel(data().northStar)}</option>
                   </Show>
                   <For each={goals.data?.options ?? []}>
-                    {option => <option value={option.value}>{option.label}</option>}
+                    {option => <option value={option.value}>{northStarLabel(option)}</option>}
                   </For>
                 </NativeSelect>
                 <strong class="block text-xl font-bold tabular-nums text-foreground">{number(data().northStarCurrent)}</strong>
                 <small class="block text-xs text-muted-foreground">+{number(data().northStarThisMonth)} this month</small>
+                {/* Which number this is, in a sentence. The picker above names
+                    the goal; this says what picking it commits the brain to. */}
+                <Show when={northStarMeaning(data().northStar)}>
+                  <small class="block text-xs leading-relaxed text-muted-foreground">{northStarMeaning(data().northStar)}</small>
+                </Show>
               </div>
               <div class="flex flex-col gap-1 border border-border bg-card p-3">
                 <span class="block text-xs text-muted-foreground">Platforms</span>
