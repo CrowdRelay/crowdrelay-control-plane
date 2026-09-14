@@ -413,7 +413,7 @@ pub fn router() -> Router<AppState> {
         .layer(DefaultBodyLimit::max(MAX_OPERATIONS_BODY_BYTES))
 }
 
-fn correlation(headers: &HeaderMap) -> Option<&str> {
+pub(crate) fn correlation(headers: &HeaderMap) -> Option<&str> {
     headers
         .get("x-request-id")
         .and_then(|value| value.to_str().ok())
@@ -911,10 +911,6 @@ async fn autopilot_growth(
     object_no_store(value, "autopilot growth")
 }
 
-/// Agent scorecard: is it running, what did it do, did it work.
-/// Read-only proxy to CrowdRelay's scorecard read model.
-/// What a full autopilot cycle would decide right now. Read-only: nothing is
-/// dispatched, so this is safe to poll while an operator decides whether to run.
 /// The north stars this tenant may choose.
 ///
 /// Read-only passthrough of the domain vocabulary. The operator UI used to
@@ -939,6 +935,8 @@ async fn list_north_star_options(
     object_no_store(value, "north star options")
 }
 
+/// What a full autopilot cycle would decide right now. Read-only: nothing is
+/// dispatched, so this is safe to poll while an operator decides whether to run.
 async fn autopilot_cycle_preview(
     State(state): State<AppState>,
     Path(slug): Path<String>,
@@ -999,6 +997,8 @@ async fn autopilot_cycle_run(
     object_no_store(result, "autopilot cycle run")
 }
 
+/// Agent scorecard: is it running, what did it do, did it work.
+/// Read-only proxy to CrowdRelay's scorecard read model.
 async fn autopilot_scorecard(
     State(state): State<AppState>,
     Path(slug): Path<String>,
@@ -1540,6 +1540,32 @@ async fn update_portfolio_setting(
         Some(&idempotency),
     )
     .await?;
+    // The tenant accepted the write, so its copy is authoritative. Mirror the
+    // effective value it returned — not the raw request body, which the
+    // tenant may have normalised — so the read models stop quoting the value
+    // the tenant row no longer holds. Best-effort: a mirror failure must not
+    // 500 a mutation that already landed (the audit below would be skipped
+    // too, leaving an accepted write with no audit row), and the next read
+    // model refresh re-mirrors from the authoritative copy anyway.
+    if trimmed == "north_star_metric" {
+        let effective = value
+            .get("value")
+            .and_then(Value::as_str)
+            .or_else(|| body.get("value").and_then(Value::as_str));
+        if let Some(metric) = effective {
+            if let Err(error) = state
+                .store
+                .mirror_north_star_metric(tenant.tenant.id, metric.trim())
+                .await
+            {
+                tracing::warn!(
+                    tenant = %slug,
+                    %error,
+                    "north-star mirror failed after the tenant accepted; the tenant copy stays authoritative",
+                );
+            }
+        }
+    }
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,

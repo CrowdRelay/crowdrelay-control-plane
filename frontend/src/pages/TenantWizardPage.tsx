@@ -141,16 +141,37 @@ export function TenantWizardPage() {
       current.includes(source) ? current.filter(s => s !== source) : [...current, source]
     )
 
+  // The vocabulary the deployed fleet can parse. A goal the running image
+  // cannot read is stored but silently falls back to signal_installs, so the
+  // server reports what the fleet admits and the list below offers only that.
+  // A failed fetch leaves the parity-gated local list — the create call's
+  // validator is the last guard either way.
+  const vocabulary = useQuery(() => ({
+    queryKey: ['north-star-vocabulary'],
+    queryFn: api.northStarVocabulary,
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+  }))
+
+  const offeredNorthStars = createMemo(() => {
+    const options = vocabulary.data?.options
+    if (!options || options.length === 0) return northStars
+    const admitted = new Set(options.map(o => o.value))
+    const filtered = northStars.filter(n => admitted.has(n.value))
+    return filtered.length === 0 ? northStars : filtered
+  })
+
   // When Signal is disabled, north star can't be signal_installs
   const availableNorthStars = createMemo(() => {
     const enabled = signalEnabled()
-    return northStars.filter(n => !n.requiresSignal || enabled)
+    return offeredNorthStars().filter(n => !n.requiresSignal || enabled)
   })
 
   const effectiveNorthStar = createMemo(() => {
     const ns = northStar()
-    if (ns === 'signal_installs' && !signalEnabled()) return 'activated_fans_30d' as NorthStar
-    return ns
+    const offered = availableNorthStars()
+    if (offered.some(n => n.value === ns)) return ns
+    return (offered[0]?.value ?? 'activated_fans_30d') as NorthStar
   })
 
   const operatorFieldsReady = () => !opUsername().trim() && !opPassword()

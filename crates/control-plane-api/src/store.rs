@@ -265,6 +265,25 @@ impl Store {
         Ok(row.into_summary(Utc::now(), self.runtime_stale_after_seconds))
     }
 
+    /// Mirrors a north-star change the tenant already accepted into the
+    /// control-plane copy. The tenant's own `tenant_settings` row is what the
+    /// brain reads — this copy only feeds the read models, so it is updated
+    /// after the tenant write succeeds, never instead of it.
+    pub async fn mirror_north_star_metric(
+        &self,
+        tenant_id: Uuid,
+        value: &str,
+    ) -> Result<(), ApiError> {
+        sqlx::query(
+            "UPDATE control_plane_tenants SET north_star_metric = $2, updated_at = now() WHERE id = $1",
+        )
+        .bind(tenant_id)
+        .bind(value)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     /// Slug lookup for session profiles — a cheap projection that never
     /// builds the full read model.
     pub async fn tenant_slug_by_id(&self, tenant_id: Uuid) -> Result<Option<String>, ApiError> {

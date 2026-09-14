@@ -30,6 +30,7 @@ pub fn admin_router() -> Router<AppState> {
     Router::new()
         .route("/overview", get(overview))
         .route("/tenants", get(list_tenants).post(create_tenant))
+        .route("/north-star-options", get(north_star_options))
         .route("/fleet/status", get(fleet_status))
 }
 
@@ -187,6 +188,99 @@ async fn fleet_status(
         })
         .collect();
     Ok(Json(json!({"items": items})))
+}
+
+/// The north stars the tenant wizard may offer.
+///
+/// Deployed reality first: a live tenant reports the vocabulary its own image
+/// parses, so the wizard cannot offer a goal the fleet would store but never
+/// understand — a value the deployed `NorthStarMetric::parse` rejects falls
+/// back to `signal_installs` silently. The tenant's answer is intersected
+/// with [`validation::NORTH_STAR_METRICS`] because the create call validates
+/// against that list: a tenant running a newer image could otherwise offer a
+/// goal this plane would then refuse to store.
+///
+/// When no tenant answers — a first install, or every tenant down — the
+/// platform vocabulary is the floor. That fallback is safe only because the
+/// parity gate pins the three copies together, so the list an image deploys
+/// with is the list offered here.
+async fn north_star_options(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Extension(identity): Extension<Arc<Identity>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    identity.require_platform_admin()?;
+    for tenant in state.store.list_tenants().await? {
+        if matches!(tenant.tenant.status.as_str(), "suspended" | "parked") {
+            continue;
+        }
+        let Ok((_, target)) = crate::area_routes::target(&state, &tenant.tenant.slug).await else {
+            continue;
+        };
+        let Ok(value) = state
+            .area_client
+            .request_management(
+                tenant.tenant.id,
+                &target,
+                ManagementRequest {
+                    method: "GET",
+                    path: "/v1/control-plane/tenant-settings/north-stars",
+                    body: None,
+                    correlation_id: crate::operations_routes::correlation(&headers),
+                    idempotency_key: None,
+                },
+            )
+            .await
+        else {
+            continue;
+        };
+        let Some(options) = value.get("options").and_then(Value::as_array) else {
+            continue;
+        };
+        let offered = admitted_north_star_options(options);
+        if !offered.is_empty() {
+            return Ok(Json(json!({ "options": offered, "source": "fleet" })));
+        }
+    }
+    let options: Vec<Value> = validation::NORTH_STAR_METRICS
+        .iter()
+        .map(|value| {
+            json!({
+                "value": value,
+                // The raw key, not a display name: this plane does not own the
+                // tenant's `display_name()` vocabulary, and guessing at it
+                // would make the fallback disagree with the fleet path on
+                // presentation. The wizard renders its own labels either way.
+                "label": value,
+                "requiresSignal": *value == "signal_installs",
+                // The tenant derives this flag from `is_total_audience()`,
+                // which is true only for `total_audience` — marking
+                // `weighted_audience` here would make the fallback disagree
+                // with the fleet path on the same value.
+                "isAggregate": *value == "total_audience",
+                "platform": null,
+            })
+        })
+        .collect();
+    Ok(Json(json!({ "options": options, "source": "platform" })))
+}
+
+/// Fleet-reported options reduced to what this plane will also accept at
+/// create time. A tenant running a newer image can report goals
+/// [`validation::NORTH_STAR_METRICS`] has never heard of; offering one would
+/// resurrect the exact mismatch this gate exists to close — the wizard shows
+/// it, the operator picks it, the create call rejects it.
+fn admitted_north_star_options(options: &[Value]) -> Vec<Value> {
+    options
+        .iter()
+        .filter(|option| {
+            option
+                .get("value")
+                .and_then(Value::as_str)
+                .is_some_and(|v| validation::NORTH_STAR_METRICS.contains(&v))
+        })
+        .cloned()
+        .collect()
 }
 
 async fn get_tenant(
@@ -1231,7 +1325,30 @@ async fn trigger_ecosystem_deploy(
 
 #[cfg(test)]
 mod tests {
-    use super::external_deploy_target;
+    use super::{admitted_north_star_options, external_deploy_target};
+    use serde_json::json;
+
+    /// The wizard gate: only goals both the deployed fleet parses and this
+    /// plane accepts at create time may be offered. Anything else is the
+    /// four-behind-seventeen mismatch returning under a new door.
+    #[test]
+    fn north_star_options_admit_only_the_shared_vocabulary() {
+        let fleet = vec![
+            json!({"value": "signal_installs", "label": "Signal fans"}),
+            json!({"value": "spotify_followers", "label": "Spotify followers"}),
+            // A newer image could report a goal this build has never heard of.
+            json!({"value": "subscribers_from_the_future", "label": "Future"}),
+            // Malformed entries carry no offerable value at all.
+            json!({"label": "no value field"}),
+            json!("not an object"),
+        ];
+        let admitted = admitted_north_star_options(&fleet);
+        let values: Vec<&str> = admitted
+            .iter()
+            .filter_map(|o| o.get("value").and_then(|v| v.as_str()))
+            .collect();
+        assert_eq!(values, ["signal_installs", "spotify_followers"]);
+    }
 
     #[test]
     fn external_deploy_passes_the_requested_revision_or_refuses_it() {
