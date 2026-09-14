@@ -58,8 +58,8 @@ export type BrainSelfAssessment = {
   quiet_cycles?: number
   /// Why the most recent quiet cycle stayed quiet, in the brain's own words
   /// ("WAIT wins: VOI=0.85 > best_action_value=0.00"). The system may do
-  /// nothing — this is where it says so. Absent when the latest cycle acted
-  /// or predates the field.
+  /// nothing — this is where it says so. Absent when no quiet cycle has a
+  /// recorded reason — the cycle is acting, or it predates the field.
   latest_wait_reason?: string | null
 }
 
