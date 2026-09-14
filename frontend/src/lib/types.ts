@@ -52,6 +52,10 @@ export type Tenant = {
   synesthesiaPlayStoreUrl: string | null
   northStarMetric: string
   fanbaseSources: string[]
+  canSuspend: boolean
+  canProvision: boolean
+  canRemove: boolean
+  archetype: 'band' | 'roster' | 'label' | 'festival_org'
   createdAt: string
   updatedAt: string
 }

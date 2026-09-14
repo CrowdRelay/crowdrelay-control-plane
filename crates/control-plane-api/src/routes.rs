@@ -183,7 +183,7 @@ async fn fleet_status(
                 "runtimeHealth": t.runtime_health,
                 "deployedSha": t.runtime.as_ref().and_then(|r| r.deployed_sha.clone()).unwrap_or_default(),
                 "lastHeartbeatAt": t.runtime.as_ref().and_then(|r| r.last_heartbeat_at),
-                "externallyOwned": store::tenant_lifecycle_is_externally_owned(&t.tenant.slug),
+                "externallyOwned": store::tenant_lifecycle_is_externally_owned(&t.tenant),
             })
         })
         .collect();
@@ -342,7 +342,7 @@ async fn opt_out_tenant(
     headers: HeaderMap,
 ) -> Result<StatusCode, ApiError> {
     let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
-    if crate::store::tenant_lifecycle_is_externally_owned(&tenant.tenant.slug) {
+    if !tenant.tenant.can_remove {
         return Err(ApiError::Forbidden("this tenant cannot opt out".to_owned()));
     }
     state
@@ -617,9 +617,9 @@ async fn park_tenant(
     identity.require_platform_admin()?;
     let slug = validation::slug(&raw_slug)?;
     let tenant = state.store.tenant_by_slug(&slug).await?;
-    if store::tenant_lifecycle_is_externally_owned(&tenant.tenant.slug) {
+    if !tenant.tenant.can_suspend {
         return Err(ApiError::Forbidden(
-            "this tenant is externally owned and cannot be parked".to_owned(),
+            "this tenant's lifecycle is externally owned and cannot be parked".to_owned(),
         ));
     }
     if tenant.tenant.status != "active" {
@@ -779,9 +779,9 @@ async fn unpark_tenant(
     identity.require_platform_admin()?;
     let slug = validation::slug(&raw_slug)?;
     let tenant = state.store.tenant_by_slug(&slug).await?;
-    if store::tenant_lifecycle_is_externally_owned(&tenant.tenant.slug) {
+    if !tenant.tenant.can_suspend {
         return Err(ApiError::Forbidden(
-            "this tenant is externally owned and cannot be unparked".to_owned(),
+            "this tenant's lifecycle is externally owned and cannot be unparked".to_owned(),
         ));
     }
     if tenant.tenant.status != "parked" {
@@ -1067,12 +1067,12 @@ async fn deploy_tenant(
     //   semantic — the Control Plane does not pretend to "undo" a deploy.
     let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
 
-    // Virya (and any externally-owned tenant) is not provisioned by the
-    // tenant agent — it runs on the pre-existing production deployment.
+    // A tenant the agent does not provision runs on a deployment owned
+    // elsewhere — for virya that is the existing production deployment.
     // Trigger the ecosystem-deploy GitHub Actions workflow instead of the
     // provisioner path. The workflow SSHes to the production host and runs
     // the blue-green deploy with rollback.
-    if store::tenant_lifecycle_is_externally_owned(&tenant.tenant.slug) {
+    if !tenant.tenant.can_provision {
         return trigger_ecosystem_deploy(
             &state,
             &identity,

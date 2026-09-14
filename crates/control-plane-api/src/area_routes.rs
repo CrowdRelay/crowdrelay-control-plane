@@ -67,25 +67,15 @@ pub(crate) async fn target(
     if tenant.tenant.status == "parked" {
         return Err(ApiError::Conflict("tenant is parked".to_owned()));
     }
-    let target = if slug == "virya" {
-        state
-            .virya_management_url
-            .as_deref()
-            .ok_or_else(|| {
-                ApiError::Unavailable("VIRYA AREA management target is not configured".to_owned())
-            })?
-            .to_owned()
-    } else {
-        state
-            .store
-            .latest_management_url(tenant.tenant.id)
-            .await?
-            .ok_or_else(|| {
-                ApiError::Unavailable(
-                    "tenant has no successful local CrowdRelay management target".to_owned(),
-                )
-            })?
-    };
+    let target = state
+        .store
+        .latest_management_url(tenant.tenant.id)
+        .await?
+        .ok_or_else(|| {
+            ApiError::Unavailable(
+                "tenant has no successful local CrowdRelay management target".to_owned(),
+            )
+        })?;
     Ok((tenant, target))
 }
 

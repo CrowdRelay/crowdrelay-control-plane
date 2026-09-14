@@ -30,8 +30,11 @@ pub struct Config {
     pub frontend_dist: PathBuf,
     pub virya_workspace_id: Option<uuid::Uuid>,
     pub virya_crowdrelay_url: String,
-    pub virya_signal_url: String,
+    /// The AREA management target virya resolves through the shared
+    /// `latest_management_url` read — seeded each boot by `ensure_virya`,
+    /// never matched on slug.
     pub virya_management_url: Option<String>,
+    pub virya_signal_url: String,
     /// Session cookie Secure flag. Off only for plain-HTTP local development.
     pub cookie_secure: bool,
     /// Optional webhook relay used to hand email notifications to the

@@ -50,7 +50,6 @@ pub struct AppState {
     provisioner_lease_seconds: i64,
     runtime_stale_after_seconds: i64,
     area_client: tenant_area_client::TenantAreaClient,
-    virya_management_url: Option<Arc<str>>,
     /// Session cookies are Secure in production; local plain-HTTP dev opts out.
     cookie_secure: bool,
     notifier: notifier_client::NotifierClient,
@@ -131,6 +130,7 @@ async fn main() -> anyhow::Result<()> {
             config.virya_workspace_id,
             &config.virya_crowdrelay_url,
             &config.virya_signal_url,
+            config.virya_management_url.as_deref(),
         )
         .await?;
     if let (Some(username), Some(password)) = (
@@ -188,7 +188,6 @@ async fn main() -> anyhow::Result<()> {
             config.area_management_master_key,
             config.management_master_key,
         ),
-        virya_management_url: config.virya_management_url.map(Arc::from),
         cookie_secure: config.cookie_secure,
         notifier: notifier_client::NotifierClient::new(
             config.notify_email_relay_url.clone().map(Arc::from),

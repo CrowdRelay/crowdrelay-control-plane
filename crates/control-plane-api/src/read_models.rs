@@ -939,8 +939,6 @@ async fn overview(
         state.store.audit_for_tenant_id(tenant.tenant.id, 40),
     )?;
 
-    let externally_owned = crate::store::tenant_lifecycle_is_externally_owned(&tenant.tenant.slug);
-
     // Map each provisioning row through `job_with_phase` so the frontend
     // `ProvisioningJob` contract (which requires `phase`) holds on this
     // surface too — not just on the dedicated provisioning endpoints.
@@ -960,21 +958,22 @@ async fn overview(
             "runtimeStaleAfterSeconds": state.runtime_stale_after_seconds,
             "provisionerConfigured": state.provisioner_token_hash.is_some(),
             "provisionerDefaultImageTag": state.provisioner_default_image_tag.as_deref(),
-            // Lifecycle policy is decided here, from the same predicate the
-            // store guards use, so the browser renders capability instead of
+            // Lifecycle policy is decided here, from the same columns the
+            // store guards read, so the browser renders capability instead of
             // re-deriving the rule from a slug it happens to recognise.
             "capabilities": {
-                "canSuspend": !externally_owned,
-                "canProvision": !externally_owned,
-                "canRemove": !externally_owned,
-                "canOptOut": !externally_owned,
-                "canPark": !externally_owned && tenant.tenant.status == "active",
-                "canUnpark": !externally_owned && tenant.tenant.status == "parked",
-                // Only externally-owned tenants (Virya) may trigger a redeploy
-                // from the panel. Provisioner-managed tenants get no
-                // operator-facing deploy button — the provisioner path is
-                // internal, used at tenant creation, not a runtime control.
-                "canRedeploy": externally_owned,
+                "canSuspend": tenant.tenant.can_suspend,
+                "canProvision": tenant.tenant.can_provision,
+                "canRemove": tenant.tenant.can_remove,
+                "canOptOut": tenant.tenant.can_remove,
+                "canPark": tenant.tenant.can_suspend && tenant.tenant.status == "active",
+                "canUnpark": tenant.tenant.can_suspend && tenant.tenant.status == "parked",
+                // Only tenants the agent does not provision may trigger a
+                // redeploy from the panel — virya's ecosystem deploy is the
+                // example. Provisioner-managed tenants get no operator-facing
+                // deploy button: the provisioner path is internal, used at
+                // tenant creation, not a runtime control.
+                "canRedeploy": !tenant.tenant.can_provision,
             },
         },
     });
@@ -2538,6 +2537,10 @@ mod tests {
                 fanbase_sources: vec![],
                 signal_play_store_url: None,
                 synesthesia_play_store_url: None,
+                can_suspend: true,
+                can_provision: false,
+                can_remove: false,
+                archetype: "band".to_owned(),
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
             },

@@ -15,16 +15,12 @@ use crate::{
     },
 };
 
-/// Virya runs on the pre-existing production deployment. The Control Plane
-/// registers the tenant but does not own its lifecycle: it may not be created
-/// a second time, suspended, or provisioned by the tenant agent.
-///
-/// The rule is named once here so the create/suspend/provision guards below
-/// and the capability flags published in the tenant Overview read model can
-/// never disagree. The browser reads those flags instead of restating the
-/// policy in JSX, which is how it drifted before.
-pub fn tenant_lifecycle_is_externally_owned(slug: &str) -> bool {
-    slug == "virya"
+/// Whether a tenant's lifecycle is not fully owned by this plane — any of the
+/// three capability columns saying no. Published to the tenant Overview read
+/// model so the browser reads the flag instead of restating policy in JSX,
+/// which is how it drifted before.
+pub fn tenant_lifecycle_is_externally_owned(tenant: &TenantRow) -> bool {
+    !(tenant.can_suspend && tenant.can_provision && tenant.can_remove)
 }
 
 #[derive(Clone)]
@@ -182,13 +178,15 @@ impl Store {
         workspace_id: Option<Uuid>,
         crowdrelay_url: &str,
         signal_url: &str,
+        management_url: Option<&str>,
     ) -> Result<(), ApiError> {
         sqlx::query(
             r#"INSERT INTO control_plane_tenants
-               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, branding_palette, synesthesia_enabled, area_enabled, signal_play_store_url, synesthesia_play_store_url)
+               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, branding_palette, synesthesia_enabled, area_enabled, signal_play_store_url, synesthesia_play_store_url, can_suspend, can_provision, can_remove)
                VALUES ($1, 'virya', 'Virya', 'active', $2, $3, $4, 'PL', NULL, true, true,
                        'https://play.google.com/store/apps/details?id=music.virya.signal',
-                       'https://play.google.com/store/apps/details?id=music.virya.synesthesia')
+                       'https://play.google.com/store/apps/details?id=music.virya.synesthesia',
+                       true, false, false)
                ON CONFLICT (slug) DO UPDATE SET
                    workspace_id = COALESCE(control_plane_tenants.workspace_id, EXCLUDED.workspace_id),
                    crowdrelay_base_url = COALESCE(control_plane_tenants.crowdrelay_base_url, EXCLUDED.crowdrelay_base_url),
@@ -196,12 +194,34 @@ impl Store {
                    signal_play_store_url = COALESCE(control_plane_tenants.signal_play_store_url, EXCLUDED.signal_play_store_url),
                    synesthesia_play_store_url = COALESCE(control_plane_tenants.synesthesia_play_store_url, EXCLUDED.synesthesia_play_store_url),
                    synesthesia_enabled = true,
+                   can_suspend = true,
+                   can_provision = false,
+                   can_remove = false,
                    updated_at = now()"#,
         )
         .bind(Uuid::new_v4())
         .bind(workspace_id)
         .bind(crowdrelay_url)
         .bind(signal_url)
+        .execute(&self.pool)
+        .await?;
+        // Virya's management target resolves through the same
+        // `latest_management_url` read as every tenant: a succeeded
+        // registration job carries the URL. Upserted each boot so the config
+        // value stays the source of truth without a second resolution path.
+        sqlx::query(
+            r#"INSERT INTO control_plane_provisioning_jobs
+               (id, tenant_id, status, plan, created_by, finished_at, result)
+               SELECT gen_random_uuid(), t.id, 'succeeded',
+                      '{"kind":"external_registration"}'::jsonb, 'ensure_virya', now(),
+                      jsonb_build_object('localApiUrl', $5::text)
+               FROM control_plane_tenants t
+               WHERE t.slug = 'virya'
+               ON CONFLICT (tenant_id) WHERE plan->>'kind' = 'external_registration'
+               DO UPDATE SET result = EXCLUDED.result, updated_at = now()"#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(management_url.unwrap_or(crowdrelay_url))
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -214,6 +234,7 @@ impl Store {
                       t.synesthesia_enabled, t.area_enabled,
                       t.signal_enabled, t.north_star_metric, t.fanbase_sources,
                       t.signal_play_store_url, t.synesthesia_play_store_url,
+                      t.can_suspend, t.can_provision, t.can_remove, t.archetype,
                       t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
@@ -244,6 +265,7 @@ impl Store {
                       t.synesthesia_enabled, t.area_enabled,
                       t.signal_enabled, t.north_star_metric, t.fanbase_sources,
                       t.signal_play_store_url, t.synesthesia_play_store_url,
+                      t.can_suspend, t.can_provision, t.can_remove, t.archetype,
                       t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
@@ -359,8 +381,17 @@ impl Store {
         actor: &str,
         request_id: Option<&str>,
     ) -> Result<TenantSummary, ApiError> {
-        if tenant_lifecycle_is_externally_owned(&input.slug) {
-            return Err(ApiError::Conflict("Virya tenant already exists".to_owned()));
+        let slug_exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM control_plane_tenants WHERE slug = $1)",
+        )
+        .bind(&input.slug)
+        .fetch_one(&self.pool)
+        .await?;
+        if slug_exists {
+            return Err(ApiError::Conflict(format!(
+                "tenant {} already exists",
+                input.slug
+            )));
         }
         let id = Uuid::new_v4();
         let palette_json = palette.map(serde_json::to_value).transpose()?;
@@ -374,6 +405,7 @@ impl Store {
                          signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled,
                          signal_enabled, north_star_metric, fanbase_sources,
                          signal_play_store_url, synesthesia_play_store_url,
+                         can_suspend, can_provision, can_remove, archetype,
                          created_at, updated_at"#,
         )
         .bind(id)
@@ -620,15 +652,18 @@ impl Store {
                 ));
             }
         }
-        // The externally-owned guard only needs the slug, which we already
-        // have. Skip the full tenant_by_slug join here — the tenant_id for
-        // the audit comes from UPDATE ... RETURNING, and the final summary
-        // is fetched once at the end.
-        if tenant_lifecycle_is_externally_owned(slug)
-            && (status == "suspended" || status == "parked")
-        {
+        // The capability guard only needs the flag, not the full tenant row —
+        // the tenant_id for the audit comes from UPDATE ... RETURNING, and the
+        // final summary is fetched once at the end.
+        let can_suspend = sqlx::query_scalar::<_, bool>(
+            "SELECT can_suspend FROM control_plane_tenants WHERE slug = $1",
+        )
+        .bind(slug)
+        .fetch_optional(&self.pool)
+        .await?;
+        if can_suspend == Some(false) && (status == "suspended" || status == "parked") {
             return Err(ApiError::Conflict(
-                "Virya lifecycle is externally owned and cannot be changed from Control Plane"
+                "tenant lifecycle is externally owned and cannot be changed from Control Plane"
                     .to_owned(),
             ));
         }
@@ -869,9 +904,10 @@ impl Store {
         request_id: Option<&str>,
     ) -> Result<(ProvisioningJobRow, bool), ApiError> {
         let tenant = self.tenant_by_slug(slug).await?;
-        if tenant_lifecycle_is_externally_owned(&tenant.tenant.slug) {
+        if !tenant.tenant.can_provision {
             return Err(ApiError::Conflict(
-                "Virya uses the existing production deployment and is not provisioned by the tenant agent".to_owned(),
+                "tenant lifecycle is externally owned and is not provisioned by the tenant agent"
+                    .to_owned(),
             ));
         }
         if tenant.tenant.status == "suspended" {
@@ -1901,9 +1937,15 @@ impl Store {
         actor: &str,
         request_id: Option<&str>,
     ) -> Result<(), ApiError> {
-        if tenant_lifecycle_is_externally_owned(slug) {
+        let can_remove = sqlx::query_scalar::<_, bool>(
+            "SELECT can_remove FROM control_plane_tenants WHERE slug = $1",
+        )
+        .bind(slug)
+        .fetch_optional(&self.pool)
+        .await?;
+        if can_remove == Some(false) {
             return Err(ApiError::Forbidden(
-                "the virya tenant cannot be removed".to_owned(),
+                "this tenant's lifecycle is externally owned and cannot be removed".to_owned(),
             ));
         }
         if caller_confirmation != slug {
