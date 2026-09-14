@@ -32,8 +32,22 @@ const WORDING: Record<string, Wording> = {
     meaning: 'People who installed Signal. You can reach them directly, without asking a platform for permission.',
   },
   total_audience: {
-    label: 'Everyone, everywhere',
-    meaning: 'Every follower on every connected platform, added together. Grows fastest, but most of it you cannot contact.',
+    label: 'Every platform, added up',
+    // Not "everyone": the sum is `off_platform_audience`, which by its own
+    // definition is "audience that is not already ours" — so the fans in
+    // Signal, the ones you can actually reach, are the one group it leaves
+    // out. Saying "everyone, everywhere" over a number that excludes your own
+    // audience is the kind of label that makes a goal look like the safe
+    // choice when it is not.
+    meaning: 'Followers across every connected platform, added together. It leaves out your own Signal fans, and most of what it counts you cannot contact.',
+  },
+
+  // Not offered by every tenant build yet. Wording waits here so the goal
+  // arrives named rather than as `weighted_audience`, the same way the rest of
+  // this map covers values the server may or may not send.
+  weighted_audience: {
+    label: 'Everything, by what it is worth',
+    meaning: 'Every platform counted, but not equally: a Signal fan you can reach outweighs a follower you cannot, and a paying supporter outweighs a passing view.',
   },
 
   // Platform goals. The nouns are the platforms' own, so they stay; what they
