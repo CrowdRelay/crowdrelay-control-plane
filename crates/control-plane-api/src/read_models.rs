@@ -1012,17 +1012,7 @@ async fn operations(
         }
     };
 
-    let (
-        summary,
-        flags,
-        autopilot,
-        growth,
-        opportunities,
-        signal,
-        audience,
-        growth_metrics,
-        acquisition,
-    ) = tokio::join!(
+    let (summary, flags, autopilot, growth, opportunities, signal, audience, growth_metrics) = tokio::join!(
         section("/v1/control-plane/ops/summary"),
         section("/v1/control-plane/ecosystem/flags"),
         section("/v1/control-plane/autopilot/overview"),
@@ -1035,7 +1025,6 @@ async fn operations(
         section("/v1/control-plane/ops/signal-overview"),
         section("/v1/control-plane/audience/overview"),
         section("/v1/control-plane/autopilot/growth-metrics/trends"),
-        section("/v1/control-plane/autopilot/acquisition-channels"),
     );
 
     let projected = project_operations(
@@ -1049,7 +1038,6 @@ async fn operations(
         signal.as_ref(),
         audience.as_ref(),
         growth_metrics.as_ref(),
-        acquisition.as_ref(),
     )?;
     cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
     Ok(no_store(projected))
@@ -1623,7 +1611,6 @@ fn project_operations(
     signal: SectionResult<'_>,
     audience: SectionResult<'_>,
     growth_metrics: SectionResult<'_>,
-    acquisition: SectionResult<'_>,
 ) -> Result<Value, ApiError> {
     project_sections(
         slug,
@@ -1640,15 +1627,6 @@ fn project_operations(
             section("signal", signal, Shape::Object),
             section("audience", audience, Shape::Object),
             section("growth_metrics", growth_metrics, Shape::Object),
-            // An object, not an array. `/autopilot/acquisition-channels`
-            // answers with `AcquisitionChannels { channels, total_signups,
-            // .. }` and always has; declaring it an array meant every read of
-            // this model came back `degraded: ["acquisition"]` with the
-            // section marked `contract_mismatch` — in production, on every
-            // page load, for a section that was answering correctly. The unit
-            // fixture below asserted the same wrong shape, so nothing caught
-            // it here.
-            section("acquisition", acquisition, Shape::Object),
         ],
     )
 }
@@ -1694,23 +1672,7 @@ mod tests {
     fn growth_metrics() -> Value {
         json!({"series": []})
     }
-    fn acquisition() -> Value {
-        // The tenant's own shape — see `AcquisitionChannels` in
-        // crowdrelay-application. A fixture that agrees with the projection
-        // rather than with the upstream proves only that the two halves of
-        // this file agree with each other.
-        json!({
-            "channels": [{"attribution": {"source": "reddit"}, "signups": 3}],
-            "total_signups": 3,
-            "total_activated_30d": 1,
-            "active_30d": 1,
-            "reachable_consented": 2,
-            "retained_30d": 1,
-            "unattributed": [],
-        })
-    }
-
-    /// Build the full 10-tuple of section values for project_operations,
+    /// Build the full 8-tuple of section values for project_operations,
     /// with all sections Ok. Reduces boilerplate across the test suite.
     /// Returns owned Values; callers wrap in ok() at the call site so
     /// the borrows live as long as the project_operations call.
@@ -1725,14 +1687,13 @@ mod tests {
                 signal(),
                 audience(),
                 growth_metrics(),
-                acquisition(),
             )
         };
     }
 
     #[test]
     fn projects_every_section_of_a_complete_snapshot() {
-        let (s, f, a, g, o, sig, aud, gm, acq) = all_sections!();
+        let (s, f, a, g, o, sig, aud, gm) = all_sections!();
         let projected = project_operations(
             "virya",
             300,
@@ -1744,7 +1705,6 @@ mod tests {
             ok(&sig),
             ok(&aud),
             ok(&gm),
-            ok(&acq),
         )
         .expect("complete snapshot projects");
 
@@ -1757,7 +1717,6 @@ mod tests {
         assert_eq!(projected["signal"], signal());
         assert_eq!(projected["audience"], audience());
         assert_eq!(projected["growth_metrics"], growth_metrics());
-        assert_eq!(projected["acquisition"], acquisition());
         assert_eq!(projected["degraded"], json!([]));
         for name in [
             "summary",
@@ -1768,7 +1727,6 @@ mod tests {
             "signal",
             "audience",
             "growth_metrics",
-            "acquisition",
         ] {
             assert_eq!(projected["sections"][name]["state"], json!("ok"), "{name}");
             assert_eq!(projected["sections"][name]["remediation"], Value::Null);
@@ -1778,9 +1736,9 @@ mod tests {
 
     #[test]
     fn a_failed_section_degrades_locally_instead_of_failing_the_subpage() {
-        let (_, _, a_val, g_val, o_val, sig_val, aud_val, gm_val, acq_val) = all_sections!();
+        let (_, _, a_val, g_val, o_val, sig_val, aud_val, gm_val) = all_sections!();
         let s_val = summary();
-        let (s, a, g, o, sig, aud, gm, acq) = (
+        let (s, a, g, o, sig, aud, gm) = (
             ok(&s_val),
             ok(&a_val),
             ok(&g_val),
@@ -1788,12 +1746,10 @@ mod tests {
             ok(&sig_val),
             ok(&aud_val),
             ok(&gm_val),
-            ok(&acq_val),
         );
         let error = timeout();
-        let projected =
-            project_operations("virya", 300, s, Err(&error), a, g, o, sig, aud, gm, acq)
-                .expect("a partial snapshot is still usable");
+        let projected = project_operations("virya", 300, s, Err(&error), a, g, o, sig, aud, gm)
+            .expect("a partial snapshot is still usable");
 
         assert_eq!(projected["flags"], Value::Null);
         assert_eq!(projected["degraded"], json!(["flags"]));
@@ -1811,9 +1767,8 @@ mod tests {
             ApiError::Unauthorized,
             ApiError::ContractMismatch("invalid upstream JSON"),
         );
-        let (sig_val, aud_val, gm_val, acq_val) =
-            (signal(), audience(), growth_metrics(), acquisition());
-        let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
+        let (sig_val, aud_val, gm_val) = (signal(), audience(), growth_metrics());
+        let (sig, aud, gm) = (ok(&sig_val), ok(&aud_val), ok(&gm_val));
         let projected = project_operations(
             "virya",
             300,
@@ -1825,7 +1780,6 @@ mod tests {
             sig,
             aud,
             gm,
-            acq,
         )
         .expect("one usable section is still a page");
 
@@ -1944,9 +1898,8 @@ mod tests {
             growth(),
             json!({"not": "an array either"}),
         );
-        let (sig_val, aud_val, gm_val, acq_val) =
-            (signal(), audience(), growth_metrics(), acquisition());
-        let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
+        let (sig_val, aud_val, gm_val) = (signal(), audience(), growth_metrics());
+        let (sig, aud, gm) = (ok(&sig_val), ok(&aud_val), ok(&gm_val));
         let projected = project_operations(
             "virya",
             300,
@@ -1958,7 +1911,6 @@ mod tests {
             sig,
             aud,
             gm,
-            acq,
         )
         .expect("wrong-typed sections degrade");
 
@@ -1986,9 +1938,8 @@ mod tests {
     #[test]
     fn null_zero_false_and_empty_string_are_contract_mismatches_not_healthy() {
         for bad in [Value::Null, json!(0), json!(false), json!(""), json!(true)] {
-            let (sig_val, aud_val, gm_val, acq_val) =
-                (signal(), audience(), growth_metrics(), acquisition());
-            let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
+            let (sig_val, aud_val, gm_val) = (signal(), audience(), growth_metrics());
+            let (sig, aud, gm) = (ok(&sig_val), ok(&aud_val), ok(&gm_val));
             let projected = project_operations(
                 "virya",
                 300,
@@ -2000,7 +1951,6 @@ mod tests {
                 sig,
                 aud,
                 gm,
-                acq,
             )
             .expect("wrong-typed sections degrade, not fail");
             assert_eq!(
@@ -2021,9 +1971,8 @@ mod tests {
     /// legitimately empty section as a contract mismatch.
     #[test]
     fn empty_object_and_empty_array_are_valid_shapes() {
-        let (sig_val, aud_val, gm_val, acq_val) =
-            (signal(), audience(), growth_metrics(), acquisition());
-        let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
+        let (sig_val, aud_val, gm_val) = (signal(), audience(), growth_metrics());
+        let (sig, aud, gm) = (ok(&sig_val), ok(&aud_val), ok(&gm_val));
         let projected = project_operations(
             "virya",
             300,
@@ -2035,7 +1984,6 @@ mod tests {
             sig,
             aud,
             gm,
-            acq,
         )
         .expect("empty-but-valid sections project");
         assert_eq!(projected["sections"]["summary"]["state"], json!("ok"));
@@ -2055,7 +2003,7 @@ mod tests {
             ApiError::ContractMismatch("invalid upstream JSON"),
             unreachable(),
         );
-        let (sig_err, aud_err, gm_err, acq_err) = (timeout(), timeout(), timeout(), timeout());
+        let (sig_err, aud_err, gm_err) = (timeout(), timeout(), timeout());
         let error = project_operations(
             "virya",
             300,
@@ -2067,7 +2015,6 @@ mod tests {
             Err(&sig_err),
             Err(&aud_err),
             Err(&gm_err),
-            Err(&acq_err),
         )
         .expect_err("a fully failed snapshot must not render as an empty page");
 
@@ -2076,7 +2023,7 @@ mod tests {
         };
         assert_eq!(detail.slug, "virya");
         assert_eq!(detail.channel, "operations");
-        assert_eq!(detail.degraded.len(), 9);
+        assert_eq!(detail.degraded.len(), 8);
         // Every section keeps its own state — no diagnosis disappears.
         assert_eq!(detail.verdicts["summary"]["state"], json!("timeout"));
         assert_eq!(detail.verdicts["flags"]["state"], json!("absent"));
@@ -2099,7 +2046,6 @@ mod tests {
             "signal",
             "audience",
             "growth_metrics",
-            "acquisition",
         ] {
             assert!(
                 detail.verdicts[name]["remediation"].is_string(),
@@ -2122,7 +2068,6 @@ mod tests {
             Err(&e),
             Err(&e),
             Err(&e),
-            Err(&e),
         )
         .expect_err("a fully failed snapshot must not render as an empty page");
         assert!(matches!(error, ApiError::AllSectionsFailed { .. }));
@@ -2130,7 +2075,7 @@ mod tests {
 
     #[test]
     fn drops_fields_the_control_plane_contract_does_not_name() {
-        let (s, f, a, g, o, sig, aud, gm, acq) = all_sections!();
+        let (s, f, a, g, o, sig, aud, gm) = all_sections!();
         let projected = project_operations(
             "virya",
             300,
@@ -2142,7 +2087,6 @@ mod tests {
             ok(&sig),
             ok(&aud),
             ok(&gm),
-            ok(&acq),
         )
         .expect("complete snapshot projects");
 
@@ -2150,7 +2094,6 @@ mod tests {
         assert_eq!(
             keys,
             vec![
-                "acquisition",
                 "audience",
                 "autopilot",
                 "degraded",
@@ -2282,9 +2225,8 @@ mod tests {
         let a = json!({"policies": []});
         let g = json!({"objective": "grow"});
         let o = json!([]);
-        let (sig_val, aud_val, gm_val, acq_val) =
-            (signal(), audience(), growth_metrics(), acquisition());
-        let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
+        let (sig_val, aud_val, gm_val) = (signal(), audience(), growth_metrics());
+        let (sig, aud, gm) = (ok(&sig_val), ok(&aud_val), ok(&gm_val));
         let projected = project_operations(
             "virya",
             300,
@@ -2296,7 +2238,6 @@ mod tests {
             sig,
             aud,
             gm,
-            acq,
         )
         .expect("complete snapshot projects");
         let freshness = &projected["freshness"]["summary"];
@@ -2318,9 +2259,8 @@ mod tests {
         let a = json!({"policies": []});
         let g = json!({"objective": "grow"});
         let o = json!([]);
-        let (sig_val, aud_val, gm_val, acq_val) =
-            (signal(), audience(), growth_metrics(), acquisition());
-        let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
+        let (sig_val, aud_val, gm_val) = (signal(), audience(), growth_metrics());
+        let (sig, aud, gm) = (ok(&sig_val), ok(&aud_val), ok(&gm_val));
         let projected = project_operations(
             "virya",
             300,
@@ -2332,7 +2272,6 @@ mod tests {
             sig,
             aud,
             gm,
-            acq,
         )
         .expect("complete snapshot projects");
         let freshness = &projected["freshness"]["summary"];
@@ -2356,9 +2295,8 @@ mod tests {
         let a = json!({"policies": []});
         let g = json!({"objective": "grow"});
         let o = json!([]);
-        let (sig_val, aud_val, gm_val, acq_val) =
-            (signal(), audience(), growth_metrics(), acquisition());
-        let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
+        let (sig_val, aud_val, gm_val) = (signal(), audience(), growth_metrics());
+        let (sig, aud, gm) = (ok(&sig_val), ok(&aud_val), ok(&gm_val));
         let projected = project_operations(
             "virya",
             300,
@@ -2370,7 +2308,6 @@ mod tests {
             sig,
             aud,
             gm,
-            acq,
         )
         .expect("complete snapshot projects");
         let freshness = &projected["freshness"]["summary"];
@@ -2392,9 +2329,8 @@ mod tests {
         let a = json!({"policies": []});
         let g = json!({"objective": "grow"});
         let o = json!([]);
-        let (sig_val, aud_val, gm_val, acq_val) =
-            (signal(), audience(), growth_metrics(), acquisition());
-        let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
+        let (sig_val, aud_val, gm_val) = (signal(), audience(), growth_metrics());
+        let (sig, aud, gm) = (ok(&sig_val), ok(&aud_val), ok(&gm_val));
         let projected = project_operations(
             "virya",
             300,
@@ -2406,7 +2342,6 @@ mod tests {
             sig,
             aud,
             gm,
-            acq,
         )
         .expect("one failed section still projects");
         let freshness = &projected["freshness"]["flags"];
@@ -2429,9 +2364,8 @@ mod tests {
         let a = json!({"policies": []});
         let g = json!({"objective": "grow"});
         let o = json!([]);
-        let (sig_val, aud_val, gm_val, acq_val) =
-            (signal(), audience(), growth_metrics(), acquisition());
-        let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
+        let (sig_val, aud_val, gm_val) = (signal(), audience(), growth_metrics());
+        let (sig, aud, gm) = (ok(&sig_val), ok(&aud_val), ok(&gm_val));
         let projected = project_operations(
             "virya",
             300,
@@ -2443,7 +2377,6 @@ mod tests {
             sig,
             aud,
             gm,
-            acq,
         )
         .expect("complete snapshot projects");
         for name in ["summary", "flags", "autopilot", "growth", "opportunities"] {
@@ -2473,9 +2406,8 @@ mod tests {
         let a = json!({"policies": []});
         let g = json!({"objective": "grow"});
         let o = json!([]);
-        let (sig_val, aud_val, gm_val, acq_val) =
-            (signal(), audience(), growth_metrics(), acquisition());
-        let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
+        let (sig_val, aud_val, gm_val) = (signal(), audience(), growth_metrics());
+        let (sig, aud, gm) = (ok(&sig_val), ok(&aud_val), ok(&gm_val));
         let projected = project_operations(
             "virya",
             300,
@@ -2487,7 +2419,6 @@ mod tests {
             sig,
             aud,
             gm,
-            acq,
         )
         .expect("complete snapshot projects");
         let freshness = &projected["freshness"]["summary"];
@@ -2514,9 +2445,8 @@ mod tests {
         let a = json!({"policies": []});
         let g = json!({"objective": "grow"});
         let o = json!([]);
-        let (sig_val, aud_val, gm_val, acq_val) =
-            (signal(), audience(), growth_metrics(), acquisition());
-        let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
+        let (sig_val, aud_val, gm_val) = (signal(), audience(), growth_metrics());
+        let (sig, aud, gm) = (ok(&sig_val), ok(&aud_val), ok(&gm_val));
         let projected = project_operations(
             "virya",
             300,
@@ -2528,7 +2458,6 @@ mod tests {
             sig,
             aud,
             gm,
-            acq,
         )
         .expect("complete snapshot projects");
         let freshness = &projected["freshness"]["summary"];
@@ -2554,9 +2483,8 @@ mod tests {
         let a = json!({"policies": [{"context": "outreach", "updatedAt": stale}]});
         let g = json!({"objective": "grow"});
         let o = json!([]);
-        let (sig_val, aud_val, gm_val, acq_val) =
-            (signal(), audience(), growth_metrics(), acquisition());
-        let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
+        let (sig_val, aud_val, gm_val) = (signal(), audience(), growth_metrics());
+        let (sig, aud, gm) = (ok(&sig_val), ok(&aud_val), ok(&gm_val));
         let projected = project_operations(
             "virya",
             300,
@@ -2568,7 +2496,6 @@ mod tests {
             sig,
             aud,
             gm,
-            acq,
         )
         .expect("complete snapshot projects");
         let freshness = &projected["freshness"]["autopilot"];

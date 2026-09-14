@@ -566,7 +566,7 @@ export type TenantOverviewReadModel = {
   }
 }
 
-export type TenantOperationsSection = 'summary' | 'flags' | 'autopilot' | 'growth' | 'opportunities' | 'signal' | 'audience' | 'growth_metrics' | 'acquisition'
+export type TenantOperationsSection = 'summary' | 'flags' | 'autopilot' | 'growth' | 'opportunities' | 'signal' | 'audience' | 'growth_metrics'
 
 // Why a read-model section is missing. The Control Plane classifies each
 // failure at the tunnel instead of collapsing them all into "degraded", so a
@@ -621,7 +621,6 @@ export type TenantOperationsReadModel = {
   signal: SignalOverview | null
   audience: AudienceOverview | null
   growth_metrics: GrowthMetricTrendsResponse | null
-  acquisition: AcquisitionChannels | null
   // Sections the tenant channel could not serve. They render as locally
   // degraded instead of failing the whole subpage.
   degraded: TenantOperationsSection[]
