@@ -1442,9 +1442,11 @@ export type AutopilotControlMutation = {
 /** One trusted fact the content loop may write about — mirrors
  *  `ContentSourceView` in crowdrelay-application. `metadata` carries the
  *  link for a video/release or the body for a story. */
+export type ContentSourceKind = 'event' | 'release' | 'show_completed' | 'video' | 'story'
+
 export type ContentSourceView = {
   source_id: string
-  source_kind: 'event' | 'release' | 'show_completed' | 'video' | 'story'
+  source_kind: ContentSourceKind
   source_key: string
   title: string
   occurred_at: string
@@ -1456,12 +1458,14 @@ export type ContentSourceView = {
 
 export type ContentSourceUpsertInput = {
   source_id?: string
-  source_kind: ContentSourceView['source_kind']
+  source_kind: ContentSourceKind
   source_key: string
   title: string
   occurred_at: string
   expires_at: string
   metadata: Record<string, unknown>
+  /** Omit on create (defaults to live) or to leave the flag alone on edit. */
+  active?: boolean
   expected_version: number
 }
 

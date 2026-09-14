@@ -2508,7 +2508,7 @@ async fn content_sources(
         None,
     )
     .await?;
-    object_no_store(value, "content sources")
+    array_no_store(value, "content sources")
 }
 
 /// What the panel sends for a new or corrected piece of real material.
@@ -2526,6 +2526,8 @@ struct ContentSourceUpsert {
     occurred_at: String,
     expires_at: String,
     metadata: Value,
+    /// Omit to leave the flag alone; send it to retire or reinstate.
+    active: Option<bool>,
     expected_version: i64,
 }
 

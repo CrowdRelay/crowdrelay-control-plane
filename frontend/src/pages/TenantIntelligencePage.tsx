@@ -8,6 +8,7 @@ import { RunBrainCyclePanel } from '../components/RunBrainCyclePanel'
 import { GrowthObjectivesPanel } from '../components/GrowthObjectivesPanel'
 import { LearningLoopPanel } from '../components/LearningLoopPanel'
 import { LearningProofPanel } from '../components/LearningProofPanel'
+import { ContentSourcesPanel } from '../components/ContentSourcesPanel'
 import { ScorecardPanel } from '../components/ScorecardPanel'
 import { GrowthPosturePanel } from '../components/GrowthPosturePanel'
 import { GrowthMetricsPanel } from '../components/GrowthMetricsPanel'
@@ -79,6 +80,7 @@ export function TenantIntelligencePage() {
       tabs={[
         { id: 'overview', label: 'Where we stand' },
         { id: 'growth', label: 'What it believes' },
+        { id: 'material', label: 'What it may say' },
         { id: 'decisions', label: 'What it decided' },
         { id: 'funnel', label: 'What moved' },
         { id: 'learning', label: 'What it learned' },
@@ -111,6 +113,14 @@ export function TenantIntelligencePage() {
           <GrowthPosturePanel slug={params().slug} />
           <RunBrainCyclePanel slug={params().slug} />
           <GrowthIntelligencePanel slug={params().slug} />
+        </div>
+      </TabPanel>
+
+      {/* ── Material tab — the real things it may talk about ── */}
+      <TabPanel active={activeTab()} id="material" visited={isVisited('material')}>
+        <div>
+          <SectionTitle title="Real material" icon={<SectionIcon name="book-open" />} description="Everything the system may say publicly comes from this list. A new YouTube video lands here on its own; add stories and links yourself." />
+          <ContentSourcesPanel slug={params().slug} />
         </div>
       </TabPanel>
 

@@ -1,0 +1,246 @@
+import { For, Show, createSignal } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
+import { api } from '../lib/api'
+import { refreshQueries } from '../lib/refresh'
+import { errorMessage } from '../lib/format'
+import { EmptyState } from './ui/empty-state'
+import { SkeletonRows } from './Skeleton'
+import { ErrorCard } from './layout'
+import { Card } from './ui/card'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
+import { Field, FieldGrid } from './ui/field'
+import { Input } from './ui/input'
+import { Textarea } from './ui/textarea'
+import { NativeSelect } from './ui/native-select'
+import type { ContentSourceKind, ContentSourceView } from '../lib/types'
+
+const KIND_LABEL: Record<ContentSourceKind, string> = {
+  event: 'Event',
+  release: 'Release',
+  show_completed: 'Past show',
+  video: 'Video',
+  story: 'Story',
+}
+
+const KIND_HINT: Record<ContentSourceKind, string> = {
+  video: 'A link to the published video — the brain shares this.',
+  release: 'A link to the release — streaming page or video.',
+  story: 'A real thing that happened, written the way you would tell it. The writer may retell it but can never extend it.',
+  event: 'A show or event worth announcing.',
+  show_completed: 'A show that already happened — recap material.',
+}
+
+// Events, releases and past shows are news: they stay shareable for a
+// short promo window after they happen. Videos and stories are evergreen
+// material — the expiry is measured from when the operator last affirmed
+// the source, so a back-catalog video or a founding story can always be
+// entered. Retirement is the `active` flag, not a date.
+const ANCHORED_LIFETIME_DAYS = 45
+const EVERGREEN_LIFETIME_DAYS = 365
+
+const isEvergreen = (kind: ContentSourceKind) => kind === 'video' || kind === 'story'
+
+const expiryFor = (kind: ContentSourceKind, occurred: Date): Date =>
+  new Date((isEvergreen(kind) ? Date.now() : occurred.getTime()) +
+    (isEvergreen(kind) ? EVERGREEN_LIFETIME_DAYS : ANCHORED_LIFETIME_DAYS) * 86400_000)
+
+const fmtDate = (iso: string) => {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+const sourceUrl = (s: ContentSourceView): string | undefined => {
+  const url = s.metadata?.url
+  return typeof url === 'string' && url.startsWith('http') ? url : undefined
+}
+
+const sourceBody = (s: ContentSourceView): string | undefined => {
+  const body = s.metadata?.body
+  return typeof body === 'string' && body.length > 0 ? body : undefined
+}
+
+const isLive = (s: ContentSourceView) => s.active && new Date(s.expires_at) > new Date()
+
+const dayIso = (iso: string) => {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? new Date().toISOString().slice(0, 10) : d.toISOString().slice(0, 10)
+}
+
+export function ContentSourcesPanel(props: { slug: string }) {
+  const [error, setError] = createSignal<string | null>(null)
+  const [adding, setAdding] = createSignal(false)
+  const [saving, setSaving] = createSignal(false)
+
+  // When set, the form edits this source instead of creating a new one.
+  const [editing, setEditing] = createSignal<ContentSourceView | null>(null)
+
+  const [kind, setKind] = createSignal<ContentSourceKind>('story')
+  const [title, setTitle] = createSignal('')
+  const [link, setLink] = createSignal('')
+  const [body, setBody] = createSignal('')
+  const [when, setWhen] = createSignal(new Date().toISOString().slice(0, 10))
+  const [shareable, setShareable] = createSignal(true)
+
+  const sources = useQuery(() => ({
+    queryKey: ['content-sources', props.slug],
+    queryFn: () => api.contentSources(props.slug),
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
+
+  const needsLink = () => kind() === 'video' || kind() === 'release'
+  const needsBody = () => kind() === 'story'
+
+  const openAdd = () => {
+    setEditing(null)
+    setKind('story'); setTitle(''); setLink(''); setBody('')
+    setWhen(new Date().toISOString().slice(0, 10)); setShareable(true)
+    setAdding(a => !a)
+  }
+
+  const openEdit = (s: ContentSourceView) => {
+    setEditing(s)
+    setKind(s.source_kind); setTitle(s.title)
+    setLink(sourceUrl(s) ?? ''); setBody(sourceBody(s) ?? '')
+    setWhen(dayIso(s.occurred_at)); setShareable(s.active)
+    setAdding(true)
+    setError(null)
+  }
+
+  const submit = async () => {
+    setError(null)
+    const current = editing()
+    const trimmedTitle = title().trim()
+    if (!trimmedTitle) { setError('Give it a title — this is what the writer sees.'); return }
+    const trimmedLink = link().trim()
+    if (needsLink() && !trimmedLink.startsWith('http')) { setError('Paste the full link (https://…).'); return }
+    const trimmedBody = body().trim()
+    if (needsBody() && !trimmedBody) { setError('Write the story — the writer can only use what is here.'); return }
+
+    const occurred = new Date(`${when()}T12:00:00Z`)
+    const expires = expiryFor(kind(), occurred)
+    setSaving(true)
+    try {
+      await api.upsertContentSource(props.slug, {
+        ...(current ? { source_id: current.source_id } : {}),
+        source_kind: kind(),
+        source_key: current?.source_key ?? `panel:${crypto.randomUUID()}`,
+        title: trimmedTitle,
+        occurred_at: occurred.toISOString(),
+        expires_at: expires.toISOString(),
+        metadata: {
+          // Keep every fact the row already carries (a watcher-written
+          // video's video_id, channel_id, published_at) — an edit corrects
+          // the link or the story, it does not erase provenance.
+          ...(current?.metadata ?? {}),
+          // Emptying the field on edit clears the fact, not keeps the old one.
+          ...(trimmedLink ? { url: trimmedLink } : current ? { url: null } : {}),
+          ...(trimmedBody ? { body: trimmedBody } : current ? { body: null } : {}),
+          origin: current && typeof current.metadata?.origin === 'string' ? current.metadata.origin : 'operator_panel',
+        },
+        // The flag only travels on edit — a create always lands live, an
+        // edit leaves it alone unless the operator toggled it.
+        ...(current ? { active: shareable() } : {}),
+        expected_version: current?.version ?? 0,
+      })
+      setTitle(''); setLink(''); setBody(''); setEditing(null)
+      setAdding(false)
+      refreshQueries(['content-sources', props.slug])
+    } catch (err) {
+      setError(errorMessage(err, 'Could not save it. Try again.'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return <Card flat>
+    <div class="flex items-center justify-between gap-4">
+      <h3 class="text-sm font-semibold text-foreground">Real material</h3>
+      <Button variant="ghost" size="sm" writes onClick={openAdd}>
+        {adding() && !editing() ? 'Cancel' : 'Add material'}
+      </Button>
+    </div>
+    <p class="mt-1 text-sm text-muted-foreground">
+      Everything the system may say publicly comes from this list — nothing else. A video link, a release, a story you actually lived. If it is not here, it does not get posted.
+    </p>
+
+    <Show when={error()}><ErrorCard class="mt-3">{error()}</ErrorCard></Show>
+    <Show when={sources.error}><ErrorCard class="mt-3">Material list unavailable: {errorMessage(sources.error, 'We could not reach the material list.')}</ErrorCard></Show>
+
+    <Show when={adding()}>
+      <div class="mt-4 rounded-lg border border-border bg-surface-1 p-4">
+        <Show when={editing()}>{(s) =>
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <span class="text-xs font-medium text-muted-foreground">Editing: {s().title}</span>
+            <label class="flex items-center gap-2 text-xs text-muted-foreground">
+              <input type="checkbox" checked={shareable()} onChange={e => setShareable(e.currentTarget.checked)} />
+              May be shared
+            </label>
+          </div>
+        }</Show>
+        <FieldGrid min="160px">
+          <Field label="Kind">
+            <NativeSelect value={kind()} onChange={e => setKind(e.currentTarget.value as ContentSourceKind)}>
+              <For each={Object.entries(KIND_LABEL) as [ContentSourceKind, string][]}>{([k, label]) =>
+                <option value={k}>{label}</option>
+              }</For>
+            </NativeSelect>
+          </Field>
+          <Field label="Title">
+            <Input value={title()} onInput={e => setTitle(e.currentTarget.value)} placeholder="What is it called" maxLength={240} />
+          </Field>
+          <Field label="When" hint={isEvergreen(kind()) ? 'When it happened — the fact date, however old' : 'When it happened or went live'}>
+            <Input type="date" value={when()} onInput={e => setWhen(e.currentTarget.value)} />
+          </Field>
+        </FieldGrid>
+        <Show when={needsLink()}>
+          <Field class="mt-4" label="Link" hint={KIND_HINT[kind()]}>
+            <Input value={link()} onInput={e => setLink(e.currentTarget.value)} placeholder="https://youtu.be/…" />
+          </Field>
+        </Show>
+        <Show when={needsBody()}>
+          <Field class="mt-4" label="The story" hint={KIND_HINT[kind()]}>
+            <Textarea rows={4} value={body()} onInput={e => setBody(e.currentTarget.value)} placeholder="Tell it plainly — the real version, not the marketing version." />
+          </Field>
+        </Show>
+        <div class="mt-4 flex justify-end gap-2">
+          <Show when={editing()}>
+            <Button variant="ghost" size="sm" onClick={() => { setEditing(null); setAdding(false) }}>Cancel</Button>
+          </Show>
+          <Button size="sm" writes disabled={saving()} onClick={() => void submit()}>
+            {saving() ? 'Saving…' : editing() ? 'Save changes' : 'Save material'}
+          </Button>
+        </div>
+      </div>
+    </Show>
+
+    <Show when={sources.data && sources.data!.length > 0} fallback={
+      <Show when={sources.isFetching} fallback={
+        <EmptyState label="No material yet" hint="Add the first piece — a video link or a real story — and the writer has something true to say." />
+      }>
+        <SkeletonRows count={3} />
+      </Show>
+    }>
+      <div class="mt-3 flex flex-col gap-2">
+        <For each={sources.data}>{(s) => (
+          <div class="flex items-start justify-between gap-3 rounded-lg border border-border bg-card p-3">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <Badge variant={isLive(s) ? 'success' : 'muted'}>{KIND_LABEL[s.source_kind] ?? s.source_kind}</Badge>
+                <strong class="truncate text-sm font-semibold text-foreground">{s.title}</strong>
+              </div>
+              <div class="mt-1 text-xs text-muted-foreground">
+                {fmtDate(s.occurred_at)}
+                <Show when={sourceUrl(s)}>{(u) => <> · <a class="text-primary hover:underline" href={u()} target="_blank" rel="noreferrer">{u()}</a></>}</Show>
+                <Show when={!isLive(s)}> · retired</Show>
+              </div>
+              <Show when={sourceBody(s)}>{(b) => <p class="mt-1 line-clamp-2 text-xs text-muted-foreground">{b()}</p>}</Show>
+            </div>
+            <Button variant="ghost" size="sm" writes onClick={() => openEdit(s)}>Edit</Button>
+          </div>
+        )}</For>
+      </div>
+    </Show>
+  </Card>
+}
