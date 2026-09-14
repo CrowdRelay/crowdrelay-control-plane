@@ -6,7 +6,7 @@ import { compactNumber, trendArrow, trendDirection } from '../lib/charts'
 import { Sparkline } from './Sparkline'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock, SkeletonRows } from '../components/Skeleton'
-import type { FeedCoverage, GrowthMetricTrendView } from '../lib/types'
+import type { GrowthMetricTrendView } from '../lib/types'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
@@ -15,9 +15,6 @@ import { ErrorCard } from './layout'
 
 const feedStateLabel = (state: string): string =>
   state === 'live' ? 'Live' : state === 'stale' ? 'Stale' : 'Missing'
-
-const feedStateTone = (state: string): 'good' | 'warn' | 'bad' =>
-  state === 'live' ? 'good' : state === 'stale' ? 'warn' : 'bad'
 
 const feedStateVariant = (state: string): 'success' | 'warning' | 'destructive' =>
   state === 'live' ? 'success' : state === 'stale' ? 'warning' : 'destructive'
@@ -261,17 +258,6 @@ export function GrowthMetricsPanel(props: { slug: string }) {
     Object.entries(grouped().groups).sort((a, b) => platformLabel(a[0]).localeCompare(platformLabel(b[0]))),
   )
 
-  // Group downstream by platform
-  const downstreamGrouped = createMemo(() => {
-    const groups: Record<string, GrowthMetricTrendView[]> = {}
-    for (const t of grouped().downstream) {
-      const key = t.platform
-      if (!groups[key]) groups[key] = []
-      groups[key].push(t)
-    }
-    return groups
-  })
-
   return <Card flat>
     <div class="flex items-center justify-between gap-4">
       <h3 class="text-sm font-semibold text-foreground">Metrics by platform</h3>
@@ -316,7 +302,23 @@ export function GrowthMetricsPanel(props: { slug: string }) {
           A platform whose feeds are all live needs no chip. One whose feeds are
           stale or missing is worth flagging, and the flag belongs on its own
           section heading, next to the rows it explains. Platforms reporting
-          nothing at all have no section, so those keep a chip. */}
+          nothing at all have no section, so those keep a chip.
+
+          The chips were the half of that the refactor dropped: the memo below
+          them survived, unused, and with it the promise in this comment. A
+          platform with no live series has no trend rows and so had no heading
+          either — it left the panel altogether, and "not connected" read
+          exactly like "not a platform we track". */}
+      <Show when={unreportedPlatforms().length > 0}>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs text-muted-foreground">Reporting nothing:</span>
+          <For each={unreportedPlatforms()}>{platform =>
+            <Badge variant={feedStateVariant(platform.state)}>
+              {platformLabel(platform.platform)} · {feedStateLabel(platform.state)}
+            </Badge>
+          }</For>
+        </div>
+      </Show>
       <Show when={trends.error}><ErrorCard>Growth trends unavailable: {errorMessage(trends.error, 'We couldn\'t reach the growth trends. Try refreshing.')}</ErrorCard></Show>
       <Show when={trends.data && trends.data!.length > 0} fallback={
         <Show when={trends.isFetching} fallback={

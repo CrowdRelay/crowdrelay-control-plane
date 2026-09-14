@@ -288,6 +288,13 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/objectives",
             get(growth_objectives).post(declare_growth_objective),
         )
+        // ── Trusted material (the real-material panel) ─────────────────
+        // Stories, videos, releases the engager may write about. Typed as a
+        // closed shape so a stray field cannot reach the tenant's registry.
+        .route(
+            "/tenants/{slug}/operations/content-sources",
+            get(content_sources).post(upsert_content_source),
+        )
         .route(
             "/tenants/{slug}/operations/objectives/{objective_id}/retire",
             post(retire_growth_objective),
@@ -2481,6 +2488,100 @@ async fn retire_growth_objective(
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "growth objective retire")
+}
+
+/// The real-material panel's list: every trusted content source the content
+/// loop may draw on — videos, releases, stories, events — with the metadata
+/// that carries their links.
+async fn content_sources(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/content-sources",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "content sources")
+}
+
+/// What the panel sends for a new or corrected piece of real material.
+/// `source_kind` is constrained to the registry's vocabulary; `metadata`
+/// carries the link or story body. Everything is forwarded to the tenant's
+/// versioned upsert — optimistic concurrency (`expected_version`) is the
+/// tenant's call to check, not ours.
+#[derive(Debug, Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct ContentSourceUpsert {
+    source_id: Option<uuid::Uuid>,
+    source_kind: String,
+    source_key: String,
+    title: String,
+    occurred_at: String,
+    expires_at: String,
+    metadata: Value,
+    expected_version: i64,
+}
+
+async fn upsert_content_source(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(input): Json<ContentSourceUpsert>,
+) -> Result<Response, ApiError> {
+    let valid = matches!(
+        input.source_kind.as_str(),
+        "event" | "release" | "show_completed" | "video" | "story"
+    ) && !input.source_key.trim().is_empty()
+        && input.source_key.len() <= 200
+        && !input.title.trim().is_empty()
+        && input.title.len() <= 240
+        && input.expected_version >= 0
+        && (input.expected_version == 0 || input.source_id.is_some())
+        && input.metadata.is_object()
+        && chrono::DateTime::parse_from_rfc3339(&input.occurred_at).is_ok()
+        && chrono::DateTime::parse_from_rfc3339(&input.expires_at).is_ok();
+    if !valid {
+        return Err(ApiError::InvalidInput(
+            "content source fields are incomplete or out of bounds".to_owned(),
+        ));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let body = serde_json::to_value(&input)
+        .map_err(|_| ApiError::InvalidInput("content source could not be serialised".to_owned()))?;
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/autopilot/content-sources",
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.content_source.upserted",
+        "content_source",
+        value
+            .get("source_id")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown"),
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(value, "content source upsert")
 }
 
 async fn growth_posture(

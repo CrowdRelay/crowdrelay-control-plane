@@ -63,12 +63,6 @@ const outcomeTone = (outcome: string | null): 'good'|'warn'|'bad'|'muted' => {
 const outcomeLabel = (outcome: string | null) =>
   outcome ?? 'unmeasured'
 
-const deltaLabel = (delta: number | null) => {
-  if (delta == null) return null
-  const sign = delta > 0 ? '+' : ''
-  return `${sign}${(delta / 100).toFixed(1)}%`
-}
-
 // The panel used to carry its own seven-entry context map with a raw-key
 // fallback, so `growth_intelligence` and `outreach_supply` — two of the three
 // contexts this tenant actually runs — rendered as their storage keys. The

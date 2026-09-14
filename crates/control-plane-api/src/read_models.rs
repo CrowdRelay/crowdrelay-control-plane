@@ -1640,7 +1640,15 @@ fn project_operations(
             section("signal", signal, Shape::Object),
             section("audience", audience, Shape::Object),
             section("growth_metrics", growth_metrics, Shape::Object),
-            section("acquisition", acquisition, Shape::Array),
+            // An object, not an array. `/autopilot/acquisition-channels`
+            // answers with `AcquisitionChannels { channels, total_signups,
+            // .. }` and always has; declaring it an array meant every read of
+            // this model came back `degraded: ["acquisition"]` with the
+            // section marked `contract_mismatch` — in production, on every
+            // page load, for a section that was answering correctly. The unit
+            // fixture below asserted the same wrong shape, so nothing caught
+            // it here.
+            section("acquisition", acquisition, Shape::Object),
         ],
     )
 }
@@ -1687,7 +1695,19 @@ mod tests {
         json!({"series": []})
     }
     fn acquisition() -> Value {
-        json!([{"attribution": {"source": "reddit"}, "signups": 3}])
+        // The tenant's own shape — see `AcquisitionChannels` in
+        // crowdrelay-application. A fixture that agrees with the projection
+        // rather than with the upstream proves only that the two halves of
+        // this file agree with each other.
+        json!({
+            "channels": [{"attribution": {"source": "reddit"}, "signups": 3}],
+            "total_signups": 3,
+            "total_activated_30d": 1,
+            "active_30d": 1,
+            "reachable_consented": 2,
+            "retained_30d": 1,
+            "unattributed": [],
+        })
     }
 
     /// Build the full 10-tuple of section values for project_operations,

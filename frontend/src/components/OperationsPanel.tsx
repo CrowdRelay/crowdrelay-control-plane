@@ -1,10 +1,8 @@
 import { For, Show, createSignal } from 'solid-js'
-import { api } from '../lib/api'
 import type { AutopilotOverview, FeatureFlag, FreshnessClassification, OperationsSummary, SectionFreshnessMap, SectionState, SectionVerdicts } from '../lib/types'
-import { errorMessage, formatAge, formatTimestamp, oldestQueueAge } from '../lib/format'
+import { formatAge, formatTimestamp, oldestQueueAge } from '../lib/format'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
 import { useOperationsMutations } from '../lib/operations-mutations'
-import { toast } from './ui/toast'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
@@ -101,7 +99,7 @@ export function OperationsPanel(props: {
     get error() { return degradedSection('autopilot') },
     refetch: () => props.refresh(),
   }
-  const { pendingMutation, mutationError, mutate, redeploy, replayDead, bulkAutopilot, confirmCopy } =
+  const { pendingMutation, mutationError, redeploy, replayDead, bulkAutopilot, confirmCopy } =
     useOperationsMutations(props.slug, props.refresh)
 
   const unavailable = () => summary.error || flags.error || autopilot.error

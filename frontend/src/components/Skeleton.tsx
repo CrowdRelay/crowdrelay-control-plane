@@ -105,7 +105,7 @@ const SkeletonDetailGrid: Component<{ leftHeight?: string; rightHeight?: string 
 )
 
 /** Brain group skeleton — for intelligence page sections */
-export const SkeletonBrainGroup: Component<{ label?: string }> = (props) => (
+export const SkeletonBrainGroup: Component = () => (
   <div class="mb-6">
     <div class="mb-3 pb-2 border-b border-border-subtle">
       <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[100px] mb-1.5" />

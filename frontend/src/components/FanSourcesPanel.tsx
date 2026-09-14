@@ -15,7 +15,7 @@ import { Input } from './ui/input'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 import { Textarea } from './ui/textarea'
 import { NativeSelect } from './ui/native-select'
-import { Field, FieldGrid } from './ui/field'
+import { Field } from './ui/field'
 
 const SOURCE_KINDS = [
   { value: 'http_json_pull', label: 'HTTP JSON (pull)' },

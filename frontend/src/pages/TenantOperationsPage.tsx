@@ -9,7 +9,7 @@ import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { SkeletonKpiStrip, SkeletonSection } from '../components/Skeleton'
-import { KpiCard, KpiStrip, PageShell, PageHeader, ErrorCard, TabBar, TabPanel, useTabPanels } from '../components/layout'
+import { KpiCard, KpiStrip, PageShell, PageHeader, TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { StatusBadge } from '../components/StatusBadge'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
@@ -18,12 +18,6 @@ import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
 const metric = (value: number | undefined | null, suffix = '') =>
   value == null ? '—' : `${value.toLocaleString()}${suffix}`
-
-/** Format an integer with thousands separators, or dash for null/undefined. */
-const fmt = (n: number | null | undefined): string => {
-  if (n == null) return '—'
-  return n.toLocaleString('en-US')
-}
 
 /** Map legacy tone values to the layout KpiCard's `tone` prop ('good' only). */
 export function TenantOperationsPage() {
@@ -55,10 +49,18 @@ export function TenantOperationsPage() {
   const healthTone = () => operationalTone(summary())
   const healthLabel = () => operationalLabel(summary())
 
+  // Whether the autopilot is *working*, not merely switched on. This was
+  // written and then never wired up, so the card went green on
+  // `runtime_enabled` alone — a healthy-looking light over an autopilot whose
+  // every action failed in the last day. Failures outnumbering successes is
+  // bad; some failures is a warning; nothing attempted yet is neither.
   const autopilotTone = (): 'good' | 'warn' | 'bad' | undefined => {
     const a = autopilot()
     if (!a) return undefined
-    if (a.failed_24h === 0) return a.succeeded_24h > 0 ? 'good' : undefined
+    // Dispatched and never confirmed is not success, however few failures
+    // were reported: the action left, nothing came back, and the count grows.
+    if (a.awaiting_executor > 0 && a.executor_confirmed_24h === 0) return 'bad'
+    if (a.failed_24h === 0) return a.awaiting_executor > 0 ? 'warn' : a.succeeded_24h > 0 ? 'good' : undefined
     return a.failed_24h >= a.succeeded_24h ? 'bad' : 'warn'
   }
 
@@ -130,9 +132,20 @@ export function TenantOperationsPage() {
             different things. This one has always been about the autopilot. */}
         <KpiCard
           label="Autopilot"
-          tone={autopilot()?.runtime_enabled ? 'good' : 'default'}
+          tone={autopilot()?.runtime_enabled ? autopilotTone() ?? 'good' : 'default'}
           value={autopilot()?.runtime_enabled ? 'on' : 'off'}
           sub={<>
+            <Show when={(autopilot()?.failed_24h ?? 0) > 0}>
+              {autopilot()!.failed_24h} failed today ·{' '}
+            </Show>
+            {/* `queued_actions` counts what has not been handed out yet, so a
+                tenant whose every action had already been dispatched and never
+                confirmed read "0 queued" over a backlog of a hundred. The
+                number the console never showed is the one that says the loop
+                has stopped. */}
+            <Show when={(autopilot()?.awaiting_executor ?? 0) > 0}>
+              {autopilot()!.awaiting_executor} waiting on a worker ·{' '}
+            </Show>
             {autopilot()?.queued_actions ?? 0} queued ·{' '}
             <Link to="/tenants/$slug/health" params={{ slug: params().slug }} class="text-primary underline-offset-4 hover:underline">
               change settings

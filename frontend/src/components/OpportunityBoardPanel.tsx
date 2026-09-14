@@ -24,16 +24,6 @@ const formatDue = (value: string | null) => {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toLocaleString()
 }
 
-const authorityTone = (entry: OpportunityBoardEntry): 'good' | 'warn' | 'bad' | 'muted' => {
-  if (entry.authority === 'awaiting_approval') return 'warn'
-  if (entry.authority === 'auto_executing') return 'good'
-  if (entry.authority === 'recommended') return 'good'
-  return 'muted'
-}
-
-const authorityLabel = (entry: OpportunityBoardEntry) =>
-  entry.authority.replaceAll('_', ' ')
-
 // Only a parked action can be approved. Everything else on this board is
 // reported, not requested: `auto_executing` already ran under a bounded_auto
 // policy, and `recommended`/`observed` never produced an action to approve.

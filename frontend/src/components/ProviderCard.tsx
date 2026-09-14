@@ -139,7 +139,6 @@ export function ProviderCard(props: { provider: AgentProvider; ctx: ProviderCard
               {(() => {
                 const providerTasks = ctx.usageTasks()!.filter((t: PremiumTask) => t.model_provider === provider.id)
                 const completed = providerTasks.filter((t: PremiumTask) => t.status === 'completed').length
-                const failed = providerTasks.filter((t: PremiumTask) => t.status === 'failed').length
                 const total = providerTasks.length
                 const successRate = total > 0 ? Math.round((completed / total) * 100) : null
                 const tone = successRate == null ? 'muted' : successRate >= 90 ? 'good' : successRate >= 75 ? 'warn' : 'bad'

@@ -1,5 +1,5 @@
-import { Show, createMemo, For, type JSX } from 'solid-js'
-import { useQueryClient, useIsFetching } from '@tanstack/solid-query'
+import { Show, For, type JSX } from 'solid-js'
+import { useIsFetching } from '@tanstack/solid-query'
 import { REFRESH_INTERVALS, refreshInterval, setRefreshInterval, triggerRefresh } from '../lib/refresh'
 import { relativeTime } from '../lib/format'
 import { NativeSelect } from './ui/native-select'
@@ -17,12 +17,6 @@ export function RefreshControl(props: {
   updatedAt?: number
   loading?: boolean
 }): JSX.Element {
-  const queryClient = useQueryClient()
-  const currentLabel = createMemo(() => {
-    const ms = refreshInterval()
-    const found = REFRESH_INTERVALS.find(r => r.ms === ms)
-    return found?.label ?? 'Off'
-  })
   // Show the spinner when any query is fetching, or when the page explicitly
   // passes loading=true (e.g. for a mutation). This gives the operator real
   // feedback that data is being loaded, not just that a button was pressed.

@@ -621,7 +621,7 @@ export type TenantOperationsReadModel = {
   signal: SignalOverview | null
   audience: AudienceOverview | null
   growth_metrics: GrowthMetricTrendsResponse | null
-  acquisition: ChannelPerformance[] | null
+  acquisition: AcquisitionChannels | null
   // Sections the tenant channel could not serve. They render as locally
   // degraded instead of failing the whole subpage.
   degraded: TenantOperationsSection[]
@@ -1438,6 +1438,32 @@ export type AutopilotControlMutation = {
   status: string
   replayed: boolean
   [key: string]: unknown
+}
+
+/** One trusted fact the content loop may write about — mirrors
+ *  `ContentSourceView` in crowdrelay-application. `metadata` carries the
+ *  link for a video/release or the body for a story. */
+export type ContentSourceView = {
+  source_id: string
+  source_kind: 'event' | 'release' | 'show_completed' | 'video' | 'story'
+  source_key: string
+  title: string
+  occurred_at: string
+  expires_at: string
+  metadata: Record<string, unknown>
+  version: number
+  active: boolean
+}
+
+export type ContentSourceUpsertInput = {
+  source_id?: string
+  source_kind: ContentSourceView['source_kind']
+  source_key: string
+  title: string
+  occurred_at: string
+  expires_at: string
+  metadata: Record<string, unknown>
+  expected_version: number
 }
 
 export type GrowthPostureView = {

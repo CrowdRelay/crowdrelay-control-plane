@@ -472,6 +472,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/plays"
                     | "/v1/control-plane/autopilot/learning-loop"
                     | "/v1/control-plane/autopilot/learning-proof"
+                    | "/v1/control-plane/autopilot/content-sources"
                     | "/v1/control-plane/portfolio/overview"
                     | "/v1/control-plane/portfolio/amplification"
                     | "/v1/control-plane/tenant-settings"
@@ -540,6 +541,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/objectives"
                     | "/v1/control-plane/autopilot/posture"
                     | "/v1/control-plane/autopilot/growth-envelope"
+                    | "/v1/control-plane/autopilot/content-sources"
                     | "/v1/control-plane/autopilot/beacon-network"
                     | "/v1/control-plane/autopilot/cycle/run"
             ) || uuid_segment_between(path, "/v1/control-plane/ops/outbox/", "/retry")

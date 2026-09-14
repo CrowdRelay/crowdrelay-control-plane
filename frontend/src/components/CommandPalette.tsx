@@ -5,7 +5,6 @@ import type { Component } from 'solid-js'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { cn } from '../lib/cn'
-import type { TenantSummary } from '../lib/types'
 
 // Keyboard-first surface for the operator: jump to any tenant subpage and run
 // the common mutations without walking the navigation tree. Mutating entries
@@ -65,7 +64,7 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
 
 // Open state lives in command-palette-state.ts so Shell can toggle the
 // palette without this component being in the entry bundle.
-import { commandPaletteOpen, setCommandPaletteOpen, toggleCommandPalette } from './command-palette-state'
+import { commandPaletteOpen, setCommandPaletteOpen } from './command-palette-state'
 import { readOnly } from '../lib/read-only'
 
 export const CommandPalette: Component = () => {

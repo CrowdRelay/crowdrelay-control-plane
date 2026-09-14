@@ -1,4 +1,4 @@
-import { Show, type Component, type JSX, createSignal, splitProps } from 'solid-js'
+import { Show, type JSX, createSignal } from 'solid-js'
 import { Eyebrow } from '../layout'
 import { Collapsible as CollapsiblePrimitive } from '@kobalte/core'
 import { cn } from '~/lib/cn'

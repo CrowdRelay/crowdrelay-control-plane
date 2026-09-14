@@ -18,7 +18,6 @@ import { SkeletonSection, SkeletonKpiStrip, SkeletonRows } from '../components/S
 import { SectionIcon } from '../components/SectionIcon'
 import { Spinner } from '../components/Spinner'
 import { TabBar, TabPanel, useTabPanels, KpiCard, KpiStrip, PageShell, PageHeader, ErrorCard, SectionPanel, SectionTitle } from '../components/layout'
-import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Badge } from '../components/ui/badge'
@@ -194,7 +193,7 @@ export function TenantAttentionPage() {
       </Show>
 
       {/* Reconciliation findings */}
-      <Show when={!summary.error && summary.data}>{data => <>
+      <Show when={!summary.error && summary.data}>{_data => <>
         <div class="flex items-center justify-between gap-4 mb-3 mt-6" id="reconciliation-findings">
           <div>
             <h3 class="text-sm font-semibold flex items-center gap-1.5"><SectionIcon name="refresh-cw" />Cross-check against the tenant</h3>

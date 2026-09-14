@@ -124,9 +124,6 @@ export function AgentProvidersPanel(props: {
   // All providers — show every provider in one unified view.
   // Free models show a "no key needed" badge; paid models get API key connect.
   const allProviders = createMemo(() => providers())
-  const freeProviders = createMemo(() =>
-    allProviders().filter((p: AgentProvider) => p.authMethod === 'none')
-  )
   const apiKeyProviders = createMemo(() =>
     allProviders().filter((p: AgentProvider) => p.authMethod === 'api_key')
   )

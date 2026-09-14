@@ -8,7 +8,6 @@ import { Alert } from './ui/alert'
 import { KpiCard, KpiStrip, SectionTitle } from './layout'
 import { whileIncomplete } from '../lib/incomplete'
 import type { SignalOverview } from '../lib/types'
-import { Card } from './ui/card'
 
 export function SignalOverviewPanel(props: { slug: string }) {
   const signal = useQuery(() => ({

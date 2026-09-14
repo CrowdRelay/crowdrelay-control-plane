@@ -12,7 +12,6 @@ import { confirmAction } from '../components/Dialog'
 import { SectionIcon } from '../components/SectionIcon'
 import { ErrorCard, KpiCard, KpiStrip, PageHeader, PageShell, PanelTitle, SectionPanel, SectionTitle } from '../components/layout'
 import { Button } from '../components/ui/button'
-import { Card } from '../components/ui/card'
 import { Alert } from '../components/ui/alert'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
@@ -298,7 +297,7 @@ export function AreaPage() {
             <KpiCard label="Starts" value={<span class="text-sm">{formatDate(draft()!.startsAt)}</span>} />
             <KpiCard label="Ends" value={<span class="text-sm">{formatDate(draft()!.endsAt)}</span>} />
           </KpiStrip>
-          <Show when={validation()}>{v=><>
+          <Show when={validation()}>{_v=><>
             <Show when={hardIssues().length===0}><div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground">No blocking validation errors.</div></Show>
             <For each={hardIssues()}>{issue=><ErrorCard><strong>{issue.code}</strong><p>{issue.message}</p></ErrorCard>}</For>
             <For each={confirmationIssues()}>{issue=><label class="flex items-start gap-3 cursor-pointer p-3 rounded-md border border-border bg-surface-1"><input type="checkbox" class="mt-1" checked={confirmations().includes(issue.code)} onChange={()=>toggleConfirmation(issue.code)}/><span><strong class="text-sm text-foreground">{issue.code}</strong><small class="block text-xs text-muted-foreground">{issue.message}</small></span></label>}</For>

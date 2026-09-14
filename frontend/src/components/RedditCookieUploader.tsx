@@ -22,7 +22,6 @@ export function RedditCookieUploader(props: { slug: string }) {
   const [fileError, setFileError] = createSignal<string | null>(null)
   const [uploadResult, setUploadResult] = createSignal<{ cookie_count: number; expires_at: string } | null>(null)
   const [dragOver, setDragOver] = createSignal(false)
-  const [username, setUsername] = createSignal('')
   const [validateResult, setValidateResult] = createSignal<{ valid: boolean; reddit_username?: string; error?: string } | null>(null)
 
   const status = useQuery(() => ({
@@ -34,10 +33,9 @@ export function RedditCookieUploader(props: { slug: string }) {
 
   const upload = useMutation(() => ({
     mutationFn: async (text: string) => {
-      return api.redditCookieUpload(props.slug, {
-        cookies_text: text,
-        reddit_username: username().trim() || undefined,
-      })
+      // No account name is sent: the agent service reads it from its own
+      // session probe, which is the only source that cannot be wrong.
+      return api.redditCookieUpload(props.slug, { cookies_text: text })
     },
     onSuccess: (data) => {
       setUploadResult({ cookie_count: data.cookie_count, expires_at: data.expires_at })
