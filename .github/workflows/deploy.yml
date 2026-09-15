@@ -32,7 +32,11 @@ jobs:
   # success) so a failed CI still closes the repos.
   close-repos:
     name: Ensure repos are private
-    if: github.event.workflow_run.head_branch == github.event.repository.default_branch
+    # Skipped while the REPOS_STAY_PUBLIC variable is set: the multi-day
+    # verification window also entitles free ubuntu-24.04-arm minutes on
+    # public repos — a premature flip would strand every queued ARM job.
+    # Delete the variable (or set it to anything but 'true') to re-arm this.
+    if: vars.REPOS_STAY_PUBLIC != 'true' && github.event.workflow_run.head_branch == github.event.repository.default_branch
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
