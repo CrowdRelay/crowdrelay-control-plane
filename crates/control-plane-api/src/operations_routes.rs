@@ -319,7 +319,10 @@ pub fn router() -> Router<AppState> {
         .route("/tenants/{slug}/shows", get(tenant_shows))
         // One night: the T-21→T+7 ladder. The slug path segment is the
         // event's own slug, not its id — it is what the list hands down.
-        .route("/tenants/{slug}/shows/{event_slug}", get(tenant_show_timeline))
+        .route(
+            "/tenants/{slug}/shows/{event_slug}",
+            get(tenant_show_timeline),
+        )
         .route(
             "/tenants/{slug}/operations/chief-of-staff",
             get(chief_of_staff),
