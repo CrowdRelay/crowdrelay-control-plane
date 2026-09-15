@@ -28,7 +28,10 @@ jobs:
           POSTGRES_DB: control_plane_migration_test
         ports:
           - 5435:5432
+        # --tmpfs keeps postgres data in RAM — the image's declared VOLUME
+        # would otherwise leave an anonymous volume behind on every run.
         options: >-
+          --tmpfs /var/lib/postgresql/data
           --health-cmd "pg_isready -U postgres -d control_plane_migration_test"
           --health-interval 2s
           --health-timeout 3s
@@ -116,6 +119,13 @@ jobs:
       - run: just rust-test
       - run: just script-test
 
+      - name: Sweep unattached Docker leftovers
+        # Each job cleans what the previous one left — service-container
+        # volumes only detach once the job that owned them ends.
+        if: always()
+        continue-on-error: true
+        run: docker volume prune -f 2>/dev/null || true
+
   dependency-security:
     name: Dependency security
     runs-on: [self-hosted, arm64]
@@ -186,10 +196,12 @@ jobs:
           [[ "$architecture" == "arm64" ]] || { echo "ERROR: wrong architecture: $architecture" >&2; exit 1; }
           [[ "$revision" == "$GITHUB_SHA" ]] || { echo "ERROR: revision mismatch: $revision != $GITHUB_SHA" >&2; exit 1; }
           echo "CONTAINER=PASS arch=$architecture revision=$revision"
-      - name: Prune BuildKit cache after build
+      - name: Prune stale BuildKit cache after build
+        # Bounded, not scorched-earth: `--all` deleted the cargo cache mounts
+        # after every build and the next one re-downloaded every crate.
         if: always()
         continue-on-error: true
-        run: docker builder prune --all -f 2>/dev/null || true
+        run: docker builder prune --filter until=72h -f 2>/dev/null || true
 
   web:
     runs-on: [self-hosted, arm64]

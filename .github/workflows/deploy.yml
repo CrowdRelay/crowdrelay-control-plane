@@ -87,7 +87,35 @@ jobs:
         with:
           ref: ${{ env.IMAGE_SHA }}
 
+      # Queued deploys serialize behind this workflow's own concurrency group.
+      # At high commit velocity a queued run can be obsolete before it starts —
+      # deploy only the newest green; intermediate SHAs never need a container
+      # swap. A newer push that has not passed CI does not suppress a deploy.
+      - name: Skip if superseded by a newer green CI run
+        id: superseded
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          # A newer GREEN main CI run — proven work — supersedes this deploy.
+          # Compare created_at against the triggering run, not "newest sha !=
+          # mine": the API can take a minute to index the run that just fired
+          # this trigger, and the sha comparison would then mistake an older
+          # green for a newer one and skip the deploy prod is waiting on.
+          triggered_at="${{ github.event.workflow_run.created_at }}"
+          newer="$(gh api 'repos/${{ github.repository }}/actions/runs?workflow_id=ci.yml&branch=main&status=success&per_page=10' \
+            --jq --arg ts "${triggered_at}" \
+            '[.workflow_runs[] | select(.created_at > $ts)] | .[0].head_sha // ""' 2>/dev/null || echo "")"
+          if [[ -n "$newer" ]]; then
+            echo "::notice title=Superseded::CI for ${newer} is green; deploy for ${IMAGE_SHA} is obsolete — skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Resolve image identity
+        if: steps.superseded.outputs.skip != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -98,9 +126,11 @@ jobs:
           echo "LOCAL_IMAGE=crowdrelay-control-plane:sha-${IMAGE_SHA}" >> "$GITHUB_ENV"
 
       - name: Set up Docker Buildx
+        if: steps.superseded.outputs.skip != 'true'
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
       - name: Log in to GHCR
+        if: steps.superseded.outputs.skip != 'true'
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ env.REGISTRY }}
@@ -111,6 +141,7 @@ jobs:
       # Build the production image with cargo-chef dependency caching.
       # Registry cache (GHCR) avoids competing with the Actions cache pool.
       - name: Build and publish linux/arm64 production image
+        if: steps.superseded.outputs.skip != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -160,6 +191,7 @@ jobs:
       # exact image this run published, rather than to whatever `:main` points
       # at by the time it looks.
       - name: Upload immutable image digest
+        if: steps.superseded.outputs.skip != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: control-plane-image-digest-${{ github.sha }}
@@ -169,6 +201,7 @@ jobs:
 
       # ── Deploy ─────────────────────────────────────────────────────────
       - name: Configure SSH to production host
+        if: steps.superseded.outputs.skip != 'true'
         shell: bash
         env:
           SSH_KEY: ${{ secrets.CROWDRELAY_DEPLOY_SSH_KEY }}
@@ -199,6 +232,7 @@ jobs:
       # graceful reload, soaks, and rolls back on failure. No Caddy restarts,
       # no force-recreate, no downtime.
       - name: Sync blue-green scripts to production host
+        if: steps.superseded.outputs.skip != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -208,6 +242,7 @@ jobs:
           echo "SYNC=PASS"
 
       - name: Blue-green deploy via SSH
+        if: steps.superseded.outputs.skip != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -219,6 +254,7 @@ jobs:
           echo "BLUEGREEN=PASS sha=${IMAGE_SHA}"
 
       - name: Health check — wait for readiness
+        if: steps.superseded.outputs.skip != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -237,6 +273,7 @@ jobs:
           exit 1
 
       - name: Verify deployed revision
+        if: steps.superseded.outputs.skip != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -259,7 +296,9 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
-          docker builder prune --all -f 2>/dev/null || true
+          # Bounded, not scorched-earth: keep 72h of warm cache mounts so the
+          # next deploy build reuses the cargo registry instead of re-downloading.
+          docker builder prune --filter until=72h -f 2>/dev/null || true
           docker image prune -f 2>/dev/null || true
           # Keep only the 2 newest control-plane images (latest + rollback)
           running_images="$(docker inspect $(docker ps -q) --format '{{.Image}}' 2>/dev/null | sort -u || echo "")"
