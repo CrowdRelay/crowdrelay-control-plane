@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link, useNavigate, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage } from '../lib/format'
+import { errorMessage, formatTimestamp } from '../lib/format'
 import { cn } from '../lib/cn'
 import type { Palette, ProvisioningJob } from '../lib/types'
 import { ReleaseConvergencePanel } from '../components/ReleaseConvergencePanel'
@@ -114,6 +114,46 @@ export function TenantPage() {
       s => s.platform === 'signal' && s.metric_key === 'active_fans' && !s.stale,
     ),
   )
+  // The next show — its own lazy query so the home tab pays for the list
+  // only once Profile has been visited, then the timeline of the nearest
+  // upcoming night for the two-or-three steps that still need a person.
+  const shows = useQuery(() => ({
+    queryKey: ['tenant-shows', params().slug],
+    queryFn: () => api.shows(params().slug),
+    enabled: isVisited('profile'),
+    reconcile: 'id',
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+  }))
+  const nextShow = createMemo(() =>
+    (shows.data?.events ?? [])
+      .filter(e => e.upcoming)
+      .sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0],
+  )
+  const nextShowTimeline = useQuery(() => ({
+    queryKey: ['show-timeline', params().slug, nextShow()?.slug ?? ''],
+    queryFn: () => api.showTimeline(params().slug, nextShow()!.slug),
+    enabled: isVisited('profile') && nextShow() != null,
+    reconcile: 'id',
+    refetchOnWindowFocus: false,
+    staleTime: 15_000,
+  }))
+  // Due steps outrank active ones; within each rank the timeline's own
+  // T-21→T+7 order stands. Three at most — a list of ten is a list nobody
+  // works. The global queryClient keeps previous data across a key change,
+  // so the payload must be matched back to the show it's about — otherwise
+  // one refresh renders last month's steps under next month's title.
+  const nextShowTimelineData = createMemo(() => {
+    const tl = nextShowTimeline.data
+    return tl && tl.event.slug === nextShow()?.slug ? tl : undefined
+  })
+  const nextShowSteps = createMemo(() => {
+    const rank = { due: 0, active: 1 } as const
+    return (nextShowTimelineData()?.steps ?? [])
+      .filter(s => s.state === 'due' || s.state === 'active')
+      .sort((a, b) => rank[a.state as keyof typeof rank] - rank[b.state as keyof typeof rank])
+      .slice(0, 3)
+  })
   // "Where they came from" rides the same composite — the acquisition
   // section covers every tracked fan (concert QR, imports, purchases), not
   // just click-attributed signups. "Most came from X" is only claimed when
@@ -317,6 +357,50 @@ export function TenantPage() {
               )}</For>
             </div>
           </Section>
+        </Show>
+
+        {/* The next night — under the fans, before the machine. Up to
+            three steps that still need a person; the whole block is one
+            door into the gig page. No upcoming show says so plainly —
+            an absent night is a fact, not a skeleton. */}
+        <Show when={nextShow()}>
+          {show => (
+            <Section
+              title="The next night"
+              icon={<SectionIcon name="map-pin" />}
+              description="The nearest show on the books and what it still needs."
+            >
+              <Link
+                to="/tenants/$slug/shows/$eventSlug"
+                params={{ slug: t.slug, eventSlug: show().slug }}
+                class="group block rounded-md border border-border p-4 transition-colors hover:border-foreground/30"
+              >
+                <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span class="text-lg font-semibold text-foreground group-hover:underline">{show().title}</span>
+                  <span class="text-sm text-muted-foreground">{formatTimestamp(show().starts_at)}</span>
+                  <Show when={show().venue}><span class="text-sm text-muted-foreground">· {show().venue}</span></Show>
+                </div>
+                <div class="mt-3 flex flex-col gap-1.5">
+                  <For each={nextShowSteps()}>{step => (
+                    <div class="flex items-center gap-2 text-sm">
+                      <StatusBadge
+                        status={step.state}
+                        tone={step.state === 'due' ? 'warn' : 'muted'}
+                      />
+                      <span class="text-foreground">{step.label}</span>
+                      <Show when={step.owner}><span class="text-muted-foreground">— {step.owner}</span></Show>
+                    </div>
+                  )}</For>
+                  <Show when={nextShowTimelineData() && nextShowSteps().length === 0}>
+                    <span class="text-sm text-muted-foreground">Everything on track — nothing waiting on a person.</span>
+                  </Show>
+                </div>
+              </Link>
+            </Section>
+          )}
+        </Show>
+        <Show when={shows.data && !nextShow()}>
+          <p class="text-sm text-muted-foreground">No upcoming show on the books — the next announced night lands here.</p>
         </Show>
 
         <TenantRuntimePanel slug={t.slug} initial={{ runtime: t.runtime, runtimeHealth: t.runtimeHealth }} />
