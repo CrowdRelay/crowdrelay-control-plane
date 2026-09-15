@@ -1585,6 +1585,23 @@ export type TenantShowTimelineResponse = {
   steps: ShowTimelineStep[]
 }
 
+/** The door view — `/tenants/{slug}/shows/{event}/scan`. The check-in URL
+ * carries the campaign's signed token in its fragment; it is null (a fact,
+ * not an error) whenever the night has no live campaign to scan. */
+export type TenantShowScanResponse = {
+  checkin_url: string | null
+  campaign_label: string | null
+  /** The door's open edge — before this the QR is a dead scan, so the page
+   * says "goes live at" instead of handing out a rejecting code. */
+  valid_from: string | null
+  valid_until: string | null
+  /** The night's tally across all campaigns; `campaign_checkin_count` is
+   * the live campaign's own slice — the value `max_checkins` caps. */
+  checkin_count: number
+  campaign_checkin_count: number | null
+  max_checkins: number | null
+}
+
 export type VehicleProfile = {
   seats: number
   cargo_litres: number

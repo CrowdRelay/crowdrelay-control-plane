@@ -505,6 +505,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/journey")
                 || safe_segment_between(path, "/v1/control-plane/audience/segments/", "/preview")
                 || safe_segment_between(path, "/v1/control-plane/events/", "/timeline")
+                || safe_segment_between(path, "/v1/control-plane/events/", "/scan")
                 || uuid_segment_between(
                     path,
                     "/v1/control-plane/autopilot/beacon-release-campaigns/",
@@ -1470,9 +1471,23 @@ mod tests {
             "/v1/control-plane/ecosystem/flags",
             "/v1/control-plane/autopilot/overview",
             "/v1/control-plane/autopilot/reply-triage",
+            // The gig page's upstream reads — slug-parameterized, so the
+            // allowlist's segment-shape check is what bounds them.
+            "/v1/control-plane/events",
+            "/v1/control-plane/events/friday-night/timeline",
+            "/v1/control-plane/events/friday-night/scan",
         ] {
             assert!(valid_operations_request("GET", path), "{path}");
         }
+        // A slug carrying a path escape or a second segment must fail closed.
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/events/friday-night/scan/extra"
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/events/friday%2Fnight/scan"
+        ));
         assert!(valid_operations_request(
             "GET",
             &format!("/v1/control-plane/ops/deliveries/{id}")

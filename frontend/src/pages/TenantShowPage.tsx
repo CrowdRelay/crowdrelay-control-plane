@@ -93,20 +93,33 @@ function StepRow(props: { step: ShowTimelineStep; slug: string; eventSlug: strin
           <div class="text-xs text-muted-foreground">{props.step.owner}</div>
         </Show>
         <Show when={props.step.action}>
-          {/* Approvals live on the attention queue; step chores that have no
-              console surface yet render as a plain chip — a link that goes
-              nowhere is worse than no link. */}
+          {/* Approvals live on the attention queue, the QR lives at the
+              door view; step chores that have no console surface yet render
+              as a plain chip — a link that goes nowhere is worse than none. */}
           <Show
-            when={props.step.action!.kind === 'approve' || props.step.action!.kind === 'review'}
+            when={props.step.action!.kind === 'qr'}
             fallback={
-              <span class="mt-1 inline-block rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
-                {props.step.action!.label}
-              </span>
+              <Show
+                when={props.step.action!.kind === 'approve' || props.step.action!.kind === 'review'}
+                fallback={
+                  <span class="mt-1 inline-block rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
+                    {props.step.action!.label}
+                  </span>
+                }
+              >
+                <Link
+                  to="/tenants/$slug/attention"
+                  params={{ slug: props.slug }}
+                  class="mt-1 inline-block rounded-md border border-border px-2 py-1 text-xs text-foreground hover:bg-surface-2"
+                >
+                  {props.step.action!.label}
+                </Link>
+              </Show>
             }
           >
             <Link
-              to="/tenants/$slug/attention"
-              params={{ slug: props.slug }}
+              to="/tenants/$slug/shows/$eventSlug/scan"
+              params={{ slug: props.slug, eventSlug: props.eventSlug }}
               class="mt-1 inline-block rounded-md border border-border px-2 py-1 text-xs text-foreground hover:bg-surface-2"
             >
               {props.step.action!.label}

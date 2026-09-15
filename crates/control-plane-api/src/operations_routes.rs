@@ -323,6 +323,13 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/shows/{event_slug}",
             get(tenant_show_timeline),
         )
+        // The door view: the night's scannable URL + live tally. Separate
+        // route so the phone page fetches the token-bearing payload only
+        // when the door actually needs it.
+        .route(
+            "/tenants/{slug}/shows/{event_slug}/scan",
+            get(tenant_show_scan),
+        )
         .route(
             "/tenants/{slug}/operations/chief-of-staff",
             get(chief_of_staff),
@@ -2764,6 +2771,24 @@ async fn tenant_show_timeline(
     )
     .await?;
     object_no_store(value, "show timeline")
+}
+
+async fn tenant_show_scan(
+    State(state): State<AppState>,
+    Path((slug, event_slug)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        &format!("/v1/control-plane/events/{event_slug}/scan"),
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "show scan")
 }
 
 async fn chief_of_staff(

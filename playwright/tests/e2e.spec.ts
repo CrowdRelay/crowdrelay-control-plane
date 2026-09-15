@@ -335,4 +335,61 @@ test.describe('Control Plane E2E @e2e', () => {
       })
     }
   })
+
+  // The door view — reached by the scan step's "Open the QR" link on the
+  // gig page, on a phone, backstage. The link only exists while the step
+  // has an action; a show with no live campaign renders the honest empty
+  // state instead of a QR, and that is a pass too.
+  test('Scan view opens from the gig page @e2e', async ({ page }) => {
+    await page.goto('/tenants/virya/shows')
+    await page.waitForLoadState('networkidle', { timeout: 15000 })
+
+    const firstShow = page.locator('a[href*="/shows/"]').first()
+    if ((await firstShow.count()) === 0) return
+
+    await firstShow.click()
+    await page.waitForLoadState('networkidle', { timeout: 15000 })
+
+    const qrLink = page.locator('a[href$="/scan"]').first()
+    if ((await qrLink.count()) === 0) return
+
+    await qrLink.click()
+    await page.waitForLoadState('networkidle', { timeout: 15000 })
+    expect(page.url()).toMatch(/\/tenants\/virya\/shows\/.+\/scan$/)
+
+    // The page must have landed on *something* — the QR, the honest empty
+    // state, or the full state. A Solid crash leaves only skeletons, which
+    // are not alerts and would otherwise pass silently.
+    const rendered = await page
+      .locator('svg[role="img"], text=/Nothing to scan yet|The list is full|checked in/')
+      .first()
+      .isVisible({ timeout: 10_000 })
+      .catch(() => false)
+    if (!rendered) {
+      addBug({
+        severity: 'high',
+        category: 'ui',
+        title: 'Scan view rendered neither QR nor an honest state',
+        test_name: 'e2e::show-scan',
+        url: page.url(),
+        expected: 'QR svg, empty state, or tally visible',
+        actual: 'no scannable content rendered',
+        fix_hint: 'Check the scan page render path and the /tenants/{slug}/shows/{event_slug}/scan response shape',
+      })
+    }
+
+    const errorCards = await page.locator('[role="alert"]').count()
+    if (errorCards > 0) {
+      addBug({
+        severity: 'high',
+        category: 'ui',
+        title: 'Scan view page shows an error card',
+        test_name: 'e2e::show-scan',
+        url: page.url(),
+        expected: 'Door view renders a QR or the honest empty state',
+        actual: `${errorCards} error card(s) visible`,
+        fix_hint: 'Check the /tenants/{slug}/shows/{event_slug}/scan proxy and upstream /v1/control-plane/events/{slug}/scan',
+      })
+    }
+  })
 })
