@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { ChiefOfStaffPanel } from '../components/ChiefOfStaffPanel'
 import { QueueInspectorPanel } from '../components/QueueInspectorPanel'
 import { SystemHealthPanel } from '../components/SystemHealthPanel'
+import { TenantRuntimePanel } from '../components/TenantRuntimePanel'
 import { RuntimeSwitchesPanel } from '../components/RuntimeSwitchesPanel'
 import { AuthorityPoliciesPanel } from '../components/AuthorityPoliciesPanel'
 import { SkeletonSection } from '../components/Skeleton'
@@ -79,6 +80,10 @@ export function TenantHealthPage() {
       <TabPanel active={activeTab()} id="overview" visited={isVisited('overview')}>
         {/* Above the numbers on purpose: the numbers assume you already know
             which ones are bad. This says what to do. */}
+        {/* The tenant-pushed heartbeat — moved off the home page so home
+            keeps one status line and this page keeps the detail. No initial
+            snapshot here: the panel fetches on mount. */}
+        <TenantRuntimePanel slug={params().slug} />
         <SystemHealthPanel
           slug={params().slug}
           summary={d()?.summary ?? undefined}

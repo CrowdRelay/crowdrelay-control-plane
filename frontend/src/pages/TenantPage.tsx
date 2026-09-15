@@ -9,7 +9,7 @@ import type { Palette, ProvisioningJob } from '../lib/types'
 import { ReleaseConvergencePanel } from '../components/ReleaseConvergencePanel'
 import { StatusBadge } from '../components/StatusBadge'
 import { RegionalProfilePanel } from '../components/RegionalProfilePanel'
-import { TenantRuntimePanel } from '../components/TenantRuntimePanel'
+import { TenantStatusLine } from '../components/TenantStatusLine'
 import { SectionIcon } from '../components/SectionIcon'
 import { TenantAuditPanel } from '../components/TenantAuditPanel'
 import { TenantOperatorsPanel } from '../components/TenantOperatorsPanel'
@@ -447,7 +447,14 @@ export function TenantPage() {
           </Section>
         </Show>
 
-        <TenantRuntimePanel slug={t.slug} initial={{ runtime: t.runtime, runtimeHealth: t.runtimeHealth }} />
+        {/* One plain line for the machine — silent while everything
+            answers, loud with the first broken thing. The heartbeat detail
+            it replaced lives on the Health page. */}
+        <TenantStatusLine
+          slug={t.slug}
+          initial={{ runtime: t.runtime, runtimeHealth: t.runtimeHealth }}
+          operations={operations.data}
+        />
 
         <Section
           title="Products"

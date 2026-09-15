@@ -32,25 +32,26 @@ function RuntimeFact(props: { label: string; value: string; tone?: 'good' | 'war
   )
 }
 
-export function TenantRuntimePanel(props: { slug: string; initial: TenantRuntimeSnapshot }) {
+export function TenantRuntimePanel(props: { slug: string; initial?: TenantRuntimeSnapshot }) {
   // This query is deliberately owned by the smallest live surface. The tenant
   // page itself must never subscribe to the runtime tick: forms, scroll,
   // provisioning controls and configuration stay mounted while telemetry changes.
   // Refetching is driven by the global refresh tick, not a hardcoded interval.
+  // `initial` is optional: pages that already carry a snapshot (the tenant
+  // overview) pass it so the first tick lands 15s out; pages without one
+  // (Health) omit it so the query fetches on mount.
   const runtime = useQuery(() => ({
     queryKey: ['tenant-runtime', props.slug],
     queryFn: () => api.tenantRuntime(props.slug),
     initialData: props.initial,
-    // The subpage read model already carried this snapshot, so the first tick
-    // is 15s from mount rather than an immediate second request on page load.
-    initialDataUpdatedAt: Date.now(),
+    initialDataUpdatedAt: props.initial ? Date.now() : undefined,
     staleTime: 15_000,
     refetchOnWindowFocus: false,
     // Patch the snapshot in place. Solid Query replaces the whole result by
     // default, which rebuilt this panel's DOM on every 15s tick.
     reconcile: 'tenantId',
   }))
-  const snapshot = () => runtime.data ?? props.initial
+  const snapshot = () => runtime.data ?? props.initial ?? { runtime: null, runtimeHealth: 'unknown' as const }
 
   // Every measured field absent means the tenant has not reported, whatever
   // timestamp the check itself carries.
