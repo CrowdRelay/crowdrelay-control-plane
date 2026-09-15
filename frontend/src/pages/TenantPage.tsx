@@ -1,6 +1,6 @@
 import { For, Show, createEffect, createMemo, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
-import { Link, useNavigate, useParams } from '@tanstack/solid-router'
+import { Link, useNavigate, useParams, useRouterState } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { errorMessage, formatTimestamp } from '../lib/format'
@@ -73,6 +73,13 @@ export function TenantPage() {
   const queryClient = useQueryClient()
   const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('profile', ['profile', 'deployment', 'access'])
 
+  // The band's Today and Settings share this page: the bare URL is the
+  // daily read (fans, the next night, this week's moves), ?tab=profile is
+  // the brand/settings view. Platform sessions get one merged profile tab.
+  const tabParam = useRouterState({ select: s => (s.location.search as { tab?: string }).tab })
+  const todayView = createMemo(() => authState.isPlatformLevel() || tabParam() !== 'profile')
+  const settingsView = createMemo(() => authState.isPlatformLevel() || tabParam() === 'profile')
+
   // Base read model — tenant identity, provisioning, audit, platform caps.
   // This is all the Profile and Access tabs need. The Deployment tab has
   // its own lazy query below so opening Settings doesn't pay for the
@@ -96,7 +103,9 @@ export function TenantPage() {
   const operations = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
-    enabled: isVisited('profile') || isVisited('deployment'),
+    // In the band's Settings view every consumer is hidden — a deep link
+    // to Deployment still fetches, but ?tab=profile alone does not.
+    enabled: (isVisited('profile') && todayView()) || isVisited('deployment'),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
@@ -120,7 +129,7 @@ export function TenantPage() {
   const shows = useQuery(() => ({
     queryKey: ['tenant-shows', params().slug],
     queryFn: () => api.shows(params().slug),
-    enabled: isVisited('profile'),
+    enabled: isVisited('profile') && todayView(),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 30_000,
@@ -133,7 +142,7 @@ export function TenantPage() {
   const nextShowTimeline = useQuery(() => ({
     queryKey: ['show-timeline', params().slug, nextShow()?.slug ?? ''],
     queryFn: () => api.showTimeline(params().slug, nextShow()!.slug),
-    enabled: isVisited('profile') && nextShow() != null,
+    enabled: isVisited('profile') && todayView() && nextShow() != null,
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 15_000,
@@ -257,19 +266,26 @@ export function TenantPage() {
           <strong>Tenant is parked.</strong> The autopilot is stopped — no new tasks or outreach. Pending deliveries still drain. Click <em>Resume</em> to restore.
         </div>
       </Show>
-      <TabBar
-        active={activeTab()}
-        onChange={switchTab}
-      onPrefetch={prefetch}
-        tabs={[
-          { id: 'profile', label: 'Profile' },
-          { id: 'deployment', label: 'Deployment' },
-          { id: 'access', label: 'Access' },
-        ]}
-      />
+      {/* One tab is no tab bar — the band's settings page is the profile,
+          so the bar renders only for platform sessions. Deployment wiring
+          and the operator/audit record stay reachable by URL (?tab=),
+          matching the nav-level split's posture. */}
+      <Show when={authState.isPlatformLevel()}>
+        <TabBar
+          active={activeTab()}
+          onChange={switchTab}
+          onPrefetch={prefetch}
+          tabs={[
+            { id: 'profile', label: 'Profile' },
+            { id: 'deployment', label: 'Deployment' },
+            { id: 'access', label: 'Access' },
+          ]}
+        />
+      </Show>
 
       {/* ── Profile tab — fan growth, identity, runtime, branding ── */}
       <TabPanel active={activeTab()} id="profile" visited={isVisited('profile')}>
+        <Show when={todayView()}>
         {/* North Star fan-growth card — the first thing the operator sees
             on the tenant landing page. Shows audience KPIs from the
             operations read model. Degrades to a skeleton while loading
@@ -470,7 +486,12 @@ export function TenantPage() {
           initial={{ runtime: t.runtime, runtimeHealth: t.runtimeHealth }}
           operations={operations.data}
         />
+        </Show>
 
+        {/* ── Settings group — brand, products, publishing. For the band
+            these are the whole of the ?tab=profile view; platform sessions
+            see them under the same merged profile tab. ── */}
+        <Show when={settingsView()}>
         <Section
           title="Products"
           icon={<SectionIcon name="shield" />}
@@ -623,6 +644,62 @@ export function TenantPage() {
             </Field>
           </div>
         </Dialog>
+
+        {/* Tenant-initiated opt-out. Tenant operators only — platform
+            staff never see it (a viewer would get a disabled tenant-facing
+            form), and it renders inside the band's Settings view rather
+            than under the daily read. Records the request in the audit
+            trail; the crew then uses the admin-side Remove button to
+            complete it. */}
+        <Show when={!authState.isPlatformLevel() && capabilities()?.canOptOut === true}>
+          <Section
+            title="Opt out of the platform"
+            icon={<SectionIcon name="alert-triangle" />}
+            description="Your request is recorded and sent to the crew, who contact you to confirm before removing any tenant data. Your CrowdRelay workspace keeps running until it is shut down separately."
+          >
+            <Show when={optOutDone()} fallback={
+              <>
+                <Show when={optOut.isError}>
+                  <ErrorCard class="mb-3">{errorMessage(optOut.error, 'Opt-out request failed')}</ErrorCard>
+                </Show>
+                <div class="max-w-md">
+                  {/* This mailto was a plain attribute string containing
+                      `{encodeURIComponent(...)}`, so the braces went into the
+                      URL literally and the link opened a mail draft with a
+                      subject reading `{encodeURIComponent(t.displayName)}`. */}
+                  <Field
+                    label={<>Type <code>{t.slug}</code> to confirm</>}
+                    hint={<>To expedite, also email <a href={`mailto:virya.crew@gmail.com?subject=${encodeURIComponent(`Opt out: ${t.displayName}`)}&body=${encodeURIComponent(`Tenant: ${t.slug}\n\nI want to opt out of the CrowdRelay platform. Please remove my tenant data.`)}`} class="text-primary hover:text-primary/80">virya.crew@gmail.com</a>.</>}
+                  >
+                    <Input
+                      value={optOutConfirm()}
+                      placeholder={t.slug}
+                      autocomplete="off"
+                      onInput={(e) => setOptOutConfirm(e.currentTarget.value)}
+                    />
+                  </Field>
+                </div>
+                <div class="mt-4 flex justify-end gap-2">
+                  <Button writes
+                    variant="destructive-ghost"
+                    size="sm"
+                    disabled={optOutConfirm().trim() !== t.slug || optOut.isPending}
+                    onClick={() => optOut.mutate()}
+                  >
+                    {optOut.isPending && <Spinner />} {optOut.isPending ? 'Sending request…' : 'Request opt-out'}
+                  </Button>
+                </div>
+              </>
+            }>
+              <div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground">
+                <strong>Opt-out request received.</strong> The crew has been notified and will
+                contact you to confirm before removing your data. No further action is needed
+                from your side.
+              </div>
+            </Show>
+          </Section>
+        </Show>
+        </Show>
       </TabPanel>
 
       {/* ── Deployment tab — provisioning, operations, release ledger ── */}
@@ -710,62 +787,10 @@ export function TenantPage() {
         <ReleaseConvergencePanel releaseLedger={operations.data?.autopilot?.release_ledger ?? null} />
       </TabPanel>
 
-      {/* ── Access tab — operators, audit, opt-out, danger zone ── */}
+      {/* ── Access tab — operators, audit, admin danger zone ── */}
       <TabPanel active={activeTab()} id="access" visited={isVisited('access')}>
         <TenantOperatorsPanel slug={t.slug} />
         <TenantAuditPanel items={model.data?.audit.items ?? []} />
-
-        {/* Tenant-initiated opt-out. Available to tenant operators on
-            non-Virya tenants. Records the request in the audit trail — the
-            crew then uses the admin-side Remove button to complete it. */}
-        <Show when={!isAdmin() && capabilities()?.canOptOut === true}>
-          <Section
-            title="Opt out of the platform"
-            icon={<SectionIcon name="alert-triangle" />}
-            description="Your request is recorded and sent to the crew, who contact you to confirm before removing any tenant data. Your CrowdRelay workspace keeps running until it is shut down separately."
-          >
-            <Show when={optOutDone()} fallback={
-              <>
-                <Show when={optOut.isError}>
-                  <ErrorCard class="mb-3">{errorMessage(optOut.error, 'Opt-out request failed')}</ErrorCard>
-                </Show>
-                <div class="max-w-md">
-                  {/* This mailto was a plain attribute string containing
-                      `{encodeURIComponent(...)}`, so the braces went into the
-                      URL literally and the link opened a mail draft with a
-                      subject reading `{encodeURIComponent(t.displayName)}`. */}
-                  <Field
-                    label={<>Type <code>{t.slug}</code> to confirm</>}
-                    hint={<>To expedite, also email <a href={`mailto:virya.crew@gmail.com?subject=${encodeURIComponent(`Opt out: ${t.displayName}`)}&body=${encodeURIComponent(`Tenant: ${t.slug}\n\nI want to opt out of the CrowdRelay platform. Please remove my tenant data.`)}`} class="text-primary hover:text-primary/80">virya.crew@gmail.com</a>.</>}
-                  >
-                    <Input
-                      value={optOutConfirm()}
-                      placeholder={t.slug}
-                      autocomplete="off"
-                      onInput={(e) => setOptOutConfirm(e.currentTarget.value)}
-                    />
-                  </Field>
-                </div>
-                <div class="mt-4 flex justify-end gap-2">
-                  <Button writes
-                    variant="destructive-ghost"
-                    size="sm"
-                    disabled={optOutConfirm().trim() !== t.slug || optOut.isPending}
-                    onClick={() => optOut.mutate()}
-                  >
-                    {optOut.isPending && <Spinner />} {optOut.isPending ? 'Sending request…' : 'Request opt-out'}
-                  </Button>
-                </div>
-              </>
-            }>
-              <div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground">
-                <strong>Opt-out request received.</strong> The crew has been notified and will
-                contact you to confirm before removing your data. No further action is needed
-                from your side.
-              </div>
-            </Show>
-          </Section>
-        </Show>
 
         {/* Admin-only removal. Rendered from the server's capability flag, never
             from the slug. And `=== true` rather than `!== false`: for a
@@ -804,6 +829,7 @@ export function TenantPage() {
           </Section>
         </Show>
       </TabPanel>
+
     </>
   }}</Show></PageShell>
 }

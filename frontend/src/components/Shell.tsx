@@ -60,6 +60,7 @@ export const Shell: Component = () => {
   const navigate = useNavigate()
   const router = useRouter()
   const pathname = () => router.state.location.pathname
+  const searchTab = () => (router.state.location.search as { tab?: string }).tab
   const isPlatformLevel = () => authState.isPlatformLevel()
   const isAdmin = () => authState.isAdmin()
   const [switcherOpen, setSwitcherOpen] = createSignal(false)
@@ -362,7 +363,7 @@ export const Shell: Component = () => {
             <Show when={slug()} fallback={<><Eyebrow>PLATFORM</Eyebrow><strong class="text-sm font-semibold text-foreground truncate">{currentPageLabel(pathname(), undefined)}</strong></>}>
               {s => <>
                 <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground truncate">{(tenants.data?.items.find(t => t.slug === s())?.displayName ?? s()).toUpperCase()}</span>
-                <strong class="text-sm font-semibold text-foreground truncate">{currentPageLabel(pathname(), s(), isPlatformLevel())}</strong>
+                <strong class="text-sm font-semibold text-foreground truncate">{currentPageLabel(pathname(), s(), isPlatformLevel(), { tab: searchTab() })}</strong>
               </>}
             </Show>
           </div>

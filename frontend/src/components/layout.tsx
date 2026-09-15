@@ -262,6 +262,10 @@ export function useTabPanels(initial: string, valid?: string[]) {
   if (valid) {
     const navigate = useNavigate()
     const locationSearch = useRouterState({ select: s => s.location.search })
+    // `tab` is the page's one search param: the effect snaps back to
+    // `initial` whenever it is absent or invalid, and switchTab's write
+    // replaces the whole search object — a page that gains a second param
+    // must widen both sides before the param survives a tab switch.
     switchTab = (id: string) => {
       rawSwitch(id)
       void navigate({ to: '.', search: { tab: id }, replace: true } as any)

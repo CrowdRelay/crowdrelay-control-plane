@@ -120,20 +120,24 @@ const TENANT_PAGE_LABELS: Array<{ suffix: string; label: string }> = [
   { suffix: '/shows', label: 'Shows' },
 ]
 
-export const currentPageLabel = (pathname: string, slug: string | undefined, platformLevel = true) => {
+export const currentPageLabel = (pathname: string, slug: string | undefined, platformLevel = true, search?: { tab?: string }) => {
   if (slug) {
     const base = `/tenants/${slug}`
     const suffix = pathname.slice(base.length)
     // Band items match first so the breadcrumb speaks the band's names; a
     // page outside the band map still names itself from the full map rather
-    // than falling back to a generic 'Overview'.
-    const match = tenantNavItems(platformLevel).find(item => {
+    // than falling back to a generic 'Overview'. Search-declaring items
+    // (the band's Today/Settings pair shares one path) match only when
+    // the location's tab agrees with what they declare.
+    const matches = (item: NavItem) => {
       const itemSuffix = item.path.replace('/tenants/$slug', '')
-      return itemSuffix ? suffix.startsWith(itemSuffix) : suffix === ''
-    }) ?? (!platformLevel ? ALL_NAV_ITEMS.find(item => {
-      const itemSuffix = item.path.replace('/tenants/$slug', '')
-      return itemSuffix ? suffix.startsWith(itemSuffix) : suffix === ''
-    }) : undefined)
+      if (!(itemSuffix ? suffix.startsWith(itemSuffix) : suffix === '')) return false
+      if (item.search?.tab != null) return search?.tab === item.search.tab
+      if (item.searchSensitive) return search?.tab == null
+      return true
+    }
+    const match = tenantNavItems(platformLevel).find(matches)
+      ?? (!platformLevel ? ALL_NAV_ITEMS.find(matches) : undefined)
     const page = suffix.endsWith('/scan')
       ? 'The scan'
       : suffix.endsWith('/report')
