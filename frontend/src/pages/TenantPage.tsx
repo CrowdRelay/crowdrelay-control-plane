@@ -105,6 +105,44 @@ export function TenantPage() {
     // stays empty for the life of the tab. Keep asking until it fills.
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))
+  // The headline's source line shares the intelligence page's query — same
+  // key, same passthrough, one cache. Fires only once the Profile tab has
+  // actually been visited.
+  const acquisition = useQuery(() => ({
+    queryKey: ['acquisition-channels', params().slug],
+    queryFn: () => api.acquisitionChannels(params().slug),
+    enabled: isVisited('profile'),
+    reconcile: 'id',
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+  }))
+  // "The change this month" has two honest readings already in the
+  // composite: arrivals (`new_fans_30d`, rolling) and the net population
+  // delta (`delta_28d` on the signal.active_fans series). A stale series
+  // cannot speak for this month, so it does not render.
+  const activeFansTrend = createMemo(() =>
+    operations.data?.growth_metrics?.series?.find(
+      s => s.platform === 'signal' && s.metric_key === 'active_fans' && !s.stale,
+    ),
+  )
+  const topSource = createMemo(() => {
+    const attributed = (acquisition.data?.channels ?? []).filter(
+      c => c.attribution.evidence === 'attributed' && c.signups > 0,
+    )
+    if (attributed.length === 0) return null
+    const top = attributed.reduce((a, b) => (b.signups > a.signups ? b : a))
+    // Narrowed by the filter above; re-checked for the type system.
+    if (top.attribution.evidence !== 'attributed') return null
+    // "Most came from X" is only true if X beat the unknowns — unattributed
+    // signups are their own bucket upstream, and claiming a channel bigger
+    // than the gap is exactly the lie the backend refuses to tell.
+    const unknown = (acquisition.data?.unattributed ?? []).reduce((sum, u) => sum + u.signups, 0)
+    return {
+      name: top.attribution.source.replaceAll('_', ' '),
+      signups: top.signups,
+      majority: top.signups > unknown,
+    }
+  })
   const [palette, setPalette] = createSignal<Palette>(defaultPalette)
   const [editingPalette, setEditingPalette] = createSignal(false)
   const [desiredVersion, setDesiredVersion] = createSignal('')
@@ -212,17 +250,53 @@ export function TenantPage() {
             lead
             title="Fan growth"
             icon={<SectionIcon name="users" />}
-            description="The north star. Everything else on this page exists to move these six numbers."
+            description="The north star. Everything else on this page exists to move the headline number."
             action={<Link to="/tenants/$slug/audience" params={{ slug: t.slug }} class={buttonVariants({ variant: 'ghost', size: 'sm' })}>Audience detail</Link>}
           >
-            <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+            {/* The headline — "are we getting more fans" in one read. Reach
+                is the send-path definition: active fans holding current
+                marketing consent, not followers, not a raw total. */}
+            <div class="flex flex-wrap items-end gap-x-10 gap-y-3">
+              <div class="flex flex-col gap-1">
+                <span class="text-3xl font-bold tabular-nums text-foreground">
+                  <Show when={operations.data?.audience?.marketing_consented_fans != null} fallback={<span class="text-muted-foreground">—</span>}>
+                    {operations.data!.audience!.marketing_consented_fans!.toLocaleString()}
+                  </Show>
+                </span>
+                <Eyebrow>Fans you can reach</Eyebrow>
+              </div>
+              <Show when={operations.data?.signal?.activity?.new_fans_7d != null}>
+                <div class="flex flex-col gap-1">
+                  <span class="text-lg font-semibold tabular-nums text-success">+{operations.data!.signal!.activity!.new_fans_7d!.toLocaleString()}</span>
+                  <Eyebrow>new · 7 days</Eyebrow>
+                </div>
+              </Show>
+              <Show when={operations.data?.signal?.activity?.new_fans_30d != null}>
+                <div class="flex flex-col gap-1">
+                  <span class="text-lg font-semibold tabular-nums text-foreground">+{operations.data!.signal!.activity!.new_fans_30d!.toLocaleString()}</span>
+                  <Eyebrow>new · 30 days</Eyebrow>
+                </div>
+              </Show>
+              <Show when={activeFansTrend()?.delta_28d != null}>
+                <div class="flex flex-col gap-1">
+                  <span class="text-lg font-semibold tabular-nums text-foreground">
+                    {activeFansTrend()!.delta_28d! >= 0 ? '+' : ''}{activeFansTrend()!.delta_28d!.toLocaleString()}
+                  </span>
+                  <Eyebrow>net active fans · 28d</Eyebrow>
+                </div>
+              </Show>
+            </div>
+            <p class="mt-1 text-xs text-muted-foreground">
+              Active fans who consented to be contacted — the number the send paths actually enforce.
+              <Show when={topSource()}>{src => ` ${src().majority ? `Most fans arrived via ${src().name}` : `Top attributed source so far: ${src().name}`} (${src().signups.toLocaleString()} signups).`}</Show>
+            </p>
+            <div class="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 md:grid-cols-3 lg:grid-cols-5">
               <For each={[
                 { label: 'Active fans', value: operations.data?.audience?.active_fans },
                 { label: 'Ticket buyers', value: operations.data?.audience?.ticket_buyers },
                 { label: 'Attendees', value: operations.data?.audience?.attendees },
                 { label: 'Paid orders', value: operations.data?.audience?.paid_ticket_orders },
                 { label: 'Qualified referrals', value: operations.data?.audience?.qualified_referrals },
-                { label: 'Marketing consented', value: operations.data?.audience?.marketing_consented_fans },
               ]}>{kpi => (
                 <div class="flex flex-col gap-1">
                   <span class="text-xl font-bold tabular-nums text-foreground">
@@ -232,16 +306,6 @@ export function TenantPage() {
                 </div>
               )}</For>
             </div>
-            <Show when={operations.data?.signal?.activity}>
-              <div class="mt-3 flex items-center gap-4 border-t border-border pt-2 text-sm">
-                <Show when={operations.data!.signal!.activity!.new_fans_7d != null}>
-                  <span class="font-semibold tabular-nums text-success">{operations.data!.signal!.activity!.new_fans_7d} new fans (7d)</span>
-                </Show>
-                <Show when={operations.data!.signal!.activity!.new_fans_30d != null}>
-                  <span class="tabular-nums text-muted-foreground">{operations.data!.signal!.activity!.new_fans_30d} new fans (30d)</span>
-                </Show>
-              </div>
-            </Show>
           </Section>
         </Show>
 
