@@ -70,9 +70,9 @@ export function TenantHealthPage() {
         onChange={switchTab}
       onPrefetch={prefetch}
         tabs={[
-          { id: 'overview', label: 'Overview' },
+          { id: 'overview', label: 'Status' },
           { id: 'policies', label: 'Policies' },
-          { id: 'runtime', label: 'Runtime' },
+          { id: 'runtime', label: 'Switches' },
         ]}
       />
 

@@ -294,8 +294,8 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
         onChange={switchTab}
       onPrefetch={prefetch}
         tabs={[
-          { id: 'communities', label: 'Communities' },
-          { id: 'intelligence', label: 'Intelligence' },
+          { id: 'communities', label: 'Directory' },
+          { id: 'intelligence', label: 'Observations' },
         ]}
       />
 
@@ -503,11 +503,11 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
       {/* ─── Intelligence Tab ────────────────────────────────────── */}
       <TabPanel active={activeTab()} id="intelligence" visited={isVisited('intelligence')}>
         <Show when={!selectedPlaceId()}>
-          <p class="p-4 text-sm text-muted-foreground">Select a community from the Communities tab to view its observation history and extracted entities.</p>
+          <p class="p-4 text-sm text-muted-foreground">Select a community from the Directory tab to view its observation history and extracted entities.</p>
         </Show>
 
         <Show when={selectedPlaceId()}>
-          <SectionTitle eyebrow="COMMUNITY" title={selectedCommunity()?.name ?? 'Community'} action={<Button variant="ghost" size="sm" onClick={() => { setSelectedPlaceId(null); switchTab('communities') }}>Back to communities</Button>} />
+          <SectionTitle eyebrow="COMMUNITY" title={selectedCommunity()?.name ?? 'Community'} action={<Button variant="ghost" size="sm" onClick={() => { setSelectedPlaceId(null); switchTab('communities') }}>Back to directory</Button>} />
 
           <h3>Observations</h3>
           <Show when={detail.isPending}><SkeletonRows /></Show>

@@ -34,6 +34,7 @@ script-test:
     python3 scripts/test_deploy_bluegreen_preflight.py
     python3 scripts/test_blue_green_alias_contract.py
     python3 scripts/test_fan_out_budget_contract.py
+    python3 scripts/test_tab_label_collisions.py
     for script in scripts/*.sh deploy/*.sh; do bash -n "$script"; done
 
 # Everything CI runs for a merge decision.
