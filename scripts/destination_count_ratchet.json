@@ -1,4 +1,5 @@
 {
   "maxTenantDestinations": 11,
-  "note": "Ratchet: only shrinks. UX plan target is six. Lower this in the same commit that removes or merges a destination."
+  "note": "Ratchet: only shrinks. UX plan target is six band destinations \u2014 reached via BAND_NAV_GROUPS. Lower a baseline in the same commit that removes or merges a destination.",
+  "maxBandDestinations": 6
 }

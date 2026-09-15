@@ -62,6 +62,11 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
   { id: 'q-opportunities', label: 'Open the decision queue', keywords: 'opportunities board decision attention approvals show current', suffix: '/attention' },
 ]
 
+// The band's palette mirrors the band's sidebar — same six destinations, same
+// names. Operator-only pages stay reachable by URL but do not list here.
+const BAND_SUFFIXES = new Set(['', '/shows', '/attention', '/audience', '/intelligence'])
+const BAND_LABEL: Record<string, string> = { '': 'Today', '/attention': 'Needs you' }
+
 // Open state lives in command-palette-state.ts so Shell can toggle the
 // palette without this component being in the entry bundle.
 import { commandPaletteOpen, setCommandPaletteOpen } from './command-palette-state'
@@ -121,13 +126,17 @@ export const CommandPalette: Component = () => {
     }
     const visible = scopedTenants()
     const names = visible.length > 0 ? visible.map(t => t.slug) : [profile()?.tenantSlug].filter((s): s is string => Boolean(s))
+    const platform = isPlatformLevel()
+    const subpages = platform ? SUBPAGES : SUBPAGES.filter(p => BAND_SUFFIXES.has(p.suffix))
+    const queryEntries = platform ? QUERY_ENTRIES : QUERY_ENTRIES.filter(qe => BAND_SUFFIXES.has(qe.suffix))
     for (const slug of names) {
-      for (const page of SUBPAGES) {
+      for (const page of subpages) {
+        const label = platform ? page.label : BAND_LABEL[page.suffix] ?? page.label
         list.push({
           id: `nav-${slug}${page.suffix}`,
-          label: `${slug} · ${page.label}`,
+          label: `${slug} · ${label}`,
           group: 'Jump',
-          keywords: `${slug} ${page.label.toLowerCase()}`,
+          keywords: `${slug} ${label.toLowerCase()}`,
           kind: 'navigate',
           perform: () => page.suffix === ''
             ? navigate({ to: '/tenants/$slug', params: { slug } })
@@ -135,7 +144,7 @@ export const CommandPalette: Component = () => {
         })
       }
       // Query-oriented entries — natural-language labels for common operator questions
-      for (const qe of QUERY_ENTRIES) {
+      for (const qe of queryEntries) {
         list.push({
           id: `${qe.id}-${slug}`,
           label: `${qe.label} · ${slug}`,
@@ -145,7 +154,7 @@ export const CommandPalette: Component = () => {
           perform: () => navigate({ to: `/tenants/$slug${qe.suffix}`, params: { slug } }),
         })
       }
-      list.push(
+      if (platform) list.push(
         { id: `act-${slug}-reconcile`, label: `Reconcile ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} reconcile sync`, confirm: true, perform: async () => { await api.runReconciliation(slug) } },
         { id: `act-${slug}-dead`, label: `Clear dead deliveries · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} dead deliveries clear outbox`, confirm: true, perform: async () => { await api.clearDeadDeliveries(slug) } },
         { id: `act-${slug}-plan`, label: `Plan provisioning · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} provisioning plan job`, confirm: true, perform: async () => { await api.planProvisioning(slug) } },

@@ -1,4 +1,5 @@
-import { For, Match, Show, Suspense, Switch, createSignal, type Component, type JSX } from 'solid-js'
+import { For, Match, Show, Suspense, Switch, createEffect, createSignal, type Component, type JSX } from 'solid-js'
+import { useNavigate, useRouterState } from '@tanstack/solid-router'
 import { Card } from './ui/card'
 import { Metric, MetricRow, type MetricTone } from './ui/metric'
 import { CollapsibleSection as UICollapsible } from './ui/collapsible'
@@ -247,9 +248,29 @@ export function useTabPanels(initial: string, valid?: string[]) {
   const [activeTab, setActiveTab] = createSignal(start)
   const [visited, setVisited] = createSignal<Set<string>>(new Set([start]))
   const visit = (id: string) => setVisited(prev => prev.has(id) ? prev : new Set([...prev, id]))
-  const switchTab = (id: string) => {
+  const rawSwitch = (id: string) => {
     setActiveTab(id)
     visit(id)
+  }
+  // When the caller names its tab ids, `?tab=` is the shared source of truth
+  // both ways: a sidebar link or a pasted deep link changes the active tab,
+  // and a tab switch writes the param back so refresh and shares keep the
+  // view. A bare URL means the initial tab — without that fallback, Today →
+  // Settings → Today would leave the page on the last tab while the URL and
+  // the sidebar both claim the default.
+  let switchTab = rawSwitch
+  if (valid) {
+    const navigate = useNavigate()
+    const locationSearch = useRouterState({ select: s => s.location.search })
+    switchTab = (id: string) => {
+      rawSwitch(id)
+      void navigate({ to: '.', search: { tab: id }, replace: true } as any)
+    }
+    createEffect(() => {
+      const t = (locationSearch() as Record<string, unknown>)?.tab
+      const target = typeof t === 'string' && valid.includes(t) ? t : initial
+      if (target !== activeTab()) rawSwitch(target)
+    })
   }
   // Mount the panel without selecting it. `TabPanel` renders a visited panel
   // hidden, so its queries start on hover and the click has nothing left to

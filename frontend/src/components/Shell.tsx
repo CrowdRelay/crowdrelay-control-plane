@@ -16,7 +16,7 @@ import { cn } from '../lib/cn'
 import { whileIncomplete, hasUnavailableTenant } from '../lib/incomplete'
 import { NavIcon } from './NavIcon'
 import { TenantSwitcher } from './TenantSwitcher'
-import { TENANT_NAV_GROUPS, currentPageLabel, type NavGroup } from '../lib/nav'
+import { tenantNavGroups, currentPageLabel, type NavGroup } from '../lib/nav'
 
 // The palette component loads on first invocation; the shortcut lives here so
 // Ctrl/⌘-K works before that chunk exists.
@@ -77,7 +77,7 @@ export const Shell: Component = () => {
   const groupOpen = (group: NavGroup) => openGroups()[group.label] ?? group.defaultOpen
   const toggleGroup = (label: string) => {
     setOpenGroups(prev => {
-      const group = TENANT_NAV_GROUPS.find(g => g.label === label)
+      const group = tenantNavGroups(isPlatformLevel()).find(g => g.label === label)
       const next = { ...prev, [label]: !(prev[label] ?? group?.defaultOpen ?? false) }
       try { localStorage.setItem(NAV_GROUP_KEY, JSON.stringify(next)) } catch {}
       return next
@@ -120,6 +120,9 @@ export const Shell: Component = () => {
   const commandCenter = useQuery(() => ({
     queryKey: ['command-center'],
     queryFn: () => api.commandCenter(),
+    // The endpoint is platform-level only — a tenant session would poll a
+    // guaranteed 403 every interval for a badge that can never fill.
+    enabled: isPlatformLevel(),
     staleTime: 10_000,
     refetchOnWindowFocus: false,
     // Same key as OverviewPage, so it must carry the same retry rule —
@@ -254,10 +257,12 @@ export const Shell: Component = () => {
               <Show when={!collapsed()}><span>Tenants</span></Show>
             </Link>
           </Show>
-          <Link to="/flow" activeProps={{ class: 'bg-surface-1 text-foreground' }} title="Process map" class={cn('flex items-center gap-2.5 rounded-md py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors', collapsed() ? 'justify-center' : 'px-2.5')}>
-            <NavIcon name="flow" />
-            <Show when={!collapsed()}><span>Process map</span></Show>
-          </Link>
+          <Show when={isPlatformLevel()}>
+            <Link to="/flow" activeProps={{ class: 'bg-surface-1 text-foreground' }} title="Process map" class={cn('flex items-center gap-2.5 rounded-md py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors', collapsed() ? 'justify-center' : 'px-2.5')}>
+              <NavIcon name="flow" />
+              <Show when={!collapsed()}><span>Process map</span></Show>
+            </Link>
+          </Show>
         </nav>
 
         {/* Tenant switcher + grouped tenant nav */}
@@ -281,7 +286,7 @@ export const Shell: Component = () => {
               </div>
             </Show>
 
-            <For each={TENANT_NAV_GROUPS}>{group => (
+            <For each={tenantNavGroups(isPlatformLevel())}>{group => (
               <div class="mt-2">
                 {/* A collapsed sidebar has no room for a label, and hiding the
                     icons behind a disclosure the operator cannot read would
@@ -304,7 +309,8 @@ export const Shell: Component = () => {
                     <Link
                       to={item.path as any}
                       params={{ slug: navSlug()! } as any}
-                      activeOptions={{ exact: item.exact }}
+                      search={item.search as any}
+                      activeOptions={{ exact: item.exact, includeSearch: item.searchSensitive ?? false }}
                       activeProps={{ class: 'bg-surface-1 text-foreground' }}
                       title={item.label}
                       class={cn('relative flex items-center gap-2.5 rounded-md py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors', collapsed() ? 'justify-center' : 'px-2.5')}
@@ -356,7 +362,7 @@ export const Shell: Component = () => {
             <Show when={slug()} fallback={<><Eyebrow>PLATFORM</Eyebrow><strong class="text-sm font-semibold text-foreground truncate">{currentPageLabel(pathname(), undefined)}</strong></>}>
               {s => <>
                 <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground truncate">{(tenants.data?.items.find(t => t.slug === s())?.displayName ?? s()).toUpperCase()}</span>
-                <strong class="text-sm font-semibold text-foreground truncate">{currentPageLabel(pathname(), s())}</strong>
+                <strong class="text-sm font-semibold text-foreground truncate">{currentPageLabel(pathname(), s(), isPlatformLevel())}</strong>
               </>}
             </Show>
           </div>

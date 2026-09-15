@@ -31,32 +31,62 @@ FRONTEND = ROOT / "frontend" / "src"
 
 LABEL = re.compile(r"label:\s*'([^']+)'")
 
+# The sidebar has two vocabularies after the role split: platform sessions
+# read TENANT_NAV_GROUPS, tenant sessions read BAND_NAV_GROUPS. A word shared
+# across the two sets for the same destination is the same concept — no
+# session ever sees both sidebars — so collisions count only inside one
+# vocabulary (nav set + page tabs).
+# `const ` anchors on the declarations — the same identifiers also appear in
+# the selector expression `? TENANT_NAV_GROUPS : BAND_NAV_GROUPS`, and a bare
+# match there swallows every label until the next `= [` (a false third set).
+NAV_SET = re.compile(r"const\s+(TENANT_NAV_GROUPS|BAND_NAV_GROUPS)[^=]*=\s*\[(.*?)\n\]", re.DOTALL)
+
 # Files whose `label:` entries are navigation vocabulary: the sidebar groups
 # and every page's TabBar declaration. Page files only — components reuse
 # `label:` for form fields and metrics, which are not destinations.
-SOURCES = [
-    FRONTEND / "lib" / "nav.ts",
-    *sorted((FRONTEND / "pages").glob("*.tsx")),
-]
+NAV_FILE = FRONTEND / "lib" / "nav.ts"
+PAGE_SOURCES = sorted((FRONTEND / "pages").glob("*.tsx"))
 
-# Labels that name the same concept twice and are allowed to repeat. Empty:
-# the collisions this gate was written over were all different concepts
-# sharing a word.
-ALLOWED_DUPLICATES: set[str] = set()
+# Labels that name the same concept twice and are allowed to repeat:
+# - shows: the band nav item for /tenants/$slug/shows and the breadcrumb page
+#   label for that same destination — one concept, two label sites.
+ALLOWED_DUPLICATES: set[str] = {"shows"}
 
 
-def labels(path: Path) -> list[str]:
-    return LABEL.findall(path.read_text(encoding="utf-8"))
+def labels(text: str) -> list[str]:
+    return LABEL.findall(text)
 
 
 def main() -> int:
-    seen: dict[str, list[str]] = {}
-    for path in SOURCES:
+    page_labels: list[tuple[str, str]] = []
+    for path in PAGE_SOURCES:
         if not path.exists():
             print(f"ERROR: tracked source {path} is gone; update the gate", file=sys.stderr)
             return 1
-        for label in labels(path):
-            seen.setdefault(label.casefold(), []).append(f"{path.relative_to(ROOT)}:{label}")
+        page_labels.extend((l, str(path.relative_to(ROOT))) for l in labels(path.read_text(encoding="utf-8")))
+
+    nav_text = NAV_FILE.read_text(encoding="utf-8")
+    nav_sets = list(NAV_SET.finditer(nav_text))
+    if len(nav_sets) < 2:
+        print("ERROR: expected TENANT_NAV_GROUPS and BAND_NAV_GROUPS in nav.ts; update the gate", file=sys.stderr)
+        return 1
+
+    # The rest of nav.ts — breadcrumb page labels, global nav — is vocabulary
+    # both roles share, so it joins each set's scan.
+    shared_text = NAV_SET.sub("", nav_text)
+    shared_labels = [(l, "lib/nav.ts") for l in labels(shared_text)]
+
+    failures: dict[str, list[str]] = {}
+    for m in nav_sets:
+        set_name, body = m.group(1), m.group(2)
+        seen: dict[str, list[str]] = {}
+        for label, site in page_labels + shared_labels:
+            seen.setdefault(label.casefold(), []).append(f"{site}:{label}")
+        for label in labels(body):
+            seen.setdefault(label.casefold(), []).append(f"lib/nav.ts:{set_name}:{label}")
+        for word, sites in seen.items():
+            if len(sites) > 1 and word not in {w.casefold() for w in ALLOWED_DUPLICATES}:
+                failures.setdefault(word, []).extend(f"[{set_name}] {s}" for s in sites)
 
     failures = {
         word: sites

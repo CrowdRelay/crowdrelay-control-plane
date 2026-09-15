@@ -33,6 +33,9 @@ BASELINE_PATH = ROOT / "scripts/destination_count_ratchet.json"
 # The tenant groups array ends at the closing `]` before GLOBAL_NAV. Matching
 # the slice keeps global items out of the count.
 GROUPS = re.compile(r"TENANT_NAV_GROUPS[^=]*=\s*\[(.*?)\n\]", re.DOTALL)
+# The band set is the sidebar a tenant operator actually sees — the role split
+# is what the six-destination target is *for*, so it gets the harder ceiling.
+BAND_GROUPS = re.compile(r"BAND_NAV_GROUPS[^=]*=\s*\[(.*?)\n\]", re.DOTALL)
 ITEM = re.compile(r"\{\s*path:\s*'/tenants/\$slug")
 
 
@@ -61,6 +64,31 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+
+    band_ceiling = int(baseline.get("maxBandDestinations", 0))
+    band_match = BAND_GROUPS.search(NAV.read_text(encoding="utf-8"))
+    if band_ceiling:
+        if not band_match:
+            print("ERROR: BAND_NAV_GROUPS not found in nav.ts; update the gate", file=sys.stderr)
+            return 1
+        band = len(ITEM.findall(band_match.group(1)))
+        if band > band_ceiling:
+            print(
+                f"band destinations grew to {band}, baseline {band_ceiling} — "
+                f"the band's sidebar is the six-destination target; do not add "
+                f"to it without removing one.",
+                file=sys.stderr,
+            )
+            return 1
+        if band < band_ceiling:
+            print(
+                f"band destinations fell to {band} below baseline {band_ceiling} — "
+                f"lower destination_count_ratchet.json in the same commit",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"DESTINATION_COUNT_RATCHET=PASS destinations={actual} band={band}")
+        return 0
     print(f"DESTINATION_COUNT_RATCHET=PASS destinations={actual}")
     return 0
 
