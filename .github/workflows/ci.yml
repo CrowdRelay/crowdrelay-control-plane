@@ -30,8 +30,12 @@ jobs:
           - 5435:5432
         # --tmpfs keeps postgres data in RAM — the image's declared VOLUME
         # would otherwise leave an anonymous volume behind on every run.
+        # postgres 18+ declares VOLUME /var/lib/postgresql (PGDATA lives in
+        # a versioned subdir); the mount must sit at that path — mounting at
+        # /var/lib/postgresql/data trips the image's pg_ctlcluster layout
+        # check and the container refuses to start.
         options: >-
-          --tmpfs /var/lib/postgresql/data
+          --tmpfs /var/lib/postgresql
           --health-cmd "pg_isready -U postgres -d control_plane_migration_test"
           --health-interval 2s
           --health-timeout 3s
