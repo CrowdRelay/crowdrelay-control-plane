@@ -299,6 +299,13 @@ pub struct CreateTenantRequest {
     /// Brain growth goal. Validated against the CrowdRelay NorthStarMetric
     /// vocabulary, and rejected as `signal_installs` when Signal is disabled.
     pub north_star_metric: Option<String>,
+    /// What kind of tenant this is — band, roster, label or festival_org.
+    ///
+    /// Optional, defaulting to `band`, because the onboarding scripts and the
+    /// wizard both predate the column and every tenant created so far is a
+    /// band. Making it required would reject every existing caller.
+    #[serde(default)]
+    pub archetype: Option<String>,
     /// Discovery platforms the operator selected. Advisory only.
     #[serde(default)]
     pub fanbase_sources: Vec<String>,

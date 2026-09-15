@@ -47,6 +47,20 @@ type NorthStar =
   | 'x_followers'
 type FanbaseSource = 'discord' | 'facebook_group' | 'youtube' | 'forum' | 'reddit' | 'x'
 
+type Archetype = 'band' | 'roster' | 'label' | 'festival_org'
+
+// What kind of tenant this is. The loop is identical across archetypes; what
+// differs is the per-archetype config the brain reads — north star, what counts
+// as a peer, which production events exist. Nothing consumes it yet: it is
+// asked here so the second tenant's archetype is a value rather than a code
+// change, and so a roster does not silently arrive as a band.
+const archetypes: { value: Archetype; label: string; description: string }[] = [
+  { value: 'band', label: 'Band', description: 'One act. Fans, shows, releases. The default, and what every tenant created before this field was a band.' },
+  { value: 'roster', label: 'Roster or management', description: 'Several acts under one manager. Effort is shared across them, and what one act learns is available to the others.' },
+  { value: 'label', label: 'Label', description: 'A catalogue and the acts on it. Sales and subscribers matter as much as followers.' },
+  { value: 'festival_org', label: 'Festival organiser', description: 'An event rather than an act. Lineups, ticket buyers, and people who come back next year.' },
+]
+
 const northStars: { value: NorthStar; label: string; description: string; requiresSignal?: boolean }[] = [
   { value: 'activated_fans_30d', label: 'Activated fans', description: 'Optimize real fans — people who signed up, consented, and did something meaningful within 30 days. The honest default: counted from your own fanbase, not a platform counter.' },
   { value: 'total_audience', label: 'Every platform, added up', description: 'Optimize the whole connected portfolio — every platform summed, each follower counting once. The right choice when reach is spread across accounts rather than concentrated in one.' },
@@ -103,6 +117,7 @@ export function TenantWizardPage() {
   const [synesthesiaPlayStoreUrl, setSynesthesiaPlayStoreUrl] = createSignal('')
 
   // Step 3: Goal
+  const [archetype, setArchetype] = createSignal<Archetype>('band')
   const [northStar, setNorthStar] = createSignal<NorthStar>('activated_fans_30d')
 
   // Step 4: Fanbase sources
@@ -227,6 +242,7 @@ export function TenantWizardPage() {
       signalEnabled: signalEnabled(),
       synesthesiaEnabled: synesthesiaEnabled(),
       areaEnabled: areaEnabled(),
+      archetype: archetype(),
       northStarMetric: effectiveNorthStar(),
       fanbaseSources: selectedSources(),
       signalPlayStoreUrl: signalPlayStoreUrl().trim() || undefined,
@@ -356,7 +372,22 @@ export function TenantWizardPage() {
 
     <Show when={step() === 3}>
       <div class="rounded-lg border border-border bg-card p-5 space-y-4">
-        <div class="flex items-center justify-between gap-2"><div><PanelTitle>Growth goal</PanelTitle></div></div>
+        <div class="flex items-center justify-between gap-2"><div><PanelTitle>What this tenant is</PanelTitle></div></div>
+        <p class="text-sm text-muted-foreground leading-relaxed">The machine runs the same loop for all of these. The archetype decides what it reads as a peer, a production event and a fan.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <For each={archetypes}>{arc =>
+            <label class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', archetype() === arc.value ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+              <input type="radio" class="mt-1" name="archetype" value={arc.value} checked={archetype() === arc.value} onChange={() => setArchetype(arc.value)} />
+              <div>
+                <strong class="text-sm text-foreground">{arc.label}</strong>
+                <small class="block text-xs text-muted-foreground mt-1">{arc.description}</small>
+              </div>
+            </label>
+          }</For>
+        </div>
+        <div class="pt-2 border-t border-border">
+          <PanelTitle>Growth goal</PanelTitle>
+        </div>
         <p class="text-sm text-muted-foreground leading-relaxed">The brain optimizes its deterministic strategy around this metric. Fan aggregation is always active regardless of this choice.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           <For each={availableNorthStars()}>{ns =>
@@ -414,6 +445,7 @@ export function TenantWizardPage() {
           <Show when={synesthesiaEnabled() && synesthesiaPlayStoreUrl().trim()}>
             <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Synesthesia Play URL</span><strong class="text-sm text-foreground break-all">{synesthesiaPlayStoreUrl().trim()}</strong></div>
           </Show>
+          <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Tenant type</span><strong class="text-sm text-foreground">{archetypes.find(a => a.value === archetype())?.label ?? archetype()}</strong></div>
           <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Brain goal</span><strong class="text-sm text-foreground">{northStars.find(n => n.value === effectiveNorthStar())?.label ?? effectiveNorthStar()}</strong></div>
           <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Fanbase sources</span><strong class="text-sm text-foreground">{selectedSources().length > 0 ? selectedSources().join(', ') : 'None selected'}</strong></div>
           <Show when={deployNow()}>

@@ -116,6 +116,7 @@ type CreateTenantInput = {
   synesthesiaEnabled?: boolean
   areaEnabled?: boolean
   northStarMetric?: string
+  archetype?: string
   fanbaseSources?: string[]
   signalPlayStoreUrl?: string
   synesthesiaPlayStoreUrl?: string

@@ -102,6 +102,34 @@ pub const NORTH_STAR_METRICS: &[&str] = &[
     "youtube_subscribers",
 ];
 
+/// The tenant archetypes, matching the CHECK constraint in
+/// `0025_tenant_lifecycle_capabilities.sql`. Kept in the same order as the
+/// migration so the two lists can be read side by side.
+pub const TENANT_ARCHETYPES: &[&str] = &["band", "roster", "label", "festival_org"];
+
+/// Validates the tenant archetype, defaulting to `band`.
+///
+/// The archetype names which loop the machine runs for this tenant. The loop is
+/// identical across archetypes; what differs is the per-archetype config the
+/// brain reads. Nothing consumes it yet by design — it is stored so the second
+/// tenant's archetype is a column value rather than a code change.
+///
+/// The default matches the column default rather than rejecting an omitted
+/// value, because every caller that predates this field is creating a band.
+pub fn tenant_archetype(value: Option<String>) -> Result<String, ApiError> {
+    let value = value
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("band");
+    if !TENANT_ARCHETYPES.contains(&value) {
+        return Err(ApiError::InvalidInput(format!(
+            "unknown archetype: {value}"
+        )));
+    }
+    Ok(value.to_owned())
+}
+
 /// Discovery platforms the onboarding wizard offers.
 pub const FANBASE_SOURCES: &[&str] = &[
     "discord",

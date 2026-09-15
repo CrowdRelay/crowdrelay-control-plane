@@ -22,6 +22,7 @@ const LABELS: Record<string, string> = {
   social_auto_post: 'Social auto-posting',
   growth_cadence_moments_per_month: 'Serious moments per month',
   growth_cadence_fillers_enabled: 'Filler calendar',
+  crew_locale: 'Language the crew reads',
 }
 
 // The server grew three more editable keys than this panel had labels for, so
@@ -56,6 +57,10 @@ const HINTS: Record<string, { hint: string; example: string }> = {
   north_star_metric: {
     hint: 'The one number the brain tries to move. It still records everything else — this only decides which way it goes when two good options pull apart.',
     example: 'activated_fans_30d',
+  },
+  crew_locale: {
+    hint: 'Language for task emails and the staff panel. Briefings are written in English and translated for the crew; a language nobody has written wording for yet reads as English rather than as blanks. Two-letter code, optionally with a region.',
+    example: 'pl',
   },
   social_auto_post: {
     hint: 'When enabled, the social post executor publishes to Facebook Pages and Instagram through the Graph API instead of drafting for manual review. X always drafts. The publish guard still runs — a held post lands in the operator queue with its reason. Instagram needs at least one active photo press asset.',
