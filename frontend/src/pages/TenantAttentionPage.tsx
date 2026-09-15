@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from 'solid-js'
+import { For, Show, createSignal, onMount } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -11,6 +11,9 @@ import { StatusBadge } from '../components/StatusBadge'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
 import { UnpublishedDraftsPanel } from '../components/UnpublishedDraftsPanel'
 import { AttentionInbox } from '../components/AttentionInbox'
+import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
+import { SectionFailureCard } from '../components/SectionFailureCard'
+import { hasDegradedSections } from '../lib/incomplete'
 import { EmptyState } from '../components/ui/empty-state'
 import { SignalOverviewPanel } from '../components/SignalOverviewPanel'
 import { DeadQueuesPanel } from '../components/DeadQueuesPanel'
@@ -108,7 +111,9 @@ function BrainPanel(props: { brain: BrainSelfAssessment | null | undefined; notR
 
 export function TenantAttentionPage() {
   const params = useParams({ from: '/tenants/$slug/attention' })
-  const { activeTab, switchTab, prefetch, revealAnchor, isVisited } = useTabPanels('inbox')
+  // Decisions is the default tab: a queue of decisions is what a person has,
+  // and the ranked action board is that queue in full.
+  const { activeTab, switchTab, prefetch, revealAnchor, isVisited } = useTabPanels('decisions', ['decisions', 'inbox', 'queues', 'runtime', 'trace'])
   // Which tab owns which anchor. The failed-queue sections live in Queues;
   // everything else an alert or inbox item points at is on the Inbox tab.
   const reveal = (anchor: string) => revealAnchor(anchor.startsWith('dead-') ? 'queues' : 'inbox', anchor)
@@ -122,6 +127,32 @@ export function TenantAttentionPage() {
     // not answer arrive inside a 200, so nothing retries them by default.
     refetchInterval: whileIncomplete((m: TenantAttentionReadModel) => (m.not_reported ?? []).length > 0),
   }))
+
+  // The ranked decision queue lives in the operations read model — the board
+  // moved here because deciding is the thing a person does on this page.
+  // Identical observer options to the other 'tenant-operations' consumers:
+  // a shared key with mismatched retry rules lets the first mount win.
+  const operations = useQuery(() => ({
+    queryKey: ['tenant-operations', params().slug],
+    queryFn: () => api.tenantOperations(params().slug),
+    reconcile: 'id',
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+    refetchInterval: whileIncomplete(hasDegradedSections),
+  }))
+
+  // Mirror the board's own approvability test — an awaiting_approval entry
+  // with no action_id is filed under "Noted, no action taken", not Needs you.
+  const decideCount = () => operations.data?.opportunities?.filter(o => o.authority === 'awaiting_approval' && o.action_id !== null).length ?? 0
+
+  // `#…&action=<id>` links point at inbox rows, but the inbox panel does not
+  // mount until its tab is visited — a component inside an unvisited panel
+  // never runs onMount, so the parse lives here where it always runs. The
+  // reveal mounts the panel; the inbox's own handler then scrolls+highlights.
+  onMount(() => {
+    const match = window.location.hash.match(/action=([0-9a-f-]+)/i)
+    if (match) revealAnchor('inbox', `attention-item-approval-${match[1]}`)
+  })
 
   const summary = {
     get data() { return attention.data?.summary },
@@ -137,7 +168,9 @@ export function TenantAttentionPage() {
   const toggleRevealedId = (key: string) => setRevealedId(prev => prev === key ? null : key)
 
   const refreshMaintenance = async () => {
-    await attention.refetch()
+    // An inbox approve must not leave the same action listed on the
+    // decisions board until its own refetch interval notices.
+    await Promise.all([attention.refetch(), operations.refetch()])
   }
 
   const reconcile = async () => {
@@ -197,12 +230,31 @@ export function TenantAttentionPage() {
       onChange={switchTab}
       onPrefetch={prefetch}
       tabs={[
+        { id: 'decisions', label: 'Decisions', count: decideCount() > 0 ? () => decideCount() : undefined },
         { id: 'inbox', label: 'Inbox' },
         { id: 'queues', label: 'Queues', count: deadCount() > 0 ? () => deadCount() : undefined },
         { id: 'runtime', label: 'Runtime' },
         { id: 'trace', label: 'Trace' },
       ]}
     />
+
+    {/* ─── Decisions Tab — the ranked action queue, moved from Operations ── */}
+    <TabPanel active={activeTab()} id="decisions" visited={isVisited('decisions')}>
+      <Show when={operations.error}>
+        <SectionFailureCard error={operations.error} fallback="Decision queue unavailable" onRetry={() => void operations.refetch()} />
+      </Show>
+      <Show when={!operations.error && !operations.data}>
+        <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
+      </Show>
+      <Show when={operations.data} keyed>{(data) => (
+        <OpportunityBoardPanel
+          slug={params().slug}
+          opportunities={data.opportunities ?? null}
+          degraded={data.degraded.includes('opportunities')}
+          refresh={() => operations.refetch()}
+        />
+      )}</Show>
+    </TabPanel>
 
     {/* ─── Inbox Tab ─────────────────────────────────────────────── */}
     <TabPanel active={activeTab()} id="inbox" visited={isVisited('inbox')}>

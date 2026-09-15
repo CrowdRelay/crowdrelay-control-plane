@@ -2,7 +2,6 @@ import { Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Link, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
-import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
 import { OutreachPipelinePanel } from '../components/OutreachPipelinePanel'
 import { PressRoomPanel } from '../components/PressRoomPanel'
@@ -22,7 +21,7 @@ const metric = (value: number | undefined | null, suffix = '') =>
 /** Map legacy tone values to the layout KpiCard's `tone` prop ('good' only). */
 export function TenantOperationsPage() {
   const params = useParams({ from: '/tenants/$slug/operations' })
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('opportunities')
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('outreach')
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
@@ -37,7 +36,6 @@ export function TenantOperationsPage() {
   const refresh = () => model.refetch()
 
   const d = (): TenantOperationsReadModel | undefined => model.error ? undefined : model.data
-  const opCount = () => d()?.opportunities?.length ?? 0
   const growth = () => d()?.growth
   const autopilot = () => d()?.autopilot
   const summary = () => d()?.summary
@@ -109,7 +107,9 @@ export function TenantOperationsPage() {
           label="Waiting for you"
           tone={hasAttention() ? 'warn' : 'good'}
           value={needsYouCount() + awaitingApproval()}
-          sub={needsYouCount() + awaitingApproval() > 0 ? 'decide below' : 'nothing to decide'}
+          sub={needsYouCount() + awaitingApproval() > 0
+            ? <Link to="/tenants/$slug/attention" params={{ slug: params().slug }} class="text-primary underline-offset-4 hover:underline">decide on Attention</Link>
+            : 'nothing to decide'}
         />
         <KpiCard
           label="Health"
@@ -166,7 +166,6 @@ export function TenantOperationsPage() {
       onChange={switchTab}
       onPrefetch={prefetch}
       tabs={[
-        { id: 'opportunities', label: 'Opportunities', count: () => opCount() },
         { id: 'outreach', label: 'Outreach' },
         { id: 'releases', label: 'Releases' },
       ]}
@@ -180,23 +179,9 @@ export function TenantOperationsPage() {
       <SkeletonSection titleWidth="200px" lines={3} minHeight="140px" />
     </Show>
 
-    {/* ── Opportunities tab ── */}
-    <TabPanel active={activeTab()} id="opportunities" visited={isVisited('opportunities')}>
-      {/* `BrainDecisionPanel` used to sit here, rendering the top opportunity
-          in full above a board that listed the same entry again — two panels of
-          identical width and fill, saying the same thing, and disagreeing about
-          whether the operator had anything to do. The board is now one ranked
-          worklist grouped by that question, and it carries Reject, which only
-          the decision panel used to offer. */}
-      <Show when={d()} fallback={<SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />}>
-        <OpportunityBoardPanel
-          slug={params().slug}
-          opportunities={d()?.opportunities ?? null}
-          degraded={d()?.degraded.includes('opportunities') ?? false}
-          refresh={refresh}
-        />
-      </Show>
-    </TabPanel>
+    {/* The decision queue moved to the Attention page's Decisions tab —
+        a queue of decisions is what a person has, and this page is the
+        machine's surfaces: outreach pipeline, releases, runtime. */}
 
     {/* ── Outreach tab ── */}
     {/* These panels have their own useQuery calls, so they load

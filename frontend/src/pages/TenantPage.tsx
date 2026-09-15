@@ -430,19 +430,19 @@ export function TenantPage() {
         </Show>
 
         {/* Worth doing this week — the three moves that carry most of it.
-            Each row is one door into the operations board, where the real
-            approve/dismiss buttons live. A degraded section hides the
-            whole block; an empty queue says so plainly. */}
+            Each row is one door into the decision queue on Attention, where
+            the real approve/dismiss buttons live. A degraded section hides
+            the whole block; an empty queue says so plainly. */}
         <Show when={operations.data?.opportunities}>
           <Section
             title="Worth doing this week"
             icon={<SectionIcon name="target" />}
-            description="The moves that carry most of it, ranked upstream. The board has the approve buttons."
+            description="The moves that carry most of it, ranked upstream. Attention has the approve buttons."
           >
             <div class="flex flex-col gap-3">
               <For each={weekMoves()}>{move => (
                 <Link
-                  to="/tenants/$slug/operations"
+                  to="/tenants/$slug/attention"
                   params={{ slug: t.slug }}
                   class="group block rounded-md border border-border p-3 transition-colors hover:border-foreground/30"
                 >

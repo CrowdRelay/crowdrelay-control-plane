@@ -47,8 +47,8 @@ const NODES: MapNode[] = [
   { id: 'press', x: 30, y: 348, w: 230, h: 52, zone: 'src', title: 'Press · Beacons', desc: 'SubmitHub + CSV · Signal', to: '/tenants/{slug}/beacons' },
 
   // ── INTELLIGENCE (deterministic Rust) ──
-  { id: 'intel', x: 315, y: 120, w: 270, h: 84, zone: 'intel', title: 'Autopilot decision', desc: 'deterministic policy\ncausal model + confidence', to: '/tenants/{slug}/operations' },
-  { id: 'scorecard', x: 315, y: 228, w: 270, h: 56, zone: 'intel', title: 'Scorecard + Objectives', desc: 'progress tracking', to: '/tenants/{slug}/operations' },
+  { id: 'intel', x: 315, y: 120, w: 270, h: 84, zone: 'intel', title: 'Autopilot decision', desc: 'deterministic policy\ncausal model + confidence', to: '/tenants/{slug}/attention?tab=decisions' },
+  { id: 'scorecard', x: 315, y: 228, w: 270, h: 56, zone: 'intel', title: 'Scorecard + Objectives', desc: 'progress tracking', to: '/tenants/{slug}/intelligence' },
   { id: 'funnel', x: 315, y: 306, w: 270, h: 56, zone: 'intel', title: 'Growth metrics', desc: 'discovery → engagement → conversion', to: '/tenants/{slug}/intelligence' },
 
   // ── AUTHORITY (what the disposition allows) ──

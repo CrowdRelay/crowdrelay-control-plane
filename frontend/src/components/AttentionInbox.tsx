@@ -66,7 +66,6 @@ export function AttentionInbox(props: {
   onReveal: (tab: string, anchor?: string) => void
 }) {
   const unreported = (name: string) => (props.notReported ?? []).includes(name)
-  const opsPath = () => `/tenants/${props.slug}/operations`
 
   const [busy, setBusy] = createSignal<string | null>(null)
   const [confirming, setConfirming] = createSignal<string | null>(null)
@@ -159,8 +158,9 @@ export function AttentionInbox(props: {
             setApproved(prev => new Set(prev).add(action.id))
           },
         },
-        // Secondary, for the evidence behind the decision.
-        action: { label: 'Details', to: opsPath() },
+        // Secondary, for the evidence behind the decision — the full board
+        // is this page's decisions tab since UX-3.2.
+        goto: { label: 'Details', tab: 'decisions' },
       })
     }
     if (unreported('awaiting_approval') || unreported('needs_you')) {
@@ -170,7 +170,7 @@ export function AttentionInbox(props: {
         title: 'Pending approvals are not reported by this tenant',
         detail: 'This CrowdRelay build does not publish the approval queue, so the Control Plane cannot tell you whether anything is waiting.',
         consequence: 'Work may be parked awaiting your decision without appearing here.',
-        action: { label: 'Open operations', to: opsPath() },
+        goto: { label: 'Open decisions', tab: 'decisions' },
       })
     } else {
       // Only what is not already a row above. The count and the rows come from
@@ -183,7 +183,7 @@ export function AttentionInbox(props: {
           tier: 'review',
           title: `${rest} more opportunity(ies) awaiting decision`,
           detail: 'The brain has found more than this inbox lists. The board shows all of them.',
-          action: { label: 'Open board', to: opsPath() },
+          goto: { label: 'Open board', tab: 'decisions' },
         })
       }
     }
@@ -226,13 +226,24 @@ export function AttentionInbox(props: {
     const hash = window.location.hash
     const match = hash.match(/action=([0-9a-f-]+)/i)
     if (!match) return
-    const actionId = match[1]
-    const el = document.getElementById(`attention-item-approval-${actionId}`)
-    if (!el) return
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    el.classList.add('attention-item-highlighted')
-    const t = setTimeout(() => el.classList.remove('attention-item-highlighted'), 4000)
-    onCleanup(() => clearTimeout(t))
+    const elId = `attention-item-approval-${match[1]}`
+    // The target lives on the inbox tab — with decisions now the default the
+    // element may not even be mounted, so switch tabs via onReveal first and
+    // let its retry loop land the scroll before adding the highlight.
+    props.onReveal('inbox', elId)
+    let highlightTimer: ReturnType<typeof setTimeout> | undefined
+    let attempts = 0
+    const highlight = () => {
+      const el = document.getElementById(elId)
+      if (el) {
+        el.classList.add('attention-item-highlighted')
+        highlightTimer = setTimeout(() => el.classList.remove('attention-item-highlighted'), 4000)
+      } else if (attempts++ < 15) {
+        requestAnimationFrame(highlight)
+      }
+    }
+    requestAnimationFrame(highlight)
+    onCleanup(() => clearTimeout(highlightTimer))
   })
 
   return <div class="rounded-lg border border-border bg-card">

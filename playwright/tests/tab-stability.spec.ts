@@ -123,7 +123,8 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
     await page.waitForSelector('[data-slot="tab-panel"]', { timeout: 30000 })
     await page.waitForTimeout(2000)
 
-    // Only the Opportunities tab panel should be in the DOM
+    // Only the default Outreach tab panel should be in the DOM — the
+    // decision queue moved to Attention's Decisions tab (UX-3.2).
     const tabPanels = await page.locator('[data-slot="tab-panel"]').count()
     expect(tabPanels).toBe(1)
 
@@ -133,8 +134,8 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
       if (section) section.dataset.testMarker = 'original'
     })
 
-    // Switch to Outreach tab (first visit)
-    await page.click('#tab-outreach')
+    // Switch to Releases tab (first visit)
+    await page.click('#tab-releases')
     await page.waitForTimeout(2000)
 
     // Section must persist
@@ -148,22 +149,8 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
     const tabPanelsAfter = await page.locator('[data-slot="tab-panel"]').count()
     expect(tabPanelsAfter).toBe(2)
 
-    // Switch to Releases tab (first visit)
-    await page.click('#tab-releases')
-    await page.waitForTimeout(2000)
-
-    const marker2 = await page.evaluate(() => {
-      const section = document.querySelector('#main-content > div > section') as HTMLElement
-      return section?.dataset.testMarker ?? 'gone'
-    })
-    expect(marker2).toBe('original')
-
-    // 3 tab panels now
-    const tabPanelsAfterReleases = await page.locator('[data-slot="tab-panel"]').count()
-    expect(tabPanelsAfterReleases).toBe(3)
-
-    // Switch back to Opportunities (already visited)
-    await page.click('#tab-opportunities')
+    // Switch back to Outreach (already visited)
+    await page.click('#tab-outreach')
     await page.waitForTimeout(1000)
 
     const marker3 = await page.evaluate(() => {

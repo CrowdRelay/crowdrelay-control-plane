@@ -42,7 +42,9 @@ test('the session says it is read-only @viewer', async ({ page }) => {
 
 test('the attention page offers no write @viewer', async ({ page }) => {
   await assertViewerSession(page)
-  await page.goto(`/tenants/${SLUG}/attention`)
+  // The reconcile button lives on the inbox tab — `?tab=` is honored, and
+  // asking for it directly avoids clicking through the default Decisions tab.
+  await page.goto(`/tenants/${SLUG}/attention?tab=inbox`)
   await page.waitForLoadState('networkidle')
   // Reconciliation is a POST, so a viewer cannot run it even though it only
   // reads on the far side. The method is what decides.

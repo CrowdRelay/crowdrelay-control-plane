@@ -165,7 +165,7 @@ export const Shell: Component = () => {
       : profile()?.tenantSlug
     if (!tenantSlug) return
     sessionStorage.setItem('cp-default-tenant', '1')
-    navigate({ to: `/tenants/${tenantSlug}/operations` as any })
+    navigate({ to: `/tenants/${tenantSlug}/attention` as any })
   })
 
   onMount(() => {
