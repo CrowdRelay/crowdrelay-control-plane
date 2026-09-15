@@ -154,6 +154,17 @@ export function TenantPage() {
       .sort((a, b) => rank[a.state as keyof typeof rank] - rank[b.state as keyof typeof rank])
       .slice(0, 3)
   })
+  // Worth doing this week — the upstream next-best-action queue, already
+  // ranked (warmth prior until measured conversion lands, §4e-4). Only
+  // what still needs a person: approvals awaiting a yes and plain
+  // recommendations — `observed`/`auto_executing` are status, not moves.
+  // Three at most.
+  const weekMoves = createMemo(() =>
+    (operations.data?.opportunities ?? [])
+      .filter(e => e.authority === 'awaiting_approval' || e.authority === 'recommended')
+      .sort((a, b) => a.position - b.position)
+      .slice(0, 3),
+  )
   // "Where they came from" rides the same composite — the acquisition
   // section covers every tracked fan (concert QR, imports, purchases), not
   // just click-attributed signups. "Most came from X" is only claimed when
@@ -401,6 +412,39 @@ export function TenantPage() {
         </Show>
         <Show when={shows.data && !nextShow()}>
           <p class="text-sm text-muted-foreground">No upcoming show on the books — the next announced night lands here.</p>
+        </Show>
+
+        {/* Worth doing this week — the three moves that carry most of it.
+            Each row is one door into the operations board, where the real
+            approve/dismiss buttons live. A degraded section hides the
+            whole block; an empty queue says so plainly. */}
+        <Show when={operations.data?.opportunities}>
+          <Section
+            title="Worth doing this week"
+            icon={<SectionIcon name="target" />}
+            description="The moves that carry most of it, ranked upstream. The board has the approve buttons."
+          >
+            <div class="flex flex-col gap-3">
+              <For each={weekMoves()}>{move => (
+                <Link
+                  to="/tenants/$slug/operations"
+                  params={{ slug: t.slug }}
+                  class="group block rounded-md border border-border p-3 transition-colors hover:border-foreground/30"
+                >
+                  <div class="flex items-baseline gap-2">
+                    <span class="text-sm font-medium text-foreground group-hover:underline">{move.recommended_action}</span>
+                  </div>
+                  <p class="mt-1 text-xs leading-relaxed text-muted-foreground">{move.reason}</p>
+                  <Show when={move.consequence}>
+                    <p class="mt-1 text-xs text-warning-light">If nobody acts: {move.consequence}</p>
+                  </Show>
+                </Link>
+              )}</For>
+              <Show when={weekMoves().length === 0}>
+                <p class="text-sm text-muted-foreground">Nothing needs you this week — the queue is empty.</p>
+              </Show>
+            </div>
+          </Section>
         </Show>
 
         <TenantRuntimePanel slug={t.slug} initial={{ runtime: t.runtime, runtimeHealth: t.runtimeHealth }} />
