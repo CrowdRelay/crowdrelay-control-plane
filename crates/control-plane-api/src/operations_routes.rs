@@ -330,6 +330,12 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/shows/{event_slug}/scan",
             get(tenant_show_scan),
         )
+        // The T+7 artifact: what the counterparty's email looks like —
+        // the mailed payload once issued, a live preview before.
+        .route(
+            "/tenants/{slug}/shows/{event_slug}/report",
+            get(tenant_show_report),
+        )
         .route(
             "/tenants/{slug}/operations/chief-of-staff",
             get(chief_of_staff),
@@ -2789,6 +2795,24 @@ async fn tenant_show_scan(
     )
     .await?;
     object_no_store(value, "show scan")
+}
+
+async fn tenant_show_report(
+    State(state): State<AppState>,
+    Path((slug, event_slug)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        &format!("/v1/control-plane/events/{event_slug}/report"),
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "show report")
 }
 
 async fn chief_of_staff(

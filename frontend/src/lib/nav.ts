@@ -83,7 +83,9 @@ export const currentPageLabel = (pathname: string, slug: string | undefined) => 
     })
     const page = suffix.endsWith('/scan')
       ? 'The scan'
-      : TENANT_PAGE_LABELS.find(item => suffix.startsWith(item.suffix))?.label
+      : suffix.endsWith('/report')
+        ? 'The report'
+        : TENANT_PAGE_LABELS.find(item => suffix.startsWith(item.suffix))?.label
     return match?.label ?? page ?? 'Overview'
   }
   return GLOBAL_NAV.find(item => item.exact ? pathname === item.path : pathname.startsWith(item.path))?.label ?? 'Overview'

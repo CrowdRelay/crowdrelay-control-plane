@@ -93,42 +93,42 @@ function StepRow(props: { step: ShowTimelineStep; slug: string; eventSlug: strin
           <div class="text-xs text-muted-foreground">{props.step.owner}</div>
         </Show>
         <Show when={props.step.action}>
-          {/* Approvals live on the attention queue, the QR lives at the
-              door view; step chores that have no console surface yet render
-              as a plain chip — a link that goes nowhere is worse than none. */}
-          <Show
-            when={props.step.action!.kind === 'qr'}
-            fallback={
-              <Show
-                when={props.step.action!.kind === 'approve' || props.step.action!.kind === 'review'}
-                fallback={
-                  <span class="mt-1 inline-block rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
-                    {props.step.action!.label}
-                  </span>
-                }
-              >
-                <Link
-                  to="/tenants/$slug/attention"
-                  params={{ slug: props.slug }}
-                  class="mt-1 inline-block rounded-md border border-border px-2 py-1 text-xs text-foreground hover:bg-surface-2"
-                >
-                  {props.step.action!.label}
-                </Link>
-              </Show>
-            }
-          >
-            <Link
-              to="/tenants/$slug/shows/$eventSlug/scan"
-              params={{ slug: props.slug, eventSlug: props.eventSlug }}
-              class="mt-1 inline-block rounded-md border border-border px-2 py-1 text-xs text-foreground hover:bg-surface-2"
-            >
-              {props.step.action!.label}
-            </Link>
-          </Show>
+          {action => <StepAction action={action()} slug={props.slug} eventSlug={props.eventSlug} />}
         </Show>
       </div>
     </div>
   )
+}
+
+/** Where a step's action actually goes: approvals to the attention queue,
+ * the QR to the door view, the T+7 artifact to the report page. Chores
+ * with no console surface yet render as a plain chip — a link that goes
+ * nowhere is worse than no link. */
+function StepAction(props: { action: { kind: string; label: string }; slug: string; eventSlug: string }) {
+  const chip = "mt-1 inline-block rounded-md border border-border px-2 py-1 text-xs"
+  switch (props.action.kind) {
+    case 'qr':
+      return (
+        <Link to="/tenants/$slug/shows/$eventSlug/scan" params={{ slug: props.slug, eventSlug: props.eventSlug }} class={`${chip} text-foreground hover:bg-surface-2`}>
+          {props.action.label}
+        </Link>
+      )
+    case 'report':
+      return (
+        <Link to="/tenants/$slug/shows/$eventSlug/report" params={{ slug: props.slug, eventSlug: props.eventSlug }} class={`${chip} text-foreground hover:bg-surface-2`}>
+          {props.action.label}
+        </Link>
+      )
+    case 'approve':
+    case 'review':
+      return (
+        <Link to="/tenants/$slug/attention" params={{ slug: props.slug }} class={`${chip} text-foreground hover:bg-surface-2`}>
+          {props.action.label}
+        </Link>
+      )
+    default:
+      return <span class={`${chip} text-muted-foreground`}>{props.action.label}</span>
+  }
 }
 
 /** One muted line under the step title — the two or three facts a band

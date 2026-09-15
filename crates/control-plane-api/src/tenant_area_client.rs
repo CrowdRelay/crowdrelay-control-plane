@@ -506,6 +506,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || safe_segment_between(path, "/v1/control-plane/audience/segments/", "/preview")
                 || safe_segment_between(path, "/v1/control-plane/events/", "/timeline")
                 || safe_segment_between(path, "/v1/control-plane/events/", "/scan")
+                || safe_segment_between(path, "/v1/control-plane/events/", "/report")
                 || uuid_segment_between(
                     path,
                     "/v1/control-plane/autopilot/beacon-release-campaigns/",
@@ -1476,6 +1477,7 @@ mod tests {
             "/v1/control-plane/events",
             "/v1/control-plane/events/friday-night/timeline",
             "/v1/control-plane/events/friday-night/scan",
+            "/v1/control-plane/events/friday-night/report",
         ] {
             assert!(valid_operations_request("GET", path), "{path}");
         }

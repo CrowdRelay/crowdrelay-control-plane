@@ -392,4 +392,56 @@ test.describe('Control Plane E2E @e2e', () => {
       })
     }
   })
+
+  // The T+7 artifact — the report step's link on the gig page. Issued or
+  // preview, the page renders the same model; either is a pass.
+  test('Report view opens from the gig page @e2e', async ({ page }) => {
+    await page.goto('/tenants/virya/shows')
+    await page.waitForLoadState('networkidle', { timeout: 15000 })
+
+    const firstShow = page.locator('a[href*="/shows/"]').first()
+    if ((await firstShow.count()) === 0) return
+
+    await firstShow.click()
+    await page.waitForLoadState('networkidle', { timeout: 15000 })
+
+    const reportLink = page.locator('a[href$="/report"]').first()
+    if ((await reportLink.count()) === 0) return
+
+    await reportLink.click()
+    await page.waitForLoadState('networkidle', { timeout: 15000 })
+    expect(page.url()).toMatch(/\/tenants\/virya\/shows\/.+\/report$/)
+
+    const rendered = await page
+      .locator('text=/In the room|Around the room|Preview|Sent/')
+      .first()
+      .isVisible({ timeout: 10_000 })
+      .catch(() => false)
+    if (!rendered) {
+      addBug({
+        severity: 'high',
+        category: 'ui',
+        title: 'Report view rendered neither artifact sections nor a state',
+        test_name: 'e2e::show-report',
+        url: page.url(),
+        expected: 'Evidence sections or an explicit state visible',
+        actual: 'no report content rendered',
+        fix_hint: 'Check the report page render path and the /tenants/{slug}/shows/{event_slug}/report response shape',
+      })
+    }
+
+    const errorCards = await page.locator('[role="alert"]').count()
+    if (errorCards > 0) {
+      addBug({
+        severity: 'high',
+        category: 'ui',
+        title: 'Report view page shows an error card',
+        test_name: 'e2e::show-report',
+        url: page.url(),
+        expected: 'Report renders the artifact or an honest state',
+        actual: `${errorCards} error card(s) visible`,
+        fix_hint: 'Check the /tenants/{slug}/shows/{event_slug}/report proxy and upstream /v1/control-plane/events/{slug}/report',
+      })
+    }
+  })
 })

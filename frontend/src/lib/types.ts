@@ -1602,6 +1602,62 @@ export type TenantShowScanResponse = {
   max_checkins: number | null
 }
 
+/** The T+7 counterparty artifact — `/tenants/{slug}/shows/{event}/report`.
+ * `issued` means the payload IS the mailed artifact; before that it is a
+ * live preview composed from the same evidence. The inner shapes mirror
+ * the emitted payload, so the page renders one model either way. */
+export type TenantShowReportResponse = {
+  issued: boolean
+  issued_at: string | null
+  /** outbox status when issued — "sent" is only honest once `delivered` */
+  delivery_status: string | null
+  event: {
+    slug?: string
+    title?: string
+    city?: string | null
+    venue?: string | null
+    starts_at?: string
+    timezone?: string | null
+    acts?: Array<{ slug: string; name: string }>
+  }
+  report: {
+    kind?: string
+    preview?: boolean
+    observed?: {
+      room_checkins_total?: number
+      room_checkins_by_session?: number
+      room_checkins_by_email_claim?: number
+      new_fan_records_at_show?: number
+      admission_passes_redeemed?: number
+    }
+    inferred?: {
+      paid_ticket_buyers?: number
+      interested_fans?: number
+      ticket_link_clicks?: number
+      ticket_link_clicks_by_act?: Array<{ act_slug: string | null; clicks: number }>
+    }
+    campaigns?: Array<{
+      slug: string
+      template_key: string
+      status: string
+      scheduled_at: string | null
+      recipients: number | null
+      delivered: number | null
+      completed_at: string | null
+    }>
+    evidence_gaps?: string[]
+  }
+  recipients: {
+    band?: Array<{ email: string; name: string }>
+    counterparty?: { name: string | null; email: string } | null
+  }
+  honesty_contract: {
+    observed?: string
+    inferred?: string
+    rules?: string[]
+  }
+}
+
 export type VehicleProfile = {
   seats: number
   cargo_litres: number
