@@ -20,12 +20,14 @@ const LABELS: Record<string, string> = {
   synesthesia_enabled: 'Synesthesia',
   north_star_metric: 'What the brain chases',
   social_auto_post: 'Social auto-posting',
+  growth_cadence_moments_per_month: 'Serious moments per month',
+  growth_cadence_fillers_enabled: 'Filler calendar',
 }
 
 // The server grew three more editable keys than this panel had labels for, so
 // `signal_enabled` and `north_star_metric` rendered as their own key names over
 // a free-text box — a boolean and an enum you had to spell correctly by hand.
-const BOOLEAN_KEYS = new Set(['signal_enabled', 'synesthesia_enabled', 'social_auto_post'])
+const BOOLEAN_KEYS = new Set(['signal_enabled', 'synesthesia_enabled', 'social_auto_post', 'growth_cadence_fillers_enabled'])
 
 // A key name alone does not say what the value does or what shape it takes.
 // Each row carries what the value drives, and an example of a valid one — the
@@ -58,6 +60,14 @@ const HINTS: Record<string, { hint: string; example: string }> = {
   social_auto_post: {
     hint: 'When enabled, the social post executor publishes to Facebook Pages and Instagram through the Graph API instead of drafting for manual review. X always drafts. The publish guard still runs — a held post lands in the operator queue with its reason. Instagram needs at least one active photo press asset.',
     example: 'false',
+  },
+  growth_cadence_moments_per_month: {
+    hint: 'Serious moments (release, video, or show) the tenant commits to each month — each gets its vertical, tier decision and spend. 1 is the default; a tenant who beats it moves their own number up. 1–4.',
+    example: '1',
+  },
+  growth_cadence_fillers_enabled: {
+    hint: 'Whether the machine schedules fillers between serious moments — demos, harvest output, catalogue rotation, show material, no spend and no gate. The quiet weeks fill themselves.',
+    example: 'true',
   },
 }
 
