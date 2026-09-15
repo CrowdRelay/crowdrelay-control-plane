@@ -62,8 +62,28 @@ export function TenantShowPage() {
             <PageHeader
               eyebrow="SHOW"
               title={data().event.title}
-              description={`${formatTimestamp(data().event.starts_at)}${data().event.venue ? ` · ${data().event.venue}` : ''}`}
+              description={`${formatTimestamp(data().event.starts_at)}${data().event.venue ? ` · ${data().event.venue}` : ''}${data().event.venue_address ? ` · ${data().event.venue_address}` : ''}`}
             />
+            {/* Venue knowledge lives on the show: what the room is to us —
+                the relationship record, not a lookup. */}
+            <Show when={(data().event.venue_knowledge ?? []).length > 0}>
+              <div class="mb-3 rounded-lg border border-border bg-surface-1 px-4 py-2.5">
+                <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">The room</p>
+                <For each={data().event.venue_knowledge ?? []}>
+                  {v => (
+                    <div class="mt-1 text-xs text-muted-foreground">
+                      <span class="text-foreground">{v.name}</span>
+                      {` · ${v.kind.replaceAll('_', ' ')} — ${v.status.replaceAll('_', ' ')}`}
+                      {v.last_reply !== 'none' ? ` · reply: ${v.last_reply.replaceAll('_', ' ')}` : ''}
+                      {v.last_outreach_at ? ` · last contact ${formatTimestamp(v.last_outreach_at)}` : ''}
+                      <Show when={v.notes}>
+                        <p class="mt-0.5 truncate text-[11px]">{v.notes}</p>
+                      </Show>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </Show>
             <div class="flex flex-col gap-2">
               <For each={data().steps}>{s => <StepRow step={s} slug={params().slug} eventSlug={params().eventSlug} />}</For>
             </div>
@@ -141,8 +161,16 @@ function DetailLine(props: { step: ShowTimelineStep }) {
       case 'announced': {
         const surfaces = (d().surfaces as Array<{ surface: string; status: string }> | undefined) ?? []
         const live = surfaces.filter(s => s.status === 'published' || s.status === 'verified').length
-        if (d().emitted_at) return `Announced ${formatTimestamp(String(d().emitted_at))}${live ? ` · on ${live} surface${live === 1 ? '' : 's'}` : ''}`
-        return live ? `On ${live} surface${live === 1 ? '' : 's'}` : 'Not announced yet'
+        const base = d().emitted_at
+          ? `Announced ${formatTimestamp(String(d().emitted_at))}${live ? ` · on ${live} surface${live === 1 ? '' : 's'}` : ''}`
+          : live ? `On ${live} surface${live === 1 ? '' : 's'}` : 'Not announced yet'
+        const cb = d().crossbill as { state?: string; acts?: Array<{ name: string }>; cap_per_month?: number | null; deliveries_this_month?: number | null } | undefined
+        if (cb?.state === 'automated_overlap' && cb.acts && cb.acts.length > 1) {
+          const cap = cb.cap_per_month != null ? ` · cap ${cb.cap_per_month}/mo${cb.deliveries_this_month != null ? `, ${cb.deliveries_this_month} sent` : ''}` : ''
+          return `${base} · shared bill auto-pushed${cap}`
+        }
+        if (cb?.state === 'manual_ask' && cb.acts && cb.acts.length > 1) return `${base} · shared bill — ask is manual`
+        return base
       }
       case 'sales_pace': {
         const sold = d().paid_tickets as number | undefined
@@ -166,8 +194,10 @@ function DetailLine(props: { step: ShowTimelineStep }) {
         return `${(d().checkins as number) ?? 0} scanned${d().campaign_ready ? '' : ' · no QR yet'}`
       case 'recall': {
         const st = d().action_status as string | null | undefined
-        if (st === 'succeeded') return `Sent ${d().finished_at ? formatTimestamp(String(d().finished_at)) : ''}`.trim()
-        if (st) return `Recap ${st.replace('_', ' ')}`
+        const c = d().campaign as { subject?: string | null; delivered?: number | null; status?: string } | null | undefined
+        const receipt = c?.delivered != null ? ` · ${c.delivered} delivered` : c?.status ? ` · campaign ${c.status}` : ''
+        if (st === 'succeeded') return `${`Sent ${d().finished_at ? formatTimestamp(String(d().finished_at)) : ''}`.trim()}${receipt}`
+        if (st) return `Recap ${st.replaceAll('_', ' ')}${c?.subject ? ` · "${c.subject}"` : ''}`
         return 'No recap queued yet'
       }
       case 'harvest': {

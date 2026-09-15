@@ -1578,9 +1578,20 @@ export type TenantShowTimelineResponse = {
     slug: string
     title: string
     venue: string | null
+    venue_address: string | null
     status: string
     starts_at: string
     ends_at: string | null
+    /** What the night knows about the room — beacon-campaign records keyed
+     *  to this event. Empty when there is no relationship on file. */
+    venue_knowledge?: Array<{
+      name: string
+      kind: string
+      status: string
+      last_reply: string
+      last_outreach_at: string | null
+      notes: string | null
+    }>
   }
   steps: ShowTimelineStep[]
 }
