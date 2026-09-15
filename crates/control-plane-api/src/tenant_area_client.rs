@@ -485,6 +485,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/audience/segments"
                     | "/v1/control-plane/ops/actions"
                     | "/v1/control-plane/community-intelligence/communities"
+                    | "/v1/control-plane/events"
                     | "/v1/control-plane/audience-graph/places"
                     | "/v1/control-plane/autopilot/cycle/preview"
             ) || path.starts_with("/v1/control-plane/audience-graph/places?")

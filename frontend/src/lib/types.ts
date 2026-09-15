@@ -1537,6 +1537,24 @@ export type ShowEconomicsResponse = {
   [key: string]: unknown
 }
 
+/** One show on the tenant's list — `GET /tenants/{slug}/shows`. `upcoming`
+ * marks the show still ahead of or inside the night it is played; the list
+ * arrives ordered next-up-ascending then past-descending. */
+export type TenantShow = {
+  id: string
+  slug: string
+  title: string
+  venue: string | null
+  starts_at: string
+  ends_at: string | null
+  scan_count: number
+  upcoming: boolean
+}
+
+export type TenantShowsResponse = {
+  events: TenantShow[]
+}
+
 export type VehicleProfile = {
   seats: number
   cargo_litres: number

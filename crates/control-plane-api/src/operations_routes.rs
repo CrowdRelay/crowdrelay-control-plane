@@ -315,6 +315,8 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/show-economics",
             get(show_economics),
         )
+        // The gig page's list — the tenant's shows, next up then past.
+        .route("/tenants/{slug}/shows", get(tenant_shows))
         .route(
             "/tenants/{slug}/operations/chief-of-staff",
             get(chief_of_staff),
@@ -2720,6 +2722,24 @@ async fn show_economics(
     )
     .await?;
     object_no_store(value, "show economics")
+}
+
+async fn tenant_shows(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/events",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "shows")
 }
 
 async fn chief_of_staff(

@@ -65,6 +65,13 @@ const TENANT_NAV_ITEMS = TENANT_NAV_GROUPS.flatMap(group => group.items)
   .slice()
   .sort((a, b) => b.path.length - a.path.length)
 
+// Pages that are deliberately not top-level destinations still need a name
+// in the breadcrumb — the gig page is reached from the home screen and ⌘K,
+// not the sidebar. Longest suffix first, same rule as the nav items.
+const TENANT_PAGE_LABELS: Array<{ suffix: string; label: string }> = [
+  { suffix: '/shows', label: 'Shows' },
+]
+
 export const currentPageLabel = (pathname: string, slug: string | undefined) => {
   if (slug) {
     const base = `/tenants/${slug}`
@@ -73,7 +80,8 @@ export const currentPageLabel = (pathname: string, slug: string | undefined) => 
       const itemSuffix = item.path.replace('/tenants/$slug', '')
       return itemSuffix ? suffix.startsWith(itemSuffix) : suffix === ''
     })
-    return match?.label ?? 'Overview'
+    const page = TENANT_PAGE_LABELS.find(item => suffix.startsWith(item.suffix))
+    return match?.label ?? page?.label ?? 'Overview'
   }
   return GLOBAL_NAV.find(item => item.exact ? pathname === item.path : pathname.startsWith(item.path))?.label ?? 'Overview'
 }

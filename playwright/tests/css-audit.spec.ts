@@ -188,6 +188,7 @@ const SUBPAGES = [
   { path: '/tenants/virya/attention', name: 'attention' },
   { path: '/tenants/virya/portfolio', name: 'portfolio' },
   { path: '/tenants/virya/funnel', name: 'growth-funnel' },
+  { path: '/tenants/virya/shows', name: 'shows' },
 ]
 
 test.describe('CSS Layout Audit @e2e', () => {

@@ -42,6 +42,7 @@ const SUBPAGES: Array<{ suffix: string; label: string }> = [
   { suffix: '/notifiers', label: 'Notifiers' },
   { suffix: '/portfolio', label: 'Portfolio' },
   { suffix: '/audience', label: 'Audience' },
+  { suffix: '/shows', label: 'Shows' },
   { suffix: '/beacons', label: 'Beacons' },
   { suffix: '/area', label: 'AREA' },
 ]
