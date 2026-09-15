@@ -33,7 +33,7 @@ jobs:
   close-repos:
     name: Ensure repos are private
     if: github.event.workflow_run.head_branch == github.event.repository.default_branch
-    runs-on: [self-hosted, arm64]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
       - name: Flip all CrowdRelay repos to private
@@ -78,7 +78,7 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == github.event.repository.default_branch
 
-    runs-on: [self-hosted, arm64]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
 
     steps:
@@ -261,7 +261,7 @@ jobs:
           echo "Waiting for control plane readiness..."
           for i in $(seq 1 30); do
             for container in crowdrelay-control-plane-app-green-1 crowdrelay-control-plane-app-1; do
-              health="$(docker inspect "$container" --format '{{.State.Health.Status}}' 2>/dev/null || true)"
+              health="$(ssh virya-crowdrelay "docker inspect \"$container\" --format '{{.State.Health.Status}}'" 2>/dev/null || true)"
               if [[ "$health" == "healthy" ]]; then
                 echo "HEALTH=PASS container=$container ready after ${i} attempt(s)"
                 exit 0
@@ -280,7 +280,7 @@ jobs:
           # The blue-green script may have switched to green; check whichever
           # container is running the new image.
           for container in crowdrelay-control-plane-app-1 crowdrelay-control-plane-app-green-1; do
-            running_image="$(docker inspect "$container" --format '{{.Config.Image}}' 2>/dev/null || true)"
+            running_image="$(ssh virya-crowdrelay "docker inspect \"$container\" --format '{{.Config.Image}}'" 2>/dev/null || true)"
             if [[ "$running_image" == "${LOCAL_IMAGE}" ]]; then
               echo "REVISION=PASS container=$container running=${running_image}"
               exit 0
@@ -295,6 +295,9 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
+          # Runs on the production host over SSH — this job builds on a
+          # GitHub runner now, but the image store being pruned lives there.
+          ssh virya-crowdrelay 'bash -s' <<'REMOTE'
           set -uo pipefail
           # Bounded, not scorched-earth: keep 72h of warm cache mounts so the
           # next deploy build reuses the cargo registry instead of re-downloading.
@@ -311,6 +314,7 @@ jobs:
               docker rmi "$image_id" 2>/dev/null && echo "  pruned $repo_tag" || true
             done
           echo "CLEANUP=PASS"
+          REMOTE
 
       # GHCR packages inherit the org's default visibility (private) on first
       # publish. The production host pulls anonymously, so the package must
