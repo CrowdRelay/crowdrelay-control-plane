@@ -318,7 +318,7 @@ export function FanTablePanel(props: {
           >
             <Show
               when={importable().length > 0}
-              fallback={<p class="text-sm text-muted-foreground">This tenant has no enabled fanbase yet. Create one on the Portfolio page first — an import needs somewhere to land.</p>}
+              fallback={<p class="text-sm text-muted-foreground">No enabled fanbase yet — create one under the Label portfolio tab first, an import needs somewhere to land.</p>}
             >
               <NativeSelect
                 value={targetFanbase()}

@@ -253,9 +253,11 @@ export function TenantPage() {
     const t = data()
     return <>
       <PageHeader
-        eyebrow="CONTROL"
+        eyebrow={authState.isPlatformLevel() ? 'CONTROL' : undefined}
         title={t.displayName}
-        description={`${t.defaultCountryCode} · ${t.workspaceId ? 'Workspace ready' : 'Workspace pending'}`}
+        description={authState.isPlatformLevel()
+          ? `${t.defaultCountryCode} · ${t.workspaceId ? 'Workspace ready' : 'Workspace pending'}`
+          : t.defaultCountryCode}
         actions={<div class="flex items-center gap-2"><StatusBadge status={t.status} tone={t.status === 'active' ? 'good' : t.status === 'suspended' ? 'bad' : t.status === 'parked' ? 'warn' : 'warn'} /><Show when={capabilities()?.canPark}><Button writes variant="ghost" size="sm" disabled={park.isPending} onClick={() => park.mutate('non-payment')} aria-label={park.isPending ? 'Parking tenant' : 'Park tenant'}>{park.isPending && <Spinner />} {park.isPending ? 'Parking…' : 'Park'}</Button></Show><Show when={capabilities()?.canUnpark}><Button writes size="sm" disabled={unpark.isPending} onClick={() => unpark.mutate()} aria-label={unpark.isPending ? 'Resuming tenant' : 'Resume tenant'}>{unpark.isPending && <Spinner />} {unpark.isPending ? 'Resuming…' : 'Resume'}</Button></Show><Show when={capabilities()?.canSuspend !== false && t.status !== 'parked'}><Button writes variant="ghost" size="sm" disabled={status.isPending} onClick={() => status.mutate(t.status === 'suspended' ? 'resume' : 'suspend')} aria-label={status.isPending ? 'Updating status' : (t.status === 'suspended' ? 'Resume tenant' : 'Suspend tenant')}>{status.isPending && <Spinner />} {status.isPending ? 'Updating…' : t.status === 'suspended' ? 'Resume' : 'Suspend'}</Button></Show></div>}
       />
       <Show when={status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error}>
@@ -263,7 +265,11 @@ export function TenantPage() {
       </Show>
       <Show when={t.status === 'parked'}>
         <div class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-foreground" role="status">
-          <strong>Tenant is parked.</strong> The autopilot is stopped — no new tasks or outreach. Pending deliveries still drain. Click <em>Resume</em> to restore.
+          <Show when={authState.isPlatformLevel()} fallback={
+            <><strong>Parked.</strong> Automated work is stopped — no new tasks or outreach. Pending deliveries still drain.</>
+          }>
+            <strong>Tenant is parked.</strong> The autopilot is stopped — no new tasks or outreach. Pending deliveries still drain. Click <em>Resume</em> to restore.
+          </Show>
         </div>
       </Show>
       {/* One tab is no tab bar — the band's settings page is the profile,
@@ -495,7 +501,7 @@ export function TenantPage() {
         <Section
           title="Products"
           icon={<SectionIcon name="shield" />}
-          description="Which apps this tenant is entitled to, and where each one is published."
+          description={authState.isPlatformLevel() ? 'Which apps this tenant is entitled to, and where each one is published.' : 'Which apps your act is entitled to, and where each one is published.'}
           action={<Button writes variant="ghost" size="sm" onClick={() => setEditingMobileApps(true)}>Edit Play Store URLs</Button>}
         >
           {/* Four hand-built three-column CSS grids, each declaring its own
@@ -505,7 +511,7 @@ export function TenantPage() {
             <TableBody>
               <TableRow>
                 <TableCell><strong>CrowdRelay</strong></TableCell>
-                <TableCell class="text-muted-foreground">The tenant's own API and workspace</TableCell>
+                <TableCell class="text-muted-foreground">{authState.isPlatformLevel() ? "The tenant's own API and workspace" : "Your act's own API and workspace"}</TableCell>
                 <TableCell class="text-right"><StatusBadge status="enabled" tone="good" /></TableCell>
               </TableRow>
               <TableRow>
@@ -538,7 +544,7 @@ export function TenantPage() {
         <Section
           title="Brand palette"
           icon={<SectionIcon name="palette" />}
-          description="Ten colours sent to this tenant's CrowdRelay and Signal builds. Nothing changes until you save; resetting removes the override and both apps fall back to product defaults."
+          description={authState.isPlatformLevel() ? "Ten colours sent to this tenant's CrowdRelay and Signal builds. Nothing changes until you save; resetting removes the override and both apps fall back to product defaults." : "Ten colours sent to your CrowdRelay and Signal builds. Nothing changes until you save; resetting removes the override and both apps fall back to product defaults."}
           action={t.brandingPalette
             ? <Button writes variant="ghost" size="sm" disabled={branding.isPending} onClick={() => branding.mutate(null)}>{branding.isPending && <Spinner />} Reset to defaults</Button>
             : <StatusBadge status="product defaults" />}
@@ -569,7 +575,9 @@ export function TenantPage() {
           <Section
             title="Google Play setup"
             icon={<SectionIcon name="play" />}
-            description="Onboarding this tenant's mobile apps. Each step is automated by the onboarding script in the virya-signal repo."
+            description={authState.isPlatformLevel()
+              ? "Onboarding this tenant's mobile apps. Each step is automated by the onboarding script in the virya-signal repo."
+              : 'Getting your apps onto the Play Store.'}
           >
             <div class="space-y-2">
               <For each={[
@@ -584,14 +592,18 @@ export function TenantPage() {
                   show: t.signalEnabled,
                   done: Boolean(t.signalPlayStoreUrl),
                   title: 'Signal app published',
-                  detail: `Package: music.${t.slug}.signal — run the onboarding script to build and publish`,
+                  detail: authState.isPlatformLevel()
+                    ? `Package: music.${t.slug}.signal — run the onboarding script to build and publish`
+                    : `Package: music.${t.slug}.signal — the crew publishes this for you`,
                   url: t.signalPlayStoreUrl ?? null,
                 },
                 {
                   show: t.synesthesiaEnabled,
                   done: Boolean(t.synesthesiaPlayStoreUrl),
                   title: 'Synesthesia app published',
-                  detail: `Package: music.${t.slug}.synesthesia — run the onboarding script in the synesthesia repo`,
+                  detail: authState.isPlatformLevel()
+                    ? `Package: music.${t.slug}.synesthesia — run the onboarding script in the synesthesia repo`
+                    : `Package: music.${t.slug}.synesthesia — the crew publishes this for you`,
                   url: t.synesthesiaPlayStoreUrl ?? null,
                 },
               ].filter(step => step.show)}>{step => (
@@ -610,7 +622,9 @@ export function TenantPage() {
                 </div>
               )}</For>
             </div>
-            <Show when={!t.signalPlayStoreUrl && t.signalEnabled}>
+            {/* The onboarding command is operator runbook material — it
+                names an admin-token env var the band has no use for. */}
+            <Show when={!t.signalPlayStoreUrl && t.signalEnabled && authState.isPlatformLevel()}>
               <div class="mt-3 rounded-lg border border-border bg-surface-1 p-3">
                 <p class="mb-2 text-sm text-muted-foreground">Run in the virya-signal repo to onboard the Signal app:</p>
                 <pre class="overflow-x-auto text-xs text-foreground"><code>bash scripts/onboard-tenant-app.sh \<br/>  --tenant {t.slug} \<br/>  --control-plane-url {window.location.origin.replace(/:\d+$/, '')} \<br/>  --token $CONTROL_PLANE_ADMIN_TOKEN \<br/>  --version 0.1.0 --version-code 1</code></pre>
@@ -624,7 +638,7 @@ export function TenantPage() {
           onClose={() => setEditingMobileApps(false)}
           label="Google Play Store URLs"
           title="Google Play Store URLs"
-          description="Where each of this tenant's mobile apps is published. Leave a field blank if that app is not on the store yet."
+          description={authState.isPlatformLevel() ? "Where each of this tenant's mobile apps is published. Leave a field blank if that app is not on the store yet." : "Where each of your apps is published. Leave a field blank if that app is not on the store yet."}
           class="max-w-lg"
           footer={<>
             <Button variant="ghost" size="sm" onClick={() => setEditingMobileApps(false)}>Cancel</Button>
@@ -655,7 +669,7 @@ export function TenantPage() {
           <Section
             title="Opt out of the platform"
             icon={<SectionIcon name="alert-triangle" />}
-            description="Your request is recorded and sent to the crew, who contact you to confirm before removing any tenant data. Your CrowdRelay workspace keeps running until it is shut down separately."
+            description="Your request is recorded and sent to the crew, who contact you to confirm before removing any of your act's data. Your CrowdRelay setup keeps running until it is shut down separately."
           >
             <Show when={optOutDone()} fallback={
               <>

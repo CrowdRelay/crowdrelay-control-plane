@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { errorMessage, formatIsoAge } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
@@ -160,7 +161,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
         <Show when={pendingGrowthActions().length > 0} fallback={
           <Show when={overview.isFetching} fallback={
             <Show when={overview.data} fallback={
-              <EmptyState label="Intelligence unavailable" hint="The autopilot overview could not be loaded. This may be a temporary issue." />
+              <EmptyState label="Intelligence unavailable" hint={authState.isPlatformLevel() ? 'The autopilot overview could not be loaded. This may be a temporary issue.' : 'The overview could not be loaded. This may be a temporary issue.'} />
             }>
               <EmptyState label="No actions awaiting approval" hint="When the intelligence proposes actions that require human approval, they appear here." />
             </Show>
@@ -252,9 +253,9 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
         <Show when={growthPolicy()} fallback={
           <Show when={overview.isFetching} fallback={
             <Show when={overview.data} fallback={
-              <EmptyState label="Policy unavailable" hint="The autopilot overview could not be loaded. This may be a temporary issue." />
+              <EmptyState label="Policy unavailable" hint={authState.isPlatformLevel() ? 'The autopilot overview could not be loaded. This may be a temporary issue.' : 'The overview could not be loaded. This may be a temporary issue.'} />
             }>
-              <EmptyState label="No growth intelligence policy" hint="The growth intelligence policy was not found in the autopilot overview. Ensure the autopilot is configured for this tenant." />
+              <EmptyState label="No growth intelligence policy" hint={authState.isPlatformLevel() ? 'The growth intelligence policy was not found in the autopilot overview. Ensure the autopilot is configured for this tenant.' : 'No growth policy is set for your act yet.'} />
             </Show>
           }>
             <SkeletonPanel lines={4} />
@@ -281,11 +282,11 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
             </span>
           </Show>
         </div>
-        <p class="mt-1 text-sm text-muted-foreground">Each of these is a growth plan the autopilot decided on: what to research, draft or analyse. It then hands the work to an AI worker and records what came back.</p>
+        <p class="mt-1 text-sm text-muted-foreground">{authState.isPlatformLevel() ? 'Each of these is a growth plan the autopilot decided on: what to research, draft or analyse. It then hands the work to an AI worker and records what came back.' : 'Each of these is a growth plan it decided on: what to research, draft or analyse. It then hands the work to an AI worker and records what came back.'}</p>
         <Show when={workflows.error}><ErrorCard>Growth workflows unavailable: {errorMessage(workflows.error, 'We couldn\'t reach the growth workflows. Try refreshing.')}</ErrorCard></Show>
         <Show when={workflows.data && workflows.data!.length > 0} fallback={
           <Show when={workflows.data} fallback={<SkeletonGrid count={3} minCardHeight='100px' />}>
-            <EmptyState label="No AI work yet" hint="When the autopilot decides something needs researching, drafting or analysing, it hands the job to an AI worker and the run appears here." />
+            <EmptyState label="No AI work yet" hint={authState.isPlatformLevel() ? 'When the autopilot decides something needs researching, drafting or analysing, it hands the job to an AI worker and the run appears here.' : 'When it decides something needs researching, drafting or analysing, it hands the job to an AI worker and the run appears here.'} />
           </Show>
         }>
           <div class="grid gap-2.5 mt-3">

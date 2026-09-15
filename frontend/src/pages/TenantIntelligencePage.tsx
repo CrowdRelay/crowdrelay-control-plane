@@ -2,6 +2,7 @@ import { Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { IntelligenceTransparencyPanel } from '../components/IntelligenceTransparencyPanel'
 import { GrowthIntelligencePanel } from '../components/GrowthIntelligencePanel'
 import { RunBrainCyclePanel } from '../components/RunBrainCyclePanel'
@@ -47,14 +48,14 @@ export function TenantIntelligencePage() {
 
   return <PageShell>
     <PageHeader
-      eyebrow="BRAIN"
+      eyebrow={authState.isPlatformLevel() ? 'BRAIN' : undefined}
       title="Intelligence"
       description="What the system decided to do, what it did, and how the growth numbers moved."
       actions={
         <Show when={!model.error && model.data}>
           <div class="flex items-center gap-2">
             <Show when={autopilot()?.runtime_enabled}>
-              <StatusBadge status="autopilot on" tone="good" />
+              <StatusBadge status={authState.isPlatformLevel() ? 'autopilot on' : 'working on its own'} tone="good" />
             </Show>
             <StatusBadge status={autopilot()?.queued_actions ? `${autopilot()!.queued_actions} queued` : 'idle'} tone={autopilot()?.queued_actions ? 'warn' : 'muted'} />
           </div>
@@ -137,7 +138,7 @@ export function TenantIntelligencePage() {
       {/* ── Decisions tab — what it decided ── */}
       <TabPanel active={activeTab()} id="decisions" visited={isVisited('decisions')}>
         <div>
-          <SectionTitle title="Decision timeline" icon={<SectionIcon name="history" />} description="Every decision the autopilot reached, with the evidence it used." />
+          <SectionTitle title="Decision timeline" icon={<SectionIcon name="history" />} description={authState.isPlatformLevel() ? 'Every decision the autopilot reached, with the evidence it used.' : 'Every decision it reached, with the evidence it used.'} />
           <IntelligenceTransparencyPanel slug={params().slug} />
         </div>
       </TabPanel>

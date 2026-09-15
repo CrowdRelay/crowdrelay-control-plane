@@ -44,6 +44,10 @@ export function OverviewPage() {
   const commandCenter = useQuery(() => ({
     queryKey: ['command-center'],
     queryFn: api.commandCenter,
+    // Band sessions redirect away in beforeLoad — but a tenant operator
+    // with no tenantSlug on the profile would still mount the page, and
+    // this endpoint is platform-only: never fire a guaranteed 403.
+    enabled: authState.isPlatformLevel(),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
     refetchInterval: whileIncomplete(hasUnavailableTenant),

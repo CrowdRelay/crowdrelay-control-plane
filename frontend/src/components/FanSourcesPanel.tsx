@@ -1,6 +1,7 @@
 import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { errorMessage } from '../lib/format'
 import type { FanbaseBlock } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
@@ -353,7 +354,9 @@ export function FanSourcesPanel(props: {
       lead
       title="Platform connections"
       icon={<SectionIcon name="globe" />}
-      description="Where this tenant's fans already are. Each connection syncs follower and engagement metrics on the growth schedule."
+      description={authState.isPlatformLevel()
+        ? "Where this tenant's fans already are. Each connection syncs follower and engagement metrics on the growth schedule."
+        : "Where your fans already are. Each connection syncs follower and engagement numbers on its own schedule."}
       action={<Show when={connectedCount() > 0}>
         <span class="flex items-center gap-1.5 text-sm text-muted-foreground">
           <span class="inline-block h-2 w-2 rounded-full bg-success" />
@@ -365,7 +368,7 @@ export function FanSourcesPanel(props: {
       <Show when={verificationNotice()}><div class="mb-3 rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground" role="status">{verificationNotice()}</div></Show>
       <Show when={errorText()}><ErrorCard class="mb-3">{errorText()}</ErrorCard></Show>
       <Show when={connections.error}>
-        <ErrorCard class="mb-3">Fan source connections unavailable: {errorMessage(connections.error, 'We couldn\'t reach the fan source service. Try refreshing — if it persists, the tenant runtime may be down.')}</ErrorCard>
+        <ErrorCard class="mb-3">Fan source connections unavailable: {errorMessage(connections.error, authState.isPlatformLevel() ? 'We couldn\'t reach the fan source service. Try refreshing — if it persists, the tenant runtime may be down.' : 'We couldn\'t reach the fan source service. Try refreshing — if it persists, something on our side is down.')}</ErrorCard>
       </Show>
 
       <Show when={connections.data} fallback={<Show when={connections.isPending}><SkeletonRows count={3} /></Show>}>
@@ -571,7 +574,9 @@ export function FanSourcesPanel(props: {
         <Field label="Name" hint="Yours to choose. Include the platform and the campaign or city, so two similar feeds stay tellable apart later.">
           <Input value={name()} onInput={e => setName(e.currentTarget.value)} placeholder="e.g. Meta Lead Ads — Warsaw" />
         </Field>
-        <Field label="Source kind" hint="How fans reach the graph: a URL you import from, a batch you paste in, or a platform this tenant is connected to.">
+        <Field label="Source kind" hint={authState.isPlatformLevel()
+          ? "How fans reach the graph: a URL you import from, a batch you paste in, or a platform this tenant is connected to."
+          : "How fans reach you: a URL you import from, a batch you paste in, or a platform you're connected to."}>
           <NativeSelect value={sourceKind()} onChange={e => setSourceKind(e.currentTarget.value)}>
             <For each={SOURCE_KINDS}>{k => <option value={k.value}>{k.label}</option>}</For>
           </NativeSelect>

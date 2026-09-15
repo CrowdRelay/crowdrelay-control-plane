@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import type { OpportunityBoardEntry } from '../lib/types'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { confidencePercent, errorMessage } from '../lib/format'
 import { SkeletonOpportunityBoard } from './Skeleton'
 import { APPROVE_EFFECT, CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, RANK_FACTOR_LABELS, VALUE_TIER_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
@@ -305,7 +306,9 @@ export function OpportunityBoardPanel(props: {
       <Show when={data().length === 0}>
         <Section flush title="Nothing waiting" icon={<SectionIcon name="target" />}>
           <p class="text-sm text-muted-foreground">
-            The autopilot has found nothing that needs a decision. Anything it finds appears here the moment it raises it.
+            {authState.isPlatformLevel()
+              ? 'The autopilot has found nothing that needs a decision. Anything it finds appears here the moment it raises it.'
+              : 'Nothing needs a decision right now. Anything worth one appears here the moment it comes up.'}
           </p>
         </Section>
       </Show>
@@ -316,7 +319,9 @@ export function OpportunityBoardPanel(props: {
           title="Needs you now"
           icon={<SectionIcon name="target" />}
           count={needsYou().length}
-          description="The autopilot prepared these and stopped, because its policy says to ask you first. Approve, reject, or record that you did it yourself."
+          description={authState.isPlatformLevel()
+            ? 'The autopilot prepared these and stopped, because its policy says to ask you first. Approve, reject, or record that you did it yourself.'
+            : 'These are ready and waiting on your call. Approve, reject, or record that you did it yourself.'}
         >
           <div class="border-t border-border">
             <For each={needsYou()}>{entry => <Row entry={entry} expanded />}</For>
@@ -347,7 +352,9 @@ export function OpportunityBoardPanel(props: {
           title="Noted, no action taken"
           icon={<SectionIcon name="inbox" />}
           count={forInfo().length}
-          description="Advice and measurements the autopilot recorded. Nothing was prepared, so there is nothing to approve."
+          description={authState.isPlatformLevel()
+            ? 'Advice and measurements the autopilot recorded. Nothing was prepared, so there is nothing to approve.'
+            : 'Advice and measurements on record. Nothing was prepared, so there is nothing to approve.'}
         >
           <div class="border-t border-border">
             <For each={forInfo()}>{entry => <Row entry={entry} />}</For>

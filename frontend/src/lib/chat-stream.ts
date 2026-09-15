@@ -15,6 +15,15 @@ export const CHAT_SUGGESTIONS = [
   "What free AI models are available?",
 ]
 
+// The band's variant drops the provider/console questions it has no surface
+// for and keeps the ones about its own work.
+export const BAND_CHAT_SUGGESTIONS = [
+  "What can I do here?",
+  "Help me set up a daily press pitch",
+  "What did it decide this week?",
+  "How do I get more fans at shows?",
+]
+
 const ACTIONS_DELIMITER = ':::actions'
 
 /** Strip the :::actions block from displayed text. */

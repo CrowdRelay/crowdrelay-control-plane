@@ -2,6 +2,7 @@ import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { AudienceOverviewPanel } from '../components/AudienceOverviewPanel'
 import { FanTablePanel } from '../components/FanTablePanel'
 import { FanSourcesPanel } from '../components/FanSourcesPanel'
@@ -36,9 +37,16 @@ function DegradedSections(props: { degraded: string[]; labels: Record<string, st
   return <Show when={props.degraded.length}>
     <For each={props.degraded}>{section => (
       <Alert tone="warning" role="status">
-        <strong>{props.labels[section] ?? section}</strong> aren't available on the connected CrowdRelay build right
-        now. The rest of the page keeps working; ship a newer CrowdRelay release and this lights up on the
-        next refresh.
+        <Show when={authState.isPlatformLevel()} fallback={
+          <>
+            <strong>{props.labels[section] ?? section}</strong> couldn't be checked right now.
+            The rest of the page keeps working — this comes back on its own.
+          </>
+        }>
+          <strong>{props.labels[section] ?? section}</strong> aren't available on the connected CrowdRelay build right
+          now. The rest of the page keeps working; ship a newer CrowdRelay release and this lights up on the
+          next refresh.
+        </Show>
       </Alert>
     )}</For>
   </Show>
@@ -74,7 +82,7 @@ export function AudiencePage() {
   const refreshPortfolio = () => portfolio.refetch()
 
   return <PageShell>
-    <PageHeader eyebrow="AUDIENCE" title="Audience" description="Every fan aggregated from all sides of the internet — Reddit, Meta, Spotify, Bandsintown, forums, press, live shows — in one view. Plus the communities where they already gather." />
+    <PageHeader eyebrow={authState.isPlatformLevel() ? 'AUDIENCE' : undefined} title="Audience" description="Every fan aggregated from all sides of the internet — Reddit, Meta, Spotify, Bandsintown, forums, press, live shows — in one view. Plus the communities where they already gather." />
 
     {/* Tab bar */}
     <TabBar

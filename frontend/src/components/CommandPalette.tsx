@@ -50,12 +50,14 @@ const SUBPAGES: Array<{ suffix: string; label: string }> = [
 // navigation: "Explain this growth drop" promised an answer and delivered a
 // route change. Keywords still match the way an operator would phrase it, so
 // typing "explain growth drop" finds the funnel.
-const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix: string }> = [
+const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix: string; platform?: true }> = [
   { id: 'q-approvals', label: 'Open pending approvals', keywords: 'pending approvals review needs you attention show', suffix: '/attention' },
   { id: 'q-decisions', label: 'Open brain decisions', keywords: 'brain decision decisions timeline why reasoning intelligence what did the brain decide today show', suffix: '/intelligence' },
   { id: 'q-cycle', label: 'Run a growth cycle (brain)', keywords: 'brain run cycle growth grow fans preview dispatch intelligence', suffix: '/intelligence' },
   { id: 'q-goal', label: 'Change the brain goal (north star)', keywords: 'brain goal north star metric target objective intelligence', suffix: '/intelligence' },
-  { id: 'q-failed', label: 'Open failed deliveries', keywords: 'failed deliveries dead outbox webhook push show', suffix: '/attention' },
+  // Dead deliveries live on the queues tab, which the band's attention page
+  // does not carry — naming it here would land them where the thing is not.
+  { id: 'q-failed', label: 'Open failed deliveries', keywords: 'failed deliveries dead outbox webhook push show', suffix: '/attention', platform: true },
   { id: 'q-beacons', label: 'Open Beacon signals', keywords: 'beacon signals operations outreach', suffix: '/operations' },
   { id: 'q-growth', label: 'Open growth intelligence', keywords: 'growth drop decline metrics funnel explain why', suffix: '/intelligence' },
   { id: 'q-learning', label: 'Open the learning loop', keywords: 'learning loop outcome decision action intelligence what the brain learned', suffix: '/intelligence' },
@@ -128,7 +130,7 @@ export const CommandPalette: Component = () => {
     const names = visible.length > 0 ? visible.map(t => t.slug) : [profile()?.tenantSlug].filter((s): s is string => Boolean(s))
     const platform = isPlatformLevel()
     const subpages = platform ? SUBPAGES : SUBPAGES.filter(p => BAND_SUFFIXES.has(p.suffix))
-    const queryEntries = platform ? QUERY_ENTRIES : QUERY_ENTRIES.filter(qe => BAND_SUFFIXES.has(qe.suffix))
+    const queryEntries = platform ? QUERY_ENTRIES : QUERY_ENTRIES.filter(qe => BAND_SUFFIXES.has(qe.suffix) && !qe.platform)
     for (const slug of names) {
       for (const page of subpages) {
         const label = platform ? page.label : BAND_LABEL[page.suffix] ?? page.label
@@ -244,7 +246,7 @@ export const CommandPalette: Component = () => {
         <input
           ref={inputRef}
           class="w-full bg-transparent border-none border-b border-border px-4 py-3 text-sm outline-none focus:border-primary focus:ring-0"
-          placeholder="Type a page, tenant or action…"
+          placeholder={isPlatformLevel() ? 'Type a page, tenant or action…' : 'Type a page or action…'}
           aria-label="Command palette search"
           role="combobox"
           aria-expanded="true"

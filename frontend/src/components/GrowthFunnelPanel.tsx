@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { errorMessage, formatIsoAge, relativeTime } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import { FunnelChart } from './FunnelChart'
@@ -282,7 +283,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
       <EmptyState
         icon={<FunnelIcon size={28} />}
         label="No growth activity in this period"
-        hint="Make sure the autopilot is enabled and the growth intelligence policy allows dispatching."
+        hint={authState.isPlatformLevel() ? 'Make sure the autopilot is enabled and the growth intelligence policy allows dispatching.' : 'Make sure automated work is switched on and the growth policy allows dispatching.'}
       />
     </Show>
     </div>

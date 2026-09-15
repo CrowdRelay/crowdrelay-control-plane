@@ -1,4 +1,5 @@
 import { For, Show } from 'solid-js'
+import { authState } from '../lib/auth'
 import { PanelTitle } from './layout'
 import { Link } from '@tanstack/solid-router'
 import type { OpsAlert } from '../lib/types'
@@ -125,6 +126,11 @@ export function WatchdogAlertsPanel(props: {
 }) {
   const open = () => props.alerts.filter(alert => alert.active)
   const recovered = () => props.alerts.filter(alert => !alert.active)
+  // Actions that lead to surfaces the band does not have — the operations
+  // page, or the platform-gated reconciliation section — hide for the band;
+  // the alert itself still says what is wrong.
+  const visibleAction = (a: AlertGuide['action']) =>
+    !a || (!authState.isPlatformLevel() && ('operations' in a || a.anchor === 'reconciliation-findings')) ? undefined : a
 
   return <>
     <div id="watchdog-alerts" class="flex items-start justify-between gap-4 mb-3">
@@ -158,10 +164,13 @@ export function WatchdogAlertsPanel(props: {
           <span><em class="not-italic font-medium">first seen</em> {formatTime(alert.first_seen_at)}</span>
           <span><em class="not-italic font-medium">last confirmed</em> {formatTime(alert.last_seen_at)}</span>
         </div>
-        <Show when={guide()?.action}>{action => <div class="flex items-center gap-2 mt-3">
+        {/* An action that names a surface the band does not have — the
+            operations page, or the platform-gated reconciliation section —
+            is worse than no action, so the band gets the alert without it. */}
+        <Show when={visibleAction(guide()?.action)}>{action => <div class="flex items-center gap-2 mt-3">
           <Show
             when={'operations' in action() ? null : (action() as { anchor: string }).anchor}
-            fallback={<Link class={buttonVariants({ variant: 'ghost', size: 'sm' })} to="/tenants/$slug" params={{ slug: props.slug }}>{action().label}</Link>}
+            fallback={<Link class={buttonVariants({ variant: 'ghost', size: 'sm' })} to="/tenants/$slug/operations" params={{ slug: props.slug }}>{action().label}</Link>}
           >
             {anchor => <Button variant="ghost" size="sm" onClick={() => props.onReveal(anchor())}>{action().label}</Button>}
           </Show>
@@ -171,7 +180,7 @@ export function WatchdogAlertsPanel(props: {
     </div>
 
     <Show when={open().length === 0}>
-      <div class="p-4 mt-2.5"><EmptyState label="No open alerts" hint="The watchdog monitors runtime health and shows open alerts here." /></div>
+      <div class="p-4 mt-2.5"><EmptyState label="No open alerts" hint={authState.isPlatformLevel() ? 'The watchdog monitors runtime health and shows open alerts here.' : 'The monitor checks that nothing broke and shows open alerts here.'} /></div>
     </Show>
 
     {/* Recovered rows stay for 24 hours so a cleared incident is visible as

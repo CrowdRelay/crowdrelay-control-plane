@@ -89,7 +89,7 @@ export const SUBJECT_KIND_LABELS: Record<string, string> = {
   booking_target: 'Booking Target',
   outreach_target: 'Outreach Target',
   target_community: 'Community',
-  workspace: 'Workspace',
+  workspace: 'Setup',
   // Written by an LLM worker rather than by the deterministic brain. The
   // fallback title-cased this to "Agent Outcome", which names a row in a
   // table; this names where the suggestion came from.

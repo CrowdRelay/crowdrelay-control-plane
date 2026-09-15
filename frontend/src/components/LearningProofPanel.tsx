@@ -2,6 +2,7 @@ import { For, Show } from 'solid-js'
 import { Eyebrow, KpiCard, KpiStrip, PanelTitle } from './layout'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { EmptyState } from './ui/empty-state'
 import type { LearningProofEntry } from '../lib/types'
 import { SectionIcon } from './SectionIcon'
@@ -154,7 +155,7 @@ export function LearningProofPanel(props: { slug: string }) {
                       </Show>
                       <Show when={influence.strategy_source === 'posterior'} fallback={
                         <span class="text-xs text-muted-foreground">
-                          strategy {influence.strategy_applied ?? '—'} (operator rules agreed)
+                          strategy {influence.strategy_applied ?? '—'} ({authState.isPlatformLevel() ? 'operator rules agreed' : 'your rules agreed'})
                         </span>
                       }>
                         <span class="text-xs text-success">

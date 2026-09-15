@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { useMutation, useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import type { PortfolioSettingsReadModel } from '../lib/types'
 import { SectionIcon } from './SectionIcon'
 import { ErrorCard, SectionTitle } from './layout'
@@ -33,7 +34,10 @@ const BOOLEAN_KEYS = new Set(['signal_enabled', 'synesthesia_enabled', 'social_a
 // A key name alone does not say what the value does or what shape it takes.
 // Each row carries what the value drives, and an example of a valid one — the
 // two questions an operator has in front of an empty text field.
-const HINTS: Record<string, { hint: string; example: string }> = {
+// `band` is the tenant-operator phrasing of the same hint — the audience
+// page shows this panel to the band, where "this tenant" is the wrong name
+// for their own act.
+const HINTS: Record<string, { hint: string; example: string; band?: string }> = {
   member_site_base_url: {
     hint: 'Origin the fan-facing member links point at. Emails, Signal deep links and QR codes are all built from it.',
     example: 'https://future-metal.example',
@@ -44,14 +48,17 @@ const HINTS: Record<string, { hint: string; example: string }> = {
   },
   synesthesia_campaign_slug: {
     hint: 'Campaign the Synesthesia experience opens on. Must match a campaign slug that exists in the tenant workspace.',
+    band: 'Campaign the Synesthesia experience opens on. Must match a campaign slug that exists for your act.',
     example: 'sanity-check',
   },
   signal_enabled: {
     hint: 'Whether the Signal mobile app is part of this tenant. Turning it off stops the brain dispatching signal-inviter work and hides Signal links from fan-facing surfaces.',
+    band: 'Whether the Signal app is part of your act. Turning it off stops the work that brings fans into it and hides Signal links from them.',
     example: 'true',
   },
   synesthesia_enabled: {
     hint: 'Whether the Synesthesia album experience is part of this tenant. Off means its campaign and leaderboard are not offered to fans.',
+    band: 'Whether the Synesthesia album experience is part of your act. Off means its campaign and leaderboard are not offered to your fans.',
     example: 'false',
   },
   north_star_metric: {
@@ -68,6 +75,7 @@ const HINTS: Record<string, { hint: string; example: string }> = {
   },
   growth_cadence_moments_per_month: {
     hint: 'Serious moments (release, video, or show) the tenant commits to each month — each gets its vertical, tier decision and spend. 1 is the default; a tenant who beats it moves their own number up. 1–4.',
+    band: 'Serious moments (release, video, or show) you commit to each month — each gets its vertical, tier decision and spend. 1 is the default; beat it and your number moves up. 1–4.',
     example: '1',
   },
   growth_cadence_fillers_enabled: {
@@ -124,8 +132,8 @@ export function PortfolioSettingsPanel(props: {
   }))
 
   return <Card flat>
-    <SectionTitle eyebrow="BRAND" title="Brand settings" icon={<SectionIcon name="settings" />} description="Where this tenant's fan-facing links point. Each field is live as soon as it is saved — the apps read these values directly." />
-    <p class="text-sm text-muted-foreground leading-relaxed">A field left empty runs the shipped default; <Badge variant="warning">override</Badge> marks the ones this tenant has replaced. Edit a field and its Save button appears beside it.</p>
+    <SectionTitle eyebrow="BRAND" title="Brand settings" icon={<SectionIcon name="settings" />} description={authState.isPlatformLevel() ? "Where this tenant's fan-facing links point. Each field is live as soon as it is saved — the apps read these values directly." : "Where your fan-facing links point. Each field is live as soon as it is saved — the apps read these values directly."} />
+    <p class="text-sm text-muted-foreground leading-relaxed">A field left empty runs the shipped default; <Badge variant="warning">override</Badge> marks the ones {authState.isPlatformLevel() ? 'this tenant has' : 'you have'} replaced. Edit a field and its Save button appears beside it.</p>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
       <For each={keys()}>{key => (
         <label class="flex flex-col gap-1.5">
@@ -168,7 +176,7 @@ export function PortfolioSettingsPanel(props: {
               <option value="false">Disabled</option>
             </NativeSelect>
           </Show>
-          <Show when={HINTS[key]}>{h => <small class="text-xs text-muted-foreground leading-relaxed">{h().hint}<Show when={!BOOLEAN_KEYS.has(key) && key !== 'north_star_metric'}> Example: <code class="text-xs">{h().example}</code></Show></small>}</Show>
+          <Show when={HINTS[key]}>{h => <small class="text-xs text-muted-foreground leading-relaxed">{h().band && !authState.isPlatformLevel() ? h().band : h().hint}<Show when={!BOOLEAN_KEYS.has(key) && key !== 'north_star_metric'}> Example: <code class="text-xs">{h().example}</code></Show></small>}</Show>
           {/* What the selected goal means, under the selector that chose it.
               The generic hint says what a north star is; this says what this
               one commits the brain to. */}

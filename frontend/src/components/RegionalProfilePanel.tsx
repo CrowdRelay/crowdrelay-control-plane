@@ -1,6 +1,7 @@
 import { Show, createEffect, createMemo, createSignal, on } from 'solid-js'
 import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import type { RegionalProfile, TenantSummary } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
@@ -93,7 +94,9 @@ export function RegionalProfilePanel(props: Props) {
   const summary = createMemo(() => {
     const p = profile()
     if (!p) return 'Not classified. The runtime falls back to inferring locale and residency, which it must never do.'
-    return `Fans of this tenant are written to in ${p.locale}, in ${p.currency}, on ${p.timezone} time. Their data is held in the ${p.dataRegion.toUpperCase()}.`
+    return authState.isPlatformLevel()
+      ? `Fans of this tenant are written to in ${p.locale}, in ${p.currency}, on ${p.timezone} time. Their data is held in the ${p.dataRegion.toUpperCase()}.`
+      : `Your fans are written to in ${p.locale}, in ${p.currency}, on ${p.timezone} time. Their data is held in the ${p.dataRegion.toUpperCase()}.`
   })
 
   return (
@@ -109,14 +112,16 @@ export function RegionalProfilePanel(props: Props) {
         {/* The opener is marked, not the eight fields behind it: a viewer that
             can reach the form fills it in and then finds Save dead. */}
         <Button variant={classified() ? 'ghost' : 'default'} size="sm" writes onClick={open}>
-          {classified() ? 'Edit' : 'Classify tenant'}
+          {classified() ? 'Edit' : authState.isPlatformLevel() ? 'Classify tenant' : 'Classify your act'}
         </Button>
       </>}
     >
       <Show when={!classified()}>
         <div class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
           No persisted regional profile. The runtime must not infer locale, currency, timezone or data
-          residency from an IP address or a browser setting. Classify this tenant before the next deployment.
+          residency from an IP address or a browser setting. {authState.isPlatformLevel()
+            ? 'Classify this tenant before the next deployment.'
+            : 'Classify your act before anything else ships.'}
         </div>
       </Show>
 
@@ -139,7 +144,7 @@ export function RegionalProfilePanel(props: Props) {
         open={editing()}
         onClose={() => setEditing(false)}
         label="Regional profile"
-        title={classified() ? 'Edit regional profile' : 'Classify tenant'}
+        title={classified() ? 'Edit regional profile' : authState.isPlatformLevel() ? 'Classify tenant' : 'Classify your act'}
         description="These values are explicit for a reason: the runtime is not allowed to guess any of them from a request."
         class="max-w-2xl"
         footer={<>
@@ -148,7 +153,7 @@ export function RegionalProfilePanel(props: Props) {
           </span>
           <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
           <Button size="sm" writes onClick={() => update.mutate()} disabled={update.isPending || !ready()}>
-            {update.isPending && <Spinner />} {update.isPending ? 'Saving…' : classified() ? 'Save profile' : 'Classify tenant'}
+            {update.isPending && <Spinner />} {update.isPending ? 'Saving…' : classified() ? 'Save profile' : authState.isPlatformLevel() ? 'Classify tenant' : 'Classify your act'}
           </Button>
         </>}
       >
@@ -170,7 +175,7 @@ export function RegionalProfilePanel(props: Props) {
               placeholder="DE"
             />
           </Field>
-          <Field label="Market region" hint="Which market the tenant sells into.">
+          <Field label="Market region" hint={authState.isPlatformLevel() ? 'Which market the tenant sells into.' : 'Which market your act sells into.'}>
             <NativeSelect value={draft().region} onChange={e => set('region', e.currentTarget.value as 'eu' | 'us')}>
               <option value="eu">EU</option>
               <option value="us">US</option>
@@ -235,7 +240,9 @@ export function RegionalProfilePanel(props: Props) {
             label="Data residency"
             note={classified() ? 'locked' : undefined}
             hint={classified()
-              ? 'Set at classification. Moving a tenant\'s data between regions requires an explicit migration, so this field is not editable here.'
+              ? (authState.isPlatformLevel()
+                ? 'Set at classification. Moving a tenant\'s data between regions requires an explicit migration, so this field is not editable here.'
+                : 'Set at classification. Moving your act\'s data between regions needs a migration, so this field is not editable here.')
               : 'Choose before deployment. Ordinary editing must never be able to move fan data to another region later.'}
           >
             <NativeSelect

@@ -248,10 +248,12 @@ export const Shell: Component = () => {
 
         {/* Global nav */}
         <nav class="flex flex-col gap-0.5 p-2">
-          <Link to="/" activeProps={{ class: 'bg-surface-1 text-foreground' }} activeOptions={{ exact: true }} title="Overview" class={cn('flex items-center gap-2.5 rounded-md py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors', collapsed() ? 'justify-center' : 'px-2.5')}>
-            <NavIcon name="overview" />
-            <Show when={!collapsed()}><span>Overview</span></Show>
-          </Link>
+          <Show when={isPlatformLevel()}>
+            <Link to="/" activeProps={{ class: 'bg-surface-1 text-foreground' }} activeOptions={{ exact: true }} title="Overview" class={cn('flex items-center gap-2.5 rounded-md py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors', collapsed() ? 'justify-center' : 'px-2.5')}>
+              <NavIcon name="overview" />
+              <Show when={!collapsed()}><span>Overview</span></Show>
+            </Link>
+          </Show>
           <Show when={isPlatformLevel()}>
             <Link to="/tenants" activeProps={{ class: 'bg-surface-1 text-foreground' }} activeOptions={{ exact: true }} title="Tenants" class={cn('flex items-center gap-2.5 rounded-md py-2 text-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors', collapsed() ? 'justify-center' : 'px-2.5')}>
               <NavIcon name="portfolio" />

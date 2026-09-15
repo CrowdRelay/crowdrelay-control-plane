@@ -2,6 +2,7 @@ import { For, Show, createSignal, onMount } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { toast } from '../components/ui/toast'
 import { fetchOperationsAttention, type BrainSelfAssessment, type TenantAttentionReadModel } from '../lib/attention'
 import { whileIncomplete } from '../lib/incomplete'
@@ -82,7 +83,9 @@ function BrainPanel(props: { brain: BrainSelfAssessment | null | undefined; notR
             <EmptyState
               label={props.notReported.includes('brain') ? 'Not reported' : 'No self-assessment yet'}
               hint={props.notReported.includes('brain')
-                ? 'This tenant does not publish a brain self-assessment — the console cannot show what it was never told.'
+                ? (authState.isPlatformLevel()
+                  ? 'This tenant does not publish a brain self-assessment — the console cannot show what it was never told.'
+                  : 'No self-assessment is published yet — this space stays empty until there is a verdict to show.')
                 : 'The brain has not assessed itself yet. It forms a verdict once it has enough days of North Star readings.'}
             />
           </div>
@@ -212,9 +215,11 @@ export function TenantAttentionPage() {
 
   return <PageShell>
     <PageHeader
-      eyebrow="CONTROL"
-      title="Operator Attention"
-      description="What is wrong right now, what the watchdog is seeing, and the checks you can run yourself."
+      eyebrow={authState.isPlatformLevel() ? 'CONTROL' : undefined}
+      title={authState.isPlatformLevel() ? 'Operator Attention' : 'Needs you'}
+      description={authState.isPlatformLevel()
+        ? 'What is wrong right now, what the watchdog is seeing, and the checks you can run yourself.'
+        : 'What is wrong right now and what needs a person.'}
       actions={
         <Show when={!summary.error && summary.data} fallback={<StatusBadge status={summary.error ? 'unavailable' : 'loading'} tone={summary.error ? 'bad' : 'muted'} />}>
           {data => <StatusBadge
@@ -232,9 +237,15 @@ export function TenantAttentionPage() {
       tabs={[
         { id: 'decisions', label: 'Decisions', count: decideCount() > 0 ? () => decideCount() : undefined },
         { id: 'inbox', label: 'Inbox' },
-        { id: 'queues', label: 'Queues', count: deadCount() > 0 ? () => deadCount() : undefined },
-        { id: 'runtime', label: 'Runtime' },
-        { id: 'trace', label: 'Trace' },
+        // Delivery machinery and decision tracing are operator surfaces —
+        // the band gets the queue and the alerts, not the plumbing.
+        // Deep links (?tab=queues) still resolve, per the reachable-by-URL
+        // posture.
+        ...(authState.isPlatformLevel() ? [
+          { id: 'queues', label: 'Queues', count: deadCount() > 0 ? () => deadCount() : undefined },
+          { id: 'runtime', label: 'Runtime' },
+          { id: 'trace', label: 'Trace' },
+        ] : []),
       ]}
     />
 
@@ -308,7 +319,10 @@ export function TenantAttentionPage() {
       </Show>
 
       {/* Reconciliation findings */}
-      <Show when={!summary.error && summary.data}>{_data => <>
+      {/* Console↔tenant reconciliation is operator machinery — it compares
+          two systems' beliefs, which is not a question the band asks. The
+          alerts themselves still land in the inbox above. */}
+      <Show when={authState.isPlatformLevel() && !summary.error && summary.data}>{_data => <>
         <div class="flex items-center justify-between gap-4 mb-3 mt-6" id="reconciliation-findings">
           <div>
             <h3 class="text-sm font-semibold flex items-center gap-1.5"><SectionIcon name="refresh-cw" />Cross-check against the tenant</h3>

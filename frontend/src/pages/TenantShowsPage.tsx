@@ -2,6 +2,7 @@ import { For, Show, createMemo } from 'solid-js'
 import { Link, useParams } from '@tanstack/solid-router'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import type { TenantShow } from '../lib/types'
 import { PageShell, PageHeader } from '../components/layout'
 import { SectionFailureCard } from '../components/SectionFailureCard'
@@ -38,7 +39,7 @@ export function TenantShowsPage() {
   return (
     <PageShell>
       <PageHeader
-        eyebrow="TENANT"
+        eyebrow={authState.isPlatformLevel() ? 'TENANT' : undefined}
         title="Shows"
         description="Every gig in one place — what's next, what happened, and what the room scanned."
       />

@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { formatTimestamp } from '../lib/format'
 import type { AgentScorecard } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
@@ -91,7 +92,7 @@ export function ScorecardPanel(props: { slug: string }) {
     <SectionTitle
       eyebrow="AGENT SCORECARD"
       title="Is it working?"
-      description="Autopilot status, weekly activity, and recent completions — results, not logs."
+      description={authState.isPlatformLevel() ? 'Autopilot status, weekly activity, and recent completions — results, not logs.' : 'Status, weekly activity, and recent completions — results, not logs.'}
       icon={<SectionIcon name="activity" />}
       action={<StatusBadge status={statusLabel(data())} tone={statusTone(data())} />}
     />
@@ -165,7 +166,7 @@ export function ScorecardPanel(props: { slug: string }) {
             <KpiCard label="Unknown" value={num(d().week.unknown ?? 0)} sub="outcome not established — excluded from the rate" />
           </Show>
           <KpiCard label="Parked" value={num(d().week.parked)} sub="nothing was running to do it" />
-          <KpiCard label="Awaiting approval" value={num(d().week.awaiting_approval)} sub="requires operator review" />
+          <KpiCard label="Awaiting approval" value={num(d().week.awaiting_approval)} sub={authState.isPlatformLevel() ? 'requires operator review' : 'waiting on a person'} />
         </KpiStrip>
       </section>
 

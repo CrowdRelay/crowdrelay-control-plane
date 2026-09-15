@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { errorMessage, formatIsoAge } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './ui/empty-state'
@@ -152,7 +153,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
           <span class="text-muted-foreground">{decisions().length} decisions</span>
         </Show>
       </div>
-      <p class="text-sm text-muted-foreground leading-relaxed mt-2">The autopilot's decision log — what it decided, why, and what workers found.</p>
+      <p class="text-sm text-muted-foreground leading-relaxed mt-2">{authState.isPlatformLevel() ? "The autopilot's decision log" : 'The decision log'} — what it decided, why, and what workers found.</p>
 
       <Show when={data.data && decisions().length === 0} fallback={
         <Show when={error()} fallback={
@@ -230,7 +231,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                       <Show when={decision.tasks.length > 0}>
                         <div class="mt-4">
                           <h4 class="text-sm font-semibold text-foreground m-0 mb-1.5">Dispatched Workers</h4>
-                          <p class="text-sm text-muted-foreground m-0 mb-2.5">The AI jobs this plan handed out. Each one returns a result the autopilot reads back before it decides anything else.</p>
+                          <p class="text-sm text-muted-foreground m-0 mb-2.5">{authState.isPlatformLevel() ? 'The AI jobs this plan handed out. Each one returns a result the autopilot reads back before it decides anything else.' : 'The AI jobs this plan handed out. Each one returns a result it reads back before deciding anything else.'}</p>
                           <Table>
                             <TableHeader><TableRow><TableHead>Slot</TableHead><TableHead>Role</TableHead><TableHead>Template</TableHead><TableHead>Status</TableHead><TableHead>Outcome</TableHead><TableHead>Tokens</TableHead><TableHead></TableHead></TableRow></TableHeader>
                             <TableBody>
@@ -315,7 +316,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
         </Show>
       }>
         <div class="p-4">
-          <EmptyState label="No intelligence decisions" hint="Decisions appear here once the deterministic autopilot starts running." />
+          <EmptyState label="No intelligence decisions" hint={authState.isPlatformLevel() ? 'Decisions appear here once the deterministic autopilot starts running.' : 'Decisions appear here once it starts running.'} />
         </div>
       </Show>
     </Card>

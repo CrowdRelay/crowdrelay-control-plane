@@ -2,6 +2,7 @@ import { Show, createSignal } from 'solid-js'
 import { For } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { errorMessage } from '../lib/format'
 import { triggerRefresh, refreshQueries } from '../lib/refresh'
 import { SkeletonPanel } from './Skeleton'
@@ -106,7 +107,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
         {data => (
           <>
             <p class="text-sm leading-relaxed text-muted-foreground">
-              The autopilot would run <strong class="text-foreground">{strategyLabel(data().strategy)}</strong>, choosing from{' '}
+              {authState.isPlatformLevel() ? 'The autopilot would run ' : 'It would run '}<strong class="text-foreground">{strategyLabel(data().strategy)}</strong>, choosing from{' '}
               {data().templatesConsidered} kinds of AI job. Nothing below has started — this is what it currently believes.
             </p>
 

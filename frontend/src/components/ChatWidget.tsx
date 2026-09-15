@@ -1,6 +1,7 @@
 import { Show, For, createSignal, createEffect, onCleanup } from 'solid-js'
 import { useNavigate, useLocation } from '@tanstack/solid-router'
 import { ApiError } from '../lib/api'
+import { authState } from '../lib/auth'
 import { errorMessage } from '../lib/format'
 import { cn } from '../lib/cn'
 import { Textarea } from './ui/textarea'
@@ -8,7 +9,7 @@ import type { ChatMessage, ChatAction } from '../lib/types'
 import { READ_ONLY_REASON, readOnly, writeGuard } from '../lib/read-only'
 import { SparkIcon, CloseIcon, SendIcon } from './chat-icons'
 import { renderMarkdown } from '../lib/chat-markdown'
-import { CHAT_SUGGESTIONS, readChatStream, stripActions } from '../lib/chat-stream'
+import { CHAT_SUGGESTIONS, BAND_CHAT_SUGGESTIONS, readChatStream, stripActions } from '../lib/chat-stream'
 import { runChatAction } from '../lib/chat-actions'
 
 export function ChatWidget(props: { slug: string }) {
@@ -299,9 +300,9 @@ export function ChatWidget(props: { slug: string }) {
               <div class="flex flex-col items-center justify-center h-full text-center gap-4">
                 <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary"><SparkIcon /></div>
                 <h3>AI Assistant</h3>
-                <p>Ask about operations, growth metrics, autopilot, or platform health. Try one of these to start:</p>
+                <p>{authState.isPlatformLevel() ? 'Ask about operations, growth metrics, autopilot, or platform health. Try one of these to start:' : 'Ask about your shows, fans, or what it decided. Try one of these to start:'}</p>
                 <div class="flex flex-col gap-2 w-full max-w-xs">
-                  <For each={CHAT_SUGGESTIONS}>
+                  <For each={authState.isPlatformLevel() ? CHAT_SUGGESTIONS : BAND_CHAT_SUGGESTIONS}>
                     {(s) => (
                       <button class="text-left text-sm rounded-md border border-border px-3 py-2 text-muted-foreground hover:bg-surface-1 hover:text-foreground hover:border-border-strong transition-colors" onClick={() => send(s)}>{s}</button>
                     )}
@@ -360,7 +361,7 @@ export function ChatWidget(props: { slug: string }) {
               <Textarea
                 ref={inputRef}
                 class="flex-1 resize-none"
-                placeholder="Ask about operations, growth, or autopilot…"
+                placeholder={authState.isPlatformLevel() ? 'Ask about operations, growth, or autopilot…' : 'Ask about your shows, fans, or growth…'}
                 value={input()}
                 onInput={(e) => setInput(e.currentTarget.value)}
                 onKeyDown={(e) => {

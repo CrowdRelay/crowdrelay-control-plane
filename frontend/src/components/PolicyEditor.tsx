@@ -30,7 +30,7 @@ const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
 
 /** The four rungs, cautious to trusting. Order is the ladder. */
 const AUTHORITY_RUNGS: readonly AuthorityRung<AutonomyLevel>[] = [
-  { value: 'observe', label: 'Watch', detail: 'Records what it would have done. Nothing leaves the workspace.' },
+  { value: 'observe', label: 'Watch', detail: 'Records what it would have done. Nothing leaves the system.' },
   { value: 'recommend', label: 'Suggest', detail: 'Puts the work on your board. You start it.' },
   { value: 'require_approval', label: 'Ask', detail: 'Prepares the action and waits for your approval.' },
   { value: 'bounded_auto', label: 'Alone', detail: 'Acts without asking, inside the confidence floor and the daily cap.' },

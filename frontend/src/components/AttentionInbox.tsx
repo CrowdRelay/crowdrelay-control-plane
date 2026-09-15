@@ -2,6 +2,7 @@ import { For, Show, createSignal, onMount, onCleanup } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
 import type { PendingActionSummary } from '../lib/types'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { errorMessage } from '../lib/format'
 import { toast } from './ui/toast'
 import { EmptyState } from './ui/empty-state'
@@ -98,9 +99,12 @@ export function AttentionInbox(props: {
 
   const items = (): AttentionItem[] => {
     const list: AttentionItem[] = []
+    const platform = authState.isPlatformLevel()
 
-    // URGENT: dead deliveries, critical alerts, stale reservations
-    if (props.deadJobs > 0) {
+    // URGENT: dead deliveries, critical alerts, stale reservations.
+    // Delivery queues and AREA reservations are operator machinery — the
+    // band's tabs do not carry them, so the band's inbox does not either.
+    if (platform && props.deadJobs > 0) {
       list.push({
         id: 'dead-jobs',
         tier: 'urgent',
@@ -114,13 +118,17 @@ export function AttentionInbox(props: {
       list.push({
         id: 'critical-alerts',
         tier: 'urgent',
-        title: `${props.criticalAlerts} critical watchdog alert(s)`,
-        detail: 'Watchdog has raised critical alerts requiring immediate attention.',
+        title: platform
+          ? `${props.criticalAlerts} critical watchdog alert(s)`
+          : `${props.criticalAlerts} critical alert(s)`,
+        detail: platform
+          ? 'Watchdog has raised critical alerts requiring immediate attention.'
+          : 'The monitor raised critical alerts that need a person now.',
         consequence: 'System health may be compromised.',
         goto: { label: 'Inspect', tab: 'inbox', anchor: 'watchdog-alerts' },
       })
     }
-    if (props.staleReservations > 0) {
+    if (platform && props.staleReservations > 0) {
       list.push({
         id: 'stale-reservations',
         tier: 'urgent',
@@ -167,8 +175,8 @@ export function AttentionInbox(props: {
       list.push({
         id: 'approvals-not-reported',
         tier: 'review',
-        title: 'Pending approvals are not reported by this tenant',
-        detail: 'This CrowdRelay build does not publish the approval queue, so the Control Plane cannot tell you whether anything is waiting.',
+        title: 'Pending approvals are not reported',
+        detail: 'This CrowdRelay build does not publish the approval queue, so this console cannot tell whether anything is waiting.',
         consequence: 'Work may be parked awaiting your decision without appearing here.',
         goto: { label: 'Open decisions', tab: 'decisions' },
       })
@@ -181,9 +189,11 @@ export function AttentionInbox(props: {
         list.push({
           id: 'awaiting-approval',
           tier: 'review',
-          title: `${rest} more opportunity(ies) awaiting decision`,
-          detail: 'The brain has found more than this inbox lists. The board shows all of them.',
-          goto: { label: 'Open board', tab: 'decisions' },
+          title: `${rest} more ${platform ? 'opportunity(ies)' : 'moves'} awaiting decision`,
+          detail: platform
+            ? 'The brain has found more than this inbox lists. The board shows all of them.'
+            : 'There is more than this list shows. The decisions tab shows all of them.',
+          goto: { label: platform ? 'Open board' : 'Open decisions', tab: 'decisions' },
         })
       }
     }
@@ -193,7 +203,7 @@ export function AttentionInbox(props: {
       list.push({
         id: 'active-alerts',
         tier: 'informational',
-        title: `${props.activeAlerts} active watchdog alert(s)`,
+        title: `${props.activeAlerts} active ${platform ? 'watchdog ' : ''}alert(s)`,
         detail: 'Non-critical alerts that may indicate emerging issues.',
         goto: { label: 'Inspect', tab: 'inbox', anchor: 'watchdog-alerts' },
       })

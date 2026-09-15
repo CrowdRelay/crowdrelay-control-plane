@@ -64,7 +64,7 @@ export function TenantStatusLine(props: {
     const failed = ops?.autopilot?.failed_24h ?? 0
     if (failed > 0) {
       list.push({
-        text: `${failed} autopilot action${failed === 1 ? '' : 's'} failed in the last day`,
+        text: `${failed} ${authState.isPlatformLevel() ? 'autopilot' : 'automated'} action${failed === 1 ? '' : 's'} failed in the last day`,
         bad: false,
       })
     }
@@ -78,6 +78,7 @@ export function TenantStatusLine(props: {
           to={authState.isPlatformLevel() ? '/tenants/$slug/health' : '/tenants/$slug/attention'}
           search={authState.isPlatformLevel() ? {} : { tab: 'inbox' }}
           params={{ slug: props.slug }}
+          aria-label={authState.isPlatformLevel() ? 'Open Health' : 'Open Needs you'}
           class={cn(
             'block rounded-md border px-3 py-2 text-sm transition-colors',
             issue().bad
@@ -88,7 +89,7 @@ export function TenantStatusLine(props: {
           {issue().bad ? 'Something is broken: ' : 'Worth a look: '}
           {issue().text}
           {issues().length > 1 ? ` (+${issues().length - 1} more)` : ''}
-          <span class="text-muted-foreground"> — Health</span>
+          <span class="text-muted-foreground">{authState.isPlatformLevel() ? ' — Health' : ' — Needs you'}</span>
         </Link>
       )}
     </Show>

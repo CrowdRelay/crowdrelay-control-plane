@@ -1,4 +1,5 @@
 import { For, Show } from 'solid-js'
+import { authState } from '../lib/auth'
 import { KpiCard, KpiStrip, PanelTitle } from './layout'
 import type { UnpublishedDraftChannel } from '../lib/attention'
 import { SectionIcon } from './SectionIcon'
@@ -33,10 +34,17 @@ const channelLabel = (channel: string) => CHANNEL_LABELS[channel] ?? channel
 // Telegram and Discord publish through first-party Bot APIs and are manual
 // only because their auto-post flag defaults off. Reddit is manual by policy.
 // The distinction is the whole action an operator can take, so it is shown.
+// For the band the env-var names are noise — they read the reason, not the switch.
 const CHANNEL_REASONS: Record<string, string> = {
   reddit: 'read-only by policy — publish and register the URL',
   telegram: 'awaiting CROWDRELAY_TELEGRAM_AUTO_POST',
   discord: 'awaiting CROWDRELAY_DISCORD_AUTO_POST',
+  social: 'no automatic path implemented',
+}
+const BAND_CHANNEL_REASONS: Record<string, string> = {
+  reddit: 'read-only — publish it yourself and register the URL',
+  telegram: 'automatic posting is not switched on yet',
+  discord: 'automatic posting is not switched on yet',
   social: 'no automatic path implemented',
 }
 
@@ -72,7 +80,7 @@ export function UnpublishedDraftsPanel(props: {
     </div>
 
     <Show when={reported()} fallback={
-      <p class="text-sm text-muted-foreground italic">This tenant does not report the draft queue.</p>
+      <p class="text-sm text-muted-foreground italic">{authState.isPlatformLevel() ? 'This tenant does not report the draft queue.' : 'The draft queue is not reported yet.'}</p>
     }>
       <Show when={total() > 0} fallback={
         <p class="text-muted-foreground text-sm">No drafts waiting. Everything the brain wrote is published.</p>
@@ -104,7 +112,7 @@ export function UnpublishedDraftsPanel(props: {
                 </Show>
               </div>
               <span class="text-xs leading-relaxed text-muted-foreground">
-                {CHANNEL_REASONS[channel.channel] ?? 'awaiting an operator'}
+                {(authState.isPlatformLevel() ? CHANNEL_REASONS : BAND_CHANNEL_REASONS)[channel.channel] ?? (authState.isPlatformLevel() ? 'awaiting an operator' : 'waiting on a person')}
               </span>
             </div>
           }}</For>

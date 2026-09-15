@@ -3,6 +3,7 @@ import { RouterProvider, createRootRoute, createRoute, createRouter, lazyRouteCo
 import { Shell } from './components/Shell'
 import { queryClient } from './lib/queryClient'
 import { api } from './lib/api'
+import { authState } from './lib/auth'
 import { fetchOperationsAttention } from './lib/attention'
 import { SkeletonPage } from './components/Skeleton'
 
@@ -41,7 +42,13 @@ const TenantShowScanPage = lazyRouteComponent(() => import('./pages/TenantShowSc
 const TenantShowReportPage = lazyRouteComponent(() => import('./pages/TenantShowReportPage'), 'TenantShowReportPage')
 
 const rootRoute = createRootRoute({ component: Shell })
-const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: OverviewPage, loader: warm(['command-center'], api.commandCenter) })
+// The overview is a platform command centre — a tenant operator's console
+// is their own tenant, so `/` sends them straight to its Today view before
+// the command-centre loader can fire a guaranteed 403.
+const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: OverviewPage, beforeLoad: () => {
+  const slug = authState.isPlatformLevel() ? undefined : authState.profile()?.tenantSlug
+  if (slug) throw redirect({ href: `/tenants/${slug}` })
+}, loader: warm(['command-center'], api.commandCenter) })
 const flowRoute = createRoute({ getParentRoute: () => rootRoute, path: '/flow', component: FlowPage })
 const tenantsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants', component: TenantsPage, loader: warm(['tenants'], api.tenants, 15_000) })
 const tenantWizardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/new', component: TenantWizardPage })
