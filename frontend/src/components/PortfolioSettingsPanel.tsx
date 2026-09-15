@@ -182,10 +182,19 @@ export function PortfolioSettingsPanel(props: {
               one commits the brain to. */}
           <Show when={key === 'north_star_metric'}>
             {(() => {
-              const meaning = () => northStarMeaning(drafts()[key] ?? props.model?.settings[key] ?? '')
-              return <Show when={meaning()}>
-                <small class="text-xs leading-relaxed text-secondary-foreground">{meaning()}</small>
-              </Show>
+              const current = () => drafts()[key] ?? props.model?.settings[key] ?? ''
+              const meaning = () => northStarMeaning(current())
+              return <>
+                <Show when={meaning()}>
+                  <small class="text-xs leading-relaxed text-secondary-foreground">{meaning()}</small>
+                </Show>
+                {/* The plain-language name is what the row reads; the value
+                    is what the server records, what traces name and what
+                    support asks for — precision keeps its own name here. */}
+                <Show when={current()}>
+                  <small class="block text-xs leading-relaxed text-muted-foreground">Stored as <code class="text-xs">{current()}</code></small>
+                </Show>
+              </>
             })()}
           </Show>
           <Show when={dirty(key)} fallback={
