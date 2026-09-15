@@ -105,17 +105,6 @@ export function TenantPage() {
     // stays empty for the life of the tab. Keep asking until it fills.
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))
-  // The headline's source line shares the intelligence page's query — same
-  // key, same passthrough, one cache. Fires only once the Profile tab has
-  // actually been visited.
-  const acquisition = useQuery(() => ({
-    queryKey: ['acquisition-channels', params().slug],
-    queryFn: () => api.acquisitionChannels(params().slug),
-    enabled: isVisited('profile'),
-    reconcile: 'id',
-    refetchOnWindowFocus: false,
-    staleTime: 30_000,
-  }))
   // "The change this month" has two honest readings already in the
   // composite: arrivals (`new_fans_30d`, rolling) and the net population
   // delta (`delta_28d` on the signal.active_fans series). A stale series
@@ -125,22 +114,20 @@ export function TenantPage() {
       s => s.platform === 'signal' && s.metric_key === 'active_fans' && !s.stale,
     ),
   )
+  // "Where they came from" rides the same composite — the acquisition
+  // section covers every tracked fan (concert QR, imports, purchases), not
+  // just click-attributed signups. "Most came from X" is only claimed when
+  // the top source actually beat the untracked bucket.
   const topSource = createMemo(() => {
-    const attributed = (acquisition.data?.channels ?? []).filter(
-      c => c.attribution.evidence === 'attributed' && c.signups > 0,
-    )
-    if (attributed.length === 0) return null
-    const top = attributed.reduce((a, b) => (b.signups > a.signups ? b : a))
-    // Narrowed by the filter above; re-checked for the type system.
-    if (top.attribution.evidence !== 'attributed') return null
-    // "Most came from X" is only true if X beat the unknowns — unattributed
-    // signups are their own bucket upstream, and claiming a channel bigger
-    // than the gap is exactly the lie the backend refuses to tell.
-    const unknown = (acquisition.data?.unattributed ?? []).reduce((sum, u) => sum + u.signups, 0)
+    const acq = operations.data?.acquisition_sources
+    const top = acq?.sources?.[0]
+    if (!acq || !top || acq.tracked_fans === 0) return null
     return {
-      name: top.attribution.source.replaceAll('_', ' '),
-      signups: top.signups,
-      majority: top.signups > unknown,
+      name: top.source.replaceAll('_', ' '),
+      fans: top.fans,
+      // "Most came from X" means an actual majority of all fans — beating
+      // the untracked bucket alone only proves a plurality.
+      majority: top.fans * 2 > acq.active_fans,
     }
   })
   const [palette, setPalette] = createSignal<Palette>(defaultPalette)
@@ -288,8 +275,31 @@ export function TenantPage() {
             </div>
             <p class="mt-1 text-xs text-muted-foreground">
               Active fans who consented to be contacted — the number the send paths actually enforce.
-              <Show when={topSource()}>{src => ` ${src().majority ? `Most fans arrived via ${src().name}` : `Top attributed source so far: ${src().name}`} (${src().signups.toLocaleString()} signups).`}</Show>
+              <Show when={topSource()}>{src => ` ${src().majority ? `Most fans arrived via ${src().name}` : `Top source so far: ${src().name}`} (${src().fans.toLocaleString()} fans).`}</Show>
             </p>
+            {/* Where they came from — first-touch over the acquisition
+                ledger, top sources with this month's arrivals. Fans who
+                predate the ledger count as untracked, not as a made-up
+                source. A degraded section simply does not render. */}
+            <Show when={operations.data?.acquisition_sources}>
+              {acq => (
+                <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <For each={(acq().sources ?? []).slice(0, 4)}>{s => (
+                    <span>
+                      <span class="text-foreground">{s.source.replaceAll('_', ' ')}</span>
+                      {` ${s.fans.toLocaleString()}`}
+                      {s.fans_30d > 0 ? ` (+${s.fans_30d.toLocaleString()} · 30d)` : ''}
+                    </span>
+                  )}</For>
+                  <Show when={acq().active_fans - acq().tracked_fans > 0}>
+                    <span>{(acq().active_fans - acq().tracked_fans).toLocaleString()} with no source recorded</span>
+                  </Show>
+                  <Show when={acq().tracked_fans === 0}>
+                    <span>No acquisition sources recorded yet — fans who arrived before tracking carry no source.</span>
+                  </Show>
+                </div>
+              )}
+            </Show>
             <div class="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 md:grid-cols-3 lg:grid-cols-5">
               <For each={[
                 { label: 'Active fans', value: operations.data?.audience?.active_fans },

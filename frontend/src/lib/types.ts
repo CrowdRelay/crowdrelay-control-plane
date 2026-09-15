@@ -570,7 +570,7 @@ export type TenantOverviewReadModel = {
   }
 }
 
-export type TenantOperationsSection = 'summary' | 'flags' | 'autopilot' | 'growth' | 'opportunities' | 'signal' | 'audience' | 'growth_metrics'
+export type TenantOperationsSection = 'summary' | 'flags' | 'autopilot' | 'growth' | 'opportunities' | 'signal' | 'audience' | 'growth_metrics' | 'acquisition_sources'
 
 // Why a read-model section is missing. The Control Plane classifies each
 // failure at the tunnel instead of collapsing them all into "degraded", so a
@@ -625,6 +625,7 @@ export type TenantOperationsReadModel = {
   signal: SignalOverview | null
   audience: AudienceOverview | null
   growth_metrics: GrowthMetricTrendsResponse | null
+  acquisition_sources: AcquisitionSources | null
   // Sections the tenant channel could not serve. They render as locally
   // degraded instead of failing the whole subpage.
   degraded: TenantOperationsSection[]
@@ -1375,6 +1376,17 @@ export type FeedCoverage = {
 
 export type GrowthMetricCoverageResponse = {
   platforms: FeedCoverage[]
+  [key: string]: unknown
+}
+
+/** `audience/acquisition-sources` — first-touch attribution over
+ * `fan_acquisition_events`, counted on fans still active. `tracked_fans`
+ * below `active_fans` is the honest unknown: fans who predate the ledger
+ * carry no source at all. */
+export type AcquisitionSources = {
+  active_fans: number
+  tracked_fans: number
+  sources: Array<{ source: string; fans: number; fans_30d: number }>
   [key: string]: unknown
 }
 
