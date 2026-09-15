@@ -1616,7 +1616,9 @@ export type TenantShowReportResponse = {
     title?: string
     city?: string | null
     venue?: string | null
-    starts_at?: string
+    /** RFC3339 in the preview; the issued artifact carries `time`'s serde
+     *  array [year, ordinal, h, m, s, ns, offH, offM, offS] verbatim. */
+    starts_at?: string | number[]
     timezone?: string | null
     acts?: Array<{ slug: string; name: string }>
   }

@@ -38,10 +38,17 @@ export const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-export const formatTimestamp = (value: string | null | undefined) => {
+export const formatTimestamp = (value: string | number[] | null | undefined) => {
   if (!value) return '—'
-  const parsed = new Date(value)
+  const parsed = Array.isArray(value) ? timeArrayToDate(value) : new Date(value)
   return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString()
+}
+
+/** The `time` crate's serde form for `OffsetDateTime` — upstream artifacts
+ * carry it verbatim: [year, ordinal, hour, minute, second, ns, offH, offM, offS]. */
+const timeArrayToDate = (v: number[]) => {
+  const [year = 0, ordinal = 1, hour = 0, minute = 0, second = 0, , offH = 0, offM = 0, offS = 0] = v
+  return new Date(Date.UTC(year, 0, ordinal, hour, minute, second) - ((offH * 3600 + offM * 60 + offS) * 1000))
 }
 
 export const formatAge = (seconds: number) => {
