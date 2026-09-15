@@ -1,6 +1,6 @@
 import { Show, type JSX, createSignal } from 'solid-js'
 import { Eyebrow } from '../layout'
-import { Collapsible as CollapsiblePrimitive } from '@kobalte/core'
+import { Collapsible as CollapsiblePrimitive } from '@kobalte/core/collapsible'
 import { cn } from '~/lib/cn'
 
 /**
@@ -9,7 +9,7 @@ import { cn } from '~/lib/cn'
  * navigation out of the box.
  */
 
-export const Collapsible = CollapsiblePrimitive.Root
+export const Collapsible = CollapsiblePrimitive
 export const CollapsibleTrigger = CollapsiblePrimitive.Trigger
 export const CollapsibleContent = CollapsiblePrimitive.Content
 

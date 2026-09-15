@@ -6,6 +6,7 @@ import { errorMessage } from '../lib/format'
 import { toast } from '../components/ui/toast'
 import type { AutomationEvent, AutomationWorkflowConfig } from '../lib/types'
 import { EmptyState } from '../components/ui/empty-state'
+import { Checkbox } from '../components/ui/checkbox'
 import { SkeletonRows } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
 import { PageShell, PageHeader, KpiStrip, KpiCard, ErrorCard, SectionTitle } from '../components/layout'
@@ -142,26 +143,22 @@ export function AutomationPage() {
                   <option value="real_work">Real work</option>
                   <option value="system">System</option>
                 </NativeSelect>
-                <label class="flex items-center gap-2 text-sm text-foreground">
-                  <input
-                    type="checkbox"
-                    disabled={busyId() !== null}
-                    checked={cfg.discordEnabled}
-                    onChange={(e) => handleConfigUpdate(cfg.workflowId, { discordEnabled: e.currentTarget.checked })}
-                    {...writeGuard()}
-                  />
-                  <span>Discord</span>
-                </label>
-                <label class="flex items-center gap-2 text-sm text-foreground">
-                  <input
-                    type="checkbox"
-                    disabled={busyId() !== null}
-                    checked={cfg.muted}
-                    onChange={(e) => handleConfigUpdate(cfg.workflowId, { muted: e.currentTarget.checked })}
-                    {...writeGuard()}
-                  />
-                  <span>Muted</span>
-                </label>
+                <Checkbox
+                  class="text-sm text-foreground"
+                  disabled={busyId() !== null}
+                  checked={cfg.discordEnabled}
+                  onChange={(on) => handleConfigUpdate(cfg.workflowId, { discordEnabled: on })}
+                  label="Discord"
+                  {...writeGuard()}
+                />
+                <Checkbox
+                  class="text-sm text-foreground"
+                  disabled={busyId() !== null}
+                  checked={cfg.muted}
+                  onChange={(on) => handleConfigUpdate(cfg.workflowId, { muted: on })}
+                  label="Muted"
+                  {...writeGuard()}
+                />
               </div>
             </Card>
           )}</For>

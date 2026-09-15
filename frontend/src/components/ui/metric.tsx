@@ -109,6 +109,10 @@ export function Metric(props: {
 export function MetricRow(props: { children: JSX.Element; class?: string; min?: string }) {
   return (
     <dl
+      // `data-kpi-strip` is the name the Playwright selector contract pins —
+      // the MetricRow refactor dropped it and css-audit silently lost its
+      // KPI coverage. Keep both attributes.
+      data-kpi-strip=""
       data-metric-row=""
       class={cn(
         'my-0 grid border-y border-border',

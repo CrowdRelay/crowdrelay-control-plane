@@ -11,6 +11,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 import { NativeSelect } from './ui/native-select'
+import { Checkbox } from './ui/checkbox'
 import { buttonVariants } from './ui/button'
 import { cn } from '../lib/cn'
 import { EmptyState } from './ui/empty-state'
@@ -380,9 +381,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
                 {profile => (
                   <TableRow classList={{ 'bg-primary/5': selected().has(profile.beaconId) }}>
                     <TableCell>
-                      <input
-                        type="checkbox"
-                        class="accent-primary w-4 h-4"
+                      <Checkbox
                         checked={selected().has(profile.beaconId)}
                         onChange={() => toggle(profile.beaconId)}
                         aria-label={`Select ${profile.displayName}`}

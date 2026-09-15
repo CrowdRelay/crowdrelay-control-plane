@@ -13,6 +13,7 @@ import { Field, FieldGrid } from './ui/field'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { NativeSelect } from './ui/native-select'
+import { Checkbox } from './ui/checkbox'
 import type { ContentSourceKind, ContentSourceView } from '../lib/types'
 
 const KIND_LABEL: Record<ContentSourceKind, string> = {
@@ -173,10 +174,12 @@ export function ContentSourcesPanel(props: { slug: string }) {
         <Show when={editing()}>{(s) =>
           <div class="mb-3 flex items-center justify-between gap-3">
             <span class="text-xs font-medium text-muted-foreground">Editing: {s().title}</span>
-            <label class="flex items-center gap-2 text-xs text-muted-foreground">
-              <input type="checkbox" checked={shareable()} onChange={e => setShareable(e.currentTarget.checked)} />
-              May be shared
-            </label>
+            <Checkbox
+              class="text-xs text-muted-foreground"
+              checked={shareable()}
+              onChange={setShareable}
+              label="May be shared"
+            />
           </div>
         }</Show>
         <FieldGrid min="160px">

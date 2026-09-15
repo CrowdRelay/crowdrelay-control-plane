@@ -189,15 +189,12 @@ export const Shell: Component = () => {
         }
       }
     }
-    const onDocClick = (event: MouseEvent) => {
-      const el = event.target as HTMLElement
-      if (!el.closest('.relative')) setSwitcherOpen(false)
-    }
+    // Outside-click dismiss for the tenant switcher is owned by the Kobalte
+    // Popover now — a document listener cannot see inside the portal and was
+    // closing the menu on any interaction with the search box.
     document.addEventListener('keydown', onKey)
-    document.addEventListener('click', onDocClick)
     onCleanup(() => {
       document.removeEventListener('keydown', onKey)
-      document.removeEventListener('click', onDocClick)
     })
   })
 

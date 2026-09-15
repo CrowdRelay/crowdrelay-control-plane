@@ -1,9 +1,10 @@
 /*
- * Layer order: `legacy` before `components` so new shadCN component styles
- * override any remaining legacy rules, and `utilities` overrides everything.
+ * Layer order: `components` holds the app-level component styles;
+ * `utilities` overrides everything.
  */
-@layer theme, base, legacy, components, utilities;
+@layer theme, base, components, utilities;
 @import "tailwindcss";
+@import "tw-animate-css";
 
 /*
  * Token mapping — CSS custom properties mapped onto Tailwind v4 @theme keys.
@@ -16,9 +17,12 @@
  */
 @theme {
   /* ── Surfaces ────────────────────────────────────────────────────── */
-  --color-background: #0a0b0e;
+  /* The canonical shadcn keys (background, card, popover, muted, border,
+     foreground, primary, secondary, accent, destructive, input, ring and
+     their -foregrounds) are defined in the `solidcn-tailwind-base` block at
+     the bottom of this file as raw HSL channels — edit them there. The
+     tokens below are this console's extensions on top of that set. */
   --color-surface-1: #0f1116;
-  --color-card: #14171e;
   /* The scale is 1,2,3,4 and `surface-2` was the one nobody defined, so every
      `bg-surface-2` in the app compiled to nothing and rendered transparent —
      sticky table headers with rows scrolling visibly under their text, chat
@@ -26,21 +30,15 @@
      card fill, which is what the legacy `--surface-2` alias below already
      pointed at. */
   --color-surface-2: #14171e;
-  --color-popover: #14171e;
   --color-surface-3: #1a1e27;
-  --color-muted: #1a1e27;
   --color-surface-4: #232838;
 
   /* ── Borders ──────────────────────────────────────────────────────── */
-  --color-border: rgba(255, 255, 255, 0.09);
   --color-border-subtle: rgba(255, 255, 255, 0.06);
   --color-border-strong: rgba(255, 255, 255, 0.14);
   --color-border-accent: rgba(155, 135, 245, 0.40);
 
   /* ── Text ────────────────────────────────────────────────────────── */
-  --color-foreground: #f7f7f8;
-  --color-secondary-foreground: #b7bfcc;
-  --color-muted-foreground: #9aa1ae;
   --color-disabled-foreground: #4a5060;
 
   /* ── Accent (single accent: purple) ──────────────────────────────────
@@ -68,11 +66,9 @@
   --violet-800: #372080;
   --violet-900: #251655;
 
-  --color-primary: var(--violet-400);
   --color-primary-hover: var(--violet-300);
   --color-primary-active: var(--violet-500);
   --color-primary-light: var(--violet-300);
-  --color-primary-foreground: #ddd7ff;
   /* Filled surfaces, and the text that goes on them. */
   --color-primary-solid: var(--violet-600);
   --color-primary-solid-hover: var(--violet-700);
@@ -94,10 +90,8 @@
   --color-success-bg: #1a2e1a;
   --color-warning: #f5b942;
   --color-warning-light: #f5c468;
-  --color-destructive: #ff6565;
   --color-destructive-hover: #ff8080;
   --color-destructive-light: #ff9d9d;
-  --color-destructive-foreground: #e899b8;
   --color-destructive-bg: #38201f;
   --color-destructive-border: #643333;
   --color-destructive-bg-deep: #3b1d2e;
@@ -278,7 +272,6 @@
      These rules provide base styling for component-specific classes.
      The @apply rules below override these for migrated patterns. */
 .detail-json {font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);display:block;word-break:break-all}
- .operations-error {margin-top:var(--space-4)}
 .cmdk-list {overflow-y:auto;overscroll-behavior:contain;padding:8px}
 .cmdk-item.danger:not(.armed) .cmdk-label::after {content:" ⚠";color:var(--warn)}
 .cmdk-item.armed .cmdk-label {font-weight:700}
@@ -752,3 +745,56 @@ table td, table th, .mono, code {
 
 }
 
+/* solidcn-tailwind-base:start */
+/* Canonical solidcn/shadcn token wiring: the standard --color-* keys resolve
+   through raw HSL channels so a theme generator's output drops in verbatim.
+   The channels below carry THIS console's palette — the violet scale and the
+   dark surfaces above — not the stock shadcn theme. The app is dark-only
+   (index.html pins color-scheme: dark), so :root is the single theme and
+   there is deliberately no .dark block to drift. */
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --radius: var(--radius-val);
+}
+
+:root {
+  --background: 225 17% 5%;          /* #0a0b0e */
+  --foreground: 240 7% 97%;          /* #f7f7f8 */
+  --card: 222 20% 10%;               /* #14171e */
+  --card-foreground: 240 7% 97%;
+  --popover: 222 20% 10%;            /* #14171e */
+  --popover-foreground: 240 7% 97%;
+  --primary: 254 100% 71%;           /* violet-400 #8e6cff */
+  --primary-foreground: 249 100% 92%;/* #ddd7ff */
+  --secondary: 222 20% 13%;          /* surface-3 #1a1e27 */
+  --secondary-foreground: 217 17% 76%;/* #b7bfcc */
+  --muted: 222 20% 13%;              /* #1a1e27 */
+  --muted-foreground: 219 11% 64%;   /* #9aa1ae */
+  --accent: 222 20% 13%;             /* surface-3 #1a1e27 */
+  --accent-foreground: 240 7% 97%;
+  --destructive: 0 100% 70%;         /* #ff6565 */
+  --destructive-foreground: 337 63% 75%; /* #e899b8 */
+  --border: 0 0% 100% / 0.09;        /* rgba(255,255,255,.09) */
+  --input: 0 0% 100% / 0.14;         /* border-strong rgba(255,255,255,.14) */
+  --ring: 254 100% 71%;              /* primary */
+  --radius-val: 0.25rem;             /* product radius (4px = --radius-md) */
+}
+/* solidcn-tailwind-base:end */

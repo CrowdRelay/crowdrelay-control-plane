@@ -1,6 +1,8 @@
 import { For, Show, createEffect, createMemo, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
+import { Checkbox as KobalteCheckbox } from '@kobalte/core/checkbox'
+import { Check } from 'lucide-solid'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import type { AreaCity, AreaDropDraft, AreaStatus, AreaValidationResult } from '../lib/types'
@@ -14,6 +16,13 @@ import { ErrorCard, KpiCard, KpiStrip, PageHeader, PageShell, PanelTitle, Sectio
 import { Button } from '../components/ui/button'
 import { Alert } from '../components/ui/alert'
 import { Input } from '../components/ui/input'
+
+// Rich-label checkbox composes the Kobalte primitive (ui/checkbox's label
+// prop is string-only); control styling mirrors ui/checkbox.tsx.
+const checkboxControl =
+  'peer mt-1 h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ' +
+  'data-[checked]:bg-primary data-[checked]:text-primary-foreground'
 import { Textarea } from '../components/ui/textarea'
 import { cn } from '../lib/cn'
 import { NativeSelect } from '../components/ui/native-select'
@@ -300,7 +309,7 @@ export function AreaPage() {
           <Show when={validation()}>{_v=><>
             <Show when={hardIssues().length===0}><div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground">No blocking validation errors.</div></Show>
             <For each={hardIssues()}>{issue=><ErrorCard><strong>{issue.code}</strong><p>{issue.message}</p></ErrorCard>}</For>
-            <For each={confirmationIssues()}>{issue=><label class="flex items-start gap-3 cursor-pointer p-3 rounded-md border border-border bg-surface-1"><input type="checkbox" class="mt-1" checked={confirmations().includes(issue.code)} onChange={()=>toggleConfirmation(issue.code)}/><span><strong class="text-sm text-foreground">{issue.code}</strong><small class="block text-xs text-muted-foreground">{issue.message}</small></span></label>}</For>
+            <For each={confirmationIssues()}>{issue=><KobalteCheckbox class="flex items-start gap-3 cursor-pointer p-3 rounded-md border border-border bg-surface-1" checked={confirmations().includes(issue.code)} onChange={()=>toggleConfirmation(issue.code)}><KobalteCheckbox.Input class="sr-only" /><KobalteCheckbox.Control class={checkboxControl}><KobalteCheckbox.Indicator class="flex items-center justify-center text-current"><Check class="h-3.5 w-3.5" /></KobalteCheckbox.Indicator></KobalteCheckbox.Control><span><strong class="text-sm text-foreground">{issue.code}</strong><small class="block text-xs text-muted-foreground">{issue.message}</small></span></KobalteCheckbox>}</For>
           </>}</Show>
           <div class="flex justify-end gap-2"><Button variant="ghost" size="sm" disabled={validate.isPending||save.isPending} onClick={()=>validate.mutate()}>Save + validate</Button><Button size="sm" disabled={!validation()?.valid || confirmationIssues().some(issue=>!confirmations().includes(issue.code)) || publish.isPending} onClick={()=>publish.mutate()}>Publish revision</Button></div>
         </div></Show>

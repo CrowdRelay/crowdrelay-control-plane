@@ -1,6 +1,8 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
+import { Checkbox as KobalteCheckbox } from '@kobalte/core/checkbox'
+import { Check } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { SkeletonRows } from '../components/Skeleton'
@@ -14,6 +16,13 @@ import { Input } from '../components/ui/input'
 import { NativeSelect } from '../components/ui/native-select'
 import { Field, FieldGrid } from '../components/ui/field'
 import { buttonVariants } from '../components/ui/button'
+
+// Rich-label checkbox composes the Kobalte primitive (ui/checkbox's label
+// prop is string-only); control styling mirrors ui/checkbox.tsx.
+const checkboxControl =
+  'peer mt-1 h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ' +
+  'data-[checked]:bg-primary data-[checked]:text-primary-foreground'
 
 type Preset = 'PL' | 'DE' | 'CZ' | 'US'
 const presets: Record<Preset, RegionalProfile> = {
@@ -131,7 +140,13 @@ export function TenantsPage() {
           <Field label="Operator username" hint="Optional. Sees only this tenant; leave blank to skip."><Input value={opUsername()} onInput={(e) => setOpUsername(e.currentTarget.value.toLowerCase())} placeholder="future-metal-op" autocomplete="off" /></Field>
           <Field label="Operator password" hint="Hashed securely, never shown again."><Input type="password" value={opPassword()} onInput={(e) => setOpPassword(e.currentTarget.value)} placeholder="min 12 characters" autocomplete="new-password" /></Field>
         </FieldGrid>
-        <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-1" checked={deployNow()} onChange={(e) => setDeployNow(e.currentTarget.checked)} /><span><strong>Deploy isolated CrowdRelay instance now</strong><small class="block text-muted-foreground">Only an agent for the selected data region may claim this job.</small></span></label>
+        <KobalteCheckbox checked={deployNow()} onChange={setDeployNow} class="flex items-start gap-3 cursor-pointer">
+          <KobalteCheckbox.Input class="sr-only" />
+          <KobalteCheckbox.Control class={checkboxControl}>
+            <KobalteCheckbox.Indicator class="flex items-center justify-center text-current"><Check class="h-3.5 w-3.5" /></KobalteCheckbox.Indicator>
+          </KobalteCheckbox.Control>
+          <span><strong>Deploy isolated CrowdRelay instance now</strong><small class="block text-muted-foreground">Only an agent for the selected data region may claim this job.</small></span>
+        </KobalteCheckbox>
         <Show when={createTenant.error}><ErrorCard>{createTenant.error instanceof Error ? createTenant.error.message : 'Tenant creation failed'}</ErrorCard></Show>
         <div class="flex justify-end gap-2"><Button variant="ghost" size="sm" type="button" onClick={() => { setCreating(false); resetForm() }}>Cancel</Button><Button writes type="submit" size="sm" disabled={createTenant.isPending || slug().length < 2 || name().length < 2 || !regionalReady() || !deployFieldsReady() || !operatorFieldsReady()}>{createTenant.isPending && <Spinner />} {createTenant.isPending ? 'Creating…' : deployNow() ? 'Create & deploy' : 'Create tenant'}</Button></div>
       </form>

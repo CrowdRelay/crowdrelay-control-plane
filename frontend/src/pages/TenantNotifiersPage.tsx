@@ -10,6 +10,7 @@ import { errorMessage } from '../lib/format'
 import { whileIncomplete } from '../lib/incomplete'
 import { NotifierIcon } from '../components/ProviderIcon'
 import { EmptyState } from '../components/ui/empty-state'
+import { Checkbox } from '../components/ui/checkbox'
 import { SkeletonNotifiersPage, SkeletonSection } from '../components/Skeleton'
 import { confirmAction } from '../components/Dialog'
 import { Spinner } from '../components/Spinner'
@@ -153,10 +154,12 @@ export function TenantNotifiersPage() {
           <p class="text-sm text-secondary-foreground leading-relaxed mb-2">Which events reach this destination. Leave every box clear to receive all of them — that is the default, and new event kinds are included automatically.</p>
           <div class="grid gap-2" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))' }}>
             <For each={[...NOTIFIER_EVENTS]}>{ev => (
-              <label class="flex items-start gap-3 py-1.5 px-2.5 rounded-sm hover:bg-surface-3 transition-colors cursor-pointer">
-                <input type="checkbox" class="mt-0.5 w-4 h-4 accent-primary" checked={events().includes(ev)} onChange={() => toggleEvent(ev)} />
-                <span class="text-sm text-foreground"><strong>{evLabel(ev)}</strong></span>
-              </label>
+              <Checkbox
+                class="items-start gap-3 py-1.5 px-2.5 rounded-sm hover:bg-surface-3 transition-colors cursor-pointer"
+                checked={events().includes(ev)}
+                onChange={() => toggleEvent(ev)}
+                label={evLabel(ev)}
+              />
             )}</For>
           </div>
           <Show when={!events().length}><small class="block mt-2 text-xs text-muted-foreground">Nothing selected — this channel receives every event.</small></Show>

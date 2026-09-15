@@ -1,6 +1,9 @@
 import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useNavigate } from '@tanstack/solid-router'
+import { Checkbox as KobalteCheckbox } from '@kobalte/core/checkbox'
+import { RadioGroup as KobalteRadioGroup } from '@kobalte/core/radio-group'
+import { Check } from 'lucide-solid'
 import { api } from '../lib/api'
 import type { RegionalProfile } from '../lib/types'
 import { cn } from '../lib/cn'
@@ -11,6 +14,19 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { NativeSelect } from '../components/ui/native-select'
 import { Field, FieldGrid } from '../components/ui/field'
+import { RadioGroup } from '../components/ui/radio-group'
+
+// Card-tile controls compose the Kobalte primitives directly — the vendored
+// ui/checkbox label prop only carries a plain string. Control styling mirrors
+// ui/checkbox.tsx + ui/radio-group.tsx so the tiles read identically.
+const checkboxTileControl =
+  'peer mt-1 h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ' +
+  'data-[checked]:bg-primary data-[checked]:text-primary-foreground'
+const radioTileControl =
+  'peer mt-1 aspect-square h-4 w-4 rounded-full border border-primary text-primary ring-offset-background ' +
+  'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ' +
+  'data-[checked]:bg-primary'
 
 type Preset = 'PL' | 'DE' | 'CZ' | 'US'
 const presets: Record<Preset, RegionalProfile> = {
@@ -326,27 +342,36 @@ export function TenantWizardPage() {
         <div class="flex items-center justify-between gap-2"><div><PanelTitle>Products</PanelTitle></div></div>
         <p class="text-sm text-muted-foreground leading-relaxed">Choose which products to enable for this tenant. Each product can be toggled independently.</p>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <label class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', signalEnabled() ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
-            <input type="checkbox" class="mt-1" checked={signalEnabled()} onChange={(e) => setSignalEnabled(e.currentTarget.checked)} />
+          <KobalteCheckbox checked={signalEnabled()} onChange={setSignalEnabled} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', signalEnabled() ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+            <KobalteCheckbox.Input class="sr-only" />
+            <KobalteCheckbox.Control class={checkboxTileControl}>
+              <KobalteCheckbox.Indicator class="flex items-center justify-center text-current"><Check class="h-3.5 w-3.5" /></KobalteCheckbox.Indicator>
+            </KobalteCheckbox.Control>
             <div>
               <strong class="text-sm text-foreground">Signal mobile app</strong>
               <small class="block text-xs text-muted-foreground mt-1">Push notifications, fan engagement, and event alerts. The brain's signal-inviter worker is only dispatched when this is enabled.</small>
             </div>
-          </label>
-          <label class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', synesthesiaEnabled() ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
-            <input type="checkbox" class="mt-1" checked={synesthesiaEnabled()} onChange={(e) => setSynesthesiaEnabled(e.currentTarget.checked)} />
+          </KobalteCheckbox>
+          <KobalteCheckbox checked={synesthesiaEnabled()} onChange={setSynesthesiaEnabled} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', synesthesiaEnabled() ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+            <KobalteCheckbox.Input class="sr-only" />
+            <KobalteCheckbox.Control class={checkboxTileControl}>
+              <KobalteCheckbox.Indicator class="flex items-center justify-center text-current"><Check class="h-3.5 w-3.5" /></KobalteCheckbox.Indicator>
+            </KobalteCheckbox.Control>
             <div>
               <strong class="text-sm text-foreground">Synesthesia</strong>
               <small class="block text-xs text-muted-foreground mt-1">Interactive album experience with leaderboard and game mechanics. Originally a Virya-exclusive product.</small>
             </div>
-          </label>
-          <label class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', areaEnabled() ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
-            <input type="checkbox" class="mt-1" checked={areaEnabled()} onChange={(e) => setAreaEnabled(e.currentTarget.checked)} />
+          </KobalteCheckbox>
+          <KobalteCheckbox checked={areaEnabled()} onChange={setAreaEnabled} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', areaEnabled() ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+            <KobalteCheckbox.Input class="sr-only" />
+            <KobalteCheckbox.Control class={checkboxTileControl}>
+              <KobalteCheckbox.Indicator class="flex items-center justify-center text-current"><Check class="h-3.5 w-3.5" /></KobalteCheckbox.Indicator>
+            </KobalteCheckbox.Control>
             <div>
               <strong class="text-sm text-foreground">AREA game</strong>
               <small class="block text-xs text-muted-foreground mt-1">Location-based fan engagement with drops, challenges, and claims.</small>
             </div>
-          </label>
+          </KobalteCheckbox>
         </div>
         <Show when={!signalEnabled()}>
           <div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-muted-foreground">Signal is disabled. The brain goal step will not offer "Signal fans" as a north star option. Signal base URL is not required for deployment.</div>
@@ -374,32 +399,38 @@ export function TenantWizardPage() {
       <div class="rounded-lg border border-border bg-card p-5 space-y-4">
         <div class="flex items-center justify-between gap-2"><div><PanelTitle>What this tenant is</PanelTitle></div></div>
         <p class="text-sm text-muted-foreground leading-relaxed">The machine runs the same loop for all of these. The archetype decides what it reads as a peer, a production event and a fan.</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <RadioGroup value={archetype()} onChange={setArchetype} class="grid grid-cols-1 md:grid-cols-2 gap-3" aria-label="Tenant archetype">
           <For each={archetypes}>{arc =>
-            <label class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', archetype() === arc.value ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
-              <input type="radio" class="mt-1" name="archetype" value={arc.value} checked={archetype() === arc.value} onChange={() => setArchetype(arc.value)} />
+            <KobalteRadioGroup.Item value={arc.value} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', archetype() === arc.value ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+              <KobalteRadioGroup.ItemInput class="sr-only" />
+              <KobalteRadioGroup.ItemControl class={radioTileControl}>
+                <KobalteRadioGroup.ItemIndicator class="flex items-center justify-center"><div class="h-2 w-2 rounded-full bg-background" /></KobalteRadioGroup.ItemIndicator>
+              </KobalteRadioGroup.ItemControl>
               <div>
                 <strong class="text-sm text-foreground">{arc.label}</strong>
                 <small class="block text-xs text-muted-foreground mt-1">{arc.description}</small>
               </div>
-            </label>
+            </KobalteRadioGroup.Item>
           }</For>
-        </div>
+        </RadioGroup>
         <div class="pt-2 border-t border-border">
           <PanelTitle>Growth goal</PanelTitle>
         </div>
         <p class="text-sm text-muted-foreground leading-relaxed">The brain optimizes its deterministic strategy around this metric. Fan aggregation is always active regardless of this choice.</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <RadioGroup value={northStar()} onChange={setNorthStar} class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" aria-label="Growth goal">
           <For each={availableNorthStars()}>{ns =>
-            <label class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', northStar() === ns.value ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
-              <input type="radio" class="mt-1" name="northstar" value={ns.value} checked={northStar() === ns.value} onChange={() => setNorthStar(ns.value)} />
+            <KobalteRadioGroup.Item value={ns.value} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', northStar() === ns.value ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+              <KobalteRadioGroup.ItemInput class="sr-only" />
+              <KobalteRadioGroup.ItemControl class={radioTileControl}>
+                <KobalteRadioGroup.ItemIndicator class="flex items-center justify-center"><div class="h-2 w-2 rounded-full bg-background" /></KobalteRadioGroup.ItemIndicator>
+              </KobalteRadioGroup.ItemControl>
               <div>
                 <strong class="text-sm text-foreground">{ns.label}</strong>
                 <small class="block text-xs text-muted-foreground mt-1">{ns.description}</small>
               </div>
-            </label>
+            </KobalteRadioGroup.Item>
           }</For>
-        </div>
+        </RadioGroup>
         <div class="flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={prevStep}>← Back</Button>
           <Button size="sm" onClick={nextStep} disabled={!step3Ready()}>Next: Fanbase Sources →</Button>
@@ -411,15 +442,18 @@ export function TenantWizardPage() {
       <div class="rounded-lg border border-border bg-card p-5 space-y-4">
         <div class="flex items-center justify-between gap-2"><div><PanelTitle>Fanbase sources</PanelTitle></div></div>
         <p class="text-sm text-muted-foreground leading-relaxed">Select which platforms the discovery worker should search for fan communities. These are upserted into the audience graph.</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" role="group" aria-label="Fanbase sources">
           <For each={fanbaseSources}>{src =>
-            <label class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', selectedSources().includes(src.value) ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
-              <input type="checkbox" class="mt-1" checked={selectedSources().includes(src.value)} onChange={() => toggleSource(src.value)} />
+            <KobalteCheckbox checked={selectedSources().includes(src.value)} onChange={() => toggleSource(src.value)} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', selectedSources().includes(src.value) ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+              <KobalteCheckbox.Input class="sr-only" />
+              <KobalteCheckbox.Control class={checkboxTileControl}>
+                <KobalteCheckbox.Indicator class="flex items-center justify-center text-current"><Check class="h-3.5 w-3.5" /></KobalteCheckbox.Indicator>
+              </KobalteCheckbox.Control>
               <div>
                 <strong class="text-sm text-foreground">{src.label}</strong>
                 <small class="block text-xs text-muted-foreground mt-1">{src.description}</small>
               </div>
-            </label>
+            </KobalteCheckbox>
           }</For>
         </div>
         <div class="flex justify-end gap-2">
@@ -484,7 +518,13 @@ export function TenantWizardPage() {
             </div>
           </Show>
 
-          <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-1" checked={deployNow()} onChange={(e) => setDeployNow(e.currentTarget.checked)} /><span><strong>Deploy isolated CrowdRelay instance now</strong><small class="block text-muted-foreground">Only an agent for the selected data region may claim this schema-v4 job.</small></span></label>
+          <KobalteCheckbox checked={deployNow()} onChange={setDeployNow} class="flex items-start gap-3 cursor-pointer">
+            <KobalteCheckbox.Input class="sr-only" />
+            <KobalteCheckbox.Control class={checkboxTileControl}>
+              <KobalteCheckbox.Indicator class="flex items-center justify-center text-current"><Check class="h-3.5 w-3.5" /></KobalteCheckbox.Indicator>
+            </KobalteCheckbox.Control>
+            <span><strong>Deploy isolated CrowdRelay instance now</strong><small class="block text-muted-foreground">Only an agent for the selected data region may claim this schema-v4 job.</small></span>
+          </KobalteCheckbox>
         </Show>
 
         <Show when={createTenant.error}><ErrorCard>{createTenant.error instanceof Error ? createTenant.error.message : 'Tenant creation failed'}</ErrorCard></Show>
