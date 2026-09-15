@@ -2543,6 +2543,7 @@ export type CommandCenterReadModel = {
     criticalAlerts: number
     deadDeliveries: number
     unavailableTenants: number
+    reportingTenants: number
   }
   autopilot: {
     queuedActions: number
@@ -2550,11 +2551,13 @@ export type CommandCenterReadModel = {
     succeeded24h: number
     failed24h: number
     unknownActions: number
+    reportingTenants: number
   }
   outcomes: {
     resolved: number
     unknown: number
     waitingForObservation: number
+    reportingTenants: number
   }
   system: {
     platformServices: PlatformHealthEntry[]
@@ -2563,6 +2566,7 @@ export type CommandCenterReadModel = {
     totalOutcomes: number
     admitted: number
     rejected: number
+    reportingTenants: number
   }
   brainNeedsAttention: boolean
   // North Star fan KPIs — null when no tenant reported, so the UI can

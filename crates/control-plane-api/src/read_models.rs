@@ -242,6 +242,31 @@ async fn command_center(
 
     let platform_health = platform_health?;
 
+    let projected = aggregate_command_center_totals(&per_tenant, now, &platform_health);
+    cache_set(
+        &state.read_model_cache,
+        CACHE_KEY.to_owned(),
+        projected.clone(),
+    )
+    .await;
+    Ok(no_store(projected))
+}
+
+/// Cross-tenant rollup for the command center. Pure so the totals can be
+/// unit-tested without standing up tenant fan-out.
+///
+/// Every section sum is gated on that section's own `available` flag — the
+/// same contract `fans`, `momentum` and `objectives` already follow — and
+/// each block reports `reportingTenants` so the operator can see how much
+/// of the fleet a total actually covers. An unavailable section contributes
+/// nothing: its fields project as zero locally, and counting them again
+/// here would let an unreachable tenant write a confident 0 into a fleet
+/// total that then reads complete.
+fn aggregate_command_center_totals(
+    per_tenant: &[Value],
+    now: chrono::DateTime<chrono::Utc>,
+    platform_health: &[crate::model::PlatformHealthRow],
+) -> Value {
     // Aggregate global totals from per-tenant projections.
     let mut needs_you = 0u64;
     let mut awaiting_approval = 0u64;
@@ -249,17 +274,21 @@ async fn command_center(
     let mut critical_alerts = 0u64;
     let mut dead_deliveries = 0u64;
     let mut unavailable_tenants = 0u64;
+    let mut attention_reporting = 0u64;
     let mut queued_actions = 0u64;
     let mut processing_actions = 0u64;
     let mut succeeded_24h = 0u64;
     let mut failed_24h = 0u64;
     let mut unknown_actions = 0u64;
+    let mut autopilot_reporting = 0u64;
     let mut outcomes_resolved = 0u64;
     let mut outcomes_unknown = 0u64;
     let mut outcomes_waiting = 0u64;
+    let mut outcomes_reporting = 0u64;
     let mut learning_total = 0u64;
     let mut learning_admitted = 0u64;
     let mut learning_rejected = 0u64;
+    let mut learning_reporting = 0u64;
     let mut brain_needs_attention = false;
 
     // North Star fan KPIs — null-not-zero. A missing audience endpoint
@@ -299,7 +328,7 @@ async fn command_center(
     let mut stale = 0u64;
     let mut unknown = 0u64;
 
-    for t in &per_tenant {
+    for t in per_tenant {
         total += 1;
         if t["available"].as_bool() == Some(true) {
             active += 1;
@@ -310,25 +339,36 @@ async fn command_center(
             Some("stale") => stale += 1,
             _ => unknown += 1,
         }
-        if t["attention"]["available"].as_bool() != Some(true) {
+        if t["attention"]["available"].as_bool() == Some(true) {
+            attention_reporting += 1;
+            needs_you += t["attention"]["needsYou"].as_u64().unwrap_or(0);
+            awaiting_approval += t["attention"]["awaitingApproval"].as_u64().unwrap_or(0);
+            open_findings += t["attention"]["openFindings"].as_u64().unwrap_or(0);
+            critical_alerts += t["attention"]["criticalAlerts"].as_u64().unwrap_or(0);
+            dead_deliveries += t["attention"]["deadDeliveries"].as_u64().unwrap_or(0);
+        } else {
             unavailable_tenants += 1;
         }
-        needs_you += t["attention"]["needsYou"].as_u64().unwrap_or(0);
-        awaiting_approval += t["attention"]["awaitingApproval"].as_u64().unwrap_or(0);
-        open_findings += t["attention"]["openFindings"].as_u64().unwrap_or(0);
-        critical_alerts += t["attention"]["criticalAlerts"].as_u64().unwrap_or(0);
-        dead_deliveries += t["attention"]["deadDeliveries"].as_u64().unwrap_or(0);
-        queued_actions += t["autopilot"]["queuedActions"].as_u64().unwrap_or(0);
-        processing_actions += t["autopilot"]["processingActions"].as_u64().unwrap_or(0);
-        succeeded_24h += t["autopilot"]["succeeded24h"].as_u64().unwrap_or(0);
-        failed_24h += t["autopilot"]["failed24h"].as_u64().unwrap_or(0);
-        unknown_actions += t["autopilot"]["unknownActions"].as_u64().unwrap_or(0);
-        outcomes_resolved += t["outcomes"]["resolved"].as_u64().unwrap_or(0);
-        outcomes_unknown += t["outcomes"]["unknown"].as_u64().unwrap_or(0);
-        outcomes_waiting += t["outcomes"]["waitingForObservation"].as_u64().unwrap_or(0);
-        learning_total += t["learning"]["totalOutcomes"].as_u64().unwrap_or(0);
-        learning_admitted += t["learning"]["admitted"].as_u64().unwrap_or(0);
-        learning_rejected += t["learning"]["rejected"].as_u64().unwrap_or(0);
+        if t["autopilot"]["available"].as_bool() == Some(true) {
+            autopilot_reporting += 1;
+            queued_actions += t["autopilot"]["queuedActions"].as_u64().unwrap_or(0);
+            processing_actions += t["autopilot"]["processingActions"].as_u64().unwrap_or(0);
+            succeeded_24h += t["autopilot"]["succeeded24h"].as_u64().unwrap_or(0);
+            failed_24h += t["autopilot"]["failed24h"].as_u64().unwrap_or(0);
+            unknown_actions += t["autopilot"]["unknownActions"].as_u64().unwrap_or(0);
+        }
+        if t["outcomes"]["available"].as_bool() == Some(true) {
+            outcomes_reporting += 1;
+            outcomes_resolved += t["outcomes"]["resolved"].as_u64().unwrap_or(0);
+            outcomes_unknown += t["outcomes"]["unknown"].as_u64().unwrap_or(0);
+            outcomes_waiting += t["outcomes"]["waitingForObservation"].as_u64().unwrap_or(0);
+        }
+        if t["learning"]["available"].as_bool() == Some(true) {
+            learning_reporting += 1;
+            learning_total += t["learning"]["totalOutcomes"].as_u64().unwrap_or(0);
+            learning_admitted += t["learning"]["admitted"].as_u64().unwrap_or(0);
+            learning_rejected += t["learning"]["rejected"].as_u64().unwrap_or(0);
+        }
         // The passthrough object keeps the tenant's snake_case keys —
         // `needsAttention` here read a field that does not exist, so a
         // regressing or stagnant brain never raised the flag.
@@ -391,6 +431,7 @@ async fn command_center(
             "unknown": unknown,
         },
         "attention": {
+            "reportingTenants": attention_reporting,
             "needsYou": needs_you,
             "awaitingApproval": awaiting_approval,
             "openFindings": open_findings,
@@ -399,6 +440,7 @@ async fn command_center(
             "unavailableTenants": unavailable_tenants,
         },
         "autopilot": {
+            "reportingTenants": autopilot_reporting,
             "queuedActions": queued_actions,
             "processingActions": processing_actions,
             "succeeded24h": succeeded_24h,
@@ -406,12 +448,14 @@ async fn command_center(
             "unknownActions": unknown_actions,
         },
         "outcomes": {
+            "reportingTenants": outcomes_reporting,
             "resolved": outcomes_resolved,
             "unknown": outcomes_unknown,
             "waitingForObservation": outcomes_waiting,
         },
-        "system": system_block(&platform_health),
+        "system": system_block(platform_health),
         "learning": {
+            "reportingTenants": learning_reporting,
             "totalOutcomes": learning_total,
             "admitted": learning_admitted,
             "rejected": learning_rejected,
@@ -444,13 +488,7 @@ async fn command_center(
         },
         "perTenant": per_tenant,
     });
-    cache_set(
-        &state.read_model_cache,
-        CACHE_KEY.to_owned(),
-        projected.clone(),
-    )
-    .await;
-    Ok(no_store(projected))
+    projected
 }
 
 /// The command center's `system` block.
@@ -2927,5 +2965,76 @@ mod tests {
             object["platformServices"].is_array(),
             "platformServices must be the platform health list, not a placeholder"
         );
+    }
+
+    /// The rollup counts only sections that reported. An unavailable section
+    /// projects zeroed fields locally — counting them again fleet-side would
+    /// let an unreachable tenant write a confident 0 into a total that reads
+    /// complete. `reportingTenants` is the coverage the operator reads beside
+    /// every sum, matching the fans/momentum/objectives convention.
+    #[test]
+    fn rollup_counts_only_available_sections_and_reports_coverage() {
+        let reporting = TenantCommandData {
+            attention: Some(
+                json!({
+                    "needs_you": [{"id": "a1"}, {"id": "a2"}],
+                    "awaiting_approval": 1,
+                    "findings": [],
+                    "alerts": [],
+                    "dead_deliveries": []
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ),
+            autopilot: Some(
+                json!({
+                    "queued_actions": 2,
+                    "processing_actions": 1,
+                    "succeeded_24h": 5,
+                    "failed_24h": 1,
+                    "recent_actions": []
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ),
+            ..Default::default()
+        };
+        let dead = TenantCommandData::default();
+        let mut per_tenant = vec![
+            build_per_tenant_summary(&mock_tenant(), &reporting),
+            build_per_tenant_summary(&mock_tenant(), &dead),
+        ];
+        // A malformed row — `available: false` with live fields — must not
+        // contribute either: the flag is the only authority on whether the
+        // section's numbers mean anything. `outcomes`/`learning` are absent
+        // keys entirely, which indexes to Null and skips the same gates —
+        // the two malformed shapes an upstream bug could actually emit.
+        per_tenant.push(json!({
+            "slug": "ghost",
+            "displayName": "Ghost",
+            "runtimeHealth": "unknown",
+            "available": true,
+            "attention": {"available": false, "needsYou": 99},
+            "autopilot": {"available": false, "queuedActions": 50},
+            "brain": {},
+            "fans": {"available": false},
+            "momentum": {"available": false},
+            "objectives": {"available": false},
+        }));
+
+        let rolled = aggregate_command_center_totals(&per_tenant, chrono::Utc::now(), &[]);
+
+        assert_eq!(rolled["attention"]["needsYou"], json!(2));
+        assert_eq!(rolled["attention"]["awaitingApproval"], json!(1));
+        assert_eq!(rolled["attention"]["reportingTenants"], json!(1));
+        assert_eq!(rolled["attention"]["unavailableTenants"], json!(2));
+        assert_eq!(rolled["autopilot"]["queuedActions"], json!(2));
+        assert_eq!(rolled["autopilot"]["reportingTenants"], json!(1));
+        assert_eq!(rolled["outcomes"]["resolved"], json!(0));
+        assert_eq!(rolled["outcomes"]["reportingTenants"], json!(0));
+        assert_eq!(rolled["learning"]["totalOutcomes"], json!(0));
+        assert_eq!(rolled["learning"]["reportingTenants"], json!(0));
     }
 }
