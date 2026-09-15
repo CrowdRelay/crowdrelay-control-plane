@@ -63,9 +63,10 @@ export function FanTablePanel(props: {
     queryKey: ['tenant-portfolio', props.slug],
     queryFn: () => api.tenantPortfolio(props.slug),
     enabled: importing(),
-    staleTime: 30_000,
+    staleTime: 10_000,
+    reconcile: 'id' as const,
     refetchOnWindowFocus: false,
-    // Shares the key with PortfolioPage — every observer of a shared key must
+    // Shares the key with AudiencePage — every observer of a shared key must
     // carry the same retry rule, or whoever mounts first decides for both.
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))

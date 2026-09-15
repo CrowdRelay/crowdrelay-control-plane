@@ -237,9 +237,15 @@ export function TabPanel(props: {
   )
 }
 
-export function useTabPanels(initial: string) {
-  const [activeTab, setActiveTab] = createSignal(initial)
-  const [visited, setVisited] = createSignal<Set<string>>(new Set([initial]))
+export function useTabPanels(initial: string, valid?: string[]) {
+  // `?tab=<id>` lets a link or an external redirect (OAuth return) land on a
+  // specific tab. Only honored when the caller passes its full id list —
+  // without it a stray query param would activate a tab that does not exist
+  // and every panel would render hidden.
+  const requested = new URLSearchParams(window.location.search).get('tab')
+  const start = requested && valid?.includes(requested) ? requested : initial
+  const [activeTab, setActiveTab] = createSignal(start)
+  const [visited, setVisited] = createSignal<Set<string>>(new Set([start]))
   const visit = (id: string) => setVisited(prev => prev.has(id) ? prev : new Set([...prev, id]))
   const switchTab = (id: string) => {
     setActiveTab(id)

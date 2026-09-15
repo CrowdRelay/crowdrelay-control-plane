@@ -9,7 +9,7 @@ The Control Plane answers three questions: what tenants exist, what is actually 
 - **Tenant provisioning** — create a new artist workspace or festival and deploy it with one action. Provisioning intent is durable and transactional; a separately authenticated host agent performs the local runtime mutation under crash-recoverable leases. Externally-owned tenants (Virya) trigger the ecosystem-deploy GitHub Actions workflow instead.
 - **Runtime health** — server-side freshness tracking: `healthy`, `degraded`, `stale`, or `unknown`. The runtime is treated as stale after a missed heartbeat. Platform health polling probes n8n and other services every 30s.
 - **Deployment identity** — exact revision tracking with meaningful audit events. The operator always knows what is running and when it was deployed.
-- **Growth operations** — 19 operator pages covering audience intelligence, growth metrics, growth objectives, growth posture, spend envelope, acquisition channels, growth funnel, portfolio, community intelligence, and the brain decision panel.
+- **Growth operations** — 19 operator pages covering audience intelligence, growth metrics, growth objectives, growth posture, spend envelope, acquisition channels, growth funnel, audience sources, community intelligence, and the brain decision panel.
 - **Automation events** — n8n workflow events with ack/resolve/retry, Discord forwarding, mute controls, and workflow config sync.
 - **Notifiers** — per-tenant notification channels (Discord, webhook, email relay) with test delivery, platform config display, and n8n routing sync.
 - **Release convergence** — tracks release components across the ecosystem and surfaces missing or stale components.

@@ -111,7 +111,7 @@ export function ChatWidget(props: { slug: string }) {
     const path = location().pathname
     if (path.includes('/operations')) return where('Operations page')
     if (path.includes('/attention')) return where('Attention page')
-    if (path.includes('/portfolio')) return where('Portfolio page')
+    if (path.includes('/audience')) return where('Audience page')
     if (path.includes('/area')) return where('AREA page')
     if (path.includes('/integrations')) return where('AI Integrations page')
     if (path.includes('/notifiers')) return where('Notifiers page')

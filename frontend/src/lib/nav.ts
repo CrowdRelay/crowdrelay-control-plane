@@ -2,7 +2,7 @@
 //   CONTROL — what needs your attention right now (overview, incidents)
 //   BRAIN — the deterministic autopilot's intelligence and learning
 //   EXECUTION — live operations, integrations, and alert channels
-//   AUDIENCE — who you're reaching and how (portfolio, fans, beacons, AREA)
+//   AUDIENCE — who you're reaching and how (fans, sources, beacons, AREA)
 export type NavItem = { path: string; label: string; exact: boolean; icon: string }
 export type NavGroup = { label: string; items: NavItem[]; defaultOpen: boolean }
 
@@ -29,7 +29,6 @@ export const TENANT_NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
       { path: '/tenants/$slug/health', label: 'Health', exact: false, icon: 'sliders' },
-      { path: '/tenants/$slug/portfolio', label: 'Portfolio', exact: false, icon: 'portfolio' },
     ],
   },
   {

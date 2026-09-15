@@ -112,7 +112,11 @@ function formatTime(iso: string): string {
 }
 
 export function CommunityIntelligenceContent(props: { slug: string }) {
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('communities')
+  // Tab ids carry the `ci-` prefix: this content now mounts inside the
+  // Audience page's own 'communities' TabPanel, and a bare 'communities'
+  // would emit `tab-communities`/`tabpanel-communities` twice on one page —
+  // duplicate ids cross-wire the aria-controls/labelledby pairs.
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('ci-communities', ['ci-communities', 'ci-intelligence'])
   const [selectedPlaceId, setSelectedPlaceId] = createSignal<string | null>(null)
   const [draftFor, setDraftFor] = createSignal<string | null>(null)
   const [collapsed, setCollapsed] = createSignal<Set<string>>(new Set())
@@ -279,7 +283,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
 
   const viewObservations = (placeId: string) => {
     setSelectedPlaceId(placeId)
-    switchTab('intelligence')
+    switchTab('ci-intelligence')
   }
 
   const selectedCommunity = () =>
@@ -294,13 +298,13 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
         onChange={switchTab}
       onPrefetch={prefetch}
         tabs={[
-          { id: 'communities', label: 'Directory' },
-          { id: 'intelligence', label: 'Observations' },
+          { id: 'ci-communities', label: 'Directory' },
+          { id: 'ci-intelligence', label: 'Observations' },
         ]}
       />
 
       {/* ─── Communities Tab ────────────────────────────────────── */}
-      <TabPanel active={activeTab()} id="communities" visited={isVisited('communities')}>
+      <TabPanel active={activeTab()} id="ci-communities" visited={isVisited('ci-communities')}>
         {/* ── Add form ── */}
         <Show when={adding()}>
           <form class="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={submit}>
@@ -501,13 +505,13 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
       </TabPanel>
 
       {/* ─── Intelligence Tab ────────────────────────────────────── */}
-      <TabPanel active={activeTab()} id="intelligence" visited={isVisited('intelligence')}>
+      <TabPanel active={activeTab()} id="ci-intelligence" visited={isVisited('ci-intelligence')}>
         <Show when={!selectedPlaceId()}>
           <p class="p-4 text-sm text-muted-foreground">Select a community from the Directory tab to view its observation history and extracted entities.</p>
         </Show>
 
         <Show when={selectedPlaceId()}>
-          <SectionTitle eyebrow="COMMUNITY" title={selectedCommunity()?.name ?? 'Community'} action={<Button variant="ghost" size="sm" onClick={() => { setSelectedPlaceId(null); switchTab('communities') }}>Back to directory</Button>} />
+          <SectionTitle eyebrow="COMMUNITY" title={selectedCommunity()?.name ?? 'Community'} action={<Button variant="ghost" size="sm" onClick={() => { setSelectedPlaceId(null); switchTab('ci-communities') }}>Back to directory</Button>} />
 
           <h3>Observations</h3>
           <Show when={detail.isPending}><SkeletonRows /></Show>

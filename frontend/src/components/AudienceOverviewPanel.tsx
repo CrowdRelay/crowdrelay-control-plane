@@ -11,7 +11,7 @@ import { buttonVariants } from './ui/button'
 const fmt = (value: number | undefined) => value == null ? '—' : compactNumber(value)
 
 
-export function AudienceOverviewPanel(props: { slug: string; overview?: AudienceOverview }) {
+export function AudienceOverviewPanel(props: { slug: string; overview?: AudienceOverview; onGoSources?: () => void; onGoCommunities?: () => void }) {
   // Seven cards reading 0 is a true answer to a question nobody asked. A
   // tenant with no fans yet needs the three places fans actually come from,
   // not a wall of zeros on the page that carries the north star.
@@ -41,8 +41,11 @@ export function AudienceOverviewPanel(props: { slug: string; overview?: Audience
             <strong class="text-foreground">No fans aggregated yet</strong>
             <p class="text-sm text-muted-foreground mt-1 max-w-2xl leading-relaxed">Fans arrive from connected platforms, from the communities the brain scans, and from the people carrying a release into a new city. Start one of those and the counters here fill on the next ingestion.</p>
             <div class="flex flex-wrap gap-2 mt-4">
-              <Link class={buttonVariants({ size: 'sm' })} to="/tenants/$slug/portfolio" params={{ slug: props.slug }}>Connect a fan source</Link>
-              <Link class={buttonVariants({ variant: 'outline', size: 'sm' })} to="/tenants/$slug/audience" params={{ slug: props.slug }}>Work the communities queue</Link>
+              {/* Fan sources and communities live on this page's other tabs —
+                  in-memory tab state means no href can reach them, so these
+                  are buttons wired to the page's switchTab, not Links. */}
+              <button type="button" class={buttonVariants({ size: 'sm' })} onClick={() => props.onGoSources?.()}>Connect a fan source</button>
+              <button type="button" class={buttonVariants({ variant: 'outline', size: 'sm' })} onClick={() => props.onGoCommunities?.()}>Work the communities queue</button>
               <Link class={buttonVariants({ variant: 'outline', size: 'sm' })} to="/tenants/$slug/beacons" params={{ slug: props.slug }}>Add beacons</Link>
             </div>
           </div>

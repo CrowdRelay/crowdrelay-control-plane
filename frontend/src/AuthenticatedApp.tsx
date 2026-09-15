@@ -29,7 +29,8 @@ const TenantOperationsPage = lazyRouteComponent(() => import('./pages/TenantOper
 const TenantHealthPage = lazyRouteComponent(() => import('./pages/TenantHealthPage'), 'TenantHealthPage')
 const TenantIntelligencePage = lazyRouteComponent(() => import('./pages/TenantIntelligencePage'), 'TenantIntelligencePage')
 const TenantIntegrationsPage = lazyRouteComponent(() => import('./pages/TenantIntegrationsPage'), 'TenantIntegrationsPage')
-const PortfolioPage = lazyRouteComponent(() => import('./pages/PortfolioPage'), 'PortfolioPage')
+// PortfolioPage merged into AudiencePage (UX-3.1) — the /portfolio route is
+// a redirect kept for old links; the page file is deleted.
 const AudiencePage = lazyRouteComponent(() => import('./pages/AudiencePage'), 'AudiencePage')
 const BeaconsPage = lazyRouteComponent(() => import('./pages/BeaconsPage'), 'BeaconsPage')
 const TenantNotifiersPage = lazyRouteComponent(() => import('./pages/TenantNotifiersPage'), 'TenantNotifiersPage')
@@ -45,7 +46,7 @@ const flowRoute = createRoute({ getParentRoute: () => rootRoute, path: '/flow', 
 const tenantsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants', component: TenantsPage, loader: warm(['tenants'], api.tenants, 15_000) })
 const tenantWizardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/new', component: TenantWizardPage })
 const tenantRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug', component: TenantPage, loader: ({ params }) => warm(['tenant-overview', params.slug], () => api.tenantOverview(params.slug))() })
-const portfolioRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/portfolio', component: PortfolioPage, loader: ({ params }) => warm(['tenant-portfolio', params.slug], () => api.tenantPortfolio(params.slug))() })
+const portfolioRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/portfolio', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/audience` }) } })
 const audienceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/audience', component: AudiencePage, loader: ({ params }) => warm(['tenant-audience', params.slug], () => api.audienceModel(params.slug))() })
 const beaconsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/beacons', component: BeaconsPage })
 const areaRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/area', component: AreaPage, loader: ({ params }) => warm(['area-overview', params.slug], () => api.areaOverview(params.slug), 15_000)() })

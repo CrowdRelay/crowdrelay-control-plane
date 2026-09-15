@@ -16,7 +16,7 @@ const PAGES = [
   { path: '/tenants', name: 'tenants', title: /.+/i },
   { path: '/tenants/virya', name: 'tenant-virya', title: /.+/i },
   { path: '/tenants/virya/operations', name: 'operations', title: /.+/i },
-  { path: '/tenants/virya/portfolio', name: 'portfolio', title: /.+/i },
+  { path: '/tenants/virya/audience', name: 'audience', title: /.+/i },
   { path: '/tenants/virya/attention', name: 'attention', title: /.+/i },
   { path: '/tenants/virya/integrations', name: 'integrations', title: /.+/i },
   { path: '/tenants/virya/area', name: 'area', title: /.+/i },

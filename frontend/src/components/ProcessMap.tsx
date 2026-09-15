@@ -40,10 +40,10 @@ type MapNode = {
 
 const NODES: MapNode[] = [
   // ── SOURCES ──
-  { id: 'reddit', x: 30, y: 100, w: 230, h: 52, zone: 'src', title: 'Reddit', desc: 'logged-in browser session', to: '/tenants/{slug}/portfolio' },
+  { id: 'reddit', x: 30, y: 100, w: 230, h: 52, zone: 'src', title: 'Reddit', desc: 'logged-in browser session', to: '/tenants/{slug}/audience?tab=sources' },
   { id: 'spotify', x: 30, y: 162, w: 230, h: 52, zone: 'src', title: 'Spotify', desc: 'artist + track metrics', to: '/tenants/{slug}/intelligence' },
-  { id: 'bandsintown', x: 30, y: 224, w: 230, h: 52, zone: 'src', title: 'Bandsintown', desc: 'show + tour signals', to: '/tenants/{slug}/portfolio' },
-  { id: 'meta', x: 30, y: 286, w: 230, h: 52, zone: 'src', title: 'Meta · TikTok', desc: 'ad leads + social', to: '/tenants/{slug}/portfolio' },
+  { id: 'bandsintown', x: 30, y: 224, w: 230, h: 52, zone: 'src', title: 'Bandsintown', desc: 'show + tour signals', to: '/tenants/{slug}/audience?tab=sources' },
+  { id: 'meta', x: 30, y: 286, w: 230, h: 52, zone: 'src', title: 'Meta · TikTok', desc: 'ad leads + social', to: '/tenants/{slug}/audience?tab=sources' },
   { id: 'press', x: 30, y: 348, w: 230, h: 52, zone: 'src', title: 'Press · Beacons', desc: 'SubmitHub + CSV · Signal', to: '/tenants/{slug}/beacons' },
 
   // ── INTELLIGENCE (deterministic Rust) ──

@@ -41,6 +41,10 @@ export function PortfolioPanel(props: {
   slug: string
   overview: PortfolioOverview | undefined
   consents: PortfolioConsent[] | undefined
+  // The amplification section failed upstream — `consents` is also undefined
+  // for a real zero, so the absence alone cannot tell the two apart. Without
+  // this flag the empty state invites "create an edge" on a dead section.
+  consentsUnavailable?: boolean
   onChanged: () => void
 }) {
   const queryClient = useQueryClient()
@@ -213,10 +217,15 @@ export function PortfolioPanel(props: {
         reads as a broken feature rather than an inapplicable one. */}
     <Show when={!edges().length}>
       <Show
-        when={(props.overview?.workspaceCount ?? 0) >= 2}
-        fallback={<EmptyState label="No amplification yet" hint="Amplification needs at least two artists sharing the roster — including band-to-band crossbill, which stays a manual ask inside each show's partner relay until a second artist joins." />}
+        when={!props.consentsUnavailable}
+        fallback={<EmptyState label="Amplification edges unavailable" hint="This section could not be loaded — see the alert above. The rest of the page keeps working." />}
       >
-        <EmptyState label="No amplification edges" hint="Create an edge from either artist's workspace to start routing." />
+        <Show
+          when={(props.overview?.workspaceCount ?? 0) >= 2}
+          fallback={<EmptyState label="No amplification yet" hint="Amplification needs at least two artists sharing the roster — including band-to-band crossbill, which stays a manual ask inside each show's partner relay until a second artist joins." />}
+        >
+          <EmptyState label="No amplification edges" hint="Create an edge from either artist's workspace to start routing." />
+        </Show>
       </Show>
     </Show>
     <Show when={errorText()}><ErrorCard>{errorText()}</ErrorCard></Show>

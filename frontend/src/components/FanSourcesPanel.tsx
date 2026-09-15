@@ -70,7 +70,7 @@ const PLATFORMS: PlatformSpec[] = [
   },
   {
     value: 'tiktok', label: 'TikTok', icon: 'tiktok', provides: 'Follower count and video engagement',
-    authorizeUrl: slug => `https://signal-api.virya.music/v1/public/connections/tiktok/authorize?redirect=/tenants/${slug}/portfolio`,
+    authorizeUrl: slug => `https://signal-api.virya.music/v1/public/connections/tiktok/authorize?redirect=/tenants/${slug}/audience?tab=sources`,
   },
   {
     value: 'discord', label: 'Discord', icon: 'discord', provides: 'Server member count and presence',
@@ -465,13 +465,14 @@ export function FanSourcesPanel(props: {
         </p>
       }>
         <Table aria-label="Fanbases">
-          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Origin</TableHead><TableHead class="text-right">Members</TableHead><TableHead>Last ingestion</TableHead><TableHead>Ingest</TableHead><TableHead></TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Origin</TableHead><TableHead class="text-right">Members</TableHead><TableHead class="text-right">Still fans</TableHead><TableHead>Last ingestion</TableHead><TableHead>Ingest</TableHead><TableHead></TableHead></TableRow></TableHeader>
           <TableBody>
             <For each={blocks()}>{fb => (
               <TableRow classList={{ 'row-pending': isDeleting(fb.id) }}>
                 <TableCell>{fb.name}{fb.enabled ? '' : ' (off)'}</TableCell>
                 <TableCell><span class="inline-flex items-center gap-1.5"><FanbaseIcon sourceKind={fb.source_kind} size={16} class="flex-shrink-0 opacity-85" /> {SOURCE_LABEL[fb.source_kind] ?? fb.source_kind}</span></TableCell>
                 <TableCell numeric>{metric(fb.members)}</TableCell>
+                <TableCell numeric>{metric(fb.active_members)}</TableCell>
                 <TableCell>
                   <Show when={fb.last_status} fallback={<span class="text-muted-foreground">never</span>}>
                     <span class="flex items-center gap-2">

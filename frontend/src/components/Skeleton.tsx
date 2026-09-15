@@ -298,62 +298,6 @@ export const SkeletonTabContent: Component = () => (
   </>
 )
 
-/** Full portfolio page skeleton — mirrors the real page shape:
- *  KPI grid + edges table + fan sources + settings panel.
- *  Replaces the generic SkeletonSection pair that didn't match the layout. */
-export const SkeletonPortfolio: Component = () => (
-  <>
-    {/* Portfolio panel — KPI grid + edges table */}
-    <Card class="p-4">
-      <div class="flex items-center justify-between gap-4 mb-4">
-        <div>
-          <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px] mb-1.5" />
-          <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[200px]" />
-        </div>
-      </div>
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-        {Array.from({ length: 5 }, () => (
-          <div>
-            <div class="rounded-lg bg-surface-3 border border-border h-6 w-[60px] mb-1.5" />
-            <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px]" />
-          </div>
-        ))}
-      </div>
-      <div class="rounded-lg bg-surface-3 border border-border h-40 w-full" />
-    </Card>
-    {/* Fan sources panel */}
-    <Card class="p-4 mt-4">
-      <div class="flex items-center justify-between gap-4 mb-4">
-        <div>
-          <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[80px] mb-1.5" />
-          <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[160px]" />
-        </div>
-      </div>
-      <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
-        {Array.from({ length: 3 }, () => (
-          <div class="rounded-lg bg-surface-3 border border-border h-20" />
-        ))}
-      </div>
-    </Card>
-    {/* Settings panel */}
-    <Card class="p-4 mt-4">
-      <div class="flex items-center justify-between gap-4 mb-4">
-        <div>
-          <div class="rounded-lg bg-surface-3 border border-border h-[11px] w-[60px] mb-1.5" />
-          <div class="rounded-lg bg-surface-3 border border-border h-[18px] w-[140px]" />
-        </div>
-      </div>
-      <div class="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-        {Array.from({ length: 4 }, () => (
-          <div class="rounded-lg bg-surface-3 border border-border h-[60px]" />
-        ))}
-      </div>
-    </Card>
-  </>
-)
-
-/** Signal overview skeleton — mirrors the SignalOverviewPanel shape:
- *  section title + metrics row + cities row. */
 export const SkeletonSignalOverview: Component = () => (
   <>
     <div class="flex items-center justify-between gap-4 mb-3">

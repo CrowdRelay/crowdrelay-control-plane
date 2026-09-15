@@ -854,6 +854,9 @@ export interface FanbaseBlock {
   enabled: boolean
   created_at: string
   members: number | null
+  // Members whose fan row is still active — the retained share, which is
+  // the ROI a raw member count cannot show.
+  active_members: number | null
   last_status: string | null
   last_finished_at: string | null
   last_imported_pending: number | null

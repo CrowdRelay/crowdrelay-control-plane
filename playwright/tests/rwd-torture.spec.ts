@@ -26,7 +26,7 @@ const PAGES = [
   { path: '/tenants/virya/operations', name: 'operations' },
   { path: '/tenants/virya/intelligence', name: 'intelligence' },
   { path: '/tenants/virya/attention', name: 'attention' },
-  { path: '/tenants/virya/portfolio', name: 'portfolio' },
+  { path: '/tenants/virya/audience', name: 'audience' },
   { path: '/tenants/virya/funnel', name: 'growth-funnel' },
   { path: '/tenants/virya/shows', name: 'shows' },
   { path: '/tenants/virya/health', name: 'health' },

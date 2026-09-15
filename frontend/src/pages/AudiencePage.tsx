@@ -4,6 +4,10 @@ import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { AudienceOverviewPanel } from '../components/AudienceOverviewPanel'
 import { FanTablePanel } from '../components/FanTablePanel'
+import { FanSourcesPanel } from '../components/FanSourcesPanel'
+import { PortfolioPanel } from '../components/PortfolioPanel'
+import { PortfolioSettingsPanel } from '../components/PortfolioSettingsPanel'
+import { RedditCookieUploader } from '../components/RedditCookieUploader'
 import { SegmentPanel } from '../components/SegmentPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
@@ -12,17 +16,27 @@ import { Alert } from '../components/ui/alert'
 import { CommunityIntelligenceContent } from './CommunityIntelligenceContent'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
-const SECTION_LABEL: Record<string, string> = {
+// Each read model names its own sections — 'overview' means audience KPIs in
+// the audience model but roster KPIs in the portfolio model, so the label map
+// must travel with the model, not the page.
+const AUDIENCE_SECTION_LABEL: Record<string, string> = {
   overview: 'Audience KPIs',
   fans: 'Fan list',
   segments: 'Segments',
 }
 
-function DegradedSections(props: { degraded: string[] }) {
+const PORTFOLIO_SECTION_LABEL: Record<string, string> = {
+  overview: 'Roster KPIs',
+  amplification: 'Amplification edges',
+  fanbases: 'Fan sources',
+  settings: 'Brand settings',
+}
+
+function DegradedSections(props: { degraded: string[]; labels: Record<string, string> }) {
   return <Show when={props.degraded.length}>
     <For each={props.degraded}>{section => (
       <Alert tone="warning" role="status">
-        <strong>{SECTION_LABEL[section] ?? section}</strong> aren't available on the connected CrowdRelay build right
+        <strong>{props.labels[section] ?? section}</strong> aren't available on the connected CrowdRelay build right
         now. The rest of the page keeps working; ship a newer CrowdRelay release and this lights up on the
         next refresh.
       </Alert>
@@ -32,7 +46,7 @@ function DegradedSections(props: { degraded: string[] }) {
 
 export function AudiencePage() {
   const params = useParams({ from: '/tenants/$slug/audience' })
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('fans')
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('fans', ['fans', 'sources', 'communities', 'portfolio'])
   const model = useQuery(() => ({
     queryKey: ['tenant-audience', params().slug],
     queryFn: () => api.audienceModel(params().slug),
@@ -46,6 +60,19 @@ export function AudiencePage() {
   }))
   const refresh = () => model.refetch()
 
+  // The merged-in portfolio model — fan sources, amplification consents,
+  // brand settings. Lazy: the Fans tab never pays for it.
+  const portfolio = useQuery(() => ({
+    queryKey: ['tenant-portfolio', params().slug],
+    queryFn: () => api.tenantPortfolio(params().slug),
+    enabled: isVisited('sources') || isVisited('portfolio'),
+    reconcile: 'id' as const,
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+    refetchInterval: whileIncomplete(hasDegradedSections),
+  }))
+  const refreshPortfolio = () => portfolio.refetch()
+
   return <PageShell>
     <PageHeader eyebrow="AUDIENCE" title="Audience" description="Every fan aggregated from all sides of the internet — Reddit, Meta, Spotify, Bandsintown, forums, press, live shows — in one view. Plus the communities where they already gather." />
 
@@ -56,7 +83,9 @@ export function AudiencePage() {
       onPrefetch={prefetch}
       tabs={[
         { id: 'fans', label: 'Fans' },
+        { id: 'sources', label: 'Sources' },
         { id: 'communities', label: 'Communities' },
+        { id: 'portfolio', label: 'Label portfolio' },
       ]}
     />
 
@@ -74,9 +103,9 @@ export function AudiencePage() {
         <SkeletonSection titleWidth="140px" lines={3} minHeight="120px" />
       </Show>
       <Show when={model.data} keyed>{(data) => <>
-        <DegradedSections degraded={data.degraded} />
+        <DegradedSections degraded={data.degraded} labels={AUDIENCE_SECTION_LABEL} />
         <Show when={!data.degraded.includes('overview')}>
-          <AudienceOverviewPanel slug={params().slug} overview={data.overview ?? undefined} />
+          <AudienceOverviewPanel slug={params().slug} overview={data.overview ?? undefined} onGoSources={() => switchTab('sources')} onGoCommunities={() => switchTab('communities')} />
         </Show>
         <Show when={!data.degraded.includes('fans')}>
           <FanTablePanel slug={params().slug} fans={data.fans ?? []} onImported={() => void refresh()} />
@@ -87,9 +116,59 @@ export function AudiencePage() {
       </>}</Show>
     </TabPanel>
 
+    {/* ── Sources tab — where the fans come from (merged from Portfolio) ── */}
+    <TabPanel active={activeTab()} id="sources" visited={isVisited('sources')}>
+      <Show when={portfolio.error}>
+        <SectionFailureCard error={portfolio.error} fallback="Fan sources unavailable" onRetry={refreshPortfolio} />
+      </Show>
+      <Show when={!portfolio.error && !portfolio.data}>
+        <SkeletonSection titleWidth="160px" lines={4} minHeight="140px" />
+      </Show>
+      <Show when={portfolio.data} keyed>{(data) => <>
+        <Show when={data.degraded.includes('fanbases')}>
+          <DegradedSections degraded={['fanbases']} labels={PORTFOLIO_SECTION_LABEL} />
+        </Show>
+        <Show when={!data.degraded.includes('fanbases')}>
+          <FanSourcesPanel slug={params().slug} fanbases={data.fanbases?.fanbases} onChanged={refreshPortfolio} />
+        </Show>
+      </>}</Show>
+      {/* Reddit cookie refresh — a fan source enabler, same home it had on
+          the portfolio page. */}
+      <RedditCookieUploader slug={params().slug} />
+    </TabPanel>
+
     {/* ── Communities tab — observation layer ── */}
     <TabPanel active={activeTab()} id="communities" visited={isVisited('communities')}>
       <CommunityIntelligenceContent slug={params().slug} />
+    </TabPanel>
+
+    {/* ── Label portfolio tab — roster KPIs, consent edges, settings ── */}
+    <TabPanel active={activeTab()} id="portfolio" visited={isVisited('portfolio')}>
+      <Show when={portfolio.error}>
+        <SectionFailureCard error={portfolio.error} fallback="Portfolio channel unavailable" onRetry={refreshPortfolio} />
+      </Show>
+      <Show when={!portfolio.error && !portfolio.data}>
+        <SkeletonSection titleWidth="140px" lines={3} minHeight="120px" />
+      </Show>
+      <Show when={portfolio.data} keyed>{(data) => <>
+        <DegradedSections degraded={data.degraded} labels={PORTFOLIO_SECTION_LABEL} />
+        <Show when={!data.degraded.includes('overview') || !data.degraded.includes('amplification')}>
+          <PortfolioPanel
+            slug={params().slug}
+            overview={data.overview ?? undefined}
+            consents={data.amplification?.consents}
+            consentsUnavailable={data.degraded.includes('amplification')}
+            onChanged={refreshPortfolio}
+          />
+        </Show>
+        <Show when={!data.degraded.includes('settings')}>
+          <PortfolioSettingsPanel
+            slug={params().slug}
+            model={data.settings ?? undefined}
+            onChanged={refreshPortfolio}
+          />
+        </Show>
+      </>}</Show>
     </TabPanel>
   </PageShell>
 }
