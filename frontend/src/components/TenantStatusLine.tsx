@@ -2,6 +2,7 @@ import { Show, createMemo } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { cn } from '../lib/cn'
 import type { TenantOperationsReadModel, TenantRuntimeSnapshot } from '../lib/types'
 
@@ -74,7 +75,8 @@ export function TenantStatusLine(props: {
     <Show when={issues()[0]}>
       {issue => (
         <Link
-          to="/tenants/$slug/health"
+          to={authState.isPlatformLevel() ? '/tenants/$slug/health' : '/tenants/$slug/attention'}
+          search={authState.isPlatformLevel() ? {} : { tab: 'inbox' }}
           params={{ slug: props.slug }}
           class={cn(
             'block rounded-md border px-3 py-2 text-sm transition-colors',
