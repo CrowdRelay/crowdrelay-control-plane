@@ -351,6 +351,18 @@ export function TenantPage() {
                 </div>
               )}
             </Show>
+            {/* A measured zero is not a failure to hide — it is the state
+                the whole product exists to change, so the empty card says
+                where the first fans actually come from instead of padding
+                itself with placeholder graphics. */}
+            <Show when={operations.data?.audience?.active_fans === 0}>
+              <p class="mt-3 text-sm text-muted-foreground">
+                No fans yet — the first ones arrive when a door QR gets scanned at a show or a source connects.{' '}
+                <Link to="/tenants/$slug/audience" params={{ slug: t.slug }} class="underline underline-offset-2">
+                  Audience sources
+                </Link>
+              </p>
+            </Show>
             <div class="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 md:grid-cols-3 lg:grid-cols-5">
               <For each={[
                 { label: 'Active fans', value: operations.data?.audience?.active_fans },
@@ -411,7 +423,10 @@ export function TenantPage() {
           )}
         </Show>
         <Show when={shows.data && !nextShow()}>
-          <p class="text-sm text-muted-foreground">No upcoming show on the books — the next announced night lands here.</p>
+          <p class="text-sm text-muted-foreground">
+            No upcoming show on the books — publish a gig in CrowdRelay and the next announced night lands{' '}
+            <Link to="/tenants/$slug/shows" params={{ slug: t.slug }} class="underline underline-offset-2">here</Link>.
+          </p>
         </Show>
 
         {/* Worth doing this week — the three moves that carry most of it.
