@@ -214,7 +214,7 @@ export function PortfolioPanel(props: {
     <Show when={!edges().length}>
       <Show
         when={(props.overview?.workspaceCount ?? 0) >= 2}
-        fallback={<EmptyState label="No amplification yet" hint="Amplification needs at least two artists on the roster." />}
+        fallback={<EmptyState label="No amplification yet" hint="Amplification needs at least two artists sharing the roster — including band-to-band crossbill, which stays a manual ask inside each show's partner relay until a second artist joins." />}
       >
         <EmptyState label="No amplification edges" hint="Create an edge from either artist's workspace to start routing." />
       </Show>
