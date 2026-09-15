@@ -1,0 +1,4 @@
+{
+  "maxTenantDestinations": 12,
+  "note": "Ratchet: only shrinks. UX plan target is six. Lower this in the same commit that removes or merges a destination."
+}
