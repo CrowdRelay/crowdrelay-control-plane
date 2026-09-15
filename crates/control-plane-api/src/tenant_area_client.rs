@@ -369,8 +369,10 @@ fn safe_segment_between(path: &str, prefix: &str, suffix: &str) -> bool {
     path.strip_prefix(prefix)
         .and_then(|tail| tail.strip_suffix(suffix))
         .is_some_and(|segment| {
+            // events.slug allows 128 chars — a shorter cap here would refuse
+            // a slug the upstream accepts and strand the show's page.
             !segment.is_empty()
-                && segment.len() <= 96
+                && segment.len() <= 128
                 && segment.bytes().all(|byte| {
                     byte.is_ascii_lowercase()
                         || byte.is_ascii_digit()
@@ -386,7 +388,9 @@ fn uuid_segment_between(path: &str, prefix: &str, suffix: &str) -> bool {
         .is_some_and(|segment| !segment.is_empty() && Uuid::parse_str(segment).is_ok())
 }
 
-fn timeline_segment(path: &str) -> bool {
+// The ops-operations request inspector — `timeline` in this name would now
+// read as the events timeline, which rides `safe_segment_between` instead.
+fn operations_segment(path: &str) -> bool {
     path.strip_prefix("/v1/control-plane/ops/operations/")
         .is_some_and(|segment| {
             !segment.is_empty()
@@ -500,6 +504,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "")
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/journey")
                 || safe_segment_between(path, "/v1/control-plane/audience/segments/", "/preview")
+                || safe_segment_between(path, "/v1/control-plane/events/", "/timeline")
                 || uuid_segment_between(
                     path,
                     "/v1/control-plane/autopilot/beacon-release-campaigns/",
@@ -530,7 +535,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/v1/control-plane/community-intelligence/communities/",
                     "/intro-draft",
                 )
-                || timeline_segment(path)
+                || operations_segment(path)
                 || trace_segment(path)
         }
         "POST" => {

@@ -1,5 +1,5 @@
 import { For, Show, createMemo } from 'solid-js'
-import { useParams } from '@tanstack/solid-router'
+import { Link, useParams } from '@tanstack/solid-router'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { TenantShow } from '../lib/types'
@@ -22,7 +22,7 @@ const untilLabel = (iso: string) => {
 
 /** `/tenants/$slug/shows` — the gig list: next up first, then past shows,
  * newest first. The noun every show-day capability hangs off; the night
- * itself opens at `/tenants/$slug/shows/$id` (UX-2.2). */
+ * itself opens at `/tenants/$slug/shows/$eventSlug` (UX-2.2). */
 export function TenantShowsPage() {
   const params = useParams({ from: '/tenants/$slug/shows' })
   const model = useQuery(() => ({
@@ -75,7 +75,7 @@ export function TenantShowsPage() {
                   fallback={<p class="text-sm text-muted-foreground px-1 py-2">Nothing announced.</p>}
                 >
                   <div class="flex flex-col gap-2">
-                    <For each={upcoming()}>{show => <ShowRow show={show} />}</For>
+                    <For each={upcoming()}>{show => <ShowRow show={show} slug={params().slug} />}</For>
                   </div>
                 </Show>
               </section>
@@ -87,7 +87,7 @@ export function TenantShowsPage() {
                   fallback={<p class="text-sm text-muted-foreground px-1 py-2">No played shows in the last ninety days.</p>}
                 >
                   <div class="flex flex-col gap-2">
-                    <For each={past()}>{show => <ShowRow show={show} />}</For>
+                    <For each={past()}>{show => <ShowRow show={show} slug={params().slug} />}</For>
                   </div>
                 </Show>
               </section>
@@ -99,9 +99,13 @@ export function TenantShowsPage() {
   )
 }
 
-function ShowRow(props: { show: TenantShow }) {
+function ShowRow(props: { show: TenantShow; slug: string }) {
   return (
-    <div class="flex items-center gap-4 rounded-lg border border-border bg-surface-1 px-4 py-3">
+    <Link
+      to="/tenants/$slug/shows/$eventSlug"
+      params={{ slug: props.slug, eventSlug: props.show.slug }}
+      class="flex items-center gap-4 rounded-lg border border-border bg-surface-1 px-4 py-3 transition-colors hover:bg-surface-2"
+    >
       <div class="min-w-0 flex-1">
         <div class="text-sm font-medium text-foreground truncate">{props.show.title}</div>
         <div class="text-xs text-muted-foreground mt-0.5">
@@ -118,6 +122,6 @@ function ShowRow(props: { show: TenantShow }) {
           <div class="text-xs text-muted-foreground">scans</div>
         </Show>
       </div>
-    </div>
+    </Link>
   )
 }

@@ -317,6 +317,9 @@ pub fn router() -> Router<AppState> {
         )
         // The gig page's list — the tenant's shows, next up then past.
         .route("/tenants/{slug}/shows", get(tenant_shows))
+        // One night: the T-21→T+7 ladder. The slug path segment is the
+        // event's own slug, not its id — it is what the list hands down.
+        .route("/tenants/{slug}/shows/{event_slug}", get(tenant_show_timeline))
         .route(
             "/tenants/{slug}/operations/chief-of-staff",
             get(chief_of_staff),
@@ -2740,6 +2743,24 @@ async fn tenant_shows(
     )
     .await?;
     object_no_store(value, "shows")
+}
+
+async fn tenant_show_timeline(
+    State(state): State<AppState>,
+    Path((slug, event_slug)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        &format!("/v1/control-plane/events/{event_slug}/timeline"),
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "show timeline")
 }
 
 async fn chief_of_staff(

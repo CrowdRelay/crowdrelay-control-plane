@@ -69,6 +69,7 @@ const TENANT_NAV_ITEMS = TENANT_NAV_GROUPS.flatMap(group => group.items)
 // in the breadcrumb — the gig page is reached from the home screen and ⌘K,
 // not the sidebar. Longest suffix first, same rule as the nav items.
 const TENANT_PAGE_LABELS: Array<{ suffix: string; label: string }> = [
+  { suffix: '/shows/', label: 'Show' },
   { suffix: '/shows', label: 'Shows' },
 ]
 

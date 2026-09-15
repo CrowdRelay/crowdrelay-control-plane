@@ -1555,6 +1555,36 @@ export type TenantShowsResponse = {
   events: TenantShow[]
 }
 
+export type ShowTimelineState = 'done' | 'active' | 'due' | 'waiting' | 'skipped'
+
+export type ShowTimelineAction = {
+  kind: string
+  label: string
+}
+
+export type ShowTimelineStep = {
+  key: string
+  label: string
+  anchor: string
+  state: ShowTimelineState
+  owner: string | null
+  action: ShowTimelineAction | null
+  detail: Record<string, unknown>
+}
+
+export type TenantShowTimelineResponse = {
+  event: {
+    id: string
+    slug: string
+    title: string
+    venue: string | null
+    status: string
+    starts_at: string
+    ends_at: string | null
+  }
+  steps: ShowTimelineStep[]
+}
+
 export type VehicleProfile = {
   seats: number
   cargo_litres: number

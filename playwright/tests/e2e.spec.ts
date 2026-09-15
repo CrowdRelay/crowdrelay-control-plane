@@ -297,4 +297,42 @@ test.describe('Control Plane E2E @e2e', () => {
     const errorCards = await page.locator('[role="alert"]').count()
     expect(errorCards).toBe(0)
   })
+
+  // Show detail — the gig page is reached by clicking a show in the list,
+  // not by a typed URL. The click-through also proves the list rows are
+  // links, which a static-path test cannot see.
+  test('Show timeline opens from the shows list @e2e', async ({ page }) => {
+    await page.goto('/tenants/virya/shows')
+    await page.waitForLoadState('networkidle', { timeout: 15000 })
+
+    const firstShow = page.locator('a[href*="/shows/"]').first()
+    const hasShows = (await firstShow.count()) > 0
+    if (!hasShows) {
+      // An empty tenant is legal — the list renders an empty state and
+      // there is nothing to click through to. Not a bug.
+      return
+    }
+
+    await firstShow.click()
+    await page.waitForLoadState('networkidle', { timeout: 15000 })
+    expect(page.url()).toMatch(/\/tenants\/virya\/shows\/.+/)
+
+    // The ladder renders its anchors — T-21 at the top, T+7 at the bottom.
+    await expect(page.locator('text=T-21').first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('text=T+7').first()).toBeVisible({ timeout: 10_000 })
+
+    const errorCards = await page.locator('[role="alert"]').count()
+    if (errorCards > 0) {
+      addBug({
+        severity: 'high',
+        category: 'ui',
+        title: 'Show timeline page shows an error card',
+        test_name: 'e2e::show-timeline',
+        url: page.url(),
+        expected: 'Timeline renders without error cards',
+        actual: `${errorCards} error card(s) visible`,
+        fix_hint: 'Check the /tenants/{slug}/shows/{event_slug} proxy and upstream /v1/control-plane/events/{slug}/timeline',
+      })
+    }
+  })
 })
