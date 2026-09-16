@@ -1,6 +1,6 @@
 import { createMemo, createSignal } from 'solid-js'
 import type { Component } from 'solid-js'
-import { Button } from '../ui/button'
+import { Button } from '../app/button'
 import { Input } from '../ui/input'
 import { Field } from '../ui/field'
 import { NativeSelect } from '../ui/native-select'

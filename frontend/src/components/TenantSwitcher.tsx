@@ -1,10 +1,12 @@
-import { Show, For, createSignal, type JSX } from 'solid-js'
+import { For, Show } from 'solid-js'
+import { Link } from '@tanstack/solid-router'
+import { ChevronsUpDown, LayoutGrid, Plus } from 'lucide-solid'
 import { cn } from '../lib/cn'
 import type { TenantSummary } from '../lib/types'
-import { Popover, PopoverAnchor, PopoverContent } from './ui/popover'
-import { ScrollArea } from './ui/scroll-area'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from './ui/dropdown-menu'
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from './ui/sidebar'
 
 const healthDot = (tenant: TenantSummary) => {
   if (tenant.status === 'suspended') return 'bad'
@@ -24,107 +26,106 @@ const healthLabel = (tenant: TenantSummary) => {
   return 'not reporting'
 }
 
-const dotClass = { good: 'bg-success', warn: 'bg-warning', bad: 'bg-destructive', muted: 'bg-muted-foreground' } as const
+const dotClass = { good: 'bg-success-foreground', warn: 'bg-warning-foreground', bad: 'bg-destructive', muted: 'bg-muted-foreground' } as const
+
+/** A tenant's mark: its initial on the sidebar primary, health as a corner dot. */
+function TenantMark(props: { tenant?: TenantSummary; name: string; small?: boolean }) {
+  return (
+    <div class={cn(
+      'relative flex aspect-square shrink-0 items-center justify-center font-semibold',
+      props.small ? 'size-6 rounded-md border text-xs' : 'size-8 rounded-lg bg-sidebar-primary text-sm text-sidebar-primary-foreground',
+    )}>
+      {props.name.slice(0, 1).toUpperCase()}
+      <Show when={props.tenant}>
+        {t => <span class={cn('absolute -bottom-0.5 -right-0.5 size-2 rounded-full ring-2 ring-sidebar', dotClass[healthDot(t())])} />}
+      </Show>
+    </div>
+  )
+}
 
 /**
- * Tenant picker built on the Kobalte-backed Popover primitive.
- *
- * The previous hand-rolled dropdown had `role="listbox"` on a div of plain
- * buttons and none of what the role promises: no Escape close, no outside
- * dismiss (Shell approximated it with a document click listener), no focus
- * on open and no arrow-key movement. The primitive supplies all of that;
- * the rows stay real buttons, so Enter/Space activates without extra wiring.
- *
- * Open state still lives in the parent (`open`/`onToggle`/`onClose`) because
- * the sidebar collapse shares it — the button is a PopoverAnchor, not a
- * PopoverTrigger, so Kobalte never drives the parent's state twice.
+ * Tenant picker — sidebar-07's team switcher. Platform users choose among
+ * tenants (typeahead: start typing a name with the menu open); a tenant
+ * operator sees their own tenant, not a menu.
  */
 export function TenantSwitcher(props: {
   tenants: TenantSummary[]
   currentSlug: string | undefined
   onSelect: (slug: string) => void
-  open: boolean
-  onToggle: () => void
-  onClose: () => void
-  collapsed: boolean
+  canCreate: boolean
 }) {
-  const [search, setSearch] = createSignal('')
+  const { isMobile } = useSidebar()
   const current = () => props.tenants.find(t => t.slug === props.currentSlug)
   const sorted = () => [...props.tenants].sort((a, b) => a.displayName.localeCompare(b.displayName))
-  const filtered = () => {
-    const q = search().trim().toLowerCase()
-    if (!q) return sorted()
-    return sorted().filter(t => t.displayName.toLowerCase().includes(q) || t.slug.toLowerCase().includes(q))
-  }
+  const name = () => current()?.displayName ?? props.currentSlug ?? 'Select tenant'
 
-  // Arrow keys move focus between the tenant buttons; the list lives inside
-  // PopoverContent so Tab order is contained and Escape closes via Kobalte.
-  const onListKeyDown: JSX.EventHandler<HTMLElement, KeyboardEvent> = (event) => {
-    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
-    const items = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[data-tenant-item]'))
-    if (items.length === 0) return
-    event.preventDefault()
-    const active = document.activeElement as HTMLElement | null
-    const index = active ? items.indexOf(active) : -1
-    const next = event.key === 'ArrowDown'
-      ? (index + 1) % items.length
-      : (index - 1 + items.length) % items.length
-    items[next]?.focus()
-  }
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu placement={isMobile() ? 'bottom' : 'right-start'}>
+          <DropdownMenuTrigger
+            as={SidebarMenuButton}
+            size="lg"
+            aria-label="Select tenant"
+            class="data-[expanded]:bg-sidebar-accent data-[expanded]:text-sidebar-accent-foreground"
+          >
+            <TenantMark tenant={current()} name={name()} />
+            <div class="grid flex-1 text-left text-sm leading-tight">
+              <span class="truncate font-medium">{name()}</span>
+              <span class="truncate text-xs">{current() ? healthLabel(current()!) : 'CrowdRelay Control Plane'}</span>
+            </div>
+            <ChevronsUpDown class="ml-auto" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent class="min-w-56 rounded-lg">
+            <DropdownMenuLabel class="text-xs font-normal text-muted-foreground">Tenants</DropdownMenuLabel>
+            <For each={sorted()}>{tenant => (
+              <DropdownMenuItem
+                onSelect={() => props.onSelect(tenant.slug)}
+                textValue={tenant.displayName}
+                class={cn('gap-2 p-2', tenant.slug === props.currentSlug && 'bg-accent')}
+              >
+                <TenantMark tenant={tenant} name={tenant.displayName} small />
+                <span class="flex min-w-0 flex-col">
+                  <span class="truncate">{tenant.displayName}</span>
+                  <span class="truncate text-xs text-muted-foreground">{tenant.slug} · {healthLabel(tenant)}</span>
+                </span>
+              </DropdownMenuItem>
+            )}</For>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem as={Link} to="/tenants" class="gap-2 p-2">
+              <div class="flex size-6 items-center justify-center rounded-md border bg-transparent">
+                <LayoutGrid class="size-4" />
+              </div>
+              <div class="font-medium text-muted-foreground">All tenants</div>
+            </DropdownMenuItem>
+            <Show when={props.canCreate}>
+              <DropdownMenuItem as={Link} to="/tenants/new" class="gap-2 p-2">
+                <div class="flex size-6 items-center justify-center rounded-md border bg-transparent">
+                  <Plus class="size-4" />
+                </div>
+                <div class="font-medium text-muted-foreground">New tenant</div>
+              </DropdownMenuItem>
+            </Show>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  )
+}
 
-  return <Popover
-    open={props.open && !props.collapsed}
-    onOpenChange={(open) => { if (!open) props.onClose() }}
-    placement="bottom-start"
-    gutter={4}
-    sameWidth
-  >
-    <PopoverAnchor>
-      <Button type="button" variant="ghost" class={cn('h-auto w-full justify-start gap-2 whitespace-normal rounded-md py-2 text-left text-sm font-normal', props.collapsed ? 'justify-center px-0' : 'px-2')} onClick={() => props.onToggle()} title={current()?.displayName} aria-expanded={props.open} aria-haspopup="dialog" aria-label="Select tenant">
-        <Show when={current()} fallback={<span class="w-2 h-2 rounded-full bg-muted-foreground flex-shrink-0" />}>
-          {t => <span class={cn('w-2 h-2 rounded-full flex-shrink-0', dotClass[healthDot(t())])} />}
-        </Show>
-        <Show when={!props.collapsed}>
-          <span class="flex-1 truncate font-medium text-foreground">{current()?.displayName ?? 'Select tenant'}</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class={cn('text-muted-foreground transition-transform', props.open && 'rotate-180')} aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-        </Show>
-      </Button>
-    </PopoverAnchor>
-    <PopoverContent showClose={false} class="w-[var(--kb-popper-anchor-width)] min-w-56 rounded-md border-border bg-popover p-0 shadow-lg">
-      <Show when={props.tenants.length > 5}>
-        <Input
-          class="h-auto w-full rounded-none border-0 border-b bg-transparent px-3 py-2 focus-visible:ring-0 focus-visible:ring-offset-0"
-          placeholder="Filter tenants…"
-          aria-label="Filter tenants"
-          value={search()}
-          onInput={(e) => setSearch(e.currentTarget.value)}
-          onKeyDown={onListKeyDown}
-          spellcheck={false}
-        />
-      </Show>
-      <ScrollArea class="max-h-80">
-        <div role="group" aria-label="Tenants" onKeyDown={onListKeyDown}>
-          <For each={filtered()}>{tenant => (
-            <Button
-              type="button"
-              variant="ghost"
-              data-tenant-item
-              aria-current={tenant.slug === props.currentSlug ? 'true' : undefined}
-              class={cn('h-auto w-full justify-start gap-2 whitespace-normal px-3 py-2 text-left text-sm font-normal', tenant.slug === props.currentSlug && 'bg-surface-1')}
-              onClick={() => { props.onClose(); props.onSelect(tenant.slug) }}
-            >
-              <span class={cn('w-2 h-2 rounded-full flex-shrink-0', dotClass[healthDot(tenant)])} />
-              <span class="flex flex-col min-w-0">
-                <strong class="truncate text-foreground">{tenant.displayName}</strong>
-                <small class="text-xs text-muted-foreground">{tenant.slug} · {healthLabel(tenant)}</small>
-              </span>
-            </Button>
-          )}</For>
-          <Show when={filtered().length === 0}>
-            <div class="px-3 py-4 text-sm text-muted-foreground">No tenants match “{search()}”.</div>
-          </Show>
-        </div>
-      </ScrollArea>
-    </PopoverContent>
-  </Popover>
+/** A tenant operator's header: their tenant, no menu. */
+export function TenantBadge(props: { slug: string }) {
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <SidebarMenuButton size="lg" as="div" class="hover:bg-transparent">
+          <TenantMark name={props.slug} />
+          <div class="grid flex-1 text-left text-sm leading-tight">
+            <span class="truncate font-medium">{props.slug}</span>
+            <span class="truncate text-xs">CrowdRelay Control Plane</span>
+          </div>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  )
 }

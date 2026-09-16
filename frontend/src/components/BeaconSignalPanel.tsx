@@ -5,9 +5,9 @@ import { formatTimestamp } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock } from './Skeleton'
 import { TabBar, TabPanel, useTabPanels, KpiStrip, KpiCard, ErrorCard, ShowMore, useShowMore } from './layout'
-import { Card } from './ui/card'
-import { Badge } from './ui/badge'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { Card } from './app/card'
+import { Badge } from './app/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 
 const statusTone = (status: string): 'success' | 'warning' | 'destructive' | 'muted' => {
   switch (status) {

@@ -11,11 +11,11 @@ import { StatusBadge } from '../components/StatusBadge'
 import { healthLabel, healthTone } from '../lib/health-tone'
 import { Spinner } from '../components/Spinner'
 import { ErrorCard, PageHeader, PageShell, PanelTitle } from '../components/layout'
-import { Button } from '../components/ui/button'
+import { Button } from '../components/app/button'
 import { Input } from '../components/ui/input'
 import { NativeSelect } from '../components/ui/native-select'
 import { Field, FieldGrid } from '../components/ui/field'
-import { buttonVariants } from '../components/ui/button'
+import { buttonVariants } from '../components/app/button'
 
 // Rich-label checkbox composes the Kobalte primitive (ui/checkbox's label
 // prop is string-only); control styling mirrors ui/checkbox.tsx.
@@ -114,7 +114,7 @@ export function TenantsPage() {
       actions={<Show when={isAdmin()}><Link class={buttonVariants()} to="/tenants/new">+ New tenant</Link></Show>}
     />
 
-    <Show when={notice()}>{message => <div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground">{message()}</div>}</Show>
+    <Show when={notice()}>{message => <div class="rounded-lg border border-border bg-background p-4 text-sm text-foreground">{message()}</div>}</Show>
     <Show when={tenants.error || overview.error}><ErrorCard>{tenants.error instanceof Error ? tenants.error.message : overview.error instanceof Error ? overview.error.message : 'Control Plane data could not be loaded'}</ErrorCard></Show>
     <Show when={isAdmin() && creating()}>
       <form class="rounded-lg border border-border bg-card p-5 space-y-5" onSubmit={(event) => { event.preventDefault(); createTenant.mutate() }}>
@@ -154,7 +154,7 @@ export function TenantsPage() {
 
     <Show when={tenants.isPending && !tenants.data}><SkeletonRows count={4} /></Show>
     <div class="space-y-2"><For each={tenants.data?.items ?? []}>{tenant =>
-      <Link to="/tenants/$slug" params={{ slug: tenant.slug }} data-slot="tenant-row" class="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-4 hover:border-border-strong transition-colors">
+      <Link to="/tenants/$slug" params={{ slug: tenant.slug }} data-slot="tenant-row" class="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-4 hover:border-input transition-colors">
         <div class="min-w-0"><strong class="text-foreground">{tenant.displayName}</strong><small class="block text-muted-foreground text-sm">{tenant.slug} · {tenant.regionalProfile ? `${tenant.regionalProfile.locale} · ${tenant.regionalProfile.timezone} · ${tenant.regionalProfile.dataRegion.toUpperCase()}` : 'no region set'}</small></div>
         <div class="flex items-center gap-2"><StatusBadge status={tenant.status} tone={tenant.status === 'active' ? 'good' : tenant.status === 'suspended' ? 'bad' : tenant.status === 'parked' ? 'warn' : 'warn'} /><StatusBadge status={healthLabel(tenant.runtimeHealth)} tone={healthTone(tenant.runtimeHealth)} /><StatusBadge status={tenant.regionalProfile ? `${tenant.regionalProfile.dataRegion.toUpperCase()} region` : 'no region set'} tone={tenant.regionalProfile ? 'good' : 'warn'} /><StatusBadge status={tenant.brandingPalette ? 'Custom palette' : 'Product defaults'} /></div>
       </Link>}

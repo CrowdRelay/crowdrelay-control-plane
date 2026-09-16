@@ -4,9 +4,9 @@ import { cn } from '../lib/cn'
 import type { AudienceSegment } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock } from './Skeleton'
-import { Card } from './ui/card'
-import { Badge } from './ui/badge'
-import { Button } from './ui/button'
+import { Card } from './app/card'
+import { Badge } from './app/badge'
+import { Button } from './app/button'
 
 export function SegmentPanel(props: {
   slug: string
@@ -56,8 +56,8 @@ export function SegmentPanel(props: {
             type="button"
             variant="outline"
             class={cn(
-              'h-auto w-full flex-col items-stretch justify-start gap-1.5 whitespace-normal bg-surface-1 px-3 py-2.5 text-left font-normal hover:border-primary hover:bg-surface-2',
-              previewSlug() === segment.slug && 'border-primary bg-surface-2',
+              'h-auto w-full flex-col items-stretch justify-start gap-1.5 whitespace-normal bg-background px-3 py-2.5 text-left font-normal hover:border-primary hover:bg-card',
+              previewSlug() === segment.slug && 'border-primary bg-card',
             )}
             onClick={() => previewSegment(segment.slug)}
           >

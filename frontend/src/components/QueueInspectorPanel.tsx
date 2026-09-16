@@ -2,15 +2,15 @@ import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage, formatTimestamp, relativeTime } from '../lib/format'
-import { toast } from './ui/toast'
+import { toast } from './app/toast'
 import { Dialog } from './Dialog'
 import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
 import { SkeletonRows } from './Skeleton'
 import { StatusBadge } from './StatusBadge'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
+import { Card } from './app/card'
+import { Button } from './app/button'
+import { Badge } from './app/badge'
 import { ErrorCard, PanelTitle, TabBar } from './layout'
 import type { DeliveryDetails, DeliveryItem, OutboxItem } from '../lib/types'
 import { NativeSelect } from './ui/native-select'
@@ -158,7 +158,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
       >
         <div class="grid gap-2">
           <For each={rows()}>{item => (
-            <div class="flex justify-between items-center gap-4 p-3 border border-border-subtle rounded-lg bg-surface-1 transition-colors hover:border-border">
+            <div class="flex justify-between items-center gap-4 p-3 border border-border rounded-lg bg-background transition-colors hover:border-border">
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
                   <strong>{item.event_type}</strong>
@@ -212,7 +212,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
         <Show when={data().attempts.length > 0} fallback={<p class="m-0 text-sm text-muted-foreground leading-relaxed">No attempt was recorded, which means it never left the queue.</p>}>
           <ol class="grid gap-2 max-h-80 m-0 list-none overflow-y-auto">
             <For each={data().attempts}>{attempt => (
-              <li class="flex justify-between items-center gap-3 py-2.5 border-b border-border-subtle last:border-0">
+              <li class="flex justify-between items-center gap-3 py-2.5 border-b border-border last:border-0">
                 <div>
                   <strong>#{attempt.attempt_number} · {attempt.outcome}</strong>
                   <small class="block mt-0.5 text-sm text-muted-foreground leading-relaxed">{formatTimestamp(attempt.started_at)} · {attempt.duration_ms}ms · {errorLabel(attempt.error_kind)}</small>
@@ -220,7 +220,7 @@ export function QueueInspectorPanel(props: { slug: string }) {
                       receiver disliked the payload, the signature or the
                       event type. This is what it actually said. */}
                   <Show when={attempt.response_excerpt}>
-                    <code class="block mt-1.5 p-2 border border-border-subtle rounded-sm bg-background text-secondary-foreground text-xs leading-relaxed whitespace-pre-wrap break-words max-h-36 overflow-auto">{attempt.response_excerpt}</code>
+                    <code class="block mt-1.5 p-2 border border-border rounded-sm bg-background text-secondary-foreground text-xs leading-relaxed whitespace-pre-wrap break-words max-h-36 overflow-auto">{attempt.response_excerpt}</code>
                   </Show>
                 </div>
                 <Show when={attempt.response_status != null}>

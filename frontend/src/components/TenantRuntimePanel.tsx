@@ -6,7 +6,7 @@ import { formatTimestamp } from '../lib/format'
 import type { TenantRuntimeSnapshot } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
-import { Card } from './ui/card'
+import { Card } from './app/card'
 import { cn } from '../lib/cn'
 import { healthLabel, healthTone as runtimeHealthTone } from '../lib/health-tone'
 
@@ -26,7 +26,7 @@ function RuntimeFact(props: { label: string; value: string; tone?: 'good' | 'war
       <span class="text-xs text-muted-foreground uppercase tracking-wider">{props.label}</span>
       <span class={cn(
         'text-sm font-medium',
-        props.tone === 'good' ? 'text-success' : props.tone === 'warn' ? 'text-warning' : props.tone === 'bad' ? 'text-destructive' : 'text-foreground',
+        props.tone === 'good' ? 'text-success-foreground' : props.tone === 'warn' ? 'text-warning-foreground' : props.tone === 'bad' ? 'text-destructive' : 'text-foreground',
       )}>{props.value}</span>
     </div>
   )
@@ -70,10 +70,10 @@ export function TenantRuntimePanel(props: { slug: string; initial?: TenantRuntim
     </div>
     <Show when={runtime.error}><div class="rounded-r-md rounded-l-none" role="status">Live refresh failed. Showing the last known runtime snapshot.</div></Show>
     <Show when={snapshot().runtimeHealth === 'unknown'}>
-      <p class="px-4 py-3 border border-border-subtle rounded-lg bg-surface-1 text-muted-foreground text-sm leading-relaxed">This tenant has never reported a runtime heartbeat, so there is nothing to score here yet. Service health measured inside CrowdRelay is on the Operations page.</p>
+      <p class="px-4 py-3 border border-border rounded-lg bg-background text-muted-foreground text-sm leading-relaxed">This tenant has never reported a runtime heartbeat, so there is nothing to score here yet. Service health measured inside CrowdRelay is on the Operations page.</p>
     </Show>
     <Show when={snapshot().runtimeHealth === 'stale'}>
-      <p class="px-4 py-3 border border-border-subtle rounded-lg bg-surface-1 text-muted-foreground text-sm leading-relaxed">Live data has stopped updating. Optional products and app-store distribution do not affect this status.</p>
+      <p class="px-4 py-3 border border-border rounded-lg bg-background text-muted-foreground text-sm leading-relaxed">Live data has stopped updating. Optional products and app-store distribution do not affect this status.</p>
     </Show>
     {/* This grid printed `String(apiHealthy)` — the words "true", "false" and
         "unknown" — under headings named after the code that produced them

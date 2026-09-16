@@ -1,66 +1,77 @@
-import { type Component, type JSX, splitProps } from 'solid-js'
-import { cn } from '~/lib/cn'
-import { READ_ONLY_REASON, readOnly } from '~/lib/read-only'
+import type { JSX, ValidComponent } from "solid-js"
+import { splitProps } from "solid-js"
 
-/**
- * Switch — on/off toggle for a boolean the operator flips directly
- * (runtime flags, notifier channels, policy enablement).
- *
- * It stays a plain `<button role="switch">` rather than a Kobalte primitive:
- * every caller already owns the value and the mutation, so a controlled
- * primitive would only add a second source of truth. The visual state is
- * driven entirely by `checked` — there is no internal state to drift.
- *
- * Usage:
- *   <Switch checked={flag.enabled} disabled={pending()} label="Auto-reply"
- *           onChange={() => update(flag)} />
- */
+import type { PolymorphicProps } from "@kobalte/core"
+import * as SwitchPrimitive from "@kobalte/core/switch"
 
-export type SwitchProps = Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, 'onChange'> & {
-  checked: boolean
-  /** Accessible name. Required — a bare toggle reads as "button" otherwise. */
-  label: string
-  onChange?: () => void
-  class?: string
-  /**
-   * Defaults to true, unlike `Button`: every switch in this console flips
-   * something the server stores. A switch that only drives local UI state
-   * passes `writes={false}`.
-   */
-  writes?: boolean
+import { cn } from "~/lib/utils"
+
+const Switch = SwitchPrimitive.Root
+const SwitchDescription = SwitchPrimitive.Description
+const SwitchErrorMessage = SwitchPrimitive.ErrorMessage
+
+type SwitchControlProps = SwitchPrimitive.SwitchControlProps & {
+  class?: string | undefined
+  children?: JSX.Element
 }
 
-export const Switch: Component<SwitchProps> = (props) => {
-  const [local, rest] = splitProps(props, ['checked', 'label', 'onChange', 'class', 'writes', 'disabled', 'title'])
-  const blocked = () => local.writes !== false && readOnly()
+const SwitchControl = <T extends ValidComponent = "input">(
+  props: PolymorphicProps<T, SwitchControlProps>
+) => {
+  const [local, others] = splitProps(props as SwitchControlProps, ["class", "children"])
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={local.checked}
-      aria-label={local.label}
-      disabled={blocked() || local.disabled}
-      title={blocked() ? READ_ONLY_REASON : local.title}
-      onClick={() => local.onChange?.()}
-      class={cn(
-        // 20px tall was smaller than every other control in the row and a poor
-        // pointer target next to twenty-one siblings. 24px matches the `xs`
-        // button height and the badge cap height beside it.
-        'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-        'disabled:cursor-not-allowed disabled:opacity-45',
-        local.checked ? 'border-primary-solid bg-primary-solid' : 'border-border-strong bg-surface-3',
-        local.class,
-      )}
-      {...rest}
-    >
-      <span
-        aria-hidden="true"
+    <>
+      <SwitchPrimitive.Input
         class={cn(
-          'pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
-          local.checked ? 'translate-x-6' : 'translate-x-0.5',
+          "[&:focus-visible+div]:outline-none [&:focus-visible+div]:ring-2 [&:focus-visible+div]:ring-ring [&:focus-visible+div]:ring-offset-2 [&:focus-visible+div]:ring-offset-background",
+          local.class
         )}
       />
-    </button>
+      <SwitchPrimitive.Control
+        class={cn(
+          "inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent bg-input transition-[color,background-color,box-shadow] data-[disabled]:cursor-not-allowed data-[checked]:bg-primary data-[disabled]:opacity-50",
+          local.class
+        )}
+        {...others}
+      >
+        {local.children}
+      </SwitchPrimitive.Control>
+    </>
   )
 }
+
+type SwitchThumbProps = SwitchPrimitive.SwitchThumbProps & { class?: string | undefined }
+
+const SwitchThumb = <T extends ValidComponent = "div">(
+  props: PolymorphicProps<T, SwitchThumbProps>
+) => {
+  const [local, others] = splitProps(props as SwitchThumbProps, ["class"])
+  return (
+    <SwitchPrimitive.Thumb
+      class={cn(
+        "pointer-events-none block size-5 translate-x-0 rounded-full bg-background shadow-lg ring-0 transition-transform data-[checked]:translate-x-5",
+        local.class
+      )}
+      {...others}
+    />
+  )
+}
+
+type SwitchLabelProps = SwitchPrimitive.SwitchLabelProps & { class?: string | undefined }
+
+const SwitchLabel = <T extends ValidComponent = "label">(
+  props: PolymorphicProps<T, SwitchLabelProps>
+) => {
+  const [local, others] = splitProps(props as SwitchLabelProps, ["class"])
+  return (
+    <SwitchPrimitive.Label
+      class={cn(
+        "text-sm font-medium leading-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-70",
+        local.class
+      )}
+      {...others}
+    />
+  )
+}
+
+export { Switch, SwitchControl, SwitchThumb, SwitchLabel, SwitchDescription, SwitchErrorMessage }

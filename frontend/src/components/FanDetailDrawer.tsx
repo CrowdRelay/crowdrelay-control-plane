@@ -3,8 +3,8 @@ import type { FanDetail, FanJourneyEntry } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { Dialog } from './Dialog'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
+import { Button } from './app/button'
+import { Badge } from './app/badge'
 import { ErrorCard } from './layout'
 
 const formatDateTime = (iso: string | null) => {
@@ -58,7 +58,7 @@ export function FanDetailDrawer(props: {
             <div class="fan-drawer-tags">
               <h4 class="text-sm text-muted-foreground uppercase tracking-wider mb-2">Tags</h4>
               <div class="flex flex-wrap gap-1.5">
-                <For each={props.fan!.tags}>{tag => <Badge class="free-chip text-success-light text-xs px-1 rounded-md uppercase tracking-wider">{tag}</Badge>}</For>
+                <For each={props.fan!.tags}>{tag => <Badge class="free-chip text-success-foreground text-xs px-1 rounded-md uppercase tracking-wider">{tag}</Badge>}</For>
               </div>
             </div>
           </Show>

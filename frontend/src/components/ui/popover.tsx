@@ -1,68 +1,35 @@
-import { Popover as KobaltePopover } from "@kobalte/core/popover";
-import { X } from "lucide-solid";
-import type { Component, ComponentProps, JSX } from "solid-js";
-import { splitProps } from "solid-js";
-import { cn } from "~/lib/utils";
+import type { Component, ValidComponent } from "solid-js"
+import { splitProps } from "solid-js"
 
-const Popover = KobaltePopover;
-const PopoverTrigger = KobaltePopover.Trigger;
-const PopoverAnchor = KobaltePopover.Anchor;
+import type { PolymorphicProps } from "@kobalte/core/polymorphic"
+import * as PopoverPrimitive from "@kobalte/core/popover"
 
-const PopoverContent: Component<
-  ComponentProps<typeof KobaltePopover.Content> & { showClose?: boolean }
-> = (props) => {
-  const [local, rest] = splitProps(props, ["class", "showClose", "children"]);
-  return (
-    <KobaltePopover.Portal>
-      <KobaltePopover.Content
-        class={cn(
-          "z-50 w-72 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none",
-          "animate-in fade-in-0 zoom-in-95",
-          "data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-95",
-          local.class,
-        )}
-        {...rest}
-      >
-        {local.showClose !== false && (
-          <KobaltePopover.CloseButton class="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
-            <X class="h-4 w-4" />
-            <span class="sr-only">Close</span>
-          </KobaltePopover.CloseButton>
-        )}
-        {local.children as JSX.Element}
-      </KobaltePopover.Content>
-    </KobaltePopover.Portal>
-  );
-};
+import { cn } from "~/lib/utils"
 
-const PopoverHeader: Component<JSX.HTMLAttributes<HTMLDivElement>> = (props) => {
-  const [local, rest] = splitProps(props, ["class"]);
-  return <div class={cn("flex flex-col space-y-2", local.class)} {...rest} />;
-};
+const PopoverTrigger = PopoverPrimitive.Trigger
 
-const PopoverTitle: Component<ComponentProps<typeof KobaltePopover.Title>> = (props) => {
-  const [local, rest] = splitProps(props, ["class"]);
-  return <KobaltePopover.Title class={cn("text-sm font-semibold", local.class)} {...rest} />;
-};
+const Popover: Component<PopoverPrimitive.PopoverRootProps> = (props) => {
+  return <PopoverPrimitive.Root gutter={4} {...props} />
+}
 
-const PopoverDescription: Component<ComponentProps<typeof KobaltePopover.Description>> = (
-  props,
+type PopoverContentProps<T extends ValidComponent = "div"> =
+  PopoverPrimitive.PopoverContentProps<T> & { class?: string | undefined }
+
+const PopoverContent = <T extends ValidComponent = "div">(
+  props: PolymorphicProps<T, PopoverContentProps<T>>
 ) => {
-  const [local, rest] = splitProps(props, ["class"]);
+  const [local, others] = splitProps(props as PopoverContentProps, ["class"])
   return (
-    <KobaltePopover.Description
-      class={cn("text-sm text-muted-foreground", local.class)}
-      {...rest}
-    />
-  );
-};
+    <PopoverPrimitive.Portal>
+      <PopoverPrimitive.Content
+        class={cn(
+          "z-50 w-72 origin-[var(--kb-popover-content-transform-origin)] rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 data-[closed]:zoom-out-95 data-[expanded]:zoom-in-95",
+          local.class
+        )}
+        {...others}
+      />
+    </PopoverPrimitive.Portal>
+  )
+}
 
-export {
-  Popover,
-  PopoverTrigger,
-  PopoverAnchor,
-  PopoverContent,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverDescription,
-};
+export { Popover, PopoverTrigger, PopoverContent }

@@ -6,15 +6,15 @@ import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
+import { Card } from './app/card'
+import { Button } from './app/button'
 import { READ_ONLY_REASON, readOnly } from '../lib/read-only'
 import { FileInput } from './ui/file-input'
 import { Input } from './ui/input'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import { NativeSelect } from './ui/native-select'
-import { Checkbox } from './ui/checkbox'
-import { buttonVariants } from './ui/button'
+import { Checkbox } from './app/checkbox'
+import { buttonVariants } from './app/button'
 import { cn } from '../lib/cn'
 import { EmptyState } from './ui/empty-state'
 import { ErrorCard, PanelTitle } from './layout'
@@ -442,7 +442,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
 
       <Show when={notice()}>
         {value => <p class="rounded-lg border p-4 text-sm" classList={{
-          'border-success/30 bg-success/10 text-success': value().tone === 'good',
+          'border-success-foreground/30 bg-success-foreground text-success-foreground': value().tone === 'good',
           'border-destructive/30 bg-destructive/10 text-destructive': value().tone === 'bad',
         }}>{value().message}</p>}
       </Show>

@@ -10,9 +10,9 @@ import { Spinner } from './Spinner'
 import { SectionFailureCard } from './SectionFailureCard'
 import { PolicyEditor, PolicyHeader } from './PolicyEditor'
 import { CONTEXT_LABELS, labelOr } from '../lib/opportunity-labels'
-import { Card } from './ui/card'
+import { Card } from './app/card'
 import { ErrorCard, KpiCard, KpiStrip, PanelTitle } from './layout'
-import { Button } from './ui/button'
+import { Button } from './app/button'
 
 const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
 
@@ -119,7 +119,7 @@ export function AuthorityPoliciesPanel(props: {
 
     <Show when={mutationError()}>{message => <ErrorCard>{message()}</ErrorCard>}</Show>
 
-    <Show when={confirming()?.startsWith('autopilot')}><div class="rounded-md border border-warning/30 bg-warning/10 p-4 text-sm text-warning flex flex-col gap-2.5 my-3" role="alertdialog" aria-label="Bulk Autopilot change">
+    <Show when={confirming()?.startsWith('autopilot')}><div class="rounded-md border border-warning-foreground/30 bg-warning-foreground p-4 text-sm text-warning-foreground flex flex-col gap-2.5 my-3" role="alertdialog" aria-label="Bulk Autopilot change">
       <strong>{confirmCopy()!.title}</strong>
       <span>{confirmCopy()!.body}</span>
       <div class="flex flex-wrap items-center gap-2">
@@ -195,13 +195,13 @@ export function AuthorityPoliciesPanel(props: {
           enabled 5 act without asking 17 wait for you 0 only watching". The
           only one that changes what an operator does today is how many act
           without asking, so that one is a sentence and the rest are a tally. */}
-      <div class="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 border border-border bg-surface-1 p-3 text-sm text-muted-foreground">
+      <div class="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 border border-border bg-background p-3 text-sm text-muted-foreground">
         <Show
           when={data().policies.filter(p => p.enabled && p.autonomy_level === 'bounded_auto').length > 0}
           fallback={<span class="text-foreground">Nothing acts without asking you.</span>}
         >
           <span class="text-foreground">
-            <strong class="text-warning tabular-nums">{data().policies.filter(p => p.enabled && p.autonomy_level === 'bounded_auto').length}</strong>
+            <strong class="text-warning-foreground tabular-nums">{data().policies.filter(p => p.enabled && p.autonomy_level === 'bounded_auto').length}</strong>
             {data().policies.filter(p => p.enabled && p.autonomy_level === 'bounded_auto').length === 1 ? ' kind of work acts' : ' kinds of work act'} without asking you.
           </span>
         </Show>
@@ -223,7 +223,7 @@ export function AuthorityPoliciesPanel(props: {
               as one line of text: the metric name, its surface and its
               percentiles read as a sentence rather than as a card. */}
           <For each={data().rum_metrics_24h.slice(0, 6)}>{rum => (
-            <div class="min-w-0 p-3 border border-border rounded-lg bg-surface-3">
+            <div class="min-w-0 p-3 border border-border rounded-lg bg-muted">
               <strong class="block truncate text-sm text-foreground" title={contextLabel(rum.metric_key)}>{contextLabel(rum.metric_key)}</strong>
               <span class="mt-0.5 block truncate text-xs text-muted-foreground">{rum.surface} · {rum.samples_24h} samples</span>
               <small class="mt-1 block text-xs tabular-nums text-secondary-foreground">p75 {rum.p75.toFixed(1)} · p95 {rum.p95.toFixed(1)}</small>

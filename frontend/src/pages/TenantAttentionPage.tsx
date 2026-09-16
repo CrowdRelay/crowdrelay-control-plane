@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { toast } from '../components/ui/toast'
+import { toast } from '../components/app/toast'
 import { fetchOperationsAttention, type BrainSelfAssessment, type TenantAttentionReadModel } from '../lib/attention'
 import { whileIncomplete } from '../lib/incomplete'
 import { errorMessage, formatTimestamp as observed } from '../lib/format'
@@ -22,9 +22,9 @@ import { SkeletonSection, SkeletonKpiStrip, SkeletonRows } from '../components/S
 import { SectionIcon } from '../components/SectionIcon'
 import { Spinner } from '../components/Spinner'
 import { TabBar, TabPanel, useTabPanels, KpiCard, KpiStrip, PageShell, PageHeader, ErrorCard, SectionPanel, SectionTitle } from '../components/layout'
-import { Button } from '../components/ui/button'
+import { Button } from '../components/app/button'
 import { Input } from '../components/ui/input'
-import { Badge } from '../components/ui/badge'
+import { Badge } from '../components/app/badge'
 
 const totalDead = (summary: OperationsSummary) => summary.outbox.dead + summary.deliveries.dead + summary.push.dead
 const staleAreaReservations = (summary: OperationsSummary) => summary.area.stale_voucher_reservations + summary.area.stale_ticket_reward_reservations
@@ -79,7 +79,7 @@ function BrainPanel(props: { brain: BrainSelfAssessment | null | undefined; notR
       <Show
         when={brain()}
         fallback={
-          <div class="p-4 border border-border-subtle rounded-lg bg-surface-1 text-left">
+          <div class="p-4 border border-border rounded-lg bg-background text-left">
             <EmptyState
               label={props.notReported.includes('brain') ? 'Not reported' : 'No self-assessment yet'}
               hint={props.notReported.includes('brain')
@@ -91,12 +91,12 @@ function BrainPanel(props: { brain: BrainSelfAssessment | null | undefined; notR
           </div>
         }
       >
-        {b => <div class="p-4 border border-border-subtle rounded-lg bg-surface-1 space-y-2">
+        {b => <div class="p-4 border border-border rounded-lg bg-background space-y-2">
           <div class="flex items-center gap-3 flex-wrap text-sm">
             <span class="text-muted-foreground">North star verdict over <strong class="text-foreground">{b().days_observed ?? 0}</strong> observed day{(b().days_observed ?? 0) === 1 ? '' : 's'}</span>
             <Show when={(b().quiet_cycles ?? 0) > 0}>
               <span class="text-muted-foreground">·</span>
-              <span class={b().needs_attention ? 'text-destructive' : 'text-warning-light'}>
+              <span class={b().needs_attention ? 'text-destructive' : 'text-warning-foreground'}>
                 quiet for <strong>{b().quiet_cycles}</strong> consecutive cycle{b().quiet_cycles === 1 ? '' : 's'}
               </span>
             </Show>
@@ -362,7 +362,7 @@ export function TenantAttentionPage() {
             severity was critical, in the branch that only runs when it is not. */}
         <For each={attention.data?.findings ?? []}>{finding =>
           <Show when={finding.severity === 'critical'} fallback={
-            <div class="rounded-lg border border-warning/30 bg-warning/10 p-4 my-3 text-sm text-warning-light leading-relaxed">
+            <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground p-4 my-3 text-sm text-warning-foreground leading-relaxed">
               <FindingBody finding={finding} />
             </div>
           }>
@@ -371,7 +371,7 @@ export function TenantAttentionPage() {
             </ErrorCard>
           </Show>
         }</For>
-        <Show when={findingsCount() === 0}><div class="mt-4 p-4 border border-border-subtle rounded-lg bg-surface-1 text-left"><EmptyState label="Nothing disagrees" hint="The last check found no difference between what this console believes and what the tenant reports. Differences appear here when it finds one." /></div></Show>
+        <Show when={findingsCount() === 0}><div class="mt-4 p-4 border border-border rounded-lg bg-background text-left"><EmptyState label="Nothing disagrees" hint="The last check found no difference between what this console believes and what the tenant reports. Differences appear here when it finds one." /></div></Show>
       </>}</Show>
     </TabPanel>
 
@@ -429,7 +429,7 @@ export function TenantAttentionPage() {
         <Input class="min-h-10" value={timelineInput()} onInput={(event) => setTimelineInput(event.currentTarget.value)} placeholder="Request or correlation ID" aria-label="Request or correlation ID" />
         <Button variant="ghost" size="sm" disabled={!timelineInput().trim() || !!busy()} onClick={() => void lookupTimeline()}>{busy() === 'timeline' ? 'Tracing…' : 'Trace request'}</Button>
       </div>
-      <Show when={timeline()}>{result => <SectionPanel><div class="flex items-center justify-between gap-4 mb-3"><div><h3 class="text-sm font-semibold flex items-center gap-1.5"><SectionIcon name="history" />{result().events.length} timeline event(s)</h3><Button variant="ghost" size="sm" class="text-xs py-1.5 px-2.5" onClick={() => toggleRevealedId('timeline')}>{revealedId() === 'timeline' ? 'Hide ID' : 'Details'}</Button><Show when={revealedId() === 'timeline'}><small class="font-mono block p-1.5 px-2.5 rounded-sm bg-background border border-border-subtle text-muted-foreground text-xs break-all">Request ID · <span class="font-mono">{result().request_id}</span></small></Show></div><Button variant="ghost" size="sm" onClick={() => setTimeline(null)}>Close</Button></div><For each={result().events}>{event => <div class="rounded-lg border border-warning/30 bg-warning/10 p-4 px-4 my-3 text-sm text-warning-light leading-relaxed"><div class="flex gap-1.5 flex-wrap items-center"><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.source}</Badge><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.kind}</Badge></div><p class="mt-1.5">{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'}</p></div>}</For></SectionPanel>}</Show>
+      <Show when={timeline()}>{result => <SectionPanel><div class="flex items-center justify-between gap-4 mb-3"><div><h3 class="text-sm font-semibold flex items-center gap-1.5"><SectionIcon name="history" />{result().events.length} timeline event(s)</h3><Button variant="ghost" size="sm" class="text-xs py-1.5 px-2.5" onClick={() => toggleRevealedId('timeline')}>{revealedId() === 'timeline' ? 'Hide ID' : 'Details'}</Button><Show when={revealedId() === 'timeline'}><small class="font-mono block p-1.5 px-2.5 rounded-sm bg-background border border-border text-muted-foreground text-xs break-all">Request ID · <span class="font-mono">{result().request_id}</span></small></Show></div><Button variant="ghost" size="sm" onClick={() => setTimeline(null)}>Close</Button></div><For each={result().events}>{event => <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground p-4 px-4 my-3 text-sm text-warning-foreground leading-relaxed"><div class="flex gap-1.5 flex-wrap items-center"><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.source}</Badge><Badge variant="muted" class="text-xs font-semibold px-2 py-0.5 rounded-full">{event.kind}</Badge></div><p class="mt-1.5">{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'}</p></div>}</For></SectionPanel>}</Show>
     </TabPanel>
   </PageShell>
 }

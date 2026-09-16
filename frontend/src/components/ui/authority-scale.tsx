@@ -84,9 +84,9 @@ export function AuthorityScale<T extends string>(props: {
                 // one. The rungs size to their content and share the slack
                 // evenly instead.
                 'flex-1 whitespace-nowrap border-r border-border px-2 py-1 text-xs font-medium transition-colors last:border-r-0',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary',
-                reached() ? 'bg-primary/15 text-primary-light' : 'text-muted-foreground',
-                selected() && 'bg-primary/30 font-semibold text-foreground',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                reached() ? 'bg-muted text-primary' : 'text-muted-foreground',
+                selected() && 'bg-primary font-semibold text-primary-foreground',
                 !props.disabled && !selected() && 'hover:text-foreground',
               )}
             >

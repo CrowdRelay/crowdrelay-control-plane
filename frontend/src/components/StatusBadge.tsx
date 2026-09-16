@@ -1,5 +1,5 @@
 import type { Component } from 'solid-js'
-import { Badge } from './ui/badge'
+import { Badge } from './app/badge'
 
 const toneToVariant = (tone?: 'good' | 'warn' | 'bad' | 'muted'): 'success' | 'warning' | 'destructive' | 'muted' => {
   switch (tone) {

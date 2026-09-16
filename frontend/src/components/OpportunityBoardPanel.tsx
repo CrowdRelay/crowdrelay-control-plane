@@ -8,9 +8,9 @@ import { APPROVE_EFFECT, CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABE
 import { SectionIcon } from './SectionIcon'
 import { Section, ErrorCard } from './layout'
 import { Spinner } from './Spinner'
-import { Alert } from './ui/alert'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
+import { Alert } from './app/alert'
+import { Button } from './app/button'
+import { Badge } from './app/badge'
 
 // Phase 18 — find, then "do it". CrowdRelay parks what its agent found; this
 // board is where a human decides. "Do it" approves through CrowdRelay's own
@@ -158,9 +158,9 @@ function DraftPreview(props: { draft: ParsedDraft; language?: string }) {
         <span>Written in the recipient's language, not yours.</span>
       </div>
 
-      <div class="border border-border bg-surface-1">
+      <div class="border border-border bg-background">
         <Show when={props.draft.subject}>
-          <div class="border-b border-border-subtle px-3 py-2">
+          <div class="border-b border-border px-3 py-2">
             <span class="block text-xs text-muted-foreground">Subject</span>
             <strong lang={props.language} class="text-sm text-foreground">{props.draft.subject}</strong>
           </div>
@@ -373,7 +373,7 @@ export function OpportunityBoardPanel(props: {
     const entry = () => rowProps.entry
     const busy = (key: string) => pendingMutation() === key
     return (
-      <div class="flex flex-col gap-2 border-b border-border-subtle py-4 last:border-0 md:flex-row md:items-start md:justify-between md:gap-6">
+      <div class="flex flex-col gap-2 border-b border-border py-4 last:border-0 md:flex-row md:items-start md:justify-between md:gap-6">
         <div class="flex min-w-0 flex-1 flex-col gap-1.5">
           {/* `opportunityTitle` prefers `briefing.summary`, which the backend
               writes in the tenant's language — a Polish heading on an English
@@ -404,7 +404,7 @@ export function OpportunityBoardPanel(props: {
           </div>
 
           <Show when={entry().consequence && entry().authority !== 'auto_executing'}>
-            <small class="text-xs text-warning-light">If nobody acts: {entry().consequence}</small>
+            <small class="text-xs text-warning-foreground">If nobody acts: {entry().consequence}</small>
           </Show>
 
           {/* Everything below is reference. It opens on demand so a list of
@@ -465,7 +465,7 @@ export function OpportunityBoardPanel(props: {
                     <Show when={contentFields(briefing()).length > 0}>
                       <dl class="m-0 flex flex-col">
                         <For each={contentFields(briefing())}>{field => (
-                          <div class="flex items-baseline gap-3 border-b border-border-subtle py-1 last:border-0">
+                          <div class="flex items-baseline gap-3 border-b border-border py-1 last:border-0">
                             <dt class="text-xs capitalize text-muted-foreground">{field.label}</dt>
                             <dd class="m-0 min-w-0 flex-1 break-words text-sm text-secondary-foreground">
                               <Show when={asRecipients(field.value).length > 0} fallback={field.value}>

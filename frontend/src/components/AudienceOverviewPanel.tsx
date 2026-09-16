@@ -5,8 +5,8 @@ import { compactNumber } from '../lib/charts'
 import { EmptyState } from './ui/empty-state'
 import { KpiValue } from './KpiValue'
 import { KpiStrip, KpiCard } from './layout'
-import { Card } from './ui/card'
-import { Button, buttonVariants } from './ui/button'
+import { Card } from './app/card'
+import { Button, buttonVariants } from './app/button'
 
 const fmt = (value: number | undefined) => value == null ? '—' : compactNumber(value)
 

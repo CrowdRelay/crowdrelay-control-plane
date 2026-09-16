@@ -10,8 +10,8 @@ import type { ReplyTriageEntry } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonReplyTriage } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
+import { Card } from './app/card'
+import { Button } from './app/button'
 
 const timeAgo = (value: string | null | undefined) => {
   if (!value) return 'never'
@@ -81,7 +81,7 @@ export function ReplyTriagePanel() {
     </div>
 
     <Show when={model.error}>
-      <div class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning mt-4" role="status">
+      <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground p-4 text-sm text-warning-foreground mt-4" role="status">
         {model.error instanceof Error ? model.error.message : 'Reply triage is temporarily unavailable.'}
       </div>
     </Show>
@@ -99,12 +99,12 @@ export function ReplyTriagePanel() {
         <div>
           <span class="block text-muted-foreground text-sm">Auto positive</span>
           <strong class="block my-1.5 text-foreground">{d().summary.auto_positive_count}</strong>
-          <small class="block text-success text-sm">classified</small>
+          <small class="block text-success-foreground text-sm">classified</small>
         </div>
         <div>
           <span class="block text-muted-foreground text-sm">Auto declined</span>
           <strong class="block my-1.5 text-foreground">{d().summary.auto_declined_count}</strong>
-          <small class="block text-warning text-sm">classified</small>
+          <small class="block text-warning-foreground text-sm">classified</small>
         </div>
         <div>
           <span class="block text-muted-foreground text-sm">Auto DNC</span>
@@ -112,7 +112,7 @@ export function ReplyTriagePanel() {
           <small class="block text-destructive text-sm">classified</small>
         </div>
         <Show when={d().summary.pending_count > 0}>
-          <div class="flex flex-wrap gap-2 col-span-full p-3 border border-warning rounded-md bg-card text-warning">
+          <div class="flex flex-wrap gap-2 col-span-full p-3 border border-warning-foreground rounded-md bg-card text-warning-foreground">
             <strong class="text-foreground">Pending</strong>
             <span class="text-sm text-secondary-foreground">{d().summary.pending_count} reply(ies) queued for classification</span>
           </div>
@@ -204,7 +204,7 @@ function ReplyRow(props: { entry: ReplyTriageEntry; slug: string; actionable?: b
           <Button writes
             variant="ghost"
             size="sm"
-            class="text-success"
+            class="text-success-foreground"
             disabled={busy() !== null}
             onClick={() => resolve('positive')}
             title="Mark as positive — the contact is interested"
@@ -212,7 +212,7 @@ function ReplyRow(props: { entry: ReplyTriageEntry; slug: string; actionable?: b
           <Button writes
             variant="ghost"
             size="sm"
-            class="text-warning"
+            class="text-warning-foreground"
             disabled={busy() !== null}
             onClick={() => resolve('declined')}
             title="Mark as declined — the contact said no"

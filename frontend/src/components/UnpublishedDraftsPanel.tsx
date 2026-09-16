@@ -3,8 +3,8 @@ import { authState } from '../lib/auth'
 import { KpiCard, KpiStrip, PanelTitle } from './layout'
 import type { UnpublishedDraftChannel } from '../lib/attention'
 import { SectionIcon } from './SectionIcon'
-import { Card } from './ui/card'
-import { Badge } from './ui/badge'
+import { Card } from './app/card'
+import { Badge } from './app/badge'
 import { cn } from '../lib/cn'
 
 // Drafted posts waiting for a person to publish them.
@@ -101,7 +101,7 @@ export function UnpublishedDraftsPanel(props: {
           <For each={props.drafts}>{(channel) => {
             const age = ageInDays(channel.oldest_drafted_at)
             const stale = age !== null && age >= STALE_AFTER_DAYS
-            return <div class="flex flex-col gap-1 rounded-md border border-border-subtle bg-surface-1 px-3 py-2 text-sm">
+            return <div class="flex flex-col gap-1 rounded-md border border-border bg-background px-3 py-2 text-sm">
               <div class="flex items-center gap-2 flex-wrap">
                 <Badge variant={stale ? 'warning' : 'muted'}>{channelLabel(channel.channel)}</Badge>
                 <strong class="text-foreground">{channel.drafts} draft{channel.drafts === 1 ? '' : 's'}</strong>

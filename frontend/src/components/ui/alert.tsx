@@ -1,50 +1,50 @@
-import { type Component, type JSX, splitProps, Show } from 'solid-js'
-import { cn } from '~/lib/cn'
+import type { Component, ComponentProps, ValidComponent } from "solid-js"
+import { splitProps } from "solid-js"
 
-/**
- * Alert — a semantic surface for warnings, errors, and informational notes.
- * Replaces the ad-hoc `.warning-card` CSS class with a typed primitive.
- * Tones map to the design system: warning (amber), destructive (red),
- * info (muted), and success (green).
- */
+import * as AlertPrimitive from "@kobalte/core/alert"
+import type { PolymorphicProps } from "@kobalte/core/polymorphic"
+import type { VariantProps } from "class-variance-authority"
+import { cva } from "class-variance-authority"
 
-export type AlertTone = 'warning' | 'destructive' | 'info' | 'success'
+import { cn } from "~/lib/utils"
 
-const toneStyles: Record<AlertTone, string> = {
-  warning: 'border-warning/30 bg-warning/10 text-warning',
-  destructive: 'border-destructive/30 bg-destructive/10 text-destructive',
-  info: 'border-border bg-surface-1 text-muted-foreground',
-  success: 'border-success/30 bg-success/10 text-success',
-}
-
-export const Alert: Component<
-  JSX.HTMLAttributes<HTMLDivElement> & {
-    class?: string
-    tone?: AlertTone
-    title?: string
+const alertVariants = cva(
+  "relative w-full rounded-lg border p-4 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground [&>svg~*]:pl-7",
+  {
+    variants: {
+      variant: {
+        default: "bg-background text-foreground",
+        destructive:
+          "border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive"
+      }
+    },
+    defaultVariants: {
+      variant: "default"
+    }
   }
-> = (props) => {
-  const [local, rest] = splitProps(props, ['class', 'tone', 'title', 'children'])
-  // `role="alert"` is assertive: a screen reader abandons what it was saying to
-  // read it. That is right for a failure and wrong for "3 items synced", and
-  // every tone was getting it. Only the two tones that mean something went
-  // wrong interrupt; the rest are announced politely when the user gets there.
-  const tone = () => local.tone ?? 'warning'
-  const role = () => (tone() === 'destructive' || tone() === 'warning' ? 'alert' : 'status')
+)
+
+type AlertRootProps<T extends ValidComponent = "div"> = AlertPrimitive.AlertRootProps<T> &
+  VariantProps<typeof alertVariants> & { class?: string | undefined }
+
+const Alert = <T extends ValidComponent = "div">(props: PolymorphicProps<T, AlertRootProps<T>>) => {
+  const [local, others] = splitProps(props as AlertRootProps, ["class", "variant"])
   return (
-    <div
-      role={role()}
-      class={cn(
-        'rounded-lg border p-4 text-sm break-words',
-        toneStyles[tone()],
-        local.class,
-      )}
-      {...rest}
-    >
-      <Show when={local.title}>
-        <div class="font-semibold mb-1">{local.title}</div>
-      </Show>
-      {local.children}
-    </div>
+    <AlertPrimitive.Root
+      class={cn(alertVariants({ variant: props.variant }), local.class)}
+      {...others}
+    />
   )
 }
+
+const AlertTitle: Component<ComponentProps<"h5">> = (props) => {
+  const [local, others] = splitProps(props, ["class"])
+  return <h5 class={cn("mb-1 font-medium leading-none tracking-tight", local.class)} {...others} />
+}
+
+const AlertDescription: Component<ComponentProps<"div">> = (props) => {
+  const [local, others] = splitProps(props, ["class"])
+  return <div class={cn("text-sm [&_p]:leading-relaxed", local.class)} {...others} />
+}
+
+export { Alert, AlertTitle, AlertDescription }

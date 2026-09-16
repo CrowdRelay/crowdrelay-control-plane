@@ -5,8 +5,8 @@ import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
 import { SectionTitle } from './layout'
 import type { AuditEntry } from '../lib/types'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
+import { Card } from './app/card'
+import { Button } from './app/button'
 
 // Audit is a section of the tenant Overview read model, not its own request.
 // The subpage refreshes the whole model on one tick, so these rows are patched
@@ -36,7 +36,7 @@ export function TenantAuditPanel(props: { items: AuditEntry[] }) {
           <strong class="block text-sm text-foreground">{item.action}</strong>
           <small class="block text-xs text-muted-foreground mt-0.5">{item.actor} · {formatTimestamp(item.createdAt)}</small>
         </div>
-        <code class="text-xs text-muted-foreground bg-surface-2 px-2 py-1 rounded-sm border border-border-subtle flex-shrink-0">{item.targetKind}</code>
+        <code class="text-xs text-muted-foreground bg-card px-2 py-1 rounded-sm border border-border flex-shrink-0">{item.targetKind}</code>
       </div>}</For>
     </div>
     <Show when={props.items.length === 0}>

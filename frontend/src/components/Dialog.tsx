@@ -6,7 +6,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from './ui/dialog'
+} from './app/dialog'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -14,8 +14,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from './ui/alert-dialog'
-import { Button } from './ui/button'
+} from './app/alert-dialog'
+import { Button } from './app/button'
 
 // Shared modal shell composed from the vendored ui/dialog primitives
 // (canonical shadcn composition) rather than raw Kobalte. Keeps the

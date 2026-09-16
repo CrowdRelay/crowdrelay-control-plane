@@ -6,10 +6,10 @@ import { errorMessage, formatIsoAge } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './ui/empty-state'
 import { KpiStrip, KpiCard, ErrorCard } from './layout'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { Card } from './app/card'
+import { Button } from './app/button'
+import { Badge } from './app/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import type { IntelligenceDecision, IntelligenceDecisionTask } from '../lib/types'
 import { NativeSelect } from './ui/native-select'
 
@@ -161,16 +161,16 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
             <div class="flex flex-col gap-2.5 mt-4">
               {Array.from({ length: 3 }, () => (
                 <div class="p-4 rounded-lg border border-border">
-                  <div class="rounded-lg bg-surface-3 border border-border h-5 w-2/5 mb-3" />
-                  <div class="rounded-lg bg-surface-3 border border-border h-[14px] w-full mb-2" />
-                  <div class="rounded-lg bg-surface-3 border border-border h-[14px] w-4/5" />
+                  <div class="rounded-lg bg-muted border border-border h-5 w-2/5 mb-3" />
+                  <div class="rounded-lg bg-muted border border-border h-[14px] w-full mb-2" />
+                  <div class="rounded-lg bg-muted border border-border h-[14px] w-4/5" />
                 </div>
               ))}
             </div>
           }>
             <div class="flex flex-col gap-2.5 mt-4">
               <For each={showAllDecisions() ? decisions() : decisions().slice(0, MAX_VISIBLE_DECISIONS)}>{(decision: IntelligenceDecision) => (
-                <div class="rounded-lg border border-border transition-colors hover:border-border-strong">
+                <div class="rounded-lg border border-border transition-colors hover:border-input">
                   <Button variant="ghost" size="sm" class="w-full h-auto p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3" onClick={() => toggleExpand(decision.id)}>
                     <div class="flex items-center gap-2.5">
                       <strong>{templateLabel(decision.brain_template)}</strong>
@@ -210,7 +210,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                           <h4 class="text-sm font-semibold text-foreground m-0 mb-1.5">Growth Plan</h4>
                           <p class="text-sm text-muted-foreground m-0 mb-2.5">The deterministic plan — each item shows the template, priority, and rationale.</p>
                           <For each={expandedPlans().has(decision.id) ? decision.plan : decision.plan.slice(0, MAX_VISIBLE_PLAN)}>{(item, i) => (
-                            <div class="p-3 border border-border-subtle rounded-lg bg-surface-3 mb-2">
+                            <div class="p-3 border border-border rounded-lg bg-muted mb-2">
                               <div class="flex gap-2 items-center mb-1.5">
                                 <Badge>#{i() + 1} · {templateLabel(item.template)}</Badge>
                                 <Badge variant="success">priority {item.priority}</Badge>

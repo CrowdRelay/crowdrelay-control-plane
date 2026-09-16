@@ -2,10 +2,10 @@ import { Show, createSignal, createMemo } from 'solid-js'
 import { useQuery, useMutation } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
-import { toast } from './ui/toast'
+import { toast } from './app/toast'
 import { cn } from '../lib/cn'
 import { ErrorCard } from './layout'
-import { Button } from './ui/button'
+import { Button } from './app/button'
 import { READ_ONLY_REASON, readOnly } from '../lib/read-only'
 import { FileInput } from './ui/file-input'
 
@@ -108,8 +108,8 @@ export function RedditCookieUploader(props: { slug: string }) {
   const statusLabel = createMemo(() => {
     const s = status.data?.status
     if (!s || s === 'missing') return { text: 'No cookies stored', class: '' }
-    if (s === 'active') return { text: 'Active', class: 'bg-success/15 text-success border-success/20' }
-    if (s === 'expired') return { text: 'Expired', class: 'bg-warning/15 text-warning border-warning/20' }
+    if (s === 'active') return { text: 'Active', class: 'bg-success-foreground text-success-foreground border-success-foreground/20' }
+    if (s === 'expired') return { text: 'Expired', class: 'bg-warning-foreground text-warning-foreground border-warning-foreground/20' }
     if (s === 'failed') return { text: 'Failed', class: 'bg-destructive/15 text-destructive border-destructive/20' }
     return { text: s, class: '' }
   })
@@ -128,7 +128,7 @@ export function RedditCookieUploader(props: { slug: string }) {
     <div class="bg-card border border-border rounded-lg p-5 shadow-md mb-4">
       <div class="flex justify-between items-center mb-3 min-w-0 gap-3 flex-wrap">
         <h3>Reddit Session Cookies</h3>
-        <span class={cn('text-xs uppercase tracking-tight px-2.5 py-0.5 rounded-md bg-surface-3 border border-border-subtle text-muted-foreground font-semibold', statusLabel().class)}>{statusLabel().text}</span>
+        <span class={cn('text-xs uppercase tracking-tight px-2.5 py-0.5 rounded-md bg-muted border border-border text-muted-foreground font-semibold', statusLabel().class)}>{statusLabel().text}</span>
       </div>
       <p class="text-sm text-muted-foreground leading-relaxed m-0 mb-4">
         Upload a Netscape <code>cookies.txt</code> file from a logged-in Reddit session.
@@ -148,20 +148,20 @@ export function RedditCookieUploader(props: { slug: string }) {
       </Show>
 
       <Show when={status.data?.status === 'expired'}>
-        <div class="p-4 my-3 border border-warning/30 rounded-lg bg-warning/10 text-warning-light leading-relaxed">
+        <div class="p-4 my-3 border border-warning-foreground/30 rounded-lg bg-warning-foreground text-warning-foreground leading-relaxed">
           Cookies have expired. Upload a fresh <code>cookies.txt</code> to restore Reddit feeds.
         </div>
       </Show>
 
       <Show when={status.data?.status === 'failed'}>
-        <div class="p-4 my-3 border border-destructive/30 rounded-lg bg-destructive/10 text-destructive-light leading-relaxed">
+        <div class="p-4 my-3 border border-destructive/30 rounded-lg bg-destructive/10 text-destructive leading-relaxed">
           Reddit rejected the cookies (403). The account may be shadow-blocked or the datacenter IP is flagged.
           Upload fresh cookies from a residential IP, then test them.
         </div>
       </Show>
 
       <Show when={status.data?.status === 'missing'}>
-        <div class="p-4 my-3 border border-border-subtle rounded-lg bg-surface-1 text-muted-foreground leading-relaxed">
+        <div class="p-4 my-3 border border-border rounded-lg bg-background text-muted-foreground leading-relaxed">
           No Reddit cookies stored. Reddit feeds will fail until cookies are uploaded or the browser login succeeds.
         </div>
       </Show>
@@ -170,8 +170,8 @@ export function RedditCookieUploader(props: { slug: string }) {
         <div class={cn(
           'p-4 my-3 border rounded-lg leading-relaxed',
           validateResult()!.valid
-            ? 'border-success/30 bg-success/10 text-success-light'
-            : 'border-destructive/30 bg-destructive/10 text-destructive-light',
+            ? 'border-success-foreground/30 bg-success-foreground text-success-foreground'
+            : 'border-destructive/30 bg-destructive/10 text-destructive',
         )}>
           <Show when={validateResult()!.valid} fallback={<span>{validateResult()!.error}</span>}>
             Cookies valid — logged in as <strong>u/{validateResult()!.reddit_username}</strong>
@@ -192,7 +192,7 @@ export function RedditCookieUploader(props: { slug: string }) {
       <div
         class={cn(
           'border-2 border-dashed border-border rounded-lg p-6 text-center my-3 transition-colors',
-          dragOver() && 'border-primary bg-surface-1',
+          dragOver() && 'border-primary bg-background',
         )}
         onDrop={onDrop}
         onDragOver={onDragOver}
@@ -201,7 +201,7 @@ export function RedditCookieUploader(props: { slug: string }) {
         <label class={cn('cursor-pointer flex flex-col gap-2 items-center', readOnly() && 'pointer-events-none opacity-45')} title={readOnly() ? READ_ONLY_REASON : undefined}>
           <FileInput writes accept=".txt,text/plain" onChange={onFileInput} disabled={upload.isPending} />
           <span class={cn(
-            'inline-block px-5 py-2 rounded-lg bg-primary-solid text-primary-on font-semibold text-sm cursor-pointer transition-opacity hover:opacity-85',
+            'inline-block px-5 py-2 rounded-lg bg-primary text-primary-foreground font-semibold text-sm cursor-pointer transition-opacity hover:opacity-85',
             upload.isPending && 'opacity-50 cursor-wait',
           )}>
             {upload.isPending ? 'Uploading…' : 'Choose cookies.txt file'}
@@ -211,7 +211,7 @@ export function RedditCookieUploader(props: { slug: string }) {
       </div>
 
       <Show when={uploadResult()}>
-        <div class="p-4 my-3 border border-success/30 rounded-md bg-success/10 text-success-light leading-relaxed">
+        <div class="p-4 my-3 border border-success-foreground/30 rounded-md bg-success-foreground text-success-foreground leading-relaxed">
           <strong>{uploadResult()!.cookie_count}</strong> Reddit cookies stored. {formatExpiry(uploadResult()!.expires_at)}
         </div>
       </Show>

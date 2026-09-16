@@ -15,7 +15,7 @@ const credentials = () => {
 test('operator journey keeps tenant shell stable across live polling', async ({ page }) => {
   const { username, password } = credentials()
   await page.goto(baseURL, { waitUntil: 'domcontentloaded' })
-  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Sign in to your account' })).toBeVisible()
   await page.getByLabel('Username').fill(username)
   // `exact` — the show/hide toggle's aria-label "Show password" otherwise
   // substring-matches "Password" and strict mode sees two elements.
@@ -50,6 +50,8 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   expect(await tenantHeading.textContent()).toBe(originalHeading)
   await expect(page.getByRole('heading', { name: 'Heartbeat' })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Log out' }).click()
-  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
+  // Sign-out lives in the account menu at the foot of the sidebar.
+  await page.getByRole('button', { name: 'Account menu' }).click()
+  await page.getByRole('menuitem', { name: 'Log out' }).click()
+  await expect(page.getByRole('heading', { name: 'Sign in to your account' })).toBeVisible()
 })

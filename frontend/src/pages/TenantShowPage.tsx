@@ -6,7 +6,7 @@ import type { ShowTimelineState, ShowTimelineStep } from '../lib/types'
 import { PageShell, PageHeader } from '../components/layout'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
-import { Badge } from '../components/ui/badge'
+import { Badge } from '../components/app/badge'
 import { formatTimestamp } from '../lib/format'
 
 const STATE_VARIANT: Record<ShowTimelineState, { variant: 'success' | 'default' | 'warning' | 'muted' | 'outline'; label: string }> = {
@@ -67,7 +67,7 @@ export function TenantShowPage() {
             {/* Venue knowledge lives on the show: what the room is to us —
                 the relationship record, not a lookup. */}
             <Show when={(data().event.venue_knowledge ?? []).length > 0}>
-              <div class="mb-3 rounded-lg border border-border bg-surface-1 px-4 py-2.5">
+              <div class="mb-3 rounded-lg border border-border bg-background px-4 py-2.5">
                 <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">The room</p>
                 <For each={data().event.venue_knowledge ?? []}>
                   {v => (
@@ -97,7 +97,7 @@ export function TenantShowPage() {
 function StepRow(props: { step: ShowTimelineStep; slug: string; eventSlug: string }) {
   const state = () => STATE_VARIANT[props.step.state] ?? STATE_VARIANT.waiting
   return (
-    <div class="flex items-start gap-3 rounded-lg border border-border bg-surface-1 px-4 py-3">
+    <div class="flex items-start gap-3 rounded-lg border border-border bg-background px-4 py-3">
       <div class="w-11 shrink-0 pt-0.5 text-xs font-semibold tabular-nums text-muted-foreground">
         {props.step.anchor}
       </div>
@@ -129,20 +129,20 @@ function StepAction(props: { action: { kind: string; label: string }; slug: stri
   switch (props.action.kind) {
     case 'qr':
       return (
-        <Link to="/tenants/$slug/shows/$eventSlug/scan" params={{ slug: props.slug, eventSlug: props.eventSlug }} class={`${chip} text-foreground hover:bg-surface-2`}>
+        <Link to="/tenants/$slug/shows/$eventSlug/scan" params={{ slug: props.slug, eventSlug: props.eventSlug }} class={`${chip} text-foreground hover:bg-card`}>
           {props.action.label}
         </Link>
       )
     case 'report':
       return (
-        <Link to="/tenants/$slug/shows/$eventSlug/report" params={{ slug: props.slug, eventSlug: props.eventSlug }} class={`${chip} text-foreground hover:bg-surface-2`}>
+        <Link to="/tenants/$slug/shows/$eventSlug/report" params={{ slug: props.slug, eventSlug: props.eventSlug }} class={`${chip} text-foreground hover:bg-card`}>
           {props.action.label}
         </Link>
       )
     case 'approve':
     case 'review':
       return (
-        <Link to="/tenants/$slug/attention" params={{ slug: props.slug }} class={`${chip} text-foreground hover:bg-surface-2`}>
+        <Link to="/tenants/$slug/attention" params={{ slug: props.slug }} class={`${chip} text-foreground hover:bg-card`}>
           {props.action.label}
         </Link>
       )

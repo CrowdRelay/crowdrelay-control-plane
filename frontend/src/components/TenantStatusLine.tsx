@@ -83,7 +83,7 @@ export function TenantStatusLine(props: {
             'block rounded-md border px-3 py-2 text-sm transition-colors',
             issue().bad
               ? 'border-destructive/40 bg-destructive/10 text-foreground hover:border-destructive/70'
-              : 'border-warning/40 bg-warning/10 text-foreground hover:border-warning/70',
+              : 'border-warning-foreground/40 bg-warning-foreground text-foreground hover:border-warning-foreground/70',
           )}
         >
           {issue().bad ? 'Something is broken: ' : 'Worth a look: '}

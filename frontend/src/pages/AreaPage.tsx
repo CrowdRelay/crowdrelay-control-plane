@@ -13,8 +13,8 @@ import { SkeletonRows } from '../components/Skeleton'
 import { confirmAction } from '../components/Dialog'
 import { SectionIcon } from '../components/SectionIcon'
 import { ErrorCard, KpiCard, KpiStrip, PageHeader, PageShell, PanelTitle, SectionPanel, SectionTitle } from '../components/layout'
-import { Button } from '../components/ui/button'
-import { Alert } from '../components/ui/alert'
+import { Button } from '../components/app/button'
+import { Alert } from '../components/app/alert'
 import { Input } from '../components/ui/input'
 
 // Rich-label checkbox composes the Kobalte primitive (ui/checkbox's label
@@ -175,7 +175,7 @@ export function AreaPage() {
       actions={<Show when={overview.data}><StatusBadge status={overview.data!.entitled ? 'on' : 'off'} tone={overview.data!.entitled ? 'good' : 'muted'} /></Show>}
     />
 
-    <Show when={flash()}><div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground">{flash()}</div></Show>
+    <Show when={flash()}><div class="rounded-lg border border-border bg-background p-4 text-sm text-foreground">{flash()}</div></Show>
     <Show when={mutationError()}><ErrorCard>{errorMessage(mutationError(), 'AREA operation failed')}</ErrorCard></Show>
 
     <Show when={overview.data} fallback={
@@ -184,12 +184,12 @@ export function AreaPage() {
       </Show>
     }>{o => <>
       <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Locations</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().total}</strong></div>
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Live</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().live}</strong></div>
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Total claims</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().totalClaims}</strong></div>
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Scheduled</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().scheduled}</strong></div>
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Drafts</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().drafts}</strong></div>
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-surface-1"><span class="text-xs text-muted-foreground">Paused / ended</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().paused + o().ended}</strong></div>
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-background"><span class="text-xs text-muted-foreground">Locations</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().total}</strong></div>
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-background"><span class="text-xs text-muted-foreground">Live</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().live}</strong></div>
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-background"><span class="text-xs text-muted-foreground">Total claims</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().totalClaims}</strong></div>
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-background"><span class="text-xs text-muted-foreground">Scheduled</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().scheduled}</strong></div>
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-background"><span class="text-xs text-muted-foreground">Drafts</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().drafts}</strong></div>
+        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-background"><span class="text-xs text-muted-foreground">Paused / ended</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().paused + o().ended}</strong></div>
       </div>
       <SectionPanel class="flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0">
@@ -200,10 +200,10 @@ export function AreaPage() {
               is in flight. Saying which is which beats one badge that picks a
               side and leaves the operator wondering why the button disagrees. */}
           <Show when={o().entitled && !o().enabled}>
-            <p class="text-sm text-warning mt-2 leading-relaxed">AREA is on here, but this tenant's app is not running the game yet. It starts at its next deploy or sync.</p>
+            <p class="text-sm text-warning-foreground mt-2 leading-relaxed">AREA is on here, but this tenant's app is not running the game yet. It starts at its next deploy or sync.</p>
           </Show>
           <Show when={!o().entitled && o().enabled}>
-            <p class="text-sm text-warning mt-2 leading-relaxed">AREA is off here, but this tenant's app is still showing the game to fans. It stops at its next deploy or sync.</p>
+            <p class="text-sm text-warning-foreground mt-2 leading-relaxed">AREA is off here, but this tenant's app is still showing the game to fans. It stops at its next deploy or sync.</p>
           </Show>
         </div>
         <Button writes variant={o().entitled ? 'destructive-ghost' : 'default'} size="sm" disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Turn AREA off' : 'Turn AREA on'}</Button>
@@ -212,7 +212,7 @@ export function AreaPage() {
 
     <SectionPanel>
       <SectionTitle eyebrow="LOCATIONS" title="Published state + drafts" icon={<SectionIcon name="map-pin" />} action={<Button writes size="sm" disabled={!overview.data?.entitled} onClick={() => setCreating(v=>!v)}>+ New location</Button>} />
-      <Show when={creating()}><div class="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
+      <Show when={creating()}><div class="rounded-lg border border-border bg-background p-4 space-y-3">
         <Field label="Search city" hint="Type to filter the canonical list."><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></Field>
         <Field label="Canonical city" hint="Where the drop lives. Missing city? Create one below."><NativeSelect value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></NativeSelect></Field>
         <Field label="Drop number" hint="1–3 digits, required. Padded to three for the id: 7 in Wrocław becomes wro-007."><Input inputmode="numeric" maxlength="3" value={newNumber()} onInput={e=>setNewNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></Field>
@@ -220,7 +220,7 @@ export function AreaPage() {
             "Drop number must contain 1–3 digits" only after the click. Same
             rule, checked where the operator can still act on it. */}
         <div class="flex justify-end gap-2"><Button writes variant="ghost" size="sm" onClick={()=>setCreateCityOpen(v=>!v)}>Create custom city</Button><Button writes size="sm" disabled={createDrop.isPending || !newCityId() || !/^\d{1,3}$/.test(newNumber().trim())} onClick={()=>createDrop.mutate()}>Create draft</Button></div>
-        <Show when={createCityOpen()}><div class="rounded-md border border-border bg-surface-2 p-3 space-y-3">
+        <Show when={createCityOpen()}><div class="rounded-md border border-border bg-card p-3 space-y-3">
           <Field label="Name"><Input required value={newCity().name} onInput={e=>setNewCity(v=>({...v,name:e.currentTarget.value}))}/></Field>
           <Field label="Slug"><Input required value={newCity().slug} onInput={e=>setNewCity(v=>({...v,slug:e.currentTarget.value}))}/></Field>
           <Field label="Country"><Input required maxlength="2" value={newCity().countryCode} onInput={e=>setNewCity(v=>({...v,countryCode:e.currentTarget.value}))}/></Field>
@@ -234,9 +234,9 @@ export function AreaPage() {
         {/* Column headings over nothing are furniture. They also implied the
             rows were loading when the list was simply empty. */}
         <Show when={(drops.data?.items.length ?? 0) > 0}>
-        <div class="grid items-center gap-3 px-4 py-2 bg-surface-2 text-xs font-medium uppercase tracking-wider text-muted-foreground border-b border-border" style="grid-template-columns: 60px minmax(0,1fr) 100px 80px minmax(120px,1fr) 60px"><span>#</span><span>City</span><span>Status</span><span>Claims</span><span>Window</span><span/></div>
+        <div class="grid items-center gap-3 px-4 py-2 bg-card text-xs font-medium uppercase tracking-wider text-muted-foreground border-b border-border" style="grid-template-columns: 60px minmax(0,1fr) 100px 80px minmax(120px,1fr) 60px"><span>#</span><span>City</span><span>Status</span><span>Claims</span><span>Window</span><span/></div>
         </Show>
-        <For each={drops.data?.items ?? []}>{item => <div class="grid items-center gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-surface-3 transition-colors" style="grid-template-columns: 60px minmax(0,1fr) 100px 80px minmax(120px,1fr) 60px">
+        <For each={drops.data?.items ?? []}>{item => <div class="grid items-center gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-muted transition-colors" style="grid-template-columns: 60px minmax(0,1fr) 100px 80px minmax(120px,1fr) 60px">
           <code class="text-xs text-muted-foreground">{item.number}</code><div class="min-w-0"><strong class="text-sm text-foreground">{item.city}</strong><small class="block text-xs text-muted-foreground">rev {item.revision}{item.hasDraft ? ' · draft' : ''}</small></div><StatusBadge status={item.status} tone={statusTone(item.status)} /><span class="text-sm tabular-nums text-foreground">{item.claimCount} / {item.maxClaims}</span><small class="text-xs text-muted-foreground">{formatDate(item.startsAt)}<br/>{formatDate(item.endsAt)}</small><Button variant="ghost" size="sm" onClick={()=>{setSelectedId(item.id);setEditorStep('city')}}>Edit</Button>
         </div>}</For>
         {/* "above" pointed at a form that is not open; the control is the
@@ -307,14 +307,14 @@ export function AreaPage() {
             <KpiCard label="Ends" value={<span class="text-sm">{formatDate(draft()!.endsAt)}</span>} />
           </KpiStrip>
           <Show when={validation()}>{_v=><>
-            <Show when={hardIssues().length===0}><div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground">No blocking validation errors.</div></Show>
+            <Show when={hardIssues().length===0}><div class="rounded-lg border border-border bg-background p-4 text-sm text-foreground">No blocking validation errors.</div></Show>
             <For each={hardIssues()}>{issue=><ErrorCard><strong>{issue.code}</strong><p>{issue.message}</p></ErrorCard>}</For>
-            <For each={confirmationIssues()}>{issue=><KobalteCheckbox class="flex items-start gap-3 cursor-pointer p-3 rounded-md border border-border bg-surface-1" checked={confirmations().includes(issue.code)} onChange={()=>toggleConfirmation(issue.code)}><KobalteCheckbox.Input class="sr-only" /><KobalteCheckbox.Control class={checkboxControl}><KobalteCheckbox.Indicator class="flex items-center justify-center text-current"><Check class="h-3.5 w-3.5" /></KobalteCheckbox.Indicator></KobalteCheckbox.Control><span><strong class="text-sm text-foreground">{issue.code}</strong><small class="block text-xs text-muted-foreground">{issue.message}</small></span></KobalteCheckbox>}</For>
+            <For each={confirmationIssues()}>{issue=><KobalteCheckbox class="flex items-start gap-3 cursor-pointer p-3 rounded-md border border-border bg-background" checked={confirmations().includes(issue.code)} onChange={()=>toggleConfirmation(issue.code)}><KobalteCheckbox.Input class="sr-only" /><KobalteCheckbox.Control class={checkboxControl}><KobalteCheckbox.Indicator class="flex items-center justify-center text-current"><Check class="h-3.5 w-3.5" /></KobalteCheckbox.Indicator></KobalteCheckbox.Control><span><strong class="text-sm text-foreground">{issue.code}</strong><small class="block text-xs text-muted-foreground">{issue.message}</small></span></KobalteCheckbox>}</For>
           </>}</Show>
           <div class="flex justify-end gap-2"><Button variant="ghost" size="sm" disabled={validate.isPending||save.isPending} onClick={()=>validate.mutate()}>Save + validate</Button><Button size="sm" disabled={!validation()?.valid || confirmationIssues().some(issue=>!confirmations().includes(issue.code)) || publish.isPending} onClick={()=>publish.mutate()}>Publish revision</Button></div>
         </div></Show>
 
-        <Show when={duplicateOpen()}><div class="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
+        <Show when={duplicateOpen()}><div class="rounded-lg border border-border bg-background p-4 space-y-3">
           <strong class="text-sm text-foreground">Duplicate as a new draft</strong><p class="text-sm text-muted-foreground">The collectible/content is copied, but the exact claim coordinates are deliberately cleared.</p>
           <Field label="Search destination city"><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Search canonical cities"/></Field>
           <Field label="Destination city"><NativeSelect value={duplicateCityId()} onChange={e=>setDuplicateCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''}</option>}</For></NativeSelect></Field>

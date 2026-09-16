@@ -2,7 +2,7 @@ import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api, request } from '../lib/api'
 import { errorMessage } from '../lib/format'
-import { toast } from './ui/toast'
+import { toast } from './app/toast'
 import { EmptyState } from './ui/empty-state'
 import { Hint } from './ui/hint'
 import { ErrorCard } from './layout'
@@ -326,12 +326,12 @@ export function AgentProvidersPanel(props: {
   return (
     <div class="flex flex-col gap-4">
       <Show when={isServiceDown()}>
-        <div class="flex items-start gap-3 p-4 rounded-lg border border-warning/30 bg-warning/10 text-warning-light">
-          <div class="flex-shrink-0 text-warning mt-0.5">
+        <div class="flex items-start gap-3 p-4 rounded-lg border border-warning-foreground/30 bg-warning-foreground text-warning-foreground">
+          <div class="flex-shrink-0 text-warning-foreground mt-0.5">
             <SparkIcon size={28} />
           </div>
           <div class="flex flex-col gap-1">
-            <strong class="text-sm text-warning-light">AI service is temporarily unavailable</strong>
+            <strong class="text-sm text-warning-foreground">AI service is temporarily unavailable</strong>
             <span class="text-sm text-muted-foreground leading-relaxed">Free models continue to work. Premium features will return shortly — no action needed.</span>
           </div>
         </div>
@@ -350,7 +350,7 @@ export function AgentProvidersPanel(props: {
       <Show when={props.mode !== 'library'}>
         <Show when={usage.data} fallback={
           <Show when={!isServiceDown() && !error()}>
-            <div class="h-20 rounded-lg border border-border bg-surface-3" />
+            <div class="h-20 rounded-lg border border-border bg-muted" />
           </Show>
         }>
           <UsageKpiStrip usage={usage.data!} connectedCount={connectedCount()} availableModelCount={availableModelCount()} />
@@ -359,9 +359,9 @@ export function AgentProvidersPanel(props: {
 
       <Show when={providersResolved()} fallback={
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div class="h-32 rounded-lg border border-border bg-surface-3" />
-          <div class="h-32 rounded-lg border border-border bg-surface-3" />
-          <div class="h-32 rounded-lg border border-border bg-surface-3" />
+          <div class="h-32 rounded-lg border border-border bg-muted" />
+          <div class="h-32 rounded-lg border border-border bg-muted" />
+          <div class="h-32 rounded-lg border border-border bg-muted" />
         </div>
       }>
       <div class="flex flex-col gap-4">

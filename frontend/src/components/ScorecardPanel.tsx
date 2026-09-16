@@ -8,9 +8,9 @@ import { StatusBadge } from './StatusBadge'
 import { ProgressRing } from './ProgressRing'
 import { SkeletonScorecard } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
+import { Card } from './app/card'
+import { Button } from './app/button'
+import { Badge } from './app/badge'
 import { SectionTitle, ErrorCard, KpiCard, KpiStrip } from './layout'
 import { CAPABILITY_LABELS, CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 
@@ -98,7 +98,7 @@ export function ScorecardPanel(props: { slug: string }) {
     />
 
     <Show when={model.error}>
-      <div class="mt-4 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning" role="status">
+      <div class="mt-4 rounded-lg border border-warning-foreground/30 bg-warning-foreground p-4 text-sm text-warning-foreground" role="status">
         {model.error instanceof Error ? model.error.message : 'Agent scorecard is temporarily unavailable.'}
       </div>
     </Show>
@@ -176,7 +176,7 @@ export function ScorecardPanel(props: { slug: string }) {
           <div><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="history" />Did it work?</h3></div>
         </div>
         <KpiStrip class="mt-3 mb-0">
-          <KpiCard label="Improved" value={count(d().track_record.improved)} sub={<span class="text-success">measured wins</span>} />
+          <KpiCard label="Improved" value={count(d().track_record.improved)} sub={<span class="text-success-foreground">measured wins</span>} />
           <KpiCard label="Worsened" value={count(d().track_record.worsened)} sub={<span class="text-destructive">measured losses</span>} />
           <KpiCard label="Neutral" value={count(d().track_record.neutral)} sub="no change" />
           {/* With no coverage reading this printed "— coverage", which reads as
@@ -206,7 +206,7 @@ export function ScorecardPanel(props: { slug: string }) {
                     && (d().track_record.measurement_coverage_basis_points as number) < 5000
                     && d().track_record.unmeasured > 0}>
           <details class="mt-3">
-            <summary class="cursor-pointer text-sm text-warning font-medium">Low measurement coverage — click for details</summary>
+            <summary class="cursor-pointer text-sm text-warning-foreground font-medium">Low measurement coverage — click for details</summary>
             <ErrorCard class="mt-2 p-3 flex flex-col gap-1">
               <strong class="text-destructive">Low measurement coverage</strong>
               <span class="text-sm text-secondary-foreground">{d().track_record.unmeasured} executed action(s) have no measurement scheduled, so their effect can never be judged. This excludes anything still inside its measurement horizon.</span>
@@ -248,7 +248,7 @@ export function ScorecardPanel(props: { slug: string }) {
         <div class="flex justify-between gap-4 items-start">
           <div><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="list-checks" />Last 10 completed actions</h3></div>
         </div>
-        <Show when={d().recent_results.length > 0} fallback={<div class="p-4 mt-3 rounded-lg border border-border bg-surface-1"><p class="m-0 text-sm text-muted-foreground">The agent has not completed any actions yet.</p></div>}>
+        <Show when={d().recent_results.length > 0} fallback={<div class="p-4 mt-3 rounded-lg border border-border bg-background"><p class="m-0 text-sm text-muted-foreground">The agent has not completed any actions yet.</p></div>}>
           <div class="grid gap-2.5 mt-3" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))' }}>
             <For each={showAllRecent() ? d().recent_results : d().recent_results.slice(0, MAX_VISIBLE_RECENT)}>{result => <div class="p-3 border border-border rounded-lg bg-card flex flex-col gap-1">
               <div class="flex items-center justify-between gap-2">

@@ -7,10 +7,10 @@ import type { OutreachCandidateView, BookingCandidateView } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { TabBar, ErrorCard } from './layout'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { Card } from './app/card'
+import { Button } from './app/button'
+import { Badge } from './app/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 
 const fitLabel = (bps: number) => `${Math.round(bps / 100)}%`
 

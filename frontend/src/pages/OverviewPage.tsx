@@ -121,7 +121,7 @@ export function OverviewPage() {
     {/* Fleet health ring + Tenant pulse — the fleet at a glance, first */}
     <SectionTitle eyebrow="PULSE" title="Tenant pulse" icon={<SectionIcon name="heartbeat" />} action={<Show when={authState.isPlatformLevel()}><Link to="/tenants" class="text-sm text-primary hover:text-primary/80">Manage tenants →</Link></Show>} />
     <Show when={ov.items().length > 0}>
-      <div class="flex items-center gap-4 p-4 rounded-lg border border-border bg-surface-1">
+      <div class="flex items-center gap-4 p-4 rounded-lg border border-border bg-background">
         <div class="flex-shrink-0">
           <ProgressRing value={ov.healthyPct()} size={72} strokeWidth={6} tone={ov.fleetTone()} showValue={ov.reportingCount() > 0} />
         </div>
@@ -139,9 +139,9 @@ export function OverviewPage() {
     </Show>
     <div class="space-y-2">
       <For each={ov.items()}>{tenant => (
-        <Link to="/tenants/$slug" params={{ slug: tenant.slug }} class="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 hover:border-border-strong transition-colors">
+        <Link to="/tenants/$slug" params={{ slug: tenant.slug }} class="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 hover:border-input transition-colors">
           <div class="flex items-center gap-2 min-w-0">
-            <span class={cn('inline-block w-2 h-2 rounded-full flex-shrink-0', healthTone(tenant.runtimeHealth) === 'good' ? 'bg-success' : healthTone(tenant.runtimeHealth) === 'bad' ? 'bg-destructive' : healthTone(tenant.runtimeHealth) === 'warn' ? 'bg-warning' : 'bg-muted-foreground')} />
+            <span class={cn('inline-block w-2 h-2 rounded-full flex-shrink-0', healthTone(tenant.runtimeHealth) === 'good' ? 'bg-success-foreground' : healthTone(tenant.runtimeHealth) === 'bad' ? 'bg-destructive' : healthTone(tenant.runtimeHealth) === 'warn' ? 'bg-warning-foreground' : 'bg-muted-foreground')} />
             <strong class="text-sm text-foreground">{tenant.displayName}</strong>
             <span class="text-xs text-muted-foreground">{tenant.slug}</span>
           </div>

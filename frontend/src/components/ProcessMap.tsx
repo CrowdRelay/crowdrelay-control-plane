@@ -1,6 +1,6 @@
 import { For, Show } from 'solid-js'
 import { useNavigate } from '@tanstack/solid-router'
-import { Button } from './ui/button'
+import { Button } from './app/button'
 
 type Zone = 'src' | 'intel' | 'auth' | 'exec' | 'out' | 'learn'
 
@@ -136,9 +136,9 @@ const ZONE_STROKE: Record<Zone, string> = {
   src: '#71dcff',
   intel: 'var(--color-primary)',
   auth: '#ffa657',
-  exec: 'var(--color-warning-light)',
+  exec: 'var(--color-warning-foreground)',
   out: '#ff6680',
-  learn: 'var(--color-success-light)',
+  learn: 'var(--color-success-foreground)',
 }
 
 const ZONE_LABEL: Record<Zone, string> = {

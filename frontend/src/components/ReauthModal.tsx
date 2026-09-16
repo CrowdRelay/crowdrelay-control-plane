@@ -2,7 +2,7 @@ import { Show, createSignal } from 'solid-js'
 import { PanelTitle } from './layout'
 import type { Component } from 'solid-js'
 import { reauthState, submitReauth, cancelReauth } from '../lib/reauth'
-import { Button } from './ui/button'
+import { Button } from './app/button'
 import { Input } from './ui/input'
 
 /// Modal that prompts for the operator's password before a destructive

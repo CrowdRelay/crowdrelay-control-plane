@@ -7,10 +7,10 @@ import { EmptyState } from './ui/empty-state'
 import type { LearningLoopEntry } from '../lib/types'
 import { SkeletonLearningLoop } from './Skeleton'
 import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
-import { Card } from './ui/card'
-import { Alert } from './ui/alert'
+import { Card } from './app/card'
+import { Alert } from './app/alert'
 import { cn } from '../lib/cn'
-import { Button } from './ui/button'
+import { Button } from './app/button'
 
 const MAX_VISIBLE_ENTRIES = 10
 
@@ -27,16 +27,16 @@ const MAX_VISIBLE_ENTRIES = 10
 // High (≥80%) = green, medium (≥50%) = accent, low = muted.
 const confidenceClass = (basisPoints: number) => {
   const pct = basisPoints / 100
-  if (pct >= 80) return 'text-success'
+  if (pct >= 80) return 'text-success-foreground'
   if (pct >= 50) return 'text-primary'
   return 'text-muted-foreground'
 }
 
 // Action status → text color class for colored status badge.
 const actionStatusClass = (status: string) => {
-  if (status === 'succeeded') return 'text-success'
+  if (status === 'succeeded') return 'text-success-foreground'
   if (status === 'failed') return 'text-destructive'
-  if (status === 'pending' || status === 'in_progress') return 'text-warning'
+  if (status === 'pending' || status === 'in_progress') return 'text-warning-foreground'
   return 'text-muted-foreground'
 }
 
@@ -54,7 +54,7 @@ const timeAgo = (iso: string): string => {
 }
 
 const outcomeClass = (assessment: string): string => {
-  if (assessment === 'improved') return 'text-success'
+  if (assessment === 'improved') return 'text-success-foreground'
   if (assessment === 'worsened') return 'text-destructive'
   return 'text-muted-foreground'
 }
@@ -133,7 +133,7 @@ export function LearningLoopPanel(props: { slug: string }) {
           <For each={showAll() ? entries() : entries().slice(0, MAX_VISIBLE_ENTRIES)}>{(entry) => (
             <div class="flex items-stretch gap-2 flex-wrap md:flex-nowrap">
               {/* DECISION */}
-              <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-surface-1 space-y-2">
+              <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-background space-y-2">
                 <Eyebrow>What it saw</Eyebrow>
                 <div class="space-y-1 text-sm">
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">Finding</span><strong class="text-foreground">{entry.decision_kind.replaceAll('_', ' ')}</strong></div>
@@ -149,7 +149,7 @@ export function LearningLoopPanel(props: { slug: string }) {
               <div class="flex items-center text-muted-foreground px-1">→</div>
 
               {/* ACTION */}
-              <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-surface-1 space-y-2">
+              <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-background space-y-2">
                 <Eyebrow>What it did</Eyebrow>
                 <Show when={entry.action} fallback={
                   <Show when={entry.data_integrity?.action} fallback={
@@ -173,7 +173,7 @@ export function LearningLoopPanel(props: { slug: string }) {
               <div class="flex items-center text-muted-foreground px-1">→</div>
 
               {/* OUTCOME */}
-              <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-surface-1 space-y-2">
+              <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-background space-y-2">
                 <Eyebrow>What happened</Eyebrow>
                 <Show when={entry.outcome} fallback={
                   <Show when={entry.data_integrity?.outcome} fallback={
@@ -195,7 +195,7 @@ export function LearningLoopPanel(props: { slug: string }) {
               {/* LEARNING — derived from outcome, not fabricated */}
               <Show when={entry.outcome}>
                 <div class="flex items-center text-muted-foreground px-1">→</div>
-                <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-surface-1 space-y-2">
+                <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-background space-y-2">
                   <Eyebrow>Learned</Eyebrow>
                   <p class={cn('text-sm', outcomeClass(entry.outcome!.effect_assessment))}>
                     <Show when={entry.outcome!.effect_assessment === 'improved'} fallback={

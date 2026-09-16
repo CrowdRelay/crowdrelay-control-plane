@@ -6,10 +6,10 @@ import type { OpsAlert } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
-import { Card } from './ui/card'
-import { Alert } from './ui/alert'
-import { Button } from './ui/button'
-import { buttonVariants } from './ui/button'
+import { Card } from './app/card'
+import { Alert } from './app/alert'
+import { Button } from './app/button'
+import { buttonVariants } from './app/button'
 
 // What each watchdog condition actually observes, and where an operator can act
 // on it. The upstream row carries a one-line summary and raw evidence; the

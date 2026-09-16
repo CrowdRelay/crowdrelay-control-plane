@@ -1,11 +1,11 @@
 import { For, Match, Show, Suspense, Switch, createEffect, createSignal, type Component, type JSX } from 'solid-js'
 import { useNavigate, useRouterState } from '@tanstack/solid-router'
-import { Card } from './ui/card'
+import { Card } from './app/card'
 import { Metric, MetricRow, type MetricTone } from './ui/metric'
-import { CollapsibleSection as UICollapsible } from './ui/collapsible'
+import { CollapsibleSection as UICollapsible } from './app/collapsible'
 import { cn } from '../lib/cn'
 import { SkeletonTabContent } from './Skeleton'
-import { Button } from './ui/button'
+import { Button } from './app/button'
 
 // ─── PageHeader ─────────────────────────────────────────────────────────
 // Every page starts with the same structure: eyebrow + title + description
@@ -204,7 +204,7 @@ export function TabBar(props: {
           <Show when={tab.icon}>{icon => icon()({})}</Show>
           {tab.label}
           <Show when={tab.count && tab.count() > 0}>
-            <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary/15 text-primary-light text-xs font-bold">{tab.count!()}</span>
+            <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary/15 text-primary text-xs font-bold">{tab.count!()}</span>
           </Show>
         </Button>
       )}</For>
@@ -326,7 +326,7 @@ export function ErrorCard(props: { children: JSX.Element; class?: string }) {
 export function SkeletonBlock(props: { class?: string; style?: JSX.CSSProperties }) {
   return (
     <div
-      class={cn('rounded-lg bg-surface-3 border border-border', props.class)}
+      class={cn('rounded-lg bg-muted border border-border', props.class)}
       style={props.style}
     />
   )
@@ -462,7 +462,7 @@ export function Section(props: {
             <Show when={props.icon}><span class={props.lead ? 'text-primary' : 'text-muted-foreground'}>{props.icon}</span></Show>
             {props.title}
             <Show when={props.count != null && props.count > 0}>
-              <span class="rounded-full bg-surface-3 px-2 py-0.5 text-xs font-bold tabular-nums text-secondary-foreground">{props.count}</span>
+              <span class="rounded-full bg-muted px-2 py-0.5 text-xs font-bold tabular-nums text-secondary-foreground">{props.count}</span>
             </Show>
           </h2>
           <Show when={props.description}>
@@ -543,11 +543,11 @@ export function CommandBlock(props: {
   const toneClass = {
     default: 'border-border',
     active: 'border-primary/40',
-    warn: 'border-warning/40',
-    good: 'border-success/40',
+    warn: 'border-warning-foreground/40',
+    good: 'border-success-foreground/40',
   }
   return (
-    <Card data-slot="command-block" class={cn('p-4 transition-colors hover:border-border-strong cursor-pointer', toneClass[props.tone ?? 'default'], props.class)}>
+    <Card data-slot="command-block" class={cn('p-4 transition-colors hover:border-input cursor-pointer', toneClass[props.tone ?? 'default'], props.class)}>
       <div data-slot="eyebrow" class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</div>
       <div class="mt-2 flex items-baseline gap-2">
         <span class="text-xl font-bold tabular-nums text-foreground">{props.metric}</span>

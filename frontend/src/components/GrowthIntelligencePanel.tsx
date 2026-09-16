@@ -10,10 +10,10 @@ import { EmptyState } from './ui/empty-state'
 import { SkeletonGrid, SkeletonRows, SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
 import { PolicyEditor } from './PolicyEditor'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { Card } from './app/card'
+import { Button } from './app/button'
+import { Badge } from './app/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import { ErrorCard } from './layout'
 import type { AutopilotPolicy, PendingAutopilotAction, AgentWorkflow, AgentWorkflowTask } from '../lib/types'
 import { CAPABILITY_LABELS, DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
@@ -151,7 +151,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><IntelligenceIcon size={18} /> Approval Queue</h3>
           <Show when={pendingGrowthActions().length > 0}>
             <span class="text-muted-foreground text-sm flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-warning" />
+              <span class="w-2 h-2 rounded-full bg-warning-foreground" />
               {pendingGrowthActions().length} pending
             </span>
           </Show>
@@ -202,7 +202,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
                         words and left them to guess whether approving was safe.
                         Say what is missing and what approving will actually do. */}
                     <Show when={!action.executor_ready && action.required_capability}>
-                      <div class="flex flex-col gap-1 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning" title={action.required_capability ?? undefined}>
+                      <div class="flex flex-col gap-1 rounded-lg border border-warning-foreground/30 bg-warning-foreground p-4 text-sm text-warning-foreground" title={action.required_capability ?? undefined}>
                         <strong>Nothing can run this yet</strong>
                         <span>“{labelOr(CAPABILITY_LABELS, action.required_capability!)}” has no worker running. You can approve it — it will wait in the queue until one starts.</span>
                       </div>
@@ -277,7 +277,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           <h3 class="text-sm font-semibold text-foreground">Worker runs</h3>
           <Show when={overview.data}>
             <span class="text-muted-foreground text-sm flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-success" />
+              <span class="w-2 h-2 rounded-full bg-success-foreground" />
               {overview.data!.succeeded_24h} succeeded · {overview.data!.failed_24h} failed (24h)
             </span>
           </Show>

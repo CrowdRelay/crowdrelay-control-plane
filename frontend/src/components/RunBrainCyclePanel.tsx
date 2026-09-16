@@ -8,8 +8,8 @@ import { triggerRefresh, refreshQueries } from '../lib/refresh'
 import { SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
 import { ErrorCard, PanelTitle } from './layout'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
+import { Card } from './app/card'
+import { Button } from './app/button'
 import { NativeSelect } from './ui/native-select'
 import { northStarLabel, northStarMeaning } from '../lib/north-star'
 import { writeGuard } from '../lib/read-only'
@@ -160,14 +160,14 @@ export function RunBrainCyclePanel(props: { slug: string }) {
             {/* A gap here is measurement debt, not audience loss: the platform is
                 configured but its newest reading is too old to act on. */}
             <Show when={data().connectedPlatforms > data().freshPlatforms}>
-              <p class="mt-3 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
+              <p class="mt-3 rounded-lg border border-warning-foreground/30 bg-warning-foreground p-4 text-sm text-warning-foreground">
                 {data().connectedPlatforms - data().freshPlatforms} connected platform(s) have no
                 recent reading. The brain is deciding without them.
               </p>
             </Show>
 
             <Show when={!data().hasAnyConnectedPlatform}>
-              <p class="mt-3 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
+              <p class="mt-3 rounded-lg border border-warning-foreground/30 bg-warning-foreground p-4 text-sm text-warning-foreground">
                 No platform is connected yet, so a cycle would correctly decide to do nothing.
                 Connect a fan source first in Portfolio.
               </p>
@@ -182,8 +182,8 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                       <Show when={index() > 0}>
                         <span class="text-muted-foreground text-sm" aria-hidden="true">→</span>
                       </Show>
-                      <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-surface-2 border border-border text-sm text-secondary-foreground">
-                        <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-surface-4 text-muted-foreground text-xs font-bold" classList={{ 'bg-success/15 text-success': index() === 0 }}>{index() + 1}</span>
+                      <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-card border border-border text-sm text-secondary-foreground">
+                        <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-accent text-muted-foreground text-xs font-bold" classList={{ 'bg-success-foreground text-success-foreground': index() === 0 }}>{index() + 1}</span>
                         <span class="capitalize whitespace-nowrap">{template.replaceAll('-', ' ')}</span>
                       </div>
                     </>
@@ -207,7 +207,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
 
       <Show when={notice()}>
         {value => (
-          <p class={`mt-3 rounded-lg p-4 text-sm ${value().tone === 'bad' ? 'border border-destructive/30 bg-destructive/10 text-destructive' : 'border border-success/30 bg-success/10 text-success'}`}>{value().message}</p>
+          <p class={`mt-3 rounded-lg p-4 text-sm ${value().tone === 'bad' ? 'border border-destructive/30 bg-destructive/10 text-destructive' : 'border border-success-foreground/30 bg-success-foreground text-success-foreground'}`}>{value().message}</p>
         )}
       </Show>
     </Card>

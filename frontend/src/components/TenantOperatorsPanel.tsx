@@ -8,9 +8,9 @@ import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
 import { SectionTitle, ErrorCard } from './layout'
 import { Spinner } from './Spinner'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
+import { Card } from './app/card'
+import { Button } from './app/button'
+import { Badge } from './app/badge'
 import { Input } from './ui/input'
 import { writeGuard } from '../lib/read-only'
 
@@ -54,7 +54,7 @@ export function TenantOperatorsPanel(props: { slug: string }) {
     <p class="text-sm text-muted-foreground mt-2 leading-relaxed">These operators sign in with username + password and see only <strong>{props.slug}</strong>. The platform admin keeps full access via its separate credential.</p>
 
     {/* Create form — compact, self-contained card */}
-    <div class="rounded-lg border border-border bg-surface-1 p-4 mt-4">
+    <div class="rounded-lg border border-border bg-background p-4 mt-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <label class="grid gap-1.5">
         <span class="text-sm font-medium text-foreground">New operator username</span>
@@ -74,7 +74,7 @@ export function TenantOperatorsPanel(props: { slug: string }) {
     <Show when={remove.error}><ErrorCard class="mt-3">{errorMessage(remove.error, 'Operator removal failed')}</ErrorCard></Show>
     <Show when={accounts.error}><ErrorCard class="mt-3">{errorMessage(accounts.error, 'Could not load operator accounts')}</ErrorCard></Show>
     <Show when={(accounts.data?.items.length ?? 0) === 0 && !accounts.isPending && !accounts.error}>
-      <div class="p-4 mt-4 rounded-lg border border-border bg-surface-1"><EmptyState label="No operator accounts yet" hint="Only the platform admin can reach this tenant right now. Create an account above to give the team its own scoped login." /></div>
+      <div class="p-4 mt-4 rounded-lg border border-border bg-background"><EmptyState label="No operator accounts yet" hint="Only the platform admin can reach this tenant right now. Create an account above to give the team its own scoped login." /></div>
     </Show>
     <div class="grid gap-2 mt-4"><For each={accounts.data?.items ?? []}>{account =>
       <div class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border border-border bg-card">

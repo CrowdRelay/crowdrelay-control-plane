@@ -18,12 +18,12 @@ import { Dialog } from '../components/Dialog'
 import { SkeletonTenantPage, SkeletonSection } from '../components/Skeleton'
 import { ErrorCard, Eyebrow, PageHeader, PageShell, Section, SkeletonBlock, TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { Spinner } from '../components/Spinner'
-import { Button } from '../components/ui/button'
+import { Button } from '../components/app/button'
 import { ColorInput } from '../components/ui/color-input'
 import { Input } from '../components/ui/input'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/app/table'
 import { Field, FieldGrid, ReadField, Unset } from '../components/ui/field'
-import { buttonVariants } from '../components/ui/button'
+import { buttonVariants } from '../components/app/button'
 import { writeGuard } from '../lib/read-only'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
@@ -265,7 +265,7 @@ export function TenantPage() {
         <ErrorCard>{errorMessage(status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error, 'Control Plane operation failed')}</ErrorCard>
       </Show>
       <Show when={t.status === 'parked'}>
-        <div class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-foreground" role="status">
+        <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground p-4 text-sm text-foreground" role="status">
           <Show when={authState.isPlatformLevel()} fallback={
             <><strong>Parked.</strong> Automated work is stopped — no new tasks or outreach. Pending deliveries still drain.</>
           }>
@@ -328,7 +328,7 @@ export function TenantPage() {
               </div>
               <Show when={operations.data?.signal?.activity?.new_fans_7d != null}>
                 <div class="flex flex-col gap-1">
-                  <span class="text-lg font-semibold tabular-nums text-success">+{operations.data!.signal!.activity!.new_fans_7d!.toLocaleString()}</span>
+                  <span class="text-lg font-semibold tabular-nums text-success-foreground">+{operations.data!.signal!.activity!.new_fans_7d!.toLocaleString()}</span>
                   <Eyebrow>new · 7 days</Eyebrow>
                 </div>
               </Show>
@@ -474,7 +474,7 @@ export function TenantPage() {
                   </div>
                   <p class="mt-1 text-xs leading-relaxed text-muted-foreground">{move.reason}</p>
                   <Show when={move.consequence}>
-                    <p class="mt-1 text-xs text-warning-light">If nobody acts: {move.consequence}</p>
+                    <p class="mt-1 text-xs text-warning-foreground">If nobody acts: {move.consequence}</p>
                   </Show>
                 </Link>
               )}</For>
@@ -608,8 +608,8 @@ export function TenantPage() {
                   url: t.synesthesiaPlayStoreUrl ?? null,
                 },
               ].filter(step => step.show)}>{step => (
-                <div class="flex items-start gap-3 rounded-lg bg-surface-1 p-3">
-                  <span class={cn('flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold', step.done ? 'bg-success/20 text-success' : 'border border-border text-muted-foreground')}>
+                <div class="flex items-start gap-3 rounded-lg bg-background p-3">
+                  <span class={cn('flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold', step.done ? 'bg-success-foreground text-success-foreground' : 'border border-border text-muted-foreground')}>
                     <Show when={step.done} fallback={<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="5" r="3.5" /></svg>}>✓</Show>
                   </span>
                   <div class="min-w-0">
@@ -626,7 +626,7 @@ export function TenantPage() {
             {/* The onboarding command is operator runbook material — it
                 names an admin-token env var the band has no use for. */}
             <Show when={!t.signalPlayStoreUrl && t.signalEnabled && authState.isPlatformLevel()}>
-              <div class="mt-3 rounded-lg border border-border bg-surface-1 p-3">
+              <div class="mt-3 rounded-lg border border-border bg-background p-3">
                 <p class="mb-2 text-sm text-muted-foreground">Run in the virya-signal repo to onboard the Signal app:</p>
                 <pre class="overflow-x-auto text-xs text-foreground"><code>bash scripts/onboard-tenant-app.sh \<br/>  --tenant {t.slug} \<br/>  --control-plane-url {window.location.origin.replace(/:\d+$/, '')} \<br/>  --token $CONTROL_PLANE_ADMIN_TOKEN \<br/>  --version 0.1.0 --version-code 1</code></pre>
               </div>
@@ -706,7 +706,7 @@ export function TenantPage() {
                 </div>
               </>
             }>
-              <div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground">
+              <div class="rounded-lg border border-border bg-background p-4 text-sm text-foreground">
                 <strong>Opt-out request received.</strong> The crew has been notified and will
                 contact you to confirm before removing your data. No further action is needed
                 from your side.
@@ -758,12 +758,12 @@ export function TenantPage() {
               </div>
             </div>
             <Show when={deploy.error}><ErrorCard>{deploy.error instanceof Error ? deploy.error.message : 'Deployment request failed'}</ErrorCard></Show>
-            <Show when={preview()}>{job => <div class="mt-3 overflow-x-auto rounded-lg border border-border bg-surface-1 p-3"><pre class="text-xs text-foreground">{JSON.stringify(job().plan, null, 2)}</pre></div>}</Show>
+            <Show when={preview()}>{job => <div class="mt-3 overflow-x-auto rounded-lg border border-border bg-background p-3"><pre class="text-xs text-foreground">{JSON.stringify(job().plan, null, 2)}</pre></div>}</Show>
             <Show when={latestJob()}>{job => <div class="mt-5 border-t border-border pt-4">
               <div class="flex items-center justify-between gap-2"><div><strong class="text-foreground">{job().status === 'succeeded' ? 'Deployed' : job().status === 'failed' ? 'Deployment failed' : job().status === 'running' ? 'Deploying…' : job().status === 'approved' ? 'Queued' : 'Planned'}</strong><small class="block text-xs text-muted-foreground">attempt {job().attemptCount} · {new Date(job().createdAt).toLocaleString()}</small></div><StatusBadge status={job().status} tone={provisionTone(job().status)} /></div>
               <Show when={job().status === 'approved'}><p class="mt-2 text-sm text-muted-foreground">Queued for deployment. Nothing changes until the deploy agent picks it up.</p></Show>
               <Show when={job().status === 'running'}><p class="mt-2 text-sm text-muted-foreground">Deployment is running. This typically takes 2–5 minutes.</p></Show>
-              <Show when={job().status === 'succeeded'}><div class="mt-3 rounded-lg bg-surface-1 p-3">
+              <Show when={job().status === 'succeeded'}><div class="mt-3 rounded-lg bg-background p-3">
                 <FieldGrid min="140px">
                   <ReadField label="Local API"><code class="text-xs">{job().result?.localApiUrl ?? '—'}</code></ReadField>
                   <ReadField label="Host port">{job().result?.apiPort ?? '—'}</ReadField>
