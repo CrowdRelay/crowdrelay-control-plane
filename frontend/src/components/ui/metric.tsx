@@ -85,7 +85,7 @@ export function Metric(props: {
       <dt class="text-xs leading-snug text-muted-foreground">{props.label}</dt>
       <dd
         class={cn(
-          'm-0 text-xl font-bold leading-none tracking-tight tabular-nums',
+          'm-0 text-2xl font-bold leading-none tracking-tight tabular-nums',
           unknown() ? 'text-muted-foreground/60' : VALUE_TONE[tone()],
         )}
       >

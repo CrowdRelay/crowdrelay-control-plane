@@ -25,7 +25,7 @@ export function PageHeader(props: {
         <Show when={props.eyebrow}>
           <span data-slot="eyebrow" class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</span>
         </Show>
-        <h1 class="text-2xl font-bold tracking-tight text-foreground mt-1 break-words">{props.title}</h1>
+        <h1 class="text-3xl font-bold tracking-tight text-foreground mt-1 break-words">{props.title}</h1>
         <Show when={props.description}>
           <p class="text-sm text-muted-foreground mt-1.5 leading-relaxed break-words">{props.description}</p>
         </Show>
@@ -351,7 +351,7 @@ export function SectionTitle(props: {
           <Show when={props.eyebrow}>
             <span data-slot="eyebrow" class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</span>
           </Show>
-          <h2 class="flex items-center gap-2 text-base font-semibold text-foreground">{props.title}</h2>
+          <h2 class="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground">{props.title}</h2>
           <Show when={props.description}>
             <p class="text-sm text-muted-foreground mt-1">{props.description}</p>
           </Show>
