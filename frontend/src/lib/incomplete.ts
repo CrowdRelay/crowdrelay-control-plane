@@ -60,7 +60,7 @@ const GIVE_UP_AFTER = 6
  *
  * Both counters live on `Query.state`, not the `useQuery` result — a page
  * reaches them through the cache:
- * `qc.getQueryCache().find({ queryKey })?.state`. OverviewPage's
+ * `qc.getQueryCache().find({ queryKey })?.state`. The overview model's
  * `waitingNote` does exactly that to keep "still asking" copy honest.
  */
 export const stillAsking = (state: { dataUpdateCount: number; fetchFailureCount?: number }): boolean =>

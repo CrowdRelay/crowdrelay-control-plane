@@ -1,40 +1,19 @@
-import { For, Match, Show, Switch, createEffect, createMemo, createSignal, type JSX } from 'solid-js'
-import { useQuery, useQueryClient } from '@tanstack/solid-query'
+import { For, Match, Show, Switch, createMemo } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
-import { errorMessage, formatTimestamp } from '../lib/format'
-import { healthLabel, healthTone, platformStatusMessage } from '../lib/health-tone'
+import { errorMessage } from '../lib/format'
+import { healthLabel, healthTone } from '../lib/health-tone'
 import { authState } from '../lib/auth'
-import type { CommandCenterReadModel, PlatformHealthEntry, RuntimeHealth } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { ProgressRing } from '../components/ProgressRing'
 import { EmptyState } from '../components/ui/empty-state'
 import { SectionIcon } from '../components/SectionIcon'
-import { PageShell, PageHeader, KpiStrip, KpiCard, SectionTitle, ErrorCard, CommandBlock } from '../components/layout'
+import { PageShell, PageHeader, KpiStrip, KpiCard, SectionTitle, ErrorCard } from '../components/layout'
 import { SkeletonKpiStrip } from '../components/Skeleton'
 import { cn } from '../lib/cn'
-import { whileIncomplete, hasUnavailableTenant, stillAsking } from '../lib/incomplete'
-
-const formatLatency = (ms: number | null | undefined) => {
-  if (ms == null) return null
-  if (ms < 1000) return `${ms}ms`
-  return `${(ms / 1000).toFixed(1)}s`
-}
-
-/** Format an integer with thousands separators, or dash for null/undefined. */
-const fmt = (n: number | null | undefined): string => {
-  if (n == null) return '—'
-  return n.toLocaleString('en-US')
-}
-
-/** Signed delta chip — "+12 this week" / "−3 this week". null stays null:
- * a missing series is "we don't know", not "0 growth". */
-const deltaChip = (delta: number | null | undefined, window: string): JSX.Element | null => {
-  if (delta == null) return null
-  const cls = delta > 0 ? 'text-success-foreground' : delta < 0 ? 'text-destructive' : 'text-muted-foreground'
-  const sign = delta > 0 ? '+' : delta < 0 ? '−' : ''
-  return <span class={cls}>{sign}{fmt(Math.abs(delta))} {window}</span>
-}
+import { whileIncomplete, hasUnavailableTenant } from '../lib/incomplete'
+import { fmt, deltaChip, useOverviewModel, NorthStarBlocks, OperationsSignalBlocks, PlatformServicesGrid } from '../components/OverviewBlocks'
 
 export function OverviewPage() {
   const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, refetchOnWindowFocus: false, reconcile: 'id', staleTime: 15_000 }))
@@ -53,108 +32,12 @@ export function OverviewPage() {
     refetchInterval: whileIncomplete(hasUnavailableTenant),
   }))
 
-  const items = createMemo(() => tenants.data?.items ?? [])
-  const count = (health: RuntimeHealth) => items().filter(t => t.runtimeHealth === health).length
-  const activeItems = createMemo(() => items().filter(t => t.status === 'active'))
-  const activeCount = createMemo(() => activeItems().length)
-  const suspendedCount = createMemo(() => items().filter(t => t.status === 'suspended').length)
-  const needsAttention = createMemo(() => count('degraded') + count('stale') + suspendedCount())
-  const parkedCount = createMemo(() => items().filter(t => t.status === 'parked').length)
-  const unknownCount = createMemo(() => count('unknown'))
-  const reportingCount = createMemo(() => items().length - unknownCount())
-  const healthyCount = createMemo(() => count('healthy'))
-  const allHealthy = createMemo(() => activeCount() > 0 && healthyCount() === activeCount())
-  const healthyPct = createMemo(() => {
-    const reporting = reportingCount()
-    if (reporting === 0) return 0
-    return Math.round((healthyCount() / reporting) * 100)
-  })
-  const fleetTone = createMemo(() => reportingCount() === 0 ? 'muted' as const : undefined)
+  const ov = useOverviewModel(tenants, commandCenter)
   const lastRefresh = createMemo(() => {
     const ts = Math.max(tenants.dataUpdatedAt, commandCenter.dataUpdatedAt)
     if (ts === 0) return null
     return new Date(ts).toLocaleTimeString()
   })
-
-  const cc = (): CommandCenterReadModel | undefined => commandCenter.data
-
-  const platformServices = createMemo<PlatformHealthEntry[]>(() => cc()?.system.platformServices ?? [])
-  const healthyServices = createMemo(() => platformServices().filter(service => service.healthy).length)
-  const ccTenants = createMemo(() => cc()?.perTenant ?? [])
-
-  // Drafted posts waiting for a person to publish them.
-  //
-  // Every outbound channel drafts and waits — Reddit is read-only by policy,
-  // Telegram, Discord and social default to manual — so this is the one queue
-  // where the system is blocked on the operator rather than the reverse, and a
-  // draft nobody publishes reaches nobody. The command center already fetches
-  // the attention model per tenant and projects the count, so the page reads
-  // it from there rather than re-asking each tenant itself.
-  const draftTotal = createMemo(() =>
-    ccTenants().reduce((sum, t) => sum + (t.attention.unpublishedDrafts ?? 0), 0),
-  )
-  const firstDraftTenant = createMemo(() => ccTenants().find(t => (t.attention.unpublishedDrafts ?? 0) > 0))
-  const draftChannels = createMemo(() => {
-    const counts = new Map<string, number>()
-    for (const tenant of ccTenants()) {
-      for (const channel of tenant.attention.unpublishedDraftChannels ?? []) {
-        if (channel.drafts > 0) counts.set(channel.channel, (counts.get(channel.channel) ?? 0) + channel.drafts)
-      }
-    }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1])
-  })
-
-  const firstNeedsYouTenant = createMemo(() => ccTenants().find(t => t.attention.available && t.attention.needsYou > 0))
-  const firstAutopilotTenant = createMemo(() => ccTenants().find(t => t.autopilot.available && (t.autopilot.queuedActions > 0 || t.autopilot.processingActions > 0)))
-  const firstOutcomesTenant = createMemo(() => ccTenants().find(t => t.outcomes.available && (t.outcomes.unknown > 0 || t.outcomes.waitingForObservation > 0)))
-  const firstLearningTenant = createMemo(() => ccTenants().find(t => t.learning.available && t.learning.totalOutcomes > 0))
-  const firstFanTenant = createMemo(() => ccTenants().find(t => t.fans.available && t.fans.activeFans != null))
-  // The objective most in need of a look, fleet-wide — behind or missed,
-  // soonest deadline first (the projection already sorts them).
-  const firstAtRiskObjective = createMemo(() =>
-    ccTenants()
-      .flatMap(t => (t.objectives?.atRisk ?? []).map(o => ({ tenant: t, objective: o })))
-      .sort((a, b) => (a.objective.deadline ?? '').localeCompare(b.objective.deadline ?? ''))
-      .at(0),
-  )
-
-  // Older control-plane builds don't report momentum/objectives — read the
-  // blocks as absent rather than crash on deploy skew or a stale page.
-  const momentum = createMemo(() => cc()?.momentum)
-  const objectives = createMemo(() => cc()?.objectives)
-
-  // Tenants that answered nothing this time round. The dash on a fan KPI is
-  // the same glyph whether nobody has any fans, nobody reports them, or the
-  // tenant simply did not answer — and only the last of those is going to fix
-  // itself. `whileIncomplete` on the query is asking again; this says so,
-  // rather than leaving "No audience data yet" on screen over a number that is
-  // seconds away.
-  const silentTenants = createMemo(() => ccTenants().filter(t => !t.available).length)
-  // `whileIncomplete` gives up after a handful of tries; once it has, the
-  // copy must stop claiming a retry is still in flight. `stillAsking` reads
-  // the same counters the interval check does.
-  const qc = useQueryClient()
-  const waitingNote = () => {
-    const n = silentTenants()
-    const subject = n === 1 ? 'the tenant has' : `${n} tenants have`
-    // The attempt counters live on the Query's state, not the observer
-    // result — read the same numbers the interval check reads.
-    const query = qc.getQueryCache().find({ queryKey: ['command-center'] })
-    return !query || stillAsking(query.state)
-      ? `${subject} not answered yet — still asking`
-      : `${subject} not answered — refresh to ask again`
-  }
-  const fanSub = (value: number | null | undefined, settled: JSX.Element): JSX.Element =>
-    value == null && silentTenants() > 0 ? waitingNote() : settled
-
-  // A figure that turned up after the strip had already been read should say
-  // so. Once a tenant has gone silent on this page, every fan figure that
-  // lands afterwards fades in rather than replacing its dash in silence —
-  // otherwise the retry that `whileIncomplete` runs is invisible, and an
-  // operator who looked away reads a number they never saw arrive.
-  const [wasWaiting, setWasWaiting] = createSignal(false)
-  createEffect(() => { if (silentTenants() > 0) setWasWaiting(true) })
-  const arrived = (value: number | null | undefined) => wasWaiting() && value != null
 
   return <PageShell>
     <PageHeader
@@ -169,36 +52,36 @@ export function OverviewPage() {
       <Match when={commandCenter.isError}>
         <ErrorCard>{errorMessage(commandCenter.error, 'We couldn\'t reach the command center. Try refreshing.')}</ErrorCard>
       </Match>
-      <Match when={!cc()}>
+      <Match when={!ov.cc()}>
         <SkeletonKpiStrip count={4} />
       </Match>
-      <Match when={cc()}>
+      <Match when={ov.cc()}>
         <KpiStrip>
-          <KpiCard label="Active fans" value={fmt(cc()!.fans.activeFans)} tone="good" fresh={arrived(cc()!.fans.activeFans)} sub={
-            fanSub(cc()!.fans.activeFans,
+          <KpiCard label="Active fans" value={fmt(ov.cc()!.fans.activeFans)} tone="good" fresh={ov.arrived(ov.cc()!.fans.activeFans)} sub={
+            ov.fanSub(ov.cc()!.fans.activeFans,
               <>
-                <Show when={cc()!.fans.reportingTenants > 0} fallback="no tenants reporting">
-                  across {cc()!.fans.reportingTenants} {cc()!.fans.reportingTenants === 1 ? 'tenant' : 'tenants'}
+                <Show when={ov.cc()!.fans.reportingTenants > 0} fallback="no tenants reporting">
+                  across {ov.cc()!.fans.reportingTenants} {ov.cc()!.fans.reportingTenants === 1 ? 'tenant' : 'tenants'}
                 </Show>
                 {/* Direction, not just magnitude: the brain's verdict on each
                     tenant's north-star series. Improving first because that's
                     the thing the page exists to produce. */}
-                <Show when={(momentum()?.northStarImproving ?? 0) > 0}>
-                  {' · '}<span class="text-success-foreground">{momentum()!.northStarImproving} improving</span>
+                <Show when={(ov.momentum()?.northStarImproving ?? 0) > 0}>
+                  {' · '}<span class="text-success-foreground">{ov.momentum()!.northStarImproving} improving</span>
                 </Show>
-                <Show when={(momentum()?.northStarRegressing ?? 0) > 0}>
-                  {' · '}<span class="text-destructive">{momentum()!.northStarRegressing} regressing</span>
+                <Show when={(ov.momentum()?.northStarRegressing ?? 0) > 0}>
+                  {' · '}<span class="text-destructive">{ov.momentum()!.northStarRegressing} regressing</span>
                 </Show>
               </>)
           } />
-          <KpiCard label="Ticket buyers" value={fmt(cc()!.fans.ticketBuyers)} fresh={arrived(cc()!.fans.ticketBuyers)} sub={fanSub(cc()!.fans.ticketBuyers, 'conversion signal')} />
-          <KpiCard label="Attendees" value={fmt(cc()!.fans.attendees)} fresh={arrived(cc()!.fans.attendees)} sub={fanSub(cc()!.fans.attendees, 'live show conversion')} />
-          <KpiCard label="Paid ticket orders" value={fmt(cc()!.fans.paidTicketOrders)} fresh={arrived(cc()!.fans.paidTicketOrders)} sub={
-            fanSub(cc()!.fans.paidTicketOrders,
+          <KpiCard label="Ticket buyers" value={fmt(ov.cc()!.fans.ticketBuyers)} fresh={ov.arrived(ov.cc()!.fans.ticketBuyers)} sub={ov.fanSub(ov.cc()!.fans.ticketBuyers, 'conversion signal')} />
+          <KpiCard label="Attendees" value={fmt(ov.cc()!.fans.attendees)} fresh={ov.arrived(ov.cc()!.fans.attendees)} sub={ov.fanSub(ov.cc()!.fans.attendees, 'live show conversion')} />
+          <KpiCard label="Paid ticket orders" value={fmt(ov.cc()!.fans.paidTicketOrders)} fresh={ov.arrived(ov.cc()!.fans.paidTicketOrders)} sub={
+            ov.fanSub(ov.cc()!.fans.paidTicketOrders,
               <>
                 revenue signal
-                <Show when={momentum()?.conversionDelta7d != null}>
-                  {' · '}{deltaChip(momentum()!.conversionDelta7d, 'this week')}
+                <Show when={ov.momentum()?.conversionDelta7d != null}>
+                  {' · '}{deltaChip(ov.momentum()!.conversionDelta7d, 'this week')}
                 </Show>
               </>)
           } />
@@ -207,300 +90,11 @@ export function OverviewPage() {
     </Switch>
 
     {/* ── North Star command blocks (Aggregate → Engage → Convert) ── */}
-    <Switch>
-      <Match when={!cc()}>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {Array.from({ length: 3 }, () => (
-            <div class="rounded-lg border border-border bg-card p-4">
-              <div class="h-[11px] w-[80px] rounded-lg bg-surface-3 border border-border mb-2" />
-              <div class="h-7 w-[60px] rounded-lg bg-surface-3 border border-border mb-2" />
-              <div class="h-[11px] w-full rounded-lg bg-surface-3 border border-border" />
-            </div>
-          ))}
-        </div>
-      </Match>
-      <Match when={cc()}>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* AGGREGATE */}
-          <Link
-            to={firstFanTenant() ? '/tenants/$slug/audience' : '/tenants'}
-            params={firstFanTenant() ? { slug: firstFanTenant()!.slug } : {}}
-            class="block"
-          >
-            <CommandBlock
-              eyebrow="AGGREGATE"
-              metric={fmt(cc()!.fans.activeFans)}
-              label="active fans"
-              detail={
-                <>
-                  <Show when={cc()!.fans.reportingTenants > 0 && cc()!.fans.reportingTenants < cc()!.tenants.total}>
-                    <span>{cc()!.tenants.total - cc()!.fans.reportingTenants} tenants not reporting audience</span>
-                  </Show>
-                  <Show when={cc()!.fans.reportingTenants === 0}>
-                    <span>{silentTenants() > 0 ? waitingNote() : 'No audience data yet'}</span>
-                  </Show>
-                  <Show when={cc()!.fans.reportingTenants === cc()!.tenants.total && cc()!.fans.activeFans != null}>
-                    <span>All tenants reporting</span>
-                  </Show>
-                  {/* Which way the north star is moving, per the brain's own
-                      60-day verdict — works for aggregate north stars too,
-                      which have no single series to diff. */}
-                  <Show when={(momentum()?.northStarImproving ?? 0) > 0}>
-                    <span class="text-success-foreground">north star improving on {momentum()!.northStarImproving} {momentum()!.northStarImproving === 1 ? 'tenant' : 'tenants'}</span>
-                  </Show>
-                  <Show when={(momentum()?.northStarRegressing ?? 0) > 0}>
-                    <span class="text-destructive">north star regressing on {momentum()!.northStarRegressing} {momentum()!.northStarRegressing === 1 ? 'tenant' : 'tenants'}</span>
-                  </Show>
-                  {/* Pacing against declared targets — "are we on track",
-                      not just "which way did we move". */}
-                  <Show when={(objectives()?.onTrack ?? 0) > 0}>
-                    <span>{objectives()!.onTrack} {objectives()!.onTrack === 1 ? 'objective' : 'objectives'} on track</span>
-                  </Show>
-                  <Show when={((objectives()?.behind ?? 0) + (objectives()?.missed ?? 0)) > 0 && firstAtRiskObjective()}>
-                    <span class="text-warning">
-                      {(objectives()?.behind ?? 0) + (objectives()?.missed ?? 0)} {((objectives()?.behind ?? 0) + (objectives()?.missed ?? 0)) === 1 ? 'objective' : 'objectives'} {(objectives()?.missed ?? 0) > 0 ? 'behind/missed' : 'behind'}
-                      {firstAtRiskObjective()!.objective.metricKey ? ` — ${firstAtRiskObjective()!.objective.metricKey} ${fmt(firstAtRiskObjective()!.objective.observedValue)}/${fmt(firstAtRiskObjective()!.objective.targetValue)}` : ''}
-                    </span>
-                  </Show>
-                </>
-              }
-            />
-          </Link>
-
-          {/* ENGAGE */}
-          <Link
-            to={firstAutopilotTenant() ? '/tenants/$slug/intelligence' : '/tenants'}
-            params={firstAutopilotTenant() ? { slug: firstAutopilotTenant()!.slug } : {}}
-            class="block"
-          >
-            <CommandBlock
-              eyebrow="ENGAGE"
-              metric={fmt(cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions)}
-              label="in flight"
-              tone={(cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions) > 0 ? 'active' : 'default'}
-              detail={
-                <>
-                  <Show when={cc()!.autopilot.succeeded24h > 0}><span class="text-success-foreground">{cc()!.autopilot.succeeded24h} succeeded (24h)</span></Show>
-                  <Show when={cc()!.autopilot.queuedActions === 0 && cc()!.autopilot.processingActions === 0}>
-                    <span>No engagement actions in flight</span>
-                  </Show>
-                </>
-              }
-            />
-          </Link>
-
-          {/* CONVERT */}
-          <Link
-            to={firstFanTenant() ? '/tenants/$slug/audience' : '/tenants'}
-            params={firstFanTenant() ? { slug: firstFanTenant()!.slug } : {}}
-            class="block"
-          >
-            <CommandBlock
-              eyebrow="CONVERT"
-              metric={fmt(cc()!.fans.ticketBuyers)}
-              label="ticket buyers"
-              tone={cc()!.fans.ticketBuyers != null && cc()!.fans.ticketBuyers! > 0 ? 'good' : 'default'}
-              detail={
-                <>
-                  {/* The funnel rate is same-source first-party math —
-                      both counts come from the audience read model, so the
-                      ratio is honest where a cross-endpoint ratio would
-                      not be. */}
-                  <Show when={cc()!.fans.activeFans != null && cc()!.fans.activeFans! > 0 && cc()!.fans.ticketBuyers != null}>
-                    <span class="text-success-foreground">{Math.round((cc()!.fans.ticketBuyers! / cc()!.fans.activeFans!) * 100)}% of active fans bought tickets</span>
-                  </Show>
-                  <Show when={cc()!.fans.attendees != null && cc()!.fans.attendees! > 0}><span>{fmt(cc()!.fans.attendees)} attendees</span></Show>
-                  <Show when={cc()!.fans.paidTicketOrders != null && cc()!.fans.paidTicketOrders! > 0}><span>{fmt(cc()!.fans.paidTicketOrders)} paid orders</span></Show>
-                  {/* Conversion movement — summed downstream-tier series
-                      deltas, so this is "things that converted this week",
-                      not follower-count drift. */}
-                  <Show when={momentum()?.conversionDelta7d != null && momentum()!.conversionDelta7d !== 0}>
-                    <span>{deltaChip(momentum()!.conversionDelta7d, 'conversions this week')}</span>
-                  </Show>
-                  <Show when={(cc()!.fans.ticketBuyers == null || cc()!.fans.ticketBuyers === 0) && (cc()!.fans.attendees == null || cc()!.fans.attendees === 0)}>
-                    <span>No conversion data yet</span>
-                  </Show>
-                </>
-              }
-            />
-          </Link>
-        </div>
-      </Match>
-    </Switch>
+    <NorthStarBlocks ov={ov} />
 
     {/* ── Operations command blocks ──────────────────────────────── */}
     <SectionTitle eyebrow="OPERATIONS" title="Operations signal" icon={<SectionIcon name="activity" />} />
-    <Switch>
-      <Match when={commandCenter.isError}>
-        <ErrorCard>{errorMessage(commandCenter.error, 'We couldn\'t reach the command center. Try refreshing.')}</ErrorCard>
-      </Match>
-      <Match when={!cc()}>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {Array.from({ length: 5 }, () => (
-            <div class="rounded-lg border border-border bg-card p-4">
-              <div class="h-[11px] w-[80px] rounded-lg bg-surface-3 border border-border mb-2" />
-              <div class="h-7 w-[60px] rounded-lg bg-surface-3 border border-border mb-2" />
-              <div class="h-[11px] w-full rounded-lg bg-surface-3 border border-border" />
-            </div>
-          ))}
-        </div>
-      </Match>
-      <Match when={cc()}>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* ATTENTION */}
-          <Link
-            to={firstNeedsYouTenant() ? '/tenants/$slug/attention' : '/tenants'}
-            params={firstNeedsYouTenant() ? { slug: firstNeedsYouTenant()!.slug } : {}}
-            class="block"
-          >
-            <CommandBlock
-              eyebrow="ATTENTION"
-              metric={fmt(cc()!.attention.needsYou)}
-              label="need you"
-              tone={(cc()!.attention.needsYou + cc()!.attention.awaitingApproval + cc()!.attention.criticalAlerts) > 0 ? 'warn' : 'default'}
-              detail={
-                <>
-                  <Show when={cc()!.attention.awaitingApproval > 0}><span>{fmt(cc()!.attention.awaitingApproval)} awaiting approval</span></Show>
-                  <Show when={cc()!.attention.criticalAlerts > 0}><span class="text-destructive">{fmt(cc()!.attention.criticalAlerts)} critical alerts</span></Show>
-                  <Show when={cc()!.attention.openFindings > 0}><span>{fmt(cc()!.attention.openFindings)} open findings</span></Show>
-                  <Show when={cc()!.attention.deadDeliveries > 0}><span>{fmt(cc()!.attention.deadDeliveries)} dead deliveries</span></Show>
-                  <Show when={cc()!.brainNeedsAttention}><span class="text-destructive">brain needs attention</span></Show>
-                  <Show when={cc()!.attention.needsYou === 0 && cc()!.attention.awaitingApproval === 0 && cc()!.attention.criticalAlerts === 0}>
-                    <span>Nothing needs you right now</span>
-                  </Show>
-                </>
-              }
-            />
-          </Link>
-
-          {/* WAITING ON YOU TO PUBLISH — only when there is something. An
-              always-present card reading zero is furniture; this one appears
-              because there is work sitting still. */}
-          <Show when={draftTotal() > 0}>
-            <Link
-              to={firstDraftTenant() ? '/tenants/$slug/attention' : '/tenants'}
-              params={firstDraftTenant() ? { slug: firstDraftTenant()!.slug } : {}}
-              class="block"
-            >
-              <CommandBlock
-                eyebrow="WAITING ON YOU"
-                metric={fmt(draftTotal())}
-                label={draftTotal() === 1 ? 'post to publish' : 'posts to publish'}
-                tone="warn"
-                detail={
-                  <>
-                    <For each={draftChannels().slice(0, 3)}>
-                      {([channel, count]) => <span>{fmt(count)} on {channel}</span>}
-                    </For>
-                    <span>Written and ready — nobody has posted them.</span>
-                  </>
-                }
-              />
-            </Link>
-          </Show>
-
-          {/* AUTOPILOT TODAY */}
-          <Link
-            to={firstAutopilotTenant() ? '/tenants/$slug/intelligence' : '/tenants'}
-            params={firstAutopilotTenant() ? { slug: firstAutopilotTenant()!.slug } : {}}
-            class="block"
-          >
-            <CommandBlock
-              eyebrow="AUTOPILOT TODAY"
-              metric={fmt(cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions)}
-              label="in flight"
-              tone={(cc()!.autopilot.queuedActions + cc()!.autopilot.processingActions) > 0 ? 'active' : 'default'}
-              detail={
-                <>
-                  <Show when={cc()!.autopilot.queuedActions > 0}><span>{fmt(cc()!.autopilot.queuedActions)} queued</span></Show>
-                  <Show when={cc()!.autopilot.processingActions > 0}><span>{fmt(cc()!.autopilot.processingActions)} processing</span></Show>
-                  <Show when={cc()!.autopilot.succeeded24h > 0}><span class="text-success-foreground">{fmt(cc()!.autopilot.succeeded24h)} succeeded (24h)</span></Show>
-                  <Show when={cc()!.autopilot.failed24h > 0}><span class="text-destructive">{fmt(cc()!.autopilot.failed24h)} failed (24h)</span></Show>
-                  {/* "4 unknown" told the operator a count and nothing else.
-                      The backend counts recent actions whose outcome has not
-                      been measured yet, so say that. */}
-                  <Show when={cc()!.autopilot.unknownActions > 0}><span>{fmt(cc()!.autopilot.unknownActions)} finished, outcome not measured yet</span></Show>
-                  <Show when={cc()!.autopilot.queuedActions === 0 && cc()!.autopilot.processingActions === 0}>
-                    <span>No actions in flight</span>
-                  </Show>
-                </>
-              }
-            />
-          </Link>
-
-          {/* OUTCOMES */}
-          <Link
-            to={firstOutcomesTenant() ? '/tenants/$slug/intelligence' : '/tenants'}
-            params={firstOutcomesTenant() ? { slug: firstOutcomesTenant()!.slug } : {}}
-            class="block"
-          >
-            <CommandBlock
-              eyebrow="OUTCOMES"
-              metric={fmt(cc()!.outcomes.resolved)}
-              label="resolved"
-              tone={cc()!.outcomes.unknown > 0 || cc()!.outcomes.waitingForObservation > 0 ? 'warn' : 'default'}
-              detail={
-                <>
-                  <Show when={cc()!.outcomes.waitingForObservation > 0}><span>{fmt(cc()!.outcomes.waitingForObservation)} waiting for observation</span></Show>
-                  <Show when={cc()!.outcomes.unknown > 0}><span>{fmt(cc()!.outcomes.unknown)} ran with no measurable result</span></Show>
-                  <Show when={cc()!.outcomes.resolved === 0 && cc()!.outcomes.unknown === 0 && cc()!.outcomes.waitingForObservation === 0}>
-                    <span>No outcomes yet</span>
-                  </Show>
-                </>
-              }
-            />
-          </Link>
-
-          {/* SYSTEM */}
-          <Link to="/tenants" class="block">
-            <CommandBlock
-              eyebrow="SYSTEM"
-              metric={platformServices().length === 0 ? '—' : fmt(healthyServices())}
-              label={`of ${platformServices().length || '—'} services healthy`}
-              detail={
-                <>
-                  {/* The metric counts platform services; this line counts
-                      tenants. Unlabelled, "1 of 2 services healthy" sitting
-                      above "0 healthy · 1 not reporting" read as the block
-                      contradicting itself. Name the population. */}
-                  <Show when={platformServices().length > healthyServices()}>
-                    <span class="text-destructive-light">
-                      {fmt(platformServices().length - healthyServices())} service
-                      {platformServices().length - healthyServices() === 1 ? '' : 's'} not answering
-                    </span>
-                  </Show>
-                  <Show when={items().length > 0}>
-                    <span>Tenants: {fmt(healthyCount())} healthy · {fmt(needsAttention())} need attention<Show when={unknownCount() > 0}> · {fmt(unknownCount())} not reporting</Show></span>
-                  </Show>
-                </>
-              }
-            />
-          </Link>
-
-          {/* LEARNING */}
-          <Link
-            to={firstLearningTenant() ? '/tenants/$slug/intelligence' : '/tenants'}
-            params={firstLearningTenant() ? { slug: firstLearningTenant()!.slug } : {}}
-            class="block"
-          >
-            <CommandBlock
-              eyebrow="LEARNING"
-              metric={fmt(cc()!.learning.totalOutcomes)}
-              label="total outcomes"
-              detail={
-                <>
-                  <Show when={cc()!.learning.admitted > 0}><span class="text-success-foreground">{fmt(cc()!.learning.admitted)} admitted</span></Show>
-                  <Show when={cc()!.learning.rejected > 0}><span>{fmt(cc()!.learning.rejected)} rejected</span></Show>
-                  <Show when={cc()!.learning.totalOutcomes === 0}>
-                    <span>No learning outcomes yet</span>
-                  </Show>
-                </>
-              }
-            />
-          </Link>
-        </div>
-      </Match>
-    </Switch>
+    <OperationsSignalBlocks ov={ov} isError={commandCenter.isError} error={commandCenter.error} />
 
     {/* ── KPI strip (fleet summary) ──────────────────────────────── */}
     <Switch>
@@ -508,43 +102,43 @@ export function OverviewPage() {
       <Match when={tenants.isError}><ErrorCard>{errorMessage(tenants.error, 'We couldn\'t reach the tenant registry. Try refreshing.')}</ErrorCard></Match>
       <Match when={tenants.data}>
         <KpiStrip>
-          <KpiCard label="Tenants" value={fmt(items().length)} sub={<>{fmt(activeCount())} active<Show when={parkedCount() > 0}> · {fmt(parkedCount())} parked</Show><Show when={suspendedCount() > 0}> · {fmt(suspendedCount())} suspended</Show></>} />
-          <KpiCard label="Healthy" value={fmt(healthyCount())} tone={allHealthy() ? 'good' : 'default'} sub={
-            <Show when={reportingCount() > 0} fallback="no runtime reports yet">
-              {fmt(healthyPct())}% of reporting
+          <KpiCard label="Tenants" value={fmt(ov.items().length)} sub={<>{fmt(ov.activeCount())} active<Show when={ov.parkedCount() > 0}> · {fmt(ov.parkedCount())} parked</Show><Show when={ov.suspendedCount() > 0}> · {fmt(ov.suspendedCount())} suspended</Show></>} />
+          <KpiCard label="Healthy" value={fmt(ov.healthyCount())} tone={ov.allHealthy() ? 'good' : 'default'} sub={
+            <Show when={ov.reportingCount() > 0} fallback="no runtime reports yet">
+              {fmt(ov.healthyPct())}% of reporting
             </Show>
           } />
-          <KpiCard label="Needs attention" value={fmt(needsAttention())} tone={needsAttention() > 0 ? 'warn' : needsAttention() === 0 && reportingCount() > 0 ? 'good' : 'default'} sub={
-            <>{fmt(count('degraded'))} degraded · {fmt(count('stale'))} stale
-            <Show when={suspendedCount() > 0}> · {fmt(suspendedCount())} suspended</Show>
-            <Show when={unknownCount() > 0}> · {fmt(unknownCount())} not reporting</Show></>
+          <KpiCard label="Needs attention" value={fmt(ov.needsAttention())} tone={ov.needsAttention() > 0 ? 'warn' : ov.needsAttention() === 0 && ov.reportingCount() > 0 ? 'good' : 'default'} sub={
+            <>{fmt(ov.count('degraded'))} degraded · {fmt(ov.count('stale'))} stale
+            <Show when={ov.suspendedCount() > 0}> · {fmt(ov.suspendedCount())} suspended</Show>
+            <Show when={ov.unknownCount() > 0}> · {fmt(ov.unknownCount())} not reporting</Show></>
           } />
-          <KpiCard label="Platform services" value={platformServices().length === 0 ? '—' : fmt(healthyServices())} sub={`of ${platformServices().length || '—'} monitored`} />
+          <KpiCard label="Platform services" value={ov.platformServices().length === 0 ? '—' : fmt(ov.healthyServices())} sub={`of ${ov.platformServices().length || '—'} monitored`} />
         </KpiStrip>
       </Match>
     </Switch>
 
     {/* Fleet health ring + Tenant pulse — the fleet at a glance, first */}
     <SectionTitle eyebrow="PULSE" title="Tenant pulse" icon={<SectionIcon name="heartbeat" />} action={<Show when={authState.isPlatformLevel()}><Link to="/tenants" class="text-sm text-primary hover:text-primary/80">Manage tenants →</Link></Show>} />
-    <Show when={items().length > 0}>
+    <Show when={ov.items().length > 0}>
       <div class="flex items-center gap-4 p-4 rounded-lg border border-border bg-surface-1">
         <div class="flex-shrink-0">
-          <ProgressRing value={healthyPct()} size={72} strokeWidth={6} tone={fleetTone()} showValue={reportingCount() > 0} />
+          <ProgressRing value={ov.healthyPct()} size={72} strokeWidth={6} tone={ov.fleetTone()} showValue={ov.reportingCount() > 0} />
         </div>
         <div class="flex flex-col gap-1">
           <strong class="text-sm text-foreground">
-            {fmt(healthyCount())} healthy · {fmt(needsAttention())} need attention
-            <Show when={unknownCount() > 0}> · {fmt(unknownCount())} not reporting</Show>
-            {' '}· {fmt(items().length)} total
+            {fmt(ov.healthyCount())} healthy · {fmt(ov.needsAttention())} need attention
+            <Show when={ov.unknownCount() > 0}> · {fmt(ov.unknownCount())} not reporting</Show>
+            {' '}· {fmt(ov.items().length)} total
           </strong>
-          <Show when={reportingCount() === 0}>
+          <Show when={ov.reportingCount() === 0}>
             <span class="text-sm text-muted-foreground">No tenant has sent a runtime heartbeat yet, so there is nothing to score.</span>
           </Show>
         </div>
       </div>
     </Show>
     <div class="space-y-2">
-      <For each={items()}>{tenant => (
+      <For each={ov.items()}>{tenant => (
         <Link to="/tenants/$slug" params={{ slug: tenant.slug }} class="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 hover:border-border-strong transition-colors">
           <div class="flex items-center gap-2 min-w-0">
             <span class={cn('inline-block w-2 h-2 rounded-full flex-shrink-0', healthTone(tenant.runtimeHealth) === 'good' ? 'bg-success' : healthTone(tenant.runtimeHealth) === 'bad' ? 'bg-destructive' : healthTone(tenant.runtimeHealth) === 'warn' ? 'bg-warning' : 'bg-muted-foreground')} />
@@ -557,41 +151,16 @@ export function OverviewPage() {
           </div>
         </Link>
       )}</For>
-      <Show when={items().length === 0}>
+      <Show when={ov.items().length === 0}>
         <EmptyState label="No tenants provisioned" hint="Create your first tenant to start managing fan growth operations." />
       </Show>
     </div>
 
     {/* Platform services — reference, moved below the fleet so the operator's
         own tenants are the first thing they see. */}
-    <Show when={platformServices().length > 0}>
+    <Show when={ov.platformServices().length > 0}>
       <SectionTitle eyebrow="SERVICES" title="Platform services" icon={<SectionIcon name="server" />} />
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        <For each={platformServices()}>{(svc: PlatformHealthEntry) => (
-          <div class={cn('p-4 rounded-lg border', svc.healthy ? 'border-border bg-surface-1' : 'border-destructive/30 bg-destructive/5')}>
-            <div class="flex items-center gap-2">
-              <span class={cn('inline-block w-2 h-2 rounded-full', svc.healthy ? 'bg-success' : 'bg-destructive')} />
-              <strong class="text-sm text-foreground">{svc.label}</strong>
-            </div>
-            {/* The probe address is a private container name and helps nobody
-                reading this card, so it moves to the title attribute where an
-                operator on the phone to an engineer can still read it out. */}
-            <div class="mt-2 flex flex-col gap-1 text-xs text-muted-foreground" title={svc.url}>
-              {/* On a failed probe the latency is how long the connection took
-                  to be refused, so printing it read as "Answered in 4ms. Not
-                  answering." Timing only means something when there was an
-                  answer to time. */}
-              <Show when={svc.healthy && formatLatency(svc.latencyMs)}>{lat => <span class="tabular-nums">Answered in {lat()}</span>}</Show>
-              <Show when={!svc.healthy && platformStatusMessage(svc.lastStatus)}>
-                {message => <span class="text-destructive-light leading-snug">{message()}</span>}
-              </Show>
-              <Show when={svc.lastHealthyAt && !svc.healthy}>
-                <span>Last healthy {formatTimestamp(svc.lastHealthyAt!)}</span>
-              </Show>
-            </div>
-          </div>
-        )}</For>
-      </div>
+      <PlatformServicesGrid services={ov.platformServices()} />
     </Show>
   </PageShell>
 }
