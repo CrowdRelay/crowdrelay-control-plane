@@ -69,8 +69,8 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
 
 // The band's palette mirrors the band's sidebar — same six destinations, same
 // names. Operator-only pages stay reachable by URL but do not list here.
-const BAND_SUFFIXES = new Set(['', '/shows', '/attention', '/audience', '/intelligence', '/content'])
-const BAND_LABEL: Record<string, string> = { '': 'Today', '/attention': 'Needs you' }
+const BAND_SUFFIXES = new Set(['/operations', '/shows', '/attention', '/audience', '/intelligence', '/content'])
+const BAND_LABEL: Record<string, string> = { '/operations': 'Today', '/attention': 'Needs you' }
 
 // Open state lives in command-palette-state.ts so Shell can toggle the
 // palette without this component being in the entry bundle.

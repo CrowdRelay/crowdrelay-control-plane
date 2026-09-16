@@ -35,9 +35,10 @@ export const TENANT_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'How it is going',
+    label: "How it's going",
     defaultOpen: false,
     items: [
+      { path: '/tenants/$slug/shows', label: 'Shows', exact: false, icon: 'shows' },
       { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
       { path: '/tenants/$slug/health', label: 'Health', exact: false, icon: 'sliders' },
     ],
@@ -67,8 +68,8 @@ export const BAND_NAV_GROUPS: NavGroup[] = [
     label: 'Every day',
     defaultOpen: true,
     items: [
-      { path: '/tenants/$slug', label: 'Today', exact: true, icon: 'operations', searchSensitive: true },
-      { path: '/tenants/$slug/shows', label: 'Shows', exact: false, icon: 'area' },
+      { path: '/tenants/$slug/operations', label: 'Today', exact: false, icon: 'operations' },
+      { path: '/tenants/$slug/shows', label: 'Shows', exact: false, icon: 'shows' },
       { path: '/tenants/$slug/attention', label: 'Needs you', exact: false, icon: 'attention' },
       { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
       { path: '/tenants/$slug/content', label: 'Content', exact: false, icon: 'content' },
