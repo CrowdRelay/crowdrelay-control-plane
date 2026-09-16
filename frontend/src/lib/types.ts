@@ -267,6 +267,9 @@ export type DriveContact = {
   display_name: string | null
   organization: string | null
   suggested_kind: string | null
+  /** The city the sheet placed this contact in — free text; the booking
+      promote resolves it against the cities catalogue. */
+  city: string | null
   notes: string | null
   source_file_name: string
   /** Where this address was sighted — 'gdrive', 'gmail', or both. */
@@ -331,6 +334,8 @@ export type SignalOverview = {
     event_interests_30d: number
     nearby_notifications_30d: number
     pending_city_requests: number
+    archive_imported: number
+    archive_confirmed: number
   }
   top_cities: { slug: string; name: string; country_code: string; active_fans: number }[]
   unavailable_sources: string[]

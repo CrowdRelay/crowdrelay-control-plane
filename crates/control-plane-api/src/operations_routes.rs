@@ -2844,21 +2844,39 @@ async fn drive_contact_outcome(
     let valid = matches!(input.destination.as_str(), "fan" | "beacon")
         && input.kind.as_deref().is_none_or(|k| {
             k.len() <= 40 && k.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
-        })
-        && input.city.as_deref().is_none_or(|c| {
-            c.len() <= 80
-                && c.bytes()
-                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
         });
     if !valid {
         return Err(ApiError::InvalidInput(
             "drive contact outcome needs destination fan or beacon".to_owned(),
         ));
     }
+    // The tenant resolves a city case-insensitively, so the slug check runs
+    // after normalising — "Wroclaw" and "wroclaw" name the same place, and
+    // refusing the former with a destination message blamed the wrong field.
+    // The bound matches `cities.slug`'s CHECK (128, must start alnum).
+    let city = input
+        .city
+        .as_deref()
+        .map(str::trim)
+        .map(str::to_lowercase)
+        .filter(|c| !c.is_empty());
+    if let Some(c) = &city {
+        let slugged = c.len() <= 128
+            && c.bytes().next().is_some_and(|b| b.is_ascii_alphanumeric())
+            && c.bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_');
+        if !slugged {
+            return Err(ApiError::InvalidInput(
+                "city must be a city slug — letters, digits, '-' or '_'".to_owned(),
+            ));
+        }
+    }
     let idempotency = idempotency_key(headers)?.to_owned();
-    let body = serde_json::to_value(input).map_err(|_| {
-        ApiError::InvalidInput("drive contact outcome could not be serialised".to_owned())
-    })?;
+    let body = serde_json::json!({
+        "destination": input.destination,
+        "kind": input.kind,
+        "city": city,
+    });
     let path = format!("/v1/control-plane/gdrive/contacts/{contact_id}/{verb}");
     let (tenant, value) = call(
         state,
@@ -2988,6 +3006,7 @@ async fn listing_write(
             "listing body must be an object".to_owned(),
         ));
     }
+    let idempotency = idempotency_key(headers)?.to_owned();
     let path = format!("/v1/control-plane/listing{suffix}");
     let (tenant, value) = call(
         state,
@@ -2996,7 +3015,7 @@ async fn listing_write(
         &path,
         if body.is_null() { None } else { Some(body) },
         headers,
-        None,
+        Some(&idempotency),
     )
     .await?;
     let result: Result<Value, ApiError> = Ok(value.clone());

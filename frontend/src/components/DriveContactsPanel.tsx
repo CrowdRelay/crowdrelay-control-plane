@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { writeGuard } from '../lib/read-only'
 import { refreshQueries } from '../lib/refresh'
 import { errorMessage } from '../lib/format'
 import type { DriveContact } from '../lib/types'
@@ -9,6 +10,7 @@ import { SkeletonRows } from './Skeleton'
 import { ErrorCard } from './layout'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
+import { Checkbox } from './app/checkbox'
 import { Spinner } from './Spinner'
 import { SectionIcon } from './SectionIcon'
 import { NativeSelect } from './ui/native-select'
@@ -28,7 +30,16 @@ const KIND_LABELS: Record<string, string> = {
 }
 
 const BEACON_KINDS = ['press', 'radio', 'playlist', 'media_patronage', 'endorsement', 'creator', 'promoter', 'venue', 'festival'] as const
+const BEACON_KIND_SET: ReadonlySet<string> = new Set(BEACON_KINDS)
 const BOOKING_KINDS: ReadonlySet<string> = new Set(['promoter', 'venue', 'festival'])
+
+// The sheet's suggestion is a fan-side word too — "fan" is legal on the
+// row but not a beacon kind, so a fan-typed contact defaults to press
+// rather than rendering a select with no valid option.
+const defaultBeaconKind = (contact: DriveContact): string =>
+  contact.suggested_kind && BEACON_KIND_SET.has(contact.suggested_kind)
+    ? contact.suggested_kind
+    : 'press'
 
 const SOURCE_LABELS: Record<string, string> = {
   gdrive: 'Drive',
@@ -72,6 +83,9 @@ export function DriveContactsPanel(props: { slug: string }) {
   const [scanning, setScanning] = createSignal(false)
   const [beaconKind, setBeaconKind] = createSignal<Record<string, string>>({})
   const [beaconCity, setBeaconCity] = createSignal<Record<string, string>>({})
+  const [selected, setSelected] = createSignal<ReadonlySet<string>>(new Set())
+  const [batchConfirm, setBatchConfirm] = createSignal<'fans' | 'dismiss' | null>(null)
+  const [batchProgress, setBatchProgress] = createSignal<{ done: number; total: number } | null>(null)
 
   const staged = createMemo(() =>
     (contacts.data?.contacts ?? []).filter(
@@ -83,6 +97,28 @@ export function DriveContactsPanel(props: { slug: string }) {
       c => c.fan_outcome !== 'staged' && c.beacon_outcome !== 'staged',
     ),
   )
+  // Selection only covers rows still staged — a contact whose scan landed
+  // after the last fetch cannot sit selected invisibly.
+  const selectable = createMemo(() => new Set(staged().map(c => c.id)))
+  const selectedStaged = createMemo(() =>
+    staged().filter(c => selected().has(c.id)),
+  )
+  const selectedFanStaged = createMemo(() =>
+    selectedStaged().filter(c => c.fan_outcome === 'staged'),
+  )
+  const toggleSelect = (id: string, on: boolean) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (on) next.add(id)
+      else next.delete(id)
+      return next
+    })
+    setBatchConfirm(null)
+  }
+  const toggleSelectAll = (on: boolean) => {
+    setSelected(on ? new Set<string>(selectable()) : new Set<string>())
+    setBatchConfirm(null)
+  }
 
   const scanNow = async () => {
     setScanning(true)
@@ -112,7 +148,7 @@ export function DriveContactsPanel(props: { slug: string }) {
     try {
       if (verb === 'promote') {
         const kind = destination === 'beacon'
-          ? (beaconKind()[contact.id] ?? contact.suggested_kind ?? 'press')
+          ? (beaconKind()[contact.id] ?? defaultBeaconKind(contact))
           : undefined
         const city = kind && BOOKING_KINDS.has(kind)
           ? (beaconCity()[contact.id]?.trim() || undefined)
@@ -134,6 +170,58 @@ export function DriveContactsPanel(props: { slug: string }) {
     }
   }
 
+  const runBatch = async (mode: 'fans' | 'dismiss') => {
+    if (batchConfirm() !== mode) {
+      setBatchConfirm(mode)
+      return
+    }
+    setBatchConfirm(null)
+    // Snapshot the work list now — refetches during the loop must not add
+    // or drop rows mid-run.
+    const work = selectedStaged()
+    setSelected(new Set<string>())
+    setError(null)
+    setNotice(null)
+    // One row at a time: every promote/dismiss is its own confirmed decision
+    // upstream, and a sequential run keeps failures attributable to a row.
+    const steps: { contact: DriveContact; destination: 'fan' | 'beacon'; verb: 'promote' | 'dismiss' }[] = []
+    for (const contact of work) {
+      if (mode === 'fans') {
+        if (contact.fan_outcome === 'staged') steps.push({ contact, destination: 'fan', verb: 'promote' })
+      } else {
+        if (contact.fan_outcome === 'staged') steps.push({ contact, destination: 'fan', verb: 'dismiss' })
+        if (contact.beacon_outcome === 'staged') steps.push({ contact, destination: 'beacon', verb: 'dismiss' })
+      }
+    }
+    setBatchProgress({ done: 0, total: steps.length })
+    let failed = 0
+    for (const step of steps) {
+      try {
+        if (step.verb === 'promote') {
+          await api.promoteDriveContact(props.slug, step.contact.id, 'fan')
+        } else {
+          await api.dismissDriveContact(props.slug, step.contact.id, step.destination)
+        }
+      } catch {
+        failed += 1
+      }
+      setBatchProgress(prev => prev && { done: prev.done + 1, total: prev.total })
+    }
+    setBatchProgress(null)
+    refreshQueries(['gdrive-contacts', props.slug])
+    if (failed === 0) {
+      // In fans mode only fan-staged rows produce a step — `work` also
+      // holds beacon-only contacts, which received no opt-in email, so the
+      // notice counts the steps, not the selection.
+      const count = mode === 'fans' ? steps.length : work.length
+      setNotice(mode === 'fans'
+        ? `${count} contact${count === 1 ? '' : 's'} promoted — the double opt-in emails are on their way.`
+        : `Dismissed ${count} contact${count === 1 ? '' : 's'}.`)
+    } else {
+      setError(`${failed} of ${steps.length} actions failed — the rows that did not change are still staged.`)
+    }
+  }
+
   return (
     <section class="rounded-xl border border-border bg-card p-5">
       <div class="flex items-start justify-between gap-4 flex-wrap">
@@ -150,7 +238,7 @@ export function DriveContactsPanel(props: { slug: string }) {
             can be both.
           </p>
         </div>
-        <Button variant="outline" size="sm" disabled={scanning()} onClick={() => void scanNow()}>
+        <Button writes variant="outline" size="sm" disabled={scanning()} onClick={() => void scanNow()}>
           <Show when={scanning()}><Spinner /></Show> Scan now
         </Button>
       </div>
@@ -177,14 +265,51 @@ export function DriveContactsPanel(props: { slug: string }) {
             />
           }
         >
+          <Show when={staged().length > 0}>
+            <div class="mt-4 flex items-center gap-3 flex-wrap rounded-md border border-border/50 bg-background/40 px-3 py-2">
+              <Checkbox
+                checked={staged().length > 0 && selectedStaged().length === staged().length}
+                onChange={on => toggleSelectAll(on)}
+                label={`${selectedStaged().length} selected`}
+              />
+              <div class="flex items-center gap-1.5 ml-auto">
+                <Button
+                  writes
+                  size="xs"
+                  variant={batchConfirm() === 'fans' ? 'default' : 'outline'}
+                  disabled={selectedFanStaged().length === 0 || batchProgress() !== null || busy() !== null}
+                  title="Every selected contact becomes a pending fan and gets the double opt-in email"
+                  onClick={() => void runBatch('fans')}
+                >
+                  {batchConfirm() === 'fans' ? `Confirm ${selectedFanStaged().length}` : `Make fans (${selectedFanStaged().length})`}
+                </Button>
+                <Button
+                  writes
+                  size="xs"
+                  variant={batchConfirm() === 'dismiss' ? 'default' : 'ghost'}
+                  disabled={selectedStaged().length === 0 || batchProgress() !== null || busy() !== null}
+                  title="Dismisses every still-open decision on the selected contacts"
+                  onClick={() => void runBatch('dismiss')}
+                >
+                  {batchConfirm() === 'dismiss' ? `Confirm ${selectedStaged().length}` : 'Dismiss'}
+                </Button>
+                <Show when={batchProgress()}>
+                  {p => <span class="text-xs text-muted-foreground flex items-center gap-1.5"><Spinner /> {p().done}/{p().total}</span>}
+                </Show>
+              </div>
+            </div>
+          </Show>
           <div class="mt-4 flex flex-col gap-2.5">
             <For each={[...staged(), ...decided()]}>
               {contact => (
                 <DriveContactRow
                   contact={contact}
                   confirming={confirming()}
-                  busy={busy()}
-                  kind={beaconKind()[contact.id] ?? contact.suggested_kind ?? 'press'}
+                  busy={busy() ?? (batchProgress() ? 'batch' : null)}
+                  selectable={selectable().has(contact.id)}
+                  selected={selected().has(contact.id)}
+                  onSelect={on => toggleSelect(contact.id, on)}
+                  kind={beaconKind()[contact.id] ?? defaultBeaconKind(contact)}
                   city={beaconCity()[contact.id] ?? ''}
                   onKind={kind => setBeaconKind(k => ({ ...k, [contact.id]: kind }))}
                   onCity={city => setBeaconCity(c => ({ ...c, [contact.id]: city }))}
@@ -203,6 +328,9 @@ function DriveContactRow(props: {
   contact: DriveContact
   confirming: string | null
   busy: string | null
+  selectable: boolean
+  selected: boolean
+  onSelect: (on: boolean) => void
   kind: string
   city: string
   onKind: (kind: string) => void
@@ -217,7 +345,16 @@ function DriveContactRow(props: {
   return (
     <div class="rounded-lg border border-border/70 bg-background/40 px-4 py-3">
       <div class="flex items-start justify-between gap-3 flex-wrap">
-        <div class="min-w-0">
+        <div class="min-w-0 flex items-start gap-2.5">
+          <Show when={props.selectable}>
+            <Checkbox
+              class="mt-0.5"
+              checked={props.selected}
+              onChange={on => props.onSelect(on)}
+              title="Select for a batch action"
+            />
+          </Show>
+          <div class="min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
             <span class="text-sm font-medium">{props.contact.email}</span>
             <For each={props.contact.sources ?? []}>
@@ -231,12 +368,13 @@ function DriveContactRow(props: {
             </Show>
           </div>
           <p class="m-0 mt-1 text-xs text-muted-foreground">
-            {[props.contact.display_name, props.contact.organization].filter(Boolean).join(' · ') || 'No name on file'}
+            {[props.contact.display_name, props.contact.organization, props.contact.city].filter(Boolean).join(' · ') || 'No name on file'}
             {' — '}{props.contact.source_file_name}, seen {formatSeen(props.contact.last_seen_at)}
           </p>
           <Show when={props.contact.notes}>
             <p class="m-0 mt-1 text-xs text-muted-foreground/80 italic">{props.contact.notes}</p>
           </Show>
+          </div>
         </div>
       </div>
 
@@ -250,6 +388,7 @@ function DriveContactRow(props: {
           <Show when={props.contact.fan_outcome === 'staged'}>
             <div class="flex items-center gap-1.5">
               <Button
+                writes
                 size="xs"
                 variant={arm('fan', 'promote') ? 'default' : 'outline'}
                 disabled={props.busy !== null}
@@ -259,6 +398,7 @@ function DriveContactRow(props: {
                 {props.busy === key('fan', 'promote') ? <Spinner /> : arm('fan', 'promote') ? 'Confirm fan' : 'Make fan'}
               </Button>
               <Button
+                writes
                 size="xs"
                 variant="ghost"
                 disabled={props.busy !== null}
@@ -284,6 +424,7 @@ function DriveContactRow(props: {
                 value={props.kind}
                 onChange={e => props.onKind(e.currentTarget.value)}
                 title="What kind of outreach contact this is"
+                {...writeGuard()}
               >
                 <For each={BEACON_KINDS}>
                   {k => <option value={k}>{KIND_LABELS[k]}</option>}
@@ -294,11 +435,15 @@ function DriveContactRow(props: {
                   class="w-28"
                   value={props.city}
                   onInput={e => props.onCity(e.currentTarget.value)}
-                  placeholder="City — e.g. wroclaw"
-                  title="Which city this contact books in — booking candidates are filed per city"
+                  placeholder={props.contact.city ? `Sheet says: ${props.contact.city}` : 'City — e.g. wroclaw'}
+                  title={props.contact.city
+                    ? `The sheet filed this contact in ${props.contact.city} — leave empty to use it, or type a city slug to override`
+                    : 'Which city this contact books in — booking candidates are filed per city'}
+                  {...writeGuard()}
                 />
               </Show>
               <Button
+                writes
                 size="xs"
                 variant={arm('beacon', 'promote') ? 'default' : 'outline'}
                 disabled={props.busy !== null}
@@ -310,6 +455,7 @@ function DriveContactRow(props: {
                 {props.busy === key('beacon', 'promote') ? <Spinner /> : arm('beacon', 'promote') ? 'Confirm add' : BOOKING_KINDS.has(props.kind) ? 'Add to booking' : 'Add to outreach'}
               </Button>
               <Button
+                writes
                 size="xs"
                 variant="ghost"
                 disabled={props.busy !== null}

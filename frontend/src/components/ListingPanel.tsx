@@ -9,6 +9,7 @@ import { ErrorCard, Section } from './layout'
 import { SectionIcon } from './SectionIcon'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
+import { Checkbox } from './app/checkbox'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import { NativeSelect } from './ui/native-select'
 import { Input } from './ui/input'
@@ -524,15 +525,13 @@ export function ListingPanel(props: { slug: string }) {
                     <option value="label">Label</option>
                   </NativeSelect>
                 </label>
-                <label class="flex items-center gap-2 self-end pb-2">
-                  <input
-                    type="checkbox"
-                    class="accent-primary"
+                <div class="self-end pb-2">
+                  <Checkbox
                     checked={contact().accepts_outreach}
-                    onChange={e => setContact(c => ({ ...c, accepts_outreach: e.currentTarget.checked }))}
+                    onChange={on => setContact(c => ({ ...c, accepts_outreach: on }))}
+                    label="They take pitches"
                   />
-                  <span class="text-sm text-foreground">They take pitches</span>
-                </label>
+                </div>
                 <Show when={contact().accepts_outreach}>
                   <label class="flex flex-col gap-1.5 md:col-span-2">
                     <span class="text-xs font-medium text-muted-foreground">
