@@ -11,6 +11,7 @@ import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Spinner } from './Spinner'
 import { SectionIcon } from './SectionIcon'
+import { NativeSelect } from './ui/native-select'
 
 const KIND_LABELS: Record<string, string> = {
   fan: 'Fan',
@@ -261,8 +262,9 @@ function DriveContactRow(props: {
           </div>
           <Show when={props.contact.beacon_outcome === 'staged'}>
             <div class="flex items-center gap-1.5">
-              <select
-                class="h-7 rounded-md border border-border bg-background px-1.5 text-xs"
+              <NativeSelect
+                size="sm"
+                class="w-auto"
                 value={props.kind}
                 onChange={e => props.onKind(e.currentTarget.value)}
                 title="What kind of outreach contact this is"
@@ -270,7 +272,7 @@ function DriveContactRow(props: {
                 <For each={BEACON_KINDS}>
                   {k => <option value={k}>{KIND_LABELS[k]}</option>}
                 </For>
-              </select>
+              </NativeSelect>
               <Button
                 size="xs"
                 variant={arm('beacon', 'promote') ? 'default' : 'outline'}
