@@ -110,7 +110,7 @@ export function TenantOperationsPage() {
       .sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0],
   )
   const nextShowTimeline = useQuery(() => ({
-    queryKey: ['show-timeline', params().slug, nextShow()?.slug ?? ''],
+    queryKey: ['tenant-show-timeline', params().slug, nextShow()?.slug ?? ''],
     queryFn: () => api.showTimeline(params().slug, nextShow()!.slug),
     enabled: nextShow() != null,
     reconcile: 'id',
