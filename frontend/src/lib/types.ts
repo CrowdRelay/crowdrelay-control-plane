@@ -2824,3 +2824,72 @@ export type CommandCenterReadModel = {
   }
   perTenant: CommandCenterTenantSummary[]
 }
+
+// ── §4h-12: the band's listing + representation ──────────────────────
+// A listing is the band-authored profile a share link admits a reader to.
+// `value` may be null — a claim the band cannot support yet is a valid
+// draft, and the domain drops it before any reader sees it.
+export type ListingClaim = {
+  label: string
+  value: number | null
+  tier: 'vanity' | 'intermediate' | 'downstream'
+  basis: string
+}
+
+export type BandListing = {
+  act_name: string
+  genre_tags: string[]
+  cities: string[]
+  claims: ListingClaim[]
+  published_dates: string[]
+  seeking: string[]
+  visibility: 'unlisted' | 'admitted_readers'
+}
+
+export type ListingState = {
+  listing: BandListing | null
+  share_token: string | null
+  published_at: string | null
+  updated_at: string | null
+  approaches_used_this_month: number
+  monthly_approach_allowance: number
+}
+
+// A representation contact as the band sees it — the email address never
+// leaves the platform: the approach is brokered, not handed over.
+export type RepresentationTarget = {
+  target_id: string
+  kind: 'agent' | 'label' | string
+  display_name: string
+  accepts_outreach: boolean
+  accepts_outreach_basis?: string
+  do_not_contact: boolean
+  active: boolean
+  verified: boolean
+  version: number
+  last_outreach_at?: string
+}
+
+export type RepresentationTargetsResponse = {
+  targets: RepresentationTarget[]
+  approaches_used_this_month: number
+  monthly_approach_allowance: number
+}
+
+export type RepresentationTargetInput = {
+  target_id?: string
+  kind: 'agent' | 'label'
+  display_name: string
+  contact_email: string
+  accepts_outreach: boolean
+  accepts_outreach_basis?: string
+  active?: boolean
+  verified?: boolean
+  do_not_contact?: boolean
+  expected_version?: number
+}
+
+export type ApproachRequestResult = {
+  action_id: string
+  status: string
+}

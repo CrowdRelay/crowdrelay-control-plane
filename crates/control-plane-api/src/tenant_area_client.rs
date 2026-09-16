@@ -485,6 +485,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/fanbases"
                     | "/v1/control-plane/fanbases/connections"
                     | "/v1/control-plane/gdrive/contacts"
+                    // §4h-12: the band's listing + representation contacts.
+                    | "/v1/control-plane/listing"
+                    | "/v1/control-plane/representation/targets"
                     | "/v1/control-plane/webhook-endpoints"
                     | "/v1/control-plane/audience/overview"
                     | "/v1/control-plane/audience/acquisition-sources"
@@ -623,6 +626,15 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || path == "/v1/control-plane/fanbases"
                 || path == "/v1/control-plane/fanbases/connections"
                 || path == "/v1/control-plane/gdrive/scan"
+                // §4h-12: save is a POST on the same path as the read —
+                // publish/unlist/rotate-token are the only transitions, and
+                // an approach is the band asking, queued for approval.
+                || path == "/v1/control-plane/listing"
+                || path == "/v1/control-plane/listing/publish"
+                || path == "/v1/control-plane/listing/unlist"
+                || path == "/v1/control-plane/listing/rotate-token"
+                || path == "/v1/control-plane/representation/targets"
+                || path == "/v1/control-plane/representation/approach"
                 || uuid_segment_between(
                     path,
                     "/v1/control-plane/gdrive/contacts/",
@@ -1681,6 +1693,36 @@ mod tests {
         assert!(valid_operations_request(
             "GET",
             "/v1/control-plane/autopilot/cycle/preview"
+        ));
+        // §4h-12 listing + representation: the read and every write the
+        // editor makes, pinned so a sibling path can't slip through.
+        for path in [
+            "/v1/control-plane/listing",
+            "/v1/control-plane/representation/targets",
+        ] {
+            assert!(valid_operations_request("GET", path), "{path}");
+        }
+        for path in [
+            "/v1/control-plane/listing",
+            "/v1/control-plane/listing/publish",
+            "/v1/control-plane/listing/unlist",
+            "/v1/control-plane/listing/rotate-token",
+            "/v1/control-plane/representation/targets",
+            "/v1/control-plane/representation/approach",
+        ] {
+            assert!(valid_operations_request("POST", path), "{path}");
+        }
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/listing/publish"
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/representation/approach"
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            "/v1/control-plane/listing/extra"
         ));
         // Every per-community read the Communities page makes. `intro-draft`
         // was missing here while its route existed on both sides, so the page

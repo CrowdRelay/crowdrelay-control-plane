@@ -74,13 +74,16 @@ export function TenantPage() {
   const queryClient = useQueryClient()
   const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('profile', ['profile', 'deployment', 'access'])
 
-  // The band's Today and Settings share this page: ?tab=profile is the
-  // brand/settings view. The daily read (fan growth, the next night) moved
-  // to the Operations page — what remains here is this week's moves and
-  // the machine's status line. Platform sessions get one merged profile tab.
+  // The band's daily read lives on the Operations page in full — fan growth,
+  // the next night and this week's moves all moved there. What remains here
+  // is the settings view: identity, products, branding, and the machine's
+  // status line. For a band the bare URL *is* the settings page (the nav
+  // only ever sends them to ?tab=profile); platform sessions get the merged
+  // profile tab plus Deployment and Access.
   const tabParam = useRouterState({ select: s => (s.location.search as { tab?: string }).tab })
-  const todayView = createMemo(() => authState.isPlatformLevel() || tabParam() !== 'profile')
-  const settingsView = createMemo(() => authState.isPlatformLevel() || tabParam() === 'profile')
+  const settingsView = createMemo(
+    () => authState.isPlatformLevel() || (tabParam() !== 'deployment' && tabParam() !== 'access'),
+  )
 
   // Base read model — tenant identity, provisioning, audit, platform caps.
   // This is all the Profile and Access tabs need. The Deployment tab has
@@ -99,15 +102,13 @@ export function TenantPage() {
   const provisioning = { get data() { return model.data?.provisioning } }
 
   // Operations read model — loaded when the Profile or Deployment tab is
-  // opened. Profile needs it for the week's moves and the status line;
-  // Deployment needs it for the operations detail. The query is cached by
-  // TanStack Query, so visiting one tab preloads the other.
+  // opened. Profile needs it for the machine's status line; Deployment
+  // needs it for the operations detail. The query is cached by TanStack
+  // Query, so visiting one tab preloads the other.
   const operations = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
-    // In the band's Settings view every consumer is hidden — a deep link
-    // to Deployment still fetches, but ?tab=profile alone does not.
-    enabled: (isVisited('profile') && todayView()) || isVisited('deployment'),
+    enabled: isVisited('profile') || isVisited('deployment'),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
@@ -116,17 +117,6 @@ export function TenantPage() {
     // stays empty for the life of the tab. Keep asking until it fills.
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))
-  // Worth doing this week — the upstream next-best-action queue, already
-  // ranked (warmth prior until measured conversion lands, §4e-4). Only
-  // what still needs a person: approvals awaiting a yes and plain
-  // recommendations — `observed`/`auto_executing` are status, not moves.
-  // Three at most.
-  const weekMoves = createMemo(() =>
-    (operations.data?.opportunities ?? [])
-      .filter(e => e.authority === 'awaiting_approval' || e.authority === 'recommended')
-      .sort((a, b) => a.position - b.position)
-      .slice(0, 3),
-  )
   const [palette, setPalette] = createSignal<Palette>(defaultPalette)
   const [editingPalette, setEditingPalette] = createSignal(false)
   const [desiredVersion, setDesiredVersion] = createSignal('')
@@ -226,42 +216,12 @@ export function TenantPage() {
         />
       </Show>
 
-      {/* ── Profile tab — this week's moves, identity, runtime, branding ── */}
+      {/* ── Profile tab — the machine's status line, identity, branding ── */}
       <TabPanel active={activeTab()} id="profile" visited={isVisited('profile')}>
-        <Show when={todayView()}>
-        {/* Worth doing this week — the three moves that carry most of it.
-            Each row is one door into the decision queue on Attention, where
-            the real approve/dismiss buttons live. A degraded section hides
-            the whole block; an empty queue says so plainly. */}
-        <Show when={operations.data?.opportunities}>
-          <Section
-            title="Worth doing this week"
-            icon={<SectionIcon name="target" />}
-            description="The moves that carry most of it, ranked upstream. Attention has the approve buttons."
-          >
-            <div class="flex flex-col gap-3">
-              <For each={weekMoves()}>{move => (
-                <Link
-                  to="/tenants/$slug/attention"
-                  params={{ slug: t.slug }}
-                  class="group block rounded-md border border-border p-3 transition-colors hover:border-foreground/30"
-                >
-                  <div class="flex items-baseline gap-2">
-                    <span class="text-sm font-medium text-foreground group-hover:underline">{move.recommended_action}</span>
-                  </div>
-                  <p class="mt-1 text-xs leading-relaxed text-muted-foreground">{move.reason}</p>
-                  <Show when={move.consequence}>
-                    <p class="mt-1 text-xs text-warning-foreground">If nobody acts: {move.consequence}</p>
-                  </Show>
-                </Link>
-              )}</For>
-              <Show when={weekMoves().length === 0}>
-                <p class="text-sm text-muted-foreground">Nothing needs you this week — the queue is empty.</p>
-              </Show>
-            </div>
-          </Section>
-        </Show>
-
+        {/* ── Settings group — brand, products, publishing. For the band
+            these are the whole of the ?tab=profile view; platform sessions
+            see them under the same merged profile tab. ── */}
+        <Show when={settingsView()}>
         {/* One plain line for the machine — silent while everything
             answers, loud with the first broken thing. The heartbeat detail
             it replaced lives on the Health page. */}
@@ -270,12 +230,6 @@ export function TenantPage() {
           initial={{ runtime: t.runtime, runtimeHealth: t.runtimeHealth }}
           operations={operations.data}
         />
-        </Show>
-
-        {/* ── Settings group — brand, products, publishing. For the band
-            these are the whole of the ?tab=profile view; platform sessions
-            see them under the same merged profile tab. ── */}
-        <Show when={settingsView()}>
         <Section
           title="Products"
           icon={<SectionIcon name="shield" />}

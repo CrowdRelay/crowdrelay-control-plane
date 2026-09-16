@@ -9,6 +9,7 @@ import { OutreachPipelinePanel } from '../components/OutreachPipelinePanel'
 import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
+import { ListingPanel } from '../components/ListingPanel'
 import { SkeletonKpiStrip, SkeletonSection } from '../components/Skeleton'
 import { Eyebrow, KpiCard, KpiStrip, PageShell, PageHeader, Section, SkeletonBlock, TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { SectionIcon } from '../components/SectionIcon'
@@ -66,6 +67,16 @@ export function TenantOperationsPage() {
     return a.failed_24h >= a.succeeded_24h ? 'bad' : 'warn'
   }
 
+  // Worth doing this week — the upstream next-best-action queue, already
+  // ranked. Only what still needs a person: approvals awaiting a yes and
+  // plain recommendations — `observed`/`auto_executing` are status, not
+  // moves. Three at most; the full queue lives on Attention.
+  const weekMoves = createMemo(() =>
+    (d()?.opportunities ?? [])
+      .filter(e => e.authority === 'awaiting_approval' || e.authority === 'recommended')
+      .sort((a, b) => a.position - b.position)
+      .slice(0, 3),
+  )
   const needsYouCount = () => autopilot()?.needs_you.length ?? 0
   const awaitingApproval = () => d()?.opportunities?.filter(o => o.authority === 'awaiting_approval').length ?? 0
   const hasAttention = () => needsYouCount() > 0 || awaitingApproval() > 0 || deadJobs() > 0
@@ -377,6 +388,40 @@ export function TenantOperationsPage() {
       </p>
     </Show>
 
+    {/* Worth doing this week — the three moves that carry most of it.
+        Each row is one door into the decision queue on Attention, where
+        the real approve/dismiss buttons live. A degraded section hides
+        the whole block; an empty queue says so plainly. Moved here from
+        the tenant page — the moves are the operational read, not settings. */}
+    <Show when={d()?.opportunities}>
+      <Section
+        title="Worth doing this week"
+        icon={<SectionIcon name="target" />}
+        description="The moves that carry most of it, ranked upstream. Attention has the approve buttons."
+      >
+        <div class="flex flex-col gap-3">
+          <For each={weekMoves()}>{move => (
+            <Link
+              to="/tenants/$slug/attention"
+              params={{ slug: params().slug }}
+              class="group block rounded-md border border-border p-3 transition-colors hover:border-foreground/30"
+            >
+              <div class="flex items-baseline gap-2">
+                <span class="text-sm font-medium text-foreground group-hover:underline">{move.recommended_action}</span>
+              </div>
+              <p class="mt-1 text-xs leading-relaxed text-muted-foreground">{move.reason}</p>
+              <Show when={move.consequence}>
+                <p class="mt-1 text-xs text-warning-foreground">If nobody acts: {move.consequence}</p>
+              </Show>
+            </Link>
+          )}</For>
+          <Show when={weekMoves().length === 0}>
+            <p class="text-sm text-muted-foreground">Nothing needs you this week — the queue is empty.</p>
+          </Show>
+        </div>
+      </Section>
+    </Show>
+
     {/* Tab bar — static, renders immediately. Count callbacks return 0
         while data is pending, which is the correct placeholder. */}
     <TabBar
@@ -386,6 +431,7 @@ export function TenantOperationsPage() {
       tabs={[
         { id: 'outreach', label: 'Outreach' },
         { id: 'releases', label: 'Releases' },
+        { id: 'listing', label: 'Listing' },
       ]}
     />
 
@@ -423,6 +469,15 @@ export function TenantOperationsPage() {
     <TabPanel active={activeTab()} id="releases" visited={isVisited('releases')}>
       <ReleaseCampaignsPanel slug={params().slug} />
       <PlayLedgerPanel slug={params().slug} />
+    </TabPanel>
+
+    {/* ── Listing tab ── */}
+    {/* §4h-12: the band-authored profile a share link admits an agent or
+        label to, the representation contacts it may approach, and the
+        month's allowance. Its own queries — the overview model doesn't
+        carry any of it. */}
+    <TabPanel active={activeTab()} id="listing" visited={isVisited('listing')}>
+      <ListingPanel slug={params().slug} />
     </TabPanel>
   </PageShell>
 }
