@@ -1,5 +1,5 @@
 {
-  "maxTenantDestinations": 11,
-  "note": "Ratchet: only shrinks. UX plan target is six band destinations \u2014 reached via BAND_NAV_GROUPS. Lower a baseline in the same commit that removes or merges a destination.",
-  "maxBandDestinations": 6
+  "maxTenantDestinations": 12,
+  "note": "Ratchet: only shrinks. UX plan target is six band destinations \u2014 reached via BAND_NAV_GROUPS. Lower a baseline in the same commit that removes or merges a destination. 2026-09-16: +1 in both nav sets for /tenants/$slug/content \u2014 the tenant owner asked for Content as a first-class every-day destination; content previously lived only inside an Intelligence tab.",
+  "maxBandDestinations": 7
 }
