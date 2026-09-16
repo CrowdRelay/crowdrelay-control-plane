@@ -5,6 +5,7 @@ import { Metric, MetricRow, type MetricTone } from './ui/metric'
 import { CollapsibleSection as UICollapsible } from './ui/collapsible'
 import { cn } from '../lib/cn'
 import { SkeletonTabContent } from './Skeleton'
+import { Button } from './ui/button'
 
 // ─── PageHeader ─────────────────────────────────────────────────────────
 // Every page starts with the same structure: eyebrow + title + description
@@ -183,9 +184,11 @@ export function TabBar(props: {
   return (
     <div class={cn('flex items-center gap-1 border-b border-border overflow-x-auto scrollbar-none mb-4', props.class)} role="tablist">
       <For each={props.tabs}>{tab => (
-        <button
+        <Button
+          type="button"
+          variant="ghost"
           class={cn(
-            'flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors',
+            'h-auto items-center gap-1.5 rounded-none whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium',
             props.active === tab.id
               ? 'border-primary text-foreground'
               : 'border-transparent text-muted-foreground hover:text-foreground',
@@ -203,7 +206,7 @@ export function TabBar(props: {
           <Show when={tab.count && tab.count() > 0}>
             <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary/15 text-primary-light text-xs font-bold">{tab.count!()}</span>
           </Show>
-        </button>
+        </Button>
       )}</For>
     </div>
   )
@@ -391,15 +394,16 @@ export function ShowMore(props: {
 }) {
   return (
     <Show when={props.hidden > 0}>
-      <button
+      <Button
         type="button"
-        class="mt-2 w-full border-t border-border py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+        variant="ghost"
+        class="mt-2 h-auto w-full rounded-none border-t border-border py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
         onClick={() => props.onToggle()}
       >
         {props.expanded
           ? 'Show fewer'
           : `Show ${props.hidden} more${props.noun ? ` ${props.noun}` : ''}`}
-      </button>
+      </Button>
     </Show>
   )
 }

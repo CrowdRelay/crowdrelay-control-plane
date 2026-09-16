@@ -3,6 +3,7 @@ import { useIsFetching } from '@tanstack/solid-query'
 import { REFRESH_INTERVALS, refreshInterval, setRefreshInterval, triggerRefresh } from '../lib/refresh'
 import { relativeTime } from '../lib/format'
 import { NativeSelect } from './ui/native-select'
+import { Button } from './ui/button'
 
 // Grafana-style refresh control: an interval dropdown + a manual refresh button.
 // Sits in the topbar so every page inherits it. The interval drives
@@ -41,9 +42,11 @@ export function RefreshControl(props: {
         )}</For>
       </NativeSelect>
     </div>
-    <button
+    <Button
       type="button"
-      class="inline-flex items-center justify-center w-9 h-9 rounded-md text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-all duration-150 hover:rotate-180 active:scale-95"
+      variant="ghost"
+      size="icon"
+      class="text-muted-foreground transition-all duration-150 hover:rotate-180 active:scale-95"
       onClick={() => triggerRefresh()}
       disabled={loading()}
       title="Refresh now"
@@ -54,6 +57,6 @@ export function RefreshControl(props: {
       }>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
       </Show>
-    </button>
+    </Button>
   </div>
 }

@@ -7,6 +7,7 @@ import { cn } from '../lib/cn'
 import { Textarea } from './ui/textarea'
 import type { ChatMessage, ChatAction } from '../lib/types'
 import { READ_ONLY_REASON, readOnly, writeGuard } from '../lib/read-only'
+import { Button } from './ui/button'
 import { SparkIcon, CloseIcon, SendIcon } from './chat-icons'
 import { renderMarkdown } from '../lib/chat-markdown'
 import { CHAT_SUGGESTIONS, BAND_CHAT_SUGGESTIONS, readChatStream, stripActions } from '../lib/chat-stream'
@@ -267,15 +268,15 @@ export function ChatWidget(props: { slug: string }) {
           stuck to the browser frame. The panel below moves with it so
           the two stay on one corner. */}
       <Show when={!open()}>
-        <button
-          class="fixed bottom-4 right-4 lg:bottom-6 lg:right-6 z-40 flex items-center gap-2 rounded-full bg-primary-solid text-primary-on px-4 py-3 shadow-lg hover:bg-primary-solid-hover transition-colors"
+        <Button
+          class="fixed bottom-4 right-4 lg:bottom-6 lg:right-6 z-40 h-auto gap-2 rounded-full px-4 py-3 shadow-lg"
           onClick={() => setOpen(true)}
           title="Ask AI Assistant"
           aria-label="Open AI Assistant"
         >
           <SparkIcon />
           <span class="text-sm font-medium">AI Assistant</span>
-        </button>
+        </Button>
       </Show>
 
       {/* Chat panel */}
@@ -290,9 +291,9 @@ export function ChatWidget(props: { slug: string }) {
                 <div class="text-xs text-muted-foreground">Free • Powered by Laguna S 2.1</div>
               </div>
             </div>
-            <button class="p-1.5 rounded-md text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors" onClick={() => setOpen(false)} aria-label="Close chat">
+            <Button variant="ghost" size="icon" class="h-8 w-8 text-muted-foreground" onClick={() => setOpen(false)} aria-label="Close chat">
               <CloseIcon />
-            </button>
+            </Button>
           </div>
 
           <div class="flex-1 overflow-y-auto p-4 space-y-4" ref={scrollRef} role="log" aria-live="polite" aria-label="Chat conversation">
@@ -304,7 +305,7 @@ export function ChatWidget(props: { slug: string }) {
                 <div class="flex flex-col gap-2 w-full max-w-xs">
                   <For each={authState.isPlatformLevel() ? CHAT_SUGGESTIONS : BAND_CHAT_SUGGESTIONS}>
                     {(s) => (
-                      <button class="text-left text-sm rounded-md border border-border px-3 py-2 text-muted-foreground hover:bg-surface-1 hover:text-foreground hover:border-border-strong transition-colors" onClick={() => send(s)}>{s}</button>
+                      <Button writes variant="outline" class="h-auto justify-start whitespace-normal px-3 py-2 text-left text-sm font-normal text-muted-foreground hover:text-foreground" onClick={() => send(s)}>{s}</Button>
                     )}
                   </For>
                 </div>
@@ -330,14 +331,16 @@ export function ChatWidget(props: { slug: string }) {
                     <div class="flex flex-wrap gap-2 mt-2">
                       <For each={msg.actions}>
                         {(action) => (
-                          <button
-                            class="text-xs rounded-md border border-border px-2.5 py-1.5 text-foreground hover:bg-surface-1 transition-colors"
+                          <Button
+                            writes
+                            variant="outline"
+                            size="xs"
+                            class="whitespace-normal text-xs"
                             disabled={!!executingAction()}
                             onClick={() => executeAction(action)}
-                            {...writeGuard()}
                           >
                             {executingAction() === action.label ? 'Working…' : action.label}
-                          </button>
+                          </Button>
                         )}
                       </For>
                     </div>
@@ -375,8 +378,10 @@ export function ChatWidget(props: { slug: string }) {
                 {...writeGuard()}
               />
               <Show when={streaming()}>
-                <button
-                  class="flex-shrink-0 w-9 h-9 rounded-md bg-destructive text-destructive-foreground flex items-center justify-center hover:bg-destructive-hover transition-colors"
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  class="flex-shrink-0"
                   onClick={stopStreaming}
                   aria-label="Stop streaming"
                   title="Stop"
@@ -384,18 +389,19 @@ export function ChatWidget(props: { slug: string }) {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <rect x="6" y="6" width="12" height="12" rx="2" />
                   </svg>
-                </button>
+                </Button>
               </Show>
               <Show when={!streaming()}>
-                <button
-                  class="flex-shrink-0 w-9 h-9 rounded-md bg-primary-solid text-primary-on flex items-center justify-center hover:bg-primary-solid-hover transition-colors disabled:opacity-50"
+                <Button
+                  writes
+                  size="icon"
+                  class="flex-shrink-0"
                   disabled={loading() || !input().trim()}
                   onClick={() => send()}
                   aria-label="Send message"
-                  {...writeGuard()}
                 >
                   <SendIcon />
-                </button>
+                </Button>
               </Show>
             </div>
           </div>

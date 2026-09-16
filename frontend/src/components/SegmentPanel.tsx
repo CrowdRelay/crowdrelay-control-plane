@@ -6,6 +6,7 @@ import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock } from './Skeleton'
 import { Card } from './ui/card'
 import { Badge } from './ui/badge'
+import { Button } from './ui/button'
 
 export function SegmentPanel(props: {
   slug: string
@@ -51,9 +52,11 @@ export function SegmentPanel(props: {
     <Show when={props.segments.length > 0} fallback={<EmptyState label="No segments yet" hint="The audience model derives segments once fans are landing. Connect a source and they appear on the next ingestion." />}>
       <div class="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
         <For each={props.segments}>{(segment) => (
-          <button
+          <Button
+            type="button"
+            variant="outline"
             class={cn(
-              'flex flex-col gap-1.5 text-left px-3 py-2.5 border border-border rounded-md bg-surface-1 cursor-pointer transition-colors hover:border-primary hover:bg-surface-2',
+              'h-auto w-full flex-col items-stretch justify-start gap-1.5 whitespace-normal bg-surface-1 px-3 py-2.5 text-left font-normal hover:border-primary hover:bg-surface-2',
               previewSlug() === segment.slug && 'border-primary bg-surface-2',
             )}
             onClick={() => previewSegment(segment.slug)}
@@ -72,7 +75,7 @@ export function SegmentPanel(props: {
                 </Show>
               </div>
             </Show>
-          </button>
+          </Button>
         )}</For>
       </div>
     </Show>

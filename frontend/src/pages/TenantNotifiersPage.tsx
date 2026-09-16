@@ -7,6 +7,7 @@ import type { NotifierChannel, NotifierEvent, DiscoveredEndpoint, PlatformConfig
 import { NOTIFIER_EVENTS, NOTIFIER_EVENT_LABELS } from '../lib/types'
 import { SectionIcon } from '../components/SectionIcon'
 import { errorMessage } from '../lib/format'
+import { writeGuard } from '../lib/read-only'
 import { whileIncomplete } from '../lib/incomplete'
 import { NotifierIcon } from '../components/ProviderIcon'
 import { EmptyState } from '../components/ui/empty-state'
@@ -131,7 +132,7 @@ export function TenantNotifiersPage() {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           <label class="grid gap-1.5 text-muted-foreground text-sm">
             <span>Type</span>
-            <NativeSelect value={kind()} onChange={(e) => { setKind(e.currentTarget.value as NotifierChannel['kind']); setTarget('') }}>
+            <NativeSelect value={kind()} onChange={(e) => { setKind(e.currentTarget.value as NotifierChannel['kind']); setTarget('') }} {...writeGuard()}>
               <option value="discord">Discord app</option>
               <option value="webhook">Generic webhook</option>
               <option value="email_relay">Email via platform relay</option>
@@ -140,12 +141,12 @@ export function TenantNotifiersPage() {
           </label>
           <label class="grid gap-1.5 text-muted-foreground text-sm">
             <span>Label</span>
-            <Input value={label()} onInput={(e) => setLabel(e.currentTarget.value)} placeholder="Ops Discord" />
+            <Input value={label()} onInput={(e) => setLabel(e.currentTarget.value)} placeholder="Ops Discord" {...writeGuard()} />
             <small class="text-xs text-muted-foreground">Your name for this destination — it is what the rows above and the delivery log show.</small>
           </label>
           <label class="grid gap-1.5 text-muted-foreground text-sm md:col-span-2">
             <span>{targetLabel()}</span>
-            <Input value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPh()} />
+            <Input value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPh()} {...writeGuard()} />
             <small class="text-xs text-muted-foreground">{targetHint()}</small>
           </label>
         </div>
@@ -158,6 +159,7 @@ export function TenantNotifiersPage() {
                 class="items-start gap-3 py-1.5 px-2.5 rounded-sm hover:bg-surface-3 transition-colors cursor-pointer"
                 checked={events().includes(ev)}
                 onChange={() => toggleEvent(ev)}
+                {...writeGuard()}
                 label={evLabel(ev)}
               />
             )}</For>

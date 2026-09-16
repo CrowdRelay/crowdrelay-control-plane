@@ -7,6 +7,7 @@ import { EmptyState } from './ui/empty-state'
 import { Card } from './ui/card'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
+import { FileInput } from './ui/file-input'
 import { Input } from './ui/input'
 import { Field } from './ui/field'
 import { NativeSelect } from './ui/native-select'
@@ -269,15 +270,14 @@ export function FanTablePanel(props: {
           label="CSV file"
           hint="One header row. It needs an email or an external_id column; display_name and locale are used when present and everything else is ignored."
         >
-          <input
-            type="file"
+          <FileInput
+            writes
             accept=".csv,text/csv"
-            class="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-surface-3 file:px-3 file:py-1.5 file:text-sm file:text-foreground hover:file:bg-surface-4"
+            class="not-sr-only block h-auto w-full border-0 text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-surface-3 file:px-3 file:py-1.5 file:text-sm file:text-foreground hover:file:bg-surface-4"
             onChange={(event) => {
               const file = event.currentTarget.files?.[0]
               if (file) void readFile(file)
             }}
-            {...writeGuard()}
           />
         </Field>
 

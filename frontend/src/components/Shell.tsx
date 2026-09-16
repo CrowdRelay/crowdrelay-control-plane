@@ -234,15 +234,15 @@ export const Shell: Component = () => {
               </div>
             </Show>
             <Show when={!collapsed()}>
-              <button type="button" class="hidden md:flex p-1.5 rounded-md border border-border bg-surface-2 text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors ml-auto" onClick={toggleCollapsed} title="Collapse sidebar" aria-label="Collapse sidebar">
+              <Button type="button" variant="ghost" class="hidden md:flex h-auto p-1.5 rounded-md border border-border bg-surface-2 text-muted-foreground hover:bg-surface-1 hover:text-foreground ml-auto" onClick={toggleCollapsed} title="Collapse sidebar" aria-label="Collapse sidebar">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
-              </button>
+              </Button>
             </Show>
           </div>
           <Show when={collapsed()}>
-            <button type="button" class="hidden md:flex p-1.5 rounded-md border border-border bg-surface-2 text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors mx-auto" onClick={toggleCollapsed} title="Expand sidebar" aria-label="Expand sidebar">
+            <Button type="button" variant="ghost" class="hidden md:flex h-auto p-1.5 rounded-md border border-border bg-surface-2 text-muted-foreground hover:bg-surface-1 hover:text-foreground mx-auto" onClick={toggleCollapsed} title="Expand sidebar" aria-label="Expand sidebar">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="rotate-180" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
-            </button>
+            </Button>
           </Show>
         </div>
 
@@ -296,15 +296,16 @@ export const Shell: Component = () => {
                     hide the nav itself. Groups only fold when there is a label
                     to fold them under. */}
                 <Show when={!collapsed()}>
-                  <button
+                  <Button
                     type="button"
-                    class="flex w-full items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-secondary-foreground"
+                    variant="ghost"
+                    class="h-auto w-full justify-start gap-1 rounded-md px-2.5 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-secondary-foreground"
                     aria-expanded={groupOpen(group)}
                     onClick={() => toggleGroup(group.label)}
                   >
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class={cn('transition-transform', groupOpen(group) ? 'rotate-90' : '')}><path d="m9 18 6-6-6-6" /></svg>
                     <span>{group.label}</span>
-                  </button>
+                  </Button>
                 </Show>
                 <Show when={collapsed() || groupOpen(group)}>
                 <nav class="flex flex-col gap-0.5 mt-0.5" aria-label={group.label}>
@@ -346,9 +347,11 @@ export const Shell: Component = () => {
 
       <main class={cn('flex-1 flex flex-col h-viewport min-w-0 overflow-hidden md:ml-60', collapsed() && 'md:ml-16')} id="main-content">
         <header class="h-14 border-b border-border bg-card flex items-center gap-3 px-4 flex-shrink-0 z-30">
-          <button
+          <Button
             type="button"
-            class="md:hidden p-2 -ml-2 rounded-md text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors"
+            variant="ghost"
+            size="icon"
+            class="md:hidden -ml-2 text-muted-foreground"
             onClick={() => mobileNavOpen() ? setMobileNavOpen(false) : openMobileNav()}
             aria-label={mobileNavOpen() ? 'Close navigation' : 'Open navigation'}
             aria-expanded={mobileNavOpen()}
@@ -358,7 +361,7 @@ export const Shell: Component = () => {
                 <path d="M6 6l12 12M18 6L6 18" />
               </Show>
             </svg>
-          </button>
+          </Button>
           {/* Breadcrumb, not a second copy of the page heading: it says where
               you are, while the page below says what it is. */}
           <div class="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
@@ -371,9 +374,9 @@ export const Shell: Component = () => {
           </div>
           <div class="flex items-center gap-2">
             <RefreshControl />
-            <button class="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-muted-foreground border border-border rounded-md hover:bg-surface-1 hover:text-foreground transition-colors" type="button" onClick={() => toggleCommandPalette()} title="Command palette (Ctrl+K / ⌘K)" aria-label="Command palette" aria-haspopup="dialog">
+            <Button variant="outline" class="hidden sm:flex h-auto items-center gap-1.5 px-2.5 py-1.5 text-xs font-normal text-muted-foreground hover:text-foreground" type="button" onClick={() => toggleCommandPalette()} title="Command palette (Ctrl+K / ⌘K)" aria-label="Command palette" aria-haspopup="dialog">
               <kbd class="font-mono text-xs">⌘K</kbd><span>Commands</span>
-            </button>
+            </Button>
             <Button variant="ghost" size="sm" type="button" onClick={() => { void authState.logout() }}>Log out</Button>
           </div>
         </header>

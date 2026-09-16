@@ -6,6 +6,7 @@ import { SkeletonRows } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, SectionTitle, ErrorCard } from '../components/layout'
 import { toast } from '../components/ui/toast'
 import { errorMessage } from '../lib/format'
+import { cn } from '../lib/cn'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
@@ -394,8 +395,9 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
 
               return (
                 <div class="mb-4" data-platform={platform}>
-                  <button
-                    class="flex items-center gap-2 w-full text-left cursor-pointer py-2 px-3 rounded-lg hover:bg-surface-1 transition-colors"
+                  <Button
+                    variant="ghost"
+                    class="h-auto w-full justify-start gap-2 whitespace-normal px-3 py-2 text-left font-normal"
                     onClick={() => toggleCollapse(platform)}
                     aria-expanded={!isCollapsed()}
                   >
@@ -413,7 +415,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                         {countBy(items, 'not_joined')} to join
                       </span>
                     </Show>
-                  </button>
+                  </Button>
 
                   <Show when={!isCollapsed()}>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -433,7 +435,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                                   <Show when={item.countryCode}><span>· {item.countryCode}</span></Show>
                                 </div>
                               </div>
-                              <span class="text-xs font-medium px-2 py-0.5 rounded-full {item.membershipState === 'not_joined' ? 'bg-warning/10 text-warning' : item.membershipState === 'joining' ? 'bg-primary/10 text-primary' : item.membershipState === 'joined' ? 'bg-success/10 text-success' : item.membershipState === 'rejected' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}" data-state={item.membershipState}>
+                              <span class={cn('text-xs font-medium px-2 py-0.5 rounded-full', item.membershipState === 'not_joined' ? 'bg-warning/10 text-warning' : item.membershipState === 'joining' ? 'bg-primary/10 text-primary' : item.membershipState === 'joined' ? 'bg-success/10 text-success' : item.membershipState === 'rejected' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground')} data-state={item.membershipState}>
                                 {MEMBERSHIP_LABEL[item.membershipState] ?? item.membershipState}
                               </span>
                             </header>

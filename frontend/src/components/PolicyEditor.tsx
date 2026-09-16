@@ -4,6 +4,7 @@ import type { AutopilotPolicy, AutonomyLevel } from '../lib/types'
 import { CONTEXT_LABELS, labelOr } from '../lib/opportunity-labels'
 import { StatusBadge } from './StatusBadge'
 import { Button } from './ui/button'
+import { RangeInput } from './ui/range-input'
 import { Input } from './ui/input'
 import { Switch } from './ui/switch'
 import { readOnly, writeGuard } from '../lib/read-only'
@@ -139,11 +140,10 @@ export function PolicyEditor(props: {
     <div class="flex flex-col gap-1 lg:contents">
       <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground lg:hidden">Confidence needed</span>
       <div class="flex items-center gap-2">
-        <input
-          class="min-w-0 flex-1 accent-primary"
+        <RangeInput
+          writes
+          class="min-w-0 flex-1"
           disabled={props.pending || !enabled()}
-          {...writeGuard()}
-          type="range"
           min="0"
           max="100"
           step="1"

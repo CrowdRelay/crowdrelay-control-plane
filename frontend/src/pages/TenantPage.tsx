@@ -19,6 +19,7 @@ import { SkeletonTenantPage, SkeletonSection } from '../components/Skeleton'
 import { ErrorCard, Eyebrow, PageHeader, PageShell, Section, SkeletonBlock, TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { Spinner } from '../components/Spinner'
 import { Button } from '../components/ui/button'
+import { ColorInput } from '../components/ui/color-input'
 import { Input } from '../components/ui/input'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
 import { Field, FieldGrid, ReadField, Unset } from '../components/ui/field'
@@ -560,7 +561,7 @@ export function TenantPage() {
                 <label class="flex min-w-0 flex-col gap-1.5">
                   <span class="text-sm font-medium leading-none text-foreground">{paletteLabels[field].label}</span>
                   <div class="flex items-center gap-2">
-                    <input type="color" class="h-9 w-9 shrink-0 cursor-pointer rounded-md border border-border bg-surface-1" aria-label={paletteLabels[field].label} value={palette()[field]} onInput={(e) => setPalette(current => ({ ...current, [field]: e.currentTarget.value }))} />
+                    <ColorInput writes aria-label={paletteLabels[field].label} value={palette()[field]} onInput={(e) => setPalette(current => ({ ...current, [field]: e.currentTarget.value }))} />
                     <code class="text-xs tabular-nums text-muted-foreground">{palette()[field]}</code>
                   </div>
                   <span class="text-xs leading-relaxed text-muted-foreground">{paletteLabels[field].role}</span>

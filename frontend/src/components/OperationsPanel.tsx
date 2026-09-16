@@ -158,7 +158,7 @@ export function OperationsPanel(props: {
         <span>{copy.body}</span>
         <div class="flex items-center gap-2 flex-wrap">
           <Button variant="ghost" size="sm" onClick={() => setConfirming(null)}>Cancel</Button>
-          <Button variant={confirming()?.startsWith('autopilot-disable') || confirming() === 'replay-dead' ? 'destructive-ghost' : 'default'} size="sm" disabled={pendingMutation() !== null}
+          <Button writes variant={confirming()?.startsWith('autopilot-disable') || confirming() === 'replay-dead' ? 'destructive-ghost' : 'default'} size="sm" disabled={pendingMutation() !== null}
             onClick={() => {
               const which = confirming()
               setConfirming(null)

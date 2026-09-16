@@ -340,7 +340,7 @@ export function AgentPanel(props: { slug: string }) {
           <div class="grid gap-2.5 mt-3 grid-cols-1 md:grid-cols-2">
             <For each={showAllSuggestions() ? suggestions() : suggestions().slice(0, MAX_VISIBLE_SUGGESTIONS)}>
               {(s) => (
-                <button type="button" class="text-left text-sm rounded-md border border-border px-3 py-2 text-muted-foreground hover:bg-surface-1 hover:text-foreground hover:border-border-strong transition-colors w-full" onClick={() => runSuggestion(s)}>
+                <Button writes type="button" variant="outline" class="h-auto w-full flex-col items-stretch justify-start gap-1 whitespace-normal px-3 py-2 text-left text-sm font-normal text-muted-foreground hover:text-foreground" onClick={() => runSuggestion(s)}>
                   <div class="flex items-center justify-between gap-2 mb-1">
                     <span class="font-semibold text-sm text-foreground text-left">{s.title}</span>
                     <StatusBadge status={s.priority} tone={priorityTone(s.priority)} />
@@ -349,7 +349,7 @@ export function AgentPanel(props: { slug: string }) {
                   <Show when={s.reason}>
                     <span class="text-xs text-muted-foreground italic mt-1.5 block text-left">{s.reason}</span>
                   </Show>
-                </button>
+                </Button>
               )}
             </For>
           </div>
@@ -374,9 +374,10 @@ export function AgentPanel(props: { slug: string }) {
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <For each={templates()}>
               {(template) => (
-                <button
+                <Button
                   type="button"
-                  class={`rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-border-strong cursor-pointer ${selectedTemplate() === template.id ? 'border-primary/40 bg-primary/5' : ''}`}
+                  variant="outline"
+                  class={`h-auto w-full flex-col items-stretch justify-start whitespace-normal rounded-lg bg-card p-4 text-left font-normal ${selectedTemplate() === template.id ? 'border-primary/40 bg-primary/5' : ''}`}
                   onClick={() => setSelectedTemplate(template.id)}
                 >
                   <div class="flex items-center justify-between gap-2 mb-1">
@@ -389,7 +390,7 @@ export function AgentPanel(props: { slug: string }) {
                       {(model) => <span class="text-xs px-2 py-0.5 rounded-full bg-surface-3 text-muted-foreground border border-border">{model}</span>}
                     </For>
                   </div>
-                </button>
+                </Button>
               )}
             </For>
           </div>

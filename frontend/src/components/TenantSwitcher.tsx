@@ -3,6 +3,8 @@ import { cn } from '../lib/cn'
 import type { TenantSummary } from '../lib/types'
 import { Popover, PopoverAnchor, PopoverContent } from './ui/popover'
 import { ScrollArea } from './ui/scroll-area'
+import { Button } from './ui/button'
+import { Input } from './ui/input'
 
 const healthDot = (tenant: TenantSummary) => {
   if (tenant.status === 'suspended') return 'bad'
@@ -78,7 +80,7 @@ export function TenantSwitcher(props: {
     sameWidth
   >
     <PopoverAnchor>
-      <button type="button" class={cn('flex w-full items-center gap-2 rounded-md py-2 text-left text-sm hover:bg-surface-1 transition-colors', props.collapsed ? 'justify-center' : 'px-2')} onClick={() => props.onToggle()} title={current()?.displayName} aria-expanded={props.open} aria-haspopup="dialog" aria-label="Select tenant">
+      <Button type="button" variant="ghost" class={cn('h-auto w-full justify-start gap-2 whitespace-normal rounded-md py-2 text-left text-sm font-normal', props.collapsed ? 'justify-center px-0' : 'px-2')} onClick={() => props.onToggle()} title={current()?.displayName} aria-expanded={props.open} aria-haspopup="dialog" aria-label="Select tenant">
         <Show when={current()} fallback={<span class="w-2 h-2 rounded-full bg-muted-foreground flex-shrink-0" />}>
           {t => <span class={cn('w-2 h-2 rounded-full flex-shrink-0', dotClass[healthDot(t())])} />}
         </Show>
@@ -86,12 +88,12 @@ export function TenantSwitcher(props: {
           <span class="flex-1 truncate font-medium text-foreground">{current()?.displayName ?? 'Select tenant'}</span>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class={cn('text-muted-foreground transition-transform', props.open && 'rotate-180')} aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
         </Show>
-      </button>
+      </Button>
     </PopoverAnchor>
     <PopoverContent showClose={false} class="w-[var(--kb-popper-anchor-width)] min-w-56 rounded-md border-border bg-popover p-0 shadow-lg">
       <Show when={props.tenants.length > 5}>
-        <input
-          class="w-full border-b border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+        <Input
+          class="h-auto w-full rounded-none border-0 border-b bg-transparent px-3 py-2 focus-visible:ring-0 focus-visible:ring-offset-0"
           placeholder="Filter tenants…"
           aria-label="Filter tenants"
           value={search()}
@@ -103,11 +105,12 @@ export function TenantSwitcher(props: {
       <ScrollArea class="max-h-80">
         <div role="group" aria-label="Tenants" onKeyDown={onListKeyDown}>
           <For each={filtered()}>{tenant => (
-            <button
+            <Button
               type="button"
+              variant="ghost"
               data-tenant-item
               aria-current={tenant.slug === props.currentSlug ? 'true' : undefined}
-              class={cn('flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-surface-1 transition-colors', tenant.slug === props.currentSlug && 'bg-surface-1')}
+              class={cn('h-auto w-full justify-start gap-2 whitespace-normal px-3 py-2 text-left text-sm font-normal', tenant.slug === props.currentSlug && 'bg-surface-1')}
               onClick={() => { props.onClose(); props.onSelect(tenant.slug) }}
             >
               <span class={cn('w-2 h-2 rounded-full flex-shrink-0', dotClass[healthDot(tenant)])} />
@@ -115,7 +118,7 @@ export function TenantSwitcher(props: {
                 <strong class="truncate text-foreground">{tenant.displayName}</strong>
                 <small class="text-xs text-muted-foreground">{tenant.slug} · {healthLabel(tenant)}</small>
               </span>
-            </button>
+            </Button>
           )}</For>
           <Show when={filtered().length === 0}>
             <div class="px-3 py-4 text-sm text-muted-foreground">No tenants match “{search()}”.</div>

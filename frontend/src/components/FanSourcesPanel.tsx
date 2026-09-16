@@ -435,10 +435,11 @@ export function FanSourcesPanel(props: {
               providers — a lead-ads export, a pasted batch, a URL the label
               publishes — is still a place fans arrive from, and there was
               nowhere in this grid that said so. */}
-          <button
+          <Button
+            writes
             type="button"
             onClick={() => { setCreating(true); setNotice(null); setErrorText(null) }}
-            class="flex flex-col gap-2 border border-dashed border-border bg-transparent p-4 text-left transition-colors hover:border-border-strong hover:bg-surface-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            class="h-auto w-full flex-col items-stretch gap-2 whitespace-normal border border-dashed border-border bg-transparent p-4 text-left font-normal hover:border-border-strong hover:bg-surface-1"
           >
             <div class="flex items-center gap-3">
               <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground">
@@ -447,7 +448,7 @@ export function FanSourcesPanel(props: {
               <span class="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">Add another source</span>
             </div>
             <p class="m-0 text-xs leading-relaxed text-muted-foreground">A URL, a pasted batch, or an import you run by hand</p>
-          </button>
+          </Button>
         </div>
       </Show>
     </Section>

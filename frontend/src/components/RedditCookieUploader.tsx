@@ -6,6 +6,8 @@ import { toast } from './ui/toast'
 import { cn } from '../lib/cn'
 import { ErrorCard } from './layout'
 import { Button } from './ui/button'
+import { READ_ONLY_REASON, readOnly } from '../lib/read-only'
+import { FileInput } from './ui/file-input'
 
 /**
  * Reddit Cookie Uploader — lets an operator refresh Reddit session cookies
@@ -196,8 +198,8 @@ export function RedditCookieUploader(props: { slug: string }) {
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
       >
-        <label class="cursor-pointer flex flex-col gap-2 items-center">
-          <input type="file" accept=".txt,text/plain" onChange={onFileInput} disabled={upload.isPending} class="absolute w-px h-px opacity-0 pointer-events-none" />
+        <label class={cn('cursor-pointer flex flex-col gap-2 items-center', readOnly() && 'pointer-events-none opacity-45')} title={readOnly() ? READ_ONLY_REASON : undefined}>
+          <FileInput writes accept=".txt,text/plain" onChange={onFileInput} disabled={upload.isPending} />
           <span class={cn(
             'inline-block px-5 py-2 rounded-lg bg-primary-solid text-primary-on font-semibold text-sm cursor-pointer transition-opacity hover:opacity-85',
             upload.isPending && 'opacity-50 cursor-wait',

@@ -8,6 +8,8 @@ import { SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
+import { READ_ONLY_REASON, readOnly } from '../lib/read-only'
+import { FileInput } from './ui/file-input'
 import { Input } from './ui/input'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
 import { NativeSelect } from './ui/native-select'
@@ -16,7 +18,6 @@ import { buttonVariants } from './ui/button'
 import { cn } from '../lib/cn'
 import { EmptyState } from './ui/empty-state'
 import { ErrorCard, PanelTitle } from './layout'
-import { writeGuard } from '../lib/read-only'
 
 // The beacon roster, and everything you can do to it.
 //
@@ -252,17 +253,15 @@ export function BeaconConsolePanel(props: { slug: string }) {
           </Show>
           <label
             class={cn(buttonVariants({ variant: 'ghost' }), 'cursor-pointer')}
-            classList={{ 'pointer-events-none opacity-45': busy() !== null }}
-            title="Upload a SubmitHub Activity CSV. Curators who approved or shared become unverified beacons — enrich contact info from the chats, then approve."
+            classList={{ 'pointer-events-none opacity-45': busy() !== null || readOnly() }}
+            title={readOnly() ? READ_ONLY_REASON : "Upload a SubmitHub Activity CSV. Curators who approved or shared become unverified beacons — enrich contact info from the chats, then approve."}
           >
             {busy() === 'submithub' && <Spinner />} {busy() === 'submithub' ? 'Importing…' : 'Import SubmitHub CSV'}
-            <input
-              type="file"
+            <FileInput
+              writes
               accept=".csv,text/csv"
-              style={{ display: 'none' }}
               disabled={busy() !== null}
               onChange={importSubmithub}
-              {...writeGuard()}
             />
           </label>
           <Button writes variant={adding() ? 'ghost' : 'default'} size="sm" onClick={() => setAdding(value => !value)}>
@@ -421,7 +420,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
                           </Button>
                         </Show>
                         <Show when={profile.status !== 'unverified' && profile.status !== 'revoked'}>
-                          <Button variant="destructive-ghost" size="sm" disabled={busy() !== null}
+                          <Button writes variant="destructive-ghost" size="sm" disabled={busy() !== null}
                                   onClick={() => setState(profile.beaconId, 'revoked')}>
                             {busy() === `state:${profile.beaconId}` && <Spinner />} Revoke
                           </Button>

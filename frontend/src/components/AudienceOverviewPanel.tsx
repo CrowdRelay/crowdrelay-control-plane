@@ -6,7 +6,7 @@ import { EmptyState } from './ui/empty-state'
 import { KpiValue } from './KpiValue'
 import { KpiStrip, KpiCard } from './layout'
 import { Card } from './ui/card'
-import { buttonVariants } from './ui/button'
+import { Button, buttonVariants } from './ui/button'
 
 const fmt = (value: number | undefined) => value == null ? '—' : compactNumber(value)
 
@@ -44,8 +44,8 @@ export function AudienceOverviewPanel(props: { slug: string; overview?: Audience
               {/* Fan sources and communities live on this page's other tabs —
                   in-memory tab state means no href can reach them, so these
                   are buttons wired to the page's switchTab, not Links. */}
-              <button type="button" class={buttonVariants({ size: 'sm' })} onClick={() => props.onGoSources?.()}>Connect a fan source</button>
-              <button type="button" class={buttonVariants({ variant: 'outline', size: 'sm' })} onClick={() => props.onGoCommunities?.()}>Work the communities queue</button>
+              <Button type="button" size="sm" onClick={() => props.onGoSources?.()}>Connect a fan source</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => props.onGoCommunities?.()}>Work the communities queue</Button>
               <Link class={buttonVariants({ variant: 'outline', size: 'sm' })} to="/tenants/$slug/beacons" params={{ slug: props.slug }}>Add beacons</Link>
             </div>
           </div>

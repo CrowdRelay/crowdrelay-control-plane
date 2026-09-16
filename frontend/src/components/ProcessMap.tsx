@@ -1,5 +1,6 @@
 import { For, Show } from 'solid-js'
 import { useNavigate } from '@tanstack/solid-router'
+import { Button } from './ui/button'
 
 type Zone = 'src' | 'intel' | 'auth' | 'exec' | 'out' | 'learn'
 
@@ -181,15 +182,16 @@ export function ProcessMap(props: { slug: () => string }) {
                     <Show when={node.desc}><span class="text-xs text-muted-foreground">— {node.desc}</span></Show>
                   </div>
                 }>
-                  <button
+                  <Button
                     type="button"
-                    class="flex items-center gap-2 px-2 py-1.5 text-left text-sm text-foreground rounded-md hover:bg-surface-1 transition-colors"
+                    variant="ghost"
+                    class="h-auto w-full justify-start gap-2 whitespace-normal px-2 py-1.5 text-left text-sm font-normal text-foreground"
                     onClick={() => open(node)}
                   >
                     <span class="text-muted-foreground">•</span>
                     <span>{node.title}</span>
                     <Show when={node.desc}><span class="text-xs text-muted-foreground">— {node.desc}</span></Show>
-                  </button>
+                  </Button>
                 </Show>
               )}</For>
             </div>

@@ -119,6 +119,7 @@ export function ConfirmHost(): JSX.Element {
                   {request.cancelLabel ?? 'Cancel'}
                 </Button>
                 <Button
+                  writes
                   type="button"
                   variant={request.destructive ? 'destructive' : 'default'}
                   size="sm"

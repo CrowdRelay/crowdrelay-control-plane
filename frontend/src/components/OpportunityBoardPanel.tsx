@@ -73,13 +73,14 @@ function Recipients(props: { addresses: string[] }) {
       <Show when={hidden() > 0}>
         {' '}
         <Show when={!expanded()}>…{' '}</Show>
-        <button
+        <Button
           type="button"
-          class="text-primary underline-offset-2 hover:underline"
+          variant="link"
+          class="h-auto p-0 text-primary underline-offset-2"
           onClick={() => setExpanded(v => !v)}
         >
           {expanded() ? 'show fewer' : `(${hidden()} more)`}
-        </button>
+        </Button>
       </Show>
     </span>
   )

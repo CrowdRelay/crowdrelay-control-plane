@@ -56,6 +56,15 @@ HEX_EXEMPT_FILES = {
 SKELETON_RE = re.compile(r"skeleton", re.IGNORECASE)
 
 
+COMMENT = re.compile(r"//[^\n]*|/\*.*?\*/", re.DOTALL)
+
+
+def strip_comments(text: str) -> str:
+    # `{/* */}` JSX comments and `//` lines can name elements (`<button>`
+    # appears in two of them today); counting markup means scanning markup.
+    return COMMENT.sub(" ", text)
+
+
 def tsx_files() -> list[Path]:
     return sorted(p for p in SRC.rglob("*.tsx") if p.is_file())
 
@@ -83,7 +92,7 @@ def measure() -> dict[str, int]:
         if not in_ui(path) and rel not in HEX_EXEMPT_FILES:
             hex_count += len(HEX.findall(text))
         if not in_ui(path):
-            raw_elements += len(RAW_ELEMENT.findall(text))
+            raw_elements += len(RAW_ELEMENT.findall(strip_comments(text)))
 
     # lib/*.ts carries hex too (qrCode.ts today).
     for path in sorted(SRC.rglob("*.ts")):

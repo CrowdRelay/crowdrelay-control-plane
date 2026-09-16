@@ -10,7 +10,7 @@ import { StatusBadge } from './StatusBadge'
 import { SkeletonSection } from './Skeleton'
 import { Card } from './ui/card'
 import { Badge } from './ui/badge'
-import { writeGuard } from '../lib/read-only'
+import { Button } from './ui/button'
 
 // `/operations/posture` reads and writes, and nothing in the console called
 // the writer: the one dial that moves all 22 authority policies together could
@@ -119,19 +119,20 @@ export function GrowthPosturePanel(props: { slug: string }) {
       </Show>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3" role="radiogroup" aria-label="Growth posture">
         <For each={POSTURES}>{option => (
-          <button
+          <Button
+            writes
             type="button"
             role="radio"
             aria-checked={current() === option.value}
             title={`${option.label}: ${option.summary}`}
-            class="text-left p-4 border rounded-lg transition-colors cursor-pointer hover:border-primary/40 flex flex-col gap-1.5"
+            variant="outline"
+            class="h-auto w-full flex-col items-stretch justify-start gap-1.5 whitespace-normal p-4 text-left font-normal"
             classList={{
               'border-primary bg-primary/5': current() === option.value,
               'border-border bg-card': current() !== option.value,
             }}
             disabled={apply.isPending}
             onClick={() => choose(option.value)}
-            {...writeGuard()}
           >
             <span class="flex items-center gap-2 flex-wrap">
               <strong class="text-foreground">{option.label}</strong>
@@ -140,7 +141,7 @@ export function GrowthPosturePanel(props: { slug: string }) {
             </span>
             <span class="text-sm text-secondary-foreground">{option.summary}</span>
             <span class="text-sm text-muted-foreground leading-relaxed">{option.detail}</span>
-          </button>
+          </Button>
         )}</For>
       </div>
       <Show when={posture.data?.set_at}>
