@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { errorMessage } from '../lib/format'
-import type { FanbaseBlock } from '../lib/types'
+import type { FanbaseBlock, FanbaseConnection, ScanScope } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { FanbaseIcon } from './ProviderIcon'
 import { SkeletonRows } from './Skeleton'
@@ -316,6 +316,126 @@ export function FanSourcesPanel(props: {
     }
   }
 
+  // --- Scan scope (Drive/Gmail) ---
+  //
+  // A scan-capable connection reads nothing until the operator says what it
+  // may read — `scan_scope` null is not "everything", it is "not asked yet".
+  // The tile names the current boundary in the operator's words and the
+  // picker is the question, asked plainly.
+
+  type ScopeKind = 'whole_account' | 'folder' | 'shared_drive' | 'sent_only' | 'label' | 'since'
+
+  const SCOPE_KINDS: Record<string, { value: ScopeKind; label: string }[]> = {
+    gdrive: [
+      { value: 'folder', label: 'A folder' },
+      { value: 'shared_drive', label: 'A shared drive' },
+      { value: 'since', label: 'Files changed since a date' },
+      { value: 'whole_account', label: 'Everything it can see' },
+    ],
+    gmail: [
+      { value: 'label', label: 'One label' },
+      { value: 'sent_only', label: 'Mail you sent' },
+      { value: 'since', label: 'Mail since a date' },
+      { value: 'whole_account', label: 'The whole mailbox' },
+    ],
+  }
+
+  const SCOPE_HINT: Record<ScopeKind, string> = {
+    folder: 'One folder and everything inside it. Paste its id — the part after /folders/ in its address.',
+    shared_drive: 'One shared drive. Paste its id — the part after /drive/folders/ in its address.',
+    sent_only: 'Only mail the account sent — the people the band actually wrote to.',
+    label: 'One label, exactly as it appears in Gmail.',
+    since: 'Anything newer than the date — mail arrives or files change after it.',
+    whole_account: 'Everything the account can reach. The broadest choice — pick it on purpose.',
+  }
+
+  const describeScope = (scope: NonNullable<FanbaseConnection['scan_scope']>): string => {
+    switch (scope.kind) {
+      case 'whole_account': return 'everything it can see'
+      case 'folder': return `${scope.folder_ids?.length ?? 1} folder${(scope.folder_ids?.length ?? 1) > 1 ? 's' : ''}`
+      case 'shared_drive': return 'one shared drive'
+      case 'sent_only': return 'mail you sent'
+      case 'label': return `label “${scope.label}”`
+      case 'since': return `since ${scope.since}`
+      default: return 'a chosen scope'
+    }
+  }
+
+  const [scopeEditing, setScopeEditing] = createSignal<string | null>(null)
+  const [scopeKind, setScopeKind] = createSignal<ScopeKind>('folder')
+  const [scopeValue, setScopeValue] = createSignal('')
+  const [scopeSaving, setScopeSaving] = createSignal(false)
+
+  const openScopeEditor = (conn: FanbaseConnection) => {
+    setScopeEditing(conn.id)
+    const kinds = SCOPE_KINDS[conn.platform] ?? []
+    setScopeKind((conn.scan_scope?.kind as ScopeKind) ?? kinds[0]?.value ?? 'whole_account')
+    const existing = conn.scan_scope
+    setScopeValue(
+      existing?.kind === 'folder' ? (existing.folder_ids ?? []).join(', ')
+      : existing?.kind === 'shared_drive' ? (existing.drive_id ?? '')
+      : existing?.kind === 'label' ? (existing.label ?? '')
+      : existing?.kind === 'since' ? (existing.since ?? '')
+      : '',
+    )
+  }
+
+  const saveScope = async (conn: FanbaseConnection) => {
+    setScopeSaving(true)
+    setErrorText(null)
+    setNotice(null)
+    try {
+      const kind = scopeKind()
+      let scope: ScanScope
+      if (kind === 'folder') {
+        const ids = scopeValue().split(',').map(v => v.trim()).filter(Boolean)
+        if (ids.length === 0) throw new Error('Paste at least one folder id.')
+        scope = { kind, folder_ids: ids }
+      } else if (kind === 'shared_drive') {
+        if (!scopeValue().trim()) throw new Error('Paste the shared drive id.')
+        scope = { kind, drive_id: scopeValue().trim() }
+      } else if (kind === 'label') {
+        if (!scopeValue().trim()) throw new Error('Type the label name.')
+        scope = { kind, label: scopeValue().trim() }
+      } else if (kind === 'since') {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(scopeValue().trim())) throw new Error('Use the date format YYYY-MM-DD.')
+        scope = { kind, since: scopeValue().trim() }
+      } else if (kind === 'sent_only') {
+        scope = { kind }
+      } else if (kind === 'whole_account') {
+        scope = { kind }
+      } else {
+        // Every kind is named — a catch-all that guessed whole_account would
+        // widen the read boundary behind the operator's back.
+        throw new Error('That scope is not one this connection understands.')
+      }
+      await api.updateFanbaseConnectionScanScope(props.slug, conn.id, scope)
+      setNotice(`${conn.label} now reads ${describeScope(scope)}.`)
+      setScopeEditing(null)
+      connections.refetch()
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'Could not save the scope')
+    } finally {
+      setScopeSaving(false)
+    }
+  }
+
+  const stopScope = async (conn: FanbaseConnection) => {
+    setScopeSaving(true)
+    setErrorText(null)
+    setNotice(null)
+    try {
+      await api.updateFanbaseConnectionScanScope(props.slug, conn.id, null)
+      setNotice(`${conn.label} reads nothing until you choose a scope.`)
+      setScopeEditing(null)
+      connections.refetch()
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'Could not update the scope')
+    } finally {
+      setScopeSaving(false)
+    }
+  }
+
   const connect = useMutation(() => ({
     mutationFn: async () => {
       const spec = connecting()
@@ -429,6 +549,56 @@ export function FanSourcesPanel(props: {
                     {conn()!.last_sync_failed_at ? ` (${formatAge(conn()!.last_sync_failed_at!)})` : ''}
                     : {conn()!.last_sync_error}
                   </p>
+                </Show>
+                {/* A scan-capable connection names what it reads. Nothing
+                    scans until this is answered — an unset scope is a stopped
+                    scan, and the tile says that instead of hiding it. */}
+                <Show when={conn() && SCOPE_KINDS[conn()!.platform]}>
+                  <div class="flex flex-col gap-2 border-t border-border pt-2">
+                    <div class="flex items-center justify-between gap-2">
+                      <p class="m-0 text-xs leading-relaxed text-muted-foreground">
+                        <Show when={conn()!.scan_scope} fallback={<>Reads nothing yet — say what it may read.</>}>
+                          Reads {describeScope(conn()!.scan_scope!)}.
+                        </Show>
+                      </p>
+                      <Button writes variant="outline" size="sm" class="shrink-0" onClick={() => scopeEditing() === conn()!.id ? setScopeEditing(null) : openScopeEditor(conn()!)}>
+                        {scopeEditing() === conn()!.id ? 'Close' : 'Change'}
+                      </Button>
+                    </div>
+                    <Show when={scopeEditing() === conn()!.id}>
+                      <div class="flex flex-col gap-2">
+                        <NativeSelect
+                          value={scopeKind()}
+                          onChange={e => setScopeKind(e.currentTarget.value as ScopeKind)}
+                        >
+                          <For each={SCOPE_KINDS[conn()!.platform]}>{k => <option value={k.value}>{k.label}</option>}</For>
+                        </NativeSelect>
+                        <p class="m-0 text-xs leading-relaxed text-muted-foreground">{SCOPE_HINT[scopeKind()]}</p>
+                        <Show when={scopeKind() === 'folder' || scopeKind() === 'shared_drive' || scopeKind() === 'label' || scopeKind() === 'since'}>
+                          <Input
+                            value={scopeValue()}
+                            onInput={e => setScopeValue(e.currentTarget.value)}
+                            placeholder={
+                              scopeKind() === 'folder' ? 'Folder id — several, comma-separated'
+                              : scopeKind() === 'shared_drive' ? 'Shared drive id'
+                              : scopeKind() === 'label' ? 'Label name'
+                              : 'YYYY-MM-DD'
+                            }
+                          />
+                        </Show>
+                        <div class="flex items-center gap-2">
+                          <Button writes size="sm" disabled={scopeSaving()} onClick={() => saveScope(conn()!)}>
+                            {scopeSaving() ? 'Saving…' : 'Save'}
+                          </Button>
+                          <Show when={conn()!.scan_scope}>
+                            <Button writes variant="destructive-ghost" size="sm" disabled={scopeSaving()} onClick={() => stopScope(conn()!)}>
+                              Read nothing
+                            </Button>
+                          </Show>
+                        </div>
+                      </div>
+                    </Show>
+                  </div>
                 </Show>
                 <Show when={conn()}>
                   <div class="mt-auto pt-1">

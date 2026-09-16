@@ -1244,7 +1244,22 @@ export interface FanbaseConnection {
   /// sync succeeds.
   last_sync_error: string | null
   last_sync_failed_at: string | null
+  /// The tenant's chosen read boundary for scan-capable connections
+  /// (gdrive, gmail). `null` means the question was never answered — the
+  /// connector scans nothing, and the tile says so rather than pretending.
+  scan_scope: ScanScope | null
   created_at: string
+}
+
+/// What a scan-capable connection may read. The vocabulary is per-platform —
+/// a Drive folder means nothing to Gmail — and the union lists every shape so
+/// the panel can render any of them without knowing which platform stored it.
+export interface ScanScope {
+  kind: 'whole_account' | 'folder' | 'shared_drive' | 'sent_only' | 'label' | 'since'
+  folder_ids?: string[]
+  drive_id?: string
+  label?: string
+  since?: string
 }
 
 /// Result of a connection creation with provider probe verification.

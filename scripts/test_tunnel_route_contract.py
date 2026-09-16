@@ -45,7 +45,7 @@ def extract_rust_allowlist(text: str) -> dict[str, set[str]]:
     separately by the Rust unit tests.
     """
     result: dict[str, set[str]] = {}
-    for method in ("GET", "POST", "DELETE"):
+    for method in ("GET", "POST", "PATCH", "DELETE"):
         # Find the method block
         method_pattern = rf'"({method})" => \{{'
         method_match = re.search(method_pattern, text)

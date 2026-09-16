@@ -150,6 +150,10 @@ pub fn router() -> Router<AppState> {
             axum::routing::delete(delete_fanbase_connection),
         )
         .route(
+            "/tenants/{slug}/portfolio/fanbases/connections/{connection_id}/scan-scope",
+            axum::routing::patch(update_fanbase_connection_scan_scope),
+        )
+        .route(
             "/tenants/{slug}/portfolio/connections/discord",
             post(create_discord_connection),
         )
@@ -2093,6 +2097,30 @@ async fn delete_fanbase_connection(
     uuid_segment(&connection_id)?;
     let path = format!("/v1/control-plane/fanbases/connections/{connection_id}");
     let _ = call(&state, &slug, "DELETE", &path, None, &headers, None).await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    Ok(StatusCode::NO_CONTENT.into_response())
+}
+
+/// The tenant's chosen read boundary for the scan-capable connections
+/// (Drive folders, a shared drive, a Gmail label, sent mail, a date, or the
+/// whole account). The body is `{"scope": {...} | null}` — null unsets,
+/// which stops the scan entirely. Validation of the per-platform vocabulary
+/// lives upstream; the proxy checks only that the body carries `scope`.
+async fn update_fanbase_connection_scan_scope(
+    State(state): State<AppState>,
+    Path((slug, connection_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    body: axum::Json<serde_json::Value>,
+) -> Result<Response, ApiError> {
+    uuid_segment(&connection_id)?;
+    let value = body.0;
+    if !value.is_object() || !value.get("scope").is_some_and(|s| s.is_object() || s.is_null()) {
+        return Err(ApiError::InvalidInput(
+            "scope must be an object or null".to_owned(),
+        ));
+    }
+    let path = format!("/v1/control-plane/fanbases/connections/{connection_id}/scan-scope");
+    let _ = call(&state, &slug, "PATCH", &path, Some(&value), &headers, None).await?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     Ok(StatusCode::NO_CONTENT.into_response())
 }

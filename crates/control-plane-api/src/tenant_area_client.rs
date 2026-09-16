@@ -663,6 +663,16 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || fan_tag_path(path)
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/referral-code")
         }
+        "PATCH" => {
+            // The connection's scan boundary — the tenant choosing what the
+            // Drive/Gmail scan may read. PATCH has one narrow path and gets
+            // one narrow arm.
+            uuid_segment_between(
+                path,
+                "/v1/control-plane/fanbases/connections/",
+                "/scan-scope",
+            )
+        }
         "DELETE" => {
             uuid_segment_between(path, "/v1/control-plane/fanbases/", "")
                 || uuid_segment_between(path, "/v1/control-plane/fanbases/connections/", "")
@@ -1316,9 +1326,16 @@ fn parse_response(raw: &[u8]) -> Result<Value, ApiError> {
             .unwrap_or("upstream rejected the change");
         Err(ApiError::Conflict(reason.to_owned()))
     } else if matches!(status, 400 | 422) {
-        Err(ApiError::InvalidInput(
-            error_code(&value).unwrap_or("AREA_INVALID").to_owned(),
-        ))
+        // Same problem shape as the 409 arm: the reason the operator needs
+        // ("that scope does not exist for this platform") is in `detail`,
+        // never in a machine `code` field CrowdRelay does not emit.
+        let reason = value
+            .get("detail")
+            .and_then(Value::as_str)
+            .or_else(|| value.get("title").and_then(Value::as_str))
+            .or_else(|| error_code(&value))
+            .unwrap_or("AREA_INVALID");
+        Err(ApiError::InvalidInput(reason.to_owned()))
     } else {
         Err(ApiError::UpstreamError(status))
     }
@@ -1515,6 +1532,24 @@ mod tests {
         assert!(valid_operations_request(
             "GET",
             "/v1/control-plane/ops/operations/request-1234"
+        ));
+        // The scan-scope write is the allowlist's only PATCH — pinned both
+        // directions so a future arm edit can't silently widen or drop it.
+        assert!(valid_operations_request(
+            "PATCH",
+            &format!("/v1/control-plane/fanbases/connections/{id}/scan-scope")
+        ));
+        assert!(!valid_operations_request(
+            "PATCH",
+            "/v1/control-plane/fanbases/connections"
+        ));
+        assert!(!valid_operations_request(
+            "PATCH",
+            &format!("/v1/control-plane/fanbases/connections/{id}/scan-scope/extra")
+        ));
+        assert!(!valid_operations_request(
+            "PATCH",
+            &format!("/v1/control-plane/fanbases/connections/{id}")
         ));
         for path in [
             "/v1/control-plane/ops/deliveries/dead/clear",
