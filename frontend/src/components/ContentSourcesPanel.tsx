@@ -22,6 +22,7 @@ const KIND_LABEL: Record<ContentSourceKind, string> = {
   show_completed: 'Past show',
   video: 'Video',
   story: 'Story',
+  social_post: 'Band post',
 }
 
 const KIND_HINT: Record<ContentSourceKind, string> = {
@@ -30,6 +31,7 @@ const KIND_HINT: Record<ContentSourceKind, string> = {
   story: 'A real thing that happened, written the way you would tell it. The writer may retell it but can never extend it.',
   event: 'A show or event worth announcing.',
   show_completed: 'A show that already happened — recap material.',
+  social_post: 'A post the band published on an owned account — synced automatically, or file one by hand.',
 }
 
 // Events, releases and past shows are news: they stay shareable for a
@@ -50,6 +52,20 @@ const fmtDate = (iso: string) => {
   const d = new Date(iso)
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
+
+// The artifact keys are ContentArtifactKind serde keys — same labels the
+// domain's `label()` returns, so the panel reads like the record.
+const ARTIFACT_LABEL: Record<string, string> = {
+  signal_push: 'Signal push',
+  newsletter_block: 'Newsletter block',
+  social_feed: 'Social feed',
+  social_story: 'Social story',
+  live_listing: 'Live listing',
+  press_hook: 'Press hook',
+  post_show_recap: 'Post-show recap',
+}
+
+const sendLabel = (artifact: string) => ARTIFACT_LABEL[artifact] ?? artifact
 
 const sourceUrl = (s: ContentSourceView): string | undefined => {
   const url = s.metadata?.url
@@ -91,7 +107,10 @@ export function ContentSourcesPanel(props: { slug: string }) {
   }))
 
   const needsLink = () => kind() === 'video' || kind() === 'release'
-  const needsBody = () => kind() === 'story'
+  // A story is nothing without the words; a hand-filed post likewise. Editing
+  // a synced post is different — a captionless IG post must not force the
+  // operator to invent body text the band never wrote.
+  const needsBody = () => kind() === 'story' || (kind() === 'social_post' && !editing())
 
   const openAdd = () => {
     setEditing(null)
@@ -239,6 +258,15 @@ export function ContentSourcesPanel(props: { slug: string }) {
                 <Show when={!isLive(s)}> · retired</Show>
               </div>
               <Show when={sourceBody(s)}>{(b) => <p class="mt-1 line-clamp-2 text-xs text-muted-foreground">{b()}</p>}</Show>
+              <Show when={s.sends.length > 0}>
+                <ul class="mt-1.5 space-y-0.5 text-xs text-muted-foreground">
+                  <For each={s.sends}>{(send) => (
+                    <li>
+                      {sendLabel(send.artifact)} · {send.emitted_at ? `sent ${fmtDate(send.emitted_at)}` : send.status}
+                    </li>
+                  )}</For>
+                </ul>
+              </Show>
             </div>
             <Button variant="ghost" size="sm" writes onClick={() => openEdit(s)}>Edit</Button>
           </div>

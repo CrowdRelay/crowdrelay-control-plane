@@ -2678,7 +2678,7 @@ async fn upsert_content_source(
 ) -> Result<Response, ApiError> {
     let valid = matches!(
         input.source_kind.as_str(),
-        "event" | "release" | "show_completed" | "video" | "story"
+        "event" | "release" | "show_completed" | "video" | "story" | "social_post"
     ) && !input.source_key.trim().is_empty()
         && input.source_key.len() <= 200
         && !input.title.trim().is_empty()
