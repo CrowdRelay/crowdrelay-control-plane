@@ -22,11 +22,10 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByRole('button', { name: 'Sign in' }).click()
   // After login, the shell redirects to the operator's default tenant's
-  // Operations page — the worklist, not the profile. Verify the landing by
-  // URL and heading rather than the tenant name (which lives in the header
-  // of the profile page, not here).
-  await expect(page).toHaveURL(/\/tenants\/[^/]+\/operations/)
-  await expect(page.getByRole('heading', { name: 'Operations' })).toBeVisible()
+  // Attention page — the decision queue is the worklist (UX-3.2). Verify the
+  // landing by URL and heading rather than the tenant name.
+  await expect(page).toHaveURL(/\/tenants\/[^/]+\/attention/)
+  await expect(page.getByRole('heading', { name: 'Operator Attention' })).toBeVisible()
 
   await page.getByRole('link', { name: 'Tenants' }).first().click()
   await expect(page.getByRole('heading', { name: 'Teams on the platform' })).toBeVisible()
