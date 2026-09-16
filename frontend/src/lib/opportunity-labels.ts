@@ -28,6 +28,7 @@ export const CONTEXT_LABELS: Record<string, string> = {
   outreach_supply: 'Outreach Supply',
   growth_intelligence: 'Growth Intelligence',
   plays: 'Plays',
+  content_strategy: 'Content Strategy',
 }
 
 export const DECISION_KIND_LABELS: Record<string, string> = {
@@ -69,6 +70,11 @@ export const DECISION_KIND_LABELS: Record<string, string> = {
   'agent.run.request': 'Agent Run',
   'community.engage.request': 'Community Engagement',
   'signal.push.request': 'Signal Push',
+  'content.suggestion.raise': 'Content Suggestion',
+  // The board resolves labels by `decision_kind`, which the wire carries
+  // snake_case; other callers pass the dotted `action_kind`. Both spellings
+  // must resolve or the label never renders.
+  raise_content_suggestion: 'Content Suggestion',
 }
 
 export const SUBJECT_KIND_LABELS: Record<string, string> = {
@@ -90,6 +96,7 @@ export const SUBJECT_KIND_LABELS: Record<string, string> = {
   outreach_target: 'Outreach Target',
   target_community: 'Community',
   workspace: 'Setup',
+  content_suggestion: 'Content Suggestion',
   // Written by an LLM worker rather than by the deterministic brain. The
   // fallback title-cased this to "Agent Outcome", which names a row in a
   // table; this names where the suggestion came from.
@@ -192,4 +199,8 @@ export const APPROVE_EFFECT: Record<string, string> = {
   'content.artifact.request': 'Drafts the content. Nothing is published.',
   'agent.content.request': 'Drafts the content. Nothing is published.',
   'community.engage.request': 'Posts to the community.',
+  'content.suggestion.raise': 'Commits the band to this beat. Nothing is published.',
+  // Resolved by `decision_kind` (snake_case) on the board — see the note on
+  // DECISION_KIND_LABELS.
+  raise_content_suggestion: 'Commits the band to this beat. Nothing is published.',
 }
