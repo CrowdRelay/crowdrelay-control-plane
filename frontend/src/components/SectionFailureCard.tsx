@@ -75,7 +75,7 @@ export function SectionFailureCard(props: { error: unknown; fallback: string; on
                 <span class={cn(
                   'text-xs px-2 py-0.5 rounded-md font-semibold whitespace-nowrap',
                   stateTone(verdict.state) === 'bad' && 'bg-destructive/15 text-destructive',
-                  stateTone(verdict.state) === 'warn' && 'bg-warning-foreground text-warning-foreground',
+                  stateTone(verdict.state) === 'warn' && 'bg-warning-foreground/10 text-warning-foreground',
                   stateTone(verdict.state) === 'muted' && 'bg-accent text-muted-foreground',
                 )}>{stateLabel[verdict.state] ?? verdict.state}</span>
                 <Show when={verdict.remediation}>

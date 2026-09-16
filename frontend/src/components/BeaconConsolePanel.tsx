@@ -442,7 +442,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
 
       <Show when={notice()}>
         {value => <p class="rounded-lg border p-4 text-sm" classList={{
-          'border-success-foreground/30 bg-success-foreground text-success-foreground': value().tone === 'good',
+          'border-success-foreground/30 bg-success-foreground/10 text-success-foreground': value().tone === 'good',
           'border-destructive/30 bg-destructive/10 text-destructive': value().tone === 'bad',
         }}>{value().message}</p>}
       </Show>

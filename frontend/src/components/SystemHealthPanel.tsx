@@ -207,7 +207,7 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
       <Show when={notice()}>
         {value => (
           <p
-            class={`mt-3 rounded-lg border p-4 text-sm ${value().tone === 'good' ? 'border-success-foreground/30 bg-success-foreground text-success-foreground' : 'border-destructive/30 bg-destructive/10 text-destructive'}`}
+            class={`mt-3 rounded-lg border p-4 text-sm ${value().tone === 'good' ? 'border-success-foreground/30 bg-success-foreground/10 text-success-foreground' : 'border-destructive/30 bg-destructive/10 text-destructive'}`}
           >
             {value().message}
           </p>

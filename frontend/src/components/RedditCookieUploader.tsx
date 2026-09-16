@@ -108,8 +108,8 @@ export function RedditCookieUploader(props: { slug: string }) {
   const statusLabel = createMemo(() => {
     const s = status.data?.status
     if (!s || s === 'missing') return { text: 'No cookies stored', class: '' }
-    if (s === 'active') return { text: 'Active', class: 'bg-success-foreground text-success-foreground border-success-foreground/20' }
-    if (s === 'expired') return { text: 'Expired', class: 'bg-warning-foreground text-warning-foreground border-warning-foreground/20' }
+    if (s === 'active') return { text: 'Active', class: 'bg-success-foreground/10 text-success-foreground border-success-foreground/20' }
+    if (s === 'expired') return { text: 'Expired', class: 'bg-warning-foreground/10 text-warning-foreground border-warning-foreground/20' }
     if (s === 'failed') return { text: 'Failed', class: 'bg-destructive/15 text-destructive border-destructive/20' }
     return { text: s, class: '' }
   })
@@ -148,7 +148,7 @@ export function RedditCookieUploader(props: { slug: string }) {
       </Show>
 
       <Show when={status.data?.status === 'expired'}>
-        <div class="p-4 my-3 border border-warning-foreground/30 rounded-lg bg-warning-foreground text-warning-foreground leading-relaxed">
+        <div class="p-4 my-3 border border-warning-foreground/30 rounded-lg bg-warning-foreground/10 text-warning-foreground leading-relaxed">
           Cookies have expired. Upload a fresh <code>cookies.txt</code> to restore Reddit feeds.
         </div>
       </Show>
@@ -170,7 +170,7 @@ export function RedditCookieUploader(props: { slug: string }) {
         <div class={cn(
           'p-4 my-3 border rounded-lg leading-relaxed',
           validateResult()!.valid
-            ? 'border-success-foreground/30 bg-success-foreground text-success-foreground'
+            ? 'border-success-foreground/30 bg-success-foreground/10 text-success-foreground'
             : 'border-destructive/30 bg-destructive/10 text-destructive',
         )}>
           <Show when={validateResult()!.valid} fallback={<span>{validateResult()!.error}</span>}>
@@ -211,7 +211,7 @@ export function RedditCookieUploader(props: { slug: string }) {
       </div>
 
       <Show when={uploadResult()}>
-        <div class="p-4 my-3 border border-success-foreground/30 rounded-md bg-success-foreground text-success-foreground leading-relaxed">
+        <div class="p-4 my-3 border border-success-foreground/30 rounded-md bg-success-foreground/10 text-success-foreground leading-relaxed">
           <strong>{uploadResult()!.cookie_count}</strong> Reddit cookies stored. {formatExpiry(uploadResult()!.expires_at)}
         </div>
       </Show>

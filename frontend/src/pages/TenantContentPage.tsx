@@ -227,7 +227,7 @@ export function TenantContentPage() {
                       : 'Approving writes the piece — it then goes out on its own where auto-posting is on, or waits as a draft.'}
                   </p>
                   <Show when={!action.executor_ready && action.required_capability}>
-                    <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground p-3 text-sm text-warning-foreground">
+                    <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-3 text-sm text-warning-foreground">
                       <strong>Nothing can run this yet</strong> — approving queues it until a worker starts.
                     </div>
                   </Show>

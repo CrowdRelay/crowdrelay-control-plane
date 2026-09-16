@@ -98,7 +98,7 @@ export function ScorecardPanel(props: { slug: string }) {
     />
 
     <Show when={model.error}>
-      <div class="mt-4 rounded-lg border border-warning-foreground/30 bg-warning-foreground p-4 text-sm text-warning-foreground" role="status">
+      <div class="mt-4 rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground" role="status">
         {model.error instanceof Error ? model.error.message : 'Agent scorecard is temporarily unavailable.'}
       </div>
     </Show>

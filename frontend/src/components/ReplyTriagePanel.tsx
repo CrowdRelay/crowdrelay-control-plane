@@ -81,7 +81,7 @@ export function ReplyTriagePanel() {
     </div>
 
     <Show when={model.error}>
-      <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground p-4 text-sm text-warning-foreground mt-4" role="status">
+      <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground mt-4" role="status">
         {model.error instanceof Error ? model.error.message : 'Reply triage is temporarily unavailable.'}
       </div>
     </Show>

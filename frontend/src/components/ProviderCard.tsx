@@ -147,7 +147,7 @@ export function ProviderCard(props: { provider: AgentProvider; ctx: ProviderCard
             </Show>
           </Show>
 
-          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-warning-foreground text-warning-foreground border border-warning-foreground/20">
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-warning-foreground/10 text-warning-foreground border border-warning-foreground/20">
             <span class="font-bold uppercase tracking-wide text-xs" title="Connected via API key">API Key</span>
             <Show when={cred()?.provider_account}>
               <span class="opacity-80 font-normal">{cred()!.provider_account?.slice(0, 8)}…</span>

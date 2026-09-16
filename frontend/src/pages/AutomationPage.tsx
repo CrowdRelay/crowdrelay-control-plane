@@ -211,7 +211,7 @@ export function AutomationPage() {
                   <Show when={ev.executionId}><small class="block text-xs text-muted-foreground">Execution: {ev.executionId}</small></Show>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span class={cn('inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium', statusTone(ev.status) === 'bad' ? 'bg-destructive/10 text-destructive' : statusTone(ev.status) === 'warn' ? 'bg-warning-foreground text-warning-foreground' : 'bg-card text-muted-foreground')}>{ev.status}</span>
+                  <span class={cn('inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium', statusTone(ev.status) === 'bad' ? 'bg-destructive/10 text-destructive' : statusTone(ev.status) === 'warn' ? 'bg-warning-foreground/10 text-warning-foreground' : 'bg-card text-muted-foreground')}>{ev.status}</span>
                   <Show when={ev.retryCount > 0}><span class="text-xs text-muted-foreground">retried {ev.retryCount}×</span></Show>
                   <Show when={ev.status === 'new'}>
                     <Button writes variant="ghost" size="sm" disabled={busyId() === ev.id} onClick={() => handleAck(ev.id)}>Ack</Button>

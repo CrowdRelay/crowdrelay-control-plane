@@ -117,7 +117,7 @@ export function RegionalProfilePanel(props: Props) {
       </>}
     >
       <Show when={!classified()}>
-        <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground p-4 text-sm text-warning-foreground">
+        <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground">
           No persisted regional profile. The runtime must not infer locale, currency, timezone or data
           residency from an IP address or a browser setting. {authState.isPlatformLevel()
             ? 'Classify this tenant before the next deployment.'

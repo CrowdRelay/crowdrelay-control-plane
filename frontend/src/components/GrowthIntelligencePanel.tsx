@@ -202,7 +202,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
                         words and left them to guess whether approving was safe.
                         Say what is missing and what approving will actually do. */}
                     <Show when={!action.executor_ready && action.required_capability}>
-                      <div class="flex flex-col gap-1 rounded-lg border border-warning-foreground/30 bg-warning-foreground p-4 text-sm text-warning-foreground" title={action.required_capability ?? undefined}>
+                      <div class="flex flex-col gap-1 rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground" title={action.required_capability ?? undefined}>
                         <strong>Nothing can run this yet</strong>
                         <span>“{labelOr(CAPABILITY_LABELS, action.required_capability!)}” has no worker running. You can approve it — it will wait in the queue until one starts.</span>
                       </div>

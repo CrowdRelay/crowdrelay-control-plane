@@ -281,7 +281,7 @@ export function AgentPanel(props: { slug: string }) {
       {/* Service-unavailable banner — shown once at the top when the agent
           service is down, instead of repeating errors in each sub-panel. */}
       <Show when={isServiceDown()}>
-        <div class="flex items-start gap-3 p-4 rounded-lg border border-warning-foreground/30 bg-warning-foreground text-warning-foreground">
+        <div class="flex items-start gap-3 p-4 rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 text-warning-foreground">
           <AntIcon size={20} />
           <div>
             <strong>Agent service is temporarily unavailable</strong>

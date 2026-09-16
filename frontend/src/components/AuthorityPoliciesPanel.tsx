@@ -119,7 +119,7 @@ export function AuthorityPoliciesPanel(props: {
 
     <Show when={mutationError()}>{message => <ErrorCard>{message()}</ErrorCard>}</Show>
 
-    <Show when={confirming()?.startsWith('autopilot')}><div class="rounded-md border border-warning-foreground/30 bg-warning-foreground p-4 text-sm text-warning-foreground flex flex-col gap-2.5 my-3" role="alertdialog" aria-label="Bulk Autopilot change">
+    <Show when={confirming()?.startsWith('autopilot')}><div class="rounded-md border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground flex flex-col gap-2.5 my-3" role="alertdialog" aria-label="Bulk Autopilot change">
       <strong>{confirmCopy()!.title}</strong>
       <span>{confirmCopy()!.body}</span>
       <div class="flex flex-wrap items-center gap-2">

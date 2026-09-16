@@ -326,7 +326,7 @@ export function AgentProvidersPanel(props: {
   return (
     <div class="flex flex-col gap-4">
       <Show when={isServiceDown()}>
-        <div class="flex items-start gap-3 p-4 rounded-lg border border-warning-foreground/30 bg-warning-foreground text-warning-foreground">
+        <div class="flex items-start gap-3 p-4 rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 text-warning-foreground">
           <div class="flex-shrink-0 text-warning-foreground mt-0.5">
             <SparkIcon size={28} />
           </div>
