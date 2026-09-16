@@ -2752,6 +2752,8 @@ async fn gdrive_scan(
 struct DriveContactOutcome {
     destination: String,
     kind: Option<String>,
+    /// City slug for booking kinds — booking candidates are city-scoped.
+    city: Option<String>,
 }
 
 async fn promote_drive_contact(
@@ -2783,6 +2785,11 @@ async fn drive_contact_outcome(
     let valid = matches!(input.destination.as_str(), "fan" | "beacon")
         && input.kind.as_deref().is_none_or(|k| {
             k.len() <= 40 && k.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        })
+        && input.city.as_deref().is_none_or(|c| {
+            c.len() <= 80
+                && c.bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
         });
     if !valid {
         return Err(ApiError::InvalidInput(

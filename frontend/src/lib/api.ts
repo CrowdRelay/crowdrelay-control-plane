@@ -585,11 +585,11 @@ export const api = {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
     }),
-  promoteDriveContact: (slug: string, contactId: string, destination: 'fan' | 'beacon', kind?: string) =>
+  promoteDriveContact: (slug: string, contactId: string, destination: 'fan' | 'beacon', kind?: string, city?: string) =>
     request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/gdrive-contacts/${contactId}/promote`, {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
-      body: JSON.stringify({ destination, kind: kind ?? null }),
+      body: JSON.stringify({ destination, kind: kind ?? null, city: city ?? null }),
     }),
   dismissDriveContact: (slug: string, contactId: string, destination: 'fan' | 'beacon') =>
     request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/gdrive-contacts/${contactId}/dismiss`, {

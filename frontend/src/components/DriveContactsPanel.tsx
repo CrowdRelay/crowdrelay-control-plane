@@ -12,6 +12,7 @@ import { Badge } from './app/badge'
 import { Spinner } from './Spinner'
 import { SectionIcon } from './SectionIcon'
 import { NativeSelect } from './ui/native-select'
+import { Input } from './ui/input'
 
 const KIND_LABELS: Record<string, string> = {
   fan: 'Fan',
@@ -21,9 +22,13 @@ const KIND_LABELS: Record<string, string> = {
   media_patronage: 'Media patronage',
   endorsement: 'Endorsement',
   creator: 'Creator',
+  promoter: 'Promoter',
+  venue: 'Venue',
+  festival: 'Festival',
 }
 
-const BEACON_KINDS = ['press', 'radio', 'playlist', 'media_patronage', 'endorsement', 'creator'] as const
+const BEACON_KINDS = ['press', 'radio', 'playlist', 'media_patronage', 'endorsement', 'creator', 'promoter', 'venue', 'festival'] as const
+const BOOKING_KINDS: ReadonlySet<string> = new Set(['promoter', 'venue', 'festival'])
 
 const SOURCE_LABELS: Record<string, string> = {
   gdrive: 'Drive',
@@ -66,6 +71,7 @@ export function DriveContactsPanel(props: { slug: string }) {
   const [busy, setBusy] = createSignal<string | null>(null)
   const [scanning, setScanning] = createSignal(false)
   const [beaconKind, setBeaconKind] = createSignal<Record<string, string>>({})
+  const [beaconCity, setBeaconCity] = createSignal<Record<string, string>>({})
 
   const staged = createMemo(() =>
     (contacts.data?.contacts ?? []).filter(
@@ -108,10 +114,15 @@ export function DriveContactsPanel(props: { slug: string }) {
         const kind = destination === 'beacon'
           ? (beaconKind()[contact.id] ?? contact.suggested_kind ?? 'press')
           : undefined
-        await api.promoteDriveContact(props.slug, contact.id, destination, kind)
+        const city = kind && BOOKING_KINDS.has(kind)
+          ? (beaconCity()[contact.id]?.trim() || undefined)
+          : undefined
+        await api.promoteDriveContact(props.slug, contact.id, destination, kind, city)
         setNotice(destination === 'fan'
           ? `${contact.email} is now a pending fan — the double opt-in email is on its way.`
-          : `${contact.email} joined the outreach queue as ${KIND_LABELS[kind ?? 'press'] ?? kind}.`)
+          : BOOKING_KINDS.has(kind ?? '')
+            ? `${contact.email} joined the booking queue — confirm it under booking supply to make it a target.`
+            : `${contact.email} joined the outreach queue as ${KIND_LABELS[kind ?? 'press'] ?? kind}.`)
       } else {
         await api.dismissDriveContact(props.slug, contact.id, destination)
       }
@@ -134,8 +145,9 @@ export function DriveContactsPanel(props: { slug: string }) {
           <p class="m-0 mt-1.5 text-xs leading-relaxed text-muted-foreground max-w-prose">
             Connected sources — Google Drive spreadsheets, Gmail — stage every address they find here, deduplicated
             by email. Nothing is classified automatically. Promote an address to a <strong>fan</strong> (they get the
-            double opt-in email and confirm themselves) and/or to the <strong>outreach queue</strong> as press, radio,
-            playlist and friends. One person can be both.
+            double opt-in email and confirm themselves) and/or to a work queue: <strong>press, radio, playlist</strong>
+            and friends go to outreach, <strong>venues, promoters, festivals</strong> go to booking supply. One person
+            can be both.
           </p>
         </div>
         <Button variant="outline" size="sm" disabled={scanning()} onClick={() => void scanNow()}>
@@ -173,7 +185,9 @@ export function DriveContactsPanel(props: { slug: string }) {
                   confirming={confirming()}
                   busy={busy()}
                   kind={beaconKind()[contact.id] ?? contact.suggested_kind ?? 'press'}
+                  city={beaconCity()[contact.id] ?? ''}
                   onKind={kind => setBeaconKind(k => ({ ...k, [contact.id]: kind }))}
+                  onCity={city => setBeaconCity(c => ({ ...c, [contact.id]: city }))}
                   onAct={act}
                 />
               )}
@@ -190,7 +204,9 @@ function DriveContactRow(props: {
   confirming: string | null
   busy: string | null
   kind: string
+  city: string
   onKind: (kind: string) => void
+  onCity: (city: string) => void
   onAct: (contact: DriveContact, destination: 'fan' | 'beacon', verb: 'promote' | 'dismiss') => void
 }) {
   const key = (destination: 'fan' | 'beacon', verb: 'promote' | 'dismiss') =>
@@ -273,14 +289,25 @@ function DriveContactRow(props: {
                   {k => <option value={k}>{KIND_LABELS[k]}</option>}
                 </For>
               </NativeSelect>
+              <Show when={BOOKING_KINDS.has(props.kind)}>
+                <Input
+                  class="w-28"
+                  value={props.city}
+                  onInput={e => props.onCity(e.currentTarget.value)}
+                  placeholder="City — e.g. wroclaw"
+                  title="Which city this contact books in — booking candidates are filed per city"
+                />
+              </Show>
               <Button
                 size="xs"
                 variant={arm('beacon', 'promote') ? 'default' : 'outline'}
                 disabled={props.busy !== null}
-                title="Adds them to the outreach screening queue"
+                title={BOOKING_KINDS.has(props.kind)
+                  ? 'Files them as a booking candidate — confirm under booking supply to make them a target'
+                  : 'Adds them to the outreach screening queue'}
                 onClick={() => props.onAct(props.contact, 'beacon', 'promote')}
               >
-                {props.busy === key('beacon', 'promote') ? <Spinner /> : arm('beacon', 'promote') ? 'Confirm add' : 'Add to outreach'}
+                {props.busy === key('beacon', 'promote') ? <Spinner /> : arm('beacon', 'promote') ? 'Confirm add' : BOOKING_KINDS.has(props.kind) ? 'Add to booking' : 'Add to outreach'}
               </Button>
               <Button
                 size="xs"
