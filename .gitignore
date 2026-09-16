@@ -13,4 +13,6 @@ CLAUDE.md
 # Public docs are intentionally minimal; keep the integration contract canonical.
 docs/*
 !docs/INTEGRATION.md
+!docs/CONTROL_PLANE_PLAN.md
+!docs/CROWDRELAY_LEVERAGE_PLAN.md
 playwright/test-results.json
