@@ -606,14 +606,24 @@ export const api = {
   saveListing: (slug: string, input: Omit<BandListing, 'visibility'>) =>
     request<ListingState>(`/tenants/${encodeURIComponent(slug)}/operations/listing`, {
       method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
       body: JSON.stringify(input),
     }),
   publishListing: (slug: string) =>
-    request<ListingState>(`/tenants/${encodeURIComponent(slug)}/operations/listing/publish`, { method: 'POST' }),
+    request<ListingState>(`/tenants/${encodeURIComponent(slug)}/operations/listing/publish`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+    }),
   unlistListing: (slug: string) =>
-    request<ListingState>(`/tenants/${encodeURIComponent(slug)}/operations/listing/unlist`, { method: 'POST' }),
+    request<ListingState>(`/tenants/${encodeURIComponent(slug)}/operations/listing/unlist`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+    }),
   rotateListingToken: (slug: string) =>
-    request<ListingState>(`/tenants/${encodeURIComponent(slug)}/operations/listing/rotate-token`, { method: 'POST' }),
+    request<ListingState>(`/tenants/${encodeURIComponent(slug)}/operations/listing/rotate-token`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+    }),
   representationTargets: (slug: string) =>
     request<RepresentationTargetsResponse>(`/tenants/${encodeURIComponent(slug)}/operations/representation/targets`),
   upsertRepresentationTarget: (slug: string, input: RepresentationTargetInput) =>

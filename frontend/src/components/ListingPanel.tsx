@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal } from 'solid-js'
+import { For, Index, Show, createEffect, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api, errorHeading } from '../lib/api'
 import { refreshQueries } from '../lib/refresh'
@@ -102,21 +102,43 @@ const blockedReason = (target: RepresentationTarget, state: ListingState | undef
   return ''
 }
 
+type ContactDraft = {
+  editing_id: string | null
+  version: number
+  kind: 'agent' | 'label'
+  display_name: string
+  contact_email: string
+  accepts_outreach: boolean
+  accepts_outreach_basis: string
+  verified: boolean
+  active: boolean
+  do_not_contact: boolean
+}
+
+const EMPTY_CONTACT: ContactDraft = {
+  editing_id: null,
+  version: 0,
+  kind: 'agent',
+  display_name: '',
+  contact_email: '',
+  accepts_outreach: false,
+  accepts_outreach_basis: '',
+  verified: false,
+  active: true,
+  do_not_contact: false,
+}
+
 export function ListingPanel(props: { slug: string }) {
   const [error, setError] = createSignal<string | null>(null)
   const [saving, setSaving] = createSignal(false)
   const [acting, setActing] = createSignal<string | null>(null)
   const [copied, setCopied] = createSignal(false)
   const [draft, setDraft] = createSignal<ListingDraft>({ ...EMPTY_DRAFT })
-  const [loaded, setLoaded] = createSignal(false)
+  // The slug the draft was seeded for — a tenant switch must not carry the
+  // previous tenant's form into this one's save.
+  const [seededSlug, setSeededSlug] = createSignal<string | null>(null)
   const [addingContact, setAddingContact] = createSignal(false)
-  const [contact, setContact] = createSignal({
-    kind: 'agent' as 'agent' | 'label',
-    display_name: '',
-    contact_email: '',
-    accepts_outreach: false,
-    accepts_outreach_basis: '',
-  })
+  const [contact, setContact] = createSignal<ContactDraft>({ ...EMPTY_CONTACT })
 
   const listing = useQuery(() => ({
     queryKey: ['tenant-listing', props.slug],
@@ -131,13 +153,15 @@ export function ListingPanel(props: { slug: string }) {
     staleTime: 10_000,
   }))
 
-  // Load the draft once, from the server — typing after that is the band's
-  // until it saves. Re-seeding on every refetch would silently eat edits.
+  // Load the draft once per tenant, from the server — typing after that is
+  // the band's until it saves. Re-seeding on every refetch would silently
+  // eat edits; keying the seed to the slug keeps a tenant switch from
+  // writing the previous tenant's draft into this one's listing.
   createEffect(() => {
     const s = listing.data
-    if (!loaded() && s) {
+    if (s && seededSlug() !== props.slug) {
       setDraft(draftFromListing(s.listing))
-      setLoaded(true)
+      setSeededSlug(props.slug)
     }
   })
 
@@ -189,17 +213,39 @@ export function ListingPanel(props: { slug: string }) {
     run(`approach:${target.target_id}`, () =>
       api.requestRepresentationApproach(props.slug, target.target_id))
 
-  const addContact = () => run('add-contact', async () => {
+  const editContact = (target: RepresentationTarget) => {
+    setContact({
+      editing_id: target.target_id,
+      version: target.version,
+      kind: target.kind === 'label' ? 'label' : 'agent',
+      display_name: target.display_name,
+      // The address never leaves the platform, so an edit re-confirms it
+      // rather than echoing it back — that is also where a typo gets fixed.
+      contact_email: '',
+      accepts_outreach: target.accepts_outreach,
+      accepts_outreach_basis: target.accepts_outreach_basis ?? '',
+      verified: target.verified,
+      active: target.active,
+      do_not_contact: target.do_not_contact,
+    })
+    setAddingContact(true)
+  }
+
+  const saveContact = () => run('save-contact', async () => {
     const c = contact()
     await api.upsertRepresentationTarget(props.slug, {
+      target_id: c.editing_id ?? undefined,
+      expected_version: c.editing_id ? c.version : undefined,
       kind: c.kind,
       display_name: c.display_name.trim(),
       contact_email: c.contact_email.trim(),
       accepts_outreach: c.accepts_outreach,
       accepts_outreach_basis: c.accepts_outreach_basis.trim() || undefined,
-      do_not_contact: false,
+      verified: c.verified,
+      active: c.active,
+      do_not_contact: c.do_not_contact,
     })
-    setContact({ kind: 'agent', display_name: '', contact_email: '', accepts_outreach: false, accepts_outreach_basis: '' })
+    setContact({ ...EMPTY_CONTACT })
     setAddingContact(false)
   })
 
@@ -236,7 +282,7 @@ export function ListingPanel(props: { slug: string }) {
         <Show when={listing.error}>
           <ErrorCard>Listing unavailable: {errorMessage(listing.error, 'We could not reach the listing.')}</ErrorCard>
         </Show>
-        <Show when={loaded() || state()} fallback={<SkeletonRows count={4} />}>
+        <Show when={seededSlug() === props.slug || state()} fallback={<SkeletonRows count={4} />}>
           <div class="flex flex-col gap-4">
             <div class="grid gap-4 md:grid-cols-2">
               <label class="flex flex-col gap-1.5">
@@ -311,13 +357,16 @@ export function ListingPanel(props: { slug: string }) {
                   "420 tickets banked in Warsaw" is worth more than "50k monthly listeners".
                 </p>
               </Show>
-              <For each={draft().claims}>{(claim, index) => (
+              {/* <Index>, not <For>: edits replace the claim object, and a
+                  value-keyed list would dispose the row — and the focused
+                  input — on every keystroke. */}
+              <Index each={draft().claims}>{(claim, index) => (
                 <div class="grid items-end gap-2 rounded-md border border-border p-3 md:grid-cols-[1fr_120px_110px_1fr_auto]">
                   <label class="flex flex-col gap-1">
                     <span class="text-xs text-muted-foreground">Claim</span>
                     <Input
-                      value={claim.label}
-                      onInput={e => setClaim(index(), { label: e.currentTarget.value })}
+                      value={claim().label}
+                      onInput={e => setClaim(index, { label: e.currentTarget.value })}
                       placeholder="Tickets sold in Warsaw, last 12 months"
                       {...writeGuard()}
                     />
@@ -325,9 +374,9 @@ export function ListingPanel(props: { slug: string }) {
                   <label class="flex flex-col gap-1">
                     <span class="text-xs text-muted-foreground">Number</span>
                     <Input
-                      value={claim.value}
+                      value={claim().value}
                       inputmode="numeric"
-                      onInput={e => setClaim(index(), { value: e.currentTarget.value })}
+                      onInput={e => setClaim(index, { value: e.currentTarget.value })}
                       placeholder="420"
                       {...writeGuard()}
                     />
@@ -335,8 +384,8 @@ export function ListingPanel(props: { slug: string }) {
                   <label class="flex flex-col gap-1">
                     <span class="text-xs text-muted-foreground">Tier</span>
                     <NativeSelect
-                      value={claim.tier}
-                      onChange={e => setClaim(index(), { tier: e.currentTarget.value as ListingClaim['tier'] })}
+                      value={claim().tier}
+                      onChange={e => setClaim(index, { tier: e.currentTarget.value as ListingClaim['tier'] })}
                       {...writeGuard()}
                     >
                       <For each={CLAIM_TIERS}>{t => <option value={t.value}>{t.label}</option>}</For>
@@ -345,21 +394,21 @@ export function ListingPanel(props: { slug: string }) {
                   <label class="flex flex-col gap-1">
                     <span class="text-xs text-muted-foreground">Basis — where the number comes from</span>
                     <Input
-                      value={claim.basis}
-                      onInput={e => setClaim(index(), { basis: e.currentTarget.value })}
+                      value={claim().basis}
+                      onInput={e => setClaim(index, { basis: e.currentTarget.value })}
                       placeholder="CrowdRelay ticket ledger"
                       {...writeGuard()}
                     />
                   </label>
                   <Button
                     variant="ghost" size="sm"
-                    onClick={() => setDraft(d => ({ ...d, claims: d.claims.filter((_, i) => i !== index()) }))}
+                    onClick={() => setDraft(d => ({ ...d, claims: d.claims.filter((_, i) => i !== index) }))}
                     {...writeGuard()}
                   >
                     Remove
                   </Button>
                 </div>
-              )}</For>
+              )}</Index>
             </div>
 
             <div class="flex flex-wrap items-center gap-2 border-t border-border pt-4">
@@ -465,17 +514,26 @@ export function ListingPanel(props: { slug: string }) {
                         {target.last_outreach_at ? formatTimestamp(target.last_outreach_at) : 'never'}
                       </TableCell>
                       <TableCell numeric>
-                        <Button
-                          variant="secondary" size="sm"
-                          disabled={acting() !== null || !approachable(target, state())}
-                          title={reason() || 'Queue an approach for approval'}
-                          onClick={() => void approach(target)}
-                          {...writeGuard()}
-                        >
-                          {acting() === `approach:${target.target_id}` ? 'Queueing…' : 'Approach'}
-                        </Button>
+                        <div class="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost" size="sm"
+                            onClick={() => editContact(target)}
+                            {...writeGuard()}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="secondary" size="sm"
+                            disabled={acting() !== null || !approachable(target, state())}
+                            title={reason() || 'Queue an approach for approval'}
+                            onClick={() => void approach(target)}
+                            {...writeGuard()}
+                          >
+                            {acting() === `approach:${target.target_id}` ? 'Queueing…' : 'Approach'}
+                          </Button>
+                        </div>
                         <Show when={!approachable(target, state()) && reason()}>
-                          <br /><span class="text-xs text-muted-foreground">{reason()}</span>
+                          <span class="text-xs text-muted-foreground">{reason()}</span>
                         </Show>
                       </TableCell>
                     </TableRow>
@@ -485,14 +543,15 @@ export function ListingPanel(props: { slug: string }) {
             </Table>
           </Show>
 
-          {/* Add a contact — consent is asserted, not assumed. The basis
-              field is the sentence "they asked for…" that makes the opt-in
-              mean something. */}
+          {/* Add or edit a contact — consent is asserted, not assumed. The
+              basis field is the sentence "they asked for…" that makes the
+              opt-in mean something, and the confirmed-address check is the
+              band's own attestation that the mailbox reaches the person. */}
           <div class="mt-4 border-t border-border pt-4">
             <Show
               when={addingContact()}
               fallback={
-                <Button variant="ghost" size="sm" onClick={() => setAddingContact(true)} {...writeGuard()}>
+                <Button variant="ghost" size="sm" onClick={() => { setContact({ ...EMPTY_CONTACT }); setAddingContact(true) }} {...writeGuard()}>
                   Add an agent or label
                 </Button>
               }
@@ -507,7 +566,9 @@ export function ListingPanel(props: { slug: string }) {
                   />
                 </label>
                 <label class="flex flex-col gap-1.5">
-                  <span class="text-xs font-medium text-muted-foreground">Contact email</span>
+                  <span class="text-xs font-medium text-muted-foreground">
+                    {contact().editing_id ? 'Contact email — re-enter to confirm or correct' : 'Contact email'}
+                  </span>
                   <Input
                     type="email"
                     value={contact().contact_email}
@@ -525,13 +586,32 @@ export function ListingPanel(props: { slug: string }) {
                     <option value="label">Label</option>
                   </NativeSelect>
                 </label>
-                <div class="self-end pb-2">
+                <div class="flex flex-col gap-2 self-end pb-2">
                   <Checkbox
                     checked={contact().accepts_outreach}
                     onChange={on => setContact(c => ({ ...c, accepts_outreach: on }))}
                     label="They take pitches"
                   />
+                  <Checkbox
+                    checked={contact().verified}
+                    onChange={on => setContact(c => ({ ...c, verified: on }))}
+                    label="Address confirmed"
+                  />
                 </div>
+                <Show when={contact().editing_id}>
+                  <div class="flex flex-col gap-2 self-end pb-2">
+                    <Checkbox
+                      checked={contact().active}
+                      onChange={on => setContact(c => ({ ...c, active: on }))}
+                      label="Active"
+                    />
+                    <Checkbox
+                      checked={contact().do_not_contact}
+                      onChange={on => setContact(c => ({ ...c, do_not_contact: on }))}
+                      label="Do not contact"
+                    />
+                  </div>
+                </Show>
                 <Show when={contact().accepts_outreach}>
                   <label class="flex flex-col gap-1.5 md:col-span-2">
                     <span class="text-xs font-medium text-muted-foreground">
@@ -555,12 +635,12 @@ export function ListingPanel(props: { slug: string }) {
                     !contact().contact_email.trim() ||
                     (contact().accepts_outreach && !contact().accepts_outreach_basis.trim())
                   }
-                  onClick={() => void addContact()}
+                  onClick={() => void saveContact()}
                   {...writeGuard()}
                 >
-                  {acting() === 'add-contact' ? 'Adding…' : 'Add contact'}
+                  {acting() === 'save-contact' ? 'Saving…' : contact().editing_id ? 'Save contact' : 'Add contact'}
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setAddingContact(false)}>
+                <Button variant="ghost" size="sm" onClick={() => { setContact({ ...EMPTY_CONTACT }); setAddingContact(false) }}>
                   Cancel
                 </Button>
               </div>
