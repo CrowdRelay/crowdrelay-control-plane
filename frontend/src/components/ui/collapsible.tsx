@@ -40,7 +40,7 @@ export function CollapsibleSection(props: {
 
   return (
     <Collapsible open={open()} onOpenChange={setOpen} class={cn('border border-border bg-card', props.class)}>
-      <CollapsibleTrigger class="flex w-full items-center justify-between gap-4 p-4 text-left">
+      <CollapsibleTrigger class="flex w-full items-center justify-between gap-4 p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary">
         <div class="flex flex-col gap-1">
           <Show when={props.eyebrow}>
             <Eyebrow>{props.eyebrow}</Eyebrow>

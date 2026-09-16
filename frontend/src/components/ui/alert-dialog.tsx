@@ -81,8 +81,25 @@ const AlertDialogDescription: Component<ComponentProps<typeof KobalteAlertDialog
   );
 };
 
-const AlertDialogAction = KobalteAlertDialog.CloseButton;
-const AlertDialogCancel = KobalteAlertDialog.CloseButton;
+const alertDialogButtonClass =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+
+const AlertDialogAction: Component<ComponentProps<typeof KobalteAlertDialog.CloseButton>> = (
+  props,
+) => {
+  const [local, rest] = splitProps(props, ["class"]);
+  return (
+    <KobalteAlertDialog.CloseButton class={cn(alertDialogButtonClass, local.class)} {...rest} />
+  );
+};
+const AlertDialogCancel: Component<ComponentProps<typeof KobalteAlertDialog.CloseButton>> = (
+  props,
+) => {
+  const [local, rest] = splitProps(props, ["class"]);
+  return (
+    <KobalteAlertDialog.CloseButton class={cn(alertDialogButtonClass, local.class)} {...rest} />
+  );
+};
 
 export {
   AlertDialog,
