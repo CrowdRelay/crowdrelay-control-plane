@@ -36,6 +36,7 @@ script-test:
     python3 scripts/test_fan_out_budget_contract.py
     python3 scripts/test_tab_label_collisions.py
     python3 scripts/test_destination_count_ratchet.py
+    python3 scripts/test_design_tokens.py
     for script in scripts/*.sh deploy/*.sh; do bash -n "$script"; done
 
 # Everything CI runs for a merge decision.
