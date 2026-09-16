@@ -327,6 +327,33 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/gdrive-contacts/{contact_id}/dismiss",
             axum::routing::post(dismiss_drive_contact),
         )
+        // §4h-12: the band's listing editor and representation contacts.
+        // CrowdRelay owns every bound and refusal; this plane validates the
+        // transport shape and audits the writes like any other mutation.
+        .route(
+            "/tenants/{slug}/operations/listing",
+            get(listing_state).post(save_listing),
+        )
+        .route(
+            "/tenants/{slug}/operations/listing/publish",
+            post(publish_listing),
+        )
+        .route(
+            "/tenants/{slug}/operations/listing/unlist",
+            post(unlist_listing),
+        )
+        .route(
+            "/tenants/{slug}/operations/listing/rotate-token",
+            post(rotate_listing_token),
+        )
+        .route(
+            "/tenants/{slug}/operations/representation/targets",
+            get(representation_targets).post(upsert_representation_target),
+        )
+        .route(
+            "/tenants/{slug}/operations/representation/approach",
+            post(request_representation_approach),
+        )
         .route(
             "/tenants/{slug}/operations/objectives/{objective_id}/retire",
             post(retire_growth_objective),
@@ -2114,7 +2141,11 @@ async fn update_fanbase_connection_scan_scope(
 ) -> Result<Response, ApiError> {
     uuid_segment(&connection_id)?;
     let value = body.0;
-    if !value.is_object() || !value.get("scope").is_some_and(|s| s.is_object() || s.is_null()) {
+    if !value.is_object()
+        || !value
+            .get("scope")
+            .is_some_and(|s| s.is_object() || s.is_null())
+    {
         return Err(ApiError::InvalidInput(
             "scope must be an object or null".to_owned(),
         ));
@@ -2856,6 +2887,236 @@ async fn drive_contact_outcome(
     )
     .await;
     object_no_store(value, "drive contact outcome")
+}
+
+/// §4h-12 — the Listing tab. One read returns everything it renders: the
+/// draft as saved, the share token, and the month's approach allowance.
+async fn listing_state(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/listing",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "listing state")
+}
+
+/// Saving a listing never publishes it — the shape check here is
+/// deliberate thinness: upstream owns every bound, this plane owns the
+/// audit trail.
+async fn save_listing(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    listing_write(&state, &slug, "", &body, &headers, "tenant.listing.saved").await
+}
+
+async fn publish_listing(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    listing_write(
+        &state,
+        &slug,
+        "/publish",
+        &Value::Null,
+        &headers,
+        "tenant.listing.published",
+    )
+    .await
+}
+
+async fn unlist_listing(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    listing_write(
+        &state,
+        &slug,
+        "/unlist",
+        &Value::Null,
+        &headers,
+        "tenant.listing.unlisted",
+    )
+    .await
+}
+
+async fn rotate_listing_token(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    listing_write(
+        &state,
+        &slug,
+        "/rotate-token",
+        &Value::Null,
+        &headers,
+        "tenant.listing.token_rotated",
+    )
+    .await
+}
+
+async fn listing_write(
+    state: &AppState,
+    slug: &str,
+    suffix: &str,
+    body: &Value,
+    headers: &HeaderMap,
+    action: &'static str,
+) -> Result<Response, ApiError> {
+    // The transition calls carry no body; the save requires an object.
+    let valid = if suffix.is_empty() {
+        body.is_object()
+    } else {
+        body.is_null()
+    };
+    if !valid {
+        return Err(ApiError::InvalidInput(
+            "listing body must be an object".to_owned(),
+        ));
+    }
+    let path = format!("/v1/control-plane/listing{suffix}");
+    let (tenant, value) = call(
+        state,
+        slug,
+        "POST",
+        &path,
+        if body.is_null() { None } else { Some(body) },
+        headers,
+        None,
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        state,
+        tenant.tenant.id,
+        action,
+        "band_listing",
+        "listing",
+        headers,
+        &result,
+        None,
+    )
+    .await;
+    object_no_store(value, "listing write")
+}
+
+async fn representation_targets(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/representation/targets",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "representation targets")
+}
+
+/// A representation contact the band enters itself — kind is pinned to
+/// agent/label upstream; the idempotent write is audited here.
+async fn upsert_representation_target(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    if !body.is_object() {
+        return Err(ApiError::InvalidInput(
+            "representation target body is required".to_owned(),
+        ));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/representation/targets",
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.representation_target.upserted",
+        "representation_target",
+        body.get("target_id")
+            .and_then(Value::as_str)
+            .unwrap_or("new"),
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    object_no_store(value, "representation target upsert")
+}
+
+/// The approach: the band picks a consented agent or label; the request
+/// queues for approval upstream and dispatch re-runs every gate.
+async fn request_representation_approach(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let valid = body.is_object()
+        && body
+            .get("target_id")
+            .and_then(Value::as_str)
+            .is_some_and(|raw| Uuid::parse_str(raw).is_ok());
+    if !valid {
+        return Err(ApiError::InvalidInput(
+            "approach needs a target_id".to_owned(),
+        ));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/representation/approach",
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.representation.approach_requested",
+        "representation_target",
+        body.get("target_id")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown"),
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    object_no_store(value, "representation approach")
 }
 
 async fn set_growth_posture(

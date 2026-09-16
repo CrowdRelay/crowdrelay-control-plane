@@ -9,6 +9,7 @@ import { OutreachPipelinePanel } from '../components/OutreachPipelinePanel'
 import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
+import { ListingPanel } from '../components/ListingPanel'
 import { SkeletonKpiStrip, SkeletonSection } from '../components/Skeleton'
 import { Eyebrow, KpiCard, KpiStrip, PageShell, PageHeader, Section, SkeletonBlock, TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { SectionIcon } from '../components/SectionIcon'
@@ -430,6 +431,7 @@ export function TenantOperationsPage() {
       tabs={[
         { id: 'outreach', label: 'Outreach' },
         { id: 'releases', label: 'Releases' },
+        { id: 'listing', label: 'Listing' },
       ]}
     />
 
@@ -467,6 +469,15 @@ export function TenantOperationsPage() {
     <TabPanel active={activeTab()} id="releases" visited={isVisited('releases')}>
       <ReleaseCampaignsPanel slug={params().slug} />
       <PlayLedgerPanel slug={params().slug} />
+    </TabPanel>
+
+    {/* ── Listing tab ── */}
+    {/* §4h-12: the band-authored profile a share link admits an agent or
+        label to, the representation contacts it may approach, and the
+        month's allowance. Its own queries — the overview model doesn't
+        carry any of it. */}
+    <TabPanel active={activeTab()} id="listing" visited={isVisited('listing')}>
+      <ListingPanel slug={params().slug} />
     </TabPanel>
   </PageShell>
 }
