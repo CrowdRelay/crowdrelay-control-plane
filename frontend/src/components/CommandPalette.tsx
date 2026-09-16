@@ -61,6 +61,7 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
   // does not carry — naming it here would land them where the thing is not.
   { id: 'q-failed', label: 'Open failed deliveries', keywords: 'failed deliveries dead outbox webhook push show', suffix: '/attention', platform: true },
   { id: 'q-beacons', label: 'Open Beacon signals', keywords: 'beacon signals operations outreach', suffix: '/operations' },
+  { id: 'q-content', label: 'Open content', keywords: 'content posts material social approve publish drafts what went out', suffix: '/content' },
   { id: 'q-growth', label: 'Open growth intelligence', keywords: 'growth drop decline metrics funnel explain why', suffix: '/intelligence' },
   { id: 'q-learning', label: 'Open the learning loop', keywords: 'learning loop outcome decision action intelligence what the brain learned', suffix: '/intelligence' },
   { id: 'q-opportunities', label: 'Open the decision queue', keywords: 'opportunities board decision attention approvals show current', suffix: '/attention' },
@@ -68,7 +69,7 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
 
 // The band's palette mirrors the band's sidebar — same six destinations, same
 // names. Operator-only pages stay reachable by URL but do not list here.
-const BAND_SUFFIXES = new Set(['', '/shows', '/attention', '/audience', '/intelligence'])
+const BAND_SUFFIXES = new Set(['', '/shows', '/attention', '/audience', '/intelligence', '/content'])
 const BAND_LABEL: Record<string, string> = { '': 'Today', '/attention': 'Needs you' }
 
 // Open state lives in command-palette-state.ts so Shell can toggle the

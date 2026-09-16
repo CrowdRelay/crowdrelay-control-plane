@@ -235,6 +235,26 @@ export type DeliveryItem = {
   dead_at: string | null
 }
 
+/// A piece of content the brain actually put somewhere — a social post,
+/// community post, telegram message or Signal push — with where it landed
+/// and the engagement it earned. From `/operations/delivery-results`.
+export type DeliveryResult = {
+  kind: string
+  id: string
+  action_id: string | null
+  channel: string
+  content: Record<string, unknown>
+  status: string
+  url: string | null
+  created_at: string
+  posted_at: string | null
+  score: number | null
+  upvotes: number | null
+  num_comments: number | null
+  upvote_ratio: number | null
+  error_message: string | null
+}
+
 export type DeliveryAttempt = {
   attempt_number: number
   started_at: string

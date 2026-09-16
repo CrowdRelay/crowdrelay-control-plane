@@ -31,6 +31,7 @@ export const TENANT_NAV_GROUPS: NavGroup[] = [
       { path: '/tenants/$slug/operations', label: 'Operations', exact: false, icon: 'operations' },
       { path: '/tenants/$slug/attention', label: 'Attention', exact: false, icon: 'attention' },
       { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
+      { path: '/tenants/$slug/content', label: 'Content', exact: false, icon: 'content' },
     ],
   },
   {
@@ -70,6 +71,7 @@ export const BAND_NAV_GROUPS: NavGroup[] = [
       { path: '/tenants/$slug/shows', label: 'Shows', exact: false, icon: 'area' },
       { path: '/tenants/$slug/attention', label: 'Needs you', exact: false, icon: 'attention' },
       { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
+      { path: '/tenants/$slug/content', label: 'Content', exact: false, icon: 'content' },
     ],
   },
   {

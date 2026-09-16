@@ -1901,7 +1901,12 @@ async fn list_delivery_results(
 ) -> Result<Response, ApiError> {
     let path = build_list_path("/v1/control-plane/ops/delivery-results", &params);
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
-    array_no_store(value, "delivery results list")
+    // Upstream wraps the list in { "results": [...] }; the panel contract is
+    // the same bare array every other operations list returns.
+    array_no_store(
+        value.get("results").cloned().unwrap_or(Value::Null),
+        "delivery results list",
+    )
 }
 
 /// Retry a dead push delivery. The upstream handler owns the feature flag

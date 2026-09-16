@@ -187,6 +187,7 @@ const SUBPAGES = [
   { path: '/tenants/virya/intelligence', name: 'intelligence' },
   { path: '/tenants/virya/attention', name: 'attention' },
   { path: '/tenants/virya/audience', name: 'audience' },
+  { path: '/tenants/virya/content', name: 'content' },
   { path: '/tenants/virya/funnel', name: 'growth-funnel' },
   { path: '/tenants/virya/shows', name: 'shows' },
 ]
