@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   backend:
-    runs-on: ubuntu-24.04-arm
+    runs-on: [self-hosted, arm64]
     timeout-minutes: 20
     services:
       postgres:
@@ -132,7 +132,7 @@ jobs:
 
   dependency-security:
     name: Dependency security
-    runs-on: ubuntu-24.04-arm
+    runs-on: [self-hosted, arm64]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -174,7 +174,7 @@ jobs:
     # Only on PRs — validates the Dockerfile builds. Main branch builds
     # and deploys happen in deploy.yml which is not cancellable.
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04-arm
+    runs-on: [self-hosted, arm64]
     timeout-minutes: 45
     permissions:
       contents: read
@@ -208,7 +208,7 @@ jobs:
         run: docker builder prune --filter until=72h -f 2>/dev/null || true
 
   web:
-    runs-on: ubuntu-24.04-arm
+    runs-on: [self-hosted, arm64]
     timeout-minutes: 15
     defaults:
       run:

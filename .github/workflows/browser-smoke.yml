@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   browser:
-    runs-on: ubuntu-24.04-arm
+    runs-on: [self-hosted, arm64]
     # Manual runs always execute; workflow_run only on a successful deploy.
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     timeout-minutes: 15
