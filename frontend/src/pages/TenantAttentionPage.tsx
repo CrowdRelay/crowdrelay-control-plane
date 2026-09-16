@@ -106,6 +106,11 @@ function BrainPanel(props: { brain: BrainSelfAssessment | null | undefined; notR
               Last quiet cycle explained itself: <span class="font-mono text-xs text-foreground">{reason()}</span>
             </p>}
           </Show>
+          <Show when={(b().quiet_cycles ?? 0) > 0 && !b().latest_wait_reason}>
+            <p class="text-sm text-muted-foreground leading-relaxed">
+              The quiet cycles carried no recorded reason — the wait went unexplained, which is itself worth knowing.
+            </p>
+          </Show>
         </div>}
       </Show>
     </div>
