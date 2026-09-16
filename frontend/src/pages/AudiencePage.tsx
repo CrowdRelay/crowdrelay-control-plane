@@ -13,7 +13,7 @@ import { SegmentPanel } from '../components/SegmentPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
-import { Alert } from '../components/ui/alert'
+import { Alert } from '../components/app/alert'
 import { CommunityIntelligenceContent } from './CommunityIntelligenceContent'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 

@@ -4,14 +4,14 @@ import type { PendingActionSummary } from '../lib/types'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { errorMessage } from '../lib/format'
-import { toast } from './ui/toast'
+import { toast } from './app/toast'
 import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
 import { CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
-import { Button } from './ui/button'
+import { Button } from './app/button'
 import { Spinner } from './Spinner'
 import { cn } from '../lib/cn'
-import { buttonVariants } from './ui/button'
+import { buttonVariants } from './app/button'
 
 // The attention inbox — converts the operator-attention experience from an
 // informational banner into a real action-oriented surface.
@@ -268,7 +268,7 @@ export function AttentionInbox(props: {
       <div class="flex items-center justify-between gap-2 p-4 border-b border-border">
         <div class="text-muted-foreground text-sm flex items-center gap-2">
           <SectionIcon name="inbox" />
-          <span class="bg-primary/20 text-primary-light text-xs rounded-full px-1.5 font-bold tabular-nums">{total()}</span>
+          <span class="bg-primary/20 text-primary text-xs rounded-full px-1.5 font-bold tabular-nums">{total()}</span>
           <span>item{total() !== 1 ? 's' : ''} need{total() === 1 ? 's' : ''} your attention</span>
         </div>
       </div>
@@ -282,7 +282,7 @@ export function AttentionInbox(props: {
     </Show>
 
     <Show when={urgent().length > 0}>
-      <div class="border-b border-border-subtle last:border-0">
+      <div class="border-b border-border last:border-0">
         <div class="flex items-center gap-2 p-4 pb-2 text-destructive">
           <span class="text-xs font-semibold uppercase tracking-wider">Urgent</span>
           <span class="bg-destructive/15 text-destructive text-xs rounded-full px-2 py-0.5 font-bold">{urgent().length}</span>
@@ -292,10 +292,10 @@ export function AttentionInbox(props: {
     </Show>
 
     <Show when={review().length > 0}>
-      <div class="border-b border-border-subtle last:border-0">
-        <div class="flex items-center gap-2 p-4 pb-2 text-warning">
+      <div class="border-b border-border last:border-0">
+        <div class="flex items-center gap-2 p-4 pb-2 text-warning-foreground">
           <span class="text-xs font-semibold uppercase tracking-wider">Review</span>
-          <span class="bg-warning/15 text-warning text-xs rounded-full px-2 py-0.5 font-bold">{review().length}</span>
+          <span class="bg-warning-foreground text-warning-foreground text-xs rounded-full px-2 py-0.5 font-bold">{review().length}</span>
         </div>
         <For each={review()}>{row}</For>
       </div>
@@ -305,7 +305,7 @@ export function AttentionInbox(props: {
       <div class="last:border-0">
         <div class="flex items-center gap-2 p-4 pb-2 text-muted-foreground">
           <span class="text-xs font-semibold uppercase tracking-wider">Informational</span>
-          <span class="bg-surface-3 text-muted-foreground text-xs rounded-full px-2 py-0.5 font-bold">{informational().length}</span>
+          <span class="bg-muted text-muted-foreground text-xs rounded-full px-2 py-0.5 font-bold">{informational().length}</span>
         </div>
         <For each={informational()}>{row}</For>
       </div>
@@ -322,12 +322,12 @@ function AttentionItemRow(props: {
   onReveal: (tab: string, anchor?: string) => void
 }) {
   const tone = () => props.item.tier === 'urgent' ? 'destructive' as const : 'ghost' as const
-  return <div id={`attention-item-${props.item.id}`} class={cn('flex items-start justify-between gap-3 px-4 py-3 border-b border-border-subtle last:border-0 border-l-2', props.item.tier === 'urgent' && 'border-l-destructive/50', props.item.tier === 'review' && 'border-l-warning/50', props.item.tier === 'informational' && 'border-l-border')}>
+  return <div id={`attention-item-${props.item.id}`} class={cn('flex items-start justify-between gap-3 px-4 py-3 border-b border-border last:border-0 border-l-2', props.item.tier === 'urgent' && 'border-l-destructive/50', props.item.tier === 'review' && 'border-l-warning-foreground/50', props.item.tier === 'informational' && 'border-l-border')}>
     <div class="flex-1 min-w-0 flex flex-col gap-1">
       <strong class="text-sm font-semibold text-foreground">{props.item.title}</strong>
       <small class="text-xs text-muted-foreground leading-[1.4]">{props.item.detail}</small>
       <Show when={props.item.consequence}>
-        <small class="text-xs text-warning font-medium leading-[1.4]">{props.item.consequence}</small>
+        <small class="text-xs text-warning-foreground font-medium leading-[1.4]">{props.item.consequence}</small>
       </Show>
     </div>
     <div class="flex gap-2 shrink-0 items-center flex-wrap">

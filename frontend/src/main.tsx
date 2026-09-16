@@ -1,5 +1,6 @@
 import { render } from 'solid-js/web'
-import { lazy } from 'solid-js'
+import { lazy, type JSX } from 'solid-js'
+import { ColorModeProvider, ColorModeScript, createLocalStorageManager } from '@kobalte/core'
 import { LoginGate } from './components/LoginGate'
 import './styles/tailwind.css'
 
@@ -23,7 +24,30 @@ const AuthenticatedApp = lazy(() => import('./AuthenticatedApp').then((module) =
   return module
 }))
 
-render(() => <LoginGate><AuthenticatedApp /></LoginGate>, document.getElementById('app')!)
+// Style guide: dev server on localhost only. `import.meta.env.DEV` is a
+// compile-time constant, so a production build drops this branch and never
+// emits the page's chunk. It renders outside the login gate because it shows
+// primitives only and issues no queries.
+const isLocalStyleGuide = import.meta.env.DEV
+  && ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)
+  && window.location.pathname.replace(/\/$/, '') === '/styleguide'
+
+// Light / dark / system, stored in localStorage. Kobalte stamps
+// `data-kb-theme` on <html>, which the theme's `dark` variant keys on.
+const colorModeStorage = createLocalStorageManager('control-plane-color-mode')
+const WithColorMode = (props: { children: JSX.Element }) => (
+  <>
+    <ColorModeScript storageType={colorModeStorage.type} storageKey="control-plane-color-mode" />
+    <ColorModeProvider storageManager={colorModeStorage}>{props.children}</ColorModeProvider>
+  </>
+)
+
+if (isLocalStyleGuide) {
+  const StyleGuidePage = lazy(() => import('./pages/StyleGuidePage'))
+  render(() => <WithColorMode><StyleGuidePage /></WithColorMode>, document.getElementById('app')!)
+} else {
+  render(() => <WithColorMode><LoginGate><AuthenticatedApp /></LoginGate></WithColorMode>, document.getElementById('app')!)
+}
 
 // Register the service worker in production only. The dev server doesn't
 // need SW caching — it would intercept HMR and stale the module graph.

@@ -7,7 +7,7 @@ import { cn } from '../lib/cn'
 import { Textarea } from './ui/textarea'
 import type { ChatMessage, ChatAction } from '../lib/types'
 import { READ_ONLY_REASON, readOnly, writeGuard } from '../lib/read-only'
-import { Button } from './ui/button'
+import { Button } from './app/button'
 import { SparkIcon, CloseIcon, SendIcon } from './chat-icons'
 import { renderMarkdown } from '../lib/chat-markdown'
 import { CHAT_SUGGESTIONS, BAND_CHAT_SUGGESTIONS, readChatStream, stripActions } from '../lib/chat-stream'
@@ -320,12 +320,12 @@ export function ChatWidget(props: { slug: string }) {
                 <div class={cn('flex flex-col gap-1', msg.role === 'user' ? 'items-end' : 'items-start')}>
                   <Show
                     when={isStreamingMsg()}
-                    fallback={<div data-slot="chat-message" class={cn('max-w-[80%] rounded-lg px-4 py-2.5 text-sm leading-relaxed break-words', msg.role === 'user' ? 'rounded-br-sm bg-primary-solid text-primary-on' : 'rounded-bl-sm bg-surface-2 text-foreground')} innerHTML={renderMarkdown(msg.content, props.slug)} />}
+                    fallback={<div data-slot="chat-message" class={cn('max-w-[80%] rounded-lg px-4 py-2.5 text-sm leading-relaxed break-words', msg.role === 'user' ? 'rounded-br-sm bg-primary text-primary-foreground' : 'rounded-bl-sm bg-card text-foreground')} innerHTML={renderMarkdown(msg.content, props.slug)} />}
                   >
                     {/* During streaming, render as a text node so the text
                         grows smoothly without DOM rebuilds / blinking.
                         Markdown is applied once streaming completes. */}
-                    <div data-slot="chat-message" class="max-w-[80%] rounded-lg rounded-bl-sm bg-surface-2 text-foreground px-4 py-2.5 text-sm leading-relaxed break-words">{streamingContent()}</div>
+                    <div data-slot="chat-message" class="max-w-[80%] rounded-lg rounded-bl-sm bg-card text-foreground px-4 py-2.5 text-sm leading-relaxed break-words">{streamingContent()}</div>
                   </Show>
                   <Show when={msg.actions && msg.actions.length > 0}>
                     <div class="flex flex-wrap gap-2 mt-2">

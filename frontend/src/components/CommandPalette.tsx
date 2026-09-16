@@ -5,7 +5,7 @@ import type { Component } from 'solid-js'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { cn } from '../lib/cn'
-import { Button } from './ui/button'
+import { Button } from './app/button'
 import { Input } from './ui/input'
 
 // Keyboard-first surface for the operator: jump to any tenant subpage and run
@@ -272,16 +272,16 @@ export const CommandPalette: Component = () => {
                 class={cn(
                   'h-auto w-full justify-start gap-2 rounded-md px-3 py-2 text-left text-sm font-normal transition-colors',
                   // Non-danger items: standard foreground + surface hover.
-                  !cmd.confirm && 'text-foreground hover:bg-surface-1',
+                  !cmd.confirm && 'text-foreground hover:bg-background',
                   // Danger items: bright red text + subtle red tint so they're
                   // scannable and readable, not washed-out dark red.
-                  Boolean(cmd.confirm) && armed() !== cmd.id && 'text-destructive-light hover:bg-destructive/10',
+                  Boolean(cmd.confirm) && armed() !== cmd.id && 'text-destructive hover:bg-destructive/10',
                   // Active highlight — preserve the danger tint for confirm
                   // items instead of overriding to white.
-                  i() === index() && !cmd.confirm && 'bg-surface-1 text-foreground',
-                  i() === index() && cmd.confirm && armed() !== cmd.id && 'bg-destructive/15 text-destructive-light',
+                  i() === index() && !cmd.confirm && 'bg-background text-foreground',
+                  i() === index() && cmd.confirm && armed() !== cmd.id && 'bg-destructive/15 text-destructive',
                   // Armed (second Enter pending): strong red background.
-                  armed() === cmd.id && 'bg-destructive/20 text-destructive-light border border-destructive/40 font-semibold',
+                  armed() === cmd.id && 'bg-destructive/20 text-destructive border border-destructive/40 font-semibold',
                 )}
                 classList={{
                   'cmdk-item': true,

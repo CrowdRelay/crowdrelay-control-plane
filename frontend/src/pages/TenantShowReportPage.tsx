@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 import { PageShell, PageHeader } from '../components/layout'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
-import { Badge } from '../components/ui/badge'
+import { Badge } from '../components/app/badge'
 import { formatTimestamp } from '../lib/format'
 
 /** `/tenants/$slug/shows/$eventSlug/report` — the T+7 artifact. What the
@@ -63,7 +63,7 @@ export function TenantShowReportPage() {
             {/* The artifact reads like the email it is: a letter, not a
                 dashboard. One column, sections in the recipient's order. */}
             <div class="mx-auto flex w-full max-w-2xl flex-col gap-4">
-              <div class="rounded-lg border border-border bg-surface-1 px-4 py-3">
+              <div class="rounded-lg border border-border bg-background px-4 py-3">
                 <div class="flex items-center justify-between gap-3">
                   <div class="min-w-0">
                     <p class="text-sm font-medium text-foreground">
@@ -140,7 +140,7 @@ export function TenantShowReportPage() {
               </Show>
 
               <Show when={(data().report.evidence_gaps ?? []).length > 0}>
-                <div class="rounded-lg border border-warning/40 bg-warning/5 px-4 py-3">
+                <div class="rounded-lg border border-warning-foreground/40 bg-warning-foreground px-4 py-3">
                   <p class="text-xs font-medium text-foreground">What this cannot claim</p>
                   <ul class="mt-1 list-inside list-disc text-xs text-muted-foreground">
                     <For each={data().report.evidence_gaps ?? []}>
@@ -164,7 +164,7 @@ export function TenantShowReportPage() {
 
 function ReportSection(props: { title: string; note?: string; children: JSX.Element }) {
   return (
-    <div class="rounded-lg border border-border bg-surface-1 px-4 py-3">
+    <div class="rounded-lg border border-border bg-background px-4 py-3">
       <p class="text-sm font-medium text-foreground">{props.title}</p>
       <Show when={props.note}>
         <p class="mt-0.5 text-[11px] text-muted-foreground">{props.note}</p>

@@ -164,7 +164,7 @@ export function TenantIntelligencePage() {
               <rect x="580" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-outcome" />
               <text x="660" y="55" text-anchor="middle" class="intel-loop-label">Measures</text>
               <text x="660" y="72" text-anchor="middle" class="intel-loop-sub">fans · engagement</text>
-              <path d="M 660 90 Q 400 115, 100 90" fill="none" stroke="var(--color-success-light)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#intel-arrow)" />
+              <path d="M 660 90 Q 400 115, 100 90" fill="none" stroke="var(--color-success-foreground)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#intel-arrow)" />
               <text x="380" y="115" text-anchor="middle" class="intel-loop-feedback">Gets smarter each time</text>
             </svg>
           </div>

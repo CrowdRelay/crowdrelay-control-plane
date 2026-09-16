@@ -8,10 +8,10 @@ import { FunnelChart } from './FunnelChart'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock } from './Skeleton'
 import { KpiStrip, KpiCard, ErrorCard } from './layout'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { Card } from './app/card'
+import { Button } from './app/button'
+import { Badge } from './app/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import type { FunnelRecentWorkerRun } from '../lib/types'
 import { NativeSelect } from './ui/native-select'
 
@@ -174,7 +174,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
       <Show when={funnel.data}>
         {/* Bottleneck highlight */}
         <Show when={bottleneck()}>{(b) => (
-          <div class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning mt-3">
+          <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground p-4 text-sm text-warning-foreground mt-3">
             <strong>Funnel bottleneck: {b().stage.label}</strong><br />
             <span>Only {b().rate}% progressed to {b().nextStage.label}. {b().stage.value} → {b().nextStage.value}.<br />Consider dispatching more {b().stage.label.toLowerCase()} or reviewing the intelligence's growth intelligence policy.</span>
           </div>

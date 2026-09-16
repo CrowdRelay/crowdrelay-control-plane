@@ -81,7 +81,7 @@ export function TenantShowScanPage() {
             <Show
               when={data().checkin_url && qr() && !full()}
               fallback={
-                <div class="rounded-lg border border-border bg-surface-1 px-4 py-10 text-center">
+                <div class="rounded-lg border border-border bg-background px-4 py-10 text-center">
                   <p class="text-sm text-foreground">
                     {full() ? 'The list is full' : 'Nothing to scan yet'}
                   </p>
@@ -104,7 +104,7 @@ export function TenantShowScanPage() {
                 />
               </div>
               <Show when={notYetOpen()}>
-                <p class="mt-3 text-center text-xs font-medium text-warning">
+                <p class="mt-3 text-center text-xs font-medium text-warning-foreground">
                   The door opens at {formatTimestamp(data().valid_from!)} — scans before then get turned away
                 </p>
               </Show>

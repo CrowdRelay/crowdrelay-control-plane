@@ -3,8 +3,8 @@ import { Eyebrow, PanelTitle } from './layout'
 import type { ReleaseLedgerOverview } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
-import { Card } from './ui/card'
-import { Badge } from './ui/badge'
+import { Card } from './app/card'
+import { Badge } from './app/badge'
 
 const staleReleaseComponents = (ledger: ReleaseLedgerOverview | null) =>
   ledger?.components.filter((component) => component.stale) ?? []
@@ -71,7 +71,7 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
       <StatusBadge status={releaseLabel(ledger())} tone={releaseTone(ledger())} />
     </div>
 
-    <Show when={ledger()} fallback={<div class="p-4 rounded-lg border border-border bg-surface-1"><p class="m-0 text-sm text-muted-foreground">Production release convergence is currently unavailable for this tenant.</p></div>}>
+    <Show when={ledger()} fallback={<div class="p-4 rounded-lg border border-border bg-background"><p class="m-0 text-sm text-muted-foreground">Production release convergence is currently unavailable for this tenant.</p></div>}>
       {current => <>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
           <div class="p-3 border border-border rounded-lg bg-card"><span class="block text-xs text-muted-foreground">reported components</span><strong class="block mt-1 text-xl font-bold tabular-nums text-foreground">{current().components.length}</strong></div>
@@ -81,7 +81,7 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
         </div>
 
         <Show when={current().backend_sha_drift || current().executor_manifest_drift || current().missing_components.length > 0 || stale().length > 0}>
-          <div class="mt-3 p-3 border border-warning/30 rounded-lg bg-warning/5 flex flex-col gap-1">
+          <div class="mt-3 p-3 border border-warning-foreground/30 rounded-lg bg-warning-foreground flex flex-col gap-1">
             <strong class="text-sm font-semibold text-foreground">Release reconciliation needs attention</strong>
             <span class="text-sm text-muted-foreground">{[
               current().backend_sha_drift ? 'API/worker SHA drift' : '',

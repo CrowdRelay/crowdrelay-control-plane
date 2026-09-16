@@ -3,15 +3,15 @@ import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
-import { toast } from '../components/ui/toast'
+import { toast } from '../components/app/toast'
 import type { AutomationEvent, AutomationWorkflowConfig } from '../lib/types'
 import { EmptyState } from '../components/ui/empty-state'
-import { Checkbox } from '../components/ui/checkbox'
+import { Checkbox } from '../components/app/checkbox'
 import { SkeletonRows } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
 import { PageShell, PageHeader, KpiStrip, KpiCard, ErrorCard, SectionTitle } from '../components/layout'
-import { Button } from '../components/ui/button'
-import { Card } from '../components/ui/card'
+import { Button } from '../components/app/button'
+import { Card } from '../components/app/card'
 import { cn } from '../lib/cn'
 import { NativeSelect } from '../components/ui/native-select'
 import { writeGuard } from '../lib/read-only'
@@ -163,7 +163,7 @@ export function AutomationPage() {
             </Card>
           )}</For>
           <Show when={configs.data!.items.length === 0}>
-            <div class="p-4 rounded-lg border border-border bg-surface-1"><EmptyState label="No workflow events" hint="Workflow events appear here when automation rules fire. Connect event sources to start tracking." /></div>
+            <div class="p-4 rounded-lg border border-border bg-background"><EmptyState label="No workflow events" hint="Workflow events appear here when automation rules fire. Connect event sources to start tracking." /></div>
           </Show>
         </div>
       </Show>
@@ -199,10 +199,10 @@ export function AutomationPage() {
             return (
               <Card class={cn('p-4 space-y-2', ev.status === 'new' && 'ring-1 ring-primary/30')}>
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span class={cn('inline-block w-2 h-2 rounded-full', severityTone(ev.severity) === 'bad' ? 'bg-destructive' : severityTone(ev.severity) === 'warn' ? 'bg-warning' : 'bg-muted-foreground')} />
+                  <span class={cn('inline-block w-2 h-2 rounded-full', severityTone(ev.severity) === 'bad' ? 'bg-destructive' : severityTone(ev.severity) === 'warn' ? 'bg-warning-foreground' : 'bg-muted-foreground')} />
                   <strong class="text-sm text-foreground">{ev.workflowName}</strong>
                   <span class="text-xs text-muted-foreground">{ev.eventKind}</span>
-                  <Show when={cfg}><span class={cn('inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium', cfg!.category === 'real_work' ? 'bg-primary/10 text-primary' : cfg!.category === 'system' ? 'bg-surface-3 text-muted-foreground' : 'bg-surface-2 text-muted-foreground')}>{categoryLabel(cfg!.category)}</span></Show>
+                  <Show when={cfg}><span class={cn('inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium', cfg!.category === 'real_work' ? 'bg-primary/10 text-primary' : cfg!.category === 'system' ? 'bg-muted text-muted-foreground' : 'bg-card text-muted-foreground')}>{categoryLabel(cfg!.category)}</span></Show>
                   <span class="text-xs text-muted-foreground ml-auto">{formatTime(ev.occurredAt)}</span>
                 </div>
                 <div class="space-y-1">
@@ -211,7 +211,7 @@ export function AutomationPage() {
                   <Show when={ev.executionId}><small class="block text-xs text-muted-foreground">Execution: {ev.executionId}</small></Show>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span class={cn('inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium', statusTone(ev.status) === 'bad' ? 'bg-destructive/10 text-destructive' : statusTone(ev.status) === 'warn' ? 'bg-warning/10 text-warning' : 'bg-surface-2 text-muted-foreground')}>{ev.status}</span>
+                  <span class={cn('inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium', statusTone(ev.status) === 'bad' ? 'bg-destructive/10 text-destructive' : statusTone(ev.status) === 'warn' ? 'bg-warning-foreground text-warning-foreground' : 'bg-card text-muted-foreground')}>{ev.status}</span>
                   <Show when={ev.retryCount > 0}><span class="text-xs text-muted-foreground">retried {ev.retryCount}×</span></Show>
                   <Show when={ev.status === 'new'}>
                     <Button writes variant="ghost" size="sm" disabled={busyId() === ev.id} onClick={() => handleAck(ev.id)}>Ack</Button>
@@ -227,7 +227,7 @@ export function AutomationPage() {
             )
           }}</For>
           <Show when={events.data!.items.length === 0}>
-            <div class="p-4 rounded-lg border border-border bg-surface-1"><EmptyState label="No events match this filter" hint="Try adjusting the event type or time range filter." /></div>
+            <div class="p-4 rounded-lg border border-border bg-background"><EmptyState label="No events match this filter" hint="Try adjusting the event type or time range filter." /></div>
           </Show>
         </div>
       </Show>

@@ -11,11 +11,11 @@ import { AIUsagePanel } from './AIUsagePanel'
 import { IntelligenceTransparencyPanel } from './IntelligenceTransparencyPanel'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonGrid, SkeletonRows } from './Skeleton'
-import { Button } from './ui/button'
-import { Card } from './ui/card'
-import { Badge } from './ui/badge'
+import { Button } from './app/button'
+import { Card } from './app/card'
+import { Badge } from './app/badge'
 import { Input } from './ui/input'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import { Textarea } from './ui/textarea'
 import type { AgentTaskResult, TaskSuggestion, AgentOutcome } from '../lib/types'
 import { NativeSelect } from './ui/native-select'
@@ -281,7 +281,7 @@ export function AgentPanel(props: { slug: string }) {
       {/* Service-unavailable banner — shown once at the top when the agent
           service is down, instead of repeating errors in each sub-panel. */}
       <Show when={isServiceDown()}>
-        <div class="flex items-start gap-3 p-4 rounded-lg border border-warning/30 bg-warning/10 text-warning-light">
+        <div class="flex items-start gap-3 p-4 rounded-lg border border-warning-foreground/30 bg-warning-foreground text-warning-foreground">
           <AntIcon size={20} />
           <div>
             <strong>Agent service is temporarily unavailable</strong>
@@ -387,7 +387,7 @@ export function AgentPanel(props: { slug: string }) {
                   <p class="text-sm text-muted-foreground leading-relaxed mb-2">{template.description}</p>
                   <div class="flex gap-1 flex-wrap">
                     <For each={template.recommendedModels.slice(0, 2)}>
-                      {(model) => <span class="text-xs px-2 py-0.5 rounded-full bg-surface-3 text-muted-foreground border border-border">{model}</span>}
+                      {(model) => <span class="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">{model}</span>}
                     </For>
                   </div>
                 </Button>
@@ -455,7 +455,7 @@ export function AgentPanel(props: { slug: string }) {
         </div>
         <p class="text-sm text-muted-foreground mt-1">Recurring tasks run automatically. Results land in Recent tasks.</p>
         <Show when={creatingSchedule()}>
-          <div class="flex flex-col gap-3 mt-4 p-4 rounded-lg border border-border bg-surface-1">
+          <div class="flex flex-col gap-3 mt-4 p-4 rounded-lg border border-border bg-background">
             <label class="flex flex-col gap-1 text-sm text-muted-foreground">
               <span>Interval (minutes)</span>
               <Input type="number" min="60" max="10080" value={scheduleInterval()} onInput={(e) => setScheduleInterval(parseInt(e.currentTarget.value, 10) || 1440)} />
@@ -578,7 +578,7 @@ export function AgentPanel(props: { slug: string }) {
               <div class="flex flex-col gap-2 py-4">
                 <h4>Structured outcomes</h4>
                 <For each={viewingResult()!.outcomes}>{(outcome: AgentOutcome) => (
-                  <div class="p-3 rounded-lg border border-border bg-surface-1">
+                  <div class="p-3 rounded-lg border border-border bg-background">
                     <div class="flex items-center gap-2 mb-2">
                       <Badge>{outcome.kind.replaceAll('_', ' ')}</Badge>
                       <Badge>confidence {confidencePercent(outcome.confidence_basis_points)}</Badge>

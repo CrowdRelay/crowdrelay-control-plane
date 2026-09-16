@@ -19,12 +19,12 @@ const toneForValue = (v: number): 'good' | 'warn' | 'bad' => {
 }
 
 const toneColor: Record<string, string> = {
-  good: 'var(--color-success)',
-  warn: 'var(--color-warning)',
+  good: 'var(--color-success-foreground)',
+  warn: 'var(--color-warning-foreground)',
   bad: 'var(--color-destructive)',
   // "We have no reading" is not "everything is on fire": a fleet that has
   // never reported must not render in the same red as a failing one.
-  muted: 'var(--text-muted)',
+  muted: 'var(--color-muted-foreground)',
 }
 
 // Map tone to a concrete RGBA for drop-shadow (CSS var() doesn't work inside filter).
@@ -136,7 +136,7 @@ export const ProgressRing: Component<{
           left: '50%',
           transform: 'translateX(-50%)',
           'font-size': '0.65rem',
-          color: 'var(--muted)',
+          color: 'var(--color-muted-foreground)',
           'white-space': 'nowrap',
         }}>
           {props.label}

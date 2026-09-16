@@ -3,7 +3,7 @@ import { useIsFetching } from '@tanstack/solid-query'
 import { REFRESH_INTERVALS, refreshInterval, setRefreshInterval, triggerRefresh } from '../lib/refresh'
 import { relativeTime } from '../lib/format'
 import { NativeSelect } from './ui/native-select'
-import { Button } from './ui/button'
+import { Button } from './app/button'
 
 // Grafana-style refresh control: an interval dropdown + a manual refresh button.
 // Sits in the topbar so every page inherits it. The interval drives

@@ -11,9 +11,9 @@ import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { Dialog } from './Dialog'
 import { ErrorCard, Section } from './layout'
-import { Button } from './ui/button'
+import { Button } from './app/button'
 import { Input } from './ui/input'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import { Textarea } from './ui/textarea'
 import { NativeSelect } from './ui/native-select'
 import { Field } from './ui/field'
@@ -359,13 +359,13 @@ export function FanSourcesPanel(props: {
         : "Where your fans already are. Each connection syncs follower and engagement numbers on its own schedule."}
       action={<Show when={connectedCount() > 0}>
         <span class="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <span class="inline-block h-2 w-2 rounded-full bg-success" />
+          <span class="inline-block h-2 w-2 rounded-full bg-success-foreground" />
           {connectedCount()} connected
         </span>
       </Show>}
     >
-      <Show when={notice()}><div class="mb-3 rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground" role="status">{notice()}</div></Show>
-      <Show when={verificationNotice()}><div class="mb-3 rounded-lg border border-border bg-surface-1 p-4 text-sm text-foreground" role="status">{verificationNotice()}</div></Show>
+      <Show when={notice()}><div class="mb-3 rounded-lg border border-border bg-background p-4 text-sm text-foreground" role="status">{notice()}</div></Show>
+      <Show when={verificationNotice()}><div class="mb-3 rounded-lg border border-border bg-background p-4 text-sm text-foreground" role="status">{verificationNotice()}</div></Show>
       <Show when={errorText()}><ErrorCard class="mb-3">{errorText()}</ErrorCard></Show>
       <Show when={connections.error}>
         <ErrorCard class="mb-3">Fan source connections unavailable: {errorMessage(connections.error, authState.isPlatformLevel() ? 'We couldn\'t reach the fan source service. Try refreshing — if it persists, the tenant runtime may be down.' : 'We couldn\'t reach the fan source service. Try refreshing — if it persists, something on our side is down.')}</ErrorCard>
@@ -380,9 +380,9 @@ export function FanSourcesPanel(props: {
               // horizontal line, so "SoundCloud" broke across two lines inside
               // its own tile. The name gets the top row; everything that
               // explains it goes underneath at full tile width.
-              <div class="flex flex-col gap-2 border p-4" classList={{ 'border-success/30': !!conn(), 'border-border': !conn() }}>
+              <div class="flex flex-col gap-2 border p-4" classList={{ 'border-success-foreground/30': !!conn(), 'border-border': !conn() }}>
                 <div class="flex items-center gap-3">
-                  <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-surface-1">
+                  <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background">
                     <FanbaseIcon sourceKind={spec.icon as never} size={28} />
                   </div>
                   <span class="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{spec.label}</span>
@@ -439,7 +439,7 @@ export function FanSourcesPanel(props: {
             writes
             type="button"
             onClick={() => { setCreating(true); setNotice(null); setErrorText(null) }}
-            class="h-auto w-full flex-col items-stretch gap-2 whitespace-normal border border-dashed border-border bg-transparent p-4 text-left font-normal hover:border-border-strong hover:bg-surface-1"
+            class="h-auto w-full flex-col items-stretch gap-2 whitespace-normal border border-dashed border-border bg-transparent p-4 text-left font-normal hover:border-input hover:bg-background"
           >
             <div class="flex items-center gap-3">
               <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground">
@@ -622,13 +622,13 @@ export function FanSourcesPanel(props: {
           aria-label="Fan batch JSON"
           value={ingestJson()} onInput={e => setIngestJson(e.currentTarget.value)} />
         <Show when={ingestJson().trim().length > 0} fallback={
-          <div class="rounded-md border border-border bg-surface-1 p-3">
+          <div class="rounded-md border border-border bg-background p-3">
             <pre class="overflow-x-auto text-xs text-secondary-foreground"><code>{'{"entries":[{"external_id":"fan-001","email":"a@b.c","display_name":"Alex","locale":"en"}]}'}</code></pre>
             <small class="mt-2 block text-xs text-muted-foreground">Each entry needs <code>external_id</code>. Optional: <code>email</code>, <code>display_name</code>, <code>locale</code>.</small>
           </div>
         }>
           <Show when={parseEntries()} fallback={<small class="text-xs text-destructive">Invalid JSON — check the format and try again.</small>}>
-            <small class="text-xs text-success">Valid — {parseEntries()!.entries.length} entr{parseEntries()!.entries.length === 1 ? 'y' : 'ies'} ready</small>
+            <small class="text-xs text-success-foreground">Valid — {parseEntries()!.entries.length} entr{parseEntries()!.entries.length === 1 ? 'y' : 'ies'} ready</small>
           </Show>
         </Show>
       </div>

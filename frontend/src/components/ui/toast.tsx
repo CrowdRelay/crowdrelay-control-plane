@@ -1,107 +1,163 @@
-import { createSignal, For, Show, type JSX } from 'solid-js'
-import { cn } from '~/lib/cn'
+import type { JSX, ValidComponent } from "solid-js"
+import { Match, splitProps, Switch } from "solid-js"
+import { Portal } from "solid-js/web"
 
-/**
- * Toast — global mutation feedback.
- *
- *   toast.success('Reconciliation finished')
- *   toast.error('Deploy failed')
- *   toast.info('Outbox item re-queued')
- *
- * Deliberately NOT Kobalte's Toast: the signal-based store below already has
- * the exact API the call sites use, and a ToastRegion provider plus toastId
- * bookkeeping would buy nothing here. Flat surface, one border, semantic
- * colour on the icon only — status is a property of the message, not a
- * reason to repaint the whole card.
- */
+import type { PolymorphicProps } from "@kobalte/core/polymorphic"
+import * as ToastPrimitive from "@kobalte/core/toast"
+import type { VariantProps } from "class-variance-authority"
+import { cva } from "class-variance-authority"
 
-type ToastKind = 'success' | 'error' | 'info'
-type ToastItem = { id: number; kind: ToastKind; text: string; createdAt: number }
+import { cn } from "~/lib/utils"
 
-const [toasts, setToasts] = createSignal<ToastItem[]>([])
-let nextId = 0
-const timers = new Map<number, ReturnType<typeof setTimeout>>()
-
-function dismiss(id: number) {
-  setToasts(list => list.filter(t => t.id !== id))
-  const t = timers.get(id)
-  if (t) { clearTimeout(t); timers.delete(id) }
-}
-
-function push(kind: ToastKind, text: string, duration = 4000) {
-  const id = ++nextId
-  setToasts(list => [...list, { id, kind, text, createdAt: Date.now() }])
-  if (duration > 0) {
-    timers.set(id, setTimeout(() => dismiss(id), duration))
+const toastVariants = cva(
+  "group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-6 pr-8 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--kb-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--kb-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[opened]:animate-in data-[closed]:animate-out data-[swipe=end]:animate-out data-[closed]:fade-out-80 data-[closed]:slide-out-to-right-full data-[opened]:slide-in-from-top-full data-[opened]:sm:slide-in-from-bottom-full",
+  {
+    variants: {
+      variant: {
+        default: "border bg-background text-foreground",
+        destructive:
+          "destructive group border-destructive bg-destructive text-destructive-foreground",
+        success: "success border-success-foreground bg-success text-success-foreground",
+        warning: "warning border-warning-foreground bg-warning text-warning-foreground",
+        error: "error border-error-foreground bg-error text-error-foreground"
+      }
+    },
+    defaultVariants: {
+      variant: "default"
+    }
   }
-}
-
-export const toast = {
-  success: (text: string) => push('success', text),
-  error: (text: string) => push('error', text, 6000),
-  info: (text: string) => push('info', text),
-  dismiss,
-}
-
-const kindStyle: Record<ToastKind, { border: string; icon: string }> = {
-  success: { border: 'border-success/30', icon: 'text-success' },
-  error: { border: 'border-destructive/30', icon: 'text-destructive' },
-  info: { border: 'border-border', icon: 'text-muted-foreground' },
-}
-
-const Glyph = (props: { kind: ToastKind }) => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    aria-hidden="true"
-  >
-    <circle cx="12" cy="12" r="10" />
-    <Show when={props.kind === 'success'}><path d="m8 12 3 3 5-6" /></Show>
-    <Show when={props.kind === 'error'}><path d="m15 9-6 6M9 9l6 6" /></Show>
-    <Show when={props.kind === 'info'}><path d="M12 11v5M12 8h.01" /></Show>
-  </svg>
 )
+type ToastVariant = NonNullable<VariantProps<typeof toastVariants>["variant"]>
 
-export function ToastContainer(): JSX.Element {
+type ToastListProps<T extends ValidComponent = "ol"> = ToastPrimitive.ToastListProps<T> & {
+  class?: string | undefined
+}
+
+const Toaster = <T extends ValidComponent = "ol">(
+  props: PolymorphicProps<T, ToastListProps<T>>
+) => {
+  const [local, others] = splitProps(props as ToastListProps, ["class"])
   return (
-    <Show when={toasts().length > 0}>
-      <div
-        class="pointer-events-none fixed bottom-4 right-4 z-[9600] flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-2"
-        role="region"
-        aria-label="Notifications"
-        aria-live="polite"
-      >
-        <For each={toasts()}>{(item) => (
-          <div
-            class={cn(
-              'pointer-events-auto flex items-start gap-2.5 rounded-md border bg-card px-4 py-3 shadow-lg',
-              kindStyle[item.kind].border,
-            )}
-            role="status"
-          >
-            <span class={cn('mt-px shrink-0', kindStyle[item.kind].icon)}>
-              <Glyph kind={item.kind} />
-            </span>
-            <span class="min-w-0 flex-1 break-words text-sm leading-snug text-foreground">{item.text}</span>
-            <button
-              type="button"
-              class="-mr-1 shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              onClick={() => dismiss(item.id)}
-              aria-label="Dismiss notification"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                <path d="M18 6 6 18M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        )}</For>
-      </div>
-    </Show>
+    <Portal>
+      <ToastPrimitive.Region>
+        <ToastPrimitive.List
+          class={cn(
+            "fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse gap-2 p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]",
+            local.class
+          )}
+          {...others}
+        />
+      </ToastPrimitive.Region>
+    </Portal>
   )
 }
+
+type ToastRootProps<T extends ValidComponent = "li"> = ToastPrimitive.ToastRootProps<T> &
+  VariantProps<typeof toastVariants> & { class?: string | undefined }
+
+const Toast = <T extends ValidComponent = "li">(props: PolymorphicProps<T, ToastRootProps<T>>) => {
+  const [local, others] = splitProps(props as ToastRootProps, ["class", "variant"])
+  return (
+    <ToastPrimitive.Root
+      class={cn(toastVariants({ variant: local.variant }), local.class)}
+      {...others}
+    />
+  )
+}
+
+type ToastCloseButtonProps<T extends ValidComponent = "button"> =
+  ToastPrimitive.ToastCloseButtonProps<T> & { class?: string | undefined }
+
+const ToastClose = <T extends ValidComponent = "button">(
+  props: PolymorphicProps<T, ToastCloseButtonProps<T>>
+) => {
+  const [local, others] = splitProps(props as ToastCloseButtonProps, ["class"])
+  return (
+    <ToastPrimitive.CloseButton
+      class={cn(
+        "absolute right-2 top-2 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity focus:opacity-100 focus:outline-none focus:ring-2 group-hover:opacity-100 group-[.destructive]:text-destructive-foreground group-[.error]:text-error-foreground group-[.success]:text-success-foreground group-[.warning]:text-warning-foreground",
+        local.class
+      )}
+      {...others}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="size-4"
+      >
+        <path d="M18 6l-12 12" />
+        <path d="M6 6l12 12" />
+      </svg>
+    </ToastPrimitive.CloseButton>
+  )
+}
+
+type ToastTitleProps<T extends ValidComponent = "div"> = ToastPrimitive.ToastTitleProps<T> & {
+  class?: string | undefined
+}
+
+const ToastTitle = <T extends ValidComponent = "div">(
+  props: PolymorphicProps<T, ToastTitleProps<T>>
+) => {
+  const [local, others] = splitProps(props as ToastTitleProps, ["class"])
+  return <ToastPrimitive.Title class={cn("text-sm font-semibold", local.class)} {...others} />
+}
+
+type ToastDescriptionProps<T extends ValidComponent = "div"> =
+  ToastPrimitive.ToastDescriptionProps<T> & { class?: string | undefined }
+
+const ToastDescription = <T extends ValidComponent = "div">(
+  props: PolymorphicProps<T, ToastDescriptionProps<T>>
+) => {
+  const [local, others] = splitProps(props as ToastDescriptionProps, ["class"])
+  return <ToastPrimitive.Description class={cn("text-sm opacity-90", local.class)} {...others} />
+}
+
+function showToast(props: {
+  title?: JSX.Element
+  description?: JSX.Element
+  variant?: ToastVariant
+  duration?: number
+}) {
+  ToastPrimitive.toaster.show((data) => (
+    <Toast toastId={data.toastId} variant={props.variant} duration={props.duration}>
+      <div class="grid gap-1">
+        {props.title && <ToastTitle>{props.title}</ToastTitle>}
+        {props.description && <ToastDescription>{props.description}</ToastDescription>}
+      </div>
+      <ToastClose />
+    </Toast>
+  ))
+}
+
+function showToastPromise<T, U>(
+  promise: Promise<T> | (() => Promise<T>),
+  options: {
+    loading?: JSX.Element
+    success?: (data: T) => JSX.Element
+    error?: (error: U) => JSX.Element
+    duration?: number
+  }
+) {
+  const variant: { [key in ToastPrimitive.ToastPromiseState]: ToastVariant } = {
+    pending: "default",
+    fulfilled: "success",
+    rejected: "error"
+  }
+  return ToastPrimitive.toaster.promise<T, U>(promise, (props) => (
+    <Toast toastId={props.toastId} variant={variant[props.state]} duration={options.duration}>
+      <Switch>
+        <Match when={props.state === "pending"}>{options.loading}</Match>
+        <Match when={props.state === "fulfilled"}>{options.success?.(props.data!)}</Match>
+        <Match when={props.state === "rejected"}>{options.error?.(props.error!)}</Match>
+      </Switch>
+    </Toast>
+  ))
+}
+
+export { Toaster, Toast, ToastClose, ToastTitle, ToastDescription, showToast, showToastPromise }

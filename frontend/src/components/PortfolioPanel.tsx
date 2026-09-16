@@ -6,10 +6,10 @@ import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
 import { KpiValue } from './KpiValue'
 import { EmptyState } from './ui/empty-state'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
+import { Card } from './app/card'
+import { Button } from './app/button'
 import { Input } from './ui/input'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import { ErrorCard, PanelTitle } from './layout'
 import { writeGuard } from '../lib/read-only'
 
@@ -168,7 +168,7 @@ export function PortfolioPanel(props: {
             <Show when={expandedRow() === edge.id}>
               <TableRow class="p-0 border-t-0">
                 <TableCell colspan="7" class="p-0 border-t-0">
-                  <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end px-4 py-4 bg-surface-1 border border-primary/30 rounded-b-lg -mt-px">
+                  <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end px-4 py-4 bg-background border border-primary/30 rounded-b-lg -mt-px">
                     <Show when={edge.status === 'proposed'}>
                       <label class="grid gap-1.5 text-muted-foreground text-sm">
                         <span>Approving operator</span>

@@ -16,7 +16,7 @@ export const ColorInput: Component<ColorInputProps> = (props) => {
   const [local, rest] = splitProps(props, ['class', 'writes'])
   return (
     <input
-      class={cn('h-9 w-9 shrink-0 cursor-pointer rounded-md border border-border bg-surface-1', local.class)}
+      class={cn('h-9 w-9 shrink-0 cursor-pointer rounded-md border border-border bg-background', local.class)}
       {...rest}
       type="color"
       {...(local.writes ? writeGuard() : {})}

@@ -5,9 +5,9 @@ import { api } from '../lib/api'
 import { SectionIcon } from './SectionIcon'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonSection } from './Skeleton'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { Card } from './app/card'
+import { Button } from './app/button'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import type { ChannelPerformance } from '../lib/types'
 
 // `/operations/acquisition-channels` answers the question the north star
@@ -58,7 +58,7 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
     </div>
 
     <Show when={model.error}>
-      <div class="p-4 mt-2.5 rounded-lg border border-border bg-surface-1"><p class="m-0 text-sm text-muted-foreground">Acquisition attribution is not available on the connected CrowdRelay build. The funnel below still reports totals.</p></div>
+      <div class="p-4 mt-2.5 rounded-lg border border-border bg-background"><p class="m-0 text-sm text-muted-foreground">Acquisition attribution is not available on the connected CrowdRelay build. The funnel below still reports totals.</p></div>
     </Show>
 
     <Show when={!model.error && model.isPending}><SkeletonSection titleWidth="200px" lines={4} minHeight="160px" /></Show>
@@ -102,7 +102,7 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
                 <TableCell>
                   {/* Signups across channels are the same unit, so length here
                       does mean something: this channel's share of the biggest. */}
-                  <div class="h-1.5 w-full min-w-12 overflow-hidden rounded-sm bg-surface-1" aria-hidden="true">
+                  <div class="h-1.5 w-full min-w-12 overflow-hidden rounded-sm bg-background" aria-hidden="true">
                     <span class="block h-full rounded-sm bg-primary" style={{ width: `${best() > 0 ? (channel.signups / best()) * 100 : 0}%` }} />
                   </div>
                 </TableCell>

@@ -105,7 +105,7 @@ function ShowRow(props: { show: TenantShow; slug: string }) {
     <Link
       to="/tenants/$slug/shows/$eventSlug"
       params={{ slug: props.slug, eventSlug: props.show.slug }}
-      class="flex items-center gap-4 rounded-lg border border-border bg-surface-1 px-4 py-3 transition-colors hover:bg-surface-2"
+      class="flex items-center gap-4 rounded-lg border border-border bg-background px-4 py-3 transition-colors hover:bg-card"
     >
       <div class="min-w-0 flex-1">
         <div class="text-sm font-medium text-foreground truncate">{props.show.title}</div>

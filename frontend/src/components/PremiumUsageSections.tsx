@@ -5,7 +5,7 @@ import { StatusBadge } from './StatusBadge'
 import { ModelIcon } from './ProviderIcon'
 import { EmptyState } from './ui/empty-state'
 import { Sparkline } from './Sparkline'
-import { Card } from './ui/card'
+import { Card } from './app/card'
 import { KpiCard, KpiStrip } from './layout'
 import { RobotIcon, SparkIcon } from './provider-icons'
 import type { PremiumUsage } from '../lib/types'
@@ -65,7 +65,7 @@ export function UsageKpiStrip(props: {
         <div class="text-xs text-muted-foreground">in the last 30 days</div>
         <Show when={dailyCostSeries().some(v => v > 0)}>
           <div class="mt-1 h-5 opacity-80">
-            <Sparkline data={dailyCostSeries()} width={80} height={20} color={budgetPctValue() > 80 ? 'var(--color-warning)' : 'var(--color-primary)'} />
+            <Sparkline data={dailyCostSeries()} width={80} height={20} color={budgetPctValue() > 80 ? 'var(--color-warning-foreground)' : 'var(--color-primary)'} />
           </div>
         </Show>
       </Card>
@@ -79,7 +79,7 @@ export function PremiumModelsSection(props: { usage: PremiumUsage }) {
     <section class="rounded-lg border border-border bg-card p-5">
       <div class="flex items-center justify-between mb-2">
         <h3 class="flex items-center gap-2 m-0 text-base font-semibold text-foreground"><SparkIcon size={16} /> Connected Premium Models</h3>
-        <span class="text-xs text-muted-foreground bg-surface-3 border border-border rounded-md px-2 py-0.5">{props.usage.premium_models.length}</span>
+        <span class="text-xs text-muted-foreground bg-muted border border-border rounded-md px-2 py-0.5">{props.usage.premium_models.length}</span>
       </div>
       <Show
         when={props.usage.premium_models.length > 0}
@@ -92,12 +92,12 @@ export function PremiumModelsSection(props: { usage: PremiumUsage }) {
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           <For each={props.usage.premium_models}>
             {(model) => (
-              <div class="flex flex-col gap-1.5 p-3 rounded-lg border border-border bg-surface-1">
+              <div class="flex flex-col gap-1.5 p-3 rounded-lg border border-border bg-background">
                 <div class="flex items-center gap-2">
                   <ModelIcon modelId={model.id} providerId={model.provider} paid size={18} />
                   <span class="font-semibold text-sm text-foreground">{model.name}</span>
                   <Show when={model.agentic}>
-                    <span class="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-surface-3 rounded-full px-2 py-0.5">
+                    <span class="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted rounded-full px-2 py-0.5">
                       <RobotIcon size={11} /> agentic
                     </span>
                   </Show>
@@ -122,7 +122,7 @@ export function PremiumTasksSection(props: { usage: PremiumUsage }) {
     <section class="rounded-lg border border-border bg-card p-5">
       <div class="flex items-center justify-between mb-2">
         <h3 class="flex items-center gap-2 m-0 text-base font-semibold text-foreground">Recent premium tasks</h3>
-        <span class="text-xs text-muted-foreground bg-surface-3 border border-border rounded-md px-2 py-0.5">{props.usage.tasks.length}</span>
+        <span class="text-xs text-muted-foreground bg-muted border border-border rounded-md px-2 py-0.5">{props.usage.tasks.length}</span>
       </div>
       <Show
         when={props.usage.tasks.length > 0}

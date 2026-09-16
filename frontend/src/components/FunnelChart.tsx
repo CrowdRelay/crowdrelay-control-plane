@@ -64,8 +64,8 @@ export const FunnelChart: Component<{
   const stageColors = [
     'var(--color-primary)',
     'var(--accent-2, var(--color-primary))',
-    'var(--color-success)',
-    'var(--color-warning)',
+    'var(--color-success-foreground)',
+    'var(--color-warning-foreground)',
     'var(--color-destructive)',
   ]
 
@@ -97,7 +97,7 @@ export const FunnelChart: Component<{
             x={W() / 2}
             y={labelY(i()) - 4}
             text-anchor="middle"
-            fill="var(--text)"
+            fill="var(--color-foreground)"
             font-size="13"
             font-weight="700"
           >
@@ -107,7 +107,7 @@ export const FunnelChart: Component<{
             x={W() / 2}
             y={labelY(i()) + 12}
             text-anchor="middle"
-            fill="var(--muted)"
+            fill="var(--color-muted-foreground)"
             font-size="11"
           >
             {stage.value}

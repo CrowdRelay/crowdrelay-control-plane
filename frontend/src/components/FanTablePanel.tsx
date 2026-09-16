@@ -4,20 +4,20 @@ import { api } from '../lib/api'
 import type { FanCard, FanDetail, FanJourneyEntry } from '../lib/types'
 import { FanDetailDrawer } from './FanDetailDrawer'
 import { EmptyState } from './ui/empty-state'
-import { Card } from './ui/card'
-import { Badge } from './ui/badge'
-import { Button } from './ui/button'
+import { Card } from './app/card'
+import { Badge } from './app/badge'
+import { Button } from './app/button'
 import { FileInput } from './ui/file-input'
 import { Input } from './ui/input'
 import { Field } from './ui/field'
 import { NativeSelect } from './ui/native-select'
 import { Dialog } from './Dialog'
 import { Spinner } from './Spinner'
-import { toast } from './ui/toast'
+import { toast } from './app/toast'
 import { writeGuard } from '../lib/read-only'
 import { downloadTextFile, fansToCsv, parseFanCsv, type FanCsvParse } from '../lib/fan-csv'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 
 const fanStatusTone = (status: string): 'success' | 'warning' | 'destructive' | 'muted' =>
   status === 'active' ? 'success' :
@@ -273,7 +273,7 @@ export function FanTablePanel(props: {
           <FileInput
             writes
             accept=".csv,text/csv"
-            class="not-sr-only block h-auto w-full border-0 text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-surface-3 file:px-3 file:py-1.5 file:text-sm file:text-foreground hover:file:bg-surface-4"
+            class="not-sr-only block h-auto w-full border-0 text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-muted file:px-3 file:py-1.5 file:text-sm file:text-foreground hover:file:bg-accent"
             onChange={(event) => {
               const file = event.currentTarget.files?.[0]
               if (file) void readFile(file)
@@ -282,7 +282,7 @@ export function FanTablePanel(props: {
         </Field>
 
         <Show when={parsed()}>{result => <>
-          <div class="rounded-md border border-border bg-surface-1 p-3 text-sm">
+          <div class="rounded-md border border-border bg-background p-3 text-sm">
             <strong class="block text-foreground">{fileName()}</strong>
             <span class="mt-0.5 block text-muted-foreground">
               {result().entries.length.toLocaleString()} row{result().entries.length === 1 ? '' : 's'} ready
@@ -297,7 +297,7 @@ export function FanTablePanel(props: {
               locate is a row they will not fix. */}
           <Show when={result().skipped.length > 0}>
             <details class="text-sm">
-              <summary class="cursor-pointer text-warning">{result().skipped.length} row{result().skipped.length === 1 ? '' : 's'} will not be imported</summary>
+              <summary class="cursor-pointer text-warning-foreground">{result().skipped.length} row{result().skipped.length === 1 ? '' : 's'} will not be imported</summary>
               <ul class="mt-2 flex flex-col gap-1 text-xs text-muted-foreground">
                 <For each={result().skipped.slice(0, 20)}>{item => <li>Line {item.row}: {item.reason}</li>}</For>
                 <Show when={result().skipped.length > 20}>

@@ -7,10 +7,10 @@ import { Sparkline } from './Sparkline'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock, SkeletonRows } from '../components/Skeleton'
 import type { GrowthMetricTrendView } from '../lib/types'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
+import { Card } from './app/card'
+import { Button } from './app/button'
+import { Badge } from './app/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import { ErrorCard } from './layout'
 
 const feedStateLabel = (state: string): string =>
@@ -130,12 +130,12 @@ const MovementBar: Component<{ delta: number | null; max: number }> = (props) =>
   }
   const up = () => (props.delta ?? 0) > 0
   return (
-    <div class="relative h-1.5 w-full min-w-16 rounded-sm bg-surface-1" aria-hidden="true">
-      <div class="absolute inset-y-0 left-1/2 w-px bg-border-strong" />
+    <div class="relative h-1.5 w-full min-w-16 rounded-sm bg-background" aria-hidden="true">
+      <div class="absolute inset-y-0 left-1/2 w-px bg-input" />
       <Show when={half() > 0}>
         <div
           class="absolute inset-y-0 rounded-sm transition-[width] duration-[400ms] ease-out"
-          classList={{ 'bg-success': up(), 'bg-destructive': !up() }}
+          classList={{ 'bg-success-foreground': up(), 'bg-destructive': !up() }}
           style={up()
             ? { left: '50%', width: `${half()}%` }
             : { right: '50%', width: `${half()}%` }}
@@ -403,7 +403,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                         {/* A column of "0" down the right edge is a column of
                             nothing happening. A change is worth a glyph; no
                             change is worth the space it frees. */}
-                        <TableCell numeric classList={{ 'text-success': dir === 'up', 'text-destructive': dir === 'down' }}>
+                        <TableCell numeric classList={{ 'text-success-foreground': dir === 'up', 'text-destructive': dir === 'down' }}>
                           <Show when={delta != null && delta !== 0} fallback={<span class="text-muted-foreground">—</span>}>
                             {delta! > 0 ? '+' : ''}{compactNumber(delta!)}
                           </Show>
@@ -452,12 +452,12 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                   const d24 = trend.delta_24h != null ? v - trend.delta_24h : d7
                   return [d28, d7, d24, v].map(n => Math.max(0, n))
                 }
-                const sparkColor = dir === 'up' ? 'var(--color-success)' : dir === 'down' ? 'var(--color-destructive)' : 'var(--color-muted-foreground)'
+                const sparkColor = dir === 'up' ? 'var(--color-success-foreground)' : dir === 'down' ? 'var(--color-destructive)' : 'var(--color-muted-foreground)'
                 return (
-                  <div class="bg-surface-3 border border-border-subtle rounded-lg p-4 flex flex-col gap-1">
+                  <div class="bg-muted border border-border rounded-lg p-4 flex flex-col gap-1">
                     <div class="flex justify-between items-center">
                       <span class="text-sm text-muted-foreground uppercase tracking-wide">{trend.display_name}</span>
-                      <span classList={{ 'text-success': dir === 'up', 'text-destructive': dir === 'down', 'text-muted-foreground': dir === 'flat' || dir === 'unknown' }}>{trendArrow(dir)}</span>
+                      <span classList={{ 'text-success-foreground': dir === 'up', 'text-destructive': dir === 'down', 'text-muted-foreground': dir === 'flat' || dir === 'unknown' }}>{trendArrow(dir)}</span>
                     </div>
                     <span class="text-xl font-bold text-foreground">{compactNumber(trend.latest_value)}</span>
                     <Show when={sparkData().some((n, i) => i > 0 && n !== sparkData()[0])}>

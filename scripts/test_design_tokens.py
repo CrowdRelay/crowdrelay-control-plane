@@ -54,6 +54,9 @@ HEX_EXEMPT_FILES = {
     "components/GrowthMetricsPanel.tsx",  # the chart file
 }
 SKELETON_RE = re.compile(r"skeleton", re.IGNORECASE)
+# The dev-only style guide renders every shadow, radius and colour as a
+# specimen, and a production build does not include it.
+SPECIMEN_FILES = {"pages/StyleGuidePage.tsx"}
 
 
 COMMENT = re.compile(r"//[^\n]*|/\*.*?\*/", re.DOTALL)
@@ -83,6 +86,8 @@ def measure() -> dict[str, int]:
     for path in tsx_files():
         text = path.read_text(encoding="utf-8")
         rel = path.relative_to(SRC).as_posix()
+        if rel in SPECIMEN_FILES:
+            continue
 
         radius.update(RADIUS.findall(text))
         if not (in_ui(path) and path.name in OVERLAY_PRIMITIVES):

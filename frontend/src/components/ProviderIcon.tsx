@@ -626,7 +626,7 @@ export function TierBadge(props: { tier: 'free' | 'premium' | 'connected' | 'bet
   const s = props.size ?? 10
   if (props.tier === 'connected') {
     return (
-      <span class="absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-surface-3 flex items-center justify-center leading-none bg-success text-background" style={{ width: `${s}px`, height: `${s}px` }} aria-label="connected">
+      <span class="absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-muted flex items-center justify-center leading-none bg-success-foreground text-background" style={{ width: `${s}px`, height: `${s}px` }} aria-label="connected">
         <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M20 6L9 17l-5-5" />
         </svg>
@@ -634,12 +634,12 @@ export function TierBadge(props: { tier: 'free' | 'premium' | 'connected' | 'bet
     )
   }
   if (props.tier === 'beta') {
-    return <span class="absolute -bottom-1.5 -right-1.5 rounded-full flex items-center justify-center leading-none bg-warning text-surface-3 text-xs font-bold px-1 py-0.5 border-none tracking-wider" aria-label="beta">beta</span>
+    return <span class="absolute -bottom-1.5 -right-1.5 rounded-full flex items-center justify-center leading-none bg-warning-foreground text-muted text-xs font-bold px-1 py-0.5 border-none tracking-wider" aria-label="beta">beta</span>
   }
   const color = props.tier === 'free' ? '#22c55e' : '#a78bfa'
   return (
     <span
-      class="absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-surface-3 flex items-center justify-center leading-none"
+      class="absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-muted flex items-center justify-center leading-none"
       style={{ width: `${s}px`, height: `${s}px`, background: color }}
       aria-label={props.tier}
     />

@@ -11,7 +11,7 @@ import { cn } from '~/lib/cn'
  * own class string — six variants, three of which set no background at all
  * and rendered an unreadable option list on a dark page. One box, defined here.
  *
- * `bg-surface-1` is set on the element itself, not only via a wrapper, because
+ * `bg-background` is set on the element itself, not only via a wrapper, because
  * Chromium paints the dropdown popup with the select's own background colour.
  */
 
@@ -28,11 +28,10 @@ export const NativeSelect: Component<NativeSelectProps> = (props) => {
   return (
     <select
       class={cn(
-        'w-full appearance-none rounded-md border border-border bg-surface-1 text-foreground',
-        'transition-colors hover:border-border-strong',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background',
-        'disabled:cursor-not-allowed disabled:opacity-45',
-        local.size === 'sm' ? 'h-8 pl-2.5 pr-7 text-xs' : 'h-9 pl-3 pr-8 text-sm',
+        'w-full appearance-none rounded-md border border-input bg-background ring-offset-background',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'disabled:cursor-not-allowed disabled:opacity-50',
+        local.size === 'sm' ? 'h-9 pl-3 pr-8 text-xs' : 'h-10 pl-3 pr-8 text-sm',
         local.class,
       )}
       style={{

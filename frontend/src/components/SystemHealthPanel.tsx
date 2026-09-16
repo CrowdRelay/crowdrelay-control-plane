@@ -4,8 +4,8 @@ import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import type { OperationsSummary } from '../lib/types'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
+import { Card } from './app/card'
+import { Button } from './app/button'
 
 // What is wrong, what it means, and the cheapest thing that fixes it.
 //
@@ -166,8 +166,8 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
         <Show
           when={conditions().length > 0}
           fallback={
-            <p class="flex items-center gap-2 text-sm text-success">
-              <span class="inline-block h-2 w-2 shrink-0 rounded-full bg-success" aria-hidden="true" />
+            <p class="flex items-center gap-2 text-sm text-success-foreground">
+              <span class="inline-block h-2 w-2 shrink-0 rounded-full bg-success-foreground" aria-hidden="true" />
               Nothing needs attention. The engine is running and every queue is draining.
             </p>
           }
@@ -207,7 +207,7 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
       <Show when={notice()}>
         {value => (
           <p
-            class={`mt-3 rounded-lg border p-4 text-sm ${value().tone === 'good' ? 'border-success/30 bg-success/10 text-success' : 'border-destructive/30 bg-destructive/10 text-destructive'}`}
+            class={`mt-3 rounded-lg border p-4 text-sm ${value().tone === 'good' ? 'border-success-foreground/30 bg-success-foreground text-success-foreground' : 'border-destructive/30 bg-destructive/10 text-destructive'}`}
           >
             {value().message}
           </p>

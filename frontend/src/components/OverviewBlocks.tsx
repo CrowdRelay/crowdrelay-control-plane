@@ -34,9 +34,9 @@ const CommandSkeleton = (props: { count: number }) => (
   <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
     {Array.from({ length: props.count }, () => (
       <div class="rounded-lg border border-border bg-card p-4">
-        <div class="h-[11px] w-[80px] rounded-lg bg-surface-3 border border-border mb-2" />
-        <div class="h-7 w-[60px] rounded-lg bg-surface-3 border border-border mb-2" />
-        <div class="h-[11px] w-full rounded-lg bg-surface-3 border border-border" />
+        <div class="h-[11px] w-[80px] rounded-lg bg-muted border border-border mb-2" />
+        <div class="h-7 w-[60px] rounded-lg bg-muted border border-border mb-2" />
+        <div class="h-[11px] w-full rounded-lg bg-muted border border-border" />
       </div>
     ))}
   </div>
@@ -205,7 +205,7 @@ export function NorthStarBlocks(props: { ov: OverviewModel }) {
                     <span>{props.ov.objectives()!.onTrack} {props.ov.objectives()!.onTrack === 1 ? 'objective' : 'objectives'} on track</span>
                   </Show>
                   <Show when={((props.ov.objectives()?.behind ?? 0) + (props.ov.objectives()?.missed ?? 0)) > 0 && props.ov.firstAtRiskObjective()}>
-                    <span class="text-warning">
+                    <span class="text-warning-foreground">
                       {(props.ov.objectives()?.behind ?? 0) + (props.ov.objectives()?.missed ?? 0)} {((props.ov.objectives()?.behind ?? 0) + (props.ov.objectives()?.missed ?? 0)) === 1 ? 'objective' : 'objectives'} {(props.ov.objectives()?.missed ?? 0) > 0 ? 'behind/missed' : 'behind'}
                       {props.ov.firstAtRiskObjective()!.objective.metricKey ? ` — ${props.ov.firstAtRiskObjective()!.objective.metricKey} ${fmt(props.ov.firstAtRiskObjective()!.objective.observedValue)}/${fmt(props.ov.firstAtRiskObjective()!.objective.targetValue)}` : ''}
                     </span>
@@ -408,7 +408,7 @@ export function OperationsSignalBlocks(props: { ov: OverviewModel; isError: bool
                       above "0 healthy · 1 not reporting" read as the block
                       contradicting itself. Name the population. */}
                   <Show when={props.ov.platformServices().length > props.ov.healthyServices()}>
-                    <span class="text-destructive-light">
+                    <span class="text-destructive">
                       {fmt(props.ov.platformServices().length - props.ov.healthyServices())} service
                       {props.ov.platformServices().length - props.ov.healthyServices() === 1 ? '' : 's'} not answering
                     </span>
@@ -453,9 +453,9 @@ export function PlatformServicesGrid(props: { services: PlatformHealthEntry[] })
   return (
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
       <For each={props.services}>{(svc: PlatformHealthEntry) => (
-        <div class={cn('p-4 rounded-lg border', svc.healthy ? 'border-border bg-surface-1' : 'border-destructive/30 bg-destructive/5')}>
+        <div class={cn('p-4 rounded-lg border', svc.healthy ? 'border-border bg-background' : 'border-destructive/30 bg-destructive/5')}>
           <div class="flex items-center gap-2">
-            <span class={cn('inline-block w-2 h-2 rounded-full', svc.healthy ? 'bg-success' : 'bg-destructive')} />
+            <span class={cn('inline-block w-2 h-2 rounded-full', svc.healthy ? 'bg-success-foreground' : 'bg-destructive')} />
             <strong class="text-sm text-foreground">{svc.label}</strong>
           </div>
           {/* The probe address is a private container name and helps nobody
@@ -468,7 +468,7 @@ export function PlatformServicesGrid(props: { services: PlatformHealthEntry[] })
                 answer to time. */}
             <Show when={svc.healthy && formatLatency(svc.latencyMs)}>{lat => <span class="tabular-nums">Answered in {lat()}</span>}</Show>
             <Show when={!svc.healthy && platformStatusMessage(svc.lastStatus)}>
-              {message => <span class="text-destructive-light leading-snug">{message()}</span>}
+              {message => <span class="text-destructive leading-snug">{message()}</span>}
             </Show>
             <Show when={svc.lastHealthyAt && !svc.healthy}>
               <span>Last healthy {formatTimestamp(svc.lastHealthyAt!)}</span>

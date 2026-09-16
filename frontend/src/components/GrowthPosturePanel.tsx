@@ -3,14 +3,14 @@ import { PanelTitle } from './layout'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage, formatTimestamp } from '../lib/format'
-import { toast } from './ui/toast'
+import { toast } from './app/toast'
 import { confirmAction } from './Dialog'
 import { SectionIcon } from './SectionIcon'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonSection } from './Skeleton'
-import { Card } from './ui/card'
-import { Badge } from './ui/badge'
-import { Button } from './ui/button'
+import { Card } from './app/card'
+import { Badge } from './app/badge'
+import { Button } from './app/button'
 
 // `/operations/posture` reads and writes, and nothing in the console called
 // the writer: the one dial that moves all 22 authority policies together could

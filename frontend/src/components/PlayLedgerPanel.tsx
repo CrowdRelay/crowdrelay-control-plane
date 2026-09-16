@@ -6,9 +6,9 @@ import type { PlayKindStanding } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
+import { Card } from './app/card'
+import { Button } from './app/button'
+import { Badge } from './app/badge'
 import { ErrorCard } from './layout'
 
 const kindLabel = (kind: string): string => {
@@ -83,7 +83,7 @@ const toneVariant = (tone: 'good' | 'warn' | 'bad' | 'muted'): 'success' | 'warn
   tone === 'good' ? 'success' : tone === 'warn' ? 'warning' : tone === 'bad' ? 'destructive' : 'muted'
 
 const toneBorder = (tone: 'good' | 'warn' | 'bad' | 'muted'): string =>
-  tone === 'good' ? 'border-l-success' : tone === 'warn' ? 'border-l-warning' : tone === 'bad' ? 'border-l-destructive' : 'border-l-border'
+  tone === 'good' ? 'border-l-success-foreground' : tone === 'warn' ? 'border-l-warning-foreground' : tone === 'bad' ? 'border-l-destructive' : 'border-l-border'
 
 export function PlayLedgerPanel(props: { slug: string }) {
   const ledger = useQuery(() => ({
@@ -137,7 +137,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
                 <span>{standingLabel(s)}</span>
               </div>
               <div class="flex gap-2.5 text-sm font-semibold">
-                <span class="text-success">↑{s.record.improved}</span>
+                <span class="text-success-foreground">↑{s.record.improved}</span>
                 <span class="text-muted-foreground">={s.record.neutral}</span>
                 <span class="text-destructive">↓{s.record.worsened}</span>
                 <span class="text-muted-foreground">?{s.record.insufficient}</span>
@@ -171,18 +171,18 @@ export function PlayLedgerPanel(props: { slug: string }) {
                 <span>Recipients reached: {p.recipients_reached}</span>
               </div>
               <Show when={p.hypothesis}>
-                <p class="text-sm text-secondary-foreground italic my-1.5 px-2 py-1.5 rounded-md bg-surface-1 border border-border-subtle">{p.hypothesis}</p>
+                <p class="text-sm text-secondary-foreground italic my-1.5 px-2 py-1.5 rounded-md bg-background border border-border">{p.hypothesis}</p>
               </Show>
               <Show when={p.claims.length > 0}>
                 <div class="flex flex-col gap-1.5 mt-2">
                   <For each={expandedClaims().has(p.play_id) ? p.claims : p.claims.slice(0, MAX_VISIBLE_CLAIMS)}>{(c) => (
-                    <div class="flex gap-2.5 items-center text-sm py-1 px-1.5 rounded-md bg-surface-1 border border-border-subtle">
+                    <div class="flex gap-2.5 items-center text-sm py-1 px-1.5 rounded-md bg-background border border-border">
                       <Badge variant={toneVariant(effectTone(c.effect))}>{c.effect ?? c.status}</Badge>
                       <span class="text-muted-foreground">{claimLabel(c.claim_means)}</span>
                       <span>{metricLabel(c.success_metric_platform, c.success_metric_key)}</span>
                       <Show when={c.delta_basis_points != null}>
                         {(() => { const delta = c.delta_basis_points!; return (
-                        <span class={delta > 0 ? 'text-success' : 'text-destructive'}>
+                        <span class={delta > 0 ? 'text-success-foreground' : 'text-destructive'}>
                           {delta > 0 ? '+' : ''}{(delta / 100).toFixed(1)}%
                         </span>
                         ) })()}

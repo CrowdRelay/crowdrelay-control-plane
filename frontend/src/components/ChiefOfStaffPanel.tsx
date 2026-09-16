@@ -7,8 +7,8 @@ import { SectionIcon } from './SectionIcon'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonSection } from './Skeleton'
-import { Card } from './ui/card'
-import { Badge } from './ui/badge'
+import { Card } from './app/card'
+import { Badge } from './app/badge'
 import { CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 import type { ChiefOfStaffActivity } from '../lib/types'
 
@@ -61,7 +61,7 @@ function ActivityList(props: { items: ChiefOfStaffActivity[]; empty: string }) {
     <ul class="m-0 p-0 flex flex-col gap-1.5 list-none">
       <For each={props.items}>{item => (
         <li class="flex items-center gap-2.5">
-          <span class="inline-flex items-center justify-center min-w-[28px] h-[24px] px-1.5 rounded-md bg-surface-4 text-foreground font-bold text-xs">{item.count}</span>
+          <span class="inline-flex items-center justify-center min-w-[28px] h-[24px] px-1.5 rounded-md bg-accent text-foreground font-bold text-xs">{item.count}</span>
           <span class="text-sm text-foreground">{labelOr(DECISION_KIND_LABELS, item.action_kind)}</span>
           <Show when={ACTION_CLASS_LABEL[item.action_class]}>
             <small class="text-xs text-muted-foreground">{ACTION_CLASS_LABEL[item.action_class]}</small>
@@ -151,7 +151,7 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
             <For each={data().stopped}>{item => (
               <div class="rounded-lg border border-border bg-card p-3 flex flex-col gap-1">
                 <div class="flex items-center gap-2">
-                  <span class="inline-flex items-center justify-center min-w-[24px] h-[24px] px-1.5 rounded-md bg-surface-4 text-foreground font-bold text-xs flex-shrink-0">{item.count}</span>
+                  <span class="inline-flex items-center justify-center min-w-[24px] h-[24px] px-1.5 rounded-md bg-accent text-foreground font-bold text-xs flex-shrink-0">{item.count}</span>
                   <strong class="text-sm text-foreground">{STOPPED_REASON_LABEL[item.reason] ?? item.reason.replace(/_/g, ' ')}</strong>
                 </div>
                 <small class="text-xs text-muted-foreground">{item.detail}</small>
@@ -227,8 +227,8 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
         <p class="mt-6 pt-4 border-t border-border text-sm text-muted-foreground">Nothing it did in the last week has been measured yet.</p>
       }>
         <div class="mt-6 pt-4 border-t border-border">
-          <div class="mt-2 flex h-3 rounded-full overflow-hidden bg-surface-3" role="img" aria-label={`${data().measured_improved_7d} improved, ${data().measured_neutral_7d} neutral, ${data().measured_worsened_7d} worsened`}>
-            <span class="bg-success" style={{ width: `${(data().measured_improved_7d / measured()) * 100}%` }} />
+          <div class="mt-2 flex h-3 rounded-full overflow-hidden bg-muted" role="img" aria-label={`${data().measured_improved_7d} improved, ${data().measured_neutral_7d} neutral, ${data().measured_worsened_7d} worsened`}>
+            <span class="bg-success-foreground" style={{ width: `${(data().measured_improved_7d / measured()) * 100}%` }} />
             <span class="bg-muted" style={{ width: `${(data().measured_neutral_7d / measured()) * 100}%` }} />
             <span class="bg-destructive" style={{ width: `${(data().measured_worsened_7d / measured()) * 100}%` }} />
           </div>

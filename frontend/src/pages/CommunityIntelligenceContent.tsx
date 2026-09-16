@@ -4,10 +4,10 @@ import { api } from '../lib/api'
 import type { CommunityItem, CommunityObservationItem, CommunityEntityItem, AudiencePlaceInput } from '../lib/types'
 import { SkeletonRows } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, SectionTitle, ErrorCard } from '../components/layout'
-import { toast } from '../components/ui/toast'
+import { toast } from '../components/app/toast'
 import { errorMessage } from '../lib/format'
 import { cn } from '../lib/cn'
-import { Button } from '../components/ui/button'
+import { Button } from '../components/app/button'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
 import { NativeSelect } from '../components/ui/native-select'
@@ -342,7 +342,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
         </Show>
 
         <Show when={notice()}>
-          {value => <p class={`p-3 rounded-md text-sm ${value().tone === 'good' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>{value().message}</p>}
+          {value => <p class={`p-3 rounded-md text-sm ${value().tone === 'good' ? 'bg-success-foreground text-success-foreground' : 'bg-destructive/10 text-destructive'}`}>{value().message}</p>}
         </Show>
 
         {/* ── Community intelligence ── */}
@@ -411,7 +411,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                       {items.length} {items.length === 1 ? 'community' : 'communities'}
                     </span>
                     <Show when={countBy(items, 'not_joined') > 0}>
-                      <span class="text-xs text-warning font-medium">
+                      <span class="text-xs text-warning-foreground font-medium">
                         {countBy(items, 'not_joined')} to join
                       </span>
                     </Show>
@@ -435,14 +435,14 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                                   <Show when={item.countryCode}><span>· {item.countryCode}</span></Show>
                                 </div>
                               </div>
-                              <span class={cn('text-xs font-medium px-2 py-0.5 rounded-full', item.membershipState === 'not_joined' ? 'bg-warning/10 text-warning' : item.membershipState === 'joining' ? 'bg-primary/10 text-primary' : item.membershipState === 'joined' ? 'bg-success/10 text-success' : item.membershipState === 'rejected' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground')} data-state={item.membershipState}>
+                              <span class={cn('text-xs font-medium px-2 py-0.5 rounded-full', item.membershipState === 'not_joined' ? 'bg-warning-foreground text-warning-foreground' : item.membershipState === 'joining' ? 'bg-primary/10 text-primary' : item.membershipState === 'joined' ? 'bg-success-foreground text-success-foreground' : item.membershipState === 'rejected' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground')} data-state={item.membershipState}>
                                 {MEMBERSHIP_LABEL[item.membershipState] ?? item.membershipState}
                               </span>
                             </header>
 
                             <Show when={item.genres.length > 0}>
                               <div class="flex flex-wrap gap-1.5 mt-1">
-                                <For each={item.genres.slice(0, 5)}>{(g) => <span class="text-xs px-2 py-0.5 rounded-full bg-surface-3 text-muted-foreground border border-border">{g}</span>}</For>
+                                <For each={item.genres.slice(0, 5)}>{(g) => <span class="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">{g}</span>}</For>
                               </div>
                             </Show>
 
@@ -468,11 +468,11 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                             </footer>
 
                             <Show when={draftFor() === item.placeId}>
-                              <div class="mt-3 p-3 rounded-lg border border-border bg-surface-1">
+                              <div class="mt-3 p-3 rounded-lg border border-border bg-background">
                                 <Show when={draft.isFetching && !draft.data}><p class="text-muted-foreground">Reading what was observed here…</p></Show>
                                 <Show when={draft.data}>
                                   <Show when={!draft.data!.grounded}>
-                                    <p class="p-3 rounded-md text-sm bg-warning/10 text-warning">
+                                    <p class="p-3 rounded-md text-sm bg-warning-foreground text-warning-foreground">
                                       Nothing observed here yet, so this is a blank rather than a draft.
                                     </p>
                                   </Show>
@@ -527,10 +527,10 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
             <div class="flex flex-col gap-2 mt-3">
               <For each={observations()}>
                 {(obs: CommunityObservationItem) => (
-                  <div class="p-3 rounded-lg border border-border bg-surface-1">
+                  <div class="p-3 rounded-lg border border-border bg-background">
                     <div class="flex items-center gap-2 text-xs">
                       <span class="font-medium text-foreground">{obs.source}</span>
-                      <span class="text-xs font-medium px-2 py-0.5 rounded-full {(() => { const q = qualityLabel(obs.observationQuality); return q === 'high' ? 'bg-success/10 text-success' : q === 'medium' ? 'bg-warning/10 text-warning' : 'bg-muted text-muted-foreground'; })()}" data-quality={qualityLabel(obs.observationQuality)}>
+                      <span class="text-xs font-medium px-2 py-0.5 rounded-full {(() => { const q = qualityLabel(obs.observationQuality); return q === 'high' ? 'bg-success-foreground text-success-foreground' : q === 'medium' ? 'bg-warning-foreground text-warning-foreground' : 'bg-muted text-muted-foreground'; })()}" data-quality={qualityLabel(obs.observationQuality)}>
                         {qualityLabel(obs.observationQuality)}
                       </span>
                       <time class="text-muted-foreground ml-auto">{formatTime(obs.observedAt)}</time>
@@ -559,7 +559,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
             <div class="flex flex-col gap-2 mt-3">
               <For each={entities()}>
                 {(entity: CommunityEntityItem) => (
-                  <div class="flex items-center gap-3 p-3 rounded-lg border border-border bg-surface-1">
+                  <div class="flex items-center gap-3 p-3 rounded-lg border border-border bg-background">
                     <span class="text-xs font-medium text-foreground">{entity.entityType}</span>
                     <span class="text-sm text-muted-foreground flex-1 min-w-0">{entity.entityRef}</span>
                     <div class="flex-1 h-1.5 rounded-full bg-border overflow-hidden max-w-32">

@@ -1,8 +1,8 @@
 import { Show } from 'solid-js'
 import { formatIsoAge } from '../lib/format'
 import { credentialHealth, toneToBadgeVariant, type CredentialHealth } from '../lib/credential-health'
-import { Badge } from './ui/badge'
-import { Button } from './ui/button'
+import { Badge } from './app/badge'
+import { Button } from './app/button'
 import { Input } from './ui/input'
 import { Spinner } from './Spinner'
 import { LlmProviderIconWithTier } from './ProviderIcon'
@@ -74,9 +74,9 @@ export function ProviderCard(props: { provider: AgentProvider; ctx: ProviderCard
   const cred = () => ctx.credentials().find((c: AgentCredential) => c.provider === provider.id)
   const isConnected = () => cred()?.status === 'active'
   return (
-    <div class="flex flex-col gap-2 p-4 rounded-lg border border-border bg-surface-1" classList={{ 'border-primary/40': isConnected() }}>
+    <div class="flex flex-col gap-2 p-4 rounded-lg border border-border bg-background" classList={{ 'border-primary/40': isConnected() }}>
       <div class="flex items-center gap-2">
-        <div class="w-9 h-9 flex items-center justify-center rounded-md border border-border bg-surface-1">
+        <div class="w-9 h-9 flex items-center justify-center rounded-md border border-border bg-background">
           <LlmProviderIconWithTier providerId={provider.id} tier={provider.tier} connected={isConnected()} size={28} />
         </div>
         <div class="flex-1 min-w-0">
@@ -101,7 +101,7 @@ export function ProviderCard(props: { provider: AgentProvider; ctx: ProviderCard
             when={credentialHealth(cred()).state === 'working'}
             fallback={<Badge variant="destructive">not working</Badge>}
           >
-            <span class="inline-flex items-center gap-1 text-xs font-medium text-success">
+            <span class="inline-flex items-center gap-1 text-xs font-medium text-success-foreground">
               <CheckIcon size={12} /> Working
             </span>
           </Show>
@@ -147,7 +147,7 @@ export function ProviderCard(props: { provider: AgentProvider; ctx: ProviderCard
             </Show>
           </Show>
 
-          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-warning/10 text-warning-light border border-warning/20">
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-warning-foreground text-warning-foreground border border-warning-foreground/20">
             <span class="font-bold uppercase tracking-wide text-xs" title="Connected via API key">API Key</span>
             <Show when={cred()?.provider_account}>
               <span class="opacity-80 font-normal">{cred()!.provider_account?.slice(0, 8)}…</span>
@@ -235,7 +235,7 @@ export function ProviderCard(props: { provider: AgentProvider; ctx: ProviderCard
       <Show when={isConnected()}>
         <Show when={ctx.testResult(provider.id)}>
           {(result) => (
-            <div class={`text-xs mt-2 ${result().ok ? 'text-success' : 'text-destructive'}`}>
+            <div class={`text-xs mt-2 ${result().ok ? 'text-success-foreground' : 'text-destructive'}`}>
               {result().message}
             </div>
           )}

@@ -2,7 +2,7 @@ import { Show, createSignal, For, createMemo } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import type { OpportunityBoardEntry, DecisionEvidence } from '../lib/types'
 import { api } from '../lib/api'
-import { toast } from './ui/toast'
+import { toast } from './app/toast'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './ui/empty-state'
 import { confidencePercent, errorMessage } from '../lib/format'
@@ -10,9 +10,9 @@ import { SkeletonRows } from './Skeleton'
 import { CONTEXT_LABELS, RANK_FACTOR_LABELS, SUBJECT_KIND_LABELS, VALUE_TIER_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
-import { Card } from './ui/card'
-import { Alert } from './ui/alert'
-import { Button } from './ui/button'
+import { Card } from './app/card'
+import { Alert } from './app/alert'
+import { Button } from './app/button'
 import { ErrorCard, PanelTitle } from './layout'
 
 // The flagship decision surface. Shows the single most important current
@@ -76,7 +76,7 @@ const timeAgoBrief = (iso: string): string => {
 function JsonBlock(props: { source: string }) {
   const lines = createMemo(() => props.source.split('\n'))
   return (
-    <div class="block m-0 p-3 bg-surface-1 border border-border-subtle rounded-sm font-mono text-xs leading-relaxed text-secondary-foreground max-h-[400px] overflow-auto text-left">
+    <div class="block m-0 p-3 bg-background border border-border rounded-sm font-mono text-xs leading-relaxed text-secondary-foreground max-h-[400px] overflow-auto text-left">
       <For each={lines()}>{line => {
         const match = /^\s*/.exec(line)
         const indent = match ? match[0].length : 0
@@ -92,14 +92,14 @@ function renderEvidenceDetail(data: DecisionEvidence) {
   const inputRows = renderEvidence(data.input_snapshot)
   const policyRows = renderEvidence(data.policy_snapshot)
   return (
-    <div class="flex flex-col gap-4 mt-3 p-4 border border-border-subtle rounded-lg bg-surface-3">
+    <div class="flex flex-col gap-4 mt-3 p-4 border border-border rounded-lg bg-muted">
       <div class="flex flex-col gap-2">
         <Show when={inputRows.length > 0} fallback={
           <p class="text-sm text-muted-foreground">No signal data recorded for this decision.</p>
         }>
           <dl class="m-0 flex flex-col gap-1">
             <For each={inputRows}>{row => (
-              <div classList={{ 'flex gap-3 items-baseline py-1 border-b border-border-subtle': true, 'flex-col gap-1 items-stretch min-w-0': row.isJson }}>
+              <div classList={{ 'flex gap-3 items-baseline py-1 border-b border-border': true, 'flex-col gap-1 items-stretch min-w-0': row.isJson }}>
                 <dt class="text-xs text-muted-foreground capitalize" classList={{ 'flex-none': !row.isJson }}>{row.key}</dt>
                 <dd class="flex-1 min-w-0 m-0 text-sm text-secondary-foreground break-words" classList={{ 'w-full': row.isJson }}>
                   <Show when={row.isJson} fallback={row.value}>
@@ -117,7 +117,7 @@ function renderEvidenceDetail(data: DecisionEvidence) {
         }>
           <dl class="m-0 flex flex-col gap-1">
             <For each={policyRows}>{row => (
-              <div classList={{ 'flex gap-3 items-baseline py-1 border-b border-border-subtle': true, 'flex-col gap-1 items-stretch min-w-0': row.isJson }}>
+              <div classList={{ 'flex gap-3 items-baseline py-1 border-b border-border': true, 'flex-col gap-1 items-stretch min-w-0': row.isJson }}>
                 <dt class="text-xs text-muted-foreground capitalize" classList={{ 'flex-none': !row.isJson }}>{row.key}</dt>
                 <dd class="flex-1 min-w-0 m-0 text-sm text-secondary-foreground break-words" classList={{ 'w-full': row.isJson }}>
                   <Show when={row.isJson} fallback={row.value}>
@@ -249,24 +249,24 @@ export function BrainDecisionPanel(props: {
         <div class="flex flex-col gap-2">
           <p class="m-0 text-sm leading-relaxed text-secondary-foreground">{e.reason}</p>
           <div class="flex flex-wrap gap-3 mt-1">
-            <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-lg bg-surface-3 min-w-[80px]">
+            <div class="flex flex-col gap-0.5 px-3 py-2 border border-border rounded-lg bg-muted min-w-[80px]">
               <span class="text-xs text-muted-foreground uppercase tracking-wider">Confidence</span>
               <strong class="text-sm font-bold text-foreground">{confidencePercent(e.confidence)}</strong>
             </div>
             <Show when={e.value_tier}>
-              <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-lg bg-surface-3 min-w-[80px]">
+              <div class="flex flex-col gap-0.5 px-3 py-2 border border-border rounded-lg bg-muted min-w-[80px]">
                 <span class="text-xs text-muted-foreground uppercase tracking-wider">Value</span>
                 <strong class="text-sm font-bold text-foreground">{VALUE_TIER_LABELS[e.value_tier!] ?? e.value_tier}</strong>
               </div>
             </Show>
-            <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-lg bg-surface-3 min-w-[80px]">
+            <div class="flex flex-col gap-0.5 px-3 py-2 border border-border rounded-lg bg-muted min-w-[80px]">
               {/* "Ranked by: stable tie-break" describes the sort function.
                   The operator's question is why this one is at the top. */}
               <span class="text-xs text-muted-foreground uppercase tracking-wider">Top of the list because</span>
               <strong class="text-sm font-medium text-foreground leading-snug">{RANK_FACTOR_LABELS[e.ranked_by] ?? e.ranked_by}</strong>
             </div>
             <Show when={e.deviation_basis_points != null}>
-              <div class="flex flex-col gap-0.5 px-3 py-2 border border-border-subtle rounded-lg bg-surface-3 min-w-[80px]">
+              <div class="flex flex-col gap-0.5 px-3 py-2 border border-border rounded-lg bg-muted min-w-[80px]">
                 <span class="text-xs text-muted-foreground uppercase tracking-wider">Deviation</span>
                 <strong class="text-sm font-bold text-foreground">{(e.deviation_basis_points! / 100).toFixed(1)}%</strong>
               </div>
@@ -275,7 +275,7 @@ export function BrainDecisionPanel(props: {
         </div>
 
         {/* WHAT IT WILL/DID DO — action state */}
-        <div class="flex flex-col gap-2 pt-3 border-t border-border-subtle">
+        <div class="flex flex-col gap-2 pt-3 border-t border-border">
           {/* The fallback ignored `authority`, so a decision the brain had
               already run itself rendered "No executable step — handle it
               yourself" under an "auto executing" badge, above "if ignored: the
@@ -299,7 +299,7 @@ export function BrainDecisionPanel(props: {
               </span>
             </Show>
             <Show when={e.due_at && e.authority !== 'auto_executing'}>
-              <span class="text-sm font-semibold text-warning">deadline {new Date(e.due_at!).toLocaleDateString()}</span>
+              <span class="text-sm font-semibold text-warning-foreground">deadline {new Date(e.due_at!).toLocaleDateString()}</span>
             </Show>
           </div>
           <Show when={e.consequence && e.authority !== 'auto_executing'}>

@@ -36,8 +36,8 @@ import { cn } from '~/lib/cn'
 
 const VALUE_TONE = {
   default: 'text-foreground',
-  good: 'text-success',
-  warn: 'text-warning',
+  good: 'text-success-foreground',
+  warn: 'text-warning-foreground',
   bad: 'text-destructive',
   // The headline reading of a strip. Panels used to mark theirs with a tinted
   // fill and a ring — a box drawn around one cell of a row that has no boxes.

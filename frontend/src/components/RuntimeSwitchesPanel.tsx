@@ -11,10 +11,10 @@ import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { SectionFailureCard } from './SectionFailureCard'
 import { ErrorCard, KpiCard, KpiStrip, PanelTitle } from './layout'
-import { Card } from './ui/card'
-import { Alert } from './ui/alert'
-import { Button } from './ui/button'
-import { Switch } from './ui/switch'
+import { Card } from './app/card'
+import { Alert } from './app/alert'
+import { Button } from './app/button'
+import { Switch } from './app/switch'
 
 const flagLabel = (key: string) => key
   .replace(/_enabled$/, '')
@@ -91,7 +91,7 @@ export function RuntimeSwitchesPanel(props: {
 
     <Show when={confirming() ? confirmCopy(confirming(), deadJobs()) : null} keyed>{copy =>
       <Alert tone="warning" class="mt-3" role="alertdialog" aria-label={copy.title}>
-        <strong class="text-warning">{copy.title}</strong>
+        <strong class="text-warning-foreground">{copy.title}</strong>
         <span class="block mt-1 text-sm text-secondary-foreground">{copy.body}</span>
         <div class="flex items-center gap-2 mt-3">
           <Button variant="ghost" size="sm" onClick={() => setConfirming(null)}>Cancel</Button>

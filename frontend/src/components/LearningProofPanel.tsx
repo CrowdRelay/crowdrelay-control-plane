@@ -6,9 +6,9 @@ import { authState } from '../lib/auth'
 import { EmptyState } from './ui/empty-state'
 import type { LearningProofEntry } from '../lib/types'
 import { SectionIcon } from './SectionIcon'
-import { Card } from './ui/card'
-import { Alert } from './ui/alert'
-import { Badge } from './ui/badge'
+import { Card } from './app/card'
+import { Alert } from './app/alert'
+import { Badge } from './app/badge'
 import { cn } from '../lib/cn'
 import { SkeletonRows } from './Skeleton'
 
@@ -44,7 +44,7 @@ const MODULE_LABELS: Record<string, string> = {
 const moduleLabel = (module: string) => MODULE_LABELS[module] ?? module.replaceAll('_', ' ')
 
 const outcomeClass = (assessment: string | null): string => {
-  if (assessment === 'improved') return 'text-success'
+  if (assessment === 'improved') return 'text-success-foreground'
   if (assessment === 'worsened') return 'text-destructive'
   return 'text-muted-foreground'
 }
@@ -96,7 +96,7 @@ export function LearningProofPanel(props: { slug: string }) {
 
         <div class="space-y-3">
           <For each={entries()}>{(entry) => (
-            <div class="p-3 rounded-lg border border-border bg-surface-1 space-y-3">
+            <div class="p-3 rounded-lg border border-border bg-background space-y-3">
               <div class="flex items-center gap-2 flex-wrap">
                 <Badge variant={entry.changed_a_decision ? 'success' : 'muted'}>
                   {entry.changed_a_decision ? 'Changed a decision' : 'Not yet acted on'}
@@ -158,7 +158,7 @@ export function LearningProofPanel(props: { slug: string }) {
                           strategy {influence.strategy_applied ?? '—'} ({authState.isPlatformLevel() ? 'operator rules agreed' : 'your rules agreed'})
                         </span>
                       }>
-                        <span class="text-xs text-success">
+                        <span class="text-xs text-success-foreground">
                           strategy {influence.strategy_prior ?? '—'} → {influence.strategy_applied ?? '—'} because of what was measured
                         </span>
                       </Show>

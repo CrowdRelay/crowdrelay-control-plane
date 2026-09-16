@@ -6,14 +6,14 @@ import { errorMessage } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { ErrorCard } from './layout'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
+import { Card } from './app/card'
+import { Button } from './app/button'
+import { Badge } from './app/badge'
 import { Field, FieldGrid } from './ui/field'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { NativeSelect } from './ui/native-select'
-import { Checkbox } from './ui/checkbox'
+import { Checkbox } from './app/checkbox'
 import type { ContentSourceKind, ContentSourceView } from '../lib/types'
 
 const KIND_LABEL: Record<ContentSourceKind, string> = {
@@ -170,7 +170,7 @@ export function ContentSourcesPanel(props: { slug: string }) {
     <Show when={sources.error}><ErrorCard class="mt-3">Material list unavailable: {errorMessage(sources.error, 'We could not reach the material list.')}</ErrorCard></Show>
 
     <Show when={adding()}>
-      <div class="mt-4 rounded-lg border border-border bg-surface-1 p-4">
+      <div class="mt-4 rounded-lg border border-border bg-background p-4">
         <Show when={editing()}>{(s) =>
           <div class="mb-3 flex items-center justify-between gap-3">
             <span class="text-xs font-medium text-muted-foreground">Editing: {s().title}</span>

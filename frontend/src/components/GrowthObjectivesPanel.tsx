@@ -7,9 +7,9 @@ import { compactNumber } from '../lib/charts'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { ErrorCard } from './layout'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
+import { Card } from './app/card'
+import { Button } from './app/button'
+import { Badge } from './app/badge'
 import type { GrowthObjectiveView, ObjectiveState } from '../lib/types'
 
 const formatDeadline = (iso: string) => {
@@ -137,7 +137,7 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
                   >{retiring() === obj.objective_id ? 'Retiring…' : 'Retire'}</Button>
                 </div>
               </div>
-              <div class="mt-3 h-2 rounded-full bg-surface-3 overflow-hidden">
+              <div class="mt-3 h-2 rounded-full bg-muted overflow-hidden">
                 <div
                   class={`h-full rounded-full ${overTarget ? 'bg-destructive' : 'bg-primary'}`}
                   style={{ width: `${pct}%` }}

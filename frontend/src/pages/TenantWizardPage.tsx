@@ -10,11 +10,11 @@ import { cn } from '../lib/cn'
 import { StatusBadge } from '../components/StatusBadge'
 import { Spinner } from '../components/Spinner'
 import { ErrorCard, PageHeader, PageShell, PanelTitle } from '../components/layout'
-import { Button } from '../components/ui/button'
+import { Button } from '../components/app/button'
 import { Input } from '../components/ui/input'
 import { NativeSelect } from '../components/ui/native-select'
 import { Field, FieldGrid } from '../components/ui/field'
-import { RadioGroup } from '../components/ui/radio-group'
+import { RadioGroup } from '../components/app/radio-group'
 
 // Card-tile controls compose the Kobalte primitives directly — the vendored
 // ui/checkbox label prop only carries a plain string. Control styling mirrors
@@ -325,7 +325,7 @@ export function TenantWizardPage() {
         <div class="flex items-center justify-between gap-2 flex-wrap">
           <div class="text-sm" aria-live="polite">
             <span class="flex items-center gap-2">
-              <span class={cn('inline-block w-2 h-2 rounded-full', step1Ready() && operatorFieldsReady() ? 'bg-success' : 'bg-muted-foreground')} />
+              <span class={cn('inline-block w-2 h-2 rounded-full', step1Ready() && operatorFieldsReady() ? 'bg-success-foreground' : 'bg-muted-foreground')} />
               {step1Blocker() ?? 'Identity and region are complete.'}
             </span>
           </div>
@@ -342,7 +342,7 @@ export function TenantWizardPage() {
         <div class="flex items-center justify-between gap-2"><div><PanelTitle>Products</PanelTitle></div></div>
         <p class="text-sm text-muted-foreground leading-relaxed">Choose which products to enable for this tenant. Each product can be toggled independently.</p>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <KobalteCheckbox checked={signalEnabled()} onChange={setSignalEnabled} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', signalEnabled() ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+          <KobalteCheckbox checked={signalEnabled()} onChange={setSignalEnabled} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', signalEnabled() ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-input')}>
             <KobalteCheckbox.Input class="sr-only" />
             <KobalteCheckbox.Control class={checkboxTileControl}>
               <KobalteCheckbox.Indicator class="flex items-center justify-center text-current"><Check class="h-3.5 w-3.5" /></KobalteCheckbox.Indicator>
@@ -352,7 +352,7 @@ export function TenantWizardPage() {
               <small class="block text-xs text-muted-foreground mt-1">Push notifications, fan engagement, and event alerts. The brain's signal-inviter worker is only dispatched when this is enabled.</small>
             </div>
           </KobalteCheckbox>
-          <KobalteCheckbox checked={synesthesiaEnabled()} onChange={setSynesthesiaEnabled} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', synesthesiaEnabled() ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+          <KobalteCheckbox checked={synesthesiaEnabled()} onChange={setSynesthesiaEnabled} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', synesthesiaEnabled() ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-input')}>
             <KobalteCheckbox.Input class="sr-only" />
             <KobalteCheckbox.Control class={checkboxTileControl}>
               <KobalteCheckbox.Indicator class="flex items-center justify-center text-current"><Check class="h-3.5 w-3.5" /></KobalteCheckbox.Indicator>
@@ -362,7 +362,7 @@ export function TenantWizardPage() {
               <small class="block text-xs text-muted-foreground mt-1">Interactive album experience with leaderboard and game mechanics. Originally a Virya-exclusive product.</small>
             </div>
           </KobalteCheckbox>
-          <KobalteCheckbox checked={areaEnabled()} onChange={setAreaEnabled} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', areaEnabled() ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+          <KobalteCheckbox checked={areaEnabled()} onChange={setAreaEnabled} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', areaEnabled() ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-input')}>
             <KobalteCheckbox.Input class="sr-only" />
             <KobalteCheckbox.Control class={checkboxTileControl}>
               <KobalteCheckbox.Indicator class="flex items-center justify-center text-current"><Check class="h-3.5 w-3.5" /></KobalteCheckbox.Indicator>
@@ -374,7 +374,7 @@ export function TenantWizardPage() {
           </KobalteCheckbox>
         </div>
         <Show when={!signalEnabled()}>
-          <div class="rounded-lg border border-border bg-surface-1 p-4 text-sm text-muted-foreground">Signal is disabled. The brain goal step will not offer "Signal fans" as a north star option. Signal base URL is not required for deployment.</div>
+          <div class="rounded-lg border border-border bg-background p-4 text-sm text-muted-foreground">Signal is disabled. The brain goal step will not offer "Signal fans" as a north star option. Signal base URL is not required for deployment.</div>
         </Show>
         <Show when={signalEnabled() || synesthesiaEnabled()}>
           <div class="flex items-center justify-between gap-2"><div><PanelTitle>Play Store URLs (optional)</PanelTitle></div></div>
@@ -401,7 +401,7 @@ export function TenantWizardPage() {
         <p class="text-sm text-muted-foreground leading-relaxed">The machine runs the same loop for all of these. The archetype decides what it reads as a peer, a production event and a fan.</p>
         <RadioGroup value={archetype()} onChange={setArchetype} class="grid grid-cols-1 md:grid-cols-2 gap-3" aria-label="Tenant archetype">
           <For each={archetypes}>{arc =>
-            <KobalteRadioGroup.Item value={arc.value} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', archetype() === arc.value ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+            <KobalteRadioGroup.Item value={arc.value} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', archetype() === arc.value ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-input')}>
               <KobalteRadioGroup.ItemInput class="sr-only" />
               <KobalteRadioGroup.ItemControl class={radioTileControl}>
                 <KobalteRadioGroup.ItemIndicator class="flex items-center justify-center"><div class="h-2 w-2 rounded-full bg-background" /></KobalteRadioGroup.ItemIndicator>
@@ -419,7 +419,7 @@ export function TenantWizardPage() {
         <p class="text-sm text-muted-foreground leading-relaxed">The brain optimizes its deterministic strategy around this metric. Fan aggregation is always active regardless of this choice.</p>
         <RadioGroup value={northStar()} onChange={setNorthStar} class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" aria-label="Growth goal">
           <For each={availableNorthStars()}>{ns =>
-            <KobalteRadioGroup.Item value={ns.value} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', northStar() === ns.value ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+            <KobalteRadioGroup.Item value={ns.value} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', northStar() === ns.value ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-input')}>
               <KobalteRadioGroup.ItemInput class="sr-only" />
               <KobalteRadioGroup.ItemControl class={radioTileControl}>
                 <KobalteRadioGroup.ItemIndicator class="flex items-center justify-center"><div class="h-2 w-2 rounded-full bg-background" /></KobalteRadioGroup.ItemIndicator>
@@ -444,7 +444,7 @@ export function TenantWizardPage() {
         <p class="text-sm text-muted-foreground leading-relaxed">Select which platforms the discovery worker should search for fan communities. These are upserted into the audience graph.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" role="group" aria-label="Fanbase sources">
           <For each={fanbaseSources}>{src =>
-            <KobalteCheckbox checked={selectedSources().includes(src.value)} onChange={() => toggleSource(src.value)} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', selectedSources().includes(src.value) ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:border-border-strong')}>
+            <KobalteCheckbox checked={selectedSources().includes(src.value)} onChange={() => toggleSource(src.value)} class={cn('flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors', selectedSources().includes(src.value) ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-input')}>
               <KobalteCheckbox.Input class="sr-only" />
               <KobalteCheckbox.Control class={checkboxTileControl}>
                 <KobalteCheckbox.Indicator class="flex items-center justify-center text-current"><Check class="h-3.5 w-3.5" /></KobalteCheckbox.Indicator>
@@ -466,13 +466,13 @@ export function TenantWizardPage() {
     <Show when={step() === 5}>
       <div class="rounded-lg border border-border bg-card p-5 space-y-4">
         <div class="flex items-center justify-between gap-2"><div><PanelTitle>Review + deploy</PanelTitle></div></div>
-        <div class="rounded-lg border border-border bg-surface-1 p-4 space-y-2">
+        <div class="rounded-lg border border-border bg-background p-4 space-y-2">
           <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Slug</span><strong class="text-sm text-foreground">{slug()}</strong></div>
           <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Display name</span><strong class="text-sm text-foreground">{name()}</strong></div>
           <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Region</span><strong class="text-sm text-foreground">{profile().locale} · {profile().timezone} · {profile().dataRegion.toUpperCase()}</strong></div>
-          <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Signal</span><strong class={cn('text-sm', signalEnabled() ? 'text-success' : 'text-muted-foreground')}>{signalEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
-          <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Synesthesia</span><strong class={cn('text-sm', synesthesiaEnabled() ? 'text-success' : 'text-muted-foreground')}>{synesthesiaEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
-          <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">AREA game</span><strong class={cn('text-sm', areaEnabled() ? 'text-success' : 'text-muted-foreground')}>{areaEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Signal</span><strong class={cn('text-sm', signalEnabled() ? 'text-success-foreground' : 'text-muted-foreground')}>{signalEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Synesthesia</span><strong class={cn('text-sm', synesthesiaEnabled() ? 'text-success-foreground' : 'text-muted-foreground')}>{synesthesiaEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">AREA game</span><strong class={cn('text-sm', areaEnabled() ? 'text-success-foreground' : 'text-muted-foreground')}>{areaEnabled() ? 'Enabled' : 'Disabled'}</strong></div>
           <Show when={signalEnabled() && signalPlayStoreUrl().trim()}>
             <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Signal Play URL</span><strong class="text-sm text-foreground break-all">{signalPlayStoreUrl().trim()}</strong></div>
           </Show>
@@ -531,7 +531,7 @@ export function TenantWizardPage() {
         <div class="flex items-center justify-between gap-2 flex-wrap">
           <div class="text-sm" aria-live="polite">
             <span class="flex items-center gap-2">
-              <span class={cn('inline-block w-2 h-2 rounded-full', deployFieldsReady() ? 'bg-success' : 'bg-muted-foreground')} />
+              <span class={cn('inline-block w-2 h-2 rounded-full', deployFieldsReady() ? 'bg-success-foreground' : 'bg-muted-foreground')} />
               {deployBlocker() ?? (deployNow() ? 'Ready to create the tenant and queue its deployment.' : 'Ready to create the tenant. Nothing is deployed yet.')}
             </span>
           </div>

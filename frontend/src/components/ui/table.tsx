@@ -1,85 +1,70 @@
-import { type Component, type JSX, splitProps } from 'solid-js'
-import { cn } from '~/lib/cn'
+import type { Component, ComponentProps } from "solid-js"
+import { splitProps } from "solid-js"
 
-/**
- * Table — dense, operator-console table primitives. Right-align numerics
- * with `tabular-nums` on the TableCell. Keep row height tight.
- *
- * Matches the former `.data-table` CSS: tight px-2 padding, text
- * truncation in cells, sticky headers, edge-aligned first/last columns.
- */
+import { cn } from "~/lib/utils"
 
-export const Table: Component<
-  JSX.HTMLAttributes<HTMLTableElement> & { class?: string; maxHeight?: string }
-> = (props) => {
-  const [local, rest] = splitProps(props, ['class', 'maxHeight'])
-  // A sticky header resolves against its nearest scrolling ancestor. This
-  // wrapper used to be `overflow-auto` with no height cap, which makes it that
-  // ancestor without ever scrolling — so `TableHead`'s `sticky top-0` had
-  // nothing to stick to, and callers that wanted a scrolling table wrapped
-  // this in a second scroller of their own. Pass `maxHeight` and the cap lands
-  // here, where the header can use it; leave it off and the table does not
-  // create a scroll container at all.
-  //
-  // `overflow-x-auto` lets wide tables scroll horizontally on mobile instead of
-  // silently clipping. The first column is sticky so the row label stays
-  // visible while panning. On desktop the table fits and nothing scrolls.
+const Table: Component<ComponentProps<"table">> = (props) => {
+  const [local, others] = splitProps(props, ["class"])
   return (
-    <div
-      class={cn('w-full overflow-x-auto', local.maxHeight && 'overflow-auto')}
-      style={local.maxHeight ? { 'max-height': local.maxHeight } : undefined}
-    >
-      <table class={cn('w-full text-sm border-collapse', local.class)} {...rest} />
+    <div class="relative w-full overflow-auto">
+      <table class={cn("w-full caption-bottom text-sm", local.class)} {...others} />
     </div>
   )
 }
 
-export const TableHeader: Component<JSX.HTMLAttributes<HTMLTableSectionElement> & { class?: string }> = (props) => {
-  const [local, rest] = splitProps(props, ['class'])
-  return <thead class={cn('[&_tr]:border-b [&_tr]:border-border', local.class)} {...rest} />
+const TableHeader: Component<ComponentProps<"thead">> = (props) => {
+  const [local, others] = splitProps(props, ["class"])
+  return <thead class={cn("[&_tr]:border-b", local.class)} {...others} />
 }
 
-export const TableBody: Component<JSX.HTMLAttributes<HTMLTableSectionElement> & { class?: string }> = (props) => {
-  const [local, rest] = splitProps(props, ['class'])
-  return <tbody class={cn('[&_tr:last-child]:border-0', local.class)} {...rest} />
+const TableBody: Component<ComponentProps<"tbody">> = (props) => {
+  const [local, others] = splitProps(props, ["class"])
+  return <tbody class={cn("[&_tr:last-child]:border-0", local.class)} {...others} />
 }
 
-const ROW_BASE = 'group border-b border-border-subtle transition-colors hover:bg-surface-1'
-
-export const TableRow: Component<JSX.HTMLAttributes<HTMLTableRowElement> & { class?: string }> = (props) => {
-  const [local, rest] = splitProps(props, ['class'])
-  // `cn` runs `twMerge`, which parses every class string it is given. A table
-  // calls this once per row and once per cell, so the common case — no caller
-  // class to merge — skips the parse and hands over the constant.
-  return <tr class={local.class ? cn(ROW_BASE, local.class) : ROW_BASE} {...rest} />
+const TableFooter: Component<ComponentProps<"tfoot">> = (props) => {
+  const [local, others] = splitProps(props, ["class"])
+  return (
+    <tfoot class={cn("bg-primary font-medium text-primary-foreground", local.class)} {...others} />
+  )
 }
 
-export const TableHead: Component<JSX.ThHTMLAttributes<HTMLTableCellElement> & { class?: string }> = (props) => {
-  const [local, rest] = splitProps(props, ['class'])
+const TableRow: Component<ComponentProps<"tr">> = (props) => {
+  const [local, others] = splitProps(props, ["class"])
+  return (
+    <tr
+      class={cn(
+        "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
+        local.class
+      )}
+      {...others}
+    />
+  )
+}
+
+const TableHead: Component<ComponentProps<"th">> = (props) => {
+  const [local, others] = splitProps(props, ["class"])
   return (
     <th
       class={cn(
-        'text-left text-xs font-medium uppercase tracking-wider text-muted-foreground border-b border-border py-1 px-2 first:pl-3 last:pr-3 sticky top-0 z-[1] bg-surface-2 first:left-0 first:z-[2]',
-        local.class,
+        "h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
+        local.class
       )}
-      {...rest}
+      {...others}
     />
   )
 }
 
-const CELL_BASE =
-  'py-2.5 px-2 first:pl-3 last:pr-3 text-foreground overflow-hidden text-ellipsis whitespace-nowrap align-middle first:sticky first:left-0 first:z-[1] first:bg-card first:group-hover:bg-surface-1'
-
-export const TableCell: Component<JSX.TdHTMLAttributes<HTMLTableCellElement> & { class?: string; numeric?: boolean }> = (props) => {
-  const [local, rest] = splitProps(props, ['class', 'numeric'])
+const TableCell: Component<ComponentProps<"td">> = (props) => {
+  const [local, others] = splitProps(props, ["class"])
   return (
-    <td
-      class={
-        local.class || local.numeric
-          ? cn(CELL_BASE, local.numeric && 'text-right tabular-nums', local.class)
-          : CELL_BASE
-      }
-      {...rest}
-    />
+    <td class={cn("p-2 align-middle [&:has([role=checkbox])]:pr-0", local.class)} {...others} />
   )
 }
+
+const TableCaption: Component<ComponentProps<"caption">> = (props) => {
+  const [local, others] = splitProps(props, ["class"])
+  return <caption class={cn("mt-4 text-sm text-muted-foreground", local.class)} {...others} />
+}
+
+export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption }

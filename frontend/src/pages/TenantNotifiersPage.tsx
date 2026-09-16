@@ -2,7 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
-import { toast } from '../components/ui/toast'
+import { toast } from '../components/app/toast'
 import type { NotifierChannel, NotifierEvent, DiscoveredEndpoint, PlatformConfigItem, AutomationRoutingItem, NotifiersOverview } from '../lib/types'
 import { NOTIFIER_EVENTS, NOTIFIER_EVENT_LABELS } from '../lib/types'
 import { SectionIcon } from '../components/SectionIcon'
@@ -11,17 +11,17 @@ import { writeGuard } from '../lib/read-only'
 import { whileIncomplete } from '../lib/incomplete'
 import { NotifierIcon } from '../components/ProviderIcon'
 import { EmptyState } from '../components/ui/empty-state'
-import { Checkbox } from '../components/ui/checkbox'
+import { Checkbox } from '../components/app/checkbox'
 import { SkeletonNotifiersPage, SkeletonSection } from '../components/Skeleton'
 import { confirmAction } from '../components/Dialog'
 import { Spinner } from '../components/Spinner'
 import { ErrorCard, PageHeader, PageShell, PanelTitle, SectionPanel } from '../components/layout'
-import { Card } from '../components/ui/card'
-import { Button } from '../components/ui/button'
-import { Switch } from '../components/ui/switch'
-import { Badge } from '../components/ui/badge'
+import { Card } from '../components/app/card'
+import { Button } from '../components/app/button'
+import { Switch } from '../components/app/switch'
+import { Badge } from '../components/app/badge'
 import { Input } from '../components/ui/input'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/app/table'
 import { NativeSelect } from '../components/ui/native-select'
 
 const kindLabel = (k: NotifierChannel['kind']) => k === 'discord' ? 'Discord app' : k === 'webhook' ? 'Webhook' : 'Email (relay)'
@@ -151,12 +151,12 @@ export function TenantNotifiersPage() {
           </label>
         </div>
 
-        <div class="mt-4 p-4 border border-border-subtle rounded-md bg-surface-1" role="group" aria-label="Subscribed events">
+        <div class="mt-4 p-4 border border-border rounded-md bg-background" role="group" aria-label="Subscribed events">
           <p class="text-sm text-secondary-foreground leading-relaxed mb-2">Which events reach this destination. Leave every box clear to receive all of them — that is the default, and new event kinds are included automatically.</p>
           <div class="grid gap-2" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))' }}>
             <For each={[...NOTIFIER_EVENTS]}>{ev => (
               <Checkbox
-                class="items-start gap-3 py-1.5 px-2.5 rounded-sm hover:bg-surface-3 transition-colors cursor-pointer"
+                class="items-start gap-3 py-1.5 px-2.5 rounded-sm hover:bg-muted transition-colors cursor-pointer"
                 checked={events().includes(ev)}
                 onChange={() => toggleEvent(ev)}
                 {...writeGuard()}
@@ -198,7 +198,7 @@ export function TenantNotifiersPage() {
                     <strong class="text-foreground">{ch.label}</strong>
                     <small class="text-sm text-muted-foreground">{kindLabel(ch.kind)} · {ch.config.to ?? ch.config.urlHost ?? 'endpoint'} · {ch.events.length ? ch.events.map(evLabel).join(', ') : 'all events'}</small>
                     <Show when={testResult()[ch.id]}>
-                      <small classList={{ 'text-destructive text-sm': testResult()[ch.id]?.includes('failed'), 'text-success text-sm': !testResult()[ch.id]?.includes('failed') }}>{testResult()[ch.id]}</small>
+                      <small classList={{ 'text-destructive text-sm': testResult()[ch.id]?.includes('failed'), 'text-success-foreground text-sm': !testResult()[ch.id]?.includes('failed') }}>{testResult()[ch.id]}</small>
                     </Show>
                   </div>
                 </div>
@@ -224,7 +224,7 @@ export function TenantNotifiersPage() {
             )}</For>
           </div>
         }>
-          <div class="p-4 mt-4 rounded-lg border border-border bg-surface-1"><EmptyState label="No notification channels" hint="Add a destination above to start receiving operational alerts." /></div>
+          <div class="p-4 mt-4 rounded-lg border border-border bg-background"><EmptyState label="No notification channels" hint="Add a destination above to start receiving operational alerts." /></div>
         </Show>
       </SectionPanel>
     </Show>
@@ -259,7 +259,7 @@ export function TenantNotifiersPage() {
                     <TableCell><small class="text-muted-foreground">{item.path}</small></TableCell>
                     <TableCell>
                       <Show when={item.destination} fallback={
-                        <small class="text-muted-foreground">set <code class="text-xs bg-surface-3 px-1.5 py-0.5 rounded-sm">{PLATFORM_ENV_VAR[item.type] ?? item.type}</code> in the deployment's <code class="text-xs bg-surface-3 px-1.5 py-0.5 rounded-sm">.env</code></small>
+                        <small class="text-muted-foreground">set <code class="text-xs bg-muted px-1.5 py-0.5 rounded-sm">{PLATFORM_ENV_VAR[item.type] ?? item.type}</code> in the deployment's <code class="text-xs bg-muted px-1.5 py-0.5 rounded-sm">.env</code></small>
                       }>
                         <code class="text-xs">{item.destination}</code>
                       </Show>
@@ -348,7 +348,7 @@ export function TenantNotifiersPage() {
           <PanelTitle>Discovered webhook endpoints</PanelTitle>
         </div>
       </div>
-      <div class="p-4 rounded-lg border border-border bg-surface-1"><p class="text-sm text-muted-foreground">CrowdRelay webhook endpoints unavailable: {errorMessage(discovered.error, 'We couldn\'t read the webhook endpoints. Try refreshing.')}</p></div>
+      <div class="p-4 rounded-lg border border-border bg-background"><p class="text-sm text-muted-foreground">CrowdRelay webhook endpoints unavailable: {errorMessage(discovered.error, 'We couldn\'t read the webhook endpoints. Try refreshing.')}</p></div>
     </SectionPanel></Show>
     <Show when={!discovered.error && !discovered.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={discovered.data && discovered.data.endpoints.length > 0}>

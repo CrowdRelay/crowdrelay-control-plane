@@ -10,9 +10,9 @@ import { StatusBadge } from '../components/StatusBadge'
 import { Spinner } from '../components/Spinner'
 import { EmptyState } from '../components/ui/empty-state'
 import { SkeletonSection } from '../components/Skeleton'
-import { Badge } from '../components/ui/badge'
-import { Button } from '../components/ui/button'
-import { Card } from '../components/ui/card'
+import { Badge } from '../components/app/badge'
+import { Button } from '../components/app/button'
+import { Card } from '../components/app/card'
 import { PageShell, PageHeader, SectionTitle, ErrorCard } from '../components/layout'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SectionIcon } from '../components/SectionIcon'
@@ -231,7 +231,7 @@ export function TenantContentPage() {
                       : 'Approving writes the piece — it then goes out on its own where auto-posting is on, or waits as a draft.'}
                   </p>
                   <Show when={!action.executor_ready && action.required_capability}>
-                    <div class="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
+                    <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground p-3 text-sm text-warning-foreground">
                       <strong>Nothing can run this yet</strong> — approving queues it until a worker starts.
                     </div>
                   </Show>

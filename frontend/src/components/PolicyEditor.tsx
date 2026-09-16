@@ -3,10 +3,10 @@ import { AuthorityScale, type AuthorityRung } from './ui/authority-scale'
 import type { AutopilotPolicy, AutonomyLevel } from '../lib/types'
 import { CONTEXT_LABELS, labelOr } from '../lib/opportunity-labels'
 import { StatusBadge } from './StatusBadge'
-import { Button } from './ui/button'
+import { Button } from './app/button'
 import { RangeInput } from './ui/range-input'
 import { Input } from './ui/input'
-import { Switch } from './ui/switch'
+import { Switch } from './app/switch'
 import { readOnly, writeGuard } from '../lib/read-only'
 
 // Shared autopilot policy editor — used by both AuthorityPoliciesPanel
@@ -94,7 +94,7 @@ export function PolicyEditor(props: {
     || maxActions() !== props.policy.max_actions_24h
   const guarded = () => props.policy.guarded_until && new Date(props.policy.guarded_until).getTime() > Date.now()
 
-  return <div class={`${POLICY_GRID} border-b border-border-subtle px-1 py-2.5 last:border-0`}>
+  return <div class={`${POLICY_GRID} border-b border-border px-1 py-2.5 last:border-0`}>
     {/* Context label + switch — header row on mobile, columns 1-2 on desktop */}
     <div class="flex items-center justify-between gap-2 lg:contents">
       <div class="min-w-0">
@@ -106,7 +106,7 @@ export function PolicyEditor(props: {
             "v1" tells an operator nothing. The guardrail reason is why a policy is
             held, which is the one thing here worth reading. */}
         <Show when={props.policy.guardrail_reason}>
-          <small class="mt-0.5 block text-xs text-warning">{props.policy.guardrail_reason}</small>
+          <small class="mt-0.5 block text-xs text-warning-foreground">{props.policy.guardrail_reason}</small>
         </Show>
       </div>
       <Switch
