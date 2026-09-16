@@ -44,9 +44,11 @@ const KIND_LABEL: Record<string, string> = {
   signal_push: 'Signal',
 }
 
+const PUBLISHED = { label: 'Published', variant: 'success' as const }
+
 const RESULT_STATUS: Record<string, { label: string; variant: 'success' | 'warning' | 'destructive' | 'muted' }> = {
-  posted: { label: 'Published', variant: 'success' },
-  published: { label: 'Published', variant: 'success' },
+  posted: PUBLISHED,
+  published: PUBLISHED,
   delivered: { label: 'Delivered', variant: 'success' },
   draft: { label: 'Draft — post it yourself', variant: 'muted' },
   awaiting_manual_post: { label: 'Waiting for a manual post', variant: 'warning' },
