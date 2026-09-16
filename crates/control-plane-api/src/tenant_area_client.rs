@@ -488,6 +488,8 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/webhook-endpoints"
                     | "/v1/control-plane/audience/overview"
                     | "/v1/control-plane/audience/acquisition-sources"
+                    | "/v1/control-plane/audience/city-funnel"
+                    | "/v1/control-plane/audience/city-venues"
                     | "/v1/control-plane/audience/fans"
                     | "/v1/control-plane/audience/segments"
                     | "/v1/control-plane/ops/actions"
@@ -501,6 +503,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || path.starts_with("/v1/control-plane/ops/delivery-results?")
                 || path.starts_with("/v1/control-plane/ops/actions?")
                 || path.starts_with("/v1/control-plane/audience/fans?")
+                || path.starts_with("/v1/control-plane/audience/city-funnel?")
                 || path.starts_with("/v1/control-plane/autopilot/outreach/candidates?")
                 || path.starts_with("/v1/control-plane/autopilot/booking-discovery/candidates?")
                 || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "")
@@ -1547,6 +1550,22 @@ mod tests {
         assert!(valid_operations_request(
             "GET",
             "/v1/control-plane/content/pipeline"
+        ));
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/audience/city-funnel"
+        ));
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/audience/city-funnel?order=organise"
+        ));
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/audience/city-venues"
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/audience/city-funnel/extra"
         ));
         // Phase 2: outreach, booking, beacon, release, plays.
         for path in [

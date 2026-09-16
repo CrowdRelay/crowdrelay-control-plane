@@ -279,6 +279,14 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/audience/segments/{slug_segment}/preview",
             get(audience_segment_preview),
         )
+        .route(
+            "/tenants/{slug}/audience/city-funnel",
+            get(audience_city_funnel),
+        )
+        .route(
+            "/tenants/{slug}/audience/city-venues",
+            get(audience_city_venues),
+        )
         // ── Growth metrics, objectives, posture (read + mutate) ────────
         .route(
             "/tenants/{slug}/operations/growth-metrics/coverage",
@@ -2869,6 +2877,51 @@ async fn acquisition_channels(
     )
     .await?;
     object_no_store(value, "acquisition channels")
+}
+
+#[derive(Debug, Deserialize)]
+struct CityFunnelQuery {
+    order: Option<String>,
+}
+
+/// The per-city place read: fans, trend, reachable, bookable supply, show
+/// gaps and the organise-now score. `?order=organise` forwards the ranked
+/// sort upstream.
+async fn audience_city_funnel(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    Query(params): Query<CityFunnelQuery>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let path = match params.order.as_deref() {
+        Some(order) if safe_segment(order) => {
+            format!("/v1/control-plane/audience/city-funnel?order={order}")
+        }
+        _ => "/v1/control-plane/audience/city-funnel".to_owned(),
+    };
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    array_no_store(value, "city funnel")
+}
+
+/// The shared venue registry: per-room aggregates across tenants — shows
+/// played, typical draw, repeat attenders. Aggregates only upstream; this
+/// adds nothing of its own.
+async fn audience_city_venues(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/audience/city-venues",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    array_no_store(value, "city venues")
 }
 
 async fn tour_economics(
