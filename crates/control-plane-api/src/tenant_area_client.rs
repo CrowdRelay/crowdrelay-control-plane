@@ -477,6 +477,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/learning-loop"
                     | "/v1/control-plane/autopilot/learning-proof"
                     | "/v1/control-plane/autopilot/content-sources"
+                    | "/v1/control-plane/content/pipeline"
                     | "/v1/control-plane/portfolio/overview"
                     | "/v1/control-plane/portfolio/amplification"
                     | "/v1/control-plane/tenant-settings"
@@ -497,6 +498,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
             ) || path.starts_with("/v1/control-plane/audience-graph/places?")
                 || path.starts_with("/v1/control-plane/ops/outbox?")
                 || path.starts_with("/v1/control-plane/ops/deliveries?")
+                || path.starts_with("/v1/control-plane/ops/delivery-results?")
                 || path.starts_with("/v1/control-plane/ops/actions?")
                 || path.starts_with("/v1/control-plane/audience/fans?")
                 || path.starts_with("/v1/control-plane/autopilot/outreach/candidates?")
@@ -1537,6 +1539,14 @@ mod tests {
         assert!(valid_operations_request(
             "GET",
             "/v1/control-plane/ops/deliveries?limit=25"
+        ));
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/ops/delivery-results?limit=25"
+        ));
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/content/pipeline"
         ));
         // Phase 2: outreach, booking, beacon, release, plays.
         for path in [

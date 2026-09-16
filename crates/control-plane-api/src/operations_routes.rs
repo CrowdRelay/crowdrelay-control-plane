@@ -43,6 +43,10 @@ pub fn router() -> Router<AppState> {
             get(list_delivery_results),
         )
         .route(
+            "/tenants/{slug}/operations/content-pipeline",
+            get(content_pipeline),
+        )
+        .route(
             "/tenants/{slug}/operations/deliveries/{delivery_id}",
             get(delivery_details),
         )
@@ -2692,6 +2696,26 @@ async fn gdrive_contacts(
     )
     .await?;
     object_no_store(value, "gdrive contacts")
+}
+
+/// The content page's pipeline read: its approval-queue slice, live material
+/// count and the titles those drafts cite — upstream owns the shape.
+async fn content_pipeline(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/content/pipeline",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "content pipeline")
 }
 
 async fn gdrive_scan(

@@ -152,3 +152,10 @@ export const currentPageLabel = (pathname: string, slug: string | undefined, pla
   }
   return GLOBAL_NAV.find(item => item.exact ? pathname === item.path : pathname.startsWith(item.path))?.label ?? 'Overview'
 }
+
+/// The content section's two pages — the pipeline is the default view, real
+/// material is the heavier list kept off the first paint.
+export const CONTENT_TABS = [
+  { id: 'pipeline', label: 'Pipeline' },
+  { id: 'material', label: 'Real material' },
+]

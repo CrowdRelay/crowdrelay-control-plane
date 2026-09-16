@@ -1,11 +1,11 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
-import { useParams } from '@tanstack/solid-router'
+import { useNavigate, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
+import { CONTENT_TABS } from '../lib/nav'
 import { errorMessage } from '../lib/format'
-import { ContentSourcesPanel } from '../components/ContentSourcesPanel'
 import { StatusBadge } from '../components/StatusBadge'
 import { Spinner } from '../components/Spinner'
 import { EmptyState } from '../components/ui/empty-state'
@@ -13,10 +13,10 @@ import { SkeletonSection } from '../components/Skeleton'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
-import { PageShell, PageHeader, SectionTitle, ErrorCard } from '../components/layout'
+import { PageShell, PageHeader, SectionTitle, TabBar, ErrorCard } from '../components/layout'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SectionIcon } from '../components/SectionIcon'
-import type { ContentSourceView, DeliveryResult, PendingAutopilotAction } from '../lib/types'
+import type { DeliveryResult, PendingAutopilotAction } from '../lib/types'
 
 /// The domain `ContentArtifactKind` serde keys → the same names the
 /// briefings and emails use. Unknown kinds humanize instead of leaking.
@@ -74,9 +74,6 @@ const fmtDate = (iso: string) => {
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-const isContentAction = (a: PendingAutopilotAction) =>
-  a.context === 'content_supply' || a.action_kind.startsWith('content.') || a.action_kind.startsWith('agent.content')
-
 /// Artifact requests carry `artifact`; writer-draft requests carry
 /// `template_id`. Either way the card gets a human name, never the key.
 const draftTitle = (a: PendingAutopilotAction): string => {
@@ -85,24 +82,16 @@ const draftTitle = (a: PendingAutopilotAction): string => {
   return typeof tpl === 'string' && tpl ? tpl.replace(/[._]/g, ' ') : 'Content piece'
 }
 
-const isLive = (s: ContentSourceView) => s.active && new Date(s.expires_at) > new Date()
-
 export function TenantContentPage() {
   const params = useParams({ from: '/tenants/$slug/content' })
+  const navigate = useNavigate()
   const [error, setError] = createSignal<string | null>(null)
   const [pendingMutation, setPendingMutation] = createSignal(false)
   const [confirming, setConfirming] = createSignal<string | null>(null)
 
-  const overview = useQuery(() => ({
-    queryKey: ['autopilot-overview', params().slug],
-    queryFn: () => api.autopilotOverview(params().slug),
-    refetchOnWindowFocus: false,
-    staleTime: 10_000,
-  }))
-
-  const sources = useQuery(() => ({
-    queryKey: ['content-sources', params().slug],
-    queryFn: () => api.contentSources(params().slug),
+  const pipeline = useQuery(() => ({
+    queryKey: ['content-pipeline', params().slug],
+    queryFn: () => api.contentPipeline(params().slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
@@ -114,18 +103,17 @@ export function TenantContentPage() {
     staleTime: 30_000,
   }))
 
-  const pending = () => (overview.data?.needs_you ?? []).filter(isContentAction)
-  const liveSourceCount = () => (sources.data ?? []).filter(isLive).length
+  const pending = () => pipeline.data?.pending ?? []
   const published = () => (results.data ?? []).filter(r => r.status === 'posted' || r.status === 'published' || r.status === 'delivered').length
   const sourceTitle = (id: unknown) =>
-    typeof id === 'string' ? sources.data?.find(s => s.source_id === id)?.title : undefined
+    typeof id === 'string' ? pipeline.data?.source_titles[id] : undefined
 
   const approveAction = async (action: PendingAutopilotAction) => {
     setPendingMutation(true); setError(null)
     try {
       await api.approveOpportunityAction(params().slug, action.id)
       setConfirming(null)
-      refreshQueries(['autopilot-overview', params().slug], ['delivery-results', params().slug])
+      refreshQueries(['content-pipeline', params().slug], ['delivery-results', params().slug])
     } catch (err) {
       setError(errorMessage(err, 'Could not approve it. Try again.'))
     } finally {
@@ -138,7 +126,7 @@ export function TenantContentPage() {
     try {
       await api.cancelOpportunityAction(params().slug, action.id)
       setConfirming(null)
-      refreshQueries(['autopilot-overview', params().slug])
+      refreshQueries(['content-pipeline', params().slug])
     } catch (err) {
       setError(errorMessage(err, 'Could not reject it. Try again.'))
     } finally {
@@ -147,20 +135,20 @@ export function TenantContentPage() {
   }
 
   const stages = () => [
-    { step: 'Material in', count: liveSourceCount(), noun: 'piece' },
+    { step: 'Material in', count: pipeline.data?.live_sources, noun: 'piece' },
     { step: 'Waiting for your yes', count: pending().length, noun: 'draft' },
-    { step: 'Went out', count: published(), noun: 'post' },
+    { step: 'Went out', count: results.data ? published() : undefined, noun: 'post' },
   ]
 
   return <PageShell>
     <PageHeader
       eyebrow={authState.isPlatformLevel() ? 'CONTENT' : undefined}
       title="Content"
-      description="The path from real material to published posts — what goes in, what waits for you, and what actually went out."
+      description="What waits for your yes, and what actually went out. The material it all comes from lives under Real material."
       actions={
-        <Show when={overview.data}>
+        <Show when={pipeline.data}>
           <div class="flex items-center gap-2">
-            <Show when={overview.data!.runtime_enabled}>
+            <Show when={pipeline.data!.runtime_enabled}>
               <StatusBadge status={authState.isPlatformLevel() ? 'autopilot on' : 'drafting on its own'} tone="good" />
             </Show>
             <StatusBadge status={pending().length ? `${pending().length} waiting for you` : 'nothing waiting'} tone={pending().length ? 'warn' : 'muted'} />
@@ -169,9 +157,17 @@ export function TenantContentPage() {
       }
     />
 
+    <TabBar
+      tabs={CONTENT_TABS}
+      active="pipeline"
+      onChange={(id) => {
+        if (id === 'material') void navigate({ to: '/tenants/$slug/content/material', params: { slug: params().slug } })
+      }}
+    />
+
     <Show when={error()}><ErrorCard class="mb-4">{error()}</ErrorCard></Show>
-    <Show when={overview.error}>
-      <SectionFailureCard error={overview.error} fallback="Approval queue unavailable" onRetry={() => void overview.refetch()} />
+    <Show when={pipeline.error}>
+      <SectionFailureCard error={pipeline.error} fallback="Approval queue unavailable" onRetry={() => void pipeline.refetch()} />
     </Show>
     <Show when={results.error}>
       <SectionFailureCard error={results.error} fallback="Published list unavailable" onRetry={() => void results.refetch()} />
@@ -184,7 +180,7 @@ export function TenantContentPage() {
         <div class="flex-1 rounded-lg border border-border bg-card p-3">
           <div class="text-xs font-medium text-muted-foreground uppercase tracking-wide">{stage.step}</div>
           <div class="mt-1 flex items-baseline gap-1.5">
-            <span class="text-xl font-semibold text-foreground">{stage.count}</span>
+            <span class="text-xl font-semibold text-foreground">{stage.count ?? '—'}</span>
             <span class="text-xs text-muted-foreground">{stage.count === 1 ? stage.noun : `${stage.noun}s`}</span>
           </div>
         </div>
@@ -203,10 +199,10 @@ export function TenantContentPage() {
 
     {/* ── Waiting for your yes ── */}
     <SectionTitle title="Waiting for your yes" icon={<SectionIcon name="bell" />} description="Drafts the brain proposes from your material. Approving starts the work — the piece is written, then published or saved as a draft." />
-    <Show when={!overview.error && !overview.data && overview.isFetching}>
+    <Show when={!pipeline.error && !pipeline.data && pipeline.isFetching}>
       <SkeletonSection titleWidth="140px" lines={2} minHeight="120px" />
     </Show>
-    <Show when={overview.data}>
+    <Show when={pipeline.data}>
       <Show when={pending().length > 0} fallback={
         <Card flat class="mb-6">
           <EmptyState label="Nothing waiting" hint="When the brain drafts a post, a story or a push from your material, it lands here for your yes." />
@@ -263,12 +259,6 @@ export function TenantContentPage() {
         </div>
       </Show>
     </Show>
-
-    {/* ── Real material — the input stage ── */}
-    <SectionTitle title="Real material" icon={<SectionIcon name="book-open" />} description="Everything the system may say publicly comes from this list — nothing else." />
-    <div class="mb-6">
-      <ContentSourcesPanel slug={params().slug} />
-    </div>
 
     {/* ── Went out — the proof stage ── */}
     <SectionTitle title="Went out" icon={<SectionIcon name="megaphone" />} description="What the approved pieces became — where they landed and whether they published." />

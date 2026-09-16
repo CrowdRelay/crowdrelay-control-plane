@@ -490,6 +490,17 @@ export type PendingAutopilotAction = {
   executor_ready: boolean
 }
 
+/// The content page's own read model — its approval-queue slice plus the
+/// material count and the titles those drafts cite, without the cockpit-wide
+/// overview fan-out. Served by `/operations/content-pipeline`.
+export type ContentPipeline = {
+  runtime_enabled: boolean
+  live_sources: number
+  pending: PendingAutopilotAction[]
+  /// content_source_id → title for every source a pending payload cites.
+  source_titles: Record<string, string>
+}
+
 /// Lightweight summary of a pending autopilot action — just the fields the
 /// AttentionInbox needs to render an approval item. NOT the full
 /// PendingAutopilotAction (which includes payload, briefing, assignee,
