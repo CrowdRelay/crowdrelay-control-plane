@@ -331,6 +331,20 @@ function GoogleIcon(props: IconProps) {
   )
 }
 
+// Gmail — the M-envelope in the brand's four colours.
+function GmailIcon(props: IconProps) {
+  const s = props.size ?? 20
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" class={props.class} aria-hidden="true">
+      <path d="M2 5.5v13h4.5V10L12 14.5 17.5 10v8.5H22v-13L12 12 2 5.5z" fill="#EA4335" opacity="0" />
+      <path d="M2 5.5v13h4V9.3L2 5.5z" fill="#4285F4" />
+      <path d="M22 5.5v13h-4V9.3l4-3.8z" fill="#34A853" />
+      <path d="M18 9.3V6l4-2.5c.7.9 0 2 0 2l-4 3.8z" fill="#FBBC05" />
+      <path d="M2 5.5C2 4.1 3.6 3.4 4.7 4.3L12 9.7l7.3-5.4C20.4 3.4 22 4.1 22 5.5l-4 3.8L12 14 6 9.3 2 5.5z" fill="#EA4335" />
+    </svg>
+  )
+}
+
 // Reddit — official Reddit Snoo logo (simple-icons path) in Reddit orange-red.
 function RedditIcon(props: IconProps) {
   const s = props.size ?? 20
@@ -608,6 +622,8 @@ const FANBASE_ICONS: Record<string, (props: IconProps) => JSX.Element> = {
   instagram: InstagramIcon,
   soundcloud: SoundcloudIcon,
   x: XIcon,
+  gdrive: GoogleIcon,
+  gmail: GmailIcon,
 }
 
 export function LlmProviderIcon(props: { providerId: string; size?: number; class?: string }) {

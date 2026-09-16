@@ -296,6 +296,22 @@ pub fn router() -> Router<AppState> {
             get(content_sources).post(upsert_content_source),
         )
         .route(
+            "/tenants/{slug}/operations/gdrive-contacts",
+            get(gdrive_contacts),
+        )
+        .route(
+            "/tenants/{slug}/operations/gdrive-contacts/scan",
+            axum::routing::post(gdrive_scan),
+        )
+        .route(
+            "/tenants/{slug}/operations/gdrive-contacts/{contact_id}/promote",
+            axum::routing::post(promote_drive_contact),
+        )
+        .route(
+            "/tenants/{slug}/operations/gdrive-contacts/{contact_id}/dismiss",
+            axum::routing::post(dismiss_drive_contact),
+        )
+        .route(
             "/tenants/{slug}/operations/objectives/{objective_id}/retire",
             post(retire_growth_objective),
         )
@@ -2654,6 +2670,125 @@ async fn growth_posture(
     )
     .await?;
     object_no_store(value, "growth posture")
+}
+
+/// Google Drive contacts: the review queue every extracted address lands
+/// in. Nothing is classified upstream — the panel promotes or dismisses
+/// per destination, and fan/beacon outcomes stay independent because a
+/// beacon may also be a fan.
+async fn gdrive_contacts(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/gdrive/contacts",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "gdrive contacts")
+}
+
+async fn gdrive_scan(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/gdrive/scan",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "gdrive scan")
+}
+
+/// The promote body: `destination` picks fan or beacon, `kind` names the
+/// beacon target kind when the file did not say. Everything else — consent
+/// posture, screening status — is the upstream's contract, not ours.
+#[derive(Debug, Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct DriveContactOutcome {
+    destination: String,
+    kind: Option<String>,
+}
+
+async fn promote_drive_contact(
+    State(state): State<AppState>,
+    Path((slug, contact_id)): Path<(String, uuid::Uuid)>,
+    headers: HeaderMap,
+    Json(input): Json<DriveContactOutcome>,
+) -> Result<Response, ApiError> {
+    drive_contact_outcome(&state, &slug, contact_id, "promote", &input, &headers).await
+}
+
+async fn dismiss_drive_contact(
+    State(state): State<AppState>,
+    Path((slug, contact_id)): Path<(String, uuid::Uuid)>,
+    headers: HeaderMap,
+    Json(input): Json<DriveContactOutcome>,
+) -> Result<Response, ApiError> {
+    drive_contact_outcome(&state, &slug, contact_id, "dismiss", &input, &headers).await
+}
+
+async fn drive_contact_outcome(
+    state: &AppState,
+    slug: &str,
+    contact_id: uuid::Uuid,
+    verb: &str,
+    input: &DriveContactOutcome,
+    headers: &HeaderMap,
+) -> Result<Response, ApiError> {
+    let valid = matches!(input.destination.as_str(), "fan" | "beacon")
+        && input.kind.as_deref().is_none_or(|k| {
+            k.len() <= 40 && k.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        });
+    if !valid {
+        return Err(ApiError::InvalidInput(
+            "drive contact outcome needs destination fan or beacon".to_owned(),
+        ));
+    }
+    let idempotency = idempotency_key(headers)?.to_owned();
+    let body = serde_json::to_value(input).map_err(|_| {
+        ApiError::InvalidInput("drive contact outcome could not be serialised".to_owned())
+    })?;
+    let path = format!("/v1/control-plane/gdrive/contacts/{contact_id}/{verb}");
+    let (tenant, value) = call(
+        state,
+        slug,
+        "POST",
+        &path,
+        Some(&body),
+        headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    let action = match verb {
+        "promote" => "tenant.drive_contact.promoted",
+        _ => "tenant.drive_contact.dismissed",
+    };
+    audit_result(
+        state,
+        tenant.tenant.id,
+        action,
+        "drive_contact",
+        &contact_id.to_string(),
+        headers,
+        &result,
+        None,
+    )
+    .await;
+    object_no_store(value, "drive contact outcome")
 }
 
 async fn set_growth_posture(

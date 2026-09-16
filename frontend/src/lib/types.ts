@@ -255,6 +255,33 @@ export type DeliveryResult = {
   error_message: string | null
 }
 
+/// One address the connected sources (Google Drive spreadsheets, Gmail
+/// headers) surfaced into the shared review queue. Every address lands
+/// staged — nothing is a fan or a beacon until the operator promotes it,
+/// and the two outcomes are independent because a beacon may also be a fan.
+export type DriveContactOutcome = 'staged' | 'promoted' | 'dismissed'
+
+export type DriveContact = {
+  id: string
+  email: string
+  display_name: string | null
+  organization: string | null
+  suggested_kind: string | null
+  notes: string | null
+  source_file_name: string
+  /** Where this address was sighted — 'gdrive', 'gmail', or both. */
+  sources: string[]
+  last_seen_at: string
+  /** The file stopped carrying this address — kept, not deleted. */
+  gone_from_source: boolean
+  fan_outcome: DriveContactOutcome
+  beacon_outcome: DriveContactOutcome
+}
+
+export type DriveContactsResponse = {
+  contacts: DriveContact[]
+}
+
 export type DeliveryAttempt = {
   attempt_number: number
   started_at: string

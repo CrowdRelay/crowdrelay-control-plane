@@ -10,6 +10,7 @@ import { PortfolioPanel } from '../components/PortfolioPanel'
 import { PortfolioSettingsPanel } from '../components/PortfolioSettingsPanel'
 import { RedditCookieUploader } from '../components/RedditCookieUploader'
 import { SegmentPanel } from '../components/SegmentPanel'
+import { DriveContactsPanel } from '../components/DriveContactsPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
@@ -54,7 +55,7 @@ function DegradedSections(props: { degraded: string[]; labels: Record<string, st
 
 export function AudiencePage() {
   const params = useParams({ from: '/tenants/$slug/audience' })
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('fans', ['fans', 'sources', 'communities', 'portfolio'])
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('fans', ['fans', 'sources', 'contacts', 'communities', 'portfolio'])
   const model = useQuery(() => ({
     queryKey: ['tenant-audience', params().slug],
     queryFn: () => api.audienceModel(params().slug),
@@ -92,6 +93,7 @@ export function AudiencePage() {
       tabs={[
         { id: 'fans', label: 'Fans' },
         { id: 'sources', label: 'Sources' },
+        { id: 'contacts', label: 'Contacts' },
         { id: 'communities', label: 'Communities' },
         { id: 'portfolio', label: 'Label portfolio' },
       ]}
@@ -143,6 +145,11 @@ export function AudiencePage() {
       {/* Reddit cookie refresh — a fan source enabler, same home it had on
           the portfolio page. */}
       <RedditCookieUploader slug={params().slug} />
+    </TabPanel>
+
+    {/* ── Contacts tab — Drive/Gmail imports awaiting review ── */}
+    <TabPanel active={activeTab()} id="contacts" visited={isVisited('contacts')}>
+      <DriveContactsPanel slug={params().slug} />
     </TabPanel>
 
     {/* ── Communities tab — observation layer ── */}

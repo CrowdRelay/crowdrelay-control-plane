@@ -131,6 +131,14 @@ const PLATFORMS: PlatformSpec[] = [
     fields: [{ key: 'permalink', label: 'SoundCloud permalink', hint: 'The artist\'s permalink — "virya", or the full profile URL.', placeholder: 'virya' }],
     connect: one('permalink')(api.createSoundcloudConnection),
   },
+  {
+    value: 'gdrive', label: 'Google Drive', icon: 'gdrive', provides: 'Contacts from your spreadsheets — deduplicated by email into the Contacts review queue',
+    authorizeUrl: slug => `https://signal-api.virya.music/v1/public/connections/gdrive/authorize?redirect=/tenants/${slug}/audience?tab=contacts`,
+  },
+  {
+    value: 'gmail', label: 'Gmail', icon: 'gmail', provides: 'Contacts from your mailbox headers — same deduplicated Contacts review queue as Drive',
+    authorizeUrl: slug => `https://signal-api.virya.music/v1/public/connections/gmail/authorize?redirect=/tenants/${slug}/audience?tab=contacts`,
+  },
 ]
 
 const EMPTY_INGEST = ''

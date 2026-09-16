@@ -483,6 +483,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/tenant-settings/north-stars"
                     | "/v1/control-plane/fanbases"
                     | "/v1/control-plane/fanbases/connections"
+                    | "/v1/control-plane/gdrive/contacts"
                     | "/v1/control-plane/webhook-endpoints"
                     | "/v1/control-plane/audience/overview"
                     | "/v1/control-plane/audience/acquisition-sources"
@@ -616,6 +617,17 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || one_safe_segment(path, "/v1/control-plane/tenant-settings/")
                 || path == "/v1/control-plane/fanbases"
                 || path == "/v1/control-plane/fanbases/connections"
+                || path == "/v1/control-plane/gdrive/scan"
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/gdrive/contacts/",
+                    "/promote",
+                )
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/gdrive/contacts/",
+                    "/dismiss",
+                )
                 // Recording membership (joined, rejected, …) was refused here
                 // even though the route and the upstream handler both existed —
                 // the same third-place failure the intro-draft comment above
