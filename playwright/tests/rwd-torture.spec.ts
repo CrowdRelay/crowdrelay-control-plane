@@ -109,3 +109,57 @@ for (const vp of VIEWPORTS) {
     }
   })
 }
+
+// UX-6.2 — the gig page on the backstage phone. 375px is the iPhone width a
+// band member actually holds at the door; the static-path torture above
+// cannot reach /shows/$eventSlug because the slug is data, so this pass
+// clicks through from the shows list exactly like the e2e flow does.
+test.describe('RWD gig page @ 375px @e2e @rwd', () => {
+  test.use({ viewport: { width: 375, height: 812 } })
+
+  test.beforeEach(async ({ page }) => {
+    setupErrorCollectors(page)
+    await login(page)
+  })
+
+  test('gig page — timeline fits and steps stay actionable @e2e @rwd', async ({ page }) => {
+    await page.goto('/tenants/virya/shows')
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+
+    const firstShow = page.locator('a[href*="/shows/"]').first()
+    if ((await firstShow.count()) === 0) {
+      // An empty tenant is legal — no gig page exists to break.
+      return
+    }
+    await firstShow.click()
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+    await page.waitForTimeout(500)
+    expect(page.url()).toMatch(/\/tenants\/virya\/shows\/.+/)
+
+    // Worst case for this page: a long venue/room line and long step labels.
+    await page.evaluate(() => {
+      const LONG = ' — A Very Long Venue Name With An Equally Long Address That Could Cause Overflow On A Narrow Phone Screen'
+      for (const el of document.querySelectorAll<HTMLElement>('h1, .text-sm.font-medium, .text-xs.text-muted-foreground')) {
+        if (el.textContent && el.textContent.length < 60 && !el.textContent.includes('T-') && !el.textContent.includes('T+')) {
+          el.textContent = el.textContent + LONG
+        }
+      }
+    })
+    await page.waitForTimeout(300)
+
+    const result = await page.evaluate(() => {
+      const docWidth = document.documentElement.scrollWidth
+      const bodyWidth = document.body.scrollWidth
+      const viewport = window.innerWidth
+      return { overflow: Math.max(docWidth, bodyWidth) - viewport, viewport, docWidth, bodyWidth }
+    })
+    if (result.overflow > 2) {
+      console.log(`\n  OVERFLOW on gig page @ 375px: +${result.overflow}px (doc=${result.docWidth} body=${result.bodyWidth} viewport=${result.viewport})`)
+    }
+    expect(result.overflow, `gig page scrollWidth exceeded 375px viewport by ${result.overflow}px`).toBeLessThanOrEqual(2)
+
+    // The ladder still reads top to bottom — first and last anchors visible.
+    await expect(page.locator('text=T-21').first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('text=T+7').first()).toBeVisible({ timeout: 10_000 })
+  })
+})
