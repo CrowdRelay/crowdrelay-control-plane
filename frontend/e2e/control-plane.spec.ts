@@ -25,7 +25,9 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   // Attention page — the decision queue is the worklist (UX-3.2). Verify the
   // landing by URL and heading rather than the tenant name.
   await expect(page).toHaveURL(/\/tenants\/[^/]+\/attention/)
-  await expect(page.getByRole('heading', { name: 'Operator Attention' })).toBeVisible()
+  // The heading waits on the lazy AuthenticatedApp chunk plus session hydrate —
+  // on the shared 2-core box under CI load that can exceed the 5s default.
+  await expect(page.getByRole('heading', { name: 'Operator Attention' })).toBeVisible({ timeout: 30_000 })
 
   await page.getByRole('link', { name: 'Tenants' }).first().click()
   await expect(page.getByRole('heading', { name: 'Teams on the platform' })).toBeVisible()
