@@ -103,6 +103,10 @@ pub fn router() -> Router<AppState> {
             get(autopilot_scorecard),
         )
         .route(
+            "/tenants/{slug}/operations/autopilot/measurement",
+            get(autopilot_measurement),
+        )
+        .route(
             "/tenants/{slug}/operations/autopilot/reply-triage",
             get(autopilot_reply_triage),
         )
@@ -1109,6 +1113,27 @@ async fn autopilot_scorecard(
     )
     .await?;
     object_no_store(value, "autopilot scorecard")
+}
+
+/// The measurement ledger: the plan's fifteen claims, each with its number
+/// or the reason this build cannot produce it. Read-only proxy to
+/// CrowdRelay's measurement read model.
+async fn autopilot_measurement(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/measurement",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "autopilot measurement")
 }
 
 /// Reply triage: which inbound replies need human review, and how recent
