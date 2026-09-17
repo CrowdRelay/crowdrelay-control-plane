@@ -7,6 +7,7 @@ import { PageShell, PageHeader } from '../components/layout'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
 import { Badge } from '../components/app/badge'
+import { ShowSetupPanel } from '../components/ShowSetupPanel'
 import { formatTimestamp } from '../lib/format'
 
 const STATE_VARIANT: Record<ShowTimelineState, { variant: 'success' | 'default' | 'warning' | 'muted' | 'outline'; label: string }> = {
@@ -84,6 +85,7 @@ export function TenantShowPage() {
                 </For>
               </div>
             </Show>
+            <ShowSetupPanel slug={params().slug} eventSlug={params().eventSlug} timeline={data()} />
             <div class="flex flex-col gap-2">
               <For each={data().steps}>{s => <StepRow step={s} slug={params().slug} eventSlug={params().eventSlug} />}</For>
             </div>

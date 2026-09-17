@@ -9,7 +9,7 @@ use axum::{
     extract::{DefaultBodyLimit, Path, Query, State},
     http::{HeaderMap, StatusCode, header::CACHE_CONTROL},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{get, post, put},
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -419,6 +419,16 @@ pub fn router() -> Router<AppState> {
         .route(
             "/tenants/{slug}/shows/{event_slug}/report",
             get(tenant_show_report),
+        )
+        // The show's two setup writes — the bill the crossbill step reads
+        // and the counterparty the T+7 report mails. Whole-resource PUTs.
+        .route(
+            "/tenants/{slug}/shows/{event_slug}/acts",
+            put(tenant_show_acts_replace),
+        )
+        .route(
+            "/tenants/{slug}/shows/{event_slug}/counterparty",
+            put(tenant_show_counterparty),
         )
         .route(
             "/tenants/{slug}/operations/chief-of-staff",
@@ -3664,6 +3674,164 @@ async fn tenant_show_report(
     )
     .await?;
     object_no_store(value, "show report")
+}
+
+/// One act in a bill-replacement body — mirrors upstream `EventActInput`.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ShowActInput {
+    act_slug: String,
+    act_name: String,
+    #[serde(default)]
+    position: i32,
+    #[serde(default)]
+    ticket_url: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ReplaceShowActsBody {
+    acts: Vec<ShowActInput>,
+}
+
+/// Upstream's bounds, mirrored so a malformed bill is refused before it
+/// leaves the control plane: 32 acts, slug shape, name and https ticket URL.
+/// Upstream remains the authority — this catches the obvious failures here.
+fn valid_show_act(act: &ShowActInput) -> bool {
+    let slug = act.act_slug.trim();
+    let name = act.act_name.trim();
+    let mut chars = slug.chars();
+    let slug_ok = (1..=64).contains(&slug.len())
+        && chars
+            .next()
+            .is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+        && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+    let url_ok = act
+        .ticket_url
+        .as_deref()
+        .is_none_or(|url| url.trim().to_ascii_lowercase().starts_with("https://"));
+    slug_ok
+        && !name.is_empty()
+        && name.chars().count() <= 160
+        && !name.chars().any(char::is_control)
+        && (0..=999).contains(&act.position)
+        && url_ok
+}
+
+/// `PUT /tenants/{slug}/shows/{event_slug}/acts` — the night's bill, replaced
+/// atomically upstream. This is the crossbill step's only write path: without
+/// it the operator needs a raw API call against a credential they don't hold.
+async fn tenant_show_acts_replace(
+    State(state): State<AppState>,
+    Path((slug, event_slug)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<ReplaceShowActsBody>,
+) -> Result<Response, ApiError> {
+    if body.acts.len() > 32 || body.acts.iter().any(|act| !valid_show_act(act)) {
+        return Err(ApiError::InvalidInput(
+            "invalid bill: up to 32 acts, each with a slug, a name and an optional https ticket_url"
+                .to_owned(),
+        ));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let payload = serde_json::json!({ "acts": body.acts.iter().map(|act| {
+        serde_json::json!({
+            "act_slug": act.act_slug.trim().to_ascii_lowercase(),
+            "act_name": act.act_name.trim(),
+            "position": act.position,
+            "ticket_url": act.ticket_url.as_deref().map(str::trim).filter(|u| !u.is_empty()),
+        })
+    }).collect::<Vec<_>>() });
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "PUT",
+        &format!("/v1/control-plane/events/{event_slug}/acts"),
+        Some(&payload),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.show_bill.replaced",
+        "event",
+        &event_slug,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(value, "show bill")
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ShowCounterpartyBody {
+    counterparty_name: Option<String>,
+    counterparty_email: Option<String>,
+}
+
+/// `PUT /tenants/{slug}/shows/{event_slug}/counterparty` — who the T+7
+/// post-show report goes to besides the band. Null clears, same as upstream.
+async fn tenant_show_counterparty(
+    State(state): State<AppState>,
+    Path((slug, event_slug)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<ShowCounterpartyBody>,
+) -> Result<Response, ApiError> {
+    let name_ok = body
+        .counterparty_name
+        .as_deref()
+        .is_none_or(|name| name.chars().count() <= 160 && !name.chars().any(char::is_control));
+    let email_ok = body.counterparty_email.as_deref().is_none_or(|email| {
+        let trimmed = email.trim();
+        !trimmed.is_empty()
+            && trimmed.len() <= 320
+            && trimmed.chars().all(|c| c.is_ascii_graphic())
+            && trimmed.split_once('@').is_some_and(|(_, domain)| {
+                domain
+                    .rfind('.')
+                    .is_some_and(|dot| dot > 0 && dot + 1 < domain.len())
+            })
+    });
+    if !name_ok || !email_ok {
+        return Err(ApiError::InvalidInput(
+            "invalid counterparty: name ≤160 chars, email name@domain.tld".to_owned(),
+        ));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let payload = serde_json::json!({
+        "counterparty_name": body.counterparty_name.as_deref().map(str::trim).filter(|v| !v.is_empty()),
+        "counterparty_email": body.counterparty_email.as_deref().map(str::trim).filter(|v| !v.is_empty()),
+    });
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "PUT",
+        &format!("/v1/control-plane/events/{event_slug}/counterparty"),
+        Some(&payload),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.show_counterparty.set",
+        "event",
+        &event_slug,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(value, "show counterparty")
 }
 
 async fn chief_of_staff(
