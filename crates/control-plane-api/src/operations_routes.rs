@@ -3765,6 +3765,12 @@ async fn tenant_show_acts_replace(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    // Upstream replaces the bill with 204 No Content — object_no_store would
+    // read the Null body as a broken contract and report a saved bill as a
+    // failure. Mirror the upstream status instead.
+    if value.is_null() {
+        return Ok(StatusCode::NO_CONTENT.into_response());
+    }
     object_no_store(value, "show bill")
 }
 
