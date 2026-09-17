@@ -1736,6 +1736,15 @@ export type ShowTimelineStep = {
   detail: Record<string, unknown>
 }
 
+/** One act on a bill — the shape `PUT …/acts` accepts. `position` is the
+ * row's slot in running order; `ticket_url` feeds per-act click attribution. */
+export type ShowActInput = {
+  act_slug: string
+  act_name: string
+  position?: number
+  ticket_url?: string | null
+}
+
 export type TenantShowTimelineResponse = {
   event: {
     id: string
@@ -1746,6 +1755,10 @@ export type TenantShowTimelineResponse = {
     status: string
     starts_at: string
     ends_at: string | null
+    /** Who the T+7 report mails besides the band — the show setup card edits
+     *  these directly; null means the report goes to the band only. */
+    counterparty_name?: string | null
+    counterparty_email?: string | null
     /** What the night knows about the room — beacon-campaign records keyed
      *  to this event. Empty when there is no relationship on file. */
     venue_knowledge?: Array<{

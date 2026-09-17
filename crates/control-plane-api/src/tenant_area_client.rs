@@ -691,6 +691,13 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || fan_tag_path(path)
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/referral-code")
         }
+        "PUT" => {
+            // The show setup writes: the night's bill and the counterparty the
+            // T+7 report ships to. Both upstream handlers are idempotent
+            // whole-resource replacements — PUT is their truthful verb.
+            safe_segment_between(path, "/v1/control-plane/events/", "/acts")
+                || safe_segment_between(path, "/v1/control-plane/events/", "/counterparty")
+        }
         "PATCH" => {
             // The connection's scan boundary — the tenant choosing what the
             // Drive/Gmail scan may read. PATCH has one narrow path and gets
@@ -1567,6 +1574,25 @@ mod tests {
             "GET",
             "/v1/control-plane/ops/operations/request-1234"
         ));
+        // The show setup writes are the allowlist's only PUTs — the bill and
+        // the counterparty, both slug-parameterized like the event reads.
+        assert!(valid_operations_request(
+            "PUT",
+            "/v1/control-plane/events/friday-night/acts"
+        ));
+        assert!(valid_operations_request(
+            "PUT",
+            "/v1/control-plane/events/friday-night/counterparty"
+        ));
+        assert!(!valid_operations_request(
+            "PUT",
+            "/v1/control-plane/events/friday-night"
+        ));
+        assert!(!valid_operations_request(
+            "PUT",
+            "/v1/control-plane/events/friday-night/scan"
+        ));
+        assert!(!valid_operations_request("PUT", "/v1/control-plane/events"));
         // The scan-scope write is the allowlist's only PATCH — pinned both
         // directions so a future arm edit can't silently widen or drop it.
         assert!(valid_operations_request(
