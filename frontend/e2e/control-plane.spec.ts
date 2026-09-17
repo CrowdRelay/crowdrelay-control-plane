@@ -32,8 +32,10 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   const virya = page.locator('[data-slot="tenant-row"]').filter({ hasText: /virya/i }).first()
   await expect(virya).toBeVisible()
   await virya.click()
-  // The tenant profile page opens on the profile tab; the Heartbeat panel is
-  // the live-polled surface this journey exists to watch.
+  // The profile tab only carries the one-line status summary now — the
+  // live-polled Heartbeat panel moved to the tenant Health page.
+  await page.getByRole('link', { name: 'Health' }).first().click()
+  await expect(page).toHaveURL(/\/tenants\/[^/]+\/health/)
   await expect(page.getByRole('heading', { name: 'Heartbeat' })).toBeVisible()
 
   const tenantHeading = page.locator('h1').first()
