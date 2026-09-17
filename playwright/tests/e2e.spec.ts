@@ -269,29 +269,29 @@ test.describe('Control Plane E2E @e2e', () => {
     expect(sweepCollectors.apiErrors.length).toBe(0)
   })
 
-  // Command center — the overview page must show the five operator blocks
-  // with drill-down links, not just the old KPI strip.
-  test('Command center renders five blocks with drill-downs @e2e', async ({ page }) => {
+  // Overview — the page answers three questions in order: what needs a
+  // person (the Needs-you card), are we getting more fans (the north-star
+  // strip), and how each tenant is doing (the tenants table, one row per
+  // tenant that opens the tenant).
+  test('Overview renders needs-you, north star and the tenants table @e2e', async ({ page }) => {
     // The Shell redirects from / to /tenants/virya once per session after
     // login. Ensure the redirect flag is set so / renders the OverviewPage.
     await page.addInitScript(() => sessionStorage.setItem('cp-default-tenant', '1'))
     await page.goto('/')
     await page.waitForLoadState('networkidle', { timeout: 15000 })
 
-    // The five command blocks should be present. Match by eyebrow label
-    // to avoid text overlap between blocks (e.g. SYSTEM contains a
-    // drill-down link to /attention). Each CommandBlock is wrapped in an
-    // <a> link for drill-down navigation.
-    const blockEyebrows = ['ATTENTION', 'AUTOPILOT TODAY', 'OUTCOMES', 'SYSTEM', 'LEARNING']
-    for (const label of blockEyebrows) {
-      const block = page.locator('[data-slot="command-block"]').filter({
-        has: page.locator('[data-slot="eyebrow"]', { hasText: label }),
-      })
-      await expect(block).toBeVisible({ timeout: 10_000 })
-      // Each block is wrapped in a link (drill-down)
-      const link = block.locator('xpath=ancestor::a').first()
-      await expect(link).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('[data-slot="needs-you"]')).toBeVisible({ timeout: 10_000 })
+    // The count settles once the command center has answered.
+    await expect(page.locator('[data-slot="needs-you-count"]')).toBeVisible({ timeout: 10_000 })
+    // Every listed item is a link into the page that owns the decision.
+    const items = page.locator('[data-slot="needs-you-item"]')
+    for (let i = 0; i < await items.count(); i++) {
+      await expect(items.nth(i)).toHaveAttribute('href', /.+/)
     }
+    await expect(page.locator('[data-kpi-strip]').first()).toBeVisible({ timeout: 10_000 })
+    const row = page.locator('[data-slot="tenant-row"]').first()
+    await expect(row).toBeVisible({ timeout: 10_000 })
+    await expect(row.locator('a').first()).toHaveAttribute('href', /\/tenants\/[^/]+$/)
 
     // No error surfaces should be visible on the overview. `role="alert"`
     // covers both ErrorCard and SectionFailureCard.
