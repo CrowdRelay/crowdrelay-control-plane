@@ -1,42 +1,50 @@
-import { For, Show, createSignal, createMemo } from 'solid-js'
+import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
+import { RefreshCw } from 'lucide-solid'
 import { api } from '../lib/api'
-import { errorMessage } from '../lib/format'
+import { errorMessage, relativeTime } from '../lib/format'
 import { toast } from '../components/app/toast'
 import type { AutomationEvent, AutomationWorkflowConfig } from '../lib/types'
 import { EmptyState } from '../components/ui/empty-state'
 import { Checkbox } from '../components/app/checkbox'
 import { SkeletonRows } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
-import { PageShell, PageHeader, KpiStrip, KpiCard, ErrorCard, SectionTitle } from '../components/layout'
+import { StatusBadge } from '../components/StatusBadge'
+import { PageShell, PageHeader, KpiStrip, KpiCard, ErrorCard, Section, TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { Button } from '../components/app/button'
-import { Card } from '../components/app/card'
+import { Badge } from '../components/app/badge'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/app/table'
 import { cn } from '../lib/cn'
 import { NativeSelect } from '../components/ui/native-select'
 import { writeGuard } from '../lib/read-only'
 
+const TABS = ['events', 'routing'] as const
+
 const severityTone = (s: string) => s === 'error' ? 'bad' : s === 'warn' ? 'warn' : 'muted'
-const statusTone = (s: string) => s === 'new' ? 'bad' : s === 'acknowledged' ? 'warn' : s === 'retried' ? 'warn' : 'muted'
+const statusTone = (s: string) => s === 'new' ? 'bad' : s === 'acknowledged' || s === 'retried' ? 'warn' : s === 'resolved' ? 'good' : 'muted'
 const categoryLabel = (c: string) => c === 'real_work' ? 'Real work' : c === 'system' ? 'System' : 'Status'
 const formatTime = (iso: string) => {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return 'recently'
-  const now = new Date()
-  const diff = (now.getTime() - d.getTime()) / 1000
-  if (diff < 0) return 'just now'
+  const diff = (Date.now() - d.getTime()) / 1000
   if (diff < 60) return 'just now'
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
   return d.toLocaleDateString()
 }
 
+// n8n workflow outcomes for one tenant. Two views of the same system: the
+// events it produced, and the per-workflow rules that decide what an event
+// does. They used to be one page that swapped wholesale behind a ghost button
+// in the header; they are two tabs now, so the current view is always named.
 export function AutomationPage() {
   const params = useParams({ from: '/tenants/$slug/automation' })
   const slug = () => params().slug
   const queryClient = useQueryClient()
+  // The id list makes `?tab=` deep links land on the right tab.
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('events', [...TABS])
   const [statusFilter, setStatusFilter] = createSignal<string>('')
-  const [showConfigs, setShowConfigs] = createSignal(false)
 
   const events = useQuery(() => ({
     queryKey: ['automation-events', slug(), statusFilter()],
@@ -53,9 +61,8 @@ export function AutomationPage() {
   }))
 
   // When the slug changes, TanStack fetches the new tenant's data in the
-  // background. Without reconcile/placeholderData the old data is dropped
-  // immediately, so the Show fallback (skeleton) renders during the
-  // switch instead of painting the wrong tenant's events.
+  // background. The Show fallback renders the skeleton during the switch
+  // instead of painting the wrong tenant's events.
   const eventsReady = () => events.data != null && !events.isPending
   const configsReady = () => configs.data != null && !configs.isPending
 
@@ -67,11 +74,23 @@ export function AutomationPage() {
 
   const newCount = () => events.data?.items.filter(e => e.status === 'new').length ?? 0
   const errorCount = () => events.data?.items.filter(e => e.severity === 'error').length ?? 0
+  const mutedCount = () => configs.data?.items.filter(c => c.muted).length ?? 0
 
   const invalidate = (scopeSlug: string) => {
     queryClient.invalidateQueries({ queryKey: ['automation-events', scopeSlug] })
     queryClient.invalidateQueries({ queryKey: ['automation-workflow-configs', scopeSlug] })
   }
+  const refreshing = () => events.isFetching || configs.isFetching
+
+  // "Updated 2m ago" has to keep moving while the page sits open.
+  const [now, setNow] = createSignal(Date.now())
+  const tick = setInterval(() => setNow(Date.now()), 15_000)
+  onCleanup(() => clearInterval(tick))
+  const updated = createMemo(() => {
+    now()
+    const ts = Math.max(events.dataUpdatedAt, configs.dataUpdatedAt)
+    return ts === 0 ? null : relativeTime(ts)
+  })
 
   const [busyId, setBusyId] = createSignal<string | null>(null)
 
@@ -110,78 +129,45 @@ export function AutomationPage() {
 
   return <PageShell>
     <PageHeader
-      eyebrow="AUTOMATION"
-      title="Automation events"
-      description="n8n workflow outcomes — errors, status and heartbeat events. Real-work items route to Discord; everything else stays here."
+      title="Automation"
+      description="What the n8n workflows did, and what each workflow's events are allowed to do. Real work routes to Discord; everything else stays here."
       actions={
-        <Button variant="ghost" size="sm" classList={{ active: showConfigs() }} onClick={() => setShowConfigs(v => !v)}>
-          {showConfigs() ? 'Back to events' : 'Workflow routing'}
-        </Button>
+        <>
+          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
+          <Button variant="outline" size="sm" onClick={() => invalidate(slug())} disabled={refreshing()} aria-label="Refresh">
+            <RefreshCw class={cn(refreshing() && 'animate-spin')} aria-hidden="true" />
+            Refresh
+          </Button>
+        </>
       }
     />
 
-    <Show when={showConfigs()}>
-      <SectionTitle eyebrow="AUTOMATION" title="Workflow routing" icon={<SectionIcon name="workflow" />} />
-      <p class="text-sm text-muted-foreground -mt-1 mb-4 leading-relaxed">One row per n8n workflow, deciding what its events do when they arrive. <strong>Category</strong> sorts the event — only <em>real work</em> is worth waking someone for. <strong>Discord</strong> forwards it to the crew channel. <strong>Muted</strong> keeps the events recorded but stops them counting as new. Changes save as you make them.</p>
-      <Show when={configs.error}><ErrorCard>{errorMessage(configs.error, 'Automation routing could not be loaded')}</ErrorCard></Show>
-      <Show when={configsReady()} fallback={!configs.error ? <SkeletonRows count={3} /> : null}>
-        <div class="space-y-2">
-          <For each={configs.data!.items}>{(cfg: AutomationWorkflowConfig) => (
-            <Card class="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div class="flex flex-col gap-0.5">
-                <strong class="text-sm text-foreground">{cfg.label}</strong>
-                <small class="text-xs text-muted-foreground">{cfg.workflowId}</small>
-              </div>
-              <div class="flex items-center gap-3 flex-wrap">
-                <NativeSelect class="w-auto"
-                  value={cfg.category}
-                  disabled={busyId() !== null}
-                  onChange={(e) => handleConfigUpdate(cfg.workflowId, { category: e.currentTarget.value })}
-                  {...writeGuard()}
-                >
-                  <option value="status">Status</option>
-                  <option value="real_work">Real work</option>
-                  <option value="system">System</option>
-                </NativeSelect>
-                <Checkbox
-                  class="text-sm text-foreground"
-                  disabled={busyId() !== null}
-                  checked={cfg.discordEnabled}
-                  onChange={(on) => handleConfigUpdate(cfg.workflowId, { discordEnabled: on })}
-                  label="Discord"
-                  {...writeGuard()}
-                />
-                <Checkbox
-                  class="text-sm text-foreground"
-                  disabled={busyId() !== null}
-                  checked={cfg.muted}
-                  onChange={(on) => handleConfigUpdate(cfg.workflowId, { muted: on })}
-                  label="Muted"
-                  {...writeGuard()}
-                />
-              </div>
-            </Card>
-          )}</For>
-          <Show when={configs.data!.items.length === 0}>
-            <div class="p-4 rounded-lg border border-border bg-background"><EmptyState label="No workflow events" hint="Workflow events appear here when automation rules fire. Connect event sources to start tracking." /></div>
-          </Show>
-        </div>
-      </Show>
-    </Show>
+    <KpiStrip>
+      <KpiCard label="New events" value={eventsReady() ? newCount() : '—'} tone={newCount() > 0 ? 'warn' : 'default'} sub="not acknowledged yet" />
+      <KpiCard label="Errors" value={eventsReady() ? errorCount() : '—'} tone={errorCount() > 0 ? 'bad' : 'default'} sub="in the last 100 events" />
+      <KpiCard label="Workflows" value={configsReady() ? configMap().size : '—'} sub={mutedCount() > 0 ? `${mutedCount()} muted` : 'with routing rules'} />
+    </KpiStrip>
 
-    <Show when={!showConfigs()}>
-      <KpiStrip>
-        <KpiCard label="New events" value={newCount()} sub="unacknowledged" />
-        <KpiCard label="Errors" value={errorCount()} sub="in last 100" />
-        <KpiCard label="Workflows" value={configMap().size} sub="configured" />
-      </KpiStrip>
+    <TabBar
+      active={activeTab()}
+      onChange={switchTab}
+      onPrefetch={prefetch}
+      tabs={[
+        { id: 'events', label: 'Events', count: () => newCount() },
+        { id: 'routing', label: 'Workflow routing' },
+      ]}
+    />
 
-      <SectionTitle
-        eyebrow="EVENTS"
+    {/* ─── Events ─────────────────────────────────────────────────── */}
+    <TabPanel active={activeTab()} id="events" visited={isVisited('events')}>
+      <Section
+        flush
         title="Recent events"
         icon={<SectionIcon name="history" />}
+        count={events.data?.items.length}
+        description="The latest 100 outcomes. Acknowledge what you have seen, retry a failed execution, resolve what is done."
         action={
-          <NativeSelect class="w-auto" value={statusFilter()} onChange={(e) => setStatusFilter(e.currentTarget.value)}>
+          <NativeSelect class="w-auto" aria-label="Filter events by status" value={statusFilter()} onChange={(e) => setStatusFilter(e.currentTarget.value)}>
             <option value="">All statuses</option>
             <option value="new">New</option>
             <option value="acknowledged">Acknowledged</option>
@@ -189,48 +175,136 @@ export function AutomationPage() {
             <option value="resolved">Resolved</option>
           </NativeSelect>
         }
-      />
-
-      <Show when={events.error}><ErrorCard>{errorMessage(events.error, 'Automation events could not be loaded')}</ErrorCard></Show>
-      <Show when={eventsReady()} fallback={!events.error ? <SkeletonRows count={5} /> : null}>
-        <div class="space-y-2">
-          <For each={events.data!.items}>{(ev: AutomationEvent) => {
-            const cfg = configMap().get(ev.workflowId)
-            return (
-              <Card class={cn('p-4 space-y-2', ev.status === 'new' && 'ring-1 ring-primary/30')}>
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class={cn('inline-block w-2 h-2 rounded-full', severityTone(ev.severity) === 'bad' ? 'bg-destructive' : severityTone(ev.severity) === 'warn' ? 'bg-warning-foreground' : 'bg-muted-foreground')} />
-                  <strong class="text-sm text-foreground">{ev.workflowName}</strong>
-                  <span class="text-xs text-muted-foreground">{ev.eventKind}</span>
-                  <Show when={cfg}><span class={cn('inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium', cfg!.category === 'real_work' ? 'bg-primary/10 text-primary' : cfg!.category === 'system' ? 'bg-muted text-muted-foreground' : 'bg-card text-muted-foreground')}>{categoryLabel(cfg!.category)}</span></Show>
-                  <span class="text-xs text-muted-foreground ml-auto">{formatTime(ev.occurredAt)}</span>
-                </div>
-                <div class="space-y-1">
-                  <p class="text-sm text-foreground">{ev.message}</p>
-                  <Show when={ev.nodeName}><small class="block text-xs text-muted-foreground">Node: {ev.nodeName}</small></Show>
-                  <Show when={ev.executionId}><small class="block text-xs text-muted-foreground">Execution: {ev.executionId}</small></Show>
-                </div>
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class={cn('inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium', statusTone(ev.status) === 'bad' ? 'bg-destructive/10 text-destructive' : statusTone(ev.status) === 'warn' ? 'bg-warning-foreground text-warning-foreground' : 'bg-card text-muted-foreground')}>{ev.status}</span>
-                  <Show when={ev.retryCount > 0}><span class="text-xs text-muted-foreground">retried {ev.retryCount}×</span></Show>
-                  <Show when={ev.status === 'new'}>
-                    <Button writes variant="ghost" size="sm" disabled={busyId() === ev.id} onClick={() => handleAck(ev.id)}>Ack</Button>
-                  </Show>
-                  <Show when={ev.executionId && ev.status !== 'retried'}>
-                    <Button writes variant="ghost" size="sm" disabled={busyId() === ev.id} onClick={() => handleRetry(ev.id)}>Retry</Button>
-                  </Show>
-                  <Show when={ev.status !== 'resolved'}>
-                    <Button writes variant="ghost" size="sm" disabled={busyId() === ev.id} onClick={() => handleResolve(ev.id)}>Resolve</Button>
-                  </Show>
-                </div>
-              </Card>
-            )
-          }}</For>
-          <Show when={events.data!.items.length === 0}>
-            <div class="p-4 rounded-lg border border-border bg-background"><EmptyState label="No events match this filter" hint="Try adjusting the event type or time range filter." /></div>
+      >
+        <Show when={events.error}><ErrorCard>{errorMessage(events.error, 'Automation events could not be loaded')}</ErrorCard></Show>
+        <Show when={eventsReady()} fallback={!events.error ? <SkeletonRows count={5} /> : null}>
+          <Show when={events.data!.items.length > 0} fallback={
+            // The copy used to say "no events match this filter" with no
+            // filter set, and suggest a time-range filter the page never had.
+            <Show when={statusFilter()} fallback={
+              <EmptyState label="No automation events yet" hint="Events land here when an n8n workflow reports an error, a status change or a heartbeat." />
+            }>
+              <EmptyState label={`No ${statusFilter()} events`} hint="Choose All statuses to see every event." />
+            </Show>
+          }>
+            <ul class="divide-y divide-border rounded-lg border border-border">
+              <For each={events.data!.items}>{(ev: AutomationEvent) => {
+                const cfg = () => configMap().get(ev.workflowId)
+                return (
+                  <li class="flex flex-col gap-2 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                    <div class="min-w-0 flex-1 space-y-1">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span
+                          class={cn('inline-block size-2 shrink-0 rounded-full', severityTone(ev.severity) === 'bad' ? 'bg-destructive' : severityTone(ev.severity) === 'warn' ? 'bg-warning-foreground' : 'bg-muted-foreground')}
+                          role="img"
+                          aria-label={`severity ${ev.severity}`}
+                        />
+                        <strong class="text-sm text-foreground">{ev.workflowName}</strong>
+                        <span class="text-xs text-muted-foreground">{ev.eventKind}</span>
+                        <Show when={cfg()}>{c => <Badge variant={c().category === 'real_work' ? 'default' : 'outline'}>{categoryLabel(c().category)}</Badge>}</Show>
+                      </div>
+                      <p class="text-sm text-foreground">{ev.message}</p>
+                      <p class="text-xs text-muted-foreground">
+                        {formatTime(ev.occurredAt)}
+                        <Show when={ev.nodeName}> · node {ev.nodeName}</Show>
+                        <Show when={ev.executionId}> · execution {ev.executionId}</Show>
+                        <Show when={ev.retryCount > 0}> · retried {ev.retryCount}×</Show>
+                      </p>
+                    </div>
+                    <div class="flex shrink-0 flex-wrap items-center gap-2">
+                      <StatusBadge status={ev.status} tone={statusTone(ev.status)} />
+                      <Show when={ev.status === 'new'}>
+                        <Button writes variant="outline" size="sm" disabled={busyId() === ev.id} onClick={() => handleAck(ev.id)}>Acknowledge</Button>
+                      </Show>
+                      <Show when={ev.executionId && ev.status !== 'retried'}>
+                        <Button writes variant="ghost" size="sm" disabled={busyId() === ev.id} onClick={() => handleRetry(ev.id)}>Retry</Button>
+                      </Show>
+                      <Show when={ev.status !== 'resolved'}>
+                        <Button writes variant="ghost" size="sm" disabled={busyId() === ev.id} onClick={() => handleResolve(ev.id)}>Resolve</Button>
+                      </Show>
+                    </div>
+                  </li>
+                )
+              }}</For>
+            </ul>
           </Show>
-        </div>
-      </Show>
-    </Show>
+        </Show>
+      </Section>
+    </TabPanel>
+
+    {/* ─── Workflow routing ───────────────────────────────────────── */}
+    <TabPanel active={activeTab()} id="routing" visited={isVisited('routing')}>
+      <Section
+        flush
+        title="Workflow routing"
+        icon={<SectionIcon name="workflow" />}
+        count={configs.data?.items.length}
+        description="One row per workflow. Category sorts its events, and only real work is worth waking someone for. Discord forwards them to the crew channel. Muted keeps them recorded without counting as new. Changes save as you make them."
+      >
+        <Show when={configs.error}><ErrorCard>{errorMessage(configs.error, 'Automation routing could not be loaded')}</ErrorCard></Show>
+        <Show when={configsReady()} fallback={!configs.error ? <SkeletonRows count={3} /> : null}>
+          <Show when={configs.data!.items.length > 0} fallback={
+            <EmptyState label="No workflows yet" hint="A workflow appears here the first time it reports an event. Its routing starts as Status and can be changed here." />
+          }>
+            <div class="rounded-lg border border-border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Workflow</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Discord</TableHead>
+                    <TableHead>Muted</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <For each={configs.data!.items}>{(cfg: AutomationWorkflowConfig) => (
+                    <TableRow>
+                      <TableCell>
+                        <strong class="block text-foreground">{cfg.label}</strong>
+                        <code class="text-xs text-muted-foreground">{cfg.workflowId}</code>
+                      </TableCell>
+                      <TableCell>
+                        <NativeSelect
+                          class="w-auto"
+                          aria-label={`Category for ${cfg.label}`}
+                          value={cfg.category}
+                          disabled={busyId() !== null}
+                          onChange={(e) => handleConfigUpdate(cfg.workflowId, { category: e.currentTarget.value })}
+                          {...writeGuard()}
+                        >
+                          <option value="status">Status</option>
+                          <option value="real_work">Real work</option>
+                          <option value="system">System</option>
+                        </NativeSelect>
+                      </TableCell>
+                      <TableCell>
+                        <Checkbox
+                          class="text-sm text-foreground"
+                          disabled={busyId() !== null}
+                          checked={cfg.discordEnabled}
+                          onChange={(on) => handleConfigUpdate(cfg.workflowId, { discordEnabled: on })}
+                          label="Forward"
+                          {...writeGuard()}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Checkbox
+                          class="text-sm text-foreground"
+                          disabled={busyId() !== null}
+                          checked={cfg.muted}
+                          onChange={(on) => handleConfigUpdate(cfg.workflowId, { muted: on })}
+                          label="Muted"
+                          {...writeGuard()}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  )}</For>
+                </TableBody>
+              </Table>
+            </div>
+          </Show>
+        </Show>
+      </Section>
+    </TabPanel>
   </PageShell>
 }
