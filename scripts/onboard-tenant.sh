@@ -145,6 +145,20 @@ ensure_services() {
       fi
     fi
   done
+
+  # Disk guard — every host that serves tenants gets the daily safe-trash
+  # sweep. Idempotent: installed once, skipped afterwards.
+  local guard_src="$ROOT_DIR/deploy/vps-disk-guard.sh"
+  if [[ -f "$guard_src" ]] && [[ ! -x /usr/local/sbin/vps-disk-guard.sh ]]; then
+    if install -m 0755 "$guard_src" /usr/local/sbin/vps-disk-guard.sh 2>/dev/null \
+      && /usr/local/sbin/vps-disk-guard.sh --install >/dev/null 2>&1; then
+      printf '  installed vps-disk-guard (daily cron)\n'
+    else
+      printf '  warn    vps-disk-guard install skipped (needs root)\n'
+    fi
+  elif [[ -x /usr/local/sbin/vps-disk-guard.sh ]]; then
+    printf '  ok      vps-disk-guard already installed\n'
+  fi
 }
 
 # ── Create tenant via API ────────────────────────────────────────────────────
