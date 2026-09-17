@@ -502,7 +502,11 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/events"
                     | "/v1/control-plane/audience-graph/places"
                     | "/v1/control-plane/autopilot/cycle/preview"
+                    // 4G.3: the band's gig plan — proposals, passed-over
+                    // cities and the reasons behind both.
+                    | "/v1/control-plane/gig-plan"
             ) || path.starts_with("/v1/control-plane/audience-graph/places?")
+                || path.starts_with("/v1/control-plane/gig-plan?")
                 || path.starts_with("/v1/control-plane/ops/outbox?")
                 || path.starts_with("/v1/control-plane/ops/deliveries?")
                 || path.starts_with("/v1/control-plane/ops/delivery-results?")
@@ -606,6 +610,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/signal-state",
                 )
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/beacons/", "/reply")
+                // Approving a gig proposal queues the outreach — the band's
+                // yes, carried through with its idempotency key (4G.4).
+                || path == "/v1/control-plane/gig-plan/approve"
                 // Creating a campaign: listed, launchable and closable before
                 // this, but never creatable through the proxy.
                 || path == "/v1/control-plane/autopilot/beacon-release-campaigns"

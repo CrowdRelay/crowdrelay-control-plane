@@ -137,6 +137,9 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/audience-graph/places/import",
             post(import_audience_places),
         )
+        // What the band should book next, and the yes that queues it (4G).
+        .route("/tenants/{slug}/gig-plan", get(gig_plan))
+        .route("/tenants/{slug}/gig-plan/approve", post(approve_gig_plan))
         .route(
             "/tenants/{slug}/portfolio/fanbases/{fanbase_id}",
             axum::routing::delete(delete_portfolio_fanbase),
@@ -1990,6 +1993,90 @@ async fn import_audience_places(
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "audience graph place import")
+}
+
+/// One-off intent override for the plan read.
+///
+/// Typed rather than forwarded raw, for the same reason as
+/// [`AudiencePlacesQuery`]: the proxied path is matched against the proxy
+/// allowlist, so the query is rebuilt from named fields and nothing else can
+/// ride along.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GigPlanQuery {
+    intent: Option<String>,
+}
+
+/// What the band should book next — proposals with their reasons, the cities
+/// passed over with theirs, and the track record those reasons now carry.
+/// Read-only proxy to CrowdRelay's gig-plan read model.
+async fn gig_plan(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Query(query): Query<GigPlanQuery>,
+) -> Result<Response, ApiError> {
+    let path = match query.intent.as_deref().map(str::trim) {
+        Some(intent) if !intent.is_empty() => {
+            if intent.len() > 32
+                || !intent
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte == b'_')
+            {
+                return Err(ApiError::InvalidInput("invalid intent".to_owned()));
+            }
+            format!("/v1/control-plane/gig-plan?intent={intent}")
+        }
+        _ => "/v1/control-plane/gig-plan".to_owned(),
+    };
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "gig plan")
+}
+
+/// The band's yes to a proposal. The body names the city; the proposal itself
+/// is recomputed upstream so evidence that moved since the read wins.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ApproveGigPlanBody {
+    city: String,
+}
+
+async fn approve_gig_plan(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<ApproveGigPlanBody>,
+) -> Result<Response, ApiError> {
+    let city = body.city.trim();
+    if city.is_empty() || city.len() > 200 {
+        return Err(ApiError::InvalidInput("invalid city".to_owned()));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let payload = serde_json::json!({ "city": city });
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/gig-plan/approve",
+        Some(&payload),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.gig_proposal.approved",
+        "gig_proposal",
+        city,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(value, "gig plan approval")
 }
 
 async fn create_portfolio_fanbase(

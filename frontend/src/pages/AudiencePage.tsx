@@ -12,6 +12,7 @@ import { RedditCookieUploader } from '../components/RedditCookieUploader'
 import { SegmentPanel } from '../components/SegmentPanel'
 import { DriveContactsPanel } from '../components/DriveContactsPanel'
 import { PlacesPanel } from '../components/PlacesPanel'
+import { GigPlanPanel } from '../components/GigPlanPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
@@ -133,8 +134,12 @@ export function AudiencePage() {
       </>}</Show>
     </TabPanel>
 
-    {/* ── Places tab — cities and the rooms in them ── */}
+    {/* ── Places tab — what to book, then the cities and rooms it reads ── */}
     <TabPanel active={activeTab()} id="places" visited={isVisited('places')}>
+      {/* The plan sits above its evidence on purpose: the question the tab
+          answers is "what should I book", and the funnel and rooms below are
+          what that answer stands on. */}
+      <GigPlanPanel slug={params().slug} />
       <PlacesPanel slug={params().slug} />
     </TabPanel>
 
