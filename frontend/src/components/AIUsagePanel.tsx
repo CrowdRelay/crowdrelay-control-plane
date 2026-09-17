@@ -8,8 +8,6 @@ import type { TemplateRoi, ModelAnalytics } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { ErrorCard } from './layout'
-import { Card } from './app/card'
-import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 
@@ -73,17 +71,16 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
     return Math.max(1, ...spend.map(d => d.paid_cost_micro_usd + d.free_cost_micro_usd))
   }
 
-  return <Card flat>
+  return <div class="space-y-8">
     <Show when={data.isError}>
       <ErrorCard>{errorMessage(data.error, 'Failed to load usage analytics')}</ErrorCard>
     </Show>
 
     {/* Budget header */}
     <Show when={budget()} fallback={<Show when={!data.isError}><SkeletonRows count={3} /></Show>}>
-      <div class="mt-4">
+      <div>
         <div class="flex items-center justify-between gap-4">
-          <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><CrownIcon size={16} /> AI Budget</h3>
-          <Button variant="ghost" size="sm" onClick={() => void data.refetch()} disabled={data.isFetching}>{data.isFetching ? 'Refreshing…' : 'Refresh'}</Button>
+          <h3 class="flex items-center gap-2 text-base font-semibold text-foreground"><span class="text-muted-foreground"><CrownIcon size={16} /></span>AI budget</h3>
         </div>
         <div class="mt-3">
           <div class="flex items-center justify-between mb-1.5">
@@ -114,10 +111,10 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
 
     {/* Cost-ROI per template */}
     <Show when={templateRoi().length > 0}>
-      <div class="mt-6 pt-4 border-t border-border">
+      <div class="border-t border-border pt-6">
         <div class="flex items-center justify-between gap-4">
-          <h3 class="text-sm font-semibold text-foreground">Cost vs Outcome ROI</h3>
-          <span class="text-muted-foreground">this month</span>
+          <h3 class="text-base font-semibold text-foreground">Cost against outcome</h3>
+          <span class="text-xs text-muted-foreground">this month</span>
         </div>
         <p class="mt-1 text-sm text-muted-foreground">Cost vs outcome per template. Sorted by cost-per-outcome (best ROI first).</p>
         <Table class="mt-3">
@@ -150,10 +147,10 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
 
     {/* Model routing analytics */}
     <Show when={modelAnalytics().length > 0}>
-      <div class="mt-6 pt-4 border-t border-border">
+      <div class="border-t border-border pt-6">
         <div class="flex items-center justify-between gap-4">
-          <h3 class="text-sm font-semibold text-foreground">Model performance</h3>
-          <span class="text-muted-foreground">last 30 days</span>
+          <h3 class="text-base font-semibold text-foreground">Model performance</h3>
+          <span class="text-xs text-muted-foreground">last 30 days</span>
         </div>
         <p class="mt-1 text-sm text-muted-foreground">Per-model success rate, latency, and cost.</p>
         <Table class="mt-3">
@@ -181,10 +178,10 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
 
     {/* Daily spend chart */}
     <Show when={dailySpend().length > 0}>
-      <div class="mt-6 pt-4 border-t border-border">
+      <div class="border-t border-border pt-6">
         <div class="flex items-center justify-between gap-4">
-          <h3 class="text-sm font-semibold text-foreground">Daily spend trend</h3>
-          <span class="text-muted-foreground">last 30 days</span>
+          <h3 class="text-base font-semibold text-foreground">Daily spend</h3>
+          <span class="text-xs text-muted-foreground">last 30 days</span>
         </div>
         <p class="mt-1 text-sm text-muted-foreground">Daily AI spend, free vs paid stacked. A flat line at $0 means free models are being used.</p>
         <div class="flex items-end gap-0.5 h-[120px] mt-4 px-1">
@@ -228,10 +225,10 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
 
     {/* Model routing preview — shows the intelligence's fallback chain */}
     <Show when={data.data && (data.data!.available_models.length > 0 || modelAnalytics().length > 0)}>
-      <div class="mt-6 pt-4 border-t border-border">
+      <div class="border-t border-border pt-6">
         <div class="flex items-center justify-between gap-4">
-          <h3 class="text-sm font-semibold text-foreground">Model routing preview</h3>
-          <span class="text-muted-foreground">intelligence fallback chain</span>
+          <h3 class="text-base font-semibold text-foreground">Model routing</h3>
+          <span class="text-xs text-muted-foreground">intelligence fallback chain</span>
         </div>
         <p class="mt-1 text-sm text-muted-foreground">The intelligence routes to free models first, then paid if connected.</p>
         <div class="grid gap-2.5 mt-4 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]">
@@ -274,5 +271,5 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
         </div>
       </div>
     </Show>
-  </Card>
+  </div>
 }

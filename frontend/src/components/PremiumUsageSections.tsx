@@ -5,7 +5,6 @@ import { StatusBadge } from './StatusBadge'
 import { ModelIcon } from './ProviderIcon'
 import { EmptyState } from './ui/empty-state'
 import { Sparkline } from './Sparkline'
-import { Card } from './app/card'
 import { KpiCard, KpiStrip } from './layout'
 import { RobotIcon, SparkIcon } from './provider-icons'
 import type { PremiumUsage } from '../lib/types'
@@ -59,32 +58,30 @@ export function UsageKpiStrip(props: {
       />
       <KpiCard label="Connected" value={props.connectedCount} sub="providers" />
       <KpiCard label="Models" value={props.availableModelCount} sub="available" />
-      <Card class="p-4">
-        <div class="text-xs text-muted-foreground">Tasks run</div>
-        <div class="mt-1 text-xl font-bold tabular-nums text-foreground">{props.usage.tasks.length}</div>
-        <div class="text-xs text-muted-foreground">in the last 30 days</div>
+      <KpiCard label="Tasks run" value={props.usage.tasks.length} sub={<>
+        in the last 30 days
         <Show when={dailyCostSeries().some(v => v > 0)}>
-          <div class="mt-1 h-5 opacity-80">
+          <span class="mt-1 block h-5 opacity-80">
             <Sparkline data={dailyCostSeries()} width={80} height={20} color={budgetPctValue() > 80 ? 'var(--color-warning-foreground)' : 'var(--color-primary)'} />
-          </div>
+          </span>
         </Show>
-      </Card>
+      </>} />
     </KpiStrip>
   )
 }
 
-// ─── Connected Premium Models ───────────────────────────────────────────
+// ─── Premium models ───────────────────────────────────────────
 export function PremiumModelsSection(props: { usage: PremiumUsage }) {
   return (
-    <section class="rounded-lg border border-border bg-card p-5">
+    <section class="border-t border-border pt-6">
       <div class="flex items-center justify-between mb-2">
-        <h3 class="flex items-center gap-2 m-0 text-base font-semibold text-foreground"><SparkIcon size={16} /> Connected Premium Models</h3>
-        <span class="text-xs text-muted-foreground bg-muted border border-border rounded-md px-2 py-0.5">{props.usage.premium_models.length}</span>
+        <h3 class="flex items-center gap-2 m-0 text-base font-semibold text-foreground"><SparkIcon size={16} /> Premium models</h3>
+        <span class="rounded-full bg-muted px-2 py-0.5 text-xs font-bold tabular-nums text-secondary-foreground">{props.usage.premium_models.length}</span>
       </div>
       <Show
         when={props.usage.premium_models.length > 0}
         fallback={
-          <div class="p-4">
+          <div>
             <EmptyState label="No premium models active" hint="Premium AI models provide higher quality output for critical worker tasks. Configure API keys to enable them." />
           </div>
         }
@@ -119,10 +116,10 @@ export function PremiumModelsSection(props: { usage: PremiumUsage }) {
 // ─── Recent Premium Tasks ───────────────────────────────────────────────
 export function PremiumTasksSection(props: { usage: PremiumUsage }) {
   return (
-    <section class="rounded-lg border border-border bg-card p-5">
+    <section class="border-t border-border pt-6">
       <div class="flex items-center justify-between mb-2">
         <h3 class="flex items-center gap-2 m-0 text-base font-semibold text-foreground">Recent premium tasks</h3>
-        <span class="text-xs text-muted-foreground bg-muted border border-border rounded-md px-2 py-0.5">{props.usage.tasks.length}</span>
+        <span class="rounded-full bg-muted px-2 py-0.5 text-xs font-bold tabular-nums text-secondary-foreground">{props.usage.tasks.length}</span>
       </div>
       <Show
         when={props.usage.tasks.length > 0}

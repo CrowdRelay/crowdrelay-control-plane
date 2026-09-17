@@ -6,6 +6,7 @@ import { toast } from './app/toast'
 import { EmptyState } from './ui/empty-state'
 import { Hint } from './ui/hint'
 import { ErrorCard } from './layout'
+import { Alert } from './app/alert'
 import { credentialHealth } from '../lib/credential-health'
 import { ProviderCard, type ProviderCardContext } from './ProviderCard'
 import { UsageKpiStrip, PremiumModelsSection, PremiumTasksSection } from './PremiumUsageSections'
@@ -27,6 +28,8 @@ export function AgentProvidersPanel(props: {
   /** Parent query still in flight — the sections below render skeletons, not
    *  the "nothing connected" empty state, until the first answer arrives. */
   sectionsLoading?: boolean
+  /** The page already says the agent service is down; do not say it again. */
+  serviceDown?: boolean
   /** `in-use` shows the pool the router picks from. `library` shows what is
    *  not connected yet. They are separate tabs so an operator opening this
    *  page sees their own providers, not a catalogue. */
@@ -320,21 +323,17 @@ export function AgentProvidersPanel(props: {
   // Whether the provider/credential sections have a verdict at all — a
   // resolved list or a section error. Neither yet means still loading.
   const providersResolved = () =>
+    props.serviceDown ||
     !props.sectionsLoading &&
     (props.providersError != null || props.providers !== undefined || fallbackProviders.data !== undefined)
 
   return (
     <div class="flex flex-col gap-4">
-      <Show when={isServiceDown()}>
-        <div class="flex items-start gap-3 p-4 rounded-lg border border-warning-foreground/30 bg-warning-foreground text-warning-foreground">
-          <div class="flex-shrink-0 text-warning-foreground mt-0.5">
-            <SparkIcon size={28} />
-          </div>
-          <div class="flex flex-col gap-1">
-            <strong class="text-sm text-warning-foreground">AI service is temporarily unavailable</strong>
-            <span class="text-sm text-muted-foreground leading-relaxed">Free models continue to work. Premium features will return shortly — no action needed.</span>
-          </div>
-        </div>
+      {/* This was orange text on an orange fill, so it read as a blank bar. */}
+      <Show when={isServiceDown() && !props.serviceDown}>
+        <Alert tone="warning" role="status" title="The AI service is unavailable">
+          Free models keep working. Premium features return when the service answers again.
+        </Alert>
       </Show>
       <Show when={error() && !isServiceDown()}>
         <ErrorCard class="rounded-md p-3">{error()}</ErrorCard>
@@ -349,7 +348,7 @@ export function AgentProvidersPanel(props: {
           itself — a failed usage read must not hide the provider controls. */}
       <Show when={props.mode !== 'library'}>
         <Show when={usage.data} fallback={
-          <Show when={!isServiceDown() && !error()}>
+          <Show when={!isServiceDown() && !error() && !props.serviceDown}>
             <div class="h-20 rounded-lg border border-border bg-muted" />
           </Show>
         }>
@@ -456,7 +455,7 @@ export function AgentProvidersPanel(props: {
             </p>
             <Show
               when={libraryProviders().length > 0}
-              fallback={props.providersError ? null : <EmptyState label="Everything is connected" hint="Every provider we support already has a key on this tenant." />}
+              fallback={props.providersError || props.serviceDown ? null : <EmptyState label="Everything is connected" hint="Every provider we support already has a key on this tenant." />}
             >
               <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                 <For each={libraryProviders()}>{provider => <ProviderCard provider={provider} ctx={cardCtx} />}</For>

@@ -5,14 +5,14 @@ import { confidencePercent, errorMessage, formatIsoAge } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { Dialog } from './Dialog'
-import { TabBar, TabPanel, useTabPanels, ErrorCard } from './layout'
+import { TabBar, TabPanel, useTabPanels, ErrorCard, Section } from './layout'
+import { Alert } from './app/alert'
 import { AgentProvidersPanel } from './AgentProvidersPanel'
 import { AIUsagePanel } from './AIUsagePanel'
 import { IntelligenceTransparencyPanel } from './IntelligenceTransparencyPanel'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonGrid, SkeletonRows } from './Skeleton'
 import { Button } from './app/button'
-import { Card } from './app/card'
 import { Badge } from './app/badge'
 import { Input } from './ui/input'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
@@ -21,19 +21,6 @@ import type { AgentTaskResult, TaskSuggestion, AgentOutcome } from '../lib/types
 import { NativeSelect } from './ui/native-select'
 import { writeGuard } from '../lib/read-only'
 import { whileIncomplete, hasErrorSections } from '../lib/incomplete'
-
-// --- Ant icon (agent service mascot) ---
-const AntIcon = (props: { size?: number }) => (
-  <svg width={props.size ?? 18} height={props.size ?? 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <ellipse cx="12" cy="8" rx="3" ry="2.5" />
-    <ellipse cx="12" cy="13" rx="2.5" ry="2" />
-    <ellipse cx="12" cy="17.5" rx="3.5" ry="2.5" />
-    <path d="M9 7L5 4M15 7l4-3" />
-    <path d="M9 13L4 11M15 13l5-2" />
-    <path d="M12 5.5v-2" />
-    <circle cx="12" cy="3" r="1" fill="currentColor" stroke="none" />
-  </svg>
-)
 
 // --- Intelligence icon (autopilot intelligence → agent suggestions) ---
 const IntelligenceIcon = (props: { size?: number }) => (
@@ -58,7 +45,8 @@ const MAX_VISIBLE_SUGGESTIONS = 4
 const MAX_VISIBLE_TASKS = 10
 
 export function AgentPanel(props: { slug: string }) {
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('providers')
+  // The id list makes `?tab=` deep links land on the right tab.
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('providers', ['providers', 'library', 'tasks', 'usage', 'intel'])
   const tab = () => activeTab() as 'providers' | 'library' | 'tasks' | 'growth' | 'usage' | 'intel'
 
   const [selectedTemplate, setSelectedTemplate] = createSignal<string | null>(null)
@@ -264,15 +252,20 @@ export function AgentPanel(props: { slug: string }) {
     }
   }
 
-  // Detect agent-service unavailability across the consolidated read models
+  // Detect agent-service unavailability across the consolidated read models.
+  // The service being down arrives two ways: as a failed request, or as a 200
+  // whose every section carries the same "unavailable" error. The second used
+  // to render as one error card per section, all saying the same thing, under
+  // a banner nobody could read. One notice now says it once.
+  const downWords = (m: string) => m.includes('unavailable') || m.includes('unreachable') || m.includes('not configured')
   const isServiceDown = () => {
     const errs = [tasksOverview.error, providersOverview.error]
-    return errs.some(e => {
-      if (!e) return false
-      if (e instanceof ApiError && e.status === 503) return true
-      return e.message.includes('unavailable') || e.message.includes('unreachable')
-    })
+    if (errs.some(e => e && ((e instanceof ApiError && e.status === 503) || downWords(e.message)))) return true
+    const sections = [providersSectionError(), credentialsSectionError(), templatesSectionError(), tasksSectionError()]
+    return sections.some(m => m != null && downWords(m))
   }
+  // A section error only earns its own card when the service as a whole is up.
+  const sectionError = (m: string | null) => isServiceDown() ? null : m
 
   const templateName = (id: string) => templates().find(t => t.id === id)?.name ?? id
 
@@ -281,13 +274,9 @@ export function AgentPanel(props: { slug: string }) {
       {/* Service-unavailable banner — shown once at the top when the agent
           service is down, instead of repeating errors in each sub-panel. */}
       <Show when={isServiceDown()}>
-        <div class="flex items-start gap-3 p-4 rounded-lg border border-warning-foreground/30 bg-warning-foreground text-warning-foreground">
-          <AntIcon size={20} />
-          <div>
-            <strong>Agent service is temporarily unavailable</strong>
-            <span>Free models continue to work. Premium features and provider management will return shortly.</span>
-          </div>
-        </div>
+        <Alert tone="warning" role="status" title="The agent service is unavailable">
+          Free models keep working. Provider management, tasks and premium features return when the service answers again. This page retries on its own.
+        </Alert>
       </Show>
 
       {/* Tab navigation */}
@@ -311,13 +300,13 @@ export function AgentPanel(props: { slug: string }) {
           page-wide skeleton. Queries are gated by `enabled: tab() === ...`
           so hidden tabs don't refetch on the global refresh tick. */}
       <TabPanel active={activeTab()} id="providers" visited={isVisited('providers')}>
-        <AgentProvidersPanel mode="in-use" slug={props.slug} providers={providers()} credentials={credentials()} providersError={providersSectionError()} credentialsError={credentialsSectionError()} sectionsLoading={providersOverview.isPending} refetchCreds={() => refreshQueries(['agent-providers-overview', props.slug])} active={activeTab() === 'providers'} models={models()} />
+        <AgentProvidersPanel mode="in-use" slug={props.slug} providers={providers()} credentials={credentials()} providersError={sectionError(providersSectionError())} credentialsError={sectionError(credentialsSectionError())} serviceDown={isServiceDown()} sectionsLoading={providersOverview.isPending} refetchCreds={() => refreshQueries(['agent-providers-overview', props.slug])} active={activeTab() === 'providers'} models={models()} />
       </TabPanel>
 
       {/* The catalogue is its own tab. Ten cards where two are yours makes an
           operator find their own two every time they open the page. */}
       <TabPanel active={activeTab()} id="library" visited={isVisited('library')}>
-        <AgentProvidersPanel mode="library" slug={props.slug} providers={providers()} credentials={credentials()} providersError={providersSectionError()} credentialsError={credentialsSectionError()} sectionsLoading={providersOverview.isPending} refetchCreds={() => refreshQueries(['agent-providers-overview', props.slug])} active={activeTab() === 'library'} models={models()} />
+        <AgentProvidersPanel mode="library" slug={props.slug} providers={providers()} credentials={credentials()} providersError={sectionError(providersSectionError())} credentialsError={sectionError(credentialsSectionError())} serviceDown={isServiceDown()} sectionsLoading={providersOverview.isPending} refetchCreds={() => refreshQueries(['agent-providers-overview', props.slug])} active={activeTab() === 'library'} models={models()} />
       </TabPanel>
 
       <TabPanel active={activeTab()} id="usage" visited={isVisited('usage')}>
@@ -330,14 +319,11 @@ export function AgentPanel(props: { slug: string }) {
 
       <TabPanel active={activeTab()} id="tasks" visited={isVisited('tasks')}>
       {/* Autopilot intelligence → agent suggestions — the bridge between operations data and LLM execution */}
-      <Show when={suggestionsSectionError()}>{msg => <ErrorCard>Agent suggestions unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
+      <div class="space-y-8">
+      <Show when={sectionError(suggestionsSectionError())}>{msg => <ErrorCard>Agent suggestions unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
       <Show when={suggestions().length > 0}>
-        <Card class="p-4">
-          <div class="flex items-center justify-between gap-4">
-            <h3><IntelligenceIcon size={18} /> Autopilot Intelligence</h3>
-          </div>
-          <p class="text-sm text-muted-foreground mt-1">Data-driven suggestions based on your events and campaign performance. Click to run.</p>
-          <div class="grid gap-2.5 mt-3 grid-cols-1 md:grid-cols-2">
+        <Section flush title="Suggested by the autopilot" icon={<IntelligenceIcon size={18} />} count={suggestions().length} description="Built from your events and campaign performance. Pick one to run it.">
+          <div class="grid gap-2.5 grid-cols-1 md:grid-cols-2">
             <For each={showAllSuggestions() ? suggestions() : suggestions().slice(0, MAX_VISIBLE_SUGGESTIONS)}>
               {(s) => (
                 <Button writes type="button" variant="outline" class="h-auto w-full flex-col items-stretch justify-start gap-1 whitespace-normal px-3 py-2 text-left text-sm font-normal text-muted-foreground hover:text-foreground" onClick={() => runSuggestion(s)}>
@@ -358,19 +344,18 @@ export function AgentPanel(props: { slug: string }) {
               {showAllSuggestions() ? 'Show fewer' : `Show all ${suggestions().length}`}
             </Button>
           </Show>
-        </Card>
+        </Section>
       </Show>
 
       {/* Task templates and execution */}
-      <Card class="p-4">
-        <div class="flex items-center justify-between gap-4">
-          <h3>Agent tasks</h3>
-          <Show when={templates().length > 0}><span class="text-muted-foreground">{templates().length} templates</span></Show>
-        </div>
-        <p class="text-sm text-muted-foreground mt-1">Pick a template, choose a model, and describe the work.</p>
-        <Show when={templatesSectionError()}>{msg => <ErrorCard>Task templates unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
-        <Show when={modelsSectionError()}>{msg => <ErrorCard>Model list unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
-        <Show when={tasksOverview.data && !templatesSectionError()} fallback={<SkeletonGrid count={4} minCardHeight='120px' />}>
+      <Section flush={suggestions().length === 0} title="Run a task" count={templates().length} description="Pick a template, choose a model, and describe the work.">
+        <Show when={sectionError(templatesSectionError())}>{msg => <ErrorCard>Task templates unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
+        <Show when={sectionError(modelsSectionError())}>{msg => <ErrorCard>Model list unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
+        <Show when={tasksOverview.data && !templatesSectionError()} fallback={
+          <Show when={!tasksOverview.data} fallback={<EmptyState label="Templates unavailable" hint="The agent service did not return its templates. They appear here once it does." />}>
+            <SkeletonGrid count={4} minCardHeight='120px' />
+          </Show>
+        }>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <For each={templates()}>
               {(template) => (
@@ -395,16 +380,16 @@ export function AgentPanel(props: { slug: string }) {
             </For>
           </div>
         </Show>
-      </Card>
+      </Section>
 
 
       <Show when={selectedTemplate()}>
-        <Card class="p-4">
-          <div class="flex items-center justify-between gap-4">
-            <h3>Run: {templates().find(t => t.id === selectedTemplate())?.name ?? 'task'}</h3>
-            <Button variant="ghost" size="sm" onClick={() => setSelectedTemplate(null)}>Choose another template</Button>
-          </div>
-          <p class="text-sm text-muted-foreground mt-1">Free models cost nothing; paid models bill against the AI budget.</p>
+        <Section
+          title={`Run: ${templates().find(t => t.id === selectedTemplate())?.name ?? 'task'}`}
+          description="Free models cost nothing; paid models bill against the AI budget."
+          action={<Button variant="outline" size="sm" onClick={() => setSelectedTemplate(null)}>Choose another template</Button>}
+          class="[&_label]:mt-3"
+        >
           <label class="flex flex-col gap-1 text-sm text-muted-foreground">
             <span>Model</span>
             <NativeSelect value={selectedModel()} onChange={(e) => setSelectedModel(e.currentTarget.value)} {...writeGuard()}>
@@ -434,26 +419,24 @@ export function AgentPanel(props: { slug: string }) {
               disabled={submitting() || !prompt().trim()}
               onClick={submit}
             >
-              {submitting() ? 'Starting…' : 'Run Agent'}
+              {submitting() ? 'Starting…' : 'Run agent'}
             </Button>
             <Show when={error()}>
               <span class="text-sm text-destructive">{error()}</span>
             </Show>
           </div>
-        </Card>
+        </Section>
       </Show>
 
       {/* Schedules — recurring agent tasks */}
-      <Card class="p-4">
-        <div class="flex items-center justify-between gap-4">
-          <h3>Schedules</h3>
-          <Show when={!creatingSchedule()}>
-            <Button writes variant="ghost" size="sm" onClick={() => { setCreatingSchedule(true); setError(null) }}>
-              + New schedule
-            </Button>
-          </Show>
-        </div>
-        <p class="text-sm text-muted-foreground mt-1">Recurring tasks run automatically. Results land in Recent tasks.</p>
+      <Section
+        title="Schedules"
+        count={schedules().length}
+        description="Recurring tasks run automatically. Results land in Recent tasks."
+        action={<Show when={!creatingSchedule()}>
+          <Button writes variant="outline" size="sm" onClick={() => { setCreatingSchedule(true); setError(null) }}>New schedule</Button>
+        </Show>}
+      >
         <Show when={creatingSchedule()}>
           <div class="flex flex-col gap-3 mt-4 p-4 rounded-lg border border-border bg-background">
             <label class="flex flex-col gap-1 text-sm text-muted-foreground">
@@ -472,7 +455,7 @@ export function AgentPanel(props: { slug: string }) {
             </div>
           </div>
         </Show>
-        <Show when={schedulesSectionError()}>{msg => <ErrorCard>Agent schedules unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
+        <Show when={sectionError(schedulesSectionError())}>{msg => <ErrorCard>Agent schedules unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
         <Show when={schedules().length > 0}>
           <Table class="mt-4">
             <TableHeader><TableRow><TableHead>Template</TableHead><TableHead>Interval</TableHead><TableHead>Enabled</TableHead><TableHead>Last run</TableHead><TableHead>Next run</TableHead><TableHead></TableHead></TableRow></TableHeader>
@@ -484,7 +467,7 @@ export function AgentPanel(props: { slug: string }) {
                     <TableCell>{sched.interval_minutes}m</TableCell>
                     <TableCell>
                       <Button writes variant="ghost" size="sm" disabled={scheduleBusy() === sched.id} onClick={() => toggleSchedule(sched.id, !sched.enabled)}>
-                        {scheduleBusy() === sched.id ? '…' : sched.enabled ? '✓ enabled' : 'disabled'}
+                        {scheduleBusy() === sched.id ? '…' : sched.enabled ? 'Enabled' : 'Disabled'}
                       </Button>
                     </TableCell>
                     <TableCell class="text-muted-foreground">{sched.last_run_at ? formatIsoAge(sched.last_run_at) : 'never'}</TableCell>
@@ -499,17 +482,12 @@ export function AgentPanel(props: { slug: string }) {
         <Show when={schedules().length === 0 && !schedulesSectionError()}>
           <EmptyState label="No schedules configured" hint="Automate recurring intelligence tasks." />
         </Show>
-      </Card>
+      </Section>
 
-      <Card class="p-4">
-        <div class="flex items-center justify-between gap-4">
-          <h3>Recent tasks</h3>
-          <Show when={tasks().length > 0}><span class="text-muted-foreground">{showAllTasks() ? `${tasks().length} shown` : `last ${Math.min(tasks().length, MAX_VISIBLE_TASKS)}`}</span></Show>
-        </div>
-        <p class="text-sm text-muted-foreground mt-1">Every run, started here or by a schedule. Completed tasks show full output.</p>
-        <Show when={tasksSectionError()}>{msg => <ErrorCard>Task list unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
+      <Section title="Recent tasks" count={tasks().length} description="Every run, started here or by a schedule. Completed tasks show full output.">
+        <Show when={sectionError(tasksSectionError())}>{msg => <ErrorCard>Task list unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
         <Show when={tasksOverview.data && !tasksSectionError()} fallback={
-          <Show when={tasksOverview.isFetching || tasksSectionError()} fallback={<EmptyState label="No tasks yet" hint="Tasks appear once the intelligence or a schedule dispatches them." />}>
+          <Show when={!tasksOverview.data} fallback={<EmptyState label="Tasks unavailable" hint="The agent service did not return the task list. It appears here once it does." />}>
             <SkeletonRows count={4} />
           </Show>
         }>
@@ -532,7 +510,7 @@ export function AgentPanel(props: { slug: string }) {
                     <TableCell class="text-muted-foreground">{formatIsoAge(task.created_at)}</TableCell>
                     <TableCell>
                       <Show when={task.status === 'completed'}>
-                        <Button variant="ghost" size="sm" onClick={() => viewResult(task.id)}>View →</Button>
+                        <Button variant="ghost" size="sm" onClick={() => viewResult(task.id)}>View result</Button>
                       </Show>
                       <Show when={task.status === 'failed'}>
                         <span class="text-sm text-destructive" title={task.error ?? ''}>failed</span>
@@ -550,7 +528,8 @@ export function AgentPanel(props: { slug: string }) {
           </Show>
           </Show>
         </Show>
-      </Card>
+      </Section>
+      </div>
       </TabPanel>
 
       <Dialog
