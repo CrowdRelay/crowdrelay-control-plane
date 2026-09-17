@@ -1,13 +1,13 @@
 import { For, Show, createSignal } from 'solid-js'
-import { Eyebrow, KpiCard, KpiStrip } from './layout'
+import { Eyebrow, KpiCard, KpiStrip, Section } from './layout'
 import { confidencePercent } from '../lib/format'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { SectionIcon } from './SectionIcon'
 import { EmptyState } from './ui/empty-state'
 import type { LearningLoopEntry } from '../lib/types'
 import { SkeletonLearningLoop } from './Skeleton'
 import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
-import { Card } from './app/card'
 import { Alert } from './app/alert'
 import { cn } from '../lib/cn'
 import { Button } from './app/button'
@@ -89,7 +89,13 @@ export function LearningLoopPanel(props: { slug: string }) {
       immediately above this panel, so the operator read the same seven words
       twice, in two different type sizes, with two different icons. The page
       owns the heading; the panel owns the data. */}
-  return <Card flat class="space-y-4">
+  return <Section
+    flush
+    title="Decision → Action → Outcome"
+    icon={<SectionIcon name="refresh-cw" />}
+    description="Each decision followed through to what it actually changed. A belief only counts once an outcome measures it."
+    class="space-y-4"
+  >
     <Show when={model.error}>
       <Alert tone="warning" role="status">
         Learning loop data is temporarily unavailable.
@@ -220,5 +226,5 @@ export function LearningLoopPanel(props: { slug: string }) {
         </Show>
       </Show>
     </Show>
-  </Card>
+  </Section>
 }

@@ -5,8 +5,7 @@ import { authState } from '../lib/auth'
 import { errorMessage, formatIsoAge } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './ui/empty-state'
-import { KpiStrip, KpiCard, ErrorCard } from './layout'
-import { Card } from './app/card'
+import { ErrorCard, KpiCard, KpiStrip, Section } from './layout'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
@@ -99,7 +98,14 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
     setExpanded((curr) => (curr === id ? null : id))
   }
 
-  return <div class="flex flex-col gap-4">
+  return <Section
+    flush
+    title="Decision timeline"
+    icon={<IntelligenceIcon size={18} />}
+    count={decisions().length}
+    description={authState.isPlatformLevel() ? 'Every decision the autopilot reached: what it decided, why, and what workers found.' : 'Every decision it reached: what it decided, why, and what workers found.'}
+    class="flex flex-col gap-4"
+  >
     <Show when={error()}>
       <ErrorCard>{error()}</ErrorCard>
     </Show>
@@ -115,7 +121,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
           <option value={365}>All time</option>
         </NativeSelect>
       </label>
-      <Button variant="ghost" size="sm" onClick={() => void data.refetch()} disabled={data.isFetching}>{data.isFetching ? 'Refreshing…' : 'Refresh'}</Button>
+      <Button variant="outline" size="sm" onClick={() => void data.refetch()} disabled={data.isFetching}>{data.isFetching ? 'Refreshing…' : 'Refresh'}</Button>
     </div>
 
     {/* Same as the funnel: the range selector changes the query key, the old
@@ -146,14 +152,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
     </Show>
 
     {/* Decision timeline */}
-    <Card class="p-4 mt-4">
-      <div class="flex items-center justify-between gap-4">
-        <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><IntelligenceIcon size={18} /> Decision Timeline</h3>
-        <Show when={decisions().length > 0}>
-          <span class="text-muted-foreground">{decisions().length} decisions</span>
-        </Show>
-      </div>
-      <p class="text-sm text-muted-foreground leading-relaxed mt-2">{authState.isPlatformLevel() ? "The autopilot's decision log" : 'The decision log'} — what it decided, why, and what workers found.</p>
+    <div class="mt-4">
 
       <Show when={data.data && decisions().length === 0} fallback={
         <Show when={error()} fallback={
@@ -319,7 +318,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
           <EmptyState label="No intelligence decisions" hint={authState.isPlatformLevel() ? 'Decisions appear here once the deterministic autopilot starts running.' : 'Decisions appear here once it starts running.'} />
         </div>
       </Show>
-    </Card>
     </div>
-  </div>
+    </div>
+  </Section>
 }

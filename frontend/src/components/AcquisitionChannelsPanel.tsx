@@ -1,11 +1,10 @@
 import { For, Show, createSignal } from 'solid-js'
-import { KpiCard, KpiStrip, PanelTitle } from './layout'
+import { KpiCard, KpiStrip, Section } from './layout'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { SectionIcon } from './SectionIcon'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonSection } from './Skeleton'
-import { Card } from './app/card'
 import { Button } from './app/button'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import type { ChannelPerformance } from '../lib/types'
@@ -49,13 +48,11 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
     return Math.max(...channels.map(c => c.signups))
   }
 
-  return <Card flat>
-    <div class="flex items-start justify-between gap-4 mb-3">
-      <div>
-        <PanelTitle icon={<SectionIcon name="users" />}>Where the fans came from</PanelTitle>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Signups by the channel that produced them, and how many of those were still active 30 days later. A channel that brings people who never come back is not working, however big the first number is.</p>
-      </div>
-    </div>
+  return <Section
+    title="Where the fans came from"
+    icon={<SectionIcon name="users" />}
+    description="Signups by the channel that produced them, and how many were still active 30 days later. A channel that brings people who never come back is not working, however big the first number is."
+  >
 
     <Show when={model.error}>
       <div class="p-4 mt-2.5 rounded-lg border border-border bg-background"><p class="m-0 text-sm text-muted-foreground">Acquisition attribution is not available on the connected CrowdRelay build. The funnel below still reports totals.</p></div>
@@ -160,5 +157,5 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
         </section>
       </Show>
     </>}</Show>
-  </Card>
+  </Section>
 }

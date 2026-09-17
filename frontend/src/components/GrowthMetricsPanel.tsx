@@ -1,17 +1,17 @@
 import { For, Show, createMemo, createSignal, type Component } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { SectionIcon } from './SectionIcon'
 import { errorMessage } from '../lib/format'
 import { compactNumber, trendArrow, trendDirection } from '../lib/charts'
 import { Sparkline } from './Sparkline'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock, SkeletonRows } from '../components/Skeleton'
 import type { GrowthMetricTrendView } from '../lib/types'
-import { Card } from './app/card'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
-import { ErrorCard } from './layout'
+import { ErrorCard, Section } from './layout'
 
 const feedStateLabel = (state: string): string =>
   state === 'live' ? 'Live' : state === 'stale' ? 'Stale' : 'Missing'
@@ -258,15 +258,17 @@ export function GrowthMetricsPanel(props: { slug: string }) {
     Object.entries(grouped().groups).sort((a, b) => platformLabel(a[0]).localeCompare(platformLabel(b[0]))),
   )
 
-  return <Card flat>
-    <div class="flex items-center justify-between gap-4">
-      <h3 class="text-sm font-semibold text-foreground">Metrics by platform</h3>
-      <Show when={coverage.data && hasFeeds()}>
-        <span class="text-sm text-muted-foreground tabular-nums">
-          {liveSeries()}{liveSeries() === totalSeries() ? '' : ` / ${totalSeries()}`} feeds live
-        </span>
-      </Show>
-    </div>
+  return <Section
+    flush
+    title="Metrics by platform"
+    icon={<SectionIcon name="trending-up" />}
+    description="Which numbers moved on each connected platform."
+    action={<Show when={coverage.data && hasFeeds()}>
+      <span class="text-sm text-muted-foreground tabular-nums">
+        {liveSeries()}{liveSeries() === totalSeries() ? '' : ` / ${totalSeries()}`} feeds live
+      </span>
+    </Show>}
+  >
 
     <Show when={coverage.error}><ErrorCard>Growth coverage unavailable: {errorMessage(coverage.error, 'We couldn\'t reach the growth coverage data. Try refreshing.')}</ErrorCard></Show>
     <Show
@@ -483,5 +485,5 @@ export function GrowthMetricsPanel(props: { slug: string }) {
         </Show>
       </Show>
     </Show>
-  </Card>
+  </Section>
 }

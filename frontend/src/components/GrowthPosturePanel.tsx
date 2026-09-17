@@ -1,5 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
-import { PanelTitle } from './layout'
+import { Section } from './layout'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { errorMessage, formatTimestamp } from '../lib/format'
@@ -8,7 +8,6 @@ import { confirmAction } from './Dialog'
 import { SectionIcon } from './SectionIcon'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonSection } from './Skeleton'
-import { Card } from './app/card'
 import { Badge } from './app/badge'
 import { Button } from './app/button'
 
@@ -91,19 +90,18 @@ export function GrowthPosturePanel(props: { slug: string }) {
     apply.mutate(value)
   }
 
-  return <Card flat>
-    <div class="flex items-start justify-between gap-4 mb-3">
-      <div>
-        <PanelTitle icon={<SectionIcon name="target" />}>How far the growth loop may go</PanelTitle>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">One dial over all 22 authority policies — pick the posture the band is ready for and the brain applies the matching autonomy level everywhere.</p>
-      </div>
-      <Show when={posture.data}>
-        <StatusBadge
-          status={current() ? POSTURES.find(p => p.value === current())?.label ?? current()! : 'not set'}
-          tone={current() === 'full_send' ? 'warn' : current() ? 'good' : 'muted'}
-        />
-      </Show>
-    </div>
+  return <Section
+    flush
+    title="How far the growth loop may go"
+    icon={<SectionIcon name="target" />}
+    description="One dial over all 22 authority policies. Pick the posture the band is ready for and the brain applies the matching autonomy level everywhere."
+    action={<Show when={posture.data}>
+      <StatusBadge
+        status={current() ? POSTURES.find(p => p.value === current())?.label ?? current()! : 'not set'}
+        tone={current() === 'full_send' ? 'warn' : current() ? 'good' : 'muted'}
+      />
+    </Show>}
+  >
 
     <Show when={posture.error}>
       <div class="p-4 mt-2.5"><p class="m-0 text-sm text-muted-foreground">Posture is unavailable on this build, but individual authority policies still work below.</p></div>
@@ -148,5 +146,5 @@ export function GrowthPosturePanel(props: { slug: string }) {
         <p class="mt-3 text-sm text-muted-foreground">Set {formatTimestamp(posture.data!.set_at!)}</p>
       </Show>
     </Show>
-  </Card>
+  </Section>
 }

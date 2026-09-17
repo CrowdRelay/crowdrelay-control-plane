@@ -8,10 +8,10 @@ import { StatusBadge } from './StatusBadge'
 import { ProgressRing } from './ProgressRing'
 import { SkeletonScorecard } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
-import { Card } from './app/card'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
-import { SectionTitle, ErrorCard, KpiCard, KpiStrip } from './layout'
+import { ErrorCard, KpiCard, KpiStrip, Section } from './layout'
+import { Alert } from './app/alert'
 import { CAPABILITY_LABELS, CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 
 const count = (value: number | undefined | null) =>
@@ -88,19 +88,18 @@ export function ScorecardPanel(props: { slug: string }) {
   const [showAllRecent, setShowAllRecent] = createSignal(false)
   const MAX_VISIBLE_RECENT = 10
 
-  return <Card flat>
-    <SectionTitle
-      eyebrow="AGENT SCORECARD"
-      title="Is it working?"
-      description={authState.isPlatformLevel() ? 'Autopilot status, weekly activity, and recent completions — results, not logs.' : 'Status, weekly activity, and recent completions — results, not logs.'}
-      icon={<SectionIcon name="activity" />}
-      action={<StatusBadge status={statusLabel(data())} tone={statusTone(data())} />}
-    />
-
+  return <Section
+    flush
+    lead
+    title="Is it working?"
+    description={authState.isPlatformLevel() ? 'Autopilot status, weekly activity, and recent completions. Results, not logs.' : 'Status, weekly activity, and recent completions. Results, not logs.'}
+    icon={<SectionIcon name="activity" />}
+    action={<StatusBadge status={statusLabel(data())} tone={statusTone(data())} />}
+  >
     <Show when={model.error}>
-      <div class="mt-4 rounded-lg border border-warning-foreground/30 bg-warning-foreground p-4 text-sm text-warning-foreground" role="status">
+      <Alert tone="warning" role="status">
         {model.error instanceof Error ? model.error.message : 'Agent scorecard is temporarily unavailable.'}
-      </div>
+      </Alert>
     </Show>
 
     <Show when={!model.error && model.isPending}><SkeletonScorecard /></Show>
@@ -268,5 +267,5 @@ export function ScorecardPanel(props: { slug: string }) {
         </Show>
       </section>
     </>}</Show>
-  </Card>
+  </Section>
 }

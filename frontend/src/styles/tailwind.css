@@ -273,7 +273,7 @@
 
   .engagement-reply select { @apply min-w-30 px-1.5 py-1.5 text-sm; }
 
-  /* Process map and intelligence loop: SVG shapes need explicit fill/stroke. */
+  /* Process map: SVG shapes need explicit fill/stroke. */
   .process-map-wrap { @apply overflow-x-auto rounded-lg border bg-card p-4; }
   .process-map { @apply block h-auto w-full; min-width: 960px; }
   .process-map-legend { @apply my-4 flex flex-wrap gap-4 text-sm text-muted-foreground; }
@@ -298,15 +298,6 @@
   .pm-edge { fill: none; stroke-width: 1.5; opacity: 0.65; background: none; }
   .pm-edge-learn { stroke-dasharray: 6 4; opacity: 0.5; }
   .pm-node-group:hover ~ .pm-edge, .pm-edge:hover { opacity: 1; }
-
-  .intel-loop-svg { @apply h-auto w-full; max-height: 140px; }
-  .intel-loop-node { fill: var(--color-muted); stroke-width: 1.5; }
-  .intel-loop-node-core { stroke: var(--color-primary); }
-  .intel-loop-node-worker { stroke: var(--color-info-foreground); }
-  .intel-loop-node-outcome { stroke: var(--color-success-foreground); }
-  .intel-loop-label { fill: var(--color-foreground); @apply text-sm font-bold; }
-  .intel-loop-sub { fill: var(--color-muted-foreground); @apply text-xs; }
-  .intel-loop-feedback { fill: var(--color-success-foreground); @apply text-xs uppercase tracking-widest; }
 
   /* AREA location picker. */
   .area-location-canvas { @apply overflow-hidden rounded-lg border bg-muted; }

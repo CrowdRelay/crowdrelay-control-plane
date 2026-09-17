@@ -140,13 +140,13 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
   }
 
   return (
-    <Card class="p-5">
+    <div class="border-t border-border pt-6">
       <Show when={error()}>
         <ErrorCard>{error()}</ErrorCard>
       </Show>
 
       {/* Approval queue — pending growth intelligence actions */}
-      <section class="mt-6">
+      <section>
         <div class="flex items-center justify-between gap-4">
           <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><IntelligenceIcon size={18} /> Approval Queue</h3>
           <Show when={pendingGrowthActions().length > 0}>
@@ -202,7 +202,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
                         words and left them to guess whether approving was safe.
                         Say what is missing and what approving will actually do. */}
                     <Show when={!action.executor_ready && action.required_capability}>
-                      <div class="flex flex-col gap-1 rounded-lg border border-warning-foreground/30 bg-warning-foreground p-4 text-sm text-warning-foreground" title={action.required_capability ?? undefined}>
+                      <div class="flex flex-col gap-1 rounded-lg border border-warning-foreground/30 bg-warning p-4 text-sm text-warning-foreground" title={action.required_capability ?? undefined}>
                         <strong>Nothing can run this yet</strong>
                         <span>“{labelOr(CAPABILITY_LABELS, action.required_capability!)}” has no worker running. You can approve it — it will wait in the queue until one starts.</span>
                       </div>
@@ -373,6 +373,6 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
             </Show>
         </>
       </Dialog>
-    </Card>
+    </div>
   )
 }
