@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { toast } from './app/toast'
 import { cn } from '../lib/cn'
-import { ErrorCard } from './layout'
+import { ErrorCard, Section } from './layout'
 import { Button } from './app/button'
 import { READ_ONLY_REASON, readOnly } from '../lib/read-only'
 import { FileInput } from './ui/file-input'
@@ -109,7 +109,7 @@ export function RedditCookieUploader(props: { slug: string }) {
     const s = status.data?.status
     if (!s || s === 'missing') return { text: 'No cookies stored', class: '' }
     if (s === 'active') return { text: 'Active', class: 'bg-success-foreground text-success-foreground border-success-foreground/20' }
-    if (s === 'expired') return { text: 'Expired', class: 'bg-warning-foreground text-warning-foreground border-warning-foreground/20' }
+    if (s === 'expired') return { text: 'Expired', class: 'bg-warning text-warning-foreground border-warning-foreground/20' }
     if (s === 'failed') return { text: 'Failed', class: 'bg-destructive/15 text-destructive border-destructive/20' }
     return { text: s, class: '' }
   })
@@ -125,16 +125,11 @@ export function RedditCookieUploader(props: { slug: string }) {
   }
 
   return (
-    <div class="bg-card border border-border rounded-lg p-5 shadow-md mb-4">
-      <div class="flex justify-between items-center mb-3 min-w-0 gap-3 flex-wrap">
-        <h3>Reddit Session Cookies</h3>
-        <span class={cn('text-xs uppercase tracking-tight px-2.5 py-0.5 rounded-md bg-muted border border-border text-muted-foreground font-semibold', statusLabel().class)}>{statusLabel().text}</span>
-      </div>
-      <p class="text-sm text-muted-foreground leading-relaxed m-0 mb-4">
-        Upload a Netscape <code>cookies.txt</code> file from a logged-in Reddit session.
-        Only <code>reddit.com</code> cookies are extracted — other domains are ignored.
-        This is the recovery path when Reddit blocks the browser login.
-      </p>
+    <Section
+      title="Reddit session cookies"
+      description={<>Upload a Netscape <code>cookies.txt</code> file from a logged-in Reddit session. Only <code>reddit.com</code> cookies are kept. This is the recovery path when Reddit blocks the browser login.</>}
+      action={<span class={cn('text-xs uppercase tracking-tight px-2.5 py-0.5 rounded-md bg-muted border border-border text-muted-foreground font-semibold', statusLabel().class)}>{statusLabel().text}</span>}
+    >
 
       <Show when={status.data?.status === 'active'}>
         <div class="flex gap-4 items-center my-3">
@@ -148,7 +143,7 @@ export function RedditCookieUploader(props: { slug: string }) {
       </Show>
 
       <Show when={status.data?.status === 'expired'}>
-        <div class="p-4 my-3 border border-warning-foreground/30 rounded-lg bg-warning-foreground text-warning-foreground leading-relaxed">
+        <div class="p-4 my-3 border border-warning-foreground/30 rounded-lg bg-warning text-warning-foreground leading-relaxed">
           Cookies have expired. Upload a fresh <code>cookies.txt</code> to restore Reddit feeds.
         </div>
       </Show>
@@ -223,6 +218,6 @@ export function RedditCookieUploader(props: { slug: string }) {
       <Show when={status.isError}>
         <ErrorCard>Could not load cookie status: {errorMessage(status.error, 'unknown error')}</ErrorCard>
       </Show>
-    </div>
+    </Section>
   )
 }

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { CommunityItem, CommunityObservationItem, CommunityEntityItem, AudiencePlaceInput } from '../lib/types'
 import { SkeletonRows } from '../components/Skeleton'
-import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, SectionTitle, ErrorCard } from '../components/layout'
+import { TabBar, TabPanel, useTabPanels, SectionTitle, ErrorCard } from '../components/layout'
 import { toast } from '../components/app/toast'
 import { errorMessage } from '../lib/format'
 import { cn } from '../lib/cn'
@@ -291,10 +291,11 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
     communities.data?.items?.find((c) => c.placeId === selectedPlaceId())
 
   return (
-    <PageShell>
-      <PageHeader eyebrow="AUDIENCE" title="Communities" description="Places your listeners already gather — subreddits, forums, Discord servers. The brain observes them; joining them is a person's job, and this page is the queue for it." />
+    <div class="space-y-4">
+      <p class="text-sm text-muted-foreground">Places your listeners already gather: subreddits, forums, Discord servers. The brain observes them; joining is a person's job, and this is the queue for it.</p>
 
       <TabBar
+        class="mb-0"
         active={activeTab()}
         onChange={switchTab}
       onPrefetch={prefetch}
@@ -342,15 +343,15 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
         </Show>
 
         <Show when={notice()}>
-          {value => <p class={`p-3 rounded-md text-sm ${value().tone === 'good' ? 'bg-success-foreground text-success-foreground' : 'bg-destructive/10 text-destructive'}`}>{value().message}</p>}
+          {value => <p class={`p-3 rounded-md text-sm ${value().tone === 'good' ? 'bg-success text-success-foreground' : 'bg-destructive/10 text-destructive'}`}>{value().message}</p>}
         </Show>
 
         {/* ── Community intelligence ── */}
         <div class="flex items-center gap-2 mt-4 mb-4">
-          <Button writes variant="ghost" size="sm" onClick={() => { setImporting(false); setAdding(value => !value) }}>
+          <Button writes variant="outline" size="sm" onClick={() => { setImporting(false); setAdding(value => !value) }}>
             {adding() ? 'Cancel' : 'Add a community'}
           </Button>
-          <Button writes variant="ghost" size="sm" onClick={() => { setAdding(false); setImporting(value => !value) }}>
+          <Button writes variant="outline" size="sm" onClick={() => { setAdding(false); setImporting(value => !value) }}>
             {importing() ? 'Cancel' : 'Import a list'}
           </Button>
         </div>
@@ -573,6 +574,6 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
           </Show>
         </Show>
       </TabPanel>
-    </PageShell>
+    </div>
   )
 }

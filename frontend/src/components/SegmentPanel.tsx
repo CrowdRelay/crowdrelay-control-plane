@@ -3,8 +3,8 @@ import { api } from '../lib/api'
 import { cn } from '../lib/cn'
 import type { AudienceSegment } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
+import { Section } from './layout'
 import { SkeletonBlock } from './Skeleton'
-import { Card } from './app/card'
 import { Badge } from './app/badge'
 import { Button } from './app/button'
 
@@ -38,12 +38,7 @@ export function SegmentPanel(props: {
     }
   }
 
-  return <Card flat>
-    <div class="flex items-center justify-between gap-4">
-      <h3>Segments</h3>
-      <span class="text-muted-foreground">{props.segments.length} segments</span>
-    </div>
-    <p class="text-sm text-muted-foreground leading-relaxed mt-1">Audience segments group fans by behaviour, source, or lifecycle stage. Click a segment to preview its size.</p>
+  return <Section title="Segments" count={props.segments.length} description="Segments group fans by behaviour, source or lifecycle stage. Click one to preview its size.">
     {/* The panel's own description already says what a segment is. Repeating
         it here — in the other spelling, and promising a "define segments"
         control this panel does not have — read as two different screens
@@ -79,5 +74,5 @@ export function SegmentPanel(props: {
         )}</For>
       </div>
     </Show>
-  </Card>
+  </Section>
 }

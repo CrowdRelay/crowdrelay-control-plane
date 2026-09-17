@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import type { FanCard, FanDetail, FanJourneyEntry } from '../lib/types'
 import { FanDetailDrawer } from './FanDetailDrawer'
 import { EmptyState } from './ui/empty-state'
-import { Card } from './app/card'
+import { Section } from './layout'
 import { Badge } from './app/badge'
 import { Button } from './app/button'
 import { FileInput } from './ui/file-input'
@@ -156,19 +156,14 @@ export function FanTablePanel(props: {
     }
   }
 
-  return <Card flat>
-    <div class="flex items-center justify-between gap-4">
-      <h3>Fan list</h3>
-      <span class="text-muted-foreground">
-        {filtered().length} fans
-        {/* The upstream fan list is capped (100 rows); a full-length answer
-            means there may be more fans than are shown. Say so — a table
-            that looks complete but is not is worse than an honest cap. */}
-        <Show when={props.fans.length >= FAN_LIST_CAP}>
-          {' '}· first {FAN_LIST_CAP} — search or export CSV to reach the rest
-        </Show>
-      </span>
-    </div>
+  return <Section
+    title="Fan list"
+    count={filtered().length}
+    // The upstream fan list is capped (100 rows); a full-length answer means
+    // there may be more fans than are shown. Say so — a table that looks
+    // complete but is not is worse than an honest cap.
+    description={props.fans.length >= FAN_LIST_CAP ? `First ${FAN_LIST_CAP} fans. Search or export CSV to reach the rest.` : undefined}
+  >
     {/* The search box owned this row on its own. The two CSV controls sit
         beside it as ghosts rather than as buttons: moving the list in or out
         is occasional work, and it should not outrank the fan you came to
@@ -337,7 +332,7 @@ export function FanTablePanel(props: {
         }</Show>
       </div>
     </Dialog>
-  </Card>
+  </Section>
 }
 
 function DownloadIcon() {
