@@ -242,7 +242,10 @@ fn the_operator_surface_is_authenticated_as_one_router() {
     // guard of its own. The billing router authenticates via its own
     // shared-secret header check, not the platform admin token. The
     // waitlist router is public by design (landing page signup) and
-    // CORS-gated to the landing origin.
+    // CORS-gated to the landing origin. The nights router is public by
+    // design too (4V.6b): it proxies one bearer-token read per tenant —
+    // `/public/nights/{slug}/{token}` — and the organiser link itself is
+    // the credential, the slug the tenant it was minted on.
     let api = MAIN
         .split_once("let api = Router::new()")
         .expect("main.rs builds the api router")
@@ -264,6 +267,7 @@ fn the_operator_surface_is_authenticated_as_one_router() {
             "provisioner_api",
             "automation_api",
             "routes::billing_router(",
+            "operations_routes::public_router(",
             "waitlist_api",
         ],
         "a router merged into `api` bypasses auth::authenticate unless it \

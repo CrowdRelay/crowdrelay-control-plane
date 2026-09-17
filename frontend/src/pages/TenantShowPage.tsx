@@ -8,6 +8,7 @@ import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
 import { Badge } from '../components/app/badge'
 import { ShowSetupPanel } from '../components/ShowSetupPanel'
+import { SharedNightPanel } from '../components/SharedNightPanel'
 import { formatTimestamp } from '../lib/format'
 
 const STATE_VARIANT: Record<ShowTimelineState, { variant: 'success' | 'default' | 'warning' | 'muted' | 'outline'; label: string }> = {
@@ -103,7 +104,7 @@ export function TenantShowPage() {
                 panel edits (4V.5b). */}
             <Show when={lineupActs(data()).length > 0}>
               <div class="mb-3 rounded-lg border border-border bg-background px-4 py-2.5">
-                <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Who's playing</p>
+                <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Who's playing</p>
                 <For each={lineupActs(data())}>
                   {(act, index) => (
                     <div class="mt-1 flex items-baseline gap-2 text-xs text-muted-foreground">
@@ -125,6 +126,15 @@ export function TenantShowPage() {
                   )}
                 </For>
               </div>
+            </Show>
+            {/* The shared night — every tenant's event at this room on this
+                date. Renders only when the venue registry resolved a link;
+                the block's own lens is the tenant workspace's, derived
+                upstream (4V.6b). */}
+            <Show when={data().event.place_event_id}>
+              {placeEventId => (
+                <SharedNightPanel slug={params().slug} placeEventId={placeEventId()} />
+              )}
             </Show>
             <ShowSetupPanel slug={params().slug} eventSlug={params().eventSlug} timeline={data()} />
             <div class="flex flex-col gap-2">

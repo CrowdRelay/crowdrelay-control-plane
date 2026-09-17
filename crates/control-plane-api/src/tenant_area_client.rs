@@ -437,6 +437,41 @@ fn fan_tag_path(path: &str) -> bool {
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, ':' | '_' | '-'))
 }
 
+/// `/v1/control-plane/nights/{uuid}/acts/{slug}/confirm` — the billed act's
+/// own workspace confirming the claim (4V.6b). The slug shares the event
+/// slug's shape: lowercase, digits, `_` and `-`.
+fn night_confirm_path(path: &str) -> bool {
+    let Some(tail) = path.strip_prefix("/v1/control-plane/nights/") else {
+        return false;
+    };
+    let Some((id, rest)) = tail.split_once("/acts/") else {
+        return false;
+    };
+    let Some(slug) = rest.strip_suffix("/confirm") else {
+        return false;
+    };
+    Uuid::parse_str(id).is_ok()
+        && !slug.is_empty()
+        && slug.len() <= 128
+        && slug.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-'
+        })
+}
+
+/// `/v1/control-plane/nights/{uuid}/contributions/{kind}` — the kind is one
+/// of the schema's four, pinned rather than shape-checked so a stray word
+/// fails here before it reaches the tenant (4V.6b).
+fn night_contribution_path(path: &str) -> bool {
+    let Some(tail) = path.strip_prefix("/v1/control-plane/nights/") else {
+        return false;
+    };
+    let Some((id, kind)) = tail.split_once("/contributions/") else {
+        return false;
+    };
+    Uuid::parse_str(id).is_ok()
+        && matches!(kind, "draw_estimate" | "announce_status" | "asks" | "terms")
+}
+
 fn valid_operations_request(method: &str, path: &str) -> bool {
     match method {
         "GET" => {
@@ -554,6 +589,12 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/v1/control-plane/community-intelligence/communities/",
                     "/intro-draft",
                 )
+                // 4V.6b: the caller's lens read on a shared night, and the
+                // public organiser fetch — the link page's only call. The
+                // public path rides the management channel; the upstream
+                // route is bearer-token public, the header is inert there.
+                || uuid_segment_between(path, "/v1/control-plane/nights/", "")
+                || uuid_segment_between(path, "/v1/public/nights/", "")
                 || operations_segment(path)
                 || trace_segment(path)
         }
@@ -690,6 +731,11 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || uuid_segment_between(path, "/v1/control-plane/fanbases/", "/ingest")
                 || fan_tag_path(path)
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/referral-code")
+                // 4V.6b: the shared night's writes — contribute one kind,
+                // mint the organiser link, and the billed act's own confirm.
+                || uuid_segment_between(path, "/v1/control-plane/nights/", "/contributions")
+                || uuid_segment_between(path, "/v1/control-plane/nights/", "/organiser-link")
+                || night_confirm_path(path)
         }
         "PUT" => {
             // The show setup writes: the night's bill and the counterparty the
@@ -711,6 +757,10 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
         "DELETE" => {
             uuid_segment_between(path, "/v1/control-plane/fanbases/", "")
                 || uuid_segment_between(path, "/v1/control-plane/fanbases/connections/", "")
+                // 4V.6b: withdraw a contribution, or kill the live
+                // organiser link — both leave the row as the audit.
+                || uuid_segment_between(path, "/v1/control-plane/nights/", "/organiser-link")
+                || night_contribution_path(path)
         }
         _ => false,
     }
@@ -1573,6 +1623,53 @@ mod tests {
         assert!(valid_operations_request(
             "GET",
             "/v1/control-plane/ops/operations/request-1234"
+        ));
+        // 4V.6b: the shared night — the lens read and the public link fetch.
+        assert!(valid_operations_request(
+            "GET",
+            &format!("/v1/control-plane/nights/{id}")
+        ));
+        assert!(valid_operations_request(
+            "GET",
+            &format!("/v1/public/nights/{id}")
+        ));
+        assert!(valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/nights/{id}/contributions")
+        ));
+        assert!(valid_operations_request(
+            "DELETE",
+            &format!("/v1/control-plane/nights/{id}/contributions/terms")
+        ));
+        assert!(valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/nights/{id}/organiser-link")
+        ));
+        assert!(valid_operations_request(
+            "DELETE",
+            &format!("/v1/control-plane/nights/{id}/organiser-link")
+        ));
+        assert!(valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/nights/{id}/acts/bravo-act/confirm")
+        ));
+        // The shapes fail closed in both directions: a non-uuid night, an
+        // unknown kind, an extra segment, a confirm missing its tail.
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/nights/not-a-uuid"
+        ));
+        assert!(!valid_operations_request(
+            "DELETE",
+            &format!("/v1/control-plane/nights/{id}/contributions/everything")
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            &format!("/v1/control-plane/nights/{id}/contributions")
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/nights/{id}/acts/bravo-act")
         ));
         // The show setup writes are the allowlist's only PUTs — the bill and
         // the counterparty, both slug-parameterized like the event reads.

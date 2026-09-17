@@ -1759,6 +1759,9 @@ export type TenantShowTimelineResponse = {
      *  these directly; null means the report goes to the band only. */
     counterparty_name?: string | null
     counterparty_email?: string | null
+    /** The shared night this event resolved to, when the venue registry
+     *  linked it — the key the "Shared night" block calls back with (4V.6b). */
+    place_event_id?: string | null
     /** What the night knows about the room — beacon-campaign records keyed
      *  to this event. Empty when there is no relationship on file. */
     venue_knowledge?: Array<{
@@ -1772,6 +1775,65 @@ export type TenantShowTimelineResponse = {
   }
   steps: ShowTimelineStep[]
 }
+
+// ── The shared night (4V.6b) ────────────────────────────────────────────
+// One venue's night, every tenant's event pointing at it. The payload's
+// shape is the caller's lens — upstream derives it from the workspace's
+// relationship, never from a parameter, and a caller with no relationship
+// gets a 404. Lens-only blocks are absent rather than null when they do
+// not apply to the lens that answered.
+export type NightLens = 'own_band' | 'co_billed' | 'organiser' | 'roster'
+
+export type NightAct = {
+  act_slug: string
+  name: string
+  position: number
+  /** True only when the act's own workspace signed the bill row — a
+   *  tenant's claim about somebody else's act stays unconfirmed. */
+  confirmed: boolean
+  /** Omitted entirely on lenses where "mine" means nothing. */
+  mine?: boolean
+}
+
+export type NightAnnounce = { act: string | null; state: string }
+export type NightAsk = { from_acts: string[]; items: string[] }
+export type NightOrganiserLink = { token: string; expires_at: string }
+
+export type SharedNight = {
+  place_event_id: string
+  lens: NightLens
+  venue: { display_name: string; city_name: string }
+  /** The room's night — the UTC date the rendezvous is keyed on. */
+  event_date: string
+  lineup: NightAct[]
+  /** Roll-up of the night's events by status; a cancelled show stays on
+   *  the calendar and reads as cancelled, not absent. */
+  status: Record<string, number>
+  // Band-side lenses (own_band, roster):
+  own_event_slug?: string
+  co_bill?: NightAct[]
+  contributions?: { own: string[]; shared_by_others: number }
+  /** This workspace's own terms contribution — null when it never made
+   *  one. Other acts' terms are never present on any lens. */
+  own_terms?: { amount_minor?: number; currency?: string } | null
+  organiser_link?: NightOrganiserLink | null
+  // CoBilled:
+  public_announce?: NightAnnounce[]
+  asks?: NightAsk[]
+  // Organiser — sums only; per-act parts never leave the workspaces:
+  combined_reachable?: number | null
+  tickets_sold?: number
+  capacity?: number | null
+  payout_total_minor?: number | null
+  announce?: NightAnnounce[]
+  // Roster additions:
+  roster_acts?: NightAct[]
+  draw_split?: { ours: number; rest: number }
+}
+
+/** The four contribution kinds — the upstream schema's CHECK, mirrored so
+ *  the editor can name them without a lookup. */
+export type NightContributionKind = 'draw_estimate' | 'announce_status' | 'asks' | 'terms'
 
 /** The door view — `/tenants/{slug}/shows/{event}/scan`. The check-in URL
  * carries the campaign's signed token in its fragment; it is null (a fact,

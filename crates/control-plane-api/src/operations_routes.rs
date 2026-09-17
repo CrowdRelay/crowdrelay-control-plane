@@ -430,6 +430,29 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/shows/{event_slug}/counterparty",
             put(tenant_show_counterparty),
         )
+        // ── The shared night (4V.6b) ─────────────────────────────────
+        // One venue's night, every tenant's event pointing at it. The read
+        // answers in the caller's own lens — upstream derives it from the
+        // workspace's relationship, never from a parameter. The writes are
+        // the four contribution kinds, the organiser link's mint/revoke,
+        // and the billed act's own confirmation.
+        .route("/tenants/{slug}/nights/{place_event_id}", get(tenant_night))
+        .route(
+            "/tenants/{slug}/nights/{place_event_id}/contributions",
+            post(tenant_night_contribution),
+        )
+        .route(
+            "/tenants/{slug}/nights/{place_event_id}/contributions/{kind}",
+            axum::routing::delete(tenant_night_contribution_revoke),
+        )
+        .route(
+            "/tenants/{slug}/nights/{place_event_id}/organiser-link",
+            post(tenant_night_organiser_link).delete(tenant_night_organiser_link_revoke),
+        )
+        .route(
+            "/tenants/{slug}/nights/{place_event_id}/acts/{act_slug}/confirm",
+            post(tenant_night_act_confirm),
+        )
         .route(
             "/tenants/{slug}/operations/chief-of-staff",
             get(chief_of_staff),
@@ -3838,6 +3861,283 @@ async fn tenant_show_counterparty(
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "show counterparty")
+}
+
+// ── The shared night (4V.6b) ─────────────────────────────────────────
+// Proxied straight through: the boundary — which lens the caller gets, what
+// a workspace may publish, who may confirm — is upstream's domain work, not
+// this file's. The lens is never a parameter the caller picks.
+
+/// `GET /tenants/{slug}/nights/{place_event_id}` — the night through the
+/// tenant workspace's own lens. No relationship is the same 404 as no night.
+async fn tenant_night(
+    State(state): State<AppState>,
+    Path((slug, place_event_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let night = uuid_segment(&place_event_id)?;
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        &format!("/v1/control-plane/nights/{night}"),
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "shared night")
+}
+
+/// A contribution write's body — `{kind, value}`. The kind is pinned to the
+/// schema's four here so a stray word is refused before it leaves the plane;
+/// the value's shape is upstream's domain validator, which writes the
+/// band-facing refusal this plane relays.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NightContributionBody {
+    kind: String,
+    value: Value,
+}
+
+/// `POST /tenants/{slug}/nights/{place_event_id}/contributions` — publish or
+/// replace one contributed kind for the tenant's workspace.
+async fn tenant_night_contribution(
+    State(state): State<AppState>,
+    Path((slug, place_event_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<NightContributionBody>,
+) -> Result<Response, ApiError> {
+    let night = uuid_segment(&place_event_id)?;
+    if !matches!(
+        body.kind.as_str(),
+        "draw_estimate" | "announce_status" | "asks" | "terms"
+    ) || !body.value.is_object()
+    {
+        return Err(ApiError::InvalidInput(
+            "a contribution names one of draw_estimate, announce_status, asks, terms, and a JSON object value"
+                .to_owned(),
+        ));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let payload = json!({ "kind": body.kind, "value": body.value });
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &format!("/v1/control-plane/nights/{night}/contributions"),
+        Some(&payload),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.night.contribution",
+        "place_event",
+        night,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(value, "shared night contribution")
+}
+
+/// `DELETE …/contributions/{kind}` — withdraw one kind. Upstream keeps the
+/// row as `revoked`: the audit that the workspace once chose to share.
+async fn tenant_night_contribution_revoke(
+    State(state): State<AppState>,
+    Path((slug, place_event_id, kind)): Path<(String, String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let night = uuid_segment(&place_event_id)?;
+    if !matches!(
+        kind.as_str(),
+        "draw_estimate" | "announce_status" | "asks" | "terms"
+    ) {
+        return Err(ApiError::InvalidInput(
+            "kind must be one of draw_estimate, announce_status, asks, terms".to_owned(),
+        ));
+    }
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "DELETE",
+        &format!("/v1/control-plane/nights/{night}/contributions/{kind}"),
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.night.contribution_revoked",
+        "place_event",
+        night,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(value, "shared night")
+}
+
+/// `POST …/organiser-link` — mint the night's link. Upstream revokes the
+/// live one first, so every link already sent dies on this call; the token
+/// returns here, once.
+async fn tenant_night_organiser_link(
+    State(state): State<AppState>,
+    Path((slug, place_event_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let night = uuid_segment(&place_event_id)?;
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &format!("/v1/control-plane/nights/{night}/organiser-link"),
+        None,
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.night.organiser_link_minted",
+        "place_event",
+        night,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(value, "shared night organiser link")
+}
+
+/// `DELETE …/organiser-link` — kill the live link. Upstream restricts this
+/// to the link's minter or an event owner on the night.
+async fn tenant_night_organiser_link_revoke(
+    State(state): State<AppState>,
+    Path((slug, place_event_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let night = uuid_segment(&place_event_id)?;
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "DELETE",
+        &format!("/v1/control-plane/nights/{night}/organiser-link"),
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.night.organiser_link_revoked",
+        "place_event",
+        night,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(value, "shared night")
+}
+
+/// `POST …/acts/{act_slug}/confirm` — the billed act's own workspace
+/// confirms it is really on the bill. Upstream enforces
+/// `act_workspace_id = caller`; anyone else gets the same 404.
+async fn tenant_night_act_confirm(
+    State(state): State<AppState>,
+    Path((slug, place_event_id, act_slug)): Path<(String, String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let night = uuid_segment(&place_event_id)?;
+    if !safe_segment(&act_slug) {
+        return Err(ApiError::InvalidInput("invalid act slug".to_owned()));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &format!("/v1/control-plane/nights/{night}/acts/{act_slug}/confirm"),
+        None,
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.night.act_confirmed",
+        "place_event",
+        night,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(value, "shared night")
+}
+
+/// Routes a bearer token reaches without a session — the shared night's
+/// organiser lens (4V.6b). Kept out of `router()` so `main.rs` merges it
+/// outside `auth::authenticate`: the link is the whole credential, and a
+/// dead one relays upstream's 404 unchanged.
+pub fn public_router() -> Router<AppState> {
+    Router::new().route("/public/nights/{slug}/{token}", get(public_night))
+}
+
+/// `GET /public/nights/{slug}/{token}` — the organiser lens on one tenant's
+/// night. The slug picks which tenant minted the token — a bare token cannot
+/// name its tenant, so the link the band copies carries both.
+async fn public_night(
+    State(state): State<AppState>,
+    Path((slug, token)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let token = uuid_segment(&token)?;
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let value = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "GET",
+                path: &format!("/v1/public/nights/{token}"),
+                body: None,
+                correlation_id: correlation(&headers),
+                idempotency_key: None,
+            },
+        )
+        .await?;
+    // Cacheable for a minute like the upstream route — a revocation reads
+    // as a 404 fast, not as a copy that lives forever.
+    Ok((
+        StatusCode::OK,
+        [(CACHE_CONTROL, "public, max-age=60")],
+        Json(value),
+    )
+        .into_response())
 }
 
 async fn chief_of_staff(
