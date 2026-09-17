@@ -3079,6 +3079,11 @@ export type CityVenueRow = {
   repeat_attenders: number
   last_played_at: string | null
   next_show_at: string | null
+  /** §12-1 verdict on the room's evidence: `worth_contact` carries a
+   *  because-list sentence, `insufficient_evidence` the honest refusal. */
+  assessment: 'worth_contact' | 'insufficient_evidence'
+  /** The one-sentence answer in the tenant's crew locale. */
+  assessment_sentence: string
 }
 
 /** Why the planner proposes this city — `GET /tenants/{slug}/gig-plan`.
