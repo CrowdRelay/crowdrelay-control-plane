@@ -148,15 +148,13 @@ jobs:
         run: |
           rustc --version --verbose
           cargo --version
-      - name: Cache pinned cargo-audit binary
-        id: cargo-audit-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${HOME}/.cargo/bin/cargo-audit
-          key: ${{ runner.os }}-cargo-audit-0.22.2
+      # Prebuilt release binary instead of compiling cargo-audit from source;
+      # the version pin and the action SHA together fix the supply chain.
+      # Compiling took >15 min on this runner and timed the job out (2026-09-17).
       - name: Install pinned cargo-audit
-        if: steps.cargo-audit-cache.outputs.cache-hit != 'true'
-        run: cargo install cargo-audit --locked --force --version 0.22.2
+        uses: taiki-e/install-action@b6b84cf49ebfe0176417bdce007c624f0db37f20 # v2
+        with:
+          tool: cargo-audit@0.22.2
       - name: Audit reachable Rust dependencies
         shell: bash
         run: |
