@@ -9,6 +9,7 @@ import { cn } from '../lib/cn'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
 import { NegotiationsPanel } from '../components/NegotiationsPanel'
 import { OutreachPipelinePanel } from '../components/OutreachPipelinePanel'
+import { OpportunityShortlistPanel } from '../components/OpportunityShortlistPanel'
 import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
@@ -474,6 +475,7 @@ export function TenantOperationsPage() {
     </TabPanel>
     <TabPanel active={activeTab()} id="outreach" visited={isVisited('outreach')}>
       <OutreachPipelinePanel slug={params().slug} />
+      <OpportunityShortlistPanel />
     </TabPanel>
     <TabPanel active={activeTab()} id="press" visited={isVisited('press')}>
       <PressRoomPanel slug={params().slug} />

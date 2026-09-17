@@ -487,6 +487,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/overview"
                     | "/v1/control-plane/autopilot/growth"
                     | "/v1/control-plane/autopilot/next-best-actions"
+                    | "/v1/control-plane/autopilot/opportunity-shortlist"
                     | "/v1/control-plane/autopilot/scorecard"
                     | "/v1/control-plane/autopilot/measurement"
                     | "/v1/control-plane/autopilot/reply-triage"

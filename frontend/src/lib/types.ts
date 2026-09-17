@@ -1334,6 +1334,51 @@ export type NegotiationEntry = {
   } | null
 }
 
+// --- Opportunity scout shortlist ---
+
+export type OpportunityShortlistEntry = {
+  opportunity_id: string
+  kind: string
+  source: string
+  external_key: string
+  title: string
+  organization: string
+  /** The link the finding stands on; null means it was never checkable. */
+  destination_url: string | null
+  source_observed_at: string | null
+  deadline: string | null
+  status: string
+  /** Why a terminal row closed; null while the row is live. */
+  status_reason: string | null
+  eligible: boolean
+  /** Money stays null when unknown — never 0, which would read as "free". */
+  expected_fee_minor: number | null
+  estimated_cost_minor: number | null
+  application_fee_minor: number | null
+  /** The row's own ISO currency for those amounts. */
+  currency: string
+  fit_basis_points: number
+  reputation_basis_points: number
+  confidence_basis_points: number
+  /** Why the row cannot be worked right now, when it cannot. */
+  stale_reason: string | null
+  latest_decision_id: string | null
+  latest_decision_kind: string | null
+  latest_decision_disposition: string | null
+  /** True when the cost figure came from the tour-economics engine. */
+  costed_from_logistics: boolean
+}
+
+export type OpportunityShortlist = {
+  generated_at: string
+  entries: OpportunityShortlistEntry[]
+  stale_count: number
+  closed_count: number
+  ineligible_count: number
+  /** Sections that could not be read this time. */
+  degraded: string[]
+}
+
 // --- Agent service types (proxied through control-plane) ---
 
 export interface AgentProvider {

@@ -125,6 +125,10 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/autopilot/capabilities",
             get(autopilot_capabilities),
         )
+        .route(
+            "/tenants/{slug}/operations/autopilot/opportunity-shortlist",
+            get(opportunity_shortlist),
+        )
         // Portfolio reads live in read_models::portfolio as one consolidated
         // model; only the mutations are routed here.
         .route(
@@ -1130,6 +1134,27 @@ async fn autopilot_growth(
     )
     .await?;
     object_no_store(value, "autopilot growth")
+}
+
+/// The scout shortlist: every tracked opportunity with its link, costed
+/// figures, staleness and newest decision. Read-only — the review acts
+/// (progress, dismiss) ride their own routes, not this one.
+async fn opportunity_shortlist(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/opportunity-shortlist",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "opportunity shortlist")
 }
 
 /// The north stars this tenant may choose.
