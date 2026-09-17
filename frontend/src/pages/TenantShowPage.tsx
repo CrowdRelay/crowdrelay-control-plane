@@ -8,6 +8,7 @@ import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
 import { Badge } from '../components/app/badge'
 import { formatTimestamp } from '../lib/format'
+import { ArrowLeft } from 'lucide-solid'
 
 const STATE_VARIANT: Record<ShowTimelineState, { variant: 'success' | 'default' | 'warning' | 'muted' | 'outline'; label: string }> = {
   done: { variant: 'success', label: 'Done' },
@@ -36,9 +37,9 @@ export function TenantShowPage() {
         <Link
           to="/tenants/$slug/shows"
           params={{ slug: params().slug }}
-          class="text-xs text-muted-foreground hover:text-foreground"
+          class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
-          ← All shows
+          <ArrowLeft class="size-3.5" aria-hidden="true" /> All shows
         </Link>
       </div>
       <Show when={model.data} fallback={

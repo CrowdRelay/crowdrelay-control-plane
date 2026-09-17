@@ -6,6 +6,7 @@ import * as CommandPrimitive from "cmdk-solid"
 
 import { cn } from "~/lib/utils"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "~/components/ui/dialog"
+import { Search } from "lucide-solid"
 
 // solid-ui's `command` (registry/ui/command.json), restyled to the current
 // shadcn Command: an inset search field, `data-selected` rows with muted
@@ -59,20 +60,7 @@ const CommandInput: Component<VoidProps<CommandPrimitive.CommandInputProps>> = (
   return (
     <div class="p-1 pb-0" cmdk-input-wrapper="">
       <div class="flex h-9 items-center gap-2 rounded-lg bg-muted/60 px-2.5">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          class="size-4 shrink-0 text-muted-foreground"
-          aria-hidden="true"
-        >
-          <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" />
-          <path d="M21 21l-6 -6" />
-        </svg>
+        <Search class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <CommandPrimitive.CommandInput
           class={cn(
             "flex h-full w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",

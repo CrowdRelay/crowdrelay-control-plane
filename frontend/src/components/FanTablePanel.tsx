@@ -18,6 +18,7 @@ import { writeGuard } from '../lib/read-only'
 import { downloadTextFile, fansToCsv, parseFanCsv, type FanCsvParse } from '../lib/fan-csv'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
+import { Download, Upload } from 'lucide-solid'
 
 const fanStatusTone = (status: string): 'success' | 'warning' | 'destructive' | 'muted' =>
   status === 'active' ? 'success' :
@@ -337,20 +338,12 @@ export function FanTablePanel(props: {
 
 function DownloadIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <path d="M7 10l5 5 5-5" />
-      <path d="M12 15V3" />
-    </svg>
+    <Download size={14} aria-hidden="true" />
   )
 }
 
 function UploadIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <path d="M17 8l-5-5-5 5" />
-      <path d="M12 3v12" />
-    </svg>
+    <Upload size={14} aria-hidden="true" />
   )
 }

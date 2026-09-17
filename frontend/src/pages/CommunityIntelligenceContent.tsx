@@ -13,6 +13,7 @@ import { Textarea } from '../components/ui/textarea'
 import { NativeSelect } from '../components/ui/native-select'
 import { Field } from '../components/ui/field'
 import { writeGuard } from '../lib/read-only'
+import { ArrowUpRight, ChevronRight } from 'lucide-solid'
 
 /**
  * Community Intelligence content — the Communities tab inside the Audience page.
@@ -402,9 +403,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                     onClick={() => toggleCollapse(platform)}
                     aria-expanded={!isCollapsed()}
                   >
-                    <span class="text-muted-foreground text-xs" aria-hidden="true">
-                      {isCollapsed() ? '▸' : '▾'}
-                    </span>
+                    <ChevronRight class={cn('size-3.5 text-muted-foreground transition-transform', !isCollapsed() && 'rotate-90')} aria-hidden="true" />
                     <span class="text-sm font-semibold text-foreground" data-platform={platform}>
                       {PLATFORM_LABEL[platform] ?? platform}
                     </span>
@@ -453,7 +452,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
 
                             <footer class="flex items-center gap-2 flex-wrap mt-2 pt-2 border-t border-border">
                               <a class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors" href={item.url} target="_blank" rel="noreferrer noopener">
-                                Open<span class="text-xs" aria-hidden="true">↗</span>
+                                Open<ArrowUpRight class="size-3.5" aria-hidden="true" />
                               </a>
                               <Button variant="ghost" size="sm" onClick={() => loadDraft(item.placeId)}>Draft intro</Button>
                               <NativeSelect size="sm" class="w-auto"

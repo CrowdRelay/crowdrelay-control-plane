@@ -13,6 +13,7 @@ import { NativeSelect } from './ui/native-select'
 import { Input } from './ui/input'
 import { writeGuard } from '../lib/read-only'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
+import { Check } from 'lucide-solid'
 
 const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (status) {
@@ -279,7 +280,7 @@ export function PressRoomPanel(props: { slug: string }) {
                   <TableCell><strong>{a.labelEn}</strong><br /><span class="text-muted-foreground">{a.labelPl}</span></TableCell>
                   <TableCell>{a.assetKind}</TableCell>
                   <TableCell>{a.eventTitle ?? '—'}</TableCell>
-                  <TableCell>{a.active ? '✓' : '—'}</TableCell>
+                  <TableCell>{a.active ? <Check class="size-4" aria-label="Active" /> : '—'}</TableCell>
                   <TableCell>{formatTimestamp(a.updatedAt)}</TableCell>
                   <TableCell><a href={a.url} target="_blank" rel="noopener noreferrer" class="text-primary underline-offset-4 hover:underline">Open</a></TableCell>
                 </TableRow>

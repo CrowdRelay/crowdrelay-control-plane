@@ -13,15 +13,14 @@ import { Badge } from './app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import type { FunnelRecentWorkerRun } from '../lib/types'
 import { NativeSelect } from './ui/native-select'
+import { Funnel } from 'lucide-solid'
 
 const fmt = (n: number | null | undefined): string =>
   n == null ? '—' : n.toLocaleString('en-US')
 
 // --- Funnel icon ---
 const FunnelIcon = (props: { size?: number }) => (
-  <svg width={props.size ?? 18} height={props.size ?? 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M3 4h18l-7 8v6l-4 2v-8L3 4z" />
-  </svg>
+  <Funnel size={props.size ?? 18} aria-hidden="true" />
 )
 
 const templateLabel = (id: string): string => {

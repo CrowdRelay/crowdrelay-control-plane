@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useNavigate } from '@tanstack/solid-router'
 import { Checkbox as KobalteCheckbox } from '@kobalte/core/checkbox'
 import { RadioGroup as KobalteRadioGroup } from '@kobalte/core/radio-group'
-import { Check } from 'lucide-solid'
+import { ArrowLeft, ArrowRight, Check, ChevronRight } from 'lucide-solid'
 import { api } from '../lib/api'
 import type { RegionalProfile } from '../lib/types'
 import { cn } from '../lib/cn'
@@ -331,7 +331,7 @@ export function TenantWizardPage() {
           </div>
           <div class="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => navigate({ to: '/tenants' })}>Cancel</Button>
-            <Button size="sm" onClick={nextStep} disabled={!step1Ready() || !operatorFieldsReady()}>Next: Products →</Button>
+            <Button size="sm" onClick={nextStep} disabled={!step1Ready() || !operatorFieldsReady()}>Next: Products <ArrowRight aria-hidden="true" /></Button>
           </div>
         </div>
       </div>
@@ -389,8 +389,8 @@ export function TenantWizardPage() {
           </div>
         </Show>
         <div class="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={prevStep}>← Back</Button>
-          <Button size="sm" onClick={nextStep} disabled={!step2Ready()}>Next: Goal →</Button>
+          <Button variant="ghost" size="sm" onClick={prevStep}><ArrowLeft aria-hidden="true" /> Back</Button>
+          <Button size="sm" onClick={nextStep} disabled={!step2Ready()}>Next: Goal <ArrowRight aria-hidden="true" /></Button>
         </div>
       </div>
     </Show>
@@ -432,8 +432,8 @@ export function TenantWizardPage() {
           }</For>
         </RadioGroup>
         <div class="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={prevStep}>← Back</Button>
-          <Button size="sm" onClick={nextStep} disabled={!step3Ready()}>Next: Fanbase Sources →</Button>
+          <Button variant="ghost" size="sm" onClick={prevStep}><ArrowLeft aria-hidden="true" /> Back</Button>
+          <Button size="sm" onClick={nextStep} disabled={!step3Ready()}>Next: Fanbase Sources <ArrowRight aria-hidden="true" /></Button>
         </div>
       </div>
     </Show>
@@ -457,8 +457,8 @@ export function TenantWizardPage() {
           }</For>
         </div>
         <div class="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={prevStep}>← Back</Button>
-          <Button size="sm" onClick={nextStep} disabled={!step4Ready()}>Next: Deploy →</Button>
+          <Button variant="ghost" size="sm" onClick={prevStep}><ArrowLeft aria-hidden="true" /> Back</Button>
+          <Button size="sm" onClick={nextStep} disabled={!step4Ready()}>Next: Deploy <ArrowRight aria-hidden="true" /></Button>
         </div>
       </div>
     </Show>
@@ -503,7 +503,7 @@ export function TenantWizardPage() {
 
           {/* Optional provider API keys — collapsible, only shown when deploying */}
           <Button variant="ghost" size="sm" onClick={() => setShowProviderKeys(!showProviderKeys())}>
-            {showProviderKeys() ? '▾' : '▸'} Optional: Provider API keys
+            <ChevronRight class={cn('size-4 transition-transform', showProviderKeys() && 'rotate-90')} aria-hidden="true" /> Optional: Provider API keys
           </Button>
           <Show when={showProviderKeys()}>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -536,7 +536,7 @@ export function TenantWizardPage() {
             </span>
           </div>
           <div class="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={prevStep}>← Back</Button>
+            <Button variant="ghost" size="sm" onClick={prevStep}><ArrowLeft aria-hidden="true" /> Back</Button>
             <Button writes size="sm" onClick={() => createTenant.mutate()} disabled={createTenant.isPending || !deployFieldsReady()}>
               {createTenant.isPending && <Spinner />} {createTenant.isPending ? 'Creating…' : deployNow() ? 'Create & deploy' : 'Create tenant'}
             </Button>

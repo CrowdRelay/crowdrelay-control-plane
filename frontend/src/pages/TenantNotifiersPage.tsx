@@ -8,7 +8,7 @@ import { NOTIFIER_EVENTS, NOTIFIER_EVENT_LABELS } from '../lib/types'
 import { SectionIcon } from '../components/SectionIcon'
 import { errorMessage, relativeTime } from '../lib/format'
 import { cn } from '../lib/cn'
-import { ChevronDown, RefreshCw } from 'lucide-solid'
+import { Check, ChevronDown, RefreshCw } from 'lucide-solid'
 import { writeGuard } from '../lib/read-only'
 import { whileIncomplete } from '../lib/incomplete'
 import { NotifierIcon } from '../components/ProviderIcon'
@@ -318,7 +318,7 @@ export function TenantNotifiersPage() {
                       <TableCell><code class="text-xs">{item.workflowId}</code></TableCell>
                       <TableCell>{item.label}</TableCell>
                       <TableCell><small class="text-muted-foreground">{item.category}</small></TableCell>
-                      <TableCell>{item.discordEnabled ? '✓' : '—'}</TableCell>
+                      <TableCell>{item.discordEnabled ? <Check class="size-4" aria-label="Enabled" /> : '—'}</TableCell>
                       <TableCell>{item.muted ? 'muted' : '—'}</TableCell>
                       <TableCell>
                         <Show when={item.enabled} fallback={<Badge variant="muted">muted</Badge>}>

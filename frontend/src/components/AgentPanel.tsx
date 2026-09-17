@@ -21,13 +21,11 @@ import type { AgentTaskResult, TaskSuggestion, AgentOutcome } from '../lib/types
 import { NativeSelect } from './ui/native-select'
 import { writeGuard } from '../lib/read-only'
 import { whileIncomplete, hasErrorSections } from '../lib/incomplete'
+import { Brain } from 'lucide-solid'
 
 // --- Intelligence icon (autopilot intelligence → agent suggestions) ---
 const IntelligenceIcon = (props: { size?: number }) => (
-  <svg width={props.size ?? 18} height={props.size ?? 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M9 3a3 3 0 0 0-3 3 3 3 0 0 0-1 5.8A3 3 0 0 0 7 17a3 3 0 0 0 2 4 3 3 0 0 0 3-3V3a3 3 0 0 0-3 0z" />
-    <path d="M15 3a3 3 0 0 1 3 3 3 3 0 0 1 1 5.8A3 3 0 0 1 17 17a3 3 0 0 1-2 4 3 3 0 0 1-3-3" opacity="0.5" />
-  </svg>
+  <Brain size={props.size ?? 18} aria-hidden="true" />
 )
 
 const categoryTone = (cat: string): 'good' | 'warn' | 'muted' =>

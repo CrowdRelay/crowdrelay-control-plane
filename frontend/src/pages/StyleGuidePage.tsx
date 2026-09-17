@@ -40,6 +40,7 @@ import { Switch } from '~/components/app/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '~/components/app/table'
 import { Textarea } from '~/components/ui/textarea'
 import { ToastContainer, toast } from '~/components/app/toast'
+import { Plus } from 'lucide-solid'
 
 /**
  * Style guide — every token and primitive the console has, on one page.
@@ -373,7 +374,7 @@ export default function StyleGuidePage() {
                 <div class="flex flex-wrap items-center gap-3">
                   <For each={BUTTON_SIZES}>{s => <Button size={s}>size {s}</Button>}</For>
                   <Button size="icon" aria-label="Icon button">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                    <Plus size={16} aria-hidden="true" />
                   </Button>
                 </div>
               </Group>

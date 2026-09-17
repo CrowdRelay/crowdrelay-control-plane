@@ -12,6 +12,7 @@ import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import { ErrorCard, Section } from './layout'
+import { ChartLine } from 'lucide-solid'
 
 const feedStateLabel = (state: string): string =>
   state === 'live' ? 'Live' : state === 'stale' ? 'Stale' : 'Missing'
@@ -288,7 +289,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
           </>}>{null}</Show>
         }>
           <EmptyState
-            icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 14l4-4 4 4 6-6" /></svg>}
+            icon={<ChartLine size={28} aria-hidden="true" />}
             label="No metric feeds connected"
             hint="Connect Spotify, YouTube, Bandsintown, or social feeds to start tracking growth trends. The intelligence needs metric data to measure whether actions are moving the needle."
           />

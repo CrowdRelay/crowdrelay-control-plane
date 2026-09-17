@@ -12,6 +12,7 @@ import { SparkIcon, CloseIcon, SendIcon } from './chat-icons'
 import { renderMarkdown } from '../lib/chat-markdown'
 import { CHAT_SUGGESTIONS, BAND_CHAT_SUGGESTIONS, readChatStream, stripActions } from '../lib/chat-stream'
 import { runChatAction } from '../lib/chat-actions'
+import { Square } from 'lucide-solid'
 
 export function ChatWidget(props: { slug: string }) {
   const [open, setOpen] = createSignal(false)
@@ -386,9 +387,7 @@ export function ChatWidget(props: { slug: string }) {
                   aria-label="Stop streaming"
                   title="Stop"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <rect x="6" y="6" width="12" height="12" rx="2" />
-                  </svg>
+                  <Square size={14} fill="currentColor" aria-hidden="true" />
                 </Button>
               </Show>
               <Show when={!streaming()}>

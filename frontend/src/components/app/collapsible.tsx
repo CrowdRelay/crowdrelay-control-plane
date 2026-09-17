@@ -2,6 +2,7 @@ import { Show, type JSX, createSignal } from 'solid-js'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible'
 import { Eyebrow } from '../layout'
 import { cn } from '~/lib/cn'
+import { ChevronDown } from 'lucide-solid'
 
 export { Collapsible, CollapsibleContent, CollapsibleTrigger }
 
@@ -40,18 +41,7 @@ export function CollapsibleSection(props: {
           <Show when={props.badge}>
             <span class={cn('text-xs font-medium', BADGE_TONE_CLASS[props.badgeTone ?? 'muted'])}>{props.badge}</span>
           </Show>
-          <svg
-            class={cn('size-4 text-muted-foreground transition-transform', open() && 'rotate-180')}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M6 9l6 6 6-6" />
-          </svg>
+          <ChevronDown class={cn('size-4 text-muted-foreground transition-transform', open() && 'rotate-180')} aria-hidden="true" />
         </div>
       </CollapsibleTrigger>
       <CollapsibleContent class="overflow-hidden">

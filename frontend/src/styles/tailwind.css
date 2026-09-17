@@ -259,7 +259,7 @@
   @keyframes metric-fresh { from { opacity: 0.25; } }
 
   .provider-icon { @apply shrink-0 border bg-muted; }
-  .nav-icon { @apply shrink-0 opacity-65; }
+  .nav-icon { @apply shrink-0; }
 
   /* Fan drawer sections. */
   .fan-drawer-meta { @apply flex flex-col gap-2; }

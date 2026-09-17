@@ -7,6 +7,7 @@ import { PageShell, PageHeader } from '../components/layout'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
 import { formatTimestamp } from '../lib/format'
+import { ArrowLeft } from 'lucide-solid'
 
 /** `/tenants/$slug/shows/$eventSlug/scan` — the door. One job: put the
  * night's check-in QR on a phone screen, big enough to scan at arm's length
@@ -50,9 +51,9 @@ export function TenantShowScanPage() {
         <Link
           to="/tenants/$slug/shows/$eventSlug"
           params={{ slug: params().slug, eventSlug: params().eventSlug }}
-          class="text-xs text-muted-foreground hover:text-foreground"
+          class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
-          ← The night
+          <ArrowLeft class="size-3.5" aria-hidden="true" /> The night
         </Link>
       </div>
       <Show when={model.data} fallback={

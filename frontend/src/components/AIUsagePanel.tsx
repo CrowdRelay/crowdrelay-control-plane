@@ -10,12 +10,11 @@ import { SkeletonRows } from './Skeleton'
 import { ErrorCard } from './layout'
 import { Badge } from './app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
+import { Crown } from 'lucide-solid'
 
 // --- Icons ---
 const CrownIcon = (props: { size?: number }) => (
-  <svg width={props.size ?? 16} height={props.size ?? 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M3 18h18M3 18l2-10 5 5 2-8 2 8 5-5 2 10" />
-  </svg>
+  <Crown size={props.size ?? 16} aria-hidden="true" />
 )
 
 const templateLabel = (id: string): string => {

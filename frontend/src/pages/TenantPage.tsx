@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams, useRouterState } from '@tanstack/solid-ro
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { errorMessage, formatTimestamp, relativeTime } from '../lib/format'
-import { RefreshCw } from 'lucide-solid'
+import { Check, Circle, RefreshCw } from 'lucide-solid'
 import { cn } from '../lib/cn'
 import type { Palette, ProvisioningJob } from '../lib/types'
 import { ReleaseConvergencePanel } from '../components/ReleaseConvergencePanel'
@@ -563,7 +563,7 @@ export function TenantPage() {
                   <li class="flex items-start gap-3 p-3">
                     {/* The done mark painted a green check on a green disc. */}
                     <span class={cn('flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold', step.done ? 'bg-success text-success-foreground' : 'border border-border text-muted-foreground')}>
-                      <Show when={step.done} fallback={<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="5" r="3.5" /></svg>}>✓</Show>
+                      <Show when={step.done} fallback={<Circle size={10} aria-hidden="true" />}><Check size={12} stroke-width={3} aria-hidden="true" /></Show>
                     </span>
                     <div class="min-w-0">
                       <strong class="text-sm text-foreground">{step.title}</strong>
