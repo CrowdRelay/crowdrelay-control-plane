@@ -8,6 +8,7 @@ import { SkeletonSection } from './Skeleton'
 import { SectionFailureCard } from './SectionFailureCard'
 import { Card } from './app/card'
 import { Badge } from './app/badge'
+import { Button } from './app/button'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import type { CityFunnelRow, CityVenueRow } from '../lib/types'
 
@@ -89,20 +90,24 @@ export function PlacesPanel(props: { slug: string }) {
             </p>
           </div>
           <div class="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              class={`rounded-md border px-2 py-1 text-xs ${order() === 'organise' ? 'border-primary text-foreground' : 'border-border text-muted-foreground'}`}
+            <Button
+              variant="outline"
+              size="sm"
+              aria-pressed={order() === 'organise'}
+              class={`h-7 px-2 text-xs ${order() === 'organise' ? 'border-primary text-foreground' : 'text-muted-foreground'}`}
               onClick={() => setOrder('organise')}
             >
               Ranked
-            </button>
-            <button
-              type="button"
-              class={`rounded-md border px-2 py-1 text-xs ${order() === undefined ? 'border-primary text-foreground' : 'border-border text-muted-foreground'}`}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              aria-pressed={order() === undefined}
+              class={`h-7 px-2 text-xs ${order() === undefined ? 'border-primary text-foreground' : 'text-muted-foreground'}`}
               onClick={() => setOrder(undefined)}
             >
               By activity
-            </button>
+            </Button>
           </div>
         </div>
         <Show when={funnel.error}>
