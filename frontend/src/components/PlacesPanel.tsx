@@ -221,7 +221,24 @@ export function PlacesPanel(props: { slug: string }) {
                   <For each={rows()}>
                     {(row: CityVenueRow) => (
                       <TableRow>
-                        <TableCell class="text-foreground">{row.display_name}</TableCell>
+                        <TableCell class="text-foreground">
+                          {row.display_name}
+                          {/* §12-1: the venue answer is a sentence, not a
+                              score — the because-list when the evidence
+                              carries one, the honest refusal when it does
+                              not. A stale server sends neither field and
+                              the room just shows its name. */}
+                          <Show when={row.assessment === 'worth_contact'}>
+                            <p class="m-0 mt-1 max-w-xs text-xs leading-relaxed font-normal text-muted-foreground">
+                              {row.assessment_sentence}
+                            </p>
+                          </Show>
+                          <Show when={row.assessment === 'insufficient_evidence'}>
+                            <p class="m-0 mt-1 max-w-xs text-xs italic leading-relaxed font-normal text-muted-foreground/80">
+                              {row.assessment_sentence}
+                            </p>
+                          </Show>
+                        </TableCell>
                         <TableCell class="text-xs text-muted-foreground">
                           {row.city_name} {row.country_code}
                         </TableCell>
