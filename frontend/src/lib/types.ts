@@ -2609,6 +2609,17 @@ export interface CycleRunResult {
 /// because it runs before a tenant exists, but every post-creation surface can
 /// ask, and asking is what keeps this from becoming a fourth copy of the
 /// vocabulary that drifts.
+/** One intent a band may state, in the planner's own vocabulary — proxied
+ *  rather than copied so the console cannot offer a value the planner would
+ *  not recognise. */
+export interface TenantIntentOption {
+  value: string
+  description: string
+  /** `heads_down` withholds every proposal — the console must say so at the
+   *  moment of choosing, not afterwards. */
+  withholdsProposals: boolean
+}
+
 export interface NorthStarOption {
   value: string
   label: string
@@ -3075,7 +3086,10 @@ export type GigPlanReason =
 
 /** Who the proposal says the room is and what it reaches. */
 export type GigPlanProposal = {
-  /** The catalogue slug — the key an approval names. */
+  /** The catalogue id — what an approval names. A slug is only unique per
+   *  country, so identity is the id and `city` is for reading. */
+  city_id: string
+  /** The catalogue slug. */
   city: string
   /** The name a person reads. */
   city_name: string
@@ -3099,6 +3113,8 @@ export type GigPlanProposal = {
 
 /** One city that produced no proposal, with the sentence explaining it. */
 export type GigPlanPassedOver = {
+  /** The catalogue id — slug is only unique per country. */
+  city_id: string
   city: string
   city_name: string
   reason: string
@@ -3109,6 +3125,8 @@ export type GigPlanPassedOver = {
 
 /** One approved proposal and what it has produced so far. */
 export type GigPlanOutcome = {
+  /** The catalogue id of the proposed city. */
+  city_id: string
   city: string
   city_name: string
   venue: string

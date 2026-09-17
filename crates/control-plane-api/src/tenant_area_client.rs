@@ -483,6 +483,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/portfolio/amplification"
                     | "/v1/control-plane/tenant-settings"
                     | "/v1/control-plane/tenant-settings/north-stars"
+                    | "/v1/control-plane/tenant-settings/intents"
                     | "/v1/control-plane/fanbases"
                     | "/v1/control-plane/fanbases/connections"
                     | "/v1/control-plane/gdrive/contacts"
@@ -709,7 +710,12 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
 }
 
 pub(crate) fn valid_idempotency_key(value: &str) -> bool {
-    (8..=128).contains(&value.len()) && value.bytes().all(|byte| (b'!'..=b'~').contains(&byte))
+    // Mirrors upstream `IdempotencyKey::parse`: visible ASCII minus the two
+    // characters a JSON body would have to escape.
+    (8..=128).contains(&value.len())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_graphic() && byte != b'"' && byte != b'\\')
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -121,6 +121,10 @@ pub fn router() -> Router<AppState> {
             get(list_north_star_options),
         )
         .route(
+            "/tenants/{slug}/portfolio/tenant-intents",
+            get(list_tenant_intent_options),
+        )
+        .route(
             "/tenants/{slug}/portfolio/settings/{setting_key}",
             post(update_portfolio_setting),
         )
@@ -1034,6 +1038,27 @@ async fn list_north_star_options(
     )
     .await?;
     object_no_store(value, "north star options")
+}
+
+/// The intents a band may state, served from the planner's own vocabulary so
+/// the console never offers a value the planner would not recognise — the
+/// same reason the north-star list is proxied rather than copied.
+async fn list_tenant_intent_options(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/tenant-settings/intents",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "tenant intent options")
 }
 
 /// What a full autopilot cycle would decide right now. Read-only: nothing is
@@ -2033,12 +2058,14 @@ async fn gig_plan(
     object_no_store(value, "gig plan")
 }
 
-/// The band's yes to a proposal. The body names the city; the proposal itself
-/// is recomputed upstream so evidence that moved since the read wins.
+/// The band's yes to a proposal. The body names the city by catalogue id —
+/// a slug is only unique per country and an approval is the one place a
+/// wrong-city resolution cannot be afforded. The proposal itself is
+/// recomputed upstream so evidence that moved since the read wins.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ApproveGigPlanBody {
-    city: String,
+    city_id: String,
 }
 
 async fn approve_gig_plan(
@@ -2047,12 +2074,12 @@ async fn approve_gig_plan(
     headers: HeaderMap,
     Json(body): Json<ApproveGigPlanBody>,
 ) -> Result<Response, ApiError> {
-    let city = body.city.trim();
-    if city.is_empty() || city.len() > 200 {
-        return Err(ApiError::InvalidInput("invalid city".to_owned()));
+    let city_id = body.city_id.trim();
+    if uuid::Uuid::parse_str(city_id).is_err() {
+        return Err(ApiError::InvalidInput("invalid city_id".to_owned()));
     }
     let idempotency = idempotency_key(&headers)?.to_owned();
-    let payload = serde_json::json!({ "city": city });
+    let payload = serde_json::json!({ "city_id": city_id });
     let (tenant, value) = call(
         &state,
         &slug,
@@ -2069,7 +2096,7 @@ async fn approve_gig_plan(
         tenant.tenant.id,
         "tenant.gig_proposal.approved",
         "gig_proposal",
-        city,
+        city_id,
         &headers,
         &result,
         None,

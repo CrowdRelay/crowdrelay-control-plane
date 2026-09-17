@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
+import { NativeSelect } from './ui/native-select'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { PanelTitle } from './layout'
@@ -9,7 +10,7 @@ import { SectionFailureCard } from './SectionFailureCard'
 import { Card } from './app/card'
 import { Badge } from './app/badge'
 import { Button } from './app/button'
-import type { GigPlanApproval, GigPlanReason, GigPlanReasonScore } from '../lib/types'
+import type { GigPlanApproval, GigPlanProposal, GigPlanReason, GigPlanReasonScore } from '../lib/types'
 
 // What to book next, and why — the output of 4G.
 //
@@ -67,43 +68,78 @@ const REASON_LABEL: Record<string, string> = {
 
 export function GigPlanPanel(props: { slug: string }) {
   const queryClient = useQueryClient()
-  const [approvingCity, setApprovingCity] = createSignal<string | null>(null)
-  const [approvalResult, setApprovalResult] = createSignal<{ city: string; result: GigPlanApproval } | null>(null)
-  const [approveError, setApproveError] = createSignal<string | null>(null)
+  const [approvingCityId, setApprovingCityId] = createSignal<string | null>(null)
+  const [approvalResult, setApprovalResult] = createSignal<{ cityId: string; result: GigPlanApproval } | null>(null)
+  const [approveError, setApproveError] = createSignal<{ cityId: string; message: string } | null>(null)
   const [copiedCity, setCopiedCity] = createSignal<string | null>(null)
+  // '' means the stored intent — no override rides the request.
+  const [intentOverride, setIntentOverride] = createSignal('')
+  const [copyFailed, setCopyFailed] = createSignal<string | null>(null)
+
+  // One key per proposal for the life of the panel. A retry after a timeout —
+  // where the server may already have committed — must carry the same key or
+  // it lands as a second letter to the same promoters; a refusal stores
+  // nothing upstream, so reusing the key after a refusal simply re-evaluates.
+  const approvalKeys = new Map<string, string>()
+  const keyFor = (cityId: string) => {
+    let key = approvalKeys.get(cityId)
+    if (!key) {
+      key = crypto.randomUUID()
+      approvalKeys.set(cityId, key)
+    }
+    return key
+  }
+
+  // The intents a band may state, from the planner's own vocabulary — the
+  // console never ships a copy that could stop matching.
+  const intents = useQuery(() => ({
+    queryKey: ['tenant-intents', props.slug],
+    queryFn: () => api.tenantIntentOptions(props.slug),
+    refetchOnWindowFocus: false,
+    staleTime: 300_000,
+  }))
 
   const plan = useQuery(() => ({
-    queryKey: ['gig-plan', props.slug],
-    queryFn: () => api.gigPlan(props.slug),
+    queryKey: ['gig-plan', props.slug, intentOverride()],
+    queryFn: () => api.gigPlan(props.slug, intentOverride() || undefined),
     refetchOnWindowFocus: false,
     staleTime: 30_000,
   }))
 
   const approve = useMutation(() => ({
-    mutationFn: (city: string) => api.approveGigPlan(props.slug, city),
-    onMutate: (city) => {
-      setApprovingCity(city)
+    mutationFn: (proposal: GigPlanProposal) =>
+      api.approveGigPlan(props.slug, proposal.city_id, keyFor(proposal.city_id)),
+    onMutate: (proposal) => {
+      setApprovingCityId(proposal.city_id)
       setApprovalResult(null)
       setApproveError(null)
     },
-    onSuccess: async (result, city) => {
-      setApprovingCity(null)
-      setApprovalResult({ city, result })
+    onSuccess: async (result, proposal) => {
+      setApprovingCityId(null)
+      setApprovalResult({ cityId: proposal.city_id, result })
       // A queued approval changes what the plan can honestly say next —
       // the city is no longer a gap while the letter is out.
       await queryClient.invalidateQueries({ queryKey: ['gig-plan', props.slug] })
     },
-    onError: (error) => {
-      setApprovingCity(null)
-      setApproveError(error instanceof Error ? error.message : 'Approval failed')
+    onError: (error, proposal) => {
+      setApprovingCityId(null)
+      setApproveError({
+        cityId: proposal.city_id,
+        message: error instanceof Error ? error.message : 'Approval failed',
+      })
     },
   }))
 
-  const copyBrief = (city: string, brief: string) => {
-    void navigator.clipboard.writeText(brief).then(() => {
-      setCopiedCity(city)
+  const copyBrief = (cityId: string, brief: string) => {
+    const clipboard = navigator.clipboard
+    if (!clipboard) {
+      setCopyFailed(cityId)
+      return
+    }
+    void clipboard.writeText(brief).then(() => {
+      setCopiedCity(cityId)
       setTimeout(() => setCopiedCity(null), 2000)
-    })
+    }).catch(() => setCopyFailed(cityId))
   }
 
   return (
@@ -137,6 +173,33 @@ export function GigPlanPanel(props: { slug: string }) {
                 Read under a one-off intent override — the band's stated intent
                 says something else.
               </p>
+            </Show>
+
+            {/* "What if we were booking?" — the override is the planner's own
+                parameter, and the banner above marks the read as one-off so a
+                preview never passes for the band's stored answer. */}
+            <Show when={(intents.data?.options.length ?? 0) > 0}>
+              <div class="mt-3 flex items-center gap-2">
+                <label for="gig-plan-intent" class="text-xs text-muted-foreground">
+                  Plan as
+                </label>
+                <NativeSelect
+                  id="gig-plan-intent"
+                  size="sm"
+                  class="w-auto"
+                  value={intentOverride()}
+                  onChange={e => setIntentOverride(e.currentTarget.value)}
+                >
+                  <option value="">Stored intent{data().intent_is_stored ? ` — ${data().intent}` : ''}</option>
+                  <For each={intents.data!.options}>
+                    {option => (
+                      <option value={option.value}>
+                        {option.value.replaceAll('_', ' ')}{option.withholdsProposals ? ' (stops proposals)' : ''}
+                      </option>
+                    )}
+                  </For>
+                </NativeSelect>
+              </div>
             </Show>
 
             <Show
@@ -208,17 +271,20 @@ export function GigPlanPanel(props: { slug: string }) {
                         </Show>
 
                         <div class="mt-3 flex items-center gap-3">
+                          {/* One approval in flight at a time — a second click
+                              on another city would overwrite `approvingCityId`
+                              and re-enable the first while it is still running. */}
                           <Button
                             size="sm"
-                            disabled={approvingCity() === proposal.city}
-                            onClick={() => approve.mutate(proposal.city)}
+                            disabled={approve.isPending}
+                            onClick={() => approve.mutate(proposal)}
                           >
-                            {approvingCity() === proposal.city ? 'Approving…' : 'Approve & queue outreach'}
+                            {approvingCityId() === proposal.city_id ? 'Approving…' : 'Approve & queue outreach'}
                           </Button>
                           <Show when={approvalResult()}>
                             {outcome => {
                               const entry = outcome()
-                              if (entry.city !== proposal.city) return null
+                              if (entry.cityId !== proposal.city_id) return null
                               const result = entry.result
                               if ('refused' in result) {
                                 return <span class="text-xs text-amber-400/90">{result.refused}</span>
@@ -235,8 +301,12 @@ export function GigPlanPanel(props: { slug: string }) {
                               )
                             }}
                           </Show>
-                          <Show when={approveError() && approvingCity() === null}>
-                            <span class="text-xs text-destructive">{approveError()}</span>
+                          <Show when={approveError()}>
+                            {error => {
+                              const entry = error()
+                              if (entry.cityId !== proposal.city_id) return null
+                              return <span class="text-xs text-destructive">{entry.message}</span>
+                            }}
                           </Show>
                         </div>
                       </div>
@@ -267,10 +337,15 @@ export function GigPlanPanel(props: { slug: string }) {
                                 variant="outline"
                                 size="sm"
                                 class="h-7 px-2 text-xs"
-                                onClick={() => copyBrief(entry.city, brief())}
+                                onClick={() => copyBrief(entry.city_id, brief())}
                               >
-                                {copiedCity() === entry.city ? 'Copied' : 'Copy research brief'}
+                                {copiedCity() === entry.city_id ? 'Copied' : 'Copy research brief'}
                               </Button>
+                              <Show when={copyFailed() === entry.city_id}>
+                                <p class="mt-1 text-xs text-destructive">
+                                  Clipboard unavailable — select the brief text and copy it by hand.
+                                </p>
+                              </Show>
                               <p class="mt-1 text-xs text-muted-foreground">
                                 Paste it into whatever assistant you use — the
                                 sheet it returns parses without editing.
