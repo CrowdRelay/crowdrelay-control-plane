@@ -82,12 +82,13 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     const scannerRuns = wr['reddit-scanner']?.completed ?? 0
     const engagerRuns = wr['community-engager']?.completed ?? 0
     const inviterRuns = wr['signal-inviter']?.completed ?? 0
+    const platform = authState.isPlatformLevel()
     return [
-      { label: 'Communities Discovered', value: data.communities_discovered, hint: 'Reddit subreddits found by scraper' },
-      { label: 'Scanner Runs', value: scannerRuns, hint: 'Intelligence-dispatched reddit-scanner workers' },
-      { label: 'Engager Runs', value: engagerRuns, hint: 'Intelligence-dispatched community-engager workers' },
-      { label: 'Inviter Runs', value: inviterRuns, hint: 'Intelligence-dispatched signal-inviter workers' },
-      { label: 'Brain Workflows', value: data.brain_workflows.total, hint: 'Total brain-dispatched growth plans' },
+      { label: 'Communities Discovered', value: data.communities_discovered, hint: platform ? 'Reddit subreddits found by scraper' : 'Subreddits the scanner found' },
+      { label: 'Scanner Runs', value: scannerRuns, hint: platform ? 'Intelligence-dispatched reddit-scanner workers' : 'Reddit-scan jobs the brain sent out' },
+      { label: 'Engager Runs', value: engagerRuns, hint: platform ? 'Intelligence-dispatched community-engager workers' : 'Community-engagement jobs the brain sent out' },
+      { label: 'Inviter Runs', value: inviterRuns, hint: platform ? 'Intelligence-dispatched signal-inviter workers' : 'Signal-invite jobs the brain sent out' },
+      { label: 'Brain Workflows', value: data.brain_workflows.total, hint: platform ? 'Total brain-dispatched growth plans' : 'Growth plans the brain sent out' },
     ]
   }
 
@@ -155,11 +156,11 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     <div data-refreshing={funnel.isFetching && !funnel.isPending} aria-busy={funnel.isFetching}>
 
     {/* KPI strip — skeleton only for the data values, not the whole panel */}
-    <Show when={funnel.data} fallback={<Show when={!error()}><KpiStrip><KpiCard label="Communities" value="—" sub="discovered" /><KpiCard label="Worker runs" value="—" sub="loading…" /><KpiCard label="Intelligence workflows" value="—" sub="loading…" /></KpiStrip></Show>}>
+    <Show when={funnel.data} fallback={<Show when={!error()}><KpiStrip><KpiCard label="Communities" value="—" sub="discovered" /><KpiCard label={authState.isPlatformLevel() ? 'Worker runs' : 'AI jobs'} value="—" sub="loading…" /><KpiCard label={authState.isPlatformLevel() ? 'Intelligence workflows' : 'Growth plans'} value="—" sub="loading…" /></KpiStrip></Show>}>
       <KpiStrip>
         <KpiCard label="Communities" value={fmt(funnel.data!.communities_discovered)} sub="discovered" />
-        <KpiCard label="Worker runs" value={fmt(totalWorkerRuns())} sub={`${completedWorkerRuns()} completed · ${failedWorkerRuns()} failed`} />
-        <KpiCard label="Intelligence workflows" value={fmt(funnel.data!.brain_workflows.total)} sub={`${funnel.data!.brain_workflows.by_status.completed ?? 0} completed`} />
+        <KpiCard label={authState.isPlatformLevel() ? 'Worker runs' : 'AI jobs'} value={fmt(totalWorkerRuns())} sub={`${completedWorkerRuns()} completed · ${failedWorkerRuns()} failed`} />
+        <KpiCard label={authState.isPlatformLevel() ? 'Intelligence workflows' : 'Growth plans'} value={fmt(funnel.data!.brain_workflows.total)} sub={`${funnel.data!.brain_workflows.by_status.completed ?? 0} completed`} />
       </KpiStrip>
     </Show>
 
@@ -176,7 +177,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
         <Show when={bottleneck()}>{(b) => (
           <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground mt-3">
             <strong>Funnel bottleneck: {b().stage.label}</strong><br />
-            <span>Only {b().rate}% progressed to {b().nextStage.label}. {b().stage.value} → {b().nextStage.value}.<br />Consider dispatching more {b().stage.label.toLowerCase()} or reviewing the intelligence's growth intelligence policy.</span>
+            <span>Only {b().rate}% progressed to {b().nextStage.label}. {b().stage.value} → {b().nextStage.value}.<br />{authState.isPlatformLevel() ? <>Consider dispatching more {b().stage.label.toLowerCase()} or reviewing the intelligence's growth intelligence policy.</> : <>Consider running more {b().stage.label.toLowerCase()} or reviewing what the brain may do.</>}</span>
           </div>
         )}</Show>
       </Show>
@@ -192,12 +193,12 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     <Show when={funnel.data && Object.keys(funnel.data!.worker_runs).length > 0}>
       <div class="mt-6 border-t border-border pt-5">
         <div class="flex items-center justify-between gap-4">
-          <h3 class="text-sm font-semibold text-foreground">Worker run breakdown</h3>
+          <h3 class="text-sm font-semibold text-foreground">{authState.isPlatformLevel() ? 'Worker run breakdown' : 'AI job breakdown'}</h3>
         </div>
-        <p class="mt-1 text-sm text-muted-foreground">Per-template worker run statistics dispatched by the intelligence.</p>
+        <p class="mt-1 text-sm text-muted-foreground">{authState.isPlatformLevel() ? 'Per-template worker run statistics dispatched by the intelligence.' : 'Per-job AI work the brain handed out.'}</p>
         <div class="mt-3">
           <Table>
-            <TableHeader><TableRow><TableHead>Template</TableHead><TableHead class="text-right">Total</TableHead><TableHead class="text-right">Completed</TableHead><TableHead class="text-right">Failed</TableHead><TableHead class="text-right">Running</TableHead><TableHead class="text-right">Queued</TableHead><TableHead>Success rate</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>{authState.isPlatformLevel() ? 'Template' : 'Job'}</TableHead><TableHead class="text-right">Total</TableHead><TableHead class="text-right">Completed</TableHead><TableHead class="text-right">Failed</TableHead><TableHead class="text-right">Running</TableHead><TableHead class="text-right">{authState.isPlatformLevel() ? 'Queued' : 'Waiting'}</TableHead><TableHead>Success rate</TableHead></TableRow></TableHeader>
             <TableBody>
               <For each={showAllWorkerStats() ? Object.entries(funnel.data!.worker_runs) : Object.entries(funnel.data!.worker_runs).slice(0, MAX_VISIBLE_WORKER_STATS)}>{([tpl, stats]) => {
                 const successRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : null
@@ -231,10 +232,10 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     <Show when={funnel.data && funnel.data!.recent_worker_runs.length > 0}>
       <div class="mt-6 border-t border-border pt-5">
         <div class="flex items-center justify-between gap-4">
-          <h3 class="text-sm font-semibold text-foreground">Recent worker runs</h3>
+          <h3 class="text-sm font-semibold text-foreground">{authState.isPlatformLevel() ? 'Recent worker runs' : 'Recent AI jobs'}</h3>
           <span class="text-muted-foreground">last {funnel.data!.recent_worker_runs.length}</span>
         </div>
-        <p class="mt-1 text-sm text-muted-foreground">The most recent worker runs dispatched by the intelligence.</p>
+        <p class="mt-1 text-sm text-muted-foreground">{authState.isPlatformLevel() ? 'The most recent worker runs dispatched by the intelligence.' : 'The most recent AI jobs the brain handed out.'}</p>
         {/* A stack of bordered boxes, each holding two rows of a four-field
             record, directly under a table of the same records aggregated.
             Same shape, same table. */}
@@ -242,7 +243,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Template</TableHead>
+                <TableHead>{authState.isPlatformLevel() ? 'Template' : 'Job'}</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Outcome</TableHead>
                 <TableHead class="text-right">Tokens</TableHead>
@@ -283,7 +284,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
       <EmptyState
         icon={<FunnelIcon size={28} />}
         label="No growth activity in this period"
-        hint={authState.isPlatformLevel() ? 'Make sure the autopilot is enabled and the growth intelligence policy allows dispatching.' : 'Make sure automated work is switched on and the growth policy allows dispatching.'}
+        hint={authState.isPlatformLevel() ? 'Make sure the autopilot is enabled and the growth intelligence policy allows dispatching.' : 'Make sure automated work is switched on and the growth rules let it hand out work.'}
       />
     </Show>
     </div>

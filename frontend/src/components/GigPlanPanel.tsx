@@ -2,6 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { NativeSelect } from './ui/native-select'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { PanelTitle } from './layout'
 import { SectionIcon } from './SectionIcon'
 import { EmptyState } from './ui/empty-state'
@@ -147,7 +148,10 @@ export function GigPlanPanel(props: { slug: string }) {
       <PanelTitle icon={<SectionIcon name="map-pin" />}>What to book next</PanelTitle>
       <p class="mt-1 text-sm text-muted-foreground leading-relaxed">
         The cities worth writing to, each with the evidence that makes it one.
-        Approving queues a letter to the room's contacts — the proposal is
+        {authState.isPlatformLevel()
+          ? "Approving queues a letter to the room's contacts"
+          : "Approving sends a letter to the room's contacts"}
+        {' '}— the proposal is
         rechecked against what is true at that moment, not what was true when
         this screen loaded.
       </p>
@@ -279,7 +283,7 @@ export function GigPlanPanel(props: { slug: string }) {
                             disabled={approve.isPending}
                             onClick={() => approve.mutate(proposal)}
                           >
-                            {approvingCityId() === proposal.city_id ? 'Approving…' : 'Approve & queue outreach'}
+                            {approvingCityId() === proposal.city_id ? 'Approving…' : (authState.isPlatformLevel() ? 'Approve & queue outreach' : 'Approve & send outreach')}
                           </Button>
                           <Show when={approvalResult()}>
                             {outcome => {
@@ -294,7 +298,7 @@ export function GigPlanPanel(props: { slug: string }) {
                               }
                               return (
                                 <span class="text-xs text-emerald-400/90">
-                                  Queued to {result.recipients.length}{' '}
+                                  {authState.isPlatformLevel() ? 'Queued to' : 'Off to'} {result.recipients.length}{' '}
                                   {result.recipients.length === 1 ? 'person' : 'people'} — opens with
                                   “{result.opening_line}”
                                 </span>

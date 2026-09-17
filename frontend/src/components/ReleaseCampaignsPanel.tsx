@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
@@ -156,7 +157,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
                  onInput={e => setForm({ ...form(), title: e.currentTarget.value })} />
         </label>
         <label class="flex flex-col gap-1">
-          <span class="text-sm font-medium text-foreground">Slug <small class="text-muted-foreground font-normal">lowercase, used in links</small></span>
+          <span class="text-sm font-medium text-foreground">{authState.isPlatformLevel() ? 'Slug' : 'Link name'} <small class="text-muted-foreground font-normal">lowercase, used in links</small></span>
           <Input value={form().slug} maxlength={100} required
                  onInput={e => setForm({ ...form(), slug: e.currentTarget.value })} />
         </label>

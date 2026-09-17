@@ -2,6 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { PanelTitle } from './layout'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import { toast } from './app/toast'
 import { confirmAction } from './Dialog'
@@ -82,7 +83,7 @@ export function GrowthPosturePanel(props: { slug: string }) {
     const option = POSTURES.find(p => p.value === value)!
     const ok = await confirmAction({
       title: `Switch the growth loop to ${option.label}?`,
-      body: `${option.detail} This rewrites every authority policy at once; individual policies can still be tuned afterwards.`,
+      body: `${option.detail} ${authState.isPlatformLevel() ? 'This rewrites every authority policy at once; individual policies can still be tuned afterwards.' : 'This rewrites everything it may do at once; individual rules can still be tuned afterwards.'}`,
       confirmLabel: `Set ${option.label}`,
       destructive: value === 'full_send',
     })
@@ -95,7 +96,7 @@ export function GrowthPosturePanel(props: { slug: string }) {
     <div class="flex items-start justify-between gap-4 mb-3">
       <div>
         <PanelTitle icon={<SectionIcon name="target" />}>How far the growth loop may go</PanelTitle>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">One dial over all 22 authority policies — pick the posture the band is ready for and the brain applies the matching autonomy level everywhere.</p>
+        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">{authState.isPlatformLevel() ? 'One dial over all 22 authority policies — pick the posture the band is ready for and the brain applies the matching autonomy level everywhere.' : 'One dial over everything it may do — pick the posture you are ready for and the brain applies the matching freedom everywhere.'}</p>
       </div>
       <Show when={posture.data}>
         <StatusBadge
@@ -106,7 +107,7 @@ export function GrowthPosturePanel(props: { slug: string }) {
     </div>
 
     <Show when={posture.error}>
-      <div class="p-4 mt-2.5"><p class="m-0 text-sm text-muted-foreground">Posture is unavailable on this build, but individual authority policies still work below.</p></div>
+      <div class="p-4 mt-2.5"><p class="m-0 text-sm text-muted-foreground">{authState.isPlatformLevel() ? 'Posture is unavailable on this build, but individual authority policies still work below.' : 'This dial is unavailable on this build, but the individual rules still work below.'}</p></div>
     </Show>
 
     <Show when={!posture.error && posture.isPending}><SkeletonSection titleWidth="160px" lines={3} minHeight="140px" /></Show>
@@ -114,7 +115,7 @@ export function GrowthPosturePanel(props: { slug: string }) {
     <Show when={posture.data}>
       <Show when={!current()}>
         <div class="p-4 mt-2.5">
-          <p class="m-0 text-sm text-muted-foreground">No posture chosen yet, so each policy keeps its last individual setting.</p>
+          <p class="m-0 text-sm text-muted-foreground">{authState.isPlatformLevel() ? 'No posture chosen yet, so each policy keeps its last individual setting.' : 'No posture chosen yet, so each rule keeps its last individual setting.'}</p>
         </div>
       </Show>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3" role="radiogroup" aria-label="Growth posture">

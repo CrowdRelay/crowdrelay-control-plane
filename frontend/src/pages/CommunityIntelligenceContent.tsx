@@ -1,6 +1,7 @@
 import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import type { CommunityItem, CommunityObservationItem, CommunityEntityItem, AudiencePlaceInput } from '../lib/types'
 import { SkeletonRows } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, SectionTitle, ErrorCard } from '../components/layout'
@@ -292,7 +293,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
 
   return (
     <PageShell>
-      <PageHeader eyebrow="AUDIENCE" title="Communities" description="Places your listeners already gather — subreddits, forums, Discord servers. The brain observes them; joining them is a person's job, and this page is the queue for it." />
+      <PageHeader eyebrow={authState.isPlatformLevel() ? 'AUDIENCE' : undefined} title="Communities" description={authState.isPlatformLevel() ? "Places your listeners already gather — subreddits, forums, Discord servers. The brain observes them; joining them is a person's job, and this page is the queue for it." : "Places your listeners already gather — subreddits, forums, Discord servers. The brain keeps an eye on them; joining them is a person's job, and this page is the list for it."} />
 
       <TabBar
         active={activeTab()}
@@ -380,8 +381,10 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
 
           <Show when={(communities.data?.items ?? []).length === 0}>
             <p class="p-4 text-sm text-muted-foreground">
-              Nothing tracked yet. The reddit-scanner and audience-research agents add
-              communities as they find them; give them a cycle. Or use <strong>Add a community</strong>
+              {authState.isPlatformLevel()
+                ? 'Nothing tracked yet. The reddit-scanner and audience-research agents add communities as they find them; give them a cycle. Or use '
+                : 'Nothing tracked yet. The brain adds communities as its scans find them; give it a cycle. Or use '}
+              <strong>Add a community</strong>{' '}
               above to register one manually.
             </p>
           </Show>
@@ -509,11 +512,11 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
       {/* ─── Intelligence Tab ────────────────────────────────────── */}
       <TabPanel active={activeTab()} id="ci-intelligence" visited={isVisited('ci-intelligence')}>
         <Show when={!selectedPlaceId()}>
-          <p class="p-4 text-sm text-muted-foreground">Select a community from the Directory tab to view its observation history and extracted entities.</p>
+          <p class="p-4 text-sm text-muted-foreground">Select a community from the Directory tab to view its observation history{authState.isPlatformLevel() ? ' and extracted entities' : ' and what was found there'}.</p>
         </Show>
 
         <Show when={selectedPlaceId()}>
-          <SectionTitle eyebrow="COMMUNITY" title={selectedCommunity()?.name ?? 'Community'} action={<Button variant="ghost" size="sm" onClick={() => { setSelectedPlaceId(null); switchTab('ci-communities') }}>Back to directory</Button>} />
+          <SectionTitle eyebrow={authState.isPlatformLevel() ? 'COMMUNITY' : undefined} title={selectedCommunity()?.name ?? 'Community'} action={<Button variant="ghost" size="sm" onClick={() => { setSelectedPlaceId(null); switchTab('ci-communities') }}>Back to directory</Button>} />
 
           <h3>Observations</h3>
           <Show when={detail.isPending}><SkeletonRows /></Show>
@@ -522,7 +525,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
           </Show>
           <Show when={detail.data}>
             <Show when={observations().length === 0}>
-              <p class="p-4 text-sm text-muted-foreground">No observations recorded yet. The worker will fetch on the next sweep.</p>
+              <p class="p-4 text-sm text-muted-foreground">{authState.isPlatformLevel() ? 'No observations recorded yet. The worker will fetch on the next sweep.' : 'Nothing observed yet — the next sweep fetches it.'}</p>
             </Show>
             <div class="flex flex-col gap-2 mt-3">
               <For each={observations()}>
@@ -535,11 +538,13 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                       </span>
                       <time class="text-muted-foreground ml-auto">{formatTime(obs.observedAt)}</time>
                     </div>
-                    <div class="text-xs text-muted-foreground mt-1">
-                      <span>collector: {obs.collectorVersion}</span>
-                    </div>
-                    <Show when={obs.rawActivityMetrics}>
-                      <pre class="text-xs text-muted-foreground whitespace-pre-wrap font-mono mt-2 p-2 rounded-md bg-background border border-border">{JSON.stringify(obs.rawActivityMetrics, null, 2)}</pre>
+                    <Show when={authState.isPlatformLevel()}>
+                      <div class="text-xs text-muted-foreground mt-1">
+                        <span>collector: {obs.collectorVersion}</span>
+                      </div>
+                      <Show when={obs.rawActivityMetrics}>
+                        <pre class="text-xs text-muted-foreground whitespace-pre-wrap font-mono mt-2 p-2 rounded-md bg-background border border-border">{JSON.stringify(obs.rawActivityMetrics, null, 2)}</pre>
+                      </Show>
                     </Show>
                   </div>
                 )}
@@ -547,14 +552,14 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
             </div>
           </Show>
 
-          <h3>Extracted Entities (Latest)</h3>
+          <h3>{authState.isPlatformLevel() ? 'Extracted Entities (Latest)' : 'What it found (latest)'}</h3>
           <Show when={detail.isPending}><SkeletonRows /></Show>
           <Show when={detail.data?.entities && '__error' in detail.data!.entities}>
-            <ErrorCard>Failed to load entities</ErrorCard>
+            <ErrorCard>{authState.isPlatformLevel() ? 'Failed to load entities' : 'Failed to load what it found'}</ErrorCard>
           </Show>
           <Show when={detail.data}>
             <Show when={entities().length === 0}>
-              <p class="p-4 text-sm text-muted-foreground">No entities extracted from the latest observation.</p>
+              <p class="p-4 text-sm text-muted-foreground">{authState.isPlatformLevel() ? 'No entities extracted from the latest observation.' : 'Nothing was picked out of the latest observation.'}</p>
             </Show>
             <div class="flex flex-col gap-2 mt-3">
               <For each={entities()}>

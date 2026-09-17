@@ -2,6 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { KpiCard, KpiStrip, PanelTitle } from './layout'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { SectionIcon } from './SectionIcon'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonSection } from './Skeleton'
@@ -21,7 +22,7 @@ const pct = (basisPoints: number | null) =>
 const channelName = (channel: ChannelPerformance) =>
   channel.attribution.evidence === 'attributed'
     ? channel.attribution.source.replace(/_/g, ' ')
-    : 'Unattributed'
+    : (authState.isPlatformLevel() ? 'Unattributed' : 'Unknown')
 
 const channelDetail = (channel: ChannelPerformance) => {
   if (channel.attribution.evidence !== 'attributed') return channel.attribution.reason.replace(/_/g, ' ')
@@ -58,7 +59,7 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
     </div>
 
     <Show when={model.error}>
-      <div class="p-4 mt-2.5 rounded-lg border border-border bg-background"><p class="m-0 text-sm text-muted-foreground">Acquisition attribution is not available on the connected CrowdRelay build. The funnel below still reports totals.</p></div>
+      <div class="p-4 mt-2.5 rounded-lg border border-border bg-background"><p class="m-0 text-sm text-muted-foreground">{authState.isPlatformLevel() ? 'Acquisition attribution is not available on the connected CrowdRelay build. The funnel below still reports totals.' : 'We cannot tell where the fans came from on this setup yet. The totals below still report.'}</p></div>
     </Show>
 
     <Show when={!model.error && model.isPending}><SkeletonSection titleWidth="200px" lines={4} minHeight="160px" /></Show>
@@ -76,7 +77,7 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
         when={data().channels.length > 0}
         fallback={<EmptyState
           label="No attributed signups yet"
-          hint="A channel appears here once a fan arrives carrying its attribution — a tracked link, a community post, or a campaign creative. Until then the funnel counts them, but cannot say who sent them."
+          hint={authState.isPlatformLevel() ? 'A channel appears here once a fan arrives carrying its attribution — a tracked link, a community post, or a campaign creative. Until then the funnel counts them, but cannot say who sent them.' : 'A channel appears here once a fan arrives by a tracked link, a community post, or a campaign. Until then we count them, but cannot say who sent them.'}
         />}
       >
         {/* These were bordered list items with their own three-column grid,
@@ -129,12 +130,12 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
 
       <Show when={data().unattributed.length > 0}>
         <section class="mt-6 pt-4 border-t border-border">
-          <h3 class="text-sm font-semibold text-foreground">Signups the system could not attribute</h3>
-          <p class="m-0 mt-1 text-sm text-muted-foreground leading-relaxed">Each row says what to instrument so the next batch lands in a channel above.</p>
+          <h3 class="text-sm font-semibold text-foreground">{authState.isPlatformLevel() ? 'Signups the system could not attribute' : 'Signups we cannot trace'}</h3>
+          <p class="m-0 mt-1 text-sm text-muted-foreground leading-relaxed">{authState.isPlatformLevel() ? 'Each row says what to instrument so the next batch lands in a channel above.' : 'Each row says what to track so the next batch lands in a channel above.'}</p>
           <Table class="mt-3">
             <TableHeader>
               <TableRow>
-                <TableHead>Why it could not be attributed</TableHead>
+                <TableHead>{authState.isPlatformLevel() ? 'Why it could not be attributed' : 'Why we cannot tell'}</TableHead>
                 <TableHead class="text-right">Signups</TableHead>
                 <TableHead class="text-right">Activated</TableHead>
               </TableRow>

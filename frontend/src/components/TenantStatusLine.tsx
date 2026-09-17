@@ -11,7 +11,9 @@ import type { TenantOperationsReadModel, TenantRuntimeSnapshot } from '../lib/ty
 // page — this line only says whether to go there, never how to fix it.
 export function TenantStatusLine(props: {
   slug: string
-  initial: TenantRuntimeSnapshot
+  // Optional — without a snapshot the line fetches the heartbeat on mount
+  // (same shape TenantRuntimePanel takes when it owns its own fetch).
+  initial?: TenantRuntimeSnapshot
   operations: TenantOperationsReadModel | undefined
 }) {
   // Same query key as TenantRuntimePanel so the line shares the heartbeat
@@ -30,20 +32,20 @@ export function TenantStatusLine(props: {
   const issues = createMemo(() => {
     const list: { text: string; bad: boolean }[] = []
     const rt = snapshot()
-    if (rt.runtimeHealth === 'stale') {
+    if (rt?.runtimeHealth === 'stale') {
       list.push({ text: 'live data has stopped updating', bad: true })
-    } else if (rt.runtimeHealth === 'degraded') {
-      list.push({ text: 'the runtime reports degraded health', bad: true })
+    } else if (rt?.runtimeHealth === 'degraded') {
+      list.push({ text: authState.isPlatformLevel() ? 'the runtime reports degraded health' : 'the machinery reports poor health', bad: true })
     }
-    if (rt.runtime?.apiHealthy === false) {
+    if (rt?.runtime?.apiHealthy === false) {
       list.push({ text: 'the fan-facing API is not answering', bad: true })
     }
-    if (rt.runtime?.workerHealthy === false) {
+    if (rt?.runtime?.workerHealthy === false) {
       list.push({ text: 'background jobs are stopped', bad: true })
     }
     const ops = props.operations
     if (ops?.summary?.worker && !ops.summary.worker.alive) {
-      list.push({ text: 'the brain worker is not responding', bad: true })
+      list.push({ text: authState.isPlatformLevel() ? 'the brain worker is not responding' : 'the brain is not responding', bad: true })
     }
     const watchdog = ops?.summary?.watchdog
     if (watchdog && watchdog.critical_alerts > 0) {

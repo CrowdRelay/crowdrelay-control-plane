@@ -11,6 +11,7 @@ import { PortfolioSettingsPanel } from '../components/PortfolioSettingsPanel'
 import { RedditCookieUploader } from '../components/RedditCookieUploader'
 import { SegmentPanel } from '../components/SegmentPanel'
 import { DriveContactsPanel } from '../components/DriveContactsPanel'
+import { AcquisitionChannelsPanel } from '../components/AcquisitionChannelsPanel'
 import { PlacesPanel } from '../components/PlacesPanel'
 import { GigPlanPanel } from '../components/GigPlanPanel'
 import { SkeletonSection } from '../components/Skeleton'
@@ -29,6 +30,12 @@ const AUDIENCE_SECTION_LABEL: Record<string, string> = {
   segments: 'Segments',
 }
 
+const BAND_AUDIENCE_SECTION_LABEL: Record<string, string> = {
+  overview: 'Audience numbers',
+  fans: 'Fan list',
+  segments: 'Segments',
+}
+
 const PORTFOLIO_SECTION_LABEL: Record<string, string> = {
   overview: 'Roster KPIs',
   amplification: 'Amplification edges',
@@ -36,17 +43,28 @@ const PORTFOLIO_SECTION_LABEL: Record<string, string> = {
   settings: 'Brand settings',
 }
 
-function DegradedSections(props: { degraded: string[]; labels: Record<string, string> }) {
+const BAND_PORTFOLIO_SECTION_LABEL: Record<string, string> = {
+  overview: 'Roster numbers',
+  amplification: 'Amplification',
+  fanbases: 'Fan sources',
+  settings: 'Settings',
+}
+
+function DegradedSections(props: { degraded: string[]; labels: Record<string, string>; bandLabels?: Record<string, string> }) {
+  const labelFor = (section: string) =>
+    authState.isPlatformLevel()
+      ? (props.labels[section] ?? section)
+      : (props.bandLabels?.[section] ?? props.labels[section] ?? section)
   return <Show when={props.degraded.length}>
     <For each={props.degraded}>{section => (
       <Alert tone="warning" role="status">
         <Show when={authState.isPlatformLevel()} fallback={
           <>
-            <strong>{props.labels[section] ?? section}</strong> couldn't be checked right now.
+            <strong>{labelFor(section)}</strong> couldn't be checked right now.
             The rest of the page keeps working — this comes back on its own.
           </>
         }>
-          <strong>{props.labels[section] ?? section}</strong> aren't available on the connected CrowdRelay build right
+          <strong>{labelFor(section)}</strong> aren't available on the connected CrowdRelay build right
           now. The rest of the page keeps working; ship a newer CrowdRelay release and this lights up on the
           next refresh.
         </Show>
@@ -103,7 +121,7 @@ export function AudiencePage() {
         { id: 'sources', label: 'Sources' },
         { id: 'contacts', label: 'Contacts' },
         { id: 'communities', label: 'Communities' },
-        { id: 'portfolio', label: 'Label portfolio' },
+        { id: 'portfolio', label: authState.isPlatformLevel() ? 'Label portfolio' : 'Portfolio' },
       ]}
     />
 
@@ -121,7 +139,7 @@ export function AudiencePage() {
         <SkeletonSection titleWidth="140px" lines={3} minHeight="120px" />
       </Show>
       <Show when={model.data} keyed>{(data) => <>
-        <DegradedSections degraded={data.degraded} labels={AUDIENCE_SECTION_LABEL} />
+        <DegradedSections degraded={data.degraded} labels={AUDIENCE_SECTION_LABEL} bandLabels={BAND_AUDIENCE_SECTION_LABEL} />
         <Show when={!data.degraded.includes('overview')}>
           <AudienceOverviewPanel slug={params().slug} overview={data.overview ?? undefined} onGoSources={() => switchTab('sources')} onGoCommunities={() => switchTab('communities')} />
         </Show>
@@ -153,15 +171,23 @@ export function AudiencePage() {
       </Show>
       <Show when={portfolio.data} keyed>{(data) => <>
         <Show when={data.degraded.includes('fanbases')}>
-          <DegradedSections degraded={['fanbases']} labels={PORTFOLIO_SECTION_LABEL} />
+          <DegradedSections degraded={['fanbases']} labels={PORTFOLIO_SECTION_LABEL} bandLabels={BAND_PORTFOLIO_SECTION_LABEL} />
         </Show>
         <Show when={!data.degraded.includes('fanbases')}>
           <FanSourcesPanel slug={params().slug} fanbases={data.fanbases?.fanbases} onChanged={refreshPortfolio} />
         </Show>
       </>}</Show>
+      {/* Where they came from *and whether it converted* — the source-ROI
+          read is what makes this the one page that answers "where do our
+          fans come from". */}
+      <AcquisitionChannelsPanel slug={params().slug} />
       {/* Reddit cookie refresh — a fan source enabler, same home it had on
-          the portfolio page. */}
-      <RedditCookieUploader slug={params().slug} />
+          the portfolio page. The cookies.txt recovery path is crew
+          machinery: the account it revives is ours, so the band never sees
+          the panel. */}
+      <Show when={authState.isPlatformLevel()}>
+        <RedditCookieUploader slug={params().slug} />
+      </Show>
     </TabPanel>
 
     {/* ── Contacts tab — Drive/Gmail imports awaiting review ── */}
@@ -183,7 +209,7 @@ export function AudiencePage() {
         <SkeletonSection titleWidth="140px" lines={3} minHeight="120px" />
       </Show>
       <Show when={portfolio.data} keyed>{(data) => <>
-        <DegradedSections degraded={data.degraded} labels={PORTFOLIO_SECTION_LABEL} />
+        <DegradedSections degraded={data.degraded} labels={PORTFOLIO_SECTION_LABEL} bandLabels={BAND_PORTFOLIO_SECTION_LABEL} />
         <Show when={!data.degraded.includes('overview') || !data.degraded.includes('amplification')}>
           <PortfolioPanel
             slug={params().slug}

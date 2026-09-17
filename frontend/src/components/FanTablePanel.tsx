@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import type { FanCard, FanDetail, FanJourneyEntry } from '../lib/types'
 import { FanDetailDrawer } from './FanDetailDrawer'
 import { EmptyState } from './ui/empty-state'
@@ -92,7 +93,7 @@ export function FanTablePanel(props: {
       const result = parseFanCsv(await file.text())
       setParsed(result)
       if (result.entries.length === 0) {
-        setImportError('No rows in this file carry an external_id or an email, so there is nothing to ingest.')
+        setImportError(`No rows in this file carry an external_id or an email, so there is nothing to ${authState.isPlatformLevel() ? 'ingest' : 'import'}.`)
       }
     } catch (err) {
       setParsed(null)
@@ -108,11 +109,13 @@ export function FanTablePanel(props: {
     setImportError(null)
     try {
       await api.ingestFanbase(props.slug, fanbaseId, result.entries)
-      toast.success(`Sent ${result.entries.length.toLocaleString()} row${result.entries.length === 1 ? '' : 's'} to ingestion. Candidates land as pending double opt-in.`)
+      toast.success(authState.isPlatformLevel()
+        ? `Sent ${result.entries.length.toLocaleString()} row${result.entries.length === 1 ? '' : 's'} to ingestion. Candidates land as pending double opt-in.`
+        : `Imported ${result.entries.length.toLocaleString()} row${result.entries.length === 1 ? '' : 's'}. New fans land as pending until they confirm.`)
       closeImport()
       props.onImported?.()
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : 'Ingestion failed')
+      setImportError(err instanceof Error ? err.message : (authState.isPlatformLevel() ? 'Ingestion failed' : 'Import failed'))
     } finally {
       setSending(false)
     }
@@ -205,7 +208,7 @@ export function FanTablePanel(props: {
     <Show when={filtered().length > 0} fallback={
       <Show
         when={search().trim()}
-        fallback={<EmptyState label="No fans yet" hint="Fans appear here once a connected source completes its first ingestion." />}
+        fallback={<EmptyState label="No fans yet" hint={authState.isPlatformLevel() ? 'Fans appear here once a connected source completes its first ingestion.' : 'Fans appear here once a connected source completes its first import.'} />}
       >
         <EmptyState label={`Nothing matches “${search().trim()}”`} hint="Search covers name, email and locale." />
       </Show>
@@ -252,7 +255,9 @@ export function FanTablePanel(props: {
       open={importing()}
       onClose={closeImport}
       label="Import fans from CSV"
-      description="Rows land in the chosen fanbase as candidates, pending double opt-in — the same path every other source takes. Nobody is marked active by an import, and an opt-out is never reversed by one."
+      description={authState.isPlatformLevel()
+        ? 'Rows land in the chosen fanbase as candidates, pending double opt-in — the same path every other source takes. Nobody is marked active by an import, and an opt-out is never reversed by one.'
+        : 'Rows land in the chosen fanbase as pending fans who still have to confirm — the same path every other source takes. Nobody is marked active by an import, and an opt-out is never reversed by one.'}
       footer={<>
         <Button variant="ghost" onClick={closeImport}>Cancel</Button>
         <Button
@@ -310,7 +315,7 @@ export function FanTablePanel(props: {
 
         <Field
           label="Into which fanbase"
-          hint="An ingest belongs to one fanbase, so its origin stays attributable afterwards."
+          hint={authState.isPlatformLevel() ? 'An ingest belongs to one fanbase, so its origin stays attributable afterwards.' : 'An import belongs to one fanbase, so its origin stays attributable afterwards.'}
         >
           <Show
             when={!fanbases.isPending}
@@ -318,7 +323,7 @@ export function FanTablePanel(props: {
           >
             <Show
               when={importable().length > 0}
-              fallback={<p class="text-sm text-muted-foreground">No enabled fanbase yet — create one under the Label portfolio tab first, an import needs somewhere to land.</p>}
+              fallback={<p class="text-sm text-muted-foreground">No enabled fanbase yet — create one under the {authState.isPlatformLevel() ? 'Label portfolio' : 'Portfolio'} tab first, an import needs somewhere to land.</p>}
             >
               <NativeSelect
                 value={targetFanbase()}

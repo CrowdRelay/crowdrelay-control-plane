@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { formatTimestamp, errorMessage, relativeTime } from '../lib/format'
 import type { PlayKindStanding } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
@@ -118,7 +119,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
         <Show when={ledger.dataUpdatedAt}><span class="text-xs text-muted-foreground">Updated {relativeTime(ledger.dataUpdatedAt)}</span></Show>
       </div>
     </div>
-    <p class="text-muted-foreground text-sm leading-relaxed mt-2">What the agent committed to, what it did, and what each number is allowed to prove. Each play is a structured experiment with claims, evidence, and effect assessment.</p>
+    <p class="text-muted-foreground text-sm leading-relaxed mt-2">What {authState.isPlatformLevel() ? 'the agent' : 'the brain'} committed to, what it did, and what each number is allowed to prove. Each play is a structured experiment with claims, evidence, and effect assessment.</p>
 
     <Show when={ledger.error}>
       <ErrorCard>Play ledger unavailable: {errorMessage(ledger.error, 'We couldn\'t reach the play ledger. Try refreshing.')}</ErrorCard>
@@ -155,7 +156,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
         </Show>
       </Show>
 
-      <Show when={ledger.data!.plays.length > 0} fallback={<EmptyState label="No plays recorded" hint="The play ledger tracks every action the intelligence has executed. Plays appear here once the autopilot starts dispatching." />}>
+      <Show when={ledger.data!.plays.length > 0} fallback={<EmptyState label="No plays recorded" hint={authState.isPlatformLevel() ? 'The play ledger tracks every action the intelligence has executed. Plays appear here once the autopilot starts dispatching.' : 'The play ledger tracks every action it has run. Plays appear here once the brain starts handing out work.'} />}>
         <h4 class="text-sm font-semibold text-foreground flex items-center gap-2 mt-6 pt-4 border-t border-border"><SectionIcon name="play" />Plays</h4>
         <div class="flex flex-col gap-3 mt-3">
           <For each={showAllPlays() ? ledger.data!.plays : ledger.data!.plays.slice(0, MAX_VISIBLE_PLAYS)}>{(p) => (

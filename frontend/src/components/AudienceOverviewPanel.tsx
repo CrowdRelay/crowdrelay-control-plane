@@ -1,5 +1,6 @@
 import { Show } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
+import { authState } from '../lib/auth'
 import type { AudienceOverview } from '../lib/types'
 import { compactNumber } from '../lib/charts'
 import { EmptyState } from './ui/empty-state'
@@ -19,7 +20,7 @@ export function AudienceOverviewPanel(props: { slug: string; overview?: Audience
 
   return <Card flat>
     <div class="flex items-center justify-between gap-4">
-      <h3 class="text-sm font-semibold text-foreground">Audience KPIs</h3>
+      <h3 class="text-sm font-semibold text-foreground">{authState.isPlatformLevel() ? 'Audience KPIs' : 'Audience numbers'}</h3>
     </div>
     <div class="mt-4">
       <Show when={props.overview} fallback={<EmptyState label="Audience overview unavailable" hint="The audience overview could not be loaded. This may be a temporary issue — try refreshing." />}>
@@ -39,13 +40,13 @@ export function AudienceOverviewPanel(props: { slug: string; overview?: Audience
         </KpiStrip>}>
           <div class="py-2">
             <strong class="text-foreground">No fans aggregated yet</strong>
-            <p class="text-sm text-muted-foreground mt-1 max-w-2xl leading-relaxed">Fans arrive from connected platforms, from the communities the brain scans, and from the people carrying a release into a new city. Start one of those and the counters here fill on the next ingestion.</p>
+            <p class="text-sm text-muted-foreground mt-1 max-w-2xl leading-relaxed">Fans arrive from connected platforms, from the communities the brain scans, and from the people carrying a release into a new city. Start one of those and the counters here fill on the next {authState.isPlatformLevel() ? 'ingestion' : 'import'}.</p>
             <div class="flex flex-wrap gap-2 mt-4">
               {/* Fan sources and communities live on this page's other tabs —
                   in-memory tab state means no href can reach them, so these
                   are buttons wired to the page's switchTab, not Links. */}
               <Button type="button" size="sm" onClick={() => props.onGoSources?.()}>Connect a fan source</Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => props.onGoCommunities?.()}>Work the communities queue</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => props.onGoCommunities?.()}>{authState.isPlatformLevel() ? 'Work the communities queue' : 'Work the communities'}</Button>
               <Link class={buttonVariants({ variant: 'outline', size: 'sm' })} to="/tenants/$slug/beacons" params={{ slug: props.slug }}>Add beacons</Link>
             </div>
           </div>

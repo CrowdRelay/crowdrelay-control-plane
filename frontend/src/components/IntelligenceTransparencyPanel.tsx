@@ -126,9 +126,9 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
     <Show when={summary()} fallback={
       <Show when={!error()} fallback={
         <KpiStrip>
-          <KpiCard label="Intelligence decisions" value="—" />
+          <KpiCard label={authState.isPlatformLevel() ? 'Intelligence decisions' : 'Decisions'} value="—" />
           <KpiCard label="Running" value="—" />
-          <KpiCard label="Worker tasks" value="—" />
+          <KpiCard label={authState.isPlatformLevel() ? 'Worker tasks' : 'AI jobs'} value="—" />
         </KpiStrip>
       }>
         <KpiStrip>
@@ -139,9 +139,9 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
       </Show>
     }>
       <KpiStrip>
-        <KpiCard label="Intelligence decisions" value={summary()!.total_decisions} sub={`${summary()!.completed_decisions} completed · ${summary()!.failed_decisions} failed`} />
+        <KpiCard label={authState.isPlatformLevel() ? 'Intelligence decisions' : 'Decisions'} value={summary()!.total_decisions} sub={`${summary()!.completed_decisions} completed · ${summary()!.failed_decisions} failed`} />
         <KpiCard label="Running" value={summary()!.running_decisions} sub="in progress now" />
-        <KpiCard label="Worker tasks" value={summary()!.total_tasks} sub={`${summary()!.completed_tasks} completed`} />
+        <KpiCard label={authState.isPlatformLevel() ? 'Worker tasks' : 'AI jobs'} value={summary()!.total_tasks} sub={`${summary()!.completed_tasks} completed`} />
       </KpiStrip>
     </Show>
 
@@ -153,7 +153,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
           <span class="text-muted-foreground">{decisions().length} decisions</span>
         </Show>
       </div>
-      <p class="text-sm text-muted-foreground leading-relaxed mt-2">{authState.isPlatformLevel() ? "The autopilot's decision log" : 'The decision log'} — what it decided, why, and what workers found.</p>
+      <p class="text-sm text-muted-foreground leading-relaxed mt-2">{authState.isPlatformLevel() ? "The autopilot's decision log" : 'The decision log'} — what it decided, why, and what {authState.isPlatformLevel() ? 'workers' : 'the AI jobs'} found.</p>
 
       <Show when={data.data && decisions().length === 0} fallback={
         <Show when={error()} fallback={
@@ -182,7 +182,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                         <Badge>{decision.plan.length} plan items</Badge>
                       </Show>
                       <Show when={decision.tasks.length > 0}>
-                        <Badge>{decision.tasks.length} workers</Badge>
+                        <Badge>{decision.tasks.length} {authState.isPlatformLevel() ? 'workers' : 'AI jobs'}</Badge>
                       </Show>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="transition-transform" classList={{ 'rotate-180': expanded() === decision.id }} aria-hidden="true">
                         <path d="M6 9l6 6 6-6" />
@@ -208,7 +208,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                       <Show when={decision.plan.length > 0}>
                         <div class="mt-4">
                           <h4 class="text-sm font-semibold text-foreground m-0 mb-1.5">Growth Plan</h4>
-                          <p class="text-sm text-muted-foreground m-0 mb-2.5">The deterministic plan — each item shows the template, priority, and rationale.</p>
+                          <p class="text-sm text-muted-foreground m-0 mb-2.5">{authState.isPlatformLevel() ? 'The deterministic plan — each item shows the template, priority, and rationale.' : 'The plan — each item shows the job, its priority, and the reason.'}</p>
                           <For each={expandedPlans().has(decision.id) ? decision.plan : decision.plan.slice(0, MAX_VISIBLE_PLAN)}>{(item, i) => (
                             <div class="p-3 border border-border rounded-lg bg-muted mb-2">
                               <div class="flex gap-2 items-center mb-1.5">
@@ -230,15 +230,15 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                       {/* Dispatched worker tasks */}
                       <Show when={decision.tasks.length > 0}>
                         <div class="mt-4">
-                          <h4 class="text-sm font-semibold text-foreground m-0 mb-1.5">Dispatched Workers</h4>
+                          <h4 class="text-sm font-semibold text-foreground m-0 mb-1.5">{authState.isPlatformLevel() ? 'Dispatched Workers' : 'AI jobs sent out'}</h4>
                           <p class="text-sm text-muted-foreground m-0 mb-2.5">{authState.isPlatformLevel() ? 'The AI jobs this plan handed out. Each one returns a result the autopilot reads back before it decides anything else.' : 'The AI jobs this plan handed out. Each one returns a result it reads back before deciding anything else.'}</p>
                           <Table>
-                            <TableHeader><TableRow><TableHead>Slot</TableHead><TableHead>Role</TableHead><TableHead>Template</TableHead><TableHead>Status</TableHead><TableHead>Outcome</TableHead><TableHead>Tokens</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                            <TableHeader><TableRow><TableHead>Slot</TableHead><TableHead>Role</TableHead><TableHead>{authState.isPlatformLevel() ? 'Template' : 'Job'}</TableHead><TableHead>Status</TableHead><TableHead>Outcome</TableHead><TableHead>Tokens</TableHead><TableHead></TableHead></TableRow></TableHeader>
                             <TableBody>
                               <For each={expandedTasks().has(decision.id) ? decision.tasks : decision.tasks.slice(0, MAX_VISIBLE_TASKS)}>{(task: IntelligenceDecisionTask) => (
                                 <TableRow>
                                   <TableCell>{String(task.slot).replace(/_/g, ' ')}</TableCell>
-                                  <TableCell><Badge variant={task.role === 'brain' ? 'success' : 'warning'}>{task.role}</Badge></TableCell>
+                                  <TableCell><Badge variant={task.role === 'brain' ? 'success' : 'warning'}>{authState.isPlatformLevel() ? task.role : (task.role === 'brain' ? 'brain' : 'AI job')}</Badge></TableCell>
                                   <TableCell>{templateLabel(task.template_id)}</TableCell>
                                   <TableCell><StatusBadge status={task.status} tone={taskStatusTone(task.status)} /></TableCell>
                                   <TableCell>
@@ -262,10 +262,10 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
 
                       {/* Decision chain visualization */}
                       <div class="mt-4">
-                        <h4 class="text-sm font-semibold text-foreground m-0 mb-1.5">Decision Chain</h4>
+                        <h4 class="text-sm font-semibold text-foreground m-0 mb-1.5">{authState.isPlatformLevel() ? 'Decision Chain' : 'How it ran'}</h4>
                         <div class="flex flex-col gap-1 mt-2">
                           <div class="flex items-center gap-2.5 py-1.5">
-                            <Badge variant="success">Intelligence decides</Badge>
+                            <Badge variant="success">{authState.isPlatformLevel() ? 'Intelligence decides' : 'The brain decides'}</Badge>
                             <span class="text-muted-foreground">{templateLabel(decision.brain_template)}</span>
                           </div>
                           <Show when={decision.plan.length > 0}>
@@ -278,15 +278,15 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                           <Show when={decision.tasks.length > 0}>
                             <div class="text-muted-foreground text-sm pl-1.5">↓</div>
                             <div class="flex items-center gap-2.5 py-1.5">
-                              <Badge>Workers dispatched</Badge>
-                              <span class="text-muted-foreground">{decision.tasks.length} LLM tasks</span>
+                              <Badge>{authState.isPlatformLevel() ? 'Workers dispatched' : 'Jobs sent out'}</Badge>
+                              <span class="text-muted-foreground">{decision.tasks.length} {authState.isPlatformLevel() ? 'LLM tasks' : 'AI jobs'}</span>
                             </div>
                           </Show>
                           <Show when={decision.tasks.some(t => t.has_outcome)}>
                             <div class="text-muted-foreground text-sm pl-1.5">↓</div>
                             <div class="flex items-center gap-2.5 py-1.5">
-                              <Badge>Outcomes emitted</Badge>
-                              <span class="text-muted-foreground">{decision.tasks.filter(t => t.has_outcome).length} structured results</span>
+                              <Badge>{authState.isPlatformLevel() ? 'Outcomes emitted' : 'Results back'}</Badge>
+                              <span class="text-muted-foreground">{decision.tasks.filter(t => t.has_outcome).length} {authState.isPlatformLevel() ? 'structured results' : 'results'}</span>
                             </div>
                           </Show>
                           <div class="text-muted-foreground text-sm pl-1.5">↓</div>

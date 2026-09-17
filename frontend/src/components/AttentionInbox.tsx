@@ -176,7 +176,9 @@ export function AttentionInbox(props: {
         id: 'approvals-not-reported',
         tier: 'review',
         title: 'Pending approvals are not reported',
-        detail: 'This CrowdRelay build does not publish the approval queue, so this console cannot tell whether anything is waiting.',
+        detail: platform
+          ? 'This CrowdRelay build does not publish the approval queue, so this console cannot tell whether anything is waiting.'
+          : 'This build does not publish pending approvals, so the console cannot tell whether anything is waiting.',
         consequence: 'Work may be parked awaiting your decision without appearing here.',
         goto: { label: 'Open decisions', tab: 'decisions' },
       })
@@ -269,15 +271,17 @@ export function AttentionInbox(props: {
         <div class="text-muted-foreground text-sm flex items-center gap-2">
           <SectionIcon name="inbox" />
           <span class="bg-primary/20 text-primary text-xs rounded-full px-1.5 font-bold tabular-nums">{total()}</span>
-          <span>item{total() !== 1 ? 's' : ''} need{total() === 1 ? 's' : ''} your attention</span>
+          <span>item{total() !== 1 ? 's' : ''} need{total() === 1 ? 's' : ''} {authState.isPlatformLevel() ? 'your attention' : 'you'}</span>
         </div>
       </div>
     </Show>
 
     <Show when={total() === 0}>
       <EmptyState
-        label="Nothing needs attention"
-        hint="The system is operating autonomously. Items appear here when the brain needs your decision or when delivery issues occur."
+        label={authState.isPlatformLevel() ? 'Nothing needs attention' : 'Nothing needs you'}
+        hint={authState.isPlatformLevel()
+          ? 'The system is operating autonomously. Items appear here when the brain needs your decision or when delivery issues occur.'
+          : 'It is working on its own. Items appear here when the brain needs your decision or when something breaks.'}
       />
     </Show>
 

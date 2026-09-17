@@ -1,5 +1,6 @@
 import { For, Show } from 'solid-js'
 import { ApiError, errorHeading } from '../lib/api'
+import { authState } from '../lib/auth'
 import type { SectionVerdict } from '../lib/types'
 import { cn } from '../lib/cn'
 import { ErrorCard } from './layout'
@@ -52,16 +53,36 @@ export function SectionFailureCard(props: { error: unknown; fallback: string; on
     return (e.body as { channel?: string } | undefined)?.channel
   }
 
+  // The band-facing line — the caller's fallback names the surface ("Audience
+  // channel unavailable"), and the band only needs to know which part of their
+  // console could not be checked, not that it is a channel.
+  const bandHeading = () => props.fallback.replace(/\s+(channel\s+)?unavailable\s*$/i, '')
+
   // Non-AllSectionsFailed errors render as a plain error card with the
   // mapped heading. This keeps the component a drop-in replacement for the
   // old `<div class="error-card">{error.message}</div>` pattern.
   return <Show when={error()}>
     <Show when={isAllSectionsFailed()} fallback={
+      <Show when={authState.isPlatformLevel()} fallback={
+        <ErrorCard>
+          {bandHeading()} couldn't be checked right now. The rest of the page keeps working and it comes back on its own.
+          <Show when={props.onRetry}><Button variant="ghost" size="sm" class="mt-2.5" onClick={() => props.onRetry!()}>Retry</Button></Show>
+        </ErrorCard>
+      }>
       <ErrorCard>
         {errorHeading(error(), props.fallback)}
         <Show when={props.onRetry}><Button variant="ghost" size="sm" class="mt-2.5" onClick={() => props.onRetry!()}>Retry</Button></Show>
       </ErrorCard>
+      </Show>
     }>
+      {/* Band-facing copy does not name channels, sections or verdicts — to the
+          act the whole read is one thing that could not be checked. */}
+      <Show when={authState.isPlatformLevel()} fallback={
+        <ErrorCard>
+          {bandHeading()} couldn't be checked right now. The rest of the page keeps working and it comes back on its own.
+          <Show when={props.onRetry}><Button variant="ghost" size="sm" class="mt-2.5" onClick={() => props.onRetry!()}>Retry</Button></Show>
+        </ErrorCard>
+      }>
       <ErrorCard>
         <strong class="block mb-1">{errorHeading(error(), props.fallback)}</strong>
         <Show when={channel()}>
@@ -87,6 +108,7 @@ export function SectionFailureCard(props: { error: unknown; fallback: string; on
         </ul>
         <Show when={props.onRetry}><Button variant="ghost" size="sm" class="mt-2.5" onClick={() => props.onRetry!()}>Retry</Button></Show>
       </ErrorCard>
+      </Show>
     </Show>
   </Show>
 }

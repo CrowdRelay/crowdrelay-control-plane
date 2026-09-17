@@ -3,6 +3,7 @@ import { PanelTitle } from './layout'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { confidencePercent, errorMessage } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { EmptyState } from './ui/empty-state'
@@ -70,7 +71,7 @@ export function ReplyTriagePanel() {
     <div class="flex items-start justify-between gap-4 mb-3">
       <div>
         <PanelTitle icon={<SectionIcon name="inbox" />}>Replies needing a human</PanelTitle>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Inbound replies the classifier could not resolve automatically. Read the text, then decide.</p>
+        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">{authState.isPlatformLevel() ? 'Inbound replies the classifier could not resolve automatically. Read the text, then decide.' : 'Inbound replies it could not sort on its own. Read the text, then decide.'}</p>
       </div>
       <Show when={data()}>
         <StatusBadge
@@ -82,7 +83,7 @@ export function ReplyTriagePanel() {
 
     <Show when={model.error}>
       <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground mt-4" role="status">
-        {model.error instanceof Error ? model.error.message : 'Reply triage is temporarily unavailable.'}
+        {model.error instanceof Error ? model.error.message : (authState.isPlatformLevel() ? 'Reply triage is temporarily unavailable.' : 'The replies list is temporarily unavailable.')}
       </div>
     </Show>
 
@@ -114,7 +115,7 @@ export function ReplyTriagePanel() {
         <Show when={d().summary.pending_count > 0}>
           <div class="flex flex-wrap gap-2 col-span-full p-3 border border-warning-foreground rounded-md bg-card text-warning-foreground">
             <strong class="text-foreground">Pending</strong>
-            <span class="text-sm text-secondary-foreground">{d().summary.pending_count} reply(ies) queued for classification</span>
+            <span class="text-sm text-secondary-foreground">{d().summary.pending_count} {authState.isPlatformLevel() ? 'reply(ies) queued for classification' : `${d().summary.pending_count === 1 ? 'reply' : 'replies'} waiting to be sorted`}</span>
           </div>
         </Show>
       </div>
@@ -126,7 +127,7 @@ export function ReplyTriagePanel() {
         </div>
         <Show
           when={d().needs_human.length > 0}
-          fallback={<EmptyState label="No replies need human review" hint="The agent handles routine replies automatically. Items that need a human touch appear here." />}
+          fallback={<EmptyState label="No replies need human review" hint={authState.isPlatformLevel() ? 'The agent handles routine replies automatically. Items that need a human touch appear here.' : 'It handles routine replies on its own. Items that need a person appear here.'} />}
         >
           <div class="flex flex-col mt-3">
             <For each={showAllNeedsHuman() ? d().needs_human : d().needs_human.slice(0, MAX_VISIBLE)}>{entry => <ReplyRow entry={entry} slug={params().slug} actionable />}</For>

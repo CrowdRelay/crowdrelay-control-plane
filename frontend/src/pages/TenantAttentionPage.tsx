@@ -228,7 +228,7 @@ export function TenantAttentionPage() {
       actions={
         <Show when={!summary.error && summary.data} fallback={<StatusBadge status={summary.error ? 'unavailable' : 'loading'} tone={summary.error ? 'bad' : 'muted'} />}>
           {data => <StatusBadge
-            status={totalDead(data()) > 0 || data().watchdog.critical_alerts > 0 || staleAreaReservations(data()) > 0 ? 'attention required' : data().watchdog.active_alerts > 0 ? 'watch' : 'healthy'}
+            status={totalDead(data()) > 0 || data().watchdog.critical_alerts > 0 || staleAreaReservations(data()) > 0 ? (authState.isPlatformLevel() ? 'attention required' : 'needs you') : data().watchdog.active_alerts > 0 ? 'watch' : 'healthy'}
             tone={totalDead(data()) > 0 || data().watchdog.critical_alerts > 0 || staleAreaReservations(data()) > 0 ? 'bad' : data().watchdog.active_alerts > 0 ? 'warn' : 'good'}
           />}
         </Show>
@@ -257,7 +257,7 @@ export function TenantAttentionPage() {
     {/* ─── Decisions Tab — the ranked action queue, moved from Operations ── */}
     <TabPanel active={activeTab()} id="decisions" visited={isVisited('decisions')}>
       <Show when={operations.error}>
-        <SectionFailureCard error={operations.error} fallback="Decision queue unavailable" onRetry={() => void operations.refetch()} />
+        <SectionFailureCard error={operations.error} fallback={authState.isPlatformLevel() ? 'Decision queue unavailable' : 'Decisions'} onRetry={() => void operations.refetch()} />
       </Show>
       <Show when={!operations.error && !operations.data}>
         <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
@@ -314,7 +314,7 @@ export function TenantAttentionPage() {
       </Show>
 
       <Show when={summary.error}>
-        <ErrorCard>{errorMessage(summary.error, 'Operations attention snapshot unavailable')}</ErrorCard>
+        <ErrorCard>{errorMessage(summary.error, authState.isPlatformLevel() ? 'Operations attention snapshot unavailable' : 'The Needs you list could not be loaded')}</ErrorCard>
       </Show>
 
       <Show when={!summary.error && !summary.data}>

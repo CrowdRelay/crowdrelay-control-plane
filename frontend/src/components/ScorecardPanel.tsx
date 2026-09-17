@@ -72,6 +72,11 @@ const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
 const actionLabel = (kind: string) => labelOr(DECISION_KIND_LABELS, kind)
 const subjectLabel = (kind: string) => labelOr(SUBJECT_KIND_LABELS, kind)
 
+/// The badge words the read model earns; a band reads the same states in its
+/// own vocabulary ("execution gap" is operator words for "blocked").
+const statusBadgeLabel = (status: string) =>
+  authState.isPlatformLevel() ? status : status === 'execution gap' ? 'blocked' : status
+
 export function ScorecardPanel(props: { slug: string }) {
   const model = useQuery(() => ({
     queryKey: ['agent-scorecard', props.slug],
@@ -90,16 +95,16 @@ export function ScorecardPanel(props: { slug: string }) {
 
   return <Card flat>
     <SectionTitle
-      eyebrow="AGENT SCORECARD"
+      eyebrow={authState.isPlatformLevel() ? 'AGENT SCORECARD' : undefined}
       title="Is it working?"
       description={authState.isPlatformLevel() ? 'Autopilot status, weekly activity, and recent completions — results, not logs.' : 'Status, weekly activity, and recent completions — results, not logs.'}
       icon={<SectionIcon name="activity" />}
-      action={<StatusBadge status={statusLabel(data())} tone={statusTone(data())} />}
+      action={<StatusBadge status={statusBadgeLabel(statusLabel(data()))} tone={statusTone(data())} />}
     />
 
     <Show when={model.error}>
       <div class="mt-4 rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground" role="status">
-        {model.error instanceof Error ? model.error.message : 'Agent scorecard is temporarily unavailable.'}
+        {model.error instanceof Error ? model.error.message : (authState.isPlatformLevel() ? 'Agent scorecard is temporarily unavailable.' : 'The scorecard is temporarily unavailable.')}
       </div>
     </Show>
 
@@ -112,7 +117,7 @@ export function ScorecardPanel(props: { slug: string }) {
           every other strip on the page. */}
       <KpiStrip class="mt-4 mb-0">
         <KpiCard
-          label="Agent"
+          label={authState.isPlatformLevel() ? 'Agent' : 'The brain'}
           value={d().status.agent_enabled ? 'on' : 'off'}
           sub={d().status.dry_run ? 'dry run' : postureLabel(d().status.posture)}
         />
@@ -122,13 +127,13 @@ export function ScorecardPanel(props: { slug: string }) {
           sub={`${timeAgo(d().status.last_action_at)} last action`}
         />
         <KpiCard
-          label="Capabilities live"
+          label={authState.isPlatformLevel() ? 'Capabilities live' : 'Things it can do'}
           value={d().status.live_capabilities.length}
           sub={d().status.live_capabilities.length === 0 ? 'none active' : 'running'}
         />
         <Show when={d().status.parked_capabilities.length > 0}>
           <ErrorCard class="p-3 flex flex-col gap-1">
-            <strong class="text-destructive text-sm">Execution gap</strong>
+            <strong class="text-destructive text-sm">{authState.isPlatformLevel() ? 'Execution gap' : 'Blocked'}</strong>
             <span class="text-xs text-secondary-foreground">{d().status.parked_capabilities.length === 1 ? 'One job is' : `${d().status.parked_capabilities.length} jobs are`} queued with nothing able to run them: {d().status.parked_capabilities.map(cap => labelOr(CAPABILITY_LABELS, cap)).join(', ')}</span>
           </ErrorCard>
         </Show>
@@ -152,7 +157,7 @@ export function ScorecardPanel(props: { slug: string }) {
           <div><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="zap" />Actions</h3></div>
         </div>
         <KpiStrip class="mt-3 mb-0">
-          <KpiCard label="Executed" value={num(d().week.executed)} sub={`${count(d().week.succeeded)} succeeded · ${count(d().week.failed)} failed`} />
+          <KpiCard label={authState.isPlatformLevel() ? 'Executed' : 'Done'} value={num(d().week.executed)} sub={`${count(d().week.succeeded)} succeeded · ${count(d().week.failed)} failed`} />
           <KpiCard
             label="Success rate"
             value={
@@ -231,7 +236,7 @@ export function ScorecardPanel(props: { slug: string }) {
           <div class="grid gap-2.5 mt-3" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(200px, 1fr))' }}>
             <For each={showAllByContext() ? d().by_context : d().by_context.slice(0, MAX_VISIBLE_BY_CONTEXT)}>{ctx => <div class="p-3 border border-border rounded-lg bg-card flex flex-col gap-1">
               <strong class="text-foreground">{contextLabel(ctx.context)}</strong>
-              <small class="text-muted-foreground text-sm">{count(ctx.executed)} executed · {count(ctx.succeeded)} succeeded · {count(ctx.failed)} failed</small>
+              <small class="text-muted-foreground text-sm">{count(ctx.executed)} {authState.isPlatformLevel() ? 'executed' : 'done'} · {count(ctx.succeeded)} succeeded · {count(ctx.failed)} failed</small>
               <Show when={ctx.parked > 0}><small class="text-muted-foreground text-sm">{count(ctx.parked)} parked</small></Show>
             </div>}</For>
           </div>
@@ -248,7 +253,7 @@ export function ScorecardPanel(props: { slug: string }) {
         <div class="flex justify-between gap-4 items-start">
           <div><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="list-checks" />Last 10 completed actions</h3></div>
         </div>
-        <Show when={d().recent_results.length > 0} fallback={<div class="p-4 mt-3 rounded-lg border border-border bg-background"><p class="m-0 text-sm text-muted-foreground">The agent has not completed any actions yet.</p></div>}>
+        <Show when={d().recent_results.length > 0} fallback={<div class="p-4 mt-3 rounded-lg border border-border bg-background"><p class="m-0 text-sm text-muted-foreground">{authState.isPlatformLevel() ? 'The agent has not completed any actions yet.' : 'It has not completed any actions yet.'}</p></div>}>
           <div class="grid gap-2.5 mt-3" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))' }}>
             <For each={showAllRecent() ? d().recent_results : d().recent_results.slice(0, MAX_VISIBLE_RECENT)}>{result => <div class="p-3 border border-border rounded-lg bg-card flex flex-col gap-1">
               <div class="flex items-center justify-between gap-2">

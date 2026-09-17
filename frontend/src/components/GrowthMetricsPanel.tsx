@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal, type Component } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { errorMessage } from '../lib/format'
 import { compactNumber, trendArrow, trendDirection } from '../lib/charts'
 import { Sparkline } from './Sparkline'
@@ -288,7 +289,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
           <EmptyState
             icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 14l4-4 4 4 6-6" /></svg>}
             label="No metric feeds connected"
-            hint="Connect Spotify, YouTube, Bandsintown, or social feeds to start tracking growth trends. The intelligence needs metric data to measure whether actions are moving the needle."
+            hint={authState.isPlatformLevel() ? 'Connect Spotify, YouTube, Bandsintown, or social feeds to start tracking growth trends. The intelligence needs metric data to measure whether actions are moving the needle.' : 'Connect Spotify, YouTube, Bandsintown, or social feeds to start tracking growth trends. It needs the numbers to measure whether its work is moving the needle.'}
           />
         </Show>
       }

@@ -1,6 +1,7 @@
 import { For, Index, Show, createEffect, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api, errorHeading } from '../lib/api'
+import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
@@ -525,11 +526,11 @@ export function ListingPanel(props: { slug: string }) {
                           <Button
                             variant="secondary" size="sm"
                             disabled={acting() !== null || !approachable(target, state())}
-                            title={reason() || 'Queue an approach for approval'}
+                            title={reason() || (authState.isPlatformLevel() ? 'Queue an approach for approval' : 'Send an approach for approval')}
                             onClick={() => void approach(target)}
                             {...writeGuard()}
                           >
-                            {acting() === `approach:${target.target_id}` ? 'Queueing…' : 'Approach'}
+                            {acting() === `approach:${target.target_id}` ? (authState.isPlatformLevel() ? 'Queueing…' : 'Sending…') : 'Approach'}
                           </Button>
                         </div>
                         <Show when={!approachable(target, state()) && reason()}>

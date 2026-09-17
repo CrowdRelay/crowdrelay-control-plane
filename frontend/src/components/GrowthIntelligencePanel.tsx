@@ -46,7 +46,7 @@ const payloadSummary = (action: PendingAutopilotAction): { title: string; detail
   if (p.kind === 'agent.run.request') {
     const template = typeof p.template_id === 'string' ? p.template_id : 'agent'
     const prompt = typeof p.prompt === 'string' ? p.prompt : ''
-    return { title: `Worker: ${template}`, detail: prompt.slice(0, 120) + (prompt.length > 120 ? '…' : '') }
+    return { title: `${authState.isPlatformLevel() ? 'Worker' : 'AI job'}: ${template}`, detail: prompt.slice(0, 120) + (prompt.length > 120 ? '…' : '') }
   }
   return { title: actionKindLabel(action.action_kind), detail: '' }
 }
@@ -148,7 +148,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
       {/* Approval queue — pending growth intelligence actions */}
       <section class="mt-6">
         <div class="flex items-center justify-between gap-4">
-          <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><IntelligenceIcon size={18} /> Approval Queue</h3>
+          <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><IntelligenceIcon size={18} /> {authState.isPlatformLevel() ? 'Approval Queue' : 'Waiting for approval'}</h3>
           <Show when={pendingGrowthActions().length > 0}>
             <span class="text-muted-foreground text-sm flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-warning-foreground" />
@@ -156,14 +156,14 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
             </span>
           </Show>
         </div>
-        <p class="mt-1 text-sm text-muted-foreground">Actions the intelligence has queued for your approval. Community posts, press pitches, and other growth actions appear here with rich detail before they're executed.</p>
+        <p class="mt-1 text-sm text-muted-foreground">{authState.isPlatformLevel() ? "Actions the intelligence has queued for your approval. Community posts, press pitches, and other growth actions appear here with rich detail before they're executed." : 'Actions it has lined up for your approval. Community posts, press pitches, and other growth work appear here with the full text before anything is sent.'}</p>
         <Show when={overview.error}><ErrorCard>Growth intelligence overview unavailable: {errorMessage(overview.error, 'We couldn\'t reach the growth intelligence overview. Try refreshing.')}</ErrorCard></Show>
         <Show when={pendingGrowthActions().length > 0} fallback={
           <Show when={overview.isFetching} fallback={
             <Show when={overview.data} fallback={
               <EmptyState label="Intelligence unavailable" hint={authState.isPlatformLevel() ? 'The autopilot overview could not be loaded. This may be a temporary issue.' : 'The overview could not be loaded. This may be a temporary issue.'} />
             }>
-              <EmptyState label="No actions awaiting approval" hint="When the intelligence proposes actions that require human approval, they appear here." />
+              <EmptyState label="No actions awaiting approval" hint={authState.isPlatformLevel() ? 'When the intelligence proposes actions that require human approval, they appear here.' : 'When it proposes actions that need your approval, they appear here.'} />
             </Show>
           }>
             <SkeletonRows count={2} />
@@ -204,7 +204,9 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
                     <Show when={!action.executor_ready && action.required_capability}>
                       <div class="flex flex-col gap-1 rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground" title={action.required_capability ?? undefined}>
                         <strong>Nothing can run this yet</strong>
-                        <span>“{labelOr(CAPABILITY_LABELS, action.required_capability!)}” has no worker running. You can approve it — it will wait in the queue until one starts.</span>
+                        <span>{authState.isPlatformLevel()
+                          ? <>“{labelOr(CAPABILITY_LABELS, action.required_capability!)}” has no worker running. You can approve it — it will wait in the queue until one starts.</>
+                          : <>“{labelOr(CAPABILITY_LABELS, action.required_capability!)}” has nothing running that can do it. You can approve it — it waits until one starts.</>}</span>
                       </div>
                     </Show>
                   </div>
@@ -249,7 +251,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-sm font-semibold text-foreground">Autonomy controls</h3>
         </div>
-        <p class="mt-1 text-sm text-muted-foreground">How much freedom the intelligence has to act on what it finds. <strong>Watch</strong> only records the decision, <strong>Suggest</strong> puts it on the opportunity board, <strong>Ask</strong> queues every action for your sign-off, <strong>Alone</strong> executes without asking. <strong>Min confidence</strong> is the floor an action has to clear before any of that happens, and <strong>Max / 24h</strong> caps how many run in a rolling day. Apply saves the row; the next cycle uses it.</p>
+        <p class="mt-1 text-sm text-muted-foreground">How much freedom {authState.isPlatformLevel() ? 'the intelligence has' : 'it has'} to act on what it finds. <strong>Watch</strong> only records the decision, <strong>Suggest</strong> puts it on {authState.isPlatformLevel() ? 'the opportunity board' : 'the decisions board'}, <strong>Ask</strong> queues every action for your sign-off, <strong>Alone</strong> executes without asking. <strong>Min confidence</strong> is the floor an action has to clear before any of that happens, and <strong>Max / 24h</strong> caps how many run in a rolling day. Apply saves the row; {authState.isPlatformLevel() ? 'the next cycle uses it' : 'the next run uses it'}.</p>
         <Show when={growthPolicy()} fallback={
           <Show when={overview.isFetching} fallback={
             <Show when={overview.data} fallback={
@@ -274,7 +276,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
       {/* Brain-dispatched worker runs */}
       <section class="mt-6 pt-4 border-t border-border">
         <div class="flex items-center justify-between gap-4">
-          <h3 class="text-sm font-semibold text-foreground">Worker runs</h3>
+          <h3 class="text-sm font-semibold text-foreground">{authState.isPlatformLevel() ? 'Worker runs' : 'AI job runs'}</h3>
           <Show when={overview.data}>
             <span class="text-muted-foreground text-sm flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-success-foreground" />

@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
 import { errorMessage } from '../lib/format'
 import type { OutreachCandidateView, BookingCandidateView } from '../lib/types'
@@ -78,7 +79,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
     <div class="flex items-center justify-between gap-4">
       <h3>Outreach pipeline</h3>
     </div>
-    <p class="text-muted-foreground text-sm">Candidate queues from the growth pipeline. The agent discovers communities and venues; you confirm which ones to pursue.</p>
+    <p class="text-muted-foreground text-sm">{authState.isPlatformLevel() ? 'Candidate queues from the growth pipeline. The agent discovers communities and venues; you confirm which ones to pursue.' : 'Candidates from the growth pipeline. It discovers communities and venues; you confirm which ones to pursue.'}</p>
     <TabBar
       active={tab()}
       onChange={setTab}
@@ -96,7 +97,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
       <>
       <Show when={booking.error}><ErrorCard>Booking pipeline unavailable: {errorMessage(booking.error, 'We couldn\'t reach the booking pipeline. Try refreshing.')}</ErrorCard></Show>
       <Show when={booking.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={booking.data!.length > 0} fallback={<EmptyState label="No booking candidates" hint="The intelligence scans for gig opportunities with computed economics. Candidates appear here when the detector finds viable shows." />}>
+        <Show when={booking.data!.length > 0} fallback={<EmptyState label="No booking candidates" hint={authState.isPlatformLevel() ? 'The intelligence scans for gig opportunities with computed economics. Candidates appear here when the detector finds viable shows.' : 'It scans for gig opportunities with worked-out economics. Candidates appear here when it finds viable shows.'} />}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -142,7 +143,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
       <>
       <Show when={outreach.error}><ErrorCard>Outreach pipeline unavailable: {errorMessage(outreach.error, 'We couldn\'t reach the outreach pipeline. Try refreshing.')}</ErrorCard></Show>
       <Show when={outreach.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={outreach.data!.length > 0} fallback={<EmptyState label="No outreach candidates" hint="Outreach candidates are fans or contacts the intelligence identified for engagement. They appear here when detectors raise them." />}>
+        <Show when={outreach.data!.length > 0} fallback={<EmptyState label="No outreach candidates" hint={authState.isPlatformLevel() ? 'Outreach candidates are fans or contacts the intelligence identified for engagement. They appear here when detectors raise them.' : 'Outreach candidates are fans or contacts it identified for engagement. They appear here when it raises them.'} />}>
           <Table>
             <TableHeader>
               <TableRow>

@@ -1,6 +1,7 @@
 import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
 import { SkeletonSignalOverview } from './Skeleton'
@@ -27,20 +28,20 @@ export function SignalOverviewPanel(props: { slug: string }) {
     </Show>
     <Show when={signal.error}>
       <SectionTitle title="App audience health" icon={<SectionIcon name="activity" />} />
-      <Alert tone="warning"><p>Signal overview unavailable: {signal.error instanceof Error ? signal.error.message : 'channel error'}</p></Alert>
+      <Alert tone="warning"><p>{authState.isPlatformLevel() ? 'Signal overview unavailable' : 'The app audience check could not run'}: {signal.error instanceof Error ? signal.error.message : 'channel error'}</p></Alert>
     </Show>
     <Show when={signal.data}>{data => <>
     <SectionTitle
       title="App audience health"
-      description="Aggregate-only view of Virya Signal fans, activity and top cities."
+      description={authState.isPlatformLevel() ? 'Aggregate-only view of Virya Signal fans, activity and top cities.' : 'A view of your Signal fans, activity and top cities.'}
       icon={<SectionIcon name="activity" />}
-      action={<StatusBadge status={data().unavailable_sources.length > 0 ? 'degraded' : 'healthy'} tone={data().unavailable_sources.length > 0 ? 'warn' : 'good'} />}
+      action={<StatusBadge status={data().unavailable_sources.length > 0 ? (authState.isPlatformLevel() ? 'degraded' : "couldn't check") : 'healthy'} tone={data().unavailable_sources.length > 0 ? 'warn' : 'good'} />}
     />
     <KpiStrip class="mb-0">
       <KpiCard label="Total fans" value={data().summary.total_fans.toLocaleString()} sub={`${data().summary.active_fans.toLocaleString()} active`} />
       <KpiCard label="Pending" value={data().summary.pending_fans.toLocaleString()} sub={`${data().summary.unsubscribed_fans.toLocaleString()} unsubscribed`} />
       <KpiCard label="Marketing opt-in" value={data().summary.marketing_opted_in.toLocaleString()} sub={`${data().summary.nearby_enabled.toLocaleString()} nearby`} />
-      <KpiCard label="Suppressed" value={data().summary.suppressed_fans.toLocaleString()} sub="preference-disabled" />
+      <KpiCard label={authState.isPlatformLevel() ? 'Suppressed' : 'Muted'} value={data().summary.suppressed_fans.toLocaleString()} sub={authState.isPlatformLevel() ? 'preference-disabled' : 'turned off'} />
       <KpiCard label="Organic new (7d)" value={data().activity.new_fans_7d.toLocaleString()} sub={`${data().activity.new_fans_30d.toLocaleString()} in 30d`} />
       <KpiCard label="Archive recovered" value={data().activity.archive_confirmed.toLocaleString()} sub={`of ${data().activity.archive_imported.toLocaleString()} imported`} />
       <KpiCard label="Referrals" value={data().activity.referral_attributions_total.toLocaleString()} sub={`${data().activity.referral_attributions_30d.toLocaleString()} in 30d`} />
@@ -53,7 +54,7 @@ export function SignalOverviewPanel(props: { slug: string }) {
         <For each={data().top_cities.slice(0, 6)}>{city => <KpiCard label={city.name} value={city.active_fans.toLocaleString()} sub={city.country_code} />}</For>
       </div>
     </Show>
-    <Show when={data().unavailable_sources.length > 0}><Alert tone="warning"><p>Unavailable sources: {data().unavailable_sources.join(', ')}</p></Alert></Show>
+    <Show when={data().unavailable_sources.length > 0}><Alert tone="warning"><p>{authState.isPlatformLevel() ? 'Unavailable sources' : 'Could not check'}: {data().unavailable_sources.join(', ')}</p></Alert></Show>
   </>}</Show>
   </>
 }
