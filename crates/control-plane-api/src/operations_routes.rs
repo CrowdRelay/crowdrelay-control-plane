@@ -121,6 +121,10 @@ pub fn router() -> Router<AppState> {
             get(list_north_star_options),
         )
         .route(
+            "/tenants/{slug}/portfolio/tenant-intents",
+            get(list_tenant_intent_options),
+        )
+        .route(
             "/tenants/{slug}/portfolio/settings/{setting_key}",
             post(update_portfolio_setting),
         )
@@ -137,6 +141,9 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/audience-graph/places/import",
             post(import_audience_places),
         )
+        // What the band should book next, and the yes that queues it (4G).
+        .route("/tenants/{slug}/gig-plan", get(gig_plan))
+        .route("/tenants/{slug}/gig-plan/approve", post(approve_gig_plan))
         .route(
             "/tenants/{slug}/portfolio/fanbases/{fanbase_id}",
             axum::routing::delete(delete_portfolio_fanbase),
@@ -528,8 +535,13 @@ fn idempotency_key(headers: &HeaderMap) -> Result<&str, ApiError> {
         .and_then(|value| value.to_str().ok())
         .map(str::trim)
         .filter(|value| {
+            // Mirrors upstream `validate_text_key`: visible ASCII except `"`
+            // and `\`, which would break the key's JSON round-trip into the
+            // stored payload.
             (8..=128).contains(&value.len())
-                && value.bytes().all(|byte| (b'!'..=b'~').contains(&byte))
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_graphic() && byte != b'"' && byte != b'\\')
         })
         .ok_or_else(|| ApiError::InvalidInput("valid Idempotency-Key is required".to_owned()))
 }
@@ -1031,6 +1043,27 @@ async fn list_north_star_options(
     )
     .await?;
     object_no_store(value, "north star options")
+}
+
+/// The intents a band may state, served from the planner's own vocabulary so
+/// the console never offers a value the planner would not recognise — the
+/// same reason the north-star list is proxied rather than copied.
+async fn list_tenant_intent_options(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/tenant-settings/intents",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "tenant intent options")
 }
 
 /// What a full autopilot cycle would decide right now. Read-only: nothing is
@@ -1990,6 +2023,92 @@ async fn import_audience_places(
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "audience graph place import")
+}
+
+/// One-off intent override for the plan read.
+///
+/// Typed rather than forwarded raw, for the same reason as
+/// [`AudiencePlacesQuery`]: the proxied path is matched against the proxy
+/// allowlist, so the query is rebuilt from named fields and nothing else can
+/// ride along.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GigPlanQuery {
+    intent: Option<String>,
+}
+
+/// What the band should book next — proposals with their reasons, the cities
+/// passed over with theirs, and the track record those reasons now carry.
+/// Read-only proxy to CrowdRelay's gig-plan read model.
+async fn gig_plan(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Query(query): Query<GigPlanQuery>,
+) -> Result<Response, ApiError> {
+    let path = match query.intent.as_deref().map(str::trim) {
+        Some(intent) if !intent.is_empty() => {
+            if intent.len() > 32
+                || !intent
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte == b'_')
+            {
+                return Err(ApiError::InvalidInput("invalid intent".to_owned()));
+            }
+            format!("/v1/control-plane/gig-plan?intent={intent}")
+        }
+        _ => "/v1/control-plane/gig-plan".to_owned(),
+    };
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "gig plan")
+}
+
+/// The band's yes to a proposal. The body names the city by catalogue id —
+/// a slug is only unique per country and an approval is the one place a
+/// wrong-city resolution cannot be afforded. The proposal itself is
+/// recomputed upstream so evidence that moved since the read wins.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ApproveGigPlanBody {
+    city_id: String,
+}
+
+async fn approve_gig_plan(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<ApproveGigPlanBody>,
+) -> Result<Response, ApiError> {
+    let city_id = body.city_id.trim();
+    if uuid::Uuid::parse_str(city_id).is_err() {
+        return Err(ApiError::InvalidInput("invalid city_id".to_owned()));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let payload = serde_json::json!({ "city_id": city_id });
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/gig-plan/approve",
+        Some(&payload),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.gig_proposal.approved",
+        "gig_proposal",
+        city_id,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(value, "gig plan approval")
 }
 
 async fn create_portfolio_fanbase(

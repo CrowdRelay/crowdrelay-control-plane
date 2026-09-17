@@ -20,6 +20,7 @@ const LABELS: Record<string, string> = {
   signal_enabled: 'Signal app',
   synesthesia_enabled: 'Synesthesia',
   north_star_metric: 'What the brain chases',
+  tenant_intent: 'What the band is doing',
   social_auto_post: 'Social auto-posting',
   growth_cadence_moments_per_month: 'Serious moments per month',
   growth_cadence_fillers_enabled: 'Filler calendar',
@@ -38,6 +39,11 @@ const BOOLEAN_KEYS = new Set(['signal_enabled', 'synesthesia_enabled', 'social_a
 // page shows this panel to the band, where "this tenant" is the wrong name
 // for their own act.
 const HINTS: Record<string, { hint: string; example: string; band?: string }> = {
+  tenant_intent: {
+    hint: "The tenant's stated focus — the gig planner reads it before proposing, and 'heads down' withholds every proposal.",
+    band: "What you are working on — the gig planner reads it before proposing, and 'heads down' withholds every proposal.",
+    example: 'booking_shows',
+  },
   member_site_base_url: {
     hint: 'Origin the fan-facing member links point at. Emails, Signal deep links and QR codes are all built from it.',
     example: 'https://future-metal.example',
@@ -106,6 +112,33 @@ export function PortfolioSettingsPanel(props: {
     staleTime: 10_000,
   }))
 
+  // Same discipline for the intent vocabulary: it lives in the Rust domain,
+  // so the picker asks rather than shipping a copy that can drift.
+  const intents = useQuery(() => ({
+    queryKey: ['tenant-intents', props.slug],
+    queryFn: () => api.tenantIntentOptions(props.slug),
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
+
+  // Enum keys render as a select over the server's own vocabulary — a
+  // free-text enum is a spelling test, and a typo in `tenant_intent` reads
+  // back as "unstated" upstream.
+  const enumOptions = (key: string): { value: string; label: string }[] | undefined => {
+    const options =
+      key === 'north_star_metric'
+        ? goals.data?.options.map(option => ({ value: option.value, label: northStarLabel(option) }))
+        : key === 'tenant_intent'
+          ? intents.data?.options.map(option => ({
+              value: option.value,
+              label: option.value.replaceAll('_', ' '),
+            }))
+          : undefined
+    // An empty list is no list — fall back to the input rather than render a
+    // select with nothing to select.
+    return options && options.length > 0 ? options : undefined
+  }
+
   const keys = createMemo(() => props.model?.editable_keys ?? [])
   const dirty = (key: string) =>
     drafts()[key] !== undefined && drafts()[key] !== props.model?.settings[key]
@@ -147,7 +180,7 @@ export function PortfolioSettingsPanel(props: {
             when={BOOLEAN_KEYS.has(key)}
             fallback={
               <Show
-                when={key === 'north_star_metric' && (goals.data?.options.length ?? 0) > 0}
+                when={enumOptions(key)}
                 fallback={
                   <Input
                     value={drafts()[key] ?? props.model?.settings[key] ?? ''}
@@ -157,14 +190,16 @@ export function PortfolioSettingsPanel(props: {
                   />
                 }
               >
-                <NativeSelect value={drafts()[key] ?? props.model?.settings[key] ?? ''}
-                  onChange={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
-                  {...writeGuard()}
-                >
-                  <For each={goals.data!.options}>{option =>
-                    <option value={option.value}>{northStarLabel(option)}</option>
-                  }</For>
-                </NativeSelect>
+                {options => (
+                  <NativeSelect value={drafts()[key] ?? props.model?.settings[key] ?? ''}
+                    onChange={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
+                    {...writeGuard()}
+                  >
+                    <For each={options()}>{option =>
+                      <option value={option.value}>{option.label}</option>
+                    }</For>
+                  </NativeSelect>
+                )}
               </Show>
             }
           >
@@ -177,6 +212,23 @@ export function PortfolioSettingsPanel(props: {
             </NativeSelect>
           </Show>
           <Show when={HINTS[key]}>{h => <small class="text-xs text-muted-foreground leading-relaxed">{h().band && !authState.isPlatformLevel() ? h().band : h().hint}<Show when={!BOOLEAN_KEYS.has(key) && key !== 'north_star_metric'}> Example: <code class="text-xs">{h().example}</code></Show></small>}</Show>
+          <Show when={key === 'tenant_intent'}>
+            {(() => {
+              const current = () => drafts()[key] ?? props.model?.settings[key] ?? ''
+              const option = () => intents.data?.options.find(o => o.value === current())
+              return <>
+                <Show when={option()?.description}>
+                  <small class="block text-xs leading-relaxed text-secondary-foreground">{option()?.description}</small>
+                </Show>
+                <Show when={option()?.withholdsProposals}>
+                  <small class="block text-xs leading-relaxed text-amber-400/90">
+                    This withholds every gig proposal until the intent changes back — the
+                    planner will refuse rather than book around it.
+                  </small>
+                </Show>
+              </>
+            })()}
+          </Show>
           {/* What the selected goal means, under the selector that chose it.
               The generic hint says what a north star is; this says what this
               one commits the brain to. */}

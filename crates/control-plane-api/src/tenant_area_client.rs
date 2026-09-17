@@ -483,6 +483,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/portfolio/amplification"
                     | "/v1/control-plane/tenant-settings"
                     | "/v1/control-plane/tenant-settings/north-stars"
+                    | "/v1/control-plane/tenant-settings/intents"
                     | "/v1/control-plane/fanbases"
                     | "/v1/control-plane/fanbases/connections"
                     | "/v1/control-plane/gdrive/contacts"
@@ -502,7 +503,11 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/events"
                     | "/v1/control-plane/audience-graph/places"
                     | "/v1/control-plane/autopilot/cycle/preview"
+                    // 4G.3: the band's gig plan — proposals, passed-over
+                    // cities and the reasons behind both.
+                    | "/v1/control-plane/gig-plan"
             ) || path.starts_with("/v1/control-plane/audience-graph/places?")
+                || path.starts_with("/v1/control-plane/gig-plan?")
                 || path.starts_with("/v1/control-plane/ops/outbox?")
                 || path.starts_with("/v1/control-plane/ops/deliveries?")
                 || path.starts_with("/v1/control-plane/ops/delivery-results?")
@@ -606,6 +611,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/signal-state",
                 )
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/beacons/", "/reply")
+                // Approving a gig proposal queues the outreach — the band's
+                // yes, carried through with its idempotency key (4G.4).
+                || path == "/v1/control-plane/gig-plan/approve"
                 // Creating a campaign: listed, launchable and closable before
                 // this, but never creatable through the proxy.
                 || path == "/v1/control-plane/autopilot/beacon-release-campaigns"
@@ -702,7 +710,12 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
 }
 
 pub(crate) fn valid_idempotency_key(value: &str) -> bool {
-    (8..=128).contains(&value.len()) && value.bytes().all(|byte| (b'!'..=b'~').contains(&byte))
+    // Mirrors upstream `IdempotencyKey::parse`: visible ASCII minus the two
+    // characters a JSON body would have to escape.
+    (8..=128).contains(&value.len())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_graphic() && byte != b'"' && byte != b'\\')
 }
 
 #[allow(clippy::too_many_arguments)]

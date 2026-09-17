@@ -2609,6 +2609,17 @@ export interface CycleRunResult {
 /// because it runs before a tenant exists, but every post-creation surface can
 /// ask, and asking is what keeps this from becoming a fourth copy of the
 /// vocabulary that drifts.
+/** One intent a band may state, in the planner's own vocabulary — proxied
+ *  rather than copied so the console cannot offer a value the planner would
+ *  not recognise. */
+export interface TenantIntentOption {
+  value: string
+  description: string
+  /** `heads_down` withholds every proposal — the console must say so at the
+   *  moment of choosing, not afterwards. */
+  withholdsProposals: boolean
+}
+
 export interface NorthStarOption {
   value: string
   label: string
@@ -3056,3 +3067,108 @@ export type CityVenueRow = {
   last_played_at: string | null
   next_show_at: string | null
 }
+
+/** Why the planner proposes this city — `GET /tenants/{slug}/gig-plan`.
+ *
+ *  Reasons are structured data, not sentences: the panel phrases each for a
+ *  person, and the outreach draft phrases it for a promoter, from the same
+ *  fields. The `kind` tag is the vocabulary the track record is scored in.
+ */
+export type GigPlanReason =
+  | { kind: 'comparable_acts_played_here'; count: number; of_shows: number }
+  | { kind: 'reachable_audience'; reachable: number }
+  | { kind: 'room_draws'; typical_draw: number }
+  | { kind: 'never_played_but_has_fans'; reachable: number }
+  | { kind: 'overdue_return'; months: number; active_30d: number }
+  | { kind: 'co_bill_adds_audience'; act: string; adds_reachable: number }
+  | { kind: 'warm_promoter'; name: string }
+  | { kind: 'room_is_active'; days_since_last_event: number }
+
+/** Who the proposal says the room is and what it reaches. */
+export type GigPlanProposal = {
+  /** The catalogue id — what an approval names. A slug is only unique per
+   *  country, so identity is the id and `city` is for reading. */
+  city_id: string
+  /** The catalogue slug. */
+  city: string
+  /** The name a person reads. */
+  city_name: string
+  venue: string
+  /** Who to write to, strongest relationship first. */
+  contact: string[]
+  /** Acts worth asking onto the bill — asking, never announcing. */
+  invite_to_bill: string[]
+  reasons: GigPlanReason[]
+  reach: {
+    reachable: number
+    added_by_co_bill: number
+    /** Null is unmeasured, not zero. */
+    room_typical_draw: number | null
+    basis: string
+  }
+  fits_intent: string
+  /** What the planner knows it does not know — read before approving. */
+  caveats: string[]
+}
+
+/** One city that produced no proposal, with the sentence explaining it. */
+export type GigPlanPassedOver = {
+  /** The catalogue id — slug is only unique per country. */
+  city_id: string
+  city: string
+  city_name: string
+  reason: string
+  /** A ready-to-paste research prompt when research would change the answer
+   *  (4G.6); absent when nothing missing is a fact somebody could go find. */
+  research_brief: string | null
+}
+
+/** One approved proposal and what it has produced so far. */
+export type GigPlanOutcome = {
+  /** The catalogue id of the proposed city. */
+  city_id: string
+  city: string
+  city_name: string
+  venue: string
+  approved_at: string
+  /** The action's own status — `queued` may mean parked on a missing
+   *  executor; a score exists only once the letter left. */
+  action_status: string
+  recipients: number
+  replies: number
+  /** Reply windows still open — the proposal is in flight, not failed. */
+  unfinished_measurements: number
+  /** A real show appeared in the city after the approval. */
+  show_booked: boolean
+  reasons: GigPlanReason[]
+}
+
+/** Per reason kind, over settled proposals only. */
+export type GigPlanReasonScore = {
+  kind: string
+  proposals: number
+  replies: number
+  shows: number
+}
+
+export type GigPlanResponse = {
+  proposals: GigPlanProposal[]
+  passed_over: GigPlanPassedOver[]
+  cities_considered: number
+  /** The intent the plan was made under — the band's word or the override. */
+  intent: string
+  /** False means the visible plan came from a one-off override, not the
+   *  stored intent — the panel says so rather than letting it look stored. */
+  intent_is_stored: boolean
+  track_record: {
+    proposals: GigPlanOutcome[]
+    by_reason: GigPlanReasonScore[]
+  }
+}
+
+/** The answer to an approval — untagged upstream, so the variant is told by
+ *  which fields are present. `refused` is a real answer, not an error. */
+export type GigPlanApproval =
+  | { action_id: string; city: string; venue: string; recipients: string[]; opening_line: string }
+  | { action_id: string; status: string }
+  | { refused: string }

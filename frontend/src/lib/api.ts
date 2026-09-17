@@ -1,4 +1,4 @@
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AgentScorecard, MeasurementLedger, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationRoutingItem, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, ChatAction, CommunityItem, CommunityObservationItem, CommunityEntityItem, CommunityIntroDraft, CommandCenterReadModel, ConnectionCreationResult, ContentPipeline, ContentSourceUpsertInput, ContentSourceView, DeliveryDetails, DeliveryItem, DeliveryResult, DiscoveredEndpoint, DriveContactsResponse, FanbaseConnection, FeatureFlag, GrowthFunnelData, NotifierChannel, OperationTimeline, OperatorAccount, OutboxItem, Palette, PlatformConfigItem, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, FanDetail, FanJourneyEntry, SegmentPreview, AudienceReadModel, PressOverviewReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TenantShowsResponse, TenantShowTimelineResponse, TenantShowScanResponse, TenantShowReportResponse, TourEconomicsSummary, AutopilotChiefOfStaff, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, BeaconImportResult, NotifiersOverview, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, LearningProof, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput, BeaconUpsertInput, AgentTasksOverview, AgentProvidersOverview, CommunityDetail, ScanScope, BandListing, ListingState, AttestationSummary, IssuedAttestationResult, RepresentationTargetsResponse, RepresentationTargetInput, ApproachRequestResult, CityFunnelRow, CityVenueRow } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AgentScorecard, MeasurementLedger, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationRoutingItem, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, ChatAction, CommunityItem, CommunityObservationItem, CommunityEntityItem, CommunityIntroDraft, CommandCenterReadModel, ConnectionCreationResult, ContentPipeline, ContentSourceUpsertInput, ContentSourceView, DeliveryDetails, DeliveryItem, DeliveryResult, DiscoveredEndpoint, DriveContactsResponse, FanbaseConnection, FeatureFlag, GrowthFunnelData, NotifierChannel, OperationTimeline, OperatorAccount, OutboxItem, Palette, PlatformConfigItem, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, FanDetail, FanJourneyEntry, SegmentPreview, AudienceReadModel, PressOverviewReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TenantShowsResponse, TenantShowTimelineResponse, TenantShowScanResponse, TenantShowReportResponse, TourEconomicsSummary, AutopilotChiefOfStaff, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, BeaconImportResult, NotifiersOverview, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, LearningProof, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput, BeaconUpsertInput, AgentTasksOverview, AgentProvidersOverview, CommunityDetail, ScanScope, BandListing, ListingState, AttestationSummary, IssuedAttestationResult, RepresentationTargetsResponse, RepresentationTargetInput, ApproachRequestResult, CityFunnelRow, CityVenueRow, GigPlanResponse, GigPlanApproval, TenantIntentOption } from './types'
 
 export class ApiError extends Error {
   constructor(
@@ -576,6 +576,31 @@ export const api = {
     ),
   cityVenues: (slug: string) =>
     request<CityVenueRow[]>(`/tenants/${encodeURIComponent(slug)}/audience/city-venues`),
+  // What the band should book next — the proposals, the cities passed over
+  // with the reason each one is not a proposal, and the track record those
+  // reasons now carry. `intent` is a one-off override ("what if we were
+  // booking?"); absent, the stored intent speaks.
+  gigPlan: (slug: string, intent?: string) =>
+    request<GigPlanResponse>(
+      `/tenants/${encodeURIComponent(slug)}/gig-plan${intent ? `?intent=${encodeURIComponent(intent)}` : ''}`,
+    ),
+  // The band's yes to one proposal. The key makes a retried click the same
+  // approval rather than a second letter to the same promoters.
+  // The key is the caller's, not minted here: an approval retried after a
+  // timeout — where the server may already have committed — must carry the
+  // same key or it lands as a second letter to the same promoters.
+  approveGigPlan: (slug: string, cityId: string, idempotencyKey: string) =>
+    request<GigPlanApproval>(`/tenants/${encodeURIComponent(slug)}/gig-plan/approve`, {
+      method: 'POST',
+      headers: { 'idempotency-key': idempotencyKey },
+      body: JSON.stringify({ cityId }),
+    }),
+  // The intents a band may state, from the planner's own vocabulary (the same
+  // reason the north-star list is proxied rather than copied).
+  tenantIntentOptions: (slug: string) =>
+    request<{ options: TenantIntentOption[] }>(
+      `/tenants/${encodeURIComponent(slug)}/portfolio/tenant-intents`,
+    ),
 
   // --- Growth Metrics, Objectives, Posture ---
   growthMetricCoverage: (slug: string) =>
