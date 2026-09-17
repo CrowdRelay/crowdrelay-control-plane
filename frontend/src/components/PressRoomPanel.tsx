@@ -6,7 +6,6 @@ import { errorMessage, formatTimestamp, relativeTime } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { TabBar, ErrorCard } from './layout'
-import { Card } from './app/card'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
@@ -141,13 +140,13 @@ export function PressRoomPanel(props: { slug: string }) {
     )
   }
 
-  return <Card flat>
-    <div class="flex items-center justify-between gap-4">
-      <h3 class="text-sm font-semibold text-foreground">Press room</h3>
-      <Show when={model.dataUpdatedAt}><span class="text-xs text-muted-foreground">Updated {relativeTime(model.dataUpdatedAt)}</span></Show>
+  return <div class="space-y-4">
+    <div class="flex items-start justify-between gap-4">
+      <p class="text-sm text-muted-foreground">Requests from beacons, assets for distribution, event engagements and earned coverage.</p>
+      <Show when={model.dataUpdatedAt}><span class="shrink-0 text-xs text-muted-foreground">Updated {relativeTime(model.dataUpdatedAt)}</span></Show>
     </div>
-    <p class="mt-1 text-sm text-muted-foreground">Press requests from beacons, press assets for distribution, event engagements, and earned media coverage.</p>
     <TabBar
+      class="mb-0"
       active={tab()}
       onChange={setTab}
       tabs={[
@@ -395,5 +394,5 @@ export function PressRoomPanel(props: { slug: string }) {
         </Show>
       </Show>
     </Show>
-  </Card>
+  </div>
 }

@@ -1,5 +1,4 @@
 import { For, Show, createSignal } from 'solid-js'
-import { PanelTitle } from './layout'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -10,7 +9,7 @@ import type { ReplyTriageEntry } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonReplyTriage } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
-import { Card } from './app/card'
+import { Metric, MetricRow } from './ui/metric'
 import { Button } from './app/button'
 
 const timeAgo = (value: string | null | undefined) => {
@@ -66,12 +65,9 @@ export function ReplyTriagePanel() {
   const [showAllRecentAuto, setShowAllRecentAuto] = createSignal(false)
   const MAX_VISIBLE = 10
 
-  return <Card flat>
-    <div class="flex items-start justify-between gap-4 mb-3">
-      <div>
-        <PanelTitle icon={<SectionIcon name="inbox" />}>Replies needing a human</PanelTitle>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Inbound replies the classifier could not resolve automatically. Read the text, then decide.</p>
-      </div>
+  return <div class="space-y-4">
+    <div class="flex items-start justify-between gap-4">
+      <p class="text-sm text-muted-foreground">Inbound replies the classifier could not resolve on its own. Read the text, then decide.</p>
       <Show when={data()}>
         <StatusBadge
           status={data()!.summary.needs_human_count > 0 ? `${data()!.summary.needs_human_count} waiting` : 'clear'}
@@ -89,38 +85,21 @@ export function ReplyTriagePanel() {
     <Show when={!model.error && model.isPending}><SkeletonReplyTriage /></Show>
 
     <Show when={data()}>{d => <>
-      {/* Summary */}
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-        <div>
-          <span class="block text-muted-foreground text-sm">Needs human</span>
-          <strong class="block my-1.5 text-foreground">{d().summary.needs_human_count}</strong>
-          <small class="block text-muted-foreground text-sm">awaiting review</small>
-        </div>
-        <div>
-          <span class="block text-muted-foreground text-sm">Auto positive</span>
-          <strong class="block my-1.5 text-foreground">{d().summary.auto_positive_count}</strong>
-          <small class="block text-success-foreground text-sm">classified</small>
-        </div>
-        <div>
-          <span class="block text-muted-foreground text-sm">Auto declined</span>
-          <strong class="block my-1.5 text-foreground">{d().summary.auto_declined_count}</strong>
-          <small class="block text-warning-foreground text-sm">classified</small>
-        </div>
-        <div>
-          <span class="block text-muted-foreground text-sm">Auto DNC</span>
-          <strong class="block my-1.5 text-foreground">{d().summary.auto_do_not_contact_count}</strong>
-          <small class="block text-destructive text-sm">classified</small>
-        </div>
+      {/* Summary: the same metric rail every page uses. The word "classified"
+          used to be coloured green, orange and red under three static labels,
+          which read as three states when it was one word. */}
+      <MetricRow min="9rem">
+        <Metric label="Needs a human" value={d().summary.needs_human_count} tone={d().summary.needs_human_count > 0 ? 'warn' : 'default'} sub="awaiting review" />
+        <Metric label="Auto positive" value={d().summary.auto_positive_count} sub="classified" />
+        <Metric label="Auto declined" value={d().summary.auto_declined_count} sub="classified" />
+        <Metric label="Do not contact" value={d().summary.auto_do_not_contact_count} sub="classified" />
         <Show when={d().summary.pending_count > 0}>
-          <div class="flex flex-wrap gap-2 col-span-full p-3 border border-warning-foreground rounded-md bg-card text-warning-foreground">
-            <strong class="text-foreground">Pending</strong>
-            <span class="text-sm text-secondary-foreground">{d().summary.pending_count} reply(ies) queued for classification</span>
-          </div>
+          <Metric label="Pending" value={d().summary.pending_count} tone="warn" sub="queued for classification" />
         </Show>
-      </div>
+      </MetricRow>
 
       {/* Needs human */}
-      <section class="mt-6 pt-4 border-t border-border">
+      <section class="pt-2">
         <div class="flex justify-between gap-4 items-start">
           <div><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="mail" />Read these</h3></div>
         </div>
@@ -141,7 +120,7 @@ export function ReplyTriagePanel() {
 
       {/* Recent auto */}
       <Show when={d().recent_auto.length > 0}>
-        <section class="mt-6 pt-4 border-t border-border">
+        <section class="pt-4 border-t border-border">
           <div class="flex justify-between gap-4 items-start">
             <div><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="zap" />Classified without a human</h3></div>
           </div>
@@ -156,7 +135,7 @@ export function ReplyTriagePanel() {
         </section>
       </Show>
     </>}</Show>
-  </Card>
+  </div>
 }
 
 function ReplyRow(props: { entry: ReplyTriageEntry; slug: string; actionable?: boolean }) {

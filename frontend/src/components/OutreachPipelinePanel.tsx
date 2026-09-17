@@ -7,7 +7,6 @@ import type { OutreachCandidateView, BookingCandidateView } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { TabBar, ErrorCard } from './layout'
-import { Card } from './app/card'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
@@ -74,16 +73,16 @@ export function OutreachPipelinePanel(props: { slug: string }) {
     }
   }
 
-  return <Card flat>
-    <div class="flex items-center justify-between gap-4">
-      <h3>Outreach pipeline</h3>
-    </div>
-    <p class="text-muted-foreground text-sm">Candidate queues from the growth pipeline. The agent discovers communities and venues; you confirm which ones to pursue.</p>
+  return <div class="space-y-4">
+    <p class="text-sm text-muted-foreground">The agent discovers communities and venues; you confirm which ones to pursue.</p>
     <TabBar
+      class="mb-0"
       active={tab()}
       onChange={setTab}
       tabs={[
-        { id: 'outreach', label: 'Outreach', count: () => outreach.data?.length ?? 0 },
+        // The page tab above is already called Outreach; the queue inside it
+        // is the contacts the agent raised.
+        { id: 'outreach', label: 'Contacts', count: () => outreach.data?.length ?? 0 },
         { id: 'booking', label: 'Booking', count: () => booking.data?.length ?? 0 },
       ]}
     />
@@ -187,5 +186,5 @@ export function OutreachPipelinePanel(props: { slug: string }) {
       </Show>
       </>
     </Show>
-  </Card>
+  </div>
 }
