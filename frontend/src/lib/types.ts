@@ -2910,3 +2910,56 @@ export type ApproachRequestResult = {
   action_id: string
   status: string
 }
+
+/** One city in the tenant's own funnel — `GET /tenants/{slug}/audience/city-funnel`.
+ *
+ *  Every count is a real count. `months_since_show` is null when the band has
+ *  never played there, which is different from having played there a long time
+ *  ago, and the panel renders those two differently on purpose.
+ */
+export type CityFunnelRow = {
+  city_slug: string
+  city_name: string
+  country_code: string
+  region: string | null
+  fans: number
+  new_30d: number
+  active_30d: number
+  consented: number
+  /** The funnel's own threshold for "there are enough people here to play to". */
+  bookable: boolean
+  /** Consented fans inside the radius they chose — who we could actually tell. */
+  reachable: number
+  venues: number
+  promoters: number
+  festivals: number
+  last_show_at: string | null
+  next_show_at: string | null
+  /** Null means never played here, not "played here zero months ago". */
+  months_since_show: number | null
+  /** `domain::place::organise_score` in basis points. A city with a booked
+   *  forward show scores 0 — it is not a gap. */
+  organise_score_bp: number
+}
+
+/** One room in the shared venue registry — `GET /tenants/{slug}/audience/city-venues`.
+ *
+ *  Aggregated across every tenant that has played it. `contributors` is a
+ *  count and never names anybody, and `typical_draw` is null rather than 0
+ *  when no marked show sold tickets through us: an unticketed night is
+ *  unmeasurable, not empty.
+ */
+export type CityVenueRow = {
+  venue_id: string
+  display_name: string
+  city_slug: string
+  city_name: string
+  country_code: string
+  shows_played: number
+  shows_booked: number
+  contributors: number
+  typical_draw: number | null
+  repeat_attenders: number
+  last_played_at: string | null
+  next_show_at: string | null
+}

@@ -11,6 +11,7 @@ import { PortfolioSettingsPanel } from '../components/PortfolioSettingsPanel'
 import { RedditCookieUploader } from '../components/RedditCookieUploader'
 import { SegmentPanel } from '../components/SegmentPanel'
 import { DriveContactsPanel } from '../components/DriveContactsPanel'
+import { PlacesPanel } from '../components/PlacesPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
@@ -55,7 +56,7 @@ function DegradedSections(props: { degraded: string[]; labels: Record<string, st
 
 export function AudiencePage() {
   const params = useParams({ from: '/tenants/$slug/audience' })
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('fans', ['fans', 'sources', 'contacts', 'communities', 'portfolio'])
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('fans', ['fans', 'places', 'sources', 'contacts', 'communities', 'portfolio'])
   const model = useQuery(() => ({
     queryKey: ['tenant-audience', params().slug],
     queryFn: () => api.audienceModel(params().slug),
@@ -92,6 +93,12 @@ export function AudiencePage() {
       onPrefetch={prefetch}
       tabs={[
         { id: 'fans', label: 'Fans' },
+        // Place sits next to Fans because it is the same question asked
+        // geographically — where the people already are, and what rooms are
+        // near them. It is not an operation you run, so it does not belong on
+        // Operations, and it is not a report, so it does not belong on
+        // Intelligence.
+        { id: 'places', label: 'Places' },
         { id: 'sources', label: 'Sources' },
         { id: 'contacts', label: 'Contacts' },
         { id: 'communities', label: 'Communities' },
@@ -124,6 +131,11 @@ export function AudiencePage() {
           <SegmentPanel slug={params().slug} segments={data.segments ?? []} />
         </Show>
       </>}</Show>
+    </TabPanel>
+
+    {/* ── Places tab — cities and the rooms in them ── */}
+    <TabPanel active={activeTab()} id="places" visited={isVisited('places')}>
+      <PlacesPanel slug={params().slug} />
     </TabPanel>
 
     {/* ── Sources tab — where the fans come from (merged from Portfolio) ── */}
