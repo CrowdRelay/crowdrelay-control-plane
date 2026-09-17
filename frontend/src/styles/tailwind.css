@@ -258,15 +258,6 @@
   [data-fresh] { animation: metric-fresh 220ms ease-out both; }
   @keyframes metric-fresh { from { opacity: 0.25; } }
 
-  /* Command palette: descendant hooks CommandPalette.tsx relies on. */
-  .cmdk-list { overflow-y: auto; overscroll-behavior: contain; @apply p-2; }
-  .cmdk-item.danger:not(.armed) .cmdk-label::after { content: " ⚠"; @apply text-warning-foreground; }
-  .cmdk-item.armed .cmdk-label { @apply font-bold; }
-  .cmdk-label { @apply min-w-0 flex-1 truncate; }
-  .cmdk-foot { @apply flex items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground; }
-  .cmdk-foot kbd { @apply rounded-sm border bg-muted px-1 font-mono text-xs; }
-  .cmdk-list .cmdk-item.danger:not(:last-child) { @apply mb-1; }
-
   .provider-icon { @apply shrink-0 border bg-muted; }
   .nav-icon { @apply shrink-0 opacity-65; }
 
