@@ -41,6 +41,9 @@ function MeasureValue(props: { measure: Measure; claimKey?: string }) {
       if (value.state === 'minutes') {
         return <span class="tabular-nums">median {value.median.toFixed(1)} min over {value.n}</span>
       }
+      if (value.state === 'days') {
+        return <span class="tabular-nums">median {value.median.toFixed(1)} days over {value.n}</span>
+      }
       return <>
         <span class="text-muted-foreground">not measurable yet</span>
         <span class="block text-xs text-muted-foreground">{value.reason}</span>

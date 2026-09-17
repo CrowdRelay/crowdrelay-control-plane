@@ -973,6 +973,7 @@ export type Measure =
   | { state: 'below_floor'; numerator: number; denominator: number; floor: number }
   | { state: 'count'; value: number; unit: string }
   | { state: 'minutes'; median: number; n: number }
+  | { state: 'days'; median: number; n: number }
   | { state: 'unmeasured'; reason: string }
 
 export type MeasurementBreakdown = {
