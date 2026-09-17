@@ -1,163 +1,159 @@
-import { For, Show, createSignal } from 'solid-js'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
-import { Link } from '@tanstack/solid-router'
-import { Checkbox as KobalteCheckbox } from '@kobalte/core/checkbox'
-import { Check } from 'lucide-solid'
+import { For, Show, createMemo, createSignal } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
+import { Link, useNavigate } from '@tanstack/solid-router'
+import { ChevronRight, Plus, Search } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { SkeletonRows } from '../components/Skeleton'
-import type { RegionalProfile } from '../lib/types'
-import { StatusBadge } from '../components/StatusBadge'
+import { errorMessage, formatIsoAge } from '../lib/format'
 import { healthLabel, healthTone } from '../lib/health-tone'
-import { Spinner } from '../components/Spinner'
-import { ErrorCard, PageHeader, PageShell, PanelTitle } from '../components/layout'
-import { Button } from '../components/app/button'
-import { Input } from '../components/ui/input'
-import { NativeSelect } from '../components/ui/native-select'
-import { Field, FieldGrid } from '../components/ui/field'
+import type { TenantSummary } from '../lib/types'
+import { StatusBadge } from '../components/StatusBadge'
+import { ErrorCard, PageHeader, PageShell } from '../components/layout'
 import { buttonVariants } from '../components/app/button'
+import { Card, CardContent } from '../components/app/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/app/table'
+import { Input } from '../components/ui/input'
+import { Skeleton } from '../components/ui/skeleton'
+import { EmptyState } from '../components/ui/empty-state'
 
-// Rich-label checkbox composes the Kobalte primitive (ui/checkbox's label
-// prop is string-only); control styling mirrors ui/checkbox.tsx.
-const checkboxControl =
-  'peer mt-1 h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background ' +
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ' +
-  'data-[checked]:bg-primary data-[checked]:text-primary-foreground'
+// The registry: one row per tenant, the columns an operator scans before
+// opening one. Creating a tenant is the wizard's job (/tenants/new), so this
+// page only lists.
 
-type Preset = 'PL' | 'DE' | 'CZ' | 'US'
-const presets: Record<Preset, RegionalProfile> = {
-  PL: { countryCode:'PL', region:'eu', locale:'pl-PL', timezone:'Europe/Warsaw', currency:'PLN', dateFormat:'dmy', numberFormat:'comma_decimal', dataRegion:'eu' },
-  DE: { countryCode:'DE', region:'eu', locale:'de-DE', timezone:'Europe/Berlin', currency:'EUR', dateFormat:'dmy', numberFormat:'comma_decimal', dataRegion:'eu' },
-  CZ: { countryCode:'CZ', region:'eu', locale:'cs-CZ', timezone:'Europe/Prague', currency:'CZK', dateFormat:'dmy', numberFormat:'comma_decimal', dataRegion:'eu' },
-  // The US spans multiple time zones. Never hide a New York assumption here.
-  US: { countryCode:'US', region:'us', locale:'en-US', timezone:'', currency:'USD', dateFormat:'mdy', numberFormat:'dot_decimal', dataRegion:'us' },
-}
-const freshProfile = () => ({ ...presets.PL })
+const statusTone = (status: TenantSummary['status']) =>
+  status === 'active' ? 'good' : status === 'suspended' ? 'bad' : 'warn'
+
+const region = (t: TenantSummary) =>
+  t.regionalProfile ? `${t.regionalProfile.locale} · ${t.regionalProfile.timezone || 'no timezone'}` : null
 
 export function TenantsPage() {
-  const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, reconcile: 'id', staleTime: 15_000, refetchOnWindowFocus: false }))
-  const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview, reconcile: 'id', staleTime: 30_000, refetchOnWindowFocus: false }))
   const isPlatformLevel = () => authState.isPlatformLevel()
   const isAdmin = () => authState.isAdmin()
-  const [creating, setCreating] = createSignal(false)
-  const [slug, setSlug] = createSignal('')
-  const [name, setName] = createSignal('')
-  const [crowdrelayBaseUrl, setCrowdrelayBaseUrl] = createSignal('')
-  const [signalBaseUrl, setSignalBaseUrl] = createSignal('')
-  const [profile, setProfile] = createSignal<RegionalProfile>(freshProfile())
-  const [desiredVersion, setDesiredVersion] = createSignal('')
-  const [deployNow, setDeployNow] = createSignal(true)
-  const [opUsername, setOpUsername] = createSignal('')
-  const [opPassword, setOpPassword] = createSignal('')
-  const [notice, setNotice] = createSignal<string | null>(null)
 
-  const applyPreset = (preset: Preset) => setProfile({ ...presets[preset] })
-  const setRegional = <K extends keyof RegionalProfile>(key: K, value: RegionalProfile[K]) =>
-    setProfile(current => ({ ...current, [key]: value }))
-  const resetForm = () => {
-    setSlug(''); setName(''); setCrowdrelayBaseUrl(''); setSignalBaseUrl('')
-    setProfile(freshProfile()); setDesiredVersion(''); setDeployNow(true)
-    setOpUsername(''); setOpPassword('')
-  }
-
-  const createTenant = useMutation(() => ({
-    mutationFn: () => api.createTenant({
-      slug: slug(), displayName: name(),
-      crowdrelayBaseUrl: crowdrelayBaseUrl() || undefined,
-      signalBaseUrl: signalBaseUrl() || undefined,
-      defaultCountryCode: profile().countryCode,
-      regionalProfile: profile(),
-      deployCrowdrelay: deployNow(),
-      desiredVersion: deployNow() ? desiredVersion() || undefined : undefined,
-      initialOperator: opUsername().trim() && opPassword() ? { username: opUsername().trim(), password: opPassword() } : undefined,
-    }),
-    onSuccess: async (tenant) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['tenants'] }),
-        queryClient.invalidateQueries({ queryKey: ['overview'] }),
-      ])
-      setCreating(false)
-      setNotice(opUsername().trim()
-        ? `${tenant.displayName} created${deployNow() ? ' with a queued CrowdRelay deployment' : ''}. Operator “${opUsername().trim()}” can sign in and sees only this tenant.`
-        : deployNow()
-          ? `${tenant.displayName} created. Regional profile is persisted and CrowdRelay deployment is queued atomically.`
-          : `${tenant.displayName} created without deployment.`)
-      resetForm()
-    },
-  }))
-
-  const operatorFieldsReady = () => !opUsername().trim() && !opPassword()
-    || (/^[a-z0-9][a-z0-9-_.]{2,31}$/.test(opUsername().trim()) && opPassword().length >= 12)
-
-  const regionalReady = () => profile().countryCode.length === 2
-    && profile().locale.trim().length >= 4
-    && profile().timezone.includes('/')
-    && profile().currency.length === 3
-  const deployFieldsReady = () => !deployNow() || (
-    overview.data?.provisionerConfigured === true
-    && crowdrelayBaseUrl().startsWith('https://')
-    && signalBaseUrl().startsWith('https://')
-    && (desiredVersion().trim().length > 0 || Boolean(overview.data?.provisionerDefaultImageTag))
-  )
+  const [search, setSearch] = createSignal('')
+  const items = createMemo(() => tenants.data?.items ?? [])
+  const visible = createMemo(() => {
+    const q = search().trim().toLowerCase()
+    if (!q) return items()
+    return items().filter(t => t.displayName.toLowerCase().includes(q) || t.slug.toLowerCase().includes(q))
+  })
+  const open = (slug: string) => navigate({ to: '/tenants/$slug', params: { slug } })
 
   return <PageShell>
-    {/* A <button> inside an <a> nests one interactive control in another:
-        screen readers announce both, and the anchor is what actually
-        navigates. The link carries the button treatment instead. */}
     <PageHeader
-      eyebrow="TENANT REGISTRY"
-      title={isPlatformLevel() ? 'Teams on the platform' : 'Your tenant'}
+      title={isPlatformLevel() ? 'Tenants' : 'Your tenant'}
       description={isPlatformLevel()
-        ? 'Create an isolated CrowdRelay + Signal tenant with an explicit regional profile.'
-        : 'Your tenant on the platform. Regional profile, runtime health and deployment state.'}
-      actions={<Show when={isAdmin()}><Link class={buttonVariants()} to="/tenants/new">+ New tenant</Link></Show>}
+        ? 'Every team on the platform, with its status, runtime health and region.'
+        : 'Your team on the platform: status, runtime health and region.'}
+      actions={
+        <Show when={isAdmin()}>
+          <Link to="/tenants/new" class={buttonVariants({ size: 'sm' })}>
+            <Plus aria-hidden="true" /> New tenant
+          </Link>
+        </Show>
+      }
     />
 
-    <Show when={notice()}>{message => <div class="rounded-lg border border-border bg-background p-4 text-sm text-foreground">{message()}</div>}</Show>
-    <Show when={tenants.error || overview.error}><ErrorCard>{tenants.error instanceof Error ? tenants.error.message : overview.error instanceof Error ? overview.error.message : 'Control Plane data could not be loaded'}</ErrorCard></Show>
-    <Show when={isAdmin() && creating()}>
-      <form class="rounded-lg border border-border bg-card p-5 space-y-5" onSubmit={(event) => { event.preventDefault(); createTenant.mutate() }}>
-        <div class="flex items-center justify-between gap-2"><div><PanelTitle>Identity + region</PanelTitle></div><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></div>
-        <FieldGrid min="220px">
-          <Field label="Slug"><Input value={slug()} onInput={(e) => setSlug(e.currentTarget.value.toLowerCase())} placeholder="future-metal" autocomplete="off" maxlength="60" /></Field>
-          <Field label="Display name"><Input value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="Future Metal" maxlength="120" /></Field>
-          <Field label="Regional preset" hint="Fills fields below; can be overridden."><NativeSelect onChange={e=>applyPreset(e.currentTarget.value as Preset)}><option value="PL">Poland</option><option value="DE">Germany</option><option value="CZ">Czechia</option><option value="US">United States</option></NativeSelect></Field>
-          <Field label="Country"><Input maxlength="2" value={profile().countryCode} onInput={e=>setRegional('countryCode',e.currentTarget.value.toUpperCase())}/></Field>
-          <Field label="Locale"><Input value={profile().locale} onInput={e=>setRegional('locale',e.currentTarget.value)} placeholder="de-DE"/></Field>
-          <Field label="Timezone" hint={profile().countryCode === 'US' ? 'Required: US preset has no hidden timezone default.' : 'Explicit timezone.'}><Input value={profile().timezone} onInput={e=>setRegional('timezone',e.currentTarget.value)} placeholder={profile().countryCode === 'US' ? 'America/Chicago (choose explicitly)' : 'Europe/Berlin'}/></Field>
-          <Field label="Currency"><Input maxlength="3" value={profile().currency} onInput={e=>setRegional('currency',e.currentTarget.value.toUpperCase())}/></Field>
-          <Field label="Market region"><NativeSelect value={profile().region} onChange={e=>setRegional('region',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></NativeSelect></Field>
-          <Field label="Data residency" hint="Cannot be changed after deployment."><NativeSelect value={profile().dataRegion} onChange={e=>setRegional('dataRegion',e.currentTarget.value as 'eu'|'us')}><option value="eu">EU</option><option value="us">US</option></NativeSelect></Field>
-          <Field label="Date format"><NativeSelect value={profile().dateFormat} onChange={e=>setRegional('dateFormat',e.currentTarget.value as RegionalProfile['dateFormat'])}><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">YYYY-MM-DD</option></NativeSelect></Field>
-          <Field label="Number format"><NativeSelect value={profile().numberFormat} onChange={e=>setRegional('numberFormat',e.currentTarget.value as RegionalProfile['numberFormat'])}><option value="comma_decimal">1 234,56</option><option value="dot_decimal">1,234.56</option></NativeSelect></Field>
-          <Field label="CrowdRelay API base URL"><Input value={crowdrelayBaseUrl()} onInput={(e) => setCrowdrelayBaseUrl(e.currentTarget.value)} placeholder="https://api.future-metal.example" /></Field>
-          <Field label="Signal / public site URL"><Input value={signalBaseUrl()} onInput={(e) => setSignalBaseUrl(e.currentTarget.value)} placeholder="https://future-metal.example" /></Field>
-          <Field label="Release SHA" hint="optional if server default is configured"><Input value={desiredVersion()} onInput={(e) => setDesiredVersion(e.currentTarget.value)} placeholder={overview.data?.provisionerDefaultImageTag ?? 'sha-<40-char CrowdRelay commit>'} /></Field>
-        </FieldGrid>
-        <div class="flex items-center justify-between gap-2"><div><PanelTitle>First account for the team</PanelTitle></div></div>
-        <FieldGrid min="220px">
-          <Field label="Operator username" hint="Optional. Sees only this tenant; leave blank to skip."><Input value={opUsername()} onInput={(e) => setOpUsername(e.currentTarget.value.toLowerCase())} placeholder="future-metal-op" autocomplete="off" /></Field>
-          <Field label="Operator password" hint="Hashed securely, never shown again."><Input type="password" value={opPassword()} onInput={(e) => setOpPassword(e.currentTarget.value)} placeholder="min 12 characters" autocomplete="new-password" /></Field>
-        </FieldGrid>
-        <KobalteCheckbox checked={deployNow()} onChange={setDeployNow} class="flex items-start gap-3 cursor-pointer">
-          <KobalteCheckbox.Input class="sr-only" />
-          <KobalteCheckbox.Control class={checkboxControl}>
-            <KobalteCheckbox.Indicator class="flex items-center justify-center text-current"><Check class="h-3.5 w-3.5" /></KobalteCheckbox.Indicator>
-          </KobalteCheckbox.Control>
-          <span><strong>Deploy isolated CrowdRelay instance now</strong><small class="block text-muted-foreground">Only an agent for the selected data region may claim this job.</small></span>
-        </KobalteCheckbox>
-        <Show when={createTenant.error}><ErrorCard>{createTenant.error instanceof Error ? createTenant.error.message : 'Tenant creation failed'}</ErrorCard></Show>
-        <div class="flex justify-end gap-2"><Button variant="ghost" size="sm" type="button" onClick={() => { setCreating(false); resetForm() }}>Cancel</Button><Button writes type="submit" size="sm" disabled={createTenant.isPending || slug().length < 2 || name().length < 2 || !regionalReady() || !deployFieldsReady() || !operatorFieldsReady()}>{createTenant.isPending && <Spinner />} {createTenant.isPending ? 'Creating…' : deployNow() ? 'Create & deploy' : 'Create tenant'}</Button></div>
-      </form>
+    <Show when={tenants.isError}>
+      <ErrorCard>{errorMessage(tenants.error, 'We couldn\'t reach the tenant registry. Try refreshing.')}</ErrorCard>
     </Show>
 
-    <Show when={tenants.isPending && !tenants.data}><SkeletonRows count={4} /></Show>
-    <div class="space-y-2"><For each={tenants.data?.items ?? []}>{tenant =>
-      <Link to="/tenants/$slug" params={{ slug: tenant.slug }} data-slot="tenant-row" class="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-4 hover:border-input transition-colors">
-        <div class="min-w-0"><strong class="text-foreground">{tenant.displayName}</strong><small class="block text-muted-foreground text-sm">{tenant.slug} · {tenant.regionalProfile ? `${tenant.regionalProfile.locale} · ${tenant.regionalProfile.timezone} · ${tenant.regionalProfile.dataRegion.toUpperCase()}` : 'no region set'}</small></div>
-        <div class="flex items-center gap-2"><StatusBadge status={tenant.status} tone={tenant.status === 'active' ? 'good' : tenant.status === 'suspended' ? 'bad' : tenant.status === 'parked' ? 'warn' : 'warn'} /><StatusBadge status={healthLabel(tenant.runtimeHealth)} tone={healthTone(tenant.runtimeHealth)} /><StatusBadge status={tenant.regionalProfile ? `${tenant.regionalProfile.dataRegion.toUpperCase()} region` : 'no region set'} tone={tenant.regionalProfile ? 'good' : 'warn'} /><StatusBadge status={tenant.brandingPalette ? 'Custom palette' : 'Product defaults'} /></div>
-      </Link>}
-    </For></div>
+    <Show when={!tenants.isError}>
+      {/* Search is worth showing once there is something to search. */}
+      <Show when={items().length > 1}>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="relative w-full sm:max-w-xs">
+            <Search class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              type="search"
+              value={search()}
+              onInput={e => setSearch(e.currentTarget.value)}
+              placeholder="Search by name or slug"
+              aria-label="Search tenants"
+              class="pl-8"
+            />
+          </div>
+          <span class="text-sm text-muted-foreground" aria-live="polite">
+            {visible().length === items().length ? `${items().length} tenants` : `${visible().length} of ${items().length} tenants`}
+          </span>
+        </div>
+      </Show>
+
+      <Card>
+        <CardContent class="p-0">
+          <Show when={tenants.data && items().length === 0}>
+            <EmptyState
+              label="No tenants yet"
+              hint="Create the first tenant to start managing fan growth operations."
+            >
+              <Show when={isAdmin()}>
+                <Link to="/tenants/new" class={buttonVariants({ size: 'sm', variant: 'outline' })}>
+                  <Plus aria-hidden="true" /> New tenant
+                </Link>
+              </Show>
+            </EmptyState>
+          </Show>
+          <Show when={tenants.data && items().length > 0 && visible().length === 0}>
+            <EmptyState label={`No tenant matches “${search().trim()}”`} hint="Try part of the name or the slug." />
+          </Show>
+          <Show when={!tenants.data || visible().length > 0}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tenant</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Health</TableHead>
+                  <TableHead class="hidden md:table-cell">Region</TableHead>
+                  <TableHead class="hidden lg:table-cell">Last heartbeat</TableHead>
+                  <TableHead class="w-8"><span class="sr-only">Open</span></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <Show when={!tenants.data}>
+                  <For each={[0, 1, 2]}>{() => (
+                    <TableRow>
+                      <TableCell><Skeleton class="h-4 w-36" animate /></TableCell>
+                      <TableCell><Skeleton class="h-5 w-14" animate /></TableCell>
+                      <TableCell><Skeleton class="h-5 w-20" animate /></TableCell>
+                      <TableCell class="hidden md:table-cell"><Skeleton class="h-4 w-40" animate /></TableCell>
+                      <TableCell class="hidden lg:table-cell"><Skeleton class="h-4 w-16" animate /></TableCell>
+                      <TableCell />
+                    </TableRow>
+                  )}</For>
+                </Show>
+                <For each={visible()}>{t => (
+                  <TableRow data-slot="tenant-row" class="cursor-pointer" onClick={() => open(t.slug)}>
+                    <TableCell>
+                      <Link
+                        to="/tenants/$slug"
+                        params={{ slug: t.slug }}
+                        class="hover:underline focus-visible:underline focus-visible:outline-none"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <strong class="font-medium text-foreground">{t.displayName}</strong>
+                      </Link>
+                      <span class="ml-2 text-xs text-muted-foreground">{t.slug}</span>
+                    </TableCell>
+                    <TableCell><StatusBadge status={t.status} tone={statusTone(t.status)} /></TableCell>
+                    <TableCell><StatusBadge status={healthLabel(t.runtimeHealth)} tone={healthTone(t.runtimeHealth)} /></TableCell>
+                    <TableCell class="hidden md:table-cell">
+                      <Show when={region(t)} fallback={<span class="text-warning-foreground">No region set</span>}>
+                        {r => <span class="text-muted-foreground">{r()}<span class="ml-2 text-xs uppercase">{t.regionalProfile!.dataRegion}</span></span>}
+                      </Show>
+                    </TableCell>
+                    <TableCell class="hidden text-muted-foreground lg:table-cell">
+                      {t.runtime?.lastHeartbeatAt ? formatIsoAge(t.runtime.lastHeartbeatAt) : 'never'}
+                    </TableCell>
+                    <TableCell><ChevronRight class="size-4 text-muted-foreground" aria-hidden="true" /></TableCell>
+                  </TableRow>
+                )}</For>
+              </TableBody>
+            </Table>
+          </Show>
+        </CardContent>
+      </Card>
+    </Show>
   </PageShell>
 }

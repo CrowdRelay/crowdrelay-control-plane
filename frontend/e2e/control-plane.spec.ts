@@ -28,7 +28,7 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   await expect(page.getByRole('heading', { name: 'Operator Attention' })).toBeVisible()
 
   await page.getByRole('link', { name: 'Tenants' }).first().click()
-  await expect(page.getByRole('heading', { name: 'Teams on the platform' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Tenants' })).toBeVisible()
   const virya = page.locator('[data-slot="tenant-row"]').filter({ hasText: /virya/i }).first()
   await expect(virya).toBeVisible()
   await virya.click()
