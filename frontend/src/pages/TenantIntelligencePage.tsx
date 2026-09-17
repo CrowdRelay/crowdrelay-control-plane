@@ -119,10 +119,9 @@ export function TenantIntelligencePage() {
 
       {/* ── Material tab — the real things it may talk about ── */}
       <TabPanel active={activeTab()} id="material" visited={isVisited('material')}>
-        <div>
-          <SectionTitle title="Real material" icon={<SectionIcon name="book-open" />} description="Everything the system may say publicly comes from this list. A new YouTube video lands here on its own; add stories and links yourself." />
-          <ContentSourcesPanel slug={params().slug} />
-        </div>
+        {/* The panel draws its own heading; a second one above it read as
+            the same title twice. */}
+        <ContentSourcesPanel slug={params().slug} />
       </TabPanel>
 
       {/* ── Growth Funnel tab — where the audience is and how it converts ── */}
