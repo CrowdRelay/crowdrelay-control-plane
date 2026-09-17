@@ -1431,7 +1431,8 @@ async fn bulk_autopilot(
 /// "Do it": approve the parked action of one finding through CrowdRelay's
 /// canonical approval endpoint. The Control Plane adds only transport
 /// validation, the derived per-tenant credential and this audit row — never a
-/// second authority path. The upstream mutation takes no body.
+/// second authority path. Upstream optionally accepts `{"revision": {...}}`;
+/// this proxy sends none — the revision editor lives on Virya's staff surface.
 async fn approve_opportunity(
     State(state): State<AppState>,
     Path((slug, action_id)): Path<(String, String)>,
