@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { writeGuard } from '../lib/read-only'
 import { refreshQueries } from '../lib/refresh'
 import { errorMessage } from '../lib/format'
@@ -157,8 +158,10 @@ export function DriveContactsPanel(props: { slug: string }) {
         setNotice(destination === 'fan'
           ? `${contact.email} is now a pending fan — the double opt-in email is on its way.`
           : BOOKING_KINDS.has(kind ?? '')
-            ? `${contact.email} joined the booking queue — confirm it under booking supply to make it a target.`
-            : `${contact.email} joined the outreach queue as ${KIND_LABELS[kind ?? 'press'] ?? kind}.`)
+            ? (authState.isPlatformLevel()
+              ? `${contact.email} joined the booking queue — confirm it under booking supply to make it a target.`
+              : `${contact.email} joined the booking list — confirm it under Booking to make it a target.`)
+            : `${contact.email} joined the ${authState.isPlatformLevel() ? 'outreach queue' : 'outreach list'} as ${KIND_LABELS[kind ?? 'press'] ?? kind}.`)
       } else {
         await api.dismissDriveContact(props.slug, contact.id, destination)
       }
@@ -233,8 +236,8 @@ export function DriveContactsPanel(props: { slug: string }) {
           <p class="m-0 mt-1.5 text-xs leading-relaxed text-muted-foreground max-w-prose">
             Connected sources — Google Drive spreadsheets, Gmail — stage every address they find here, deduplicated
             by email. Nothing is classified automatically. Promote an address to a <strong>fan</strong> (they get the
-            double opt-in email and confirm themselves) and/or to a work queue: <strong>press, radio, playlist</strong>
-            and friends go to outreach, <strong>venues, promoters, festivals</strong> go to booking supply. One person
+            double opt-in email and confirm themselves) and/or to a {authState.isPlatformLevel() ? 'work queue' : 'work list'}: <strong>press, radio, playlist</strong>
+            and friends go to outreach, <strong>venues, promoters, festivals</strong> go to {authState.isPlatformLevel() ? 'booking supply' : 'booking'}. One person
             can be both.
           </p>
         </div>
@@ -448,8 +451,12 @@ function DriveContactRow(props: {
                 variant={arm('beacon', 'promote') ? 'default' : 'outline'}
                 disabled={props.busy !== null}
                 title={BOOKING_KINDS.has(props.kind)
-                  ? 'Files them as a booking candidate — confirm under booking supply to make them a target'
-                  : 'Adds them to the outreach screening queue'}
+                  ? (authState.isPlatformLevel()
+                    ? 'Files them as a booking candidate — confirm under booking supply to make them a target'
+                    : 'Files them as a booking candidate — confirm under Booking to make them a target')
+                  : (authState.isPlatformLevel()
+                    ? 'Adds them to the outreach screening queue'
+                    : 'Adds them to outreach screening')}
                 onClick={() => props.onAct(props.contact, 'beacon', 'promote')}
               >
                 {props.busy === key('beacon', 'promote') ? <Spinner /> : arm('beacon', 'promote') ? 'Confirm add' : BOOKING_KINDS.has(props.kind) ? 'Add to booking' : 'Add to outreach'}

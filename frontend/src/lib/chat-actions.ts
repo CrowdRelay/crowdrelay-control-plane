@@ -1,4 +1,5 @@
 import { request } from './api'
+import { authState } from './auth'
 import { resolveNavigatePath } from './chat-stream'
 import type { ChatAction } from './types'
 
@@ -38,7 +39,7 @@ export async function runChatAction(
           prompt: action.params.prompt,
         }),
       })
-      return { reply: `Task started! You can check the result on the [Integrations page](/tenants/${slug}/integrations).` }
+      return { reply: authState.isPlatformLevel() ? `Task started! You can check the result on the [Integrations page](/tenants/${slug}/integrations).` : 'Task started — the result shows up in what it produces.' }
     }
     case 'create_schedule': {
       await request(`/tenants/${tenant}/agents/schedules`, {
@@ -58,7 +59,7 @@ export async function runChatAction(
         headers: { 'idempotency-key': crypto.randomUUID() },
         body: JSON.stringify({ enabled: action.params.enabled }),
       })
-      return { reply: `Autopilot ${action.params.enabled ? 'enabled' : 'disabled'} for all contexts.` }
+      return { reply: authState.isPlatformLevel() ? `Autopilot ${action.params.enabled ? 'enabled' : 'disabled'} for all contexts.` : `Automated work ${action.params.enabled ? 'resumed' : 'paused'} everywhere.` }
     }
     case 'paste_api_key': {
       navigate(`/tenants/${slug}/integrations`)
@@ -85,7 +86,7 @@ export async function runChatAction(
           sourceKind: action.params.sourceKind ?? 'manual_import',
         }),
       })
-      return { reply: 'Fanbase created! You can add fans to it on the Portfolio page.' }
+      return { reply: authState.isPlatformLevel() ? 'Fanbase created! You can add fans to it on the Portfolio page.' : `Fanbase created! You can add fans to it on the [Audience page](/tenants/${slug}/audience) under Sources.` }
     }
     case 'enable_area': {
       await request(`/tenants/${tenant}/area/settings`, {

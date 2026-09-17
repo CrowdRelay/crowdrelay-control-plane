@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
 import { errorMessage, formatTimestamp, relativeTime } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
@@ -165,7 +166,7 @@ export function PressRoomPanel(props: { slug: string }) {
     <Show when={tab() === 'requests'}>
       <Show when={model.error}><ErrorCard>Press room unavailable: {errorMessage(model.error, 'We couldn\'t reach the press room. Try refreshing.')}</ErrorCard></Show>
       <Show when={model.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={requests().length > 0} fallback={<EmptyState label="No press requests" hint="Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches." />}>
+        <Show when={requests().length > 0} fallback={<EmptyState label="No press requests" hint={authState.isPlatformLevel() ? 'Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches.' : 'Press requests are outreach to media contacts. They appear here when it sends press pitches.'} />}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -362,7 +363,7 @@ export function PressRoomPanel(props: { slug: string }) {
     <Show when={tab() === 'coverage'}>
       <Show when={model.error}><ErrorCard>Press room unavailable: {errorMessage(model.error, 'We couldn\'t reach the press room. Try refreshing.')}</ErrorCard></Show>
       <Show when={model.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={coverage().length > 0} fallback={<EmptyState label="No earned media coverage" hint="Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage." />}>
+        <Show when={coverage().length > 0} fallback={<EmptyState label="No earned media coverage" hint={authState.isPlatformLevel() ? 'Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage.' : 'Earned media coverage tracks press mentions and reviews. They appear here once it detects coverage.'} />}>
           <Table>
             <TableHeader>
               <TableRow>

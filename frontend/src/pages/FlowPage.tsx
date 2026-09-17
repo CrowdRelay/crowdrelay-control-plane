@@ -27,7 +27,9 @@ export function FlowPage() {
 
   return (
     <PageShell>
-      <PageHeader eyebrow="BIG PICTURE" title="Process map" description="Sources feed the deterministic Rust autopilot, which decides. What that decision is allowed to do is the fork: some actions queue immediately, some wait for a person and expire after 72 hours if nobody answers, and some are recorded and never executed. Delivery is at-least-once, so only what comes back with a receipt updates the causal model and shapes the next decision. Click any block to jump to its page." />
+      <PageHeader eyebrow={authState.isPlatformLevel() ? 'BIG PICTURE' : undefined} title="Process map" description={authState.isPlatformLevel()
+        ? 'Sources feed the deterministic Rust autopilot, which decides. What that decision is allowed to do is the fork: some actions queue immediately, some wait for a person and expire after 72 hours if nobody answers, and some are recorded and never executed. Delivery is at-least-once, so only what comes back with a receipt updates the causal model and shapes the next decision. Click any block to jump to its page.'
+        : 'Sources feed the brain, which decides. What a decision may do is the fork: some things go straight to work, some wait for a person and expire after 72 hours if nobody answers, and some are only recorded. Nothing counts until it actually came back — and what came back shapes the next decision. Click any block to jump to its page.'} />
 
       <Show
         when={slug()}

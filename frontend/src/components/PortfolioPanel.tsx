@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import type { PortfolioConsent, PortfolioConsentStatus, PortfolioOverview } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
@@ -87,7 +88,7 @@ export function PortfolioPanel(props: {
   const boardTone = () => proposedCount() > 0 ? 'warn' : activeCount() > 0 ? 'good' : 'muted'
   const boardLabel = () => proposedCount() > 0
     ? `${proposedCount()} to review`
-    : activeCount() > 0 ? `${activeCount()} live` : 'no live edges'
+    : activeCount() > 0 ? `${activeCount()} live` : (authState.isPlatformLevel() ? 'no live edges' : 'nothing live yet')
 
   // Sort edges: proposed first (actionable), then active, paused, revoked.
   const STATUS_ORDER: Record<PortfolioConsentStatus, number> = { proposed: 0, active: 1, paused: 2, revoked: 3 }
@@ -122,11 +123,11 @@ export function PortfolioPanel(props: {
       <div class="rounded-lg border border-border bg-card p-4 text-foreground flex flex-col gap-1"><KpiValue value={metric(overview.deliveriesLast30d)} /><span class="text-muted-foreground">Amplified · 30d</span></div>
     </div>}</Show>
 
-    <div class="mt-6 pt-4 border-t border-border"><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="link" />Amplification edges</h3></div>
+    <div class="mt-6 pt-4 border-t border-border"><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="link" />{authState.isPlatformLevel() ? 'Amplification edges' : 'Amplification agreements'}</h3></div>
     <Show when={sortedEdges().length}>
       <Table aria-label="Amplification edges">
         <TableHeader><TableRow>
-          <TableHead>Purpose</TableHead><TableHead>Audience owner</TableHead><TableHead>Beneficiary</TableHead><TableHead>Status</TableHead>
+          <TableHead>Purpose</TableHead><TableHead>{authState.isPlatformLevel() ? 'Audience owner' : 'Whose fans'}</TableHead><TableHead>{authState.isPlatformLevel() ? 'Beneficiary' : 'Who gets them'}</TableHead><TableHead>Status</TableHead>
           <TableHead>Campaigns / month</TableHead><TableHead>Cooldown</TableHead><TableHead>Actions</TableHead>
         </TableRow></TableHeader>
         <TableBody>
@@ -171,8 +172,8 @@ export function PortfolioPanel(props: {
                   <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end px-4 py-4 bg-background border border-primary/30 rounded-b-lg -mt-px">
                     <Show when={edge.status === 'proposed'}>
                       <label class="grid gap-1.5 text-muted-foreground text-sm">
-                        <span>Approving operator</span>
-                        <Input value={rowActor()} onInput={e => setRowActor(e.currentTarget.value)} placeholder="operator@label" {...writeGuard()} />
+                        <span>{authState.isPlatformLevel() ? 'Approving operator' : 'Your name'}</span>
+                        <Input value={rowActor()} onInput={e => setRowActor(e.currentTarget.value)} placeholder={authState.isPlatformLevel() ? 'operator@label' : 'you@yourband'} {...writeGuard()} />
                         <small class="text-xs text-muted-foreground">Recorded against the edge in the audit trail.</small>
                       </label>
                     </Show>
@@ -218,13 +219,13 @@ export function PortfolioPanel(props: {
     <Show when={!edges().length}>
       <Show
         when={!props.consentsUnavailable}
-        fallback={<EmptyState label="Amplification edges unavailable" hint="This section could not be loaded — see the alert above. The rest of the page keeps working." />}
+        fallback={<EmptyState label={authState.isPlatformLevel() ? 'Amplification edges unavailable' : 'Amplification unavailable'} hint="This section could not be loaded — see the alert above. The rest of the page keeps working." />}
       >
         <Show
           when={(props.overview?.workspaceCount ?? 0) >= 2}
           fallback={<EmptyState label="No amplification yet" hint="Amplification needs at least two artists sharing the roster — including band-to-band crossbill, which stays a manual ask inside each show's partner relay until a second artist joins." />}
         >
-          <EmptyState label="No amplification edges" hint="Create an edge from either artist's page to start routing." />
+          <EmptyState label={authState.isPlatformLevel() ? 'No amplification edges' : 'No amplification agreements'} hint={authState.isPlatformLevel() ? "Create an edge from either artist's page to start routing." : 'Ask the crew to set one up from either artist’s page.'} />
         </Show>
       </Show>
     </Show>

@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
+import { authState } from '../lib/auth'
 import { Eyebrow, KpiCard, KpiStrip } from './layout'
 import { confidencePercent } from '../lib/format'
 import { useQuery } from '@tanstack/solid-query'
@@ -202,7 +203,7 @@ export function LearningLoopPanel(props: { slug: string }) {
                       <Show when={entry.outcome!.effect_assessment === 'worsened'} fallback={
                         <>No change detected on {entry.outcome!.metric_key.replaceAll('_', ' ')}</>
                       }>
-                        <>Negative effect on {entry.outcome!.metric_key.replaceAll('_', ' ')} — policy may re-evaluate this pattern</>
+                        <>Negative effect on {entry.outcome!.metric_key.replaceAll('_', ' ')} — {authState.isPlatformLevel() ? 'policy may re-evaluate this pattern' : 'it may weigh this pattern differently next time'}</>
                       </Show>
                     }>
                       <>Positive effect confirmed on {entry.outcome!.metric_key.replaceAll('_', ' ')}</>

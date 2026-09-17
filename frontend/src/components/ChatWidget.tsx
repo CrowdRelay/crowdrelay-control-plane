@@ -210,7 +210,9 @@ export function ChatWidget(props: { slug: string }) {
         })
       } else {
         const msg = err instanceof ApiError
-          ? err.status === 503 ? 'The AI assistant is not available right now. Make sure the agent service is running.' : errorMessage(err, 'Chat failed')
+          ? err.status === 503
+            ? (authState.isPlatformLevel() ? 'The AI assistant is not available right now. Make sure the agent service is running.' : 'The AI assistant is not available right now — try again in a moment.')
+            : errorMessage(err, 'Chat failed')
           : errorMessage(err, 'Chat failed')
         setError(msg)
         setMessages(prev => {

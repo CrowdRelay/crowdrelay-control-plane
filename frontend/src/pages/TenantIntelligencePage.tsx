@@ -58,7 +58,7 @@ export function TenantIntelligencePage() {
             <Show when={autopilot()?.runtime_enabled}>
               <StatusBadge status={authState.isPlatformLevel() ? 'autopilot on' : 'working on its own'} tone="good" />
             </Show>
-            <StatusBadge status={autopilot()?.queued_actions ? `${autopilot()!.queued_actions} queued` : 'idle'} tone={autopilot()?.queued_actions ? 'warn' : 'muted'} />
+            <StatusBadge status={autopilot()?.queued_actions ? `${autopilot()!.queued_actions} ${authState.isPlatformLevel() ? 'queued' : 'waiting'}` : 'idle'} tone={autopilot()?.queued_actions ? 'warn' : 'muted'} />
           </div>
         </Show>
       }

@@ -10,7 +10,7 @@ import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Input } from './ui/input'
 import { NativeSelect } from './ui/native-select'
-import { northStarLabel, northStarMeaning } from '../lib/north-star'
+import { northStarLabel, northStarMeaning, northStarTechnicalName } from '../lib/north-star'
 import { writeGuard } from '../lib/read-only'
 
 const LABELS: Record<string, string> = {
@@ -46,6 +46,7 @@ const HINTS: Record<string, { hint: string; example: string; band?: string }> = 
   },
   member_site_base_url: {
     hint: 'Origin the fan-facing member links point at. Emails, Signal deep links and QR codes are all built from it.',
+    band: 'Where the fan-facing member links point. Emails, Signal links and QR codes are all built from it.',
     example: 'https://future-metal.example',
   },
   member_area_path: {
@@ -77,6 +78,7 @@ const HINTS: Record<string, { hint: string; example: string; band?: string }> = 
   },
   social_auto_post: {
     hint: 'When enabled, the social post executor publishes to Facebook Pages and Instagram through the Graph API instead of drafting for manual review. X always drafts. The publish guard still runs — a held post lands in the operator queue with its reason. Instagram needs at least one active photo press asset.',
+    band: 'When on, posts publish straight to Facebook Pages and Instagram instead of waiting as drafts for your review. X always drafts. The safety check still runs — a held post lands in Needs you with its reason. Instagram needs at least one active photo press asset.',
     example: 'false',
   },
   growth_cadence_moments_per_month: {
@@ -236,6 +238,10 @@ export function PortfolioSettingsPanel(props: {
             {(() => {
               const current = () => drafts()[key] ?? props.model?.settings[key] ?? ''
               const meaning = () => northStarMeaning(current())
+              const technical = () => {
+                const option = goals.data?.options.find(o => o.value === current())
+                return option ? northStarTechnicalName(option) : undefined
+              }
               return <>
                 <Show when={meaning()}>
                   <small class="text-xs leading-relaxed text-secondary-foreground">{meaning()}</small>
@@ -244,7 +250,7 @@ export function PortfolioSettingsPanel(props: {
                     is what the server records, what traces name and what
                     support asks for — precision keeps its own name here. */}
                 <Show when={current()}>
-                  <small class="block text-xs leading-relaxed text-muted-foreground">Stored as <code class="text-xs">{current()}</code></small>
+                  <small class="block text-xs leading-relaxed text-muted-foreground">Stored as <code class="text-xs">{current()}</code><Show when={technical()}>{t => ` — ${t()}`}</Show></small>
                 </Show>
               </>
             })()}

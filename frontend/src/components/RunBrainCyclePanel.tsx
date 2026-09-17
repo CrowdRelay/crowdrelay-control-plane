@@ -169,12 +169,12 @@ export function RunBrainCyclePanel(props: { slug: string }) {
             <Show when={!data().hasAnyConnectedPlatform}>
               <p class="mt-3 rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground">
                 No platform is connected yet, so a cycle would correctly decide to do nothing.
-                Connect a fan source first in Portfolio.
+                {authState.isPlatformLevel() ? 'Connect a fan source first in Portfolio.' : 'Connect a fan source on the Audience page first.'}
               </p>
             </Show>
 
             <section class="mt-6 pt-4 border-t border-border">
-              <h3 class="text-sm font-semibold text-foreground mb-2.5">Worker pipeline — brain dispatches in this order</h3>
+              <h3 class="text-sm font-semibold text-foreground mb-2.5">{authState.isPlatformLevel() ? 'Worker pipeline — brain dispatches in this order' : 'Job order — the brain hands these out in this order'}</h3>
               <div class="flex flex-wrap items-center gap-1.5">
                 <For each={data().templatePriority}>
                   {(template, index) => (
@@ -194,7 +194,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
 
             <footer class="mt-6 pt-4 border-t border-border">
               <p class="text-sm text-muted-foreground leading-relaxed mb-3">
-                Dispatches real outreach. Subject to the same autonomy policy and 24-hour action
+                Dispatches real outreach. Subject to the same {authState.isPlatformLevel() ? 'autonomy policy' : 'rules'} and 24-hour action
                 cap as a scheduled cycle.
               </p>
               <Button size="sm" writes onClick={() => void runCycle()} disabled={running() || !data().hasAnyConnectedPlatform}>

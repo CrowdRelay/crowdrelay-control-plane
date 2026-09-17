@@ -1,5 +1,6 @@
 import { For, Show } from 'solid-js'
 import { useNavigate } from '@tanstack/solid-router'
+import { authState } from '../lib/auth'
 import { Button } from './app/button'
 
 type Zone = 'src' | 'intel' | 'auth' | 'exec' | 'out' | 'learn'
@@ -150,6 +151,29 @@ const ZONE_LABEL: Record<Zone, string> = {
   learn: 'Learning',
 }
 
+// The band reads the same map in its own words — the machinery stays, the
+// names for it do not.
+const BAND_ZONE_LABEL: Record<Zone, string> = {
+  src: 'Sources',
+  intel: 'The brain',
+  auth: 'What it may do',
+  exec: 'Doing it',
+  out: 'Outcomes',
+  learn: 'Learning',
+}
+
+const BAND_NODE_TEXT: Record<string, { title?: string; desc?: string }> = {
+  intel: { title: 'The brain decides', desc: 'its own rules\nwhat worked before + how sure it is' },
+  auto: { title: 'Does it on its own', desc: 'goes straight to work' },
+  approval: { title: 'Waits for a person', desc: 'a person decides · 72h' },
+  noaction: { title: 'Watch · Refuse', desc: 'recorded, never done' },
+  providers: { title: 'AI models', desc: 'the models it can call on' },
+  workers: { title: 'It does the work', desc: 'scan · draft · pitch' },
+  outbox: { title: 'Sending', desc: 'delivers until it lands' },
+  community: { title: 'Community posting', desc: 'joins · posts from your account' },
+  receipt: { title: 'Confirmation + record', desc: 'nothing counts until it comes back' },
+}
+
 const ZONE_ORDER: Zone[] = ['src', 'intel', 'auth', 'exec', 'out']
 
 // Pre-compute edge paths once — no reactive overhead.
@@ -157,6 +181,9 @@ const EDGES_RENDERED = EDGES.map(edge => ({ edge, d: edgePath(edge) }))
 
 export function ProcessMap(props: { slug: () => string }) {
   const navigate = useNavigate()
+  const zoneLabel = (zone: Zone) => authState.isPlatformLevel() ? ZONE_LABEL[zone] : BAND_ZONE_LABEL[zone]
+  const nodeTitle = (node: MapNode) => authState.isPlatformLevel() ? node.title : (BAND_NODE_TEXT[node.id]?.title ?? node.title)
+  const nodeDesc = (node: MapNode) => authState.isPlatformLevel() ? node.desc : (BAND_NODE_TEXT[node.id]?.desc ?? node.desc)
 
   const open = (node: MapNode) => {
     if (!node.to) return
@@ -171,15 +198,15 @@ export function ProcessMap(props: { slug: () => string }) {
           <div class="rounded-lg border border-border bg-card p-3">
             <div class="flex items-center gap-2 mb-2">
               <span class="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: ZONE_STROKE[zone] }} />
-              <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{ZONE_LABEL[zone]}</span>
+              <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{zoneLabel(zone)}</span>
             </div>
             <div class="flex flex-col gap-1">
               <For each={NODES.filter(n => n.zone === zone)}>{(node) => (
                 <Show when={node.to} fallback={
                   <div class="flex items-center gap-2 px-2 py-1.5 text-sm text-foreground">
                     <span class="text-muted-foreground">•</span>
-                    <span>{node.title}</span>
-                    <Show when={node.desc}><span class="text-xs text-muted-foreground">— {node.desc}</span></Show>
+                    <span>{nodeTitle(node)}</span>
+                    <Show when={nodeDesc(node)}><span class="text-xs text-muted-foreground">— {nodeDesc(node)}</span></Show>
                   </div>
                 }>
                   <Button
@@ -189,8 +216,8 @@ export function ProcessMap(props: { slug: () => string }) {
                     onClick={() => open(node)}
                   >
                     <span class="text-muted-foreground">•</span>
-                    <span>{node.title}</span>
-                    <Show when={node.desc}><span class="text-xs text-muted-foreground">— {node.desc}</span></Show>
+                    <span>{nodeTitle(node)}</span>
+                    <Show when={nodeDesc(node)}><span class="text-xs text-muted-foreground">— {nodeDesc(node)}</span></Show>
                   </Button>
                 </Show>
               )}</For>
@@ -222,15 +249,15 @@ export function ProcessMap(props: { slug: () => string }) {
 
         {/* zone backgrounds */}
         <rect class="pm-zone" x="15" y="70" width="260" height="420" rx="14" />
-        <text class="pm-zt" x="28" y="95">SOURCES</text>
+        <text class="pm-zt" x="28" y="95">{zoneLabel('src').toUpperCase()}</text>
         <rect class="pm-zone pm-zone-intel" x="300" y="70" width="300" height="420" rx="14" />
-        <text class="pm-zt" x="314" y="95">INTELLIGENCE</text>
+        <text class="pm-zt" x="314" y="95">{zoneLabel('intel').toUpperCase()}</text>
         <rect class="pm-zone pm-zone-auth" x="645" y="70" width="250" height="420" rx="14" />
-        <text class="pm-zt" x="659" y="95">AUTHORITY</text>
+        <text class="pm-zt" x="659" y="95">{zoneLabel('auth').toUpperCase()}</text>
         <rect class="pm-zone" x="940" y="70" width="320" height="420" rx="14" />
-        <text class="pm-zt" x="954" y="95">EXECUTION</text>
+        <text class="pm-zt" x="954" y="95">{zoneLabel('exec').toUpperCase()}</text>
         <rect class="pm-zone" x="1305" y="70" width="280" height="420" rx="14" />
-        <text class="pm-zt" x="1319" y="95">OUTCOMES</text>
+        <text class="pm-zt" x="1319" y="95">{zoneLabel('out').toUpperCase()}</text>
 
         {/* edges — static, no animation */}
         <For each={EDGES_RENDERED}>
@@ -247,7 +274,7 @@ export function ProcessMap(props: { slug: () => string }) {
         {/* nodes */}
         <For each={NODES}>
           {(node) => (
-            <g class="pm-node-group" role="button" tabindex="0" aria-label={node.title} onClick={() => open(node)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(node) } }}>
+            <g class="pm-node-group" role="button" tabindex="0" aria-label={nodeTitle(node)} onClick={() => open(node)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(node) } }}>
               <rect
                 class="pm-node"
                 x={node.x}
@@ -259,9 +286,9 @@ export function ProcessMap(props: { slug: () => string }) {
               />
               <foreignObject x={node.x + 14} y={node.y + 6} width={node.w - 28} height={node.h - 12}>
                 <div class="pm-body">
-                  <div class="pm-title">{node.title}</div>
-                  <Show when={node.desc}>
-                    <div class="pm-desc">{node.desc}</div>
+                  <div class="pm-title">{nodeTitle(node)}</div>
+                  <Show when={nodeDesc(node)}>
+                    <div class="pm-desc">{nodeDesc(node)}</div>
                   </Show>
                 </div>
               </foreignObject>

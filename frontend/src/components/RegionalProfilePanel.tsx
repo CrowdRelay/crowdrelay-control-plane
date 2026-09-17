@@ -93,7 +93,9 @@ export function RegionalProfilePanel(props: Props) {
   // state neither, so both read as preferences.
   const summary = createMemo(() => {
     const p = profile()
-    if (!p) return 'Not classified. The runtime falls back to inferring locale and residency, which it must never do.'
+    if (!p) return authState.isPlatformLevel()
+      ? 'Not classified. The runtime falls back to inferring locale and residency, which it must never do.'
+      : 'Not classified. The system falls back to inferring locale and residency, which it must never do.'
     return authState.isPlatformLevel()
       ? `Fans of this tenant are written to in ${p.locale}, in ${p.currency}, on ${p.timezone} time. Their data is held in the ${p.dataRegion.toUpperCase()}.`
       : `Your fans are written to in ${p.locale}, in ${p.currency}, on ${p.timezone} time. Their data is held in the ${p.dataRegion.toUpperCase()}.`
@@ -118,7 +120,7 @@ export function RegionalProfilePanel(props: Props) {
     >
       <Show when={!classified()}>
         <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground">
-          No persisted regional profile. The runtime must not infer locale, currency, timezone or data
+          No persisted regional profile. {authState.isPlatformLevel() ? 'The runtime' : 'The system'} must not infer locale, currency, timezone or data
           residency from an IP address or a browser setting. {authState.isPlatformLevel()
             ? 'Classify this tenant before the next deployment.'
             : 'Classify your act before anything else ships.'}
@@ -145,7 +147,7 @@ export function RegionalProfilePanel(props: Props) {
         onClose={() => setEditing(false)}
         label="Regional profile"
         title={classified() ? 'Edit regional profile' : authState.isPlatformLevel() ? 'Classify tenant' : 'Classify your act'}
-        description="These values are explicit for a reason: the runtime is not allowed to guess any of them from a request."
+        description={authState.isPlatformLevel() ? 'These values are explicit for a reason: the runtime is not allowed to guess any of them from a request.' : 'These values are explicit for a reason: it is not allowed to guess any of them from a request.'}
         class="max-w-2xl"
         footer={<>
           <span class="mr-auto text-xs text-muted-foreground" aria-live="polite">

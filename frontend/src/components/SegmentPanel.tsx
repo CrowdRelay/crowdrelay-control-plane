@@ -1,5 +1,6 @@
 import { For, Show, createSignal } from 'solid-js'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { cn } from '../lib/cn'
 import type { AudienceSegment } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
@@ -49,7 +50,7 @@ export function SegmentPanel(props: {
         control this panel does not have — read as two different screens
         arguing. The empty state says the one thing the description cannot:
         why there is nothing here yet. */}
-    <Show when={props.segments.length > 0} fallback={<EmptyState label="No segments yet" hint="The audience model derives segments once fans are landing. Connect a source and they appear on the next ingestion." />}>
+    <Show when={props.segments.length > 0} fallback={<EmptyState label="No segments yet" hint={authState.isPlatformLevel() ? 'The audience model derives segments once fans are landing. Connect a source and they appear on the next ingestion.' : 'Segments appear once fans are landing. Connect a source and they show up on the next import.'} />}>
       <div class="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
         <For each={props.segments}>{(segment) => (
           <Button

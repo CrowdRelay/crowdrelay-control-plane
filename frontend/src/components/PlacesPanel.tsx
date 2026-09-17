@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { authState } from '../lib/auth'
 import { PanelTitle } from './layout'
 import { SectionIcon } from './SectionIcon'
 import { EmptyState } from './ui/empty-state'
@@ -113,7 +114,7 @@ export function PlacesPanel(props: { slug: string }) {
         <Show when={funnel.error}>
           <SectionFailureCard
             error={funnel.error}
-            fallback="City funnel unavailable"
+            fallback={authState.isPlatformLevel() ? 'City funnel unavailable' : 'The cities'}
             onRetry={() => void funnel.refetch()}
           />
         </Show>
@@ -180,14 +181,14 @@ export function PlacesPanel(props: { slug: string }) {
       <Card>
         <PanelTitle icon={<SectionIcon name="map-pin" />}>Rooms</PanelTitle>
         <p class="mt-1 text-sm text-muted-foreground leading-relaxed">
-          Every room any tenant's played or completed show has marked, with what
-          it draws. Aggregated across tenants — the count of contributors never
-          names one.
+          {authState.isPlatformLevel()
+            ? "Every room any tenant's played or completed show has marked, with what it draws. Aggregated across tenants — the count of contributors never names one."
+            : "Every room any act's played or completed show has marked, with what it draws. Aggregated across acts — the count of contributors never names one."}
         </p>
         <Show when={venues.error}>
           <SectionFailureCard
             error={venues.error}
-            fallback="Venue registry unavailable"
+            fallback={authState.isPlatformLevel() ? 'Venue registry unavailable' : 'The rooms'}
             onRetry={() => void venues.refetch()}
           />
         </Show>

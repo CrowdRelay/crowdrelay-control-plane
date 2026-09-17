@@ -86,7 +86,9 @@ export function LearningProofPanel(props: { slug: string }) {
       <Show when={entries().length > 0} fallback={
         <EmptyState
           label="No belief changes recorded yet"
-          hint="A revision is written when measured outcomes move the strategy posterior or a template's lifecycle state. Until outcomes resolve, there is nothing to record."
+          hint={authState.isPlatformLevel()
+            ? "A revision is written when measured outcomes move the strategy posterior or a template's lifecycle state. Until outcomes resolve, there is nothing to record."
+            : 'A note is written when measured results change what it believes about a strategy or a template. Until results come in, there is nothing to record.'}
         />
       }>
         <KpiStrip class="mb-0">

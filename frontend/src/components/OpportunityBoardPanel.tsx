@@ -223,7 +223,7 @@ export function OpportunityBoardPanel(props: {
 }) {
   const board = {
     get data() { return props.opportunities ?? undefined },
-    get error() { return props.degraded ? new Error('Opportunity queue is temporarily unavailable.') : undefined },
+    get error() { return props.degraded ? new Error(authState.isPlatformLevel() ? 'Opportunity queue is temporarily unavailable.' : 'This could not be checked right now — it comes back on its own.') : undefined },
   }
 
   const [pendingMutation, setPendingMutation] = createSignal<string | null>(null)
@@ -295,7 +295,7 @@ export function OpportunityBoardPanel(props: {
   return <>
     <Show when={board.error}>
       <Alert tone="warning" role="status">
-        {errorMessage(board.error, 'Opportunity queue is temporarily unavailable.')}
+        {errorMessage(board.error, authState.isPlatformLevel() ? 'Opportunity queue is temporarily unavailable.' : 'This could not be checked right now — it comes back on its own.')}
       </Alert>
     </Show>
 
@@ -335,7 +335,9 @@ export function OpportunityBoardPanel(props: {
           title="Ran on its own"
           icon={<SectionIcon name="zap" />}
           count={ranAlone().length}
-          description="Already done under a policy you set to act without asking. Here so you can see what it did."
+          description={authState.isPlatformLevel()
+            ? 'Already done under a policy you set to act without asking. Here so you can see what it did.'
+            : 'Already done under a rule you set to act without asking. Here so you can see what it did.'}
         >
           <div class="border-t border-border">
             <For each={showAll() ? ranAlone() : ranAlone().slice(0, MAX_VISIBLE)}>{entry => <Row entry={entry} />}</For>

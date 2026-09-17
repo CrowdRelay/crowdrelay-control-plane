@@ -167,7 +167,7 @@ export function TenantContentPage() {
 
     <Show when={error()}><ErrorCard class="mb-4">{error()}</ErrorCard></Show>
     <Show when={pipeline.error}>
-      <SectionFailureCard error={pipeline.error} fallback="Approval queue unavailable" onRetry={() => void pipeline.refetch()} />
+      <SectionFailureCard error={pipeline.error} fallback={authState.isPlatformLevel() ? 'Approval queue unavailable' : 'The approval list'} onRetry={() => void pipeline.refetch()} />
     </Show>
     <Show when={results.error}>
       <SectionFailureCard error={results.error} fallback="Published list unavailable" onRetry={() => void results.refetch()} />
@@ -250,7 +250,7 @@ export function TenantContentPage() {
                   </p>
                   <Show when={!action.executor_ready && action.required_capability}>
                     <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-3 text-sm text-warning-foreground">
-                      <strong>Nothing can run this yet</strong> — approving queues it until a worker starts.
+                      <strong>Nothing can run this yet</strong> — {authState.isPlatformLevel() ? 'approving queues it until a worker starts.' : 'approving keeps it waiting until the poster is up.'}
                     </div>
                   </Show>
                   <div class="text-xs text-muted-foreground">asked {fmtDate(action.created_at)}</div>

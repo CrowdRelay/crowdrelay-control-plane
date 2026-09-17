@@ -15,6 +15,7 @@ import { SkeletonKpiStrip, SkeletonSection } from '../components/Skeleton'
 import { Eyebrow, KpiCard, KpiStrip, PageShell, PageHeader, Section, SkeletonBlock, TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { SectionIcon } from '../components/SectionIcon'
 import { StatusBadge } from '../components/StatusBadge'
+import { TenantStatusLine } from '../components/TenantStatusLine'
 import { buttonVariants } from '../components/app/button'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
@@ -52,6 +53,14 @@ export function TenantOperationsPage() {
   }
   const healthTone = () => operationalTone(summary())
   const healthLabel = () => operationalLabel(summary())
+  // The operator's health vocabulary is the read model's own words; the band
+  // gets the same states in the words its console uses — "attention" is
+  // "needs you", and a degraded machine is just something broken.
+  const healthBadgeLabel = () => {
+    const label = healthLabel()
+    if (authState.isPlatformLevel()) return label
+    return label === 'attention' ? 'needs you' : label === 'degraded' ? 'something is broken' : label
+  }
 
   // Whether the autopilot is *working*, not merely switched on. This was
   // written and then never wired up, so the card went green on
@@ -150,19 +159,26 @@ export function TenantOperationsPage() {
     <PageHeader
       eyebrow={authState.isPlatformLevel() ? 'EXECUTION' : undefined}
       title={authState.isPlatformLevel() ? 'Operations' : 'Today'}
-      description="Your daily worklist. Anything the autopilot needs a decision on is here — work the list top to bottom."
+      description={authState.isPlatformLevel() ? 'Your daily worklist. Anything the autopilot needs a decision on is here — work the list top to bottom.' : 'Your daily worklist. Anything the brain needs a decision on is here — work the list top to bottom.'}
       actions={
         <Show when={model.data && !model.error}>
-          <StatusBadge status={healthLabel()} tone={healthTone()} />
+          <StatusBadge status={healthBadgeLabel()} tone={healthTone()} />
           <Show when={autopilot()?.runtime_enabled}>
-            <StatusBadge status="autopilot on" tone="good" />
+            <StatusBadge status={authState.isPlatformLevel() ? 'autopilot on' : 'working on its own'} tone="good" />
           </Show>
         </Show>
       }
     />
 
     <Show when={model.error}>
-      <SectionFailureCard error={model.error} fallback="Tenant operations channel unavailable" onRetry={() => void refresh()} />
+      <SectionFailureCard error={model.error} fallback={authState.isPlatformLevel() ? 'Tenant operations channel unavailable' : 'Today'} onRetry={() => void refresh()} />
+    </Show>
+
+    {/* The band's "is anything broken for me" — one plain line, silent when
+        fine, on the first screen they open. The machine's detail stays on
+        the operator's Health page. */}
+    <Show when={!authState.isPlatformLevel()}>
+      <TenantStatusLine slug={params().slug} operations={model.data} />
     </Show>
 
     {/* KPI strip skeleton — shown whenever the read model is absent.
@@ -188,13 +204,13 @@ export function TenantOperationsPage() {
           tone={hasAttention() ? 'warn' : 'good'}
           value={needsYouCount() + awaitingApproval()}
           sub={needsYouCount() + awaitingApproval() > 0
-            ? <Link to="/tenants/$slug/attention" params={{ slug: params().slug }} class="text-primary underline-offset-4 hover:underline">decide on Attention</Link>
+            ? <Link to="/tenants/$slug/attention" params={{ slug: params().slug }} class="text-primary underline-offset-4 hover:underline">{authState.isPlatformLevel() ? 'decide on Attention' : 'decide on Needs you'}</Link>
             : 'nothing to decide'}
         />
         <KpiCard
           label="Health"
           tone={deadJobs() > 0 ? 'bad' : healthTone() === 'good' ? 'good' : healthTone() === 'warn' ? 'warn' : 'default'}
-          value={healthLabel()}
+          value={healthBadgeLabel()}
           sub={deadJobs() > 0 ? `${deadJobs()} stuck deliveries` : 'everything is moving'}
         />
         <KpiCard
@@ -211,7 +227,7 @@ export function TenantOperationsPage() {
             autopilot is running — and they disagree, because they measure
             different things. This one has always been about the autopilot. */}
         <KpiCard
-          label="Autopilot"
+          label={authState.isPlatformLevel() ? 'Autopilot' : 'The brain'}
           tone={autopilot()?.runtime_enabled ? autopilotTone() ?? 'good' : 'default'}
           value={autopilot()?.runtime_enabled ? 'on' : 'off'}
           sub={<>
@@ -224,12 +240,17 @@ export function TenantOperationsPage() {
                 number the console never showed is the one that says the loop
                 has stopped. */}
             <Show when={(autopilot()?.awaiting_executor ?? 0) > 0}>
-              {autopilot()!.awaiting_executor} waiting on a worker ·{' '}
+              {autopilot()!.awaiting_executor} {authState.isPlatformLevel() ? 'waiting on a worker' : 'waiting to run'} ·{' '}
             </Show>
-            {autopilot()?.queued_actions ?? 0} queued ·{' '}
-            <Link to="/tenants/$slug/health" params={{ slug: params().slug }} class="text-primary underline-offset-4 hover:underline">
-              change settings
-            </Link>
+            {autopilot()?.queued_actions ?? 0} {authState.isPlatformLevel() ? 'queued' : 'waiting'}
+            {/* The switches live on Health, which the band's map does not
+                carry — for the band the card ends at the counts. */}
+            <Show when={authState.isPlatformLevel()}>
+              {' · '}
+              <Link to="/tenants/$slug/health" params={{ slug: params().slug }} class="text-primary underline-offset-4 hover:underline">
+                change settings
+              </Link>
+            </Show>
           </>}
         />
       </KpiStrip>
@@ -398,7 +419,7 @@ export function TenantOperationsPage() {
       <Section
         title="Worth doing this week"
         icon={<SectionIcon name="target" />}
-        description="The moves that carry most of it, ranked upstream. Attention has the approve buttons."
+        description={authState.isPlatformLevel() ? 'The moves that carry most of it, ranked upstream. Attention has the approve buttons.' : 'The moves that carry most of it, ranked upstream. Needs you has the approve buttons.'}
       >
         <div class="flex flex-col gap-3">
           <For each={weekMoves()}>{move => (

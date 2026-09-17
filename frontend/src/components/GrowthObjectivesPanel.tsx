@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api, ApiError } from '../lib/api'
+import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
 import { errorMessage } from '../lib/format'
 import { compactNumber } from '../lib/charts'
@@ -112,7 +113,7 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
     <Show when={objectives.error}><ErrorCard class="mt-3">Growth objectives unavailable: {objectiveErrorMessage(objectives.error, 'We couldn\'t reach the growth objectives. Try refreshing.')}</ErrorCard></Show>
     <Show when={objectives.data && objectives.data!.length > 0} fallback={
       <Show when={objectives.isFetching} fallback={
-        <EmptyState label="No growth objectives declared" hint="Declare a target metric and deadline to start tracking progress. The intelligence measures every action against active objectives." />
+        <EmptyState label="No growth objectives declared" hint={authState.isPlatformLevel() ? 'Declare a target metric and deadline to start tracking progress. The intelligence measures every action against active objectives.' : 'Set a target number and deadline to start tracking progress. It measures every action against them.'} />
       }>
         <SkeletonRows count={3} />
       </Show>

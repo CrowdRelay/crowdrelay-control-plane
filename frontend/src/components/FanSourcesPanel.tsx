@@ -233,7 +233,7 @@ export function FanSourcesPanel(props: {
       setIngestingId(null)
       setErrorText(null)
       setNotice(
-        `Ingestion done — pending: ${counters.importedPending ?? 0}, active skipped: ${counters.alreadyActive ?? 0}, opt-outs: ${counters.skippedSuppressed ?? 0}, invalid: ${counters.invalid ?? 0}`,
+        `${authState.isPlatformLevel() ? 'Ingestion' : 'Import'} done — pending: ${counters.importedPending ?? 0}, active skipped: ${counters.alreadyActive ?? 0}, opt-outs: ${counters.skippedSuppressed ?? 0}, invalid: ${counters.invalid ?? 0}`,
       )
     },
     onError: (error) => {
@@ -635,19 +635,23 @@ export function FanSourcesPanel(props: {
       title="Fanbases"
       icon={<SectionIcon name="users" />}
       count={blocks().length}
-      description="An audience block with a swappable acquisition origin. Every ingest lands candidates as pending double opt-in — active fans are never downgraded and opt-outs are never resurrected."
+      description={authState.isPlatformLevel()
+        ? 'An audience block with a swappable acquisition origin. Every ingest lands candidates as pending double opt-in — active fans are never downgraded and opt-outs are never resurrected.'
+        : 'An audience block with a swappable source. Every import lands new fans as pending double opt-in — active fans are never downgraded and opt-outs are never resurrected.'}
       action={<Button writes size="sm" onClick={() => { setCreating(true); setNotice(null) }}>New fanbase</Button>}
     >
       <Show when={blocks().length} fallback={
         <p class="text-sm leading-relaxed text-muted-foreground">
           <strong class="text-foreground">No fanbases yet.</strong>{' '}
           {connectedCount()
-            ? 'Your platform connections are ready — create a fanbase to start ingesting candidates from them.'
+            ? (authState.isPlatformLevel()
+              ? 'Your platform connections are ready — create a fanbase to start ingesting candidates from them.'
+              : 'Your platform connections are ready — create a fanbase to start collecting fans from them.')
             : 'Connect a platform above, or create a fanbase with a manual source to start collecting candidates.'}
         </p>
       }>
         <Table aria-label="Fanbases">
-          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Origin</TableHead><TableHead class="text-right">Members</TableHead><TableHead class="text-right">Still fans</TableHead><TableHead>Last ingestion</TableHead><TableHead>Ingest</TableHead><TableHead></TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Origin</TableHead><TableHead class="text-right">Members</TableHead><TableHead class="text-right">Still fans</TableHead><TableHead>{authState.isPlatformLevel() ? 'Last ingestion' : 'Last import'}</TableHead><TableHead>{authState.isPlatformLevel() ? 'Ingest' : 'Import'}</TableHead><TableHead></TableHead></TableRow></TableHeader>
           <TableBody>
             <For each={blocks()}>{fb => (
               <TableRow classList={{ 'row-pending': isDeleting(fb.id) }}>
@@ -668,7 +672,7 @@ export function FanSourcesPanel(props: {
                 <TableCell>
                   <Button writes size="sm" variant="outline" disabled={pendingFor() !== null}
                     onClick={() => { setIngestingId(fb.id); setIngestJson(EMPTY_INGEST) }}>
-                    Ingest batch…
+                    {authState.isPlatformLevel() ? 'Ingest batch…' : 'Import batch…'}
                   </Button>
                 </TableCell>
                 <TableCell>
@@ -732,7 +736,9 @@ export function FanSourcesPanel(props: {
       onClose={() => setCreating(false)}
       label="New fanbase"
       title="New fanbase"
-      description="A source is one place fans arrive from. The name is what every ingestion row, attribution report and audit entry refers back to."
+      description={authState.isPlatformLevel()
+        ? 'A source is one place fans arrive from. The name is what every ingestion row, attribution report and audit entry refers back to.'
+        : 'A source is one place fans arrive from. The name is what every import row, attribution report and audit entry refers back to.'}
       class="max-w-lg"
       footer={<>
         <Show when={!name() || (needsAttestation() && !attestedBy())}>
@@ -766,8 +772,8 @@ export function FanSourcesPanel(props: {
           </Field>
         </Show>
         <Show when={needsAttestation()}>
-          <Field label="Consent attested by" hint="This kind carries personal data, so a named operator has to attest that the fans consented. The name is stored with every batch it ingests.">
-            <Input value={attestedBy()} onInput={e => setAttestedBy(e.currentTarget.value)} placeholder="operator@label" />
+          <Field label={authState.isPlatformLevel() ? 'Consent attested by' : 'Consent confirmed by'} hint={authState.isPlatformLevel() ? 'This kind carries personal data, so a named operator has to attest that the fans consented. The name is stored with every batch it ingests.' : 'This kind carries personal data, so a named person has to confirm that the fans consented. The name is stored with every batch it imports.'}>
+            <Input value={attestedBy()} onInput={e => setAttestedBy(e.currentTarget.value)} placeholder={authState.isPlatformLevel() ? 'operator@label' : 'you@yourband'} />
           </Field>
         </Show>
       </div>
@@ -779,9 +785,11 @@ export function FanSourcesPanel(props: {
     <Dialog
       open={ingestingId() !== null}
       onClose={() => setIngestingId(null)}
-      label="Ingest a batch"
-      title="Ingest a batch"
-      description={`Candidates land as pending double opt-in in ${blocks().find(b => b.id === ingestingId())?.name ?? 'this fanbase'}. Active fans are never downgraded and opt-outs are never resurrected.`}
+      label={authState.isPlatformLevel() ? 'Ingest a batch' : 'Import a batch'}
+      title={authState.isPlatformLevel() ? 'Ingest a batch' : 'Import a batch'}
+      description={authState.isPlatformLevel()
+        ? `Candidates land as pending double opt-in in ${blocks().find(b => b.id === ingestingId())?.name ?? 'this fanbase'}. Active fans are never downgraded and opt-outs are never resurrected.`
+        : `New fans land as pending double opt-in in ${blocks().find(b => b.id === ingestingId())?.name ?? 'this fanbase'}. Active fans are never downgraded and opt-outs are never resurrected.`}
       class="max-w-lg"
       footer={<>
         <Button variant="ghost" size="sm" onClick={() => setIngestingId(null)}>Cancel</Button>
@@ -791,7 +799,7 @@ export function FanSourcesPanel(props: {
             const id = ingestingId()
             if (parsed && id) ingest.mutate({ id, entries: parsed.entries as never })
           }}>
-          {ingest.isPending && <Spinner />} {ingest.isPending ? 'Ingesting…' : 'Run ingestion'}
+          {ingest.isPending && <Spinner />} {ingest.isPending ? (authState.isPlatformLevel() ? 'Ingesting…' : 'Importing…') : (authState.isPlatformLevel() ? 'Run ingestion' : 'Run import')}
         </Button>
       </>}
     >
