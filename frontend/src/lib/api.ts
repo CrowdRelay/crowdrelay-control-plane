@@ -1,4 +1,4 @@
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AgentScorecard, MeasurementLedger, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationRoutingItem, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, ChatAction, CommunityItem, CommunityObservationItem, CommunityEntityItem, CommunityIntroDraft, CommandCenterReadModel, ConnectionCreationResult, ContentPipeline, ContentSourceUpsertInput, ContentSourceView, DeliveryDetails, DeliveryItem, DeliveryResult, DiscoveredEndpoint, DriveContactsResponse, FanbaseConnection, FeatureFlag, GrowthFunnelData, NotifierChannel, OperationTimeline, OperatorAccount, OutboxItem, Palette, PlatformConfigItem, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, FanDetail, FanJourneyEntry, SegmentPreview, AudienceReadModel, PressOverviewReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TenantShowsResponse, TenantShowTimelineResponse, TenantShowScanResponse, TenantShowReportResponse, TourEconomicsSummary, AutopilotChiefOfStaff, ShowActInput, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, BeaconImportResult, NotifiersOverview, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, LearningProof, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput, BeaconUpsertInput, AgentTasksOverview, AgentProvidersOverview, CommunityDetail, ScanScope, BandListing, ListingState, AttestationSummary, IssuedAttestationResult, RepresentationTargetsResponse, RepresentationTargetInput, ApproachRequestResult, CityFunnelRow, CityVenueRow, GigPlanResponse, GigPlanApproval, TenantIntentOption } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AgentScorecard, MeasurementLedger, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationRoutingItem, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, ChatAction, CommunityItem, CommunityObservationItem, CommunityEntityItem, CommunityIntroDraft, CommandCenterReadModel, ConnectionCreationResult, ContentPipeline, ContentSourceUpsertInput, ContentSourceView, DeliveryDetails, DeliveryItem, DeliveryResult, DiscoveredEndpoint, DriveContactsResponse, FanbaseConnection, FeatureFlag, GrowthFunnelData, NotifierChannel, OperationTimeline, OperatorAccount, OutboxItem, Palette, PlatformConfigItem, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, FanDetail, FanJourneyEntry, SegmentPreview, AudienceReadModel, PressOverviewReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TenantShowsResponse, TenantShowTimelineResponse, TenantShowScanResponse, TenantShowReportResponse, TourEconomicsSummary, AutopilotChiefOfStaff, ShowActInput, SharedNight, NightContributionKind, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, BeaconImportResult, NotifiersOverview, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, LearningProof, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput, BeaconUpsertInput, AgentTasksOverview, AgentProvidersOverview, CommunityDetail, ScanScope, BandListing, ListingState, AttestationSummary, IssuedAttestationResult, RepresentationTargetsResponse, RepresentationTargetInput, ApproachRequestResult, CityFunnelRow, CityVenueRow, GigPlanResponse, GigPlanApproval, TenantIntentOption } from './types'
 
 export class ApiError extends Error {
   constructor(
@@ -759,6 +759,49 @@ export const api = {
       headers: { 'idempotency-key': crypto.randomUUID() },
       body: JSON.stringify(input),
     }),
+
+  // ── The shared night (4V.6b) ────────────────────────────────────────
+  // One venue's night across tenants. The read answers in the tenant
+  // workspace's own lens — which lens is upstream's derivation from the
+  // workspace's relationship, never a parameter this call could pick.
+  night: (slug: string, placeEventId: string) =>
+    request<SharedNight>(`/tenants/${encodeURIComponent(slug)}/nights/${encodeURIComponent(placeEventId)}`),
+  /** Publish or replace one contributed kind for the tenant's workspace —
+   *  explicit, revocable, audited; the default is contribute nothing. */
+  nightContribute: (slug: string, placeEventId: string, kind: NightContributionKind, value: Record<string, unknown>) =>
+    request<SharedNight>(`/tenants/${encodeURIComponent(slug)}/nights/${encodeURIComponent(placeEventId)}/contributions`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ kind, value }),
+    }),
+  nightRevokeContribution: (slug: string, placeEventId: string, kind: NightContributionKind) =>
+    request<SharedNight>(`/tenants/${encodeURIComponent(slug)}/nights/${encodeURIComponent(placeEventId)}/contributions/${encodeURIComponent(kind)}`, {
+      method: 'DELETE',
+    }),
+  /** Mint the night's organiser link — every link already sent dies on
+   *  this call; the token returns once, here. */
+  nightMintOrganiserLink: (slug: string, placeEventId: string) =>
+    request<{ token: string; expires_at: string }>(`/tenants/${encodeURIComponent(slug)}/nights/${encodeURIComponent(placeEventId)}/organiser-link`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: '{}',
+    }),
+  nightRevokeOrganiserLink: (slug: string, placeEventId: string) =>
+    request<SharedNight>(`/tenants/${encodeURIComponent(slug)}/nights/${encodeURIComponent(placeEventId)}/organiser-link`, {
+      method: 'DELETE',
+    }),
+  /** The billed act's own workspace confirms it is on the bill — upstream
+   *  refuses anyone else with the same 404 as a nonexistent night. */
+  nightConfirmAct: (slug: string, placeEventId: string, actSlug: string) =>
+    request<SharedNight>(`/tenants/${encodeURIComponent(slug)}/nights/${encodeURIComponent(placeEventId)}/acts/${encodeURIComponent(actSlug)}/confirm`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: '{}',
+    }),
+  /** The organiser's public read — no session, the token is the whole
+   *  credential; the slug names the tenant that minted it. */
+  publicNight: (slug: string, token: string) =>
+    request<SharedNight>(`/public/nights/${encodeURIComponent(slug)}/${encodeURIComponent(token)}`),
   chiefOfStaff: (slug: string) =>
     request<AutopilotChiefOfStaff>(`/tenants/${encodeURIComponent(slug)}/operations/chief-of-staff`),
 

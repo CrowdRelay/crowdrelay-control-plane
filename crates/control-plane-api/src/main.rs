@@ -373,6 +373,11 @@ async fn main() -> anyhow::Result<()> {
         .merge(provisioner_api)
         .merge(automation_api)
         .merge(routes::billing_router())
+        // Bearer-token public reads — the shared night's organiser lens
+        // (4V.6b). No session and no tenant guard: the token is the whole
+        // credential, and the slug in the path names the tenant that minted
+        // it. A dead link relays upstream's 404.
+        .merge(operations_routes::public_router())
         .merge(waitlist_api);
 
     let index = config.frontend_dist.join("index.html");

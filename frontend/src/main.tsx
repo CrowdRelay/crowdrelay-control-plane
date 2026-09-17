@@ -32,6 +32,13 @@ const isLocalStyleGuide = import.meta.env.DEV
   && ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)
   && window.location.pathname.replace(/\/$/, '') === '/styleguide'
 
+// The organiser's night link: `/nights/{tenant}/{token}` — a bearer-token
+// read a workspace on the bill minted for its promoter (4V.6b). Renders
+// outside the login gate for the same reason the styleguide does: the token
+// is the whole credential and there is no session to gate on.
+const nightMatch = window.location.pathname.match(/^\/nights\/([a-z0-9_-]+)\/([0-9a-f-]{36})\/?$/)
+const PublicNightPage = nightMatch ? lazy(() => import('./pages/PublicNightPage')) : null
+
 // Light / dark / system, stored in localStorage. Kobalte stamps
 // `data-kb-theme` on <html>, which the theme's `dark` variant keys on.
 const colorModeStorage = createLocalStorageManager('control-plane-color-mode')
@@ -45,6 +52,10 @@ const WithColorMode = (props: { children: JSX.Element }) => (
 if (isLocalStyleGuide) {
   const StyleGuidePage = lazy(() => import('./pages/StyleGuidePage'))
   render(() => <WithColorMode><StyleGuidePage /></WithColorMode>, document.getElementById('app')!)
+} else if (nightMatch && PublicNightPage) {
+  const slug = nightMatch[1]!
+  const token = nightMatch[2]!
+  render(() => <WithColorMode><PublicNightPage slug={slug} token={token} /></WithColorMode>, document.getElementById('app')!)
 } else {
   render(() => <WithColorMode><LoginGate><AuthenticatedApp /></LoginGate></WithColorMode>, document.getElementById('app')!)
 }
