@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from 'solid-js'
+import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -6,7 +6,9 @@ import { toast } from '../components/app/toast'
 import type { NotifierChannel, NotifierEvent, DiscoveredEndpoint, PlatformConfigItem, AutomationRoutingItem, NotifiersOverview } from '../lib/types'
 import { NOTIFIER_EVENTS, NOTIFIER_EVENT_LABELS } from '../lib/types'
 import { SectionIcon } from '../components/SectionIcon'
-import { errorMessage } from '../lib/format'
+import { errorMessage, relativeTime } from '../lib/format'
+import { cn } from '../lib/cn'
+import { ChevronDown, RefreshCw } from 'lucide-solid'
 import { writeGuard } from '../lib/read-only'
 import { whileIncomplete } from '../lib/incomplete'
 import { NotifierIcon } from '../components/ProviderIcon'
@@ -15,8 +17,7 @@ import { Checkbox } from '../components/app/checkbox'
 import { SkeletonNotifiersPage, SkeletonSection } from '../components/Skeleton'
 import { confirmAction } from '../components/Dialog'
 import { Spinner } from '../components/Spinner'
-import { ErrorCard, PageHeader, PageShell, PanelTitle, SectionPanel } from '../components/layout'
-import { Card } from '../components/app/card'
+import { ErrorCard, PageHeader, PageShell, Section } from '../components/layout'
 import { Button } from '../components/app/button'
 import { Switch } from '../components/app/switch'
 import { Badge } from '../components/app/badge'
@@ -46,6 +47,7 @@ export function TenantNotifiersPage() {
   const params = useParams({ from: '/tenants/$slug/notifiers' })
   const slug = () => params().slug
   const qc = useQueryClient()
+  const [adding, setAdding] = createSignal(false)
   // Each section carries its own `error` inside a 200 — this model's degraded
   // list — so a section that failed once is never retried without this.
   const overview = useQuery(() => ({
@@ -112,81 +114,89 @@ export function TenantNotifiersPage() {
   const MAX_VISIBLE_ROUTING = 5
   const visibleRoutingItems = () => showAllRouting() ? routingItems() : routingItems().slice(0, MAX_VISIBLE_ROUTING)
 
+  // "Updated 2m ago" has to keep moving while the page sits open.
+  const [now, setNow] = createSignal(Date.now())
+  const tick = setInterval(() => setNow(Date.now()), 15_000)
+  onCleanup(() => clearInterval(tick))
+  const updated = createMemo(() => { now(); return overview.dataUpdatedAt ? relativeTime(overview.dataUpdatedAt) : null })
+
   return <PageShell>
-    <PageHeader eyebrow="SYSTEM" title="Where alerts go" description="The places this tenant's alerts are delivered — the destinations you own, the ones the platform sets for everybody, and the ones automation routes." />
+    <PageHeader
+      title="Notifiers"
+      description="Where this tenant's alerts go: the destinations you own, the ones the platform sets for everybody, and the ones automation routes."
+      actions={
+        <>
+          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
+          <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={overview.isFetching} aria-label="Refresh">
+            <RefreshCw class={cn(overview.isFetching && 'animate-spin')} aria-hidden="true" />
+            Refresh
+          </Button>
+        </>
+      }
+    />
 
     {/* ── Create form ────────────────────────────────────────────── */}
     <Show when={channels.error}><ErrorCard>{errorMessage(channels.error, 'Channels could not be loaded')}</ErrorCard></Show>
     <Show when={!channels.error && !channels.data}><SkeletonNotifiersPage /></Show>
 
-    <Card flat>
-      <div class="flex items-center gap-2 mb-1">
-        <SectionIcon name="bell" />
-        <div>
-          <PanelTitle>Add a destination</PanelTitle>
-        </div>
-      </div>
-      <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Add a destination for this tenant's alerts. Send a test after saving — a wrong URL only fails at delivery time.</p>
 
-      <form onSubmit={(e) => { e.preventDefault(); create.mutate() }}>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          <label class="grid gap-1.5 text-muted-foreground text-sm">
-            <span>Type</span>
-            <NativeSelect value={kind()} onChange={(e) => { setKind(e.currentTarget.value as NotifierChannel['kind']); setTarget('') }} {...writeGuard()}>
-              <option value="discord">Discord app</option>
-              <option value="webhook">Generic webhook</option>
-              <option value="email_relay">Email via platform relay</option>
-            </NativeSelect>
-            <small class="text-xs text-muted-foreground">{typeHint()}</small>
-          </label>
-          <label class="grid gap-1.5 text-muted-foreground text-sm">
-            <span>Label</span>
-            <Input value={label()} onInput={(e) => setLabel(e.currentTarget.value)} placeholder="Ops Discord" {...writeGuard()} />
-            <small class="text-xs text-muted-foreground">Your name for this destination — it is what the rows above and the delivery log show.</small>
-          </label>
-          <label class="grid gap-1.5 text-muted-foreground text-sm md:col-span-2">
-            <span>{targetLabel()}</span>
-            <Input value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPh()} {...writeGuard()} />
-            <small class="text-xs text-muted-foreground">{targetHint()}</small>
-          </label>
-        </div>
-
-        <div class="mt-4 p-4 border border-border rounded-md bg-background" role="group" aria-label="Subscribed events">
-          <p class="text-sm text-secondary-foreground leading-relaxed mb-2">Which events reach this destination. Leave every box clear to receive all of them — that is the default, and new event kinds are included automatically.</p>
-          <div class="grid gap-2" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-            <For each={[...NOTIFIER_EVENTS]}>{ev => (
-              <Checkbox
-                class="items-start gap-3 py-1.5 px-2.5 rounded-sm hover:bg-muted transition-colors cursor-pointer"
-                checked={events().includes(ev)}
-                onChange={() => toggleEvent(ev)}
-                {...writeGuard()}
-                label={evLabel(ev)}
-              />
-            )}</For>
-          </div>
-          <Show when={!events().length}><small class="block mt-2 text-xs text-muted-foreground">Nothing selected — this channel receives every event.</small></Show>
-        </div>
-
-        <Show when={create.error}><div class="mt-3"><ErrorCard>{errorMessage(create.error, 'Channel creation failed')}</ErrorCard></div></Show>
-        <div class="flex justify-end mt-5">
-          <Button writes type="submit" size="sm" disabled={create.isPending || !formReady()}>{create.isPending && <Spinner />} {create.isPending ? 'Adding…' : 'Add channel'}</Button>
-        </div>
-      </form>
-    </Card>
-
-    {/* ── TENANT / VIRYA — Active destinations ──────────────────── */}
+    {/* ── This tenant's destinations, with the add form on demand ── */}
     <Show when={channels.data} fallback={!channels.error ? null : undefined}>
-      <SectionPanel>
-        <div class="flex items-center justify-between gap-4 mb-3">
-          <div class="flex items-center gap-2">
-            <SectionIcon name="bell" />
-            <div>
-              <PanelTitle>Active destinations</PanelTitle>
-            </div>
+      <Section
+        flush
+        title="Destinations"
+        icon={<SectionIcon name="bell" />}
+        count={items().length}
+        description="The places you added for this tenant's alerts. Send a test after saving; a wrong URL only fails at delivery time."
+        action={<Button writes size="sm" onClick={() => setAdding(v => !v)}>{adding() ? 'Cancel' : 'Add channel'}</Button>}
+      >
+        <Show when={adding()}>
+        <form class="rounded-lg border border-border bg-card p-4" onSubmit={(e) => { e.preventDefault(); create.mutate() }}>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <label class="grid gap-1.5 text-muted-foreground text-sm">
+              <span>Type</span>
+              <NativeSelect value={kind()} onChange={(e) => { setKind(e.currentTarget.value as NotifierChannel['kind']); setTarget('') }} {...writeGuard()}>
+                <option value="discord">Discord app</option>
+                <option value="webhook">Generic webhook</option>
+                <option value="email_relay">Email via platform relay</option>
+              </NativeSelect>
+              <small class="text-xs text-muted-foreground">{typeHint()}</small>
+            </label>
+            <label class="grid gap-1.5 text-muted-foreground text-sm">
+              <span>Label</span>
+              <Input value={label()} onInput={(e) => setLabel(e.currentTarget.value)} placeholder="Ops Discord" {...writeGuard()} />
+              <small class="text-xs text-muted-foreground">Your name for this destination — it is what the rows above and the delivery log show.</small>
+            </label>
+            <label class="grid gap-1.5 text-muted-foreground text-sm md:col-span-2">
+              <span>{targetLabel()}</span>
+              <Input value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPh()} {...writeGuard()} />
+              <small class="text-xs text-muted-foreground">{targetHint()}</small>
+            </label>
           </div>
-          <Show when={items().length > 0}><small class="text-sm text-muted-foreground">{items().length} configured</small></Show>
-        </div>
-        <p class="text-sm text-muted-foreground leading-relaxed">Destinations you added for this tenant. You can edit or remove any of them.</p>
+
+          <div class="mt-4 p-4 border border-border rounded-md bg-background" role="group" aria-label="Subscribed events">
+            <p class="text-sm text-secondary-foreground leading-relaxed mb-2">Which events reach this destination. Leave every box clear to receive all of them — that is the default, and new event kinds are included automatically.</p>
+            <div class="grid gap-2" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+              <For each={[...NOTIFIER_EVENTS]}>{ev => (
+                <Checkbox
+                  class="items-start gap-3 py-1.5 px-2.5 rounded-sm hover:bg-muted transition-colors cursor-pointer"
+                  checked={events().includes(ev)}
+                  onChange={() => toggleEvent(ev)}
+                  {...writeGuard()}
+                  label={evLabel(ev)}
+                />
+              )}</For>
+            </div>
+            <Show when={!events().length}><small class="block mt-2 text-xs text-muted-foreground">Nothing selected — this channel receives every event.</small></Show>
+          </div>
+
+          <Show when={create.error}><div class="mt-3"><ErrorCard>{errorMessage(create.error, 'Channel creation failed')}</ErrorCard></div></Show>
+          <div class="flex justify-end gap-2 mt-5">
+            <Button variant="ghost" size="sm" type="button" onClick={() => setAdding(false)}>Cancel</Button>
+            <Button writes type="submit" size="sm" disabled={create.isPending || !formReady()}>{create.isPending && <Spinner />} {create.isPending ? 'Saving…' : 'Save channel'}</Button>
+          </div>
+        </form>
+        </Show>
 
         <Show when={items().length === 0} fallback={
           <div class="grid gap-2.5 mt-4">
@@ -224,24 +234,19 @@ export function TenantNotifiersPage() {
             )}</For>
           </div>
         }>
-          <div class="p-4 mt-4 rounded-lg border border-border bg-background"><EmptyState label="No notification channels" hint="Add a destination above to start receiving operational alerts." /></div>
+          <EmptyState label="No destinations yet" hint="Add a channel to start receiving operational alerts." />
         </Show>
-      </SectionPanel>
+      </Section>
     </Show>
 
     {/* ── PLATFORM / CONTROL PLANE ──────────────────────────────── */}
-    <Show when={platformConfig.error}><SectionPanel><ErrorCard>{errorMessage(platformConfig.error, 'Platform config could not be loaded')}</ErrorCard></SectionPanel></Show>
+    <Show when={platformConfig.error}><ErrorCard>{errorMessage(platformConfig.error, 'Platform config could not be loaded')}</ErrorCard></Show>
     <Show when={!platformConfig.error && !platformConfig.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={platformConfig.data}>
-      <SectionPanel>
-        <details open>
-          <summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-4 mb-3">
-            <div class="flex items-center gap-2">
-              <SectionIcon name="server" />
-              <div>
-                <PanelTitle>Platform notification config</PanelTitle>
-              </div>
-            </div>
+      <section class="border-t border-border pt-6">
+        <details class="group">
+          <summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-4">
+            <h2 class="flex items-center gap-2 text-base font-semibold text-foreground"><span class="text-muted-foreground"><SectionIcon name="server" /></span>Platform notification config<ChevronDown class="size-4 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" /></h2>
           </summary>
 
           <div class="mt-2">
@@ -277,25 +282,20 @@ export function TenantNotifiersPage() {
             </div>
           </div>
         </details>
-      </SectionPanel>
+      </section>
     </Show>
 
     {/* ── AUTOMATION / N8N ──────────────────────────────────────── */}
-    <Show when={automationRouting.error}><SectionPanel><ErrorCard>{errorMessage(automationRouting.error, 'Automation routing could not be loaded')}</ErrorCard></SectionPanel></Show>
+    <Show when={automationRouting.error}><ErrorCard>{errorMessage(automationRouting.error, 'Automation routing could not be loaded')}</ErrorCard></Show>
     <Show when={!automationRouting.error && !automationRouting.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={automationRouting.data}>
-      <SectionPanel>
-        <details open>
-          <summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-4 mb-3">
-            <div class="flex items-center gap-2">
-              <SectionIcon name="workflow" />
-              <div>
-                <PanelTitle>Workflow routing configs</PanelTitle>
-              </div>
-            </div>
+      <section class="border-t border-border pt-6">
+        <details class="group">
+          <summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-4">
+            <h2 class="flex items-center gap-2 text-base font-semibold text-foreground"><span class="text-muted-foreground"><SectionIcon name="workflow" /></span>Workflow routing configs<ChevronDown class="size-4 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" /></h2>
             <div class="flex items-center gap-2">
               <Show when={routingItems().length > 0}><small class="text-sm text-muted-foreground">{routingItems().length} workflows</small></Show>
-              <Button writes variant="ghost" size="sm" disabled={syncRouting.isPending} onClick={(e) => { e.preventDefault(); syncRouting.mutate() }}>{syncRouting.isPending && <Spinner />} {syncRouting.isPending ? 'Syncing…' : 'Sync from n8n'}</Button>
+              <Button writes variant="outline" size="sm" disabled={syncRouting.isPending} onClick={(e) => { e.preventDefault(); syncRouting.mutate() }}>{syncRouting.isPending && <Spinner />} {syncRouting.isPending ? 'Syncing…' : 'Sync from n8n'}</Button>
             </div>
           </summary>
 
@@ -337,31 +337,18 @@ export function TenantNotifiersPage() {
             </Show>
           </div>
         </details>
-      </SectionPanel>
+      </section>
     </Show>
 
     {/* ── Discovered webhook endpoints ───────────────────────────── */}
-    <Show when={discovered.error}><SectionPanel>
-      <div class="flex items-center gap-2 mb-3">
-        <SectionIcon name="link" />
-        <div>
-          <PanelTitle>Discovered webhook endpoints</PanelTitle>
-        </div>
-      </div>
-      <div class="p-4 rounded-lg border border-border bg-background"><p class="text-sm text-muted-foreground">CrowdRelay webhook endpoints unavailable: {errorMessage(discovered.error, 'We couldn\'t read the webhook endpoints. Try refreshing.')}</p></div>
-    </SectionPanel></Show>
+    <Show when={discovered.error}>
+      <Section title="Discovered webhook endpoints" icon={<SectionIcon name="link" />}>
+        <p class="text-sm text-muted-foreground">CrowdRelay webhook endpoints unavailable: {errorMessage(discovered.error, 'We couldn\'t read the webhook endpoints. Try refreshing.')}</p>
+      </Section>
+    </Show>
     <Show when={!discovered.error && !discovered.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={discovered.data && discovered.data.endpoints.length > 0}>
-      <SectionPanel>
-        <div class="mb-3">
-          <div class="flex items-center gap-2 mb-2">
-            <SectionIcon name="link" />
-            <div>
-              <PanelTitle>Discovered webhook endpoints</PanelTitle>
-            </div>
-          </div>
-          <p class="text-sm text-muted-foreground">Outbound webhook delivery targets already configured in this tenant's CrowdRelay instance.</p>
-        </div>
+      <Section title="Discovered webhook endpoints" icon={<SectionIcon name="link" />} count={discovered.data?.endpoints.length} description="Outbound webhook delivery targets already configured in this tenant's CrowdRelay instance.">
         <Table>
           <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Target</TableHead><TableHead>Active</TableHead></TableRow></TableHeader>
           <TableBody>
@@ -376,7 +363,7 @@ export function TenantNotifiersPage() {
             </TableRow>}</For>
           </TableBody>
         </Table>
-      </SectionPanel>
+      </Section>
     </Show>
   </PageShell>
 }
