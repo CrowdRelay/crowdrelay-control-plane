@@ -593,7 +593,7 @@ export const api = {
     request<GigPlanApproval>(`/tenants/${encodeURIComponent(slug)}/gig-plan/approve`, {
       method: 'POST',
       headers: { 'idempotency-key': idempotencyKey },
-      body: JSON.stringify({ city_id: cityId }),
+      body: JSON.stringify({ cityId }),
     }),
   // The intents a band may state, from the planner's own vocabulary (the same
   // reason the north-star list is proxied rather than copied).

@@ -535,8 +535,13 @@ fn idempotency_key(headers: &HeaderMap) -> Result<&str, ApiError> {
         .and_then(|value| value.to_str().ok())
         .map(str::trim)
         .filter(|value| {
+            // Mirrors upstream `validate_text_key`: visible ASCII except `"`
+            // and `\`, which would break the key's JSON round-trip into the
+            // stored payload.
             (8..=128).contains(&value.len())
-                && value.bytes().all(|byte| (b'!'..=b'~').contains(&byte))
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_graphic() && byte != b'"' && byte != b'\\')
         })
         .ok_or_else(|| ApiError::InvalidInput("valid Idempotency-Key is required".to_owned()))
 }
