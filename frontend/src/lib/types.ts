@@ -963,6 +963,43 @@ export type TenantPortfolioReadModel = {
 }
 
 
+// The measurement ledger — the plan's fifteen claims, each stated with the
+// number that answers it or the reason this build cannot produce one. Rates
+// are stated only when the denominator clears `rate_floor`; `below_floor`
+// shows the counts and the floor, and `unmeasured` carries the reason — no
+// state ever fabricates a zero.
+export type Measure =
+  | { state: 'rate'; numerator: number; denominator: number; basis_points: number }
+  | { state: 'below_floor'; numerator: number; denominator: number; floor: number }
+  | { state: 'count'; value: number; unit: string }
+  | { state: 'minutes'; median: number; n: number }
+  | { state: 'unmeasured'; reason: string }
+
+export type MeasurementBreakdown = {
+  label: string
+  measure: Measure
+}
+
+export type MeasurementClaim = {
+  key: string
+  /// The plan's words for the claim.
+  claim: string
+  /// The plan's words for how it is measured.
+  measured_as: string
+  /// 0 means the claim is not windowed — the archive is a stock, not a flow.
+  window_days: number
+  measure: Measure
+  /// Per-channel / per-show rows where the claim is judged per unit.
+  breakdown: MeasurementBreakdown[]
+}
+
+export type MeasurementLedger = {
+  observed_at: string
+  window_days: number
+  rate_floor: number
+  claims: MeasurementClaim[]
+}
+
 // Agent scorecard — is it running, what did it do, did it work.
 export type AgentScorecard = {
   status: {

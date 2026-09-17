@@ -453,6 +453,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/growth"
                     | "/v1/control-plane/autopilot/next-best-actions"
                     | "/v1/control-plane/autopilot/scorecard"
+                    | "/v1/control-plane/autopilot/measurement"
                     | "/v1/control-plane/autopilot/reply-triage"
                     | "/v1/control-plane/autopilot/growth-metrics/coverage"
                     | "/v1/control-plane/autopilot/growth-metrics/trends"
@@ -1526,6 +1527,7 @@ mod tests {
             "/v1/control-plane/ecosystem/flags",
             "/v1/control-plane/autopilot/overview",
             "/v1/control-plane/autopilot/reply-triage",
+            "/v1/control-plane/autopilot/measurement",
             // The gig page's upstream reads — slug-parameterized, so the
             // allowlist's segment-shape check is what bounds them.
             "/v1/control-plane/events",

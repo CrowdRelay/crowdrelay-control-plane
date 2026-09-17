@@ -11,6 +11,7 @@ import { LearningLoopPanel } from '../components/LearningLoopPanel'
 import { LearningProofPanel } from '../components/LearningProofPanel'
 import { ContentSourcesPanel } from '../components/ContentSourcesPanel'
 import { ScorecardPanel } from '../components/ScorecardPanel'
+import { MeasurementPanel } from '../components/MeasurementPanel'
 import { GrowthPosturePanel } from '../components/GrowthPosturePanel'
 import { GrowthMetricsPanel } from '../components/GrowthMetricsPanel'
 import { AcquisitionChannelsPanel } from '../components/AcquisitionChannelsPanel'
@@ -25,12 +26,12 @@ import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 /**
  * Intelligence subpage — tabbed view for the deterministic Rust autopilot.
  *
- * Tabs: Where we stand | What it believes | What it decided | What moved | What it learned
+ * Tabs: Are we getting anywhere | Where we stand | What it believes | What it decided | What moved | What it learned
  * Each tab groups related panels thematically.
  */
 export function TenantIntelligencePage() {
   const params = useParams({ from: '/tenants/$slug/intelligence' })
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('overview')
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('measurement')
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
@@ -79,6 +80,7 @@ export function TenantIntelligencePage() {
       onChange={switchTab}
       onPrefetch={prefetch}
       tabs={[
+        { id: 'measurement', label: 'Are we getting anywhere' },
         { id: 'overview', label: 'Where we stand' },
         { id: 'growth', label: 'What it believes' },
         { id: 'material', label: 'What it may say' },
@@ -97,6 +99,14 @@ export function TenantIntelligencePage() {
     </Show>
 
     <Show when={!model.error && model.data}>{<>
+
+      {/* ── Measurement tab — the plan's fifteen claims, each with its
+              number or the reason this build cannot produce it ── */}
+      <TabPanel active={activeTab()} id="measurement" visited={isVisited('measurement')}>
+        <div>
+          <MeasurementPanel slug={params().slug} />
+        </div>
+      </TabPanel>
 
       {/* ── Overview tab — what it knows ── */}
       <TabPanel active={activeTab()} id="overview" visited={isVisited('overview')}>
