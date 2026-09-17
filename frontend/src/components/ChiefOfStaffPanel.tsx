@@ -119,7 +119,8 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
         <KpiCard label="Executed" value={data().executed_24h} sub={`${data().executor_confirmed_24h} confirmed finished`} />
         <KpiCard label="Failed" tone={data().failed_24h > 0 ? 'bad' : 'default'} value={data().failed_24h} sub={`${data().executor_failed_24h} broke while running`} />
         <KpiCard label="Waiting on you" tone={data().needs_you > 0 ? 'warn' : 'default'} value={data().needs_you} sub="parked until approved" />
-        <KpiCard label="Time saved" value={minutes(data().estimated_minutes_saved_24h)} sub="estimated, from work it ran unattended" />
+        <KpiCard label="Time saved" value={minutes(data().estimated_minutes_saved_24h)} sub={data().estimated_minutes_basis} />
+        <KpiCard label="Team turnaround" value={data().median_assignment_turnaround_minutes_7d === null ? '—' : minutes(data().median_assignment_turnaround_minutes_7d!)} sub={data().assignments_completed_7d === 0 ? 'no assignments completed in 7d' : `median, ${data().assignments_completed_7d} completed in 7d`} />
       </KpiStrip>
 
       <Show when={quiet()}>

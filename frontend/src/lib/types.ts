@@ -493,6 +493,25 @@ export type PendingAutopilotAction = {
   assignment_due_at: string | null
   required_capability: string | null
   executor_ready: boolean
+  /// The payload fields an operator may edit on approve, with their current
+  /// text — CrowdRelay computes the map; absent when nothing is revisable.
+  revisable?: Record<string, string>
+}
+
+/// One week of the §4d-3.2 voice signal.
+export type RevisionTrendWeek = {
+  week_start: string
+  revised_fields: number
+  avg_distance_chars: number
+}
+
+/// How far the band's approve-time edits moved the machine's words.
+/// Distance should fall as voice-matching improves.
+export type RevisionTrend = {
+  revised_fields_30d: number
+  revised_actions_30d: number
+  avg_distance_chars_30d: number
+  weekly: RevisionTrendWeek[]
 }
 
 /// The content page's own read model — its approval-queue slice plus the
@@ -504,6 +523,8 @@ export type ContentPipeline = {
   pending: PendingAutopilotAction[]
   /// content_source_id → title for every source a pending payload cites.
   source_titles: Record<string, string>
+  /// The voice-learning signal — null until the first revised approval.
+  revision_trend?: RevisionTrend | null
 }
 
 /// Lightweight summary of a pending autopilot action — just the fields the
@@ -1877,6 +1898,9 @@ export type AutopilotChiefOfStaff = {
   failed_24h: number
   needs_you: number
   estimated_minutes_saved_24h: number
+  estimated_minutes_basis: string
+  median_assignment_turnaround_minutes_7d: number | null
+  assignments_completed_7d: number
   measured_improved_7d: number
   measured_neutral_7d: number
   measured_worsened_7d: number
@@ -1960,6 +1984,7 @@ export type BeaconProfileView = {
   nearbyGigsEnabled: boolean
   inviteCount: number
   lastInvitedAt: string | null
+  inviteExpiresAt: string | null
   joinedAt: string | null
   lastSeenAt: string | null
   activeSessions: number
@@ -2861,6 +2886,36 @@ export type BandListing = {
   published_dates: string[]
   seeking: string[]
   visibility: 'unlisted' | 'admitted_readers'
+}
+
+// 2.8 — an audience attestation as the operator's list shows it. The figures
+// live on the public document the share_token carries, not on this summary.
+export type AttestationSummary = {
+  digest: string
+  share_token: string
+  act_name: string
+  issued_at: string
+  valid_until: string
+  revoked: boolean
+}
+
+// The issued document plus the token that carries its link — the response
+// to "issue a card", not a list row.
+export type IssuedAttestationResult = {
+  digest: string
+  share_token: string
+  signature: string
+  issued_at: string
+  valid_until: string
+  figures: {
+    metric: string
+    method: string
+    scope: { kind: string; value?: string }
+    value: { kind: 'exact' | 'fewer_than'; value: number }
+    reads_as: string
+    window_days: number
+    observed_at: number
+  }[]
 }
 
 export type ListingState = {

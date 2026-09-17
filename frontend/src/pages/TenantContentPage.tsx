@@ -197,6 +197,28 @@ export function TenantContentPage() {
       Approved pieces go out by themselves where auto-posting is on; the rest wait as drafts.
     </p>
 
+    {/* Voice signal — how much fixing the drafts still need. Distance should
+        fall as the machine learns; a flat or rising line means the same
+        corrections keep coming. */}
+    <Show when={pipeline.data?.revision_trend}>
+      {(trend) => (
+        <Card flat class="mb-6">
+          <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Voice match</span>
+            <span class="text-sm text-foreground">
+              {trend().revised_fields_30d} fields fixed in 30 days · ~{trend().avg_distance_chars_30d} chars per fix
+            </span>
+            <Show when={trend().weekly.length > 1}>
+              <span class="text-xs text-muted-foreground">
+                weekly: {trend().weekly.map(w => w.avg_distance_chars).join(' → ')} chars
+              </span>
+            </Show>
+            <span class="text-xs text-muted-foreground">falls as drafts get closer to your words</span>
+          </div>
+        </Card>
+      )}
+    </Show>
+
     {/* ── Waiting for your yes ── */}
     <SectionTitle title="Waiting for your yes" icon={<SectionIcon name="bell" />} description="Drafts the brain proposes from your material. Approving starts the work — the piece is written, then published or saved as a draft." />
     <Show when={!pipeline.error && !pipeline.data && pipeline.isFetching}>

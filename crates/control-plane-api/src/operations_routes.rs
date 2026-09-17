@@ -248,6 +248,20 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/opportunities/decisions/{decision_id}/handled-externally",
             post(handle_opportunity_externally),
         )
+        // Audience attestations — the proof cards. Issue measures the
+        // tenant's own ledgers upstream; these routes are transport only.
+        .route(
+            "/tenants/{slug}/operations/attestations",
+            get(attestations).post(issue_attestation),
+        )
+        .route(
+            "/tenants/{slug}/operations/attestations/revoke",
+            post(revoke_attestation),
+        )
+        .route(
+            "/tenants/{slug}/operations/attestations/rotate",
+            post(rotate_attestation),
+        )
         // Decision evidence: structured "why this decision" data.
         // Read-only proxy to CrowdRelay's decision evidence read model.
         .route(
@@ -1454,6 +1468,166 @@ async fn approve_opportunity(
     let result = result?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(result, "opportunity approval")
+}
+
+/// The tenant's issued audience attestations, newest first — the list an
+/// operator posts a card link from.
+async fn attestations(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/attestations",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    array_no_store(value, "attestations")
+}
+
+/// Issue a proof card from measured figures. The body is optional
+/// (`{ "cities": [...] }`); the figures themselves are always measured
+/// upstream — nothing in the request can write a number.
+async fn issue_attestation(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    body: Option<Json<Value>>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let payload = body.map(|Json(value)| value);
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: "/v1/control-plane/attestations",
+                body: payload.as_ref(),
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.attestation.issued",
+        "attestation",
+        "workspace",
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "attestation issue")
+}
+
+/// Withdraw a card — every link stops verifying, the row stays. Upstream
+/// addresses the document by digest in the path; the operator's body keeps
+/// carrying it because the panel never sees the URL shape.
+async fn revoke_attestation(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let digest = attestation_digest(&body)?;
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: &format!("/v1/control-plane/attestations/{digest}/revoke"),
+                body: None,
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.attestation.revoked",
+        "attestation",
+        &digest,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "attestation revoke")
+}
+
+/// Mint a fresh share token, killing every link already sent.
+async fn rotate_attestation(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let digest = attestation_digest(&body)?;
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: &format!("/v1/control-plane/attestations/{digest}/rotate"),
+                body: None,
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.attestation.rotated",
+        "attestation",
+        &digest,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "attestation rotate")
+}
+
+/// The digest the operator's body names, checked before it becomes a path
+/// segment — a malformed one is a validation error here, not a 404 upstream.
+fn attestation_digest(body: &Value) -> Result<String, ApiError> {
+    let digest = body
+        .get("digest")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_lowercase();
+    if digest.len() != 64 || !digest.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err(ApiError::InvalidInput(
+            "attestation digest must be 64 lowercase hex characters".into(),
+        ));
+    }
+    Ok(digest)
 }
 
 /// Reject / cancel a pending autopilot action so it stops appearing in the

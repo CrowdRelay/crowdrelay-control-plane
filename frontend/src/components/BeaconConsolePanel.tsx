@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import type { BeaconProfileView } from '../lib/types'
 import { errorMessage, formatTimestamp, relativeTime } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
@@ -51,6 +52,12 @@ const STATE_TONE: Record<string, 'good' | 'warn' | 'bad' | 'muted'> = {
   paused: 'muted',
   revoked: 'bad',
   unverified: 'muted',
+}
+
+// The badge says what happened, not the stored enum — "invited" is the
+// state, what the operator needs to know is that mail went out.
+const STATE_LABEL: Record<string, string> = {
+  invited: 'Invitation sent',
 }
 
 const EMPTY_FORM = {
@@ -115,6 +122,25 @@ export function BeaconConsolePanel(props: { slug: string }) {
   // `visible()` set is used for selection and the "show all" count.
   const rendered = createMemo(() => showAll() ? visible() : visible().slice(0, MAX_VISIBLE))
 
+  // Mirrors the batch eligibility the upstream mint enforces: a bulk invite
+  // is new outreach only — never-invited or a lapsed invite, with an email to
+  // send to. Members, paused, revoked and still-live invites are excluded;
+  // paused/revoked stay revivable one at a time through Re-invite.
+  const invitable = (profile: BeaconProfileView) =>
+    profile.contactEmail !== null &&
+    (profile.status === 'unverified' ||
+      (profile.status === 'invited' &&
+        !(profile.inviteExpiresAt && new Date(profile.inviteExpiresAt).getTime() > Date.now())))
+
+  const notInvitableReason = (profile: BeaconProfileView) => {
+    if (profile.contactEmail === null) return 'No contact email — add one before inviting'
+    if (profile.status === 'active') return 'Already a Signal member'
+    if (profile.status === 'invited') return 'Invitation already sent — re-invites once the link expires'
+    if (profile.status === 'paused') return 'Paused — use Re-invite to approach deliberately'
+    if (profile.status === 'revoked') return 'Revoked — use Re-invite to approach deliberately'
+    return 'Not invitable'
+  }
+
   const toggle = (beaconId: string) => {
     const next = new Set(selected())
     if (next.has(beaconId)) next.delete(beaconId)
@@ -122,21 +148,23 @@ export function BeaconConsolePanel(props: { slug: string }) {
     setSelected(next)
   }
 
-  // Selects what is currently visible, not the whole roster — selecting rows
-  // hidden by a filter is how the wrong people get invited.
+  // Selects what is currently visible AND invitable — a row already holding a
+  // live invite must not ride along into a second email.
+  const invitableVisible = createMemo(() => visible().filter(invitable))
+
   const selectAllVisible = () => {
-    const shown = visible().map(profile => profile.beaconId)
-    const allShown = shown.every(id => selected().has(id))
+    const shown = invitableVisible().map(profile => profile.beaconId)
+    const allShown = shown.length > 0 && shown.every(id => selected().has(id))
     setSelected(allShown ? new Set<string>() : new Set<string>(shown))
   }
 
-  const act = async (key: string, run: () => Promise<unknown>, done: string) => {
+  const act = async <T,>(key: string, run: () => Promise<T>, done: string | ((result: T) => string)) => {
     if (busy() !== null) return
     setBusy(key)
     setNotice(null)
     try {
-      await run()
-      setNotice({ tone: 'good', message: done })
+      const result = await run()
+      setNotice({ tone: 'good', message: typeof done === 'function' ? done(result) : done })
       await roster.refetch()
       refreshQueries(['beacon-console-network', props.slug])
     } catch (error) {
@@ -180,14 +208,27 @@ export function BeaconConsolePanel(props: { slug: string }) {
   }
 
   const inviteSelected = () => {
-    const ids = [...selected()]
+    const ids = invitableVisible().map(profile => profile.beaconId).filter(id => selected().has(id))
     if (ids.length === 0) return
     void act(
       'invite',
       () => api.batchInviteBeacons(props.slug, ids),
-      `Invited ${ids.length} beacon${ids.length === 1 ? '' : 's'}.`,
+      // Report what the mint actually did, not what was asked for — a
+      // selection can contain rows that became ineligible between render and
+      // send, and "Invited 5" that mailed 3 is the lie this panel exists
+      // to kill.
+      (result) => {
+        const sent = `${result.created} invitation${result.created === 1 ? '' : 's'} sent`
+        return result.skipped > 0 ? `${sent} · ${result.skipped} skipped (already covered or ineligible)` : `${sent}.`
+      },
     ).then(() => setSelected(new Set<string>()))
   }
+
+  // Deliberate revive: paused and revoked beacons are excluded from the bulk
+  // path so an accidental select-all cannot undo an operator decision, but a
+  // single named row can always be re-approached.
+  const reinvite = (beaconId: string) =>
+    void act(`invite:${beaconId}`, () => api.inviteBeacon(props.slug, beaconId), 'Invitation sent.')
 
   const setState = (beaconId: string, status: 'active' | 'paused' | 'revoked') =>
     void act(`state:${beaconId}`, () => api.setBeaconState(props.slug, beaconId, status), `Beacon ${status}.`)
@@ -333,10 +374,11 @@ export function BeaconConsolePanel(props: { slug: string }) {
             <option value="paused">Paused</option>
             <option value="revoked">Revoked</option>
           </NativeSelect>
-          <Button variant="ghost" size="sm" onClick={selectAllVisible} disabled={visible().length === 0}>
-            {visible().every(p => selected().has(p.beaconId)) && visible().length > 0
+          <Button variant="ghost" size="sm" onClick={selectAllVisible} disabled={invitableVisible().length === 0}
+                  title={invitableVisible().length === 0 ? 'No beacon in view can be invited — members, paused and already-invited rows are skipped' : undefined}>
+            {invitableVisible().length > 0 && invitableVisible().every(p => selected().has(p.beaconId))
               ? 'Clear selection'
-              : `Select all ${visible().length} filtered`}
+              : `Select all ${invitableVisible().length} invitable`}
           </Button>
           <Button writes
             size="sm"
@@ -383,6 +425,8 @@ export function BeaconConsolePanel(props: { slug: string }) {
                       <Checkbox
                         checked={selected().has(profile.beaconId)}
                         onChange={() => toggle(profile.beaconId)}
+                        disabled={!invitable(profile)}
+                        title={invitable(profile) ? undefined : notInvitableReason(profile)}
                         aria-label={`Select ${profile.displayName}`}
                       />
                     </TableCell>
@@ -397,7 +441,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={profile.status} tone={STATE_TONE[profile.status] ?? 'muted'} />
+                      <StatusBadge status={STATE_LABEL[profile.status] ?? profile.status} tone={STATE_TONE[profile.status] ?? 'muted'} />
                     </TableCell>
                     <TableCell class="text-center tabular-nums">{profile.inviteCount}</TableCell>
                     <TableCell>
@@ -413,10 +457,20 @@ export function BeaconConsolePanel(props: { slug: string }) {
                             {busy() === `state:${profile.beaconId}` && <Spinner />} Pause
                           </Button>
                         </Show>
-                        <Show when={profile.status === 'paused'}>
+                        {/* Resume only works on a member — upstream 'active'
+                            requires a join. A paused beacon that never joined
+                            revives through a new invitation instead. */}
+                        <Show when={profile.status === 'paused' && profile.joinedAt !== null}>
                           <Button writes variant="ghost" size="sm" disabled={busy() !== null}
                                   onClick={() => setState(profile.beaconId, 'active')}>
                             {busy() === `state:${profile.beaconId}` && <Spinner />} Resume
+                          </Button>
+                        </Show>
+                        <Show when={profile.status === 'paused' || profile.status === 'revoked'}>
+                          <Button writes variant="ghost" size="sm" disabled={busy() !== null}
+                                  title="Send a fresh invitation — the deliberate revive path the bulk invite excludes"
+                                  onClick={() => reinvite(profile.beaconId)}>
+                            {busy() === `invite:${profile.beaconId}` && <Spinner />} Re-invite
                           </Button>
                         </Show>
                         <Show when={profile.status !== 'unverified' && profile.status !== 'revoked'}>

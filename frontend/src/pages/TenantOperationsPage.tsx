@@ -10,6 +10,7 @@ import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { ListingPanel } from '../components/ListingPanel'
+import { AttestationsPanel } from '../components/AttestationsPanel'
 import { SkeletonKpiStrip, SkeletonSection } from '../components/Skeleton'
 import { Eyebrow, KpiCard, KpiStrip, PageShell, PageHeader, Section, SkeletonBlock, TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { SectionIcon } from '../components/SectionIcon'
@@ -478,6 +479,7 @@ export function TenantOperationsPage() {
         carry any of it. */}
     <TabPanel active={activeTab()} id="listing" visited={isVisited('listing')}>
       <ListingPanel slug={params().slug} />
+      <AttestationsPanel slug={params().slug} />
     </TabPanel>
   </PageShell>
 }

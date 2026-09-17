@@ -487,6 +487,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/gdrive/contacts"
                     // §4h-12: the band's listing + representation contacts.
                     | "/v1/control-plane/listing"
+                    | "/v1/control-plane/attestations"
                     | "/v1/control-plane/representation/targets"
                     | "/v1/control-plane/webhook-endpoints"
                     | "/v1/control-plane/audience/overview"
@@ -633,6 +634,12 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || path == "/v1/control-plane/listing/publish"
                 || path == "/v1/control-plane/listing/unlist"
                 || path == "/v1/control-plane/listing/rotate-token"
+                // Audience attestations: issue, list, revoke, rotate — the
+                // proof cards an operator posts a link to. The document is
+                // addressed by its digest in the path.
+                || path == "/v1/control-plane/attestations"
+                || safe_segment_between(path, "/v1/control-plane/attestations/", "/revoke")
+                || safe_segment_between(path, "/v1/control-plane/attestations/", "/rotate")
                 || path == "/v1/control-plane/representation/targets"
                 || path == "/v1/control-plane/representation/approach"
                 || uuid_segment_between(
