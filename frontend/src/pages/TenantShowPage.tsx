@@ -18,6 +18,19 @@ const STATE_VARIANT: Record<ShowTimelineState, { variant: 'success' | 'default' 
   skipped: { variant: 'outline', label: 'Skipped' },
 }
 
+/** One act as the timeline's crossbill detail carries it — the API emits
+ * position + per-act ticket link, in running order already. */
+type LineupAct = { slug?: string; name?: string; position?: number; ticket_url?: string | null }
+
+/** The night's bill, read off the announced step's crossbill detail. Empty
+ * when nobody has listed who plays — the setup panel is where that gets
+ * fixed, and this block stays hidden rather than rendering an empty list. */
+function lineupActs(timeline: { steps: ShowTimelineStep[] }): LineupAct[] {
+  const step = timeline.steps.find(s => s.key === 'announced')
+  const crossbill = step?.detail?.crossbill as { acts?: LineupAct[] } | undefined
+  return [...(crossbill?.acts ?? [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+}
+
 /** `/tenants/$slug/shows/$eventSlug` — one night, T-21→T+7, top to bottom.
  * One column, time order; every step shows its state, its owner, and the
  * one action available now. A band member should read Friday's state in
@@ -79,6 +92,34 @@ export function TenantShowPage() {
                       {v.last_outreach_at ? ` · last contact ${formatTimestamp(v.last_outreach_at)}` : ''}
                       <Show when={v.notes}>
                         <p class="mt-0.5 truncate text-[11px]">{v.notes}</p>
+                      </Show>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </Show>
+            {/* The lineup — who else plays, in running order, with each
+                act's own ticket link. Read-side view of the bill the setup
+                panel edits (4V.5b). */}
+            <Show when={lineupActs(data()).length > 0}>
+              <div class="mb-3 rounded-lg border border-border bg-background px-4 py-2.5">
+                <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Who's playing</p>
+                <For each={lineupActs(data())}>
+                  {(act, index) => (
+                    <div class="mt-1 flex items-baseline gap-2 text-xs text-muted-foreground">
+                      <span class="w-4 shrink-0 text-right tabular-nums">{index() + 1}.</span>
+                      <span class="text-foreground">{act.name}</span>
+                      <Show when={act.ticket_url}>
+                        {url => (
+                          <a
+                            href={url()}
+                            target="_blank"
+                            rel="noreferrer"
+                            class="text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
+                          >
+                            tickets ↗
+                          </a>
+                        )}
                       </Show>
                     </div>
                   )}
