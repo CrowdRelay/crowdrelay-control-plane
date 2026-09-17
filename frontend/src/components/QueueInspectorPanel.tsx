@@ -8,10 +8,9 @@ import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
 import { SkeletonRows } from './Skeleton'
 import { StatusBadge } from './StatusBadge'
-import { Card } from './app/card'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
-import { ErrorCard, PanelTitle, TabBar } from './layout'
+import { ErrorCard, Section, TabBar } from './layout'
 import type { DeliveryDetails, DeliveryItem, OutboxItem } from '../lib/types'
 import { NativeSelect } from './ui/native-select'
 
@@ -100,14 +99,12 @@ export function QueueInspectorPanel(props: { slug: string }) {
     }
   }
 
-  return <Card flat>
-    <div class="flex items-center justify-between gap-4 mb-3">
-      <div>
-        <PanelTitle icon={<SectionIcon name="list-checks" />}>What is stuck, and why</PanelTitle>
-        <p>The outbox holds events leaving this system; deliveries are the attempts to send them. A dead row has used every attempt and will not move again on its own — read one before retrying the rest, because a bulk retry reproduces a bad one as fast as it reproduces a blip.</p>
-      </div>
-      <Show when={model.dataUpdatedAt}><span class="text-xs text-muted-foreground whitespace-nowrap">Updated {relativeTime(model.dataUpdatedAt)}</span></Show>
-    </div>
+  return <Section
+    title="What is stuck, and why"
+    icon={<SectionIcon name="list-checks" />}
+    description="The outbox holds events leaving this system; deliveries are the attempts to send them. A dead row has used every attempt and will not move on its own. Read one before retrying the rest."
+    action={<Show when={model.dataUpdatedAt}><span class="text-xs text-muted-foreground whitespace-nowrap">Updated {relativeTime(model.dataUpdatedAt)}</span></Show>}
+  >
 
     {/* The bar and the filter share a row, so the bar's own `mb-4` became
         trailing space inside a container that already sets `gap`, and the
@@ -232,5 +229,5 @@ export function QueueInspectorPanel(props: { slug: string }) {
         </Show>
       </>}</Show>
     </Dialog>
-  </Card>
+  </Section>
 }
