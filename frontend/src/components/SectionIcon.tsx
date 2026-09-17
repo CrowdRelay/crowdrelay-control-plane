@@ -7,7 +7,7 @@ import { cn } from '../lib/cn'
 // pass `class` to override for a specific severity (e.g. text-destructive
 // next to a danger-zone heading).
 
-type IconName =
+export type IconName =
   | 'heartbeat'
   | 'shield'
   | 'globe'

@@ -295,7 +295,7 @@ export function AttentionInbox(props: {
       <div class="border-b border-border last:border-0">
         <div class="flex items-center gap-2 p-4 pb-2 text-warning-foreground">
           <span class="text-xs font-semibold uppercase tracking-wider">Review</span>
-          <span class="bg-warning-foreground text-warning-foreground text-xs rounded-full px-2 py-0.5 font-bold">{review().length}</span>
+          <span class="bg-warning text-warning-foreground text-xs rounded-full px-2 py-0.5 font-bold">{review().length}</span>
         </div>
         <For each={review()}>{row}</For>
       </div>

@@ -171,7 +171,7 @@ export function DeadQueuesPanel(props: {
     </div>
     <Show when={props.error}><ErrorCard>{errorMessage(props.error, 'Dead outbox unavailable')}</ErrorCard></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
-    <For each={expandOutbox() ? (props.deadOutbox ?? []) : (props.deadOutbox ?? []).slice(0, DEAD_PREVIEW)}>{item => <Card class="mb-2.5 border-warning-foreground/30 bg-warning-foreground p-4 last:mb-0">
+    <For each={expandOutbox() ? (props.deadOutbox ?? []) : (props.deadOutbox ?? []).slice(0, DEAD_PREVIEW)}>{item => <Card class="mb-2.5 border-warning-foreground/30 bg-warning p-4 last:mb-0">
       <div class="flex items-start justify-between gap-3 flex-wrap">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 flex-wrap">
@@ -199,7 +199,7 @@ export function DeadQueuesPanel(props: {
     </div>
     <Show when={props.error}><ErrorCard>{errorMessage(props.error, 'Dead deliveries unavailable')}</ErrorCard></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
-    <For each={expandDeliveries() ? (props.deadDeliveries ?? []) : (props.deadDeliveries ?? []).slice(0, DEAD_PREVIEW)}>{item => <Card class="mb-2.5 border-warning-foreground/30 bg-warning-foreground p-4 last:mb-0">
+    <For each={expandDeliveries() ? (props.deadDeliveries ?? []) : (props.deadDeliveries ?? []).slice(0, DEAD_PREVIEW)}>{item => <Card class="mb-2.5 border-warning-foreground/30 bg-warning p-4 last:mb-0">
       <div class="flex items-start justify-between gap-3 flex-wrap">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 flex-wrap">
@@ -223,7 +223,7 @@ export function DeadQueuesPanel(props: {
 
     <Show when={deliveryDetails()}>{details => <Card class="p-4">
       <div class="flex items-start justify-between gap-4 mb-3"><div><PanelTitle as="h3" icon={<SectionIcon name="mail" />}>{details().delivery.endpoint_name}</PanelTitle><div class="flex items-center gap-2 flex-wrap mt-1"><Badge variant="warning">{details().delivery.event_type.replace(/_/g, ' ')}</Badge><Badge variant="muted">delivery</Badge></div></div><Button variant="ghost" size="sm" onClick={() => setDeliveryDetails(null)}>Close</Button></div>
-      <For each={details().attempts}>{attempt => <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground p-4"><strong class="text-foreground">Attempt {attempt.attempt_number} · {attempt.outcome}</strong><p class="mt-1 m-0 text-sm text-secondary-foreground">HTTP {attempt.response_status ?? '—'} · {attempt.error_kind ?? 'no error kind'} · {attempt.duration_ms} ms · {observed(attempt.finished_at)}</p></div>}</For>
+      <For each={details().attempts}>{attempt => <div class="rounded-lg border border-warning-foreground/30 bg-warning p-4"><strong class="text-foreground">Attempt {attempt.attempt_number} · {attempt.outcome}</strong><p class="mt-1 m-0 text-sm text-secondary-foreground">HTTP {attempt.response_status ?? '—'} · {attempt.error_kind ?? 'no error kind'} · {attempt.duration_ms} ms · {observed(attempt.finished_at)}</p></div>}</For>
       <Show when={details().attempts.length === 0}><EmptyState label="No delivery attempts" hint="Delivery attempts are logged here once the outbox starts processing messages." /></Show>
     </Card>}</Show>
 
@@ -234,7 +234,7 @@ export function DeadQueuesPanel(props: {
     </div>
     <Show when={props.error}><ErrorCard>{errorMessage(props.error, 'Dead push unavailable')}</ErrorCard></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
-    <For each={expandPush() ? (props.deadPush ?? []) : (props.deadPush ?? []).slice(0, DEAD_PREVIEW)}>{item => <Card class="mb-2.5 border-warning-foreground/30 bg-warning-foreground p-4 last:mb-0">
+    <For each={expandPush() ? (props.deadPush ?? []) : (props.deadPush ?? []).slice(0, DEAD_PREVIEW)}>{item => <Card class="mb-2.5 border-warning-foreground/30 bg-warning p-4 last:mb-0">
       <div class="flex items-start justify-between gap-3 flex-wrap">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 flex-wrap">

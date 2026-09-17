@@ -3,7 +3,6 @@ import { authState } from '../lib/auth'
 import { KpiCard, KpiStrip, PanelTitle } from './layout'
 import type { UnpublishedDraftChannel } from '../lib/attention'
 import { SectionIcon } from './SectionIcon'
-import { Card } from './app/card'
 import { Badge } from './app/badge'
 import { cn } from '../lib/cn'
 
@@ -71,9 +70,9 @@ export function UnpublishedDraftsPanel(props: {
     return ages.length > 0 ? Math.max(...ages) : null
   }
 
-  return <Card flat class="space-y-4">
+  return <section class="space-y-3">
     <div>
-      <PanelTitle icon={<SectionIcon name="inbox" />}>Waiting on you to publish</PanelTitle>
+      <PanelTitle as="h3" icon={<SectionIcon name="inbox" />}>Waiting on you to publish</PanelTitle>
       <p class="text-muted-foreground text-sm mt-1">
         The brain drafted these. Nobody has posted them, so they have reached nobody.
       </p>
@@ -119,5 +118,5 @@ export function UnpublishedDraftsPanel(props: {
         </div>
       </Show>
     </Show>
-  </Card>
+  </section>
 }
