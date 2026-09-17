@@ -4,8 +4,7 @@ import { api } from '../lib/api'
 import { formatTimestamp } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock } from './Skeleton'
-import { TabBar, TabPanel, useTabPanels, KpiStrip, KpiCard, ErrorCard, ShowMore, useShowMore } from './layout'
-import { Card } from './app/card'
+import { TabBar, TabPanel, useTabPanels, KpiStrip, KpiCard, ErrorCard, Section, ShowMore, useShowMore } from './layout'
 import { Badge } from './app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 
@@ -49,14 +48,12 @@ export function BeaconSignalPanel(props: { slug: string }) {
     staleTime: 10_000,
   }))
 
-  return <Card flat>
-    <div class="flex items-center justify-between gap-4">
-      <h3>Beacon signal network</h3>
-      <Show when={dashboard.data}>
-        <span class="text-muted-foreground">{dashboard.data!.total} beacons · {dashboard.data!.active} active</span>
-      </Show>
-    </div>
-    <p class="text-sm text-muted-foreground leading-relaxed mt-1">Press and industry relationships — the people the agent is talking to, with discovery runs and invite jobs.</p>
+  return <Section
+    flush
+    title="Signal network"
+    count={dashboard.data?.total}
+    description="The same people as a funnel: who the agent is talking to, with discovery runs and invite jobs."
+  >
 
     <Show when={dashboard.error}>
       <ErrorCard>Beacon signal dashboard unavailable</ErrorCard>
@@ -65,7 +62,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
       <SkeletonBlock height="60px" radius="10px" />
     </Show>
     <Show when={dashboard.data}>
-      <KpiStrip>
+      <KpiStrip class="mb-4">
         <KpiCard label="Total" value={dashboard.data!.total} />
         <KpiCard label="Active" value={dashboard.data!.active} />
         <KpiCard label="Invited" value={dashboard.data!.invited} />
@@ -228,5 +225,5 @@ export function BeaconSignalPanel(props: { slug: string }) {
         </Show>
       </TabPanel>
     </Show>
-  </Card>
+  </Section>
 }

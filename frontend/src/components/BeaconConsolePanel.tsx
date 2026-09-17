@@ -1,12 +1,11 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { errorMessage, formatTimestamp, relativeTime } from '../lib/format'
+import { errorMessage, formatTimestamp } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
-import { Card } from './app/card'
 import { Button } from './app/button'
 import { READ_ONLY_REASON, readOnly } from '../lib/read-only'
 import { FileInput } from './ui/file-input'
@@ -17,7 +16,7 @@ import { Checkbox } from './app/checkbox'
 import { buttonVariants } from './app/button'
 import { cn } from '../lib/cn'
 import { EmptyState } from './ui/empty-state'
-import { ErrorCard, PanelTitle } from './layout'
+import { ErrorCard, Section } from './layout'
 
 // The beacon roster, and everything you can do to it.
 //
@@ -222,25 +221,18 @@ export function BeaconConsolePanel(props: { slug: string }) {
   }
 
   return (
-    <Card flat>
-      <header class="flex items-center justify-between gap-4 mb-3">
-        <PanelTitle>Beacons</PanelTitle>
-        <div class="flex items-center gap-2">
-          {/* Three counts at body size, in the header row, read as a second
-              heading competing with the panel's own. They are a caption: the
-              same size as the "Updated" stamp beside them, and the numbers
-              carry the emphasis rather than the words. */}
-          <Show when={roster.data}>
-            <span class="text-xs text-muted-foreground">
-              <strong class="font-semibold tabular-nums text-foreground">{roster.data!.total}</strong> total
-              {' · '}<strong class="font-semibold tabular-nums text-foreground">{roster.data!.active}</strong> active
-              {' · '}<strong class="font-semibold tabular-nums text-foreground">{roster.data!.invited}</strong> invited
-            </span>
-          </Show>
-          <Show when={roster.dataUpdatedAt}><span class="text-xs text-muted-foreground">Updated {relativeTime(roster.dataUpdatedAt)}</span></Show>
+    <Section
+      flush
+      title="Roster"
+      count={roster.data?.total}
+      description={roster.data
+        ? `${roster.data.active} active · ${roster.data.invited} invited. The list you search is the list you select and invite.`
+        : 'The list you search is the list you select and invite.'}
+      action={
+        <div class="flex flex-wrap items-center gap-2">
           <Show when={(network.data?.researchedAvailable ?? 0) > 0}>
             <Button writes
-              variant="ghost"
+              variant="outline"
               size="sm"
               disabled={busy() !== null}
               onClick={importResearched}
@@ -252,7 +244,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
             </Button>
           </Show>
           <label
-            class={cn(buttonVariants({ variant: 'ghost' }), 'cursor-pointer')}
+            class={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'cursor-pointer')}
             classList={{ 'pointer-events-none opacity-45': busy() !== null || readOnly() }}
             title={readOnly() ? READ_ONLY_REASON : "Upload a SubmitHub Activity CSV. Curators who approved or shared become unverified beacons — enrich contact info from the chats, then approve."}
           >
@@ -268,7 +260,8 @@ export function BeaconConsolePanel(props: { slug: string }) {
             {adding() ? 'Cancel' : 'Add beacon'}
           </Button>
         </div>
-      </header>
+      }
+    >
 
       <Show when={roster.isPending}><SkeletonPanel /></Show>
       <Show when={roster.error}>
@@ -442,10 +435,10 @@ export function BeaconConsolePanel(props: { slug: string }) {
 
       <Show when={notice()}>
         {value => <p class="rounded-lg border p-4 text-sm" classList={{
-          'border-success-foreground/30 bg-success-foreground text-success-foreground': value().tone === 'good',
+          'border-success-foreground/30 bg-success text-success-foreground': value().tone === 'good',
           'border-destructive/30 bg-destructive/10 text-destructive': value().tone === 'bad',
         }}>{value().message}</p>}
       </Show>
-    </Card>
+    </Section>
   )
 }
