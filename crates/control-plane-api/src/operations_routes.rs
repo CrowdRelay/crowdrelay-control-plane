@@ -546,6 +546,17 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/beacons/{beacon_id}/reply",
             post(record_beacon_reply),
         )
+        // P.1: the industry list seen as an audience — who already hears
+        // the dates, who could be asked, and the one-person, once-ever
+        // invitation itself.
+        .route(
+            "/tenants/{slug}/operations/contacts/dual-role",
+            get(dual_role_contacts),
+        )
+        .route(
+            "/tenants/{slug}/operations/contacts/{beacon_id}/latarnik-invite",
+            post(invite_to_latarnik),
+        )
         // ── Release campaigns ─────────────────────────────────────────
         .route(
             "/tenants/{slug}/operations/beacon-release-campaigns",
@@ -4950,6 +4961,64 @@ async fn record_beacon_reply(
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     mutation_no_store(value, "beacon reply")
+}
+
+/// The industry list read as an audience: everybody the band works with,
+/// with both roles resolved — who already hears the dates, who could be
+/// asked, and the sentence saying why not for everybody else.
+async fn dual_role_contacts(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/contacts/dual-role",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "dual-role contacts")
+}
+
+/// Asks one person, once. Upstream recomputes the standing, the reason and
+/// the words at the click, and answers every refusal as a 200 with its
+/// sentence — the panel renders the answer rather than a toast.
+async fn invite_to_latarnik(
+    State(state): State<AppState>,
+    Path((slug, beacon_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let beacon_id = uuid_segment(&beacon_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path = format!("/v1/control-plane/contacts/{beacon_id}/latarnik-invite");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        None,
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.contact.latarnik_invited",
+        "beacon",
+        &beacon_id,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    mutation_no_store(value, "latarnik invite")
 }
 
 async fn create_beacon_release_campaign(

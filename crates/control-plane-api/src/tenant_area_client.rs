@@ -525,6 +525,8 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/fanbases"
                     | "/v1/control-plane/fanbases/connections"
                     | "/v1/control-plane/gdrive/contacts"
+                    // P.1: the industry list read as an audience.
+                    | "/v1/control-plane/contacts/dual-role"
                     // §4h-12: the band's listing + representation contacts.
                     | "/v1/control-plane/listing"
                     | "/v1/control-plane/attestations"
@@ -662,6 +664,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/signal-state",
                 )
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/beacons/", "/reply")
+                // P.1: the one-person, once-ever invitation — upstream
+                // recomputes eligibility at the click.
+                || uuid_segment_between(path, "/v1/control-plane/contacts/", "/latarnik-invite")
                 // Approving a gig proposal queues the outreach — the band's
                 // yes, carried through with its idempotency key (4G.4).
                 || path == "/v1/control-plane/gig-plan/approve"
@@ -1751,6 +1756,33 @@ mod tests {
         assert!(valid_operations_request(
             "POST",
             &format!("/v1/control-plane/community-intelligence/communities/{id}/membership")
+        ));
+        // P.1: the dual-role read is a fixed path; the invitation is
+        // uuid-bounded with its tail anchored, and fails closed on a
+        // non-uuid id, a missing tail or a trailing segment.
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/contacts/dual-role"
+        ));
+        assert!(valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/contacts/{id}/latarnik-invite")
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            "/v1/control-plane/contacts/not-a-uuid/latarnik-invite"
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/contacts/{id}/latarnik-invite/extra")
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/contacts/{id}")
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/contacts/dual-role/extra"
         ));
         // Query-string list endpoints are now valid for paginated browsing.
         assert!(valid_operations_request(
