@@ -908,27 +908,34 @@ export const api = {
   // observable and unchangeable. Payloads are snake_case: the tenant's write
   // contracts are, even though its responses are camelCase.
   upsertBeacon: (slug: string, beacon: BeaconUpsertInput) =>
-    request<{ beaconId: string }>(`/tenants/${encodeURIComponent(slug)}/operations/beacons`, {
-      method: 'POST',
-      headers: { 'idempotency-key': crypto.randomUUID() },
-      body: JSON.stringify({
-        beacon_id: beacon.beaconId ?? null,
-        city_slug: beacon.citySlug ?? null,
-        beacon_kind: beacon.beaconKind,
-        display_name: beacon.displayName,
-        contact_email: beacon.contactEmail ?? null,
-        destination_url: beacon.destinationUrl ?? null,
-        source_url: beacon.sourceUrl ?? null,
-        active: beacon.active,
-        verified: beacon.verified,
-        accepts_outreach: beacon.acceptsOutreach,
-        do_not_contact: beacon.doNotContact,
-        relationship_score: beacon.relationshipScore,
-        relevance_basis_points: beacon.relevanceBasisPoints,
-        confidence_basis_points: beacon.confidenceBasisPoints,
-        metadata: {},
-      }),
-    }),
+    request<{ beacon_id: string; version: number; replayed: boolean; operation_id: string }>(
+      `/tenants/${encodeURIComponent(slug)}/operations/beacons`,
+      {
+        method: 'POST',
+        headers: { 'idempotency-key': crypto.randomUUID() },
+        body: JSON.stringify({
+          beacon_id: beacon.beaconId ?? null,
+          city_id: beacon.cityId ?? null,
+          city_slug: beacon.citySlug ?? null,
+          beacon_kind: beacon.beaconKind,
+          display_name: beacon.displayName,
+          contact_email: beacon.contactEmail ?? null,
+          destination_url: beacon.destinationUrl ?? null,
+          source_url: beacon.sourceUrl ?? null,
+          active: beacon.active,
+          verified: beacon.verified,
+          accepts_outreach: beacon.acceptsOutreach,
+          do_not_contact: beacon.doNotContact,
+          relationship_score: beacon.relationshipScore,
+          relevance_basis_points: beacon.relevanceBasisPoints,
+          confidence_basis_points: beacon.confidenceBasisPoints,
+          metadata: {},
+          // Required upstream: 0 is create-intent, a positive value is the
+          // CAS version for an edit. The console only creates for now.
+          expected_version: beacon.expectedVersion ?? 0,
+        }),
+      },
+    ),
   batchInviteBeacons: (slug: string, beaconIds: string[], options?: { ttlDays?: number; radiusKm?: number; locale?: string }) =>
     request<{ created: number; skipped: number; invitations: { beaconId: string; displayName: string; inviteUrl: string }[] }>(`/tenants/${encodeURIComponent(slug)}/operations/beacons/signal-invites/batch`, {
       method: 'POST',
