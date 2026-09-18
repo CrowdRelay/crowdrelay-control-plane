@@ -1,14 +1,15 @@
-import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { Checkbox as KobalteCheckbox } from '@kobalte/core/checkbox'
-import { Check, RefreshCw } from 'lucide-solid'
+import { Check, MapPin, Plus } from 'lucide-solid'
 import { api } from '../lib/api'
-import { errorMessage, relativeTime } from '../lib/format'
+import { errorMessage } from '../lib/format'
 import type { AreaCity, AreaDropDraft, AreaStatus, AreaValidationResult } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { LocationCanvas } from '../components/area/LocationCanvas'
-import { EmptyState } from '../components/ui/empty-state'
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '../components/ui/empty'
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '../components/ui/sheet'
 import { SkeletonRows } from '../components/Skeleton'
 import { confirmAction } from '../components/Dialog'
 import { SectionIcon } from '../components/SectionIcon'
@@ -16,6 +17,7 @@ import { ErrorCard, KpiCard, KpiStrip, PageHeader, PageShell, Section, TabBar } 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/app/table'
 import { Button } from '../components/app/button'
 import { Alert } from '../components/app/alert'
+import { Switch } from '../components/app/switch'
 import { Input } from '../components/ui/input'
 
 // Rich-label checkbox composes the Kobalte primitive (ui/checkbox's label
@@ -25,7 +27,6 @@ const checkboxControl =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ' +
   'data-[checked]:bg-primary data-[checked]:text-primary-foreground'
 import { Textarea } from '../components/ui/textarea'
-import { cn } from '../lib/cn'
 import { NativeSelect } from '../components/ui/native-select'
 import { Field } from '../components/ui/field'
 import { readOnly } from '../lib/read-only'
@@ -106,7 +107,9 @@ export function AreaPage() {
   const mutateClue = (key:'en'|'pl', value:string) => setDraft(current => current ? ({...current, clue:{...current.clue,[key]:value}}) : current)
   const mutateCollectible = (key:'line'|'track'|'edition'|'riddle', value:string) => setDraft(current => current ? ({...current, collectible:{...current.collectible,[key]:value}}) : current)
 
-  const settings = useMutation(() => ({ mutationFn: (enabled:boolean) => api.areaSettings(slug(), enabled), onSuccess: async () => { setFlash('AREA entitlement updated.'); await refresh() } }))
+  // "AREA entitlement updated." named the column, not the consequence. The
+  // operator just flipped a switch that fans feel; say what they will see.
+  const settings = useMutation(() => ({ mutationFn: (enabled:boolean) => api.areaSettings(slug(), enabled), onSuccess: async (_result, enabled) => { setFlash(enabled ? 'AREA is on. This tenant\'s app starts the game at its next deploy or sync.' : 'AREA is off. Drops, claims and history are kept, and come back as they were.'); await refresh() } }))
   const createDrop = useMutation(() => ({ mutationFn: async () => {
     const city = cities.data?.items.find(item => item.id === newCityId())
     if (!city) throw new Error('Choose a canonical city first.')
@@ -163,30 +166,10 @@ export function AreaPage() {
   const hardIssues = createMemo(() => validation()?.issues.filter(issue => !issue.confirmationRequired) ?? [])
   const toggleConfirmation = (code:string) => setConfirmations(current => current.includes(code) ? current.filter(item=>item!==code) : [...current,code])
 
-  // "Updated 2m ago" has to keep moving while the page sits open.
-  const [now, setNow] = createSignal(Date.now())
-  const tick = setInterval(() => setNow(Date.now()), 15_000)
-  onCleanup(() => clearInterval(tick))
-  const updated = createMemo(() => {
-    now()
-    const ts = Math.max(overview.dataUpdatedAt, drops.dataUpdatedAt)
-    return ts === 0 ? null : relativeTime(ts)
-  })
-  const refreshing = () => overview.isFetching || drops.isFetching
-
   return <PageShell>
     <PageHeader
       title="AREA"
       description="Draft, validate and publish the locations fans can claim a drop in. Exact claim coordinates never leave the private editor."
-      actions={
-        <>
-          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
-          <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={refreshing()} aria-label="Refresh">
-            <RefreshCw class={cn(refreshing() && 'animate-spin')} aria-hidden="true" />
-            Refresh
-          </Button>
-        </>
-      }
     />
 
     <Show when={flash()}><Alert tone="info" role="status">{flash()}</Alert></Show>
@@ -206,57 +189,87 @@ export function AreaPage() {
         <KpiCard label="Drafts" value={o().drafts} />
         <KpiCard label="Paused or ended" value={o().paused + o().ended} />
       </KpiStrip>
+      {/* A setting, not a command. The button said "Turn AREA off" while the
+          badge beside it said "on" — two controls' worth of chrome to state
+          one boolean, reading as a contradiction. A switch shows the state in
+          its position and changes it in one gesture, so both the badge and the
+          verb go.
+          `checked` follows the in-flight value while the mutation runs: bound
+          straight to server state the thumb sat still until the refetch
+          landed, and a switch that does not move on click reads as broken. */}
       <Section
         flush
-        title="Tenant AREA"
-        icon={<SectionIcon name="map-pin" />}
-        description="Turning AREA off hides the public game from fans. Drops, claims and audit history are kept, and come back exactly as they were when you turn it on again."
-        action={<div class="flex items-center gap-2">
-          <StatusBadge status={o().entitled ? 'on' : 'off'} tone={o().entitled ? 'good' : 'muted'} />
-          <Button writes variant={o().entitled ? 'destructive-ghost' : 'default'} size="sm" disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Turn AREA off' : 'Turn AREA on'}</Button>
-        </div>}
+        title="AREA for this tenant"
+        description="Whether fans see the game at all. Turning it off hides AREA from them and keeps everything behind it: drops, claims and audit history come back exactly as they were."
+        action={<Switch
+          checked={settings.isPending ? settings.variables ?? o().entitled : o().entitled}
+          label={o().entitled ? 'Turn AREA off for this tenant' : 'Turn AREA on for this tenant'}
+          disabled={settings.isPending}
+          onChange={() => settings.mutate(!o().entitled)}
+        />}
       >
-        {/* Two switches, one name. This page writes the control plane's, the
-            tenant's own app reports the other, and they drift while a deploy
-            is in flight. Saying which is which beats one badge that picks a
-            side and leaves the operator wondering why the button disagrees. */}
-        <Show when={o().entitled && !o().enabled}>
-          <Alert tone="warning" role="status">AREA is on here, but this tenant's app is not running the game yet. It starts at its next deploy or sync.</Alert>
-        </Show>
-        <Show when={!o().entitled && o().enabled}>
-          <Alert tone="warning" role="status">AREA is off here, but this tenant's app is still showing the game to fans. It stops at its next deploy or sync.</Alert>
-        </Show>
-        <Show when={o().entitled === o().enabled}>
-          <p class="text-sm text-muted-foreground">{o().entitled ? 'The game is on and the tenant\'s app is running it.' : 'The game is off and hidden from fans.'}</p>
-        </Show>
+        {/* Two switches, one name. The switch above writes the control plane's;
+            the tenant's own app reports the one below, and they drift while a
+            deploy is in flight. The badge lives on the app's row now — the one
+            fact the switch cannot tell you — instead of next to the control,
+            where it only repeated what the control already shows. */}
+        <div class="space-y-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-sm text-muted-foreground">This tenant's app:</span>
+            <StatusBadge status={o().enabled ? 'live' : 'not live'} tone={o().enabled ? 'good' : 'muted'} />
+          </div>
+          <Show when={o().entitled && !o().enabled}>
+            <Alert tone="warning" role="status">This tenant's app has not picked the change up yet, so fans still see no game. It starts at its next deploy or sync.</Alert>
+          </Show>
+          <Show when={!o().entitled && o().enabled}>
+            <Alert tone="warning" role="status">This tenant's app has not picked the change up yet, so fans can still play. It stops at its next deploy or sync.</Alert>
+          </Show>
+        </div>
       </Section>
     </>}</Show>
 
     <Section
       title="Locations"
-      icon={<SectionIcon name="map-pin" />}
       count={drops.data?.items.length}
       description="Every drop, published or drafted. Nothing is public until you publish it."
-      action={<Button writes size="sm" disabled={!overview.data?.entitled} onClick={() => setCreating(v=>!v)}>{creating() ? 'Cancel' : 'New location'}</Button>}
+      action={<Button writes size="sm" disabled={!overview.data?.entitled} onClick={() => setCreating(true)}><Plus aria-hidden="true" /> New location</Button>}
     >
-      <Show when={creating()}><div class="rounded-lg border border-border bg-background p-4 space-y-3">
-        <Field label="Search city" hint="Type to filter the canonical list."><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></Field>
-        <Field label="Canonical city" hint="Where the drop lives. Missing city? Create one below."><NativeSelect value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></NativeSelect></Field>
-        <Field label="Drop number" hint="1–3 digits, required. Padded to three for the id: 7 in Wrocław becomes wro-007."><Input inputmode="numeric" maxlength="3" value={newNumber()} onInput={e=>setNewNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></Field>
-        {/* The button was enabled without a drop number and the mutation threw
-            "Drop number must contain 1–3 digits" only after the click. Same
-            rule, checked where the operator can still act on it. */}
-        <div class="flex justify-end gap-2"><Button writes variant="ghost" size="sm" onClick={()=>setCreateCityOpen(v=>!v)}>Create custom city</Button><Button writes size="sm" disabled={createDrop.isPending || !newCityId() || !/^\d{1,3}$/.test(newNumber().trim())} onClick={()=>createDrop.mutate()}>Create draft</Button></div>
-        <Show when={createCityOpen()}><div class="rounded-md border border-border bg-card p-3 space-y-3">
-          <Field label="Name"><Input required value={newCity().name} onInput={e=>setNewCity(v=>({...v,name:e.currentTarget.value}))}/></Field>
-          <Field label="Slug"><Input required value={newCity().slug} onInput={e=>setNewCity(v=>({...v,slug:e.currentTarget.value}))}/></Field>
-          <Field label="Country"><Input required maxlength="2" value={newCity().countryCode} onInput={e=>setNewCity(v=>({...v,countryCode:e.currentTarget.value}))}/></Field>
-          <Field label="Region"><Input required value={newCity().region} onInput={e=>setNewCity(v=>({...v,region:e.currentTarget.value}))}/></Field>
-          <Field label="Public latitude"><Input required type="number" step="0.000001" value={newCity().latitude} onInput={e=>setNewCity(v=>({...v,latitude:e.currentTarget.value}))}/></Field>
-          <Field label="Public longitude"><Input required type="number" step="0.000001" value={newCity().longitude} onInput={e=>setNewCity(v=>({...v,longitude:e.currentTarget.value}))}/></Field>
-          <Button writes size="sm" disabled={createCity.isPending} onClick={()=>createCity.mutate()}>Save canonical city</Button>
-        </div></Show>
-      </div></Show>
+      {/* The form used to expand inline above the table, pushing the list it
+          is about down the page. It is a side task with its own lifecycle —
+          it belongs in a drawer that overlays, and closing it costs no
+          scroll position. */}
+      <Sheet open={creating()} onOpenChange={setCreating}>
+        {/* A flex column whose middle section scrolls, same as the shared
+            Dialog shell: expanding the custom-city form must not push the
+            footer — and the Create draft button in it — below the fold. */}
+        <SheetContent class="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+          <SheetHeader class="shrink-0 space-y-1 border-b border-border px-5 py-4 text-left">
+            <SheetTitle class="text-sm">New location</SheetTitle>
+            <SheetDescription>A draft, not a public drop. The exact claim point is set afterwards, in the editor.</SheetDescription>
+          </SheetHeader>
+          <div class="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
+            <Field label="Search city" hint="Type to filter the canonical list."><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></Field>
+            <Field label="Canonical city" hint="Where the drop lives. Missing city? Create one below."><NativeSelect value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></NativeSelect></Field>
+            <Field label="Drop number" hint="1–3 digits, required. Padded to three for the id: 7 in Wrocław becomes wro-007."><Input inputmode="numeric" maxlength="3" value={newNumber()} onInput={e=>setNewNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></Field>
+            <Show when={createCityOpen()}><div class="space-y-3 rounded-md border border-border bg-card p-3">
+              <Field label="Name"><Input required value={newCity().name} onInput={e=>setNewCity(v=>({...v,name:e.currentTarget.value}))}/></Field>
+              <Field label="Slug"><Input required value={newCity().slug} onInput={e=>setNewCity(v=>({...v,slug:e.currentTarget.value}))}/></Field>
+              <Field label="Country"><Input required maxlength="2" value={newCity().countryCode} onInput={e=>setNewCity(v=>({...v,countryCode:e.currentTarget.value}))}/></Field>
+              <Field label="Region"><Input required value={newCity().region} onInput={e=>setNewCity(v=>({...v,region:e.currentTarget.value}))}/></Field>
+              <Field label="Public latitude"><Input required type="number" step="0.000001" value={newCity().latitude} onInput={e=>setNewCity(v=>({...v,latitude:e.currentTarget.value}))}/></Field>
+              <Field label="Public longitude"><Input required type="number" step="0.000001" value={newCity().longitude} onInput={e=>setNewCity(v=>({...v,longitude:e.currentTarget.value}))}/></Field>
+              <Button writes size="sm" disabled={createCity.isPending} onClick={()=>createCity.mutate()}>Save canonical city</Button>
+            </div></Show>
+          </div>
+          {/* The button was enabled without a drop number and the mutation threw
+              "Drop number must contain 1–3 digits" only after the click. Same
+              rule, checked where the operator can still act on it. */}
+          <SheetFooter class="shrink-0 gap-2 border-t border-border px-5 py-4 sm:space-x-0">
+            <Button writes variant="ghost" size="sm" onClick={()=>setCreateCityOpen(v=>!v)}>{createCityOpen() ? 'Hide custom city' : 'Create custom city'}</Button>
+            <Button writes size="sm" disabled={createDrop.isPending || !newCityId() || !/^\d{1,3}$/.test(newNumber().trim())} onClick={()=>createDrop.mutate()}>Create draft</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
       {/* Column headings over nothing are furniture, and they implied the
           rows were loading when the list was simply empty. */}
       <Show when={(drops.data?.items.length ?? 0) > 0}>
@@ -290,7 +303,20 @@ export function AreaPage() {
           </Table>
         </div>
       </Show>
-      <Show when={!drops.isPending && (drops.data?.items.length ?? 0)===0}><EmptyState label="No locations yet" hint="A location is a place fans can claim a drop in. Use New location to draft the first one. Nothing is public until you publish it." /></Show>
+      <Show when={!drops.isPending && (drops.data?.items.length ?? 0)===0}>
+        <Empty class="border border-border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><MapPin aria-hidden="true" /></EmptyMedia>
+            <EmptyTitle>No locations yet</EmptyTitle>
+            <EmptyDescription>A location is a place fans can claim a drop in. Nothing is public until you publish it.</EmptyDescription>
+          </EmptyHeader>
+          {/* The empty state used to name the button in prose. It carries the
+              button instead: the first drop is the only thing to do here. */}
+          <EmptyContent>
+            <Button writes size="sm" disabled={!overview.data?.entitled} onClick={() => setCreating(true)}><Plus aria-hidden="true" /> Draft the first location</Button>
+          </EmptyContent>
+        </Empty>
+      </Show>
       <Show when={drops.isPending}><SkeletonRows count={3} /></Show>
     </Section>
 
