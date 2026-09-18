@@ -467,7 +467,7 @@ function DriveContactRow(props: {
                   variant="muted"
                   title="Anonymous counts across every tenant — the room's play record on the registry"
                 >
-                  {`${prior().tenants_played} played · ${prior().shows} shows`}
+                  {`${prior().tenants_played} played · ${prior().shows} show${prior().shows === 1 ? '' : 's'}`}
                 </Badge>
               )}
             </Show>

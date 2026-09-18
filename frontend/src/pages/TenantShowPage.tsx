@@ -502,6 +502,9 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
                       <span class="text-foreground">{channel().display_name}</span>
                       {channel().venue_id ? ' · on the registry' : ' · not on the registry yet'}
                       {channel().on_roster ? ' · on the roster' : ''}
+                      <Show when={channel().venue_prior && channel().venue_prior!.tenants_played > 0 ? channel().venue_prior : null}>
+                        {prior => ` · played by ${prior().tenants_played} act${prior().tenants_played === 1 ? '' : 's'}, ${prior().shows} show${prior().shows === 1 ? '' : 's'}`}
+                      </Show>
                     </Link>
                     <Show when={!channel().on_roster && data().event.city_id}>
                       <button
