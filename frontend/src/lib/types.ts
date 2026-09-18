@@ -2092,6 +2092,8 @@ export type TenantShowHelpersResponse = {
     starts_at: string
     city: string | null
     country_code: string | null
+    /** The slug an operator action needs to place a beacon in this city. */
+    city_slug: string | null
   }
   degraded: Array<
     'city' | 'press' | 'rooms_and_promoters' | 'communities' | 'cold_rooms' | 'bill_mates' | 'venue_channel' | 'photographers'

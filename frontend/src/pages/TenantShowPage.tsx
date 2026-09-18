@@ -1,6 +1,6 @@
-import { For, Show, type JSX } from 'solid-js'
+import { For, Show, createSignal, type JSX } from 'solid-js'
 import { Link, useParams } from '@tanstack/solid-router'
-import { useQuery } from '@tanstack/solid-query'
+import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { ShowTimelineState, ShowTimelineStep, TenantShowHelpersResponse } from '../lib/types'
 import { hasDegradedSections, whileIncomplete } from '../lib/incomplete'
@@ -403,12 +403,45 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
     refetchOnWindowFocus: false,
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))
+  const queryClient = useQueryClient()
   const city = () => helpers.data?.event.city ?? null
   const country = () => helpers.data?.event.country_code ?? null
+  const citySlug = () => helpers.data?.event.city_slug ?? null
   const noCity = () => (helpers.data?.degraded ?? []).includes('city')
   const sectionDegraded = (s: HelperSection) => (helpers.data?.degraded ?? []).includes(s)
   const rowLink = "mt-0.5 block truncate text-xs text-muted-foreground hover:text-foreground"
   const audienceSearch = (s: HelperSection) => ({ tab: HELPER_TAB[s] })
+  const [admitting, setAdmitting] = createSignal<string | null>(null)
+  const [admitNote, setAdmitNote] = createSignal<string | null>(null)
+
+  // A candidate becomes a roster row: unverified, outreach off — a name to
+  // research, never a contact to mail. The same rule the researched-import
+  // carries ("approve them before inviting") is what makes this one click.
+  const admit = (name: string, kind: 'scene_partner' | 'venue') => {
+    const slug = citySlug()
+    if (!slug || admitting()) return
+    setAdmitting(name)
+    setAdmitNote(null)
+    void api
+      .upsertBeacon(props.slug, {
+        displayName: name,
+        beaconKind: kind,
+        citySlug: slug,
+        active: true,
+        verified: false,
+        acceptsOutreach: false,
+        doNotContact: false,
+        relationshipScore: 50,
+        relevanceBasisPoints: 7_500,
+        confidenceBasisPoints: 7_500,
+      })
+      .then(() => {
+        setAdmitNote(`${name} is on the roster — unverified. Find their channel before outreach.`)
+        void queryClient.invalidateQueries({ queryKey: ['tenant-show-helpers', props.slug, props.eventSlug] })
+      })
+      .catch(() => setAdmitNote(`Adding ${name} did not work.`))
+      .finally(() => setAdmitting(null))
+  }
 
   return (
     <div class="mb-3 rounded-lg border border-border bg-background px-4 py-2.5">
@@ -481,23 +514,47 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
               <HelperGroup section="bill_mates" slug={props.slug} count={data().bill_mates.length} degraded={sectionDegraded('bill_mates')} empty={emptyLine('bill_mates', city())} owner="beacons">
                 <For each={data().bill_mates}>
                   {row => (
-                    <Link to="/tenants/$slug/beacons" params={{ slug: props.slug }} class={rowLink}>
-                      <span class="text-foreground">{row.act_name}</span>
-                      {row.position === 0 ? ' · headline' : ` · slot ${row.position}`}
-                      {row.shared_bills > 1 ? ` · shared ${row.shared_bills} bills` : ''}
-                      {row.on_roster ? ' · on the roster' : row.resolution === 'peer' ? ' · on the registry' : ' · unclaimed name'}
-                    </Link>
+                    <div class="mt-0.5 flex items-baseline justify-between gap-2">
+                      <Link to="/tenants/$slug/beacons" params={{ slug: props.slug }} class={`${rowLink} mt-0 flex-1`}>
+                        <span class="text-foreground">{row.act_name}</span>
+                        {row.position === 0 ? ' · headline' : ` · slot ${row.position}`}
+                        {row.shared_bills > 1 ? ` · shared ${row.shared_bills} bills` : ''}
+                        {row.on_roster ? ' · on the roster' : row.resolution === 'peer' ? ' · on the registry' : ' · unclaimed name'}
+                      </Link>
+                      <Show when={!row.on_roster}>
+                        <button
+                          type="button"
+                          disabled={admitting() !== null}
+                          onClick={() => admit(row.act_name, 'scene_partner')}
+                          class="shrink-0 text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground disabled:opacity-50"
+                        >
+                          {admitting() === row.act_name ? 'Adding…' : 'Add to roster'}
+                        </button>
+                      </Show>
+                    </div>
                   )}
                 </For>
               </HelperGroup>
               <HelperGroup section="venue_channel" slug={props.slug} count={data().venue_channel ? 1 : 0} degraded={sectionDegraded('venue_channel')} empty={emptyLine('venue_channel', city())}>
                 <Show when={data().venue_channel}>
                   {channel => (
-                    <Link to="/tenants/$slug/beacons" params={{ slug: props.slug }} class={rowLink}>
-                      <span class="text-foreground">{channel().display_name}</span>
-                      {channel().venue_id ? ' · on the registry' : ' · not on the registry yet'}
-                      {channel().on_roster ? ' · on the roster' : ''}
-                    </Link>
+                    <div class="mt-0.5 flex items-baseline justify-between gap-2">
+                      <Link to="/tenants/$slug/beacons" params={{ slug: props.slug }} class={`${rowLink} mt-0 flex-1`}>
+                        <span class="text-foreground">{channel().display_name}</span>
+                        {channel().venue_id ? ' · on the registry' : ' · not on the registry yet'}
+                        {channel().on_roster ? ' · on the roster' : ''}
+                      </Link>
+                      <Show when={!channel().on_roster}>
+                        <button
+                          type="button"
+                          disabled={admitting() !== null}
+                          onClick={() => admit(channel().display_name, 'venue')}
+                          class="shrink-0 text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground disabled:opacity-50"
+                        >
+                          {admitting() === channel().display_name ? 'Adding…' : 'Add to roster'}
+                        </button>
+                      </Show>
+                    </div>
                   )}
                 </Show>
               </HelperGroup>
@@ -512,6 +569,9 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
                   )}
                 </For>
               </HelperGroup>
+              <Show when={admitNote()}>
+                {note => <p class="mt-2 text-xs text-muted-foreground">{note()}</p>}
+              </Show>
             </Show>
             {/* The read's own gaps, named — never pattern-matched around. */}
             <Show when={data().notes.includes('staged_contacts_have_no_city')}>
