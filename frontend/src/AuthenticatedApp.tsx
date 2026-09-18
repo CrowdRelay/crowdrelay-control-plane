@@ -87,18 +87,22 @@ const funnelRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/te
 const communityRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/communities', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/audience` }) } })
 
 const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute, tenantWizardRoute, operatorAttentionRedirect, automationRedirect, tenantRoute, tenantActionsRedirect, tenantAttentionRoute, tenantOperationsRoute, tenantHealthRoute, tenantIntelligenceRoute, tenantContentRoute, tenantContentMaterialRoute, tenantIntegrationsRoute, tenantNotifiersRoute, tenantAutomationRoute, communityRedirect, portfolioRoute, audienceRoute, funnelRedirect, beaconsRoute, areaRoute, tenantCityRoute, tenantShowsRoute, tenantShowRoute, tenantShowScanRoute, tenantShowReportRoute])
-// `defaultPendingMs: 0` shows the skeleton on the first frame. The default
-// (500ms) leaves the previous page frozen on screen while a route chunk loads,
-// which reads as a hang rather than as loading — the blank operator screen this
-// replaces was exactly that gap.
+// `defaultPendingMs: 0` used to show the skeleton on the first frame: a page
+// whose chunk is still loading flashed a full-page skeleton for the ~100–250ms
+// the import took, which on fast navigation read as the screen blinking on
+// every view switch. 200ms keeps the previous view up for quick loads and only
+// shows the skeleton when a navigation is genuinely slow; the library default
+// (500ms) was the opposite failure — a frozen page that read as a hang.
+// `defaultPendingMinMs` holds a shown skeleton long enough to read as a
+// loading state instead of a one-frame strobe.
 const router = createRouter({
   routeTree,
   defaultPreload: 'intent',
   defaultPreloadStaleTime: 10_000,
   scrollRestoration: true,
   defaultPendingComponent: () => <SkeletonPage />,
-  defaultPendingMs: 0,
-  defaultPendingMinMs: 0,
+  defaultPendingMs: 200,
+  defaultPendingMinMs: 200,
 })
 
 declare module '@tanstack/solid-router' { interface Register { router: typeof router } }
