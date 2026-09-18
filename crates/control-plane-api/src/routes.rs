@@ -1459,12 +1459,11 @@ async fn claim_provisioning(
             state.provisioner_actor.as_ref(),
         )
         .await?;
-    Ok(Json({
-        // Compute the phased job value first, before `claim` is consumed by
-        // `to_value`, so we can use the same `job_with_phase` helper as every
-        // other provisioning endpoint. `claim` is `Option<ProvisioningClaim>`:
-        // `None` means no job was available to claim.
-        match claim {
+    // The claim is wrapped in `{"claim": ...}` — the shape the provisioner
+    // agent and its contract tests read. It once returned the claim object
+    // directly; the agent accepts both shapes for the transition window.
+    Ok(Json(serde_json::json!({
+        "claim": match claim {
             Some(claim) => {
                 let job_value = job_with_phase(&claim.job)?;
                 let mut value = serde_json::to_value(&claim).map_err(ApiError::Serialization)?;
@@ -1475,7 +1474,7 @@ async fn claim_provisioning(
             }
             None => serde_json::Value::Null,
         }
-    }))
+    })))
 }
 
 async fn renew_provisioning_lease(
