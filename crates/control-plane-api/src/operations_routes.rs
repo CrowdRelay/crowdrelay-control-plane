@@ -567,6 +567,16 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/contacts/{beacon_id}/latarnik-invite",
             post(invite_to_latarnik),
         )
+        // P.7: the negotiation table — the ladder every live terms row was
+        // argued from, plus the write that records the promoter's position.
+        .route(
+            "/tenants/{slug}/operations/autopilot/negotiations",
+            get(negotiations),
+        )
+        .route(
+            "/tenants/{slug}/operations/autopilot/team-opportunities/{opportunity_id}/terms",
+            post(record_opportunity_terms),
+        )
         // ── Release campaigns ─────────────────────────────────────────
         .route(
             "/tenants/{slug}/operations/beacon-release-campaigns",
@@ -5079,6 +5089,64 @@ async fn invite_to_latarnik(
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     mutation_no_store(value, "latarnik invite")
+}
+
+/// The negotiation table — live terms rows with their ladders and the move
+/// parked in `awaiting_approval` for each (P.7).
+async fn negotiations(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/negotiations",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "negotiations")
+}
+
+/// Records the promoter's position on a live negotiation — an offer with
+/// its deadline, or a withdrawal. The write is the canonical upstream one;
+/// the proxy only carries it with its idempotency key (P.7).
+async fn record_opportunity_terms(
+    State(state): State<AppState>,
+    Path((slug, opportunity_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let opportunity_id = uuid_segment(&opportunity_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path = format!("/v1/control-plane/autopilot/team-opportunities/{opportunity_id}/terms");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.opportunity.terms_recorded",
+        "team_opportunity",
+        &opportunity_id,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    mutation_no_store(value, "opportunity terms")
 }
 
 async fn create_beacon_release_campaign(

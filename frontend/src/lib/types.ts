@@ -1292,6 +1292,45 @@ export type ReplyTriageEntry = {
   classified_at: string
 }
 
+export type NegotiationsView = {
+  live: NegotiationEntry[]
+  settled: NegotiationEntry[]
+}
+
+export type NegotiationEntry = {
+  opportunity_id: string
+  title: string
+  organization: string
+  contact_email: string | null
+  opportunity_kind: string
+  opportunity_status: string
+  state: string
+  currency: string
+  /** What the promoter has on the table right now. */
+  offered_fee_minor: number
+  /** The frozen ladder: below walk_away the answer is no. */
+  walk_away_minor: number
+  target_minor: number
+  opening_ask_minor: number
+  /** Which input produced the walk-away — cost, market, counterparty_history. */
+  floor_basis: string
+  prior_fee_minor: number | null
+  market_floor_minor: number | null
+  /** The agent's last ask, and how many it has made. */
+  countered_fee_minor: number | null
+  counter_rounds: number
+  responds_by: string
+  settled_at: string | null
+  settled_reason: string | null
+  /** The move parked in awaiting_approval — a drafted counter or accept. */
+  pending_move: {
+    action_id: string
+    kind: string
+    amount_minor: number | null
+    round: number
+  } | null
+}
+
 // --- Agent service types (proxied through control-plane) ---
 
 export interface AgentProvider {

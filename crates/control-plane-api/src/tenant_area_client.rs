@@ -543,6 +543,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/events"
                     | "/v1/control-plane/audience-graph/places"
                     | "/v1/control-plane/autopilot/cycle/preview"
+                    // P.7: the negotiation table — live terms, the ladder
+                    // they were argued from, and the move parked for approval.
+                    | "/v1/control-plane/autopilot/negotiations"
                     // 4G.3: the band's gig plan — proposals, passed-over
                     // cities and the reasons behind both.
                     | "/v1/control-plane/gig-plan"
@@ -627,6 +630,14 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || uuid_segment_between(path, "/v1/control-plane/ops/push/", "/retry")
                 || one_safe_segment(path, "/v1/control-plane/ecosystem/flags/")
                 || one_safe_segment(path, "/v1/control-plane/autopilot/policies/")
+                // P.7: recording the promoter's position — the same
+                // canonical write the admin route runs, carried through the
+                // proxy with its idempotency key.
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/team-opportunities/",
+                    "/terms",
+                )
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/actions/", "/approve")
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/actions/", "/cancel")
                 || uuid_segment_between(
@@ -1778,6 +1789,24 @@ mod tests {
         assert!(!valid_operations_request(
             "POST",
             &format!("/v1/control-plane/contacts/{id}/latarnik-invite/extra")
+        ));
+        // P.7: the negotiation read is a fixed path; the position write is
+        // uuid-bounded with its tail anchored.
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/autopilot/negotiations"
+        ));
+        assert!(valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/autopilot/team-opportunities/{id}/terms")
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            "/v1/control-plane/autopilot/team-opportunities/not-a-uuid/terms"
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/autopilot/team-opportunities/{id}/terms/extra")
         ));
         assert!(!valid_operations_request(
             "POST",

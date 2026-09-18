@@ -7,6 +7,7 @@ import { authState } from '../lib/auth'
 import { formatTimestamp, relativeTime } from '../lib/format'
 import { cn } from '../lib/cn'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
+import { NegotiationsPanel } from '../components/NegotiationsPanel'
 import { OutreachPipelinePanel } from '../components/OutreachPipelinePanel'
 import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
@@ -448,6 +449,7 @@ export function TenantOperationsPage() {
       onPrefetch={prefetch}
       tabs={[
         { id: 'replies', label: 'Replies' },
+        { id: 'negotiations', label: 'Negotiations' },
         { id: 'outreach', label: 'Outreach' },
         { id: 'press', label: 'Press' },
         { id: 'releases', label: 'Releases' },
@@ -464,6 +466,11 @@ export function TenantOperationsPage() {
         read model. TabPanel's Suspense boundary shows the first skeleton. */}
     <TabPanel active={activeTab()} id="replies" visited={isVisited('replies')}>
       <ReplyTriagePanel />
+    </TabPanel>
+    {/* P.7: the negotiation table — live terms conversations with the
+        ladder and the parked move, plus the record of settled ones. */}
+    <TabPanel active={activeTab()} id="negotiations" visited={isVisited('negotiations')}>
+      <NegotiationsPanel />
     </TabPanel>
     <TabPanel active={activeTab()} id="outreach" visited={isVisited('outreach')}>
       <OutreachPipelinePanel slug={params().slug} />
