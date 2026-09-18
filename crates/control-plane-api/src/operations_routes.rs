@@ -2140,6 +2140,11 @@ async fn gig_plan(
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ApproveGigPlanBody {
     city_id: String,
+    /// Approve-with-edit (N.10): the operator's fix to the letter's words,
+    /// forwarded verbatim — upstream's draft-revision gate owns which fields
+    /// are revisable, what the length bound is, and the refusal sentence.
+    #[serde(default)]
+    revision: Option<std::collections::BTreeMap<String, String>>,
 }
 
 async fn approve_gig_plan(
@@ -2153,7 +2158,11 @@ async fn approve_gig_plan(
         return Err(ApiError::InvalidInput("invalid city_id".to_owned()));
     }
     let idempotency = idempotency_key(&headers)?.to_owned();
-    let payload = serde_json::json!({ "city_id": city_id });
+    let mut payload = serde_json::json!({ "city_id": city_id });
+    if let Some(revision) = body.revision {
+        payload["revision"] = serde_json::to_value(revision)
+            .map_err(|_| ApiError::InvalidInput("revision is not encodable".to_owned()))?;
+    }
     let (tenant, value) = call(
         &state,
         &slug,

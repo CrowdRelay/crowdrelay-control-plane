@@ -148,7 +148,7 @@ export function GigPlanPanel(props: { slug: string }) {
                       busy={approve.isPending}
                       result={approvalResult()?.cityId === proposal.city_id ? approvalResult()!.result : null}
                       error={approveError()?.cityId === proposal.city_id ? approveError()!.message : null}
-                      onApprove={() => approve.mutate(proposal)}
+                      onApprove={(revision) => approve.mutate({ proposal, revision })}
                     />
                   )}
                 </For>

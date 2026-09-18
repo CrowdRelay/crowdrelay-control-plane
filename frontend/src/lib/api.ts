@@ -592,11 +592,13 @@ export const api = {
   // The key is the caller's, not minted here: an approval retried after a
   // timeout — where the server may already have committed — must carry the
   // same key or it lands as a second letter to the same promoters.
-  approveGigPlan: (slug: string, cityId: string, idempotencyKey: string) =>
+  approveGigPlan: (slug: string, cityId: string, idempotencyKey: string, revision?: Record<string, string>) =>
     request<GigPlanApproval>(`/tenants/${encodeURIComponent(slug)}/gig-plan/approve`, {
       method: 'POST',
       headers: { 'idempotency-key': idempotencyKey },
-      body: JSON.stringify({ cityId }),
+      // Approve-with-edit (N.10): `revision` carries the operator's fix to the
+      // letter's words — upstream's draft-revision gate owns the allowlist.
+      body: JSON.stringify(revision ? { cityId, revision } : { cityId }),
     }),
   // The intents a band may state, from the planner's own vocabulary (the same
   // reason the north-star list is proxied rather than copied).

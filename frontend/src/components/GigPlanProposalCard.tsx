@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { Badge } from './app/badge'
 import { Button } from './app/button'
+import { Textarea } from './ui/textarea'
 import type { GigPlanApproval, GigPlanPassedOver, GigPlanProposal, GigPlanReason } from '../lib/types'
 
 // One gig-plan proposal, rendered anywhere a city is — the Places tab's plan
@@ -68,24 +69,25 @@ export function useGigPlanApproval(slug: () => string) {
   }
 
   const approve = useMutation(() => ({
-    mutationFn: (proposal: GigPlanProposal) =>
-      api.approveGigPlan(slug(), proposal.city_id, keyFor(proposal.city_id)),
-    onMutate: (proposal) => {
-      setApprovingCityId(proposal.city_id)
+    mutationFn: (input: { proposal: GigPlanProposal; revision?: Record<string, string> }) =>
+      api.approveGigPlan(slug(), input.proposal.city_id, keyFor(input.proposal.city_id), input.revision),
+    onMutate: (input) => {
+      setApprovingCityId(input.proposal.city_id)
       setApprovalResult(null)
       setApproveError(null)
     },
-    onSuccess: async (result, proposal) => {
+    onSuccess: async (result, input) => {
+      const proposal = input.proposal
       setApprovingCityId(null)
       setApprovalResult({ cityId: proposal.city_id, result })
       // A queued approval changes what the plan can honestly say next —
       // the city is no longer a gap while the letter is out.
       await queryClient.invalidateQueries({ queryKey: ['gig-plan', slug()] })
     },
-    onError: (error, proposal) => {
+    onError: (error, input) => {
       setApprovingCityId(null)
       setApproveError({
-        cityId: proposal.city_id,
+        cityId: input.proposal.city_id,
         message: error instanceof Error ? error.message : 'Approval failed',
       })
     },
@@ -126,12 +128,16 @@ export function GigPlanProposalCard(props: {
   busy: boolean
   result?: GigPlanApproval | null
   error?: string | null
-  onApprove: () => void
+  /** The operator's fix to the letter, when they edited the opening line —
+   *  forwarded verbatim to the revision gate upstream. */
+  onApprove: (revision?: Record<string, string>) => void
   /** Tenant slug — links the city name to its city page. Omit where the page
    *  already is the city's own. */
   tenantSlug?: string
 }) {
   const proposal = () => props.proposal
+  const [editing, setEditing] = createSignal(false)
+  const [editedLine, setEditedLine] = createSignal(props.proposal.opening_line)
   return (
     <div class="rounded-md border border-border p-3">
       <div class="flex items-start justify-between gap-3">
@@ -187,11 +193,46 @@ export function GigPlanProposalCard(props: {
           </p>
         </Show>
 
+        {/* The letter's first sentence, editable before approve (N.10). The
+            reasons above are the machine's evidence — they are not editable;
+            disagreeing with a number is a refusal, not an edit. */}
+        <div class="mt-3">
+          <Show
+            when={editing()}
+            fallback={
+              <p class="text-sm text-foreground">
+                Opens with: “{proposal().opening_line}”
+                <Button
+                  variant="link"
+                  size="sm"
+                  class="ml-2 h-auto p-0 text-xs text-muted-foreground"
+                  onClick={() => setEditing(true)}
+                >
+                  edit
+                </Button>
+              </p>
+            }
+          >
+            <Textarea
+              class="mt-1"
+              rows={3}
+              value={editedLine()}
+              onInput={(e) => setEditedLine(e.currentTarget.value)}
+            />
+          </Show>
+        </div>
+
         <div class="mt-3 flex items-center gap-3">
           <Button
             size="sm"
-            disabled={props.busy}
-            onClick={() => props.onApprove()}
+            disabled={props.busy || (editing() && !editedLine().trim())}
+            onClick={() => {
+              const line = editedLine().trim()
+              const revision = editing() && line !== proposal().opening_line.trim()
+                ? { opening_line: line }
+                : undefined
+              props.onApprove(revision)
+            }}
           >
             {props.approving ? 'Approving…' : (authState.isPlatformLevel() ? 'Approve & queue outreach' : 'Approve & send outreach')}
           </Button>
