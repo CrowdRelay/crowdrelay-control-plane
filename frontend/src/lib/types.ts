@@ -285,6 +285,42 @@ export type DriveContactsResponse = {
   contacts: DriveContact[]
 }
 
+// P.1 — one person, two roles. The industry list (beacons) joined to the
+// fan list by address, for reading only. snake_case — the upstream read
+// model serialises field names verbatim.
+export type DualRoleContact = {
+  beacon_id: string
+  display_name: string
+  role: string
+  city: string | null
+  relationship_score: number
+  /** Already an active fan with marketing consent. */
+  hears_the_dates: boolean
+  /** A fan row exists but without live consent — never reachable. */
+  known_but_not_consented: boolean
+  /** Days since contact in any role; null means never — "cold". */
+  days_since_last_contact: number | null
+  already_invited: boolean
+  invitable: boolean
+  /** Why not, when not — a sentence, not a flag. */
+  hold_reason: string | null
+}
+
+export type DualRoleReview = {
+  contacts: DualRoleContact[]
+  total: number
+  already_hear_the_dates: number
+  invitable_now: number
+}
+
+/** The invitation answers 200 either way: `outcome` on a send, `refused`
+    with the rule's own sentence when the click re-check found a reason
+    the read's assumption missed. */
+export type LatarnikInviteResult = {
+  outcome?: string
+  refused?: string
+}
+
 export type DeliveryAttempt = {
   attempt_number: number
   started_at: string

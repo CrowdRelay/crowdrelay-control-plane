@@ -6,10 +6,11 @@ import { relativeTime } from '../lib/format'
 import { cn } from '../lib/cn'
 import { BeaconConsolePanel } from '../components/BeaconConsolePanel'
 import { BeaconSignalPanel } from '../components/BeaconSignalPanel'
+import { DualRoleContactsPanel } from '../components/DualRoleContactsPanel'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
 import { Button } from '../components/app/button'
 
-const TABS = ['roster', 'signal'] as const
+const TABS = ['roster', 'signal', 'dual-role'] as const
 
 /// Beacons are an audience surface, not an operations one: a beacon is a
 /// person in a city who carries a release to an audience the band does not
@@ -60,6 +61,7 @@ export function BeaconsPage() {
       tabs={[
         { id: 'roster', label: 'Roster' },
         { id: 'signal', label: 'Signal' },
+        { id: 'dual-role', label: 'Both roles' },
       ]}
     />
     <TabPanel active={activeTab()} id="roster" visited={isVisited('roster')}>
@@ -67,6 +69,9 @@ export function BeaconsPage() {
     </TabPanel>
     <TabPanel active={activeTab()} id="signal" visited={isVisited('signal')}>
       <BeaconSignalPanel slug={params().slug} />
+    </TabPanel>
+    <TabPanel active={activeTab()} id="dual-role" visited={isVisited('dual-role')}>
+      <DualRoleContactsPanel slug={params().slug} />
     </TabPanel>
   </PageShell>
 }
