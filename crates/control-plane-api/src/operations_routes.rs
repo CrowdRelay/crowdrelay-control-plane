@@ -420,6 +420,12 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/shows/{event_slug}/report",
             get(tenant_show_report),
         )
+        // §4h-11: who could help with this show — press, rooms, communities
+        // and cold rooms as candidates, never contacts handed out.
+        .route(
+            "/tenants/{slug}/shows/{event_slug}/who-can-help",
+            get(tenant_show_helpers),
+        )
         // The show's two setup writes — the bill the crossbill step reads
         // and the counterparty the T+7 report mails. Whole-resource PUTs.
         .route(
@@ -3697,6 +3703,24 @@ async fn tenant_show_report(
     )
     .await?;
     object_no_store(value, "show report")
+}
+
+async fn tenant_show_helpers(
+    State(state): State<AppState>,
+    Path((slug, event_slug)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        &format!("/v1/control-plane/events/{event_slug}/who-can-help"),
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "show helpers")
 }
 
 /// One act in a bill-replacement body — mirrors upstream `EventActInput`.

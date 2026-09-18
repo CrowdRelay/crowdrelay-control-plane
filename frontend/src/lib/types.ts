@@ -1910,6 +1910,58 @@ export type TenantShowReportResponse = {
   }
 }
 
+/** §4h-11 — who could help with this show: the staging queue read against a
+ * date rather than as an inventory. Every row is a candidate for a person to
+ * look at — no row carries an email, and promotion, the contact governor and
+ * the admission wall all still bind between this list and any outreach.
+ * `degraded` names what the read could not answer: "city" when the event
+ * carries none (every section then answers empty), and one key per section
+ * whose query failed — an absent key means an empty array is a measured
+ * answer, not a failure. */
+export type TenantShowHelpersResponse = {
+  event: {
+    slug: string
+    title: string
+    starts_at: string
+    city: string | null
+    country_code: string | null
+  }
+  degraded: Array<'city' | 'press' | 'rooms_and_promoters' | 'communities' | 'cold_rooms'>
+  notes: string[]
+  press: Array<{
+    id: string
+    target_kind: 'press' | 'radio' | 'playlist' | 'media_patronage'
+    display_name: string
+    contact_domain: string | null
+    why_fit: string
+    verified: boolean
+  }>
+  rooms_and_promoters: Array<{
+    id: string
+    target_kind: 'venue' | 'promoter' | 'festival'
+    display_name: string
+    accepts_booking: boolean
+    relationship_score: number
+    /** Whether the target is joined to the shared venue registry. */
+    venue_linked: boolean
+  }>
+  communities: Array<{
+    id: string
+    community_name: string
+    platform: 'reddit' | 'forum' | 'discord' | 'webzine' | 'newsletter'
+    url: string
+    self_promo_policy: 'tolerant' | 'strict' | 'megathread_only' | 'prohibited'
+    /** The country the match was made on — never a city. */
+    country: string
+  }>
+  cold_rooms: Array<{
+    id: string
+    display_name: string
+    /** The global capacity fact's raw text value, when one exists. */
+    capacity: string | null
+  }>
+}
+
 export type VehicleProfile = {
   seats: number
   cargo_litres: number
