@@ -794,6 +794,8 @@ class SharedPlacementContractTests(unittest.TestCase):
         self.assertIn("pg_isready", text)
         self.assertIn("CREATE ROLE t_acme LOGIN PASSWORD 'not-a-real-password'", text)
         self.assertIn(f"CONNECTION LIMIT {provisioner.SHARED_PG_CONNECTION_LIMIT}", text)
+        self.assertIn("ALTER ROLE t_acme", text)
+        self.assertIn("PASSWORD 'not-a-real-password'", text)
         self.assertIn("CREATE DATABASE t_acme OWNER t_acme", text)
         self.assertIn("REVOKE CONNECT ON DATABASE t_acme FROM PUBLIC", text)
 
@@ -832,6 +834,87 @@ class SharedPlacementContractTests(unittest.TestCase):
             with self.assertRaises(provisioner.ProvisionError) as ctx:
                 provisioner.ensure_shared_database(config, bad, Path(tmp))
             self.assertEqual(ctx.exception.code, "invalid_plan")
+
+
+class SecretEnvConvergeTests(unittest.TestCase):
+    """Placement-derived .env lines follow the plan across placement changes;
+    write-once secrets are never regenerated."""
+
+    # The URL is assembled from parts so no user:pass@host literal ever sits
+    # in the source — secret scanners flag the shape, not the plausibility.
+    PW = "not-a-real-password"
+    SEED_ENV = (
+        "POSTGRES_DB=crowdrelay\n"
+        "POSTGRES_USER=crowdrelay\n"
+        f"POSTGRES_PASSWORD={PW}\n"
+        "CROWDRELAY_DATABASE_URL=" + "postgres://" + f"crowdrelay:{PW}"
+        + "@postgres:5432/crowdrelay\n"
+        "CROWDRELAY_ADMIN_API_KEY=stable-admin-key\n"
+    )
+
+    def _seed(self, tmp: str) -> Path:
+        tenant_dir = Path(tmp)
+        provisioner.write_once(tenant_dir / ".env", self.SEED_ENV, 0o600)
+        return tenant_dir
+
+    def _env(self, tenant_dir: Path) -> dict:
+        return dict(
+            line.split("=", 1)
+            for line in (tenant_dir / ".env").read_text().splitlines()
+        )
+
+    def test_dedicated_to_shared_converges_database_lines(self):
+        plan = provisioner.safe_plan(valid_job5())
+        with tempfile.TemporaryDirectory() as tmp:
+            tenant_dir = self._seed(tmp)
+            provisioner.converge_secret_env(tenant_dir, plan)
+            env = self._env(tenant_dir)
+        self.assertEqual(env["POSTGRES_DB"], "t_acme")
+        self.assertEqual(env["POSTGRES_USER"], "t_acme")
+        self.assertEqual(
+            env["CROWDRELAY_DATABASE_URL"],
+            "postgres://" + f"t_acme:{self.PW}" + "@crowdrelay-tenants-pg:5432/t_acme",
+        )
+        # Secrets are write-once: untouched by the convergence.
+        self.assertEqual(env["POSTGRES_PASSWORD"], "not-a-real-password")
+        self.assertEqual(env["CROWDRELAY_ADMIN_API_KEY"], "stable-admin-key")
+
+    def test_shared_to_dedicated_converges_back(self):
+        plan = provisioner.safe_plan(valid_job5(placement="dedicated"))
+        with tempfile.TemporaryDirectory() as tmp:
+            tenant_dir = Path(tmp)
+            provisioner.write_once(
+                tenant_dir / ".env",
+                self.SEED_ENV.replace("crowdrelay", "t_acme").replace(
+                    "@postgres:5432/t_acme", "@crowdrelay-tenants-pg:5432/t_acme"
+                ),
+                0o600,
+            )
+            provisioner.converge_secret_env(tenant_dir, plan)
+            env = self._env(tenant_dir)
+        self.assertEqual(env["POSTGRES_DB"], "crowdrelay")
+        self.assertEqual(
+            env["CROWDRELAY_DATABASE_URL"],
+            "postgres://" + f"crowdrelay:{self.PW}" + "@postgres:5432/crowdrelay",
+        )
+        self.assertEqual(env["CROWDRELAY_ADMIN_API_KEY"], "stable-admin-key")
+
+    def test_converged_env_is_a_noop(self):
+        plan = provisioner.safe_plan(valid_job5())
+        with tempfile.TemporaryDirectory() as tmp:
+            tenant_dir = self._seed(tmp)
+            provisioner.converge_secret_env(tenant_dir, plan)
+            first = (tenant_dir / ".env").read_text()
+            provisioner.converge_secret_env(tenant_dir, plan)
+            self.assertEqual((tenant_dir / ".env").read_text(), first)
+
+    def test_missing_password_fails_closed(self):
+        plan = provisioner.safe_plan(valid_job5())
+        with tempfile.TemporaryDirectory() as tmp:
+            tenant_dir = Path(tmp)
+            provisioner.write_once(tenant_dir / ".env", "FOO=bar\n", 0o600)
+            with self.assertRaises(provisioner.ProvisionError):
+                provisioner.converge_secret_env(tenant_dir, plan)
 
 
 if __name__ == "__main__":

@@ -154,11 +154,13 @@ pub fn tenant_placement(value: Option<String>) -> Result<Option<String>, ApiErro
 /// Self-serve shapes share the tenants Postgres cluster (own database + role,
 /// dedicated api+worker — the runtime pins one workspace, so the shareable
 /// layer is the database, not the app); business-sized archetypes get a fully
-/// dedicated stack.
+/// dedicated stack. Anything else — including archetypes added later without
+/// a placement decision — gets the strongest isolation rather than silently
+/// landing on shared infrastructure.
 pub fn default_placement(archetype: &str) -> &'static str {
     match archetype {
-        "label" | "festival_org" => "dedicated",
-        _ => "shared_pg",
+        "band" | "roster" => "shared_pg",
+        _ => "dedicated",
     }
 }
 
@@ -733,9 +735,12 @@ mod tests {
         assert_eq!(default_placement("roster"), "shared_pg");
         assert_eq!(default_placement("label"), "dedicated");
         assert_eq!(default_placement("festival_org"), "dedicated");
+        assert_eq!(default_placement("unknown_future_archetype"), "dedicated");
         assert_eq!(tenant_placement(None).unwrap(), None);
         assert_eq!(
-            tenant_placement(Some("shared_pg".to_owned())).unwrap().as_deref(),
+            tenant_placement(Some("shared_pg".to_owned()))
+                .unwrap()
+                .as_deref(),
             Some("shared_pg")
         );
         assert!(tenant_placement(Some("elsewhere".to_owned())).is_err());

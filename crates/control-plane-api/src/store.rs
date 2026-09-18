@@ -428,6 +428,13 @@ impl Store {
         };
         let mut tx = self.pool.begin().await?;
         if placement == "shared_pg" {
+            // Serialize concurrent shared-pg creations per cluster: without
+            // the lock, two racing transactions count the same rows and both
+            // pass the capacity check.
+            sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
+                .bind(&self.shared_pg.cluster)
+                .execute(&mut *tx)
+                .await?;
             // Refuse rather than degrade: a cluster at capacity must surface as
             // an error, never as a silently different placement.
             let used = sqlx::query_scalar::<_, i64>(
@@ -941,12 +948,10 @@ impl Store {
 
     /// Request a deployment for a provisioner-managed tenant.
     ///
-    /// Currently unused: the operator-facing redeploy path was removed for
-    /// non-Virya tenants (too much access). Tenant creation still provisions
-    /// internally via `create_tenant_with_deployment`. This method is kept
-    /// for when provisioner-managed tenant redeploy is re-introduced with
-    /// proper access scoping.
-    #[allow(dead_code)]
+    /// Reached via `POST /tenants/{slug}/provisioning/reprovision`, which is
+    /// platform-admin only — the promotion runbook's trigger (shared_pg ->
+    /// dedicated) and the recovery primitive for a managed stack that needs a
+    /// fresh provisioning pass. Tenant operators never reach it.
     pub async fn request_deployment(
         &self,
         slug: &str,
