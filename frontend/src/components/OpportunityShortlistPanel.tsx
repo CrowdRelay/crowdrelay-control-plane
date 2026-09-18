@@ -1,5 +1,6 @@
 import { For, Show, createSignal } from 'solid-js'
 import { PanelTitle } from './layout'
+import { Button } from './ui/button'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -188,13 +189,14 @@ export function OpportunityShortlistPanel() {
 
           <Show when={restEntries().length > 0}>
             <div class="mt-4">
-              <button
+              <Button
                 type="button"
-                class="text-sm text-muted-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+                variant="ghost"
+                class="h-auto px-0 text-sm text-muted-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
                 onClick={() => setShowRest(v => !v)}
               >
                 {showRest() ? 'Hide' : 'Show'} {restEntries().length} closed or stale rows
-              </button>
+              </Button>
               <Show when={showRest()}>
                 <ul class="divide-y divide-border mt-2 opacity-75">
                   <For each={restEntries()}>
