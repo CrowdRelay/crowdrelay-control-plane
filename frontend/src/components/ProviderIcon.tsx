@@ -1,11 +1,11 @@
-// Provider brand icons — inline SVGs keyed by provider kind.
-// No external dependencies, no icon font, no sprite.
+// Provider icons keyed by provider kind.
 //
-// Brand logos use their official colours (multi-path SVG) so they're
-// instantly recognisable. Generic/abstract icons inherit currentColor.
+// Brand logos are inline SVGs in their official colours so they're instantly
+// recognisable. Generic icons (webhook, email, CSV, …) come from Lucide.
 
 import { Show } from 'solid-js'
 import type { JSX } from 'solid-js'
+import { Check, Circle, FileSpreadsheet, Globe, Hand, Mail, Sparkles, Webhook } from 'lucide-solid'
 
 type IconProps = { size?: number; class?: string }
 
@@ -276,23 +276,12 @@ function DiscordIcon(props: IconProps) {
 
 // Webhook — a chain link icon in neutral blue-grey.
 function WebhookIcon(props: IconProps) {
-  const s = props.size ?? 20
-  return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class={props.class} aria-hidden="true">
-      <path d="M9.5 10.5l3-3a3.5 3.5 0 0 1 5 5l-3 3" />
-      <path d="M14.5 13.5l-3 3a3.5 3.5 0 0 1-5-5l3-3" />
-    </svg>
-  )
+  return <Webhook size={props.size ?? 20} class={props.class} aria-hidden="true" />
 }
 
 // Email — envelope icon in neutral tone.
 function EmailIcon(props: IconProps) {
-  const s = props.size ?? 20
-  return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
-      <path d="M3 5.5A1.5 1.5 0 0 1 4.5 4h15A1.5 1.5 0 0 1 21 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5v-13zm1.5.5v.8l7.5 5 7.5-5V6L12 11 4.5 6z" fill-rule="evenodd"/>
-    </svg>
-  )
+  return <Mail size={props.size ?? 20} class={props.class} aria-hidden="true" />
 }
 
 // ─── Fanbase Source Brand Logos ─────────────────────────────────────────
@@ -527,43 +516,22 @@ function XIcon(props: IconProps) {
 
 // CSV — document with lines (generic, currentColor).
 function CsvIcon(props: IconProps) {
-  const s = props.size ?? 20
-  return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
-      <path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6zm7 1.5L18.5 9H13V3.5zM7 12h10v1.5H7V12zm0 3h10v1.5H7V15zm0 3h7v1.5H7V18z" fill-rule="evenodd"/>
-    </svg>
-  )
+  return <FileSpreadsheet size={props.size ?? 20} class={props.class} aria-hidden="true" />
 }
 
 // HTTP — globe icon (generic, currentColor).
 function HttpIcon(props: IconProps) {
-  const s = props.size ?? 20
-  return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class={props.class} aria-hidden="true">
-      <circle cx="12" cy="12" r="10"/>
-      <path d="M2 12h20M12 2c2.5 2.7 4 6.2 4 10s-1.5 7.3-4 10c-2.5-2.7-4-6.2-4-10s1.5-7.3 4-10z"/>
-    </svg>
-  )
+  return <Globe size={props.size ?? 20} class={props.class} aria-hidden="true" />
 }
 
 // Manual — hand/cursor icon (generic, currentColor).
 function ManualIcon(props: IconProps) {
-  const s = props.size ?? 20
-  return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
-      <path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11h1V4.5a1.5 1.5 0 0 1 3 0V11h1V6a1.5 1.5 0 0 1 3 0v8a6 6 0 0 1-6 6h-2a6 6 0 0 1-6-6v-1.5L4 9a1.5 1.5 0 0 1 2.1-2.1L9 10v1z"/>
-    </svg>
-  )
+  return <Hand size={props.size ?? 20} class={props.class} aria-hidden="true" />
 }
 
 // Generic fallback — a dot.
 function DefaultIcon(props: IconProps) {
-  const s = props.size ?? 20
-  return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" class={props.class} aria-hidden="true">
-      <circle cx="12" cy="12" r="6" opacity="0.5"/>
-    </svg>
-  )
+  return <Circle size={props.size ?? 20} class={props.class} aria-hidden="true" />
 }
 
 // ─── Icon Registries ────────────────────────────────────────────────────
@@ -643,9 +611,7 @@ export function TierBadge(props: { tier: 'free' | 'premium' | 'connected' | 'bet
   if (props.tier === 'connected') {
     return (
       <span class="absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-muted flex items-center justify-center leading-none bg-success-foreground text-background" style={{ width: `${s}px`, height: `${s}px` }} aria-label="connected">
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M20 6L9 17l-5-5" />
-        </svg>
+        <Check size={s} stroke-width={3} aria-hidden="true" />
       </span>
     )
   }
@@ -668,13 +634,7 @@ export function TierBadge(props: { tier: 'free' | 'premium' | 'connected' | 'bet
 // "free spark" mark instead of the provider logo.
 
 function FreeSparkIcon(props: IconProps) {
-  const s = props.size ?? 16
-  return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class={props.class} aria-hidden="true">
-      <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.4 2.4M15.3 15.3l2.4 2.4M6.3 17.7l2.4-2.4M15.3 8.7l2.4-2.4" opacity="0.7" />
-      <circle cx="12" cy="12" r="2.5" fill="#22c55e" stroke="none" opacity="0.8" />
-    </svg>
-  )
+  return <Sparkles size={props.size ?? 16} color="#22c55e" class={props.class} aria-hidden="true" />
 }
 
 export function ModelIcon(props: { modelId: string; providerId: string; paid?: boolean; size?: number; class?: string }) {

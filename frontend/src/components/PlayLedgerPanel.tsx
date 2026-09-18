@@ -7,7 +7,6 @@ import type { PlayKindStanding } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
-import { Card } from './app/card'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { ErrorCard } from './layout'
@@ -109,17 +108,16 @@ export function PlayLedgerPanel(props: { slug: string }) {
       return next
     })
 
-  return <Card flat>
-    <div class="flex items-center justify-between gap-4">
-      <h3 class="text-sm font-semibold text-foreground m-0">Play ledger</h3>
-      <div class="flex items-center gap-3">
+  return <div class="space-y-4">
+    <div class="flex items-start justify-between gap-4">
+      <p class="text-sm text-muted-foreground">What {authState.isPlatformLevel() ? 'the agent' : 'the brain'} committed to, what it did, and what each number is allowed to prove. Each play is an experiment with claims, evidence and an effect assessment.</p>
+      <div class="flex shrink-0 flex-col items-end gap-0.5 text-xs text-muted-foreground">
         <Show when={ledger.data}>
-          <span class="text-muted-foreground">{ledger.data!.plays.length} plays · {ledger.data!.standings.length} kinds</span>
+          <span>{ledger.data!.plays.length} plays · {ledger.data!.standings.length} kinds</span>
         </Show>
-        <Show when={ledger.dataUpdatedAt}><span class="text-xs text-muted-foreground">Updated {relativeTime(ledger.dataUpdatedAt)}</span></Show>
+        <Show when={ledger.dataUpdatedAt}><span>Updated {relativeTime(ledger.dataUpdatedAt)}</span></Show>
       </div>
     </div>
-    <p class="text-muted-foreground text-sm leading-relaxed mt-2">What {authState.isPlatformLevel() ? 'the agent' : 'the brain'} committed to, what it did, and what each number is allowed to prove. Each play is a structured experiment with claims, evidence, and effect assessment.</p>
 
     <Show when={ledger.error}>
       <ErrorCard>Play ledger unavailable: {errorMessage(ledger.error, 'We couldn\'t reach the play ledger. Try refreshing.')}</ErrorCard>
@@ -207,5 +205,5 @@ export function PlayLedgerPanel(props: { slug: string }) {
         </Show>
       </Show>
     </Show>
-  </Card>
+  </div>
 }

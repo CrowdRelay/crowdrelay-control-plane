@@ -123,8 +123,8 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
     await page.waitForSelector('[data-slot="tab-panel"]', { timeout: 30000 })
     await page.waitForTimeout(2000)
 
-    // Only the default Outreach tab panel should be in the DOM — the
-    // decision queue moved to Attention's Decisions tab (UX-3.2).
+    // Only the default Replies tab panel should be in the DOM — the other
+    // four surfaces mount on first visit.
     const tabPanels = await page.locator('[data-slot="tab-panel"]').count()
     expect(tabPanels).toBe(1)
 

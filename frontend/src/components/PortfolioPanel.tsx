@@ -5,13 +5,11 @@ import { authState } from '../lib/auth'
 import type { PortfolioConsent, PortfolioConsentStatus, PortfolioOverview } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
-import { KpiValue } from './KpiValue'
 import { EmptyState } from './ui/empty-state'
-import { Card } from './app/card'
 import { Button } from './app/button'
 import { Input } from './ui/input'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
-import { ErrorCard, PanelTitle } from './layout'
+import { ErrorCard, KpiCard, KpiStrip, Section } from './layout'
 import { writeGuard } from '../lib/read-only'
 
 const STATUS_TONE: Record<PortfolioConsentStatus, 'good' | 'warn' | 'bad' | 'muted'> = {
@@ -107,21 +105,21 @@ export function PortfolioPanel(props: {
     setRowReason('')
   }
 
-  return <Card flat>
-    <div class="flex items-center justify-between gap-4 mb-3">
-      <div><PanelTitle icon={<SectionIcon name="megaphone" />}>Roster & amplification</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Route one artist's release or show in front of another artist's consenting fans, per edge. Not a shared list — a permission, <strong class="font-medium text-secondary-foreground">capped, revocable and audited</strong>, with a record of every time it was used.</p></div>
-      <div class="flex flex-wrap items-center gap-2">
-        <StatusBadge status={boardLabel()} tone={boardTone()} />
-      </div>
-    </div>
-
-    <Show when={props.overview} keyed>{overview => <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-      <div class="rounded-lg border border-border bg-card p-4 text-foreground flex flex-col gap-1"><KpiValue value={metric(overview.workspaceCount)} /><span class="text-muted-foreground">Artists</span></div>
-      <div class="rounded-lg border border-border bg-card p-4 text-foreground flex flex-col gap-1"><KpiValue value={metric(overview.activeFans)} /><span class="text-muted-foreground">Active fans</span></div>
-      <div class="rounded-lg border border-border bg-card p-4 text-foreground flex flex-col gap-1"><KpiValue value={`+${metric(overview.fansLast30d)}`} /><span class="text-muted-foreground">New fans · 30d</span></div>
-      <div class="rounded-lg border border-border bg-card p-4 text-foreground flex flex-col gap-1"><KpiValue value={metric(overview.activeEdges)} /><span class="text-muted-foreground">Live edges</span></div>
-      <div class="rounded-lg border border-border bg-card p-4 text-foreground flex flex-col gap-1"><KpiValue value={metric(overview.deliveriesLast30d)} /><span class="text-muted-foreground">Amplified · 30d</span></div>
-    </div>}</Show>
+  return <Section
+    flush
+    title="Roster and amplification"
+    icon={<SectionIcon name="megaphone" />}
+    description="Route one artist's release or show in front of another artist's consenting fans, per edge. Not a shared list: a permission, capped, revocable and audited."
+    action={<StatusBadge status={boardLabel()} tone={boardTone()} />}
+  >
+    {/* The same metric rail every page uses; these were five boxed cards. */}
+    <Show when={props.overview} keyed>{overview => <KpiStrip class="mb-0" min="9rem">
+      <KpiCard label="Artists" value={metric(overview.workspaceCount)} />
+      <KpiCard label="Active fans" value={metric(overview.activeFans)} />
+      <KpiCard label="New fans" value={`+${metric(overview.fansLast30d)}`} sub="last 30 days" />
+      <KpiCard label="Live edges" value={metric(overview.activeEdges)} />
+      <KpiCard label="Amplified" value={metric(overview.deliveriesLast30d)} sub="last 30 days" />
+    </KpiStrip>}</Show>
 
     <div class="mt-6 pt-4 border-t border-border"><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="link" />{authState.isPlatformLevel() ? 'Amplification edges' : 'Amplification agreements'}</h3></div>
     <Show when={sortedEdges().length}>
@@ -230,5 +228,5 @@ export function PortfolioPanel(props: {
       </Show>
     </Show>
     <Show when={errorText()}><ErrorCard>{errorText()}</ErrorCard></Show>
-  </Card>
+  </Section>
 }

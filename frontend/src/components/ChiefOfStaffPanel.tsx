@@ -1,5 +1,5 @@
 import { For, Show } from 'solid-js'
-import { KpiCard, KpiStrip, PanelTitle } from './layout'
+import { KpiCard, KpiStrip, Section } from './layout'
 import { confidencePercent } from '../lib/format'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
@@ -7,7 +7,6 @@ import { SectionIcon } from './SectionIcon'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonSection } from './Skeleton'
-import { Card } from './app/card'
 import { Badge } from './app/badge'
 import { CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 import type { ChiefOfStaffActivity } from '../lib/types'
@@ -94,19 +93,17 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
       && data.parked_for_approval.length === 0 && data.stopped.length === 0
   }
 
-  return <Card flat>
-    <div class="flex items-start justify-between gap-4 mb-3">
-      <div>
-        <PanelTitle icon={<SectionIcon name="activity" />}>What the autopilot did</PanelTitle>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Its own report: what ran, what it stopped, and what is waiting on you.</p>
-      </div>
-      <Show when={d()}>
-        <StatusBadge
-          status={d()!.needs_you > 0 ? `${d()!.needs_you} need you` : d()!.failed_24h > 0 ? `${d()!.failed_24h} failed` : 'nothing waiting'}
-          tone={d()!.needs_you > 0 ? 'warn' : d()!.failed_24h > 0 ? 'bad' : 'good'}
-        />
-      </Show>
-    </div>
+  return <Section
+    title="What the autopilot did"
+    icon={<SectionIcon name="activity" />}
+    description="Its own report: what ran, what it stopped, and what is waiting on you."
+    action={<Show when={d()}>
+      <StatusBadge
+        status={d()!.needs_you > 0 ? `${d()!.needs_you} need you` : d()!.failed_24h > 0 ? `${d()!.failed_24h} failed` : 'nothing waiting'}
+        tone={d()!.needs_you > 0 ? 'warn' : d()!.failed_24h > 0 ? 'bad' : 'good'}
+      />
+    </Show>}
+  >
 
     <Show when={model.error}>
       <div class="p-4 mt-2.5"><p class="m-0 text-sm text-muted-foreground">The autopilot could not report on itself right now.</p></div>
@@ -288,5 +285,5 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
     <Show when={d() && !model.isPending && d()!.executed_24h === 0 && d()!.failed_24h === 0 && d()!.stopped.length === 0 && d()!.about_to_act.length === 0 && d()!.attention_items.length === 0}>
       <EmptyState label="No autopilot activity recorded" hint="Once a cycle runs and a policy allows it to act, this is where the run shows up." />
     </Show>
-  </Card>
+  </Section>
 }

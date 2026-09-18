@@ -2,17 +2,18 @@ import { For, Show, createMemo, createSignal, type Component } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
+import { SectionIcon } from './SectionIcon'
 import { errorMessage } from '../lib/format'
 import { compactNumber, trendArrow, trendDirection } from '../lib/charts'
 import { Sparkline } from './Sparkline'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock, SkeletonRows } from '../components/Skeleton'
 import type { GrowthMetricTrendView } from '../lib/types'
-import { Card } from './app/card'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
-import { ErrorCard } from './layout'
+import { ErrorCard, Section } from './layout'
+import { ChartLine } from 'lucide-solid'
 
 const feedStateLabel = (state: string): string =>
   state === 'live' ? 'Live' : state === 'stale' ? 'Stale' : 'Missing'
@@ -259,15 +260,17 @@ export function GrowthMetricsPanel(props: { slug: string }) {
     Object.entries(grouped().groups).sort((a, b) => platformLabel(a[0]).localeCompare(platformLabel(b[0]))),
   )
 
-  return <Card flat>
-    <div class="flex items-center justify-between gap-4">
-      <h3 class="text-sm font-semibold text-foreground">Metrics by platform</h3>
-      <Show when={coverage.data && hasFeeds()}>
-        <span class="text-sm text-muted-foreground tabular-nums">
-          {liveSeries()}{liveSeries() === totalSeries() ? '' : ` / ${totalSeries()}`} feeds live
-        </span>
-      </Show>
-    </div>
+  return <Section
+    flush
+    title="Metrics by platform"
+    icon={<SectionIcon name="trending-up" />}
+    description="Which numbers moved on each connected platform."
+    action={<Show when={coverage.data && hasFeeds()}>
+      <span class="text-sm text-muted-foreground tabular-nums">
+        {liveSeries()}{liveSeries() === totalSeries() ? '' : ` / ${totalSeries()}`} feeds live
+      </span>
+    </Show>}
+  >
 
     <Show when={coverage.error}><ErrorCard>Growth coverage unavailable: {errorMessage(coverage.error, 'We couldn\'t reach the growth coverage data. Try refreshing.')}</ErrorCard></Show>
     <Show
@@ -287,7 +290,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
           </>}>{null}</Show>
         }>
           <EmptyState
-            icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 14l4-4 4 4 6-6" /></svg>}
+            icon={<ChartLine size={28} aria-hidden="true" />}
             label="No metric feeds connected"
             hint={authState.isPlatformLevel() ? 'Connect Spotify, YouTube, Bandsintown, or social feeds to start tracking growth trends. The intelligence needs metric data to measure whether actions are moving the needle.' : 'Connect Spotify, YouTube, Bandsintown, or social feeds to start tracking growth trends. It needs the numbers to measure whether its work is moving the needle.'}
           />
@@ -484,5 +487,5 @@ export function GrowthMetricsPanel(props: { slug: string }) {
         </Show>
       </Show>
     </Show>
-  </Card>
+  </Section>
 }

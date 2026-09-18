@@ -1,10 +1,10 @@
-import { For, Show, createEffect, createMemo, createSignal } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { Checkbox as KobalteCheckbox } from '@kobalte/core/checkbox'
-import { Check } from 'lucide-solid'
+import { Check, RefreshCw } from 'lucide-solid'
 import { api } from '../lib/api'
-import { errorMessage } from '../lib/format'
+import { errorMessage, relativeTime } from '../lib/format'
 import type { AreaCity, AreaDropDraft, AreaStatus, AreaValidationResult } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { LocationCanvas } from '../components/area/LocationCanvas'
@@ -12,7 +12,8 @@ import { EmptyState } from '../components/ui/empty-state'
 import { SkeletonRows } from '../components/Skeleton'
 import { confirmAction } from '../components/Dialog'
 import { SectionIcon } from '../components/SectionIcon'
-import { ErrorCard, KpiCard, KpiStrip, PageHeader, PageShell, PanelTitle, SectionPanel, SectionTitle } from '../components/layout'
+import { ErrorCard, KpiCard, KpiStrip, PageHeader, PageShell, Section, TabBar } from '../components/layout'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/app/table'
 import { Button } from '../components/app/button'
 import { Alert } from '../components/app/alert'
 import { Input } from '../components/ui/input'
@@ -162,20 +163,33 @@ export function AreaPage() {
   const hardIssues = createMemo(() => validation()?.issues.filter(issue => !issue.confirmationRequired) ?? [])
   const toggleConfirmation = (code:string) => setConfirmations(current => current.includes(code) ? current.filter(item=>item!==code) : [...current,code])
 
+  // "Updated 2m ago" has to keep moving while the page sits open.
+  const [now, setNow] = createSignal(Date.now())
+  const tick = setInterval(() => setNow(Date.now()), 15_000)
+  onCleanup(() => clearInterval(tick))
+  const updated = createMemo(() => {
+    now()
+    const ts = Math.max(overview.dataUpdatedAt, drops.dataUpdatedAt)
+    return ts === 0 ? null : relativeTime(ts)
+  })
+  const refreshing = () => overview.isFetching || drops.isFetching
+
   return <PageShell>
     <PageHeader
-      eyebrow="AUDIENCE / AREA"
-      title="AREA Designer"
-      description="Draft, validate and publish tenant-scoped AREA locations. Exact claim coordinates stay on the private management path and never appear in list responses."
-      // The badge used to read the tenant runtime's `enabled` while the button
-      // below writes the control plane's `entitled`, so the page could show
-      // "disabled" above a button offering "Disable AREA". The badge reflects
-      // the switch this page owns; the disagreement between the two, which is
-      // real and worth knowing about, is explained in the panel below.
-      actions={<Show when={overview.data}><StatusBadge status={overview.data!.entitled ? 'on' : 'off'} tone={overview.data!.entitled ? 'good' : 'muted'} /></Show>}
+      title="AREA"
+      description="Draft, validate and publish the locations fans can claim a drop in. Exact claim coordinates never leave the private editor."
+      actions={
+        <>
+          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
+          <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={refreshing()} aria-label="Refresh">
+            <RefreshCw class={cn(refreshing() && 'animate-spin')} aria-hidden="true" />
+            Refresh
+          </Button>
+        </>
+      }
     />
 
-    <Show when={flash()}><div class="rounded-lg border border-border bg-background p-4 text-sm text-foreground">{flash()}</div></Show>
+    <Show when={flash()}><Alert tone="info" role="status">{flash()}</Alert></Show>
     <Show when={mutationError()}><ErrorCard>{errorMessage(mutationError(), 'AREA operation failed')}</ErrorCard></Show>
 
     <Show when={overview.data} fallback={
@@ -183,35 +197,48 @@ export function AreaPage() {
         <SkeletonRows count={4} />
       </Show>
     }>{o => <>
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-background"><span class="text-xs text-muted-foreground">Locations</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().total}</strong></div>
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-background"><span class="text-xs text-muted-foreground">Live</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().live}</strong></div>
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-background"><span class="text-xs text-muted-foreground">Total claims</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().totalClaims}</strong></div>
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-background"><span class="text-xs text-muted-foreground">Scheduled</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().scheduled}</strong></div>
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-background"><span class="text-xs text-muted-foreground">Drafts</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().drafts}</strong></div>
-        <div class="flex flex-col gap-1 p-3 rounded-lg border border-border bg-background"><span class="text-xs text-muted-foreground">Paused / ended</span><strong class="text-xl font-bold tabular-nums text-foreground">{o().paused + o().ended}</strong></div>
-      </div>
-      <SectionPanel class="flex flex-wrap items-start justify-between gap-4">
-        <div class="min-w-0">
-          <PanelTitle icon={<SectionIcon name="map-pin" />}>Tenant AREA</PanelTitle>
-          <p class="text-sm text-muted-foreground mt-1 max-w-2xl leading-relaxed">Turning AREA off hides the public game from fans. Drops, claims and audit history are kept, and come back exactly as they were when you turn it on again.</p>
-          {/* Two switches, one name. This page writes the control plane's, the
-              tenant's own app reports the other, and they drift while a deploy
-              is in flight. Saying which is which beats one badge that picks a
-              side and leaves the operator wondering why the button disagrees. */}
-          <Show when={o().entitled && !o().enabled}>
-            <p class="text-sm text-warning-foreground mt-2 leading-relaxed">AREA is on here, but this tenant's app is not running the game yet. It starts at its next deploy or sync.</p>
-          </Show>
-          <Show when={!o().entitled && o().enabled}>
-            <p class="text-sm text-warning-foreground mt-2 leading-relaxed">AREA is off here, but this tenant's app is still showing the game to fans. It stops at its next deploy or sync.</p>
-          </Show>
-        </div>
-        <Button writes variant={o().entitled ? 'destructive-ghost' : 'default'} size="sm" disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Turn AREA off' : 'Turn AREA on'}</Button>
-      </SectionPanel>
+      {/* The same metric rail every page uses; these were six boxed cards. */}
+      <KpiStrip min="8rem">
+        <KpiCard label="Locations" value={o().total} />
+        <KpiCard label="Live" value={o().live} tone={o().live > 0 ? 'good' : 'default'} />
+        <KpiCard label="Total claims" value={o().totalClaims} />
+        <KpiCard label="Scheduled" value={o().scheduled} />
+        <KpiCard label="Drafts" value={o().drafts} />
+        <KpiCard label="Paused or ended" value={o().paused + o().ended} />
+      </KpiStrip>
+      <Section
+        flush
+        title="Tenant AREA"
+        icon={<SectionIcon name="map-pin" />}
+        description="Turning AREA off hides the public game from fans. Drops, claims and audit history are kept, and come back exactly as they were when you turn it on again."
+        action={<div class="flex items-center gap-2">
+          <StatusBadge status={o().entitled ? 'on' : 'off'} tone={o().entitled ? 'good' : 'muted'} />
+          <Button writes variant={o().entitled ? 'destructive-ghost' : 'default'} size="sm" disabled={settings.isPending} onClick={() => settings.mutate(!o().entitled)}>{o().entitled ? 'Turn AREA off' : 'Turn AREA on'}</Button>
+        </div>}
+      >
+        {/* Two switches, one name. This page writes the control plane's, the
+            tenant's own app reports the other, and they drift while a deploy
+            is in flight. Saying which is which beats one badge that picks a
+            side and leaves the operator wondering why the button disagrees. */}
+        <Show when={o().entitled && !o().enabled}>
+          <Alert tone="warning" role="status">AREA is on here, but this tenant's app is not running the game yet. It starts at its next deploy or sync.</Alert>
+        </Show>
+        <Show when={!o().entitled && o().enabled}>
+          <Alert tone="warning" role="status">AREA is off here, but this tenant's app is still showing the game to fans. It stops at its next deploy or sync.</Alert>
+        </Show>
+        <Show when={o().entitled === o().enabled}>
+          <p class="text-sm text-muted-foreground">{o().entitled ? 'The game is on and the tenant\'s app is running it.' : 'The game is off and hidden from fans.'}</p>
+        </Show>
+      </Section>
     </>}</Show>
 
-    <SectionPanel>
-      <SectionTitle eyebrow="LOCATIONS" title="Published state + drafts" icon={<SectionIcon name="map-pin" />} action={<Button writes size="sm" disabled={!overview.data?.entitled} onClick={() => setCreating(v=>!v)}>+ New location</Button>} />
+    <Section
+      title="Locations"
+      icon={<SectionIcon name="map-pin" />}
+      count={drops.data?.items.length}
+      description="Every drop, published or drafted. Nothing is public until you publish it."
+      action={<Button writes size="sm" disabled={!overview.data?.entitled} onClick={() => setCreating(v=>!v)}>{creating() ? 'Cancel' : 'New location'}</Button>}
+    >
       <Show when={creating()}><div class="rounded-lg border border-border bg-background p-4 space-y-3">
         <Field label="Search city" hint="Type to filter the canonical list."><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></Field>
         <Field label="Canonical city" hint="Where the drop lives. Missing city? Create one below."><NativeSelect value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></NativeSelect></Field>
@@ -230,27 +257,64 @@ export function AreaPage() {
           <Button writes size="sm" disabled={createCity.isPending} onClick={()=>createCity.mutate()}>Save canonical city</Button>
         </div></Show>
       </div></Show>
-      <div class="rounded-lg border border-border overflow-hidden">
-        {/* Column headings over nothing are furniture. They also implied the
-            rows were loading when the list was simply empty. */}
-        <Show when={(drops.data?.items.length ?? 0) > 0}>
-        <div class="grid items-center gap-3 px-4 py-2 bg-card text-xs font-medium uppercase tracking-wider text-muted-foreground border-b border-border" style="grid-template-columns: 60px minmax(0,1fr) 100px 80px minmax(120px,1fr) 60px"><span>#</span><span>City</span><span>Status</span><span>Claims</span><span>Window</span><span/></div>
-        </Show>
-        <For each={drops.data?.items ?? []}>{item => <div class="grid items-center gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-muted transition-colors" style="grid-template-columns: 60px minmax(0,1fr) 100px 80px minmax(120px,1fr) 60px">
-          <code class="text-xs text-muted-foreground">{item.number}</code><div class="min-w-0"><strong class="text-sm text-foreground">{item.city}</strong><small class="block text-xs text-muted-foreground">rev {item.revision}{item.hasDraft ? ' · draft' : ''}</small></div><StatusBadge status={item.status} tone={statusTone(item.status)} /><span class="text-sm tabular-nums text-foreground">{item.claimCount} / {item.maxClaims}</span><small class="text-xs text-muted-foreground">{formatDate(item.startsAt)}<br/>{formatDate(item.endsAt)}</small><Button variant="ghost" size="sm" onClick={()=>{setSelectedId(item.id);setEditorStep('city')}}>Edit</Button>
-        </div>}</For>
-        {/* "above" pointed at a form that is not open; the control is the
-            "+ New location" button to the right of this panel's heading. */}
-        <Show when={!drops.isPending && (drops.data?.items.length ?? 0)===0}><EmptyState label="No locations yet" hint="A location is a place fans can claim a drop in. Use “+ New location” to draft the first one — nothing is public until you publish it." /></Show>
-        <Show when={drops.isPending}><div class="p-4"><SkeletonRows count={3} /></div></Show>
-      </div>
-    </SectionPanel>
+      {/* Column headings over nothing are furniture, and they implied the
+          rows were loading when the list was simply empty. */}
+      <Show when={(drops.data?.items.length ?? 0) > 0}>
+        <div class="rounded-lg border border-border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead class="w-16">#</TableHead>
+                <TableHead>City</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead class="text-right">Claims</TableHead>
+                <TableHead class="hidden md:table-cell">Window</TableHead>
+                <TableHead class="w-16"><span class="sr-only">Edit</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <For each={drops.data?.items ?? []}>{item => (
+                <TableRow class="cursor-pointer" onClick={()=>{setSelectedId(item.id);setEditorStep('city')}}>
+                  <TableCell><code class="text-xs text-muted-foreground">{item.number}</code></TableCell>
+                  <TableCell>
+                    <strong class="text-foreground">{item.city}</strong>
+                    <span class="ml-2 text-xs text-muted-foreground">rev {item.revision}{item.hasDraft ? ' · draft' : ''}</span>
+                  </TableCell>
+                  <TableCell><StatusBadge status={item.status} tone={statusTone(item.status)} /></TableCell>
+                  <TableCell numeric>{item.claimCount} / {item.maxClaims}</TableCell>
+                  <TableCell class="hidden text-xs text-muted-foreground md:table-cell">{formatDate(item.startsAt)} → {formatDate(item.endsAt)}</TableCell>
+                  <TableCell><Button variant="ghost" size="sm" onClick={e=>{e.stopPropagation();setSelectedId(item.id);setEditorStep('city')}}>Edit</Button></TableCell>
+                </TableRow>
+              )}</For>
+            </TableBody>
+          </Table>
+        </div>
+      </Show>
+      <Show when={!drops.isPending && (drops.data?.items.length ?? 0)===0}><EmptyState label="No locations yet" hint="A location is a place fans can claim a drop in. Use New location to draft the first one. Nothing is public until you publish it." /></Show>
+      <Show when={drops.isPending}><SkeletonRows count={3} /></Show>
+    </Section>
 
-    <Show when={selectedId()}><SectionPanel>
-      <SectionTitle eyebrow="PRIVATE EDITOR" title={detail.data?.summary ? `${detail.data.summary.city} · #${detail.data.summary.number}` : 'Loading…'} action={<Button variant="ghost" size="sm" onClick={closeEditor}>Close & purge coordinates</Button>} />
-      <p class="text-sm text-muted-foreground -mt-1 mb-4">Single-drop response only · not cached.</p>
+    <Show when={selectedId()}><Section
+      title={detail.data?.summary ? `${detail.data.summary.city} · #${detail.data.summary.number}` : 'Loading…'}
+      icon={<SectionIcon name="map-pin" />}
+      description="Private editor. The exact claim point is fetched for this drop only and never cached."
+      action={<div class="flex items-center gap-2">
+        <Show when={detail.data?.summary}>{summary => <StatusBadge status={summary().status} tone={statusTone(summary().status)} />}</Show>
+        <Button variant="outline" size="sm" onClick={closeEditor}>Close and purge coordinates</Button>
+      </div>}
+    >
       <Show when={detail.data && draft()} fallback={<SkeletonRows count={4} />}>{_ready => <>
-        <div class="flex gap-1 flex-wrap"><For each={['city','location','content','schedule','review'] as const}>{step=><Button variant="ghost" size="sm" class={cn(editorStep()===step && 'bg-primary/10 text-primary')} onClick={()=>setEditorStep(step)}>{step}</Button>}</For></div>
+        <TabBar
+          active={editorStep()}
+          onChange={id => setEditorStep(id as typeof editorStep extends () => infer T ? T : never)}
+          tabs={[
+            { id: 'city', label: 'City' },
+            { id: 'location', label: 'Location' },
+            { id: 'content', label: 'Content' },
+            { id: 'schedule', label: 'Schedule' },
+            { id: 'review', label: 'Review' },
+          ]}
+        />
 
         {/* One fieldset instead of a `writes` prop on forty controls: a
             disabled fieldset disables every form control under it, which is
@@ -307,11 +371,11 @@ export function AreaPage() {
             <KpiCard label="Ends" value={<span class="text-sm">{formatDate(draft()!.endsAt)}</span>} />
           </KpiStrip>
           <Show when={validation()}>{_v=><>
-            <Show when={hardIssues().length===0}><div class="rounded-lg border border-border bg-background p-4 text-sm text-foreground">No blocking validation errors.</div></Show>
+            <Show when={hardIssues().length===0}><Alert tone="success" role="status">No blocking validation errors.</Alert></Show>
             <For each={hardIssues()}>{issue=><ErrorCard><strong>{issue.code}</strong><p>{issue.message}</p></ErrorCard>}</For>
             <For each={confirmationIssues()}>{issue=><KobalteCheckbox class="flex items-start gap-3 cursor-pointer p-3 rounded-md border border-border bg-background" checked={confirmations().includes(issue.code)} onChange={()=>toggleConfirmation(issue.code)}><KobalteCheckbox.Input class="sr-only" /><KobalteCheckbox.Control class={checkboxControl}><KobalteCheckbox.Indicator class="flex items-center justify-center text-current"><Check class="h-3.5 w-3.5" /></KobalteCheckbox.Indicator></KobalteCheckbox.Control><span><strong class="text-sm text-foreground">{issue.code}</strong><small class="block text-xs text-muted-foreground">{issue.message}</small></span></KobalteCheckbox>}</For>
           </>}</Show>
-          <div class="flex justify-end gap-2"><Button variant="ghost" size="sm" disabled={validate.isPending||save.isPending} onClick={()=>validate.mutate()}>Save + validate</Button><Button size="sm" disabled={!validation()?.valid || confirmationIssues().some(issue=>!confirmations().includes(issue.code)) || publish.isPending} onClick={()=>publish.mutate()}>Publish revision</Button></div>
+          <div class="flex justify-end gap-2"><Button variant="outline" size="sm" disabled={validate.isPending||save.isPending} onClick={()=>validate.mutate()}>Save and validate</Button><Button size="sm" disabled={!validation()?.valid || confirmationIssues().some(issue=>!confirmations().includes(issue.code)) || publish.isPending} onClick={()=>publish.mutate()}>Publish revision</Button></div>
         </div></Show>
 
         <Show when={duplicateOpen()}><div class="rounded-lg border border-border bg-background p-4 space-y-3">
@@ -344,6 +408,6 @@ export function AreaPage() {
         </div>
         </fieldset>
       </>}</Show>
-    </SectionPanel></Show>
+    </Section></Show>
   </PageShell>
 }

@@ -14,16 +14,16 @@ import { test, expect } from '@playwright/test'
 import { login } from './fixtures/auth'
 
 test.describe('Selector contract @e2e', () => {
-  test('overview emits command blocks and the kpi strip @e2e', async ({ page }) => {
+  test('overview emits the needs-you card, the kpi strip and tenant rows @e2e', async ({ page }) => {
     await login(page)
     // The Shell redirects / → the selected tenant once per session after
     // login; the flag keeps / on the OverviewPage (same as e2e.spec).
     await page.addInitScript(() => sessionStorage.setItem('cp-default-tenant', '1'))
     await page.goto('/')
-    // CommandBlock cards are the dashboard's drill-in units — css-audit and
-    // e2e locate them by this hook.
-    await expect(page.locator('[data-slot="command-block"]').first()).toBeVisible({ timeout: 30000 })
-    expect(await page.locator('[data-slot="command-block"]').count()).toBeGreaterThan(2)
+    // The Needs-you card and the tenants table are the overview's drill-in
+    // units — e2e locates them by these hooks.
+    await expect(page.locator('[data-slot="needs-you"]')).toBeVisible({ timeout: 30000 })
+    await expect(page.locator('[data-slot="tenant-row"]').first()).toBeVisible({ timeout: 30000 })
     expect(await page.locator('[data-kpi-strip]').count()).toBeGreaterThan(0)
     // The shared Card primitive — css-audit measures these for spacing and
     // overflow.

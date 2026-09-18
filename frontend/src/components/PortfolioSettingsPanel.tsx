@@ -4,8 +4,7 @@ import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import type { PortfolioSettingsReadModel } from '../lib/types'
 import { SectionIcon } from './SectionIcon'
-import { ErrorCard, SectionTitle } from './layout'
-import { Card } from './app/card'
+import { ErrorCard, Section } from './layout'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Input } from './ui/input'
@@ -166,9 +165,11 @@ export function PortfolioSettingsPanel(props: {
     },
   }))
 
-  return <Card flat>
-    <SectionTitle eyebrow="BRAND" title="Brand settings" icon={<SectionIcon name="settings" />} description={authState.isPlatformLevel() ? "Where this tenant's fan-facing links point. Each field is live as soon as it is saved — the apps read these values directly." : "Where your fan-facing links point. Each field is live as soon as it is saved — the apps read these values directly."} />
-    <p class="text-sm text-muted-foreground leading-relaxed">A field left empty runs the shipped default; <Badge variant="warning">override</Badge> marks the ones {authState.isPlatformLevel() ? 'this tenant has' : 'you have'} replaced. Edit a field and its Save button appears beside it.</p>
+  return <Section
+    title="Brand settings"
+    icon={<SectionIcon name="settings" />}
+    description={<>{authState.isPlatformLevel() ? "Where this tenant's fan-facing links point." : 'Where your fan-facing links point.'} Each field is live as soon as it is saved. An empty field runs the shipped default; <Badge variant="warning">override</Badge> marks a replaced one.</>}
+  >
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
       <For each={keys()}>{key => (
         <label class="flex flex-col gap-1.5">
@@ -275,5 +276,5 @@ export function PortfolioSettingsPanel(props: {
     <Show when={errorText()}>
       <ErrorCard>{errorText()}</ErrorCard>
     </Show>
-  </Card>
+  </Section>
 }

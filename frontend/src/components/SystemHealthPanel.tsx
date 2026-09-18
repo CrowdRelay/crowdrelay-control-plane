@@ -1,10 +1,10 @@
 import { For, Show, createSignal } from 'solid-js'
-import { PanelTitle } from './layout'
+import { Section } from './layout'
+import { SectionIcon } from './SectionIcon'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import type { OperationsSummary } from '../lib/types'
-import { Card } from './app/card'
 import { Button } from './app/button'
 
 // What is wrong, what it means, and the cheapest thing that fixes it.
@@ -155,12 +155,7 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
   }
 
   return (
-    <Card flat>
-      {/* This sat at 14px directly above a sibling `<h2>` at 20px, so two
-          headings of the same rank on the same page read as different ranks. */}
-      <header class="flex items-center justify-between gap-4 mb-3">
-        <PanelTitle>What needs attention</PanelTitle>
-      </header>
+    <Section title="What needs attention" icon={<SectionIcon name="alert-triangle" />} description="What to do first, before the numbers.">
 
       <Show when={props.summary} fallback={<p class="text-muted-foreground">Waiting for the operations summary…</p>}>
         <Show
@@ -213,6 +208,6 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
           </p>
         )}
       </Show>
-    </Card>
+    </Section>
   )
 }

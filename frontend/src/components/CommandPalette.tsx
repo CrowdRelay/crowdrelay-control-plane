@@ -1,12 +1,16 @@
 import { useNavigate } from '@tanstack/solid-router'
 import { useQuery } from '@tanstack/solid-query'
-import { createEffect, createMemo, createSignal, For, Show, onMount, onCleanup } from 'solid-js'
-import type { Component } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, Show } from 'solid-js'
+import type { Component, JSX } from 'solid-js'
+import { CircleSlash, ClipboardList, MessageSquareText, Pause, Play, RefreshCw, Rocket, Table2, Trash2 } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { cn } from '../lib/cn'
-import { Button } from './app/button'
-import { Input } from './ui/input'
+import { NavIcon } from './NavIcon'
+import {
+  CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut,
+} from './ui/command'
+import { Kbd } from './ui/kbd'
 
 // Keyboard-first surface for the operator: jump to any tenant subpage and run
 // the common mutations without walking the navigation tree. Mutating entries
@@ -18,6 +22,7 @@ type Cmd = {
   group: string
   keywords?: string
   hint?: string
+  icon: () => JSX.Element
   confirm?: boolean
   /// What running this does, which decides whether the palette stays open.
   ///
@@ -34,18 +39,19 @@ type Cmd = {
   perform: () => void | Promise<void>
 }
 
-const SUBPAGES: Array<{ suffix: string; label: string }> = [
-  { suffix: '', label: 'Settings' },
-  { suffix: '/attention', label: 'Attention' },
-  { suffix: '/intelligence', label: 'Intelligence' },
-  { suffix: '/health', label: 'Health' },
-  { suffix: '/operations', label: 'Operations' },
-  { suffix: '/integrations', label: 'AI Integrations' },
-  { suffix: '/notifiers', label: 'Notifiers' },
-  { suffix: '/audience', label: 'Audience' },
-  { suffix: '/shows', label: 'Shows' },
-  { suffix: '/beacons', label: 'Beacons' },
-  { suffix: '/area', label: 'AREA' },
+// `icon` names a NavIcon, so a page carries the same glyph here as in the sidebar.
+const SUBPAGES: Array<{ suffix: string; label: string; icon: string }> = [
+  { suffix: '', label: 'Settings', icon: 'settings' },
+  { suffix: '/attention', label: 'Attention', icon: 'attention' },
+  { suffix: '/intelligence', label: 'Intelligence', icon: 'intelligence' },
+  { suffix: '/health', label: 'Health', icon: 'sliders' },
+  { suffix: '/operations', label: 'Operations', icon: 'operations' },
+  { suffix: '/integrations', label: 'AI Integrations', icon: 'integrations' },
+  { suffix: '/notifiers', label: 'Notifiers', icon: 'notifiers' },
+  { suffix: '/audience', label: 'Audience', icon: 'fan-intel' },
+  { suffix: '/shows', label: 'Shows', icon: 'area' },
+  { suffix: '/beacons', label: 'Beacons', icon: 'beacons' },
+  { suffix: '/area', label: 'AREA', icon: 'area' },
 ]
 
 // Task-oriented shortcuts. These are navigation, so they are labelled as
@@ -71,11 +77,24 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
 // names. Operator-only pages stay reachable by URL but do not list here.
 const BAND_SUFFIXES = new Set(['/operations', '/shows', '/attention', '/audience', '/intelligence', '/content'])
 const BAND_LABEL: Record<string, string> = { '/operations': 'Today', '/attention': 'Needs you' }
+const BAND_ICON: Record<string, string> = { '/operations': 'operations' }
+
+// Section order and headings. The list used to tag every row GO / JUMP /
+// QUERY on the right; headed sections say it once.
+const GROUPS: Array<{ key: string; heading: string }> = [
+  { key: 'Go', heading: 'Go to' },
+  { key: 'Jump', heading: 'Pages' },
+  { key: 'Query', heading: 'Questions' },
+  { key: 'Actions', heading: 'Actions' },
+]
 
 // Open state lives in command-palette-state.ts so Shell can toggle the
 // palette without this component being in the entry bundle.
 import { commandPaletteOpen, setCommandPaletteOpen } from './command-palette-state'
 import { readOnly } from '../lib/read-only'
+
+
+const pageIcon = (name: string) => () => <NavIcon name={name} />
 
 export const CommandPalette: Component = () => {
   const open = commandPaletteOpen
@@ -88,11 +107,9 @@ export const CommandPalette: Component = () => {
   const isPlatformLevel = () => authState.isPlatformLevel()
 
   const [query, setQuery] = createSignal('')
-  const [index, setIndex] = createSignal(0)
   const [armed, setArmed] = createSignal<string | null>(null)
   const [busy, setBusy] = createSignal<string | null>(null)
   const [message, setMessage] = createSignal('')
-  let inputRef: HTMLInputElement | undefined
 
   // Share the same ['tenants'] cache as Shell and OverviewPage — no
   // duplicated module-level cache. The query is enabled only for admins
@@ -108,10 +125,12 @@ export const CommandPalette: Component = () => {
   }))
   const tenants = () => tenantsQuery.data?.items ?? []
 
+  // Every open starts clean. The component stays mounted between opens (so the
+  // dialog can animate out), which makes this reset explicit rather than a
+  // side effect of remounting.
   createEffect(() => {
     if (!open()) return
-    setQuery(''); setIndex(0); setArmed(null); setMessage('')
-    queueMicrotask(() => inputRef?.focus())
+    setQuery(''); setArmed(null); setMessage('')
   })
 
   const scopedTenants = createMemo(() => {
@@ -122,11 +141,11 @@ export const CommandPalette: Component = () => {
 
   const commands = createMemo<Cmd[]>(() => {
     const list: Cmd[] = [
-      { id: 'page-overview', label: 'Overview', group: 'Go', kind: 'navigate', perform: () => navigate({ to: '/' }) },
+      { id: 'page-overview', label: 'Overview', group: 'Go', icon: pageIcon('overview'), kind: 'navigate', perform: () => navigate({ to: '/' }) },
     ]
     if (isPlatformLevel()) {
       list.push(
-        { id: 'page-tenants', label: 'Tenants', group: 'Go', keywords: 'registry', kind: 'navigate', perform: () => navigate({ to: '/tenants' }) },
+        { id: 'page-tenants', label: 'Tenants', group: 'Go', keywords: 'registry', icon: () => <Table2 />, kind: 'navigate', perform: () => navigate({ to: '/tenants' }) },
       )
     }
     const visible = scopedTenants()
@@ -142,6 +161,7 @@ export const CommandPalette: Component = () => {
           label: `${slug} · ${label}`,
           group: 'Jump',
           keywords: `${slug} ${label.toLowerCase()}`,
+          icon: pageIcon(platform ? page.icon : BAND_ICON[page.suffix] ?? page.icon),
           kind: 'navigate',
           perform: () => page.suffix === ''
             ? navigate({ to: '/tenants/$slug', params: { slug } })
@@ -155,18 +175,19 @@ export const CommandPalette: Component = () => {
           label: `${qe.label} · ${slug}`,
           group: 'Query',
           keywords: `${slug} ${qe.keywords}`,
+          icon: () => <MessageSquareText />,
           kind: 'navigate',
           perform: () => navigate({ to: `/tenants/$slug${qe.suffix}`, params: { slug } }),
         })
       }
       if (platform) list.push(
-        { id: `act-${slug}-reconcile`, label: `Reconcile ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} reconcile sync`, confirm: true, perform: async () => { await api.runReconciliation(slug) } },
-        { id: `act-${slug}-dead`, label: `Clear dead deliveries · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} dead deliveries clear outbox`, confirm: true, perform: async () => { await api.clearDeadDeliveries(slug) } },
-        { id: `act-${slug}-plan`, label: `Plan provisioning · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} provisioning plan job`, confirm: true, perform: async () => { await api.planProvisioning(slug) } },
-        { id: `act-${slug}-deploy`, label: `Deploy latest · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} deploy provision release`, hint: 'latest version', confirm: true, perform: async () => { await api.deployTenant(slug) } },
-        { id: `act-${slug}-cancel`, label: `Cancel provisioning job · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} provisioning cancel job`, confirm: true, perform: async () => { await api.cancelProvisioning(slug) } },
-        { id: `act-${slug}-suspend`, label: `Suspend tenant · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} suspend pause disable`, hint: 'stops tenant traffic handling', confirm: true, perform: async () => { await api.suspend(slug) } },
-        { id: `act-${slug}-resume`, label: `Resume tenant · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} resume enable restore`, confirm: true, perform: async () => { await api.resume(slug) } },
+        { id: `act-${slug}-reconcile`, label: `Reconcile ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} reconcile sync`, icon: () => <RefreshCw />, confirm: true, perform: async () => { await api.runReconciliation(slug) } },
+        { id: `act-${slug}-dead`, label: `Clear dead deliveries · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} dead deliveries clear outbox`, icon: () => <Trash2 />, confirm: true, perform: async () => { await api.clearDeadDeliveries(slug) } },
+        { id: `act-${slug}-plan`, label: `Plan provisioning · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} provisioning plan job`, icon: () => <ClipboardList />, confirm: true, perform: async () => { await api.planProvisioning(slug) } },
+        { id: `act-${slug}-deploy`, label: `Deploy latest · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} deploy provision release`, hint: 'latest version', icon: () => <Rocket />, confirm: true, perform: async () => { await api.deployTenant(slug) } },
+        { id: `act-${slug}-cancel`, label: `Cancel provisioning job · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} provisioning cancel job`, icon: () => <CircleSlash />, confirm: true, perform: async () => { await api.cancelProvisioning(slug) } },
+        { id: `act-${slug}-suspend`, label: `Suspend tenant · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} suspend pause disable`, hint: 'stops tenant traffic handling', icon: () => <Pause />, confirm: true, perform: async () => { await api.suspend(slug) } },
+        { id: `act-${slug}-resume`, label: `Resume tenant · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} resume enable restore`, icon: () => <Play />, confirm: true, perform: async () => { await api.resume(slug) } },
       )
     }
     return list
@@ -178,6 +199,9 @@ export const CommandPalette: Component = () => {
   // tell the two apart.
   const runnable = createMemo(() => readOnly() ? commands().filter(cmd => cmd.kind !== 'mutate') : commands())
 
+  // Filtering stays ours (cmdk's `shouldFilter` is off): every typed word must
+  // appear in the label or keywords. cmdk's fuzzy score would rank "sus" into
+  // unrelated rows, and a destructive action should only show when asked for.
   const filtered = createMemo(() => {
     const q = query().trim().toLowerCase()
     if (!q) return runnable()
@@ -188,13 +212,20 @@ export const CommandPalette: Component = () => {
     })
   })
 
-  createEffect(() => { filtered(); setIndex(current => Math.min(current, Math.max(0, filtered().length - 1))) })
+  const sections = createMemo(() => GROUPS
+    .map(group => ({ ...group, items: filtered().filter(cmd => cmd.group === group.key) }))
+    .filter(group => group.items.length > 0))
 
-  const active = () => filtered()[index()]
+  const byId = createMemo(() => new Map(runnable().map(cmd => [cmd.id, cmd])))
+  const [selected, setSelected] = createSignal('')
+  const armedCmd = () => { const id = armed(); return id ? byId().get(id) : undefined }
+  const selectedCmd = () => byId().get(selected())
 
   async function execute(cmd: Cmd) {
-    if (!cmd.perform) return
     if (busy() !== null) return
+    // Mutations are two-step: the first Enter arms the row, the second runs
+    // it, so a fast Enter-Enter from the search field can't fire a write the
+    // operator never read.
     if (cmd.confirm && armed() !== cmd.id) {
       setArmed(cmd.id)
       setMessage('')
@@ -204,7 +235,7 @@ export const CommandPalette: Component = () => {
     setBusy(cmd.id)
     try {
       await cmd.perform()
-      if (cmd.kind === 'navigate') { close(); return }
+      if (cmd.kind === 'navigate') { setOpen(false); return }
       setMessage(`✓ ${cmd.label}`)
     } catch (error) {
       setMessage(error instanceof Error ? `✕ ${error.message}` : `✕ ${cmd.label} failed`)
@@ -213,106 +244,83 @@ export const CommandPalette: Component = () => {
     }
   }
 
-  function close() {
-    setOpen(false)
-  }
-
-  function onKeyDown(event: KeyboardEvent) {
-    // ⌘K / Ctrl-K is owned by Shell (it must work before this chunk loads).
-    if (!open()) return
-    if (event.key === 'Escape') { event.preventDefault(); close() }
-    else if (event.key === 'ArrowDown') { event.preventDefault(); setIndex(i => Math.min(i + 1, filtered().length - 1)) }
-    else if (event.key === 'ArrowUp') { event.preventDefault(); setIndex(i => Math.max(i - 1, 0)) }
-    else if (event.key === 'Enter' && !event.shiftKey) {
-      const cmd = active()
-      if (cmd) { event.preventDefault(); void execute(cmd) }
-    }
-    // Focus trap: Tab and Shift+Tab cycle within the dialog. The input is
-    // the only focusable element; Tab wraps back to it so focus never
-    // escapes to the page behind the modal backdrop.
-    else if (event.key === 'Tab') {
-      event.preventDefault()
-      inputRef?.focus()
-    }
-  }
-
-  // The palette is Show-gated: mounted only while open. Bind and unbind the
-  // key handler per mount so closed-palette sessions leave no listeners.
-  onMount(() => {
-    document.addEventListener('keydown', onKeyDown)
-    onCleanup(() => document.removeEventListener('keydown', onKeyDown))
-  })
-
-  return <Show when={open()}>
-    <div class="fixed inset-0 z-50 bg-black/50" onClick={close}>
-      <div class="fixed left-1/2 top-[15vh] z-50 -translate-x-1/2 w-[calc(100vw-2rem)] max-w-xl rounded-lg border border-border bg-popover shadow-xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Command palette" onClick={event => event.stopPropagation()}>
-        <Input
-          ref={inputRef}
-          class="h-auto w-full rounded-none border-0 border-b bg-transparent px-4 py-3 focus:border-primary focus-visible:ring-0 focus-visible:ring-offset-0"
-          placeholder={isPlatformLevel() ? 'Type a page, tenant or action…' : 'Type a page or action…'}
-          aria-label="Command palette search"
-          role="combobox"
-          aria-expanded="true"
-          aria-controls="cmdk-listbox"
-          aria-activedescendant={active() ? `cmdk-item-${index()}` : undefined}
-          value={query()}
-          onInput={event => { setQuery(event.currentTarget.value); setArmed(null) }}
-          spellcheck={false}
-        />
-        <div class="cmdk-list overflow-y-auto overscroll-contain p-2 max-h-[50vh]" id="cmdk-listbox" role="listbox" aria-label="Command results">
-          <For each={filtered()} fallback={<div class="px-4 py-3 text-muted-foreground text-sm">Nothing matches “{query()}”.</div>}>
-            {(cmd, i) => (
-              <Button
-                type="button"
-                variant="ghost"
-                writes={Boolean(cmd.confirm)}
-                id={`cmdk-item-${i()}`}
-                role="option"
-                aria-selected={i() === index()}
-                class={cn(
-                  'h-auto w-full justify-start gap-2 rounded-md px-3 py-2 text-left text-sm font-normal transition-colors',
-                  // Non-danger items: standard foreground + surface hover.
-                  !cmd.confirm && 'text-foreground hover:bg-background',
-                  // Danger items: bright red text + subtle red tint so they're
-                  // scannable and readable, not washed-out dark red.
-                  Boolean(cmd.confirm) && armed() !== cmd.id && 'text-destructive hover:bg-destructive/10',
-                  // Active highlight — preserve the danger tint for confirm
-                  // items instead of overriding to white.
-                  i() === index() && !cmd.confirm && 'bg-background text-foreground',
-                  i() === index() && cmd.confirm && armed() !== cmd.id && 'bg-destructive/15 text-destructive',
-                  // Armed (second Enter pending): strong red background.
-                  armed() === cmd.id && 'bg-destructive/20 text-destructive border border-destructive/40 font-semibold',
-                )}
-                classList={{
-                  'cmdk-item': true,
-                  danger: Boolean(cmd.confirm),
-                  armed: armed() === cmd.id,
-                }}
-                onMouseEnter={() => setIndex(i())}
-                onClick={() => void execute(cmd)}
-              >
-                <span class="cmdk-label flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{armed() === cmd.id ? `Confirm: ${cmd.label}` : cmd.label}</span>
-                <Show when={cmd.hint}><span class="text-muted-foreground text-sm">{cmd.hint}</span></Show>
-                <span class="ml-auto flex-none text-xs uppercase tracking-wider text-muted-foreground">{cmd.group}</span>
-              </Button>
-            )}
-          </For>
-        </div>
-        <div class="cmdk-foot px-4 py-3 border-t border-border flex gap-3 items-center justify-between text-muted-foreground text-sm">
-          <Show when={message()} fallback={
-            <span class="flex gap-2 items-center">
-              <span class="flex items-center gap-0.5"><kbd>↑↓</kbd>navigate</span>
-              <span class="text-muted-foreground">·</span>
-              <span class="flex items-center gap-0.5"><kbd>↵</kbd>run{active()?.confirm ? ' (twice to confirm)' : ''}</span>
-              <span class="text-muted-foreground">·</span>
-              <span class="flex items-center gap-0.5"><kbd>esc</kbd>close</span>
-            </span>
-          }>
-            <span>{message()}</span>
-          </Show>
-          {busy() !== null && <span class="text-primary">running…</span>}
-        </div>
-      </div>
+  const footer = (
+    <div class="flex min-h-10 items-center justify-between gap-3 border-t bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+      <Show when={message()} fallback={
+        <Show when={armedCmd()} fallback={
+          <div class="flex items-center gap-3">
+            <span class="flex items-center gap-1.5"><Kbd>↑</Kbd><Kbd>↓</Kbd>navigate</span>
+            <span class="flex items-center gap-1.5"><Kbd>↵</Kbd>{selectedCmd()?.confirm ? 'select, then ↵ again' : 'open'}</span>
+            <span class="hidden items-center gap-1.5 sm:flex"><Kbd>esc</Kbd>close</span>
+          </div>
+        }>
+          {cmd => <span class="truncate text-destructive">Press <Kbd class="text-destructive">↵</Kbd> again to {cmd().label.charAt(0).toLowerCase() + cmd().label.slice(1)}</span>}
+        </Show>
+      }>
+        <span role="status" class={cn('truncate', message().startsWith('✕') && 'text-destructive')}>{message()}</span>
+      </Show>
+      <Show when={busy() !== null}><span class="shrink-0 text-foreground">Running…</span></Show>
     </div>
-  </Show>
+  )
+
+  return (
+    <CommandDialog
+      open={open()}
+      onOpenChange={setOpen}
+      title="Command palette"
+      description={isPlatformLevel() ? 'Search pages, tenants and actions' : 'Search pages and actions'}
+      commandProps={{
+        shouldFilter: false,
+        loop: true,
+        // Uncontrolled: cmdk owns the highlighted row and reports it here.
+        // Moving off an armed row disarms it — the confirm belongs to the row
+        // the operator was looking at when they pressed Enter.
+        onValueChange: (value: string) => {
+          setSelected(value)
+          if (armed() !== null && armed() !== value) setArmed(null)
+        },
+      }}
+      footer={footer}
+    >
+      <CommandInput
+        placeholder={isPlatformLevel() ? 'Search pages, tenants or actions…' : 'Search pages or actions…'}
+        value={query()}
+        onValueChange={value => { setQuery(value); setArmed(null) }}
+        spellcheck={false}
+      />
+      <CommandList class="px-1 pb-1">
+        <CommandEmpty>Nothing matches “{query()}”.</CommandEmpty>
+        <For each={sections()}>
+          {(section, i) => <>
+            <Show when={i() > 0}><CommandSeparator class="my-1" /></Show>
+            <CommandGroup heading={section.heading}>
+              <For each={section.items}>
+                {cmd => (
+                  <CommandItem
+                    value={cmd.id}
+                    keywords={cmd.keywords ? [cmd.keywords] : undefined}
+                    onSelect={() => void execute(cmd)}
+                    class={cn(
+                      cmd.confirm && 'data-[selected=true]:bg-destructive/10 data-[selected=true]:text-destructive',
+                      armed() === cmd.id && 'bg-destructive/10 text-destructive [&_svg]:text-destructive',
+                    )}
+                  >
+                    {cmd.icon()}
+                    <span class="min-w-0 flex-1 truncate">{cmd.label}</span>
+                    <Show when={armed() === cmd.id} fallback={
+                      <Show when={cmd.hint}><CommandShortcut class="tracking-normal">{cmd.hint}</CommandShortcut></Show>
+                    }>
+                      <CommandShortcut class="flex items-center gap-1 tracking-normal text-destructive">
+                        <Show when={busy() === cmd.id} fallback={<>Confirm <Kbd>↵</Kbd></>}>Running…</Show>
+                      </CommandShortcut>
+                    </Show>
+                  </CommandItem>
+                )}
+              </For>
+            </CommandGroup>
+          </>}
+        </For>
+      </CommandList>
+    </CommandDialog>
+  )
 }

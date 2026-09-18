@@ -7,22 +7,20 @@ import { StatusBadge } from './StatusBadge'
 import { FunnelChart } from './FunnelChart'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock } from './Skeleton'
-import { KpiStrip, KpiCard, ErrorCard } from './layout'
-import { Card } from './app/card'
+import { ErrorCard, KpiCard, KpiStrip, Section } from './layout'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import type { FunnelRecentWorkerRun } from '../lib/types'
 import { NativeSelect } from './ui/native-select'
+import { Funnel } from 'lucide-solid'
 
 const fmt = (n: number | null | undefined): string =>
   n == null ? '—' : n.toLocaleString('en-US')
 
 // --- Funnel icon ---
 const FunnelIcon = (props: { size?: number }) => (
-  <svg width={props.size ?? 18} height={props.size ?? 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M3 4h18l-7 8v6l-4 2v-8L3 4z" />
-  </svg>
+  <Funnel size={props.size ?? 18} aria-hidden="true" />
 )
 
 const templateLabel = (id: string): string => {
@@ -130,7 +128,12 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     return Object.values(data.worker_runs).reduce((sum, r) => sum + r.failed, 0)
   }
 
-  return <Card flat>
+  return <Section
+    title="Discovery to conversion"
+    icon={<span class="text-muted-foreground"><FunnelIcon size={18} /></span>}
+    description="The fan growth journey from community discovery to conversion, and the worker runs behind it."
+    action={<Show when={funnel.dataUpdatedAt}><span class="text-xs text-muted-foreground">Updated {relativeTime(funnel.dataUpdatedAt)}</span></Show>}
+  >
     <Show when={error()}>
       <ErrorCard>{error()}</ErrorCard>
     </Show>
@@ -146,7 +149,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
           <option value={365}>All time</option>
         </NativeSelect>
       </label>
-      <Button variant="ghost" size="sm" onClick={() => void funnel.refetch()} disabled={funnel.isFetching}>{funnel.isFetching ? 'Refreshing…' : 'Refresh'}</Button>
+      <Button variant="outline" size="sm" onClick={() => void funnel.refetch()} disabled={funnel.isFetching}>{funnel.isFetching ? 'Refreshing…' : 'Refresh'}</Button>
     </div>
 
     {/* Changing the time range swaps the query key. The previous result stays
@@ -164,14 +167,8 @@ export function GrowthFunnelPanel(props: { slug: string }) {
       </KpiStrip>
     </Show>
 
-    {/* Funnel visualization — header is static, chart waits for data */}
-    <div class="mt-6 border-t border-border pt-5">
-      <div class="flex items-center justify-between gap-4">
-        <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><span class="text-muted-foreground"><FunnelIcon size={18} /></span>Discovery to conversion</h3>
-        <Show when={funnel.dataUpdatedAt}><span class="text-xs text-muted-foreground">Updated {relativeTime(funnel.dataUpdatedAt)}</span></Show>
-      </div>
-      <p class="mt-1 text-sm text-muted-foreground">The fan growth journey from community discovery to conversion.</p>
-
+    {/* Funnel visualization — chart waits for data */}
+    <div class="mt-6">
       <Show when={funnel.data}>
         {/* Bottleneck highlight */}
         <Show when={bottleneck()}>{(b) => (
@@ -288,5 +285,5 @@ export function GrowthFunnelPanel(props: { slug: string }) {
       />
     </Show>
     </div>
-  </Card>
+  </Section>
 }

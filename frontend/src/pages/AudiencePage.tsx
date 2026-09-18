@@ -1,4 +1,4 @@
-import { For, Show } from 'solid-js'
+import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -18,6 +18,10 @@ import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
 import { Alert } from '../components/app/alert'
+import { Button } from '../components/app/button'
+import { RefreshCw } from 'lucide-solid'
+import { relativeTime } from '../lib/format'
+import { cn } from '../lib/cn'
 import { CommunityIntelligenceContent } from './CommunityIntelligenceContent'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
@@ -101,9 +105,33 @@ export function AudiencePage() {
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))
   const refreshPortfolio = () => portfolio.refetch()
+  const refreshAll = () => { void refresh(); if (portfolio.isFetched) void refreshPortfolio() }
+  const refreshing = () => model.isFetching || portfolio.isFetching
+
+  // "Updated 2m ago" has to keep moving while the page sits open.
+  const [now, setNow] = createSignal(Date.now())
+  const tick = setInterval(() => setNow(Date.now()), 15_000)
+  onCleanup(() => clearInterval(tick))
+  const updated = createMemo(() => {
+    now()
+    const ts = Math.max(model.dataUpdatedAt, portfolio.dataUpdatedAt)
+    return ts === 0 ? null : relativeTime(ts)
+  })
 
   return <PageShell>
-    <PageHeader eyebrow={authState.isPlatformLevel() ? 'AUDIENCE' : undefined} title="Audience" description="Every fan aggregated from all sides of the internet — Reddit, Meta, Spotify, Bandsintown, forums, press, live shows — in one view. Plus the communities where they already gather." />
+    <PageHeader
+      title="Audience"
+      description="Every fan from every source in one place, and the communities where they already gather."
+      actions={
+        <>
+          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
+          <Button variant="outline" size="sm" onClick={refreshAll} disabled={refreshing()} aria-label="Refresh">
+            <RefreshCw class={cn(refreshing() && 'animate-spin')} aria-hidden="true" />
+            Refresh
+          </Button>
+        </>
+      }
+    />
 
     {/* Tab bar */}
     <TabBar

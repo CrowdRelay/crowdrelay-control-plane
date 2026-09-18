@@ -5,7 +5,7 @@ import { authState } from '../lib/auth'
 import type { FanCard, FanDetail, FanJourneyEntry } from '../lib/types'
 import { FanDetailDrawer } from './FanDetailDrawer'
 import { EmptyState } from './ui/empty-state'
-import { Card } from './app/card'
+import { Section } from './layout'
 import { Badge } from './app/badge'
 import { Button } from './app/button'
 import { FileInput } from './ui/file-input'
@@ -19,6 +19,7 @@ import { writeGuard } from '../lib/read-only'
 import { downloadTextFile, fansToCsv, parseFanCsv, type FanCsvParse } from '../lib/fan-csv'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
+import { Download, Upload } from 'lucide-solid'
 
 const fanStatusTone = (status: string): 'success' | 'warning' | 'destructive' | 'muted' =>
   status === 'active' ? 'success' :
@@ -159,19 +160,14 @@ export function FanTablePanel(props: {
     }
   }
 
-  return <Card flat>
-    <div class="flex items-center justify-between gap-4">
-      <h3>Fan list</h3>
-      <span class="text-muted-foreground">
-        {filtered().length} fans
-        {/* The upstream fan list is capped (100 rows); a full-length answer
-            means there may be more fans than are shown. Say so — a table
-            that looks complete but is not is worse than an honest cap. */}
-        <Show when={props.fans.length >= FAN_LIST_CAP}>
-          {' '}· first {FAN_LIST_CAP} — search or export CSV to reach the rest
-        </Show>
-      </span>
-    </div>
+  return <Section
+    title="Fan list"
+    count={filtered().length}
+    // The upstream fan list is capped (100 rows); a full-length answer means
+    // there may be more fans than are shown. Say so — a table that looks
+    // complete but is not is worse than an honest cap.
+    description={props.fans.length >= FAN_LIST_CAP ? `First ${FAN_LIST_CAP} fans. Search or export CSV to reach the rest.` : undefined}
+  >
     {/* The search box owned this row on its own. The two CSV controls sit
         beside it as ghosts rather than as buttons: moving the list in or out
         is occasional work, and it should not outrank the fan you came to
@@ -342,25 +338,17 @@ export function FanTablePanel(props: {
         }</Show>
       </div>
     </Dialog>
-  </Card>
+  </Section>
 }
 
 function DownloadIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <path d="M7 10l5 5 5-5" />
-      <path d="M12 15V3" />
-    </svg>
+    <Download size={14} aria-hidden="true" />
   )
 }
 
 function UploadIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <path d="M17 8l-5-5-5 5" />
-      <path d="M12 3v12" />
-    </svg>
+    <Upload size={14} aria-hidden="true" />
   )
 }

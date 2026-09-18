@@ -1,8 +1,11 @@
-import { Show } from 'solid-js'
+import { Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
+import { RefreshCw } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
+import { relativeTime } from '../lib/format'
+import { cn } from '../lib/cn'
 import { IntelligenceTransparencyPanel } from '../components/IntelligenceTransparencyPanel'
 import { GrowthIntelligencePanel } from '../components/GrowthIntelligencePanel'
 import { RunBrainCyclePanel } from '../components/RunBrainCyclePanel'
@@ -17,22 +20,26 @@ import { GrowthPosturePanel } from '../components/GrowthPosturePanel'
 import { GrowthMetricsPanel } from '../components/GrowthMetricsPanel'
 import { AcquisitionChannelsPanel } from '../components/AcquisitionChannelsPanel'
 import { GrowthFunnelPanel } from '../components/GrowthFunnelPanel'
-import { StatusBadge } from '../components/StatusBadge'
 import { SkeletonBrainGroup, SkeletonSection } from '../components/Skeleton'
-import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, SectionTitle } from '../components/layout'
-import { SectionIcon } from '../components/SectionIcon'
+import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
+import { Button } from '../components/app/button'
 import { SectionFailureCard } from '../components/SectionFailureCard'
+import { StatusBadge } from '../components/StatusBadge'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
+const TABS = ['measurement', 'overview', 'growth', 'material', 'decisions', 'funnel', 'learning'] as const
+
 /**
- * Intelligence subpage — tabbed view for the deterministic Rust autopilot.
- *
- * Tabs: Are we getting anywhere | Where we stand | What it believes | What it decided | What moved | What it learned
- * Each tab groups related panels thematically.
+ * Intelligence — the deterministic autopilot, one tab per question in the
+ * order the loop runs: where we stand, what it believes, what it may say,
+ * what it decided, what moved, what it learned. Each panel draws its own
+ * heading; the page draws none of its own under the tab bar.
  */
 export function TenantIntelligencePage() {
   const params = useParams({ from: '/tenants/$slug/intelligence' })
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('measurement')
+  const autopilot = () => model.data?.autopilot
+  // The id list makes `?tab=` deep links land on the right tab.
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('measurement', [...TABS])
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
@@ -45,23 +52,37 @@ export function TenantIntelligencePage() {
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))
 
-  const d = () => model.data
-  const autopilot = () => d()?.autopilot
+  // "Updated 2m ago" has to keep moving while the page sits open.
+  const [now, setNow] = createSignal(Date.now())
+  const tick = setInterval(() => setNow(Date.now()), 15_000)
+  onCleanup(() => clearInterval(tick))
+  const updated = createMemo(() => {
+    now()
+    return model.dataUpdatedAt ? relativeTime(model.dataUpdatedAt) : null
+  })
 
   return <PageShell>
     <PageHeader
-      eyebrow={authState.isPlatformLevel() ? 'BRAIN' : undefined}
       title="Intelligence"
-      description="What the system decided to do, what it did, and how the growth numbers moved."
+      description={authState.isPlatformLevel()
+        ? 'What the autopilot decided to do, what it did, and how the growth numbers moved.'
+        : 'What the system decided to do, what it did, and how the growth numbers moved.'}
       actions={
-        <Show when={!model.error && model.data}>
-          <div class="flex items-center gap-2">
-            <Show when={autopilot()?.runtime_enabled}>
-              <StatusBadge status={authState.isPlatformLevel() ? 'autopilot on' : 'working on its own'} tone="good" />
-            </Show>
-            <StatusBadge status={autopilot()?.queued_actions ? `${autopilot()!.queued_actions} ${authState.isPlatformLevel() ? 'queued' : 'waiting'}` : 'idle'} tone={autopilot()?.queued_actions ? 'warn' : 'muted'} />
-          </div>
-        </Show>
+        <>
+          <Show when={!model.error && model.data}>
+            <div class="flex items-center gap-2">
+              <Show when={autopilot()?.runtime_enabled}>
+                <StatusBadge status={authState.isPlatformLevel() ? 'autopilot on' : 'working on its own'} tone="good" />
+              </Show>
+              <StatusBadge status={autopilot()?.queued_actions ? `${autopilot()!.queued_actions} ${authState.isPlatformLevel() ? 'queued' : 'waiting'}` : 'idle'} tone={autopilot()?.queued_actions ? 'warn' : 'muted'} />
+            </div>
+          </Show>
+          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
+          <Button variant="outline" size="sm" onClick={() => void model.refetch()} disabled={model.isFetching} aria-label="Refresh">
+            <RefreshCw class={cn(model.isFetching && 'animate-spin')} aria-hidden="true" />
+            Refresh
+          </Button>
+        </>
       }
     />
 
@@ -69,13 +90,7 @@ export function TenantIntelligencePage() {
       <SectionFailureCard error={model.error} fallback="Intelligence channel unavailable" onRetry={() => void model.refetch()} />
     </Show>
 
-    {/* Tab bar — static, renders immediately.
-
-        These read "Overview / Growth Intelligence / Growth metrics /
-        Decisions / Learning" — five names from the architecture, three of
-        which contain the word the page is already titled with, and none of
-        which tell a non-technical operator which one answers his question.
-        They now say what each one holds, in the order the loop runs. */}
+    {/* The tabs say what each one holds, in the order the loop runs. */}
     <TabBar
       active={activeTab()}
       onChange={switchTab}
@@ -91,9 +106,8 @@ export function TenantIntelligencePage() {
       ]}
     />
 
-    {/* Tab content skeleton — shows whenever the read model is absent.
-        Intelligence and Operations share the same query key, so isPending
-        is false when the data is already cached from a prior visit. */}
+    {/* Intelligence and Operations share the query key, so the skeleton
+        shows whenever the read model is absent, not only on first fetch. */}
     <Show when={!model.error && !model.data}>
       <SkeletonBrainGroup />
       <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
@@ -104,89 +118,41 @@ export function TenantIntelligencePage() {
       {/* ── Measurement tab — the plan's fifteen claims, each with its
               number or the reason this build cannot produce it ── */}
       <TabPanel active={activeTab()} id="measurement" visited={isVisited('measurement')}>
-        <div>
-          <MeasurementPanel slug={params().slug} />
-        </div>
+        <MeasurementPanel slug={params().slug} />
       </TabPanel>
 
-      {/* ── Overview tab — what it knows ── */}
       <TabPanel active={activeTab()} id="overview" visited={isVisited('overview')}>
-        <div>
-          <SectionTitle title="Scorecard & objectives" icon={<SectionIcon name="brain" />} description="How the growth loop is performing against the targets you set." />
-          <ScorecardPanel slug={params().slug} />
-          {/* N.9 — the dispatch gate's registry per lane: which capabilities
-              are live, held, or missing. The scorecard counts them; this
-              names them before an approval meets the refusal. */}
-          <ExecutorCapabilitiesPanel slug={params().slug} />
-          <GrowthObjectivesPanel slug={params().slug} />
-        </div>
+        <ScorecardPanel slug={params().slug} />
+        {/* N.9 — the dispatch gate's registry per lane: which capabilities
+            are live, held, or missing. The scorecard counts them; this
+            names them before an approval meets the refusal. */}
+        <ExecutorCapabilitiesPanel slug={params().slug} />
+        <GrowthObjectivesPanel slug={params().slug} />
       </TabPanel>
 
-      {/* ── Growth Intelligence tab — what it believes ── */}
       <TabPanel active={activeTab()} id="growth" visited={isVisited('growth')}>
-        <div>
-          <SectionTitle title="Posture & plan" icon={<SectionIcon name="trending-up" />} description="How far the loop may go on its own, and what it intends to do next." />
-          <GrowthPosturePanel slug={params().slug} />
-          <RunBrainCyclePanel slug={params().slug} />
-          <GrowthIntelligencePanel slug={params().slug} />
-        </div>
+        <GrowthPosturePanel slug={params().slug} />
+        <RunBrainCyclePanel slug={params().slug} />
+        <GrowthIntelligencePanel slug={params().slug} />
       </TabPanel>
 
-      {/* ── Material tab — the real things it may talk about ── */}
       <TabPanel active={activeTab()} id="material" visited={isVisited('material')}>
-        <div>
-          <SectionTitle title="Real material" icon={<SectionIcon name="book-open" />} description="Everything the system may say publicly comes from this list. A new YouTube video lands here on its own; add stories and links yourself." />
-          <ContentSourcesPanel slug={params().slug} />
-        </div>
+        <ContentSourcesPanel slug={params().slug} />
       </TabPanel>
 
-      {/* ── Growth Funnel tab — where the audience is and how it converts ── */}
-      <TabPanel active={activeTab()} id="funnel" visited={isVisited('funnel')}>
-        <div>
-          <SectionTitle title="Metrics & funnel" icon={<SectionIcon name="trending-up" />} description="Which numbers moved, where the fans came from, and where the funnel narrows." />
-          <GrowthMetricsPanel slug={params().slug} />
-          <AcquisitionChannelsPanel slug={params().slug} />
-          <GrowthFunnelPanel slug={params().slug} />
-        </div>
-      </TabPanel>
-
-      {/* ── Decisions tab — what it decided ── */}
       <TabPanel active={activeTab()} id="decisions" visited={isVisited('decisions')}>
-        <div>
-          <SectionTitle title="Decision timeline" icon={<SectionIcon name="history" />} description={authState.isPlatformLevel() ? 'Every decision the autopilot reached, with the evidence it used.' : 'Every decision it reached, with the evidence it used.'} />
-          <IntelligenceTransparencyPanel slug={params().slug} />
-        </div>
+        <IntelligenceTransparencyPanel slug={params().slug} />
       </TabPanel>
 
-      {/* ── Learning tab — what it learned ── */}
+      <TabPanel active={activeTab()} id="funnel" visited={isVisited('funnel')}>
+        <GrowthMetricsPanel slug={params().slug} />
+        <AcquisitionChannelsPanel slug={params().slug} />
+        <GrowthFunnelPanel slug={params().slug} />
+      </TabPanel>
+
       <TabPanel active={activeTab()} id="learning" visited={isVisited('learning')}>
-        <div>
-          <div class="mb-4 p-3 rounded-lg border border-border bg-card">
-            <svg viewBox="0 0 800 120" xmlns="http://www.w3.org/2000/svg" class="intel-loop-svg" aria-hidden="true">
-              <defs>
-                <marker id="intel-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-                  <path d="M0 0 L8 4 L0 8 z" fill="var(--color-primary)" />
-                </marker>
-              </defs>
-              <rect x="20" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-core" />
-              <text x="100" y="55" text-anchor="middle" class="intel-loop-label">Decides</text>
-              <text x="100" y="72" text-anchor="middle" class="intel-loop-sub">what to do</text>
-              <line x1="180" y1="60" x2="290" y2="60" stroke="var(--color-primary)" stroke-width="1.5" marker-end="url(#intel-arrow)" />
-              <rect x="300" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-worker" />
-              <text x="380" y="55" text-anchor="middle" class="intel-loop-label">Does it</text>
-              <text x="380" y="72" text-anchor="middle" class="intel-loop-sub">research · draft · post</text>
-              <line x1="460" y1="60" x2="570" y2="60" stroke="var(--color-primary)" stroke-width="1.5" marker-end="url(#intel-arrow)" />
-              <rect x="580" y="30" width="160" height="60" rx="10" class="intel-loop-node intel-loop-node-outcome" />
-              <text x="660" y="55" text-anchor="middle" class="intel-loop-label">Measures</text>
-              <text x="660" y="72" text-anchor="middle" class="intel-loop-sub">fans · engagement</text>
-              <path d="M 660 90 Q 400 115, 100 90" fill="none" stroke="var(--color-success-foreground)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#intel-arrow)" />
-              <text x="380" y="115" text-anchor="middle" class="intel-loop-feedback">Gets smarter each time</text>
-            </svg>
-          </div>
-          <SectionTitle title="Decision → Action → Outcome" icon={<SectionIcon name="refresh-cw" />} description="Each decision followed through to what it actually changed. A belief only counts once an outcome measures it." />
-          <LearningLoopPanel slug={params().slug} />
-          <LearningProofPanel slug={params().slug} />
-        </div>
+        <LearningLoopPanel slug={params().slug} />
+        <LearningProofPanel slug={params().slug} />
       </TabPanel>
     </>}</Show>
   </PageShell>

@@ -4,6 +4,7 @@ import { REFRESH_INTERVALS, refreshInterval, setRefreshInterval, triggerRefresh 
 import { relativeTime } from '../lib/format'
 import { NativeSelect } from './ui/native-select'
 import { Button } from './app/button'
+import { RefreshCw } from 'lucide-solid'
 
 // Grafana-style refresh control: an interval dropdown + a manual refresh button.
 // Sits in the topbar so every page inherits it. The interval drives
@@ -53,9 +54,9 @@ export function RefreshControl(props: {
       aria-label="Refresh"
     >
       <Show when={!loading()} fallback={
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="spin" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+        <RefreshCw size={16} class="spin" aria-hidden="true" />
       }>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+        <RefreshCw size={16} aria-hidden="true" />
       </Show>
     </Button>
   </div>

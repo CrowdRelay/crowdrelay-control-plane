@@ -5,20 +5,17 @@ import { authState } from '../lib/auth'
 import { errorMessage, formatIsoAge } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './ui/empty-state'
-import { KpiStrip, KpiCard, ErrorCard } from './layout'
-import { Card } from './app/card'
+import { ErrorCard, KpiCard, KpiStrip, Section } from './layout'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import type { IntelligenceDecision, IntelligenceDecisionTask } from '../lib/types'
 import { NativeSelect } from './ui/native-select'
+import { Brain, ChevronDown } from 'lucide-solid'
 
 // --- Intelligence icon (deterministic Rust autopilot) ---
 const IntelligenceIcon = (props: { size?: number }) => (
-  <svg width={props.size ?? 18} height={props.size ?? 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M9 3a3 3 0 0 0-3 3 3 3 0 0 0-1 5.8A3 3 0 0 0 7 17a3 3 0 0 0 2 4 3 3 0 0 0 3-3V3a3 3 0 0 0-3 0z" />
-    <path d="M15 3a3 3 0 0 1 3 3 3 3 0 0 1 1 5.8A3 3 0 0 1 17 17a3 3 0 0 1-2 4 3 3 0 0 1-3-3" opacity="0.5" />
-  </svg>
+  <Brain size={props.size ?? 18} aria-hidden="true" />
 )
 
 const templateLabel = (id: string): string => {
@@ -99,7 +96,14 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
     setExpanded((curr) => (curr === id ? null : id))
   }
 
-  return <div class="flex flex-col gap-4">
+  return <Section
+    flush
+    title="Decision timeline"
+    icon={<IntelligenceIcon size={18} />}
+    count={decisions().length}
+    description={authState.isPlatformLevel() ? 'Every decision the autopilot reached: what it decided, why, and what workers found.' : 'Every decision it reached: what it decided, why, and what workers found.'}
+    class="flex flex-col gap-4"
+  >
     <Show when={error()}>
       <ErrorCard>{error()}</ErrorCard>
     </Show>
@@ -115,7 +119,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
           <option value={365}>All time</option>
         </NativeSelect>
       </label>
-      <Button variant="ghost" size="sm" onClick={() => void data.refetch()} disabled={data.isFetching}>{data.isFetching ? 'Refreshing…' : 'Refresh'}</Button>
+      <Button variant="outline" size="sm" onClick={() => void data.refetch()} disabled={data.isFetching}>{data.isFetching ? 'Refreshing…' : 'Refresh'}</Button>
     </div>
 
     {/* Same as the funnel: the range selector changes the query key, the old
@@ -146,14 +150,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
     </Show>
 
     {/* Decision timeline */}
-    <Card class="p-4 mt-4">
-      <div class="flex items-center justify-between gap-4">
-        <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><IntelligenceIcon size={18} /> Decision Timeline</h3>
-        <Show when={decisions().length > 0}>
-          <span class="text-muted-foreground">{decisions().length} decisions</span>
-        </Show>
-      </div>
-      <p class="text-sm text-muted-foreground leading-relaxed mt-2">{authState.isPlatformLevel() ? "The autopilot's decision log" : 'The decision log'} — what it decided, why, and what {authState.isPlatformLevel() ? 'workers' : 'the AI jobs'} found.</p>
+    <div class="mt-4">
 
       <Show when={data.data && decisions().length === 0} fallback={
         <Show when={error()} fallback={
@@ -184,9 +181,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                       <Show when={decision.tasks.length > 0}>
                         <Badge>{decision.tasks.length} {authState.isPlatformLevel() ? 'workers' : 'AI jobs'}</Badge>
                       </Show>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="transition-transform" classList={{ 'rotate-180': expanded() === decision.id }} aria-hidden="true">
-                        <path d="M6 9l6 6 6-6" />
-                      </svg>
+                      <ChevronDown size={14} class="transition-transform" classList={{ 'rotate-180': expanded() === decision.id }} aria-hidden="true" />
                     </div>
                   </Button>
 
@@ -319,7 +314,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
           <EmptyState label="No intelligence decisions" hint={authState.isPlatformLevel() ? 'Decisions appear here once the deterministic autopilot starts running.' : 'Decisions appear here once it starts running.'} />
         </div>
       </Show>
-    </Card>
     </div>
-  </div>
+    </div>
+  </Section>
 }

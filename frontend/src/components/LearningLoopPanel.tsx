@@ -1,17 +1,18 @@
 import { For, Show, createSignal } from 'solid-js'
 import { authState } from '../lib/auth'
-import { Eyebrow, KpiCard, KpiStrip } from './layout'
+import { Eyebrow, KpiCard, KpiStrip, Section } from './layout'
 import { confidencePercent } from '../lib/format'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { SectionIcon } from './SectionIcon'
 import { EmptyState } from './ui/empty-state'
 import type { LearningLoopEntry } from '../lib/types'
 import { SkeletonLearningLoop } from './Skeleton'
 import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
-import { Card } from './app/card'
 import { Alert } from './app/alert'
 import { cn } from '../lib/cn'
 import { Button } from './app/button'
+import { ArrowRight } from 'lucide-solid'
 
 const MAX_VISIBLE_ENTRIES = 10
 
@@ -90,7 +91,13 @@ export function LearningLoopPanel(props: { slug: string }) {
       immediately above this panel, so the operator read the same seven words
       twice, in two different type sizes, with two different icons. The page
       owns the heading; the panel owns the data. */}
-  return <Card flat class="space-y-4">
+  return <Section
+    flush
+    title="Decision → Action → Outcome"
+    icon={<SectionIcon name="refresh-cw" />}
+    description="Each decision followed through to what it actually changed. A belief only counts once an outcome measures it."
+    class="space-y-4"
+  >
     <Show when={model.error}>
       <Alert tone="warning" role="status">
         Learning loop data is temporarily unavailable.
@@ -147,7 +154,7 @@ export function LearningLoopPanel(props: { slug: string }) {
                 </Show>
               </div>
 
-              <div class="flex items-center text-muted-foreground px-1">→</div>
+              <div class="flex items-center text-muted-foreground px-1"><ArrowRight class="size-4" aria-hidden="true" /></div>
 
               {/* ACTION */}
               <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-background space-y-2">
@@ -171,7 +178,7 @@ export function LearningLoopPanel(props: { slug: string }) {
                 </Show>
               </div>
 
-              <div class="flex items-center text-muted-foreground px-1">→</div>
+              <div class="flex items-center text-muted-foreground px-1"><ArrowRight class="size-4" aria-hidden="true" /></div>
 
               {/* OUTCOME */}
               <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-background space-y-2">
@@ -195,7 +202,7 @@ export function LearningLoopPanel(props: { slug: string }) {
 
               {/* LEARNING — derived from outcome, not fabricated */}
               <Show when={entry.outcome}>
-                <div class="flex items-center text-muted-foreground px-1">→</div>
+                <div class="flex items-center text-muted-foreground px-1"><ArrowRight class="size-4" aria-hidden="true" /></div>
                 <div class="flex-1 min-w-[180px] p-3 rounded-md border border-border bg-background space-y-2">
                   <Eyebrow>Learned</Eyebrow>
                   <p class={cn('text-sm', outcomeClass(entry.outcome!.effect_assessment))}>
@@ -221,5 +228,5 @@ export function LearningLoopPanel(props: { slug: string }) {
         </Show>
       </Show>
     </Show>
-  </Card>
+  </Section>
 }

@@ -3,9 +3,8 @@ import { formatTimestamp } from '../lib/format'
 import { ActivityHeatmap } from './ActivityHeatmap'
 import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
-import { SectionTitle } from './layout'
+import { Section } from './layout'
 import type { AuditEntry } from '../lib/types'
-import { Card } from './app/card'
 import { Button } from './app/button'
 
 // Audit is a section of the tenant Overview read model, not its own request.
@@ -17,30 +16,33 @@ export function TenantAuditPanel(props: { items: AuditEntry[] }) {
   const visible = () => expanded() ? props.items : props.items.slice(0, VISIBLE)
   const hasMore = () => props.items.length > VISIBLE
 
-  return <Card flat>
-    <SectionTitle
-      title="Recent platform changes"
-      icon={<SectionIcon name="history" />}
-      action={<Show when={hasMore()}>
-        <Button type="button" variant="ghost" size="sm" onClick={() => setExpanded(e => !e)}>
-          {expanded() ? 'Show fewer' : `Show all ${props.items.length}`}
-        </Button>
-      </Show>}
-    />
+  return <Section
+    title="Recent platform changes"
+    icon={<SectionIcon name="history" />}
+    count={props.items.length}
+    description="Deploys, status changes, flag toggles and policy updates made from the control plane."
+    action={<Show when={hasMore()}>
+      <Button type="button" variant="outline" size="sm" onClick={() => setExpanded(e => !e)}>
+        {expanded() ? 'Show fewer' : `Show all ${props.items.length}`}
+      </Button>
+    </Show>}
+  >
     <Show when={props.items.length > 0}>
       <ActivityHeatmap entries={props.items} timestampKey="createdAt" weeks={8} />
     </Show>
-    <div class="grid gap-2 mt-4">
-      <For each={visible()}>{item => <div class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border border-border bg-card">
+    <Show when={props.items.length > 0}>
+    <ul class="mt-4 divide-y divide-border rounded-lg border border-border">
+      <For each={visible()}>{item => <li class="flex items-center justify-between gap-3 px-4 py-2.5">
         <div class="min-w-0">
           <strong class="block text-sm text-foreground">{item.action}</strong>
           <small class="block text-xs text-muted-foreground mt-0.5">{item.actor} · {formatTimestamp(item.createdAt)}</small>
         </div>
-        <code class="text-xs text-muted-foreground bg-card px-2 py-1 rounded-sm border border-border flex-shrink-0">{item.targetKind}</code>
-      </div>}</For>
-    </div>
+        <code class="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-sm flex-shrink-0">{item.targetKind}</code>
+      </li>}</For>
+    </ul>
+    </Show>
     <Show when={props.items.length === 0}>
       <EmptyState label="No recent changes" hint="Platform-level configuration changes are audited here. This includes deploys, flag toggles, and policy updates." />
     </Show>
-  </Card>
+  </Section>
 }

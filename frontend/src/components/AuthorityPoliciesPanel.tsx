@@ -10,8 +10,7 @@ import { Spinner } from './Spinner'
 import { SectionFailureCard } from './SectionFailureCard'
 import { PolicyEditor, PolicyHeader } from './PolicyEditor'
 import { CONTEXT_LABELS, labelOr } from '../lib/opportunity-labels'
-import { Card } from './app/card'
-import { ErrorCard, KpiCard, KpiStrip, PanelTitle } from './layout'
+import { ErrorCard, KpiCard, KpiStrip, Section } from './layout'
 import { Button } from './app/button'
 
 const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
@@ -109,13 +108,13 @@ export function AuthorityPoliciesPanel(props: {
     }
   }
 
-  return <Card flat>
-    <div class="flex items-start justify-between gap-4 mb-3">
-      <div><PanelTitle icon={<SectionIcon name="shield" />}>Authority policies</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">One row per kind of work the autopilot does. This is the only place these controls live.</p></div>
-      <div class="flex flex-wrap items-center gap-2">
-        <StatusBadge status={autopilot.data?.runtime_enabled ? 'runtime on' : 'runtime off'} tone={autopilot.data?.runtime_enabled ? 'good' : 'muted'} />
-      </div>
-    </div>
+  return <Section
+    flush
+    title="Authority policies"
+    icon={<SectionIcon name="shield" />}
+    description="One row per kind of work the autopilot does. This is the only place these controls live."
+    action={<StatusBadge status={autopilot.data?.runtime_enabled ? 'runtime on' : 'runtime off'} tone={autopilot.data?.runtime_enabled ? 'good' : 'muted'} />}
+  >
 
     <Show when={mutationError()}>{message => <ErrorCard>{message()}</ErrorCard>}</Show>
 
@@ -232,5 +231,5 @@ export function AuthorityPoliciesPanel(props: {
         </div>
       </Show>
     </>}</Show>
-  </Card>
+  </Section>
 }

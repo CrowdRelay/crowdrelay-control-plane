@@ -1,18 +1,21 @@
-import { For, Match, Show, Switch, createEffect, createMemo, createSignal, type JSX } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, type JSX } from 'solid-js'
 import { useQueryClient } from '@tanstack/solid-query'
-import { Link } from '@tanstack/solid-router'
-import { errorMessage, formatTimestamp } from '../lib/format'
-import { platformStatusMessage } from '../lib/health-tone'
+import { Link, useNavigate } from '@tanstack/solid-router'
+import { AlertTriangle, ChevronRight, CircleCheck, Inbox } from 'lucide-solid'
+import { formatIsoAge, formatTimestamp } from '../lib/format'
+import { healthLabel, healthTone, platformStatusMessage } from '../lib/health-tone'
 import { stillAsking } from '../lib/incomplete'
 import { cn } from '../lib/cn'
-import type { CommandCenterReadModel, PlatformHealthEntry, RuntimeHealth, TenantSummary } from '../lib/types'
-import { CommandBlock, ErrorCard } from './layout'
-
-const formatLatency = (ms: number | null | undefined) => {
-  if (ms == null) return null
-  if (ms < 1000) return `${ms}ms`
-  return `${(ms / 1000).toFixed(1)}s`
-}
+import type { CommandCenterReadModel, CommandCenterTenantSummary, PlatformHealthEntry, TenantSummary } from '../lib/types'
+import { Badge } from './app/badge'
+import { Button } from './app/button'
+import { Card, CardContent, CardHeader, CardTitle } from './app/card'
+import { CollapsibleSection } from './app/collapsible'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './app/table'
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
+import { Skeleton } from './ui/skeleton'
+import { Metric, MetricRow } from './ui/metric'
+import { StatusBadge } from './StatusBadge'
 
 /** Format an integer with thousands separators, or dash for null/undefined. */
 export const fmt = (n: number | null | undefined): string => {
@@ -29,107 +32,112 @@ export const deltaChip = (delta: number | null | undefined, window: string): JSX
   return <span class={cls}>{sign}{fmt(Math.abs(delta))} {window}</span>
 }
 
-/** Card-grid skeleton — the command blocks share one shape. */
-const CommandSkeleton = (props: { count: number }) => (
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-    {Array.from({ length: props.count }, () => (
-      <div class="rounded-lg border border-border bg-card p-4">
-        <div class="h-[11px] w-[80px] rounded-lg bg-muted border border-border mb-2" />
-        <div class="h-7 w-[60px] rounded-lg bg-muted border border-border mb-2" />
-        <div class="h-[11px] w-full rounded-lg bg-muted border border-border" />
-      </div>
-    ))}
-  </div>
-)
+const formatLatency = (ms: number | null | undefined) => {
+  if (ms == null) return null
+  if (ms < 1000) return `${ms}ms`
+  return `${(ms / 1000).toFixed(1)}s`
+}
+
+const plural = (n: number, one: string, many = `${one}s`) => `${fmt(n)} ${n === 1 ? one : many}`
+
+// ─── Needs-you items ───────────────────────────────────────────────────
+// The page's first block is a ranked list of things a person has to do.
+// Every item is derived here from the command-center projection; nothing is
+// asked of the backend that it does not already answer.
+
+export type NeedsYouItem = {
+  key: string
+  /** 0 = broken, 1 = waiting on a person, 2 = worth a look. */
+  severity: 0 | 1 | 2
+  title: string
+  detail?: string
+  tenant?: { slug: string; displayName: string }
+  to: string
+  params?: { slug: string }
+}
+
+const tenantItems = (t: CommandCenterTenantSummary): NeedsYouItem[] => {
+  const tenant = { slug: t.slug, displayName: t.displayName }
+  const attention = (key: string, severity: 0 | 1 | 2, title: string, detail?: string): NeedsYouItem =>
+    ({ key: `${t.slug}:${key}`, severity, title, detail, tenant, to: '/tenants/$slug/attention', params: { slug: t.slug } })
+  const items: NeedsYouItem[] = []
+  const a = t.attention
+  if (a.available) {
+    if (a.criticalAlerts > 0) items.push(attention('critical', 0, plural(a.criticalAlerts, 'critical alert')))
+    if (a.deadDeliveries > 0) items.push({ ...attention('dead', 0, plural(a.deadDeliveries, 'dead delivery', 'dead deliveries'), 'Messages that will not be retried on their own.'), to: '/tenants/$slug/operations' })
+    if (a.needsYou > 0) items.push(attention('needs-you', 1, plural(a.needsYou, 'decision needs you', 'decisions need you')))
+    if (a.awaitingApproval > 0) items.push(attention('approval', 1, plural(a.awaitingApproval, 'action awaiting approval', 'actions awaiting approval')))
+    if ((a.unpublishedDrafts ?? 0) > 0) {
+      const channels = (a.unpublishedDraftChannels ?? []).filter(c => c.drafts > 0).map(c => `${fmt(c.drafts)} on ${c.channel}`).join(' · ')
+      items.push(attention('drafts', 1, plural(a.unpublishedDrafts!, 'post written, not published', 'posts written, not published'), channels || undefined))
+    }
+    if (a.openFindings > 0) items.push(attention('findings', 2, plural(a.openFindings, 'open finding')))
+  }
+  if (t.brain?.needs_attention) {
+    items.push({ ...attention('brain', 1, 'The brain needs attention', t.brain.state ? `State: ${t.brain.state}` : undefined), to: '/tenants/$slug/intelligence' })
+  }
+  if (t.objectives?.available) {
+    for (const o of t.objectives.atRisk ?? []) {
+      const name = o.metricKey ?? 'objective'
+      const pace = o.observedValue != null && o.targetValue != null ? `${fmt(o.observedValue)} of ${fmt(o.targetValue)}` : undefined
+      const due = o.deadline ? `due ${formatTimestamp(o.deadline)}` : undefined
+      items.push({ ...attention(`objective:${name}`, 2, `${name} is ${o.state === 'missed' ? 'missed' : 'behind'}`, [pace, due].filter(Boolean).join(' · ') || undefined), to: '/tenants/$slug/intelligence' })
+    }
+  }
+  if (t.autopilot.available && t.autopilot.failed24h > 0) {
+    items.push({ ...attention('failed', 2, plural(t.autopilot.failed24h, 'autopilot action failed', 'autopilot actions failed'), 'In the last 24 hours.'), to: '/tenants/$slug/intelligence' })
+  }
+  if (t.runtimeHealth === 'degraded' || t.runtimeHealth === 'stale') {
+    items.push({ ...attention('runtime', t.runtimeHealth === 'degraded' ? 0 : 2, `Runtime ${healthLabel(t.runtimeHealth)}`), to: '/tenants/$slug/health' })
+  }
+  return items
+}
+
+const serviceItems = (services: PlatformHealthEntry[]): NeedsYouItem[] =>
+  services.filter(s => !s.healthy).map(s => ({
+    key: `service:${s.service}`,
+    severity: 0,
+    title: `${s.label} is not answering`,
+    detail: platformStatusMessage(s.lastStatus) ?? undefined,
+    to: '/tenants',
+  }))
+
+// ─── Model ─────────────────────────────────────────────────────────────
 
 type TenantsQuery = { data?: { items: TenantSummary[] } | undefined }
 type CommandCenterQuery = { data?: CommandCenterReadModel | undefined }
 
-/** Everything the overview's cards derive from the two queries — fleet
- * counts, command-center projections, and the silent-tenant vocabulary the
- * KPI strips share. */
+export type TenantRow = TenantSummary & { cc?: CommandCenterTenantSummary }
+
+/** Everything the overview derives from the two queries. */
 export const useOverviewModel = (tenants: TenantsQuery, commandCenter: CommandCenterQuery) => {
-  const items = createMemo(() => tenants.data?.items ?? [])
-  const count = (health: RuntimeHealth) => items().filter(t => t.runtimeHealth === health).length
-  const activeItems = createMemo(() => items().filter(t => t.status === 'active'))
-  const activeCount = createMemo(() => activeItems().length)
-  const suspendedCount = createMemo(() => items().filter(t => t.status === 'suspended').length)
-  const needsAttention = createMemo(() => count('degraded') + count('stale') + suspendedCount())
-  const parkedCount = createMemo(() => items().filter(t => t.status === 'parked').length)
-  const unknownCount = createMemo(() => count('unknown'))
-  const reportingCount = createMemo(() => items().length - unknownCount())
-  const healthyCount = createMemo(() => count('healthy'))
-  const allHealthy = createMemo(() => activeCount() > 0 && healthyCount() === activeCount())
-  const healthyPct = createMemo(() => {
-    const reporting = reportingCount()
-    if (reporting === 0) return 0
-    return Math.round((healthyCount() / reporting) * 100)
-  })
-  const fleetTone = createMemo(() => reportingCount() === 0 ? 'muted' as const : undefined)
-
   const cc = (): CommandCenterReadModel | undefined => commandCenter.data
-
-  const platformServices = createMemo<PlatformHealthEntry[]>(() => cc()?.system.platformServices ?? [])
-  const healthyServices = createMemo(() => platformServices().filter(service => service.healthy).length)
+  const items = createMemo(() => tenants.data?.items ?? [])
   const ccTenants = createMemo(() => cc()?.perTenant ?? [])
-
-  // Drafted posts waiting for a person to publish them.
-  //
-  // Every outbound channel drafts and waits — Reddit is read-only by policy,
-  // Telegram, Discord and social default to manual — so this is the one queue
-  // where the system is blocked on the operator rather than the reverse, and a
-  // draft nobody publishes reaches nobody. The command center already fetches
-  // the attention model per tenant and projects the count, so the page reads
-  // it from there rather than re-asking each tenant itself.
-  const draftTotal = createMemo(() =>
-    ccTenants().reduce((sum, t) => sum + (t.attention.unpublishedDrafts ?? 0), 0),
-  )
-  const firstDraftTenant = createMemo(() => ccTenants().find(t => (t.attention.unpublishedDrafts ?? 0) > 0))
-  const draftChannels = createMemo(() => {
-    const counts = new Map<string, number>()
-    for (const tenant of ccTenants()) {
-      for (const channel of tenant.attention.unpublishedDraftChannels ?? []) {
-        if (channel.drafts > 0) counts.set(channel.channel, (counts.get(channel.channel) ?? 0) + channel.drafts)
-      }
-    }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1])
-  })
-
-  const firstNeedsYouTenant = createMemo(() => ccTenants().find(t => t.attention.available && t.attention.needsYou > 0))
-  const firstAutopilotTenant = createMemo(() => ccTenants().find(t => t.autopilot.available && (t.autopilot.queuedActions > 0 || t.autopilot.processingActions > 0)))
-  const firstOutcomesTenant = createMemo(() => ccTenants().find(t => t.outcomes.available && (t.outcomes.unknown > 0 || t.outcomes.waitingForObservation > 0)))
-  const firstLearningTenant = createMemo(() => ccTenants().find(t => t.learning.available && t.learning.totalOutcomes > 0))
-  const firstFanTenant = createMemo(() => ccTenants().find(t => t.fans.available && t.fans.activeFans != null))
-  // The objective most in need of a look, fleet-wide — behind or missed,
-  // soonest deadline first (the projection already sorts them).
-  const firstAtRiskObjective = createMemo(() =>
-    ccTenants()
-      .flatMap(t => (t.objectives?.atRisk ?? []).map(o => ({ tenant: t, objective: o })))
-      .sort((a, b) => (a.objective.deadline ?? '').localeCompare(b.objective.deadline ?? ''))
-      .at(0),
-  )
-
-  // Older control-plane builds don't report momentum/objectives — read the
-  // blocks as absent rather than crash on deploy skew or a stale page.
+  const platformServices = createMemo<PlatformHealthEntry[]>(() => cc()?.system.platformServices ?? [])
+  const healthyServices = createMemo(() => platformServices().filter(s => s.healthy).length)
   const momentum = createMemo(() => cc()?.momentum)
   const objectives = createMemo(() => cc()?.objectives)
 
+  const rows = createMemo<TenantRow[]>(() => {
+    const bySlug = new Map(ccTenants().map(t => [t.slug, t]))
+    return items().map(t => ({ ...t, cc: bySlug.get(t.slug) }))
+  })
+
+  const needsYou = createMemo<NeedsYouItem[]>(() =>
+    [...ccTenants().flatMap(tenantItems), ...serviceItems(platformServices())]
+      .sort((a, b) => a.severity - b.severity),
+  )
+
   // Tenants that answered nothing this time round. The dash on a fan KPI is
-  // the same glyph whether nobody has any fans, nobody reports them, or the
-  // tenant simply did not answer — and only the last of those is going to fix
-  // itself. `whileIncomplete` on the query is asking again; this says so,
-  // rather than leaving "No audience data yet" on screen over a number that is
-  // seconds away.
+  // the same glyph whether nobody has any fans or the tenant did not answer,
+  // and only the latter fixes itself: `whileIncomplete` on the query keeps
+  // asking, so the strip says so instead of claiming there is no data.
   const silentTenants = createMemo(() => ccTenants().filter(t => !t.available).length)
-  // `whileIncomplete` gives up after a handful of tries; once it has, the
-  // copy must stop claiming a retry is still in flight. `stillAsking` reads
-  // the same counters the interval check does.
   const qc = useQueryClient()
   const waitingNote = () => {
     const n = silentTenants()
     const subject = n === 1 ? 'the tenant has' : `${n} tenants have`
-    // The attempt counters live on the Query's state, not the observer
-    // result — read the same numbers the interval check reads.
     const query = qc.getQueryCache().find({ queryKey: ['command-center'] })
     return !query || stillAsking(query.state)
       ? `${subject} not answered yet — still asking`
@@ -138,343 +146,274 @@ export const useOverviewModel = (tenants: TenantsQuery, commandCenter: CommandCe
   const fanSub = (value: number | null | undefined, settled: JSX.Element): JSX.Element =>
     value == null && silentTenants() > 0 ? waitingNote() : settled
 
-  // A figure that turned up after the strip had already been read should say
-  // so. Once a tenant has gone silent on this page, every fan figure that
-  // lands afterwards fades in rather than replacing its dash in silence —
-  // otherwise the retry that `whileIncomplete` runs is invisible, and an
-  // operator who looked away reads a number they never saw arrive.
+  // A figure that lands after the strip was first read fades in once.
   const [wasWaiting, setWasWaiting] = createSignal(false)
   createEffect(() => { if (silentTenants() > 0) setWasWaiting(true) })
   const arrived = (value: number | null | undefined) => wasWaiting() && value != null
 
-  return {
-    items, count, activeCount, suspendedCount, needsAttention,
-    parkedCount, unknownCount, reportingCount, healthyCount, allHealthy,
-    healthyPct, fleetTone, cc, platformServices, healthyServices,
-    draftTotal, firstDraftTenant, draftChannels, firstNeedsYouTenant,
-    firstAutopilotTenant, firstOutcomesTenant, firstLearningTenant,
-    firstFanTenant, firstAtRiskObjective, momentum, objectives, silentTenants,
-    waitingNote, fanSub, arrived,
-  }
+  return { cc, items, rows, needsYou, platformServices, healthyServices, momentum, objectives, silentTenants, waitingNote, fanSub, arrived }
 }
 
 export type OverviewModel = ReturnType<typeof useOverviewModel>
 
-/** Aggregate → Engage → Convert — the north-star loop as three drill-ins. */
-export function NorthStarBlocks(props: { ov: OverviewModel }) {
+// ─── Needs you ─────────────────────────────────────────────────────────
+
+const SEVERITY_ICON = {
+  0: <AlertTriangle class="size-4 text-destructive" aria-hidden="true" />,
+  1: <Inbox class="size-4 text-warning-foreground" aria-hidden="true" />,
+  2: <ChevronRight class="size-4 text-muted-foreground" aria-hidden="true" />,
+} as const
+
+export function NeedsYouCard(props: { ov: OverviewModel; loading: boolean }) {
+  const [showAll, setShowAll] = createSignal(false)
+  const LIMIT = 5
+  const visible = createMemo(() => showAll() ? props.ov.needsYou() : props.ov.needsYou().slice(0, LIMIT))
+  const hidden = createMemo(() => props.ov.needsYou().length - visible().length)
   return (
-    <Switch>
-      <Match when={!props.ov.cc()}>
-        <CommandSkeleton count={3} />
-      </Match>
-      <Match when={props.ov.cc()}>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* AGGREGATE */}
-          <Link
-            to={props.ov.firstFanTenant() ? '/tenants/$slug/audience' : '/tenants'}
-            params={props.ov.firstFanTenant() ? { slug: props.ov.firstFanTenant()!.slug } : {}}
-            class="block"
-          >
-            <CommandBlock
-              eyebrow="AGGREGATE"
-              metric={fmt(props.ov.cc()!.fans.activeFans)}
-              label="active fans"
-              detail={
-                <>
-                  <Show when={props.ov.cc()!.fans.reportingTenants > 0 && props.ov.cc()!.fans.reportingTenants < props.ov.cc()!.tenants.total}>
-                    <span>{props.ov.cc()!.tenants.total - props.ov.cc()!.fans.reportingTenants} tenants not reporting audience</span>
-                  </Show>
-                  <Show when={props.ov.cc()!.fans.reportingTenants === 0}>
-                    <span>{props.ov.silentTenants() > 0 ? props.ov.waitingNote() : 'No audience data yet'}</span>
-                  </Show>
-                  <Show when={props.ov.cc()!.fans.reportingTenants === props.ov.cc()!.tenants.total && props.ov.cc()!.fans.activeFans != null}>
-                    <span>All tenants reporting</span>
-                  </Show>
-                  {/* Which way the north star is moving, per the brain's own
-                      60-day verdict — works for aggregate north stars too,
-                      which have no single series to diff. */}
-                  <Show when={(props.ov.momentum()?.northStarImproving ?? 0) > 0}>
-                    <span class="text-success-foreground">north star improving on {props.ov.momentum()!.northStarImproving} {props.ov.momentum()!.northStarImproving === 1 ? 'tenant' : 'tenants'}</span>
-                  </Show>
-                  <Show when={(props.ov.momentum()?.northStarRegressing ?? 0) > 0}>
-                    <span class="text-destructive">north star regressing on {props.ov.momentum()!.northStarRegressing} {props.ov.momentum()!.northStarRegressing === 1 ? 'tenant' : 'tenants'}</span>
-                  </Show>
-                  {/* Pacing against declared targets — "are we on track",
-                      not just "which way did we move". */}
-                  <Show when={(props.ov.objectives()?.onTrack ?? 0) > 0}>
-                    <span>{props.ov.objectives()!.onTrack} {props.ov.objectives()!.onTrack === 1 ? 'objective' : 'objectives'} on track</span>
-                  </Show>
-                  <Show when={((props.ov.objectives()?.behind ?? 0) + (props.ov.objectives()?.missed ?? 0)) > 0 && props.ov.firstAtRiskObjective()}>
-                    <span class="text-warning-foreground">
-                      {(props.ov.objectives()?.behind ?? 0) + (props.ov.objectives()?.missed ?? 0)} {((props.ov.objectives()?.behind ?? 0) + (props.ov.objectives()?.missed ?? 0)) === 1 ? 'objective' : 'objectives'} {(props.ov.objectives()?.missed ?? 0) > 0 ? 'behind/missed' : 'behind'}
-                      {props.ov.firstAtRiskObjective()!.objective.metricKey ? ` — ${props.ov.firstAtRiskObjective()!.objective.metricKey} ${fmt(props.ov.firstAtRiskObjective()!.objective.observedValue)}/${fmt(props.ov.firstAtRiskObjective()!.objective.targetValue)}` : ''}
-                    </span>
-                  </Show>
-                </>
-              }
-            />
-          </Link>
-
-          {/* ENGAGE */}
-          <Link
-            to={props.ov.firstAutopilotTenant() ? '/tenants/$slug/intelligence' : '/tenants'}
-            params={props.ov.firstAutopilotTenant() ? { slug: props.ov.firstAutopilotTenant()!.slug } : {}}
-            class="block"
-          >
-            <CommandBlock
-              eyebrow="ENGAGE"
-              metric={fmt(props.ov.cc()!.autopilot.queuedActions + props.ov.cc()!.autopilot.processingActions)}
-              label="in flight"
-              tone={(props.ov.cc()!.autopilot.queuedActions + props.ov.cc()!.autopilot.processingActions) > 0 ? 'active' : 'default'}
-              detail={
-                <>
-                  <Show when={props.ov.cc()!.autopilot.succeeded24h > 0}><span class="text-success-foreground">{props.ov.cc()!.autopilot.succeeded24h} succeeded (24h)</span></Show>
-                  <Show when={props.ov.cc()!.autopilot.queuedActions === 0 && props.ov.cc()!.autopilot.processingActions === 0}>
-                    <span>No engagement actions in flight</span>
-                  </Show>
-                </>
-              }
-            />
-          </Link>
-
-          {/* CONVERT */}
-          <Link
-            to={props.ov.firstFanTenant() ? '/tenants/$slug/audience' : '/tenants'}
-            params={props.ov.firstFanTenant() ? { slug: props.ov.firstFanTenant()!.slug } : {}}
-            class="block"
-          >
-            <CommandBlock
-              eyebrow="CONVERT"
-              metric={fmt(props.ov.cc()!.fans.ticketBuyers)}
-              label="ticket buyers"
-              tone={props.ov.cc()!.fans.ticketBuyers != null && props.ov.cc()!.fans.ticketBuyers! > 0 ? 'good' : 'default'}
-              detail={
-                <>
-                  {/* The funnel rate is same-source first-party math —
-                      both counts come from the audience read model, so the
-                      ratio is honest where a cross-endpoint ratio would
-                      not be. */}
-                  <Show when={props.ov.cc()!.fans.activeFans != null && props.ov.cc()!.fans.activeFans! > 0 && props.ov.cc()!.fans.ticketBuyers != null}>
-                    <span class="text-success-foreground">{Math.round((props.ov.cc()!.fans.ticketBuyers! / props.ov.cc()!.fans.activeFans!) * 100)}% of active fans bought tickets</span>
-                  </Show>
-                  <Show when={props.ov.cc()!.fans.attendees != null && props.ov.cc()!.fans.attendees! > 0}><span>{fmt(props.ov.cc()!.fans.attendees)} attendees</span></Show>
-                  <Show when={props.ov.cc()!.fans.paidTicketOrders != null && props.ov.cc()!.fans.paidTicketOrders! > 0}><span>{fmt(props.ov.cc()!.fans.paidTicketOrders)} paid orders</span></Show>
-                  {/* Conversion movement — summed downstream-tier series
-                      deltas, so this is "things that converted this week",
-                      not follower-count drift. */}
-                  <Show when={props.ov.momentum()?.conversionDelta7d != null && props.ov.momentum()!.conversionDelta7d !== 0}>
-                    <span>{deltaChip(props.ov.momentum()!.conversionDelta7d, 'conversions this week')}</span>
-                  </Show>
-                  <Show when={(props.ov.cc()!.fans.ticketBuyers == null || props.ov.cc()!.fans.ticketBuyers === 0) && (props.ov.cc()!.fans.attendees == null || props.ov.cc()!.fans.attendees === 0)}>
-                    <span>No conversion data yet</span>
-                  </Show>
-                </>
-              }
-            />
-          </Link>
-        </div>
-      </Match>
-    </Switch>
-  )
-}
-
-/** Attention / autopilot / outcomes / system / learning — the machine half of
- * the fleet signal. */
-export function OperationsSignalBlocks(props: { ov: OverviewModel; isError: boolean; error: unknown }) {
-  return (
-    <Switch>
-      <Match when={props.isError}>
-        <ErrorCard>{errorMessage(props.error, 'We couldn\'t reach the command center. Try refreshing.')}</ErrorCard>
-      </Match>
-      <Match when={!props.ov.cc()}>
-        <CommandSkeleton count={5} />
-      </Match>
-      <Match when={props.ov.cc()}>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* ATTENTION */}
-          <Link
-            to={props.ov.firstNeedsYouTenant() ? '/tenants/$slug/attention' : '/tenants'}
-            params={props.ov.firstNeedsYouTenant() ? { slug: props.ov.firstNeedsYouTenant()!.slug } : {}}
-            class="block"
-          >
-            <CommandBlock
-              eyebrow="ATTENTION"
-              metric={fmt(props.ov.cc()!.attention.needsYou)}
-              label="need you"
-              tone={(props.ov.cc()!.attention.needsYou + props.ov.cc()!.attention.awaitingApproval + props.ov.cc()!.attention.criticalAlerts) > 0 ? 'warn' : 'default'}
-              detail={
-                <>
-                  <Show when={props.ov.cc()!.attention.awaitingApproval > 0}><span>{fmt(props.ov.cc()!.attention.awaitingApproval)} awaiting approval</span></Show>
-                  <Show when={props.ov.cc()!.attention.criticalAlerts > 0}><span class="text-destructive">{fmt(props.ov.cc()!.attention.criticalAlerts)} critical alerts</span></Show>
-                  <Show when={props.ov.cc()!.attention.openFindings > 0}><span>{fmt(props.ov.cc()!.attention.openFindings)} open findings</span></Show>
-                  <Show when={props.ov.cc()!.attention.deadDeliveries > 0}><span>{fmt(props.ov.cc()!.attention.deadDeliveries)} dead deliveries</span></Show>
-                  <Show when={props.ov.cc()!.brainNeedsAttention}><span class="text-destructive">brain needs attention</span></Show>
-                  <Show when={props.ov.cc()!.attention.needsYou === 0 && props.ov.cc()!.attention.awaitingApproval === 0 && props.ov.cc()!.attention.criticalAlerts === 0}>
-                    <span>Nothing needs you right now</span>
-                  </Show>
-                </>
-              }
-            />
-          </Link>
-
-          {/* WAITING ON YOU TO PUBLISH — only when there is something. An
-              always-present card reading zero is furniture; this one appears
-              because there is work sitting still. */}
-          <Show when={props.ov.draftTotal() > 0}>
-            <Link
-              to={props.ov.firstDraftTenant() ? '/tenants/$slug/attention' : '/tenants'}
-              params={props.ov.firstDraftTenant() ? { slug: props.ov.firstDraftTenant()!.slug } : {}}
-              class="block"
-            >
-              <CommandBlock
-                eyebrow="WAITING ON YOU"
-                metric={fmt(props.ov.draftTotal())}
-                label={props.ov.draftTotal() === 1 ? 'post to publish' : 'posts to publish'}
-                tone="warn"
-                detail={
-                  <>
-                    <For each={props.ov.draftChannels().slice(0, 3)}>
-                      {([channel, count]) => <span>{fmt(count)} on {channel}</span>}
-                    </For>
-                    <span>Written and ready — nobody has posted them.</span>
-                  </>
-                }
-              />
-            </Link>
+    <Card data-slot="needs-you">
+      <CardHeader class="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+        <CardTitle class="text-base">Needs you</CardTitle>
+        <Show when={!props.loading}>
+          <span class="text-xs text-muted-foreground" data-slot="needs-you-count">
+            {props.ov.needsYou().length === 0 ? 'nothing open' : plural(props.ov.needsYou().length, 'item')}
+          </span>
+        </Show>
+      </CardHeader>
+      <CardContent class="p-0">
+        <Show when={props.loading}>
+          <div class="space-y-3 px-4 pb-4 pt-2">
+            <Skeleton class="h-5 w-3/5" animate />
+            <Skeleton class="h-5 w-2/5" animate />
+          </div>
+        </Show>
+        <Show when={!props.loading && props.ov.needsYou().length === 0}>
+          <p class="flex items-center gap-2 px-4 pb-4 pt-1 text-sm text-muted-foreground">
+            <CircleCheck class="size-4 text-success-foreground" aria-hidden="true" />
+            Nothing is waiting on a person right now.
+          </p>
+        </Show>
+        <Show when={!props.loading && props.ov.needsYou().length > 0}>
+          <ul class="divide-y divide-border border-t border-border">
+            <For each={visible()}>{item => (
+              <li>
+                <Link
+                  to={item.to}
+                  params={item.params ?? {}}
+                  data-slot="needs-you-item"
+                  class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                >
+                  <span class="shrink-0">{SEVERITY_ICON[item.severity]}</span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block text-sm font-medium text-foreground">{item.title}</span>
+                    <Show when={item.detail}><span class="block text-xs text-muted-foreground">{item.detail}</span></Show>
+                  </span>
+                  <Show when={item.tenant}>{tenant => <Badge variant="outline" class="hidden shrink-0 font-medium sm:inline-flex">{tenant().displayName}</Badge>}</Show>
+                  <ChevronRight class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                </Link>
+              </li>
+            )}</For>
+          </ul>
+          <Show when={hidden() > 0 || showAll()}>
+            <div class="border-t border-border px-2 py-1">
+              <Button variant="ghost" size="sm" onClick={() => setShowAll(v => !v)}>
+                {showAll() ? 'Show fewer' : `Show ${hidden()} more`}
+              </Button>
+            </div>
           </Show>
-
-          {/* AUTOPILOT TODAY */}
-          <Link
-            to={props.ov.firstAutopilotTenant() ? '/tenants/$slug/intelligence' : '/tenants'}
-            params={props.ov.firstAutopilotTenant() ? { slug: props.ov.firstAutopilotTenant()!.slug } : {}}
-            class="block"
-          >
-            <CommandBlock
-              eyebrow="AUTOPILOT TODAY"
-              metric={fmt(props.ov.cc()!.autopilot.queuedActions + props.ov.cc()!.autopilot.processingActions)}
-              label="in flight"
-              tone={(props.ov.cc()!.autopilot.queuedActions + props.ov.cc()!.autopilot.processingActions) > 0 ? 'active' : 'default'}
-              detail={
-                <>
-                  <Show when={props.ov.cc()!.autopilot.queuedActions > 0}><span>{fmt(props.ov.cc()!.autopilot.queuedActions)} queued</span></Show>
-                  <Show when={props.ov.cc()!.autopilot.processingActions > 0}><span>{fmt(props.ov.cc()!.autopilot.processingActions)} processing</span></Show>
-                  <Show when={props.ov.cc()!.autopilot.succeeded24h > 0}><span class="text-success-foreground">{fmt(props.ov.cc()!.autopilot.succeeded24h)} succeeded (24h)</span></Show>
-                  <Show when={props.ov.cc()!.autopilot.failed24h > 0}><span class="text-destructive">{fmt(props.ov.cc()!.autopilot.failed24h)} failed (24h)</span></Show>
-                  {/* "4 unknown" told the operator a count and nothing else.
-                      The backend counts recent actions whose outcome has not
-                      been measured yet, so say that. */}
-                  <Show when={props.ov.cc()!.autopilot.unknownActions > 0}><span>{fmt(props.ov.cc()!.autopilot.unknownActions)} finished, outcome not measured yet</span></Show>
-                  <Show when={props.ov.cc()!.autopilot.queuedActions === 0 && props.ov.cc()!.autopilot.processingActions === 0}>
-                    <span>No actions in flight</span>
-                  </Show>
-                </>
-              }
-            />
-          </Link>
-
-          {/* OUTCOMES */}
-          <Link
-            to={props.ov.firstOutcomesTenant() ? '/tenants/$slug/intelligence' : '/tenants'}
-            params={props.ov.firstOutcomesTenant() ? { slug: props.ov.firstOutcomesTenant()!.slug } : {}}
-            class="block"
-          >
-            <CommandBlock
-              eyebrow="OUTCOMES"
-              metric={fmt(props.ov.cc()!.outcomes.resolved)}
-              label="resolved"
-              tone={props.ov.cc()!.outcomes.unknown > 0 || props.ov.cc()!.outcomes.waitingForObservation > 0 ? 'warn' : 'default'}
-              detail={
-                <>
-                  <Show when={props.ov.cc()!.outcomes.waitingForObservation > 0}><span>{fmt(props.ov.cc()!.outcomes.waitingForObservation)} waiting for observation</span></Show>
-                  <Show when={props.ov.cc()!.outcomes.unknown > 0}><span>{fmt(props.ov.cc()!.outcomes.unknown)} ran with no measurable result</span></Show>
-                  <Show when={props.ov.cc()!.outcomes.resolved === 0 && props.ov.cc()!.outcomes.unknown === 0 && props.ov.cc()!.outcomes.waitingForObservation === 0}>
-                    <span>No outcomes yet</span>
-                  </Show>
-                </>
-              }
-            />
-          </Link>
-
-          {/* SYSTEM */}
-          <Link to="/tenants" class="block">
-            <CommandBlock
-              eyebrow="SYSTEM"
-              metric={props.ov.platformServices().length === 0 ? '—' : fmt(props.ov.healthyServices())}
-              label={`of ${props.ov.platformServices().length || '—'} services healthy`}
-              detail={
-                <>
-                  {/* The metric counts platform services; this line counts
-                      tenants. Unlabelled, "1 of 2 services healthy" sitting
-                      above "0 healthy · 1 not reporting" read as the block
-                      contradicting itself. Name the population. */}
-                  <Show when={props.ov.platformServices().length > props.ov.healthyServices()}>
-                    <span class="text-destructive">
-                      {fmt(props.ov.platformServices().length - props.ov.healthyServices())} service
-                      {props.ov.platformServices().length - props.ov.healthyServices() === 1 ? '' : 's'} not answering
-                    </span>
-                  </Show>
-                  <Show when={props.ov.items().length > 0}>
-                    <span>Tenants: {fmt(props.ov.healthyCount())} healthy · {fmt(props.ov.needsAttention())} need attention<Show when={props.ov.unknownCount() > 0}> · {fmt(props.ov.unknownCount())} not reporting</Show></span>
-                  </Show>
-                </>
-              }
-            />
-          </Link>
-
-          {/* LEARNING */}
-          <Link
-            to={props.ov.firstLearningTenant() ? '/tenants/$slug/intelligence' : '/tenants'}
-            params={props.ov.firstLearningTenant() ? { slug: props.ov.firstLearningTenant()!.slug } : {}}
-            class="block"
-          >
-            <CommandBlock
-              eyebrow="LEARNING"
-              metric={fmt(props.ov.cc()!.learning.totalOutcomes)}
-              label="total outcomes"
-              detail={
-                <>
-                  <Show when={props.ov.cc()!.learning.admitted > 0}><span class="text-success-foreground">{fmt(props.ov.cc()!.learning.admitted)} admitted</span></Show>
-                  <Show when={props.ov.cc()!.learning.rejected > 0}><span>{fmt(props.ov.cc()!.learning.rejected)} rejected</span></Show>
-                  <Show when={props.ov.cc()!.learning.totalOutcomes === 0}>
-                    <span>No learning outcomes yet</span>
-                  </Show>
-                </>
-              }
-            />
-          </Link>
-        </div>
-      </Match>
-    </Switch>
+        </Show>
+      </CardContent>
+    </Card>
   )
 }
 
-/** Platform service probes — reference detail, below the fleet. */
-export function PlatformServicesGrid(props: { services: PlatformHealthEntry[] }) {
+// ─── North star ────────────────────────────────────────────────────────
+
+export function NorthStarStrip(props: { ov: OverviewModel }) {
+  const cc = () => props.ov.cc()!
+  const rate = createMemo(() => {
+    const fans = cc().fans.activeFans
+    const buyers = cc().fans.ticketBuyers
+    if (fans == null || buyers == null || fans === 0) return null
+    return Math.round((buyers / fans) * 100)
+  })
   return (
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-      <For each={props.services}>{(svc: PlatformHealthEntry) => (
-        <div class={cn('p-4 rounded-lg border', svc.healthy ? 'border-border bg-background' : 'border-destructive/30 bg-destructive/5')}>
-          <div class="flex items-center gap-2">
-            <span class={cn('inline-block w-2 h-2 rounded-full', svc.healthy ? 'bg-success-foreground' : 'bg-destructive')} />
-            <strong class="text-sm text-foreground">{svc.label}</strong>
-          </div>
-          {/* The probe address is a private container name and helps nobody
-              reading this card, so it moves to the title attribute where an
-              operator on the phone to an engineer can still read it out. */}
-          <div class="mt-2 flex flex-col gap-1 text-xs text-muted-foreground" title={svc.url}>
-            {/* On a failed probe the latency is how long the connection took
-                to be refused, so printing it read as "Answered in 4ms. Not
-                answering." Timing only means something when there was an
-                answer to time. */}
-            <Show when={svc.healthy && formatLatency(svc.latencyMs)}>{lat => <span class="tabular-nums">Answered in {lat()}</span>}</Show>
-            <Show when={!svc.healthy && platformStatusMessage(svc.lastStatus)}>
-              {message => <span class="text-destructive leading-snug">{message()}</span>}
+    <MetricRow class="mb-0" min="11rem">
+      <Metric label="Active fans" value={fmt(cc().fans.activeFans)} tone="primary" fresh={props.ov.arrived(cc().fans.activeFans)} sub={
+        props.ov.fanSub(cc().fans.activeFans, <>
+          <Show when={cc().fans.reportingTenants > 0} fallback="no tenants reporting">
+            across {plural(cc().fans.reportingTenants, 'tenant')}
+          </Show>
+          <Show when={(props.ov.momentum()?.northStarImproving ?? 0) > 0}>
+            {' · '}<span class="text-success-foreground">{props.ov.momentum()!.northStarImproving} improving</span>
+          </Show>
+          <Show when={(props.ov.momentum()?.northStarRegressing ?? 0) > 0}>
+            {' · '}<span class="text-destructive">{props.ov.momentum()!.northStarRegressing} regressing</span>
+          </Show>
+        </>)
+      } />
+      <Metric label="Ticket buyers" value={fmt(cc().fans.ticketBuyers)} fresh={props.ov.arrived(cc().fans.ticketBuyers)} sub={
+        props.ov.fanSub(cc().fans.ticketBuyers, rate() != null ? `${rate()}% of active fans` : 'conversion')
+      } />
+      <Metric label="Attendees" value={fmt(cc().fans.attendees)} fresh={props.ov.arrived(cc().fans.attendees)} sub={
+        props.ov.fanSub(cc().fans.attendees, 'came to a show')
+      } />
+      <Metric label="Paid ticket orders" value={fmt(cc().fans.paidTicketOrders)} fresh={props.ov.arrived(cc().fans.paidTicketOrders)} sub={
+        props.ov.fanSub(cc().fans.paidTicketOrders, <>
+          revenue
+          <Show when={props.ov.momentum()?.conversionDelta7d != null}>
+            {' · '}{deltaChip(props.ov.momentum()!.conversionDelta7d, 'this week')}
+          </Show>
+        </>)
+      } />
+      <Show when={(props.ov.objectives()?.total ?? 0) > 0}>
+        <Metric label="Objectives" value={fmt(props.ov.objectives()!.onTrack + props.ov.objectives()!.met)}
+          tone={(props.ov.objectives()!.behind + props.ov.objectives()!.missed) > 0 ? 'warn' : 'good'}
+          sub={<>of {props.ov.objectives()!.total} on track
+            <Show when={(props.ov.objectives()!.behind + props.ov.objectives()!.missed) > 0}>
+              {' · '}<span class="text-warning-foreground">{props.ov.objectives()!.behind + props.ov.objectives()!.missed} behind</span>
             </Show>
-            <Show when={svc.lastHealthyAt && !svc.healthy}>
-              <span>Last healthy {formatTimestamp(svc.lastHealthyAt!)}</span>
-            </Show>
-          </div>
+          </>} />
+      </Show>
+    </MetricRow>
+  )
+}
+
+export function NorthStarSkeleton() {
+  return (
+    <div data-kpi-strip="" class="grid border-y border-border [grid-template-columns:repeat(auto-fit,minmax(11rem,1fr))]">
+      {Array.from({ length: 4 }, () => (
+        <div class="flex flex-col gap-2 border-l border-border px-4 py-3.5 first:border-l-0 first:pl-0">
+          <Skeleton class="h-3 w-20" animate />
+          <Skeleton class="h-6 w-14" animate />
+          <Skeleton class="h-3 w-28" animate />
         </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── Tenants ───────────────────────────────────────────────────────────
+
+const tenantNeedsYou = (t: CommandCenterTenantSummary | undefined) => {
+  if (!t?.attention.available) return null
+  return t.attention.needsYou + t.attention.awaitingApproval + t.attention.criticalAlerts + (t.attention.unpublishedDrafts ?? 0)
+}
+
+const inFlight = (t: CommandCenterTenantSummary | undefined) =>
+  t?.autopilot.available ? t.autopilot.queuedActions + t.autopilot.processingActions : null
+
+export function TenantsTable(props: { rows: TenantRow[]; loading: boolean; ccLoading: boolean }) {
+  const navigate = useNavigate()
+  const open = (slug: string) => navigate({ to: '/tenants/$slug', params: { slug } })
+  const cell = (value: number | null | undefined, loading: boolean) =>
+    loading ? <Skeleton class="ml-auto h-4 w-8" animate /> : fmt(value)
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Tenant</TableHead>
+          <TableHead>Health</TableHead>
+          <TableHead class="text-right">Active fans</TableHead>
+          <TableHead class="text-right">Needs you</TableHead>
+          <TableHead class="text-right">In flight</TableHead>
+          <TableHead class="hidden md:table-cell">Last heartbeat</TableHead>
+          <TableHead class="w-8"><span class="sr-only">Open</span></TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <Show when={props.loading}>
+          <For each={[0, 1, 2]}>{() => (
+            <TableRow>
+              <TableCell><Skeleton class="h-4 w-32" animate /></TableCell>
+              <TableCell><Skeleton class="h-4 w-16" animate /></TableCell>
+              <TableCell><Skeleton class="ml-auto h-4 w-8" animate /></TableCell>
+              <TableCell><Skeleton class="ml-auto h-4 w-8" animate /></TableCell>
+              <TableCell><Skeleton class="ml-auto h-4 w-8" animate /></TableCell>
+              <TableCell class="hidden md:table-cell"><Skeleton class="h-4 w-20" animate /></TableCell>
+              <TableCell />
+            </TableRow>
+          )}</For>
+        </Show>
+        <For each={props.rows}>{t => {
+          const needs = () => tenantNeedsYou(t.cc)
+          return (
+            <TableRow data-slot="tenant-row" class="cursor-pointer" onClick={() => open(t.slug)}>
+              <TableCell>
+                <Link to="/tenants/$slug" params={{ slug: t.slug }} class="font-medium text-foreground hover:underline focus-visible:underline focus-visible:outline-none" onClick={e => e.stopPropagation()}>
+                  {t.displayName}
+                </Link>
+                <span class="ml-2 text-xs text-muted-foreground">{t.slug}</span>
+                <Show when={t.status !== 'active'}>
+                  <StatusBadge status={t.status} tone={t.status === 'suspended' ? 'bad' : 'warn'} />
+                </Show>
+              </TableCell>
+              <TableCell><StatusBadge status={healthLabel(t.runtimeHealth)} tone={healthTone(t.runtimeHealth)} /></TableCell>
+              <TableCell numeric>{cell(t.cc?.fans.activeFans, props.ccLoading)}</TableCell>
+              <TableCell numeric class={cn((needs() ?? 0) > 0 && 'font-semibold text-warning-foreground')}>{cell(needs(), props.ccLoading)}</TableCell>
+              <TableCell numeric>{cell(inFlight(t.cc), props.ccLoading)}</TableCell>
+              <TableCell class="hidden text-muted-foreground md:table-cell">
+                {t.runtime?.lastHeartbeatAt ? formatIsoAge(t.runtime.lastHeartbeatAt) : 'never'}
+              </TableCell>
+              <TableCell><ChevronRight class="size-4 text-muted-foreground" aria-hidden="true" /></TableCell>
+            </TableRow>
+          )
+        }}</For>
+      </TableBody>
+    </Table>
+  )
+}
+
+// ─── Autopilot and learning ────────────────────────────────────────────
+
+export function AutopilotSummary(props: { ov: OverviewModel }) {
+  const cc = () => props.ov.cc()!
+  const flying = () => cc().autopilot.queuedActions + cc().autopilot.processingActions
+  return (
+    <CollapsibleSection
+      title="Autopilot and learning"
+      badge={flying() > 0 ? `${plural(flying(), 'action')} in flight` : `${fmt(cc().autopilot.succeeded24h)} succeeded today`}
+      badgeTone={flying() > 0 ? 'good' : 'muted'}
+    >
+      <MetricRow min="9rem">
+        <Metric label="Queued" value={fmt(cc().autopilot.queuedActions)} />
+        <Metric label="Processing" value={fmt(cc().autopilot.processingActions)} />
+        <Metric label="Succeeded" value={fmt(cc().autopilot.succeeded24h)} tone={cc().autopilot.succeeded24h > 0 ? 'good' : 'default'} sub="last 24 hours" />
+        <Metric label="Failed" value={fmt(cc().autopilot.failed24h)} tone={cc().autopilot.failed24h > 0 ? 'bad' : 'default'} sub="last 24 hours" />
+        <Metric label="Outcomes resolved" value={fmt(cc().outcomes.resolved)} sub={
+          cc().outcomes.waitingForObservation > 0 ? `${fmt(cc().outcomes.waitingForObservation)} waiting for observation` : cc().outcomes.unknown > 0 ? `${fmt(cc().outcomes.unknown)} not measurable` : 'all measured'
+        } />
+        <Metric label="Learning outcomes" value={fmt(cc().learning.totalOutcomes)} sub={`${fmt(cc().learning.admitted)} admitted · ${fmt(cc().learning.rejected)} rejected`} />
+      </MetricRow>
+    </CollapsibleSection>
+  )
+}
+
+// ─── Platform services ─────────────────────────────────────────────────
+
+export function ServicesRow(props: { services: PlatformHealthEntry[] }) {
+  return (
+    <div class="flex flex-wrap items-center gap-2 text-sm">
+      <span class="mr-1 text-muted-foreground">Platform services</span>
+      <For each={props.services}>{svc => (
+        <Tooltip>
+          <TooltipTrigger as="span" class="inline-flex">
+            <Badge variant={svc.healthy ? 'outline' : 'destructive'} class="gap-1.5 font-medium">
+              <span class={cn('size-1.5 rounded-full', svc.healthy ? 'bg-success-foreground' : 'bg-destructive')} aria-hidden="true" />
+              {svc.label}
+              <span class="sr-only">{svc.healthy ? ', healthy' : ', not answering'}</span>
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent class="max-w-xs">
+            <Show when={svc.healthy} fallback={
+              <>
+                <div>{platformStatusMessage(svc.lastStatus) ?? 'Not answering.'}</div>
+                <Show when={svc.lastHealthyAt}><div class="mt-1 text-muted-foreground">Last healthy {formatTimestamp(svc.lastHealthyAt!)}</div></Show>
+              </>
+            }>
+              Answered in {formatLatency(svc.latencyMs) ?? '—'}
+            </Show>
+          </TooltipContent>
+        </Tooltip>
       )}</For>
     </div>
   )

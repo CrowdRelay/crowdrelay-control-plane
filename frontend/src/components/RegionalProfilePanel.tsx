@@ -8,6 +8,7 @@ import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { Dialog } from './Dialog'
 import { Section, ErrorCard } from './layout'
+import { Alert } from './app/alert'
 import { Button } from './app/button'
 import { Input } from './ui/input'
 import { cn } from '../lib/cn'
@@ -119,12 +120,13 @@ export function RegionalProfilePanel(props: Props) {
       </>}
     >
       <Show when={!classified()}>
-        <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground">
-          No persisted regional profile. {authState.isPlatformLevel() ? 'The runtime' : 'The system'} must not infer locale, currency, timezone or data
+        {/* This was warning text on the strong warning colour — a blank bar. */}
+        <Alert tone="warning" role="status" title="No persisted regional profile">
+          {authState.isPlatformLevel() ? 'The runtime' : 'The system'} must not infer locale, currency, timezone or data
           residency from an IP address or a browser setting. {authState.isPlatformLevel()
             ? 'Classify this tenant before the next deployment.'
             : 'Classify your act before anything else ships.'}
-        </div>
+        </Alert>
       </Show>
 
       <Show when={profile()}>{p => (

@@ -5,8 +5,7 @@ import type { AudienceOverview } from '../lib/types'
 import { compactNumber } from '../lib/charts'
 import { EmptyState } from './ui/empty-state'
 import { KpiValue } from './KpiValue'
-import { KpiStrip, KpiCard } from './layout'
-import { Card } from './app/card'
+import { KpiStrip, KpiCard, Section } from './layout'
 import { Button, buttonVariants } from './app/button'
 
 const fmt = (value: number | undefined) => value == null ? '—' : compactNumber(value)
@@ -18,11 +17,8 @@ export function AudienceOverviewPanel(props: { slug: string; overview?: Audience
   // not a wall of zeros on the page that carries the north star.
   const empty = () => (props.overview?.active_fans ?? 0) === 0
 
-  return <Card flat>
-    <div class="flex items-center justify-between gap-4">
-      <h3 class="text-sm font-semibold text-foreground">{authState.isPlatformLevel() ? 'Audience KPIs' : 'Audience numbers'}</h3>
-    </div>
-    <div class="mt-4">
+  return <Section flush title="Audience">
+    <div>
       <Show when={props.overview} fallback={<EmptyState label="Audience overview unavailable" hint="The audience overview could not be loaded. This may be a temporary issue — try refreshing." />}>
         {/* The three starting points replace the zeros rather than sitting above
             them. Rendering both said "here is what to do" and then answered the
@@ -53,5 +49,5 @@ export function AudienceOverviewPanel(props: { slug: string; overview?: Audience
         </Show>
       </Show>
     </div>
-  </Card>
+  </Section>
 }

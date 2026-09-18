@@ -1,4 +1,4 @@
-import { For, Match, Show, Suspense, Switch, createEffect, createSignal, type Component, type JSX } from 'solid-js'
+import { For, Match, Show, Suspense, Switch, createEffect, createSignal, untrack, type Component, type JSX } from 'solid-js'
 import { useNavigate, useRouterState } from '@tanstack/solid-router'
 import { Card } from './app/card'
 import { Metric, MetricRow, type MetricTone } from './ui/metric'
@@ -273,10 +273,17 @@ export function useTabPanels(initial: string, valid?: string[]) {
       rawSwitch(id)
       void navigate({ to: '.', search: { tab: id }, replace: true } as any)
     }
+    // Follow the URL, not the local selection. This effect used to track
+    // `activeTab` as well, so a click re-ran it before the router had taken
+    // the new `?tab=`: it read the old value and switched straight back. On a
+    // page opened with `?tab=` already set, the router's late update never
+    // re-triggered it, and every first click left the tab one step behind
+    // the URL. Reading the selection untracked keeps a click where it landed
+    // while links, back and forward still drive the tab.
     createEffect(() => {
       const t = (locationSearch() as Record<string, unknown>)?.tab
       const target = typeof t === 'string' && valid.includes(t) ? t : initial
-      if (target !== activeTab()) rawSwitch(target)
+      untrack(() => { if (target !== activeTab()) rawSwitch(target) })
     })
   }
   // Mount the panel without selecting it. `TabPanel` renders a visited panel

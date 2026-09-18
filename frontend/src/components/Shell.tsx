@@ -10,11 +10,11 @@ import { RefreshControl } from './RefreshControl'
 import { ErrorBoundaryPanel } from './ErrorBoundaryPanel'
 import { ConfirmHost } from './Dialog'
 import { ReauthModal } from './ReauthModal'
-import { Button } from './app/button'
 import { whileIncomplete, hasUnavailableTenant } from '../lib/incomplete'
 import { SidebarInset, SidebarProvider, useSidebar } from './ui/sidebar'
 import { AppSidebar } from './shell/AppSidebar'
 import { SiteHeader } from './shell/SiteHeader'
+import { CommandTrigger } from './shell/CommandTrigger'
 import { tenantNavGroups, currentPageLabel, type NavGroup } from '../lib/nav'
 
 // The palette component loads on first invocation; the shortcut lives here so
@@ -57,6 +57,8 @@ export const Shell: Component = () => {
   const navSlug = () => slug() ?? lastTenant()
   const profile = () => authState.profile()
   const navigate = useNavigate()
+  const [paletteLoaded, setPaletteLoaded] = createSignal(false)
+  createEffect(() => { if (commandPaletteOpen()) setPaletteLoaded(true) })
   const router = useRouter()
   const pathname = () => router.state.location.pathname
   const searchTab = () => (router.state.location.search as { tab?: string }).tab
@@ -194,10 +196,11 @@ export const Shell: Component = () => {
             : { label: 'Platform' }}
           page={currentPageLabel(pathname(), slug(), isPlatformLevel(), { tab: searchTab() })}
           actions={<>
-            <RefreshControl />
-            <Button variant="outline" size="sm" class="hidden gap-1.5 text-muted-foreground sm:inline-flex" type="button" onClick={() => toggleCommandPalette()} title="Command palette (Ctrl+K / ⌘K)" aria-label="Command palette" aria-haspopup="dialog">
-              <kbd class="font-mono text-xs">⌘K</kbd><span>Commands</span>
-            </Button>
+            {/* Hidden for now, not removed: the auto-refresh interval and the
+                manual refresh button. The interval chosen earlier (stored in
+                localStorage) still applies. Drop `hidden` to bring them back. */}
+            <div class="hidden"><RefreshControl /></div>
+            <CommandTrigger />
           </>}
         />
         {/* A viewer meets a console where most controls are greyed out. Say why
@@ -239,7 +242,8 @@ export const Shell: Component = () => {
             </Suspense>
           </ErrorBoundaryPanel>
         </div>
-        <Show when={commandPaletteOpen()}><CommandPalette /></Show>
+        {/* Loaded on first open, then kept mounted so the dialog can animate out. */}
+        <Show when={paletteLoaded()}><CommandPalette /></Show>
         <ToastContainer />
         <ConfirmHost />
       </SidebarInset>

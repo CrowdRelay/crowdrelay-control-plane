@@ -27,10 +27,10 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   await expect(page).toHaveURL(/\/tenants\/[^/]+\/attention/)
   // The heading waits on the lazy AuthenticatedApp chunk plus session hydrate —
   // on the shared 2-core box under CI load that can exceed the 5s default.
-  await expect(page.getByRole('heading', { name: 'Operator Attention' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('heading', { name: 'Attention' })).toBeVisible({ timeout: 30_000 })
 
   await page.getByRole('link', { name: 'Tenants' }).first().click()
-  await expect(page.getByRole('heading', { name: 'Teams on the platform' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Tenants' })).toBeVisible()
   const virya = page.locator('[data-slot="tenant-row"]').filter({ hasText: /virya/i }).first()
   await expect(virya).toBeVisible()
   await virya.click()

@@ -6,9 +6,8 @@ import { errorMessage } from '../lib/format'
 import { confirmAction } from './Dialog'
 import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
-import { SectionTitle, ErrorCard } from './layout'
+import { Section, ErrorCard } from './layout'
 import { Spinner } from './Spinner'
-import { Card } from './app/card'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Input } from './ui/input'
@@ -45,16 +44,16 @@ export function TenantOperatorsPanel(props: { slug: string }) {
     onSuccess: refresh,
   }))
 
-  return <Show when={isAdmin()}><Card class="p-4">
-    <SectionTitle
-      title="Operator accounts"
-      icon={<SectionIcon name="users" />}
-      action={<small class="text-muted-foreground">{accounts.data?.items.length ?? 0} account(s)</small>}
-    />
-    <p class="text-sm text-muted-foreground mt-2 leading-relaxed">These operators sign in with username + password and see only <strong>{props.slug}</strong>. The platform admin keeps full access via its separate credential.</p>
-
-    {/* Create form — compact, self-contained card */}
-    <div class="rounded-lg border border-border bg-background p-4 mt-4">
+  {/* A card holding a boxed form and a boxed empty state and boxed rows —
+      three levels of border for one list. It is a section now. */}
+  return <Show when={isAdmin()}><Section
+    flush
+    title="Operator accounts"
+    icon={<SectionIcon name="users" />}
+    count={accounts.data?.items.length}
+    description={<>These operators sign in with a username and password and see only <strong class="font-medium text-foreground">{props.slug}</strong>. The platform admin keeps full access through its own credential.</>}
+  >
+    <div class="rounded-lg border border-border p-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <label class="grid gap-1.5">
         <span class="text-sm font-medium text-foreground">New operator username</span>
@@ -74,10 +73,11 @@ export function TenantOperatorsPanel(props: { slug: string }) {
     <Show when={remove.error}><ErrorCard class="mt-3">{errorMessage(remove.error, 'Operator removal failed')}</ErrorCard></Show>
     <Show when={accounts.error}><ErrorCard class="mt-3">{errorMessage(accounts.error, 'Could not load operator accounts')}</ErrorCard></Show>
     <Show when={(accounts.data?.items.length ?? 0) === 0 && !accounts.isPending && !accounts.error}>
-      <div class="p-4 mt-4 rounded-lg border border-border bg-background"><EmptyState label="No operator accounts yet" hint="Only the platform admin can reach this tenant right now. Create an account above to give the team its own scoped login." /></div>
+      <EmptyState label="No operator accounts yet" hint="Only the platform admin can reach this tenant right now. Create an account above to give the team its own scoped login." />
     </Show>
-    <div class="grid gap-2 mt-4"><For each={accounts.data?.items ?? []}>{account =>
-      <div class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border border-border bg-card">
+    <Show when={(accounts.data?.items.length ?? 0) > 0}>
+    <ul class="mt-4 divide-y divide-border rounded-lg border border-border"><For each={accounts.data?.items ?? []}>{account =>
+      <li class="flex items-center justify-between gap-3 px-4 py-2.5">
         <div class="grid gap-1"><strong class="text-sm text-foreground">{account.username}</strong><small class="text-xs text-muted-foreground">{account.active ? 'active' : 'disabled'} · <Badge variant="muted">tenant_operator</Badge></small></div>
         <Button writes variant="destructive-ghost" size="sm" disabled={remove.isPending} onClick={async () => {
           const ok = await confirmAction({
@@ -88,7 +88,8 @@ export function TenantOperatorsPanel(props: { slug: string }) {
           })
           if (ok) remove.mutate(account.id)
         }}>Remove</Button>
-      </div>
-    }</For></div>
-  </Card></Show>
+      </li>
+    }</For></ul>
+    </Show>
+  </Section></Show>
 }

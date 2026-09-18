@@ -17,6 +17,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { Textarea } from './ui/textarea'
 import { NativeSelect } from './ui/native-select'
 import { Field } from './ui/field'
+import { Plus } from 'lucide-solid'
 
 const SOURCE_KINDS = [
   { value: 'http_json_pull', label: 'HTTP JSON (pull)' },
@@ -621,7 +622,7 @@ export function FanSourcesPanel(props: {
           >
             <div class="flex items-center gap-3">
               <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                <Plus size={18} aria-hidden="true" />
               </div>
               <span class="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">Add another source</span>
             </div>

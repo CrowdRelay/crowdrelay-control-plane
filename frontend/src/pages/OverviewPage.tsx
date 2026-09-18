@@ -1,21 +1,23 @@
-import { For, Match, Show, Switch, createMemo } from 'solid-js'
-import { useQuery } from '@tanstack/solid-query'
+import { Show, createMemo, createSignal, onCleanup } from 'solid-js'
+import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
+import { RefreshCw } from 'lucide-solid'
 import { api } from '../lib/api'
-import { errorMessage } from '../lib/format'
-import { healthLabel, healthTone } from '../lib/health-tone'
+import { errorMessage, relativeTime } from '../lib/format'
 import { authState } from '../lib/auth'
-import { StatusBadge } from '../components/StatusBadge'
-import { ProgressRing } from '../components/ProgressRing'
-import { EmptyState } from '../components/ui/empty-state'
-import { SectionIcon } from '../components/SectionIcon'
-import { PageShell, PageHeader, KpiStrip, KpiCard, SectionTitle, ErrorCard } from '../components/layout'
-import { SkeletonKpiStrip } from '../components/Skeleton'
-import { cn } from '../lib/cn'
 import { whileIncomplete, hasUnavailableTenant } from '../lib/incomplete'
-import { fmt, deltaChip, useOverviewModel, NorthStarBlocks, OperationsSignalBlocks, PlatformServicesGrid } from '../components/OverviewBlocks'
+import { cn } from '../lib/cn'
+import { EmptyState } from '../components/ui/empty-state'
+import { Button, buttonVariants } from '../components/app/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/app/card'
+import { PageShell, PageHeader, ErrorCard } from '../components/layout'
+import { useOverviewModel, NeedsYouCard, NorthStarStrip, NorthStarSkeleton, TenantsTable, AutopilotSummary, ServicesRow } from '../components/OverviewBlocks'
 
+// The overview answers three questions in order: what needs a person, are we
+// getting more fans, and how is each tenant doing. Everything the machine
+// does on its own sits below, closed.
 export function OverviewPage() {
+  const qc = useQueryClient()
   const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, refetchOnWindowFocus: false, reconcile: 'id', staleTime: 15_000 }))
   // A command centre that reports a tenant as unavailable is not an answer,
   // and it arrives as 200 so nothing retries it. Keep asking until the
@@ -33,134 +35,82 @@ export function OverviewPage() {
   }))
 
   const ov = useOverviewModel(tenants, commandCenter)
-  const lastRefresh = createMemo(() => {
+  const ccLoading = () => !commandCenter.data && !commandCenter.isError
+
+  // "Updated 2m ago" has to keep moving while the page sits open.
+  const [now, setNow] = createSignal(Date.now())
+  const tick = setInterval(() => setNow(Date.now()), 15_000)
+  onCleanup(() => clearInterval(tick))
+  const updated = createMemo(() => {
+    now()
     const ts = Math.max(tenants.dataUpdatedAt, commandCenter.dataUpdatedAt)
-    if (ts === 0) return null
-    return new Date(ts).toLocaleTimeString()
+    return ts === 0 ? null : relativeTime(ts)
   })
+  const refreshing = () => tenants.isFetching || commandCenter.isFetching
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ['tenants'] })
+    void qc.invalidateQueries({ queryKey: ['command-center'] })
+  }
 
   return <PageShell>
     <PageHeader
-      eyebrow="NORTH STAR"
-      title="Fan growth command center"
-      description="Aggregate real fans, grow them through genuine engagement, convert through tickets, merch and attendance. Each block drills into the page that owns the detail."
-      actions={<Show when={lastRefresh()}><span class="text-sm text-muted-foreground">Last refresh {lastRefresh()}</span></Show>}
+      title="Overview"
+      description="What needs a person, whether the fans are growing, and how each tenant is doing."
+      actions={
+        <>
+          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
+          <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing()} aria-label="Refresh">
+            <RefreshCw class={cn(refreshing() && 'animate-spin')} aria-hidden="true" />
+            Refresh
+          </Button>
+        </>
+      }
     />
 
-    {/* ── North Star fan KPI strip ────────────────────────────────── */}
-    <Switch>
-      <Match when={commandCenter.isError}>
-        <ErrorCard>{errorMessage(commandCenter.error, 'We couldn\'t reach the command center. Try refreshing.')}</ErrorCard>
-      </Match>
-      <Match when={!ov.cc()}>
-        <SkeletonKpiStrip count={4} />
-      </Match>
-      <Match when={ov.cc()}>
-        <KpiStrip>
-          <KpiCard label="Active fans" value={fmt(ov.cc()!.fans.activeFans)} tone="good" fresh={ov.arrived(ov.cc()!.fans.activeFans)} sub={
-            ov.fanSub(ov.cc()!.fans.activeFans,
-              <>
-                <Show when={ov.cc()!.fans.reportingTenants > 0} fallback="no tenants reporting">
-                  across {ov.cc()!.fans.reportingTenants} {ov.cc()!.fans.reportingTenants === 1 ? 'tenant' : 'tenants'}
-                </Show>
-                {/* Direction, not just magnitude: the brain's verdict on each
-                    tenant's north-star series. Improving first because that's
-                    the thing the page exists to produce. */}
-                <Show when={(ov.momentum()?.northStarImproving ?? 0) > 0}>
-                  {' · '}<span class="text-success-foreground">{ov.momentum()!.northStarImproving} improving</span>
-                </Show>
-                <Show when={(ov.momentum()?.northStarRegressing ?? 0) > 0}>
-                  {' · '}<span class="text-destructive">{ov.momentum()!.northStarRegressing} regressing</span>
-                </Show>
-              </>)
-          } />
-          <KpiCard label="Ticket buyers" value={fmt(ov.cc()!.fans.ticketBuyers)} fresh={ov.arrived(ov.cc()!.fans.ticketBuyers)} sub={ov.fanSub(ov.cc()!.fans.ticketBuyers, 'conversion signal')} />
-          <KpiCard label="Attendees" value={fmt(ov.cc()!.fans.attendees)} fresh={ov.arrived(ov.cc()!.fans.attendees)} sub={ov.fanSub(ov.cc()!.fans.attendees, 'live show conversion')} />
-          <KpiCard label="Paid ticket orders" value={fmt(ov.cc()!.fans.paidTicketOrders)} fresh={ov.arrived(ov.cc()!.fans.paidTicketOrders)} sub={
-            ov.fanSub(ov.cc()!.fans.paidTicketOrders,
-              <>
-                revenue signal
-                <Show when={ov.momentum()?.conversionDelta7d != null}>
-                  {' · '}{deltaChip(ov.momentum()!.conversionDelta7d, 'this week')}
-                </Show>
-              </>)
-          } />
-        </KpiStrip>
-      </Match>
-    </Switch>
-
-    {/* ── North Star command blocks (Aggregate → Engage → Convert) ── */}
-    <NorthStarBlocks ov={ov} />
-
-    {/* ── Operations command blocks ──────────────────────────────── */}
-    <SectionTitle eyebrow="OPERATIONS" title="Operations signal" icon={<SectionIcon name="activity" />} />
-    <OperationsSignalBlocks ov={ov} isError={commandCenter.isError} error={commandCenter.error} />
-
-    {/* ── KPI strip (fleet summary) ──────────────────────────────── */}
-    <Switch>
-      <Match when={!tenants.data && !tenants.isError}><SkeletonKpiStrip count={4} /></Match>
-      <Match when={tenants.isError}><ErrorCard>{errorMessage(tenants.error, 'We couldn\'t reach the tenant registry. Try refreshing.')}</ErrorCard></Match>
-      <Match when={tenants.data}>
-        <KpiStrip>
-          <KpiCard label="Tenants" value={fmt(ov.items().length)} sub={<>{fmt(ov.activeCount())} active<Show when={ov.parkedCount() > 0}> · {fmt(ov.parkedCount())} parked</Show><Show when={ov.suspendedCount() > 0}> · {fmt(ov.suspendedCount())} suspended</Show></>} />
-          <KpiCard label="Healthy" value={fmt(ov.healthyCount())} tone={ov.allHealthy() ? 'good' : 'default'} sub={
-            <Show when={ov.reportingCount() > 0} fallback="no runtime reports yet">
-              {fmt(ov.healthyPct())}% of reporting
-            </Show>
-          } />
-          <KpiCard label="Needs attention" value={fmt(ov.needsAttention())} tone={ov.needsAttention() > 0 ? 'warn' : ov.needsAttention() === 0 && ov.reportingCount() > 0 ? 'good' : 'default'} sub={
-            <>{fmt(ov.count('degraded'))} degraded · {fmt(ov.count('stale'))} stale
-            <Show when={ov.suspendedCount() > 0}> · {fmt(ov.suspendedCount())} suspended</Show>
-            <Show when={ov.unknownCount() > 0}> · {fmt(ov.unknownCount())} not reporting</Show></>
-          } />
-          <KpiCard label="Platform services" value={ov.platformServices().length === 0 ? '—' : fmt(ov.healthyServices())} sub={`of ${ov.platformServices().length || '—'} monitored`} />
-        </KpiStrip>
-      </Match>
-    </Switch>
-
-    {/* Fleet health ring + Tenant pulse — the fleet at a glance, first */}
-    <SectionTitle eyebrow="PULSE" title="Tenant pulse" icon={<SectionIcon name="heartbeat" />} action={<Show when={authState.isPlatformLevel()}><Link to="/tenants" class="text-sm text-primary hover:text-primary/80">Manage tenants →</Link></Show>} />
-    <Show when={ov.items().length > 0}>
-      <div class="flex items-center gap-4 p-4 rounded-lg border border-border bg-background">
-        <div class="flex-shrink-0">
-          <ProgressRing value={ov.healthyPct()} size={72} strokeWidth={6} tone={ov.fleetTone()} showValue={ov.reportingCount() > 0} />
-        </div>
-        <div class="flex flex-col gap-1">
-          <strong class="text-sm text-foreground">
-            {fmt(ov.healthyCount())} healthy · {fmt(ov.needsAttention())} need attention
-            <Show when={ov.unknownCount() > 0}> · {fmt(ov.unknownCount())} not reporting</Show>
-            {' '}· {fmt(ov.items().length)} total
-          </strong>
-          <Show when={ov.reportingCount() === 0}>
-            <span class="text-sm text-muted-foreground">No tenant has sent a runtime heartbeat yet, so there is nothing to score.</span>
-          </Show>
-        </div>
-      </div>
+    <Show when={commandCenter.isError}>
+      <ErrorCard>{errorMessage(commandCenter.error, 'We couldn\'t reach the command center. Try refreshing.')}</ErrorCard>
     </Show>
-    <div class="space-y-2">
-      <For each={ov.items()}>{tenant => (
-        <Link to="/tenants/$slug" params={{ slug: tenant.slug }} class="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 hover:border-input transition-colors">
-          <div class="flex items-center gap-2 min-w-0">
-            <span class={cn('inline-block w-2 h-2 rounded-full flex-shrink-0', healthTone(tenant.runtimeHealth) === 'good' ? 'bg-success-foreground' : healthTone(tenant.runtimeHealth) === 'bad' ? 'bg-destructive' : healthTone(tenant.runtimeHealth) === 'warn' ? 'bg-warning-foreground' : 'bg-muted-foreground')} />
-            <strong class="text-sm text-foreground">{tenant.displayName}</strong>
-            <span class="text-xs text-muted-foreground">{tenant.slug}</span>
-          </div>
-          <div class="flex items-center gap-2 flex-shrink-0">
-            <StatusBadge status={healthLabel(tenant.runtimeHealth)} tone={healthTone(tenant.runtimeHealth)} />
-            <StatusBadge status={tenant.status} tone={tenant.status === 'active' ? 'good' : tenant.status === 'suspended' ? 'bad' : tenant.status === 'parked' ? 'warn' : 'warn'} />
-          </div>
-        </Link>
-      )}</For>
-      <Show when={ov.items().length === 0}>
-        <EmptyState label="No tenants provisioned" hint="Create your first tenant to start managing fan growth operations." />
-      </Show>
-    </div>
 
-    {/* Platform services — reference, moved below the fleet so the operator's
-        own tenants are the first thing they see. */}
+    {/* 1. What needs a person, ranked. */}
+    <NeedsYouCard ov={ov} loading={ccLoading()} />
+
+    {/* 2. Are we getting more fans. */}
+    <section aria-labelledby="north-star-heading" class="space-y-3">
+      <h2 id="north-star-heading" class="text-base font-semibold text-foreground">North star</h2>
+      <Show when={!ccLoading()} fallback={<NorthStarSkeleton />}>
+        <Show when={ov.cc()}><NorthStarStrip ov={ov} /></Show>
+      </Show>
+    </section>
+
+    {/* 3. How each tenant is doing. */}
+    <Card>
+      <CardHeader class="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+        <CardTitle class="text-base">Tenants</CardTitle>
+        <Show when={authState.isPlatformLevel()}>
+          <Link to="/tenants" class={buttonVariants({ variant: 'ghost', size: 'sm' })}>Manage tenants</Link>
+        </Show>
+      </CardHeader>
+      <CardContent class="p-0">
+        <Show when={tenants.isError}>
+          <div class="p-4"><ErrorCard>{errorMessage(tenants.error, 'We couldn\'t reach the tenant registry. Try refreshing.')}</ErrorCard></div>
+        </Show>
+        <Show when={!tenants.isError}>
+          <Show when={tenants.data && ov.rows().length === 0}>
+            <EmptyState label="No tenants provisioned" hint="Create your first tenant to start managing fan growth operations." />
+          </Show>
+          <Show when={!tenants.data || ov.rows().length > 0}>
+            <TenantsTable rows={ov.rows()} loading={!tenants.data} ccLoading={ccLoading()} />
+          </Show>
+        </Show>
+      </CardContent>
+    </Card>
+
+    {/* 4. What the machine is doing on its own, closed by default. */}
+    <Show when={ov.cc()}><AutopilotSummary ov={ov} /></Show>
+
+    {/* 5. Platform services, one line. A failing one is already listed above. */}
     <Show when={ov.platformServices().length > 0}>
-      <SectionTitle eyebrow="SERVICES" title="Platform services" icon={<SectionIcon name="server" />} />
-      <PlatformServicesGrid services={ov.platformServices()} />
+      <ServicesRow services={ov.platformServices()} />
     </Show>
   </PageShell>
 }

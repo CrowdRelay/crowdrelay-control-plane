@@ -5,8 +5,8 @@ import { refreshQueries } from '../lib/refresh'
 import { errorMessage } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
-import { ErrorCard } from './layout'
-import { Card } from './app/card'
+import { ErrorCard, Section } from './layout'
+import { SectionIcon } from './SectionIcon'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Field, FieldGrid } from './ui/field'
@@ -174,16 +174,17 @@ export function ContentSourcesPanel(props: { slug: string }) {
     }
   }
 
-  return <Card flat>
-    <div class="flex items-center justify-between gap-4">
-      <h3 class="text-sm font-semibold text-foreground">Real material</h3>
-      <Button variant="ghost" size="sm" writes onClick={openAdd}>
+  return <Section
+    title="Real material"
+    icon={<SectionIcon name="book-open" />}
+    count={sources.data?.length}
+    description="Everything the system may say publicly comes from this list. A video link, a release, a story you actually lived. If it is not here, it does not get posted."
+    action={
+      <Button variant="outline" size="sm" writes onClick={openAdd}>
         {adding() && !editing() ? 'Cancel' : 'Add material'}
       </Button>
-    </div>
-    <p class="mt-1 text-sm text-muted-foreground">
-      Everything the system may say publicly comes from this list — nothing else. A video link, a release, a story you actually lived. If it is not here, it does not get posted.
-    </p>
+    }
+  >
 
     <Show when={error()}><ErrorCard class="mt-3">{error()}</ErrorCard></Show>
     <Show when={sources.error}><ErrorCard class="mt-3">Material list unavailable: {errorMessage(sources.error, 'We could not reach the material list.')}</ErrorCard></Show>
@@ -273,5 +274,5 @@ export function ContentSourcesPanel(props: { slug: string }) {
         )}</For>
       </div>
     </Show>
-  </Card>
+  </Section>
 }

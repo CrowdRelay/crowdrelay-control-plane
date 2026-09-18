@@ -129,22 +129,18 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
     }
   }
 
-  return <div class="mt-6 pt-4 border-t border-border">
-    <div class="flex items-start justify-between gap-4 mb-3">
-      <div>
-        <h3 class="text-sm font-semibold text-foreground">Release campaigns</h3>
-      </div>
-      <div class="flex items-center gap-2 flex-wrap">
+  return <div class="space-y-4">
+    <div class="flex items-start justify-between gap-4">
+      <p class="text-sm text-muted-foreground">Physical release delivery to beacon recipients. Launch a campaign to notify eligible beacons; close it when every parcel is delivered.</p>
+      <div class="flex shrink-0 items-center gap-2 flex-wrap">
         <Show when={campaigns.data}>
-          <span class="text-muted-foreground">{campaigns.data!.campaigns.length} campaigns · {campaigns.data!.pool.contactable_latarnicy} contactable</span>
+          <span class="text-sm text-muted-foreground">{campaigns.data!.campaigns.length} campaigns · {campaigns.data!.pool.contactable_latarnicy ?? '—'} contactable</span>
         </Show>
         <Button writes variant="ghost" size="sm" onClick={() => setCreating(v => !v)}>
           {creating() ? 'Cancel' : 'Add release campaign'}
         </Button>
       </div>
     </div>
-    <p class="text-sm text-muted-foreground leading-relaxed">Physical release delivery to beacon recipients. Launch a campaign to notify eligible beacons; close when all parcels are delivered.</p>
-
     <Show when={error()}>
       <ErrorCard>{error()}</ErrorCard>
     </Show>

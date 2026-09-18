@@ -1,19 +1,22 @@
-import { For, Show, createSignal } from 'solid-js'
+import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useNavigate, useParams } from '@tanstack/solid-router'
+import { RefreshCw } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
 import { CONTENT_TABS } from '../lib/nav'
-import { errorMessage } from '../lib/format'
+import { errorMessage, relativeTime } from '../lib/format'
+import { cn } from '../lib/cn'
 import { StatusBadge } from '../components/StatusBadge'
 import { Spinner } from '../components/Spinner'
 import { EmptyState } from '../components/ui/empty-state'
-import { SkeletonSection } from '../components/Skeleton'
+import { SkeletonKpiStrip, SkeletonRows } from '../components/Skeleton'
 import { Badge } from '../components/app/badge'
 import { Button } from '../components/app/button'
+import { Alert } from '../components/app/alert'
 import { Card } from '../components/app/card'
-import { PageShell, PageHeader, SectionTitle, TabBar, ErrorCard } from '../components/layout'
+import { PageShell, PageHeader, Section, KpiStrip, KpiCard, TabBar, ErrorCard } from '../components/layout'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SectionIcon } from '../components/SectionIcon'
 import type { DeliveryResult, PendingAutopilotAction } from '../lib/types'
@@ -82,6 +85,10 @@ const draftTitle = (a: PendingAutopilotAction): string => {
   return typeof tpl === 'string' && tpl ? tpl.replace(/[._]/g, ' ') : 'Content piece'
 }
 
+
+// Material in → the brain drafts → a person says yes → it goes out. The page
+// is those three stages in order: the queue that waits for a person first,
+// the material it draws from, then what went out.
 export function TenantContentPage() {
   const params = useParams({ from: '/tenants/$slug/content' })
   const navigate = useNavigate()
@@ -107,6 +114,19 @@ export function TenantContentPage() {
   const published = () => (results.data ?? []).filter(r => r.status === 'posted' || r.status === 'published' || r.status === 'delivered').length
   const sourceTitle = (id: unknown) =>
     typeof id === 'string' ? pipeline.data?.source_titles[id] : undefined
+
+  const refreshing = () => pipeline.isFetching || results.isFetching
+  const refresh = () => refreshQueries(['content-pipeline', params().slug], ['delivery-results', params().slug])
+
+  // "Updated 2m ago" has to keep moving while the page sits open.
+  const [now, setNow] = createSignal(Date.now())
+  const tick = setInterval(() => setNow(Date.now()), 15_000)
+  onCleanup(() => clearInterval(tick))
+  const updated = createMemo(() => {
+    now()
+    const ts = Math.max(pipeline.dataUpdatedAt, results.dataUpdatedAt)
+    return ts === 0 ? null : relativeTime(ts)
+  })
 
   const approveAction = async (action: PendingAutopilotAction) => {
     setPendingMutation(true); setError(null)
@@ -134,29 +154,27 @@ export function TenantContentPage() {
     }
   }
 
-  const stages = () => [
-    { step: 'Material in', count: pipeline.data?.live_sources, noun: 'piece' },
-    { step: 'Waiting for your yes', count: pending().length, noun: 'draft' },
-    { step: 'Went out', count: results.data ? published() : undefined, noun: 'post' },
-  ]
-
   return <PageShell>
     <PageHeader
-      eyebrow={authState.isPlatformLevel() ? 'CONTENT' : undefined}
       title="Content"
-      description="What waits for your yes, and what actually went out. The material it all comes from lives under Real material."
+      description="Real material goes in, the brain drafts, a person says yes, and it goes out. The material itself lives under Real material."
       actions={
-        <Show when={pipeline.data}>
-          <div class="flex items-center gap-2">
+        <>
+          <Show when={pipeline.data}>
             <Show when={pipeline.data!.runtime_enabled}>
               <StatusBadge status={authState.isPlatformLevel() ? 'autopilot on' : 'drafting on its own'} tone="good" />
             </Show>
-            <StatusBadge status={pending().length ? `${pending().length} waiting for you` : 'nothing waiting'} tone={pending().length ? 'warn' : 'muted'} />
-          </div>
-        </Show>
+          </Show>
+          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
+          <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing()} aria-label="Refresh">
+            <RefreshCw class={cn(refreshing() && 'animate-spin')} aria-hidden="true" />
+            Refresh
+          </Button>
+        </>
       }
     />
 
+    {/* The material stage keeps its own page; the tab bar is how you reach it. */}
     <TabBar
       tabs={CONTENT_TABS}
       active="pipeline"
@@ -165,7 +183,7 @@ export function TenantContentPage() {
       }}
     />
 
-    <Show when={error()}><ErrorCard class="mb-4">{error()}</ErrorCard></Show>
+    <Show when={error()}><ErrorCard>{error()}</ErrorCard></Show>
     <Show when={pipeline.error}>
       <SectionFailureCard error={pipeline.error} fallback={authState.isPlatformLevel() ? 'Approval queue unavailable' : 'The approval list'} onRetry={() => void pipeline.refetch()} />
     </Show>
@@ -173,29 +191,19 @@ export function TenantContentPage() {
       <SectionFailureCard error={results.error} fallback="Published list unavailable" onRetry={() => void results.refetch()} />
     </Show>
 
-    {/* Pipeline strip — the work mode, as the system actually runs it:
-        material in → the brain drafts → a person says yes → it goes out. */}
-    <div class="flex flex-col sm:flex-row items-stretch gap-2 mb-6">
-      <For each={stages()}>{(stage, i) => <>
-        <div class="flex-1 rounded-lg border border-border bg-card p-3">
-          <div class="text-xs font-medium text-muted-foreground uppercase tracking-wide">{stage.step}</div>
-          <div class="mt-1 flex items-baseline gap-1.5">
-            <span class="text-xl font-semibold text-foreground">{stage.count ?? '—'}</span>
-            <span class="text-xs text-muted-foreground">{stage.count === 1 ? stage.noun : `${stage.noun}s`}</span>
-          </div>
-        </div>
-        <Show when={i() < stages().length - 1}>
-          <div class="self-center text-muted-foreground select-none" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="rotate-90 sm:rotate-0"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </div>
+    {/* The pipeline as three figures on the shared rail. These were three
+        boxed cards joined by arrows, over a three-line explainer; the
+        header now carries the one sentence that explainer needed. */}
+    <Show when={pipeline.data || results.data} fallback={<SkeletonKpiStrip count={3} />}>
+      <KpiStrip>
+        <KpiCard label="Material in" value={(pipeline.data?.live_sources ?? 0)} sub={(pipeline.data?.live_sources ?? 0) === 1 ? 'live piece' : 'live pieces'} />
+        <KpiCard label="Waiting for your yes" value={pending().length} tone={pending().length > 0 ? 'warn' : 'default'} sub={pending().length === 1 ? 'draft to approve' : 'drafts to approve'} />
+        <KpiCard label="Went out" value={published()} tone={published() > 0 ? 'good' : 'default'} sub={published() === 1 ? 'post published' : 'posts published'} />
+        <Show when={pipeline.data}>
+          <KpiCard label="Drafting" value={pipeline.data!.runtime_enabled ? 'on' : 'off'} tone={pipeline.data!.runtime_enabled ? 'good' : 'default'} sub={pipeline.data!.runtime_enabled ? (authState.isPlatformLevel() ? 'autopilot proposes drafts' : 'drafts on its own') : 'nothing is drafted'} />
         </Show>
-      </>}</For>
-    </div>
-    <p class="text-xs text-muted-foreground -mt-4 mb-6">
-      A video on your YouTube channel lands under Real material on its own; stories and links you add yourself.
-      The brain turns material into drafts — nothing publishes until a person says yes here.
-      Approved pieces go out by themselves where auto-posting is on; the rest wait as drafts.
-    </p>
+      </KpiStrip>
+    </Show>
 
     {/* Voice signal — how much fixing the drafts still need. Distance should
         fall as the machine learns; a flat or rising line means the same
@@ -220,87 +228,91 @@ export function TenantContentPage() {
     </Show>
 
     {/* ── Waiting for your yes ── */}
-    <SectionTitle title="Waiting for your yes" icon={<SectionIcon name="bell" />} description="Drafts the brain proposes from your material. Approving starts the work — the piece is written, then published or saved as a draft." />
-    <Show when={!pipeline.error && !pipeline.data && pipeline.isFetching}>
-      <SkeletonSection titleWidth="140px" lines={2} minHeight="120px" />
-    </Show>
-    <Show when={pipeline.data}>
-      <Show when={pending().length > 0} fallback={
-        <Card flat class="mb-6">
-          <EmptyState label="Nothing waiting" hint="When the brain drafts a post, a story or a push from your material, it lands here for your yes." />
-        </Card>
-      }>
-        <div class="flex flex-col gap-2.5 mb-6">
-          <For each={pending()}>{(action) => {
-            const approveKey = `approve:${action.id}`
-            const rejectKey = `reject:${action.id}`
-            const title = () => draftTitle(action)
-            const source = () => sourceTitle(action.payload.source_id)
-            return (
-              <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 p-4 border border-border rounded-lg bg-card">
-                <div class="min-w-0 flex-1 flex flex-col gap-1.5">
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <Badge>{title()}</Badge>
-                    <strong class="text-sm">{source() ?? 'A content piece'}</strong>
-                  </div>
-                  <p class="m-0 text-sm text-secondary-foreground leading-relaxed">
-                    {source()
-                      ? `Built from “${source()}”. Approving writes the ${title().toLowerCase()} — it then goes out on its own where auto-posting is on, or waits as a draft.`
-                      : 'Approving writes the piece — it then goes out on its own where auto-posting is on, or waits as a draft.'}
-                  </p>
-                  <Show when={!action.executor_ready && action.required_capability}>
-                    <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-3 text-sm text-warning-foreground">
-                      <strong>Nothing can run this yet</strong> — {authState.isPlatformLevel() ? 'approving queues it until a worker starts.' : 'approving keeps it waiting until the poster is up.'}
-                    </div>
-                  </Show>
-                  <div class="text-xs text-muted-foreground">asked {fmtDate(action.created_at)}</div>
-                </div>
-                <div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
-                  <Show when={confirming() === approveKey} fallback={
-                    <Show when={confirming() === rejectKey} fallback={
-                      <>
-                        <Button size="sm" writes disabled={pendingMutation()} onClick={() => setConfirming(approveKey)}>Approve</Button>
-                        <Button variant="destructive" size="sm" writes disabled={pendingMutation()} onClick={() => setConfirming(rejectKey)}>Reject</Button>
-                      </>
-                    }>
-                      <Button variant="destructive" size="sm" writes disabled={pendingMutation()} onClick={() => rejectAction(action)}>
-                        {pendingMutation() && <Spinner />} {pendingMutation() ? 'Rejecting…' : 'Confirm rejection'}
-                      </Button>
-                      <Button variant="ghost" size="sm" disabled={pendingMutation()} onClick={() => setConfirming(null)}>Back</Button>
-                    </Show>
-                  }>
-                    <Button size="sm" writes disabled={pendingMutation()} onClick={() => approveAction(action)}>
-                      {pendingMutation() && <Spinner />} {pendingMutation() ? 'Approving…' : 'Confirm approval'}
-                    </Button>
-                    <Button variant="ghost" size="sm" disabled={pendingMutation()} onClick={() => setConfirming(null)}>Cancel</Button>
-                  </Show>
-                </div>
-              </div>
-            )
-          }}</For>
-        </div>
+    <Section
+      flush
+      lead
+      title="Waiting for your yes"
+      icon={<SectionIcon name="bell" />}
+      count={pending().length}
+      description="Drafts the brain proposes from your material. Approving writes the piece; it then goes out on its own where auto-posting is on, or waits as a draft."
+    >
+      <Show when={!pipeline.error && !pipeline.data}>
+        <SkeletonRows count={2} />
       </Show>
-    </Show>
+      <Show when={pipeline.data}>
+        <Show when={pending().length > 0} fallback={
+          <EmptyState label="Nothing waiting" hint="When the brain drafts a post, a story or a push from your material, it lands here for your yes." />
+        }>
+          <ul class="divide-y divide-border rounded-lg border border-border">
+            <For each={pending()}>{(action) => {
+              const approveKey = `approve:${action.id}`
+              const rejectKey = `reject:${action.id}`
+              const title = () => draftTitle(action)
+              const source = () => sourceTitle(action.payload.source_id)
+              return (
+                <li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                  <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <Badge>{title()}</Badge>
+                      <strong class="text-sm">{source() ?? 'A content piece'}</strong>
+                    </div>
+                    <Show when={source()}>
+                      <p class="m-0 text-sm text-muted-foreground">Built from “{source()}”.</p>
+                    </Show>
+                    <Show when={!action.executor_ready && action.required_capability}>
+                      <Alert tone="warning" role="status"><strong>Nothing can run this yet.</strong> {authState.isPlatformLevel() ? 'Approving queues it until a worker starts.' : 'Approving keeps it waiting until the poster is up.'}</Alert>
+                    </Show>
+                    <div class="text-xs text-muted-foreground">asked {fmtDate(action.created_at)}</div>
+                  </div>
+                  <div class="flex shrink-0 flex-wrap items-center gap-2">
+                    <Show when={confirming() === approveKey} fallback={
+                      <Show when={confirming() === rejectKey} fallback={
+                        <>
+                          <Button size="sm" writes disabled={pendingMutation()} onClick={() => setConfirming(approveKey)}>Approve</Button>
+                          <Button variant="outline" size="sm" writes disabled={pendingMutation()} onClick={() => setConfirming(rejectKey)}>Reject</Button>
+                        </>
+                      }>
+                        <Button variant="destructive" size="sm" writes disabled={pendingMutation()} onClick={() => rejectAction(action)}>
+                          {pendingMutation() && <Spinner />} {pendingMutation() ? 'Rejecting…' : 'Confirm rejection'}
+                        </Button>
+                        <Button variant="ghost" size="sm" disabled={pendingMutation()} onClick={() => setConfirming(null)}>Back</Button>
+                      </Show>
+                    }>
+                      <Button size="sm" writes disabled={pendingMutation()} onClick={() => approveAction(action)}>
+                        {pendingMutation() && <Spinner />} {pendingMutation() ? 'Approving…' : 'Confirm approval'}
+                      </Button>
+                      <Button variant="ghost" size="sm" disabled={pendingMutation()} onClick={() => setConfirming(null)}>Cancel</Button>
+                    </Show>
+                  </div>
+                </li>
+              )
+            }}</For>
+          </ul>
+        </Show>
+      </Show>
+    </Section>
 
     {/* ── Went out — the proof stage ── */}
-    <SectionTitle title="Went out" icon={<SectionIcon name="megaphone" />} description="What the approved pieces became — where they landed and whether they published." />
-    <Show when={!results.error && !results.data && results.isFetching}>
-      <SkeletonSection titleWidth="120px" lines={3} minHeight="140px" />
-    </Show>
-    <Show when={results.data}>
-      <Show when={results.data!.length > 0} fallback={
-        <Card flat>
+    <Section
+      title="Went out"
+      icon={<SectionIcon name="megaphone" />}
+      count={results.data?.length}
+      description="What the approved pieces became: where they landed and whether they published."
+    >
+      <Show when={!results.error && !results.data}>
+        <SkeletonRows count={3} />
+      </Show>
+      <Show when={results.data}>
+        <Show when={results.data!.length > 0} fallback={
           <EmptyState label="Nothing has gone out yet" hint="Approve a draft above and the published post lands here." />
-        </Card>
-      }>
-        <div class="flex flex-col gap-2">
-          <For each={results.data!}>{(r: DeliveryResult) => {
-            const badge = statusBadge(r.status)
-            const excerpt = contentExcerpt(r.content)
-            return (
-              <div class="flex items-start justify-between gap-3 rounded-lg border border-border bg-card p-3">
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2 flex-wrap">
+        }>
+          <ul class="divide-y divide-border rounded-lg border border-border">
+            <For each={results.data!}>{(r: DeliveryResult) => {
+              const badge = statusBadge(r.status)
+              const excerpt = contentExcerpt(r.content)
+              return (
+                <li class="p-3">
+                  <div class="flex flex-wrap items-center gap-2">
                     <Badge variant="outline">{KIND_LABEL[r.kind] ?? r.kind.replace(/_/g, ' ')}</Badge>
                     <Show when={r.channel}><span class="text-xs font-medium text-foreground">{r.channel}</span></Show>
                     <Badge variant={badge.variant}>{badge.label}</Badge>
@@ -317,12 +329,12 @@ export function TenantContentPage() {
                     <Show when={r.score != null}> · score {r.score}</Show>
                     <Show when={r.num_comments != null}> · {r.num_comments} comments</Show>
                   </div>
-                </div>
-              </div>
-            )
-          }}</For>
-        </div>
+                </li>
+              )
+            }}</For>
+          </ul>
+        </Show>
       </Show>
-    </Show>
+    </Section>
   </PageShell>
 }

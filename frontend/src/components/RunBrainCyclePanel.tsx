@@ -7,18 +7,15 @@ import { errorMessage } from '../lib/format'
 import { triggerRefresh, refreshQueries } from '../lib/refresh'
 import { SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
-import { ErrorCard, PanelTitle } from './layout'
-import { Card } from './app/card'
+import { ErrorCard, Section } from './layout'
 import { Button } from './app/button'
 import { NativeSelect } from './ui/native-select'
 import { northStarLabel, northStarMeaning } from '../lib/north-star'
 import { writeGuard } from '../lib/read-only'
+import { ArrowRight, RotateCw } from 'lucide-solid'
 
 const CycleIcon = (props: { size?: number }) => (
-  <svg width={props.size ?? 18} height={props.size ?? 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-    <path d="M21 3v6h-6" />
-  </svg>
+  <RotateCw size={props.size ?? 18} aria-hidden="true" />
 )
 
 const strategyLabel = (strategy: string) =>
@@ -89,13 +86,13 @@ export function RunBrainCyclePanel(props: { slug: string }) {
   }
 
   return (
-    <Card class="p-4">
-      <header class="flex items-center justify-between gap-4 mb-3">
-        <PanelTitle><CycleIcon /> Run a growth cycle</PanelTitle>
-        <Button variant="ghost" size="sm" onClick={() => void preview.refetch()} disabled={preview.isFetching}>
-          Refresh preview
-        </Button>
-      </header>
+    <Section
+      title="Run a growth cycle"
+      icon={<CycleIcon />}
+      action={<Button variant="outline" size="sm" onClick={() => void preview.refetch()} disabled={preview.isFetching}>
+        Refresh preview
+      </Button>}
+    >
 
       <Show when={preview.isFetching}><SkeletonPanel /></Show>
 
@@ -180,7 +177,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                   {(template, index) => (
                     <>
                       <Show when={index() > 0}>
-                        <span class="text-muted-foreground text-sm" aria-hidden="true">→</span>
+                        <ArrowRight class="size-3.5 text-muted-foreground" aria-hidden="true" />
                       </Show>
                       <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-card border border-border text-sm text-secondary-foreground">
                         <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-accent text-muted-foreground text-xs font-bold" classList={{ 'bg-success-foreground/10 text-success-foreground': index() === 0 }}>{index() + 1}</span>
@@ -210,6 +207,6 @@ export function RunBrainCyclePanel(props: { slug: string }) {
           <p class={`mt-3 rounded-lg p-4 text-sm ${value().tone === 'bad' ? 'border border-destructive/30 bg-destructive/10 text-destructive' : 'border border-success-foreground/30 bg-success-foreground/10 text-success-foreground'}`}>{value().message}</p>
         )}
       </Show>
-    </Card>
+    </Section>
   )
 }

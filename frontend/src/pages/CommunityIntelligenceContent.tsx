@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import type { CommunityItem, CommunityObservationItem, CommunityEntityItem, AudiencePlaceInput } from '../lib/types'
 import { SkeletonRows } from '../components/Skeleton'
-import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, SectionTitle, ErrorCard } from '../components/layout'
+import { TabBar, TabPanel, useTabPanels, SectionTitle, ErrorCard } from '../components/layout'
 import { toast } from '../components/app/toast'
 import { errorMessage } from '../lib/format'
 import { cn } from '../lib/cn'
@@ -14,6 +14,7 @@ import { Textarea } from '../components/ui/textarea'
 import { NativeSelect } from '../components/ui/native-select'
 import { Field } from '../components/ui/field'
 import { writeGuard } from '../lib/read-only'
+import { ArrowUpRight, ChevronRight } from 'lucide-solid'
 
 /**
  * Community Intelligence content — the Communities tab inside the Audience page.
@@ -292,10 +293,11 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
     communities.data?.items?.find((c) => c.placeId === selectedPlaceId())
 
   return (
-    <PageShell>
-      <PageHeader eyebrow={authState.isPlatformLevel() ? 'AUDIENCE' : undefined} title="Communities" description={authState.isPlatformLevel() ? "Places your listeners already gather — subreddits, forums, Discord servers. The brain observes them; joining them is a person's job, and this page is the queue for it." : "Places your listeners already gather — subreddits, forums, Discord servers. The brain keeps an eye on them; joining them is a person's job, and this page is the list for it."} />
+    <div class="space-y-4">
+      <p class="text-sm text-muted-foreground">Places your listeners already gather: subreddits, forums, Discord servers. The brain observes them; joining is a person's job, and this is the queue for it.</p>
 
       <TabBar
+        class="mb-0"
         active={activeTab()}
         onChange={switchTab}
       onPrefetch={prefetch}
@@ -348,10 +350,10 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
 
         {/* ── Community intelligence ── */}
         <div class="flex items-center gap-2 mt-4 mb-4">
-          <Button writes variant="ghost" size="sm" onClick={() => { setImporting(false); setAdding(value => !value) }}>
+          <Button writes variant="outline" size="sm" onClick={() => { setImporting(false); setAdding(value => !value) }}>
             {adding() ? 'Cancel' : 'Add a community'}
           </Button>
-          <Button writes variant="ghost" size="sm" onClick={() => { setAdding(false); setImporting(value => !value) }}>
+          <Button writes variant="outline" size="sm" onClick={() => { setAdding(false); setImporting(value => !value) }}>
             {importing() ? 'Cancel' : 'Import a list'}
           </Button>
         </div>
@@ -404,9 +406,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                     onClick={() => toggleCollapse(platform)}
                     aria-expanded={!isCollapsed()}
                   >
-                    <span class="text-muted-foreground text-xs" aria-hidden="true">
-                      {isCollapsed() ? '▸' : '▾'}
-                    </span>
+                    <ChevronRight class={cn('size-3.5 text-muted-foreground transition-transform', !isCollapsed() && 'rotate-90')} aria-hidden="true" />
                     <span class="text-sm font-semibold text-foreground" data-platform={platform}>
                       {PLATFORM_LABEL[platform] ?? platform}
                     </span>
@@ -455,7 +455,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
 
                             <footer class="flex items-center gap-2 flex-wrap mt-2 pt-2 border-t border-border">
                               <a class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors" href={item.url} target="_blank" rel="noreferrer noopener">
-                                Open<span class="text-xs" aria-hidden="true">↗</span>
+                                Open<ArrowUpRight class="size-3.5" aria-hidden="true" />
                               </a>
                               <Button variant="ghost" size="sm" onClick={() => loadDraft(item.placeId)}>Draft intro</Button>
                               <NativeSelect size="sm" class="w-auto"
@@ -578,6 +578,6 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
           </Show>
         </Show>
       </TabPanel>
-    </PageShell>
+    </div>
   )
 }

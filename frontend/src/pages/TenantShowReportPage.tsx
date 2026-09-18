@@ -7,6 +7,7 @@ import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
 import { Badge } from '../components/app/badge'
 import { formatTimestamp } from '../lib/format'
+import { ArrowLeft } from 'lucide-solid'
 
 /** `/tenants/$slug/shows/$eventSlug/report` — the T+7 artifact. What the
  * promoter and the band receive by email: the night's numbers split by
@@ -28,9 +29,9 @@ export function TenantShowReportPage() {
         <Link
           to="/tenants/$slug/shows/$eventSlug"
           params={{ slug: params().slug, eventSlug: params().eventSlug }}
-          class="text-xs text-muted-foreground hover:text-foreground"
+          class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
-          ← The night
+          <ArrowLeft class="size-3.5" aria-hidden="true" /> The night
         </Link>
       </div>
       <Show when={model.data} fallback={

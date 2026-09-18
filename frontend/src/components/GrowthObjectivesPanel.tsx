@@ -7,8 +7,8 @@ import { errorMessage } from '../lib/format'
 import { compactNumber } from '../lib/charts'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
-import { ErrorCard } from './layout'
-import { Card } from './app/card'
+import { ErrorCard, Section } from './layout'
+import { SectionIcon } from './SectionIcon'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import type { GrowthObjectiveView, ObjectiveState } from '../lib/types'
@@ -97,14 +97,12 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
     }
   }
 
-  return <Card flat>
-    <div class="flex items-center justify-between gap-4">
-      <h3 class="text-sm font-semibold text-foreground">Growth objectives</h3>
-      <Show when={objectives.data && objectives.data!.length > 0}>
-        <span class="text-muted-foreground">{objectives.data!.length} objectives</span>
-      </Show>
-    </div>
-    <p class="mt-1 text-sm text-muted-foreground">Declared growth targets with progress tracking. Each objective freezes a baseline and measures progress toward the target value by the deadline.</p>
+  return <Section
+    title="Growth objectives"
+    icon={<SectionIcon name="target" />}
+    count={objectives.data?.length}
+    description="Declared growth targets. Each objective freezes a baseline and measures progress toward the target value by the deadline."
+  >
 
     <Show when={error()}>
       <ErrorCard class="mt-3">{error()}</ErrorCard>
@@ -160,5 +158,5 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
         </Button>
       </Show>
     </Show>
-  </Card>
+  </Section>
 }

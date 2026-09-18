@@ -10,8 +10,7 @@ import { SkeletonFlagList } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
 import { SectionFailureCard } from './SectionFailureCard'
-import { ErrorCard, KpiCard, KpiStrip, PanelTitle } from './layout'
-import { Card } from './app/card'
+import { ErrorCard, KpiCard, KpiStrip, Section } from './layout'
 import { Alert } from './app/alert'
 import { Button } from './app/button'
 import { Switch } from './app/switch'
@@ -77,17 +76,19 @@ export function RuntimeSwitchesPanel(props: {
 
   const [confirming, setConfirming] = createSignal<'redeploy' | 'replay-dead' | null>(null)
 
-  return <Card flat>
-    <div class="flex items-start justify-between gap-4 mb-3">
-      <div><PanelTitle icon={<SectionIcon name="activity" />}>Runtime switches</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Feature flags, health metrics and redeploy. Changes are tenant-scoped and audited.</p></div>
-      <div class="flex items-center gap-2 flex-wrap">
-        <Show when={props.canRedeploy !== false}>
-          <Show when={confirming() === 'redeploy'}><Button variant="ghost" size="sm" onClick={() => setConfirming(null)}>Cancel</Button></Show>
-          <Button writes size="sm" disabled={pendingMutation() !== null} onClick={() => setConfirming('redeploy')}>{pendingMutation() === 'redeploy' && <Spinner />} {confirming() === 'redeploy' ? 'Confirm below ↓' : 'Redeploy app'}</Button>
-        </Show>
-        <StatusBadge status={operationalLabel(props.summary ?? undefined)} tone={operationalTone(props.summary ?? undefined)} />
-      </div>
-    </div>
+  return <Section
+    flush
+    title="Runtime"
+    icon={<SectionIcon name="activity" />}
+    description="Queue depths, request latency, feature flags and redeploy. Changes are tenant-scoped and audited."
+    action={<div class="flex items-center gap-2 flex-wrap">
+      <Show when={props.canRedeploy !== false}>
+        <Show when={confirming() === 'redeploy'}><Button variant="ghost" size="sm" onClick={() => setConfirming(null)}>Cancel</Button></Show>
+        <Button writes variant="outline" size="sm" disabled={pendingMutation() !== null} onClick={() => setConfirming('redeploy')}>{pendingMutation() === 'redeploy' && <Spinner />} {confirming() === 'redeploy' ? 'Confirm below' : 'Redeploy app'}</Button>
+      </Show>
+      <StatusBadge status={operationalLabel(props.summary ?? undefined)} tone={operationalTone(props.summary ?? undefined)} />
+    </div>}
+  >
 
     <Show when={confirming() ? confirmCopy(confirming(), deadJobs()) : null} keyed>{copy =>
       <Alert tone="warning" class="mt-3" role="alertdialog" aria-label={copy.title}>
@@ -132,7 +133,7 @@ export function RuntimeSwitchesPanel(props: {
 
     <section class="mt-6 pt-4 border-t border-border">
       <details open>
-        <summary class="flex items-center justify-between gap-4 cursor-pointer list-none"><div><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="settings" />Runtime switches</h3></div><small class="text-xs text-muted-foreground">{flags.data?.length ?? 0} declared</small></summary>
+        <summary class="flex items-center justify-between gap-4 cursor-pointer list-none"><div><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="settings" />Feature flags</h3></div><small class="text-xs text-muted-foreground">{flags.data?.length ?? 0} declared</small></summary>
         <Show when={flags.data} fallback={
           <Show when={flags.error} fallback={<SkeletonFlagList />}>
             <SectionFailureCard error={flags.error} fallback="Feature flags unavailable" onRetry={() => void flags.refetch()} />
@@ -150,5 +151,5 @@ export function RuntimeSwitchesPanel(props: {
         </div>}</Show>
       </details>
     </section>
-  </Card>
+  </Section>
 }

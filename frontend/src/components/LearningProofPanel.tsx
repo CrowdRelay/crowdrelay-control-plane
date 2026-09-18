@@ -1,12 +1,11 @@
 import { For, Show } from 'solid-js'
-import { Eyebrow, KpiCard, KpiStrip, PanelTitle } from './layout'
+import { Eyebrow, KpiCard, KpiStrip, Section } from './layout'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { EmptyState } from './ui/empty-state'
 import type { LearningProofEntry } from '../lib/types'
 import { SectionIcon } from './SectionIcon'
-import { Card } from './app/card'
 import { Alert } from './app/alert'
 import { Badge } from './app/badge'
 import { cn } from '../lib/cn'
@@ -61,13 +60,12 @@ export function LearningProofPanel(props: { slug: string }) {
   const entries = (): LearningProofEntry[] => model.data?.entries ?? []
   const provenChains = () => entries().filter(entry => entry.changed_a_decision).length
 
-  return <Card flat class="space-y-4">
-    <div>
-      <PanelTitle icon={<SectionIcon name="git-branch" />}>Outcome → Belief → Next decision</PanelTitle>
-      <p class="text-muted-foreground text-sm mt-1">
-        What the brain changed its mind about, and what changed it.
-      </p>
-    </div>
+  return <Section
+    title="Outcome → Belief → Next decision"
+    icon={<SectionIcon name="git-branch" />}
+    description="What the brain changed its mind about, and what changed it."
+    class="space-y-4"
+  >
 
     <Show when={model.error}>
       <Alert tone="warning" role="status">
@@ -174,5 +172,5 @@ export function LearningProofPanel(props: { slug: string }) {
         </div>
       </Show>
     </Show>
-  </Card>
+  </Section>
 }

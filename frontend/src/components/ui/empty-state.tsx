@@ -15,6 +15,8 @@ export const EmptyState: Component<{
   hint?: string
   signal?: string
   class?: string
+  /** An action that would change the state — a button or link. */
+  children?: JSX.Element
 }> = (props) => (
   <div class={cn('flex flex-col items-center justify-center gap-2 py-8 text-center', props.class)}>
     <Show when={props.icon}>
@@ -26,6 +28,9 @@ export const EmptyState: Component<{
     </Show>
     <Show when={props.signal}>
       <p class="text-xs text-muted-foreground">{props.signal}</p>
+    </Show>
+    <Show when={props.children}>
+      <div class="mt-2">{props.children}</div>
     </Show>
   </div>
 )
