@@ -76,6 +76,10 @@ pub fn router() -> Router<AppState> {
             get(get_action),
         )
         .route(
+            "/tenants/{slug}/operations/actions/{action_id}/sent",
+            get(action_sent_record),
+        )
+        .route(
             "/tenants/{slug}/operations/reconcile",
             post(run_reconciliation),
         )
@@ -804,6 +808,22 @@ async fn get_action(
     let path = format!("/v1/control-plane/ops/actions/{action_id}");
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     object_no_store(value, "action ledger entry")
+}
+
+/// What the action actually sent — the words and the addresses it went to.
+/// The ledger answers "did it work"; this answers the two questions an
+/// operator asks before approving the next send. Upstream answers 404 when
+/// the action never emitted — the console renders that as "nothing left",
+/// not as an error.
+async fn action_sent_record(
+    State(state): State<AppState>,
+    Path((slug, action_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let action_id = uuid_segment(&action_id)?.to_owned();
+    let path = format!("/v1/control-plane/autopilot/actions/{action_id}/sent");
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "action sent record")
 }
 
 async fn retry_outbox(
