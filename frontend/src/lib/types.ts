@@ -288,6 +288,28 @@ export type DriveContact = {
   matched_counterparty: string | null
   /** The band's own marks say they already dealt with them. */
   counterparty_worked_with: boolean
+  /** P.6: the address's reply record across every tenant — anonymous
+      counts. null means the prior read did not run, not "no history". */
+  counterparty_prior: CounterpartyPrior | null
+  /** P.6: the matched room's play record across every tenant. null when
+      no venue matched or the read did not run. */
+  venue_prior: VenuePrior | null
+}
+
+/** P.6 — one address's cross-tenant reply record. Counts of tenants,
+    never which tenants. `tenants_replied` counts any disposition — a
+    decline is still an answer. */
+export type CounterpartyPrior = {
+  tenants_contacted: number
+  tenants_replied: number
+  tenants_won: number
+}
+
+/** P.6 — one room's cross-tenant play record: tenants with a mark and
+    total shows on record. */
+export type VenuePrior = {
+  tenants_played: number
+  shows: number
 }
 
 /** The registry joins counted over the whole staging population — the
@@ -2116,6 +2138,10 @@ export type TenantShowHelpersResponse = {
     relationship_score: number
     /** Whether the target is joined to the shared venue registry. */
     venue_linked: boolean
+    /** P.6 — the address's cross-tenant reply record; null = not measured. */
+    counterparty_prior: CounterpartyPrior | null
+    /** P.6 — the linked room's play record; null when not venue-linked. */
+    venue_prior: VenuePrior | null
   }>
   communities: Array<{
     id: string
@@ -2131,6 +2157,9 @@ export type TenantShowHelpersResponse = {
     display_name: string
     /** The global capacity fact's raw text value, when one exists. */
     capacity: string | null
+    /** P.6 — the room's play record across every tenant; null = not
+        measured. Cold for this band is not cold for the registry. */
+    venue_prior: VenuePrior | null
   }>
   /** The other bands on this bill who are not tenants — names, not
       addresses. `on_roster` means a beacon already carries them. */

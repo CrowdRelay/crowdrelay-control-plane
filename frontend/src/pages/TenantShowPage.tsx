@@ -537,6 +537,12 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
                       <span class="text-foreground">{row.display_name}</span>
                       {` · ${row.target_kind}`}
                       {row.venue_linked ? ' · on the registry' : ''}
+                      {row.counterparty_prior && row.counterparty_prior.tenants_contacted > 0
+                        ? ` · ${row.counterparty_prior.tenants_replied}/${row.counterparty_prior.tenants_contacted} answered${row.counterparty_prior.tenants_won > 0 ? `, ${row.counterparty_prior.tenants_won} won` : ''}`
+                        : ''}
+                      {row.venue_prior && row.venue_prior.tenants_played > 0
+                        ? ` · played by ${row.venue_prior.tenants_played} act${row.venue_prior.tenants_played === 1 ? '' : 's'}`
+                        : ''}
                       {row.accepts_booking ? '' : ' · booking closed'}
                     </Link>
                   )}
@@ -558,6 +564,9 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
                     <Link to="/tenants/$slug/audience" params={{ slug: props.slug }} search={audienceSearch('cold_rooms')} class={rowLink}>
                       <span class="text-foreground">{row.display_name}</span>
                       {row.capacity ? ` · ${row.capacity}` : ''}
+                      {row.venue_prior && row.venue_prior.tenants_played > 0
+                        ? ` · played by ${row.venue_prior.tenants_played} act${row.venue_prior.tenants_played === 1 ? '' : 's'}, ${row.venue_prior.shows} show${row.venue_prior.shows === 1 ? '' : 's'}`
+                        : ''}
                     </Link>
                   )}
                 </For>
