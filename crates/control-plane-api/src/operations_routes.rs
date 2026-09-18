@@ -355,6 +355,12 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/gdrive-contacts/scan",
             axum::routing::post(gdrive_scan),
         )
+        // P.2: the operator's own sheet is an intake source too — the body
+        // passes through verbatim; upstream parses, extracts and stages.
+        .route(
+            "/tenants/{slug}/operations/gdrive-contacts/upload",
+            axum::routing::post(gdrive_upload),
+        )
         .route(
             "/tenants/{slug}/operations/gdrive-contacts/{contact_id}/promote",
             axum::routing::post(promote_drive_contact),
@@ -3261,6 +3267,53 @@ async fn gdrive_scan(
     )
     .await?;
     mutation_no_store(value, "gdrive scan")
+}
+
+/// The upload body the panel sends: `{file_name, csv}`. `deny_unknown_fields`
+/// keeps a stray field from travelling further than this plane; the sheet's
+/// own size/row bounds and its "not a contact list" answer live upstream.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DriveContactUpload {
+    file_name: String,
+    csv: String,
+}
+
+async fn gdrive_upload(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(input): Json<DriveContactUpload>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let body = serde_json::json!({
+        "file_name": input.file_name,
+        "csv": input.csv,
+    });
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/gdrive/contacts/upload",
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.contacts.uploaded",
+        "drive_contacts",
+        &input.file_name,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    mutation_no_store(value, "contacts upload")
 }
 
 /// The promote body: `destination` picks fan or beacon, `kind` names the

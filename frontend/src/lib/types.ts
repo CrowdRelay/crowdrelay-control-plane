@@ -272,17 +272,38 @@ export type DriveContact = {
   city: string | null
   notes: string | null
   source_file_name: string
-  /** Where this address was sighted — 'gdrive', 'gmail', or both. */
+  /** Where this address was sighted — 'gdrive', 'gmail', 'upload', or a mix. */
   sources: string[]
   last_seen_at: string
   /** The file stopped carrying this address — kept, not deleted. */
   gone_from_source: boolean
   fan_outcome: DriveContactOutcome
   beacon_outcome: DriveContactOutcome
+  /** P.2: the room's registry display name when this contact's
+      organisation is already on record — null means a stranger. */
+  matched_venue: string | null
+  /** The band's own marks say they already played that room. */
+  venue_played_here: boolean
+  /** The counterparty registry knows this address. */
+  matched_counterparty: string | null
+  /** The band's own marks say they already dealt with them. */
+  counterparty_worked_with: boolean
+}
+
+/** The registry joins counted over the whole staging population — the
+    page is capped, so "already on record" numbers cannot come from it. */
+export type DriveRegistrySummary = {
+  total: number
+  known_venues: number
+  own_rooms: number
+  known_counterparties: number
+  dealt_with: number
 }
 
 export type DriveContactsResponse = {
   contacts: DriveContact[]
+  /** Null when the registry pass could not run — never reads as zeroes. */
+  registry_summary: DriveRegistrySummary | null
 }
 
 // P.1 — one person, two roles. The industry list (beacons) joined to the

@@ -692,6 +692,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || path == "/v1/control-plane/fanbases"
                 || path == "/v1/control-plane/fanbases/connections"
                 || path == "/v1/control-plane/gdrive/scan"
+                // P.2: the operator's own sheet uploads through the same
+                // staging path the connectors feed.
+                || path == "/v1/control-plane/gdrive/contacts/upload"
                 // §4h-12: save is a POST on the same path as the read —
                 // publish/unlist/rotate-token are the only transitions, and
                 // an approach is the band asking, queued for approval.
@@ -1783,6 +1786,20 @@ mod tests {
         assert!(!valid_operations_request(
             "GET",
             "/v1/control-plane/contacts/dual-role/extra"
+        ));
+        // P.2: the sheet upload is a fixed POST path — a tail or the wrong
+        // verb fails closed.
+        assert!(valid_operations_request(
+            "POST",
+            "/v1/control-plane/gdrive/contacts/upload"
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            "/v1/control-plane/gdrive/contacts/upload/extra"
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/gdrive/contacts/upload"
         ));
         // Query-string list endpoints are now valid for paginated browsing.
         assert!(valid_operations_request(
