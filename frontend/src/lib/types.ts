@@ -3251,6 +3251,10 @@ export type GigPlanProposal = {
   /** The name a person reads. */
   city_name: string
   venue: string
+  /** The first line of the letter an approval would queue — computed upstream
+   *  by the plan's own opening_line(), so the screen reads the same words the
+   *  promoter would. The approve-with-edit box pre-fills it. */
+  opening_line: string
   /** Who to write to, strongest relationship first. */
   contact: string[]
   /** Acts worth asking onto the bill — asking, never announcing. */
