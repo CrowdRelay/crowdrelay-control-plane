@@ -1,8 +1,9 @@
-import { For, Show } from 'solid-js'
+import { For, Show, type JSX } from 'solid-js'
 import { Link, useParams } from '@tanstack/solid-router'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import type { ShowTimelineState, ShowTimelineStep } from '../lib/types'
+import type { ShowTimelineState, ShowTimelineStep, TenantShowHelpersResponse } from '../lib/types'
+import { hasDegradedSections, whileIncomplete } from '../lib/incomplete'
 import { PageShell, PageHeader } from '../components/layout'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
@@ -137,6 +138,10 @@ export function TenantShowPage() {
               )}
             </Show>
             <ShowSetupPanel slug={params().slug} eventSlug={params().eventSlug} timeline={data()} />
+            {/* §4h-11 — who could help with this show: the staging queue
+                read against a date rather than as an inventory. Candidates,
+                never instructions — no row carries a contact address. */}
+            <ShowHelpersPanel slug={params().slug} eventSlug={params().eventSlug} />
             <div class="flex flex-col gap-2">
               <For each={data().steps}>{s => <StepRow step={s} slug={params().slug} eventSlug={params().eventSlug} />}</For>
             </div>
@@ -274,5 +279,175 @@ function DetailLine(props: { step: ShowTimelineStep }) {
     <Show when={text()}>
       <div class="mt-0.5 truncate text-xs text-muted-foreground">{text()}</div>
     </Show>
+  )
+}
+
+// ── Who can help (§4h-11) ────────────────────────────────────────────────
+// The staging queue read against a date rather than as an inventory. Four
+// independent sections, each degrading on its own: a section named in
+// `degraded` reads as "couldn't check", an empty one as a measured empty —
+// the difference between "no press in Wrocław" and "we don't know".
+// Every row links to the surface that owns the next step (Contacts for
+// press, Places for rooms, Communities for communities); nothing here
+// hands out an address — promotion is still the only door to a send.
+
+type HelperSection = 'press' | 'rooms_and_promoters' | 'communities' | 'cold_rooms'
+
+const HELPER_LABEL: Record<HelperSection, string> = {
+  press: 'Press & radio',
+  rooms_and_promoters: 'Rooms & promoters',
+  communities: 'Communities',
+  cold_rooms: 'Cold rooms',
+}
+
+/** The tab each section's owner surface lives under on the Audience page. */
+const HELPER_TAB: Record<HelperSection, string> = {
+  press: 'contacts',
+  rooms_and_promoters: 'places',
+  communities: 'communities',
+  cold_rooms: 'places',
+}
+
+/** The honest line a measured-empty section collapses to. `place` is the
+ * city name for city-scoped sections and the country code for communities —
+ * the granularity the match actually ran on. */
+function emptyLine(section: HelperSection, place: string | null): string {
+  const where = place ? ` in ${place}` : ''
+  switch (section) {
+    case 'press':
+      return `No proposed press${where} yet — Contacts is where staged contacts get promoted`
+    case 'rooms_and_promoters':
+      return `No active rooms or promoters${where} yet — Places holds the booking targets`
+    case 'communities':
+      return `No communities${where} yet`
+    case 'cold_rooms':
+      return `No unplayed rooms${where} on the shared registry`
+  }
+}
+
+/** One group: label + count, then compact rows or the single honest line.
+ * A degraded section never reads as empty — "couldn't check" is not "none". */
+function HelperGroup(props: { section: HelperSection; slug: string; count: number; empty: string; degraded: boolean; children: JSX.Element }) {
+  return (
+    <div class="mt-2">
+      <div class="flex items-baseline justify-between gap-2">
+        <p class="text-xs font-medium text-foreground">
+          {HELPER_LABEL[props.section]}
+          <span class="ml-1.5 tabular-nums text-muted-foreground">{props.degraded ? '—' : props.count}</span>
+        </p>
+        <Link
+          to="/tenants/$slug/audience"
+          params={{ slug: props.slug }}
+          search={{ tab: HELPER_TAB[props.section] }}
+          class="shrink-0 text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
+        >
+          {HELPER_TAB[props.section] === 'places' ? 'Places' : HELPER_TAB[props.section] === 'contacts' ? 'Contacts' : 'Communities'} →
+        </Link>
+      </div>
+      <Show
+        when={!props.degraded}
+        fallback={<p class="mt-0.5 text-xs text-muted-foreground">Couldn't check this section — it fills in on its own.</p>}
+      >
+        <Show when={props.count > 0} fallback={<p class="mt-0.5 text-xs text-muted-foreground">{props.empty}</p>}>
+          {props.children}
+        </Show>
+      </Show>
+    </div>
+  )
+}
+
+function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
+  // The same degraded-read convention every read model on the console uses:
+  // a 200 with a section named in `degraded` is not an error, so nothing
+  // retries it by default — whileIncomplete keeps asking until it fills.
+  const helpers = useQuery(() => ({
+    queryKey: ['tenant-show-helpers', props.slug, props.eventSlug],
+    queryFn: () => api.showHelpers(props.slug, props.eventSlug),
+    staleTime: 10_000,
+    refetchOnWindowFocus: false,
+    refetchInterval: whileIncomplete(hasDegradedSections),
+  }))
+  const city = () => helpers.data?.event.city ?? null
+  const country = () => helpers.data?.event.country_code ?? null
+  const noCity = () => (helpers.data?.degraded ?? []).includes('city')
+  const sectionDegraded = (s: HelperSection) => (helpers.data?.degraded ?? []).includes(s)
+  const rowLink = "mt-0.5 block truncate text-xs text-muted-foreground hover:text-foreground"
+  const audienceSearch = (s: HelperSection) => ({ tab: HELPER_TAB[s] })
+
+  return (
+    <div class="mb-3 rounded-lg border border-border bg-background px-4 py-2.5">
+      <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Who can help</p>
+      <Show when={helpers.error}>
+        <p class="mt-1 text-xs text-muted-foreground">The candidate list could not be loaded.</p>
+      </Show>
+      <Show when={!helpers.data && !helpers.error}>
+        <p class="mt-1 text-xs text-muted-foreground">Checking who could help…</p>
+      </Show>
+      <Show when={helpers.data}>
+        {(data: () => TenantShowHelpersResponse) => (
+          <>
+            {/* A city-less show has no local anybody — one line for the whole
+                card rather than four identical empties. */}
+            <Show when={noCity()}>
+              <p class="mt-1 text-xs text-muted-foreground">
+                The show has no city yet — set one and this list fills in.
+              </p>
+            </Show>
+            <Show when={!noCity()}>
+              <HelperGroup section="press" slug={props.slug} count={data().press.length} degraded={sectionDegraded('press')} empty={emptyLine('press', city())}>
+                <For each={data().press}>
+                  {row => (
+                    <Link to="/tenants/$slug/audience" params={{ slug: props.slug }} search={audienceSearch('press')} class={rowLink}>
+                      <span class="text-foreground">{row.display_name}</span>
+                      {` · ${row.target_kind.replaceAll('_', ' ')}`}
+                      {row.contact_domain ? ` · ${row.contact_domain}` : ''}
+                      {row.verified ? ' · verified' : ''}
+                    </Link>
+                  )}
+                </For>
+              </HelperGroup>
+              <HelperGroup section="rooms_and_promoters" slug={props.slug} count={data().rooms_and_promoters.length} degraded={sectionDegraded('rooms_and_promoters')} empty={emptyLine('rooms_and_promoters', city())}>
+                <For each={data().rooms_and_promoters}>
+                  {row => (
+                    <Link to="/tenants/$slug/audience" params={{ slug: props.slug }} search={audienceSearch('rooms_and_promoters')} class={rowLink}>
+                      <span class="text-foreground">{row.display_name}</span>
+                      {` · ${row.target_kind}`}
+                      {row.venue_linked ? ' · on the registry' : ''}
+                      {row.accepts_booking ? '' : ' · booking closed'}
+                    </Link>
+                  )}
+                </For>
+              </HelperGroup>
+              <HelperGroup section="communities" slug={props.slug} count={data().communities.length} degraded={sectionDegraded('communities')} empty={emptyLine('communities', country())}>
+                <For each={data().communities}>
+                  {row => (
+                    <Link to="/tenants/$slug/audience" params={{ slug: props.slug }} search={audienceSearch('communities')} class={rowLink}>
+                      <span class="text-foreground">{row.community_name}</span>
+                      {` · ${row.platform} · ${row.self_promo_policy.replaceAll('_', ' ')}`}
+                    </Link>
+                  )}
+                </For>
+              </HelperGroup>
+              <HelperGroup section="cold_rooms" slug={props.slug} count={data().cold_rooms.length} degraded={sectionDegraded('cold_rooms')} empty={emptyLine('cold_rooms', city())}>
+                <For each={data().cold_rooms}>
+                  {row => (
+                    <Link to="/tenants/$slug/audience" params={{ slug: props.slug }} search={audienceSearch('cold_rooms')} class={rowLink}>
+                      <span class="text-foreground">{row.display_name}</span>
+                      {row.capacity ? ` · ${row.capacity}` : ''}
+                    </Link>
+                  )}
+                </For>
+              </HelperGroup>
+            </Show>
+            {/* The read's own gaps, named — never pattern-matched around. */}
+            <Show when={data().notes.includes('staged_contacts_have_no_city')}>
+              <p class="mt-2 text-xs text-muted-foreground">
+                Staged Drive contacts have no city to match on — they live on Contacts, not here.
+              </p>
+            </Show>
+          </>
+        )}
+      </Show>
+    </div>
   )
 }

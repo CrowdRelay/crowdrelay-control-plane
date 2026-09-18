@@ -559,6 +559,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || safe_segment_between(path, "/v1/control-plane/events/", "/timeline")
                 || safe_segment_between(path, "/v1/control-plane/events/", "/scan")
                 || safe_segment_between(path, "/v1/control-plane/events/", "/report")
+                // §4h-11: the night's candidate shortlist — who could help
+                // with this show. Read-only like the timeline beside it.
+                || safe_segment_between(path, "/v1/control-plane/events/", "/who-can-help")
                 || uuid_segment_between(
                     path,
                     "/v1/control-plane/autopilot/beacon-release-campaigns/",
