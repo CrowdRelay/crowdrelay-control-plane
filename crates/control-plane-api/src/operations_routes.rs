@@ -110,6 +110,13 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/autopilot/reply-triage",
             get(autopilot_reply_triage),
         )
+        // N.9: which executor lanes are live, held, or missing — the read
+        // the dispatch gate enforces, so a gap is a line on a screen rather
+        // than a refusal sentence at approve time.
+        .route(
+            "/tenants/{slug}/operations/autopilot/capabilities",
+            get(autopilot_capabilities),
+        )
         // Portfolio reads live in read_models::portfolio as one consolidated
         // model; only the mutations are routed here.
         .route(
@@ -1227,6 +1234,29 @@ async fn autopilot_reply_triage(
     )
     .await?;
     object_no_store(value, "autopilot reply triage")
+}
+
+/// N.9 — the executor-capability registry the dispatch gate consults: which
+/// lanes an unexpired executor advertises, which are held (breaker or expiry),
+/// and which a parked action needs while nobody advertises them. Read-only
+/// like the scorecard beside it; a tenant that cannot answer fails the panel,
+/// not the page.
+async fn autopilot_capabilities(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/capabilities",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "executor capabilities")
 }
 
 /// Decision evidence: structured "why this decision" data from the persisted

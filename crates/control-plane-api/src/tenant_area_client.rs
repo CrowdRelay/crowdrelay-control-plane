@@ -499,6 +499,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/tour-economics"
                     | "/v1/control-plane/autopilot/show-economics"
                     | "/v1/control-plane/autopilot/chief-of-staff"
+                    // N.9: the executor-capability registry the dispatch
+                    // gate consults — which lanes are live, held, or missing.
+                    | "/v1/control-plane/autopilot/capabilities"
                     | "/v1/control-plane/autopilot/outreach/candidates"
                     | "/v1/control-plane/autopilot/booking-discovery/candidates"
                     | "/v1/control-plane/autopilot/beacon-signal"
@@ -1601,6 +1604,8 @@ mod tests {
             "/v1/control-plane/autopilot/overview",
             "/v1/control-plane/autopilot/reply-triage",
             "/v1/control-plane/autopilot/measurement",
+            // N.9: the executor-capability registry the panel reads.
+            "/v1/control-plane/autopilot/capabilities",
             // The gig page's upstream reads — slug-parameterized, so the
             // allowlist's segment-shape check is what bounds them.
             "/v1/control-plane/events",
