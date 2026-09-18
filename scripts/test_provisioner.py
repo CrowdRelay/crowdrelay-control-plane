@@ -770,7 +770,7 @@ class SharedPlacementContractTests(unittest.TestCase):
         plan = provisioner.safe_plan(valid_job5())
         calls = []
 
-        def fake_docker(config, *args, timeout, error_code):
+        def fake_docker(config, *args, timeout, error_code, terminal=True):
             calls.append(args)
             joined = " ".join(str(a) for a in args)
             if "pg_isready" in joined:
@@ -803,7 +803,7 @@ class SharedPlacementContractTests(unittest.TestCase):
         plan = provisioner.safe_plan(valid_job5())
         calls = []
 
-        def fake_docker(config, *args, timeout, error_code):
+        def fake_docker(config, *args, timeout, error_code, terminal=True):
             calls.append(args)
             joined = " ".join(str(a) for a in args)
             if "SELECT 1 FROM pg_roles" in joined or "SELECT 1 FROM pg_database" in joined:
