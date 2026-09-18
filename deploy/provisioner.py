@@ -13,6 +13,7 @@ import concurrent.futures
 import fcntl
 import hashlib
 import hmac
+import ipaddress
 import json
 import os
 import re
@@ -134,6 +135,21 @@ class Config:
             "/srv/crowdrelay-control-plane/src/scripts/add-tenant-edge-route.sh",
         ).strip()
         self.auto_verify = os.environ.get("CONTROL_PLANE_AUTO_VERIFY", "").strip().lower() in {"1", "true", "yes"}
+        # The public IP DNS records point at. On NAT'd cloud hosts (OCI, AWS)
+        # no local lookup can see it — it must be configured explicitly.
+        self.public_ip = os.environ.get("CONTROL_PLANE_PUBLIC_IP", "").strip()
+        if self.public_ip:
+            try:
+                parsed_public_ip = ipaddress.ip_address(self.public_ip)
+            except ValueError:
+                raise SystemExit("CONTROL_PLANE_PUBLIC_IP must be a valid IP address")
+            if not parsed_public_ip.is_global:
+                raise SystemExit("CONTROL_PLANE_PUBLIC_IP must be a publicly routable address")
+        # Shared Docker network the edge Caddy routes across. Tenant APIs join
+        # it under a <slug>-api alias; empty disables the attachment.
+        self.edge_network = os.environ.get("CONTROL_PLANE_EDGE_NETWORK", "crowdrelay-shared").strip()
+        if self.edge_network and not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}", self.edge_network):
+            raise SystemExit("CONTROL_PLANE_EDGE_NETWORK is not a valid Docker network name")
 
 
 def api_with_token(
@@ -308,17 +324,34 @@ def render_compose(
     port: int,
     postgres_image: str,
     pinned: dict[str, str],
+    edge_network: str | None = None,
 ) -> str:
     # The stack always runs digest-pinned references, never the mutable
     # sha-<commit> tag the plan requested.
     api_image = q(pinned["api"])
     worker_image = q(pinned["worker"])
     postgres = q(postgres_image)
+    # The edge Caddy runs on a shared bridge network, not the host's loopback,
+    # so the tenant API joins it under a stable alias the edge route proxies to.
+    tenant_slug = plan["tenantSlug"]
+    api_networks = ""
+    networks_block = ""
+    if edge_network:
+        api_networks = f'''    networks:
+      default: {{}}
+      {q(edge_network)}:
+        aliases: [{q(f"{tenant_slug}-api")}]
+'''
+        networks_block = f'''
+networks:
+  {q(edge_network)}:
+    external: true
+'''
     return f'''services:
   postgres:
     image: {postgres}
     env_file: [.env, tenant.env]
-    command: ["postgres", "-c", "io_method=worker", "-c", "io_workers=2"]
+    command: ["postgres", "-c", "io_method=worker", "-c", "io_min_workers=2", "-c", "io_max_workers=2"]
     volumes: ["postgres:/var/lib/postgresql"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${{POSTGRES_USER}} -d $${{POSTGRES_DB}}"]
@@ -349,14 +382,7 @@ def render_compose(
     image: {api_image}
     env_file: [.env, tenant.env]
     ports: ["127.0.0.1:{port}:8080"]
-    # crowdrelay-shared is the control-plane/edge network: the alias is how the
-    # management plane and the edge proxy reach this api — a recorded
-    # 127.0.0.1:<port> resolves to the caller's own loopback inside a container.
-    networks:
-      default:
-      crowdrelay-shared:
-        aliases: ["{plan['tenantSlug']}-api"]
-    healthcheck:
+{api_networks}    healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8080/v1/health/ready"]
       interval: 10s
       timeout: 3s
@@ -379,7 +405,7 @@ def render_compose(
     command: ["run"]
     env_file: [.env, tenant.env]
     healthcheck:
-      test: ["CMD-SHELL", "for executable in /proc/[0-9]*/exe; do target=$$(readlink \"$$executable\" 2>/dev/null || true); [ \"$$target\" = /usr/local/bin/crowdrelay-worker ] && exit 0; done; exit 1"]
+      test: ["CMD-SHELL", 'for executable in /proc/[0-9]*/exe; do target=$$(readlink "$$executable" 2>/dev/null || true); [ "$$target" = /usr/local/bin/crowdrelay-worker ] && exit 0; done; exit 1']
       interval: 15s
       timeout: 3s
       retries: 8
@@ -398,11 +424,7 @@ def render_compose(
       options: {{max-size: "10m", max-file: "3"}}
 volumes:
   postgres:
-networks:
-  crowdrelay-shared:
-    external: true
-    name: crowdrelay-shared
-'''
+{networks_block}'''
 
 
 def derive_area_management_token(master_key: str, tenant_id: str) -> str:
@@ -1077,7 +1099,10 @@ def process_claim(config: Config, claim: dict[str, Any]) -> None:
         )
         atomic_write(
             tenant_dir / "compose.yaml",
-            render_compose(plan, port, config.postgres_image, pinned),
+            render_compose(
+                plan, port, config.postgres_image, pinned,
+                edge_network=config.edge_network or None,
+            ),
             0o644,
         )
         print(
@@ -1085,6 +1110,7 @@ def process_claim(config: Config, claim: dict[str, Any]) -> None:
             f"api={pinned['api'].rpartition('@')[2]} worker={pinned['worker'].rpartition('@')[2]}"
         )
 
+        ensure_edge_network(config)
         compose_cmd(config, tenant_dir, project, "up", "-d", "postgres", timeout=120)
         compose_cmd(
             config,
@@ -1119,6 +1145,60 @@ def extract_hostname(url: str) -> str:
     if not parsed.hostname:
         raise ProvisionError("invalid_plan", f"could not extract hostname from {url}")
     return parsed.hostname
+
+
+def host_public_ip(config: Config) -> str:
+    """Return the address public DNS records must point at.
+
+    Never returns a loopback or private address — publishing either makes the
+    tenant unreachable while looking "provisioned". On hosts whose public IP
+    is NAT'd at the cloud edge (OCI, AWS) no local lookup can observe it, so
+    CONTROL_PLANE_PUBLIC_IP is required there.
+    """
+    if config.public_ip:
+        return config.public_ip
+    # A UDP "connect" selects the outbound interface without sending traffic.
+    # It only yields the right answer when the public IP sits directly on the
+    # host's NIC; under NAT it yields the private address, which we reject.
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect(("192.0.2.1", 80))
+            address = probe.getsockname()[0]
+    except OSError:
+        address = ""
+    if not address:
+        raise ProvisionError(
+            "public_ip_unknown",
+            "cannot determine the host's outbound address; set CONTROL_PLANE_PUBLIC_IP",
+        )
+    if not ipaddress.ip_address(address).is_global:
+        raise ProvisionError(
+            "public_ip_unknown",
+            f"host outbound address {address} is not publicly routable; "
+            "set CONTROL_PLANE_PUBLIC_IP to the public address",
+        )
+    return address
+
+
+def ensure_edge_network(config: Config) -> None:
+    """Create the shared edge network when absent — compose declares it external."""
+    if not config.edge_network:
+        return
+    inspected = subprocess.run(
+        [config.docker, "network", "inspect", config.edge_network],
+        capture_output=True, text=True, timeout=15, env=docker_subprocess_env(),
+    )
+    if inspected.returncode == 0:
+        return
+    created = subprocess.run(
+        [config.docker, "network", "create", config.edge_network],
+        capture_output=True, text=True, timeout=15, env=docker_subprocess_env(),
+    )
+    if created.returncode != 0:
+        raise ProvisionError(
+            "edge_network_failed",
+            f"docker network create {config.edge_network} failed: {created.stderr.strip()[:300]}",
+        )
 
 
 def auto_configure_dns(config: Config, hostname: str, instance_ip: str) -> None:
@@ -1190,16 +1270,17 @@ def auto_configure_dns(config: Config, hostname: str, instance_ip: str) -> None:
     print(f"DNS_PROPAGATED=PENDING hostname={hostname} (may take longer)", file=sys.stderr)
 
 
-def auto_publish_edge_route(config: Config, hostname: str, port: int) -> None:
+def auto_publish_edge_route(config: Config, hostname: str, port: int, tenant_slug: str) -> None:
     """Publish the tenant's edge Caddy route if auto_edge is enabled."""
     if not config.auto_edge:
         return
-    print(f"EDGE_AUTO hostname={hostname} port={port}")
+    upstream = f"{tenant_slug}-api:8080" if config.edge_network else f"127.0.0.1:{port}"
+    print(f"EDGE_AUTO hostname={hostname} upstream={upstream}")
     if not Path(config.edge_script).exists():
         print(f"EDGE_AUTO=SKIP script not found: {config.edge_script}", file=sys.stderr)
         return
     result = subprocess.run(
-        ["bash", config.edge_script, hostname, str(port)],
+        ["bash", config.edge_script, hostname, str(port), upstream],
         capture_output=True, text=True, timeout=60,
     )
     if result.returncode != 0:
@@ -1285,18 +1366,11 @@ def finish_claim(
     crowdrelay_base = plan.get("crowdRelayBaseUrl")
     if crowdrelay_base and config.auto_dns:
         hostname = extract_hostname(crowdrelay_base)
-        # The provisioner runs on the host — the public IP is the host's IP.
-        # For a single-host setup, DNS should point to 127.0.0.1 won't work
-        # externally. Use the host's primary public IP.
-        try:
-            instance_ip = socket.gethostbyname(socket.gethostname())
-        except socket.gaierror:
-            instance_ip = "127.0.0.1"
-        auto_configure_dns(config, hostname, instance_ip)
+        auto_configure_dns(config, hostname, host_public_ip(config))
 
     if crowdrelay_base and config.auto_edge:
         hostname = extract_hostname(crowdrelay_base)
-        auto_publish_edge_route(config, hostname, port)
+        auto_publish_edge_route(config, hostname, port, plan["tenantSlug"])
 
     if crowdrelay_base and config.auto_verify:
         hostname = extract_hostname(crowdrelay_base)
@@ -1354,6 +1428,10 @@ def claim_once(config: Config) -> bool:
     if not isinstance(response, dict):
         return False
     claim = response.get("claim")
+    if claim is None and isinstance(response.get("job"), dict):
+        # Transition compatibility: the server once returned the claim object
+        # directly instead of nested under "claim". Accept both shapes.
+        claim = response
     if claim is None:
         return False
     if not isinstance(claim, dict):

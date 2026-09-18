@@ -12,7 +12,17 @@
 # it is loaded, and reverted if the reload fails.
 #
 #   sudo bash scripts/add-tenant-edge-route.sh api.band.example 18101
+#   sudo bash scripts/add-tenant-edge-route.sh api.band.example 18101 demo-api:8080
 #   sudo bash scripts/add-tenant-edge-route.sh api.band.example 18101 --dry-run
+#
+# The upstream is chosen from how the edge container is networked:
+#   * host-networked edge          → 127.0.0.1:<port>
+#   * bridge-networked edge        → <first-label>-api:8080 on the shared
+#     Docker network (the provisioner attaches the tenant API under that
+#     alias; this script ensures the attachment and verifies it from inside
+#     the edge container before writing the route)
+#   * an explicit third argument   → used verbatim (e.g. when the service is
+#     named differently)
 #
 # Run the preflight first. It checks DNS, which has to be correct before Caddy
 # can issue a certificate for the name.
@@ -20,16 +30,24 @@ set -Eeuo pipefail
 
 HOSTNAME_ARG="${1:-}"
 PORT_ARG="${2:-}"
+UPSTREAM_ARG=""
 DRY_RUN=0
-[[ "${3:-}" == "--dry-run" ]] && DRY_RUN=1
+for arg in "${3:-}" "${4:-}"; do
+  case "$arg" in
+    --dry-run) DRY_RUN=1 ;;
+    "") ;;
+    *) UPSTREAM_ARG="$arg" ;;
+  esac
+done
 
 EDGE_CADDYFILE="${EDGE_CADDYFILE:-/opt/crowdrelay/ops/edge/Caddyfile}"
 EDGE_CONTAINER="${EDGE_CONTAINER:-virya-edge-caddy}"
+EDGE_NETWORK="${EDGE_NETWORK:-crowdrelay-shared}"
 
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 [[ -n "$HOSTNAME_ARG" && -n "$PORT_ARG" ]] \
-  || die "usage: $0 <public-hostname> <tenant-api-port> [--dry-run]"
+  || die "usage: $0 <public-hostname> <tenant-api-port> [upstream] [--dry-run]"
 [[ "$HOSTNAME_ARG" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$ ]] \
   || die "hostname must be a bare DNS name, got: $HOSTNAME_ARG"
 [[ "$PORT_ARG" =~ ^[0-9]+$ ]] && (( PORT_ARG >= 1024 && PORT_ARG <= 65535 )) \
@@ -55,19 +73,37 @@ if ! curl --fail --silent --show-error --max-time 5 \
   die "nothing healthy on 127.0.0.1:${PORT_ARG} — check the provisioning job finished before publishing the hostname"
 fi
 
-# Inside the edge container 127.0.0.1 is Caddy itself, so the upstream has to
-# be a name that resolves on a network the edge shares. The tenant api joins
-# crowdrelay-shared with a "<slug>-api" alias; when the container publishing
-# this port carries such an alias it is the upstream, and the loopback form is
-# kept only for a host-networked edge.
-UPSTREAM="127.0.0.1:${PORT_ARG}"
-publisher="$(docker ps --format '{{.Names}}' --filter "publish=${PORT_ARG}" | head -n1 || true)"
-if [[ -n "$publisher" ]]; then
-  shared_alias="$(docker inspect "$publisher" \
-    --format '{{range $name, $net := .NetworkSettings.Networks}}{{if eq $name "crowdrelay-shared"}}{{range $net.Aliases}}{{println .}}{{end}}{{end}}{{end}}' \
-    2>/dev/null | grep -E -- '-api$' | grep -vx "$publisher" | head -n1 || true)"
-  if [[ -n "$shared_alias" ]]; then
-    UPSTREAM="${shared_alias}:8080"
+# A 127.0.0.1 upstream only resolves to the host when the edge container is
+# host-networked. On a bridge network it means the edge container itself —
+# that misroute served 503s until it was found. Derive the upstream from the
+# edge's real network mode instead of assuming.
+EDGE_NETWORK_MODE="$(docker inspect -f '{{.HostConfig.NetworkMode}}' "$EDGE_CONTAINER" 2>/dev/null || true)"
+TENANT_LABEL="${HOSTNAME_ARG%%.*}"
+if [[ -n "$UPSTREAM_ARG" ]]; then
+  UPSTREAM="$UPSTREAM_ARG"
+elif [[ -z "$EDGE_NETWORK_MODE" || "$EDGE_NETWORK_MODE" == "host" ]]; then
+  UPSTREAM="127.0.0.1:${PORT_ARG}"
+else
+  UPSTREAM="${TENANT_LABEL}-api:8080"
+fi
+
+if [[ "$UPSTREAM" != 127.0.0.1:* && "$UPSTREAM" != localhost:* ]]; then
+  # Attach the tenant API to the network the edge routes across, under the
+  # alias the upstream names. Idempotent — a repeat attach is a no-op error.
+  if [[ "$EDGE_NETWORK_MODE" != "host" && -n "$EDGE_NETWORK_MODE" ]]; then
+    edge_networks="$(docker inspect -f '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}} {{end}}' "$EDGE_CONTAINER" 2>/dev/null || true)"
+    case " $edge_networks " in
+      *" $EDGE_NETWORK "*) ;;
+      *) EDGE_NETWORK="$(printf '%s' "$edge_networks" | awk '{print $1}')" ;;
+    esac
+    [[ -n "$EDGE_NETWORK" ]] || die "edge container $EDGE_CONTAINER is on no bridge network to attach to"
+    docker network connect --alias "${UPSTREAM%%:*}" "$EDGE_NETWORK" \
+      "crowdrelay-${TENANT_LABEL}-api-1" >/dev/null 2>&1 || true
+  fi
+  # Prove the edge can reach the upstream by name before writing the route.
+  if ! docker exec "$EDGE_CONTAINER" wget -qO- --timeout=5 \
+       "http://${UPSTREAM}/v1/health/ready" >/dev/null 2>&1; then
+    die "edge cannot reach ${UPSTREAM} — is crowdrelay-${TENANT_LABEL}-api-1 attached to ${EDGE_NETWORK} as ${UPSTREAM%%:*}?"
   fi
 fi
 
@@ -97,7 +133,7 @@ BLOCK
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   printf '%s\n' "$block"
-  echo "EDGE_ROUTE=DRY_RUN host=$HOSTNAME_ARG port=$PORT_ARG"
+  echo "EDGE_ROUTE=DRY_RUN host=$HOSTNAME_ARG upstream=$UPSTREAM"
   exit 0
 fi
 
@@ -125,7 +161,7 @@ fi
 sleep 2
 status="$(curl -o /dev/null -sw '%{http_code}' --max-time 20 "https://${HOSTNAME_ARG}/v1/health/ready" || echo 000)"
 
-echo "EDGE_ROUTE=PASS host=$HOSTNAME_ARG port=$PORT_ARG backup=$backup public_probe=$status"
+echo "EDGE_ROUTE=PASS host=$HOSTNAME_ARG upstream=$UPSTREAM backup=$backup public_probe=$status"
 if [[ "$status" != "200" ]]; then
   echo "note: the public probe returned $status. Certificate issuance can take a few seconds on a brand-new name; re-run the probe before telling the customer the URL is live." >&2
 fi

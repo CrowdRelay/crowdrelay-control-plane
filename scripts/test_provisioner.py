@@ -13,6 +13,11 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+try:
+    import yaml
+except ImportError:
+    yaml = None
+
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("tenant_provisioner", ROOT / "deploy/provisioner.py")
 assert SPEC and SPEC.loader
@@ -153,13 +158,10 @@ class ProvisionerContractTests(unittest.TestCase):
         for service in ("postgres:", "setup:", "api:", "worker:"):
             self.assertIn(service, compose)
         self.assertIn(f'127.0.0.1:28100:8080', compose)
-        # The api joins crowdrelay-shared under the tenant slug alias — that
-        # name is what the control plane records as the management target and
-        # what the edge proxy dials; a recorded 127.0.0.1 is the caller's own
-        # loopback inside a container.
-        self.assertIn('crowdrelay-shared:', compose)
-        self.assertIn(f'aliases: ["{plan["tenantSlug"]}-api"]', compose)
-        self.assertIn('external: true', compose)
+        # The crowdrelay-shared alias attach is asserted by
+        # test_compose_attaches_api_to_edge_network_under_alias — this render
+        # passes no edge network, so the attachment must be absent.
+        self.assertNotIn("crowdrelay-shared", compose)
         # The running stack is pinned to immutable digests, never to the mutable
         # sha-<commit> tag the plan asked for.
         self.assertIn(PINNED["api"], compose)
@@ -531,6 +533,103 @@ class ProvisionerContractTests(unittest.TestCase):
         ):
             self.assertTrue(provisioner.claim_once(config))
         fail_claim.assert_not_called()
+
+    def test_claim_accepts_wrapped_and_direct_shapes(self):
+        # The server once returned the claim object directly instead of nested
+        # under "claim". The agent accepts both during the transition window.
+        claim = {"job": valid_job(), "claimToken": "token-1"}
+        config = type("ConfigStub", (), {"worker_id": "worker-1"})()
+        for response in ({"claim": claim}, claim):
+            with self.subTest(response=response):
+                with (
+                    mock.patch.object(provisioner, "api", return_value=response),
+                    mock.patch.object(provisioner, "process_claim") as process_claim,
+                ):
+                    self.assertTrue(provisioner.claim_once(config))
+                process_claim.assert_called_once_with(config, claim)
+
+    def test_claim_response_without_job_is_a_miss(self):
+        config = type("ConfigStub", (), {"worker_id": "worker-1"})()
+        for response in ({"claim": None}, {}):
+            with self.subTest(response=response):
+                with (
+                    mock.patch.object(provisioner, "api", return_value=response),
+                    mock.patch.object(provisioner, "process_claim") as process_claim,
+                ):
+                    self.assertFalse(provisioner.claim_once(config))
+                process_claim.assert_not_called()
+
+    @unittest.skipIf(yaml is None, "PyYAML not installed")
+    def test_render_compose_emits_parseable_yaml(self):
+        plan = provisioner.safe_plan(valid_job())
+        for edge_network in (None, "crowdrelay-shared"):
+            with self.subTest(edge_network=edge_network):
+                compose = provisioner.render_compose(
+                    plan, 28100, "postgres:18-alpine", PINNED, edge_network=edge_network
+                )
+                parsed = yaml.safe_load(compose)
+                self.assertIn("postgres", parsed["services"])
+                self.assertIn("worker", parsed["services"])
+
+    def test_compose_uses_postgres19_io_worker_settings(self):
+        plan = provisioner.safe_plan(valid_job())
+        compose = provisioner.render_compose(plan, 28100, "postgres:18-alpine", PINNED)
+        self.assertIn("io_min_workers=2", compose)
+        self.assertIn("io_max_workers=2", compose)
+        self.assertNotIn("io_workers=", compose)
+
+    @unittest.skipIf(yaml is None, "PyYAML not installed")
+    def test_compose_attaches_api_to_edge_network_under_alias(self):
+        plan = provisioner.safe_plan(valid_job())
+        compose = provisioner.render_compose(
+            plan, 28100, "postgres:18-alpine", PINNED, edge_network="crowdrelay-shared"
+        )
+        parsed = yaml.safe_load(compose)
+        api_networks = parsed["services"]["api"]["networks"]
+        self.assertIn("crowdrelay-shared", api_networks)
+        self.assertEqual(api_networks["crowdrelay-shared"]["aliases"], ["acme-api"])
+        self.assertEqual(parsed["networks"]["crowdrelay-shared"]["external"], True)
+        # Without an edge network there is no extra attachment at all.
+        plain = yaml.safe_load(
+            provisioner.render_compose(plan, 28100, "postgres:18-alpine", PINNED)
+        )
+        self.assertNotIn("networks", plain["services"]["api"])
+        self.assertNotIn("networks", plain)
+
+    def test_public_ip_never_publishes_loopback_or_private(self):
+        config = type("ConfigStub", (), {"public_ip": ""})()
+
+        class FakeSocket:
+            def __init__(self, address):
+                self.address = address
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return False
+            def connect(self, target):
+                pass
+            def getsockname(self):
+                return (self.address, 0)
+
+        for bad_address in ("127.0.1.1", "10.0.0.138", "192.168.1.5", ""):
+            with self.subTest(address=bad_address):
+                with mock.patch.object(
+                    provisioner.socket, "socket", return_value=FakeSocket(bad_address)
+                ):
+                    with self.assertRaises(provisioner.ProvisionError) as caught:
+                        provisioner.host_public_ip(config)
+                self.assertEqual(caught.exception.code, "public_ip_unknown")
+
+        # A globally routable outbound address is accepted when nothing is
+        # configured — detection works on hosts that hold their own public IP.
+        with mock.patch.object(
+            provisioner.socket, "socket", return_value=FakeSocket("152.70.162.119")
+        ):
+            self.assertEqual(provisioner.host_public_ip(config), "152.70.162.119")
+
+        # An explicit override always wins.
+        override = type("ConfigStub", (), {"public_ip": "152.70.162.119"})()
+        self.assertEqual(provisioner.host_public_ip(override), "152.70.162.119")
 
 
 if __name__ == "__main__":
