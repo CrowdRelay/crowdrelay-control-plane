@@ -224,9 +224,11 @@ function DetailLine(props: { step: ShowTimelineStep }) {
           : live ? `On ${live} surface${live === 1 ? '' : 's'}` : 'Not announced yet'
         const cb = d().crossbill as { state?: string; acts?: Array<{ name: string }>; cap_per_month?: number | null; deliveries_this_month?: number | null } | undefined
         if (cb?.state === 'automated_overlap' && cb.acts && cb.acts.length > 1) {
-          const cap = cb.cap_per_month != null ? ` · cap ${cb.cap_per_month}/mo${cb.deliveries_this_month != null ? `, ${cb.deliveries_this_month} sent` : ''}` : ''
+          const cap = cb.cap_per_month != null ? ` · cap ${cb.cap_per_month}/mo${cb.deliveries_this_month != null ? `, ${cb.deliveries_this_month} used` : ''}` : ''
           return `${base} · shared bill auto-pushed${cap}`
         }
+        if (cb?.state === 'unreciprocated' && cb.acts && cb.acts.length > 1)
+          return `${base} · shared bill — cross-bill blocked until our audience carries theirs`
         if (cb?.state === 'manual_ask' && cb.acts && cb.acts.length > 1) return `${base} · shared bill — ask is manual`
         return base
       }
