@@ -1415,7 +1415,13 @@ def process_claim(config: Config, claim: dict[str, Any]) -> None:
             )
         lease.check()
         compose_cmd(config, tenant_dir, project, "run", "--rm", "setup", timeout=240)
-        compose_cmd(config, tenant_dir, project, "up", "-d", "api", "worker", timeout=180)
+        # Shared projects have no postgres service: --remove-orphans tears down
+        # a stale postgres container left over from a dedicated era instead of
+        # leaving a writable second database running alongside the cluster.
+        up_args = ["up", "-d"]
+        if plan["placement"] == "shared_pg":
+            up_args.append("--remove-orphans")
+        compose_cmd(config, tenant_dir, project, *up_args, "api", "worker", timeout=180)
         lease.check()
         wait_http(port, config.health_timeout)
         wait_container_healthy(config, tenant_dir, project, "worker", config.health_timeout)
