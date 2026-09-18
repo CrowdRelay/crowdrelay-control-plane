@@ -130,3 +130,21 @@ export const confidencePercent = (basisPoints: number): string => {
   if (percent > 99 && percent < 100) return '> 99%'
   return `${Math.round(percent)}%`
 }
+
+export const currencyFractionDigits = (currency: string) => {
+  try {
+    return (
+      new Intl.NumberFormat(undefined, { style: 'currency', currency }).resolvedOptions()
+        .maximumFractionDigits ?? 2
+    )
+  } catch {
+    return 2
+  }
+}
+
+export const money = (minor: number, currency: string) =>
+  (minor / 10 ** currencyFractionDigits(currency)).toLocaleString(undefined, {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+  })

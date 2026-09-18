@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { confidencePercent, errorMessage } from '../lib/format'
+import { confidencePercent, errorMessage, money } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { EmptyState } from './ui/empty-state'
 import type { ReplyTriageEntry } from '../lib/types'
@@ -42,6 +42,7 @@ const reasonLabel = (reason: string | null) => {
     too_short: 'Too short',
     previous_do_not_contact: 'Previous DNC',
     unmatched_text: 'Unmatched',
+    negotiation_reply: 'Negotiation reply',
   }
   return reason ? (labels[reason] ?? reason) : null
 }
@@ -167,6 +168,11 @@ function ReplyRow(props: { entry: ReplyTriageEntry; slug: string; actionable?: b
       <small class="block text-muted-foreground text-sm">{props.entry.reply_text}</small>
       <Show when={reasonLabel(props.entry.human_review_reason)}>
         {r => <small class="block text-muted-foreground text-sm">reason: {r()}</small>}
+      </Show>
+      <Show when={props.entry.proposed_fee_minor != null && props.entry.proposed_currency != null}>
+        <small class="block text-sm text-foreground">
+          proposed {money(props.entry.proposed_fee_minor!, props.entry.proposed_currency!)} — confirm on the Negotiations tab
+        </small>
       </Show>
       <Show when={props.entry.matched_rules.length > 0}>
         <small class="block text-muted-foreground text-sm">rules: {props.entry.matched_rules.join(', ')}</small>
