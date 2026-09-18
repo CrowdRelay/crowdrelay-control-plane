@@ -2092,8 +2092,9 @@ export type TenantShowHelpersResponse = {
     starts_at: string
     city: string | null
     country_code: string | null
-    /** The slug an operator action needs to place a beacon in this city. */
-    city_slug: string | null
+    /** The canonical city id — what an admit action needs to place a
+        beacon there. */
+    city_id: string | null
   }
   degraded: Array<
     'city' | 'press' | 'rooms_and_promoters' | 'communities' | 'cold_rooms' | 'bill_mates' | 'venue_channel' | 'photographers'
@@ -2161,6 +2162,8 @@ export type TenantShowHelpersResponse = {
     /** The governor remembers a touch — the band has written before. */
     contacted_before: boolean
   }>
+  /** Sections that hit the shortlist cap — "40 shown" is not "40 exist". */
+  truncated: string[]
 }
 
 export type VehicleProfile = {
@@ -2993,7 +2996,12 @@ export interface AudiencePlaceInput {
 /// the public city list returns.
 export interface BeaconUpsertInput {
   beaconId?: string
+  /** The canonical city id — preferred over the slug, whose resolution
+      reads a fan-signal snapshot foreign and low-signal cities lack. */
+  cityId?: string
   citySlug?: string
+  /** Optimistic-concurrency version for edits; omitted (→ 0) for creates. */
+  expectedVersion?: number
   beaconKind: string
   displayName: string
   contactEmail?: string

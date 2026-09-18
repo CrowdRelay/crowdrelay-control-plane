@@ -4719,7 +4719,7 @@ async fn upsert_beacon(
             .unwrap_or("unknown"),
         &headers,
         &result,
-        None,
+        body.get("expected_version").and_then(Value::as_u64),
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
