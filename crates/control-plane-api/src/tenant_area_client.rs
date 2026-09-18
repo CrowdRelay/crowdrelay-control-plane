@@ -571,6 +571,10 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/recipients",
                 )
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/decisions/", "/evidence")
+                // What the action actually sent — the words and the
+                // addresses. Read-only like the ledger entry beside it;
+                // upstream 404s when the action never emitted.
+                || uuid_segment_between(path, "/v1/control-plane/autopilot/actions/", "/sent")
                 || uuid_segment_between(
                     path,
                     "/v1/control-plane/community-intelligence/communities/",
@@ -1631,6 +1635,20 @@ mod tests {
         assert!(valid_operations_request(
             "GET",
             "/v1/control-plane/ops/operations/request-1234"
+        ));
+        // The sent record: what an action said and to whom. UUID-bounded like
+        // the approve/cancel siblings; a non-uuid id or a missing tail fails.
+        assert!(valid_operations_request(
+            "GET",
+            &format!("/v1/control-plane/autopilot/actions/{id}/sent")
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/autopilot/actions/not-a-uuid/sent"
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            &format!("/v1/control-plane/autopilot/actions/{id}/sent/extra")
         ));
         // 4V.6b: the shared night — the lens read and the public link fetch.
         assert!(valid_operations_request(

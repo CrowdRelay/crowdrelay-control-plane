@@ -161,6 +161,23 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
         not_reported.push("brain");
         Value::Null
     });
+    // The approval queue's losses — asks that reached their deadline — and
+    // the outward sends that failed in the window. Both are objects
+    // (`{window_days, items, total, …}`), not lists: an absent one is the
+    // tenant not publishing the section, which is not the same fact as a
+    // window with nothing lost. Null + named, never an empty list nobody
+    // counted.
+    let lapsed_approvals = snapshot
+        .get("lapsed_approvals")
+        .cloned()
+        .unwrap_or_else(|| {
+            not_reported.push("lapsed_approvals");
+            Value::Null
+        });
+    let failed_sends = snapshot.get("failed_sends").cloned().unwrap_or_else(|| {
+        not_reported.push("failed_sends");
+        Value::Null
+    });
 
     expect_object(summary, "summary")?;
     expect_array(&alerts, "alerts")?;
@@ -173,6 +190,12 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     expect_array(&unpublished_drafts, "unpublished_drafts")?;
     if !brain.is_null() {
         expect_object(&brain, "brain")?;
+    }
+    if !lapsed_approvals.is_null() {
+        expect_object(&lapsed_approvals, "lapsed_approvals")?;
+    }
+    if !failed_sends.is_null() {
+        expect_object(&failed_sends, "failed_sends")?;
     }
 
     Ok(json!({
@@ -190,6 +213,8 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
         "awaiting_approval": awaiting_approval,
         "unpublished_drafts": unpublished_drafts,
         "brain": brain,
+        "lapsed_approvals": lapsed_approvals,
+        "failed_sends": failed_sends,
         // Sections whose value above is a placeholder, not a measurement.
         "not_reported": not_reported,
     }))
@@ -226,6 +251,17 @@ mod tests {
                 "days_observed": 12,
                 "quiet_cycles": 3,
                 "latest_wait_reason": "WAIT wins: VOI=0.85 > best_action_value=0.00"
+            },
+            "lapsed_approvals": {
+                "window_days": 7,
+                "items": [{"action_kind": "gig_proposal", "context": "c", "subject_kind": "gig", "cause": "approval_expired", "finished_at": "2026-09-01T10:00:00Z", "approval_expires_at": "2026-09-01T08:00:00Z", "reason": "worth the ask"}],
+                "total": 1,
+                "expiring_within_24h": 2
+            },
+            "failed_sends": {
+                "window_days": 7,
+                "items": [{"action_id": "a", "action_kind": "gig_proposal", "context": "c", "error_kind": "executor_unavailable", "finished_at": "2026-09-01T11:00:00Z", "attempt_count": 3, "recipients": ["promoter@club.example"]}],
+                "total": 1
             },
         })
     }
@@ -313,6 +349,36 @@ mod tests {
         let projected = project("virya", &older).expect("a snapshot without brain still projects");
         assert_eq!(projected["brain"], Value::Null);
         assert_eq!(projected["not_reported"], json!(["brain"]));
+    }
+
+    #[test]
+    fn unreported_queue_losses_are_null_and_named_not_empty_lists() {
+        // A CrowdRelay that predates lapsed_approvals/failed_sends reports
+        // neither. Substituting an empty list is the panel claiming the queue
+        // lost nothing when nobody counted — null + not_reported is the
+        // honest shape, the same convention `brain` uses.
+        let mut older = snapshot();
+        let object = older.as_object_mut().expect("object");
+        object.remove("lapsed_approvals");
+        object.remove("failed_sends");
+        let projected = project("virya", &older).expect("an older snapshot still projects");
+        assert_eq!(projected["lapsed_approvals"], Value::Null);
+        assert_eq!(projected["failed_sends"], Value::Null);
+        assert_eq!(
+            projected["not_reported"],
+            json!(["lapsed_approvals", "failed_sends"]),
+            "the placeholders must be distinguishable from measurements"
+        );
+    }
+
+    #[test]
+    fn rejects_lapsed_approvals_of_the_wrong_json_type() {
+        let mut wrong = snapshot();
+        wrong["lapsed_approvals"] = json!([]);
+        assert!(project("virya", &wrong).is_err());
+        let mut also_wrong = snapshot();
+        also_wrong["failed_sends"] = json!("none");
+        assert!(project("virya", &also_wrong).is_err());
     }
 
     #[test]

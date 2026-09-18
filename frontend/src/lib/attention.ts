@@ -1,5 +1,5 @@
 import { request } from './api'
-import type { DeliveryItem, EcosystemOverview, OperationsSummary, OpsAlert, OutboxItem, PendingActionSummary, PushDeliveryItem, ReconciliationFinding } from './types'
+import type { DeliveryItem, EcosystemOverview, FailedSends, LapsedApprovals, OperationsSummary, OpsAlert, OutboxItem, PendingActionSummary, PushDeliveryItem, ReconciliationFinding } from './types'
 
 // Attention subpage read model. One request, assembled by CrowdRelay and
 // re-projected by the Control Plane section by section.
@@ -31,6 +31,13 @@ export type TenantAttentionReadModel = {
   /// the tenant does not report a self-assessment; the page prints
   /// "not reported", never a healthy-looking verdict nobody measured.
   brain?: BrainSelfAssessment | null
+  /// The approval queue's losses — asks that reached their deadline, and
+  /// what is about to. `null` (or absent on an older tenant) means the
+  /// tenant does not report the queue's losses; `not_reported` names it.
+  lapsed_approvals?: LapsedApprovals | null
+  /// Outward sends that failed in the window, named — the recipients the
+  /// counts cannot identify. Same null/not_reported convention as above.
+  failed_sends?: FailedSends | null
   /// Sections whose value above is a placeholder the Control Plane
   /// substituted, not something the tenant measured. An empty list next to a
   /// zero means the tenant really has nothing waiting; `awaiting_approval`

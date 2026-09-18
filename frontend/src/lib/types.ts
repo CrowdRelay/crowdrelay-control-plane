@@ -527,6 +527,82 @@ export type ContentPipeline = {
   revision_trend?: RevisionTrend | null
 }
 
+/// One ask that is past answering — the approval queue's other half. The
+/// inbox lists what is pending; this is what reached its deadline.
+export type LapsedApproval = {
+  action_kind: string
+  context: string
+  subject_kind: string
+  /// `approval_expired`, `insufficient_evidence` or `awaiting_sweep` — three
+  /// deaths, three different remedies.
+  cause: string
+  /// When the sweep cancelled it. `null` for `awaiting_sweep`, which has not
+  /// been cancelled yet — absent, not zero and not "now".
+  finished_at: string | null
+  /// When the window closed. `null` when the row predates the column.
+  approval_expires_at: string | null
+  /// The decision's own sentence — why the machine proposed this at all.
+  reason: string
+}
+
+/// What lapsed in the window, and the pressure on the queue right now.
+export type LapsedApprovals = {
+  window_days: number
+  items: LapsedApproval[]
+  /// Every lapse in the window, including any the capped list omitted.
+  total: number
+  /// Pending asks whose window closes within a day — the forward half.
+  expiring_within_24h: number
+}
+
+/// One outward send that failed, named.
+export type FailedSend = {
+  action_id: string
+  action_kind: string
+  context: string
+  /// `executor_unavailable`, a provider's own error kind, whatever was
+  /// recorded. Named rather than counted.
+  error_kind: string | null
+  finished_at: string | null
+  attempt_count: number
+  /// Who never heard from the tenant. Empty when the action failed before
+  /// it emitted anything — nobody was written to, a different failure.
+  recipients: string[]
+}
+
+/// The failed sends of the window, and how many there were in total.
+export type FailedSends = {
+  window_days: number
+  items: FailedSend[]
+  /// Every failed send in the window, including any the capped list omitted.
+  total: number
+}
+
+/// One action, as the world outside received it — the words it carried and
+/// the addresses it went to. A 404 upstream means the action never emitted:
+/// nothing left, which is itself the answer.
+export type SentRecord = {
+  action_id: string
+  action_kind: string
+  status: string
+  finished_at: string | null
+  /// The executor's own word for what happened, when one reported.
+  executor_status: string | null
+  /// The provider's identifier for the thing that was sent — a message id,
+  /// a post id. What a support request from the other end would quote.
+  provider_reference: string | null
+  /// `crowdrelay.gig.outreach_requested` and friends. `null` when the action
+  /// never emitted, which is itself the answer: nothing left.
+  event_type: string | null
+  emitted_at: string | null
+  /// The subject as it was sent, when the payload carried a draft.
+  subject: string | null
+  /// The body as it was sent.
+  body: string | null
+  /// Every address the emission named, in the order it named them.
+  recipients: string[]
+}
+
 /// Lightweight summary of a pending autopilot action — just the fields the
 /// AttentionInbox needs to render an approval item. NOT the full
 /// PendingAutopilotAction (which includes payload, briefing, assignee,
