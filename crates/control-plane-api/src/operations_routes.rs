@@ -648,6 +648,20 @@ fn array_no_store(value: Value, endpoint: &'static str) -> Result<Response, ApiE
     Ok(json_no_store(value))
 }
 
+// Proxied mutations have no contract body to validate: CrowdRelay answers
+// them with either a JSON object/array or an empty 204. The client maps that
+// 204 to `Value::Null`, so a mutation handler that pushed Null through
+// `object_no_store` reported a healthy mutation as a 503 "invalid shape".
+fn mutation_no_store(value: Value, endpoint: &'static str) -> Result<Response, ApiError> {
+    match value {
+        Value::Null => Ok(StatusCode::NO_CONTENT.into_response()),
+        Value::Object(_) | Value::Array(_) => Ok(json_no_store(value)),
+        _ => Err(ApiError::Unavailable(format!(
+            "tenant operations {endpoint} returned an invalid JSON shape"
+        ))),
+    }
+}
+
 async fn call(
     state: &AppState,
     slug: &str,
@@ -1879,7 +1893,7 @@ async fn decide_portfolio_amplification(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "portfolio edge decision")
+    mutation_no_store(value, "portfolio edge decision")
 }
 
 /// Upserts one brand override; upstream validates the key allowlist and
@@ -1961,7 +1975,7 @@ async fn update_portfolio_setting(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "portfolio setting update")
+    mutation_no_store(value, "portfolio setting update")
 }
 
 /// Registers a new audience block with its acquisition origin.
@@ -2050,7 +2064,7 @@ async fn upsert_audience_place(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "audience graph place upsert")
+    mutation_no_store(value, "audience graph place upsert")
 }
 
 /// Registers a scan of communities in one call.
@@ -2091,7 +2105,7 @@ async fn import_audience_places(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "audience graph place import")
+    mutation_no_store(value, "audience graph place import")
 }
 
 /// One-off intent override for the plan read.
@@ -2240,7 +2254,7 @@ async fn create_portfolio_fanbase(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "portfolio fanbase create")
+    mutation_no_store(value, "portfolio fanbase create")
 }
 
 /// Pushes one provider batch through admission on the upstream tenant.
@@ -2284,7 +2298,7 @@ async fn ingest_portfolio_fanbase(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "portfolio fanbase ingest")
+    mutation_no_store(value, "portfolio fanbase ingest")
 }
 
 /// Read-only discovery of webhook endpoints already configured in the
@@ -2296,7 +2310,7 @@ async fn discovered_notifier_endpoints(
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let value = discovered_notifier_endpoints_value(&state, &slug, &headers).await?;
-    object_no_store(value, "discovered notifier endpoints")
+    mutation_no_store(value, "discovered notifier endpoints")
 }
 
 /// The same read, without the response wrapper.
@@ -2589,7 +2603,7 @@ async fn create_discord_connection(
     )
     .await?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "discord connection")
+    mutation_no_store(value, "discord connection")
 }
 
 async fn create_telegram_connection(
@@ -2610,7 +2624,7 @@ async fn create_telegram_connection(
     )
     .await?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "telegram connection")
+    mutation_no_store(value, "telegram connection")
 }
 
 async fn create_lastfm_connection(
@@ -2631,7 +2645,7 @@ async fn create_lastfm_connection(
     )
     .await?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "lastfm connection")
+    mutation_no_store(value, "lastfm connection")
 }
 
 async fn create_deezer_connection(
@@ -2652,7 +2666,7 @@ async fn create_deezer_connection(
     )
     .await?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "deezer connection")
+    mutation_no_store(value, "deezer connection")
 }
 
 async fn create_discogs_connection(
@@ -2673,7 +2687,7 @@ async fn create_discogs_connection(
     )
     .await?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "discogs connection")
+    mutation_no_store(value, "discogs connection")
 }
 
 async fn create_bluesky_connection(
@@ -2694,7 +2708,7 @@ async fn create_bluesky_connection(
     )
     .await?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "bluesky connection")
+    mutation_no_store(value, "bluesky connection")
 }
 
 async fn create_bandcamp_connection(
@@ -2715,7 +2729,7 @@ async fn create_bandcamp_connection(
     )
     .await?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "bandcamp connection")
+    mutation_no_store(value, "bandcamp connection")
 }
 
 async fn create_youtube_connection(
@@ -2736,7 +2750,7 @@ async fn create_youtube_connection(
     )
     .await?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "youtube connection")
+    mutation_no_store(value, "youtube connection")
 }
 
 async fn create_facebook_connection(
@@ -2757,7 +2771,7 @@ async fn create_facebook_connection(
     )
     .await?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "facebook connection")
+    mutation_no_store(value, "facebook connection")
 }
 
 async fn create_instagram_connection(
@@ -2778,7 +2792,7 @@ async fn create_instagram_connection(
     )
     .await?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "instagram connection")
+    mutation_no_store(value, "instagram connection")
 }
 
 async fn create_soundcloud_connection(
@@ -2799,7 +2813,7 @@ async fn create_soundcloud_connection(
     )
     .await?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "soundcloud connection")
+    mutation_no_store(value, "soundcloud connection")
 }
 
 async fn create_reddit_connection(
@@ -2820,7 +2834,7 @@ async fn create_reddit_connection(
     )
     .await?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "reddit connection")
+    mutation_no_store(value, "reddit connection")
 }
 
 // ---------------------------------------------------------------------------
@@ -3007,7 +3021,7 @@ async fn declare_growth_objective(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "growth objective declare")
+    mutation_no_store(value, "growth objective declare")
 }
 
 async fn retire_growth_objective(
@@ -3041,7 +3055,7 @@ async fn retire_growth_objective(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "growth objective retire")
+    mutation_no_store(value, "growth objective retire")
 }
 
 /// The real-material panel's list: every trusted content source the content
@@ -3137,7 +3151,7 @@ async fn upsert_content_source(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "content source upsert")
+    mutation_no_store(value, "content source upsert")
 }
 
 async fn growth_posture(
@@ -3215,7 +3229,7 @@ async fn gdrive_scan(
         None,
     )
     .await?;
-    object_no_store(value, "gdrive scan")
+    mutation_no_store(value, "gdrive scan")
 }
 
 /// The promote body: `destination` picks fan or beacon, `kind` names the
@@ -3319,7 +3333,7 @@ async fn drive_contact_outcome(
         None,
     )
     .await;
-    object_no_store(value, "drive contact outcome")
+    mutation_no_store(value, "drive contact outcome")
 }
 
 /// §4h-12 — the Listing tab. One read returns everything it renders: the
@@ -3445,7 +3459,7 @@ async fn listing_write(
         None,
     )
     .await;
-    object_no_store(value, "listing write")
+    mutation_no_store(value, "listing write")
 }
 
 async fn representation_targets(
@@ -3504,7 +3518,7 @@ async fn upsert_representation_target(
         None,
     )
     .await;
-    object_no_store(value, "representation target upsert")
+    mutation_no_store(value, "representation target upsert")
 }
 
 /// The approach: the band picks a consented agent or label; the request
@@ -3550,7 +3564,7 @@ async fn request_representation_approach(
         None,
     )
     .await;
-    object_no_store(value, "representation approach")
+    mutation_no_store(value, "representation approach")
 }
 
 async fn set_growth_posture(
@@ -3588,7 +3602,7 @@ async fn set_growth_posture(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "growth posture update")
+    mutation_no_store(value, "growth posture update")
 }
 
 async fn acquisition_channels(
@@ -3875,7 +3889,7 @@ async fn tenant_show_acts_replace(
     if value.is_null() {
         return Ok(StatusCode::NO_CONTENT.into_response());
     }
-    object_no_store(value, "show bill")
+    mutation_no_store(value, "show bill")
 }
 
 #[derive(Debug, Deserialize)]
@@ -3941,7 +3955,7 @@ async fn tenant_show_counterparty(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "show counterparty")
+    mutation_no_store(value, "show counterparty")
 }
 
 // ── The shared night (4V.6b) ─────────────────────────────────────────
@@ -4025,7 +4039,7 @@ async fn tenant_night_contribution(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "shared night contribution")
+    mutation_no_store(value, "shared night contribution")
 }
 
 /// `DELETE …/contributions/{kind}` — withdraw one kind. Upstream keeps the
@@ -4067,7 +4081,7 @@ async fn tenant_night_contribution_revoke(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "shared night")
+    mutation_no_store(value, "shared night")
 }
 
 /// `POST …/organiser-link` — mint the night's link. Upstream revokes the
@@ -4103,7 +4117,7 @@ async fn tenant_night_organiser_link(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "shared night organiser link")
+    mutation_no_store(value, "shared night organiser link")
 }
 
 /// `DELETE …/organiser-link` — kill the live link. Upstream restricts this
@@ -4137,7 +4151,7 @@ async fn tenant_night_organiser_link_revoke(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "shared night")
+    mutation_no_store(value, "shared night")
 }
 
 /// `POST …/acts/{act_slug}/confirm` — the billed act's own workspace
@@ -4176,7 +4190,7 @@ async fn tenant_night_act_confirm(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "shared night")
+    mutation_no_store(value, "shared night")
 }
 
 /// Routes a bearer token reaches without a session — the shared night's
@@ -4287,7 +4301,7 @@ async fn confirm_outreach_candidate(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "outreach candidate confirm")
+    mutation_no_store(value, "outreach candidate confirm")
 }
 
 async fn booking_candidates(
@@ -4336,7 +4350,7 @@ async fn confirm_booking_candidate(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "booking candidate confirm")
+    mutation_no_store(value, "booking candidate confirm")
 }
 
 // ---------------------------------------------------------------------------
@@ -4431,7 +4445,7 @@ async fn resolve_beacon_press_request(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "beacon press request resolve")
+    mutation_no_store(value, "beacon press request resolve")
 }
 
 async fn beacon_press_assets(
@@ -4618,7 +4632,7 @@ async fn upsert_beacon(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "beacon upsert")
+    mutation_no_store(value, "beacon upsert")
 }
 
 /// Import SubmitHub Activity CSV as unverified beacons.
@@ -4719,7 +4733,7 @@ async fn import_submithub_csv(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "submithub import")
+    mutation_no_store(value, "submithub import")
 }
 
 /// Runs a beacon-network action: import researched contacts, approve a
@@ -4764,7 +4778,7 @@ async fn beacon_network_action(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "beacon network action")
+    mutation_no_store(value, "beacon network action")
 }
 
 /// Invites many beacons to Signal in one call.
@@ -4805,7 +4819,7 @@ async fn batch_invite_beacons(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "beacon batch invite")
+    mutation_no_store(value, "beacon batch invite")
 }
 
 async fn invite_beacon(
@@ -4840,7 +4854,7 @@ async fn invite_beacon(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "beacon invite")
+    mutation_no_store(value, "beacon invite")
 }
 
 /// Pauses, revokes or restores a beacon's Signal profile.
@@ -4876,7 +4890,7 @@ async fn set_beacon_state(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "beacon state")
+    mutation_no_store(value, "beacon state")
 }
 
 /// Records that a beacon answered, and how.
@@ -4915,7 +4929,7 @@ async fn record_beacon_reply(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "beacon reply")
+    mutation_no_store(value, "beacon reply")
 }
 
 async fn create_beacon_release_campaign(
@@ -4950,7 +4964,7 @@ async fn create_beacon_release_campaign(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "beacon release campaign create")
+    mutation_no_store(value, "beacon release campaign create")
 }
 
 async fn launch_beacon_release_campaign(
@@ -4984,7 +4998,7 @@ async fn launch_beacon_release_campaign(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "beacon release campaign launch")
+    mutation_no_store(value, "beacon release campaign launch")
 }
 
 async fn close_beacon_release_campaign(
@@ -5018,7 +5032,7 @@ async fn close_beacon_release_campaign(
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "beacon release campaign close")
+    mutation_no_store(value, "beacon release campaign close")
 }
 
 async fn beacon_release_recipients(
@@ -5117,7 +5131,7 @@ async fn set_community_membership(
     )
     .await?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "community membership")
+    mutation_no_store(value, "community membership")
 }
 
 /// An introduction draft for a community, built from what was observed of it.
