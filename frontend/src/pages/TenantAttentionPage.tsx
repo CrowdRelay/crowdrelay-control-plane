@@ -13,6 +13,7 @@ import type { OperationsSummary, ReconciliationFinding } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
 import { UnpublishedDraftsPanel } from '../components/UnpublishedDraftsPanel'
+import { LapsedApprovalsPanel, FailedSendsPanel } from '../components/QueueLossesPanel'
 import { AttentionInbox } from '../components/AttentionInbox'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { SectionFailureCard } from '../components/SectionFailureCard'
@@ -354,6 +355,19 @@ export function TenantAttentionPage() {
           {/* The queue the operator, not the system, is blocking. */}
           <UnpublishedDraftsPanel
             drafts={attention.data?.unpublished_drafts ?? []}
+            notReported={attention.data?.not_reported ?? []}
+          />
+
+          {/* The queue's other half — what the inbox above already lost. The
+              pending list shows what is waiting; these show what reached its
+              deadline and which sends never arrived, named by who missed out. */}
+          <LapsedApprovalsPanel
+            lapsed={attention.data?.lapsed_approvals}
+            notReported={attention.data?.not_reported ?? []}
+          />
+          <FailedSendsPanel
+            slug={params().slug}
+            failed={attention.data?.failed_sends}
             notReported={attention.data?.not_reported ?? []}
           />
 
