@@ -21,6 +21,10 @@ use crate::{
 
 const PRIVATE_NO_STORE: &str = "private, no-store";
 const MAX_OPERATIONS_BODY_BYTES: usize = 8 * 1024;
+/// The sheet upload forwards up to 2 MiB of CSV inside a JSON envelope —
+/// the router-wide 8 KiB would refuse every real sheet before the
+/// upstream's own bounds could answer.
+const MAX_UPLOAD_BODY_BYTES: usize = 2 * 1024 * 1024 + 64 * 1024;
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -359,7 +363,7 @@ pub fn router() -> Router<AppState> {
         // passes through verbatim; upstream parses, extracts and stages.
         .route(
             "/tenants/{slug}/operations/gdrive-contacts/upload",
-            axum::routing::post(gdrive_upload),
+            axum::routing::post(gdrive_upload).layer(DefaultBodyLimit::max(MAX_UPLOAD_BODY_BYTES)),
         )
         .route(
             "/tenants/{slug}/operations/gdrive-contacts/{contact_id}/promote",
@@ -3256,6 +3260,9 @@ async fn gdrive_scan(
     Path(slug): Path<String>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
+    // POSTs forward a key or never leave this plane — a scan without one
+    // was refused before it could run.
+    let idempotency = idempotency_key(&headers)?.to_owned();
     let (_, value) = call(
         &state,
         &slug,
@@ -3263,7 +3270,7 @@ async fn gdrive_scan(
         "/v1/control-plane/gdrive/scan",
         None,
         &headers,
-        None,
+        Some(&idempotency),
     )
     .await?;
     mutation_no_store(value, "gdrive scan")

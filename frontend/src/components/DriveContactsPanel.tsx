@@ -29,11 +29,15 @@ const KIND_LABELS: Record<string, string> = {
   endorsement: 'Endorsement',
   creator: 'Creator',
   promoter: 'Promoter',
+  booking_agent: 'Booking agent',
+  talent_buyer: 'Talent buyer',
+  agent: 'Agent',
+  label: 'Label',
   venue: 'Venue',
   festival: 'Festival',
 }
 
-const BEACON_KINDS = ['press', 'radio', 'playlist', 'media_patronage', 'endorsement', 'creator', 'promoter', 'venue', 'festival'] as const
+const BEACON_KINDS = ['press', 'radio', 'playlist', 'media_patronage', 'endorsement', 'creator', 'promoter', 'venue', 'festival', 'booking_agent', 'talent_buyer', 'agent', 'label'] as const
 const BEACON_KIND_SET: ReadonlySet<string> = new Set(BEACON_KINDS)
 const BOOKING_KINDS: ReadonlySet<string> = new Set(['promoter', 'venue', 'festival'])
 
@@ -186,9 +190,11 @@ export function DriveContactsPanel(props: { slug: string }) {
         const city = kind && BOOKING_KINDS.has(kind)
           ? (beaconCity()[contact.id]?.trim() || undefined)
           : undefined
-        await api.promoteDriveContact(props.slug, contact.id, destination, kind, city)
+        const result = await api.promoteDriveContact(props.slug, contact.id, destination, kind, city)
         setNotice(destination === 'fan'
-          ? `${contact.email} is now a pending fan — the double opt-in email is on its way.`
+          ? (result.opt_in_emailed === false
+            ? `${contact.email} is on the fan list — the opt-in email already left recently, so nothing new was sent.`
+            : `${contact.email} is now a pending fan — the double opt-in email is on its way.`)
           : BOOKING_KINDS.has(kind ?? '')
             ? (authState.isPlatformLevel()
               ? `${contact.email} joined the booking queue — confirm it under booking supply to make it a target.`

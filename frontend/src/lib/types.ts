@@ -325,6 +325,15 @@ export type DualRoleContact = {
   invitable: boolean
   /** Why not, when not — a sentence, not a flag. */
   hold_reason: string | null
+  /** The band ever had an answer — a reply outranks a score. */
+  has_replied: boolean
+  /** Marked do-not-contact on the beacon or the governor. */
+  do_not_contact: boolean
+  accepts_outreach: boolean
+  /** They were on the list and left — the hold that never expires. */
+  previously_opted_out: boolean
+  /** Their double opt-in is already in their inbox, unanswered. */
+  opt_in_pending: boolean
 }
 
 export type DualRoleReview = {

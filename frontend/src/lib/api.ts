@@ -635,7 +635,7 @@ export const api = {
       body: JSON.stringify({ file_name: fileName, csv }),
     }),
   promoteDriveContact: (slug: string, contactId: string, destination: 'fan' | 'beacon', kind?: string, city?: string) =>
-    request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/gdrive-contacts/${contactId}/promote`, {
+    request<{ fan_outcome?: string; beacon_outcome?: string; opt_in_emailed?: boolean }>(`/tenants/${encodeURIComponent(slug)}/operations/gdrive-contacts/${contactId}/promote`, {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
       body: JSON.stringify({ destination, kind: kind ?? null, city: city ?? null }),
