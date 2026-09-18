@@ -1,6 +1,6 @@
 import { For, Show, createSignal } from 'solid-js'
 import { NativeSelect } from './ui/native-select'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
+import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { PanelTitle } from './layout'
@@ -9,9 +9,8 @@ import { EmptyState } from './ui/empty-state'
 import { SkeletonSection } from './Skeleton'
 import { SectionFailureCard } from './SectionFailureCard'
 import { Card } from './app/card'
-import { Badge } from './app/badge'
-import { Button } from './app/button'
-import type { GigPlanApproval, GigPlanProposal, GigPlanReason, GigPlanReasonScore } from '../lib/types'
+import type { GigPlanReasonScore } from '../lib/types'
+import { GigPlanPassedOverRow, GigPlanProposalCard, useGigPlanApproval } from './GigPlanProposalCard'
 
 // What to book next, and why — the output of 4G.
 //
@@ -23,34 +22,9 @@ import type { GigPlanApproval, GigPlanProposal, GigPlanReason, GigPlanReasonScor
 //
 // The approve click is the whole approval — upstream recomputes the proposal
 // against current evidence rather than trusting this payload, so a stale
-// screen cannot write a letter the data no longer supports.
-
-const count = (value: number | null | undefined) =>
-  value == null ? '—' : value.toLocaleString()
-
-/** A reason phrased for the band reading it. The kind tag is stable — the
- *  track record is scored in the same vocabulary, so the phrasing here must
- *  never become the only place a reason exists. */
-const reasonText = (reason: GigPlanReason): string => {
-  switch (reason.kind) {
-    case 'comparable_acts_played_here':
-      return `acts like yours have played this room — ${reason.count} of its last ${reason.of_shows} shows`
-    case 'reachable_audience':
-      return `${reason.reachable.toLocaleString()} people here asked to hear from you`
-    case 'room_draws':
-      return `the room itself draws about ${reason.typical_draw.toLocaleString()}`
-    case 'never_played_but_has_fans':
-      return `you have never played here and ${reason.reachable.toLocaleString()} people already listen`
-    case 'overdue_return':
-      return `${reason.months} months since you played here and ${reason.active_30d.toLocaleString()} people are still active`
-    case 'co_bill_adds_audience':
-      return `${reason.act} on the bill would reach ${reason.adds_reachable.toLocaleString()} more people`
-    case 'warm_promoter':
-      return `${reason.name} knows the band and answered last time`
-    case 'room_is_active':
-      return `the room had a show ${reason.days_since_last_event} days ago — it is programming now`
-  }
-}
+// screen cannot write a letter the data no longer supports. The card and the
+// approval flow are shared with the city page (GigPlanProposalCard) so the
+// same click works from both places with the same idempotency discipline.
 
 /** One line of the track record: how a reason has actually performed. */
 const scoreText = (score: GigPlanReasonScore) =>
@@ -68,28 +42,9 @@ const REASON_LABEL: Record<string, string> = {
 }
 
 export function GigPlanPanel(props: { slug: string }) {
-  const queryClient = useQueryClient()
-  const [approvingCityId, setApprovingCityId] = createSignal<string | null>(null)
-  const [approvalResult, setApprovalResult] = createSignal<{ cityId: string; result: GigPlanApproval } | null>(null)
-  const [approveError, setApproveError] = createSignal<{ cityId: string; message: string } | null>(null)
-  const [copiedCity, setCopiedCity] = createSignal<string | null>(null)
+  const { approve, approvingCityId, approvalResult, approveError } = useGigPlanApproval(() => props.slug)
   // '' means the stored intent — no override rides the request.
   const [intentOverride, setIntentOverride] = createSignal('')
-  const [copyFailed, setCopyFailed] = createSignal<string | null>(null)
-
-  // One key per proposal for the life of the panel. A retry after a timeout —
-  // where the server may already have committed — must carry the same key or
-  // it lands as a second letter to the same promoters; a refusal stores
-  // nothing upstream, so reusing the key after a refusal simply re-evaluates.
-  const approvalKeys = new Map<string, string>()
-  const keyFor = (cityId: string) => {
-    let key = approvalKeys.get(cityId)
-    if (!key) {
-      key = crypto.randomUUID()
-      approvalKeys.set(cityId, key)
-    }
-    return key
-  }
 
   // The intents a band may state, from the planner's own vocabulary — the
   // console never ships a copy that could stop matching.
@@ -106,42 +61,6 @@ export function GigPlanPanel(props: { slug: string }) {
     refetchOnWindowFocus: false,
     staleTime: 30_000,
   }))
-
-  const approve = useMutation(() => ({
-    mutationFn: (proposal: GigPlanProposal) =>
-      api.approveGigPlan(props.slug, proposal.city_id, keyFor(proposal.city_id)),
-    onMutate: (proposal) => {
-      setApprovingCityId(proposal.city_id)
-      setApprovalResult(null)
-      setApproveError(null)
-    },
-    onSuccess: async (result, proposal) => {
-      setApprovingCityId(null)
-      setApprovalResult({ cityId: proposal.city_id, result })
-      // A queued approval changes what the plan can honestly say next —
-      // the city is no longer a gap while the letter is out.
-      await queryClient.invalidateQueries({ queryKey: ['gig-plan', props.slug] })
-    },
-    onError: (error, proposal) => {
-      setApprovingCityId(null)
-      setApproveError({
-        cityId: proposal.city_id,
-        message: error instanceof Error ? error.message : 'Approval failed',
-      })
-    },
-  }))
-
-  const copyBrief = (cityId: string, brief: string) => {
-    const clipboard = navigator.clipboard
-    if (!clipboard) {
-      setCopyFailed(cityId)
-      return
-    }
-    void clipboard.writeText(brief).then(() => {
-      setCopiedCity(cityId)
-      setTimeout(() => setCopiedCity(null), 2000)
-    }).catch(() => setCopyFailed(cityId))
-  }
 
   return (
     <Card class="mb-4">
@@ -222,99 +141,15 @@ export function GigPlanPanel(props: { slug: string }) {
               <div class="mt-3 space-y-3">
                 <For each={data().proposals}>
                   {proposal => (
-                    <div class="rounded-md border border-border p-3">
-                      <div class="flex items-start justify-between gap-3">
-                        <div>
-                          <span class="font-medium text-foreground">{proposal.city_name}</span>
-                          <span class="ml-2 text-sm text-muted-foreground">at {proposal.venue}</span>
-                        </div>
-                        <Badge variant="muted">
-                          {count(proposal.reach.reachable)} reachable
-                          <Show when={proposal.reach.added_by_co_bill > 0}>
-                            {` · +${count(proposal.reach.added_by_co_bill)} co-bill`}
-                          </Show>
-                        </Badge>
-                      </div>
-
-                      {/* Why, before who. */}
-                      <ul class="mt-2 space-y-1">
-                        <For each={proposal.reasons}>
-                          {reason => (
-                            <li class="text-sm text-foreground before:mr-2 before:text-muted-foreground before:content-['—']">
-                              {reasonText(reason)}
-                            </li>
-                          )}
-                        </For>
-                      </ul>
-
-                      <p class="mt-2 text-xs text-muted-foreground">{proposal.reach.basis}</p>
-                      <p class="mt-1 text-xs text-muted-foreground italic">{proposal.fits_intent}</p>
-
-                      {/* What the planner does not know, stated before the
-                          names — approving means owning these. */}
-                      <Show when={proposal.caveats.length > 0}>
-                        <ul class="mt-2 space-y-1">
-                          <For each={proposal.caveats}>
-                            {caveat => (
-                              <li class="text-xs text-amber-400/90 before:mr-2 before:content-['⚠']">
-                                {caveat}
-                              </li>
-                            )}
-                          </For>
-                        </ul>
-                      </Show>
-
-                      <div class="mt-3 border-t border-border pt-2">
-                        <p class="text-xs text-muted-foreground">
-                          Write to: {proposal.contact.join(', ')}
-                        </p>
-                        <Show when={proposal.invite_to_bill.length > 0}>
-                          <p class="mt-1 text-xs text-muted-foreground">
-                            Worth asking onto the bill: {proposal.invite_to_bill.join(', ')}
-                          </p>
-                        </Show>
-
-                        <div class="mt-3 flex items-center gap-3">
-                          {/* One approval in flight at a time — a second click
-                              on another city would overwrite `approvingCityId`
-                              and re-enable the first while it is still running. */}
-                          <Button
-                            size="sm"
-                            disabled={approve.isPending}
-                            onClick={() => approve.mutate(proposal)}
-                          >
-                            {approvingCityId() === proposal.city_id ? 'Approving…' : (authState.isPlatformLevel() ? 'Approve & queue outreach' : 'Approve & send outreach')}
-                          </Button>
-                          <Show when={approvalResult()}>
-                            {outcome => {
-                              const entry = outcome()
-                              if (entry.cityId !== proposal.city_id) return null
-                              const result = entry.result
-                              if ('refused' in result) {
-                                return <span class="text-xs text-amber-400/90">{result.refused}</span>
-                              }
-                              if ('status' in result) {
-                                return <span class="text-xs text-muted-foreground">Already approved — {result.status}</span>
-                              }
-                              return (
-                                <span class="text-xs text-emerald-400/90">
-                                  {authState.isPlatformLevel() ? 'Queued to' : 'Off to'} {result.recipients.length}{' '}
-                                  {result.recipients.length === 1 ? 'person' : 'people'} — opens with
-                                  “{result.opening_line}”
-                                </span>
-                              )
-                            }}
-                          </Show>
-                          <Show when={approveError()}>
-                            {error => {
-                              const entry = error()
-                              if (entry.cityId !== proposal.city_id) return null
-                              return <span class="text-xs text-destructive">{entry.message}</span>
-                            }}
-                          </Show>
-                        </div>
-                      </div>
-                    </div>
+                    <GigPlanProposalCard
+                      proposal={proposal}
+                      tenantSlug={props.slug}
+                      approving={approvingCityId() === proposal.city_id}
+                      busy={approve.isPending}
+                      result={approvalResult()?.cityId === proposal.city_id ? approvalResult()!.result : null}
+                      error={approveError()?.cityId === proposal.city_id ? approveError()!.message : null}
+                      onApprove={() => approve.mutate(proposal)}
+                    />
                   )}
                 </For>
               </div>
@@ -330,35 +165,7 @@ export function GigPlanPanel(props: { slug: string }) {
                 </p>
                 <ul class="mt-2 space-y-2">
                   <For each={data().passed_over}>
-                    {entry => (
-                      <li class="rounded-md border border-border/60 p-3">
-                        <span class="text-sm text-foreground">{entry.city_name}</span>
-                        <span class="ml-2 text-sm text-muted-foreground">{entry.reason}</span>
-                        <Show when={entry.research_brief}>
-                          {brief => (
-                            <div class="mt-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                class="h-7 px-2 text-xs"
-                                onClick={() => copyBrief(entry.city_id, brief())}
-                              >
-                                {copiedCity() === entry.city_id ? 'Copied' : 'Copy research brief'}
-                              </Button>
-                              <Show when={copyFailed() === entry.city_id}>
-                                <p class="mt-1 text-xs text-destructive">
-                                  Clipboard unavailable — select the brief text and copy it by hand.
-                                </p>
-                              </Show>
-                              <p class="mt-1 text-xs text-muted-foreground">
-                                Paste it into whatever assistant you use — the
-                                sheet it returns parses without editing.
-                              </p>
-                            </div>
-                          )}
-                        </Show>
-                      </li>
-                    )}
+                    {entry => <GigPlanPassedOverRow entry={entry} tenantSlug={props.slug} />}
                   </For>
                 </ul>
               </div>

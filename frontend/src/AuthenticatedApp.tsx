@@ -36,6 +36,7 @@ const AudiencePage = lazyRouteComponent(() => import('./pages/AudiencePage'), 'A
 const BeaconsPage = lazyRouteComponent(() => import('./pages/BeaconsPage'), 'BeaconsPage')
 const TenantNotifiersPage = lazyRouteComponent(() => import('./pages/TenantNotifiersPage'), 'TenantNotifiersPage')
 const AutomationPage = lazyRouteComponent(() => import('./pages/AutomationPage'), 'AutomationPage')
+const TenantCityPage = lazyRouteComponent(() => import('./pages/TenantCityPage'), 'TenantCityPage')
 const TenantShowsPage = lazyRouteComponent(() => import('./pages/TenantShowsPage'), 'TenantShowsPage')
 const TenantShowPage = lazyRouteComponent(() => import('./pages/TenantShowPage'), 'TenantShowPage')
 const TenantShowScanPage = lazyRouteComponent(() => import('./pages/TenantShowScanPage'), 'TenantShowScanPage')
@@ -68,6 +69,11 @@ const tenantContentMaterialRoute = createRoute({ getParentRoute: () => rootRoute
 const tenantIntegrationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/integrations', component: TenantIntegrationsPage })
 const tenantNotifiersRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/notifiers', component: TenantNotifiersPage, loader: ({ params }) => warm(['notifiers-overview', params.slug], () => api.notifiersOverview(params.slug), 20_000)() })
 const tenantAutomationRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/automation', component: AutomationPage })
+// N.12 — a city opens as its own read. Not a nav destination: the funnel
+// table, the venue registry and the gig plan link here. The loader warms the
+// two datasets that carry the city's identity — the same keys the Places
+// tab's panels already hold, so a click through lands on warm data.
+const tenantCityRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/cities/$cityId', component: TenantCityPage, loader: ({ params }) => { warm(['city-funnel', params.slug, 'organise'], () => api.cityFunnel(params.slug, 'organise'))(); warm(['city-venues', params.slug], () => api.cityVenues(params.slug))() } })
 const tenantShowsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/shows', component: TenantShowsPage, loader: ({ params }) => warm(['tenant-shows', params.slug], () => api.shows(params.slug))() })
 const tenantShowRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/shows/$eventSlug', component: TenantShowPage, loader: ({ params }) => warm(['tenant-show-timeline', params.slug, params.eventSlug], () => api.showTimeline(params.slug, params.eventSlug))() })
 const tenantShowScanRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/shows/$eventSlug/scan', component: TenantShowScanPage, loader: ({ params }) => warm(['tenant-show-scan', params.slug, params.eventSlug], () => api.showScan(params.slug, params.eventSlug))() })
@@ -80,7 +86,7 @@ const tenantActionsRedirect = createRoute({ getParentRoute: () => rootRoute, pat
 const funnelRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/funnel', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/intelligence` }) } })
 const communityRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/communities', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/audience` }) } })
 
-const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute, tenantWizardRoute, operatorAttentionRedirect, automationRedirect, tenantRoute, tenantActionsRedirect, tenantAttentionRoute, tenantOperationsRoute, tenantHealthRoute, tenantIntelligenceRoute, tenantContentRoute, tenantContentMaterialRoute, tenantIntegrationsRoute, tenantNotifiersRoute, tenantAutomationRoute, communityRedirect, portfolioRoute, audienceRoute, funnelRedirect, beaconsRoute, areaRoute, tenantShowsRoute, tenantShowRoute, tenantShowScanRoute, tenantShowReportRoute])
+const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute, tenantWizardRoute, operatorAttentionRedirect, automationRedirect, tenantRoute, tenantActionsRedirect, tenantAttentionRoute, tenantOperationsRoute, tenantHealthRoute, tenantIntelligenceRoute, tenantContentRoute, tenantContentMaterialRoute, tenantIntegrationsRoute, tenantNotifiersRoute, tenantAutomationRoute, communityRedirect, portfolioRoute, audienceRoute, funnelRedirect, beaconsRoute, areaRoute, tenantCityRoute, tenantShowsRoute, tenantShowRoute, tenantShowScanRoute, tenantShowReportRoute])
 // `defaultPendingMs: 0` shows the skeleton on the first frame. The default
 // (500ms) leaves the previous page frozen on screen while a route chunk loads,
 // which reads as a hang rather than as loading — the blank operator screen this

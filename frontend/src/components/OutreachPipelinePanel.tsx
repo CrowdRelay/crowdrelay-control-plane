@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
+import { Link } from '@tanstack/solid-router'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
@@ -113,7 +114,19 @@ export function OutreachPipelinePanel(props: { slug: string }) {
               <For each={showAllBooking() ? booking.data : booking.data!.slice(0, MAX_VISIBLE)}>{(c: BookingCandidateView) => (
                 <TableRow>
                   <TableCell><strong>{c.display_name}</strong><br /><span class="text-muted-foreground">{c.target_kind}</span></TableCell>
-                  <TableCell>{c.city_slug ?? '—'}</TableCell>
+                  <TableCell>
+                    <Show when={c.city_slug} fallback="—">
+                      {city => (
+                        <Link
+                          to="/tenants/$slug/cities/$cityId"
+                          params={{ slug: props.slug, cityId: city() }}
+                          class="underline decoration-border underline-offset-4 hover:text-primary"
+                        >
+                          {city()}
+                        </Link>
+                      )}
+                    </Show>
+                  </TableCell>
                   <TableCell><span class="text-muted-foreground">{c.route_kind}</span><br />{c.route_value}</TableCell>
                   <TableCell>{fitLabel(c.fit_basis_points)}</TableCell>
                   <TableCell><Badge variant={toneToVariant(statusTone(c.status))}>{c.status}</Badge></TableCell>
