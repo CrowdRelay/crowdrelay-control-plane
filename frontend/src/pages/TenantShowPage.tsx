@@ -294,21 +294,36 @@ function DetailLine(props: { step: ShowTimelineStep }) {
 // press, Places for rooms, Communities for communities); nothing here
 // hands out an address — promotion is still the only door to a send.
 
-type HelperSection = 'press' | 'rooms_and_promoters' | 'communities' | 'cold_rooms'
+type HelperSection =
+  | 'press'
+  | 'rooms_and_promoters'
+  | 'communities'
+  | 'cold_rooms'
+  | 'bill_mates'
+  | 'venue_channel'
+  | 'photographers'
 
 const HELPER_LABEL: Record<HelperSection, string> = {
   press: 'Press & radio',
   rooms_and_promoters: 'Rooms & promoters',
   communities: 'Communities',
   cold_rooms: 'Cold rooms',
+  bill_mates: 'The other bands on the bill',
+  venue_channel: 'The room itself',
+  photographers: 'Photographers',
 }
 
-/** The tab each section's owner surface lives under on the Audience page. */
+/** The tab each section's owner surface lives under on the Audience page.
+ * The bill-side sections own beacons instead — their owner link overrides
+ * the audience-tab default. */
 const HELPER_TAB: Record<HelperSection, string> = {
   press: 'contacts',
   rooms_and_promoters: 'places',
   communities: 'communities',
   cold_rooms: 'places',
+  bill_mates: '',
+  venue_channel: 'places',
+  photographers: '',
 }
 
 /** The honest line a measured-empty section collapses to. `place` is the
@@ -325,12 +340,30 @@ function emptyLine(section: HelperSection, place: string | null): string {
       return `No communities${where} yet`
     case 'cold_rooms':
       return `No unplayed rooms${where} on the shared registry`
+    case 'bill_mates':
+      return 'No other acts on this bill yet — the bill is the operator\'s to enter'
+    case 'venue_channel':
+      return 'The event names no room — add the venue to the show and it lands here'
+    case 'photographers':
+      return `No photographer beacons${where} — the recap needs one found before the show`
   }
 }
 
 /** One group: label + count, then compact rows or the single honest line.
  * A degraded section never reads as empty — "couldn't check" is not "none". */
-function HelperGroup(props: { section: HelperSection; slug: string; count: number; empty: string; degraded: boolean; children: JSX.Element }) {
+function HelperGroup(props: { section: HelperSection; slug: string; count: number; empty: string; degraded: boolean; children: JSX.Element; owner?: 'beacons' }) {
+  const ownerLink = () =>
+    props.owner === 'beacons'
+      ? { to: '/tenants/$slug/beacons' as const, label: 'Beacons' }
+      : {
+          to: '/tenants/$slug/audience' as const,
+          label:
+            HELPER_TAB[props.section] === 'places'
+              ? 'Places'
+              : HELPER_TAB[props.section] === 'contacts'
+                ? 'Contacts'
+                : 'Communities',
+        }
   return (
     <div class="mt-2">
       <div class="flex items-baseline justify-between gap-2">
@@ -339,12 +372,12 @@ function HelperGroup(props: { section: HelperSection; slug: string; count: numbe
           <span class="ml-1.5 tabular-nums text-muted-foreground">{props.degraded ? '—' : props.count}</span>
         </p>
         <Link
-          to="/tenants/$slug/audience"
+          to={ownerLink().to}
           params={{ slug: props.slug }}
-          search={{ tab: HELPER_TAB[props.section] }}
+          search={props.owner === 'beacons' ? {} : { tab: HELPER_TAB[props.section] }}
           class="shrink-0 text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
         >
-          {HELPER_TAB[props.section] === 'places' ? 'Places' : HELPER_TAB[props.section] === 'contacts' ? 'Contacts' : 'Communities'} →
+          {ownerLink().label} →
         </Link>
       </div>
       <Show
@@ -437,6 +470,44 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
                     <Link to="/tenants/$slug/audience" params={{ slug: props.slug }} search={audienceSearch('cold_rooms')} class={rowLink}>
                       <span class="text-foreground">{row.display_name}</span>
                       {row.capacity ? ` · ${row.capacity}` : ''}
+                    </Link>
+                  )}
+                </For>
+              </HelperGroup>
+              {/* P.3 — the three sides the show never contacted: the bill-mate
+                  who is not a roster sibling, the venue's own channel, the
+                  local photographer. Names, not addresses — the roster is
+                  the only door, same as every other section here. */}
+              <HelperGroup section="bill_mates" slug={props.slug} count={data().bill_mates.length} degraded={sectionDegraded('bill_mates')} empty={emptyLine('bill_mates', city())} owner="beacons">
+                <For each={data().bill_mates}>
+                  {row => (
+                    <Link to="/tenants/$slug/beacons" params={{ slug: props.slug }} class={rowLink}>
+                      <span class="text-foreground">{row.act_name}</span>
+                      {row.position === 0 ? ' · headline' : ` · slot ${row.position}`}
+                      {row.shared_bills > 1 ? ` · shared ${row.shared_bills} bills` : ''}
+                      {row.on_roster ? ' · on the roster' : row.resolution === 'peer' ? ' · on the registry' : ' · unclaimed name'}
+                    </Link>
+                  )}
+                </For>
+              </HelperGroup>
+              <HelperGroup section="venue_channel" slug={props.slug} count={data().venue_channel ? 1 : 0} degraded={sectionDegraded('venue_channel')} empty={emptyLine('venue_channel', city())}>
+                <Show when={data().venue_channel}>
+                  {channel => (
+                    <Link to="/tenants/$slug/beacons" params={{ slug: props.slug }} class={rowLink}>
+                      <span class="text-foreground">{channel().display_name}</span>
+                      {channel().venue_id ? ' · on the registry' : ' · not on the registry yet'}
+                      {channel().on_roster ? ' · on the roster' : ''}
+                    </Link>
+                  )}
+                </Show>
+              </HelperGroup>
+              <HelperGroup section="photographers" slug={props.slug} count={data().photographers.length} degraded={sectionDegraded('photographers')} empty={emptyLine('photographers', city())} owner="beacons">
+                <For each={data().photographers}>
+                  {row => (
+                    <Link to="/tenants/$slug/beacons" params={{ slug: props.slug }} class={rowLink}>
+                      <span class="text-foreground">{row.display_name}</span>
+                      {row.verified ? ' · verified' : ''}
+                      {row.contacted_before ? ' · contacted before' : ''}
                     </Link>
                   )}
                 </For>

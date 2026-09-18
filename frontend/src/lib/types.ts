@@ -2093,7 +2093,9 @@ export type TenantShowHelpersResponse = {
     city: string | null
     country_code: string | null
   }
-  degraded: Array<'city' | 'press' | 'rooms_and_promoters' | 'communities' | 'cold_rooms'>
+  degraded: Array<
+    'city' | 'press' | 'rooms_and_promoters' | 'communities' | 'cold_rooms' | 'bill_mates' | 'venue_channel' | 'photographers'
+  >
   notes: string[]
   press: Array<{
     id: string
@@ -2126,6 +2128,36 @@ export type TenantShowHelpersResponse = {
     display_name: string
     /** The global capacity fact's raw text value, when one exists. */
     capacity: string | null
+  }>
+  /** The other bands on this bill who are not tenants — names, not
+      addresses. `on_roster` means a beacon already carries them. */
+  bill_mates: Array<{
+    act_slug: string
+    act_name: string
+    position: number
+    /** `peer` resolved to the registry; `unclaimed` not yet. Tenant acts
+        are omitted — the crossbill edge is already their channel. */
+    resolution: 'peer' | 'unclaimed' | string
+    on_roster: boolean
+    /** Bills shared with this band, tonight included. */
+    shared_bills: number
+  }>
+  /** The room the show is in — the venue's own channel. `venue_id` null
+      when the registry has not resolved the name yet. */
+  venue_channel: {
+    venue_id: string | null
+    display_name: string
+    /** A venue-kind beacon in this city already names this room. */
+    on_roster: boolean
+  } | null
+  /** Photographer beacons in the show's city, warmest first. */
+  photographers: Array<{
+    id: string
+    display_name: string
+    verified: boolean
+    relationship_score: number
+    /** The governor remembers a touch — the band has written before. */
+    contacted_before: boolean
   }>
 }
 
