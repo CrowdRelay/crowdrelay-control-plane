@@ -349,6 +349,13 @@ def render_compose(
     image: {api_image}
     env_file: [.env, tenant.env]
     ports: ["127.0.0.1:{port}:8080"]
+    # crowdrelay-shared is the control-plane/edge network: the alias is how the
+    # management plane and the edge proxy reach this api — a recorded
+    # 127.0.0.1:<port> resolves to the caller's own loopback inside a container.
+    networks:
+      default:
+      crowdrelay-shared:
+        aliases: ["{plan['tenantSlug']}-api"]
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8080/v1/health/ready"]
       interval: 10s
@@ -391,6 +398,10 @@ def render_compose(
       options: {{max-size: "10m", max-file: "3"}}
 volumes:
   postgres:
+networks:
+  crowdrelay-shared:
+    external: true
+    name: crowdrelay-shared
 '''
 
 

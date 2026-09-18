@@ -55,6 +55,22 @@ if ! curl --fail --silent --show-error --max-time 5 \
   die "nothing healthy on 127.0.0.1:${PORT_ARG} — check the provisioning job finished before publishing the hostname"
 fi
 
+# Inside the edge container 127.0.0.1 is Caddy itself, so the upstream has to
+# be a name that resolves on a network the edge shares. The tenant api joins
+# crowdrelay-shared with a "<slug>-api" alias; when the container publishing
+# this port carries such an alias it is the upstream, and the loopback form is
+# kept only for a host-networked edge.
+UPSTREAM="127.0.0.1:${PORT_ARG}"
+publisher="$(docker ps --format '{{.Names}}' --filter "publish=${PORT_ARG}" | head -n1 || true)"
+if [[ -n "$publisher" ]]; then
+  shared_alias="$(docker inspect "$publisher" \
+    --format '{{range $name, $net := .NetworkSettings.Networks}}{{if eq $name "crowdrelay-shared"}}{{range $net.Aliases}}{{println .}}{{end}}{{end}}{{end}}' \
+    2>/dev/null | grep -E -- '-api$' | grep -vx "$publisher" | head -n1 || true)"
+  if [[ -n "$shared_alias" ]]; then
+    UPSTREAM="${shared_alias}:8080"
+  fi
+fi
+
 block="$(cat <<BLOCK
 
 ${HOSTNAME_ARG} {
@@ -65,7 +81,7 @@ ${HOSTNAME_ARG} {
 		max_size 32KB
 	}
 
-	reverse_proxy 127.0.0.1:${PORT_ARG} {
+	reverse_proxy ${UPSTREAM} {
 		health_uri /v1/health/ready
 		health_interval 5s
 		health_timeout 2s

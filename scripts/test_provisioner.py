@@ -153,6 +153,13 @@ class ProvisionerContractTests(unittest.TestCase):
         for service in ("postgres:", "setup:", "api:", "worker:"):
             self.assertIn(service, compose)
         self.assertIn(f'127.0.0.1:28100:8080', compose)
+        # The api joins crowdrelay-shared under the tenant slug alias — that
+        # name is what the control plane records as the management target and
+        # what the edge proxy dials; a recorded 127.0.0.1 is the caller's own
+        # loopback inside a container.
+        self.assertIn('crowdrelay-shared:', compose)
+        self.assertIn(f'aliases: ["{plan["tenantSlug"]}-api"]', compose)
+        self.assertIn('external: true', compose)
         # The running stack is pinned to immutable digests, never to the mutable
         # sha-<commit> tag the plan asked for.
         self.assertIn(PINNED["api"], compose)
