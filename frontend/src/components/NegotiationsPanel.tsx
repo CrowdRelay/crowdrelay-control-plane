@@ -12,8 +12,19 @@ import { SkeletonPanel } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Button } from './app/button'
 
+const currencyFractionDigits = (currency: string) => {
+  try {
+    return (
+      new Intl.NumberFormat(undefined, { style: 'currency', currency }).resolvedOptions()
+        .maximumFractionDigits ?? 2
+    )
+  } catch {
+    return 2
+  }
+}
+
 const money = (minor: number, currency: string) =>
-  (minor / 100).toLocaleString(undefined, {
+  (minor / 10 ** currencyFractionDigits(currency)).toLocaleString(undefined, {
     style: 'currency',
     currency,
     maximumFractionDigits: 0,
@@ -98,6 +109,7 @@ export function NegotiationsPanel() {
       <Show when={d().settled.length > 0}>
         <section class="pt-4 border-t border-border">
           <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="history" />The record</h3>
+          <p class="text-xs text-muted-foreground mt-1">Settled conversations from the last ninety days.</p>
           <div class="flex flex-col mt-3">
             <For each={d().settled}>{entry => (
               <div class="flex items-baseline justify-between gap-3 py-2 border-b border-border last:border-0">
@@ -124,7 +136,8 @@ function LiveRow(props: { entry: NegotiationEntry; slug: string }) {
 
   const submit = async (withdrawn: boolean) => {
     if (busy()) return
-    const amount = Math.round(Number.parseFloat(offer().replace(',', '.')) * 100)
+    const unit = 10 ** currencyFractionDigits(props.entry.currency)
+    const amount = Math.round(Number.parseFloat(offer().replace(',', '.')) * unit)
     if (!withdrawn && (!Number.isFinite(amount) || amount < 0)) {
       setError('Enter the fee they offered')
       return
