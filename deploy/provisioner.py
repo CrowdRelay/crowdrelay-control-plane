@@ -39,6 +39,14 @@ TIMEZONE = re.compile(r"^[A-Za-z0-9_+-]+/[A-Za-z0-9_+/-]+$")
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 PALETTE_KEYS = {"primary", "primaryContrast", "accent", "surface", "surfaceElevated", "text", "textMuted", "success", "warning", "danger"}
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+DOCKER_NAME = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$")
+# Tenant database/role names on the shared cluster are `t_` + underscored
+# slug — lowercase identifier-safe by construction, never quoted in DDL.
+PG_IDENT = re.compile(r"^t_[a-z0-9_]{1,61}$")
+# Per-role connection ceiling on the shared cluster: the api+worker pools are
+# configured at 8 connections each, so 40 leaves headroom without letting one
+# tenant's pools starve the cluster.
+SHARED_PG_CONNECTION_LIMIT = 40
 MAX_HTTP_BYTES = 2 * 1024 * 1024
 CONTROL_PLANE_SECRET_ENV = {"CONTROL_PLANE_ADMIN_TOKEN", "CONTROL_PLANE_TELEMETRY_TOKEN", "CONTROL_PLANE_PROVISIONER_TOKEN", "CONTROL_PLANE_AREA_MANAGEMENT_MASTER_KEY", "CONTROL_PLANE_MANAGEMENT_MASTER_KEY"}
 # Docker pull/compose output is unbounded (per-layer progress, container logs).
@@ -150,6 +158,20 @@ class Config:
         self.edge_network = os.environ.get("CONTROL_PLANE_EDGE_NETWORK", "crowdrelay-shared").strip()
         if self.edge_network and not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}", self.edge_network):
             raise SystemExit("CONTROL_PLANE_EDGE_NETWORK is not a valid Docker network name")
+        # Shared Postgres clusters the provisioner may create tenant databases
+        # on. A plan naming a cluster outside this allowlist is rejected — a
+        # plan must never be able to point the agent at an arbitrary container.
+        self.shared_pg_clusters = {
+            name.strip()
+            for name in os.environ.get(
+                "CONTROL_PLANE_SHARED_PG_CLUSTERS", "crowdrelay-tenants-pg"
+            ).split(",")
+            if name.strip()
+        }
+        if not self.shared_pg_clusters or any(
+            not DOCKER_NAME.fullmatch(name) for name in self.shared_pg_clusters
+        ):
+            raise SystemExit("CONTROL_PLANE_SHARED_PG_CLUSTERS must be docker-safe container names")
 
 
 def api_with_token(
@@ -243,7 +265,7 @@ def safe_plan(job: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(plan, dict) or plan.get("mode") != "local_docker_compose":
         raise ProvisionError("invalid_plan", "unsupported provisioning plan")
     schema = plan.get("schema")
-    if schema not in (3, 4):
+    if schema not in (3, 4, 5):
         raise ProvisionError("invalid_plan", "unsupported provisioning plan schema")
 
     tenant_id = plan.get("tenantId") or job.get("tenantId")
@@ -293,7 +315,7 @@ def safe_plan(job: dict[str, Any]) -> dict[str, Any]:
         if any(not isinstance(value, str) or not HEX_COLOR.fullmatch(value) for value in palette.values()):
             raise ProvisionError("invalid_plan", "branding palette colors are invalid")
 
-    if schema == 4:
+    if schema >= 4:
         profile = plan.get("regionalProfile")
         required = {"countryCode", "region", "locale", "timezone", "currency", "dateFormat", "numberFormat", "dataRegion"}
         if not isinstance(profile, dict) or set(profile) != required:
@@ -312,7 +334,49 @@ def safe_plan(job: dict[str, Any]) -> dict[str, Any]:
             raise ProvisionError("invalid_plan", "invalid regional date format")
         if profile["numberFormat"] not in {"comma_decimal", "dot_decimal"}:
             raise ProvisionError("invalid_plan", "invalid regional number format")
+
+    # Schema 5 carries tenant placement: which Postgres the stack runs against.
+    # Older schemas predate placement and always mean `dedicated`.
+    if schema == 5:
+        placement = plan.get("placement")
+        if placement not in ("dedicated", "shared_pg"):
+            raise ProvisionError("invalid_plan", "unknown tenant placement")
+        if placement == "shared_pg":
+            shared = plan.get("sharedPg")
+            if not isinstance(shared, dict):
+                raise ProvisionError("invalid_plan", "shared_pg plan is missing sharedPg")
+            for key in ("host", "network"):
+                value = shared.get(key)
+                if not isinstance(value, str) or not DOCKER_NAME.fullmatch(value):
+                    raise ProvisionError("invalid_plan", f"sharedPg.{key} is not a docker-safe name")
+            database = shared.get("database")
+            if not isinstance(database, str) or not PG_IDENT.fullmatch(database):
+                raise ProvisionError("invalid_plan", "sharedPg.database is not a safe identifier")
+            # The database name derives deterministically from tenant identity;
+            # a plan carrying any other name is rejected rather than obeyed.
+            if database != placement_database_name(slug, tenant_id):
+                raise ProvisionError(
+                    "invalid_plan", "sharedPg.database does not derive from tenant identity"
+                )
+        elif "sharedPg" in plan:
+            raise ProvisionError("invalid_plan", "dedicated plan must not carry sharedPg")
+        plan["placement"] = placement
+    else:
+        plan["placement"] = "dedicated"
     return plan
+
+
+def placement_database_name(slug: str, tenant_id: str) -> str:
+    """The tenant's database (and role) name on the shared cluster.
+
+    Mirrors control-plane store::placement_database_name exactly — safe_plan
+    rejects any plan whose sharedPg.database does not match this derivation.
+    """
+    underscored = slug.replace("-", "_")
+    candidate = f"t_{underscored}"
+    if len(candidate) <= 63:
+        return candidate
+    return f"t_{underscored[:52]}_{tenant_id.replace('-', '')[:8]}"
 
 
 def q(value: str) -> str:
@@ -334,21 +398,38 @@ def render_compose(
     # The edge Caddy runs on a shared bridge network, not the host's loopback,
     # so the tenant API joins it under a stable alias the edge route proxies to.
     tenant_slug = plan["tenantSlug"]
-    api_networks = ""
+    # shared_pg tenants keep dedicated api+worker but store data on the shared
+    # cluster: their project carries no postgres service and setup/api/worker
+    # join the tenants network to reach it.
+    shared = plan.get("placement") == "shared_pg"
+    shared_network = plan["sharedPg"]["network"] if shared else None
+
+    api_entries: list[tuple[str, dict[str, Any]]] = [("default", {})]
+    worker_entries: list[tuple[str, dict[str, Any]]] = [("default", {})]
     networks_block = ""
+    if shared_network:
+        api_entries.append((shared_network, {}))
+        worker_entries.append((shared_network, {}))
+        networks_block += f"\n  {q(shared_network)}:\n    external: true"
     if edge_network:
-        api_networks = f'''    networks:
-      default: {{}}
-      {q(edge_network)}:
-        aliases: [{q(f"{tenant_slug}-api")}]
-'''
-        networks_block = f'''
-networks:
-  {q(edge_network)}:
-    external: true
-'''
-    return f'''services:
-  postgres:
+        api_entries.append((edge_network, {"aliases": [f"{tenant_slug}-api"]}))
+        networks_block += f"\n  {q(edge_network)}:\n    external: true"
+    if networks_block:
+        networks_block = "networks:" + networks_block + "\n"
+
+    def service_networks(entries: list[tuple[str, dict[str, Any]]]) -> str:
+        lines = ["    networks:"]
+        for name, conf in entries:
+            if conf:
+                lines.append(f"      {q(name)}:")
+                lines.append(f"        aliases: [{q(conf['aliases'][0])}]")
+            else:
+                lines.append(f"      {q(name)}: {{}}")
+        return "\n".join(lines) + "\n"
+
+    api_networks = service_networks(api_entries) if len(api_entries) > 1 else ""
+    worker_networks = service_networks(worker_entries) if shared else ""
+    postgres_service = "" if shared else f'''  postgres:
     image: {postgres}
     env_file: [.env, tenant.env]
     command: ["postgres", "-c", "io_method=worker", "-c", "io_min_workers=2", "-c", "io_max_workers=2"]
@@ -365,12 +446,16 @@ networks:
     logging:
       driver: local
       options: {{max-size: "10m", max-file: "3"}}
-  setup:
+'''
+    volumes_block = "" if shared else "volumes:\n  postgres:\n"
+    setup_networks = worker_networks
+    return f'''services:
+{postgres_service}  setup:
     image: {worker_image}
     command: ["setup"]
     env_file: [.env, tenant.env]
     volumes: ["./bootstrap.json:/run/crowdrelay/bootstrap.json:ro"]
-    read_only: true
+{setup_networks}    read_only: true
     tmpfs: ["/tmp:size=16m,mode=1777"]
     cap_drop: ["ALL"]
     security_opt: ["no-new-privileges:true"]
@@ -404,7 +489,7 @@ networks:
     image: {worker_image}
     command: ["run"]
     env_file: [.env, tenant.env]
-    healthcheck:
+{worker_networks}    healthcheck:
       test: ["CMD-SHELL", 'for executable in /proc/[0-9]*/exe; do target=$$(readlink "$$executable" 2>/dev/null || true); [ "$$target" = /usr/local/bin/crowdrelay-worker ] && exit 0; done; exit 1']
       interval: 15s
       timeout: 3s
@@ -422,9 +507,7 @@ networks:
     logging:
       driver: local
       options: {{max-size: "10m", max-file: "3"}}
-volumes:
-  postgres:
-{networks_block}'''
+{volumes_block}{networks_block}'''
 
 
 def derive_area_management_token(master_key: str, tenant_id: str) -> str:
@@ -443,11 +526,23 @@ def create_secret_env(config: Config, plan: dict[str, Any]) -> str:
     admin_key = secrets.token_urlsafe(36)
     staff_key = secrets.token_urlsafe(36)
     qr_secret = secrets.token_urlsafe(48)
+    if plan.get("placement") == "shared_pg":
+        # POSTGRES_* name the tenant's database and role on the shared cluster;
+        # nothing in the project consumes them — ensure_shared_database does,
+        # to create the role with this password.
+        shared = plan["sharedPg"]
+        db_name = shared["database"]
+        db_host = shared["host"]
+        db_user = db_name
+    else:
+        db_name = "crowdrelay"
+        db_host = "postgres"
+        db_user = "crowdrelay"
     values = {
-        "POSTGRES_DB": "crowdrelay",
-        "POSTGRES_USER": "crowdrelay",
+        "POSTGRES_DB": db_name,
+        "POSTGRES_USER": db_user,
         "POSTGRES_PASSWORD": db_password,
-        "CROWDRELAY_DATABASE_URL": f"postgres://crowdrelay:{db_password}@postgres:5432/crowdrelay",
+        "CROWDRELAY_DATABASE_URL": f"postgres://{db_user}:{db_password}@{db_host}:5432/{db_name}",
         "CROWDRELAY_RESPONSE_ENCRYPTION_SECRET": response_secret,
         "CROWDRELAY_ADMIN_API_KEY": admin_key,
         "CROWDRELAY_STAFF_API_KEY": staff_key,
@@ -495,7 +590,7 @@ def create_runtime_env(plan: dict[str, Any]) -> str:
         "CROWDRELAY_BOOTSTRAP_FILE": "/run/crowdrelay/bootstrap.json",
         "RUST_LOG": "info,crowdrelay=info",
     }
-    if plan.get("schema") == 4:
+    if plan.get("schema") >= 4:
         profile = plan["regionalProfile"]
         values.update({
             "CROWDRELAY_TENANT_REGION": profile["region"],
@@ -1032,7 +1127,31 @@ def wait_container_healthy(
     )
 
 
-def query_postgres(config: Config, tenant_dir: Path, project: str, sql: str) -> str:
+def query_postgres(
+    config: Config,
+    tenant_dir: Path,
+    project: str,
+    sql: str,
+    plan: dict[str, Any] | None = None,
+) -> str:
+    if plan and plan.get("placement") == "shared_pg":
+        shared = plan["sharedPg"]
+        output = docker_cmd(
+            config,
+            "exec",
+            shared["host"],
+            "psql",
+            "-U",
+            "postgres",
+            "-d",
+            shared["database"],
+            "-At",
+            "-c",
+            sql,
+            timeout=30,
+            error_code="shared_pg_query_failed",
+        )
+        return output.strip().splitlines()[-1].strip() if output.strip() else ""
     output = compose_cmd(
         config,
         tenant_dir,
@@ -1053,6 +1172,96 @@ def query_postgres(config: Config, tenant_dir: Path, project: str, sql: str) -> 
     return output.strip().splitlines()[-1].strip() if output.strip() else ""
 
 
+def cluster_psql(config: Config, cluster: str, sql: str) -> str:
+    output = docker_cmd(
+        config,
+        "exec",
+        cluster,
+        "psql",
+        "-U",
+        "postgres",
+        "-d",
+        "postgres",
+        "-At",
+        "-c",
+        sql,
+        timeout=30,
+        error_code="shared_pg_admin_failed",
+    )
+    return output.strip()
+
+
+def ensure_shared_database(config: Config, plan: dict[str, Any], tenant_dir: Path) -> None:
+    """Create the tenant's role and database on the shared cluster.
+
+    Idempotent: a redeploy re-asserts the role limit and the CONNECT revoke.
+    Fails closed when the cluster is absent or unhealthy — a shared_pg tenant
+    is never silently re-placed.
+    """
+    shared = plan["sharedPg"]
+    cluster = shared["host"]
+    if cluster not in config.shared_pg_clusters:
+        raise ProvisionError(
+            "invalid_plan", "shared pg cluster is not in the provisioner allowlist"
+        )
+    database = shared["database"]
+    role = database  # role and database share the tenant-derived name
+
+    docker_cmd(
+        config,
+        "network",
+        "inspect",
+        shared["network"],
+        timeout=15,
+        error_code="shared_pg_network_missing",
+    )
+    docker_cmd(
+        config,
+        "exec",
+        cluster,
+        "pg_isready",
+        "-U",
+        "postgres",
+        timeout=15,
+        error_code="shared_pg_unavailable",
+    )
+
+    # The tenant password was generated by create_secret_env into the
+    # write-once .env; read it back rather than carrying secrets in the plan.
+    password = ""
+    try:
+        for line in (tenant_dir / ".env").read_text(encoding="utf-8").splitlines():
+            if line.startswith("POSTGRES_PASSWORD="):
+                password = line.split("=", 1)[1].strip()
+    except OSError:
+        pass
+    if not password:
+        raise ProvisionError("invalid_plan", "tenant .env is missing POSTGRES_PASSWORD")
+
+    if cluster_psql(config, cluster, f"SELECT 1 FROM pg_roles WHERE rolname='{role}'") != "1":
+        cluster_psql(config, cluster, f"CREATE ROLE {role} LOGIN PASSWORD '{password}'")
+    cluster_psql(
+        config, cluster, f"ALTER ROLE {role} CONNECTION LIMIT {SHARED_PG_CONNECTION_LIMIT}"
+    )
+    if (
+        cluster_psql(config, cluster, f"SELECT 1 FROM pg_database WHERE datname='{database}'")
+        != "1"
+    ):
+        # CREATE DATABASE cannot run inside a transaction; psql -c sends it as
+        # a standalone statement.
+        cluster_psql(config, cluster, f"CREATE DATABASE {database} OWNER {role}")
+    # Postgres grants CONNECT on new databases to PUBLIC — revoke it or every
+    # tenant role could attach to every other tenant's database.
+    cluster_psql(
+        config,
+        cluster,
+        f"REVOKE CONNECT ON DATABASE {database} FROM PUBLIC; "
+        f"GRANT CONNECT ON DATABASE {database} TO {role}; "
+        f"ALTER DATABASE {database} SET statement_timeout = '120s'; "
+        f"ALTER DATABASE {database} SET work_mem = '16MB'",
+    )
+
+
 def process_claim(config: Config, claim: dict[str, Any]) -> None:
     job = claim.get("job")
     token = claim.get("claimToken")
@@ -1060,7 +1269,7 @@ def process_claim(config: Config, claim: dict[str, Any]) -> None:
         raise ProvisionError("invalid_claim", "Control Plane returned an invalid claim")
     job_id = str(job.get("id") or "")
     plan = safe_plan(job)
-    if plan.get("schema") == 4:
+    if plan.get("schema") >= 4:
         planned_region = plan["regionalProfile"]["dataRegion"]
         agent_region = config_data_region(config)
         if agent_region != planned_region:
@@ -1111,19 +1320,22 @@ def process_claim(config: Config, claim: dict[str, Any]) -> None:
         )
 
         ensure_edge_network(config)
-        compose_cmd(config, tenant_dir, project, "up", "-d", "postgres", timeout=120)
-        compose_cmd(
-            config,
-            tenant_dir,
-            project,
-            "exec",
-            "-T",
-            "postgres",
-            "sh",
-            "-lc",
-            "until pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"; do sleep 1; done",
-            timeout=90,
-        )
+        if plan["placement"] == "shared_pg":
+            ensure_shared_database(config, plan, tenant_dir)
+        else:
+            compose_cmd(config, tenant_dir, project, "up", "-d", "postgres", timeout=120)
+            compose_cmd(
+                config,
+                tenant_dir,
+                project,
+                "exec",
+                "-T",
+                "postgres",
+                "sh",
+                "-lc",
+                "until pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"; do sleep 1; done",
+                timeout=90,
+            )
         lease.check()
         compose_cmd(config, tenant_dir, project, "run", "--rm", "setup", timeout=240)
         compose_cmd(config, tenant_dir, project, "up", "-d", "api", "worker", timeout=180)
@@ -1331,12 +1543,14 @@ def finish_claim(
         tenant_dir,
         project,
         f"SELECT id FROM workspaces WHERE slug='{plan['workspaceSlug']}' LIMIT 1;",
+        plan,
     )
     schema_version = query_postgres(
         config,
         tenant_dir,
         project,
         "SELECT COALESCE(max(version),0) FROM _sqlx_migrations WHERE success;",
+        plan,
     )
     if not re.fullmatch(r"[0-9a-f-]{36}", workspace_id):
         raise ProvisionError("workspace_probe_failed", "workspace UUID was not found after bootstrap")

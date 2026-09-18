@@ -117,6 +117,7 @@ type CreateTenantInput = {
   areaEnabled?: boolean
   northStarMetric?: string
   archetype?: string
+  placement?: 'dedicated' | 'shared_pg'
   fanbaseSources?: string[]
   signalPlayStoreUrl?: string
   synesthesiaPlayStoreUrl?: string

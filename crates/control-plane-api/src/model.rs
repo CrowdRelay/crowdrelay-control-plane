@@ -56,6 +56,14 @@ pub struct TenantRow {
     pub can_provision: bool,
     pub can_remove: bool,
     pub archetype: String,
+    /// Which database infrastructure the provisioned stack runs against:
+    /// `dedicated` (own postgres container) or `shared_pg` (own database and
+    /// role on the shared tenants cluster). See migration 0026.
+    pub placement: String,
+    /// Shared-cluster identifier; set iff placement == "shared_pg".
+    pub placement_cluster: Option<String>,
+    /// The tenant's database name on the shared cluster; set iff shared_pg.
+    pub placement_database: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -167,6 +175,9 @@ pub struct TenantSummaryJoinRow {
     pub can_provision: bool,
     pub can_remove: bool,
     pub archetype: String,
+    pub placement: String,
+    pub placement_cluster: Option<String>,
+    pub placement_database: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub runtime_tenant_id: Option<Uuid>,
@@ -217,6 +228,9 @@ impl TenantSummaryJoinRow {
                 can_provision: self.can_provision,
                 can_remove: self.can_remove,
                 archetype: self.archetype,
+                placement: self.placement,
+                placement_cluster: self.placement_cluster,
+                placement_database: self.placement_database,
                 created_at: self.created_at,
                 updated_at: self.updated_at,
             },
@@ -306,6 +320,11 @@ pub struct CreateTenantRequest {
     /// band. Making it required would reject every existing caller.
     #[serde(default)]
     pub archetype: Option<String>,
+    /// Database placement override: `dedicated` or `shared_pg`. When omitted,
+    /// derived from the archetype — self-serve shapes (band, roster) share the
+    /// tenants Postgres cluster; label/festival_org get a dedicated stack.
+    #[serde(default)]
+    pub placement: Option<String>,
     /// Discovery platforms the operator selected. Advisory only.
     #[serde(default)]
     pub fanbase_sources: Vec<String>,

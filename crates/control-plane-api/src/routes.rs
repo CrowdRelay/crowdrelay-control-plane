@@ -402,6 +402,7 @@ async fn create_tenant(
         input.signal_enabled,
     )?);
     input.archetype = Some(validation::tenant_archetype(input.archetype.take())?);
+    input.placement = validation::tenant_placement(input.placement.take())?;
     input.fanbase_sources =
         validation::fanbase_sources(std::mem::take(&mut input.fanbase_sources))?;
     input.signal_play_store_url = validation::play_store_url(input.signal_play_store_url.take())?;

@@ -68,6 +68,35 @@ def valid_job(slug: str = "acme") -> dict:
     }
 
 
+REGIONAL_PROFILE = {
+    "countryCode": "PL",
+    "region": "eu",
+    "locale": "pl-PL",
+    "timezone": "Europe/Warsaw",
+    "currency": "PLN",
+    "dateFormat": "dmy",
+    "numberFormat": "comma_decimal",
+    "dataRegion": "eu",
+}
+
+
+def valid_job5(slug: str = "acme", placement: str = "shared_pg") -> dict:
+    """A schema-5 job: placement-aware plan as produced by deployment_plan()."""
+    job = valid_job(slug)
+    job["plan"]["schema"] = 5
+    job["plan"]["regionalProfile"] = dict(REGIONAL_PROFILE)
+    job["plan"]["placement"] = placement
+    if placement == "shared_pg":
+        job["plan"]["sharedPg"] = {
+            "host": "crowdrelay-tenants-pg",
+            "network": "crowdrelay-tenants",
+            "database": provisioner.placement_database_name(
+                slug, job["plan"]["tenantId"]
+            ),
+        }
+    return job
+
+
 class DummyConfig:
     def __init__(self, root: Path):
         self.root = root.resolve()
@@ -630,6 +659,179 @@ class ProvisionerContractTests(unittest.TestCase):
         # An explicit override always wins.
         override = type("ConfigStub", (), {"public_ip": "152.70.162.119"})()
         self.assertEqual(provisioner.host_public_ip(override), "152.70.162.119")
+
+
+class SharedPlacementContractTests(unittest.TestCase):
+    """Contract for schema-5 shared_pg plans: the tenant database lives on the
+    shared cluster while api+worker stay dedicated per tenant."""
+
+    def test_schema5_shared_plan_validates(self):
+        plan = provisioner.safe_plan(valid_job5())
+        self.assertEqual(plan["placement"], "shared_pg")
+        self.assertEqual(plan["sharedPg"]["database"], "t_acme")
+        self.assertEqual(plan["sharedPg"]["host"], "crowdrelay-tenants-pg")
+
+    def test_schema5_dedicated_plan_validates_without_shared_pg(self):
+        plan = provisioner.safe_plan(valid_job5(placement="dedicated"))
+        self.assertEqual(plan["placement"], "dedicated")
+        self.assertNotIn("sharedPg", plan)
+
+    def test_schemas_3_and_4_normalize_to_dedicated(self):
+        job = valid_job()
+        plan = provisioner.safe_plan(job)
+        self.assertEqual(plan["placement"], "dedicated")
+        job["plan"]["schema"] = 4
+        job["plan"]["regionalProfile"] = dict(REGIONAL_PROFILE)
+        plan = provisioner.safe_plan(job)
+        self.assertEqual(plan["placement"], "dedicated")
+
+    def test_schema5_rejects_misplaced_or_malformed_shared_fields(self):
+        cases = []
+        job = valid_job5()
+        job["plan"]["placement"] = "somewhere_else"
+        cases.append(job)
+        job = valid_job5()
+        del job["plan"]["sharedPg"]
+        cases.append(job)
+        job = valid_job5()
+        job["plan"]["sharedPg"]["database"] = "postgres"  # not t_-derived
+        cases.append(job)
+        job = valid_job5()
+        job["plan"]["sharedPg"]["database"] = "t_other"  # not this tenant's
+        cases.append(job)
+        job = valid_job5()
+        job["plan"]["sharedPg"]["host"] = "virya-postgres; rm -rf /"
+        cases.append(job)
+        job = valid_job5(placement="dedicated")
+        job["plan"]["sharedPg"] = {"host": "x", "network": "y", "database": "t_acme"}
+        cases.append(job)
+        for case in cases:
+            with self.subTest(plan=case["plan"].get("sharedPg", case["plan"].get("placement"))):
+                with self.assertRaises(provisioner.ProvisionError):
+                    provisioner.safe_plan(case)
+
+    def test_placement_database_name_derivation(self):
+        self.assertEqual(provisioner.placement_database_name("acme", "x"), "t_acme")
+        self.assertEqual(
+            provisioner.placement_database_name("my-band-2026", "x"), "t_my_band_2026"
+        )
+        # Slugs over 60 chars truncate and disambiguate on the tenant id.
+        tenant_id = "3f8a1c2e-0000-4000-8000-000000000000"
+        long_slug = "a" * 63
+        derived = provisioner.placement_database_name(long_slug, tenant_id)
+        self.assertLessEqual(len(derived), 63)
+        self.assertTrue(derived.endswith("_3f8a1c2e"))
+
+    @unittest.skipIf(yaml is None, "PyYAML not installed")
+    def test_shared_compose_has_no_postgres_and_joins_tenants_network(self):
+        plan = provisioner.safe_plan(valid_job5())
+        parsed = yaml.safe_load(
+            provisioner.render_compose(
+                plan, 28100, "postgres:18-alpine", PINNED,
+                edge_network="crowdrelay-shared",
+            )
+        )
+        self.assertNotIn("postgres", parsed["services"])
+        self.assertNotIn("volumes", parsed)
+        for service in ("setup", "api", "worker"):
+            self.assertIn("crowdrelay-tenants", parsed["services"][service]["networks"])
+        self.assertEqual(
+            parsed["services"]["api"]["networks"]["crowdrelay-shared"]["aliases"],
+            ["acme-api"],
+        )
+        self.assertTrue(parsed["networks"]["crowdrelay-tenants"]["external"])
+        self.assertTrue(parsed["networks"]["crowdrelay-shared"]["external"])
+
+    @unittest.skipIf(yaml is None, "PyYAML not installed")
+    def test_dedicated_compose_is_unchanged(self):
+        plan = provisioner.safe_plan(valid_job5(placement="dedicated"))
+        parsed = yaml.safe_load(
+            provisioner.render_compose(plan, 28100, "postgres:18-alpine", PINNED)
+        )
+        self.assertIn("postgres", parsed["services"])
+        self.assertIn("postgres", parsed["volumes"])
+        self.assertNotIn("networks", parsed["services"]["api"])
+
+    def test_shared_env_points_database_url_at_the_cluster(self):
+        plan = provisioner.safe_plan(valid_job5())
+        secrets_map = dict(
+            line.split("=", 1)
+            for line in provisioner.create_secret_env(
+                DummyConfig(Path("/tmp")), plan
+            ).strip().splitlines()
+        )
+        self.assertEqual(secrets_map["POSTGRES_DB"], "t_acme")
+        self.assertEqual(secrets_map["POSTGRES_USER"], "t_acme")
+        url = secrets_map["CROWDRELAY_DATABASE_URL"]
+        self.assertIn("@crowdrelay-tenants-pg:5432/t_acme", url)
+        self.assertIn("t_acme:", url)
+
+    def test_ensure_shared_database_creates_role_db_and_revokes_public(self):
+        plan = provisioner.safe_plan(valid_job5())
+        calls = []
+
+        def fake_docker(config, *args, timeout, error_code):
+            calls.append(args)
+            joined = " ".join(str(a) for a in args)
+            if "pg_isready" in joined:
+                return "accepting connections"
+            if "SELECT 1 FROM pg_roles" in joined or "SELECT 1 FROM pg_database" in joined:
+                return ""
+            return ""
+
+        config = DummyConfig(Path("/tmp"))
+        config.shared_pg_clusters = {"crowdrelay-tenants-pg"}
+        with tempfile.TemporaryDirectory() as tmp:
+            tenant_dir = Path(tmp)
+            provisioner.write_once(
+                tenant_dir / ".env", "POSTGRES_PASSWORD=not-a-real-password\n", 0o600
+            )
+            with mock.patch.object(provisioner, "docker_cmd", fake_docker):
+                provisioner.ensure_shared_database(config, plan, tenant_dir)
+
+        text = " ".join(" ".join(map(str, call)) for call in calls)
+        self.assertIn("network inspect crowdrelay-tenants", text)
+        self.assertIn("pg_isready", text)
+        self.assertIn("CREATE ROLE t_acme LOGIN PASSWORD 'not-a-real-password'", text)
+        self.assertIn(f"CONNECTION LIMIT {provisioner.SHARED_PG_CONNECTION_LIMIT}", text)
+        self.assertIn("CREATE DATABASE t_acme OWNER t_acme", text)
+        self.assertIn("REVOKE CONNECT ON DATABASE t_acme FROM PUBLIC", text)
+
+    def test_ensure_shared_database_is_idempotent_and_fail_closed(self):
+        plan = provisioner.safe_plan(valid_job5())
+        calls = []
+
+        def fake_docker(config, *args, timeout, error_code):
+            calls.append(args)
+            joined = " ".join(str(a) for a in args)
+            if "SELECT 1 FROM pg_roles" in joined or "SELECT 1 FROM pg_database" in joined:
+                return "1"  # existing tenant redeploy: nothing is recreated
+            return ""
+
+        config = DummyConfig(Path("/tmp"))
+        config.shared_pg_clusters = {"crowdrelay-tenants-pg"}
+        with tempfile.TemporaryDirectory() as tmp:
+            provisioner.write_once(
+                Path(tmp) / ".env", "POSTGRES_PASSWORD=not-a-real-password\n", 0o600
+            )
+            with mock.patch.object(provisioner, "docker_cmd", fake_docker):
+                provisioner.ensure_shared_database(config, plan, Path(tmp))
+        text = " ".join(" ".join(map(str, call)) for call in calls)
+        self.assertNotIn("CREATE ROLE", text)
+        self.assertNotIn("CREATE DATABASE", text)
+        # The revoke/limit are re-asserted on every run.
+        self.assertIn("REVOKE CONNECT", text)
+        self.assertIn("CONNECTION LIMIT", text)
+
+        # A plan naming a cluster outside the allowlist is refused before any
+        # docker call touches it.
+        bad = provisioner.safe_plan(valid_job5())
+        bad["sharedPg"]["host"] = "virya-postgres-1"
+        with tempfile.TemporaryDirectory() as tmp:
+            provisioner.write_once(Path(tmp) / ".env", "POSTGRES_PASSWORD=not-a-real-password\n", 0o600)
+            with self.assertRaises(provisioner.ProvisionError) as ctx:
+                provisioner.ensure_shared_database(config, bad, Path(tmp))
+            self.assertEqual(ctx.exception.code, "invalid_plan")
 
 
 if __name__ == "__main__":

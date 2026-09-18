@@ -56,6 +56,9 @@ export type Tenant = {
   canProvision: boolean
   canRemove: boolean
   archetype: 'band' | 'roster' | 'label' | 'festival_org'
+  placement: 'dedicated' | 'shared_pg'
+  placementCluster: string | null
+  placementDatabase: string | null
   createdAt: string
   updatedAt: string
 }

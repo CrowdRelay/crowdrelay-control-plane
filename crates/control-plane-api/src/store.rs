@@ -23,10 +23,21 @@ pub fn tenant_lifecycle_is_externally_owned(tenant: &TenantRow) -> bool {
     !(tenant.can_suspend && tenant.can_provision && tenant.can_remove)
 }
 
+/// Shared-Postgres placement coordinates the control plane stamps into
+/// tenants and provisioning plans. The provisioner resolves them against
+/// docker and validates the cluster against its own allowlist.
+#[derive(Debug, Clone)]
+pub struct SharedPgConfig {
+    pub cluster: String,
+    pub network: String,
+    pub max_tenants: i64,
+}
+
 #[derive(Clone)]
 pub struct Store {
     pool: PgPool,
     runtime_stale_after_seconds: i64,
+    shared_pg: SharedPgConfig,
 }
 
 struct AuditRecord<'a> {
@@ -161,10 +172,11 @@ pub struct WaitlistRow {
 }
 
 impl Store {
-    pub fn new(pool: PgPool, runtime_stale_after_seconds: i64) -> Self {
+    pub fn new(pool: PgPool, runtime_stale_after_seconds: i64, shared_pg: SharedPgConfig) -> Self {
         Self {
             pool,
             runtime_stale_after_seconds,
+            shared_pg,
         }
     }
 
@@ -234,6 +246,7 @@ impl Store {
                       t.signal_enabled, t.north_star_metric, t.fanbase_sources,
                       t.signal_play_store_url, t.synesthesia_play_store_url,
                       t.can_suspend, t.can_provision, t.can_remove, t.archetype,
+                      t.placement, t.placement_cluster, t.placement_database,
                       t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
@@ -265,6 +278,7 @@ impl Store {
                       t.signal_enabled, t.north_star_metric, t.fanbase_sources,
                       t.signal_play_store_url, t.synesthesia_play_store_url,
                       t.can_suspend, t.can_provision, t.can_remove, t.archetype,
+                      t.placement, t.placement_cluster, t.placement_database,
                       t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
@@ -395,16 +409,51 @@ impl Store {
         let id = Uuid::new_v4();
         let palette_json = palette.map(serde_json::to_value).transpose()?;
         let regional_profile_json = serde_json::to_value(&input.regional_profile)?;
+        // Placement is validated in the route; an absent value derives from the
+        // archetype so a caller that predates the field keeps the intended
+        // shape (band/roster share the tenants cluster, label/festival_org go
+        // dedicated).
+        let archetype = input.archetype.as_deref().unwrap_or("band");
+        let placement = input
+            .placement
+            .as_deref()
+            .unwrap_or_else(|| crate::validation::default_placement(archetype));
+        let (placement_cluster, placement_database) = if placement == "shared_pg" {
+            (
+                Some(self.shared_pg.cluster.clone()),
+                Some(placement_database_name(&input.slug, &id)),
+            )
+        } else {
+            (None, None)
+        };
         let mut tx = self.pool.begin().await?;
+        if placement == "shared_pg" {
+            // Refuse rather than degrade: a cluster at capacity must surface as
+            // an error, never as a silently different placement.
+            let used = sqlx::query_scalar::<_, i64>(
+                "SELECT COUNT(*) FROM control_plane_tenants \
+                 WHERE placement = 'shared_pg' AND placement_cluster = $1",
+            )
+            .bind(&self.shared_pg.cluster)
+            .fetch_one(&mut *tx)
+            .await?;
+            if used >= self.shared_pg.max_tenants {
+                return Err(ApiError::Conflict(format!(
+                    "shared placement cluster {} is at capacity ({} tenants)",
+                    self.shared_pg.cluster, used
+                )));
+            }
+        }
         let tenant = sqlx::query_as::<_, TenantRow>(
             r#"INSERT INTO control_plane_tenants
-               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled, signal_enabled, north_star_metric, fanbase_sources, signal_play_store_url, synesthesia_play_store_url, archetype)
-               VALUES ($1, $2, $3, 'provisioning', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled, signal_enabled, north_star_metric, fanbase_sources, signal_play_store_url, synesthesia_play_store_url, archetype, placement, placement_cluster, placement_database)
+               VALUES ($1, $2, $3, 'provisioning', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
                RETURNING id, slug, display_name, status, workspace_id, crowdrelay_base_url,
                          signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled,
                          signal_enabled, north_star_metric, fanbase_sources,
                          signal_play_store_url, synesthesia_play_store_url,
                          can_suspend, can_provision, can_remove, archetype,
+                         placement, placement_cluster, placement_database,
                          created_at, updated_at"#,
         )
         .bind(id)
@@ -424,7 +473,10 @@ impl Store {
         .bind(&input.signal_play_store_url)
         .bind(&input.synesthesia_play_store_url)
         // Validated in the route; the column default covers a direct caller.
-        .bind(input.archetype.as_deref().unwrap_or("band"))
+        .bind(archetype)
+        .bind(placement)
+        .bind(&placement_cluster)
+        .bind(&placement_database)
         .fetch_one(&mut *tx)
         .await
         .map_err(|error| match error {
@@ -466,7 +518,7 @@ impl Store {
         }
 
         if let Some(deployment) = deployment {
-            let plan = deployment_plan(&tenant, deployment)?;
+            let plan = deployment_plan(&tenant, deployment, &self.shared_pg)?;
             let job_id = Uuid::new_v4();
             let job = sqlx::query_as::<_, ProvisioningJobRow>(
                 r#"INSERT INTO control_plane_provisioning_jobs
@@ -928,7 +980,7 @@ impl Store {
             provider_keys: None,
         };
         let job_id = Uuid::new_v4();
-        let plan = deployment_plan(&tenant.tenant, &deployment)?;
+        let plan = deployment_plan(&tenant.tenant, &deployment, &self.shared_pg)?;
 
         let mut tx = self.pool.begin().await?;
         let inserted = sqlx::query_as::<_, ProvisioningJobRow>(
@@ -1146,7 +1198,7 @@ impl Store {
                  AND (
                    plan->>'schema' = '3'
                    OR (
-                     plan->>'schema' = '4'
+                     plan->>'schema' IN ('4', '5')
                      AND $1::text IS NOT NULL
                      AND plan #>> '{regionalProfile,dataRegion}' = $1
                    )
@@ -2768,9 +2820,27 @@ fn generate_referral_code() -> String {
         .collect()
 }
 
+/// The tenant's database (and role) name on a shared Postgres cluster.
+///
+/// Derived deterministically from the slug: slugs are unique and cannot
+/// contain underscores, so `t_` + underscored slug is unique and never
+/// requires identifier quoting in DDL. Postgres caps identifiers at 63 bytes;
+/// a slug that would overflow is truncated and disambiguated with a tenant-id
+/// fragment, which stays unique because the tenant id is unique.
+fn placement_database_name(slug: &str, tenant_id: &Uuid) -> String {
+    let underscored = slug.replace('-', "_");
+    let candidate = format!("t_{underscored}");
+    if candidate.len() <= 63 {
+        return candidate;
+    }
+    let id_fragment = tenant_id.simple().to_string();
+    format!("t_{}_{}", &underscored[..52], &id_fragment[..8])
+}
+
 fn deployment_plan(
     tenant: &TenantRow,
     deployment: &TenantDeploymentSpec,
+    shared_pg: &SharedPgConfig,
 ) -> Result<Value, ApiError> {
     let crowdrelay_base_url = tenant.crowdrelay_base_url.as_deref().ok_or_else(|| {
         ApiError::InvalidInput("crowdrelayBaseUrl is required before deployment".to_owned())
@@ -2786,9 +2856,12 @@ fn deployment_plan(
             )
         })?)
         .map_err(|_| ApiError::Conflict("stored regionalProfile is invalid".to_owned()))?;
+    // Schema 5 adds `placement`/`sharedPg`: where the tenant's database lives.
+    // Older schemas remain accepted by the provisioner and mean `dedicated`.
     let mut plan = json!({
-        "schema": 4,
+        "schema": 5,
         "mode": "local_docker_compose",
+        "placement": tenant.placement.as_str(),
         "composeProject": format!("crowdrelay-{}", tenant.slug),
         "tenantId": tenant.id.to_string(),
         "tenantSlug": tenant.slug.as_str(),
@@ -2811,6 +2884,23 @@ fn deployment_plan(
             "browserReceivesSecrets": false
         }
     });
+    if tenant.placement == "shared_pg" {
+        let (Some(cluster), Some(database)) = (
+            tenant.placement_cluster.as_deref(),
+            tenant.placement_database.as_deref(),
+        ) else {
+            // The CHECK constraint makes this unreachable; refuse rather than
+            // hand the provisioner a plan it cannot place.
+            return Err(ApiError::Conflict(
+                "shared_pg tenant is missing placement cluster or database".to_owned(),
+            ));
+        };
+        plan["sharedPg"] = json!({
+            "host": cluster,
+            "network": shared_pg.network,
+            "database": database,
+        });
+    }
     // Include provider API keys in the plan if provided.
     // The provisioner writes them to tenant.env.
     if let Some(keys) = &deployment.provider_keys {
