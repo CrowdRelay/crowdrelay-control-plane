@@ -1077,6 +1077,31 @@ export type AgentScorecard = {
   }
 }
 
+/** N.9 — one executor lane as the workspace stands right now.
+ *  `live`: an unexpired executor advertises it and no breaker holds it open.
+ *  `blocked`: advertised but held this minute — the advertisement or the
+ *  executor expired, or the circuit breaker is holding it. `missing`: a
+ *  parked action needs it and nobody advertises it. `awaiting` counts the
+ *  queued actions parked behind the lane — the number a missing row costs. */
+export type ExecutorCapabilityRow = {
+  capability: string
+  state: 'live' | 'blocked' | 'missing'
+  /** The executors that advertise the lane — names matter when two run and
+   *  only one is healthy. Empty on a `missing` row by construction. */
+  executors: string[]
+  awaiting: number
+}
+
+/** The dispatch gate's registry, laid out per lane (N.9). Rows arrive ordered
+ *  by `awaiting` desc upstream — keep that order. `executors_registered` false
+ *  means no executor has ever heartbeated: the dispatcher fails open on an
+ *  empty registry, so the panel says that plainly rather than reading every
+ *  lane as missing. */
+export type TenantExecutorCapabilities = {
+  executors_registered: boolean
+  capabilities: ExecutorCapabilityRow[]
+}
+
 export type ReplyTriageView = {
   needs_human: ReplyTriageEntry[]
   recent_auto: ReplyTriageEntry[]

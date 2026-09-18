@@ -11,6 +11,7 @@ import { LearningLoopPanel } from '../components/LearningLoopPanel'
 import { LearningProofPanel } from '../components/LearningProofPanel'
 import { ContentSourcesPanel } from '../components/ContentSourcesPanel'
 import { ScorecardPanel } from '../components/ScorecardPanel'
+import { ExecutorCapabilitiesPanel } from '../components/ExecutorCapabilitiesPanel'
 import { MeasurementPanel } from '../components/MeasurementPanel'
 import { GrowthPosturePanel } from '../components/GrowthPosturePanel'
 import { GrowthMetricsPanel } from '../components/GrowthMetricsPanel'
@@ -113,6 +114,10 @@ export function TenantIntelligencePage() {
         <div>
           <SectionTitle title="Scorecard & objectives" icon={<SectionIcon name="brain" />} description="How the growth loop is performing against the targets you set." />
           <ScorecardPanel slug={params().slug} />
+          {/* N.9 — the dispatch gate's registry per lane: which capabilities
+              are live, held, or missing. The scorecard counts them; this
+              names them before an approval meets the refusal. */}
+          <ExecutorCapabilitiesPanel slug={params().slug} />
           <GrowthObjectivesPanel slug={params().slug} />
         </div>
       </TabPanel>
