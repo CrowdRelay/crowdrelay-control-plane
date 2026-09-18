@@ -158,6 +158,10 @@ class ProvisionerContractTests(unittest.TestCase):
         for service in ("postgres:", "setup:", "api:", "worker:"):
             self.assertIn(service, compose)
         self.assertIn(f'127.0.0.1:28100:8080', compose)
+        # The crowdrelay-shared alias attach is asserted by
+        # test_compose_attaches_api_to_edge_network_under_alias — this render
+        # passes no edge network, so the attachment must be absent.
+        self.assertNotIn("crowdrelay-shared", compose)
         # The running stack is pinned to immutable digests, never to the mutable
         # sha-<commit> tag the plan asked for.
         self.assertIn(PINNED["api"], compose)

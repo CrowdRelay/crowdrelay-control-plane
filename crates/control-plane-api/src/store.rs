@@ -1277,9 +1277,17 @@ impl Store {
                 "deployed SHA {deployed_sha} does not match planned SHA {expected_sha}"
             )));
         }
+        // The management URL must resolve from inside this container, so the
+        // tenant slug's crowdrelay-shared alias is recorded — 127.0.0.1 in the
+        // result is this container's own loopback and answers nothing.
+        let slug: String =
+            sqlx::query_scalar("SELECT slug FROM control_plane_tenants WHERE id = $1")
+                .bind(existing.tenant_id)
+                .fetch_one(&mut *tx)
+                .await?;
         let result = json!({
             "apiPort": api_port,
-            "localApiUrl": format!("http://127.0.0.1:{api_port}"),
+            "localApiUrl": format!("http://{slug}-api:8080"),
             "workspaceId": workspace_id,
             "schemaVersion": schema_version,
             "deployedSha": deployed_sha,
