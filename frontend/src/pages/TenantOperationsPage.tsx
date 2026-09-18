@@ -342,17 +342,17 @@ export function TenantOperationsPage() {
         </Show>
         <div class="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 md:grid-cols-3 lg:grid-cols-5">
           <For each={[
-            { label: 'Active fans', value: d()?.audience?.active_fans },
-            { label: 'Ticket buyers', value: d()?.audience?.ticket_buyers },
-            { label: 'Attendees', value: d()?.audience?.attendees },
-            { label: 'Paid orders', value: d()?.audience?.paid_ticket_orders },
-            { label: 'Qualified referrals', value: d()?.audience?.qualified_referrals },
+            { term: 'Active fans', value: d()?.audience?.active_fans },
+            { term: 'Ticket buyers', value: d()?.audience?.ticket_buyers },
+            { term: 'Attendees', value: d()?.audience?.attendees },
+            { term: 'Paid orders', value: d()?.audience?.paid_ticket_orders },
+            { term: 'Qualified referrals', value: d()?.audience?.qualified_referrals },
           ]}>{kpi => (
             <div class="flex flex-col gap-1">
               <span class="text-xl font-bold tabular-nums text-foreground">
                 <Show when={kpi.value != null} fallback={<span class="text-muted-foreground">—</span>}>{kpi.value!.toLocaleString()}</Show>
               </span>
-              <Eyebrow>{kpi.label}</Eyebrow>
+              <Eyebrow>{kpi.term}</Eyebrow>
             </div>
           )}</For>
         </div>

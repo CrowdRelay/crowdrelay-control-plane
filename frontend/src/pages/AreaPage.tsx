@@ -310,7 +310,7 @@ export function AreaPage() {
           tabs={[
             { id: 'city', label: 'City' },
             { id: 'location', label: 'Location' },
-            { id: 'content', label: 'Content' },
+            { id: 'content', label: 'Collectible' },
             { id: 'schedule', label: 'Schedule' },
             { id: 'review', label: 'Review' },
           ]}

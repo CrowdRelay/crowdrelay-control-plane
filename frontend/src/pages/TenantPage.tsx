@@ -348,12 +348,12 @@ export function TenantPage() {
               <h3 class="mt-6 mb-2 text-sm font-semibold text-foreground">Down the funnel</h3>
               <KpiStrip class="mb-0" min="8rem">
                 <For each={[
-                  { label: 'Active fans', value: operations.data?.audience?.active_fans },
-                  { label: 'Ticket buyers', value: operations.data?.audience?.ticket_buyers },
-                  { label: 'Attendees', value: operations.data?.audience?.attendees },
-                  { label: 'Paid orders', value: operations.data?.audience?.paid_ticket_orders },
-                  { label: 'Qualified referrals', value: operations.data?.audience?.qualified_referrals },
-                ]}>{kpi => <KpiCard label={kpi.label} value={kpi.value != null ? kpi.value.toLocaleString() : '—'} />}</For>
+                  { term: 'Active fans', value: operations.data?.audience?.active_fans },
+                  { term: 'Ticket buyers', value: operations.data?.audience?.ticket_buyers },
+                  { term: 'Attendees', value: operations.data?.audience?.attendees },
+                  { term: 'Paid orders', value: operations.data?.audience?.paid_ticket_orders },
+                  { term: 'Qualified referrals', value: operations.data?.audience?.qualified_referrals },
+                ]}>{kpi => <KpiCard label={kpi.term} value={kpi.value != null ? kpi.value.toLocaleString() : '—'} />}</For>
               </KpiStrip>
             </Section>
           </Show>
@@ -714,7 +714,7 @@ export function TenantPage() {
           onChange={switchTab}
           onPrefetch={prefetch}
           tabs={[
-            { id: 'today', label: 'Today' },
+            { id: 'today', label: 'Growth' },
             { id: 'profile', label: 'Profile' },
             { id: 'deployment', label: 'Deployment' },
             { id: 'access', label: 'Access' },
