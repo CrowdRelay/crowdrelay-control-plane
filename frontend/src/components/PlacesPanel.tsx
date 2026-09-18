@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
+import { Link } from '@tanstack/solid-router'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
@@ -151,7 +152,14 @@ export function PlacesPanel(props: { slug: string }) {
                       return (
                         <TableRow>
                           <TableCell>
-                            <span class="text-foreground">{row.city_name}</span>
+                            {/* N.12 — the city opens as its own page. */}
+                            <Link
+                              to="/tenants/$slug/cities/$cityId"
+                              params={{ slug: props.slug, cityId: row.city_slug }}
+                              class="text-foreground underline decoration-border underline-offset-4 hover:text-primary"
+                            >
+                              {row.city_name}
+                            </Link>
                             <span class="ml-1 text-xs text-muted-foreground">{row.country_code}</span>
                           </TableCell>
                           <TableCell class="text-right tabular-nums">{count(row.fans)}</TableCell>
@@ -240,7 +248,14 @@ export function PlacesPanel(props: { slug: string }) {
                           </Show>
                         </TableCell>
                         <TableCell class="text-xs text-muted-foreground">
-                          {row.city_name} {row.country_code}
+                          <Link
+                            to="/tenants/$slug/cities/$cityId"
+                            params={{ slug: props.slug, cityId: row.city_slug }}
+                            class="underline decoration-border underline-offset-4 hover:text-primary"
+                          >
+                            {row.city_name}
+                          </Link>
+                          {' '}{row.country_code}
                         </TableCell>
                         <TableCell class="text-right tabular-nums">
                           {count(row.shows_played)}
