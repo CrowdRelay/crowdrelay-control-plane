@@ -2163,28 +2163,46 @@ async fn approve_gig_plan(
         payload["revision"] = serde_json::to_value(revision)
             .map_err(|_| ApiError::InvalidInput("revision is not encodable".to_owned()))?;
     }
-    let (tenant, value) = call(
-        &state,
-        &slug,
-        "POST",
-        "/v1/control-plane/gig-plan/approve",
-        Some(&payload),
-        &headers,
-        Some(&idempotency),
-    )
-    .await?;
-    let result: Result<Value, ApiError> = Ok(value.clone());
-    audit_result(
-        &state,
-        tenant.tenant.id,
-        "tenant.gig_proposal.approved",
-        "gig_proposal",
-        city_id,
-        &headers,
-        &result,
-        None,
-    )
-    .await;
+    // Audit the result, not just the send: upstream answers a refused approval
+    // as 200 `{"refused": "…"}`, and a row that says "approved" for a letter
+    // that never queued is the audit lying.
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: "/v1/control-plane/gig-plan/approve",
+                body: Some(&payload),
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    let outcome = match &result {
+        Ok(value) if value.get("refused").is_some() => "refused",
+        Ok(_) => "accepted",
+        Err(_) => "failed",
+    };
+    if let Err(error) = state
+        .store
+        .audit_control_command(crate::store::ControlCommandAudit {
+            tenant_id: tenant.tenant.id,
+            actor: &state.admin_actor,
+            action: "tenant.gig_proposal.approved",
+            target_kind: "gig_proposal",
+            target_id: city_id.to_owned(),
+            request_id: correlation(&headers),
+            outcome,
+            expected_version: None,
+        })
+        .await
+    {
+        tracing::warn!(%error, "failed to append gig-proposal approval audit");
+    }
+    let value = result?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(value, "gig plan approval")
 }

@@ -3255,8 +3255,10 @@ export type GigPlanProposal = {
    *  by the plan's own opening_line(), so the screen reads the same words the
    *  promoter would. The approve-with-edit box pre-fills it. */
   opening_line: string
-  /** Who to write to, strongest relationship first. */
-  contact: string[]
+  /** Who to write to, strongest relationship first. Upstream emits
+   *  PromoterContact objects — `{key}` is the booking-target identity, `name`
+   *  is who the band reads. */
+  contact: { key: string; name: string }[]
   /** Acts worth asking onto the bill — asking, never announcing. */
   invite_to_bill: string[]
   reasons: GigPlanReason[]
@@ -3321,6 +3323,13 @@ export type GigPlanResponse = {
   /** False means the visible plan came from a one-off override, not the
    *  stored intent — the panel says so rather than letting it look stored. */
   intent_is_stored: boolean
+  /** The act's declared style, or null when the band has not declared one. */
+  act_style: string | null
+  /** Whether an executor can actually send the letter today — when false the
+   *  approve button must not pretend otherwise. */
+  can_send: boolean
+  /** The sentence to show when can_send is false. */
+  send_blocked_reason: string | null
   track_record: {
     proposals: GigPlanOutcome[]
     by_reason: GigPlanReasonScore[]

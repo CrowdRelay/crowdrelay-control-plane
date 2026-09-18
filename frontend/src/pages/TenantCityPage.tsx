@@ -257,6 +257,8 @@ export function TenantCityPage() {
                   busy={approval.approve.isPending}
                   result={approval.approvalResult()?.cityId === p().city_id ? approval.approvalResult()!.result : null}
                   error={approval.approveError()?.cityId === p().city_id ? approval.approveError()!.message : null}
+                  canSend={plan.data?.can_send}
+                  sendBlockedReason={plan.data?.send_blocked_reason}
                   onApprove={(revision) => approval.approve.mutate({ proposal: p(), revision })}
                 />
               </div>

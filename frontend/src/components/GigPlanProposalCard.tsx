@@ -128,6 +128,10 @@ export function GigPlanProposalCard(props: {
   busy: boolean
   result?: GigPlanApproval | null
   error?: string | null
+  /** Whether any executor can send the letter today — false greys the button
+   *  and shows the reason instead of offering a click that would refuse. */
+  canSend?: boolean
+  sendBlockedReason?: string | null
   /** The operator's fix to the letter, when they edited the opening line —
    *  forwarded verbatim to the revision gate upstream. */
   onApprove: (revision?: Record<string, string>) => void
@@ -185,7 +189,7 @@ export function GigPlanProposalCard(props: {
 
       <div class="mt-3 border-t border-border pt-2">
         <p class="text-xs text-muted-foreground">
-          Write to: {proposal().contact.join(', ')}
+          Write to: {proposal().contact.map((c) => c.name).join(', ')}
         </p>
         <Show when={proposal().invite_to_bill.length > 0}>
           <p class="mt-1 text-xs text-muted-foreground">
@@ -225,7 +229,7 @@ export function GigPlanProposalCard(props: {
         <div class="mt-3 flex items-center gap-3">
           <Button
             size="sm"
-            disabled={props.busy || (editing() && !editedLine().trim())}
+            disabled={props.busy || props.canSend === false || (editing() && !editedLine().trim())}
             onClick={() => {
               const line = editedLine().trim()
               const revision = editing() && line !== proposal().opening_line.trim()
@@ -253,6 +257,9 @@ export function GigPlanProposalCard(props: {
                 </span>
               )
             }}
+          </Show>
+          <Show when={props.canSend === false && props.sendBlockedReason}>
+            {reason => <span class="text-xs text-amber-400/90">{reason()}</span>}
           </Show>
           <Show when={props.error}>
             {message => <span class="text-xs text-destructive">{message()}</span>}
