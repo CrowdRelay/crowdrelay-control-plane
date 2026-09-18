@@ -16,3 +16,7 @@ docs/*
 !docs/CONTROL_PLANE_PLAN.md
 !docs/CROWDRELAY_LEVERAGE_PLAN.md
 playwright/test-results.json
+
+# Console screenshots captured for design review — regenerate with
+# design-audit/capture-screens.mjs rather than committing 6 MB of PNGs.
+/design-audit/
