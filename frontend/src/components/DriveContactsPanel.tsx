@@ -2,7 +2,10 @@ import { For, Show, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { writeGuard } from '../lib/read-only'
+import { READ_ONLY_REASON, readOnly, writeGuard } from '../lib/read-only'
+import { FileInput } from './ui/file-input'
+import { buttonVariants } from './app/button'
+import { cn } from '../lib/cn'
 import { refreshQueries } from '../lib/refresh'
 import { errorMessage } from '../lib/format'
 import type { DriveContact } from '../lib/types'
@@ -45,6 +48,7 @@ const defaultBeaconKind = (contact: DriveContact): string =>
 const SOURCE_LABELS: Record<string, string> = {
   gdrive: 'Drive',
   gmail: 'Gmail',
+  upload: 'Uploaded sheet',
 }
 
 const outcomeBadge = (outcome: string) => {
@@ -87,6 +91,7 @@ export function DriveContactsPanel(props: { slug: string }) {
   const [selected, setSelected] = createSignal<ReadonlySet<string>>(new Set())
   const [batchConfirm, setBatchConfirm] = createSignal<'fans' | 'dismiss' | null>(null)
   const [batchProgress, setBatchProgress] = createSignal<{ done: number; total: number } | null>(null)
+  const [uploading, setUploading] = createSignal(false)
 
   const staged = createMemo(() =>
     (contacts.data?.contacts ?? []).filter(
@@ -119,6 +124,33 @@ export function DriveContactsPanel(props: { slug: string }) {
   const toggleSelectAll = (on: boolean) => {
     setSelected(on ? new Set<string>(selectable()) : new Set<string>())
     setBatchConfirm(null)
+  }
+
+  // P.2 — the operator's own sheet is an intake source too. The CSV text
+  // passes through; upstream parses, dedupes by email and stages.
+  const uploadSheet = (event: Event) => {
+    const input = event.currentTarget as HTMLInputElement
+    const file = input.files?.[0]
+    input.value = ''
+    if (!file) return
+    void (async () => {
+      setUploading(true)
+      setError(null)
+      setNotice(null)
+      try {
+        const text = await file.text()
+        const result = await api.uploadDriveContacts(props.slug, file.name, text)
+        refreshQueries(['gdrive-contacts', props.slug])
+        const skipped = result.rows_without_email > 0
+          ? `, ${result.rows_without_email} row${result.rows_without_email === 1 ? '' : 's'} had no usable address`
+          : ''
+        setNotice(`Staged ${result.staged} contact${result.staged === 1 ? '' : 's'} from ${file.name}${skipped}.`)
+      } catch (err) {
+        setError(errorMessage(err, 'The upload did not land — the file stayed unchanged.'))
+      } finally {
+        setUploading(false)
+      }
+    })()
   }
 
   const scanNow = async () => {
@@ -241,9 +273,24 @@ export function DriveContactsPanel(props: { slug: string }) {
             can be both.
           </p>
         </div>
-        <Button writes variant="outline" size="sm" disabled={scanning()} onClick={() => void scanNow()}>
-          <Show when={scanning()}><Spinner /></Show> Scan now
-        </Button>
+        <div class="flex items-center gap-2">
+          <label
+            class={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'cursor-pointer')}
+            classList={{ 'pointer-events-none opacity-45': uploading() || readOnly() }}
+            title={readOnly() ? READ_ONLY_REASON : 'Upload a CSV or spreadsheet export — every row with an email address lands here staged, deduplicated.'}
+          >
+            {uploading() && <Spinner />} {uploading() ? 'Uploading…' : 'Upload a sheet'}
+            <FileInput
+              writes
+              accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values"
+              disabled={uploading()}
+              onChange={uploadSheet}
+            />
+          </label>
+          <Button writes variant="outline" size="sm" disabled={scanning()} onClick={() => void scanNow()}>
+            <Show when={scanning()}><Spinner /></Show> Scan now
+          </Button>
+        </div>
       </div>
 
       <Show when={error()}><ErrorCard>{error()}</ErrorCard></Show>
@@ -268,6 +315,19 @@ export function DriveContactsPanel(props: { slug: string }) {
             />
           }
         >
+          {/* P.2 — the registry join, counted over the whole staging
+              population upstream (the rendered page is capped). A stranger
+              count of zero on a big sheet is the honest finding too. */}
+          <Show when={contacts.data?.registry_summary}>
+            {summary => (
+              <p class="m-0 mt-3 text-xs text-muted-foreground">
+                Of {summary().total} staged — <strong>{summary().known_venues} already in the venue registry</strong>
+                <Show when={summary().own_rooms > 0}> ({summary().own_rooms} of them rooms the band already played)</Show>
+                {' · '}<strong>{summary().known_counterparties} known counterparties</strong>
+                <Show when={summary().dealt_with > 0}> ({summary().dealt_with} the band has worked with)</Show>.
+              </p>
+            )}
+          </Show>
           <Show when={staged().length > 0}>
             <div class="mt-4 flex items-center gap-3 flex-wrap rounded-md border border-border/50 bg-background/40 px-3 py-2">
               <Checkbox
@@ -368,6 +428,22 @@ function DriveContactRow(props: {
             </Show>
             <Show when={props.contact.gone_from_source}>
               <Badge variant="warning">Gone from file</Badge>
+            </Show>
+            <Show when={props.contact.matched_venue}>
+              <Badge variant="muted" title="The venue registry already knows this organisation">
+                On the books: {props.contact.matched_venue}
+              </Badge>
+            </Show>
+            <Show when={props.contact.venue_played_here}>
+              <Badge variant="success" title="The band's own marks say they already played this room">Played here</Badge>
+            </Show>
+            <Show when={props.contact.matched_counterparty}>
+              <Badge variant="muted" title="The counterparty registry already knows this address">
+                Known: {props.contact.matched_counterparty}
+              </Badge>
+            </Show>
+            <Show when={props.contact.counterparty_worked_with}>
+              <Badge variant="success" title="The band's own marks say they already dealt with them">Worked together</Badge>
             </Show>
           </div>
           <p class="m-0 mt-1 text-xs text-muted-foreground">

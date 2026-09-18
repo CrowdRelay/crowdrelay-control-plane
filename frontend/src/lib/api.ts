@@ -628,6 +628,12 @@ export const api = {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
     }),
+  uploadDriveContacts: (slug: string, fileName: string, csv: string) =>
+    request<{ staged: number; rows_read: number; rows_without_email: number }>(`/tenants/${encodeURIComponent(slug)}/operations/gdrive-contacts/upload`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ file_name: fileName, csv }),
+    }),
   promoteDriveContact: (slug: string, contactId: string, destination: 'fan' | 'beacon', kind?: string, city?: string) =>
     request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/gdrive-contacts/${contactId}/promote`, {
       method: 'POST',
