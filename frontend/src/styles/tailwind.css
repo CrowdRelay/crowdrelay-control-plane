@@ -4,6 +4,7 @@
  */
 @layer theme, base, legacy, components, utilities;
 @import "tailwindcss";
+@import "tw-animate-css";
 
 /*
  * Token mapping — CSS custom properties mapped onto Tailwind v4 @theme keys.
@@ -101,6 +102,29 @@
   --color-destructive-bg: #38201f;
   --color-destructive-border: #643333;
   --color-destructive-bg-deep: #3b1d2e;
+
+  /* ── shadcn (solid-ui) names ─────────────────────────────────────────
+     Registry components added with `solidui-cli add` use these names. Each
+     one aliases an existing token so a vendored component matches the
+     console without edits to its colours.
+
+     Deliberately NOT remapped: `primary` / `primary-foreground`. solid-ui's
+     filled button is `bg-primary text-primary-foreground`, which on this
+     palette is light text on a light fill. Adapt those classes to
+     `bg-primary-solid text-primary-on` when vendoring (see the accent block
+     above for why there are two primaries). */
+  --color-input: var(--color-border);
+  --color-ring: var(--color-primary);
+  --color-secondary: var(--color-surface-3);
+  --color-accent: var(--color-surface-3);
+  --color-accent-foreground: var(--color-foreground);
+  --color-card-foreground: var(--color-foreground);
+  --color-popover-foreground: var(--color-foreground);
+  /* `error` fills are light like `destructive`, so their text is the page's
+     near-black — the same inversion the Button's destructive variant uses. */
+  --color-error: var(--color-destructive);
+  --color-error-foreground: var(--color-background);
+  --color-warning-foreground: var(--color-background);
 
   /* ── Radius ──────────────────────────────────────────────────────── */
   /* The public site's scale. The console sat at 6/8/8 against the site's
