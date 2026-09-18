@@ -2181,6 +2181,9 @@ export type TenantShowHelpersResponse = {
     display_name: string
     /** A venue-kind beacon in this city already names this room. */
     on_roster: boolean
+    /** The room's cross-tenant play record — null when unmatched or
+        the read did not run. */
+    venue_prior: VenuePrior | null
   } | null
   /** Photographer beacons in the show's city, warmest first. */
   photographers: Array<{
