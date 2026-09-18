@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage } from '../lib/format'
+import { currencyFractionDigits, errorMessage, money } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { EmptyState } from './ui/empty-state'
 import type { NegotiationEntry } from '../lib/types'
@@ -11,24 +11,7 @@ import { StatusBadge } from './StatusBadge'
 import { SkeletonPanel } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Button } from './app/button'
-
-const currencyFractionDigits = (currency: string) => {
-  try {
-    return (
-      new Intl.NumberFormat(undefined, { style: 'currency', currency }).resolvedOptions()
-        .maximumFractionDigits ?? 2
-    )
-  } catch {
-    return 2
-  }
-}
-
-const money = (minor: number, currency: string) =>
-  (minor / 10 ** currencyFractionDigits(currency)).toLocaleString(undefined, {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  })
+import { Input } from './ui/input'
 
 const deadlineLabel = (iso: string) => {
   const at = new Date(iso)
@@ -197,19 +180,19 @@ function LiveRow(props: { entry: NegotiationEntry; slug: string }) {
         }
       >
         <div class="flex flex-wrap items-center gap-2">
-          <input
+          <Input
             type="text"
             inputmode="decimal"
             placeholder={`fee in ${e().currency}`}
             value={offer()}
             onInput={ev => setOffer(ev.currentTarget.value)}
-            class="w-28 rounded-md border border-border bg-transparent px-2 py-1 text-sm text-foreground"
+            class="h-8 w-28"
           />
-          <input
+          <Input
             type="date"
             value={respondsBy()}
             onInput={ev => setRespondsBy(ev.currentTarget.value)}
-            class="rounded-md border border-border bg-transparent px-2 py-1 text-sm text-foreground"
+            class="h-8 w-auto"
           />
           <Button writes variant="ghost" size="sm" class="text-success-foreground" disabled={busy()} onClick={() => submit(false)}>
             {busy() ? '…' : 'Record offer'}

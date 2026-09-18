@@ -8,6 +8,7 @@ import { PageShell, PageHeader } from '../components/layout'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
 import { Badge } from '../components/app/badge'
+import { Button } from '../components/app/button'
 import { ShowSetupPanel } from '../components/ShowSetupPanel'
 import { SharedNightPanel } from '../components/SharedNightPanel'
 import { formatTimestamp } from '../lib/format'
@@ -481,14 +482,16 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
                       {row.on_roster ? ' · on the roster' : row.resolution === 'peer' ? ' · on the registry' : ' · unclaimed name'}
                     </Link>
                     <Show when={!row.on_roster && data().event.city_id}>
-                      <button
-                        type="button"
+                      <Button
+                        writes
+                        variant="link"
+                        size="sm"
                         disabled={admitting() !== null}
                         onClick={() => admit(row.act_name, 'scene_partner')}
-                        class="shrink-0 text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground disabled:opacity-50"
+                        class="h-auto shrink-0 p-0 text-xs text-muted-foreground decoration-dotted underline-offset-2"
                       >
                         {admitting() === row.act_name ? 'Adding…' : 'Add to roster'}
-                      </button>
+                      </Button>
                     </Show>
                   </div>
                 )}
@@ -507,14 +510,16 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
                       </Show>
                     </Link>
                     <Show when={!channel().on_roster && data().event.city_id}>
-                      <button
-                        type="button"
+                      <Button
+                        writes
+                        variant="link"
+                        size="sm"
                         disabled={admitting() !== null}
                         onClick={() => admit(channel().display_name, 'venue')}
-                        class="shrink-0 text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground disabled:opacity-50"
+                        class="h-auto shrink-0 p-0 text-xs text-muted-foreground decoration-dotted underline-offset-2"
                       >
                         {admitting() === channel().display_name ? 'Adding…' : 'Add to roster'}
-                      </button>
+                      </Button>
                     </Show>
                   </div>
                 )}

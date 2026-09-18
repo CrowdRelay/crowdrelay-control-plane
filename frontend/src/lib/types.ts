@@ -1287,6 +1287,9 @@ export type ReplyTriageEntry = {
   classification_result: string
   classified_disposition: string | null
   human_review_reason: string | null
+  proposed_fee_minor: number | null
+  proposed_currency: string | null
+  proposed_opportunity_id: string | null
   confidence_basis_points: number
   matched_rules: string[]
   classified_at: string
