@@ -451,6 +451,26 @@ function DriveContactRow(props: {
             <Show when={props.contact.counterparty_worked_with}>
               <Badge variant="success" title="The band's own marks say they already dealt with them">Worked together</Badge>
             </Show>
+            <Show when={props.contact.counterparty_prior && props.contact.counterparty_prior.tenants_contacted > 0 ? props.contact.counterparty_prior : null}>
+              {prior => (
+                <Badge
+                  variant="muted"
+                  title="Anonymous counts across every tenant — this address's reply record on the platform"
+                >
+                  {`${prior().tenants_contacted} wrote · ${prior().tenants_replied} answered${prior().tenants_won > 0 ? ` · ${prior().tenants_won} won` : ''}`}
+                </Badge>
+              )}
+            </Show>
+            <Show when={props.contact.venue_prior && props.contact.venue_prior.tenants_played > 0 ? props.contact.venue_prior : null}>
+              {prior => (
+                <Badge
+                  variant="muted"
+                  title="Anonymous counts across every tenant — the room's play record on the registry"
+                >
+                  {`${prior().tenants_played} played · ${prior().shows} shows`}
+                </Badge>
+              )}
+            </Show>
           </div>
           <p class="m-0 mt-1 text-xs text-muted-foreground">
             {[props.contact.display_name, props.contact.organization, props.contact.city].filter(Boolean).join(' · ') || 'No name on file'}
