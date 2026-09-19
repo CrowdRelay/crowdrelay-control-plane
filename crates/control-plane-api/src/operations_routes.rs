@@ -571,6 +571,20 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/contacts/{beacon_id}/latarnik-invite",
             post(invite_to_latarnik),
         )
+        // P.4: one show's approve-once growth ladder — the state plus the
+        // rungs, and the two writes (approve / revoke) that move it.
+        .route(
+            "/tenants/{slug}/operations/autopilot/events/{event_id}/growth-ladder",
+            get(show_growth_ladder),
+        )
+        .route(
+            "/tenants/{slug}/operations/autopilot/events/{event_id}/growth-ladder/approve",
+            post(approve_show_growth_ladder),
+        )
+        .route(
+            "/tenants/{slug}/operations/autopilot/events/{event_id}/growth-ladder/revoke",
+            post(revoke_show_growth_ladder),
+        )
         // P.7: the negotiation table — the ladder every live terms row was
         // argued from, plus the write that records the promoter's position.
         .route(
@@ -5114,6 +5128,91 @@ async fn invite_to_latarnik(
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     mutation_no_store(value, "latarnik invite")
+}
+
+/// One show's growth ladder (P.4): the approval row's state plus every rung
+/// in due order. Read-only — the same read the panel renders.
+async fn show_growth_ladder(
+    State(state): State<AppState>,
+    Path((slug, event_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let event_id = uuid_segment(&event_id)?.to_owned();
+    let path = format!("/v1/control-plane/autopilot/events/{event_id}/growth-ladder");
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "show growth ladder")
+}
+
+/// One yes over the show's whole ladder (P.4). The write is the canonical
+/// upstream one; the proxy only carries it with its idempotency key.
+async fn approve_show_growth_ladder(
+    State(state): State<AppState>,
+    Path((slug, event_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let event_id = uuid_segment(&event_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path = format!("/v1/control-plane/autopilot/events/{event_id}/growth-ladder/approve");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        None,
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.show_growth_ladder.approved",
+        "event",
+        &event_id,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    mutation_no_store(value, "show growth ladder approval")
+}
+
+/// Stops the rungs the ladder approval would still release (P.4). Rungs
+/// already running or finished keep their record.
+async fn revoke_show_growth_ladder(
+    State(state): State<AppState>,
+    Path((slug, event_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let event_id = uuid_segment(&event_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path = format!("/v1/control-plane/autopilot/events/{event_id}/growth-ladder/revoke");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        None,
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.show_growth_ladder.revoked",
+        "event",
+        &event_id,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    mutation_no_store(value, "show growth ladder revoke")
 }
 
 /// The negotiation table — live terms rows with their ladders and the move

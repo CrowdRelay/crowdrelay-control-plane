@@ -577,6 +577,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/recipients",
                 )
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/decisions/", "/evidence")
+                // P.4: the show's approve-once growth ladder — the approval
+                // row's state plus every rung's position. Read-only.
+                || uuid_segment_between(path, "/v1/control-plane/autopilot/events/", "/growth-ladder")
                 // What the action actually sent — the words and the
                 // addresses. Read-only like the ledger entry beside it;
                 // upstream 404s when the action never emitted.
@@ -641,6 +644,19 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 )
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/actions/", "/approve")
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/actions/", "/cancel")
+                // P.4: one yes (or one stop) over a show's whole growth
+                // ladder — the canonical admin writes, carried through the
+                // proxy with their idempotency keys.
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/events/",
+                    "/growth-ladder/approve",
+                )
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/events/",
+                    "/growth-ladder/revoke",
+                )
                 || uuid_segment_between(
                     path,
                     "/v1/control-plane/autopilot/decisions/",

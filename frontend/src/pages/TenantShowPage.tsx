@@ -10,6 +10,7 @@ import { SkeletonSection } from '../components/Skeleton'
 import { Badge } from '../components/app/badge'
 import { Button } from '../components/app/button'
 import { ShowSetupPanel } from '../components/ShowSetupPanel'
+import { ShowGrowthLadderPanel } from '../components/ShowGrowthLadderPanel'
 import { SharedNightPanel } from '../components/SharedNightPanel'
 import { formatTimestamp } from '../lib/format'
 import { ArrowLeft } from 'lucide-solid'
@@ -140,6 +141,9 @@ export function TenantShowPage() {
               )}
             </Show>
             <ShowSetupPanel slug={params().slug} eventSlug={params().eventSlug} timeline={data()} />
+            {/* P.4 — the approve-once growth ladder: one yes covers the whole
+                T-21→T+7 sequence, each rung still gated on its own evidence. */}
+            <ShowGrowthLadderPanel slug={params().slug} eventId={data().event.id} />
             {/* §4h-11 — who could help with this show: the staging queue
                 read against a date rather than as an inventory. Candidates,
                 never instructions — no row carries a contact address. */}

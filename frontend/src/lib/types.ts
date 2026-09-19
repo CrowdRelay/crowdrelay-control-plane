@@ -2052,6 +2052,38 @@ export type TenantShowTimelineResponse = {
   steps: ShowTimelineStep[]
 }
 
+// ── The show's approve-once growth ladder (P.4) ─────────────────────────
+
+/** One rung of the ladder — the autopilot action the rung released, parks
+ * or already ran. `lever` is the stable snake_case key; the briefing is the
+ * same render the approval screen shows. */
+export type ShowLadderRung = {
+  action_id: string
+  lever: string
+  action_kind: string
+  status: 'awaiting_approval' | 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled'
+  available_at: string
+  approval_expires_at: string | null
+  /** `operator:show_ladder` means the approve-once path released it; a member
+   *  name means an individual approval; null while it still waits. */
+  approved_by: string | null
+  briefing: ActionBriefing | null
+}
+
+export type ShowGrowthLadderView = {
+  event_id: string
+  title: string
+  starts_at: string
+  event_status: string
+  /** `approved` while a live approval exists, `revoked` once the newest row
+   *  is closed, `none` when the operator was never asked. */
+  ladder_state: 'approved' | 'revoked' | 'none'
+  approved_at: string | null
+  approved_by: string | null
+  revoked_at: string | null
+  rungs: ShowLadderRung[]
+}
+
 // ── The shared night (4V.6b) ────────────────────────────────────────────
 // One venue's night, every tenant's event pointing at it. The payload's
 // shape is the caller's lens — upstream derives it from the workspace's
