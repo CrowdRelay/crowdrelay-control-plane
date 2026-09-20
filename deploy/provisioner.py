@@ -478,6 +478,13 @@ def create_runtime_env(plan: dict[str, Any]) -> str:
         "CROWDRELAY_WORKSPACE_SLUG": plan["workspaceSlug"],
         "CROWDRELAY_TENANT_DISPLAY_NAME": plan["displayName"],
         "CROWDRELAY_PUBLIC_SITE_BASE_URL": plan.get("publicSiteBaseUrl") or "",
+        # Community executor drafts Reddit posts that link smart links
+        # (/l/{slug}) — served by the tenant's public site, which proxies to
+        # the API. The executor hard-fails without this on any non-Virya
+        # workspace; fall back to the API base so a site-less tenant still
+        # resolves its own links rather than another band's.
+        "CROWDRELAY_PUBLIC_ORIGIN": plan.get("publicSiteBaseUrl")
+            or plan["crowdRelayBaseUrl"],
         "CROWDRELAY_DEFAULT_COUNTRY_CODE": plan["defaultCountryCode"],
         "CROWDRELAY_REDIRECT_REFRESH_INTERVAL_MS": "15000",
         "CROWDRELAY_CLICK_CHANNEL_CAPACITY": "2048",
@@ -495,8 +502,11 @@ def create_runtime_env(plan: dict[str, Any]) -> str:
         "CROWDRELAY_BOOTSTRAP_FILE": "/run/crowdrelay/bootstrap.json",
         "RUST_LOG": "info,crowdrelay=info",
     }
-    if plan.get("schema") == 4:
-        profile = plan["regionalProfile"]
+    # Presence-gated, not schema-gated: a non-Virya tenant refuses to boot
+    # without CROWDRELAY_TENANT_DATA_REGION, so any plan that carries a
+    # regional profile must have it rendered regardless of schema number.
+    profile = plan.get("regionalProfile")
+    if isinstance(profile, dict):
         values.update({
             "CROWDRELAY_TENANT_REGION": profile["region"],
             "CROWDRELAY_TENANT_LOCALE": profile["locale"],
