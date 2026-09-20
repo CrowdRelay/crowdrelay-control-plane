@@ -1,11 +1,13 @@
 import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api, request } from '../lib/api'
-import { errorMessage } from '../lib/format'
+import { errorMessage, formatIsoAge } from '../lib/format'
 import { toast } from './app/toast'
 import { EmptyState } from './ui/empty-state'
 import { Hint } from './ui/hint'
 import { ErrorCard } from './layout'
+import { StatusBadge } from './StatusBadge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import { Alert } from './app/alert'
 import { credentialHealth } from '../lib/credential-health'
 import { ProviderCard, type ProviderCardContext } from './ProviderCard'
@@ -14,6 +16,14 @@ import { KeyIcon, SparkIcon } from './provider-icons'
 import type { AgentProvider, AgentCredential, AgentModel, PremiumUsage } from '../lib/types'
 
 // ─── Component ──────────────────────────────────────────────────────────
+
+/** Worse probes sort first — a down model at the bottom of 40 rows is a
+ *  problem nobody scrolls to. */
+const healthRank = (status: string) =>
+  status === 'down' ? 0 : status === 'degraded' || status === 'cooldown' ? 1 : 2
+
+const healthTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
+  status === 'ok' ? 'good' : status === 'down' ? 'bad' : 'warn'
 
 export function AgentProvidersPanel(props: {
   slug: string
@@ -114,6 +124,21 @@ export function AgentProvidersPanel(props: {
 
   const providers = () => props.providers ?? fallbackProviders.data ?? []
   const credentials = () => props.credentials ?? fallbackCreds.data ?? []
+
+  // Stored probe results per (provider, model): which ones the router can
+  // actually reach right now, with the latency and last error it saw. Not
+  // part of the providers read model — the checker refreshes on its own
+  // cadence, so this section fetches its own endpoint.
+  const health = useQuery(() => ({
+    queryKey: ['agent-health', props.slug],
+    queryFn: () => api.agentHealth(props.slug),
+    enabled: props.active !== false && props.mode !== 'library',
+    refetchOnWindowFocus: false,
+    staleTime: 15_000,
+  }))
+  const healthRows = createMemo(() =>
+    (health.data?.health ?? []).slice().sort((a, b) => healthRank(a.status) - healthRank(b.status))
+  )
   const refetchCreds = () => {
     if (props.refetchCreds) props.refetchCreds()
     else fallbackCreds.refetch()
@@ -438,6 +463,54 @@ export function AgentProvidersPanel(props: {
             <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
               <For each={inUseProviders()}>{provider => <ProviderCard provider={provider} ctx={cardCtx} />}</For>
             </div>
+          </section>
+        </Show>
+
+        {/* ─── Probe results ──────────────────────────────────────
+            What the health checker last saw per model — the card grid says
+            what is connected, this says whether it answers. */}
+        <Show when={props.mode !== 'library' && health.error}>
+          <ErrorCard>Provider health unavailable: {errorMessage(health.error, 'The probe results could not be read.')} Retrying automatically.</ErrorCard>
+        </Show>
+        <Show when={props.mode !== 'library' && healthRows().length > 0}>
+          <section>
+            <div class="mb-1 flex items-center gap-2">
+              <h3 class="m-0 flex items-center gap-2 text-base font-semibold text-foreground">
+                <SparkIcon size={16} /> Probe results
+              </h3>
+              <Hint label="What the probe does">
+                The agent service pings each model on a schedule and stores what it saw — status,
+                latency, and the last error. A connected provider can still be degraded here when the
+                provider itself is refusing (rate limits, billing) or down.
+              </Hint>
+            </div>
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>Model</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Requests left</TableHead>
+                <TableHead>Latency</TableHead>
+                <TableHead>Checked</TableHead>
+                <TableHead>Last error</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                <For each={healthRows()}>{row => <TableRow>
+                  <TableCell>
+                    {row.model_id}
+                    <span class="ml-1.5 text-xs text-muted-foreground">{row.provider}</span>
+                  </TableCell>
+                  <TableCell><StatusBadge status={row.status} tone={healthTone(row.status)} /></TableCell>
+                  <TableCell>{row.requests_remaining ?? '—'}</TableCell>
+                  <TableCell>{row.latency_ms != null ? `${row.latency_ms} ms` : '—'}</TableCell>
+                  <TableCell><span class="text-xs text-muted-foreground">{formatIsoAge(row.last_checked_at)}</span></TableCell>
+                  <TableCell>
+                    <Show when={row.last_error} fallback="—">
+                      <span class="text-xs text-destructive">{row.last_error}</span>
+                    </Show>
+                  </TableCell>
+                </TableRow>}</For>
+              </TableBody>
+            </Table>
           </section>
         </Show>
 

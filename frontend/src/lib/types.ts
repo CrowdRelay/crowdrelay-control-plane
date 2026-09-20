@@ -448,6 +448,40 @@ export type OperationTimelineEvent = {
 
 export type OperationTimeline = { request_id: string; events: OperationTimelineEvent[] }
 
+/// One row of the tenant's ViryaOS action ledger — the durable state machine
+/// every autopilot action moves through (PLANNED → AUTHORIZED → QUEUED →
+/// RUNNING → SUCCEEDED/FAILED/UNKNOWN → RECONCILING → terminal).
+export type ActionLedgerEntry = {
+  action_id: string
+  state: string
+  trace_id: string | null
+  causation_id: string | null
+  decision_id: string | null
+  state_entered_at: string
+  updated_at: string
+  transition_count: number
+  previous_state: string | null
+  reconciliation_count: number
+  last_reconciliation_error: string | null
+}
+
+/// One event in the causal chain a trace_id joins across the event tables:
+/// decision → action → outbox → delivery → measurement → evidence.
+export type TraceTimelineEvent = {
+  occurred_at: string
+  source: string
+  kind: string
+  state: string | null
+  action_id: string | null
+  decision_id: string | null
+  causation_id: string | null
+  event_id: string | null
+  /// FACT (observed), INFERENCE (derived) or UNKNOWN (not yet confirmed).
+  certainty: string
+}
+
+export type TraceTimeline = { trace_id: string; events: TraceTimelineEvent[] }
+
 export type ReconciliationRun = {
   id: string
   status: string
@@ -1043,6 +1077,21 @@ export type DiscoveredEndpoint = {
   active: boolean
 }
 
+/// One queued notification in the control plane's notifier outbox. `phase`
+/// is the server-rolled state: `accepted` (pending or already sent), `failed`
+/// (dead after retries), `unknown` for anything else.
+export type NotifierOutboxItem = {
+  id: string
+  event: string
+  status: string
+  phase: 'accepted' | 'failed' | 'unknown' | string
+  attempts: number
+  lastError: string | null
+  channel: { id: string; label: string; kind: NotifierKind }
+  createdAt: string
+  updatedAt: string
+}
+
 export type PlatformHealthEntry = {
   service: string
   label: string
@@ -1418,6 +1467,53 @@ export interface AgentModel {
    * Absent on older agent-service builds; treat undefined as unknown.
    */
   available?: boolean
+}
+
+/// One stored probe result per (provider, model) from the agent service's
+/// health checker. `status` is `ok`, `degraded` (reachable but refusing —
+/// rate limits, auth failures) or `down` (unreachable / 5xx); `cooldown`
+/// rows are written when a model is parked after repeated failures.
+export interface AgentProviderHealth {
+  provider: string
+  model_id: string
+  status: string
+  requests_remaining: number | null
+  last_checked_at: string
+  last_error: string | null
+  latency_ms: number | null
+}
+
+/// GET /agents/health — the agent service's `/health/providers` answer: the
+/// stored probe rows plus the full model catalog so every known model can be
+/// placed next to its health reading.
+export interface AgentHealthResponse {
+  models: Array<{
+    id: string
+    provider: string
+    name: string
+    context_window: number
+    best_for: string
+    requires_key: boolean
+    paid: boolean
+  }>
+  health: AgentProviderHealth[]
+}
+
+/// One reliability alert the agent service rolled up for the ops dashboard:
+/// a failed task, a dead webhook delivery or a down provider.
+export interface AgentServiceAlert {
+  severity: 'critical' | 'warning' | 'info' | string
+  category: string
+  message: string
+  detail?: unknown
+  occurred_at?: string
+}
+
+/// GET /agents/health/alerts — the service's own "what is broken right now"
+/// answer, sorted by recency upstream.
+export interface AgentHealthAlertsResponse {
+  alert_count: number
+  alerts: AgentServiceAlert[]
 }
 
 export interface PremiumModel {

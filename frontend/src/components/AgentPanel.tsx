@@ -73,6 +73,17 @@ export function AgentPanel(props: { slug: string }) {
 
   // Consolidated Providers-tab read model — one round-trip replaces the
   // three separate queries (providers, credentials, models).
+  // The service's own "what is broken right now" roll-up: failed tasks,
+  // dead webhook deliveries, down providers. Lives above the tabs — an
+  // operator should not have to open the right tab to learn a model is down.
+  const serviceAlerts = useQuery(() => ({
+    queryKey: ['agent-health-alerts', props.slug],
+    queryFn: () => api.agentHealthAlerts(props.slug),
+    refetchOnWindowFocus: false,
+    staleTime: 15_000,
+  }))
+  const alerts = () => serviceAlerts.data?.alerts ?? []
+
   const providersOverview = useQuery(() => ({
     queryKey: ['agent-providers-overview', props.slug],
     queryFn: () => api.agentProvidersOverview(props.slug),
@@ -275,6 +286,21 @@ export function AgentPanel(props: { slug: string }) {
         <Alert tone="warning" role="status" title="The agent service is unavailable">
           Free models keep working. Provider management, tasks and premium features return when the service answers again. This page retries on its own.
         </Alert>
+      </Show>
+
+      {/* Reliability alerts the service rolled up itself — failed tasks,
+          dead webhook deliveries, down providers — worst first, the way the
+          upstream list already orders them by recency. */}
+      <For each={alerts().slice(0, 5)}>{a =>
+        <Alert tone={a.severity === 'critical' ? 'destructive' : a.severity === 'warning' ? 'warning' : 'info'} role="status" title={a.category.replaceAll('_', ' ')}>
+          {a.message}
+          <Show when={a.occurred_at}>
+            <span class="ml-1.5 text-xs opacity-80">{formatIsoAge(a.occurred_at!)}</span>
+          </Show>
+        </Alert>
+      }</For>
+      <Show when={alerts().length > 5}>
+        <p class="text-xs text-muted-foreground">…and {alerts().length - 5} more service alert{alerts().length - 5 === 1 ? '' : 's'}.</p>
       </Show>
 
       {/* Tab navigation */}

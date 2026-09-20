@@ -6,7 +6,7 @@ import { toast } from '../components/app/toast'
 import type { NotifierChannel, NotifierEvent, DiscoveredEndpoint, PlatformConfigItem, AutomationRoutingItem, NotifiersOverview } from '../lib/types'
 import { NOTIFIER_EVENTS, NOTIFIER_EVENT_LABELS } from '../lib/types'
 import { SectionIcon } from '../components/SectionIcon'
-import { errorMessage, relativeTime } from '../lib/format'
+import { errorMessage, formatIsoAge, relativeTime } from '../lib/format'
 import { cn } from '../lib/cn'
 import { Check, ChevronDown, RefreshCw } from 'lucide-solid'
 import { writeGuard } from '../lib/read-only'
@@ -68,13 +68,26 @@ export function TenantNotifiersPage() {
   const platformConfig = section(o => o.platformConfig, o => ({ items: o.platformConfig.items ?? [] }))
   const automationRouting = section(o => o.automationRouting, o => ({ items: o.automationRouting.items ?? [] }))
 
+  // The outbox is the control plane's own delivery queue — what actually
+  // left (or died trying), per channel. It lives outside the read model
+  // because it changes faster than the 20s aggregate is worth refreshing.
+  const outbox = useQuery(() => ({
+    queryKey: ['notifier-outbox', slug()],
+    queryFn: () => api.notifierOutbox(slug()),
+    refetchOnWindowFocus: false,
+    staleTime: 15_000,
+  }))
+
   const [kind, setKind] = createSignal<NotifierChannel['kind']>('discord')
   const [label, setLabel] = createSignal('')
   const [target, setTarget] = createSignal('')
   const [events, setEvents] = createSignal<string[]>([])
   const [testResult, setTestResult] = createSignal<Record<string, string>>({})
 
-  const refresh = () => qc.invalidateQueries({ queryKey: ['notifiers-overview', slug()] })
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ['notifiers-overview', slug()] })
+    qc.invalidateQueries({ queryKey: ['notifier-outbox', slug()] })
+  }
   const toggleEvent = (e: NotifierEvent) => setEvents(c => c.includes(e) ? c.filter(i => i !== e) : [...c, e])
   const targetLabel = () => kind() === 'email_relay' ? 'Recipient email' : 'Webhook URL'
   const targetPh = () => kind() === 'discord' ? 'https://discord.com/api/webhooks/…' : kind() === 'webhook' ? 'https://ops.example.com/hooks/crowdrelay' : 'alerts@future-metal.example'
@@ -360,6 +373,52 @@ export function TenantNotifiersPage() {
                   <Badge variant="success">active</Badge>
                 </Show>
               </TableCell>
+            </TableRow>}</For>
+          </TableBody>
+        </Table>
+      </Section>
+    </Show>
+
+    {/* ── Recent deliveries — the control plane's own outbox ─────── */}
+    <Show when={outbox.error}>
+      <Section title="Recent deliveries" icon={<SectionIcon name="mail" />}>
+        <p class="text-sm text-muted-foreground">Notification outbox unavailable: {errorMessage(outbox.error, 'We couldn\'t read the outbox. Try refreshing.')}</p>
+      </Section>
+    </Show>
+    <Show when={!outbox.error && outbox.isPending}><SkeletonSection titleWidth="180px" lines={3} minHeight="120px" /></Show>
+    <Show when={outbox.data && outbox.data.items.length === 0}>
+      <Section title="Recent deliveries" icon={<SectionIcon name="mail" />} count={0} description="The last 50 notifications this tenant's channels were asked to send.">
+        <EmptyState label="Nothing sent yet" hint="Notifications land here when an event fires for a channel — test deliveries included." />
+      </Section>
+    </Show>
+    <Show when={outbox.data && outbox.data.items.length > 0}>
+      <Section title="Recent deliveries" icon={<SectionIcon name="mail" />} count={outbox.data?.items.length} description="The last 50 notifications this tenant's channels were asked to send.">
+        <Table>
+          <TableHeader><TableRow>
+            <TableHead>Event</TableHead>
+            <TableHead>Channel</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Attempts</TableHead>
+            <TableHead>Last error</TableHead>
+            <TableHead>Queued</TableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            <For each={outbox.data?.items ?? []}>{item => <TableRow>
+              <TableCell><code class="text-xs">{item.event}</code></TableCell>
+              <TableCell>
+                {item.channel.label}
+                <span class="ml-1.5 text-xs text-muted-foreground">{kindLabel(item.channel.kind)}</span>
+              </TableCell>
+              <TableCell>
+                <Badge variant={item.phase === 'failed' ? 'destructive' : item.phase === 'accepted' ? 'muted' : 'outline'}>{item.status}</Badge>
+              </TableCell>
+              <TableCell>{item.attempts}</TableCell>
+              <TableCell>
+                <Show when={item.lastError} fallback="—">
+                  <span class="text-xs text-destructive">{item.lastError}</span>
+                </Show>
+              </TableCell>
+              <TableCell><span class="text-xs text-muted-foreground">{formatIsoAge(item.createdAt)}</span></TableCell>
             </TableRow>}</For>
           </TableBody>
         </Table>

@@ -84,6 +84,10 @@ pub fn router() -> Router<AppState> {
             get(get_task_result),
         )
         .route("/tenants/{slug}/agents/health", get(agent_health))
+        .route(
+            "/tenants/{slug}/agents/health/alerts",
+            get(agent_health_alerts),
+        )
         .route("/tenants/{slug}/agents/suggestions", get(agent_suggestions))
         .route("/tenants/{slug}/agents/providers", get(list_providers))
         .route(
@@ -393,6 +397,17 @@ async fn agent_health(
     _headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     proxy_get(&state, &slug, "/health/providers", AgentCapability::Read).await
+}
+
+/// Reliability alerts the agent service rolled up for the ops dashboard:
+/// failed tasks, dead webhook deliveries and down providers. Read-only
+/// observation, same capability as the probe table above.
+async fn agent_health_alerts(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    proxy_get(&state, &slug, "/health/alerts", AgentCapability::Read).await
 }
 
 async fn agent_suggestions(
