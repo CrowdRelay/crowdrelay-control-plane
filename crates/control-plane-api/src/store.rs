@@ -8,9 +8,9 @@ use uuid::Uuid;
 use crate::{
     error::ApiError,
     model::{
-        AuditRow, AutomationEventRow, AutomationWorkflowConfigRow, BrandingPalette,
-        CreateAutomationEventRequest, CreateTenantRequest, GuaranteeState, GuaranteeView,
-        PlatformHealthRow, ProvisioningJobRow, RegionalProfile, RuntimeHealth,
+        AuditRow, AutomationEventRow, AutomationWorkflowConfigRow, BillingEventInput, BillingState,
+        BrandingPalette, CreateAutomationEventRequest, CreateTenantRequest, GuaranteeState,
+        GuaranteeView, PlatformHealthRow, ProvisioningJobRow, RegionalProfile, RuntimeHealth,
         RuntimeReportRequest, RuntimeStatusRow, TenantDeploymentSpec, TenantGuaranteeRow,
         TenantRow, TenantSummary, TenantSummaryJoinRow,
     },
@@ -246,9 +246,14 @@ impl Store {
                       r.awaiting_approval AS runtime_awaiting_approval,
                       r.north_star_fans AS runtime_north_star_fans,
                       r.last_heartbeat_at AS runtime_last_heartbeat_at,
-                      r.checked_at AS runtime_checked_at
+                      r.checked_at AS runtime_checked_at,
+                      b.state AS billing_state,
+                      b.subscription_started_at AS billing_subscription_started_at,
+                      b.trial_ends_at AS billing_trial_ends_at,
+                      b.current_period_ends_at AS billing_current_period_ends_at
                FROM control_plane_tenants t
                LEFT JOIN control_plane_runtime_status r ON r.tenant_id = t.id
+               LEFT JOIN control_plane_tenant_billing b ON b.tenant_id = t.id
                ORDER BY CASE WHEN t.slug = 'virya' THEN 0 ELSE 1 END, t.display_name"#,
         )
         .fetch_all(&self.pool)
@@ -279,9 +284,14 @@ impl Store {
                       r.awaiting_approval AS runtime_awaiting_approval,
                       r.north_star_fans AS runtime_north_star_fans,
                       r.last_heartbeat_at AS runtime_last_heartbeat_at,
-                      r.checked_at AS runtime_checked_at
+                      r.checked_at AS runtime_checked_at,
+                      b.state AS billing_state,
+                      b.subscription_started_at AS billing_subscription_started_at,
+                      b.trial_ends_at AS billing_trial_ends_at,
+                      b.current_period_ends_at AS billing_current_period_ends_at
                FROM control_plane_tenants t
                LEFT JOIN control_plane_runtime_status r ON r.tenant_id = t.id
+               LEFT JOIN control_plane_tenant_billing b ON b.tenant_id = t.id
                WHERE t.slug = $1"#,
         )
         .bind(slug)
@@ -508,6 +518,7 @@ impl Store {
             tenant,
             runtime: None,
             runtime_health: RuntimeHealth::Unknown,
+            billing: None,
         })
     }
 
@@ -894,12 +905,10 @@ impl Store {
 
     /// Request a deployment for a provisioner-managed tenant.
     ///
-    /// Currently unused: the operator-facing redeploy path was removed for
-    /// non-Virya tenants (too much access). Tenant creation still provisions
-    /// internally via `create_tenant_with_deployment`. This method is kept
-    /// for when provisioner-managed tenant redeploy is re-introduced with
-    /// proper access scoping.
-    #[allow(dead_code)]
+    /// The billing webhook calls this when a `subscription_started` lands on
+    /// a tenant still in `provisioning` — payment becomes the provisioning
+    /// intent. An operator's explicit deploy request upgrades a `planned`
+    /// job the same way.
     pub async fn request_deployment(
         &self,
         slug: &str,
@@ -1580,13 +1589,21 @@ impl Store {
         // actually measured, so the clock starts at first measurement rather
         // than at provisioning. Once frozen it never moves — ON CONFLICT
         // keeps the earliest baseline, and every later report only updates
-        // `north_star_fans` on the runtime row above.
+        // `north_star_fans` on the runtime row above. When a subscription is
+        // already recorded the deadline anchors to its start: the contract's
+        // ninety days are the *paid* ninety days, and a tenant that paid
+        // before its first measurement still gets its clock from payment.
         if let Some(fans) = input.north_star_fans {
             sqlx::query(
                 r#"INSERT INTO control_plane_tenant_guarantee
                    (tenant_id, metric_key, baseline_value, baseline_captured_at, deadline)
-                   VALUES ($1, 'activated_fans_30d', $2,
-                           COALESCE($3, now()), COALESCE($3, now()) + INTERVAL '90 days')
+                   VALUES ($1, 'activated_fans_30d', $2, COALESCE($3, now()),
+                           COALESCE(
+                               (SELECT subscription_started_at
+                                FROM control_plane_tenant_billing
+                                WHERE tenant_id = $1),
+                               COALESCE($3, now())
+                           ) + INTERVAL '90 days')
                    ON CONFLICT (tenant_id) DO NOTHING"#,
             )
             .bind(tenant.tenant.id)
@@ -1674,6 +1691,7 @@ impl Store {
             tenant: tenant.tenant,
             runtime: Some(runtime),
             runtime_health: current_health,
+            billing: tenant.billing,
         })
     }
 
@@ -1725,6 +1743,150 @@ impl Store {
             current_captured_at: current_at,
             days_remaining: (!elapsed).then(|| (row.deadline - now).num_days()),
         })
+    }
+
+    /// One billing webhook event applied to the tenant's subscription row.
+    ///
+    /// The state machine lives in `BillingState::apply`: events that do not
+    /// move the machine (a `payment_failed` landing after `refunded`) leave
+    /// the row untouched and return the current state. `subscription_started`
+    /// is the only event that writes every field — a new subscription is a
+    /// new contract, so provider ids and the start instant are replaced, not
+    /// merged. Other events keep the recorded start: a `payment_succeeded`
+    /// arriving before its `subscription_started` (provider ordering is not
+    /// guaranteed) still creates a row, anchored to receipt time rather than
+    /// invented.
+    ///
+    /// Returns `(previous, current)` so the caller can audit the transition.
+    pub async fn apply_billing_event(
+        &self,
+        tenant_id: Uuid,
+        input: &BillingEventInput,
+        actor: &str,
+        request_id: Option<&str>,
+    ) -> Result<(Option<BillingState>, Option<BillingState>), ApiError> {
+        let now = Utc::now();
+        let mut tx = self.pool.begin().await?;
+        let current_raw = sqlx::query_scalar::<_, String>(
+            "SELECT state FROM control_plane_tenant_billing WHERE tenant_id = $1 FOR UPDATE",
+        )
+        .bind(tenant_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let previous = current_raw.as_deref().and_then(BillingState::parse);
+        let in_trial = input.trial_ends_at.is_some_and(|end| end > now);
+        let next = BillingState::apply(previous, &input.event, in_trial);
+        let Some(state) = next else {
+            tx.commit().await?;
+            return Ok((previous, previous));
+        };
+        let started_at = if input.event == "subscription_started" {
+            input.subscription_started_at.unwrap_or(now)
+        } else {
+            now
+        };
+        sqlx::query(
+            r#"INSERT INTO control_plane_tenant_billing
+               (tenant_id, provider, provider_customer_id, provider_subscription_id,
+                state, subscription_started_at, trial_ends_at, current_period_ends_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+               ON CONFLICT (tenant_id) DO UPDATE SET
+                 provider = EXCLUDED.provider,
+                 provider_customer_id = COALESCE(EXCLUDED.provider_customer_id,
+                                                 control_plane_tenant_billing.provider_customer_id),
+                 provider_subscription_id = COALESCE(EXCLUDED.provider_subscription_id,
+                                                     control_plane_tenant_billing.provider_subscription_id),
+                 state = EXCLUDED.state,
+                 subscription_started_at = CASE WHEN $9::bool
+                     THEN EXCLUDED.subscription_started_at
+                     ELSE control_plane_tenant_billing.subscription_started_at END,
+                 trial_ends_at = COALESCE(EXCLUDED.trial_ends_at,
+                                          control_plane_tenant_billing.trial_ends_at),
+                 current_period_ends_at = COALESCE(EXCLUDED.current_period_ends_at,
+                                                   control_plane_tenant_billing.current_period_ends_at),
+                 updated_at = now()"#,
+        )
+        .bind(tenant_id)
+        .bind(&input.provider)
+        .bind(&input.provider_customer_id)
+        .bind(&input.provider_subscription_id)
+        .bind(state.as_str())
+        .bind(started_at)
+        .bind(input.trial_ends_at)
+        .bind(input.current_period_ends_at)
+        .bind(input.event == "subscription_started")
+        .execute(&mut *tx)
+        .await?;
+        self.audit_tx(
+            &mut tx,
+            AuditRecord {
+                tenant_id: Some(tenant_id),
+                actor,
+                action: "tenant.billing.transition",
+                target_kind: "tenant_billing",
+                target_id: tenant_id.to_string(),
+                request_id,
+                detail: json!({
+                    "event": &input.event,
+                    "previousState": previous.map(BillingState::as_str),
+                    "state": state.as_str(),
+                    "provider": &input.provider,
+                    "providerSubscriptionId": &input.provider_subscription_id,
+                }),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok((previous, next))
+    }
+
+    /// The paid ninety-day window starts when money changes hands. A pilot
+    /// that measured before payment froze a baseline against free days; on
+    /// `subscription_started` the contract re-anchors — baseline becomes the
+    /// level the graph stood at when the customer started paying (the latest
+    /// heartbeat value), and the deadline becomes ninety days from now.
+    /// Growth delivered for free before the contract does not count toward
+    /// it, and a decline during the paid window cannot hide behind it.
+    ///
+    /// Returns true when a guarantee row was re-anchored.
+    pub async fn anchor_guarantee_to_subscription(
+        &self,
+        tenant_id: Uuid,
+        actor: &str,
+        request_id: Option<&str>,
+    ) -> Result<bool, ApiError> {
+        let mut tx = self.pool.begin().await?;
+        let anchored = sqlx::query_scalar::<_, i64>(
+            r#"UPDATE control_plane_tenant_guarantee
+               SET baseline_value = COALESCE(
+                       (SELECT north_star_fans FROM control_plane_runtime_status
+                        WHERE tenant_id = $1),
+                       baseline_value),
+                   baseline_captured_at = now(),
+                   deadline = now() + INTERVAL '90 days'
+               WHERE tenant_id = $1
+               RETURNING baseline_value"#,
+        )
+        .bind(tenant_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if let Some(baseline) = anchored {
+            self.audit_tx(
+                &mut tx,
+                AuditRecord {
+                    tenant_id: Some(tenant_id),
+                    actor,
+                    action: "tenant.guarantee.anchored_to_subscription",
+                    target_kind: "tenant_guarantee",
+                    target_id: tenant_id.to_string(),
+                    request_id,
+                    detail: json!({"baselineValue": baseline}),
+                },
+            )
+            .await?;
+        }
+        tx.commit().await?;
+        Ok(anchored.is_some())
     }
 
     pub async fn set_area_enabled(

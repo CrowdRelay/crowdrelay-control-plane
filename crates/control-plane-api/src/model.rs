@@ -141,6 +141,98 @@ impl RuntimeHealth {
     }
 }
 
+/// Where the tenant's subscription stands. `trialing` and `active` are both
+/// live money states; `past_due` is grace; `canceled` churned, `refunded` is
+/// the guarantee paid out — the two endings are deliberately not the same
+/// state, because a refund is owed money and a cancellation is not.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum BillingState {
+    Trialing,
+    Active,
+    PastDue,
+    Canceled,
+    Refunded,
+}
+
+impl BillingState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Trialing => "trialing",
+            Self::Active => "active",
+            Self::PastDue => "past_due",
+            Self::Canceled => "canceled",
+            Self::Refunded => "refunded",
+        }
+    }
+
+    pub fn parse(state: &str) -> Option<Self> {
+        match state {
+            "trialing" => Some(Self::Trialing),
+            "active" => Some(Self::Active),
+            "past_due" => Some(Self::PastDue),
+            "canceled" => Some(Self::Canceled),
+            "refunded" => Some(Self::Refunded),
+            _ => None,
+        }
+    }
+
+    /// The next state after a billing webhook event, or `None` when the
+    /// event does not move the machine. Terminal `refunded` accepts nothing
+    /// but a fresh subscription — a refund then a straggler `payment_failed`
+    /// must not resurrect the subscription as merely behind.
+    pub fn apply(current: Option<Self>, event: &str, in_trial: bool) -> Option<Self> {
+        match event {
+            // A new subscription resets the machine from wherever it stood.
+            "subscription_started" => Some(if in_trial {
+                Self::Trialing
+            } else {
+                Self::Active
+            }),
+            "payment_succeeded" => match current {
+                Some(Self::Refunded) => None,
+                _ => Some(Self::Active),
+            },
+            "payment_failed" => match current {
+                Some(Self::Trialing) | Some(Self::Active) | Some(Self::PastDue) | None => {
+                    Some(Self::PastDue)
+                }
+                Some(Self::Canceled) | Some(Self::Refunded) => None,
+            },
+            "subscription_canceled" => match current {
+                Some(Self::Refunded) => None,
+                _ => Some(Self::Canceled),
+            },
+            "subscription_refunded" => Some(Self::Refunded),
+            _ => None,
+        }
+    }
+}
+
+/// One billing webhook event as the store consumes it — the fields the
+/// subscription machine and its audit row need, already validated.
+#[derive(Debug, Clone)]
+pub struct BillingEventInput {
+    pub event: String,
+    pub provider: String,
+    pub provider_customer_id: Option<String>,
+    pub provider_subscription_id: Option<String>,
+    pub subscription_started_at: Option<DateTime<Utc>>,
+    pub trial_ends_at: Option<DateTime<Utc>>,
+    pub current_period_ends_at: Option<DateTime<Utc>>,
+}
+
+/// The tenant's subscription as a read model — no provider ids, those belong
+/// to audit rows, not the console surface.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct BillingView {
+    pub state: BillingState,
+    pub subscription_started_at: DateTime<Utc>,
+    pub trial_ends_at: Option<DateTime<Utc>>,
+    pub current_period_ends_at: Option<DateTime<Utc>>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TenantSummary {
@@ -148,6 +240,7 @@ pub struct TenantSummary {
     pub tenant: TenantRow,
     pub runtime: Option<RuntimeStatusRow>,
     pub runtime_health: RuntimeHealth,
+    pub billing: Option<BillingView>,
 }
 
 #[derive(Debug, FromRow)]
@@ -186,6 +279,10 @@ pub struct TenantSummaryJoinRow {
     pub runtime_north_star_fans: Option<i64>,
     pub runtime_last_heartbeat_at: Option<DateTime<Utc>>,
     pub runtime_checked_at: Option<DateTime<Utc>>,
+    pub billing_state: Option<String>,
+    pub billing_subscription_started_at: Option<DateTime<Utc>>,
+    pub billing_trial_ends_at: Option<DateTime<Utc>>,
+    pub billing_current_period_ends_at: Option<DateTime<Utc>>,
 }
 
 impl TenantSummaryJoinRow {
@@ -232,6 +329,17 @@ impl TenantSummaryJoinRow {
             },
             runtime,
             runtime_health,
+            billing: self
+                .billing_state
+                .as_deref()
+                .and_then(BillingState::parse)
+                .zip(self.billing_subscription_started_at)
+                .map(|(state, subscription_started_at)| BillingView {
+                    state,
+                    subscription_started_at,
+                    trial_ends_at: self.billing_trial_ends_at,
+                    current_period_ends_at: self.billing_current_period_ends_at,
+                }),
         }
     }
 }
@@ -852,6 +960,78 @@ mod tests {
         assert_eq!(
             GuaranteeState::derive(true, None, 10),
             GuaranteeState::RefundOwed
+        );
+    }
+
+    #[test]
+    fn billing_trial_start_is_trialing_and_paid_start_is_active() {
+        assert_eq!(
+            BillingState::apply(None, "subscription_started", true),
+            Some(BillingState::Trialing)
+        );
+        assert_eq!(
+            BillingState::apply(None, "subscription_started", false),
+            Some(BillingState::Active)
+        );
+    }
+
+    #[test]
+    fn billing_payment_failed_moves_only_live_states_to_past_due() {
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Active), "payment_failed", false),
+            Some(BillingState::PastDue)
+        );
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Trialing), "payment_failed", false),
+            Some(BillingState::PastDue)
+        );
+        // A failure landing after the money went back must not resurrect
+        // the subscription as merely behind.
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Refunded), "payment_failed", false),
+            None
+        );
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Canceled), "payment_failed", false),
+            None
+        );
+    }
+
+    #[test]
+    fn billing_refunded_is_terminal_for_everything_but_a_new_subscription() {
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Refunded), "payment_succeeded", false),
+            None
+        );
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Refunded), "subscription_canceled", false),
+            None
+        );
+        // A genuinely new subscription resets the machine — the provider
+        // sends subscription_started, not payment_succeeded, for it.
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Refunded), "subscription_started", false),
+            Some(BillingState::Active)
+        );
+    }
+
+    #[test]
+    fn billing_recognized_events_move_and_unknown_events_do_not() {
+        assert_eq!(
+            BillingState::apply(Some(BillingState::PastDue), "payment_succeeded", false),
+            Some(BillingState::Active)
+        );
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Active), "subscription_canceled", false),
+            Some(BillingState::Canceled)
+        );
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Active), "subscription_refunded", false),
+            Some(BillingState::Refunded)
+        );
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Active), "invoice_created", false),
+            None
         );
     }
 }

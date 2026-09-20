@@ -77,7 +77,20 @@ export type Tenant = {
 
 export type RuntimeHealth = 'healthy' | 'degraded' | 'stale' | 'unknown'
 
-export type TenantSummary = Tenant & { runtime: RuntimeStatus | null; runtimeHealth: RuntimeHealth }
+export type BillingState = 'trialing' | 'active' | 'past_due' | 'canceled' | 'refunded'
+
+export type BillingView = {
+  state: BillingState
+  subscriptionStartedAt: string
+  trialEndsAt: string | null
+  currentPeriodEndsAt: string | null
+}
+
+export type TenantSummary = Tenant & {
+  runtime: RuntimeStatus | null
+  runtimeHealth: RuntimeHealth
+  billing: BillingView | null
+}
 export type TenantRuntimeSnapshot = { runtime: RuntimeStatus | null; runtimeHealth: RuntimeHealth }
 
 export type AuditEntry = {

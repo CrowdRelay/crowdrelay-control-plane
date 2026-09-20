@@ -2684,6 +2684,7 @@ mod tests {
             },
             runtime: None,
             runtime_health: crate::model::RuntimeHealth::Unknown,
+            billing: None,
         }
     }
 
