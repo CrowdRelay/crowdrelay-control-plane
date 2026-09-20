@@ -102,6 +102,35 @@ const serviceItems = (services: PlatformHealthEntry[]): NeedsYouItem[] =>
     to: '/tenants',
   }))
 
+// The fleet's own notification outbox. A dead row is a notification — often
+// `approvals.pending` — that exhausted every retry, and the channel that
+// would report the failure is the one that failed. Overdue pending rows
+// mean the dispatcher itself is not running. Either way the operator only
+// learns it here.
+const outboxItems = (outbox: CommandCenterReadModel['system']['notificationOutbox'] | undefined): NeedsYouItem[] => {
+  if (!outbox) return []
+  const items: NeedsYouItem[] = []
+  if (outbox.dead7d > 0) {
+    items.push({
+      key: 'outbox:dead',
+      severity: 0,
+      title: plural(outbox.dead7d, 'notification will never arrive', 'notifications will never arrive'),
+      detail: 'Delivery retries were exhausted in the last 7 days — check the notifier channels.',
+      to: '/tenants',
+    })
+  }
+  if (outbox.overduePending > 0) {
+    items.push({
+      key: 'outbox:overdue',
+      severity: 0,
+      title: plural(outbox.overduePending, 'notification is stuck in the outbox', 'notifications are stuck in the outbox'),
+      detail: 'The notifier is not dispatching — pending rows have been due for over 15 minutes.',
+      to: '/tenants',
+    })
+  }
+  return items
+}
+
 // ─── Model ─────────────────────────────────────────────────────────────
 
 type TenantsQuery = { data?: { items: TenantSummary[] } | undefined }
@@ -125,7 +154,11 @@ export const useOverviewModel = (tenants: TenantsQuery, commandCenter: CommandCe
   })
 
   const needsYou = createMemo<NeedsYouItem[]>(() =>
-    [...ccTenants().flatMap(tenantItems), ...serviceItems(platformServices())]
+    [
+      ...ccTenants().flatMap(tenantItems),
+      ...serviceItems(platformServices()),
+      ...outboxItems(cc()?.system.notificationOutbox),
+    ]
       .sort((a, b) => a.severity - b.severity),
   )
 

@@ -144,6 +144,23 @@ pub struct NotifierOutboxRow {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
+/// Fleet-level health of the control plane's own notification outbox.
+///
+/// Per-tenant rows are listed by [`Self::notifier_outbox`], but nothing
+/// opens every tenant's list: a dead `approvals.pending` row is a pending
+/// approval the operator was never told about — the channel that would
+/// report the failure is the one that failed. The command center's system
+/// block is the one surface an operator always sees, so the counts live
+/// there. `dead_7d` is windowed because dead rows never leave `dead`
+/// status and an all-time count alarms forever over long-fixed failures;
+/// `overdue_pending` counts rows due for longer than the dispatcher's
+/// cadence can explain, i.e. the worker itself is down.
+#[derive(Debug, Clone, Copy, sqlx::FromRow)]
+pub struct NotificationOutboxHealth {
+    pub dead_7d: i64,
+    pub overdue_pending: i64,
+}
+
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WaitlistRow {
@@ -2512,6 +2529,32 @@ impl Store {
         .fetch_all(&self.pool)
         .await?;
         Ok(rows)
+    }
+
+    /// Count the two outbox states the notifier cannot report about itself.
+    ///
+    /// A `dead` row is a notification that exhausted every retry — for an
+    /// `approvals.pending` event that is the silent-churn failure: the
+    /// approval waits and the operator was never told. Windowed to seven
+    /// days so a repaired channel stops alarming once the backlog drains.
+    ///
+    /// A `pending` row overdue by fifteen minutes means the dispatcher is
+    /// not running: it ticks every five seconds and leases claims for
+    /// sixty, so no live worker leaves a due row unclaimed that long. Rows
+    /// merely backing off (`next_attempt_at` in the future) are retries in
+    /// progress, not a stalled worker, and do not count.
+    pub async fn notification_outbox_health(&self) -> Result<NotificationOutboxHealth, ApiError> {
+        let row = sqlx::query_as::<_, NotificationOutboxHealth>(
+            r#"SELECT
+                   COUNT(*) FILTER (WHERE status = 'dead'
+                                    AND updated_at > now() - INTERVAL '7 days') AS dead_7d,
+                   COUNT(*) FILTER (WHERE status = 'pending'
+                                    AND next_attempt_at < now() - INTERVAL '15 minutes') AS overdue_pending
+               FROM control_plane_notification_outbox"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row)
     }
 
     /// Claim due notifications under SKIP LOCKED so repeated workers or a

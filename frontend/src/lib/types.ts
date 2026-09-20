@@ -3487,6 +3487,10 @@ export type CommandCenterReadModel = {
   }
   system: {
     platformServices: PlatformHealthEntry[]
+    notificationOutbox: {
+      dead7d: number
+      overduePending: number
+    }
   }
   learning: {
     totalOutcomes: number
