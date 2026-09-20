@@ -3427,6 +3427,8 @@ export type CommandCenterTenantSummary = {
   displayName: string
   runtimeHealth: 'healthy' | 'degraded' | 'stale' | 'unknown'
   available: boolean
+  /** Enabled notifier channels — zero means events drop silently at fanout. */
+  enabledNotifierChannels: number
   attention: CommandCenterTenantAttention
   autopilot: CommandCenterTenantAutopilot
   learning: CommandCenterTenantLearning

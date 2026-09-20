@@ -241,6 +241,11 @@ pub struct TenantSummary {
     pub runtime: Option<RuntimeStatusRow>,
     pub runtime_health: RuntimeHealth,
     pub billing: Option<BillingView>,
+    /// Enabled notifier channels — the fanout `enqueue_event_tx` writes to.
+    /// Zero means every notification event for this tenant is dropped at
+    /// fanout: approvals wait with nobody told. Not nullable: the count is
+    /// a local fact the container always knows.
+    pub enabled_notifier_channels: i64,
 }
 
 #[derive(Debug, FromRow)]
@@ -283,6 +288,7 @@ pub struct TenantSummaryJoinRow {
     pub billing_subscription_started_at: Option<DateTime<Utc>>,
     pub billing_trial_ends_at: Option<DateTime<Utc>>,
     pub billing_current_period_ends_at: Option<DateTime<Utc>>,
+    pub enabled_notifier_channels: i64,
 }
 
 impl TenantSummaryJoinRow {
@@ -340,6 +346,7 @@ impl TenantSummaryJoinRow {
                     trial_ends_at: self.billing_trial_ends_at,
                     current_period_ends_at: self.billing_current_period_ends_at,
                 }),
+            enabled_notifier_channels: self.enabled_notifier_channels,
         }
     }
 }

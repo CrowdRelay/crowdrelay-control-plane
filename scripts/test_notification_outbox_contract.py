@@ -84,6 +84,20 @@ class NotificationOutboxContract(unittest.TestCase):
         self.assertIn("status = 'dead'", store)
         self.assertIn("next_attempt_at < now() - INTERVAL '15 minutes'", store)
 
+    def test_a_tenant_with_no_enabled_channel_is_surfaced(self) -> None:
+        # `enqueue_event_tx` fans out over enabled channels — a tenant with
+        # none drops every event silently, and the row-level evidence is that
+        # nothing was ever inserted. The count must reach the command-center
+        # per-tenant projection so the gap reads as configuration debt, not
+        # as quiet.
+        read_models = (
+            ROOT / "crates/control-plane-api/src/read_models.rs"
+        ).read_text(encoding="utf-8")
+        self.assertIn("enabledNotifierChannels", read_models)
+        store = STORE.read_text(encoding="utf-8")
+        self.assertIn("enabled_notifier_channels", store)
+        self.assertIn("control_plane_notifier_channels", store)
+
 
 if __name__ == "__main__":
     unittest.main()

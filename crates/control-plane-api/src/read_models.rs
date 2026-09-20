@@ -932,6 +932,10 @@ fn build_per_tenant_summary(
         "displayName": display_name,
         "runtimeHealth": runtime_health,
         "available": available,
+        // Control-plane-side config the upstream sections cannot see: with
+        // no enabled notifier channel every event fans out to zero rows and
+        // approvals wait with nobody told. Local fact, never null.
+        "enabledNotifierChannels": tenant.enabled_notifier_channels,
         "attention": attention,
         "autopilot": autopilot,
         "learning": learning,
@@ -2703,6 +2707,7 @@ mod tests {
             runtime: None,
             runtime_health: crate::model::RuntimeHealth::Unknown,
             billing: None,
+            enabled_notifier_channels: 1,
         }
     }
 

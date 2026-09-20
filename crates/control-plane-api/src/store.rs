@@ -267,7 +267,9 @@ impl Store {
                       b.state AS billing_state,
                       b.subscription_started_at AS billing_subscription_started_at,
                       b.trial_ends_at AS billing_trial_ends_at,
-                      b.current_period_ends_at AS billing_current_period_ends_at
+                      b.current_period_ends_at AS billing_current_period_ends_at,
+                      (SELECT COUNT(*) FROM control_plane_notifier_channels nc
+                        WHERE nc.tenant_id = t.id AND nc.enabled) AS enabled_notifier_channels
                FROM control_plane_tenants t
                LEFT JOIN control_plane_runtime_status r ON r.tenant_id = t.id
                LEFT JOIN control_plane_tenant_billing b ON b.tenant_id = t.id
@@ -305,7 +307,9 @@ impl Store {
                       b.state AS billing_state,
                       b.subscription_started_at AS billing_subscription_started_at,
                       b.trial_ends_at AS billing_trial_ends_at,
-                      b.current_period_ends_at AS billing_current_period_ends_at
+                      b.current_period_ends_at AS billing_current_period_ends_at,
+                      (SELECT COUNT(*) FROM control_plane_notifier_channels nc
+                        WHERE nc.tenant_id = t.id AND nc.enabled) AS enabled_notifier_channels
                FROM control_plane_tenants t
                LEFT JOIN control_plane_runtime_status r ON r.tenant_id = t.id
                LEFT JOIN control_plane_tenant_billing b ON b.tenant_id = t.id
@@ -536,6 +540,7 @@ impl Store {
             runtime: None,
             runtime_health: RuntimeHealth::Unknown,
             billing: None,
+            enabled_notifier_channels: 0,
         })
     }
 
@@ -1705,6 +1710,7 @@ impl Store {
         }
         tx.commit().await?;
         Ok(TenantSummary {
+            enabled_notifier_channels: tenant.enabled_notifier_channels,
             tenant: tenant.tenant,
             runtime: Some(runtime),
             runtime_health: current_health,
