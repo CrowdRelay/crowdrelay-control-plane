@@ -70,6 +70,9 @@ pub struct RuntimeStatusRow {
     pub deployed_sha: Option<String>,
     pub outbox_pending: Option<i64>,
     pub queue_lag: Option<i64>,
+    /// Autopilot asks waiting on a human approval when the tenant last
+    /// reported. Drives `approvals.pending` notifications on every rise.
+    pub awaiting_approval: Option<i64>,
     pub last_heartbeat_at: Option<DateTime<Utc>>,
     pub checked_at: Option<DateTime<Utc>>,
 }
@@ -176,6 +179,7 @@ pub struct TenantSummaryJoinRow {
     pub runtime_deployed_sha: Option<String>,
     pub runtime_outbox_pending: Option<i64>,
     pub runtime_queue_lag: Option<i64>,
+    pub runtime_awaiting_approval: Option<i64>,
     pub runtime_last_heartbeat_at: Option<DateTime<Utc>>,
     pub runtime_checked_at: Option<DateTime<Utc>>,
 }
@@ -190,6 +194,7 @@ impl TenantSummaryJoinRow {
             deployed_sha: self.runtime_deployed_sha,
             outbox_pending: self.runtime_outbox_pending,
             queue_lag: self.runtime_queue_lag,
+            awaiting_approval: self.runtime_awaiting_approval,
             last_heartbeat_at: self.runtime_last_heartbeat_at,
             checked_at: self.runtime_checked_at,
         });
@@ -249,6 +254,9 @@ pub struct RuntimeReportRequest {
     pub deployed_sha: Option<String>,
     pub outbox_pending: Option<i64>,
     pub queue_lag: Option<i64>,
+    /// Autopilot asks parked on `awaiting_approval` at report time. Absent on
+    /// a CrowdRelay that predates the gauge; absent is not zero.
+    pub awaiting_approval: Option<i64>,
     pub last_heartbeat_at: Option<DateTime<Utc>>,
 }
 
@@ -563,6 +571,7 @@ mod tests {
             deployed_sha: Some("0123456789abcdef".to_owned()),
             outbox_pending: Some(0),
             queue_lag: Some(0),
+            awaiting_approval: Some(0),
             last_heartbeat_at: Some(observed_at),
             checked_at: Some(observed_at),
         }

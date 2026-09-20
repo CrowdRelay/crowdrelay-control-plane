@@ -242,6 +242,7 @@ impl Store {
                       r.deployed_sha AS runtime_deployed_sha,
                       r.outbox_pending AS runtime_outbox_pending,
                       r.queue_lag AS runtime_queue_lag,
+                      r.awaiting_approval AS runtime_awaiting_approval,
                       r.last_heartbeat_at AS runtime_last_heartbeat_at,
                       r.checked_at AS runtime_checked_at
                FROM control_plane_tenants t
@@ -273,6 +274,7 @@ impl Store {
                       r.deployed_sha AS runtime_deployed_sha,
                       r.outbox_pending AS runtime_outbox_pending,
                       r.queue_lag AS runtime_queue_lag,
+                      r.awaiting_approval AS runtime_awaiting_approval,
                       r.last_heartbeat_at AS runtime_last_heartbeat_at,
                       r.checked_at AS runtime_checked_at
                FROM control_plane_tenants t
@@ -1338,10 +1340,10 @@ impl Store {
         // runtime reads `unknown` until an actual observation arrives.
         sqlx::query(
             r#"INSERT INTO control_plane_runtime_status
-               (tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha, outbox_pending, queue_lag, last_heartbeat_at, checked_at)
-               VALUES ($1,NULL,NULL,$2,$3,NULL,NULL,NULL,NULL)
+               (tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha, outbox_pending, queue_lag, awaiting_approval, last_heartbeat_at, checked_at)
+               VALUES ($1,NULL,NULL,$2,$3,NULL,NULL,NULL,NULL,NULL)
                ON CONFLICT (tenant_id) DO UPDATE SET
-                 api_healthy=NULL, worker_healthy=NULL, outbox_pending=NULL, queue_lag=NULL,
+                 api_healthy=NULL, worker_healthy=NULL, outbox_pending=NULL, queue_lag=NULL, awaiting_approval=NULL,
                  schema_version=EXCLUDED.schema_version, deployed_sha=EXCLUDED.deployed_sha"#,
         )
         .bind(job.tenant_id)
@@ -1491,12 +1493,21 @@ impl Store {
             .as_ref()
             .and_then(|row| row.deployed_sha.as_deref())
             .map(str::to_owned);
+        // The pre-update queue depth is the arming threshold for the
+        // `approvals.pending` notifier event below. An absent row arms at
+        // zero: a tenant whose first report arrives with a backlog has asks
+        // nobody was ever told about, which is exactly the event's case.
+        let previous_awaiting = tenant
+            .runtime
+            .as_ref()
+            .and_then(|row| row.awaiting_approval)
+            .unwrap_or(0);
 
         let mut tx = self.pool.begin().await?;
         let runtime = sqlx::query_as::<_, RuntimeStatusRow>(
             r#"INSERT INTO control_plane_runtime_status
-               (tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha, outbox_pending, queue_lag, last_heartbeat_at, checked_at)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now())
+               (tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha, outbox_pending, queue_lag, awaiting_approval, last_heartbeat_at, checked_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now())
                ON CONFLICT (tenant_id) DO UPDATE SET
                  api_healthy=CASE WHEN EXCLUDED.last_heartbeat_at IS NULL
                                       OR control_plane_runtime_status.last_heartbeat_at IS NULL
@@ -1528,6 +1539,11 @@ impl Store {
                                     OR EXCLUDED.last_heartbeat_at >= control_plane_runtime_status.last_heartbeat_at
                                 THEN COALESCE(EXCLUDED.queue_lag, control_plane_runtime_status.queue_lag)
                                 ELSE control_plane_runtime_status.queue_lag END,
+                 awaiting_approval=CASE WHEN EXCLUDED.last_heartbeat_at IS NULL
+                                    OR control_plane_runtime_status.last_heartbeat_at IS NULL
+                                    OR EXCLUDED.last_heartbeat_at >= control_plane_runtime_status.last_heartbeat_at
+                                THEN COALESCE(EXCLUDED.awaiting_approval, control_plane_runtime_status.awaiting_approval)
+                                ELSE control_plane_runtime_status.awaiting_approval END,
                  last_heartbeat_at=CASE WHEN EXCLUDED.last_heartbeat_at IS NULL
                                         THEN control_plane_runtime_status.last_heartbeat_at
                                         WHEN control_plane_runtime_status.last_heartbeat_at IS NULL
@@ -1536,7 +1552,7 @@ impl Store {
                                         ELSE control_plane_runtime_status.last_heartbeat_at END,
                  checked_at=now()
                RETURNING tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha,
-                         outbox_pending, queue_lag, last_heartbeat_at, checked_at"#,
+                         outbox_pending, queue_lag, awaiting_approval, last_heartbeat_at, checked_at"#,
         )
         .bind(tenant.tenant.id)
         .bind(input.api_healthy)
@@ -1545,6 +1561,7 @@ impl Store {
         .bind(input.deployed_sha.as_deref())
         .bind(input.outbox_pending)
         .bind(input.queue_lag)
+        .bind(input.awaiting_approval)
         .bind(input.last_heartbeat_at)
         .fetch_one(&mut *tx)
         .await?;
@@ -1600,6 +1617,27 @@ impl Store {
                 )
                 .await?;
             }
+        }
+        // A rise in the reported approval-queue depth notifies subscribed
+        // channels in the same transaction. "Rise", not "nonzero": the queue
+        // sitting ignored at five is the watchdog's story, while the jump
+        // from five to eight is asks the operator was never told about — and
+        // a 60-second heartbeat re-firing on a flat backlog would train the
+        // channel to be ignored. Draining to any lower value re-arms the
+        // edge, so the next ask that lands still reaches somebody.
+        let current_awaiting = runtime.awaiting_approval.unwrap_or(0);
+        if current_awaiting > previous_awaiting {
+            Self::enqueue_event_tx(
+                &mut tx,
+                tenant.tenant.id,
+                "approvals.pending",
+                &json!({
+                    "event": "approvals.pending",
+                    "awaitingApproval": current_awaiting,
+                    "previousAwaitingApproval": previous_awaiting,
+                }),
+            )
+            .await?;
         }
         tx.commit().await?;
         Ok(TenantSummary {

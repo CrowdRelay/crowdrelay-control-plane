@@ -30,6 +30,7 @@ export type RuntimeStatus = {
   deployedSha: string | null
   outboxPending: number | null
   queueLag: number | null
+  awaitingApproval: number | null
   lastHeartbeatAt: string | null
   checkedAt: string | null
 }
@@ -1058,6 +1059,7 @@ export const NOTIFIER_EVENTS = [
   'runtime.degraded',
   'runtime.stale',
   'runtime.recovered',
+  'approvals.pending',
 ] as const
 export type NotifierEvent = (typeof NOTIFIER_EVENTS)[number]
 // Human-readable labels for each event — the dotted internals read as
@@ -1068,6 +1070,7 @@ export const NOTIFIER_EVENT_LABELS: Record<NotifierEvent, string> = {
   'runtime.degraded': 'Runtime degraded',
   'runtime.stale': 'Runtime stale',
   'runtime.recovered': 'Runtime recovered',
+  'approvals.pending': 'Approvals waiting',
 }
 
 export type DiscoveredEndpoint = {
