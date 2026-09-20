@@ -71,6 +71,10 @@ pub fn tenant_admin_router() -> Router<AppState> {
             post(cancel_provisioning),
         )
         .route("/tenants/{slug}/audit", get(audit))
+        // The ninety-day guarantee as a query: the frozen activation baseline,
+        // the latest reported fan-graph level, and the verdict derived from
+        // both. A refund decision reads this, never a spreadsheet.
+        .route("/tenants/{slug}/guarantee", get(tenant_guarantee))
 }
 
 /// Named operator account management. Platform-level access — a tenant
@@ -1412,6 +1416,19 @@ mod tests {
             );
         }
     }
+}
+
+/// The ninety-day guarantee for one tenant — baseline frozen at first
+/// measured fan-graph report, verdict derived on read. Scoped like every
+/// tenant read: a tenant operator may see their own guarantee.
+async fn tenant_guarantee(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
+    let view = state.store.tenant_guarantee(&tenant.tenant.slug).await?;
+    Ok(Json(json!(view)))
 }
 
 async fn provisioning_jobs(

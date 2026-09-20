@@ -555,6 +555,7 @@ pub fn runtime_report(input: &RuntimeReportRequest) -> Result<(), ApiError> {
     if input.outbox_pending.is_some_and(|value| value < 0)
         || input.queue_lag.is_some_and(|value| value < 0)
         || input.awaiting_approval.is_some_and(|value| value < 0)
+        || input.north_star_fans.is_some_and(|value| value < 0)
     {
         return Err(ApiError::InvalidInput(
             "runtime counters cannot be negative".to_owned(),
@@ -710,6 +711,7 @@ mod tests {
             outbox_pending: Some(0),
             queue_lag: Some(0),
             awaiting_approval: Some(0),
+            north_star_fans: Some(0),
             last_heartbeat_at: Some(Utc::now()),
         };
         assert!(runtime_report(&bad).is_err());

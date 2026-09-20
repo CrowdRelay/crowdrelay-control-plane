@@ -9,9 +9,10 @@ use crate::{
     error::ApiError,
     model::{
         AuditRow, AutomationEventRow, AutomationWorkflowConfigRow, BrandingPalette,
-        CreateAutomationEventRequest, CreateTenantRequest, PlatformHealthRow, ProvisioningJobRow,
-        RegionalProfile, RuntimeHealth, RuntimeReportRequest, RuntimeStatusRow,
-        TenantDeploymentSpec, TenantRow, TenantSummary, TenantSummaryJoinRow,
+        CreateAutomationEventRequest, CreateTenantRequest, GuaranteeState, GuaranteeView,
+        PlatformHealthRow, ProvisioningJobRow, RegionalProfile, RuntimeHealth,
+        RuntimeReportRequest, RuntimeStatusRow, TenantDeploymentSpec, TenantGuaranteeRow,
+        TenantRow, TenantSummary, TenantSummaryJoinRow,
     },
 };
 
@@ -243,6 +244,7 @@ impl Store {
                       r.outbox_pending AS runtime_outbox_pending,
                       r.queue_lag AS runtime_queue_lag,
                       r.awaiting_approval AS runtime_awaiting_approval,
+                      r.north_star_fans AS runtime_north_star_fans,
                       r.last_heartbeat_at AS runtime_last_heartbeat_at,
                       r.checked_at AS runtime_checked_at
                FROM control_plane_tenants t
@@ -275,6 +277,7 @@ impl Store {
                       r.outbox_pending AS runtime_outbox_pending,
                       r.queue_lag AS runtime_queue_lag,
                       r.awaiting_approval AS runtime_awaiting_approval,
+                      r.north_star_fans AS runtime_north_star_fans,
                       r.last_heartbeat_at AS runtime_last_heartbeat_at,
                       r.checked_at AS runtime_checked_at
                FROM control_plane_tenants t
@@ -1340,10 +1343,10 @@ impl Store {
         // runtime reads `unknown` until an actual observation arrives.
         sqlx::query(
             r#"INSERT INTO control_plane_runtime_status
-               (tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha, outbox_pending, queue_lag, awaiting_approval, last_heartbeat_at, checked_at)
-               VALUES ($1,NULL,NULL,$2,$3,NULL,NULL,NULL,NULL,NULL)
+               (tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha, outbox_pending, queue_lag, awaiting_approval, north_star_fans, last_heartbeat_at, checked_at)
+               VALUES ($1,NULL,NULL,$2,$3,NULL,NULL,NULL,NULL,NULL,NULL)
                ON CONFLICT (tenant_id) DO UPDATE SET
-                 api_healthy=NULL, worker_healthy=NULL, outbox_pending=NULL, queue_lag=NULL, awaiting_approval=NULL,
+                 api_healthy=NULL, worker_healthy=NULL, outbox_pending=NULL, queue_lag=NULL, awaiting_approval=NULL, north_star_fans=NULL,
                  schema_version=EXCLUDED.schema_version, deployed_sha=EXCLUDED.deployed_sha"#,
         )
         .bind(job.tenant_id)
@@ -1506,8 +1509,8 @@ impl Store {
         let mut tx = self.pool.begin().await?;
         let runtime = sqlx::query_as::<_, RuntimeStatusRow>(
             r#"INSERT INTO control_plane_runtime_status
-               (tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha, outbox_pending, queue_lag, awaiting_approval, last_heartbeat_at, checked_at)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now())
+               (tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha, outbox_pending, queue_lag, awaiting_approval, north_star_fans, last_heartbeat_at, checked_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now())
                ON CONFLICT (tenant_id) DO UPDATE SET
                  api_healthy=CASE WHEN EXCLUDED.last_heartbeat_at IS NULL
                                       OR control_plane_runtime_status.last_heartbeat_at IS NULL
@@ -1544,6 +1547,11 @@ impl Store {
                                     OR EXCLUDED.last_heartbeat_at >= control_plane_runtime_status.last_heartbeat_at
                                 THEN COALESCE(EXCLUDED.awaiting_approval, control_plane_runtime_status.awaiting_approval)
                                 ELSE control_plane_runtime_status.awaiting_approval END,
+                 north_star_fans=CASE WHEN EXCLUDED.last_heartbeat_at IS NULL
+                                    OR control_plane_runtime_status.last_heartbeat_at IS NULL
+                                    OR EXCLUDED.last_heartbeat_at >= control_plane_runtime_status.last_heartbeat_at
+                                THEN COALESCE(EXCLUDED.north_star_fans, control_plane_runtime_status.north_star_fans)
+                                ELSE control_plane_runtime_status.north_star_fans END,
                  last_heartbeat_at=CASE WHEN EXCLUDED.last_heartbeat_at IS NULL
                                         THEN control_plane_runtime_status.last_heartbeat_at
                                         WHEN control_plane_runtime_status.last_heartbeat_at IS NULL
@@ -1552,7 +1560,7 @@ impl Store {
                                         ELSE control_plane_runtime_status.last_heartbeat_at END,
                  checked_at=now()
                RETURNING tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha,
-                         outbox_pending, queue_lag, awaiting_approval, last_heartbeat_at, checked_at"#,
+                         outbox_pending, queue_lag, awaiting_approval, north_star_fans, last_heartbeat_at, checked_at"#,
         )
         .bind(tenant.tenant.id)
         .bind(input.api_healthy)
@@ -1562,9 +1570,31 @@ impl Store {
         .bind(input.outbox_pending)
         .bind(input.queue_lag)
         .bind(input.awaiting_approval)
+        .bind(input.north_star_fans)
         .bind(input.last_heartbeat_at)
         .fetch_one(&mut *tx)
         .await?;
+
+        // The ninety-day guarantee freezes its baseline on the first report
+        // that carries a fan-graph level: "your fan graph" means what was
+        // actually measured, so the clock starts at first measurement rather
+        // than at provisioning. Once frozen it never moves — ON CONFLICT
+        // keeps the earliest baseline, and every later report only updates
+        // `north_star_fans` on the runtime row above.
+        if let Some(fans) = input.north_star_fans {
+            sqlx::query(
+                r#"INSERT INTO control_plane_tenant_guarantee
+                   (tenant_id, metric_key, baseline_value, baseline_captured_at, deadline)
+                   VALUES ($1, 'activated_fans_30d', $2,
+                           COALESCE($3, now()), COALESCE($3, now()) + INTERVAL '90 days')
+                   ON CONFLICT (tenant_id) DO NOTHING"#,
+            )
+            .bind(tenant.tenant.id)
+            .bind(fans)
+            .bind(input.last_heartbeat_at)
+            .execute(&mut *tx)
+            .await?;
+        }
 
         let now = Utc::now();
         let current_health =
@@ -1644,6 +1674,56 @@ impl Store {
             tenant: tenant.tenant,
             runtime: Some(runtime),
             runtime_health: current_health,
+        })
+    }
+
+    /// The ninety-day guarantee as a read: the frozen baseline, the latest
+    /// reported fan-graph level, and the verdict derived from both against
+    /// the deadline. The verdict is computed here and never stored — a row
+    /// that could disagree with its own numbers is how a refund question
+    /// turns into an argument.
+    ///
+    /// `refund_owed` covers "the deadline passed and the graph did not grow"
+    /// *and* "the deadline passed with nothing measured": the contract cannot
+    /// be judged kept on a number nobody saw.
+    pub async fn tenant_guarantee(&self, slug: &str) -> Result<GuaranteeView, ApiError> {
+        let tenant = self.tenant_by_slug(slug).await?;
+        let guarantee = sqlx::query_as::<_, TenantGuaranteeRow>(
+            "SELECT tenant_id, metric_key, baseline_value, baseline_captured_at, deadline, created_at \
+             FROM control_plane_tenant_guarantee WHERE tenant_id = $1",
+        )
+        .bind(tenant.tenant.id)
+        .fetch_optional(&self.pool)
+        .await?;
+        let current = tenant.runtime.as_ref().and_then(|row| row.north_star_fans);
+        let current_at = tenant
+            .runtime
+            .as_ref()
+            .and_then(|row| row.last_heartbeat_at);
+        let now = Utc::now();
+        let Some(row) = guarantee else {
+            return Ok(GuaranteeView {
+                state: GuaranteeState::Unmeasured,
+                metric_key: "activated_fans_30d".to_owned(),
+                baseline_value: None,
+                baseline_captured_at: None,
+                deadline: None,
+                current_value: current,
+                current_captured_at: current_at,
+                days_remaining: None,
+            });
+        };
+        let elapsed = now >= row.deadline;
+        let state = GuaranteeState::derive(elapsed, current, row.baseline_value);
+        Ok(GuaranteeView {
+            state,
+            metric_key: row.metric_key,
+            baseline_value: Some(row.baseline_value),
+            baseline_captured_at: Some(row.baseline_captured_at),
+            deadline: Some(row.deadline),
+            current_value: current,
+            current_captured_at: current_at,
+            days_remaining: (!elapsed).then(|| (row.deadline - now).num_days()),
         })
     }
 

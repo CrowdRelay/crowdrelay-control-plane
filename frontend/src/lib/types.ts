@@ -31,8 +31,22 @@ export type RuntimeStatus = {
   outboxPending: number | null
   queueLag: number | null
   awaitingApproval: number | null
+  northStarFans: number | null
   lastHeartbeatAt: string | null
   checkedAt: string | null
+}
+
+/** The ninety-day guarantee verdict, derived on read from the frozen
+ * activation baseline and the latest reported fan-graph level. */
+export type GuaranteeView = {
+  state: 'unmeasured' | 'tracking' | 'kept' | 'refund_owed'
+  metricKey: string
+  baselineValue: number | null
+  baselineCapturedAt: string | null
+  deadline: string | null
+  currentValue: number | null
+  currentCapturedAt: string | null
+  daysRemaining: number | null
 }
 
 export type Tenant = {

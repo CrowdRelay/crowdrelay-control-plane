@@ -73,6 +73,9 @@ pub struct RuntimeStatusRow {
     /// Autopilot asks waiting on a human approval when the tenant last
     /// reported. Drives `approvals.pending` notifications on every rise.
     pub awaiting_approval: Option<i64>,
+    /// The tenant's fan-graph level (`activated_fans_30d`) at report time.
+    /// The first report that carries it freezes the guarantee baseline.
+    pub north_star_fans: Option<i64>,
     pub last_heartbeat_at: Option<DateTime<Utc>>,
     pub checked_at: Option<DateTime<Utc>>,
 }
@@ -180,6 +183,7 @@ pub struct TenantSummaryJoinRow {
     pub runtime_outbox_pending: Option<i64>,
     pub runtime_queue_lag: Option<i64>,
     pub runtime_awaiting_approval: Option<i64>,
+    pub runtime_north_star_fans: Option<i64>,
     pub runtime_last_heartbeat_at: Option<DateTime<Utc>>,
     pub runtime_checked_at: Option<DateTime<Utc>>,
 }
@@ -195,6 +199,7 @@ impl TenantSummaryJoinRow {
             outbox_pending: self.runtime_outbox_pending,
             queue_lag: self.runtime_queue_lag,
             awaiting_approval: self.runtime_awaiting_approval,
+            north_star_fans: self.runtime_north_star_fans,
             last_heartbeat_at: self.runtime_last_heartbeat_at,
             checked_at: self.runtime_checked_at,
         });
@@ -257,7 +262,71 @@ pub struct RuntimeReportRequest {
     /// Autopilot asks parked on `awaiting_approval` at report time. Absent on
     /// a CrowdRelay that predates the gauge; absent is not zero.
     pub awaiting_approval: Option<i64>,
+    /// The tenant's fan-graph level (`activated_fans_30d`). Absent on a
+    /// CrowdRelay that predates the gauge; absent is not zero — an unmeasured
+    /// report must not freeze a guarantee baseline.
+    pub north_star_fans: Option<i64>,
     pub last_heartbeat_at: Option<DateTime<Utc>>,
+}
+
+/// The ninety-day guarantee as stored: one row, frozen at the first measured
+/// fan-graph report. The verdict is derived on read — a stored verdict could
+/// disagree with the numbers behind it, and the refund question is exactly
+/// where that disagreement must be impossible.
+#[derive(Debug, Clone, Serialize, FromRow, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TenantGuaranteeRow {
+    pub tenant_id: Uuid,
+    pub metric_key: String,
+    pub baseline_value: i64,
+    pub baseline_captured_at: DateTime<Utc>,
+    pub deadline: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Where the guarantee stands. `unmeasured` until the first fan-graph report
+/// lands, `tracking` while the clock runs, then the terminal pair.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GuaranteeState {
+    Unmeasured,
+    Tracking,
+    /// The deadline passed and the fan graph grew — no refund is owed.
+    Kept,
+    /// The deadline passed and the fan graph did not grow — the contract says
+    /// refund every month paid.
+    RefundOwed,
+}
+
+impl GuaranteeState {
+    /// The verdict as a pure function of the two facts that decide it.
+    /// `refund_owed` covers "the deadline passed and the graph did not grow"
+    /// *and* "the deadline passed with nothing measured": the contract cannot
+    /// be judged kept on a number nobody saw.
+    pub fn derive(elapsed: bool, current: Option<i64>, baseline: i64) -> Self {
+        if !elapsed {
+            Self::Tracking
+        } else if current.is_some_and(|value| value > baseline) {
+            Self::Kept
+        } else {
+            Self::RefundOwed
+        }
+    }
+}
+
+/// The refund decision as a read model: the frozen baseline, the latest
+/// reported level, and the state derived from both against the deadline.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GuaranteeView {
+    pub state: GuaranteeState,
+    pub metric_key: String,
+    pub baseline_value: Option<i64>,
+    pub baseline_captured_at: Option<DateTime<Utc>>,
+    pub deadline: Option<DateTime<Utc>>,
+    pub current_value: Option<i64>,
+    pub current_captured_at: Option<DateTime<Utc>>,
+    pub days_remaining: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, FromRow)]
@@ -572,6 +641,7 @@ mod tests {
             outbox_pending: Some(0),
             queue_lag: Some(0),
             awaiting_approval: Some(0),
+            north_star_fans: Some(0),
             last_heartbeat_at: Some(observed_at),
             checked_at: Some(observed_at),
         }
@@ -737,5 +807,51 @@ mod tests {
         assert_ne!(provisioning_phase("running"), "completed");
         // Only "succeeded" maps to "completed".
         assert_eq!(provisioning_phase("succeeded"), "completed");
+    }
+
+    #[test]
+    fn guarantee_verdict_is_tracking_until_the_deadline() {
+        // Growth, decline, and silence alike are still tracking while the
+        // ninety days run — the contract has no early verdict.
+        assert_eq!(
+            GuaranteeState::derive(false, Some(100), 10),
+            GuaranteeState::Tracking
+        );
+        assert_eq!(
+            GuaranteeState::derive(false, Some(0), 10),
+            GuaranteeState::Tracking
+        );
+        assert_eq!(
+            GuaranteeState::derive(false, None, 10),
+            GuaranteeState::Tracking
+        );
+    }
+
+    #[test]
+    fn guarantee_verdict_requires_strict_growth() {
+        // The contract reads "your fan graph has not grown" — equal to the
+        // baseline is not growth, and neither is a decline.
+        assert_eq!(
+            GuaranteeState::derive(true, Some(11), 10),
+            GuaranteeState::Kept
+        );
+        assert_eq!(
+            GuaranteeState::derive(true, Some(10), 10),
+            GuaranteeState::RefundOwed
+        );
+        assert_eq!(
+            GuaranteeState::derive(true, Some(3), 10),
+            GuaranteeState::RefundOwed
+        );
+    }
+
+    #[test]
+    fn guarantee_verdict_counts_silence_as_not_grown() {
+        // A deadline that passed with no measured level cannot be judged
+        // kept — the number nobody saw is not a defence for either side.
+        assert_eq!(
+            GuaranteeState::derive(true, None, 10),
+            GuaranteeState::RefundOwed
+        );
     }
 }
