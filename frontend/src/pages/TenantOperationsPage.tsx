@@ -31,7 +31,7 @@ const metric = (value: number | undefined | null, suffix = '') =>
   value == null ? '—' : `${value.toLocaleString()}${suffix}`
 
 // The machine's surfaces for one tenant: replies, outreach, press, releases
-// and the play ledger, each on its own tab. Decisions live on Attention; the
+// and the play ledger, each on its own tab. Decisions live on Needs you; the
 // first figure here says how many are waiting and points there.
 export function TenantOperationsPage() {
   const params = useParams({ from: '/tenants/$slug/operations' })
@@ -83,7 +83,7 @@ export function TenantOperationsPage() {
   // Worth doing this week — the upstream next-best-action queue, already
   // ranked. Only what still needs a person: approvals awaiting a yes and
   // plain recommendations — `observed`/`auto_executing` are status, not
-  // moves. Three at most; the full queue lives on Attention.
+  // moves. Three at most; the full queue lives on Needs you.
   const weekMoves = createMemo(() =>
     (d()?.opportunities ?? [])
       .filter(e => e.authority === 'awaiting_approval' || e.authority === 'recommended')
@@ -169,8 +169,7 @@ export function TenantOperationsPage() {
 
   return <PageShell>
     <PageHeader
-      eyebrow={authState.isPlatformLevel() ? 'EXECUTION' : undefined}
-      title={authState.isPlatformLevel() ? 'Operations' : 'Today'}
+      title="Today"
       description={authState.isPlatformLevel() ? 'Your daily worklist. Anything the autopilot needs a decision on is here — work the list top to bottom.' : 'Your daily worklist. Anything the brain needs a decision on is here — work the list top to bottom.'}
       actions={
         <>
@@ -216,7 +215,7 @@ export function TenantOperationsPage() {
           tone={hasAttention() ? 'warn' : 'good'}
           value={needsYouCount() + awaitingApproval()}
           sub={needsYouCount() + awaitingApproval() > 0
-            ? <Link to="/tenants/$slug/attention" params={{ slug: params().slug }} class="text-primary underline-offset-4 hover:underline">{authState.isPlatformLevel() ? 'decide on Attention' : 'decide on Needs you'}</Link>
+            ? <Link to="/tenants/$slug/attention" params={{ slug: params().slug }} class="text-primary underline-offset-4 hover:underline">decide on Needs you</Link>
             : 'nothing to decide'}
         />
         <KpiCard
@@ -409,7 +408,7 @@ export function TenantOperationsPage() {
     </Show>
 
     {/* Worth doing this week — the three moves that carry most of it.
-        Each row is one door into the decision queue on Attention, where
+        Each row is one door into the decision queue on Needs you, where
         the real approve/dismiss buttons live. A degraded section hides
         the whole block; an empty queue says so plainly. Moved here from
         the tenant page — the moves are the operational read, not settings. */}
@@ -417,7 +416,7 @@ export function TenantOperationsPage() {
       <Section
         title="Worth doing this week"
         icon={<SectionIcon name="target" />}
-        description={authState.isPlatformLevel() ? 'The moves that carry most of it, ranked upstream. Attention has the approve buttons.' : 'The moves that carry most of it, ranked upstream. Needs you has the approve buttons.'}
+        description="The moves that carry most of it, ranked upstream. Needs you has the approve buttons."
       >
         <div class="flex flex-col gap-3">
           <For each={weekMoves()}>{move => (

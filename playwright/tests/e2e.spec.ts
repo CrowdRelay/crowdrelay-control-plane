@@ -177,7 +177,7 @@ const SUBPAGES = [
   { path: '/', name: 'overview' },
   { path: '/flow', name: 'flow' },
   { path: '/tenants', name: 'tenants' },
-  { path: '/tenants/virya', name: 'tenant-detail' },
+  { path: '/tenants/virya?tab=profile', name: 'tenant-settings' },
   { path: '/tenants/virya/operations', name: 'operations' },
   { path: '/tenants/virya/intelligence', name: 'intelligence' },
   { path: '/tenants/virya/attention', name: 'attention' },
@@ -228,6 +228,24 @@ test.describe('Control Plane E2E @e2e', () => {
       await navigateAndCheck(page, sub.name, sub.path, collectors)
     })
   }
+
+  // The bare tenant URL is the tenant, not a settings page — Today is the
+  // daily read and `/tenants/:slug` lands on it. `?tab=` URLs stay on the
+  // tenant page (Settings).
+  test('Bare tenant URL lands on Today @e2e', async ({ page }) => {
+    await page.goto('/tenants/virya')
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+    await page.waitForURL('**/tenants/virya/operations', { timeout: 10000 })
+    expect(page.url()).toContain('/tenants/virya/operations')
+  })
+
+  test('Tenant ?tab=profile stays on the settings surface @e2e', async ({ page }) => {
+    await page.goto('/tenants/virya?tab=profile')
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+    await page.waitForTimeout(1000)
+    expect(page.url()).toContain('/tenants/virya')
+    expect(page.url()).not.toContain('/operations')
+  })
 
   // Test that navigating between pages doesn't accumulate errors
   test('Full navigation sweep — no accumulated errors @e2e', async ({ page }) => {

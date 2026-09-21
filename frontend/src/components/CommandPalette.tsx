@@ -39,13 +39,15 @@ type Cmd = {
   perform: () => void | Promise<void>
 }
 
-// `icon` names a NavIcon, so a page carries the same glyph here as in the sidebar.
-const SUBPAGES: Array<{ suffix: string; label: string; icon: string }> = [
-  { suffix: '', label: 'Settings', icon: 'settings' },
-  { suffix: '/attention', label: 'Attention', icon: 'attention' },
+// `icon` names a NavIcon, so a page carries the same glyph here as in the
+// sidebar, and labels match the sidebar's — the bare tenant URL redirects to
+// Today, so the Settings entry carries its `?tab=profile` explicitly.
+const SUBPAGES: Array<{ suffix: string; label: string; icon: string; search?: Record<string, string> }> = [
+  { suffix: '', label: 'Settings', icon: 'settings', search: { tab: 'profile' } },
+  { suffix: '/attention', label: 'Needs you', icon: 'attention' },
   { suffix: '/intelligence', label: 'Intelligence', icon: 'intelligence' },
   { suffix: '/health', label: 'Health', icon: 'sliders' },
-  { suffix: '/operations', label: 'Operations', icon: 'operations' },
+  { suffix: '/operations', label: 'Today', icon: 'operations' },
   { suffix: '/integrations', label: 'AI Integrations', icon: 'integrations' },
   { suffix: '/notifiers', label: 'Notifiers', icon: 'notifiers' },
   { suffix: '/audience', label: 'Audience', icon: 'fan-intel' },
@@ -73,10 +75,9 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
   { id: 'q-opportunities', label: 'Open the decision queue', keywords: 'opportunities board decision attention approvals show current', suffix: '/attention' },
 ]
 
-// The band's palette mirrors the band's sidebar — same six destinations, same
-// names. Operator-only pages stay reachable by URL but do not list here.
+// The band's palette mirrors the band's sidebar — the process destinations
+// only. Operator-only pages stay reachable by URL but do not list here.
 const BAND_SUFFIXES = new Set(['/operations', '/shows', '/attention', '/audience', '/intelligence', '/content'])
-const BAND_LABEL: Record<string, string> = { '/operations': 'Today', '/attention': 'Needs you' }
 const BAND_ICON: Record<string, string> = { '/operations': 'operations' }
 
 // Section order and headings. The list used to tag every row GO / JUMP /
@@ -102,7 +103,7 @@ export const CommandPalette: Component = () => {
   const rawNavigate = useNavigate()
   // The route registry types `to` against known literals; the palette builds
   // tenant paths dynamically, so it narrows once at this single boundary.
-  const navigate = rawNavigate as unknown as (opts: { to: string; params?: Record<string, string> }) => void
+  const navigate = rawNavigate as unknown as (opts: { to: string; params?: Record<string, string>; search?: Record<string, string> }) => void
   const profile = () => authState.profile()
   const isPlatformLevel = () => authState.isPlatformLevel()
 
@@ -155,7 +156,7 @@ export const CommandPalette: Component = () => {
     const queryEntries = platform ? QUERY_ENTRIES : QUERY_ENTRIES.filter(qe => BAND_SUFFIXES.has(qe.suffix) && !qe.platform)
     for (const slug of names) {
       for (const page of subpages) {
-        const label = platform ? page.label : BAND_LABEL[page.suffix] ?? page.label
+        const label = page.label
         list.push({
           id: `nav-${slug}${page.suffix}`,
           label: `${slug} · ${label}`,
@@ -164,7 +165,7 @@ export const CommandPalette: Component = () => {
           icon: pageIcon(platform ? page.icon : BAND_ICON[page.suffix] ?? page.icon),
           kind: 'navigate',
           perform: () => page.suffix === ''
-            ? navigate({ to: '/tenants/$slug', params: { slug } })
+            ? navigate({ to: '/tenants/$slug', params: { slug }, search: page.search })
             : navigate({ to: `/tenants/$slug${page.suffix}`, params: { slug } }),
         })
       }

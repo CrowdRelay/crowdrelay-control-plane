@@ -1,22 +1,21 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
-import { Link, useNavigate, useParams, useRouterState } from '@tanstack/solid-router'
+import { Link, useNavigate, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage, formatTimestamp, relativeTime } from '../lib/format'
+import { errorMessage, relativeTime } from '../lib/format'
 import { Check, Circle, RefreshCw } from 'lucide-solid'
 import { cn } from '../lib/cn'
 import type { Palette, ProvisioningJob } from '../lib/types'
 import { ReleaseConvergencePanel } from '../components/ReleaseConvergencePanel'
 import { StatusBadge } from '../components/StatusBadge'
 import { RegionalProfilePanel } from '../components/RegionalProfilePanel'
-import { TenantStatusLine } from '../components/TenantStatusLine'
 import { SectionIcon } from '../components/SectionIcon'
 import { TenantAuditPanel } from '../components/TenantAuditPanel'
 import { TenantOperatorsPanel } from '../components/TenantOperatorsPanel'
 import { Dialog } from '../components/Dialog'
 import { SkeletonTenantPage, SkeletonSection } from '../components/Skeleton'
-import { ErrorCard, KpiCard, KpiStrip, PageHeader, PageShell, Section, SkeletonBlock, TabBar, TabPanel, useTabPanels } from '../components/layout'
+import { ErrorCard, PageHeader, PageShell, Section, TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { Alert } from '../components/app/alert'
 import { Spinner } from '../components/Spinner'
 import { Button } from '../components/app/button'
@@ -73,24 +72,14 @@ const provisionFailures: Record<string, { title: string; guidance: string; retry
 export function TenantPage() {
   const params = useParams({ from: '/tenants/$slug' })
   const queryClient = useQueryClient()
-  // One page, two readers.
-  //
-  // The daily read (fans, the next night, this week's moves) and the tenant's
-  // configuration (products, region, brand, Play setup) used to share one
-  // "Profile" tab for platform sessions: seven sections in one scroll, the
-  // first four about today and the last four about setup, under a sidebar item
-  // called Settings. They are two tabs now. The bare URL is Today — the page a
-  // tenant row or the tenant switcher opens — and ?tab=profile is Settings,
-  // which is where the sidebar item points. The band keeps its two sidebar
-  // entries on the same two URLs, without a tab bar.
+  // This page is the tenant's Settings surface — products, region, brand,
+  // deployment and access. The daily read (fans, the next night, this week's
+  // moves) used to live here as a second copy of Today on the bare tenant
+  // URL; Today has one home now — `/operations`, which the bare URL and
+  // `?tab=today` redirect to in the router. The sidebar's Settings item
+  // points at `?tab=profile`.
   const platformView = authState.isPlatformLevel()
-  const { activeTab, switchTab, prefetch, isVisited } = platformView
-    ? useTabPanels('today', ['today', 'profile', 'deployment', 'access'])
-    : useTabPanels('profile', ['profile', 'deployment', 'access'])
-  const tabParam = useRouterState({ select: s => (s.location.search as { tab?: string }).tab })
-  // Whether the daily read has been opened — it is what pays for the
-  // operations model and the shows list.
-  const todayVisited = () => platformView ? isVisited('today') : isVisited('profile') && tabParam() !== 'profile'
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('profile', ['profile', 'deployment', 'access'])
 
   // Base read model — tenant identity, provisioning, audit, platform caps.
   // This is all the Profile and Access tabs need. The Deployment tab has
@@ -108,15 +97,13 @@ export function TenantPage() {
   const capabilities = () => model.data?.platform?.capabilities
   const provisioning = { get data() { return model.data?.provisioning } }
 
-  // Operations read model — loaded when the Profile or Deployment tab is
-  // opened. Profile needs it for the machine's status line; Deployment
-  // needs it for the operations detail. The query is cached by TanStack
-  // Query, so visiting one tab preloads the other.
+  // Operations read model — the Deployment tab is its only consumer here
+  // (release ledger, instance state). Today reads it on /operations, which
+  // is a different page with its own copy of the query.
   const operations = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
-    // The Settings view has no consumer — only Today and Deployment fetch.
-    enabled: todayVisited() || isVisited('deployment'),
+    enabled: isVisited('deployment'),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
@@ -125,82 +112,6 @@ export function TenantPage() {
     // stays empty for the life of the tab. Keep asking until it fills.
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))
-  // "The change this month" has two honest readings already in the
-  // composite: arrivals (`new_fans_30d`, rolling) and the net population
-  // delta (`delta_28d` on the signal.active_fans series). A stale series
-  // cannot speak for this month, so it does not render.
-  const activeFansTrend = createMemo(() =>
-    operations.data?.growth_metrics?.series?.find(
-      s => s.platform === 'signal' && s.metric_key === 'active_fans' && !s.stale,
-    ),
-  )
-  // The next show — its own lazy query so the home tab pays for the list
-  // only once Profile has been visited, then the timeline of the nearest
-  // upcoming night for the two-or-three steps that still need a person.
-  const shows = useQuery(() => ({
-    queryKey: ['tenant-shows', params().slug],
-    queryFn: () => api.shows(params().slug),
-    enabled: todayVisited(),
-    reconcile: 'id',
-    refetchOnWindowFocus: false,
-    staleTime: 30_000,
-  }))
-  const nextShow = createMemo(() =>
-    (shows.data?.events ?? [])
-      .filter(e => e.upcoming)
-      .sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0],
-  )
-  const nextShowTimeline = useQuery(() => ({
-    queryKey: ['show-timeline', params().slug, nextShow()?.slug ?? ''],
-    queryFn: () => api.showTimeline(params().slug, nextShow()!.slug),
-    enabled: todayVisited() && nextShow() != null,
-    reconcile: 'id',
-    refetchOnWindowFocus: false,
-    staleTime: 15_000,
-  }))
-  // Due steps outrank active ones; within each rank the timeline's own
-  // T-21→T+7 order stands. Three at most — a list of ten is a list nobody
-  // works. The global queryClient keeps previous data across a key change,
-  // so the payload must be matched back to the show it's about — otherwise
-  // one refresh renders last month's steps under next month's title.
-  const nextShowTimelineData = createMemo(() => {
-    const tl = nextShowTimeline.data
-    return tl && tl.event.slug === nextShow()?.slug ? tl : undefined
-  })
-  const nextShowSteps = createMemo(() => {
-    const rank = { due: 0, active: 1 } as const
-    return (nextShowTimelineData()?.steps ?? [])
-      .filter(s => s.state === 'due' || s.state === 'active')
-      .sort((a, b) => rank[a.state as keyof typeof rank] - rank[b.state as keyof typeof rank])
-      .slice(0, 3)
-  })
-  // Worth doing this week — the upstream next-best-action queue, already
-  // ranked (warmth prior until measured conversion lands, §4e-4). Only
-  // what still needs a person: approvals awaiting a yes and plain
-  // recommendations — `observed`/`auto_executing` are status, not moves.
-  // Three at most.
-  const weekMoves = createMemo(() =>
-    (operations.data?.opportunities ?? [])
-      .filter(e => e.authority === 'awaiting_approval' || e.authority === 'recommended')
-      .sort((a, b) => a.position - b.position)
-      .slice(0, 3),
-  )
-  // "Where they came from" rides the same composite — the acquisition
-  // section covers every tracked fan (concert QR, imports, purchases), not
-  // just click-attributed signups. "Most came from X" is only claimed when
-  // the top source actually beat the untracked bucket.
-  const topSource = createMemo(() => {
-    const acq = operations.data?.acquisition_sources
-    const top = acq?.sources?.[0]
-    if (!acq || !top || acq.tracked_fans === 0) return null
-    return {
-      name: top.source.replaceAll('_', ' '),
-      fans: top.fans,
-      // "Most came from X" means an actual majority of all fans — beating
-      // the untracked bucket alone only proves a plurality.
-      majority: top.fans * 2 > acq.active_fans,
-    }
-  })
   const [palette, setPalette] = createSignal<Palette>(defaultPalette)
   const [editingPalette, setEditingPalette] = createSignal(false)
   const [desiredVersion, setDesiredVersion] = createSignal('')
@@ -259,9 +170,9 @@ export function TenantPage() {
   }))
 
   // The page's read models, refreshed together.
-  const PAGE_KEYS = ['tenant-overview', 'tenant-operations', 'tenant-shows', 'show-timeline', 'tenant-runtime', 'tenant-operators']
+  const PAGE_KEYS = ['tenant-overview', 'tenant-operations', 'tenant-runtime', 'tenant-operators']
   const refreshPage = () => void queryClient.invalidateQueries({ predicate: q => q.queryKey[1] === params().slug && PAGE_KEYS.includes(String(q.queryKey[0])) })
-  const refreshing = () => model.isFetching || operations.isFetching || shows.isFetching
+  const refreshing = () => model.isFetching || operations.isFetching
   // "Updated 2m ago" has to keep moving while the page sits open.
   const [now, setNow] = createSignal(Date.now())
   const tick = setInterval(() => setNow(Date.now()), 15_000)
@@ -278,176 +189,6 @@ export function TenantPage() {
     <Show when={!tenant.error && tenant.data} fallback={!tenant.error ? <SkeletonTenantPage /> : null}>{data => {
     const t = data()
 
-    // ── Today — fans, the next night, this week's moves, the machine ──
-    const Today = () => <>
-          <Show when={operations.data} fallback={
-            <Show when={operations.isFetching} fallback={
-              <Section flush title="Fan growth" icon={<SectionIcon name="users" />}>
-                <p class="text-sm text-muted-foreground">Fan data unavailable — the audience endpoint did not respond.</p>
-              </Section>
-            }>
-              <SkeletonBlock style={{ 'min-height': '120px' }} />
-            </Show>
-          }>
-            <Section
-              flush
-              lead
-              title="Fan growth"
-              icon={<SectionIcon name="users" />}
-              description="The north star. Everything else on this page exists to move the headline number."
-              action={<Link to="/tenants/$slug/audience" params={{ slug: t.slug }} class={buttonVariants({ variant: 'outline', size: 'sm' })}>Audience detail</Link>}
-            >
-              {/* The headline — "are we getting more fans" in one read. Reach
-                  is the send-path definition: active fans holding current
-                  marketing consent, not followers, not a raw total. It and its
-                  movement sit on the shared rail; they were a hand-built row of
-                  figures at three different sizes over uppercase eyebrows. */}
-              <KpiStrip class="mb-0" min="9rem">
-                <KpiCard label="Fans you can reach" tone="primary" value={operations.data?.audience?.marketing_consented_fans != null ? operations.data!.audience!.marketing_consented_fans!.toLocaleString() : '—'} sub="active, consented to contact" />
-                <KpiCard label="New · 7 days" tone={(operations.data?.signal?.activity?.new_fans_7d ?? 0) > 0 ? 'good' : 'default'} value={operations.data?.signal?.activity?.new_fans_7d != null ? `+${operations.data!.signal!.activity!.new_fans_7d!.toLocaleString()}` : '—'} />
-                <KpiCard label="New · 30 days" value={operations.data?.signal?.activity?.new_fans_30d != null ? `+${operations.data!.signal!.activity!.new_fans_30d!.toLocaleString()}` : '—'} />
-                <KpiCard label="Net active · 28 days" value={activeFansTrend()?.delta_28d != null ? `${activeFansTrend()!.delta_28d! >= 0 ? '+' : ''}${activeFansTrend()!.delta_28d!.toLocaleString()}` : '—'} />
-              </KpiStrip>
-              <Show when={topSource()}>{src => (
-                <p class="mt-3 text-sm text-muted-foreground">{src().majority ? `Most fans arrived via ${src().name}` : `Top source so far: ${src().name}`} ({src().fans.toLocaleString()} fans).</p>
-              )}</Show>
-              {/* Where they came from — first-touch over the acquisition
-                  ledger, top sources with this month's arrivals. Fans who
-                  predate the ledger count as untracked, not as a made-up
-                  source. A degraded section simply does not render. */}
-              <Show when={operations.data?.acquisition_sources}>
-                {acq => (
-                  <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    <For each={(acq().sources ?? []).slice(0, 4)}>{s => (
-                      <span>
-                        <span class="text-foreground">{s.source.replaceAll('_', ' ')}</span>
-                        {` ${s.fans.toLocaleString()}`}
-                        {s.fans_30d > 0 ? ` (+${s.fans_30d.toLocaleString()} · 30d)` : ''}
-                      </span>
-                    )}</For>
-                    <Show when={acq().active_fans - acq().tracked_fans > 0}>
-                      <span>{(acq().active_fans - acq().tracked_fans).toLocaleString()} with no source recorded</span>
-                    </Show>
-                    <Show when={acq().tracked_fans === 0}>
-                      <span>No acquisition sources recorded yet — fans who arrived before tracking carry no source.</span>
-                    </Show>
-                  </div>
-                )}
-              </Show>
-              {/* A measured zero is not a failure to hide — it is the state
-                  the whole product exists to change, so the empty card says
-                  where the first fans actually come from. */}
-              <Show when={operations.data?.audience?.active_fans === 0}>
-                <p class="mt-3 text-sm text-muted-foreground">
-                  No fans yet — the first ones arrive when a door QR gets scanned at a show or a source connects.{' '}
-                  <Link to="/tenants/$slug/audience" params={{ slug: t.slug }} class="underline underline-offset-2">
-                    Audience sources
-                  </Link>
-                </p>
-              </Show>
-              <h3 class="mt-6 mb-2 text-sm font-semibold text-foreground">Down the funnel</h3>
-              <KpiStrip class="mb-0" min="8rem">
-                <For each={[
-                  { term: 'Active fans', value: operations.data?.audience?.active_fans },
-                  { term: 'Ticket buyers', value: operations.data?.audience?.ticket_buyers },
-                  { term: 'Attendees', value: operations.data?.audience?.attendees },
-                  { term: 'Paid orders', value: operations.data?.audience?.paid_ticket_orders },
-                  { term: 'Qualified referrals', value: operations.data?.audience?.qualified_referrals },
-                ]}>{kpi => <KpiCard label={kpi.term} value={kpi.value != null ? kpi.value.toLocaleString() : '—'} />}</For>
-              </KpiStrip>
-            </Section>
-          </Show>
-
-          {/* The next night — under the fans, before the machine. Up to
-              three steps that still need a person; the whole block is one
-              door into the gig page. No upcoming show says so plainly —
-              an absent night is a fact, not a skeleton. */}
-          <Show when={nextShow()}>
-            {show => (
-              <Section
-                title="The next night"
-                icon={<SectionIcon name="map-pin" />}
-                description="The nearest show on the books and what it still needs."
-              >
-                <Link
-                  to="/tenants/$slug/shows/$eventSlug"
-                  params={{ slug: t.slug, eventSlug: show().slug }}
-                  class="group block rounded-lg border border-border p-4 transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-                >
-                  <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <span class="text-lg font-semibold text-foreground group-hover:underline">{show().title}</span>
-                    <span class="text-sm text-muted-foreground">{formatTimestamp(show().starts_at)}</span>
-                    <Show when={show().venue}><span class="text-sm text-muted-foreground">· {show().venue}</span></Show>
-                  </div>
-                  <div class="mt-3 flex flex-col gap-1.5">
-                    <For each={nextShowSteps()}>{step => (
-                      <div class="flex items-center gap-2 text-sm">
-                        <StatusBadge
-                          status={step.state}
-                          tone={step.state === 'due' ? 'warn' : 'muted'}
-                        />
-                        <span class="text-foreground">{step.label}</span>
-                        <Show when={step.owner}><span class="text-muted-foreground">— {step.owner}</span></Show>
-                      </div>
-                    )}</For>
-                    <Show when={nextShowTimelineData() && nextShowSteps().length === 0}>
-                      <span class="text-sm text-muted-foreground">Everything on track — nothing waiting on a person.</span>
-                    </Show>
-                  </div>
-                </Link>
-              </Section>
-            )}
-          </Show>
-          <Show when={shows.data && !nextShow()}>
-            <Section title="The next night" icon={<SectionIcon name="map-pin" />}>
-              <p class="text-sm text-muted-foreground">
-                No upcoming show on the books. Publish a gig in CrowdRelay and the next announced night lands{' '}
-                <Link to="/tenants/$slug/shows" params={{ slug: t.slug }} class="underline underline-offset-2">here</Link>.
-              </p>
-            </Section>
-          </Show>
-
-          {/* Worth doing this week — the three moves that carry most of it.
-              Each row is one door into the decision queue on Attention, where
-              the real approve/dismiss buttons live. A degraded section hides
-              the whole block; an empty queue says so plainly. */}
-          <Show when={operations.data?.opportunities}>
-            <Section
-              title="Worth doing this week"
-              icon={<SectionIcon name="target" />}
-              description="The moves that carry most of it, ranked upstream. Attention has the approve buttons."
-            >
-              <Show when={weekMoves().length > 0} fallback={<p class="text-sm text-muted-foreground">Nothing needs you this week — the queue is empty.</p>}>
-              <ul class="divide-y divide-border rounded-lg border border-border">
-                <For each={weekMoves()}>{move => (
-                  <li><Link
-                    to="/tenants/$slug/attention"
-                    params={{ slug: t.slug }}
-                    class="group block p-3 transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-                  >
-                    <div class="flex items-baseline gap-2">
-                      <span class="text-sm font-medium text-foreground group-hover:underline">{move.recommended_action}</span>
-                    </div>
-                    <p class="mt-1 text-xs leading-relaxed text-muted-foreground">{move.reason}</p>
-                    <Show when={move.consequence}>
-                      <p class="mt-1 text-xs text-warning-foreground">If nobody acts: {move.consequence}</p>
-                    </Show>
-                  </Link></li>
-                )}</For>
-              </ul>
-              </Show>
-            </Section>
-          </Show>
-
-          {/* One plain line for the machine — silent while everything
-              answers, loud with the first broken thing. The heartbeat detail
-              it replaced lives on the Health page. */}
-          <TenantStatusLine
-            slug={t.slug}
-            initial={{ runtime: t.runtime, runtimeHealth: t.runtimeHealth }}
-            operations={operations.data}
-          />
-    </>
 
     // ── Settings — products, region, brand, publishing ──
     const Settings = () => <>
@@ -706,15 +447,15 @@ export function TenantPage() {
         </Alert>
       </Show>
 
-      {/* The band's two sidebar entries are these two URLs, so its view has
-          no tab bar. Deployment and Access stay reachable by ?tab=. */}
+      {/* The band's two sidebar entries point at Today and ?tab=profile, so
+          its view has no tab bar. Deployment and Access stay reachable by
+          ?tab= for everyone. */}
       <Show when={platformView}>
         <TabBar
           active={activeTab()}
           onChange={switchTab}
           onPrefetch={prefetch}
           tabs={[
-            { id: 'today', label: 'Growth' },
             { id: 'profile', label: 'Profile' },
             { id: 'deployment', label: 'Deployment' },
             { id: 'access', label: 'Access' },
@@ -725,20 +466,9 @@ export function TenantPage() {
       {/* Each tab body is one vertical rhythm. Sections draw a hairline and
           24px above their heading, but nothing below their content, so
           without the gap each section's last line sat on the next one's rule. */}
-      <Show when={platformView} fallback={
-        <TabPanel active={activeTab()} id="profile" visited={isVisited('profile')}>
-          <div class="space-y-8">
-            <Show when={tabParam() === 'profile'} fallback={<Today />}><Settings /></Show>
-          </div>
-        </TabPanel>
-      }>
-        <TabPanel active={activeTab()} id="today" visited={isVisited('today')}>
-          <div class="space-y-8"><Today /></div>
-        </TabPanel>
-        <TabPanel active={activeTab()} id="profile" visited={isVisited('profile')}>
-          <div class="space-y-8"><Settings /></div>
-        </TabPanel>
-      </Show>
+      <TabPanel active={activeTab()} id="profile" visited={isVisited('profile')}>
+        <div class="space-y-8"><Settings /></div>
+      </TabPanel>
 
       <TabPanel active={activeTab()} id="deployment" visited={isVisited('deployment')}>
         <div class="space-y-8">

@@ -55,7 +55,15 @@ const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', 
 const flowRoute = createRoute({ getParentRoute: () => rootRoute, path: '/flow', component: FlowPage })
 const tenantsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants', component: TenantsPage, loader: warm(['tenants'], api.tenants, 15_000) })
 const tenantWizardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/new', component: TenantWizardPage })
-const tenantRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug', component: TenantPage, loader: ({ params }) => warm(['tenant-overview', params.slug], () => api.tenantOverview(params.slug))() })
+// The bare tenant URL is the tenant, not a settings surface — it lands on
+// Today (`/operations`), the daily read. TenantPage is the Settings surface:
+// it renders only its `?tab=` URLs (profile, deployment, access), which is
+// where the sidebar's Settings item and every deep link already point. A
+// legacy `?tab=today` follows the content to its one home.
+const tenantRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug', component: TenantPage, beforeLoad: ({ params, search }) => {
+  const tab = (search as { tab?: string }).tab
+  if (tab == null || tab === 'today') throw redirect({ href: `/tenants/${params.slug}/operations` })
+}, loader: ({ params }) => warm(['tenant-overview', params.slug], () => api.tenantOverview(params.slug))() })
 const portfolioRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/portfolio', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/audience` }) } })
 const audienceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/audience', component: AudiencePage, loader: ({ params }) => warm(['tenant-audience', params.slug], () => api.audienceModel(params.slug))() })
 const beaconsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/beacons', component: BeaconsPage })

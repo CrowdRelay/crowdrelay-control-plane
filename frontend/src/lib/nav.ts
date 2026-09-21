@@ -1,8 +1,9 @@
-// Tenant-scoped nav, grouped by the operator's mental model:
-//   CONTROL — what needs your attention right now (overview, incidents)
-//   BRAIN — the deterministic autopilot's intelligence and learning
-//   EXECUTION — live operations, integrations, and alert channels
-//   AUDIENCE — who you're reaching and how (fans, sources, beacons, AREA)
+// Tenant-scoped nav, grouped by the questions a person in the act asks —
+// not by the subsystems that answer them. The daily map is the same for
+// every session; platform-level sessions additionally get the Operator
+// group, where the machinery (queues, tunnels, notifiers, provider wiring,
+// automation) lives one level in behind a labelled disclosure. Every route
+// keeps working — this is placement, not permission.
 export type NavItem = {
   path: string
   label: string
@@ -19,55 +20,17 @@ export type NavItem = {
 }
 export type NavGroup = { label: string; items: NavItem[]; defaultOpen: boolean }
 
-// Fourteen links, four groups, all expanded, was the whole product laid out
-// as a menu. Somebody who books shows opens this to do one thing: work today's
-// list. The daily group is always visible; the rest — set-up, deeper reports —
-// sits behind one disclosure that remembers whether it was left open.
+// One process map for every session — five destinations a person in the act
+// actually asks for, in their order: today, the next night, what needs a
+// decision, the audience, the content pipeline. The bare tenant URL used to
+// carry a second copy of Today; it now redirects to /operations, and the
+// Settings link below points at the tenant page's ?tab= URLs — Deployment
+// and Access are named under it in the breadcrumb.
 //
-// Nothing was removed. `defaultOpen` decides what an operator has to look at
-// before finding the work.
-export const TENANT_NAV_GROUPS: NavGroup[] = [
-  {
-    label: 'Every day',
-    defaultOpen: true,
-    items: [
-      { path: '/tenants/$slug/operations', label: 'Operations', exact: false, icon: 'operations' },
-      { path: '/tenants/$slug/attention', label: 'Attention', exact: false, icon: 'attention' },
-      { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
-      { path: '/tenants/$slug/content', label: 'Content', exact: false, icon: 'content' },
-    ],
-  },
-  {
-    label: "How it's going",
-    defaultOpen: false,
-    items: [
-      { path: '/tenants/$slug/shows', label: 'Shows', exact: false, icon: 'shows' },
-      { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
-      { path: '/tenants/$slug/health', label: 'Health', exact: false, icon: 'sliders' },
-    ],
-  },
-  {
-    label: 'Set up once',
-    defaultOpen: false,
-    items: [
-      { path: '/tenants/$slug/beacons', label: 'Beacons', exact: false, icon: 'beacons' },
-      { path: '/tenants/$slug/area', label: 'AREA', exact: false, icon: 'area' },
-      { path: '/tenants/$slug/notifiers', label: 'Notifiers', exact: false, icon: 'notifiers' },
-      { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
-      { path: '/tenants/$slug/automation', label: 'Automation', exact: false, icon: 'automation' },
-      // The bare tenant URL is the Today tab; Settings is its ?tab=profile,
-      // with Deployment and Access named under it in the breadcrumb.
-      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, searchSensitive: true, matchTabs: ['deployment', 'access'] },
-    ],
-  },
-]
-
-// The band's console is smaller on purpose — six destinations that answer the
-// questions a person in the band actually asks, named in the band's language.
-// The operator's machinery (queues, tunnels, notifiers, provider wiring,
-// automation) is out of the sidebar entirely; platform-level users keep the
-// full map because they run that machinery. Pages stay reachable by links —
-// this is a focus split, not a permission boundary.
+// Both arrays are written out literally on purpose: the destination-count
+// ratchet and the label-collision gate parse each declaration's literal body
+// — a spread of one list inside the other would parse as zero items and the
+// gates would go blind. Keep the shared items in sync by hand.
 export const BAND_NAV_GROUPS: NavGroup[] = [
   {
     label: 'Every day',
@@ -85,13 +48,52 @@ export const BAND_NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
-      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, searchSensitive: true },
+      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, searchSensitive: true, matchTabs: ['deployment', 'access'] },
     ],
   },
 ]
 
-/// The sidebar a session gets: the operator map for platform-level users,
-/// the six-destination band map for everyone else.
+// The platform sidebar is the same process map plus one more group: the
+// machinery (queues, tunnels, notifiers, provider wiring, automation) folded
+// one level in behind a labelled disclosure. The operator keeps every
+// control — it moved a level in, not out. Pages stay reachable by URL for
+// everyone — a focus split, not a permission boundary.
+export const TENANT_NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Every day',
+    defaultOpen: true,
+    items: [
+      { path: '/tenants/$slug/operations', label: 'Today', exact: false, icon: 'operations' },
+      { path: '/tenants/$slug/shows', label: 'Shows', exact: false, icon: 'shows' },
+      { path: '/tenants/$slug/attention', label: 'Needs you', exact: false, icon: 'attention' },
+      { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
+      { path: '/tenants/$slug/content', label: 'Content', exact: false, icon: 'content' },
+    ],
+  },
+  {
+    label: 'The rest',
+    defaultOpen: false,
+    items: [
+      { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
+      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, searchSensitive: true, matchTabs: ['deployment', 'access'] },
+    ],
+  },
+  {
+    label: 'Operator',
+    defaultOpen: false,
+    items: [
+      { path: '/tenants/$slug/health', label: 'Health', exact: false, icon: 'sliders' },
+      { path: '/tenants/$slug/beacons', label: 'Beacons', exact: false, icon: 'beacons' },
+      { path: '/tenants/$slug/area', label: 'AREA', exact: false, icon: 'area' },
+      { path: '/tenants/$slug/notifiers', label: 'Notifiers', exact: false, icon: 'notifiers' },
+      { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
+      { path: '/tenants/$slug/automation', label: 'Automation', exact: false, icon: 'automation' },
+    ],
+  },
+]
+
+/// The sidebar a session gets: the shared process map for everyone, plus the
+/// Operator group for platform-level users who run the machinery.
 export const tenantNavGroups = (platformLevel: boolean): NavGroup[] =>
   platformLevel ? TENANT_NAV_GROUPS : BAND_NAV_GROUPS
 
@@ -109,10 +111,10 @@ export const GLOBAL_NAV: NavItem[] = [
 ]
 
 // Longest tenant suffix wins so `/operations` never matches before a deeper
-// child route added later. Both nav sets feed the matcher so a band session's
-// breadcrumb speaks the band's names (Today, Needs you) rather than the
-// operator's.
-const ALL_NAV_ITEMS = [...TENANT_NAV_GROUPS, ...BAND_NAV_GROUPS]
+// child route added later. TENANT_NAV_GROUPS is the superset — it shares the
+// process map's items with BAND_NAV_GROUPS — so flattening it alone covers
+// every destination either session can name.
+const ALL_NAV_ITEMS = TENANT_NAV_GROUPS
   .flatMap(group => group.items)
   .slice()
   .sort((a, b) => b.path.length - a.path.length)
@@ -132,11 +134,12 @@ export const currentPageLabel = (pathname: string, slug: string | undefined, pla
   if (slug) {
     const base = `/tenants/${slug}`
     const suffix = pathname.slice(base.length)
-    // Band items match first so the breadcrumb speaks the band's names; a
-    // page outside the band map still names itself from the full map rather
-    // than falling back to a generic 'Overview'. Search-declaring items
-    // (the band's Today/Settings pair shares one path) match only when
-    // the location's tab agrees with what they declare.
+    // The band map is matched first — it is the same map the operator sees,
+    // so the names are already shared; for a band session on an operator-only
+    // page (a deep link into Health, say) the full map names it instead of
+    // falling back to a generic 'Overview'. Search-declaring items (the
+    // Settings link carries ?tab=profile) match only when the location's tab
+    // agrees with what they declare.
     const matches = (item: NavItem) => {
       const itemSuffix = item.path.replace('/tenants/$slug', '')
       if (!(itemSuffix ? suffix.startsWith(itemSuffix) : suffix === '')) return false

@@ -263,7 +263,7 @@ export function TenantAttentionPage() {
 
   return <PageShell>
     <PageHeader
-      title={authState.isPlatformLevel() ? 'Attention' : 'Needs you'}
+      title="Needs you"
       description={authState.isPlatformLevel()
         ? 'What needs a decision, what is wrong right now, and the checks you can run yourself.'
         : 'What needs a decision and what is wrong right now.'}
