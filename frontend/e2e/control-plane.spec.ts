@@ -22,20 +22,23 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByRole('button', { name: 'Sign in' }).click()
   // After login, the shell redirects to the operator's default tenant's
-  // Attention page — the decision queue is the worklist (UX-3.2). Verify the
-  // landing by URL and heading rather than the tenant name.
-  await expect(page).toHaveURL(/\/tenants\/[^/]+\/attention/)
+  // Today page — the daily read is the worklist home. Verify the landing
+  // by URL and heading rather than the tenant name.
+  await expect(page).toHaveURL(/\/tenants\/[^/]+\/operations/)
   // The heading waits on the lazy AuthenticatedApp chunk plus session hydrate —
   // on the shared 2-core box under CI load that can exceed the 5s default.
-  await expect(page.getByRole('heading', { name: 'Attention' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible({ timeout: 30_000 })
 
   await page.getByRole('link', { name: 'Tenants' }).first().click()
   await expect(page.getByRole('heading', { name: 'Tenants' })).toBeVisible()
   const virya = page.locator('[data-slot="tenant-row"]').filter({ hasText: /virya/i }).first()
   await expect(virya).toBeVisible()
   await virya.click()
-  // The profile tab only carries the one-line status summary now — the
-  // live-polled Heartbeat panel moved to the tenant Health page.
+  // The bare tenant URL redirects to Today. The Heartbeat panel lives on
+  // the tenant Health page, which sits one level in under the collapsed
+  // Operator group — open the group before the link exists to click.
+  await expect(page).toHaveURL(/\/tenants\/[^/]+\/operations/)
+  await page.getByRole('button', { name: 'Operator' }).click()
   await page.getByRole('link', { name: 'Health' }).first().click()
   await expect(page).toHaveURL(/\/tenants\/[^/]+\/health/)
   await expect(page.getByRole('heading', { name: 'Heartbeat' })).toBeVisible()
