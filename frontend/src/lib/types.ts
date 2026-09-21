@@ -2245,10 +2245,39 @@ export type TenantShow = {
   ends_at: string | null
   scan_count: number
   upcoming: boolean
+  /** `draft` is a show on the books but not announced — the list keeps it
+   *  visible so it never reads as live by accident. */
+  status: 'draft' | 'published' | 'cancelled' | 'completed'
 }
 
 export type TenantShowsResponse = {
   events: TenantShow[]
+}
+
+/** `POST /tenants/{slug}/shows` — a night typed in by hand. City is a pair:
+ * `city_name` + `city_country_code` arrive together or not at all; `publish`
+ * false keeps the show off the public site while every internal surface
+ * (checklists, gig planning, the T+7 report) already sees it. */
+export type ShowCreateInput = {
+  title: string
+  starts_at: string
+  doors_at?: string | null
+  ends_at?: string | null
+  venue?: string | null
+  venue_address?: string | null
+  city_name?: string | null
+  city_country_code?: string | null
+  city_region?: string | null
+  timezone?: string | null
+  ticket_url?: string | null
+  publish?: boolean
+}
+
+/** What upstream answers — the minted slug is the link target. */
+export type ShowCreateResult = {
+  event_id: string
+  slug: string
+  status: string
 }
 
 export type ShowTimelineState = 'done' | 'active' | 'due' | 'waiting' | 'skipped'

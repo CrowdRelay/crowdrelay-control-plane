@@ -635,6 +635,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/content-sources"
                     | "/v1/control-plane/autopilot/beacon-network"
                     | "/v1/control-plane/autopilot/cycle/run"
+                    // Manual show entry: the label that never ran a sync
+                    // source types the night in by hand.
+                    | "/v1/control-plane/events"
             ) || uuid_segment_between(path, "/v1/control-plane/ops/outbox/", "/retry")
                 || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "/retry")
                 || uuid_segment_between(path, "/v1/control-plane/ops/push/", "/retry")
@@ -1691,6 +1694,13 @@ mod tests {
         assert!(!valid_operations_request(
             "GET",
             "/v1/control-plane/events/friday%2Fnight/scan"
+        ));
+        // Manual show entry — the write beside the list read; a trailing
+        // segment keeps the POST literal honest.
+        assert!(valid_operations_request("POST", "/v1/control-plane/events"));
+        assert!(!valid_operations_request(
+            "POST",
+            "/v1/control-plane/events/friday-night"
         ));
         assert!(valid_operations_request(
             "GET",
