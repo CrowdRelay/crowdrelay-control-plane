@@ -13,6 +13,9 @@ const credentials = () => {
 }
 
 test('operator journey keeps tenant shell stable across live polling', async ({ page }) => {
+  // The journey carries a fixed 17s live-poll wait, so the 30s default
+  // times out on a loaded runner even when every step is green.
+  test.setTimeout(90_000)
   const { username, password } = credentials()
   await page.goto(baseURL, { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('heading', { name: 'Sign in to your account' })).toBeVisible()
