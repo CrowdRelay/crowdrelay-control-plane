@@ -62,6 +62,35 @@ const asRecipients = (value: string): string[] => {
 // can ask, and it is the widest thing on the line.
 const isOpaqueId = (field: { label: string; value: string }) => UUID.test(field.value.trim())
 
+/** The media the post carries, shown as a picture rather than a URL. The
+ *  backend emits the stored CDN link under the "Image" label; signed links
+ *  expire between sync and approval, so a failed load falls back to the
+ *  value itself rather than a broken frame. */
+const imageUrlOf = (field: { label: string; value: string }): string | null => {
+  if (field.label !== 'Image') return null
+  const value = field.value.trim()
+  return /^https?:\/\//.test(value) ? value : null
+}
+
+/** A repost's attached picture. What renders is what the community sees. */
+function MediaThumb(props: { url: string }) {
+  const [failed, setFailed] = createSignal(false)
+  return (
+    <Show
+      when={!failed()}
+      fallback={<span class="break-all">{props.url}</span>}
+    >
+      <img
+        src={props.url}
+        alt="Attached media"
+        class="mt-1 max-h-48 rounded-md border border-border object-cover"
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    </Show>
+  )
+}
+
 /** Addresses, truncated. Thirty of them is not context, it is a wall. */
 function Recipients(props: { addresses: string[] }) {
   const [expanded, setExpanded] = createSignal(false)
@@ -470,8 +499,15 @@ export function OpportunityBoardPanel(props: {
                           <div class="flex items-baseline gap-3 border-b border-border py-1 last:border-0">
                             <dt class="text-xs capitalize text-muted-foreground">{field.label}</dt>
                             <dd class="m-0 min-w-0 flex-1 break-words text-sm text-secondary-foreground">
-                              <Show when={asRecipients(field.value).length > 0} fallback={field.value}>
-                                <Recipients addresses={asRecipients(field.value)} />
+                              <Show
+                                when={imageUrlOf(field)}
+                                fallback={
+                                  <Show when={asRecipients(field.value).length > 0} fallback={field.value}>
+                                    <Recipients addresses={asRecipients(field.value)} />
+                                  </Show>
+                                }
+                              >
+                                {url => <MediaThumb url={url()} />}
                               </Show>
                             </dd>
                           </div>
