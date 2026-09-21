@@ -343,9 +343,11 @@ jobs:
       # edge case where this job ran long enough to open repos for a deploy
       # window but the workflow was manually cancelled before close-repos
       # could fire. `if: always()` means it runs on success, failure, AND
-      # cancellation of this job.
+      # cancellation of this job. It must still respect REPOS_STAY_PUBLIC:
+      # without the check below it closes the multi-day public window on
+      # every deploy — including the cancelled-job edge it exists for.
       - name: Ensure all CrowdRelay repos are private
-        if: always()
+        if: always() && vars.REPOS_STAY_PUBLIC != 'true'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.CROWDRELAY_PAT }}
