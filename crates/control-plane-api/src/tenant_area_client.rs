@@ -480,6 +480,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 "/v1/control-plane/ops/summary"
                     | "/v1/control-plane/ops/signal-overview"
                     | "/v1/control-plane/ops/attention"
+                    | "/v1/control-plane/ops/intelligence"
                     | "/v1/control-plane/ops/outbox"
                     | "/v1/control-plane/ops/deliveries"
                     | "/v1/control-plane/ops/delivery-results"
@@ -540,6 +541,10 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/audience/fans"
                     | "/v1/control-plane/audience/segments"
                     | "/v1/control-plane/ops/actions"
+                    // Process runs: one pass of a pipeline over one subject,
+                    // joined upstream into the step shape the process pages
+                    // render. The community relay is the first kind.
+                    | "/v1/control-plane/processes/relays"
                     | "/v1/control-plane/community-intelligence/communities"
                     | "/v1/control-plane/events"
                     | "/v1/control-plane/audience-graph/places"
@@ -562,6 +567,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || path.starts_with("/v1/control-plane/autopilot/booking-discovery/candidates?")
                 || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "")
                 || uuid_segment_between(path, "/v1/control-plane/ops/actions/", "")
+                || uuid_segment_between(path, "/v1/control-plane/processes/relays/", "")
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "")
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/journey")
                 || safe_segment_between(path, "/v1/control-plane/audience/segments/", "/preview")
@@ -644,6 +650,19 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 )
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/actions/", "/approve")
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/actions/", "/cancel")
+                // The relay spread's one ask: approve releases every parked
+                // delivery to the drip, revoke cancels what has not landed.
+                // Both are per-source writes upstream owns end-to-end.
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/community-relays/",
+                    "/approve",
+                )
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/community-relays/",
+                    "/revoke",
+                )
                 // P.4: one yes (or one stop) over a show's whole growth
                 // ladder — the canonical admin writes, carried through the
                 // proxy with their idempotency keys.
@@ -777,6 +796,15 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || uuid_segment_between(path, "/v1/control-plane/fanbases/", "/ingest")
                 || fan_tag_path(path)
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/referral-code")
+                // The process page's manual leg: a drafted Reddit post the
+                // operator published by hand registers its URL so the metrics
+                // poller can pick the post up. Same write the community
+                // surfaces use, carried through with its idempotency key.
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/community-posts/",
+                    "/register-manual",
+                )
                 // 4V.6b: the shared night's writes — contribute one kind,
                 // mint the organiser link, and the billed act's own confirm.
                 || uuid_segment_between(path, "/v1/control-plane/nights/", "/contributions")
@@ -1671,6 +1699,50 @@ mod tests {
         assert!(valid_operations_request(
             "GET",
             "/v1/control-plane/ops/operations/request-1234"
+        ));
+        // Process runs: the list is literal, the run is uuid-bounded like
+        // the trace and deliveries siblings; an escape or extra tail fails.
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/processes/relays"
+        ));
+        assert!(valid_operations_request(
+            "GET",
+            &format!("/v1/control-plane/processes/relays/{id}")
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/processes/relays/not-a-uuid"
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            &format!("/v1/control-plane/processes/relays/{id}/targets")
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            "/v1/control-plane/processes/relays"
+        ));
+        // The relay batch's two answers — uuid-bounded like every write; a
+        // non-uuid source, a missing tail, or a GET on the write path fails.
+        assert!(valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/autopilot/community-relays/{id}/approve")
+        ));
+        assert!(valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/autopilot/community-relays/{id}/revoke")
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            "/v1/control-plane/autopilot/community-relays/not-a-uuid/approve"
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/autopilot/community-relays/{id}")
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            &format!("/v1/control-plane/autopilot/community-relays/{id}/approve")
         ));
         // The sent record: what an action said and to whom. UUID-bounded like
         // the approve/cancel siblings; a non-uuid id or a missing tail fails.

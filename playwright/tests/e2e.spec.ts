@@ -181,6 +181,7 @@ const SUBPAGES = [
   { path: '/tenants/virya/operations', name: 'operations' },
   { path: '/tenants/virya/intelligence', name: 'intelligence' },
   { path: '/tenants/virya/attention', name: 'attention' },
+  { path: '/tenants/virya/in-motion', name: 'in-motion' },
   { path: '/tenants/virya/audience', name: 'audience' },
   { path: '/tenants/virya/content', name: 'content' },
   { path: '/tenants/virya/content/material', name: 'content-material' },
@@ -245,6 +246,18 @@ test.describe('Control Plane E2E @e2e', () => {
     await page.waitForTimeout(1000)
     expect(page.url()).toContain('/tenants/virya')
     expect(page.url()).not.toContain('/operations')
+  })
+
+  // The process view: the run list loads in one call and renders either run
+  // cards, the honest empty state, or the failure card — never a blank page.
+  test('In motion page renders the process view @e2e', async ({ page }) => {
+    await page.goto('/tenants/virya/in-motion')
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+    await expect(page.getByRole('heading', { name: 'In motion' })).toBeVisible({ timeout: 10000 })
+    // With a backend the run list or the empty state renders; without one the
+    // failure card does. Either is a rendered answer — a blank is the bug.
+    const content = page.getByText(/Post relays|No relays yet|did not load|unavailable|no longer exists|Retry/i)
+    await expect(content.first()).toBeVisible({ timeout: 10000 })
   })
 
   // Test that navigating between pages doesn't accumulate errors

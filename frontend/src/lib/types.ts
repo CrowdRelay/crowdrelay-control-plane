@@ -510,6 +510,129 @@ export type TraceTimelineEvent = {
 
 export type TraceTimeline = { trace_id: string; events: TraceTimelineEvent[] }
 
+// ── Process runs ────────────────────────────────────────────────────────
+// One pass of a pipeline over one subject, rendered as steps: observed →
+// decided → awaiting a person → sent → proof → measured. The community
+// relay is the first kind: one synced band post fans out to one Signal push
+// plus one drafted Reddit post per admitted community.
+
+/// One community the decision named, its draft, approval state, receipt and
+/// latest measurement. `state` is the upstream-derived step word — the page
+/// never re-interprets timestamps into its own vocabulary.
+export type RelayTargetState =
+  | 'deciding'
+  | 'awaiting_you'
+  | 'expired'
+  | 'queued'
+  | 'posting'
+  | 'posted'
+  | 'manual'
+  | 'failed'
+  | 'skipped'
+
+export type RelayTarget = {
+  /// Client-side identity for keyed reconcile — mirrors `target_id`.
+  id: string
+  target_id: string
+  subreddit: string | null
+  display_name: string | null
+  confidence_bp: number | null
+  state: RelayTargetState
+  action_id: string | null
+  community_post_id: string | null
+  draft_title: string | null
+  draft_body: string | null
+  image_url: string | null
+  approval_expires_at: string | null
+  post_status: string | null
+  reddit_post_url: string | null
+  posted_at: string | null
+  score: number | null
+  upvotes: number | null
+  num_comments: number | null
+  upvote_ratio: number | null
+  measured_at: string | null
+  reach_status: string | null
+  observed_fans: number | null
+  converted: boolean | null
+  /// Why the action or the post failed, when it did.
+  error_kind: string | null
+}
+
+export type RelayPushLeg = {
+  action_id: string
+  status: string
+  audience_size: number | null
+  approval_expires_at: string | null
+}
+
+/// The full run detail — the single-call process view.
+export type RelayProcessRunDetail = {
+  source_id: string
+  title: string | null
+  platform: string | null
+  source_url: string | null
+  thumbnail_url: string | null
+  body: string | null
+  occurred_at: string | null
+  decided_at: string
+  confidence_bp: number
+  /// The batch ask — one approval per source. `awaiting_approval` while a
+  /// person has not answered, `approved` while the drip runs, `revoked`/
+  /// `done` once the answer landed. `null` while drafts still land.
+  batch_status: string | null
+  /// Seconds the executor holds between two posts of the same spread.
+  interval_seconds: number | null
+  approved_at: string | null
+  revoked_at: string | null
+  observe_until: string | null
+  push: RelayPushLeg | null
+  /// True when the fan-out exceeded the bounded cap — the view says so
+  /// rather than silently showing a partial list. `targets_total` is the
+  /// untruncated count for the "N of total" note.
+  targets_truncated: boolean
+  targets_total: number
+  targets: RelayTarget[]
+}
+
+/// One row of step state per run — the list view stays thin so it renders
+/// in a single indexed read.
+export type RelayProcessRun = {
+  /// Client-side identity for keyed reconcile — mirrors `source_id`.
+  id: string
+  source_id: string
+  title: string | null
+  platform: string | null
+  source_url: string | null
+  thumbnail_url: string | null
+  occurred_at: string | null
+  decided_at: string
+  confidence_bp: number
+  communities_decided: number
+  push_decided: boolean
+  /// The batch ask — the run's one answer. See `RelayProcessRunDetail`.
+  batch_status: string | null
+  interval_seconds: number | null
+  observe_until: string | null
+  deciding: number
+  awaiting: number
+  expired: number
+  queued: number
+  posting: number
+  posted: number
+  manual: number
+  failed: number
+  skipped: number
+  last_posted_at: string | null
+  total_score: number | null
+  total_comments: number | null
+  replies: number
+  conversions: number
+  push_status: string | null
+}
+
+export type RelayProcessRuns = { runs: RelayProcessRun[] }
+
 export type ReconciliationRun = {
   id: string
   status: string
@@ -762,6 +885,13 @@ export type PendingActionSummary = {
   context: string
   action_kind: string
   subject_kind: string
+  /// The community the action targets, when the payload names one. Absent on
+  /// an older tenant that does not project it.
+  subreddit?: string | null
+  /// What the content is called, when the payload names one.
+  title?: string | null
+  /// Which workflow template the action runs, when the payload names one.
+  template_id?: string | null
   approval_expires_at: string | null
 }
 
@@ -3204,6 +3334,12 @@ export interface CyclePreview {
   northStarCurrent: number
   northStarThisMonth: number
   hasAnyConnectedPlatform: boolean
+  /// Discovery channels that produced nothing lately — serialized by the
+  /// tenant's CyclePreview (camelCase), surfaced by the brief as silence.
+  discoveryChannelsSilent?: string[]
+  /// What the brain expects the top-priority workflow to add.
+  topTemplateProjectedIncrementalFans?: number
+  topTemplateProjectedConfidence?: number
 }
 
 export interface CycleRunResult {
@@ -3809,3 +3945,80 @@ export type GigPlanApproval =
   | { action_id: string; city: string; venue: string; recipients: string[]; opening_line: string }
   | { action_id: string; status: string }
   | { refused: string }
+
+// ---------------------------------------------------------------------------
+// Intelligence brief — the "are we getting anywhere" story in one read.
+// ---------------------------------------------------------------------------
+
+/// Whether the machinery that runs the brain is alive. Full WorkerSummary —
+/// the intelligence brief gets the whole liveness picture, not the
+/// `lease_age_seconds` subset the ops summary projects.
+export type WorkerVitals = {
+  lease_age_seconds: number
+  alive: boolean
+  /// Seconds since an autopilot cycle last finished. 999999 = never has.
+  cycle_age_seconds: number
+  /// Seconds since a decision was last evaluated. 999999 = never has.
+  decision_age_seconds: number
+  /// Fresh lease but no finished cycle in 30min — the crash-loop signal.
+  crash_looping: boolean
+}
+
+/// One community the brain wants to post to and cannot — nobody joined it.
+export type BlockedCommunity = {
+  community: string
+  member_count: number | null
+  discovered_at: string | null
+}
+
+/// The brain's own verdict, and — when it chose to do nothing — its reason.
+///
+/// Field names are snake_case because the tenant emits them that way and the
+/// Control Plane passes the object through wholesale: a field the tenant adds
+/// reaches this page without a matching Control Plane deploy.
+export type BrainSelfAssessment = {
+  /// `improving`, `learning`, `stagnant`, `regressing`, or `initializing`.
+  state: string
+  /// True only for `regressing` and `stagnant` — the verdicts that ask for a
+  /// person. A flat young system is `learning`, not a fault.
+  needs_attention?: boolean
+  /// Distinct days of North Star readings behind the verdict.
+  days_observed?: number
+  /// Consecutive finished cycles that produced no actions, counting back from
+  /// the latest. The count is what makes a silent brain legible: quiet since
+  /// the last check and quiet for three days straight are different things.
+  quiet_cycles?: number
+  /// Why the most recent quiet cycle stayed quiet, in the brain's own words
+  /// ("WAIT wins: VOI=0.85 > best_action_value=0.00"). The system may do
+  /// nothing — this is where it says so. Absent when no quiet cycle has a
+  /// recorded reason — the cycle is acting, or it predates the field.
+  latest_wait_reason?: string | null
+}
+
+/// One channel's backlog of drafted-but-unpublished posts.
+export type UnpublishedDraftChannel = {
+  channel: string
+  drafts: number
+  oldest_drafted_at: string | null
+}
+
+/// One read answering "is the brain working, what mode, what found, what
+/// plan, what needs you, what it did, what came of it."
+///
+/// Every field is a fact or a count — the human-language narrative is
+/// derived from them at read time, never stored.
+export type IntelligenceBrief = {
+  worker: WorkerVitals
+  brain: BrainSelfAssessment
+  posture: GrowthPostureView
+  cycle: CyclePreview
+  chief_of_staff: AutopilotChiefOfStaff
+  /// Pending approvals, excluding community-relay batch deliveries — the
+  /// In motion view owns those, so the operator is not asked twice.
+  needs_you: PendingActionSummary[]
+  awaiting_approval: number
+  /// Communities the brain wants but cannot reach.
+  blocked_communities: BlockedCommunity[]
+  /// Finished work nobody published.
+  unpublished_drafts: UnpublishedDraftChannel[]
+}

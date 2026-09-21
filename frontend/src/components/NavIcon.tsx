@@ -2,7 +2,7 @@ import type { Component } from 'solid-js'
 import { Dynamic } from 'solid-js/web'
 import {
   Activity, Bell, Brain, FileText, LayoutDashboard, LayoutGrid, MapPin, Plug, RadioTower,
-  Settings, SlidersHorizontal, Ticket, TriangleAlert, Users, Waypoints, Zap, type LucideProps,
+  Settings, SlidersHorizontal, Ticket, TriangleAlert, Users, Waypoints, Workflow, Zap, type LucideProps,
 } from 'lucide-solid'
 
 // Sidebar / command palette nav icons, keyed by name — all Lucide.
@@ -20,6 +20,7 @@ const ICONS: Record<string, Component<LucideProps>> = {
   integrations: Plug,
   automation: Zap,
   flow: Waypoints,
+  motion: Workflow,
   beacons: RadioTower,
   sliders: SlidersHorizontal,
   settings: Settings,

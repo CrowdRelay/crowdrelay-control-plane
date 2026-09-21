@@ -1,5 +1,5 @@
 {
-  "maxTenantDestinations": 13,
-  "note": "Ratchet: only shrinks. UX plan target is six band destinations — reached via BAND_NAV_GROUPS. Lower a baseline in the same commit that removes or merges a destination. 2026-09-16: +1 in both nav sets for /tenants/$slug/content — the tenant owner asked for Content as a first-class every-day destination; content previously lived only inside an Intelligence tab. 2026-09-16: +1 operator-side for /tenants/$slug/shows in How it's going — the owner asked for the gig list next to the reports; the page already existed in the band nav and breadcrumb, this only surfaces it for the operator.",
-  "maxBandDestinations": 7
+  "maxTenantDestinations": 14,
+  "note": "Ratchet: only shrinks. UX plan target is six band destinations — reached via BAND_NAV_GROUPS. Lower a baseline in the same commit that removes or merges a destination. 2026-09-16: +1 in both nav sets for /tenants/$slug/content — the tenant owner asked for Content as a first-class every-day destination; content previously lived only inside an Intelligence tab. 2026-09-16: +1 operator-side for /tenants/$slug/shows in How it's going — the owner asked for the gig list next to the reports; the page already existed in the band nav and breadcrumb, this only surfaces it for the operator. 2026-09-17: +1 in both nav sets for /tenants/$slug/in-motion — the owner asked for the process view as a first-class destination (observed → decided → do it → proof → what it gave us); it is the page where the entity-shaped approvals eventually fold into their runs.",
+  "maxBandDestinations": 8
 }

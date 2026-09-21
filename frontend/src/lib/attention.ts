@@ -1,5 +1,5 @@
 import { request } from './api'
-import type { DeliveryItem, EcosystemOverview, FailedSends, LapsedApprovals, OperationsSummary, OpsAlert, OutboxItem, PendingActionSummary, PushDeliveryItem, ReconciliationFinding } from './types'
+import type { BrainSelfAssessment, DeliveryItem, EcosystemOverview, FailedSends, LapsedApprovals, OperationsSummary, OpsAlert, OutboxItem, PendingActionSummary, PushDeliveryItem, ReconciliationFinding, UnpublishedDraftChannel } from './types'
 
 // Attention subpage read model. One request, assembled by CrowdRelay and
 // re-projected by the Control Plane section by section.
@@ -46,36 +46,7 @@ export type TenantAttentionReadModel = {
   not_reported?: string[]
 }
 
-/// The brain's own verdict, and — when it chose to do nothing — its reason.
-///
-/// Field names are snake_case because the tenant emits them that way and the
-/// Control Plane passes the object through wholesale: a field the tenant adds
-/// reaches this page without a matching Control Plane deploy.
-export type BrainSelfAssessment = {
-  /// `improving`, `learning`, `stagnant`, `regressing`, or `initializing`.
-  state: string
-  /// True only for `regressing` and `stagnant` — the verdicts that ask for a
-  /// person. A flat young system is `learning`, not a fault.
-  needs_attention?: boolean
-  /// Distinct days of North Star readings behind the verdict.
-  days_observed?: number
-  /// Consecutive finished cycles that produced no actions, counting back from
-  /// the latest. The count is what makes a silent brain legible: quiet since
-  /// the last check and quiet for three days straight are different things.
-  quiet_cycles?: number
-  /// Why the most recent quiet cycle stayed quiet, in the brain's own words
-  /// ("WAIT wins: VOI=0.85 > best_action_value=0.00"). The system may do
-  /// nothing — this is where it says so. Absent when no quiet cycle has a
-  /// recorded reason — the cycle is acting, or it predates the field.
-  latest_wait_reason?: string | null
-}
-
-/// One channel's backlog of drafted-but-unpublished posts.
-export type UnpublishedDraftChannel = {
-  channel: string
-  drafts: number
-  oldest_drafted_at: string | null
-}
+export type { BrainSelfAssessment, UnpublishedDraftChannel }
 
 export type OperationsAttentionSnapshot = TenantAttentionReadModel
 
