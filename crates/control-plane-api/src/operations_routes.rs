@@ -13,6 +13,7 @@ use axum::{
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
+use url::Url;
 use uuid::Uuid;
 
 use crate::{
@@ -445,8 +446,12 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/show-economics",
             get(show_economics),
         )
-        // The gig page's list — the tenant's shows, next up then past.
-        .route("/tenants/{slug}/shows", get(tenant_shows))
+        // The gig page's list — the tenant's shows, next up then past — plus
+        // the write that puts one there by hand when no sync source runs.
+        .route(
+            "/tenants/{slug}/shows",
+            get(tenant_shows).post(tenant_show_create),
+        )
         // One night: the T-21→T+7 ladder. The slug path segment is the
         // event's own slug, not its id — it is what the list hands down.
         .route(
@@ -4091,6 +4096,185 @@ async fn tenant_shows(
     object_no_store(value, "shows")
 }
 
+/// `POST /tenants/{slug}/shows` — a night the operator types in by hand.
+/// Upstream owns the write (find-or-create city, slug uniqueness, draft vs
+/// announced); this surface mirrors the transport bounds so a malformed form
+/// never crosses the wire, and audits the mutation like every other show
+/// write.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CreateShowBody {
+    title: String,
+    starts_at: String,
+    doors_at: Option<String>,
+    ends_at: Option<String>,
+    venue: Option<String>,
+    venue_address: Option<String>,
+    city_name: Option<String>,
+    city_country_code: Option<String>,
+    city_region: Option<String>,
+    timezone: Option<String>,
+    ticket_url: Option<String>,
+    #[serde(default)]
+    publish: bool,
+}
+
+fn valid_show_timestamp(value: &str) -> Option<chrono::DateTime<chrono::FixedOffset>> {
+    chrono::DateTime::parse_from_rfc3339(value.trim()).ok()
+}
+
+// Byte bound, not chars — the upstream domain validator checks `str::len()`,
+// so the mirror must too or a multibyte name would pass here and fail there.
+fn valid_show_text(value: Option<&str>, max_bytes: usize) -> bool {
+    value.is_none_or(|text| {
+        let trimmed = text.trim();
+        !trimmed.is_empty() && trimmed.len() <= max_bytes && !trimmed.chars().any(char::is_control)
+    })
+}
+
+/// Validates the form against the same bounds the upstream write applies and
+/// returns the JSON body forwarded to it. Pure, so the mirror is tested
+/// without standing a tenant up.
+fn show_create_payload(body: &CreateShowBody) -> Result<Value, ApiError> {
+    let title = body.title.trim();
+    let Some(starts_at) = valid_show_timestamp(&body.starts_at) else {
+        return Err(ApiError::InvalidInput(
+            "invalid show: starts_at must be RFC 3339".to_owned(),
+        ));
+    };
+    let doors_at = body.doors_at.as_deref().map(valid_show_timestamp);
+    let ends_at = body.ends_at.as_deref().map(valid_show_timestamp);
+    // Present-but-empty is absent for the pair check — upstream trims to the
+    // same conclusion, and the pair must match here before it gets there.
+    let city_name = body
+        .city_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty());
+    let city_country_code = body
+        .city_country_code
+        .as_deref()
+        .map(str::trim)
+        .map(str::to_uppercase)
+        .filter(|v| !v.is_empty());
+    let city_ok = city_name.is_some() == city_country_code.is_some()
+        && city_country_code
+            .as_deref()
+            .is_none_or(|code| code.len() == 2 && code.bytes().all(|b| b.is_ascii_uppercase()));
+    // A present-but-unparseable time is invalid, not absent.
+    let schedule_ok = match &doors_at {
+        None => true,
+        Some(parsed) => parsed.is_some_and(|doors| doors <= starts_at),
+    } && match &ends_at {
+        None => true,
+        Some(parsed) => parsed.is_some_and(|ends| ends >= starts_at),
+    };
+    let ticket_url = body.ticket_url.as_deref().map(str::trim);
+    // Same door-link rules the domain applies: a real https URL with a host,
+    // no credentials-in-URL, no fragment — otherwise upstream refuses and the
+    // operator sees a generic bad_request instead of a form-level error.
+    let ticket_ok = ticket_url.is_none_or(|url| {
+        url.len() <= 2048
+            && Url::parse(url).is_ok_and(|parsed| {
+                parsed.scheme() == "https"
+                    && parsed.host_str().is_some()
+                    && parsed.username().is_empty()
+                    && parsed.password().is_none()
+                    && parsed.fragment().is_none()
+            })
+    });
+    // A region only colours a city pair that exists.
+    let region_ok = body
+        .city_region
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .is_none()
+        || city_name.is_some();
+    let fields_ok = valid_show_text(Some(title), 300)
+        && valid_show_text(body.venue.as_deref(), 500)
+        && valid_show_text(body.venue_address.as_deref(), 500)
+        && valid_show_text(body.city_name.as_deref(), 200)
+        && valid_show_text(body.city_region.as_deref(), 100)
+        && valid_show_text(body.timezone.as_deref(), 128)
+        && schedule_ok
+        && ticket_ok
+        && city_ok
+        && region_ok;
+    if !fields_ok {
+        return Err(ApiError::InvalidInput(
+            "invalid show: title required (≤300), RFC 3339 times with doors ≤ start ≤ end, \
+             venue ≤500, https ticket_url, city name + country code together"
+                .to_owned(),
+        ));
+    }
+    Ok(json!({
+        "title": title,
+        "starts_at": starts_at.to_rfc3339(),
+        "doors_at": doors_at.flatten().map(|value| value.to_rfc3339()),
+        "ends_at": ends_at.flatten().map(|value| value.to_rfc3339()),
+        "venue": body.venue.as_deref().map(str::trim).filter(|v| !v.is_empty()),
+        "venue_address": body.venue_address.as_deref().map(str::trim).filter(|v| !v.is_empty()),
+        "city_name": city_name,
+        "city_country_code": city_country_code,
+        "city_region": body.city_region.as_deref().map(str::trim).filter(|v| !v.is_empty()),
+        "timezone": body.timezone.as_deref().map(str::trim).filter(|v| !v.is_empty()),
+        "ticket_url": ticket_url.filter(|v| !v.is_empty()),
+        "publish": body.publish,
+    }))
+}
+
+async fn tenant_show_create(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<CreateShowBody>,
+) -> Result<Response, ApiError> {
+    let title = body.title.trim().to_owned();
+    let payload = show_create_payload(&body)?;
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: "/v1/control-plane/events",
+                body: Some(&payload),
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    // The audit record points at the slug upstream minted — the durable name
+    // for the night — falling back to the title when the call failed before
+    // one existed. Held as a Result so a refused create is audited too, like
+    // every other proxied mutation.
+    let audit_target = result
+        .as_ref()
+        .ok()
+        .and_then(|value| value.get("slug"))
+        .and_then(Value::as_str)
+        .unwrap_or(&title)
+        .to_owned();
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.show.created",
+        "event",
+        &audit_target,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let value = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    mutation_no_store(value, "show")
+}
+
 async fn tenant_show_timeline(
     State(state): State<AppState>,
     Path((slug, event_slug)): Path<(String, String)>,
@@ -5775,4 +5959,112 @@ async fn community_detail(
         "entities": section(entities),
     });
     object_no_store(projected, "community detail")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn show_body() -> CreateShowBody {
+        CreateShowBody {
+            title: "Virya live".to_owned(),
+            starts_at: "2026-10-02T20:00:00+02:00".to_owned(),
+            doors_at: None,
+            ends_at: None,
+            venue: None,
+            venue_address: None,
+            city_name: None,
+            city_country_code: None,
+            city_region: None,
+            timezone: None,
+            ticket_url: None,
+            publish: false,
+        }
+    }
+
+    #[test]
+    fn show_payload_accepts_the_thinnest_honest_show() {
+        let payload = show_create_payload(&show_body()).expect("minimal show");
+        assert_eq!(payload["title"], "Virya live");
+        assert_eq!(payload["starts_at"], "2026-10-02T20:00:00+02:00");
+        assert_eq!(payload["publish"], false);
+    }
+
+    #[test]
+    fn show_payload_rejects_missing_and_bad_start() {
+        let mut body = show_body();
+        body.starts_at = "not a date".to_owned();
+        assert!(show_create_payload(&body).is_err());
+        body.starts_at = " ".to_owned();
+        assert!(show_create_payload(&body).is_err());
+    }
+
+    #[test]
+    fn show_payload_enforces_the_city_pair() {
+        let mut body = show_body();
+        body.city_name = Some("Warszawa".to_owned());
+        assert!(show_create_payload(&body).is_err(), "name without code");
+        body.city_name = None;
+        body.city_country_code = Some("PL".to_owned());
+        assert!(show_create_payload(&body).is_err(), "code without name");
+        body.city_region = Some("mazowieckie".to_owned());
+        assert!(show_create_payload(&body).is_err(), "region without a pair");
+        body.city_name = Some("Warszawa".to_owned());
+        let payload = show_create_payload(&body).expect("complete city triple");
+        assert_eq!(payload["city_country_code"], "PL");
+        // Lowercase codes normalize rather than refuse.
+        body.city_country_code = Some("de".to_owned());
+        let payload = show_create_payload(&body).expect("lowercase code folds");
+        assert_eq!(payload["city_country_code"], "DE");
+        body.city_country_code = Some("P1".to_owned());
+        assert!(show_create_payload(&body).is_err());
+        body.city_country_code = Some("POL".to_owned());
+        assert!(show_create_payload(&body).is_err());
+    }
+
+    #[test]
+    fn show_payload_rejects_impossible_schedule_and_insecure_url() {
+        let mut body = show_body();
+        body.doors_at = Some("2026-10-02T21:00:00+02:00".to_owned());
+        assert!(show_create_payload(&body).is_err(), "doors after start");
+        body.doors_at = Some("not a date".to_owned());
+        assert!(
+            show_create_payload(&body).is_err(),
+            "unparseable doors is invalid, not absent"
+        );
+        body.doors_at = None;
+        body.ends_at = Some("2026-10-02T19:00:00+02:00".to_owned());
+        assert!(show_create_payload(&body).is_err(), "ends before start");
+        body.ends_at = None;
+        body.ticket_url = Some("http://tickets.example/x".to_owned());
+        assert!(show_create_payload(&body).is_err(), "http refused");
+        // A space in the path parses to %20 — upstream's Url::parse accepts
+        // it, so the mirror does too rather than diverging on encoding.
+        body.ticket_url = Some("https://tickets.example/a b".to_owned());
+        assert!(show_create_payload(&body).is_ok(), "space encodes");
+        // The mirror is the upstream rule, not just the scheme prefix —
+        // credentials-in-URL and fragments get the form-level error, not a
+        // generic upstream bad_request.
+        body.ticket_url = Some("https://u:p@tickets.example/x".to_owned());
+        assert!(show_create_payload(&body).is_err(), "userinfo refused");
+        body.ticket_url = Some("https://tickets.example/x#frag".to_owned());
+        assert!(show_create_payload(&body).is_err(), "fragment refused");
+        body.ticket_url = Some("https://tickets.example/virya".to_owned());
+        assert!(show_create_payload(&body).is_ok());
+    }
+
+    #[test]
+    fn show_payload_bounds_are_bytes_like_the_upstream_validator() {
+        let mut body = show_body();
+        body.title = "x".repeat(301);
+        assert!(show_create_payload(&body).is_err(), "301 bytes");
+        // 151 two-byte characters = 302 bytes — the mirror counts bytes, not
+        // characters, because the domain validator checks `str::len()`.
+        body.title = "ą".repeat(151);
+        assert!(show_create_payload(&body).is_err(), "302 bytes of ą");
+        body.title = "ą".repeat(150);
+        assert!(show_create_payload(&body).is_ok(), "300 bytes of ą");
+        body.title = " ".to_owned();
+        assert!(show_create_payload(&body).is_err(), "blank title");
+    }
 }
