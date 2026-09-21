@@ -6,6 +6,7 @@ import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { relativeTime } from '../lib/format'
 import { cn } from '../lib/cn'
+import { BrainBriefPanel } from '../components/BrainBriefPanel'
 import { IntelligenceTransparencyPanel } from '../components/IntelligenceTransparencyPanel'
 import { GrowthIntelligencePanel } from '../components/GrowthIntelligencePanel'
 import { RunBrainCyclePanel } from '../components/RunBrainCyclePanel'
@@ -27,19 +28,20 @@ import { SectionFailureCard } from '../components/SectionFailureCard'
 import { StatusBadge } from '../components/StatusBadge'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
-const TABS = ['measurement', 'overview', 'growth', 'material', 'decisions', 'funnel', 'learning'] as const
+const TABS = ['brief', 'overview', 'growth', 'material', 'decisions', 'funnel', 'learning', 'numbers'] as const
 
 /**
  * Intelligence — the deterministic autopilot, one tab per question in the
- * order the loop runs: where we stand, what it believes, what it may say,
- * what it decided, what moved, what it learned. Each panel draws its own
- * heading; the page draws none of its own under the tab bar.
+ * order the loop runs: are we getting anywhere, where we stand, what it
+ * believes, what it may say, what it decided, what moved, what it learned,
+ * the numbers. Each panel draws its own heading; the page draws none of its
+ * own under the tab bar.
  */
 export function TenantIntelligencePage() {
   const params = useParams({ from: '/tenants/$slug/intelligence' })
   const autopilot = () => model.data?.autopilot
   // The id list makes `?tab=` deep links land on the right tab.
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('measurement', [...TABS])
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('brief', [...TABS])
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantOperations(params().slug),
@@ -90,36 +92,40 @@ export function TenantIntelligencePage() {
       <SectionFailureCard error={model.error} fallback="Intelligence channel unavailable" onRetry={() => void model.refetch()} />
     </Show>
 
-    {/* The tabs say what each one holds, in the order the loop runs. */}
+    {/* The tabs say what each one holds, in the order the loop runs. The
+        first tab is the story — the other seven are the evidence. */}
     <TabBar
       active={activeTab()}
       onChange={switchTab}
       onPrefetch={prefetch}
       tabs={[
-        { id: 'measurement', label: 'Are we getting anywhere' },
+        { id: 'brief', label: 'Are we getting anywhere' },
         { id: 'overview', label: 'Where we stand' },
         { id: 'growth', label: 'What it believes' },
         { id: 'material', label: 'What it may say' },
         { id: 'decisions', label: 'What it decided' },
         { id: 'funnel', label: 'What moved' },
         { id: 'learning', label: 'What it learned' },
+        { id: 'numbers', label: 'The numbers' },
       ]}
     />
 
+    {/* The brief is the default tab and answers from its own read model —
+        it must not wait on tenant-operations, an unrelated channel whose
+        failure would hide the one thing this page exists to say. The other
+        seven tabs are evidence surfaces and keep the shared gate. */}
+    <TabPanel active={activeTab()} id="brief" visited={isVisited('brief')}>
+      <BrainBriefPanel slug={params().slug} />
+    </TabPanel>
+
     {/* Intelligence and Operations share the query key, so the skeleton
         shows whenever the read model is absent, not only on first fetch. */}
-    <Show when={!model.error && !model.data}>
+    <Show when={!model.error && !model.data && activeTab() !== 'brief'}>
       <SkeletonBrainGroup />
       <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
     </Show>
 
     <Show when={!model.error && model.data}>{<>
-
-      {/* ── Measurement tab — the plan's fifteen claims, each with its
-              number or the reason this build cannot produce it ── */}
-      <TabPanel active={activeTab()} id="measurement" visited={isVisited('measurement')}>
-        <MeasurementPanel slug={params().slug} />
-      </TabPanel>
 
       <TabPanel active={activeTab()} id="overview" visited={isVisited('overview')}>
         <ScorecardPanel slug={params().slug} />
@@ -153,6 +159,12 @@ export function TenantIntelligencePage() {
       <TabPanel active={activeTab()} id="learning" visited={isVisited('learning')}>
         <LearningLoopPanel slug={params().slug} />
         <LearningProofPanel slug={params().slug} />
+      </TabPanel>
+
+      {/* ── Numbers tab — the measurement ledger: fifteen claims, each
+              with its number or the reason this build cannot produce it ── */}
+      <TabPanel active={activeTab()} id="numbers" visited={isVisited('numbers')}>
+        <MeasurementPanel slug={params().slug} />
       </TabPanel>
     </>}</Show>
   </PageShell>

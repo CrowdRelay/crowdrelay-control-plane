@@ -1,4 +1,4 @@
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AgentScorecard, LatarnikInviteResult, MeasurementLedger, NegotiationsView, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationRoutingItem, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, ChatAction, CommunityItem, CommunityObservationItem, CommunityEntityItem, CommunityIntroDraft, CommandCenterReadModel, ConnectionCreationResult, ContentPipeline, ContentSourceUpsertInput, ContentSourceView, DeliveryDetails, DeliveryItem, DeliveryResult, DiscoveredEndpoint, DriveContactsResponse, DualRoleReview, FanbaseConnection, FeatureFlag, GrowthFunnelData, NotifierChannel, NotifierOutboxItem, OperationTimeline, OperatorAccount, OpportunityShortlist, OutboxItem, Palette, PlatformConfigItem, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SentRecord, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, FanDetail, FanJourneyEntry, SegmentPreview, AudienceReadModel, PressOverviewReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TenantShowsResponse, TenantShowTimelineResponse, TenantShowScanResponse, TenantShowReportResponse, TenantShowHelpersResponse, ShowGrowthLadderView, TourEconomicsSummary, AutopilotChiefOfStaff, ShowActInput, SharedNight, NightContributionKind, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, BeaconImportResult, NotifiersOverview, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, LearningProof, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput, BeaconUpsertInput, AgentTasksOverview, AgentProvidersOverview, CommunityDetail, ScanScope, BandListing, ListingState, AttestationSummary, IssuedAttestationResult, RepresentationTargetsResponse, RepresentationTargetInput, ApproachRequestResult, CityFunnelRow, CityVenueRow, GigPlanResponse, GigPlanApproval, TenantIntentOption, TenantExecutorCapabilities, ActionLedgerEntry, TraceTimeline, AgentHealthResponse, AgentHealthAlertsResponse } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AgentScorecard, LatarnikInviteResult, MeasurementLedger, NegotiationsView, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationRoutingItem, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, ChatAction, CommunityItem, CommunityObservationItem, CommunityEntityItem, CommunityIntroDraft, CommandCenterReadModel, ConnectionCreationResult, ContentPipeline, ContentSourceUpsertInput, ContentSourceView, DeliveryDetails, DeliveryItem, DeliveryResult, DiscoveredEndpoint, DriveContactsResponse, DualRoleReview, FanbaseConnection, FeatureFlag, GrowthFunnelData, NotifierChannel, NotifierOutboxItem, OperationTimeline, OperatorAccount, OpportunityShortlist, OutboxItem, Palette, PlatformConfigItem, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SentRecord, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, FanDetail, FanJourneyEntry, SegmentPreview, AudienceReadModel, PressOverviewReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TenantShowsResponse, TenantShowTimelineResponse, TenantShowScanResponse, TenantShowReportResponse, TenantShowHelpersResponse, ShowGrowthLadderView, TourEconomicsSummary, AutopilotChiefOfStaff, ShowActInput, SharedNight, NightContributionKind, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, BeaconImportResult, NotifiersOverview, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, LearningProof, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput, BeaconUpsertInput, AgentTasksOverview, AgentProvidersOverview, CommunityDetail, ScanScope, BandListing, ListingState, AttestationSummary, IssuedAttestationResult, RepresentationTargetsResponse, RepresentationTargetInput, ApproachRequestResult, CityFunnelRow, CityVenueRow, GigPlanResponse, GigPlanApproval, TenantIntentOption, TenantExecutorCapabilities, ActionLedgerEntry, TraceTimeline, RelayProcessRuns, RelayProcessRunDetail, AgentHealthResponse, AgentHealthAlertsResponse, IntelligenceBrief } from './types'
 
 export class ApiError extends Error {
   constructor(
@@ -225,6 +225,10 @@ export const api = {
   decisionEvidence: (slug: string, decisionId: string) => request<DecisionEvidence>(`/tenants/${encodeURIComponent(slug)}/operations/decisions/${encodeURIComponent(decisionId)}/evidence`),
   learningLoop: (slug: string) => request<LearningLoopEntry[]>(`/tenants/${encodeURIComponent(slug)}/operations/learning-loop`),
   learningProof: (slug: string) => request<LearningProof>(`/tenants/${encodeURIComponent(slug)}/operations/learning-proof`),
+  /** The intelligence brief — one read for the whole "is the brain working"
+   *  story. Replaces the fan-out of posture + preview + chief-of-staff +
+   *  attention the old tab layout required. */
+  intelligence: (slug: string) => request<IntelligenceBrief>(`/tenants/${encodeURIComponent(slug)}/operations/intelligence`),
   autopilotCyclePreview: (slug: string) => request<CyclePreview>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/cycle/preview`),
   autopilotCycleRun: (slug: string) => request<CycleRunResult>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/cycle/run`, { method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() } }),
   autopilotOverview: (slug: string) => request<AutopilotOverview>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot`),
@@ -279,6 +283,40 @@ export const api = {
     return request<ActionLedgerEntry[]>(`/tenants/${encodeURIComponent(slug)}/operations/actions${qs}`)
   },
   operationTrace: (slug: string, traceId: string) => request<TraceTimeline>(`/tenants/${encodeURIComponent(slug)}/operations/trace/${encodeURIComponent(traceId)}`),
+  // Process runs: one pass of a pipeline over one subject, joined upstream
+  // into the step shape the process page renders — one call per view.
+  // `id` rides on every run and target so `reconcile: 'id'` keeps DOM
+  // identity across the poll — the route loader and the page must see the
+  // same shape, so the mapping lives here, not in the queryFn.
+  relayProcessRuns: async (slug: string) => {
+    const data = await request<RelayProcessRuns>(`/tenants/${encodeURIComponent(slug)}/operations/processes/relays`)
+    return { ...data, runs: data.runs.map(r => ({ ...r, id: r.source_id })) }
+  },
+  relayProcessRun: async (slug: string, sourceId: string) => {
+    const data = await request<RelayProcessRunDetail>(`/tenants/${encodeURIComponent(slug)}/operations/processes/relays/${encodeURIComponent(sourceId)}`)
+    return { ...data, targets: data.targets.map(t => ({ ...t, id: t.target_id })) }
+  },
+  // The batch ask's two answers — one approval per source, not one per
+  // community. Approve releases every parked delivery to the drip; revoke
+  // cancels what has not landed.
+  approveCommunityRelay: (slug: string, sourceId: string) =>
+    request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/community-relays/${encodeURIComponent(sourceId)}/approve`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+    }),
+  revokeCommunityRelay: (slug: string, sourceId: string) =>
+    request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/community-relays/${encodeURIComponent(sourceId)}/revoke`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+    }),
+  // The manual leg: the operator published the drafted post by hand —
+  // registering its URL turns the metrics poller on for it.
+  registerManualCommunityPost: (slug: string, postId: string, redditPostUrl: string) =>
+    request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/community-posts/${encodeURIComponent(postId)}/register-manual`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ reddit_post_url: redditPostUrl }),
+    }),
   signalOverview: (slug: string) => request<SignalOverview>(`/tenants/${encodeURIComponent(slug)}/operations/signal-overview`),
   listOutbox: (slug: string, params?: { limit?: number; status?: string }) => {
     const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)] as [string, string])).toString() : ''

@@ -22,13 +22,17 @@ that:
 """
 from __future__ import annotations
 
+import os
 import re
 import sys
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CROWDRELAY_ROOT = ROOT.parent / "crowdrelay"
+# The sibling checkout is assumed to sit beside this one — a worktree or a
+# differently-named clone overrides it so the gate verifies the checkout the
+# caller means, not whichever copy happens to share the parent directory.
+CROWDRELAY_ROOT = Path(os.environ.get("CROWDRELAY_ROOT", ROOT.parent / "crowdrelay"))
 
 TENANT_AREA_CLIENT = ROOT / "crates" / "control-plane-api" / "src" / "tenant_area_client.rs"
 OPERATIONS_ROUTES = ROOT / "crates" / "control-plane-api" / "src" / "operations_routes.rs"

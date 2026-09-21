@@ -45,6 +45,7 @@ type Cmd = {
 const SUBPAGES: Array<{ suffix: string; label: string; icon: string; search?: Record<string, string> }> = [
   { suffix: '', label: 'Settings', icon: 'settings', search: { tab: 'profile' } },
   { suffix: '/attention', label: 'Needs you', icon: 'attention' },
+  { suffix: '/in-motion', label: 'In motion', icon: 'motion' },
   { suffix: '/intelligence', label: 'Intelligence', icon: 'intelligence' },
   { suffix: '/health', label: 'Health', icon: 'sliders' },
   { suffix: '/operations', label: 'Today', icon: 'operations' },
@@ -62,22 +63,22 @@ const SUBPAGES: Array<{ suffix: string; label: string; icon: string; search?: Re
 // typing "explain growth drop" finds the funnel.
 const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix: string; platform?: true }> = [
   { id: 'q-approvals', label: 'Open pending approvals', keywords: 'pending approvals review needs you attention show', suffix: '/attention' },
-  { id: 'q-decisions', label: 'Open brain decisions', keywords: 'brain decision decisions timeline why reasoning intelligence what did the brain decide today show', suffix: '/intelligence' },
-  { id: 'q-cycle', label: 'Run a growth cycle (brain)', keywords: 'brain run cycle growth grow fans preview dispatch intelligence', suffix: '/intelligence' },
-  { id: 'q-goal', label: 'Change the brain goal (north star)', keywords: 'brain goal north star metric target objective intelligence', suffix: '/intelligence' },
+  { id: 'q-decisions', label: 'Open brain decisions', keywords: 'brain decision decisions timeline why reasoning intelligence what did the brain decide today show', suffix: '/intelligence?tab=decisions' },
+  { id: 'q-cycle', label: 'Run a growth cycle (brain)', keywords: 'brain run cycle growth grow fans preview dispatch intelligence', suffix: '/intelligence?tab=growth' },
+  { id: 'q-goal', label: 'Change the brain goal (north star)', keywords: 'brain goal north star metric target objective intelligence', suffix: '/intelligence?tab=overview' },
   // Dead deliveries live on the queues tab, which the band's attention page
   // does not carry — naming it here would land them where the thing is not.
   { id: 'q-failed', label: 'Open failed deliveries', keywords: 'failed deliveries dead outbox webhook push show', suffix: '/attention', platform: true },
   { id: 'q-beacons', label: 'Open Beacon signals', keywords: 'beacon signals operations outreach', suffix: '/operations' },
   { id: 'q-content', label: 'Open content', keywords: 'content posts material social approve publish drafts what went out', suffix: '/content' },
-  { id: 'q-growth', label: 'Open growth intelligence', keywords: 'growth drop decline metrics funnel explain why', suffix: '/intelligence' },
-  { id: 'q-learning', label: 'Open the learning loop', keywords: 'learning loop outcome decision action intelligence what the brain learned', suffix: '/intelligence' },
+  { id: 'q-growth', label: 'Open growth intelligence', keywords: 'growth drop decline metrics funnel explain why', suffix: '/intelligence?tab=growth' },
+  { id: 'q-learning', label: 'Open the learning loop', keywords: 'learning loop outcome decision action intelligence what the brain learned', suffix: '/intelligence?tab=learning' },
   { id: 'q-opportunities', label: 'Open the decision queue', keywords: 'opportunities board decision attention approvals show current', suffix: '/attention' },
 ]
 
 // The band's palette mirrors the band's sidebar — the process destinations
 // only. Operator-only pages stay reachable by URL but do not list here.
-const BAND_SUFFIXES = new Set(['/operations', '/shows', '/attention', '/audience', '/intelligence', '/content'])
+const BAND_SUFFIXES = new Set(['/operations', '/shows', '/attention', '/in-motion', '/audience', '/intelligence', '/content'])
 const BAND_ICON: Record<string, string> = { '/operations': 'operations' }
 
 // Section order and headings. The list used to tag every row GO / JUMP /

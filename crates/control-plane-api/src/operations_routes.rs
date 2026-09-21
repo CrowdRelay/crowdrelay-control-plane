@@ -33,6 +33,7 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/signal-overview",
             get(signal_overview),
         )
+        .route("/tenants/{slug}/operations/intelligence", get(intelligence))
         .route("/tenants/{slug}/operations/outbox", get(list_outbox))
         .route(
             "/tenants/{slug}/operations/outbox/{event_id}/retry",
@@ -78,6 +79,26 @@ pub fn router() -> Router<AppState> {
         .route(
             "/tenants/{slug}/operations/actions/{action_id}",
             get(get_action),
+        )
+        .route(
+            "/tenants/{slug}/operations/processes/relays",
+            get(list_process_relays),
+        )
+        .route(
+            "/tenants/{slug}/operations/processes/relays/{source_id}",
+            get(process_relay_run),
+        )
+        .route(
+            "/tenants/{slug}/operations/community-relays/{source_id}/approve",
+            post(approve_community_relay),
+        )
+        .route(
+            "/tenants/{slug}/operations/community-relays/{source_id}/revoke",
+            post(revoke_community_relay),
+        )
+        .route(
+            "/tenants/{slug}/operations/community-posts/{post_id}/register-manual",
+            post(register_manual_community_post),
         )
         .route(
             "/tenants/{slug}/operations/actions/{action_id}/sent",
@@ -800,6 +821,27 @@ async fn summary(
     object_no_store(value, "summary")
 }
 
+/// The intelligence brief: one upstream read composing the brain's verdict,
+/// posture, plan, findings, activity and needs into a single story. The
+/// upstream assembles it; this is a passthrough.
+async fn intelligence(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/ops/intelligence",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "intelligence")
+}
+
 async fn delivery_details(
     State(state): State<AppState>,
     Path((slug, delivery_id)): Path<(String, String)>,
@@ -857,6 +899,193 @@ async fn get_action(
     let path = format!("/v1/control-plane/ops/actions/{action_id}");
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     object_no_store(value, "action ledger entry")
+}
+
+/// Relay process runs: one observed post → one decision → the per-community
+/// fan-out, joined upstream into the step shape the process page renders.
+/// One call, one upstream read — the console never fans out per community.
+async fn list_process_relays(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/processes/relays",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "relay process runs")
+}
+
+/// One run's checklist: every community the decision named, its draft, its
+/// approval state, its receipt and its latest measurement.
+async fn process_relay_run(
+    State(state): State<AppState>,
+    Path((slug, source_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let source_id = uuid_segment(&source_id)?.to_owned();
+    let path = format!("/v1/control-plane/processes/relays/{source_id}");
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "relay process run")
+}
+
+/// The relay spread's one answer: approve releases every parked delivery to
+/// the drip, revoke cancels what has not landed. Both are per-source writes
+/// upstream owns end-to-end — the proxy carries the idempotency key and the
+/// audit trail, nothing else.
+async fn approve_community_relay(
+    State(state): State<AppState>,
+    Path((slug, source_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Result<Response, ApiError> {
+    let source_id = uuid_segment(&source_id)?.to_owned();
+    community_relay_mutation(
+        &state,
+        &slug,
+        &source_id,
+        "approve",
+        &headers,
+        body,
+        "tenant.community_relay.approved",
+    )
+    .await
+}
+
+async fn revoke_community_relay(
+    State(state): State<AppState>,
+    Path((slug, source_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let source_id = uuid_segment(&source_id)?.to_owned();
+    community_relay_mutation(
+        &state,
+        &slug,
+        &source_id,
+        "revoke",
+        &headers,
+        axum::body::Bytes::new(),
+        "tenant.community_relay.revoked",
+    )
+    .await
+}
+
+async fn community_relay_mutation(
+    state: &AppState,
+    slug: &str,
+    source_id: &str,
+    verb: &str,
+    headers: &HeaderMap,
+    body: axum::body::Bytes,
+    audit_action: &'static str,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(headers)?.to_owned();
+    // Forward the body as opaque JSON — upstream owns the contract (cadence
+    // override, per-delivery draft revisions); a typed relay here would
+    // silently drop any field this struct forgot. Malformed JSON fails as a
+    // bad request here rather than upstream.
+    let payload: Option<Value> = if body.is_empty() {
+        None
+    } else {
+        Some(
+            serde_json::from_slice(&body)
+                .map_err(|_| ApiError::InvalidInput("request body is not valid JSON".to_owned()))?,
+        )
+    };
+    let (tenant, target) = crate::area_routes::target(state, slug).await?;
+    let path = format!("/v1/control-plane/autopilot/community-relays/{source_id}/{verb}");
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: &path,
+                body: payload.as_ref(),
+                correlation_id: correlation(headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        state,
+        tenant.tenant.id,
+        audit_action,
+        "community_relay",
+        source_id,
+        headers,
+        &result,
+        None,
+    )
+    .await;
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, slug).await;
+    // Upstream answers 200 with the mutation receipt — a real JSON object,
+    // not the 204 the manual-registration write returns.
+    object_no_store(result, "community relay mutation")
+}
+
+#[derive(Debug, Deserialize)]
+struct ManualPostRegistration {
+    reddit_post_url: String,
+}
+
+/// The process page's manual leg: the operator published a drafted Reddit
+/// post by hand, and registering its URL turns the metrics poller on.
+/// Upstream owns the real URL check — this bounds the envelope only.
+async fn register_manual_community_post(
+    State(state): State<AppState>,
+    Path((slug, post_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<ManualPostRegistration>,
+) -> Result<Response, ApiError> {
+    let post_id = uuid_segment(&post_id)?.to_owned();
+    let url = input.reddit_post_url.trim();
+    if url.is_empty() || url.len() > 2048 || !url.starts_with("https://") {
+        return Err(ApiError::InvalidInput(
+            "a manual post needs its https reddit URL".to_owned(),
+        ));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let body = json!({ "reddit_post_url": url });
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: &format!("/v1/control-plane/community-posts/{post_id}/register-manual"),
+                body: Some(&body),
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.community_post.registered_manual",
+        "community_post",
+        &post_id,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    // Upstream answers 204 No Content — a success shape object_no_store
+    // would refuse as "invalid JSON", so this takes the mutation path.
+    mutation_no_store(result, "manual post registration")
 }
 
 /// What the action actually sent — the words and the addresses it went to.
