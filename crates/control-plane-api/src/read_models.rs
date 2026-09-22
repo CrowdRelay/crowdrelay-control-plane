@@ -2701,6 +2701,7 @@ mod tests {
                 can_provision: false,
                 can_remove: false,
                 archetype: "band".to_owned(),
+                team_members: serde_json::Value::Array(vec![]),
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
             },

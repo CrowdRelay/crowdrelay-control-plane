@@ -56,6 +56,10 @@ pub struct TenantRow {
     pub can_provision: bool,
     pub can_remove: bool,
     pub archetype: String,
+    /// The crew roster collected at onboarding — `[{key,name,email,skills}]`.
+    /// Re-rendered into `CROWDRELAY_TEAM_MEMBERS_JSON` on every deploy so the
+    /// roster survives redeploys; empty array means no crew was declared.
+    pub team_members: Value,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -271,6 +275,7 @@ pub struct TenantSummaryJoinRow {
     pub can_provision: bool,
     pub can_remove: bool,
     pub archetype: String,
+    pub team_members: Value,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub runtime_tenant_id: Option<Uuid>,
@@ -330,6 +335,7 @@ impl TenantSummaryJoinRow {
                 can_provision: self.can_provision,
                 can_remove: self.can_remove,
                 archetype: self.archetype,
+                team_members: self.team_members,
                 created_at: self.created_at,
                 updated_at: self.updated_at,
             },
@@ -512,6 +518,25 @@ pub struct CreateTenantRequest {
     /// provisioning plan when deployCrowdrelay=true.
     #[serde(default)]
     pub provider_keys: Option<serde_json::Value>,
+    /// The crew the tenant operates with. Elastic — however many members the
+    /// wizard collects — and persisted on the tenant row so every redeploy
+    /// plan re-renders `CROWDRELAY_TEAM_MEMBERS_JSON`.
+    #[serde(default)]
+    pub team_members: Option<Vec<TeamMemberRequest>>,
+}
+
+/// One crew member collected during onboarding.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TeamMemberRequest {
+    /// Stable routing identity (`viryaos_team_profiles.member_key`). Optional —
+    /// position supplies `member_{n}` when absent. Never serialized as `null`:
+    /// the stored roster feeds CrowdRelay's `key?: string` entries.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    pub name: String,
+    pub email: String,
+    pub skills: Vec<String>,
 }
 
 const fn default_true() -> bool {

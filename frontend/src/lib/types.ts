@@ -71,6 +71,8 @@ export type Tenant = {
   canProvision: boolean
   canRemove: boolean
   archetype: 'band' | 'roster' | 'label' | 'festival_org'
+  /** Crew roster collected at onboarding — `[{key,name,email,skills}]`. */
+  teamMembers: { key: string; name: string; email: string; skills: string[] }[]
   createdAt: string
   updatedAt: string
 }

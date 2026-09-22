@@ -105,6 +105,89 @@ class ProvisionerContractTests(unittest.TestCase):
         self.assertIsNone(plan["publicSiteBaseUrl"])
         self.assertEqual(plan["allowedOrigins"], [])
 
+    def test_safe_plan_accepts_elastic_team_roster(self):
+        job = valid_job()
+        job["plan"]["teamMembers"] = [
+            {"key": "ops_lead", "name": "Ada Ops", "email": "ada@acme.example", "skills": ["operations", "booking"]},
+            {"name": "Ben Social", "email": "ben@acme.example", "skills": ["social"]},
+        ]
+        plan = provisioner.safe_plan(job)
+        self.assertEqual(len(plan["teamMembers"]), 2)
+
+    def test_safe_plan_rejects_team_members_that_would_break_the_env_file(self):
+        # The roster is rendered verbatim into tenant.env — a control
+        # character in a member field would corrupt the compose env file.
+        job = valid_job()
+        job["plan"]["teamMembers"] = [
+            {"key": "ops", "name": "Ada\nPWNED=1", "email": "ada@acme.example", "skills": ["operations"]},
+        ]
+        with self.assertRaises(provisioner.ProvisionError):
+            provisioner.safe_plan(job)
+        job = valid_job()
+        job["plan"]["teamMembers"] = [
+            {"key": "ops", "name": "Ada", "email": "ada@acme.example", "skills": "operations"},
+        ]
+        with self.assertRaises(provisioner.ProvisionError):
+            provisioner.safe_plan(job)
+        job = valid_job()
+        job["plan"]["teamMembers"] = [
+            {"key": "Ops Lead", "name": "Ada", "email": "ada@acme.example", "skills": ["operations"]},
+        ]
+        with self.assertRaises(provisioner.ProvisionError):
+            provisioner.safe_plan(job)
+        # Two members on one email collapse onto a single member row in
+        # CrowdRelay's bootstrap and fight over its routing profile.
+        job = valid_job()
+        job["plan"]["teamMembers"] = [
+            {"key": "one", "name": "Ada", "email": "shared@acme.example", "skills": ["operations"]},
+            {"key": "two", "name": "Ben", "email": "SHARED@acme.example", "skills": ["social"]},
+        ]
+        with self.assertRaises(provisioner.ProvisionError):
+            provisioner.safe_plan(job)
+
+    def test_safe_plan_accepts_schema5_roster_plan(self):
+        # Schema 5 = schema 4 plus teamMembers. A roster tenant's plan must
+        # claim and validate like a schema-4 plan — the bump exists only so a
+        # pre-roster provisioner fails closed instead of dropping the crew.
+        job = valid_job()
+        job["plan"]["schema"] = 5
+        job["plan"]["regionalProfile"] = {
+            "countryCode": "PL",
+            "region": "eu",
+            "locale": "pl-PL",
+            "timezone": "Europe/Warsaw",
+            "currency": "PLN",
+            "dateFormat": "dmy",
+            "numberFormat": "comma_decimal",
+            "dataRegion": "eu",
+        }
+        job["plan"]["teamMembers"] = [
+            {"key": "ops_lead", "name": "Ada Ops", "email": "ada@acme.example", "skills": ["operations"]},
+        ]
+        plan = provisioner.safe_plan(job)
+        self.assertEqual(plan["schema"], 5)
+
+    def test_runtime_env_renders_the_team_roster_as_json(self):
+        job = valid_job()
+        job["plan"]["teamMembers"] = [
+            {"key": "ops_lead", "name": "Ada Ops", "email": "ada@acme.example", "skills": ["operations", "booking"]},
+        ]
+        plan = provisioner.safe_plan(job)
+        runtime_text = provisioner.create_runtime_env(plan)
+        runtime = dict(line.split("=", 1) for line in runtime_text.strip().splitlines())
+        import json as _json
+        self.assertEqual(
+            _json.loads(runtime["CROWDRELAY_TEAM_MEMBERS_JSON"]),
+            job["plan"]["teamMembers"],
+        )
+        # A plan without a roster leaves the variable unset — the tenant then
+        # falls back to the legacy VIRYA_TEAM_MEMBER_*_EMAIL slots if any.
+        runtime = dict(
+            line.split("=", 1)
+            for line in provisioner.create_runtime_env(provisioner.safe_plan(valid_job())).strip().splitlines()
+        )
+        self.assertNotIn("CROWDRELAY_TEAM_MEMBERS_JSON", runtime)
+
     def test_area_secret_is_opt_in_for_existing_provisioner_rollout(self):
         plan = provisioner.safe_plan(valid_job())
         config = DummyConfig(Path("/tmp"))

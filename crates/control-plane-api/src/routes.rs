@@ -409,6 +409,9 @@ async fn create_tenant(
     input.archetype = Some(validation::tenant_archetype(input.archetype.take())?);
     input.fanbase_sources =
         validation::fanbase_sources(std::mem::take(&mut input.fanbase_sources))?;
+    input.team_members = Some(validation::team_members(
+        input.team_members.take().unwrap_or_default(),
+    )?);
     input.signal_play_store_url = validation::play_store_url(input.signal_play_store_url.take())?;
     input.synesthesia_play_store_url =
         validation::play_store_url(input.synesthesia_play_store_url.take())?;

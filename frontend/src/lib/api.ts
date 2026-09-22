@@ -121,6 +121,15 @@ type CreateTenantInput = {
   signalPlayStoreUrl?: string
   synesthesiaPlayStoreUrl?: string
   providerKeys?: Record<string, string>
+  teamMembers?: TeamMemberInput[]
+}
+
+/** One crew member collected during onboarding — routed to by the brain. */
+type TeamMemberInput = {
+  key?: string
+  name: string
+  email: string
+  skills: string[]
 }
 
 export const api = {

@@ -252,6 +252,7 @@ impl Store {
                       t.signal_enabled, t.north_star_metric, t.fanbase_sources,
                       t.signal_play_store_url, t.synesthesia_play_store_url,
                       t.can_suspend, t.can_provision, t.can_remove, t.archetype,
+                      t.team_members,
                       t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
@@ -292,6 +293,7 @@ impl Store {
                       t.signal_enabled, t.north_star_metric, t.fanbase_sources,
                       t.signal_play_store_url, t.synesthesia_play_store_url,
                       t.can_suspend, t.can_provision, t.can_remove, t.archetype,
+                      t.team_members,
                       t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
@@ -431,16 +433,21 @@ impl Store {
         let id = Uuid::new_v4();
         let palette_json = palette.map(serde_json::to_value).transpose()?;
         let regional_profile_json = serde_json::to_value(&input.regional_profile)?;
+        // Already validated + key-filled by the route; `[]` covers a direct
+        // caller that skips validation.
+        let team_members_json =
+            serde_json::to_value(input.team_members.as_deref().unwrap_or_default())?;
         let mut tx = self.pool.begin().await?;
         let tenant = sqlx::query_as::<_, TenantRow>(
             r#"INSERT INTO control_plane_tenants
-               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled, signal_enabled, north_star_metric, fanbase_sources, signal_play_store_url, synesthesia_play_store_url, archetype)
-               VALUES ($1, $2, $3, 'provisioning', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled, signal_enabled, north_star_metric, fanbase_sources, signal_play_store_url, synesthesia_play_store_url, archetype, team_members)
+               VALUES ($1, $2, $3, 'provisioning', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
                RETURNING id, slug, display_name, status, workspace_id, crowdrelay_base_url,
                          signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled,
                          signal_enabled, north_star_metric, fanbase_sources,
                          signal_play_store_url, synesthesia_play_store_url,
                          can_suspend, can_provision, can_remove, archetype,
+                         team_members,
                          created_at, updated_at"#,
         )
         .bind(id)
@@ -461,6 +468,7 @@ impl Store {
         .bind(&input.synesthesia_play_store_url)
         // Validated in the route; the column default covers a direct caller.
         .bind(input.archetype.as_deref().unwrap_or("band"))
+        .bind(&team_members_json)
         .fetch_one(&mut *tx)
         .await
         .map_err(|error| match error {
@@ -854,6 +862,7 @@ impl Store {
             "signalBaseUrl": tenant.tenant.signal_base_url,
             "defaultCountryCode": tenant.tenant.default_country_code,
             "synesthesiaEnabled": tenant.tenant.synesthesia_enabled,
+            "teamMembers": tenant.tenant.team_members,
             "execution": "requires explicit deploy approval and the narrow provisioner agent"
         });
         if let Some(keys) = provider_keys {
@@ -1182,7 +1191,7 @@ impl Store {
                  AND (
                    plan->>'schema' = '3'
                    OR (
-                     plan->>'schema' = '4'
+                     plan->>'schema' IN ('4', '5')
                      AND $1::text IS NOT NULL
                      AND plan #>> '{regionalProfile,dataRegion}' = $1
                    )
@@ -3140,6 +3149,17 @@ fn deployment_plan(
             "browserReceivesSecrets": false
         }
     });
+    // The crew roster is tenant state, not per-request input: whatever the
+    // wizard collected is re-rendered into CROWDRELAY_TEAM_MEMBERS_JSON on
+    // every deploy, so a redeploy never strands the roster. The schema bump to
+    // 5 makes a pre-roster provisioner reject the plan instead of silently
+    // dropping teamMembers and booting the tenant into an empty crew.
+    if let Some(members) = tenant.team_members.as_array()
+        && !members.is_empty()
+    {
+        plan["teamMembers"] = Value::Array(members.clone());
+        plan["schema"] = json!(5);
+    }
     // Include provider API keys in the plan if provided.
     // The provisioner writes them to tenant.env.
     if let Some(keys) = &deployment.provider_keys {

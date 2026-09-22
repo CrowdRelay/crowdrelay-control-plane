@@ -108,6 +108,26 @@ const fanbaseSources: { value: FanbaseSource; label: string; description: string
   { value: 'x', label: 'X (Twitter)', description: 'Discover X curators and music communities via browser-scraped search.' },
 ]
 
+// The work a crew member can be routed. Mirrors `TeamSkill::as_str` in
+// crowdrelay-domain — the parity gate
+// `scripts/test_team_skills_vocabulary_parity.py` keeps the two aligned.
+const teamSkills: { value: string; label: string }[] = [
+  { value: 'general', label: 'General' },
+  { value: 'operations', label: 'Operations' },
+  { value: 'booking', label: 'Booking' },
+  { value: 'approval', label: 'Approvals' },
+  { value: 'technical', label: 'Technical' },
+  { value: 'visual', label: 'Visual' },
+  { value: 'video', label: 'Video' },
+  { value: 'photography', label: 'Photography' },
+  { value: 'social', label: 'Social' },
+  { value: 'english_copy', label: 'English copy' },
+  { value: 'polish_copy', label: 'Polish copy' },
+  { value: 'people', label: 'People' },
+]
+
+type CrewDraft = { name: string; email: string; skills: string[] }
+
 
 export function TenantWizardPage() {
   const queryClient = useQueryClient()
@@ -139,7 +159,13 @@ export function TenantWizardPage() {
   // Step 4: Fanbase sources
   const [selectedSources, setSelectedSources] = createSignal<FanbaseSource[]>([])
 
-  // Step 5: Provider API keys (optional, collapsible)
+  // Step 5: Crew — elastic roster, however many members the tenant actually
+  // has. Persisted on the tenant row and rendered into
+  // CROWDRELAY_TEAM_MEMBERS_JSON on every deploy; an empty crew keeps the
+  // tenant deployable but leaves Autopilot's human handoffs unrouted.
+  const [crew, setCrew] = createSignal<CrewDraft[]>([])
+
+  // Provider API keys (optional, collapsible — rendered inside the deploy step)
   const [bandsintownKey, setBandsintownKey] = createSignal('')
   const [youtubeKey, setYoutubeKey] = createSignal('')
   const [spotifyClientId, setSpotifyClientId] = createSignal('')
@@ -171,6 +197,42 @@ export function TenantWizardPage() {
     setSelectedSources(current =>
       current.includes(source) ? current.filter(s => s !== source) : [...current, source]
     )
+
+  const addCrewMember = () => setCrew(current => [...current, { name: '', email: '', skills: [] }])
+  const removeCrewMember = (index: number) => setCrew(current => current.filter((_, i) => i !== index))
+  const updateCrewMember = (index: number, patch: Partial<CrewDraft>) =>
+    setCrew(current => current.map((member, i) => (i === index ? { ...member, ...patch } : member)))
+  const toggleCrewSkill = (index: number, skill: string) =>
+    setCrew(current => current.map((member, i) => (i === index
+      ? { ...member, skills: member.skills.includes(skill) ? member.skills.filter(s => s !== skill) : [...member.skills, skill] }
+      : member
+    )))
+
+  // Mirrors the API-side email grammar closely enough to catch the typos a
+  // human makes; `team_members` validation is the authoritative check.
+  const crewEmailOk = (value: string) => {
+    const email = value.trim()
+    if (email.length > 254 || !/^[\x21-\x7e]+$/.test(email)) return false
+    const parts = email.split('@')
+    const [local, domain] = parts
+    if (parts.length !== 2 || !local || !domain) return false
+    return local.length <= 64 && !local.startsWith('.') && !local.endsWith('.')
+      && !local.includes('..') && domain.includes('.')
+  }
+  const crewMemberReady = (member: CrewDraft) => {
+    const name = member.name.trim()
+    return name.length > 0 && name.length <= 80 && crewEmailOk(member.email) && member.skills.length > 0
+  }
+  const step5Ready = () => crew().every(crewMemberReady)
+  const step5Blocker = () => {
+    const member = crew().find(member => !crewMemberReady(member))
+    if (!member) return null
+    const index = crew().indexOf(member) + 1
+    if (!member.name.trim() || member.name.trim().length > 80)
+      return `Crew member ${index} needs a name (1-80 characters).`
+    if (!crewEmailOk(member.email)) return `Crew member ${index} needs a valid email — this is where handoff alerts go.`
+    return `Crew member ${index} needs at least one skill — the brain routes work by skill.`
+  }
 
   // The vocabulary the deployed fleet can parse. A goal the running image
   // cannot read is stored but silently falls back to signal_installs, so the
@@ -264,6 +326,11 @@ export function TenantWizardPage() {
       signalPlayStoreUrl: signalPlayStoreUrl().trim() || undefined,
       synesthesiaPlayStoreUrl: synesthesiaPlayStoreUrl().trim() || undefined,
       providerKeys: providerKeys(),
+      teamMembers: crew().map(member => ({
+        name: member.name.trim(),
+        email: member.email.trim(),
+        skills: member.skills,
+      })),
     }),
     onSuccess: async () => {
       await Promise.all([
@@ -279,6 +346,7 @@ export function TenantWizardPage() {
     else if (step() === 2 && step2Ready()) setStep(3)
     else if (step() === 3 && step3Ready()) setStep(4)
     else if (step() === 4 && step4Ready()) setStep(5)
+    else if (step() === 5 && step5Ready()) setStep(6)
   }
   const prevStep = () => { if (step() > 1) setStep(step() - 1) }
 
@@ -294,7 +362,8 @@ export function TenantWizardPage() {
       <div class={cn('flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', step() >= 2 ? 'bg-primary/10 text-primary' : 'text-muted-foreground', step() === 2 && 'ring-1 ring-primary/30')}>2. Products</div>
       <div class={cn('flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', step() >= 3 ? 'bg-primary/10 text-primary' : 'text-muted-foreground', step() === 3 && 'ring-1 ring-primary/30')}>3. Goal</div>
       <div class={cn('flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', step() >= 4 ? 'bg-primary/10 text-primary' : 'text-muted-foreground', step() === 4 && 'ring-1 ring-primary/30')}>4. Fanbase Sources</div>
-      <div class={cn('flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', step() >= 5 ? 'bg-primary/10 text-primary' : 'text-muted-foreground', step() === 5 && 'ring-1 ring-primary/30')}>5. Deploy</div>
+      <div class={cn('flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', step() >= 5 ? 'bg-primary/10 text-primary' : 'text-muted-foreground', step() === 5 && 'ring-1 ring-primary/30')}>5. Crew</div>
+      <div class={cn('flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', step() >= 6 ? 'bg-primary/10 text-primary' : 'text-muted-foreground', step() === 6 && 'ring-1 ring-primary/30')}>6. Deploy</div>
     </div>
 
     <Show when={step() === 1}>
@@ -458,12 +527,68 @@ export function TenantWizardPage() {
         </div>
         <div class="flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={prevStep}><ArrowLeft aria-hidden="true" /> Back</Button>
-          <Button size="sm" onClick={nextStep} disabled={!step4Ready()}>Next: Deploy <ArrowRight aria-hidden="true" /></Button>
+          <Button size="sm" onClick={nextStep} disabled={!step4Ready()}>Next: Crew <ArrowRight aria-hidden="true" /></Button>
         </div>
       </div>
     </Show>
 
     <Show when={step() === 5}>
+      <div class="rounded-lg border border-border bg-card p-5 space-y-4">
+        <div class="flex items-center justify-between gap-2"><div><PanelTitle>Crew</PanelTitle></div></div>
+        <p class="text-sm text-muted-foreground leading-relaxed">
+          The people the brain can hand work to — approvals, booking calls, copy review. Add as many as the
+          tenant actually has; there is no fixed team size. Each member needs at least one skill so the
+          router knows what they can take. The roster ships with every deploy.
+        </p>
+        <For each={crew()}>{(member, index) =>
+          <div class="rounded-lg border border-border bg-background p-4 space-y-3">
+            <div class="flex items-center justify-between gap-2">
+              <strong class="text-sm text-foreground">Member {index() + 1}</strong>
+              <Button variant="ghost" size="sm" onClick={() => removeCrewMember(index())}>Remove</Button>
+            </div>
+            <FieldGrid min="200px">
+              <Field label="Name"><Input value={member.name} onInput={(e) => updateCrewMember(index(), { name: e.currentTarget.value })} placeholder="Ada Ops" autocomplete="off" /></Field>
+              <Field label="Email" hint="Handoff alerts and digests go here."><Input type="email" value={member.email} onInput={(e) => updateCrewMember(index(), { email: e.currentTarget.value })} placeholder="ada@band.example" autocomplete="off" /></Field>
+            </FieldGrid>
+            <div>
+              <span class="block text-xs font-medium text-muted-foreground mb-2">Skills — what the brain may route to them</span>
+              <div class="flex flex-wrap gap-2" role="group" aria-label={`Member ${index() + 1} skills`}>
+                <For each={teamSkills}>{skill =>
+                  <KobalteCheckbox
+                    checked={member.skills.includes(skill.value)}
+                    onChange={() => toggleCrewSkill(index(), skill.value)}
+                    class={cn(
+                      'rounded-md border px-2.5 py-1 text-xs font-medium cursor-pointer transition-colors',
+                      'data-[checked]:border-primary data-[checked]:bg-primary/10 data-[checked]:text-primary',
+                      'data-[unchecked]:border-border data-[unchecked]:bg-background data-[unchecked]:text-muted-foreground data-[unchecked]:hover:border-input',
+                    )}
+                  >
+                    <KobalteCheckbox.Input class="sr-only" />
+                    <KobalteCheckbox.Label>{skill.label}</KobalteCheckbox.Label>
+                  </KobalteCheckbox>
+                }</For>
+              </div>
+            </div>
+          </div>
+        }</For>
+        <Button variant="outline" size="sm" onClick={addCrewMember}>+ Add crew member</Button>
+        <Show when={crew().length === 0}>
+          <p class="text-xs text-muted-foreground">
+            No crew yet — the tenant deploys either way, but Autopilot's human handoffs stay unrouted
+            until somebody is on the roster.
+          </p>
+        </Show>
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <div class="text-sm text-muted-foreground" aria-live="polite">{step5Blocker()}</div>
+          <div class="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={prevStep}><ArrowLeft aria-hidden="true" /> Back</Button>
+            <Button size="sm" onClick={nextStep} disabled={!step5Ready()}>Next: Deploy <ArrowRight aria-hidden="true" /></Button>
+          </div>
+        </div>
+      </div>
+    </Show>
+
+    <Show when={step() === 6}>
       <div class="rounded-lg border border-border bg-card p-5 space-y-4">
         <div class="flex items-center justify-between gap-2"><div><PanelTitle>Review + deploy</PanelTitle></div></div>
         <div class="rounded-lg border border-border bg-background p-4 space-y-2">
@@ -482,6 +607,7 @@ export function TenantWizardPage() {
           <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Tenant type</span><strong class="text-sm text-foreground">{archetypes.find(a => a.value === archetype())?.label ?? archetype()}</strong></div>
           <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Brain goal</span><strong class="text-sm text-foreground">{northStars.find(n => n.value === effectiveNorthStar())?.label ?? effectiveNorthStar()}</strong></div>
           <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Fanbase sources</span><strong class="text-sm text-foreground">{selectedSources().length > 0 ? selectedSources().join(', ') : 'None selected'}</strong></div>
+          <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Crew</span><strong class="text-sm text-foreground">{crew().length > 0 ? crew().map(m => m.name.trim()).join(', ') : 'None declared'}</strong></div>
           <Show when={deployNow()}>
             <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">CrowdRelay URL</span><strong class="text-sm text-foreground break-all">{crowdrelayBaseUrl() || 'not set'}</strong></div>
             <Show when={signalEnabled()}>
