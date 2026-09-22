@@ -35,6 +35,7 @@ pub fn router() -> Router<AppState> {
             get(signal_overview),
         )
         .route("/tenants/{slug}/operations/intelligence", get(intelligence))
+        .route("/tenants/{slug}/operations/fan-sources", get(fan_sources))
         .route("/tenants/{slug}/operations/outbox", get(list_outbox))
         .route(
             "/tenants/{slug}/operations/outbox/{event_id}/retry",
@@ -853,6 +854,21 @@ async fn intelligence(
     )
     .await?;
     object_no_store(value, "intelligence")
+}
+
+/// The fan-source ledger: per-cycle snapshots of where fan growth came from
+/// (observed / incremental / durable, per template and per strategy) plus the
+/// North Star regime shifts detected over the same window. Read-only — the
+/// upstream writes one row per cycle, capped hourly; this is a passthrough.
+async fn fan_sources(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    Query(params): Query<ListQuery>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let path = build_list_path("/v1/control-plane/ops/fan-sources", &params);
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "fan sources")
 }
 
 async fn delivery_details(

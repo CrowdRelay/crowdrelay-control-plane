@@ -544,6 +544,10 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/audience/fans"
                     | "/v1/control-plane/audience/segments"
                     | "/v1/control-plane/ops/actions"
+                    // Fan-source attribution: where the fans actually came
+                    // from — per-template/strategy causal breakdown plus the
+                    // North Star change points detected alongside.
+                    | "/v1/control-plane/ops/fan-sources"
                     // Process runs: one pass of a pipeline over one subject,
                     // joined upstream into the step shape the process pages
                     // render. The community relay is the first kind.
@@ -564,6 +568,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || path.starts_with("/v1/control-plane/ops/deliveries?")
                 || path.starts_with("/v1/control-plane/ops/delivery-results?")
                 || path.starts_with("/v1/control-plane/ops/actions?")
+                || path.starts_with("/v1/control-plane/ops/fan-sources?")
                 || path.starts_with("/v1/control-plane/audience/fans?")
                 || path.starts_with("/v1/control-plane/audience/city-funnel?")
                 || path.starts_with("/v1/control-plane/autopilot/outreach/candidates?")

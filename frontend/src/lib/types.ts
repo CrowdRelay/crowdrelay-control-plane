@@ -2220,6 +2220,82 @@ export type AcquisitionChannels = {
   [key: string]: unknown
 }
 
+/** One row of the brain's fan-growth attribution — the per-template or
+ * per-strategy accounting `attribute_fan_growth` computes and the worker
+ * snapshots once per cycle. `incremental_fans` is the counterfactual-adjusted
+ * count; `durable_fans` the 30-day survivors. A template with observations
+ * and zero incremental fans is ineffective, not untested. */
+export type TemplateAttribution = {
+  template_id: string
+  observed_fans: number
+  incremental_fans: number
+  durable_fans: number
+  observations: number
+  mean_observed_fans: number
+  mean_incremental_fans: number
+  best_quality: string
+  [key: string]: unknown
+}
+
+export type StrategyAttribution = {
+  strategy: string
+  observed_fans: number
+  incremental_fans: number
+  observations: number
+  mean_incremental_fans: number
+  [key: string]: unknown
+}
+
+export type QualityAttribution = {
+  quality: string
+  incremental_fans: number
+  observations: number
+  [key: string]: unknown
+}
+
+export type FanGrowthAttribution = {
+  total_observed_fans: number
+  total_incremental_fans: number
+  total_durable_fans: number
+  resolved_observations: number
+  partial_observations: number
+  by_template: TemplateAttribution[]
+  by_strategy: StrategyAttribution[]
+  by_quality: QualityAttribution[]
+  [key: string]: unknown
+}
+
+/** One CUSUM regime shift over the daily North Star series, with its civil
+ * date resolved at write time — the detector's own `timestamp` is an
+ * observation index, never a date. `pre_mean`/`post_mean` are fans-per-day
+ * rates on each side of the shift. A shift says *when* the rate changed,
+ * never *why*. */
+export type NorthStarShift = {
+  date: string
+  direction: 'upward' | 'downward'
+  pre_mean: number
+  post_mean: number
+  shift_size: number
+  magnitude: number
+  [key: string]: unknown
+}
+
+export type FanSourceSnapshot = {
+  captured_at: string
+  total_observed_fans: number
+  total_incremental_fans: number
+  total_durable_fans: number
+  resolved_observations: number
+  attribution: FanGrowthAttribution
+  north_star_shifts: NorthStarShift[]
+  [key: string]: unknown
+}
+
+export type FanSourcesResponse = {
+  snapshots: FanSourceSnapshot[]
+  [key: string]: unknown
+}
+
 export type ShowCostLedgerEntry = {
   event_id: string
   event_title: string
