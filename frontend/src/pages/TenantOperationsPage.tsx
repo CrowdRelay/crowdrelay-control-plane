@@ -322,7 +322,7 @@ export function TenantOperationsPage() {
                   class="h-1.5"
                   segments={[
                     { key: 'sent', label: 'Sent · 24h', value: q.summary.delivered_24h, class: 'bg-success-foreground' },
-                    { key: 'waiting', label: 'Waiting', value: q.summary.pending + q.summary.processing, class: 'bg-chart-4' },
+                    { key: 'waiting', label: 'In flight', value: q.summary.pending + q.summary.processing, class: 'bg-chart-4' },
                     { key: 'stuck', label: 'Stuck', value: q.summary.dead, class: 'bg-error-foreground' },
                   ]}
                 />
@@ -347,7 +347,7 @@ export function TenantOperationsPage() {
             class="mt-auto"
             segments={[
               { key: 'pending', label: 'Still to send', value: growth()?.totals.pending ?? 0, class: 'bg-chart-4' },
-              { key: 'failed', label: 'Failed', value: growth()?.totals.failed ?? 0, class: 'bg-error-foreground' },
+              { key: 'failed', label: 'Failed sends', value: growth()?.totals.failed ?? 0, class: 'bg-error-foreground' },
             ]}
           />
         </Widget>

@@ -117,6 +117,7 @@ type CreateTenantInput = {
   areaEnabled?: boolean
   northStarMetric?: string
   archetype?: string
+  placement?: 'dedicated' | 'shared_pg'
   fanbaseSources?: string[]
   signalPlayStoreUrl?: string
   synesthesiaPlayStoreUrl?: string
@@ -272,6 +273,10 @@ export const api = {
   deployTenant: (slug: string, desiredVersion?: string) =>
     request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/deploy`, { method: 'POST', body: JSON.stringify({ desiredVersion: desiredVersion || undefined }) }),
   cancelProvisioning: (slug: string) => request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/cancel`, { method: 'POST', body: '{}' }),
+  // Platform-admin only: re-plans and re-provisions a managed tenant. The
+  // shared→dedicated promotion runbook uses this after flipping placement.
+  reprovisionTenant: (slug: string, desiredVersion?: string) =>
+    request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/reprovision`, { method: 'POST', body: JSON.stringify({ desiredVersion: desiredVersion || undefined }) }),
   actionSentRecord: (slug: string, actionId: string) => request<SentRecord>(`/tenants/${encodeURIComponent(slug)}/operations/actions/${encodeURIComponent(actionId)}/sent`),
   retryOutbox: (slug: string, id: string) => request<RetryResult>(`/tenants/${encodeURIComponent(slug)}/operations/outbox/${encodeURIComponent(id)}/retry`, {
     method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() }, body: '{}',

@@ -123,7 +123,15 @@ async fn main() -> anyhow::Result<()> {
         })
         .connect(&config.database_url)
         .await?;
-    let store = store::Store::new(pool, config.runtime_stale_after_seconds);
+    let store = store::Store::new(
+        pool,
+        config.runtime_stale_after_seconds,
+        store::SharedPgConfig {
+            cluster: config.shared_pg_cluster.clone(),
+            network: config.shared_pg_network.clone(),
+            max_tenants: config.shared_pg_max_tenants,
+        },
+    );
     store.migrate().await?;
     store
         .ensure_virya(

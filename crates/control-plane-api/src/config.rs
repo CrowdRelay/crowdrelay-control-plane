@@ -86,6 +86,12 @@ pub struct Config {
     /// Comma-separated allow-list of origins permitted to call the public
     /// waitlist endpoints (e.g. "https://crowdrelay.music,http://localhost:4321").
     pub allowed_landing_origins: Vec<String>,
+    /// Shared-Postgres placement: the cluster container tenant databases live
+    /// on, the docker network tenants join to reach it, and how many tenants
+    /// one cluster may host before creation is refused. See migration 0031.
+    pub shared_pg_cluster: String,
+    pub shared_pg_network: String,
+    pub shared_pg_max_tenants: i64,
 }
 
 impl Config {
@@ -342,6 +348,28 @@ impl Config {
             allowed_landing_origins: parse_landing_origins(optional_env(
                 "CONTROL_PLANE_ALLOWED_LANDING_ORIGINS",
             )?)?,
+            shared_pg_cluster: validate_docker_name(
+                "CONTROL_PLANE_SHARED_PG_CLUSTER",
+                &env::var("CONTROL_PLANE_SHARED_PG_CLUSTER")
+                    .unwrap_or_else(|_| "crowdrelay-tenants-pg".to_owned()),
+            )?,
+            shared_pg_network: validate_docker_name(
+                "CONTROL_PLANE_SHARED_PG_NETWORK",
+                &env::var("CONTROL_PLANE_SHARED_PG_NETWORK")
+                    .unwrap_or_else(|_| "crowdrelay-tenants".to_owned()),
+            )?,
+            shared_pg_max_tenants: {
+                let value = optional_env("CONTROL_PLANE_SHARED_PG_MAX_TENANTS")?
+                    .map(|value| value.parse::<i64>())
+                    .transpose()
+                    .context("invalid CONTROL_PLANE_SHARED_PG_MAX_TENANTS")?
+                    .unwrap_or(30);
+                anyhow::ensure!(
+                    (1..=500).contains(&value),
+                    "CONTROL_PLANE_SHARED_PG_MAX_TENANTS must be between 1 and 500"
+                );
+                value
+            },
         };
         // Both or neither: half-configured bootstrap is a deployment typo,
         // not a feature.
@@ -536,6 +564,26 @@ fn validate_image_repository(name: &str, value: &str) -> Result<String> {
                 byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'/' | b'_' | b'-')
             }),
         "{name} must be an untagged safe image repository such as ghcr.io/org/image"
+    );
+    Ok(value.to_owned())
+}
+
+/// Docker container and network names the control plane stamps into
+/// provisioning plans. The provisioner resolves these against docker — keep
+/// them to the safe docker-name alphabet so a malformed value can never
+/// become a shell fragment on the host.
+fn validate_docker_name(name: &str, value: &str) -> Result<String> {
+    let value = value.trim();
+    anyhow::ensure!(
+        (2..=63).contains(&value.len())
+            && value
+                .bytes()
+                .next()
+                .is_some_and(|b| b.is_ascii_alphanumeric())
+            && value
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-'),
+        "{name} must be a docker-safe name (lowercase alphanumeric and dashes, 2-63 chars)"
     );
     Ok(value.to_owned())
 }

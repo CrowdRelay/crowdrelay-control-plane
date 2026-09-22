@@ -71,6 +71,9 @@ export type Tenant = {
   canProvision: boolean
   canRemove: boolean
   archetype: 'band' | 'roster' | 'label' | 'festival_org'
+  placement: 'dedicated' | 'shared_pg'
+  placementCluster: string | null
+  placementDatabase: string | null
   /** Crew roster collected at onboarding — `[{key,name,email,skills}]`. */
   teamMembers: { key: string; name: string; email: string; skills: string[] }[]
   createdAt: string

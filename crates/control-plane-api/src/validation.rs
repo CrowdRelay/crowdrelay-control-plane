@@ -134,6 +134,40 @@ pub fn tenant_archetype(value: Option<String>) -> Result<String, ApiError> {
     Ok(value.to_owned())
 }
 
+/// The tenant placements, matching the CHECK constraint in
+/// `0031_tenant_placement.sql`.
+pub const TENANT_PLACEMENTS: &[&str] = &["dedicated", "shared_pg"];
+
+/// Validates an explicit placement override. The default is not decided here —
+/// it derives from the archetype at create time (`default_placement`), because
+/// a caller that predates this field must keep creating dedicated tenants only
+/// where the archetype says so.
+pub fn tenant_placement(value: Option<String>) -> Result<Option<String>, ApiError> {
+    let Some(value) = value.as_deref().map(str::trim).filter(|v| !v.is_empty()) else {
+        return Ok(None);
+    };
+    if !TENANT_PLACEMENTS.contains(&value) {
+        return Err(ApiError::InvalidInput(format!(
+            "unknown placement: {value}"
+        )));
+    }
+    Ok(Some(value.to_owned()))
+}
+
+/// The infrastructure a tenant lands on when the caller does not say.
+/// Self-serve shapes share the tenants Postgres cluster (own database + role,
+/// dedicated api+worker — the runtime pins one workspace, so the shareable
+/// layer is the database, not the app); business-sized archetypes get a fully
+/// dedicated stack. Anything else — including archetypes added later without
+/// a placement decision — gets the strongest isolation rather than silently
+/// landing on shared infrastructure.
+pub fn default_placement(archetype: &str) -> &'static str {
+    match archetype {
+        "band" | "roster" => "shared_pg",
+        _ => "dedicated",
+    }
+}
+
 /// Discovery platforms the onboarding wizard offers.
 pub const FANBASE_SOURCES: &[&str] = &[
     "discord",
@@ -874,6 +908,23 @@ mod tests {
         assert!(provision_success(18100, 63, "0123456789abcdef0123456789abcdef01234567").is_ok());
         assert!(provision_success(80, 63, "0123456789abcdef0123456789abcdef01234567").is_err());
         assert!(provision_failure("docker_compose_failed", Some("exit 1")).is_ok());
+    }
+
+    #[test]
+    fn placement_defaults_and_overrides() {
+        assert_eq!(default_placement("band"), "shared_pg");
+        assert_eq!(default_placement("roster"), "shared_pg");
+        assert_eq!(default_placement("label"), "dedicated");
+        assert_eq!(default_placement("festival_org"), "dedicated");
+        assert_eq!(default_placement("unknown_future_archetype"), "dedicated");
+        assert_eq!(tenant_placement(None).unwrap(), None);
+        assert_eq!(
+            tenant_placement(Some("shared_pg".to_owned()))
+                .unwrap()
+                .as_deref(),
+            Some("shared_pg")
+        );
+        assert!(tenant_placement(Some("elsewhere".to_owned())).is_err());
     }
 
     #[test]

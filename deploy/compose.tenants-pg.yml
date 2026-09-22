@@ -1,0 +1,45 @@
+# The shared Postgres cluster for `shared_pg` tenant placement (migration
+# 0026). One container hosts one database + one role per Artist/Roster tenant;
+# tenant api+worker containers reach it over the `crowdrelay-tenants` external
+# network under the container name `crowdrelay-tenants-pg`.
+#
+# This is ops-owned platform infrastructure, deployed once per host — the
+# provisioner asserts it is healthy but never creates it:
+#
+#   docker network create crowdrelay-tenants
+#   CROWDRELAY_TENANTS_PG_PASSWORD=<superuser password> docker compose \
+#     -f deploy/compose.tenants-pg.yml up -d
+#
+# Backups: per-tenant `pg_dump -U postgres -d t_<slug>` inside the container
+# preserves per-tenant restore boundaries (the shared→dedicated promotion path
+# is a dump/restore of exactly that database).
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: crowdrelay-tenants-pg
+    command: ["postgres", "-c", "io_method=worker", "-c", "io_min_workers=2", "-c", "io_max_workers=2"]
+    environment:
+      POSTGRES_PASSWORD: ${CROWDRELAY_TENANTS_PG_PASSWORD}
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+    volumes: ["postgres:/var/lib/postgresql"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    pids_limit: 512
+    mem_limit: 512m
+    cpus: 1.0
+    restart: unless-stopped
+    logging:
+      driver: local
+      options: {max-size: "10m", max-file: "3"}
+    networks:
+      crowdrelay-tenants: {}
+volumes:
+  postgres:
+networks:
+  crowdrelay-tenants:
+    external: true
+    name: crowdrelay-tenants

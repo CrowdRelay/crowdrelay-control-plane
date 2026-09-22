@@ -66,6 +66,10 @@ pub fn tenant_admin_router() -> Router<AppState> {
         .route("/tenants/{slug}/opt-out", post(opt_out_tenant))
         .route("/tenants/{slug}/provisioning/plan", post(plan_provisioning))
         .route("/tenants/{slug}/provisioning/deploy", post(deploy_tenant))
+        .route(
+            "/tenants/{slug}/provisioning/reprovision",
+            post(provision_tenant),
+        )
         .route("/tenants/{slug}/provisioning", get(provisioning_jobs))
         .route(
             "/tenants/{slug}/provisioning/cancel",
@@ -407,6 +411,7 @@ async fn create_tenant(
         input.signal_enabled,
     )?);
     input.archetype = Some(validation::tenant_archetype(input.archetype.take())?);
+    input.placement = validation::tenant_placement(input.placement.take())?;
     input.fanbase_sources =
         validation::fanbase_sources(std::mem::take(&mut input.fanbase_sources))?;
     input.team_members = Some(validation::team_members(
@@ -1197,6 +1202,53 @@ async fn deploy_tenant(
     // (Virya) get a runtime deploy control in the panel.
     Err(ApiError::Forbidden(
         "redeploy is only available for externally-owned tenants".to_owned(),
+    ))
+}
+
+/// Platform-admin re-provision for provisioner-managed tenants: the
+/// promotion runbook's trigger (a `shared_pg` tenant flipped to `dedicated`
+/// re-plans through here and the provisioner renders the dedicated stack) and
+/// the recovery primitive when a managed stack needs a fresh pass. This is
+/// deliberately not the tenant-operator deploy surface — that path stays
+/// refused for managed tenants; only a platform admin may hand a managed
+/// tenant a new provisioning job.
+async fn provision_tenant(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
+    headers: HeaderMap,
+    Json(input): Json<DeployTenantRequest>,
+) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
+    identity.require_platform_admin()?;
+    let slug = validation::slug(&raw_slug)?;
+    if state.provisioner_token_hash.is_none() {
+        return Err(ApiError::Unavailable(
+            "tenant provisioner is not configured".to_owned(),
+        ));
+    }
+    let desired_version = validation::deployment_version(
+        input.desired_version,
+        state.provisioner_default_image_tag.as_deref(),
+    )?;
+    let (job, created) = state
+        .store
+        .request_deployment(
+            &slug,
+            desired_version,
+            &state.provisioner_api_image,
+            &state.provisioner_worker_image,
+            &identity.audit_actor(),
+            request_id(&headers),
+        )
+        .await?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    Ok((
+        if created {
+            StatusCode::CREATED
+        } else {
+            StatusCode::OK
+        },
+        Json(job_with_phase(&job)?),
     ))
 }
 
