@@ -21,6 +21,7 @@ const LABELS: Record<string, string> = {
   north_star_metric: 'What the brain chases',
   tenant_intent: 'What the band is doing',
   social_auto_post: 'Social auto-posting',
+  ticketing_enabled: 'Ticket sales',
   growth_cadence_moments_per_month: 'Serious moments per month',
   growth_cadence_fillers_enabled: 'Filler calendar',
   crew_locale: 'Language the crew reads',
@@ -29,7 +30,7 @@ const LABELS: Record<string, string> = {
 // The server grew three more editable keys than this panel had labels for, so
 // `signal_enabled` and `north_star_metric` rendered as their own key names over
 // a free-text box — a boolean and an enum you had to spell correctly by hand.
-const BOOLEAN_KEYS = new Set(['signal_enabled', 'synesthesia_enabled', 'social_auto_post', 'growth_cadence_fillers_enabled'])
+const BOOLEAN_KEYS = new Set(['signal_enabled', 'synesthesia_enabled', 'social_auto_post', 'growth_cadence_fillers_enabled', 'ticketing_enabled'])
 
 // A key name alone does not say what the value does or what shape it takes.
 // Each row carries what the value drives, and an example of a valid one — the
@@ -84,6 +85,11 @@ const HINTS: Record<string, { hint: string; example: string; band?: string }> = 
     hint: 'Serious moments (release, video, or show) the tenant commits to each month — each gets its vertical, tier decision and spend. 1 is the default; a tenant who beats it moves their own number up. 1–4.',
     band: 'Serious moments (release, video, or show) you commit to each month — each gets its vertical, tier decision and spend. 1 is the default; beat it and your number moves up. 1–4.',
     example: '1',
+  },
+  ticketing_enabled: {
+    hint: "Whether this tenant sells tickets through the member site's own checkout. Needs the Stripe keys below — turning it on without them fails closed at checkout, not silently.",
+    band: "Whether you sell tickets through your site's own checkout. Needs the Stripe keys below — turning it on without them fails closed at checkout, not silently.",
+    example: 'false',
   },
   growth_cadence_fillers_enabled: {
     hint: 'Whether the machine schedules fillers between serious moments — demos, harvest output, catalogue rotation, show material, no spend and no gate. The quiet weeks fill themselves.',

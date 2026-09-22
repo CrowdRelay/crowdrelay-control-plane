@@ -169,6 +169,14 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/portfolio/settings/{setting_key}",
             post(update_portfolio_setting),
         )
+        // Tenant-held credentials: the masked inventory and the write-only
+        // set/unset. The value goes up and never comes back — the list shows
+        // only the hint upstream computed at write time.
+        .route("/tenants/{slug}/secrets", get(list_tenant_secrets))
+        .route(
+            "/tenants/{slug}/secrets/{secret_name}",
+            put(set_tenant_secret).delete(delete_tenant_secret),
+        )
         .route(
             "/tenants/{slug}/portfolio/fanbases",
             post(create_portfolio_fanbase),
@@ -2300,6 +2308,165 @@ async fn update_portfolio_setting(
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     mutation_no_store(value, "portfolio setting update")
+}
+
+// ─── Tenant-held secrets ────────────────────────────────────────────────────
+// The value crosses this surface once, inbound on the write. It is never
+// logged, never echoed into an audit row, and never readable back — the list
+// returns only the hint upstream computed when it stored the ciphertext.
+
+/// Secret names the tenant may manage, with the value grammar each accepts.
+/// Mirrors the upstream allowlist and its `valid_secret_value` prefixes —
+/// keeping both here means a bad paste is refused before it crosses the
+/// wire, and a restricted `rk_` key is not rejected on the way to a store
+/// that accepts it.
+const TENANT_SECRET_NAMES: &[(&str, &[&str])] = &[
+    (
+        "stripe_secret_key",
+        &["sk_live_", "sk_test_", "rk_live_", "rk_test_"],
+    ),
+    ("stripe_webhook_secret", &["whsec_"]),
+];
+
+fn tenant_secret_path(name: &str) -> Result<String, ApiError> {
+    TENANT_SECRET_NAMES
+        .iter()
+        .any(|(allowed, _)| *allowed == name)
+        .then(|| format!("/v1/control-plane/secrets/{name}"))
+        .ok_or_else(|| ApiError::InvalidInput("unknown secret name".to_owned()))
+}
+
+/// Same bounds and prefixes as upstream `valid_secret_value` — the wire copy
+/// so a malformed paste never leaves this plane.
+fn valid_tenant_secret(name: &str, value: &str) -> bool {
+    let Some((_, prefixes)) = TENANT_SECRET_NAMES
+        .iter()
+        .find(|(allowed, _)| *allowed == name)
+    else {
+        return false;
+    };
+    (8..=200).contains(&value.len())
+        && value.bytes().all(|b| b.is_ascii_graphic())
+        && prefixes.iter().any(|prefix| value.starts_with(prefix))
+}
+
+fn invalid_secret_error(name: &str) -> ApiError {
+    let (_, prefixes) = TENANT_SECRET_NAMES
+        .iter()
+        .find(|(allowed, _)| *allowed == name)
+        .expect("validated name");
+    ApiError::InvalidInput(format!(
+        "{name} must start with {} and be printable ASCII 8–200 chars",
+        prefixes.join(" or ")
+    ))
+}
+
+/// `GET /tenants/{slug}/secrets` — masked inventory only.
+async fn list_tenant_secrets(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/secrets",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "tenant secrets list")
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SetTenantSecretBody {
+    value: String,
+}
+
+/// `PUT /tenants/{slug}/secrets/{name}` — write-only credential set. The body
+/// is validated for shape (the prefix the name requires), forwarded verbatim,
+/// and the masked view upstream returns is what the client sees.
+async fn set_tenant_secret(
+    State(state): State<AppState>,
+    Path((slug, secret_name)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<SetTenantSecretBody>,
+) -> Result<Response, ApiError> {
+    let path = tenant_secret_path(&secret_name)?;
+    let value = body.value.trim();
+    if !valid_tenant_secret(&secret_name, value) {
+        return Err(invalid_secret_error(&secret_name));
+    }
+    let payload = json!({ "value": value });
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "PUT",
+                path: &path,
+                body: Some(&payload),
+                correlation_id: correlation(&headers),
+                idempotency_key: None,
+            },
+        )
+        .await;
+    // Audited by name — the value never enters the audit row.
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.secret.set",
+        "tenant_secret",
+        &secret_name,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let value = result?;
+    mutation_no_store(value, "tenant secret set")
+}
+
+/// `DELETE /tenants/{slug}/secrets/{name}` — unsets the credential.
+async fn delete_tenant_secret(
+    State(state): State<AppState>,
+    Path((slug, secret_name)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let path = tenant_secret_path(&secret_name)?;
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "DELETE",
+                path: &path,
+                body: None,
+                correlation_id: correlation(&headers),
+                idempotency_key: None,
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.secret.removed",
+        "tenant_secret",
+        &secret_name,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let value = result?;
+    mutation_no_store(value, "tenant secret removed")
 }
 
 /// Registers a new audience block with its acquisition origin.
@@ -6066,5 +6233,45 @@ mod tests {
         assert!(show_create_payload(&body).is_ok(), "300 bytes of ą");
         body.title = " ".to_owned();
         assert!(show_create_payload(&body).is_err(), "blank title");
+    }
+
+    #[test]
+    fn secret_paths_carry_only_allowlisted_names() {
+        assert!(tenant_secret_path("stripe_secret_key").is_ok());
+        assert!(tenant_secret_path("stripe_webhook_secret").is_ok());
+        // An unknown name must fail before a path is built — the proxy route
+        // is the only thing standing between this name and the store.
+        assert!(tenant_secret_path("database_url").is_err());
+        assert!(tenant_secret_path("").is_err());
+        assert_eq!(
+            tenant_secret_path("stripe_secret_key").expect("known"),
+            "/v1/control-plane/secrets/stripe_secret_key"
+        );
+    }
+
+    #[test]
+    fn secret_values_are_checked_against_the_upstream_grammar() {
+        // The mirror is the upstream `valid_secret_value`: the same length
+        // bounds and the same prefixes, so nothing refused here would have
+        // passed there — and nothing accepted here fails there.
+        assert!(valid_tenant_secret(
+            "stripe_secret_key",
+            "sk_live_f4ke-k3y-n0t-r34l"
+        ));
+        assert!(valid_tenant_secret("stripe_secret_key", "rk_test_1234567890"));
+        assert!(valid_tenant_secret(
+            "stripe_webhook_secret",
+            "whsec_f4ke-s3cret9END00"
+        ));
+        // A restricted key must reach the store that accepts it.
+        assert!(valid_tenant_secret("stripe_secret_key", "rk_live_abc123"));
+        // Wrong slot, wrong prefix, junk: all refused before the wire.
+        assert!(!valid_tenant_secret("stripe_secret_key", "whsec_12345678"));
+        assert!(!valid_tenant_secret("stripe_webhook_secret", "sk_live_12345678"));
+        assert!(!valid_tenant_secret("stripe_secret_key", "pk_live_12345678"));
+        assert!(!valid_tenant_secret("stripe_webhook_secret", "whsec_1")); // too short
+        assert!(!valid_tenant_secret("stripe_secret_key", "sk_live_with space"));
+        assert!(!valid_tenant_secret("nonsense", "sk_live_123456789012345678"));
+        assert!(!valid_tenant_secret("stripe_secret_key", &"x".repeat(201)));
     }
 }
