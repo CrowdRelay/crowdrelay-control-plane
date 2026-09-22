@@ -20,10 +20,10 @@ import type { AgentProvider, AgentCredential, AgentModel, PremiumUsage } from '.
 /** Worse probes sort first — a down model at the bottom of 40 rows is a
  *  problem nobody scrolls to. */
 const healthRank = (status: string) =>
-  status === 'down' ? 0 : status === 'degraded' || status === 'cooldown' ? 1 : 2
+  status === 'down' ? 0 : status === 'degraded' || status === 'cooldown' || status === 'disabled' ? 1 : 2
 
 const healthTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
-  status === 'ok' ? 'good' : status === 'down' ? 'bad' : 'warn'
+  status === 'ok' ? 'good' : status === 'down' ? 'bad' : status === 'disabled' ? 'muted' : 'warn'
 
 export function AgentProvidersPanel(props: {
   slug: string

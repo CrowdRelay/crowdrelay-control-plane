@@ -1632,7 +1632,9 @@ export interface AgentModel {
 /// One stored probe result per (provider, model) from the agent service's
 /// health checker. `status` is `ok`, `degraded` (reachable but refusing —
 /// rate limits, auth failures) or `down` (unreachable / 5xx); `cooldown`
-/// rows are written when a model is parked after repeated failures.
+/// rows are written when a model is parked after repeated failures, and
+/// `disabled` means the failure needs a human (dead key, archived/EOL model
+/// id, unpaid tier) — the ticker probes those at most once a day.
 export interface AgentProviderHealth {
   provider: string
   model_id: string
@@ -3213,6 +3215,40 @@ export type UsageAnalyticsData = {
 }
 
 // --- Decision evidence + learning loop types ---
+
+/// One standing grant as the operator reads it back — "this target may act
+/// without a per-action approval". Granted through the approve flow's
+/// `remember` opt-in; revoked rows stay listed with their stamps so "which
+/// of these did we turn off, and when" stays answerable.
+export type StandingApproval = {
+  action_kind: string
+  target_key: string
+  action_class: string
+  granted_by: string
+  granted_at: string
+  expires_at: string
+  revoked_at: string | null
+  revoked_by: string | null
+  note: string | null
+}
+
+/// A screened booking agent as the band sees it — the contact address is
+/// deliberately absent (the platform brokers the send). `approach_pending`
+/// means a season letter is already queued or awaiting approval.
+export type BookingAgent = {
+  agent_id: string
+  name: string
+  agency?: string
+  roster_url?: string
+  genres: string[]
+  active: boolean
+  do_not_contact: boolean
+  route_verified: boolean
+  approached_at?: string
+  refused_until?: string
+  approach_pending: boolean
+  version: number
+}
 
 /// Structured evidence for a single decision — the "Why this decision" data.
 /// Every field comes from the persisted decision row. input_snapshot and
