@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
+import { Link } from '@tanstack/solid-router'
 import { Section } from './layout'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
@@ -63,7 +64,7 @@ export function GrowthPosturePanel(props: { slug: string }) {
     onSuccess: async (_result, value) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['growth-posture', props.slug] }),
-        queryClient.invalidateQueries({ queryKey: ['tenant-operations', props.slug] }),
+        queryClient.invalidateQueries({ queryKey: ['tenant-today', props.slug] }),
         queryClient.invalidateQueries({ queryKey: ['autopilot-overview', props.slug] }),
       ])
       toast.success(`Posture set to ${POSTURES.find(p => p.value === value)?.label ?? value}.`)
@@ -145,6 +146,17 @@ export function GrowthPosturePanel(props: { slug: string }) {
       </div>
       <Show when={posture.data?.set_at}>
         <p class="mt-3 text-sm text-muted-foreground">Set {formatTimestamp(posture.data!.set_at!)}</p>
+      </Show>
+      {/* The dial moves all policies at once; the per-rule sliders live one
+          level in on Health, which the band's map does not carry — so the
+          signpost is operator-only, same as the page it opens. */}
+      <Show when={authState.isPlatformLevel()}>
+        <p class="mt-2 text-sm text-muted-foreground">
+          <Link to="/tenants/$slug/health" params={{ slug: props.slug }} search={{ tab: 'policies' }} class="text-primary underline-offset-4 hover:underline">
+            Tune each rule
+          </Link>
+          {' — every policy keeps its own setting under Health.'}
+        </p>
       </Show>
     </Show>
   </Section>

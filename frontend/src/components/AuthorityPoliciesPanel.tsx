@@ -19,14 +19,7 @@ const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
 // Owns its own useQuery so it loads independently of the Runtime tab.
 // This is the ONLY place autopilot authority switches and sliders live.
 // Operations shows read-only autopilot status and links here.
-export function AuthorityPoliciesPanel(props: {
-  slug: string
-  degraded: readonly string[]
-  sections?: import('../lib/types').SectionVerdicts
-  freshness?: import('../lib/types').SectionFreshnessMap
-  fetchedAt?: string
-  refresh: () => Promise<unknown>
-}) {
+export function AuthorityPoliciesPanel(props: { slug: string }) {
   const queryClient = useQueryClient()
   const autopilot = useQuery(() => ({
     queryKey: ['autopilot-overview', props.slug],

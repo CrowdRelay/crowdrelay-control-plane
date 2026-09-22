@@ -48,8 +48,8 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 const POOL_MAX_PER_TARGET: usize = 12;
 
 /// The widest concurrent fan-out any handler makes against one target: the
-/// operations page, which fetches nine sections at once.
-const WIDEST_FAN_OUT: usize = 9;
+/// today page, which fetches eleven sections at once.
+const WIDEST_FAN_OUT: usize = 11;
 
 // A budget below the widest fan-out is not a budget, it is a queue: that page
 // would run in waves and pay a round trip per wave for nothing. Checked at
@@ -406,9 +406,10 @@ fn trace_segment(path: &str) -> bool {
     uuid_segment_between(path, "/v1/control-plane/ops/trace/", "")
 }
 
-/// Matches fan tag mutation paths:
-/// `/v1/control-plane/audience/fans/{uuid}/tags/{tag}` (add)
-/// `/v1/control-plane/audience/fans/{uuid}/tags/{tag}/remove` (remove)
+/// Matches the fan tag remove path:
+/// `/v1/control-plane/audience/fans/{uuid}/tags/{tag}/remove`
+/// The add path — `…/tags` with the tag in the body — is matched separately
+/// as `uuid_segment_between(…, "/tags")`.
 fn fan_tag_path(path: &str) -> bool {
     let prefix = "/v1/control-plane/audience/fans/";
     let Some(tail) = path.strip_prefix(prefix) else {
@@ -423,8 +424,11 @@ fn fan_tag_path(path: &str) -> bool {
         return false;
     }
     let tag_part = &tail[tags_pos + 6..]; // skip "/tags/"
-    // tag_part is `{tag}` or `{tag}/remove`
-    let tag = tag_part.strip_suffix("/remove").unwrap_or(tag_part);
+    // Remove is the only path-carried tag write — a bare `…/tags/{tag}`
+    // matches no upstream route and must not pass the allowlist.
+    let Some(tag) = tag_part.strip_suffix("/remove") else {
+        return false;
+    };
     // Mirrors CrowdRelay's `valid_tag()`: lowercase or digit start, then
     // lowercase / digit / `:` / `_` / `-`, max 64 chars, no spaces.
     let mut chars = tag.chars();
@@ -435,6 +439,26 @@ fn fan_tag_path(path: &str) -> bool {
         && (first.is_ascii_lowercase() || first.is_ascii_digit())
         && chars
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, ':' | '_' | '-'))
+}
+
+/// `/v1/control-plane/autopilot/standing-approvals/{action_kind}/{target_key}`
+/// — two dotted/snake identifiers (`community.engage.request` and its
+/// target). Neither may contain `/`, so the path cannot escape the pair.
+fn standing_approval_path(path: &str) -> bool {
+    let Some(tail) = path.strip_prefix("/v1/control-plane/autopilot/standing-approvals/") else {
+        return false;
+    };
+    let Some((kind, key)) = tail.split_once('/') else {
+        return false;
+    };
+    fn segment(value: &str) -> bool {
+        !value.is_empty()
+            && value.len() <= 128
+            && value.bytes().all(|byte| {
+                byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b':')
+            })
+    }
+    segment(kind) && segment(key) && !key.contains('/')
 }
 
 /// `/v1/control-plane/nights/{uuid}/acts/{slug}/confirm` — the billed act's
@@ -541,6 +565,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/audience/acquisition-sources"
                     | "/v1/control-plane/audience/city-funnel"
                     | "/v1/control-plane/audience/city-venues"
+                    | "/v1/control-plane/audience/registry-verification-brief"
                     | "/v1/control-plane/audience/fans"
                     | "/v1/control-plane/audience/segments"
                     | "/v1/control-plane/ops/actions"
@@ -591,6 +616,12 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/recipients",
                 )
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/decisions/", "/evidence")
+                // The standing grants list — what may run without asking.
+                // Read-only; the grant itself rides the approve body.
+                || path == "/v1/control-plane/autopilot/standing-approvals"
+                // The booking-agent registry as the band sees it — who the
+                // screened agents are and where each season door stands.
+                || path == "/v1/control-plane/booking-agents"
                 // P.4: the show's approve-once growth ladder — the approval
                 // row's state plus every rung's position. Read-only.
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/events/", "/growth-ladder")
@@ -703,6 +734,11 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/v1/control-plane/autopilot/booking-discovery/candidates/",
                     "/confirm",
                 )
+                // The season letter: the band asks to approach a screened
+                // agent, and files what the agent answered back. Both carry
+                // their idempotency keys like every proxied write.
+                || path == "/v1/control-plane/booking-agents/approach"
+                || uuid_segment_between(path, "/v1/control-plane/booking-agents/", "/reply")
                 || uuid_segment_between(
                     path,
                     "/v1/control-plane/autopilot/beacon-press-requests/",
@@ -805,6 +841,11 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || path == "/v1/control-plane/connections/soundcloud"
                 || path == "/v1/control-plane/connections/reddit"
                 || uuid_segment_between(path, "/v1/control-plane/fanbases/", "/ingest")
+                // Upstream adds a tag by POSTing `{tag}` to `…/fans/{id}/tags`
+                // — the tag rides the body, not the path — while remove puts
+                // it in the path (`…/tags/{tag}/remove`). Both shapes, one
+                // allowlist entry each.
+                || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/tags")
                 || fan_tag_path(path)
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/referral-code")
                 // The process page's manual leg: a drafted Reddit post the
@@ -853,6 +894,10 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 // Unsetting a tenant credential — same name segment the PUT
                 // writes.
                 || one_safe_segment(path, "/v1/control-plane/secrets/")
+                // Revoking a standing grant — the row stays listed upstream
+                // with its revoked stamp; nothing is deleted but the
+                // authority.
+                || standing_approval_path(path)
         }
         _ => false,
     }

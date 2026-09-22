@@ -11,6 +11,8 @@ import { Spinner } from './Spinner'
 import { Alert } from './app/alert'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
+import { Checkbox } from './app/checkbox'
+import { toast } from './app/toast'
 
 // Phase 18 — find, then "do it". CrowdRelay parks what its agent found; this
 // board is where a human decides. "Do it" approves through CrowdRelay's own
@@ -259,6 +261,11 @@ export function OpportunityBoardPanel(props: {
   const [confirming, setConfirming] = createSignal<string | null>(null)
   const [mutationError, setMutationError] = createSignal<string | null>(null)
   const [showAll, setShowAll] = createSignal(false)
+  // The standing-grant opt-in ("…and stop asking about this target") is off
+  // by default and resets every time a new confirm arms — a grant changes
+  // authority and must be a typed choice, never the usual button's side
+  // effect.
+  const [rememberTarget, setRememberTarget] = createSignal(false)
   const MAX_VISIBLE = 3
 
   // One mutation at a time; destructive intent needs a second click on the
@@ -267,6 +274,7 @@ export function OpportunityBoardPanel(props: {
     if (pendingMutation() !== null) return
     if (confirming() !== key) {
       setConfirming(key)
+      setRememberTarget(false)
       return
     }
     setConfirming(null)
@@ -284,7 +292,18 @@ export function OpportunityBoardPanel(props: {
 
   const approve = (entry: OpportunityBoardEntry) => {
     if (!entry.action_id) return
-    void decide(`do:${entry.decision_id}`, () => api.approveOpportunityAction(props.slug, entry.action_id!))
+    const remember = rememberTarget()
+    void decide(`do:${entry.decision_id}`, async () => {
+      const result = await api.approveOpportunityAction(props.slug, entry.action_id!, remember ? {} : undefined)
+      // Upstream answers `remembered` — the grant may legitimately not exist
+      // (an action with no coverable target), which is said rather than
+      // assumed.
+      if (remember && result?.remembered?.granted) {
+        toast.success('Approved — this target may run without asking until the grant expires.')
+      } else if (remember && result?.remembered && !result.remembered.granted) {
+        toast.info(`Approved — ${result.remembered.reason ?? 'nothing here could be remembered for next time'}.`)
+      }
+    })
   }
 
   // Reject used to live in the separate decision panel above this one, which
@@ -536,6 +555,17 @@ export function OpportunityBoardPanel(props: {
                 click, not in a briefing written in another language. */}
             <Show when={APPROVE_EFFECT[entry().decision_kind]}>
               {effect => <span class="w-full text-xs text-muted-foreground md:w-auto md:max-w-[13rem] md:text-right">{effect()}</span>}
+            </Show>
+            {/* The standing-grant opt-in only exists inside the armed
+                confirm — approving once is the default; "stop asking" is a
+                typed second choice on top of it. */}
+            <Show when={confirming() === `do:${entry().decision_id}`}>
+              <Checkbox
+                class="w-full text-xs text-muted-foreground md:w-auto"
+                label="and stop asking about this target"
+                checked={rememberTarget()}
+                onChange={checked => setRememberTarget(checked)}
+              />
             </Show>
             <Button
               type="button"

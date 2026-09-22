@@ -76,8 +76,8 @@ export const retryDelay = (state: { dataUpdateCount: number; fetchFailureCount?:
  * Build a `refetchInterval` that polls until `isIncomplete` returns false.
  *
  *   const ops = useQuery(() => ({
- *     queryKey: ['tenant-operations', slug()],
- *     queryFn: () => api.tenantOperations(slug()),
+ *     queryKey: ['tenant-today', slug()],
+ *     queryFn: () => api.tenantToday(slug()),
  *     refetchInterval: whileIncomplete(model => model.degraded.length > 0),
  *   }))
  *

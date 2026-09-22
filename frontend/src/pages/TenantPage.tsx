@@ -101,8 +101,8 @@ export function TenantPage() {
   // (release ledger, instance state). Today reads it on /operations, which
   // is a different page with its own copy of the query.
   const operations = useQuery(() => ({
-    queryKey: ['tenant-operations', params().slug],
-    queryFn: () => api.tenantOperations(params().slug),
+    queryKey: ['tenant-today', params().slug],
+    queryFn: () => api.tenantToday(params().slug),
     enabled: isVisited('deployment'),
     reconcile: 'id',
     refetchOnWindowFocus: false,
@@ -111,6 +111,15 @@ export function TenantPage() {
     // section named in `degraded`, so nothing retries it and the panel
     // stays empty for the life of the tab. Keep asking until it fills.
     refetchInterval: whileIncomplete(hasDegradedSections),
+  }))
+  // The ninety-day guarantee is a Deployment-tab read — the promise attached
+  // to the instance, next to the switch that deploys it.
+  const guarantee = useQuery(() => ({
+    queryKey: ['tenant-guarantee', params().slug],
+    queryFn: () => api.tenantGuarantee(params().slug),
+    enabled: isVisited('deployment'),
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
   }))
   const [palette, setPalette] = createSignal<Palette>(defaultPalette)
   const [editingPalette, setEditingPalette] = createSignal(false)
@@ -136,7 +145,7 @@ export function TenantPage() {
   }
   const refreshProvisioning = async () => {
     await queryClient.invalidateQueries({ queryKey: ['tenant-overview', params().slug] })
-    await queryClient.invalidateQueries({ queryKey: ['tenant-operations', params().slug] })
+    await queryClient.invalidateQueries({ queryKey: ['tenant-today', params().slug] })
   }
   const branding = useMutation(() => ({ mutationFn: (value: Palette | null) => api.branding(params().slug, value), onSuccess: refreshTenant }))
   const mobileApps = useMutation(() => ({ mutationFn: (input: { signalPlayStoreUrl?: string | null; synesthesiaPlayStoreUrl?: string | null }) => api.mobileApps(params().slug, input), onSuccess: async () => { setEditingMobileApps(false); await refreshTenant() } }))
@@ -170,7 +179,7 @@ export function TenantPage() {
   }))
 
   // The page's read models, refreshed together.
-  const PAGE_KEYS = ['tenant-overview', 'tenant-operations', 'tenant-runtime', 'tenant-operators']
+  const PAGE_KEYS = ['tenant-overview', 'tenant-today', 'tenant-runtime', 'tenant-operators']
   const refreshPage = () => void queryClient.invalidateQueries({ predicate: q => q.queryKey[1] === params().slug && PAGE_KEYS.includes(String(q.queryKey[0])) })
   const refreshing = () => model.isFetching || operations.isFetching
   // "Updated 2m ago" has to keep moving while the page sits open.
@@ -511,6 +520,19 @@ export function TenantPage() {
                 <ReadField label="Deploy agent">
                   <Show when={platform()?.provisionerConfigured} fallback={<Unset>not configured</Unset>}>configured</Show>
                 </ReadField>
+                {/* The ninety-day guarantee as a line in the same grid —
+                    frozen baseline vs the latest report. `unmeasured` says
+                    so; a missing number stays '—', never zero. */}
+                <Show when={guarantee.data}>{g => (
+                  <ReadField label="90-day guarantee">
+                    {g().state === 'unmeasured'
+                      ? 'Waiting for the first fan-graph report to freeze the baseline'
+                      : `${g().metricKey.replaceAll('_', ' ')}: ${g().baselineValue ?? '—'} → ${g().currentValue ?? '—'}${g().daysRemaining != null ? ` · ${g().daysRemaining}d left` : ''}`}
+                    <Show when={g().state === 'kept' || g().state === 'refund_owed'}>
+                      {' '}<StatusBadge status={g().state === 'kept' ? 'kept' : 'refund owed'} tone={g().state === 'kept' ? 'good' : 'bad'} />
+                    </Show>
+                  </ReadField>
+                )}</Show>
               </FieldGrid>
 
               <div class="mt-5 flex flex-wrap items-end gap-2">

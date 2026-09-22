@@ -1,4 +1,4 @@
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AgentScorecard, LatarnikInviteResult, MeasurementLedger, NegotiationsView, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationRoutingItem, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, ChatAction, CommunityItem, CommunityObservationItem, CommunityEntityItem, CommunityIntroDraft, CommandCenterReadModel, ConnectionCreationResult, ContentPipeline, ContentSourceUpsertInput, ContentSourceView, DeliveryDetails, DeliveryItem, DeliveryResult, DiscoveredEndpoint, DriveContactsResponse, DualRoleReview, FanbaseConnection, FeatureFlag, GrowthFunnelData, NotifierChannel, NotifierOutboxItem, OperationTimeline, OperatorAccount, OpportunityShortlist, OutboxItem, Palette, PlatformConfigItem, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SentRecord, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, FanDetail, FanJourneyEntry, SegmentPreview, AudienceReadModel, PressOverviewReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, FanSourcesResponse, ShowEconomicsResponse, TenantShowsResponse, TenantShowTimelineResponse, TenantShowScanResponse, TenantShowReportResponse, TenantShowHelpersResponse, ShowGrowthLadderView, TourEconomicsSummary, AutopilotChiefOfStaff, ShowActInput, ShowCreateInput, ShowCreateResult, SharedNight, NightContributionKind, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, BeaconImportResult, NotifiersOverview, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, LearningProof, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput, BeaconUpsertInput, AgentTasksOverview, AgentProvidersOverview, CommunityDetail, ScanScope, BandListing, ListingState, AttestationSummary, IssuedAttestationResult, RepresentationTargetsResponse, RepresentationTargetInput, ApproachRequestResult, CityFunnelRow, CityVenueRow, GigPlanResponse, GigPlanApproval, TenantIntentOption, TenantExecutorCapabilities, ActionLedgerEntry, TraceTimeline, RelayProcessRuns, RelayProcessRunDetail, AgentHealthResponse, AgentHealthAlertsResponse, IntelligenceBrief, TenantSecret } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AgentScorecard, LatarnikInviteResult, MeasurementLedger, NegotiationsView, AgentProvider, AgentCredential, AgentModel, AgentSchedule, AgentWorkflow, AgentWorkflowTask, AutomationEvent, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, CommunityItem, CommunityIntroDraft, CommandCenterReadModel, ConnectionCreationResult, ContentPipeline, ContentSourceUpsertInput, ContentSourceView, DeliveryDetails, DeliveryItem, DeliveryResult, DriveContactsResponse, DualRoleReview, FanbaseConnection, FeatureFlag, GrowthFunnelData, NotifierChannel, NotifierOutboxItem, OperationTimeline, OperatorAccount, OpportunityShortlist, OutboxItem, Palette, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, RetryResult, SentRecord, SignalOverview, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, FanDetail, FanJourneyEntry, SegmentPreview, AudienceReadModel, PressOverviewReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, FanSourcesResponse, ShowEconomicsResponse, TenantShowsResponse, TenantShowTimelineResponse, TenantShowScanResponse, TenantShowReportResponse, TenantShowHelpersResponse, ShowGrowthLadderView, TourEconomicsSummary, AutopilotChiefOfStaff, ShowActInput, ShowCreateInput, ShowCreateResult, SharedNight, NightContributionKind, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, BeaconImportResult, NotifiersOverview, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, LearningProof, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput, BeaconUpsertInput, AgentTasksOverview, AgentProvidersOverview, CommunityDetail, ScanScope, BandListing, ListingState, AttestationSummary, IssuedAttestationResult, RepresentationTargetsResponse, RepresentationTargetInput, ApproachRequestResult, CityFunnelRow, CityVenueRow, GigPlanResponse, GigPlanApproval, TenantIntentOption, TenantExecutorCapabilities, ActionLedgerEntry, TraceTimeline, RelayProcessRuns, RelayProcessRunDetail, AgentHealthResponse, AgentHealthAlertsResponse, IntelligenceBrief, TenantSecret, StandingApproval, BookingAgent, GuaranteeView, TenantTodayReadModel } from './types'
 
 export class ApiError extends Error {
   constructor(
@@ -156,10 +156,6 @@ export const api = {
     request<void>(`/tenants/${encodeURIComponent(slug)}/notifiers/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   testNotifier: (slug: string, id: string) =>
     request<{ ok: boolean; error?: string }>(`/tenants/${encodeURIComponent(slug)}/notifiers/${encodeURIComponent(id)}/test`, { method: 'POST', body: '{}' }),
-  discoveredEndpoints: (slug: string) =>
-    request<{ endpoints: DiscoveredEndpoint[] }>(`/tenants/${encodeURIComponent(slug)}/notifiers/discovered`),
-  notifierPlatformConfig: (slug: string) =>
-    request<{ items: PlatformConfigItem[] }>(`/tenants/${encodeURIComponent(slug)}/notifiers/platform-config`),
   // n8n owns the workflows; the control plane mirrors them so they can be
   // shown and muted. Without this the routing panel stays empty while n8n runs
   // dozens of live workflows, which reads as a broken page rather than an
@@ -178,12 +174,8 @@ export const api = {
   notifierOutbox: (slug: string) =>
     request<{ items: NotifierOutboxItem[] }>(`/tenants/${encodeURIComponent(slug)}/notifiers/outbox`),
 
-  notifierAutomationRouting: (slug: string) =>
-    request<{ items: AutomationRoutingItem[] }>(`/tenants/${encodeURIComponent(slug)}/notifiers/automation-routing`),
   communityIntelligenceCommunities: (slug: string) =>
     request<{ items: CommunityItem[] }>(`/tenants/${encodeURIComponent(slug)}/portfolio/communities`),
-  communityIntelligenceObservations: (slug: string, placeId: string) =>
-    request<{ items: CommunityObservationItem[] }>(`/tenants/${encodeURIComponent(slug)}/portfolio/communities/${encodeURIComponent(placeId)}/observations`),
   // Joining is a human act; this records what happened so the next person
   // does not repeat it.
   setCommunityMembership: (slug: string, placeId: string, state: string, note?: string) =>
@@ -197,8 +189,6 @@ export const api = {
       `/tenants/${encodeURIComponent(slug)}/portfolio/communities/${encodeURIComponent(placeId)}/intro-draft`,
     ),
 
-  communityIntelligenceEntities: (slug: string, placeId: string) =>
-    request<{ items: CommunityEntityItem[]; observationId: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/communities/${encodeURIComponent(placeId)}/entities`),
   // Consolidated community detail — observations + entities in one round-trip.
   communityDetail: (slug: string, placeId: string) =>
     request<CommunityDetail>(`/tenants/${encodeURIComponent(slug)}/portfolio/communities/${encodeURIComponent(placeId)}/detail`),
@@ -220,14 +210,13 @@ export const api = {
   // One purpose-built read model per tenant subpage. The browser never
   // orchestrates a fan-out to assemble a screen.
   tenantOverview: (slug: string) => request<TenantOverviewReadModel>(`/tenants/${encodeURIComponent(slug)}/overview`),
-  tenantOperations: (slug: string) => request<TenantOperationsReadModel>(`/tenants/${encodeURIComponent(slug)}/operations/overview`),
+  tenantToday: (slug: string) => request<TenantTodayReadModel>(`/tenants/${encodeURIComponent(slug)}/today`),
   pressOverview: (slug: string) => request<PressOverviewReadModel>(`/tenants/${encodeURIComponent(slug)}/operations/press-overview`),
   agentScorecard: (slug: string) => request<AgentScorecard>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/scorecard`),
   /** N.9 — the executor lanes this workspace has and the ones its parked
    *  actions need: the registry the dispatch gate enforces, read-only. */
   executorCapabilities: (slug: string) => request<TenantExecutorCapabilities>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/capabilities`),
   measurement: (slug: string) => request<MeasurementLedger>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/measurement`),
-  replyTriage: (slug: string) => request<ReplyTriageView>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/reply-triage`),
   negotiations: (slug: string) => request<NegotiationsView>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/negotiations`),
   recordOpportunityTerms: (slug: string, opportunityId: string, body: { position: 'offer' | 'withdrawn'; offered_fee_minor: number; currency: string; responds_by: string }) =>
     request(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/team-opportunities/${encodeURIComponent(opportunityId)}/terms`, { method: 'POST', body: JSON.stringify(body), headers: { 'idempotency-key': crypto.randomUUID() } }),
@@ -244,6 +233,9 @@ export const api = {
   autopilotOverview: (slug: string) => request<AutopilotOverview>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot`),
   featureFlags: (slug: string) => request<FeatureFlag[]>(`/tenants/${encodeURIComponent(slug)}/operations/flags`),
   tenant: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}`),
+  // The ninety-day guarantee — baseline frozen at first measured fan-graph
+  // report, verdict derived on read. A tenant-scoped read, like the rest.
+  tenantGuarantee: (slug: string) => request<GuaranteeView>(`/tenants/${encodeURIComponent(slug)}/guarantee`),
   tenantRuntime: (slug: string) => request<TenantRuntimeSnapshot>(`/tenants/${encodeURIComponent(slug)}/runtime`),
   createTenant: (input: CreateTenantInput) =>
     request<TenantSummary>('/tenants', { method: 'POST', body: JSON.stringify(input) }),
@@ -359,12 +351,35 @@ export const api = {
       expected_version: policy.version,
     }),
   }),
-  // Opportunity board decisions. Both upstream mutations take no body; the
-  // idempotency key makes a lost response safe to retry as the same intent.
-  approveOpportunityAction: (slug: string, actionId: string) => request<{ operation_id: string; target_id: string; status: string; replayed: boolean }>(`/tenants/${encodeURIComponent(slug)}/operations/opportunities/actions/${encodeURIComponent(actionId)}/approve`, {
+  // Opportunity board decisions. `remember` is the standing-approval opt-in —
+  // "approve this and stop asking about this target". It is off by default:
+  // a grant changes authority and must be a typed choice, not the usual
+  // button's side effect. The idempotency key makes a lost response safe to
+  // retry as the same intent.
+  approveOpportunityAction: (slug: string, actionId: string, remember?: { days?: number; note?: string }) => request<{ mutation: { operation_id: string; target_id: string; status: string; replayed: boolean }; remembered: { granted: boolean; reason?: string } | null }>(`/tenants/${encodeURIComponent(slug)}/operations/opportunities/actions/${encodeURIComponent(actionId)}/approve`, {
     method: 'POST',
     headers: { 'idempotency-key': crypto.randomUUID() },
-    body: '{}',
+    body: JSON.stringify(remember ? { remember } : {}),
+  }),
+  // Standing approvals — what may run without asking. The grant itself is
+  // only ever written through the approve flow's `remember`; this pair lists
+  // and revokes. Revoke keeps the row stamped upstream.
+  standingApprovals: (slug: string) => request<{ items: StandingApproval[] }>(`/tenants/${encodeURIComponent(slug)}/operations/standing-approvals`),
+  revokeStandingApproval: (slug: string, actionKind: string, targetKey: string) => request<void>(`/tenants/${encodeURIComponent(slug)}/operations/standing-approvals/${encodeURIComponent(actionKind)}/${encodeURIComponent(targetKey)}`, { method: 'DELETE' }),
+  // The screened booking-agent registry. `approach` asks the agent for a
+  // season (queues an awaiting-approval action upstream); `recordReply`
+  // files what the agent answered — `occurred_at` is the operator's own
+  // timestamp so a retried submit reads as the same filing.
+  bookingAgents: (slug: string) => request<{ agents: BookingAgent[] }>(`/tenants/${encodeURIComponent(slug)}/operations/booking-agents`),
+  approachBookingAgent: (slug: string, agentId: string, note?: string) => request<{ action_id: string; status: string }>(`/tenants/${encodeURIComponent(slug)}/operations/booking-agents/approach`, {
+    method: 'POST',
+    headers: { 'idempotency-key': crypto.randomUUID() },
+    body: JSON.stringify({ agent_id: agentId, note: note ?? null }),
+  }),
+  recordBookingAgentReply: (slug: string, agentId: string, disposition: string, occurredAt: string) => request<Record<string, unknown>>(`/tenants/${encodeURIComponent(slug)}/operations/booking-agents/${encodeURIComponent(agentId)}/reply`, {
+    method: 'POST',
+    headers: { 'idempotency-key': crypto.randomUUID() },
+    body: JSON.stringify({ disposition, occurred_at: occurredAt }),
   }),
   cancelOpportunityAction: (slug: string, actionId: string) => request<{ operation_id: string; target_id: string; status: string; replayed: boolean }>(`/tenants/${encodeURIComponent(slug)}/operations/opportunities/actions/${encodeURIComponent(actionId)}/cancel`, {
     method: 'POST',
@@ -480,12 +495,6 @@ export const api = {
     request<AutomationWorkflowConfig>(`/tenants/${encodeURIComponent(slug)}/automation/workflows/${encodeURIComponent(workflowId)}`, { method: 'PATCH', body: JSON.stringify(input) }),
 
   // --- Agent service (proxied through control-plane) ---
-  agentTemplates: (slug: string) =>
-    request<{ templates: AgentTemplate[] }>(`/tenants/${encodeURIComponent(slug)}/agents/templates`),
-  agentTasks: (slug: string) =>
-    request<{ tasks: AgentTask[] }>(`/tenants/${encodeURIComponent(slug)}/agents/tasks`),
-  agentTaskResult: (slug: string, taskId: string) =>
-    request<AgentTaskResult>(`/tenants/${encodeURIComponent(slug)}/agents/tasks/${encodeURIComponent(taskId)}/result`),
   agentProviders: (slug: string) =>
     request<{ providers: AgentProvider[] }>(`/tenants/${encodeURIComponent(slug)}/agents/providers`),
   agentCredentials: (slug: string) =>
@@ -512,8 +521,6 @@ export const api = {
     }),
   agentModels: (slug: string) =>
     request<{ models: AgentModel[]; connectedProviders: string[] }>(`/tenants/${encodeURIComponent(slug)}/agents/models`),
-  agentSuggestions: (slug: string) =>
-    request<{ suggestions: TaskSuggestion[] }>(`/tenants/${encodeURIComponent(slug)}/agents/suggestions`),
   agentWorkflows: (slug: string, limit?: number) => {
     const qs = limit ? `?limit=${limit}` : ''
     return request<{ workflows: AgentWorkflow[] }>(`/tenants/${encodeURIComponent(slug)}/agents/workflows${qs}`)
@@ -533,8 +540,6 @@ export const api = {
   },
   usageAnalytics: (slug: string) =>
     request<UsageAnalyticsData>(`/tenants/${encodeURIComponent(slug)}/agents/usage/analytics`),
-  agentSchedules: (slug: string) =>
-    request<{ schedules: AgentSchedule[] }>(`/tenants/${encodeURIComponent(slug)}/agents/schedules`),
   // Consolidated read models — one round-trip per tab instead of 5/3.
   agentTasksOverview: (slug: string) =>
     request<AgentTasksOverview>(`/tenants/${encodeURIComponent(slug)}/agents/tasks-overview`),
@@ -550,13 +555,6 @@ export const api = {
     request<void>(`/tenants/${encodeURIComponent(slug)}/agents/schedules/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   agentToggleSchedule: (slug: string, id: string, enabled: boolean) =>
     request<void>(`/tenants/${encodeURIComponent(slug)}/agents/schedules/${encodeURIComponent(id)}/enabled`, { method: 'POST', body: JSON.stringify({ enabled }) }),
-
-  // --- AI Chatbot (proxied through control-plane to agent service) ---
-  agentChat: (slug: string, message: string, history: Array<{ role: 'user' | 'assistant'; content: string }>, pageContext?: string) =>
-    request<{ reply: string; actions: ChatAction[]; usage?: { tokens_in: number; tokens_out: number } }>(`/tenants/${encodeURIComponent(slug)}/agents/chat`, {
-      method: 'POST',
-      body: JSON.stringify({ message, history, page_context: pageContext }),
-    }),
 
   // --- Fanbase connections ---
   fanbaseConnections: (slug: string) =>
@@ -649,6 +647,20 @@ export const api = {
     request<FanDetail>(`/tenants/${encodeURIComponent(slug)}/audience/fans/${encodeURIComponent(fanId)}`),
   fanJourney: (slug: string, fanId: string) =>
     request<FanJourneyEntry[]>(`/tenants/${encodeURIComponent(slug)}/audience/fans/${encodeURIComponent(fanId)}/journey`),
+  // The operator's own labels on a fan — upstream stores them with
+  // source='operator'. Add rides the body, remove the path.
+  addFanTag: (slug: string, fanId: string, tag: string) =>
+    request<Record<string, unknown>>(`/tenants/${encodeURIComponent(slug)}/audience/fans/${encodeURIComponent(fanId)}/tags`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ tag }),
+    }),
+  removeFanTag: (slug: string, fanId: string, tag: string) =>
+    request<Record<string, unknown>>(`/tenants/${encodeURIComponent(slug)}/audience/fans/${encodeURIComponent(fanId)}/tags/${encodeURIComponent(tag)}/remove`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: '{}',
+    }),
   audienceSegmentPreview: (slug: string, segmentSlug: string) =>
     request<SegmentPreview>(`/tenants/${encodeURIComponent(slug)}/audience/segments/${encodeURIComponent(segmentSlug)}/preview`),
   // Where the fans are, and the rooms near them. Both read models shipped with
@@ -660,6 +672,14 @@ export const api = {
     ),
   cityVenues: (slug: string) =>
     request<CityVenueRow[]>(`/tenants/${encodeURIComponent(slug)}/audience/city-venues`),
+  // The registry-verification brief: the held venues, bands and booking
+  // agents as a paste-ready prompt — verify each entry's liveness, mark the
+  // dead, name the missing. `brief` is null only when all three registries
+  // are empty.
+  registryVerificationBrief: (slug: string) =>
+    request<{ brief: string | null }>(
+      `/tenants/${encodeURIComponent(slug)}/audience/registry-verification-brief`,
+    ),
   // What the band should book next — the proposals, the cities passed over
   // with the reason each one is not a proposal, and the track record those
   // reasons now carry. `intent` is a one-off override ("what if we were

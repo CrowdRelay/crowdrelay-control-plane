@@ -309,6 +309,30 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/opportunities/decisions/{decision_id}/handled-externally",
             post(handle_opportunity_externally),
         )
+        // Standing grants — what may run without asking. List on the
+        // policies screen; grant rides the approve body's `remember`;
+        // revoke keeps the row stamped rather than deleting it.
+        .route(
+            "/tenants/{slug}/operations/standing-approvals",
+            get(standing_approvals),
+        )
+        .route(
+            "/tenants/{slug}/operations/standing-approvals/{action_kind}/{target_key}",
+            axum::routing::delete(revoke_standing_approval),
+        )
+        // The booking-agent registry — the season letter and the filed reply.
+        .route(
+            "/tenants/{slug}/operations/booking-agents",
+            get(booking_agents),
+        )
+        .route(
+            "/tenants/{slug}/operations/booking-agents/approach",
+            post(request_booking_agent_approach),
+        )
+        .route(
+            "/tenants/{slug}/operations/booking-agents/{agent_id}/reply",
+            post(record_booking_agent_reply),
+        )
         // Audience attestations — the proof cards. Issue measures the
         // tenant's own ledgers upstream; these routes are transport only.
         .route(
@@ -353,6 +377,16 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/audience/fans/{fan_id}/journey",
             get(audience_fan_journey),
         )
+        // Fan tags — the operator's own labels on a fan. Add rides the body
+        // (`{tag}`), remove the path — same split upstream owns.
+        .route(
+            "/tenants/{slug}/audience/fans/{fan_id}/tags",
+            post(add_fan_tag),
+        )
+        .route(
+            "/tenants/{slug}/audience/fans/{fan_id}/tags/{tag}/remove",
+            post(remove_fan_tag),
+        )
         .route("/tenants/{slug}/audience/segments", get(audience_segments))
         .route(
             "/tenants/{slug}/audience/segments/{slug_segment}/preview",
@@ -365,6 +399,10 @@ pub fn router() -> Router<AppState> {
         .route(
             "/tenants/{slug}/audience/city-venues",
             get(audience_city_venues),
+        )
+        .route(
+            "/tenants/{slug}/audience/registry-verification-brief",
+            get(audience_registry_verification_brief),
         )
         // ── Growth metrics, objectives, posture (read + mutate) ────────
         .route(
@@ -1917,19 +1955,52 @@ async fn bulk_autopilot(
     )
 }
 
+/// The approve body the proxy forwards — upstream's `ApproveActionRequest`
+/// mirrored field for field so a mistyped key fails here instead of riding
+/// through: `revision` is the staff surface's corrected-words map, `remember`
+/// is the standing-approval opt-in ("approve this and stop asking about this
+/// target"). Both absent is the plain approve the button has always meant.
+#[derive(Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct ApproveOpportunityBody {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    revision: Option<std::collections::BTreeMap<String, String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    remember: Option<RememberGrantBody>,
+}
+
+/// How long "stop asking" lasts and why the operator said yes — mirrors
+/// upstream `RememberRequest`. Omitted `days` is the upstream default.
+#[derive(Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct RememberGrantBody {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    days: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    note: Option<String>,
+}
+
 /// "Do it": approve the parked action of one finding through CrowdRelay's
 /// canonical approval endpoint. The Control Plane adds only transport
 /// validation, the derived per-tenant credential and this audit row — never a
-/// second authority path. Upstream optionally accepts `{"revision": {...}}`;
-/// this proxy sends none — the revision editor lives on Virya's staff surface.
+/// second authority path. The body may carry `{"revision": {...}}` (the staff
+/// surface's edit) or `{"remember": {...}}` — the standing grant opt-in.
 async fn approve_opportunity(
     State(state): State<AppState>,
     Path((slug, action_id)): Path<(String, String)>,
     headers: HeaderMap,
+    payload: Option<Json<ApproveOpportunityBody>>,
 ) -> Result<Response, ApiError> {
     let action_id = uuid_segment(&action_id)?.to_owned();
     let idempotency = idempotency_key(&headers)?.to_owned();
     let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let body = match payload {
+        Some(Json(body)) => Some(
+            serde_json::to_value(&body)
+                .map_err(|_| ApiError::InvalidInput("invalid approve body".to_owned()))?,
+        ),
+        None => None,
+    };
     let result = state
         .area_client
         .request_management(
@@ -1938,7 +2009,7 @@ async fn approve_opportunity(
             ManagementRequest {
                 method: "POST",
                 path: &format!("/v1/control-plane/autopilot/actions/{action_id}/approve"),
-                body: None,
+                body: body.as_ref(),
                 correlation_id: correlation(&headers),
                 idempotency_key: Some(&idempotency),
             },
@@ -1958,6 +2029,218 @@ async fn approve_opportunity(
     let result = result?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(result, "opportunity approval")
+}
+
+/// What may run without asking — the standing grants written through the
+/// approve flow's `remember` opt-in. Read-only like the policy list it sits
+/// beside; a grant is never written from this screen.
+async fn standing_approvals(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/standing-approvals",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "standing approvals")
+}
+
+/// `action_kind`/`target_key` are upstream identifiers like
+/// `community.engage.request` — the same charset a correlation id carries.
+fn grant_segment(value: &str) -> Result<&str, ApiError> {
+    if value.is_empty()
+        || value.len() > 128
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b':'))
+    {
+        return Err(ApiError::InvalidInput(
+            "valid approval kind and target are required".to_owned(),
+        ));
+    }
+    Ok(value)
+}
+
+/// Revoke one standing grant. Upstream stamps the row revoked rather than
+/// deleting it — the "which of these did we turn off" question stays
+/// answerable — and answers 204.
+async fn revoke_standing_approval(
+    State(state): State<AppState>,
+    Path((slug, action_kind, target_key)): Path<(String, String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let action_kind = grant_segment(&action_kind)?;
+    let target_key = grant_segment(&target_key)?;
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "DELETE",
+                path: &format!(
+                    "/v1/control-plane/autopilot/standing-approvals/{action_kind}/{target_key}"
+                ),
+                body: None,
+                correlation_id: correlation(&headers),
+                idempotency_key: None,
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.standing_approval.revoked",
+        "standing_approval",
+        &format!("{action_kind}/{target_key}"),
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    Ok(StatusCode::NO_CONTENT.into_response())
+}
+
+/// The screened booking-agent registry as the band sees it — who the agents
+/// are, where each season door stands. The contact address never leaves
+/// upstream, so it is not in the payload to begin with.
+async fn booking_agents(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/booking-agents",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "booking agents")
+}
+
+/// The band asks to approach one screened agent — `{agent_id, note?}`.
+/// Upstream runs the season gate and queues an awaiting-approval action;
+/// the idempotency key makes a retried click the same ask.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BookingAgentApproachInput {
+    agent_id: Uuid,
+    #[serde(default)]
+    note: Option<String>,
+}
+
+async fn request_booking_agent_approach(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<BookingAgentApproachInput>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let payload = json!({ "agent_id": body.agent_id, "note": body.note });
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: "/v1/control-plane/booking-agents/approach",
+                body: Some(&payload),
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.booking_agent.approach_requested",
+        "booking_agent",
+        &body.agent_id.to_string(),
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "booking agent approach")
+}
+
+/// `{disposition, occurred_at}` — the operator files what the agent answered.
+/// `occurred_at` is required upstream (a retried submit must read as the same
+/// operation); the proxy checks shape and lets upstream own the vocabulary.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BookingAgentReplyInput {
+    disposition: String,
+    occurred_at: String,
+}
+
+async fn record_booking_agent_reply(
+    State(state): State<AppState>,
+    Path((slug, agent_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<BookingAgentReplyInput>,
+) -> Result<Response, ApiError> {
+    let agent_id = uuid_segment(&agent_id)?.to_owned();
+    if body.disposition.trim().is_empty() || body.disposition.len() > 64 {
+        return Err(ApiError::InvalidInput(
+            "a reply disposition is required".to_owned(),
+        ));
+    }
+    if body.occurred_at.trim().is_empty() || body.occurred_at.len() > 64 {
+        return Err(ApiError::InvalidInput(
+            "when the reply arrived is required".to_owned(),
+        ));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let payload =
+        json!({ "disposition": body.disposition.trim(), "occurred_at": body.occurred_at });
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: &format!("/v1/control-plane/booking-agents/{agent_id}/reply"),
+                body: Some(&payload),
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.booking_agent.reply_recorded",
+        "booking_agent",
+        &agent_id,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "booking agent reply")
 }
 
 /// The tenant's issued audience attestations, newest first — the list an
@@ -3400,6 +3683,107 @@ async fn audience_fan_journey(
     object_no_store(value, "fan journey")
 }
 
+/// `valid_tag` mirrored from CrowdRelay: lowercase or digit start, then
+/// lowercase / digit / `:` / `_` / `-`, max 64 chars. The proxy lowercases
+/// first — an operator typing "VIP" writes `vip`, same as upstream.
+fn valid_fan_tag(tag: &str) -> bool {
+    let mut chars = tag.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    tag.len() <= 64
+        && (first.is_ascii_lowercase() || first.is_ascii_digit())
+        && chars
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, ':' | '_' | '-'))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FanTagInput {
+    tag: String,
+}
+
+/// POST — adds an operator tag to a fan. Upstream stores source='operator'.
+async fn add_fan_tag(
+    State(state): State<AppState>,
+    Path((slug, fan_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<FanTagInput>,
+) -> Result<Response, ApiError> {
+    let fan_id = uuid_segment(&fan_id)?;
+    let tag = body.tag.trim().to_ascii_lowercase();
+    if !valid_fan_tag(&tag) {
+        return Err(ApiError::InvalidInput(
+            "a tag is lowercase letters, digits, ':', '_' or '-' — 64 chars max".to_owned(),
+        ));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &format!("/v1/control-plane/audience/fans/{fan_id}/tags"),
+        Some(&json!({ "tag": tag })),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.fan.tag_added",
+        "fan",
+        fan_id,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    mutation_no_store(value, "fan tag add")
+}
+
+/// POST — removes an operator tag from a fan.
+async fn remove_fan_tag(
+    State(state): State<AppState>,
+    Path((slug, fan_id, tag)): Path<(String, String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let fan_id = uuid_segment(&fan_id)?;
+    let tag = tag.trim().to_ascii_lowercase();
+    if !valid_fan_tag(&tag) {
+        return Err(ApiError::InvalidInput(
+            "a tag is lowercase letters, digits, ':', '_' or '-' — 64 chars max".to_owned(),
+        ));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &format!("/v1/control-plane/audience/fans/{fan_id}/tags/{tag}/remove"),
+        None,
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.fan.tag_removed",
+        "fan",
+        fan_id,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    mutation_no_store(value, "fan tag remove")
+}
+
 async fn audience_segments(
     State(state): State<AppState>,
     Path(slug): Path<String>,
@@ -4223,6 +4607,29 @@ async fn audience_city_venues(
     )
     .await?;
     array_no_store(value, "city venues")
+}
+
+/// The registry-verification brief: the held venues, bands and booking
+/// agents rendered into the paste-ready prompt an operator hands to their
+/// AI — verify each entry's liveness, mark the dead ones, name the active
+/// ones the registry misses. The answer sheets land back through the Drive
+/// intake upstream.
+async fn audience_registry_verification_brief(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/audience/registry-verification-brief",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "registry verification brief")
 }
 
 async fn tour_economics(

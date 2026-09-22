@@ -241,12 +241,14 @@ export function TabPanel(props: {
   )
 }
 
-export function useTabPanels(initial: string, valid?: string[]) {
-  // `?tab=<id>` lets a link or an external redirect (OAuth return) land on a
-  // specific tab. Only honored when the caller passes its full id list —
+export function useTabPanels(initial: string, valid?: string[], param = 'tab') {
+  // `?<param>=<id>` lets a link or an external redirect (OAuth return) land on
+  // a specific tab. Only honored when the caller passes its full id list —
   // without it a stray query param would activate a tab that does not exist
-  // and every panel would render hidden.
-  const requested = new URLSearchParams(window.location.search).get('tab')
+  // and every panel would render hidden. `param` names the query key — a tab
+  // set nested inside another page's tab (the communities sub-tabs inside
+  // Audience) must take a different name or its writes evict the parent's.
+  const requested = new URLSearchParams(window.location.search).get(param)
   const start = requested && valid?.includes(requested) ? requested : initial
   const [activeTab, setActiveTab] = createSignal(start)
   const [visited, setVisited] = createSignal<Set<string>>(new Set([start]))
@@ -265,13 +267,13 @@ export function useTabPanels(initial: string, valid?: string[]) {
   if (valid) {
     const navigate = useNavigate()
     const locationSearch = useRouterState({ select: s => s.location.search })
-    // `tab` is the page's one search param: the effect snaps back to
-    // `initial` whenever it is absent or invalid, and switchTab's write
-    // replaces the whole search object — a page that gains a second param
-    // must widen both sides before the param survives a tab switch.
+    // The effect snaps back to `initial` whenever the param is absent or
+    // invalid, and switchTab merges its key into the search object — a second
+    // param (the nested `subtab`) survives a tab switch instead of evicting
+    // the parent's `tab`.
     switchTab = (id: string) => {
       rawSwitch(id)
-      void navigate({ to: '.', search: { tab: id }, replace: true } as any)
+      void navigate({ to: '.', search: (prev: Record<string, unknown>) => ({ ...prev, [param]: id }), replace: true } as any)
     }
     // Follow the URL, not the local selection. This effect used to track
     // `activeTab` as well, so a click re-ran it before the router had taken
@@ -281,7 +283,7 @@ export function useTabPanels(initial: string, valid?: string[]) {
     // the URL. Reading the selection untracked keeps a click where it landed
     // while links, back and forward still drive the tab.
     createEffect(() => {
-      const t = (locationSearch() as Record<string, unknown>)?.tab
+      const t = (locationSearch() as Record<string, unknown>)?.[param]
       const target = typeof t === 'string' && valid.includes(t) ? t : initial
       untrack(() => { if (target !== activeTab()) rawSwitch(target) })
     })

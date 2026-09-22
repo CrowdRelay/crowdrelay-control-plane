@@ -190,6 +190,9 @@ const SUBPAGES = [
   { path: '/tenants/virya/integrations', name: 'integrations' },
   { path: '/tenants/virya/funnel', name: 'growth-funnel' },
   { path: '/tenants/virya/notifiers', name: 'notifiers' },
+  { path: '/tenants/virya/health', name: 'health' },
+  { path: '/tenants/virya/health?tab=policies', name: 'health-policies' },
+  { path: '/tenants/virya/beacons', name: 'beacons' },
   { path: '/attention', name: 'operator-attention' },
   { path: '/automation', name: 'automation' },
 ]
@@ -246,6 +249,35 @@ test.describe('Control Plane E2E @e2e', () => {
     await page.waitForTimeout(1000)
     expect(page.url()).toContain('/tenants/virya')
     expect(page.url()).not.toContain('/operations')
+  })
+
+  // The Settings link declares ?tab=profile but must stay lit on Deployment
+  // and Access too — strict query matching once made the item go dark the
+  // moment the operator clicked a second tab.
+  test('Settings nav stays active across its tabs @e2e @tabs', async ({ page }) => {
+    await page.goto('/tenants/virya?tab=profile')
+    await page.waitForSelector('#tab-deployment', { timeout: 30000 })
+    const settingsLink = page.getByRole('link', { name: 'Settings' }).first()
+    // `aria-current` is the marker that survives the SidebarMenuButton `as`
+    // composition — TanStack sets `data-status` too, but the wrapper drops it.
+    await expect(settingsLink).toHaveAttribute('aria-current', 'page')
+    await page.click('#tab-deployment')
+    await expect(page).toHaveURL(/tab=deployment/)
+    await expect(settingsLink).toHaveAttribute('aria-current', 'page')
+    await page.click('#tab-access')
+    await expect(page).toHaveURL(/tab=access/)
+    await expect(settingsLink).toHaveAttribute('aria-current', 'page')
+  })
+
+  // Operations' tabs write ?tab= so a deep link or refresh keeps the view —
+  // the page once mounted without its valid list and the param did nothing.
+  test('Operations tabs deep-link and write back @e2e @tabs', async ({ page }) => {
+    await page.goto('/tenants/virya/operations?tab=plays')
+    await page.waitForSelector('#tab-plays', { timeout: 30000 })
+    await expect(page.locator('#tab-plays')).toHaveAttribute('aria-selected', 'true')
+    await page.click('#tab-releases')
+    await expect(page).toHaveURL(/tab=releases/)
+    await expect(page.locator('#tab-releases')).toHaveAttribute('aria-selected', 'true')
   })
 
   // The process view: the run list loads in one call and renders either run

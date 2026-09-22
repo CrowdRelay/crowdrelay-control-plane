@@ -4,6 +4,7 @@ import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { confidencePercent, errorMessage, money } from '../lib/format'
+import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { refreshQueries } from '../lib/refresh'
 import { EmptyState } from './ui/empty-state'
 import type { ReplyTriageEntry } from '../lib/types'
@@ -53,15 +54,21 @@ const targetKindLabel = (kind: string) =>
 
 export function ReplyTriagePanel() {
   const params = useParams({ from: '/tenants/$slug/operations' })
+  // The reply queue rides the tenant's /today snapshot — same query key the
+  // page already holds, so this subscriber adds no request of its own.
   const model = useQuery(() => ({
-    queryKey: ['reply-triage', params().slug],
-    queryFn: () => api.replyTriage(params().slug),
+    queryKey: ['tenant-today', params().slug],
+    queryFn: () => api.tenantToday(params().slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
-    staleTime: 20_000,
+    staleTime: 10_000,
+    // Same retry rule the page carries — every observer of a shared key
+    // must poll a degraded section until it fills, or this subscriber's
+    // "retrying" note would lie when it ever mounts alone.
+    refetchInterval: whileIncomplete(hasDegradedSections),
   }))
 
-  const data = () => model.data
+  const data = () => model.data?.reply_triage
 
   const [showAllNeedsHuman, setShowAllNeedsHuman] = createSignal(false)
   const [showAllRecentAuto, setShowAllRecentAuto] = createSignal(false)
@@ -85,6 +92,15 @@ export function ReplyTriagePanel() {
     </Show>
 
     <Show when={!model.error && model.isPending}><SkeletonReplyTriage /></Show>
+
+    {/* The today snapshot loaded but the tenant's triage section did not —
+        degraded, not empty. The page retries until it fills; say so instead
+        of leaving a blank tab. */}
+    <Show when={model.data && !data()}>
+      <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground mt-4" role="status">
+        {authState.isPlatformLevel() ? 'Reply triage did not answer — retrying shortly.' : 'The replies list did not answer — retrying shortly.'}
+      </div>
+    </Show>
 
     <Show when={data()}>{d => <>
       {/* Summary: the same metric rail every page uses. The word "classified"
@@ -154,7 +170,7 @@ function ReplyRow(props: { entry: ReplyTriageEntry; slug: string; actionable?: b
         disposition,
         occurredAt: new Date().toISOString(),
       })
-      refreshQueries(['reply-triage', props.slug])
+      refreshQueries(['tenant-today', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to record the disposition'))
     } finally {

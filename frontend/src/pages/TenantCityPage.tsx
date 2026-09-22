@@ -393,6 +393,19 @@ export function TenantCityPage() {
                             {row.assessment_sentence}
                           </p>
                         </Show>
+                        <Show when={row.assessment === 'closed'}>
+                          <p class="m-0 mt-1 max-w-xs text-xs leading-relaxed font-normal text-warning-foreground">
+                            {row.assessment_sentence}
+                          </p>
+                        </Show>
+                        {/* not_assessed — the tenant's own facts could not be
+                            read, so the sentence says so rather than claiming
+                            a verdict the read could not support. */}
+                        <Show when={row.assessment === 'not_assessed'}>
+                          <p class="m-0 mt-1 max-w-xs text-xs italic leading-relaxed font-normal text-muted-foreground/60">
+                            {row.assessment_sentence}
+                          </p>
+                        </Show>
                       </TableCell>
                       <TableCell class="text-right tabular-nums">
                         {count(row.shows_played)}
