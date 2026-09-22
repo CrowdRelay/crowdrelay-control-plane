@@ -20,6 +20,7 @@ import { MeasurementPanel } from '../components/MeasurementPanel'
 import { GrowthPosturePanel } from '../components/GrowthPosturePanel'
 import { GrowthMetricsPanel } from '../components/GrowthMetricsPanel'
 import { AcquisitionChannelsPanel } from '../components/AcquisitionChannelsPanel'
+import { FanAttributionPanel } from '../components/FanAttributionPanel'
 import { GrowthFunnelPanel } from '../components/GrowthFunnelPanel'
 import { SkeletonBrainGroup, SkeletonSection } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
@@ -153,6 +154,10 @@ export function TenantIntelligencePage() {
       <TabPanel active={activeTab()} id="funnel" visited={isVisited('funnel')}>
         <GrowthMetricsPanel slug={params().slug} />
         <AcquisitionChannelsPanel slug={params().slug} />
+        {/* The causal half of the same question — the channels panel says
+            where fans arrived from, this says which templates and strategies
+            produced them, and when the growth rate itself shifted. */}
+        <FanAttributionPanel slug={params().slug} />
         <GrowthFunnelPanel slug={params().slug} />
       </TabPanel>
 
