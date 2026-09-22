@@ -524,6 +524,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/tenant-settings"
                     | "/v1/control-plane/tenant-settings/north-stars"
                     | "/v1/control-plane/tenant-settings/intents"
+                    // Tenant-held credentials: the masked inventory. The
+                    // value itself is never readable — only the hint.
+                    | "/v1/control-plane/secrets"
                     | "/v1/control-plane/fanbases"
                     | "/v1/control-plane/fanbases/connections"
                     | "/v1/control-plane/gdrive/contacts"
@@ -820,6 +823,10 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
             // whole-resource replacements — PUT is their truthful verb.
             safe_segment_between(path, "/v1/control-plane/events/", "/acts")
                 || safe_segment_between(path, "/v1/control-plane/events/", "/counterparty")
+                // Tenant-held credentials: write-only set. The name segment
+                // is bounded upstream by its own allowlist; the value rides
+                // the body and is never echoed back.
+                || one_safe_segment(path, "/v1/control-plane/secrets/")
         }
         "PATCH" => {
             // The connection's scan boundary — the tenant choosing what the
@@ -838,6 +845,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 // organiser link — both leave the row as the audit.
                 || uuid_segment_between(path, "/v1/control-plane/nights/", "/organiser-link")
                 || night_contribution_path(path)
+                // Unsetting a tenant credential — same name segment the PUT
+                // writes.
+                || one_safe_segment(path, "/v1/control-plane/secrets/")
         }
         _ => false,
     }
@@ -1815,8 +1825,32 @@ mod tests {
             "POST",
             &format!("/v1/control-plane/nights/{id}/acts/bravo-act")
         ));
-        // The show setup writes are the allowlist's only PUTs — the bill and
-        // the counterparty, both slug-parameterized like the event reads.
+        // Tenant-held credentials: the masked list is a fixed-path GET; the
+        // writes are name-segment PUT/DELETE with no read-back — a GET on a
+        // named secret, a bare-name write, or a trailing segment all fail.
+        assert!(valid_operations_request("GET", "/v1/control-plane/secrets"));
+        assert!(valid_operations_request(
+            "PUT",
+            "/v1/control-plane/secrets/stripe_secret_key"
+        ));
+        assert!(valid_operations_request(
+            "DELETE",
+            "/v1/control-plane/secrets/stripe_webhook_secret"
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/secrets/stripe_secret_key"
+        ));
+        assert!(!valid_operations_request(
+            "PUT",
+            "/v1/control-plane/secrets"
+        ));
+        assert!(!valid_operations_request(
+            "PUT",
+            "/v1/control-plane/secrets/stripe_secret_key/extra"
+        ));
+        // The show setup writes — the bill and the counterparty, both
+        // slug-parameterized like the event reads.
         assert!(valid_operations_request(
             "PUT",
             "/v1/control-plane/events/friday-night/acts"

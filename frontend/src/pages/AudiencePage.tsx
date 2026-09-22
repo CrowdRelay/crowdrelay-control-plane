@@ -8,6 +8,7 @@ import { FanTablePanel } from '../components/FanTablePanel'
 import { FanSourcesPanel } from '../components/FanSourcesPanel'
 import { PortfolioPanel } from '../components/PortfolioPanel'
 import { PortfolioSettingsPanel } from '../components/PortfolioSettingsPanel'
+import { TenantSecretsPanel } from '../components/TenantSecretsPanel'
 import { RedditCookieUploader } from '../components/RedditCookieUploader'
 import { SegmentPanel } from '../components/SegmentPanel'
 import { DriveContactsPanel } from '../components/DriveContactsPanel'
@@ -255,6 +256,9 @@ export function AudiencePage() {
           />
         </Show>
       </>}</Show>
+      {/* Keys query their own channel — a degraded settings section, or a
+          portfolio channel that fails outright, must not take them down. */}
+      <TenantSecretsPanel slug={params().slug} />
     </TabPanel>
   </PageShell>
 }

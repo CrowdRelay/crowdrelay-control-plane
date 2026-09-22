@@ -1302,6 +1302,14 @@ export interface PortfolioSettingsReadModel {
   editable_keys: string[]
 }
 
+// A tenant-held credential the operator can see exists — the masked hint and
+// when it was set. The value itself is never returned by any read.
+export interface TenantSecret {
+  name: string
+  masked_hint: string
+  updated_at: string
+}
+
 export interface FanbaseBlock {
   id: string
   name: string
