@@ -1,7 +1,7 @@
 import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Link, useParams } from '@tanstack/solid-router'
-import { RefreshCw } from 'lucide-solid'
+import { Activity, Bot, ChartLine, Inbox, MapPin, RefreshCw, Send, Target, Ticket, Users } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { formatTimestamp, relativeTime } from '../lib/format'
@@ -15,8 +15,9 @@ import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { ListingPanel } from '../components/ListingPanel'
 import { AttestationsPanel } from '../components/AttestationsPanel'
-import { SkeletonKpiStrip, SkeletonSection } from '../components/Skeleton'
-import { Eyebrow, KpiCard, KpiStrip, PageShell, PageHeader, Section, SkeletonBlock, TabBar, TabPanel, useTabPanels } from '../components/layout'
+import { SkeletonSection } from '../components/Skeleton'
+import { BarList, DeltaBadge, Donut, Legend, Ring, StackBar, Widget, type Segment } from '../components/charts'
+import { PageShell, PageHeader, Section, SkeletonBlock, TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { SectionIcon } from '../components/SectionIcon'
 import { StatusBadge } from '../components/StatusBadge'
 import { TenantStatusLine } from '../components/TenantStatusLine'
@@ -26,6 +27,13 @@ import { SectionFailureCard } from '../components/SectionFailureCard'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
 import type { TenantOperationsReadModel } from '../lib/types'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
+
+const TONE_DOT = {
+  good: 'bg-success-foreground',
+  warn: 'bg-warning-foreground',
+  bad: 'bg-error-foreground',
+  muted: 'bg-muted-foreground/40',
+} as const
 
 const metric = (value: number | undefined | null, suffix = '') =>
   value == null ? '—' : `${value.toLocaleString()}${suffix}`
@@ -92,7 +100,6 @@ export function TenantOperationsPage() {
   )
   const needsYouCount = () => autopilot()?.needs_you.length ?? 0
   const awaitingApproval = () => d()?.opportunities?.filter(o => o.authority === 'awaiting_approval').length ?? 0
-  const hasAttention = () => needsYouCount() > 0 || awaitingApproval() > 0 || deadJobs() > 0
 
   // "The change this month" has two honest readings already in the
   // composite: arrivals (`new_fans_30d`, rolling) and the net population
@@ -103,22 +110,6 @@ export function TenantOperationsPage() {
       s => s.platform === 'signal' && s.metric_key === 'active_fans' && !s.stale,
     ),
   )
-  // "Where they came from" rides the same composite — the acquisition
-  // section covers every tracked fan (concert QR, imports, purchases), not
-  // just click-attributed signups. "Most came from X" is only claimed when
-  // the top source actually beat the untracked bucket.
-  const topSource = createMemo(() => {
-    const acq = model.data?.acquisition_sources
-    const top = acq?.sources?.[0]
-    if (!acq || !top || acq.tracked_fans === 0) return null
-    return {
-      name: top.source.replaceAll('_', ' '),
-      fans: top.fans,
-      // "Most came from X" means an actual majority of all fans — beating
-      // the untracked bucket alone only proves a plurality.
-      majority: top.fans * 2 > acq.active_fans,
-    }
-  })
   // The next show — the timeline of the nearest upcoming night for the
   // two-or-three steps that still need a person.
   const shows = useQuery(() => ({
@@ -158,6 +149,81 @@ export function TenantOperationsPage() {
       .slice(0, 3)
   })
 
+  // ── Widget data ──────────────────────────────────────────────────────
+  const waitingTotal = () => needsYouCount() + awaitingApproval()
+  const waitingSegments = (): Segment[] => [
+    { key: 'needs-you', label: authState.isPlatformLevel() ? 'Autopilot approvals' : 'Approvals', value: needsYouCount(), class: 'bg-chart-1' },
+    { key: 'opportunities', label: 'Opportunities to approve', value: awaitingApproval(), class: 'bg-chart-4' },
+  ]
+  const queues = () => {
+    const s = summary()
+    return s
+      ? [
+          { label: 'Outbox', summary: s.outbox },
+          { label: 'Deliveries', summary: s.deliveries },
+          { label: 'Push', summary: s.push },
+        ]
+      : []
+  }
+  const deliveredShare = () => {
+    const t = growth()?.totals
+    if (!t) return null
+    const all = t.delivered + t.pending + t.failed
+    return all === 0 ? null : t.delivered / all
+  }
+  const autopilotSegments = (): Segment[] => {
+    const a = autopilot()
+    return [
+      { key: 'succeeded', label: 'Succeeded · 24h', value: a?.succeeded_24h ?? 0, class: 'bg-success-foreground' },
+      { key: 'awaiting', label: authState.isPlatformLevel() ? 'Waiting on a worker' : 'Waiting to run', value: a?.awaiting_executor ?? 0, class: 'bg-chart-4' },
+      { key: 'failed', label: 'Failed · 24h', value: a?.failed_24h ?? 0, class: 'bg-error-foreground' },
+    ]
+  }
+  const reachShare = () => {
+    const a = d()?.audience
+    return a && a.active_fans > 0 ? a.marketing_consented_fans / a.active_fans : null
+  }
+  const shareOfActive = (value: number) => {
+    const active = d()?.audience?.active_fans ?? 0
+    return active > 0 ? `${Math.round((value / active) * 100)}%` : undefined
+  }
+  // This week's arrivals per day against the 30-day rate. `change` is null
+  // when the month had no arrivals to compare against.
+  const pace = createMemo(() => {
+    const act = d()?.signal?.activity
+    if (act?.new_fans_7d == null || act.new_fans_30d == null) return null
+    const week = act.new_fans_7d / 7
+    const month = act.new_fans_30d / 30
+    return { week, month, change: month > 0 ? week / month - 1 : null }
+  })
+  // Top four sources, the rest folded into "other", and fans with no
+  // recorded source as their own muted arc.
+  const SOURCE_COLORS = [
+    { class: 'stroke-chart-1', dot: 'bg-chart-1' },
+    { class: 'stroke-chart-2', dot: 'bg-chart-2' },
+    { class: 'stroke-chart-3', dot: 'bg-chart-3' },
+    { class: 'stroke-chart-4', dot: 'bg-chart-4' },
+  ]
+  const sourceSegments = createMemo((): Array<Segment & { note?: string; dot?: string }> => {
+    const acq = d()?.acquisition_sources
+    if (!acq) return []
+    const sources = acq.sources ?? []
+    const top = sources.slice(0, 4).map((s, i) => ({
+      key: s.source,
+      label: s.source.replaceAll('_', ' '),
+      value: s.fans,
+      ...SOURCE_COLORS[i]!,
+      note: s.fans_30d > 0 ? `+${s.fans_30d.toLocaleString()}` : undefined,
+    }))
+    const other = sources.slice(4).reduce((sum, s) => sum + s.fans, 0)
+    const untracked = acq.active_fans - acq.tracked_fans
+    return [
+      ...top,
+      ...(other > 0 ? [{ key: 'other', label: 'other sources', value: other, class: 'stroke-chart-5', dot: 'bg-chart-5' }] : []),
+      ...(untracked > 0 ? [{ key: 'untracked', label: 'no source recorded', value: untracked, class: 'stroke-muted-foreground/40', dot: 'bg-muted-foreground/40' }] : []),
+    ]
+  })
+
   // "Updated 2m ago" has to keep moving while the page sits open.
   const [now, setNow] = createSignal(Date.now())
   const tick = setInterval(() => setNow(Date.now()), 15_000)
@@ -172,7 +238,9 @@ export function TenantOperationsPage() {
       title="Today"
       description={authState.isPlatformLevel() ? 'Your daily worklist. Anything the autopilot needs a decision on is here — work the list top to bottom.' : 'Your daily worklist. Anything the brain needs a decision on is here — work the list top to bottom.'}
       actions={
-        <>
+        // Hidden for now — the widgets below already carry health and the
+        // autopilot state; kept in the tree so it can come back with a class.
+        <div class="hidden">
           <Show when={model.data && !model.error}>
             <StatusBadge status={healthBadgeLabel()} tone={healthTone()} />
             <Show when={autopilot()?.runtime_enabled}>
@@ -184,7 +252,7 @@ export function TenantOperationsPage() {
             <RefreshCw class={cn(model.isFetching && 'animate-spin')} aria-hidden="true" />
             Refresh
           </Button>
-        </>
+        </div>
       }
     />
 
@@ -202,59 +270,111 @@ export function TenantOperationsPage() {
     {/* Operations and Intelligence share the query key, so the skeleton
         shows whenever there is no data to render, not only on first fetch. */}
     <Show when={!model.error && !model.data}>
-      <SkeletonKpiStrip count={4} />
-      <SkeletonBlock style={{ 'min-height': '120px' }} />
+      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <For each={[0, 1, 2, 3]}>{() => <SkeletonBlock style={{ 'min-height': '180px' }} />}</For>
+      </div>
+      <SkeletonBlock style={{ 'min-height': '320px' }} />
     </Show>
 
     <Show when={model.data && !model.error}>
-      {/* Four figures: is anything mine, is anything broken, is work going
-          out, is the autopilot working. */}
-      <KpiStrip>
-        <KpiCard
+      {/* Four widgets: is anything mine, is anything broken, is work going
+          out, is the autopilot working. Each draws its answer before it
+          spells it out. */}
+      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Widget
           label="Waiting for you"
-          tone={hasAttention() ? 'warn' : 'good'}
-          value={needsYouCount() + awaitingApproval()}
-          sub={needsYouCount() + awaitingApproval() > 0
-            ? <Link to="/tenants/$slug/attention" params={{ slug: params().slug }} class="text-primary underline-offset-4 hover:underline">decide on Needs you</Link>
-            : 'nothing to decide'}
-        />
-        <KpiCard
+          icon={<Inbox class="size-4" aria-hidden="true" />}
+          action={<Show when={waitingTotal() > 0}>
+            <Link to="/tenants/$slug/attention" params={{ slug: params().slug }} class="font-medium text-primary underline-offset-4 hover:underline">Decide</Link>
+          </Show>}
+        >
+          <div class="flex items-baseline gap-2">
+            <span class={cn('text-3xl font-bold tabular-nums', waitingTotal() > 0 ? 'text-warning-foreground' : 'text-foreground')}>{waitingTotal()}</span>
+            <span class="text-sm text-muted-foreground">{waitingTotal() > 0 ? 'on Needs you' : 'nothing to decide'}</span>
+          </div>
+          <StackBar label="What is waiting" segments={waitingSegments()} class="mt-auto" />
+          <Legend segments={waitingSegments()} />
+        </Widget>
+
+        <Widget
           label="Health"
-          tone={deadJobs() > 0 ? 'bad' : healthTone() === 'good' ? 'good' : healthTone() === 'warn' ? 'warn' : 'default'}
-          value={healthBadgeLabel()}
-          sub={deadJobs() > 0 ? `${deadJobs()} stuck deliveries` : 'everything is moving'}
-        />
-        <KpiCard
-          label="Growth delivered"
-          value={metric(growth()?.totals.delivered)}
-          sub={`${metric(growth()?.totals.pending)} still to send`}
-        />
-        <KpiCard
+          icon={<Activity class="size-4" aria-hidden="true" />}
+          action={<Show when={authState.isPlatformLevel()}>
+            <Link to="/tenants/$slug/health" params={{ slug: params().slug }} class="font-medium text-primary underline-offset-4 hover:underline">Details</Link>
+          </Show>}
+        >
+          <div class="flex items-center gap-2">
+            <span class={cn('size-2.5 rounded-full', TONE_DOT[deadJobs() > 0 ? 'bad' : healthTone()])} aria-hidden="true" />
+            <span class="text-2xl font-bold capitalize text-foreground">{healthBadgeLabel()}</span>
+          </div>
+          {/* One bar per queue: sent in the last day, still waiting, stuck. */}
+          <ul class="mt-auto flex flex-col gap-2.5">
+            <For each={queues()}>{q => (
+              <li class="flex flex-col gap-1">
+                <div class="flex justify-between text-xs">
+                  <span class="text-muted-foreground">{q.label}</span>
+                  <span class={cn('tabular-nums', q.summary.dead > 0 ? 'text-destructive' : 'text-muted-foreground')}>
+                    {q.summary.dead > 0 ? `${q.summary.dead} stuck` : `${q.summary.delivered_24h.toLocaleString()} sent · 24h`}
+                  </span>
+                </div>
+                <StackBar
+                  label={`${q.label} queue`}
+                  class="h-1.5"
+                  segments={[
+                    { key: 'sent', label: 'Sent · 24h', value: q.summary.delivered_24h, class: 'bg-success-foreground' },
+                    { key: 'waiting', label: 'Waiting', value: q.summary.pending + q.summary.processing, class: 'bg-chart-4' },
+                    { key: 'stuck', label: 'Stuck', value: q.summary.dead, class: 'bg-error-foreground' },
+                  ]}
+                />
+              </li>
+            )}</For>
+          </ul>
+        </Widget>
+
+        <Widget label="Growth delivered" icon={<Send class="size-4" aria-hidden="true" />}>
+          <div class="flex items-center gap-4">
+            <Ring value={deliveredShare()} label="Share of growth sends delivered" class="size-20" arcClass="stroke-success-foreground">
+              <span class="text-sm font-semibold tabular-nums text-foreground">
+                {deliveredShare() == null ? '—' : `${Math.round(deliveredShare()! * 100)}%`}
+              </span>
+            </Ring>
+            <div class="flex min-w-0 flex-col gap-1">
+              <span class="text-3xl font-bold tabular-nums text-foreground">{metric(growth()?.totals.delivered)}</span>
+              <span class="text-sm text-muted-foreground">delivered</span>
+            </div>
+          </div>
+          <Legend
+            class="mt-auto"
+            segments={[
+              { key: 'pending', label: 'Still to send', value: growth()?.totals.pending ?? 0, class: 'bg-chart-4' },
+              { key: 'failed', label: 'Failed', value: growth()?.totals.failed ?? 0, class: 'bg-error-foreground' },
+            ]}
+          />
+        </Widget>
+
+        <Widget
           label={authState.isPlatformLevel() ? 'Autopilot' : 'The brain'}
-          tone={autopilot()?.runtime_enabled ? autopilotTone() ?? 'good' : 'default'}
-          value={autopilot()?.runtime_enabled ? 'on' : 'off'}
-          sub={<>
-            <Show when={(autopilot()?.failed_24h ?? 0) > 0}>
-              {metric(autopilot()!.failed_24h)} failed today ·{' '}
-            </Show>
-            {/* `queued_actions` counts what has not been handed out yet; a
-                backlog that was dispatched and never confirmed is the number
-                that says the loop has stopped. */}
-            <Show when={(autopilot()?.awaiting_executor ?? 0) > 0}>
-              {autopilot()!.awaiting_executor} {authState.isPlatformLevel() ? 'waiting on a worker' : 'waiting to run'} ·{' '}
-            </Show>
-            {autopilot()?.queued_actions ?? 0} {authState.isPlatformLevel() ? 'queued' : 'waiting'}
+          icon={<Bot class="size-4" aria-hidden="true" />}
+          action={<Show when={authState.isPlatformLevel()}>
             {/* The switches live on Health, which the band's map does not
-                carry — for the band the card ends at the counts. */}
-            <Show when={authState.isPlatformLevel()}>
-              {' · '}
-              <Link to="/tenants/$slug/health" params={{ slug: params().slug }} class="text-primary underline-offset-4 hover:underline">
-                change settings
-              </Link>
-            </Show>
-          </>}
-        />
-      </KpiStrip>
+                carry — for the band the widget ends at the counts. */}
+            <Link to="/tenants/$slug/health" params={{ slug: params().slug }} class="font-medium text-primary underline-offset-4 hover:underline">Settings</Link>
+          </Show>}
+        >
+          <div class="flex items-center gap-2">
+            <span class={cn('size-2.5 rounded-full', autopilot()?.runtime_enabled ? TONE_DOT[autopilotTone() ?? 'good'] : 'bg-muted-foreground/40')} aria-hidden="true" />
+            <span class="text-2xl font-bold text-foreground">{autopilot()?.runtime_enabled ? 'On' : 'Off'}</span>
+            <span class="text-sm text-muted-foreground">
+              · {autopilot()?.queued_actions ?? 0} {authState.isPlatformLevel() ? 'queued' : 'waiting'}
+            </span>
+          </div>
+          {/* The last day's runs. `queued_actions` counts what has not been
+              handed out yet; dispatched and never confirmed is the number
+              that says the loop has stopped. */}
+          <StackBar label="Autopilot runs in the last 24 hours" segments={autopilotSegments()} class="mt-auto" />
+          <Legend segments={autopilotSegments()} />
+        </Widget>
+      </div>
     </Show>
 
     {/* Fan growth — the north star, moved off the tenant landing so this
@@ -269,93 +389,142 @@ export function TenantOperationsPage() {
         description="The north star. Everything else on this page exists to move the headline number."
         action={<Link to="/tenants/$slug/audience" params={{ slug: params().slug }} class={buttonVariants({ variant: 'ghost', size: 'sm' })}>Audience detail</Link>}
       >
-        {/* The headline — "are we getting more fans" in one read. Reach
-            is the send-path definition: active fans holding current
-            marketing consent, not followers, not a raw total. */}
-        <div class="flex flex-wrap items-end gap-x-10 gap-y-3">
-          <div class="flex flex-col gap-1">
-            <span class="text-3xl font-bold tabular-nums text-foreground">
-              <Show when={d()?.audience?.marketing_consented_fans != null} fallback={<span class="text-muted-foreground">—</span>}>
-                {d()!.audience!.marketing_consented_fans!.toLocaleString()}
-              </Show>
-            </span>
-            <Eyebrow>Fans you can reach</Eyebrow>
-          </div>
-          <Show when={d()?.signal?.activity?.new_fans_7d != null}>
-            <div class="flex flex-col gap-1">
-              <span class="text-lg font-semibold tabular-nums text-success-foreground">+{d()!.signal!.activity!.new_fans_7d!.toLocaleString()}</span>
-              <Eyebrow>new · 7 days</Eyebrow>
-            </div>
-          </Show>
-          <Show when={d()?.signal?.activity?.new_fans_30d != null}>
-            <div class="flex flex-col gap-1">
-              <span class="text-lg font-semibold tabular-nums text-foreground">+{d()!.signal!.activity!.new_fans_30d!.toLocaleString()}</span>
-              <Eyebrow>new · 30 days</Eyebrow>
-            </div>
-          </Show>
-          <Show when={activeFansTrend()?.delta_28d != null}>
-            <div class="flex flex-col gap-1">
-              <span class="text-lg font-semibold tabular-nums text-foreground">
-                {activeFansTrend()!.delta_28d! >= 0 ? '+' : ''}{activeFansTrend()!.delta_28d!.toLocaleString()}
+        <div class="grid gap-4 lg:grid-cols-3">
+          {/* The headline — "are we getting more fans" in one read. Reach
+              is the send-path definition: active fans holding current
+              marketing consent, not followers, not a raw total. */}
+          <Widget label="Fans you can reach" icon={<Users class="size-4" aria-hidden="true" />} class="lg:col-span-2">
+            <div class="flex flex-wrap items-end gap-x-4 gap-y-2">
+              <span class="text-5xl font-bold tracking-tight tabular-nums text-foreground">
+                <Show when={d()?.audience?.marketing_consented_fans != null} fallback={<span class="text-muted-foreground">—</span>}>
+                  {d()!.audience!.marketing_consented_fans!.toLocaleString()}
+                </Show>
               </span>
-              <Eyebrow>net active fans · 28d</Eyebrow>
+              <div class="flex flex-wrap gap-1.5 pb-1.5">
+                <Show when={d()?.signal?.activity?.new_fans_7d != null}>
+                  <DeltaBadge value={d()!.signal!.activity!.new_fans_7d} label="new · 7d" />
+                </Show>
+                <Show when={d()?.signal?.activity?.new_fans_30d != null}>
+                  <DeltaBadge value={d()!.signal!.activity!.new_fans_30d} label="new · 30d" />
+                </Show>
+                <Show when={activeFansTrend()?.delta_28d != null}>
+                  <DeltaBadge value={activeFansTrend()!.delta_28d} label="net · 28d" />
+                </Show>
+              </div>
             </div>
-          </Show>
-        </div>
-        <p class="mt-1 text-xs text-muted-foreground">
-          Active fans who consented to be contacted — the number the send paths actually enforce.
-          <Show when={topSource()}>{src => ` ${src().majority ? `Most fans arrived via ${src().name}` : `Top source so far: ${src().name}`} (${src().fans.toLocaleString()} fans).`}</Show>
-        </p>
-        {/* Where they came from — first-touch over the acquisition
-            ledger, top sources with this month's arrivals. Fans who
-            predate the ledger count as untracked, not as a made-up
-            source. A degraded section simply does not render. */}
-        <Show when={d()?.acquisition_sources}>
-          {acq => (
-            <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              <For each={(acq().sources ?? []).slice(0, 4)}>{s => (
-                <span>
-                  <span class="text-foreground">{s.source.replaceAll('_', ' ')}</span>
-                  {` ${s.fans.toLocaleString()}`}
-                  {s.fans_30d > 0 ? ` (+${s.fans_30d.toLocaleString()} · 30d)` : ''}
+            <p class="-mt-2 text-xs text-muted-foreground">
+              Active fans who consented to be contacted — the number the send paths actually enforce.
+            </p>
+
+            {/* Arrival pace — this week's daily rate against the month's.
+                The only trend the read model can honestly draw until the
+                series history reaches the console. */}
+            <Show when={pace()}>
+              {p => (
+                <div class="flex flex-col gap-3 border-t border-border pt-4">
+                  <div class="flex items-center justify-between gap-3">
+                    <span class="text-sm font-medium text-foreground">Arrival pace</span>
+                    <Show when={p().change != null}>
+                      <span class={cn('text-xs font-medium tabular-nums', p().change! > 0 ? 'text-success-foreground' : p().change! < 0 ? 'text-destructive' : 'text-muted-foreground')}>
+                        {p().change! > 0 ? '+' : ''}{Math.round(p().change! * 100)}% vs 30-day average
+                      </span>
+                    </Show>
+                  </div>
+                  <BarList
+                    format={v => `${v.toFixed(1)} / day`}
+                    rows={[
+                      { label: 'This week', value: p().week, class: 'bg-chart-2' },
+                      { label: '30-day average', value: p().month, class: 'bg-chart-3' },
+                    ]}
+                  />
+                </div>
+              )}
+            </Show>
+
+            {/* A measured zero is not a failure to hide — it is the state
+                the whole product exists to change, so the empty widget says
+                where the first fans actually come from. */}
+            <Show when={d()?.audience?.active_fans === 0}>
+              <p class="text-sm text-muted-foreground">
+                No fans yet — the first ones arrive when a door QR gets scanned at a show or a source connects.{' '}
+                <Link to="/tenants/$slug/audience" params={{ slug: params().slug }} class="underline underline-offset-2">
+                  Audience sources
+                </Link>
+              </p>
+            </Show>
+
+            <div class="mt-auto flex items-center gap-2 rounded-md border border-dashed border-border px-3 py-2.5 text-xs text-muted-foreground">
+              <ChartLine class="size-4 shrink-0" aria-hidden="true" />
+              Fans over time appears here once the metric history reaches the console.
+            </div>
+          </Widget>
+
+          {/* How much of the audience the send paths may actually contact. */}
+          <Widget label="Reachable share" icon={<Target class="size-4" aria-hidden="true" />}>
+            <div class="flex flex-1 flex-col items-center justify-center gap-4">
+              <Ring value={reachShare()} label="Share of active fans who consented to contact" class="size-36">
+                <span class="text-2xl font-bold tabular-nums text-foreground">
+                  {reachShare() == null ? '—' : `${Math.round(reachShare()! * 100)}%`}
                 </span>
-              )}</For>
-              <Show when={acq().active_fans - acq().tracked_fans > 0}>
-                <span>{(acq().active_fans - acq().tracked_fans).toLocaleString()} with no source recorded</span>
-              </Show>
-              <Show when={acq().tracked_fans === 0}>
-                <span>No acquisition sources recorded yet — fans who arrived before tracking carry no source.</span>
-              </Show>
+                <span class="text-xs text-muted-foreground">reachable</span>
+              </Ring>
+              <p class="text-center text-sm text-muted-foreground">
+                <span class="font-medium tabular-nums text-foreground">{metric(d()?.audience?.marketing_consented_fans)}</span>
+                {' of '}
+                <span class="font-medium tabular-nums text-foreground">{metric(d()?.audience?.active_fans)}</span>
+                {' active fans consented to be contacted'}
+              </p>
             </div>
-          )}
-        </Show>
-        {/* A measured zero is not a failure to hide — it is the state
-            the whole product exists to change, so the empty card says
-            where the first fans actually come from instead of padding
-            itself with placeholder graphics. */}
-        <Show when={d()?.audience?.active_fans === 0}>
-          <p class="mt-3 text-sm text-muted-foreground">
-            No fans yet — the first ones arrive when a door QR gets scanned at a show or a source connects.{' '}
-            <Link to="/tenants/$slug/audience" params={{ slug: params().slug }} class="underline underline-offset-2">
-              Audience sources
-            </Link>
-          </p>
-        </Show>
-        <div class="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 md:grid-cols-3 lg:grid-cols-5">
-          <For each={[
-            { term: 'Active fans', value: d()?.audience?.active_fans },
-            { term: 'Ticket buyers', value: d()?.audience?.ticket_buyers },
-            { term: 'Attendees', value: d()?.audience?.attendees },
-            { term: 'Paid orders', value: d()?.audience?.paid_ticket_orders },
-            { term: 'Qualified referrals', value: d()?.audience?.qualified_referrals },
-          ]}>{kpi => (
-            <div class="flex flex-col gap-1">
-              <span class="text-xl font-bold tabular-nums text-foreground">
-                <Show when={kpi.value != null} fallback={<span class="text-muted-foreground">—</span>}>{kpi.value!.toLocaleString()}</Show>
-              </span>
-              <Eyebrow>{kpi.term}</Eyebrow>
-            </div>
-          )}</For>
+          </Widget>
+
+          {/* From fan to the room — each stage as a share of active fans.
+              Not a conversion funnel: a buyer need not have consented. */}
+          <Show when={d()?.audience}>
+            {aud => (
+              <Widget label="From fan to the room" icon={<Ticket class="size-4" aria-hidden="true" />} class="lg:col-span-2">
+                <BarList rows={[
+                  { label: 'Active fans', value: aud().active_fans, class: 'bg-chart-3' },
+                  { label: 'Reachable', value: aud().marketing_consented_fans, note: shareOfActive(aud().marketing_consented_fans), class: 'bg-chart-2' },
+                  { label: 'Ticket buyers', value: aud().ticket_buyers, note: shareOfActive(aud().ticket_buyers), class: 'bg-chart-4' },
+                  { label: 'Attendees', value: aud().attendees, note: shareOfActive(aud().attendees), class: 'bg-chart-1' },
+                ]} />
+                <div class="mt-auto grid grid-cols-2 gap-4 border-t border-border pt-4">
+                  <div class="flex flex-col gap-0.5">
+                    <span class="text-xl font-bold tabular-nums text-foreground">{metric(aud().paid_ticket_orders)}</span>
+                    <span class="text-xs text-muted-foreground">Paid orders</span>
+                  </div>
+                  <div class="flex flex-col gap-0.5">
+                    <span class="text-xl font-bold tabular-nums text-foreground">{metric(aud().qualified_referrals)}</span>
+                    <span class="text-xs text-muted-foreground">Qualified referrals</span>
+                  </div>
+                </div>
+              </Widget>
+            )}
+          </Show>
+
+          {/* Where they came from — first-touch over the acquisition ledger.
+              Fans who predate the ledger count as untracked, not as a
+              made-up source. */}
+          <Show when={d()?.acquisition_sources}>
+            {acq => (
+              <Widget label="Where fans came from" icon={<MapPin class="size-4" aria-hidden="true" />}>
+                <Show
+                  when={acq().active_fans > 0}
+                  fallback={<p class="text-sm text-muted-foreground">No acquisition sources recorded yet — fans who arrived before tracking carry no source.</p>}
+                >
+                  <div class="flex justify-center">
+                    <Donut segments={sourceSegments()} label="Fans by acquisition source">
+                      <span class="text-lg font-bold tabular-nums text-foreground">
+                        {Math.round((acq().tracked_fans / acq().active_fans) * 100)}%
+                      </span>
+                      <span class="text-xs text-muted-foreground">tracked</span>
+                    </Donut>
+                  </div>
+                  <Legend segments={sourceSegments()} />
+                </Show>
+              </Widget>
+            )}
+          </Show>
         </div>
       </Section>
     </Show>
