@@ -235,6 +235,29 @@ export function TenantPage() {
             </Table>
           </Section>
           <RegionalProfilePanel tenant={t} />
+          <Show when={t.teamMembers.length > 0}>
+            <Section
+              title="Crew roster"
+              icon={<SectionIcon name="users" />}
+              description="The people the brain can hand work to. Collected at onboarding and shipped with every deploy — skills decide what the router may ask of each member."
+            >
+              <ul class="divide-y divide-border rounded-lg border border-border">
+                <For each={t.teamMembers}>{member => (
+                  <li class="flex items-start gap-3 p-3">
+                    <div class="min-w-0 flex-1">
+                      <strong class="text-sm text-foreground">{member.name}</strong>
+                      <small class="block break-words text-xs text-muted-foreground">{member.email} · {member.key}</small>
+                    </div>
+                    <div class="flex flex-wrap justify-end gap-1.5">
+                      <For each={member.skills}>{skill => (
+                        <span class="rounded-md border border-border bg-background px-2 py-0.5 text-xs text-muted-foreground">{skill.replaceAll('_', ' ')}</span>
+                      )}</For>
+                    </div>
+                  </li>
+                )}</For>
+              </ul>
+            </Section>
+          </Show>
           <Section
             title="Brand palette"
             icon={<SectionIcon name="palette" />}

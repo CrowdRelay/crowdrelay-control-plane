@@ -144,6 +144,181 @@ pub const FANBASE_SOURCES: &[&str] = &[
     "x",
 ];
 
+/// Team skills the onboarding wizard offers for crew members. Mirrors
+/// `TeamSkill::as_str` in crowdrelay-domain — the parity gate
+/// `scripts/test_team_skills_vocabulary_parity.py` keeps the two aligned.
+/// CrowdRelay re-validates against the same vocabulary at boot, so a stale
+/// entry here fails the deploy rather than silently mis-routing work.
+pub const TEAM_SKILLS: &[&str] = &[
+    "general",
+    "operations",
+    "booking",
+    "approval",
+    "technical",
+    "visual",
+    "video",
+    "photography",
+    "social",
+    "english_copy",
+    "polish_copy",
+    "people",
+];
+
+/// The crew roster the tenant onboarded with. Crew size is tenant
+/// configuration, not a fixed slot count — the roster is written to
+/// `control_plane_tenants.team_members` and re-rendered into
+/// `CROWDRELAY_TEAM_MEMBERS_JSON` on every deploy.
+///
+/// `key` is the stable routing identity CrowdRelay writes to
+/// `viryaos_team_profiles.member_key` (same `^[a-z0-9_-]{2,48}$` grammar as
+/// the column CHECK). Optional: position supplies `member_{n}` when absent,
+/// but reordering a keyless roster re-keys members — so this validator fills
+/// it eagerly and the stored roster always carries explicit keys.
+pub fn team_members(
+    members: Vec<crate::model::TeamMemberRequest>,
+) -> Result<Vec<crate::model::TeamMemberRequest>, ApiError> {
+    const MAX_TEAM_MEMBERS: usize = 32;
+    if members.len() > MAX_TEAM_MEMBERS {
+        return Err(ApiError::InvalidInput(format!(
+            "teamMembers exceeds the {MAX_TEAM_MEMBERS}-member bound"
+        )));
+    }
+    let mut seen_keys: Vec<String> = Vec::with_capacity(members.len());
+    let mut normalized: Vec<crate::model::TeamMemberRequest> = Vec::with_capacity(members.len());
+    for (index, member) in members.into_iter().enumerate() {
+        let key = match member.key {
+            Some(key) => {
+                let key = key.trim().to_owned();
+                if !(2..=48).contains(&key.len())
+                    || !key.bytes().all(|b| {
+                        b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_' || b == b'-'
+                    })
+                {
+                    return Err(ApiError::InvalidInput(format!(
+                        "teamMembers key '{key}' must match ^[a-z0-9_-]{{2,48}}$"
+                    )));
+                }
+                key
+            }
+            None => format!("member_{}", index + 1),
+        };
+        if seen_keys.contains(&key) {
+            return Err(ApiError::InvalidInput(format!(
+                "teamMembers key '{key}' is duplicated"
+            )));
+        }
+        seen_keys.push(key.clone());
+
+        let name = member.name.trim().to_owned();
+        if name.is_empty() || name.chars().count() > 80 || name.chars().any(char::is_control) {
+            return Err(ApiError::InvalidInput(format!(
+                "teamMembers member '{key}' name must be 1-80 characters with no control characters"
+            )));
+        }
+
+        let Some(email) = normalized_email(&member.email) else {
+            return Err(ApiError::InvalidInput(format!(
+                "teamMembers member '{key}' email is not a valid email address"
+            )));
+        };
+        if normalized
+            .iter()
+            .any(|other: &crate::model::TeamMemberRequest| other.email == email)
+        {
+            return Err(ApiError::InvalidInput(format!(
+                "teamMembers member '{key}' shares an email with another member"
+            )));
+        }
+
+        if member.skills.is_empty() {
+            return Err(ApiError::InvalidInput(format!(
+                "teamMembers member '{key}' must declare at least one skill"
+            )));
+        }
+        let mut skills: Vec<String> = Vec::with_capacity(member.skills.len());
+        for skill in &member.skills {
+            let skill = skill.trim().to_ascii_lowercase();
+            if !TEAM_SKILLS.contains(&skill.as_str()) {
+                return Err(ApiError::InvalidInput(format!(
+                    "teamMembers member '{key}' skill '{skill}' is not a known team skill"
+                )));
+            }
+            if !skills.contains(&skill) {
+                skills.push(skill);
+            }
+        }
+
+        normalized.push(crate::model::TeamMemberRequest {
+            key: Some(key),
+            name,
+            email,
+            skills,
+        });
+    }
+    Ok(normalized)
+}
+
+/// Mirrors `NormalizedEmail::parse` in crowdrelay-domain — the roster is
+/// rendered into `CROWDRELAY_TEAM_MEMBERS_JSON` and re-validated at boot, so
+/// an address accepted here must be one CrowdRelay accepts. Looser here means
+/// the wizard passes, the provisioner writes the env, and the tenant stack
+/// refuses to start.
+fn normalized_email(value: &str) -> Option<String> {
+    let value = value.trim();
+    if value.is_empty() || value.len() > 254 || !value.is_ascii() {
+        return None;
+    }
+    if value.chars().any(char::is_control) {
+        return None;
+    }
+    let (local, domain) = value.split_once('@')?;
+    if domain.contains('@')
+        || local.is_empty()
+        || local.len() > 64
+        || local.starts_with('.')
+        || local.ends_with('.')
+        || local.contains("..")
+        || !local.bytes().all(is_valid_email_local_byte)
+    {
+        return None;
+    }
+    let canonical_domain = match url::Host::parse(domain).ok()? {
+        url::Host::Domain(domain) => domain,
+        url::Host::Ipv4(_) | url::Host::Ipv6(_) => return None,
+    };
+    Some(format!(
+        "{}@{}",
+        local.to_ascii_lowercase(),
+        canonical_domain.to_ascii_lowercase()
+    ))
+}
+
+fn is_valid_email_local_byte(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric()
+        || matches!(
+            byte,
+            b'.' | b'!'
+                | b'#'
+                | b'$'
+                | b'%'
+                | b'&'
+                | b'\''
+                | b'*'
+                | b'+'
+                | b'-'
+                | b'/'
+                | b'='
+                | b'?'
+                | b'^'
+                | b'_'
+                | b'`'
+                | b'{'
+                | b'|'
+                | b'}'
+                | b'~'
+        )
+}
+
 /// Validates the growth goal and reconciles it with the Signal opt-in.
 ///
 /// `signal_installs` is unreachable for a Signal-disabled tenant: the beacon
@@ -699,6 +874,76 @@ mod tests {
         assert!(provision_success(18100, 63, "0123456789abcdef0123456789abcdef01234567").is_ok());
         assert!(provision_success(80, 63, "0123456789abcdef0123456789abcdef01234567").is_err());
         assert!(provision_failure("docker_compose_failed", Some("exit 1")).is_ok());
+    }
+
+    #[test]
+    fn team_members_normalize_keys_and_reject_bad_shapes() {
+        use crate::model::TeamMemberRequest;
+
+        let member =
+            |key: Option<&str>, name: &str, email: &str, skills: &[&str]| TeamMemberRequest {
+                key: key.map(str::to_owned),
+                name: name.to_owned(),
+                email: email.to_owned(),
+                skills: skills.iter().map(|s| s.to_string()).collect(),
+            };
+
+        // Keys are filled positionally so the stored roster never re-keys on
+        // reorder, and emails/skills normalize to the deploy-side grammar.
+        let normalized = team_members(vec![
+            member(
+                None,
+                " Ada Ops ",
+                "ADA@Acme.EXAMPLE",
+                &["Operations", "booking"],
+            ),
+            member(Some("social_1"), "Ben", "ben@acme.example", &["social"]),
+        ])
+        .unwrap();
+        assert_eq!(normalized[0].key.as_deref(), Some("member_1"));
+        assert_eq!(normalized[0].email, "ada@acme.example");
+        assert_eq!(normalized[0].skills, ["operations", "booking"]);
+        assert_eq!(normalized[1].key.as_deref(), Some("social_1"));
+
+        for bad in [
+            member(Some("Bad Key!"), "Ada", "ada@a.b", &["general"]),
+            member(None, "Ada", "not-an-email", &["general"]),
+            member(None, "Ada", "ada@a.b", &[]),
+            member(None, "Ada", "ada@a.b", &["nonsense"]),
+            member(None, "Ada\nX", "ada@a.b", &["general"]),
+            // Email shapes NormalizedEmail rejects — a value this check passes
+            // is written to CROWDRELAY_TEAM_MEMBERS_JSON and must boot.
+            member(None, "Ada", "a..b@x.example", &["general"]),
+            member(None, "Ada", "x@y@z.example", &["general"]),
+            member(None, "Ada", ".a@x.example", &["general"]),
+            member(None, "Ada", "a.@x.example", &["general"]),
+            member(None, "Ada", "\"q\"@x.example", &["general"]),
+            member(None, "Ada", "a(b@c.example", &["general"]),
+            member(None, "Ada", "a@127.0.0.1", &["general"]),
+        ] {
+            assert!(team_members(vec![bad.clone()]).is_err(), "accepted {bad:?}");
+        }
+        // Duplicate keys fail — silently re-keying a collision would orphan
+        // the routed member's identity.
+        assert!(
+            team_members(vec![
+                member(Some("same"), "A", "a@a.b", &["general"]),
+                member(Some("same"), "B", "b@a.b", &["general"]),
+            ])
+            .is_err()
+        );
+        // Duplicate emails fail — workspace_members is keyed on
+        // normalized_email, so two members sharing one collapse onto a single
+        // member row and fight over its routing profile.
+        assert!(
+            team_members(vec![
+                member(Some("one"), "A", "shared@a.b", &["general"]),
+                member(Some("two"), "B", "SHARED@a.b", &["general"]),
+            ])
+            .is_err()
+        );
+        // Empty roster is allowed — a tenant may have no crew.
+        assert_eq!(team_members(vec![]).unwrap(), vec![]);
     }
 
     #[test]
